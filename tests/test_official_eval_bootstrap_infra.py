@@ -5,6 +5,8 @@ import re
 from pathlib import Path
 from typing import cast
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 INFRA_ROOT = ROOT / "infra" / "official-eval-bootstrap"
 POLICY_ROOT = INFRA_ROOT / "policies"
@@ -58,8 +60,18 @@ def _statements(policy: dict[str, object]) -> dict[str, dict[str, object]]:
         statement = cast(dict[str, object], item)
         sid = statement["Sid"]
         assert isinstance(sid, str)
+        assert sid not in statements, f"duplicate statement Sid: {sid}"
         statements[sid] = statement
     return statements
+
+
+def test_statement_helper_rejects_duplicate_sids() -> None:
+    duplicate_policy: dict[str, object] = {
+        "Statement": [{"Sid": "Duplicate"}, {"Sid": "Duplicate"}]
+    }
+
+    with pytest.raises(AssertionError, match="duplicate statement Sid: Duplicate"):
+        _statements(duplicate_policy)
 
 
 def test_root_owns_only_the_bootstrap_trust_anchor() -> None:
@@ -392,6 +404,21 @@ def test_runbook_is_import_first_and_migrates_verified_local_state() -> None:
     assert readme.index("terraform apply") < readme.index(
         "terraform init -migrate-state"
     )
+    bash_blocks = re.findall(r"```bash\n(.*?)\n```", readme, re.DOTALL)
+    assert bash_blocks
+    assert all(block.startswith("set -euo pipefail\n") for block in bash_blocks)
+    migration_guard = readme.index("aws s3api list-object-versions")
+    migration = readme.index(
+        'TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" init -migrate-state'
+    )
+    assert migration_guard < migration
+    for required_guard in (
+        'state_key="bootstrap/terraform.tfstate"',
+        ".Versions // []",
+        ".DeleteMarkers // []",
+        "Reconcile its lineage and serial",
+    ):
+        assert required_guard in readme
     assert readme.index("zero-drift") < readme.index(
         "Only after all remote-state checks pass"
     )

@@ -14,6 +14,7 @@ Set `github_repository` in that protected variable file to the exact reviewed Gi
 Copy the exact root into that protected directory so Terraform's default local state is both discoverable by the later migration and never written beneath the repository checkout:
 
 ```bash
+set -euo pipefail
 umask 077
 state_dir="${LFB_PROTECTED_BOOTSTRAP_STATE_DIR:?set a protected directory outside the checkout}"
 var_file="${LFB_BOOTSTRAP_VAR_FILE:?set a protected external tfvars path}"
@@ -36,6 +37,7 @@ Inventory the account-level provider for `https://token.actions.githubuserconten
 If it already exists, verify that its sole audience is `sts.amazonaws.com`, determine whether other roles depend on it, and run `terraform import` into this root before any plan; never create a duplicate provider or silently rewrite a shared audience list:
 
 ```bash
+set -euo pipefail
 TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" import \
   -input=false \
   -var-file="$var_file" \
@@ -47,6 +49,7 @@ Apply the same import-first rule to every resource that already exists.
 Inventory and import each applicable address with its provider-defined ID before planning:
 
 ```bash
+set -euo pipefail
 tf_import() {
   TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" import \
     -input=false -var-file="$var_file" "$1" "$2"
@@ -74,6 +77,7 @@ Before any `terraform plan`, complete the inventory and required imports above.
 Save, review, and apply one exact local-state plan; a `terraform apply` is permitted only for the separately authorized saved plan:
 
 ```bash
+set -euo pipefail
 TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" plan \
   -input=false \
   -var-file="$var_file" \
@@ -95,12 +99,28 @@ The bootstrap state key is intentionally outside the routine role's state prefix
 Run `terraform init -migrate-state` only after the live bootstrap controls have been independently verified:
 
 ```bash
+set -euo pipefail
+state_bucket="<exact-state-bucket>"
+state_key="bootstrap/terraform.tfstate"
+destination_history="$(
+  aws s3api list-object-versions \
+    --bucket "$state_bucket" \
+    --prefix "$state_key" \
+    --output json
+)"
+if jq -e --arg key "$state_key" \
+  'any((.Versions // [])[]; .Key == $key) or any((.DeleteMarkers // [])[]; .Key == $key)' \
+  <<<"$destination_history" >/dev/null; then
+  echo "Refusing migration: the destination state has a version or delete marker. Reconcile its lineage and serial with the protected local state before retrying." >&2
+  exit 1
+fi
+
 cp -f "$root_dir/backend.s3.tf.example" "$root_dir/backend.s3.tf"
 TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" init -migrate-state \
   -force-copy \
   -input=false \
-  -backend-config="bucket=<exact-state-bucket>" \
-  -backend-config="key=bootstrap/terraform.tfstate" \
+  -backend-config="bucket=$state_bucket" \
+  -backend-config="key=$state_key" \
   -backend-config="region=<exact-region>" \
   -backend-config="encrypt=true" \
   -backend-config="kms_key_id=<exact-kms-key-arn>" \
