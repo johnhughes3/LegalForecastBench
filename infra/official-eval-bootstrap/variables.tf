@@ -76,13 +76,15 @@ variable "operator_role_name" {
 }
 
 variable "github_repository" {
-  description = "Exact GitHub repository admitted by the operator-role trust policy."
+  description = "Exact externally supplied GitHub owner/repository admitted by the operator-role trust policy."
   type        = string
-  default     = "johnhughes3/LegalForecastBench"
 
   validation {
-    condition     = var.github_repository == "johnhughes3/LegalForecastBench"
-    error_message = "github_repository must remain the reviewed LegalForecastBench repository."
+    condition = (
+      can(regex("^[A-Za-z0-9][A-Za-z0-9_.-]{0,38}/[A-Za-z0-9_.-]{1,100}$", var.github_repository)) &&
+      alltrue([for component in split("/", var.github_repository) : !contains([".", ".."], component)])
+    )
+    error_message = "github_repository must be an exact bounded GitHub owner/repository name."
   }
 }
 

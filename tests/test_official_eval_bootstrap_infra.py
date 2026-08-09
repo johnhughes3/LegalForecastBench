@@ -147,17 +147,24 @@ def test_state_storage_is_private_versioned_kms_encrypted_and_tls_only() -> None
             },
         ],
     }
+    lockfile_arn = f"{BUCKET_ARN}/bootstrap/terraform.tfstate.tflock"
+    statements = _statements(bucket_policy)
+    for sid in ("DenyNonKmsObjectWrites", "DenyWrongKmsKey"):
+        covered_resource = str(statements[sid]["Resource"])
+        assert covered_resource.endswith("*")
+        assert lockfile_arn.startswith(covered_resource.removesuffix("*"))
 
 
 def test_operator_trust_is_exact_environment_bound_oidc() -> None:
+    github_repository = "example-org/LegalForecastBench"
     policy = _render_policy(
         "github-oidc-trust.json.tftpl",
         github_oidc_provider_arn=OIDC_ARN,
-        github_repository="johnhughes3/LegalForecastBench",
+        github_repository=github_repository,
         github_ref="refs/heads/main",
         github_environment=("legalforecastbench-official-provider-authority-infra"),
         github_subject=(
-            "repo:johnhughes3/LegalForecastBench:environment:"
+            f"repo:{github_repository}:environment:"
             "legalforecastbench-official-provider-authority-infra"
         ),
     )
@@ -176,11 +183,11 @@ def test_operator_trust_is_exact_environment_bound_oidc() -> None:
                             "sts.amazonaws.com"
                         ),
                         "token.actions.githubusercontent.com:sub": (
-                            "repo:johnhughes3/LegalForecastBench:environment:"
+                            f"repo:{github_repository}:environment:"
                             "legalforecastbench-official-provider-authority-infra"
                         ),
                         "token.actions.githubusercontent.com:repository": (
-                            "johnhughes3/LegalForecastBench"
+                            github_repository
                         ),
                         "token.actions.githubusercontent.com:ref": "refs/heads/main",
                         "token.actions.githubusercontent.com:environment": (
@@ -193,6 +200,13 @@ def test_operator_trust_is_exact_environment_bound_oidc() -> None:
     }
     assert "*" not in json.dumps(policy)
     assert "StringLike" not in json.dumps(policy)
+
+    variables = (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8")
+    github_repository_variable = variables.split(
+        'variable "github_repository"', maxsplit=1
+    )[1].split('variable "github_environment"', maxsplit=1)[0]
+    assert "default" not in github_repository_variable
+    assert 'split("/", var.github_repository)' in github_repository_variable
 
 
 def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
@@ -239,7 +253,6 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     kms = statements["UseExactStateKey"]
     assert kms["Action"] == [
         "kms:Decrypt",
-        "kms:DescribeKey",
         "kms:Encrypt",
         "kms:GenerateDataKey",
     ]
@@ -306,12 +319,14 @@ def test_key_policy_grants_operator_use_but_not_administration() -> None:
     )
     statements = _statements(policy)
 
-    assert set(statements) == {"EnableAccountAdministration", "AllowOperatorUse"}
+    assert set(statements) == {
+        "EnableAccountAdministration",
+        "AllowOperatorUse",
+    }
     operator = statements["AllowOperatorUse"]
     assert operator["Principal"] == {"AWS": OPERATOR_ROLE_ARN}
     assert operator["Action"] == [
         "kms:Decrypt",
-        "kms:DescribeKey",
         "kms:Encrypt",
         "kms:GenerateDataKey",
     ]
@@ -393,3 +408,23 @@ def test_runbook_is_import_first_and_migrates_verified_local_state() -> None:
     ):
         assert pattern in gitignore
     assert ".terraform.lock.hcl" not in gitignore
+
+
+def test_backend_lockfile_uses_the_reviewed_sse_kms_configuration() -> None:
+    readme = (INFRA_ROOT / "README.md").read_text(encoding="utf-8")
+    versions = (INFRA_ROOT / "versions.tf").read_text(encoding="utf-8")
+    migration_command = readme.split(
+        'terraform -chdir="$root_dir" init -migrate-state', maxsplit=1
+    )[1].split("```", maxsplit=1)[0]
+
+    assert 'required_version = ">= 1.11.0"' in versions
+    for backend_config in (
+        '-backend-config="encrypt=true"',
+        '-backend-config="kms_key_id=<exact-kms-key-arn>"',
+        '-backend-config="use_lockfile=true"',
+    ):
+        assert backend_config in migration_command
+    assert (
+        "The S3 backend applies that same SSE-KMS configuration to its "
+        "`.tflock` writes" in readme
+    )
