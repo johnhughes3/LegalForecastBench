@@ -8,9 +8,11 @@ from collections.abc import Iterable, Mapping, Sequence
 from enum import StrEnum
 from typing import Any, cast
 
+from legalforecast.contracts.schemas import FINALIZED_PREDICTION_UNITS_V2
+
 JsonRecord = dict[str, Any]
 LEGACY_FINALIZED_SCHEMA_VERSION = "legalforecast.finalized_prediction_units.v1"
-FINALIZED_SCHEMA_VERSION = "legalforecast.finalized_prediction_units.v2"
+FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V2)
 SUPPORTED_FINALIZED_SCHEMA_VERSIONS = frozenset(
     {LEGACY_FINALIZED_SCHEMA_VERSION, FINALIZED_SCHEMA_VERSION}
 )
