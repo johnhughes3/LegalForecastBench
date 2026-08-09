@@ -87,20 +87,18 @@ def test_structural_reviewer_prompt_uses_same_claim_ground_boundary() -> None:
     assert "nonmoving defendant" in rules
 
 
-def test_provider_seed_routes_individual_label_and_unchallenged_unit_to_review() -> (
-    None
-):
+def test_provider_seed_routes_individual_grouping_metadata_to_review() -> None:
     seed = _stage_a_seed(
         {
             "count": "Count I",
             "claim_name": "Retaliation",
             "defendant_names": ["Acme Corp."],
             "source_document_ids": ["complaint", "motion"],
-            "challenged_by_motion": False,
+            "challenged_by_motion": True,
             "challenge_scope": "entire_claim",
             "unit_confidence": 0.9,
             "grouping": "individual",
-            "grouping_rationale": None,
+            "grouping_rationale": "Shared corporate status",
             "group_label": "Corporate defendants",
             "separable_subclaim": None,
             "uncertainty_notes": None,
@@ -108,7 +106,32 @@ def test_provider_seed_routes_individual_label_and_unchallenged_unit_to_review()
     )
 
     assert seed.group_label is None
+    assert seed.grouping_rationale is None
+    assert seed.challenge_scope is ChallengeScope.UNCLEAR
+    assert seed.separable_subclaim is None
+    assert seed.review_reason is not None
+
+
+def test_provider_seed_normalizes_unchallenged_unit_before_review() -> None:
+    seed = _stage_a_seed(
+        {
+            "count": "Count I",
+            "claim_name": "Retaliation",
+            "defendant_names": ["Acme Corp."],
+            "source_document_ids": ["complaint", "motion"],
+            "challenged_by_motion": False,
+            "challenge_scope": "separable_subclaim",
+            "unit_confidence": 0.9,
+            "grouping": "individual",
+            "grouping_rationale": None,
+            "group_label": None,
+            "separable_subclaim": "Retaliation theory",
+            "uncertainty_notes": None,
+        }
+    )
+
     assert seed.challenged_by_motion is False
     assert seed.challenge_scope is ChallengeScope.UNCLEAR
+    assert seed.separable_subclaim is None
     assert seed.review_reason is not None
     assert "not challenged by the target motion" in (seed.uncertainty_notes or "")

@@ -2848,10 +2848,13 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
         challenge_scope = ChallengeScope.UNCLEAR
         separable_subclaim = None
         review_reason = review_reason or UnitizationReviewReason.UNCLEAR_GROUPING
-    elif grouping is DefendantGrouping.INDIVIDUAL and group_label is not None:
+    elif grouping is DefendantGrouping.INDIVIDUAL and (
+        group_label is not None or grouping_rationale is not None
+    ):
         conflict_note = (
-            "Provider response supplied group_label for an individual defendant; "
-            f"defendant_names={','.join(defendant_names)}; group_label={group_label}"
+            "Provider response supplied grouping metadata for an individual defendant; "
+            f"defendant_names={','.join(defendant_names)}; "
+            f"group_label={group_label}; grouping_rationale={grouping_rationale}"
         )
         uncertainty_notes = (
             f"{uncertainty_notes} {conflict_note}"
@@ -2859,6 +2862,7 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
             else conflict_note
         )
         group_label = None
+        grouping_rationale = None
         challenge_scope = ChallengeScope.UNCLEAR
         separable_subclaim = None
         review_reason = review_reason or UnitizationReviewReason.UNCLEAR_GROUPING
@@ -2874,6 +2878,8 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
         review_reason = (
             review_reason or UnitizationReviewReason.UNCLEAR_CLAIM_OR_DEFENDANT
         )
+        challenge_scope = ChallengeScope.UNCLEAR
+        separable_subclaim = None
     return StageAUnitSeed(
         count=_required_str(record, "count"),
         claim_name=_required_str(record, "claim_name"),

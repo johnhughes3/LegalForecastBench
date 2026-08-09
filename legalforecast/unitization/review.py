@@ -132,6 +132,13 @@ def apply_unitization_reviews(
             explicit_source_unit_ids = _string_sequence(
                 adjudication.get("source_unit_ids"), "source_unit_ids"
             )
+            if (
+                disposition is UnitizationDisposition.DROP
+                and not explicit_source_unit_ids
+            ):
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: DROP requires explicit source_unit_ids"
+                )
             if explicit_source_unit_ids and (
                 len(set(explicit_source_unit_ids)) != len(explicit_source_unit_ids)
                 or set(explicit_source_unit_ids) != set(source_unit_ids)
@@ -543,8 +550,19 @@ def _validate_disposition_shape(
         raise UnitizationReviewError("SPLIT must emit at least two units")
     if disposition is UnitizationDisposition.MERGE and len(source_unit_ids) < 2:
         raise UnitizationReviewError("MERGE must consume at least two units")
-    if disposition is UnitizationDisposition.DROP and len(source_unit_ids) != 1:
-        raise UnitizationReviewError("DROP must consume exactly one unit")
+    if (
+        disposition
+        in {
+            UnitizationDisposition.ACCEPT,
+            UnitizationDisposition.AMEND,
+            UnitizationDisposition.SPLIT,
+            UnitizationDisposition.DROP,
+        }
+        and len(source_unit_ids) != 1
+    ):
+        raise UnitizationReviewError(
+            f"{disposition.value} must consume exactly one unit"
+        )
 
 
 def _unique_by_candidate(

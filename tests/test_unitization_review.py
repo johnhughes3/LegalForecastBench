@@ -114,6 +114,40 @@ def test_drop_must_consume_exactly_one_distinct_source_unit() -> None:
         )
 
 
+def test_drop_requires_explicit_source_unit_ids() -> None:
+    raw = [_candidate("cand", [_unit("a"), _unit("b")])]
+    queue = [_review("cand", "a")]
+    adjudication = _adjudication("cand", "DROP", ["a"])
+    adjudication.pop("source_unit_ids")
+
+    with pytest.raises(UnitizationReviewError, match="requires explicit"):
+        apply_unitization_reviews(
+            prediction_unit_records=raw,
+            review_records=queue,
+            adjudication_records=[adjudication],
+        )
+
+
+@pytest.mark.parametrize("disposition", ["ACCEPT", "AMEND", "SPLIT"])
+def test_single_source_dispositions_cannot_implicitly_merge(
+    disposition: str,
+) -> None:
+    finalized_units = {
+        "ACCEPT": [],
+        "AMEND": [_unit("replacement")],
+        "SPLIT": [_unit("first"), _unit("second")],
+    }[disposition]
+
+    with pytest.raises(UnitizationReviewError, match="must consume exactly one unit"):
+        apply_unitization_reviews(
+            prediction_unit_records=[_candidate("cand", [_unit("a"), _unit("b")])],
+            review_records=[_review("cand", "a"), _review("cand", "b")],
+            adjudication_records=[
+                _adjudication("cand", disposition, ["a", "b"], finalized_units)
+            ],
+        )
+
+
 def test_finalized_chain_rejects_removed_drop_provenance() -> None:
     raw = [_candidate("cand", [_unit("a"), _unit("b")])]
     queue = [_review("cand", "a")]
