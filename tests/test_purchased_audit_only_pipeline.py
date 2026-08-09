@@ -125,6 +125,90 @@ def test_live_stage_a_requires_successor_namespace_before_journal_or_transport(
     assert row_count == (0,)
 
 
+@pytest.mark.parametrize(
+    "provider_attempt_namespace",
+    ("claim-ontology-v2", "claim-ontology-v3"),
+)
+def test_google_structural_review_passes_frozen_response_schema(
+    tmp_path: Path,
+    monkeypatch: Any,
+    provider_attempt_namespace: str,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    response = SolverResponse(
+        raw_output='{"structural_flags":[]}',
+        input_tokens=11,
+        output_tokens=6,
+        estimated_cost=0.02,
+    )
+    captured: dict[str, object] = {}
+
+    def completion(*_args: Any, **kwargs: Any) -> SolverResponse:
+        captured["response_json_schema"] = kwargs["response_json_schema"]
+        handler = kwargs["attempt_handler"]
+        handler.run_attempt(1, lambda: {"fixture": "google-response"})
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", completion)
+    registry = _registry_record()
+    registry.update(
+        {
+            "provider": "google",
+            "model_id": "gemini-test",
+            "display_name": "Gemini Test",
+            "model_version_or_snapshot": "gemini-test-2026-06-26",
+        }
+    )
+    result = llm_pipeline.llm_review_stage_a_units(
+        selection_records=(_selection(),),
+        parser_records=parser_records,
+        prediction_unit_records=(_prediction_units(),),
+        markdown_root=markdown_root,
+        registry_entry=llm_pipeline.ModelRegistryEntry.from_record(registry),
+        model_registry_sha256="b" * 64,
+        provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_attempt_namespace=provider_attempt_namespace,
+    )
+
+    assert result.records == ()
+    if provider_attempt_namespace == "claim-ontology-v2":
+        assert captured["response_json_schema"] is None
+        return
+    schema = cast(dict[str, Any], captured["response_json_schema"])
+    flag_item = schema["properties"]["structural_flags"]["items"]
+    assert flag_item["properties"]["affected_unit_ids"]["items"]["enum"] == ["unit-1"]
+    assert flag_item["properties"]["source_document_ids"]["items"]["enum"] == [
+        "complaint",
+        "mtd",
+    ]
+
+
 def test_reconstruction_prestate_isolates_legacy_and_successor_rows() -> None:
     """Equal ordinals in the shared journal remain contract-disjoint."""
 

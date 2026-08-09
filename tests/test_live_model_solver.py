@@ -20,6 +20,7 @@ from legalforecast.evals.live_model_solver import (
     LiveModelProviderError,
     LiveModelResponseError,
     LiveModelSolver,
+    complete_live_prompt,
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.evals.tools import ControlledDocketEntry, ControlledDocketTool
@@ -390,6 +391,46 @@ def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:
         "Controlled docket tool transcript:"
     )
     assert "Return JSON." in body["contents"][0]["parts"][0]["text"]
+
+
+def test_complete_live_prompt_passes_explicit_json_schema_only_to_gemini() -> None:
+    transport = _FixtureTransport(
+        {
+            "modelVersion": "models/gemini-test-2026-05-14",
+            "candidates": [{"content": {"parts": [{"text": '{"flags":[]}'}]}}],
+            "usageMetadata": {
+                "promptTokenCount": 300,
+                "candidatesTokenCount": 60,
+            },
+        }
+    )
+    schema: dict[str, object] = {
+        "type": "object",
+        "properties": {"flags": {"type": "array", "items": {"type": "object"}}},
+        "required": ["flags"],
+        "additionalProperties": False,
+    }
+
+    complete_live_prompt(
+        _registry_entry("google", "gemini-test"),
+        "Return structured JSON.",
+        transport=transport,
+        environ={"GEMINI_API_KEY": "gemini-secret"},
+        response_json_schema=schema,
+    )
+
+    body = _json_body(transport.only_request())
+    assert body["generationConfig"]["responseJsonSchema"] == schema
+
+
+def test_complete_live_prompt_rejects_json_schema_for_unsupported_provider() -> None:
+    with pytest.raises(LiveModelConfigError, match="only supported for Google Gemini"):
+        complete_live_prompt(
+            _registry_entry("openai", "gpt-test"),
+            "Return structured JSON.",
+            environ={"OPENAI_API_KEY": "openai-secret"},
+            response_json_schema={"type": "object"},
+        )
 
 
 @pytest.mark.parametrize(

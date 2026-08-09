@@ -332,7 +332,7 @@ def test_unitization_recovery_exposes_closed_attempt_namespace() -> None:
         for action in parser._actions
         if action.dest == "provider_attempt_namespace"
     ]
-    assert action.choices == ("claim-ontology-v2",)
+    assert action.choices == ("claim-ontology-v2", "claim-ontology-v3")
 
 
 @pytest.mark.parametrize(

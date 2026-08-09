@@ -6,6 +6,7 @@ import pytest
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.labeling.llm_pipeline import (
+    STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
     LlmResponseValidationError,
     _LlmDocument,
     merge_structural_flags_into_review_queue,
@@ -86,6 +87,31 @@ def test_structural_reviewer_accepts_spurious_nonunit_flag() -> None:
     )
 
     assert flag["flag_type"] == "spurious"
+
+
+def test_v3_structural_reviewer_requires_one_cited_document() -> None:
+    flag: dict[str, Any] = {
+        "flag_type": "spurious",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_ids": ["motion", "motion"],
+        "explanation": "Untimeliness is a ground, not a claim.",
+        "citation_excerpt": "dismiss the alternative theory",
+    }
+
+    validate_structural_review_flags(
+        {"structural_flags": [flag]},
+        units=[_unit()],
+        documents=_documents(),
+        response=_response(),
+    )
+    with pytest.raises(LlmResponseValidationError, match="exactly one"):
+        validate_structural_review_flags(
+            {"structural_flags": [flag]},
+            units=[_unit()],
+            documents=_documents(),
+            response=_response(),
+            provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
+        )
 
 
 def test_structural_queue_order_is_canonical_across_flag_permutations() -> None:
@@ -240,6 +266,34 @@ def test_structural_citation_rejects_non_equivalent_text(
             markdown=source_excerpt,
         )
     ]
+
+    with pytest.raises(LlmResponseValidationError, match="does not appear"):
+        validate_structural_review_flags(
+            {"structural_flags": [flag]},
+            units=[_unit()],
+            documents=documents,
+            response=_response(),
+        )
+
+
+def test_structural_citation_rejects_composite_ellipsis_quote() -> None:
+    documents = [
+        _LlmDocument(
+            candidate_id="cand-1",
+            source_document_id="motion",
+            document_role=DocumentRole.MTD_MEMORANDUM,
+            docket_entry_number=4,
+            description="Motion to dismiss",
+            markdown="First factual proposition. Second factual proposition.",
+        )
+    ]
+    flag: dict[str, Any] = {
+        "flag_type": "omitted",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_ids": ["motion"],
+        "explanation": "A separately challenged theory is absent.",
+        "citation_excerpt": "First factual proposition ... Second factual proposition.",
+    }
 
     with pytest.raises(LlmResponseValidationError, match="does not appear"):
         validate_structural_review_flags(

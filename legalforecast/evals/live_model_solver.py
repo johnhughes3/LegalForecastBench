@@ -45,7 +45,10 @@ _PRICE_UNITS_PER_TOKEN = 1_000_000
 _TOKEN_ESTIMATE_BYTES_PER_TOKEN = 4
 
 JsonRecord = Mapping[str, object]
-BuildRequest = Callable[[ModelRegistryEntry, str, str], urllib.request.Request]
+BuildRequest = Callable[
+    [ModelRegistryEntry, str, str, Mapping[str, object] | None],
+    urllib.request.Request,
+]
 ExtractOutput = Callable[[JsonRecord], str]
 ExtractUsage = Callable[[JsonRecord], tuple[int, int]]
 ExtractServedVersion = Callable[[JsonRecord], str]
@@ -210,6 +213,7 @@ def complete_live_prompt(
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
     attempt_handler: ProviderAttemptHandler | None = None,
+    response_json_schema: Mapping[str, object] | None = None,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
 
@@ -235,6 +239,10 @@ def complete_live_prompt(
     )
 
     provider = _provider_config(registry_entry.provider)
+    if response_json_schema is not None and not provider.supports_response_json_schema:
+        raise LiveModelConfigError(
+            "response_json_schema is only supported for Google Gemini"
+        )
     if _uses_bedrock_anthropic_runtime(registry_entry.provider, environ):
         return _complete_bedrock_anthropic_prompt(
             registry_entry,
@@ -248,7 +256,9 @@ def complete_live_prompt(
         )
 
     api_key = _api_key(provider.api_key_env, environ)
-    provider_request = provider.build_request(registry_entry, prompt, api_key)
+    provider_request = provider.build_request(
+        registry_entry, prompt, api_key, response_json_schema
+    )
     started = time.perf_counter()
     payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
         lambda: (transport or _urlopen_json)(provider_request, timeout_seconds),
@@ -412,6 +422,7 @@ class _ProviderConfig:
     extract_output: ExtractOutput
     extract_usage: ExtractUsage
     extract_served_version: ExtractServedVersion
+    supports_response_json_schema: bool
 
 
 def _provider_config(provider: str) -> _ProviderConfig:
@@ -423,6 +434,7 @@ def _provider_config(provider: str) -> _ProviderConfig:
             extract_output=_openai_output,
             extract_usage=_openai_usage,
             extract_served_version=_openai_served_model_version,
+            supports_response_json_schema=False,
         )
     if normalized == "anthropic":
         return _ProviderConfig(
@@ -431,6 +443,7 @@ def _provider_config(provider: str) -> _ProviderConfig:
             extract_output=_anthropic_output,
             extract_usage=_anthropic_usage,
             extract_served_version=_anthropic_served_model_version,
+            supports_response_json_schema=False,
         )
     if normalized in {"google", "gemini"}:
         return _ProviderConfig(
@@ -439,6 +452,7 @@ def _provider_config(provider: str) -> _ProviderConfig:
             extract_output=_gemini_output,
             extract_usage=_gemini_usage,
             extract_served_version=_gemini_served_model_version,
+            supports_response_json_schema=True,
         )
     raise LiveModelConfigError(f"unsupported provider: {provider}")
 
@@ -511,7 +525,9 @@ def _openai_request(
     entry: ModelRegistryEntry,
     prompt: str,
     api_key: str,
+    response_json_schema: Mapping[str, object] | None,
 ) -> urllib.request.Request:
+    del response_json_schema
     payload: dict[str, object] = {
         "model": entry.model_id,
         "input": prompt,
@@ -531,7 +547,9 @@ def _anthropic_request(
     entry: ModelRegistryEntry,
     prompt: str,
     api_key: str,
+    response_json_schema: Mapping[str, object] | None,
 ) -> urllib.request.Request:
+    del response_json_schema
     payload: dict[str, object] = {
         "model": entry.model_id,
         "messages": [{"role": "user", "content": prompt}],
@@ -598,6 +616,7 @@ def _gemini_request(
     entry: ModelRegistryEntry,
     prompt: str,
     api_key: str,
+    response_json_schema: Mapping[str, object] | None,
 ) -> urllib.request.Request:
     model = urllib.parse.quote(entry.model_id, safe="")
     payload: dict[str, object] = {
@@ -610,6 +629,9 @@ def _gemini_request(
         },
         "tools": [],
     }
+    if response_json_schema is not None:
+        generation_config = cast(dict[str, object], payload["generationConfig"])
+        generation_config["responseJsonSchema"] = dict(response_json_schema)
     return _json_request(
         GEMINI_GENERATE_CONTENT_URL_TEMPLATE.format(model=model),
         payload,

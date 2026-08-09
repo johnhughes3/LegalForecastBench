@@ -122,9 +122,12 @@ from legalforecast.unitization.schemas import (
 JsonRecord = dict[str, Any]
 DEFAULT_LABEL_AUDIT_SAMPLE_SIZE = 30
 STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT = "claim-ontology-v2"
-_STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = frozenset(
-    {STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT}
+STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT = "claim-ontology-v3"
+STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = (
+    STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
+    STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
 )
+_STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = frozenset(STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
 
 
 def stage_a_provider_attempt_stage(
@@ -720,7 +723,12 @@ def recover_llm_stage_a_structural_review_reconstruction(
     )
     if not units:
         raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
-    prompt = _stage_a_structural_review_prompt(selection_record, documents, units)
+    prompt = _stage_a_structural_review_prompt(
+        selection_record,
+        documents,
+        units,
+        provider_attempt_namespace=provider_attempt_namespace,
+    )
     journal = _provider_attempt_journal(
         path=provider_journal_path,
         stage="llm-review-stage-a",
@@ -763,7 +771,11 @@ def recover_llm_stage_a_structural_review_reconstruction(
             estimated_cost=_float(normalized.get("actual_cost_usd")),
         )
         flags = validate_structural_review_flags(
-            payload, units=units, documents=documents, response=response
+            payload,
+            units=units,
+            documents=documents,
+            response=response,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         journal.commit_reconstruction_recovery(
             evidence.attempt_ordinal,
@@ -831,7 +843,12 @@ def build_llm_stage_a_structural_review_terminal_escalation(
     units = _prediction_units_by_candidate(raw_records).get(candidate_id, ())
     if not units:
         raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
-    prompt = _stage_a_structural_review_prompt(selection_record, documents, units)
+    prompt = _stage_a_structural_review_prompt(
+        selection_record,
+        documents,
+        units,
+        provider_attempt_namespace=provider_attempt_namespace,
+    )
     journal = _provider_attempt_journal(
         path=provider_journal_path,
         stage="llm-review-stage-a",
@@ -1041,6 +1058,7 @@ def llm_review_stage_a_units(
             parser_records=parser_rows,
             prediction_unit_records=raw_unit_records,
             markdown_root=markdown_root,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
     }
     records: list[JsonRecord] = []
@@ -1138,6 +1156,15 @@ def llm_review_stage_a_units(
                 stage="structural review",
             )
             max_attempts = _reconstruction_retry_max_attempts(journal)
+            response_json_schema = (
+                _stage_a_structural_review_response_json_schema(documents, units)
+                if (
+                    provider_attempt_namespace
+                    == STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT
+                    and registry_entry.provider.strip().lower() in {"google", "gemini"}
+                )
+                else None
+            )
             response = complete_live_prompt(
                 registry_entry,
                 prompt,
@@ -1146,6 +1173,7 @@ def llm_review_stage_a_units(
                 environ=environ,
                 timeout_seconds=timeout_seconds,
                 max_attempts=max_attempts,
+                response_json_schema=response_json_schema,
                 attempt_handler=_combined_attempt_handler(
                     journal=journal,
                     authorities=provider_spend_authorities,
@@ -1158,7 +1186,11 @@ def llm_review_stage_a_units(
             )
             payload = _json_object_from_response(response.raw_output)
             flags = validate_structural_review_flags(
-                payload, units=units, documents=documents, response=response
+                payload,
+                units=units,
+                documents=documents,
+                response=response,
+                provider_attempt_namespace=provider_attempt_namespace,
             )
             if journal is not None and journal.has_validated_response:
                 journal.commit_reconstruction({"structural_flags": list(flags)})
@@ -1212,6 +1244,7 @@ def stage_a_structural_review_prompt_records(
     parser_records: Iterable[Mapping[str, Any]],
     prediction_unit_records: Iterable[Mapping[str, Any]],
     markdown_root: str | Path,
+    provider_attempt_namespace: str | None = None,
 ) -> tuple[JsonRecord, ...]:
     """Reconstruct exact structural-review prompts from authenticated Stage A."""
 
@@ -1228,7 +1261,12 @@ def stage_a_structural_review_prompt_records(
             parser_by_key=parser_by_key,
             markdown_root=Path(markdown_root),
         )
-        prompt = _stage_a_structural_review_prompt(selection, documents, units)
+        prompt = _stage_a_structural_review_prompt(
+            selection,
+            documents,
+            units,
+            provider_attempt_namespace=provider_attempt_namespace,
+        )
         output.append(
             {
                 "candidate_id": candidate_id,
@@ -1384,50 +1422,59 @@ def _stage_a_structural_review_prompt(
     selection: Mapping[str, Any],
     documents: Sequence[_LlmDocument],
     units: Sequence[PredictionUnit],
+    *,
+    provider_attempt_namespace: str | None = None,
 ) -> str:
+    rules = [
+        "Use only supplied predecision documents; never infer from a disposition.",
+        (
+            "The Sonnet-authored units are immutable. Do not return replacements "
+            "or edits."
+        ),
+        (
+            "Return a flag only for an omitted, improperly combined, improperly "
+            "split, or spurious unit. A spurious unit is not an asserted legal "
+            "right and should be removed."
+        ),
+        (
+            "As non-authoritative reasoning, first reconstruct an internal "
+            "complaint claim-defendant ledger and motion-scope matrix: identify "
+            "each asserted legal right, the actual moving defendant and capacity, "
+            "and whether the target motion challenges all or only a portion of "
+            "that right."
+        ),
+        (
+            "A dismissal ground, defense, procedural predicate, claim element, "
+            "factual theory, requested remedy, or generic declaratory relief is "
+            "never itself a prediction unit. Examples include limitations, "
+            "standing, exhaustion, immunity, service, personal jurisdiction, "
+            "venue, arbitration, preemption, Section 230, SLUSA, and release."
+        ),
+        (
+            "Apply the independent-disposition test: split only when one "
+            "proposition could be dismissed while another survives as an "
+            "independently enforceable legal right against the same defendant. "
+            "A nonseparable theory remains one claim-level unit."
+        ),
+        (
+            "Flag units that name a ground, element, remedy, theory, or nonmoving "
+            "defendant as though it were a scored claim as spurious."
+        ),
+        (
+            "Every flag must cite one or more existing affected unit_ids so a "
+            "lawyer can adjudicate it."
+        ),
+    ]
+    if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT:
+        rules.append(
+            "citation_excerpt must be one contiguous literal span copied from one "
+            "cited supplied predecision document. Never use an ellipsis. Never join "
+            "fragments. Never paraphrase or normalize case or punctuation."
+        )
+    rules.append("Return only JSON with a structural_flags array.")
     payload = {
         "task": "Review frozen Stage A units for structural completeness only.",
-        "rules": [
-            "Use only supplied predecision documents; never infer from a disposition.",
-            (
-                "The Sonnet-authored units are immutable. Do not return replacements "
-                "or edits."
-            ),
-            (
-                "Return a flag only for an omitted, improperly combined, improperly "
-                "split, or spurious unit. A spurious unit is not an asserted legal "
-                "right and should be removed."
-            ),
-            (
-                "As non-authoritative reasoning, first reconstruct an internal "
-                "complaint claim-defendant ledger and motion-scope matrix: identify "
-                "each asserted legal right, the actual moving defendant and capacity, "
-                "and whether the target motion challenges all or only a portion of "
-                "that right."
-            ),
-            (
-                "A dismissal ground, defense, procedural predicate, claim element, "
-                "factual theory, requested remedy, or generic declaratory relief is "
-                "never itself a prediction unit. Examples include limitations, "
-                "standing, exhaustion, immunity, service, personal jurisdiction, "
-                "venue, arbitration, preemption, Section 230, SLUSA, and release."
-            ),
-            (
-                "Apply the independent-disposition test: split only when one "
-                "proposition could be dismissed while another survives as an "
-                "independently enforceable legal right against the same defendant. "
-                "A nonseparable theory remains one claim-level unit."
-            ),
-            (
-                "Flag units that name a ground, element, remedy, theory, or nonmoving "
-                "defendant as though it were a scored claim as spurious."
-            ),
-            (
-                "Every flag must cite one or more existing affected unit_ids so a "
-                "lawyer can adjudicate it."
-            ),
-            "Return only JSON with a structural_flags array.",
-        ],
+        "rules": rules,
         "output_schema": {
             "structural_flags": [
                 {
@@ -1446,12 +1493,69 @@ def _stage_a_structural_review_prompt(
     return json.dumps(payload, sort_keys=True, indent=2)
 
 
+def _stage_a_structural_review_response_json_schema(
+    documents: Sequence[_LlmDocument],
+    units: Sequence[PredictionUnit],
+) -> JsonRecord:
+    """Build Gemini's constrained structural-response schema from frozen inputs."""
+
+    return {
+        "type": "object",
+        "properties": {
+            "structural_flags": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "flag_type": {
+                            "type": "string",
+                            "enum": ["omitted", "combined", "mis_split", "spurious"],
+                        },
+                        "affected_unit_ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [unit.unit_id for unit in units],
+                            },
+                        },
+                        "source_document_ids": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 1,
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    document.source_document_id
+                                    for document in documents
+                                ],
+                            },
+                        },
+                        "explanation": {"type": "string"},
+                        "citation_excerpt": {"type": "string"},
+                    },
+                    "required": [
+                        "flag_type",
+                        "affected_unit_ids",
+                        "source_document_ids",
+                        "explanation",
+                        "citation_excerpt",
+                    ],
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["structural_flags"],
+        "additionalProperties": False,
+    }
+
+
 def validate_structural_review_flags(
     payload: Mapping[str, Any],
     *,
     units: Sequence[PredictionUnit],
     documents: Sequence[_LlmDocument],
     response: SolverResponse,
+    provider_attempt_namespace: str | None = None,
 ) -> tuple[JsonRecord, ...]:
     allowed_unit_ids = {unit.unit_id for unit in units}
     documents_by_id = {document.source_document_id: document for document in documents}
@@ -1483,6 +1587,14 @@ def validate_structural_review_flags(
             raise LlmResponseValidationError(
                 "structural flag source_document_ids must reference supplied "
                 "predecision documents",
+                response=response,
+            )
+        if (
+            provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT
+            and len(source_ids) != 1
+        ):
+            raise LlmResponseValidationError(
+                "v3 structural flag requires exactly one source_document_id",
                 response=response,
             )
         cited_excerpt = _required_str(raw, "citation_excerpt")
