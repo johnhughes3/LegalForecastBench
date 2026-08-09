@@ -1,0 +1,13 @@
+{
+  "request_ids": [
+    "row-5ca96d5baf044968"
+  ],
+  "result_ids": [
+    "row-5ca96d5baf044968:claude-agent-sdk"
+  ],
+  "run_compatibility_sha256": "sha256:c4af38c7fd75010d23c20342720d96aaaf4162957a32224827c08fb632d6e8f8",
+  "run_config_sha256": "sha256:9d3b562dec36a817c1dff6b3976d145d77b5fabc494efec91aa3d05573beb804",
+  "run_id": "claude-agent-sdk-community-smoke-20260809-attempt-8",
+  "schema_version": "legalforecast.multiharness.run_manifest.v1",
+  "selection_sha256": "e23535f8c5f50da10358b228fafb1aeadea4d2f8eb15946c595282c592717f77"
+}

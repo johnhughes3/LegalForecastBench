@@ -1,0 +1,20 @@
+{
+  "families": [
+    "legalforecast_mtd"
+  ],
+  "run_id": "claude-agent-sdk-community-smoke-20260809-attempt-8",
+  "schema_version": "legalforecast.multiharness.community_selection_manifest.v1",
+  "scoring_modes": [
+    "lfb_brier"
+  ],
+  "selection_label": "submitted-run",
+  "selection_sha256": "e23535f8c5f50da10358b228fafb1aeadea4d2f8eb15946c595282c592717f77",
+  "task_ids": [
+    "lfb:ci-candidate:full_packet"
+  ],
+  "task_selectors": {
+    "task_ids": [
+      "lfb:ci-candidate:full_packet"
+    ]
+  }
+}

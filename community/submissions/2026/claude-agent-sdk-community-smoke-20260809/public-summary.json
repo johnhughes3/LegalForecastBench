@@ -1,0 +1,34 @@
+{
+  "conformance": {
+    "adapter_id": "claude-agent-sdk-baseline",
+    "adapter_version": "1.0.0",
+    "report_id": "conformance:claude-agent-sdk-baseline:1.0.0",
+    "status": "passed"
+  },
+  "run_summary": {
+    "adapter_ids": [
+      "claude-agent-sdk-baseline"
+    ],
+    "families": [
+      "legalforecast_mtd"
+    ],
+    "model_keys": [
+      "anthropic:claude-sonnet-4-6"
+    ],
+    "result_status_counts": {
+      "succeeded": 1
+    },
+    "row_count": 1,
+    "run_config_sha256": "sha256:9d3b562dec36a817c1dff6b3976d145d77b5fabc494efec91aa3d05573beb804",
+    "run_id": "claude-agent-sdk-community-smoke-20260809-attempt-8",
+    "run_manifest_sha256": "sha256:d62735a31f28cc9c4a880c174fc15344ad9bdcca284184bbeadd10635ecd6e65",
+    "schema_version": "legalforecast.multiharness.community_run_summary.v1",
+    "scoring_modes": [
+      "lfb_brier"
+    ],
+    "selection_label": "submitted-run",
+    "selection_sha256": "e23535f8c5f50da10358b228fafb1aeadea4d2f8eb15946c595282c592717f77"
+  },
+  "schema_version": "legalforecast.multiharness.community_public_summary.v1",
+  "submission_id": "claude-agent-sdk-community-smoke-20260809"
+}
