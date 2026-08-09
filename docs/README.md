@@ -30,6 +30,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Cycle 1 target-100 recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md): keeping recovered CourtListener material quarantined until public provenance is authenticated and every PDF is scanned.
 - [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md): value-by-value record of why each committed cohort-policy value is authorized or mechanically derived.
 - [Cycle 1 change control](cycle-1-change-control.md): the change-control rules adopted for the remainder of Cycle 1, through the final gate.
+- [Cycle 1 Stage A v4 correctness migration](cycle-1-stage-a-v4-correctness-migration.md): the required citation-integrity, ontology, successor-cohort, and replay path before Cycle 1 Stage B.
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for new code without migrating Cycle 1 artifacts.
 
 ## Community Multi-Harness (non-official)
