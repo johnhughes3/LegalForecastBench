@@ -2721,6 +2721,17 @@ uv run legalforecast acquisition run-cycle \
   --execute --json
 ```
 
+Before any recovery-slice run or merge, execute the provider-free read-only development check. It runs the focused verifier regressions, the successor-ledger capsule rehearsal, and the checked-in manifest preflight, then prints one merged verdict. If a real lineage manifest already exists, point `LEGALFORECAST_CYCLE_PREFLIGHT_MANIFEST` at it; the public capsule always runs, while an absent real manifest is reported as `NOT_EVALUATED` rather than synthesized or written.
+
+```bash
+scripts/dev-check-recovery-vertical-slice.sh
+
+LEGALFORECAST_CYCLE_PREFLIGHT_MANIFEST=/absolute/path/to/cycle-preflight-manifest.json \
+  scripts/dev-check-recovery-vertical-slice.sh
+```
+
+For a single stable machine-readable check, use `uv run python -m legalforecast.ingestion.cycle_preflight --manifest /absolute/path/to/cycle-preflight-manifest.json --format json`. The manifest declares dependency edges and byte commitments; the verifier collects independent defects, marks blocked descendants `NOT_EVALUATED`, returns nonzero for any violation or ambiguity, and never opens a purchase journal, acquires locks, invokes a provider, or writes artifacts, cards, ledgers, or dispatch state.
+
 The canonical descriptor handoff after that continuation is `RECOVERY_SOURCE_ROOT`, which must be distinct from the immutable `RECOVERY_ROOT` used by the initial recovery cycle. The dedicated producer writes `$RECOVERY_SOURCE_ROOT/0000-initial-v2.json` and `$RECOVERY_SOURCE_ROOT/run-cards/build-replacement-recovery-source-0000.json`; do not hand-author either artifact or point `INITIAL_RECOVERY_SOURCE` at the raw recovery root:
 
 ```bash

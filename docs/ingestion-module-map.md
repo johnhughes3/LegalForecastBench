@@ -188,6 +188,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | Module | Responsibility |
 | --- | --- |
 | [`clearance_replacement.py`](../legalforecast/ingestion/clearance_replacement.py) | Frozen replacement planning after clearance. |
+| [`cycle_preflight.py`](../legalforecast/ingestion/cycle_preflight.py) | Manifest-driven, provider-free read-only verification of a recovery vertical slice. |
 | [`disclosure_clearance.py`](../legalforecast/ingestion/disclosure_clearance.py) | Hash-bound acquired-document clearance. |
 | [`disclosure_model_review.py`](../legalforecast/ingestion/disclosure_model_review.py) | Pure review of disclosure-marker exception pages. |
 | [`disclosure_model_review_authority.py`](../legalforecast/ingestion/disclosure_model_review_authority.py) | Authenticated execution authority for model review. |
