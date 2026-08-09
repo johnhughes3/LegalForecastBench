@@ -323,6 +323,19 @@ def test_verifier_rejects_a_tampered_added_unit(
         verify_finalized_prediction_units([broken], [raw], [adjudication], [review])
 
 
+def test_verifier_rejects_a_hand_written_add_that_consumes_a_source_unit() -> None:
+    """The verifier enforces the no-consumption rule on artifacts it did not build."""
+
+    raw, review, adjudication, finalized = _finalized_add_fixture()
+    consuming = deepcopy(adjudication)
+    consuming["source_unit_ids"] = ["a"]
+    broken = deepcopy(finalized)
+    _added_unit(broken)["adjudication_sha256"] = canonical_sha256(consuming)
+
+    with pytest.raises(UnitizationReviewError, match="consumes source units"):
+        verify_finalized_prediction_units([broken], [raw], [consuming], [review])
+
+
 def test_verifier_rejects_an_added_unit_smuggled_into_the_v2_schema() -> None:
     raw, review, adjudication, finalized = _finalized_add_fixture()
     broken = deepcopy(finalized)
