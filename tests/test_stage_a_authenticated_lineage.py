@@ -648,6 +648,41 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
     assert commitments["cand-1"]["prediction_units_sha256"].startswith("sha256:")
     assert digest.startswith("sha256:")
 
+    with ProviderAttemptJournal(
+        journal_path,
+        identity=ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id="cand-1",
+            model_key=registry_entry.registry_key,
+            prompt=str(prompt_record["prompt"]),
+            model_registry_sha256=registry_sha,
+            prompt_contract="claim-ontology-v2",
+        ),
+        provider="openai",
+        reservation_usd=0.1,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=cli._path_sha256(caps_path),
+    ) as journal:
+        journal.run_attempt(1, lambda: {"fixture": "successor-response"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=5,
+            actual_cost_usd=0.01,
+            raw_output=raw_output,
+        )
+        journal.commit_reconstruction({"prediction_units": [unit], "review_items": []})
+    successor_commitments, successor_digest = cli._verify_stage_a_provider_replay(
+        lineage=lineage,
+        prediction_units_path=raw_path,
+        audit_path=audit_path,
+        review_queue_path=queue_path,
+        provider_attempt_namespace="claim-ontology-v2",
+    )
+    assert successor_commitments == commitments
+    assert successor_digest != digest
+
     coordinated_audit = json.loads(audit_path.read_text().strip())
     coordinated_audit["review_items"] = [
         {"unit_id": "unit-1", "reason": "low_confidence"}
@@ -861,6 +896,7 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
                 model_key="google:reviewer",
                 prompt=prompt,
                 model_registry_sha256="registry-sha",
+                prompt_contract="claim-ontology-v2",
             ),
             provider="google",
             reservation_usd=0.1,
@@ -898,6 +934,7 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
                 expected_prompts=expected,
                 providers_by_model=providers,
                 model_registry_sha256="registry-sha",
+                provider_attempt_namespace="claim-ontology-v2",
             )
 
     accepted_path = tmp_path / "accepted.sqlite3"
@@ -909,6 +946,7 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
             expected_prompts=expected,
             providers_by_model=providers,
             model_registry_sha256="registry-sha",
+            provider_attempt_namespace="claim-ontology-v2",
         )["attempt_count"]
         == 2
     )
@@ -926,8 +964,12 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
     registry_path = tmp_path / "reviewer-registry.json"
     caps_path = tmp_path / "caps.json"
     unitization_card_path = tmp_path / "llm-unitize.json"
-    for path in (registry_path, caps_path, unitization_card_path):
+    for path in (registry_path, caps_path):
         _write_json(path, {})
+    _write_json(
+        unitization_card_path,
+        {"model_execution": {"provider_attempt_namespace": "claim-ontology-v2"}},
+    )
     entry = replace(
         _registry_entry(),
         provider="google",
@@ -992,6 +1034,7 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
         audit_output=None,
         model_key=entry.registry_key,
         timeout_seconds=1.0,
+        provider_attempt_namespace="claim-ontology-v2",
         resume=True,
         run_card_output=None,
         log_output=None,

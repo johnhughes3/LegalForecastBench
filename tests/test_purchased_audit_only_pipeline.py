@@ -71,6 +71,122 @@ class _FakeSpendAuthority:
         raise AssertionError("snapshot is not used by this fixture")
 
 
+def test_live_stage_a_requires_successor_namespace_before_journal_or_transport(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    """A missing namespace cannot mint a fresh call under the legacy identity."""
+
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        lambda *args, **kwargs: pytest.fail("provider transport must not be reached"),
+    )
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="requires the closed successor provider-attempt namespace",
+    ):
+        llm_pipeline.llm_unitize_cases(
+            selection_records=(_selection(),),
+            parser_records=parser_records,
+            markdown_root=markdown_root,
+            registry_entry=llm_pipeline.ModelRegistryEntry.from_record(
+                _registry_record()
+            ),
+            model_registry_sha256="b" * 64,
+            provider_journal_path=journal_path,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        )
+
+    with sqlite3.connect(journal_path) as connection:
+        row_count = connection.execute(
+            "SELECT COUNT(*) FROM provider_attempts"
+        ).fetchone()
+    assert row_count == (0,)
+
+
+def test_reconstruction_prestate_isolates_legacy_and_successor_rows() -> None:
+    """Equal ordinals in the shared journal remain contract-disjoint."""
+
+    prompt = "same provider prompt"
+    registry_sha = "a" * 64
+    common: JsonRecord = {
+        "stage": "llm-unitize",
+        "candidate_id": "cand-1",
+        "model_key": "anthropic:model",
+        "attempt_ordinal": 1,
+        "status": "settled",
+        "failure_type": "ValueError",
+        "reconstructed_result_json": '{"candidate_id":"cand-1"}',
+        "prompt_text": prompt,
+        "model_registry_sha256": registry_sha,
+    }
+    legacy = {
+        **common,
+        "logical_call_key": ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id="cand-1",
+            model_key="anthropic:model",
+            prompt=prompt,
+            model_registry_sha256=registry_sha,
+        ).logical_call_key,
+    }
+    successor = {
+        **common,
+        "logical_call_key": ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id="cand-1",
+            model_key="anthropic:model",
+            prompt=prompt,
+            model_registry_sha256=registry_sha,
+            prompt_contract="claim-ontology-v2",
+        ).logical_call_key,
+    }
+
+    expected_legacy = dict(legacy)
+    expected_legacy["status"] = "reconstruction_failed"
+    expected_legacy["reconstructed_result_json"] = None
+    assert cli._pre_reconstruction_provider_state_sha256(
+        (legacy, successor),
+        stage="llm-unitize",
+        candidate_id="cand-1",
+        model_key="anthropic:model",
+        attempt_ordinal=1,
+    ) == cli._canonical_json_sha256((expected_legacy, successor))
+
+    expected_successor = dict(successor)
+    expected_successor["status"] = "reconstruction_failed"
+    expected_successor["reconstructed_result_json"] = None
+    assert cli._pre_reconstruction_provider_state_sha256(
+        (legacy, successor),
+        stage="llm-unitize",
+        candidate_id="cand-1",
+        model_key="anthropic:model",
+        attempt_ordinal=1,
+        provider_attempt_namespace="claim-ontology-v2",
+    ) == cli._canonical_json_sha256((legacy, expected_successor))
+
+
 def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
     tmp_path: Path,
     monkeypatch: Any,
@@ -79,7 +195,16 @@ def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
     recovery_path = output_root / "receipt.json"
     journal_path = tmp_path / "provider-attempts.sqlite3"
     journal_path.write_bytes(b"journal fixture")
+    prompt_text = "fixture unitization prompt"
+    model_registry_sha256 = "1" * 64
     failed_row: JsonRecord = {
+        "logical_call_key": ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id="cand-1",
+            model_key="anthropic:model",
+            prompt=prompt_text,
+            model_registry_sha256=model_registry_sha256,
+        ).logical_call_key,
         "stage": "llm-unitize",
         "candidate_id": "cand-1",
         "model_key": "anthropic:model",
@@ -88,6 +213,8 @@ def test_reconstruction_cli_resumes_settlement_and_rejects_tampered_receipt(
         "failure_type": "ValueError",
         "reconstructed_result_json": None,
         "completed_at": "2026-08-08T12:00:00Z",
+        "prompt_text": prompt_text,
+        "model_registry_sha256": model_registry_sha256,
     }
     settled_row: JsonRecord = {
         **failed_row,
@@ -233,7 +360,24 @@ def test_structural_review_reconstruction_cli_preserves_completed_run_card_on_re
     journal_path.write_bytes(b"journal fixture")
     registry_path = tmp_path / "reviewer-registry.json"
     registry_path.write_text("{}\n", encoding="utf-8")
+    unitization_card = tmp_path / "unitize.json"
+    unitization_card.write_text(
+        json.dumps(
+            {"model_execution": {"provider_attempt_namespace": "claim-ontology-v2"}}
+        ),
+        encoding="utf-8",
+    )
+    prompt_text = "fixture structural-review prompt"
+    model_registry_sha256 = "1" * 64
     failed_row: JsonRecord = {
+        "logical_call_key": ProviderCallIdentity(
+            stage="llm-review-stage-a",
+            candidate_id="cand-1",
+            model_key="google:reviewer",
+            prompt=prompt_text,
+            model_registry_sha256=model_registry_sha256,
+            prompt_contract="claim-ontology-v2",
+        ).logical_call_key,
         "stage": "llm-review-stage-a",
         "candidate_id": "cand-1",
         "model_key": "google:reviewer",
@@ -242,6 +386,8 @@ def test_structural_review_reconstruction_cli_preserves_completed_run_card_on_re
         "failure_type": "LlmResponseValidationError",
         "reconstructed_result_json": None,
         "completed_at": "2026-08-08T12:00:00Z",
+        "prompt_text": prompt_text,
+        "model_registry_sha256": model_registry_sha256,
     }
     settled_row: JsonRecord = {
         **failed_row,
@@ -276,6 +422,7 @@ def test_structural_review_reconstruction_cli_preserves_completed_run_card_on_re
     def recover(**kwargs: object) -> object:
         nonlocal calls
         assert kwargs["provider_account"] == "default"
+        assert kwargs["provider_attempt_namespace"] == "claim-ontology-v2"
         calls += 1
         rows[0] = settled_row
         return result
@@ -283,7 +430,7 @@ def test_structural_review_reconstruction_cli_preserves_completed_run_card_on_re
     monkeypatch.setattr(
         cli,
         "_verified_shared_provider_chain",
-        lambda *args, **kwargs: (lineage, tmp_path / "unitize.json"),
+        lambda *args, **kwargs: (lineage, unitization_card),
     )
     monkeypatch.setattr(
         cli,
@@ -348,6 +495,12 @@ def test_terminalize_structural_review_cli_writes_provider_free_receipt(
     units_path = tmp_path / "units.jsonl"
     queue_path = tmp_path / "queue.jsonl"
     unitization_card = tmp_path / "unitize.json"
+    unitization_card.write_text(
+        json.dumps(
+            {"model_execution": {"provider_attempt_namespace": "claim-ontology-v2"}}
+        ),
+        encoding="utf-8",
+    )
     registry_path = tmp_path / "reviewer-registry.json"
     caps_path = tmp_path / "caps.json"
     candidate_id = "72270301"
@@ -396,10 +549,15 @@ def test_terminalize_structural_review_cli_writes_provider_free_receipt(
         "_provider_stage_attempt_rows",
         lambda path, *, stage: provider_rows,
     )
+
+    def terminalize(**kwargs: object) -> object:
+        assert kwargs["provider_attempt_namespace"] == "claim-ontology-v2"
+        return SimpleNamespace(to_record=lambda: receipt)
+
     monkeypatch.setattr(
         cli,
         "build_llm_stage_a_structural_review_terminal_escalation",
-        lambda **kwargs: SimpleNamespace(to_record=lambda: receipt),
+        terminalize,
     )
     monkeypatch.setattr(cli, "_read_records", lambda path: [])
     monkeypatch.setattr(
@@ -733,6 +891,7 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
             provider_cycle_id="cycle-1",
             provider_cycle_caps_sha256="sha256:" + "c" * 64,
             provider_accounts={"openai": provider_account},
+            provider_attempt_namespace="claim-ontology-v2",
         )
 
     monkeypatch.setattr(llm_pipeline, "_json_object_from_response", response_parser)
@@ -748,6 +907,7 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
         provider_account=provider_account,
+        provider_attempt_namespace="claim-ontology-v2",
     )
     replayed_recovery = llm_pipeline.recover_llm_unitization_reconstruction(
         selection_record=_selection(),
@@ -761,6 +921,7 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
         provider_account=provider_account,
+        provider_attempt_namespace="claim-ontology-v2",
     )
 
     assert provider_calls == 1
@@ -947,6 +1108,7 @@ def test_malformed_structural_review_retries_fresh_bounded_attempts(
             provider_cycle_cap_usd=100.0,
             provider_cycle_id="cycle-1",
             provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_attempt_namespace="claim-ontology-v2",
         )
 
     for _ in range(3):
@@ -1063,6 +1225,7 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
             provider_cycle_cap_usd=100.0,
             provider_cycle_id="cycle-1",
             provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_attempt_namespace="claim-ontology-v2",
         )
     monkeypatch.setattr(
         llm_pipeline, "_coerced_structural_citation_excerpt", original_citation_matcher
@@ -1081,6 +1244,7 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
         provider_account="default",
+        provider_attempt_namespace="claim-ontology-v2",
     )
     journal_bytes_after_recovery = journal_path.read_bytes()
     replayed_recovery = (
@@ -1097,6 +1261,7 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
             provider_cycle_id="cycle-1",
             provider_cycle_caps_sha256="sha256:" + "c" * 64,
             provider_account="default",
+            provider_attempt_namespace="claim-ontology-v2",
         )
     )
 
@@ -1131,6 +1296,7 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
         provider_cycle_cap_usd=100.0,
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_attempt_namespace="claim-ontology-v2",
     )
 
     assert provider_calls == 1
@@ -1224,6 +1390,7 @@ def test_structural_review_terminal_escalation_routes_every_frozen_unit_without_
                 provider_cycle_cap_usd=100.0,
                 provider_cycle_id="cycle-1",
                 provider_cycle_caps_sha256="sha256:" + "c" * 64,
+                provider_attempt_namespace="claim-ontology-v2",
             )
 
     escalation = llm_pipeline.build_llm_stage_a_structural_review_terminal_escalation(
@@ -1239,9 +1406,12 @@ def test_structural_review_terminal_escalation_routes_every_frozen_unit_without_
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
         provider_account="default",
+        provider_attempt_namespace="claim-ontology-v2",
     )
 
     assert provider_calls == 2
+    assert escalation.provider_attempt_namespace == "claim-ontology-v2"
+    assert escalation.to_record()["provider_attempt_namespace"] == "claim-ontology-v2"
     assert [row["attempt_ordinal"] for row in escalation.failed_attempts] == [1, 2]
     assert len(escalation.frozen_units) == 1
     queue = llm_pipeline.structural_review_terminal_escalation_queue_records(escalation)
@@ -1263,6 +1433,28 @@ def test_structural_review_terminal_escalation_routes_every_frozen_unit_without_
         "path": str(tmp_path / "receipt.json"),
         "sha256": "d" * 64,
     }
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="terminal escalation does not match Stage A input",
+    ):
+        llm_pipeline.llm_review_stage_a_units(
+            selection_records=(_selection(),),
+            parser_records=parser_records,
+            prediction_unit_records=(_prediction_units(),),
+            markdown_root=markdown_root,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            terminal_escalations={
+                "cand-1": (
+                    escalation,
+                    receipt_commitment,
+                )
+            },
+        )
     resumed = llm_pipeline.llm_review_stage_a_units(
         selection_records=(_selection(),),
         parser_records=parser_records,
@@ -1280,6 +1472,7 @@ def test_structural_review_terminal_escalation_routes_every_frozen_unit_without_
                 receipt_commitment,
             )
         },
+        provider_attempt_namespace="claim-ontology-v2",
     )
     assert resumed.records == ()
     assert resumed.audit_records[0]["status"] == "terminal_escalation"
@@ -1426,6 +1619,7 @@ def test_conflicting_unitization_scope_routes_to_blinded_review_without_retry(
         provider_cycle_cap_usd=100.0,
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_attempt_namespace="claim-ontology-v2",
     )
     assert provider_calls == 1
     [record] = result.records
@@ -1567,6 +1761,7 @@ def test_single_defendant_grouped_seed_routes_to_blinded_review_without_retry(
         provider_cycle_cap_usd=100.0,
         provider_cycle_id="cycle-1",
         provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_attempt_namespace="claim-ontology-v2",
     )
     assert provider_calls == 1
     [record] = result.records

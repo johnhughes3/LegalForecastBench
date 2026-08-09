@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -20,6 +21,83 @@ from legalforecast.labeling.provider_journal import (
     ProviderJournalReplayMismatchError,
     load_provider_cycle_caps,
 )
+
+
+def test_provider_call_identity_preserves_legacy_key_and_namespaces_successor() -> None:
+    legacy = ProviderCallIdentity(
+        stage="llm-unitize",
+        candidate_id="cand-1",
+        model_key="anthropic:unitizer",
+        prompt="legacy prompt",
+        model_registry_sha256="registry-sha256",
+    )
+    successor = ProviderCallIdentity(
+        stage=legacy.stage,
+        candidate_id=legacy.candidate_id,
+        model_key=legacy.model_key,
+        prompt="successor prompt",
+        model_registry_sha256=legacy.model_registry_sha256,
+        prompt_contract="claim-ontology-v2",
+    )
+
+    assert (
+        legacy.logical_call_key
+        == hashlib.sha256(b"llm-unitize\0cand-1\0anthropic:unitizer").hexdigest()
+    )
+    assert (
+        successor.logical_call_key
+        == hashlib.sha256(
+            b"llm-unitize\0cand-1\0anthropic:unitizer\0"
+            b"stage-a-prompt-contract\0claim-ontology-v2"
+        ).hexdigest()
+    )
+    assert successor.logical_call_key != legacy.logical_call_key
+
+
+def test_legacy_and_successor_calls_share_one_cycle_cap(tmp_path: Path) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    common = {
+        "stage": "llm-unitize",
+        "candidate_id": "cand-1",
+        "model_key": "openai:judge-a",
+        "model_registry_sha256": "registry-sha256",
+    }
+    for prompt, contract in (
+        ("legacy prompt", None),
+        ("successor prompt", "claim-ontology-v2"),
+    ):
+        with ProviderAttemptJournal(
+            path,
+            identity=ProviderCallIdentity(
+                **common,
+                prompt=prompt,
+                prompt_contract=contract,
+            ),
+            provider="openai",
+            reservation_usd=0.4,
+            cycle_cap_usd=1.0,
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:frozen-caps",
+        ) as journal:
+            journal.run_attempt(1, lambda prompt=prompt: {"prompt": prompt})
+            journal.settle_attempt(
+                1,
+                input_tokens=1,
+                output_tokens=1,
+                actual_cost_usd=0.1,
+                raw_output="{}",
+            )
+            journal.commit_reconstruction({"ok": True})
+
+    with sqlite3.connect(path) as connection:
+        attempts = connection.execute(
+            "SELECT COUNT(*) FROM provider_attempts"
+        ).fetchone()[0]
+        ledgers = connection.execute(
+            "SELECT COUNT(*) FROM provider_ledgers"
+        ).fetchone()[0]
+    assert attempts == 2
+    assert ledgers == 1
 
 
 def test_journal_closes_connection_when_pragma_fails(

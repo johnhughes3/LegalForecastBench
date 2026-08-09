@@ -363,10 +363,17 @@ class ProviderCallIdentity:
     prompt: str
     model_registry_sha256: str
     account: str = "default"
+    prompt_contract: str | None = None
 
     @property
     def logical_call_key(self) -> str:
-        payload = "\0".join((self.stage, self.candidate_id, self.model_key))
+        parts = (self.stage, self.candidate_id, self.model_key)
+        if self.prompt_contract is None:
+            payload = "\0".join(parts)
+        else:
+            payload = "\0".join(
+                (*parts, "stage-a-prompt-contract", self.prompt_contract)
+            )
         return hashlib.sha256(payload.encode()).hexdigest()
 
     @property
