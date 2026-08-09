@@ -1051,6 +1051,25 @@ class ProviderAttemptJournal:
             )
         for row in rows:
             self._validate_replay(row)
+        first, second = rows[:2]
+        if (
+            isinstance(first["normalized_response_json"], str)
+            and isinstance(first["failure_type"], str)
+            and bool(first["failure_type"])
+            and isinstance(first["failure_message"], str)
+            and bool(first["failure_message"])
+            and first["normalized_response_json"] == second["normalized_response_json"]
+            and first["failure_type"] == second["failure_type"]
+            and first["failure_message"] == second["failure_message"]
+            and first["reconstructed_result_json"] is None
+            and second["reconstructed_result_json"] is None
+            and isinstance(first["raw_response_json"], str)
+            and isinstance(second["raw_response_json"], str)
+        ):
+            raise ProviderJournalError(
+                "terminal escalation rejects a third attempt after the early "
+                "two-identical route qualified"
+            )
         if any(
             row["reconstructed_result_json"] is not None
             or not isinstance(row["raw_response_json"], str)

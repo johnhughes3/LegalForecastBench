@@ -969,6 +969,35 @@ def test_terminal_escalation_reads_three_exhausted_failures_without_a_fourth_cal
     )
 
 
+def test_exhausted_terminal_escalation_rejects_third_attempt_after_v1_qualified(
+    tmp_path: Path,
+) -> None:
+    """A late v2 receipt cannot authenticate a third call the v1 route forbade."""
+
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        for ordinal in (1, 2, 3):
+            if ordinal > 1:
+                assert (
+                    journal.prepare_reconstruction_retry(max_attempts=3) == 4 - ordinal
+                )
+            journal.run_attempt(1, lambda: {"output": "identical-invalid"})
+            journal.settle_attempt(
+                journal.durable_attempt_ordinal(1),
+                input_tokens=10,
+                output_tokens=2,
+                actual_cost_usd=0.01,
+                raw_output="identical-invalid",
+            )
+            journal.record_reconstruction_failure(ValueError("same rejection"))
+
+        with pytest.raises(
+            ProviderJournalError,
+            match="third attempt after the early two-identical route qualified",
+        ):
+            journal.exhausted_reconstruction_failure_evidence()
+
+
 @pytest.mark.parametrize(
     "second_raw_output,second_failure_message",
     [("different", "exact local rejection"), ("invalid", "different rejection")],
