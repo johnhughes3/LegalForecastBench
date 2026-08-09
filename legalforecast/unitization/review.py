@@ -515,6 +515,7 @@ def _verify_adjudication_review_coverage(
     """Recheck complete queue/source consumption without trusting the applicator."""
 
     resolved_review_ids: set[str] = set()
+    consumed_source_unit_ids: dict[str, set[str]] = {}
     for adjudication_id, adjudication in adjudications.items():
         candidate_id = _required_str(adjudication, "candidate_id")
         raw_record = raw_by_candidate.get(candidate_id)
@@ -593,6 +594,15 @@ def _verify_adjudication_review_coverage(
                 raise UnitizationReviewError(
                     f"{adjudication_id}: source unit is not a raw candidate unit"
                 )
+        already_consumed = consumed_source_unit_ids.setdefault(
+            candidate_id, set()
+        ).intersection(source_unit_ids)
+        if already_consumed:
+            raise UnitizationReviewError(
+                f"{adjudication_id}: source units were adjudicated more than once: "
+                f"{sorted(already_consumed)}"
+            )
+        consumed_source_unit_ids[candidate_id].update(source_unit_ids)
         finalized_units = _record_sequence(
             adjudication.get("finalized_units", ()), "finalized_units"
         )

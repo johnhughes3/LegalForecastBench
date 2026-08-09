@@ -406,6 +406,42 @@ def test_verifier_rejects_unresolved_same_source_review() -> None:
         )
 
 
+def test_verifier_rejects_two_adjudications_of_same_raw_source() -> None:
+    raw = [_candidate("cand", [_unit("a")])]
+    first = _review("cand", "a")
+    second = {**first, "review_id": "cand:a:structural:second"}
+    first_replacement = _unit("first")
+    second_replacement = _unit("second")
+    first_adjudication = _adjudication("cand", "AMEND", ["a"], [first_replacement])
+    first_adjudication["review_ids"] = [first["review_id"]]
+    second_adjudication = _adjudication("cand", "AMEND", ["a"], [second_replacement])
+    second_adjudication["adjudication_id"] = "adj-cand-second"
+    second_adjudication["review_ids"] = [second["review_id"]]
+    [first_finalized] = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=[first],
+        adjudication_records=[first_adjudication],
+    )
+    [second_finalized] = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=[second],
+        adjudication_records=[second_adjudication],
+    )
+    forged = deepcopy(first_finalized)
+    forged["prediction_units"].extend(second_finalized["prediction_units"])
+    forged["unitization_review_queue_sha256"] = canonical_records_sha256(
+        [first, second]
+    )
+
+    with pytest.raises(UnitizationReviewError, match="more than once"):
+        verify_finalized_prediction_units(
+            [forged],
+            raw,
+            [first_adjudication, second_adjudication],
+            [first, second],
+        )
+
+
 def test_finalized_chain_rejects_multiple_automatic_source_hashes() -> None:
     raw = [_candidate("cand", [_unit("a"), _unit("b")])]
     finalized = apply_unitization_reviews(
