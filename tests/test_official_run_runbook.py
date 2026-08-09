@@ -1377,6 +1377,9 @@ def test_replacement_reprojection_is_the_only_post_quarantine_downstream_cohort(
     assert 'canonical_target_root="$replacement_root/01-projection"' in runbook
     assert "$canonical_target_root/target-cohort-selection.jsonl" in runbook
     assert "$canonical_target_root/run-cards/project-target-cohort.json" in runbook
+    assert "SUCCESSOR_PLAN_ROOT" in runbook
+    assert "SUCCESSOR_PLAN_ROOT/successor-exclusions.jsonl" in runbook
+    assert "must not be inferred from `EXACT100_ROOT`" in runbook
     assert "finalize-corpus --target-clean-cases 100" in runbook
     assert (
         "The narrow successor purchase selection authorizes a tranche but never "

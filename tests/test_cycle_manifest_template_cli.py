@@ -886,6 +886,7 @@ def test_replacement_corpus_consolidates_promoted_purchases_and_exclusions(
         "EXACT100_ROOT": tmp_path / "exact-100",
         "PARSER_ROOT": tmp_path / "parser",
         "SUCCESSOR_ARTIFACT_ROOT": tmp_path / "successor",
+        "SUCCESSOR_PLAN_ROOT": tmp_path / "successor-plan",
         "SUCCESSOR_PRIVATE_ROOT": tmp_path / "successor-private",
         "SUCCESSOR_RECOVERY_SOURCE_DIR": tmp_path / "successor-recovery-sources",
         "REPO_ROOT": Path(__file__).parents[1],
@@ -961,6 +962,17 @@ def test_replacement_corpus_consolidates_promoted_purchases_and_exclusions(
     assert exclusions.arguments[
         exclusions.arguments.index("--target-cohort-root") + 1
     ] == str(assignments["EXACT100_ROOT"])
+    exclusion_sources = [
+        exclusions.arguments[index + 1]
+        for index, argument in enumerate(exclusions.arguments)
+        if argument == "--exclusion-source"
+    ]
+    assert exclusion_sources[-1] == str(
+        assignments["SUCCESSOR_PLAN_ROOT"] / "successor-exclusions.jsonl"
+    )
+    assert str(assignments["EXACT100_ROOT"] / "target-cohort-exclusions.jsonl") not in (
+        exclusion_sources
+    )
     materialize = config.stages[4]
     assert materialize.arguments[
         materialize.arguments.index("--preparation-root") + 1
