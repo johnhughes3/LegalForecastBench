@@ -117,6 +117,31 @@ from legalforecast.unitization.schemas import (
 
 JsonRecord = dict[str, Any]
 DEFAULT_LABEL_AUDIT_SAMPLE_SIZE = 30
+STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT = "claim-ontology-v2"
+_STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = frozenset(
+    {STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT}
+)
+
+
+def stage_a_provider_attempt_stage(
+    base_stage: str, provider_attempt_namespace: str | None
+) -> str:
+    """Return the durable provider stage for one versioned Stage A contract.
+
+    An absent namespace preserves the historical logical-call identity exactly.
+    A named successor remains in the same cycle-wide journal and under the same
+    provider cap, but cannot replay a response produced for a different prompt
+    contract.
+    """
+
+    if provider_attempt_namespace is None:
+        return base_stage
+    if provider_attempt_namespace not in _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS:
+        raise LlmPipelineError(
+            "unknown Stage A provider attempt namespace; expected one of: "
+            + ", ".join(sorted(_STAGE_A_PROVIDER_ATTEMPT_CONTRACTS))
+        )
+    return f"{base_stage}:{provider_attempt_namespace}"
 
 
 def _reconstruction_retry_max_attempts(
@@ -339,9 +364,13 @@ def llm_unitize_cases(
     provider_cycle_caps_sha256: str | None = None,
     provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None = None,
     provider_accounts: Mapping[str, str] | None = None,
+    provider_attempt_namespace: str | None = None,
 ) -> LlmBatchResult:
     """Generate and validate Stage A prediction units from predecision materials."""
 
+    provider_stage = stage_a_provider_attempt_stage(
+        "llm-unitize", provider_attempt_namespace
+    )
     parser_by_key = _parser_records_by_candidate_and_document(parser_records)
     records: list[JsonRecord] = []
     audit_records: list[JsonRecord] = []
@@ -377,6 +406,7 @@ def llm_unitize_cases(
                 ),
                 cycle_id=provider_cycle_id,
                 provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+                provider_attempt_namespace=provider_attempt_namespace,
             )
             max_attempts = _reconstruction_retry_max_attempts(journal)
             response = complete_live_prompt(
@@ -392,7 +422,7 @@ def llm_unitize_cases(
                     authorities=provider_spend_authorities,
                     accounts=provider_accounts,
                     cycle_id=provider_cycle_id,
-                    stage="llm-unitize",
+                    stage=provider_stage,
                     candidate_id=candidate_id,
                     registry_entry=registry_entry,
                 ),
@@ -539,6 +569,7 @@ def recover_llm_unitization_reconstruction(
     provider_cycle_id: str,
     provider_cycle_caps_sha256: str,
     provider_account: str,
+    provider_attempt_namespace: str | None = None,
 ) -> LlmUnitizationReconstructionRecovery:
     """Revalidate and settle the latest failed Stage A response without a call."""
 
@@ -563,6 +594,7 @@ def recover_llm_unitization_reconstruction(
         cycle_cap_usd=provider_cycle_cap_usd,
         cycle_id=provider_cycle_id,
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     if journal is None:
         raise LlmPipelineError("provider reconstruction recovery requires a journal")
@@ -651,6 +683,7 @@ def recover_llm_stage_a_structural_review_reconstruction(
     provider_cycle_id: str,
     provider_cycle_caps_sha256: str,
     provider_account: str,
+    provider_attempt_namespace: str | None = None,
 ) -> LlmStageAStructuralReviewReconstructionRecovery:
     """Revalidate and settle one failed structural-review response without a call."""
 
@@ -680,6 +713,7 @@ def recover_llm_stage_a_structural_review_reconstruction(
         cycle_cap_usd=provider_cycle_cap_usd,
         cycle_id=provider_cycle_id,
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     if journal is None:
         raise LlmPipelineError("provider reconstruction recovery requires a journal")
@@ -746,6 +780,7 @@ def build_llm_stage_a_structural_review_terminal_escalation(
     provider_cycle_id: str,
     provider_cycle_caps_sha256: str,
     provider_account: str,
+    provider_attempt_namespace: str | None = None,
 ) -> LlmStageAStructuralReviewTerminalEscalation:
     """Build one narrow, provider-free escalation from durable failures.
 
@@ -787,6 +822,7 @@ def build_llm_stage_a_structural_review_terminal_escalation(
         cycle_cap_usd=provider_cycle_cap_usd,
         cycle_id=provider_cycle_id,
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     if journal is None:
         raise LlmPipelineError("provider terminal escalation requires a journal")
@@ -935,9 +971,13 @@ def llm_review_stage_a_units(
         tuple[LlmStageAStructuralReviewTerminalEscalation, Mapping[str, Any]],
     ]
     | None = None,
+    provider_attempt_namespace: str | None = None,
 ) -> LlmBatchResult:
     """Flag structural defects without permitting the reviewer to rewrite Stage A."""
 
+    provider_stage = stage_a_provider_attempt_stage(
+        "llm-review-stage-a", provider_attempt_namespace
+    )
     selections = tuple(selection_records)
     parser_rows = tuple(parser_records)
     parser_by_key = _parser_records_by_candidate_and_document(parser_rows)
@@ -1037,6 +1077,7 @@ def llm_review_stage_a_units(
             ),
             cycle_id=provider_cycle_id,
             provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         try:
             max_attempts = _reconstruction_retry_max_attempts(journal)
@@ -1053,7 +1094,7 @@ def llm_review_stage_a_units(
                     authorities=provider_spend_authorities,
                     accounts=provider_accounts,
                     cycle_id=provider_cycle_id,
-                    stage="llm-review-stage-a",
+                    stage=provider_stage,
                     candidate_id=candidate_id,
                     registry_entry=registry_entry,
                 ),
@@ -2374,6 +2415,7 @@ def _provider_attempt_journal(
     cycle_cap_usd: float,
     cycle_id: str | None,
     provider_cycle_caps_sha256: str | None,
+    provider_attempt_namespace: str | None = None,
 ) -> ProviderAttemptJournal | None:
     if path is None:
         return None
@@ -2390,6 +2432,7 @@ def _provider_attempt_journal(
             prompt=prompt,
             model_registry_sha256=model_registry_sha256 or "unrecorded",
             account=account,
+            prompt_contract=provider_attempt_namespace,
         ),
         provider=registry_entry.provider,
         reservation_usd=maximum_call_cost_usd(

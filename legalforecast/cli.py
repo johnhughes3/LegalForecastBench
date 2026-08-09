@@ -918,6 +918,7 @@ from legalforecast.labeling.label_outcomes import (
 )
 from legalforecast.labeling.llm_pipeline import (
     DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
+    STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
     LlmConsensusPolicy,
     LlmPipelineError,
     LlmStageAStructuralReviewTerminalEscalation,
@@ -931,6 +932,7 @@ from legalforecast.labeling.llm_pipeline import (
     merge_stage_a_review_queue,
     recover_llm_stage_a_structural_review_reconstruction,
     recover_llm_unitization_reconstruction,
+    stage_a_provider_attempt_stage,
     stage_a_structural_flag_records,
     stage_a_structural_review_prompt_records,
     stage_a_unitization_prompt_records,
@@ -955,6 +957,7 @@ from legalforecast.labeling.provider_cycle_caps_materializer import (
 )
 from legalforecast.labeling.provider_journal import (
     PROVIDER_JOURNAL_SCHEMA_VERSION,
+    ProviderCallIdentity,
     ProviderCycleCaps,
     ProviderJournalError,
     load_provider_cycle_caps,
@@ -9275,6 +9278,14 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         ),
     )
     parser.add_argument(
+        "--provider-attempt-namespace",
+        choices=(STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,),
+        help=(
+            "Closed prompt-contract namespace for an authenticated successor "
+            "run. Omit only when replaying the historical Stage A contract."
+        ),
+    )
+    parser.add_argument(
         "--prediction-units-output",
         type=Path,
         help="Output JSONL with candidate_id and prediction_units.",
@@ -9583,6 +9594,14 @@ def _add_acquisition_llm_review_stage_a_arguments(
         help=(
             "Exact canonical cycle-wide provider journal committed by llm-unitize. "
             "Required with --execute."
+        ),
+    )
+    parser.add_argument(
+        "--provider-attempt-namespace",
+        choices=(STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,),
+        help=(
+            "Closed prompt-contract namespace; it must match the authenticated "
+            "unitization run card for a successor replay."
         ),
     )
     parser.add_argument(
@@ -57241,6 +57260,7 @@ def _pre_reconstruction_provider_state_sha256(
     candidate_id: str,
     model_key: str,
     attempt_ordinal: int,
+    provider_attempt_namespace: str | None = None,
 ) -> str:
     """Reconstruct the exact journal state immediately before local recovery."""
 
@@ -57252,6 +57272,18 @@ def _pre_reconstruction_provider_state_sha256(
         and row.get("candidate_id") == candidate_id
         and row.get("model_key") == model_key
         and row.get("attempt_ordinal") == attempt_ordinal
+        and (
+            provider_attempt_namespace is None
+            or row.get("logical_call_key")
+            == ProviderCallIdentity(
+                stage=stage,
+                candidate_id=candidate_id,
+                model_key=model_key,
+                prompt=_required_str(row, "prompt_text"),
+                model_registry_sha256=_required_str(row, "model_registry_sha256"),
+                prompt_contract=provider_attempt_namespace,
+            ).logical_call_key
+        )
     ]
     if len(matches) != 1:
         raise CommandError("reconstruction recovery journal target coverage differs")
@@ -57302,6 +57334,7 @@ def _verify_stage_a_provider_replay(
     prediction_units_path: Path,
     audit_path: Path,
     review_queue_path: Path,
+    provider_attempt_namespace: str | None = None,
 ) -> tuple[dict[str, JsonRecord], str]:
     try:
         verify_provider_journal_identity(
@@ -57350,14 +57383,44 @@ def _verify_stage_a_provider_replay(
         or set(audit_by_candidate) != candidate_ids
     ):
         raise CommandError("llm-unitize candidate coverage differs from selection")
-    attempt_rows = _stage_a_provider_attempt_rows(lineage.provider_journal_path)
+    all_attempt_rows = _stage_a_provider_attempt_rows(lineage.provider_journal_path)
+    active_keys: dict[str, str] = {}
+    recognized_keys: dict[str, frozenset[str]] = {}
+    for candidate_id in candidate_ids:
+        prompt = _required_str(prompts_by_candidate[candidate_id], "prompt")
+        base_identity = dict(
+            stage="llm-unitize",
+            candidate_id=candidate_id,
+            model_key=lineage.registry_entry.registry_key,
+            prompt=prompt,
+            model_registry_sha256=lineage.registry_sha256,
+        )
+        active_keys[candidate_id] = ProviderCallIdentity(
+            **base_identity,
+            prompt_contract=provider_attempt_namespace,
+        ).logical_call_key
+        recognized_keys[candidate_id] = frozenset(
+            ProviderCallIdentity(
+                **base_identity,
+                prompt_contract=contract,
+            ).logical_call_key
+            for contract in (None, STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT)
+        )
     rows_by_candidate: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
-    for row in attempt_rows:
+    attempt_rows: list[Mapping[str, Any]] = []
+    for row in all_attempt_rows:
         candidate_id = _required_str(row, "candidate_id")
-        if candidate_id not in candidate_ids:
+        if (
+            candidate_id not in candidate_ids
+            or row.get("model_key") != lineage.registry_entry.registry_key
+            or row.get("logical_call_key") not in recognized_keys[candidate_id]
+        ):
             raise CommandError(
-                f"llm-unitize journal contains an unselected candidate: {candidate_id}"
+                f"llm-unitize provider identity or prompt differs: {candidate_id}"
             )
+        if row.get("logical_call_key") != active_keys[candidate_id]:
+            continue
+        attempt_rows.append(row)
         rows_by_candidate[candidate_id].append(row)
     prompt_commitments: dict[str, JsonRecord] = {}
     journal_queue_by_candidate: dict[str, list[JsonRecord]] = {}
@@ -57365,11 +57428,7 @@ def _verify_stage_a_provider_replay(
         prompt_record = prompts_by_candidate[candidate_id]
         prompt = _required_str(prompt_record, "prompt")
         prompt_digest = _required_str(prompt_record, "prompt_sha256")
-        expected_logical_key = hashlib.sha256(
-            "\0".join(
-                ("llm-unitize", candidate_id, lineage.registry_entry.registry_key)
-            ).encode("utf-8")
-        ).hexdigest()
+        expected_logical_key = active_keys[candidate_id]
         candidate_rows = rows_by_candidate[candidate_id]
         if any(
             row.get("logical_call_key") != expected_logical_key
@@ -57498,6 +57557,7 @@ def _stage_a_unitization_run_card_extra(
     prediction_units_path: Path,
     audit_path: Path,
     review_queue_path: Path,
+    provider_attempt_namespace: str | None = None,
 ) -> JsonRecord:
     # The explicit root is required to interpret relative parser-manifest paths.
     prompt_records = stage_a_unitization_prompt_records(
@@ -57511,6 +57571,7 @@ def _stage_a_unitization_run_card_extra(
         prediction_units_path=prediction_units_path,
         audit_path=audit_path,
         review_queue_path=review_queue_path,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     # _verify_stage_a_provider_replay reconstructs prompts independently. This
     # direct equality guard prevents a future root-derivation change from widening
@@ -57524,6 +57585,22 @@ def _stage_a_unitization_run_card_extra(
         for candidate_id, record in prompt_commitments.items()
     } != direct_prompt_commitments:
         raise CommandError("llm-unitize prompt commitment reconstruction differs")
+    model_execution: JsonRecord = {
+        "model_key": lineage.registry_entry.registry_key,
+        "model_entry_sha256": "sha256:"
+        + model_registry_entry_sha256(lineage.registry_entry),
+        "model_registry_sha256": lineage.registry_sha256,
+        "provider": lineage.registry_entry.provider,
+        "provider_journal_schema_version": PROVIDER_JOURNAL_SCHEMA_VERSION,
+        "provider_cycle_caps_sha256": lineage.provider_caps_sha256,
+        "provider_cycle_caps_cycle_id": lineage.provider_caps.cycle_id,
+        "provider_cycle_cap_usd": lineage.provider_caps.cap_usd(
+            lineage.registry_entry.provider
+        ),
+        "provider_attempts_sha256": attempts_sha256,
+    }
+    if provider_attempt_namespace is not None:
+        model_execution["provider_attempt_namespace"] = provider_attempt_namespace
     return {
         "lineage_schema_version": _STAGE_A_UNITIZATION_LINEAGE_SCHEMA_VERSION,
         "lineage_complete": True,
@@ -57534,20 +57611,7 @@ def _stage_a_unitization_run_card_extra(
             "provider_journal": str(lineage.provider_journal_path.resolve()),
         },
         "input_commitments": dict(lineage.input_commitments),
-        "model_execution": {
-            "model_key": lineage.registry_entry.registry_key,
-            "model_entry_sha256": "sha256:"
-            + model_registry_entry_sha256(lineage.registry_entry),
-            "model_registry_sha256": lineage.registry_sha256,
-            "provider": lineage.registry_entry.provider,
-            "provider_journal_schema_version": PROVIDER_JOURNAL_SCHEMA_VERSION,
-            "provider_cycle_caps_sha256": lineage.provider_caps_sha256,
-            "provider_cycle_caps_cycle_id": lineage.provider_caps.cycle_id,
-            "provider_cycle_cap_usd": lineage.provider_caps.cap_usd(
-                lineage.registry_entry.provider
-            ),
-            "provider_attempts_sha256": attempts_sha256,
-        },
+        "model_execution": model_execution,
         "prompt_commitments": prompt_commitments,
         "output_commitments": {
             "prediction_units": _stage_a_file_commitment(prediction_units_path),
@@ -57564,10 +57628,39 @@ def _incomplete_stage_a_unitization_run_card_extra(
     prediction_units_path: Path,
     audit_path: Path,
     review_queue_path: Path,
+    provider_attempt_namespace: str | None = None,
 ) -> JsonRecord:
     """Commit a resumable partial run without making it downstream-admissible."""
 
-    attempt_rows = _stage_a_provider_attempt_rows(lineage.provider_journal_path)
+    attempt_rows = tuple(
+        row
+        for row in _stage_a_provider_attempt_rows(lineage.provider_journal_path)
+        if row.get("logical_call_key")
+        == ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id=_required_str(row, "candidate_id"),
+            model_key=_required_str(row, "model_key"),
+            prompt=_required_str(row, "prompt_text"),
+            model_registry_sha256=_required_str(row, "model_registry_sha256"),
+            prompt_contract=provider_attempt_namespace,
+        ).logical_call_key
+    )
+    model_execution: JsonRecord = {
+        "model_key": lineage.registry_entry.registry_key,
+        "model_entry_sha256": "sha256:"
+        + model_registry_entry_sha256(lineage.registry_entry),
+        "model_registry_sha256": lineage.registry_sha256,
+        "provider": lineage.registry_entry.provider,
+        "provider_journal_schema_version": PROVIDER_JOURNAL_SCHEMA_VERSION,
+        "provider_cycle_caps_sha256": lineage.provider_caps_sha256,
+        "provider_cycle_caps_cycle_id": lineage.provider_caps.cycle_id,
+        "provider_cycle_cap_usd": lineage.provider_caps.cap_usd(
+            lineage.registry_entry.provider
+        ),
+        "provider_attempts_sha256": _canonical_json_sha256(attempt_rows),
+    }
+    if provider_attempt_namespace is not None:
+        model_execution["provider_attempt_namespace"] = provider_attempt_namespace
     return {
         "lineage_schema_version": _STAGE_A_UNITIZATION_LINEAGE_SCHEMA_VERSION,
         "lineage_complete": False,
@@ -57578,20 +57671,7 @@ def _incomplete_stage_a_unitization_run_card_extra(
             "provider_journal": str(lineage.provider_journal_path.resolve()),
         },
         "input_commitments": dict(lineage.input_commitments),
-        "model_execution": {
-            "model_key": lineage.registry_entry.registry_key,
-            "model_entry_sha256": "sha256:"
-            + model_registry_entry_sha256(lineage.registry_entry),
-            "model_registry_sha256": lineage.registry_sha256,
-            "provider": lineage.registry_entry.provider,
-            "provider_journal_schema_version": PROVIDER_JOURNAL_SCHEMA_VERSION,
-            "provider_cycle_caps_sha256": lineage.provider_caps_sha256,
-            "provider_cycle_caps_cycle_id": lineage.provider_caps.cycle_id,
-            "provider_cycle_cap_usd": lineage.provider_caps.cap_usd(
-                lineage.registry_entry.provider
-            ),
-            "provider_attempts_sha256": _canonical_json_sha256(attempt_rows),
-        },
+        "model_execution": model_execution,
         "prompt_commitments": {},
         "output_commitments": {
             "prediction_units": _stage_a_file_commitment(prediction_units_path),
@@ -57651,6 +57731,18 @@ def _verify_stage_a_unitization_run_card(
     model_key = execution_record.get("model_key")
     if not isinstance(model_key, str) or not model_key.strip():
         raise CommandError("llm-unitize run card lacks model key")
+    provider_attempt_namespace_value = execution_record.get(
+        "provider_attempt_namespace"
+    )
+    if provider_attempt_namespace_value is not None and not isinstance(
+        provider_attempt_namespace_value, str
+    ):
+        raise CommandError("llm-unitize provider attempt namespace is invalid")
+    provider_attempt_namespace = provider_attempt_namespace_value
+    try:
+        stage_a_provider_attempt_stage("llm-unitize", provider_attempt_namespace)
+    except LlmPipelineError as exc:
+        raise CommandError(str(exc)) from exc
     document_root = root_records.get("document_root")
     markdown_root = root_records.get("markdown_root")
     provider_journal = root_records.get("provider_journal")
@@ -57717,6 +57809,7 @@ def _verify_stage_a_unitization_run_card(
         prediction_units_path=raw_path,
         audit_path=audit_path,
         review_queue_path=queue_path,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     if card.get("prompt_commitments") != prompt_commitments:
         raise CommandError("llm-unitize prompt or output commitment changed")
@@ -57734,6 +57827,8 @@ def _verify_stage_a_unitization_run_card(
         ),
         "provider_attempts_sha256": attempts_sha256,
     }
+    if provider_attempt_namespace is not None:
+        expected_execution["provider_attempt_namespace"] = provider_attempt_namespace
     if dict(execution_record) != expected_execution:
         raise CommandError("llm-unitize model/provider execution commitment changed")
     raw_input_paths = card.get("input_paths")
@@ -58083,6 +58178,7 @@ def _verified_provider_stage_attempts(
     expected_nonsettled_statuses: Mapping[tuple[str, str], str] | None = None,
     expected_nonsettled_attempt_counts: Mapping[tuple[str, str], int] | None = None,
     allow_additional_calls: bool = False,
+    provider_attempt_namespace: str | None = None,
 ) -> JsonRecord:
     nonsettled_statuses = dict(expected_nonsettled_statuses or {})
     nonsettled_attempt_counts = dict(expected_nonsettled_attempt_counts or {})
@@ -58098,10 +58194,30 @@ def _verified_provider_stage_attempts(
                 f"{stage} journal contains an unexpected candidate/model call: {key}"
             )
         expected_prompt_sha = expected_prompts[key].removeprefix("sha256:")
-        expected_logical_key = hashlib.sha256(
-            "\0".join((stage, key[0], key[1])).encode("utf-8")
-        ).hexdigest()
         prompt_text = _required_str(row, "prompt_text")
+        identity_kwargs = {
+            "stage": stage,
+            "candidate_id": key[0],
+            "model_key": key[1],
+            "prompt": prompt_text,
+            "model_registry_sha256": model_registry_sha256,
+        }
+        expected_logical_key = ProviderCallIdentity(
+            **identity_kwargs,
+            prompt_contract=provider_attempt_namespace,
+        ).logical_call_key
+        if stage in {"llm-unitize", "llm-review-stage-a"}:
+            alternate_contract = (
+                None
+                if provider_attempt_namespace is not None
+                else STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT
+            )
+            alternate_logical_key = ProviderCallIdentity(
+                **identity_kwargs,
+                prompt_contract=alternate_contract,
+            ).logical_call_key
+            if row.get("logical_call_key") == alternate_logical_key:
+                continue
         if (
             row.get("stage") != stage
             or row.get("logical_call_key") != expected_logical_key
@@ -58171,12 +58287,15 @@ def _verified_provider_stage_attempts(
             )
         ):
             raise CommandError(f"{stage} requires one settled provider call: {key}")
-    return {
+    result: JsonRecord = {
         "stage": stage,
         "call_count": len(expected_prompts),
         "attempt_count": len(matched_rows),
         "attempts_sha256": _canonical_json_sha256(matched_rows),
     }
+    if provider_attempt_namespace is not None:
+        result["provider_attempt_namespace"] = provider_attempt_namespace
+    return result
 
 
 def _provider_chain_commitment(
@@ -58346,12 +58465,36 @@ def _verify_stage_a_review_run_card(
     ) or (expected_model_key is not None and model_key != expected_model_key):
         raise CommandError("structural review model authority differs")
     entry, registry_sha = _registry_entry_for_key(registry_path, model_key)
+    provider_attempt_namespace_value = execution_record.get(
+        "provider_attempt_namespace"
+    )
+    if provider_attempt_namespace_value is not None and not isinstance(
+        provider_attempt_namespace_value, str
+    ):
+        raise CommandError("structural review provider attempt namespace is invalid")
+    provider_attempt_namespace = provider_attempt_namespace_value
+    unit_execution = unit_card_record.get("model_execution")
+    unitization_namespace = (
+        cast(Mapping[str, object], unit_execution).get("provider_attempt_namespace")
+        if isinstance(unit_execution, Mapping)
+        else None
+    )
+    if unitization_namespace != provider_attempt_namespace:
+        raise CommandError(
+            "structural review provider attempt namespace differs from unitization"
+        )
+    try:
+        stage_a_provider_attempt_stage("llm-review-stage-a", provider_attempt_namespace)
+    except LlmPipelineError as exc:
+        raise CommandError(str(exc)) from exc
     expected_execution = {
         "model_key": entry.registry_key,
         "model_entry_sha256": "sha256:" + model_registry_entry_sha256(entry),
         "model_registry_sha256": registry_sha,
         "provider": entry.provider,
     }
+    if provider_attempt_namespace is not None:
+        expected_execution["provider_attempt_namespace"] = provider_attempt_namespace
     if dict(execution_record) != expected_execution:
         raise CommandError("structural review model execution commitment changed")
     selection_path = _stage_a_committed_path(source_records, "selection")
@@ -58429,6 +58572,7 @@ def _verify_stage_a_review_run_card(
         markdown_root=lineage.markdown_root,
         registry_entry=entry,
         registry_sha256=registry_sha,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     if set(terminal_escalations) != {
         candidate_id
@@ -58446,6 +58590,7 @@ def _verify_stage_a_review_run_card(
             key: "reconstruction_failed" for key in terminal_attempt_counts
         },
         expected_nonsettled_attempt_counts=terminal_attempt_counts,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     if chain_record.get("stage_attempts") != stage_attempts:
         raise CommandError("structural review provider attempts changed")
@@ -58454,6 +58599,17 @@ def _verify_stage_a_review_run_card(
     )
     settled_by_candidate: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for row in attempt_rows:
+        candidate_id = _required_str(row, "candidate_id")
+        expected_key = ProviderCallIdentity(
+            stage="llm-review-stage-a",
+            candidate_id=candidate_id,
+            model_key=_required_str(row, "model_key"),
+            prompt=_required_str(row, "prompt_text"),
+            model_registry_sha256=_required_str(row, "model_registry_sha256"),
+            prompt_contract=provider_attempt_namespace,
+        ).logical_call_key
+        if row.get("logical_call_key") != expected_key:
+            continue
         if row.get("status") == "settled":
             settled_by_candidate[_required_str(row, "candidate_id")].append(row)
     reconstructed_flags: list[JsonRecord] = []
@@ -59075,6 +59231,9 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
         else None
     )
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    provider_attempt_namespace = cast(
+        str | None, getattr(args, "provider_attempt_namespace", None)
+    )
     lineage = _verify_stage_a_unitization_lineage(args, markdown_root=markdown_root)
     candidate_id = cast(str, args.candidate_id).strip()
     matches = tuple(
@@ -59115,6 +59274,7 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
             provider_account=_local_provider_account(
                 lineage.provider_caps, lineage.registry_entry.provider
             ),
+            provider_attempt_namespace=provider_attempt_namespace,
         )
     except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
@@ -59129,6 +59289,7 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
         candidate_id=result.candidate_id,
         model_key=lineage.registry_entry.registry_key,
         attempt_ordinal=result.attempt_ordinal,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     if (
         journal_before_sha256 != journal_after_sha256
@@ -59146,6 +59307,8 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
         "provider_journal_before_state_sha256": derived_before_sha256,
         "provider_journal_after_state_sha256": journal_after_sha256,
     }
+    if provider_attempt_namespace is not None:
+        recovery_record["provider_attempt_namespace"] = provider_attempt_namespace
     if existing_recovery is not None:
         if existing_recovery != recovery_record:
             raise CommandError("Stage A reconstruction recovery receipt changed")
@@ -59209,6 +59372,9 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
     units_path = cast(Path, args.prediction_units)
     existing_queue_path = cast(Path, args.unitization_review_queue)
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    provider_attempt_namespace = cast(
+        str | None, getattr(args, "provider_attempt_namespace", None)
+    )
     lineage, unitization_card_path = _verified_shared_provider_chain(
         args,
         raw_prediction_units_path=units_path,
@@ -59254,6 +59420,7 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
             provider_account=_local_provider_account(
                 lineage.provider_caps, registry_entry.provider
             ),
+            provider_attempt_namespace=provider_attempt_namespace,
         )
     except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
@@ -59270,6 +59437,7 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
         candidate_id=result.candidate_id,
         model_key=registry_entry.registry_key,
         attempt_ordinal=result.attempt_ordinal,
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     if (
         journal_before_sha256 != journal_after_sha256
@@ -59287,6 +59455,8 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
         "provider_journal_before_state_sha256": derived_before_sha256,
         "provider_journal_after_state_sha256": journal_after_sha256,
     }
+    if provider_attempt_namespace is not None:
+        recovery_record["provider_attempt_namespace"] = provider_attempt_namespace
     if existing_recovery is not None:
         if existing_recovery != recovery_record:
             raise CommandError("Stage A structural-review recovery receipt changed")
@@ -59334,6 +59504,7 @@ def _verified_stage_a_terminal_escalations(
     markdown_root: Path,
     registry_entry: ModelRegistryEntry,
     registry_sha256: str,
+    provider_attempt_namespace: str | None = None,
 ) -> dict[str, tuple[LlmStageAStructuralReviewTerminalEscalation, JsonRecord]]:
     """Rebuild every requested terminal receipt before a later live resume."""
 
@@ -59390,6 +59561,7 @@ def _verified_stage_a_terminal_escalations(
                     lineage.provider_caps,
                     registry_entry.provider,
                 ),
+                provider_attempt_namespace=provider_attempt_namespace,
             )
         except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
             raise CommandError(str(exc)) from exc
@@ -59426,6 +59598,9 @@ def _cmd_acquisition_terminalize_llm_review_stage_a(args: argparse.Namespace) ->
     units_path = cast(Path, args.prediction_units)
     queue_path = cast(Path, args.unitization_review_queue)
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    provider_attempt_namespace = cast(
+        str | None, getattr(args, "provider_attempt_namespace", None)
+    )
     lineage, unitization_card_path = _verified_shared_provider_chain(
         args,
         raw_prediction_units_path=units_path,
@@ -59472,6 +59647,7 @@ def _cmd_acquisition_terminalize_llm_review_stage_a(args: argparse.Namespace) ->
                 lineage.provider_caps,
                 registry_entry.provider,
             ),
+            provider_attempt_namespace=provider_attempt_namespace,
         )
     except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
@@ -59527,6 +59703,9 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     model_registry_path = cast(Path, args.model_registry)
     provider_caps_path = cast(Path | None, args.provider_cycle_caps)
     dry_run = _acquisition_dry_run(args)
+    provider_attempt_namespace = cast(
+        str | None, getattr(args, "provider_attempt_namespace", None)
+    )
     lineage: _StageAUnitizationLineage | None = None
     if not dry_run:
         lineage = _verify_stage_a_unitization_lineage(
@@ -59593,6 +59772,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
             provider_spend_authorities=provider_spend_authorities,
             provider_accounts=provider_accounts,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         _require_stage_a_lineage_unchanged(lineage)
         _write_jsonl(prediction_units_path, result.records)
@@ -59612,6 +59792,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             prediction_units_path=prediction_units_path,
             audit_path=audit_path,
             review_queue_path=review_queue_path,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         _require_stage_a_lineage_unchanged(lineage)
     _write_acquisition_completion(
@@ -60190,6 +60371,9 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
         cast(Path | None, args.markdown_root) or prospective_output_root / "markdown"
     )
     dry_run = _acquisition_dry_run(args)
+    provider_attempt_namespace = cast(
+        str | None, getattr(args, "provider_attempt_namespace", None)
+    )
     verified_provider_chain: tuple[_StageAUnitizationLineage, Path] | None = None
     if not dry_run:
         verified_provider_chain = _verified_shared_provider_chain(
@@ -60236,6 +60420,20 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     else:
         assert verified_provider_chain is not None
         lineage, authenticated_unitization_card = verified_provider_chain
+        unitization_card_record = _read_json_object(authenticated_unitization_card)
+        unitization_execution = unitization_card_record.get("model_execution")
+        unitization_namespace = (
+            cast(Mapping[str, object], unitization_execution).get(
+                "provider_attempt_namespace"
+            )
+            if isinstance(unitization_execution, Mapping)
+            else None
+        )
+        if unitization_namespace != provider_attempt_namespace:
+            raise CommandError(
+                "structural-review provider attempt namespace differs from "
+                "authenticated unitization"
+            )
         assert verified_reviewer_registry is not None
         entry, registry_sha = verified_reviewer_registry
         terminal_escalations = _verified_stage_a_terminal_escalations(
@@ -60245,6 +60443,7 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             markdown_root=markdown_root,
             registry_entry=entry,
             registry_sha256=registry_sha,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         terminal_candidates = set(terminal_escalations)
         selection_candidates = {
@@ -60280,6 +60479,7 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             provider_spend_authorities=provider_spend_authorities,
             provider_accounts=provider_accounts,
             terminal_escalations=terminal_escalations,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         _write_jsonl(flags_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -60327,6 +60527,7 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             model_registry_sha256=registry_sha,
             expected_nonsettled_statuses=terminal_statuses,
             expected_nonsettled_attempt_counts=terminal_attempt_counts,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
         completion_extra = {
             "provider_chain": _provider_chain_commitment(
@@ -60338,6 +60539,11 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
                 "model_entry_sha256": "sha256:" + model_registry_entry_sha256(entry),
                 "model_registry_sha256": registry_sha,
                 "provider": entry.provider,
+                **(
+                    {"provider_attempt_namespace": provider_attempt_namespace}
+                    if provider_attempt_namespace is not None
+                    else {}
+                ),
             },
             "source_commitments": {
                 "selection": _stage_a_file_commitment(selection_path),

@@ -648,6 +648,41 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
     assert commitments["cand-1"]["prediction_units_sha256"].startswith("sha256:")
     assert digest.startswith("sha256:")
 
+    with ProviderAttemptJournal(
+        journal_path,
+        identity=ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id="cand-1",
+            model_key=registry_entry.registry_key,
+            prompt=str(prompt_record["prompt"]),
+            model_registry_sha256=registry_sha,
+            prompt_contract="claim-ontology-v2",
+        ),
+        provider="openai",
+        reservation_usd=0.1,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=cli._path_sha256(caps_path),
+    ) as journal:
+        journal.run_attempt(1, lambda: {"fixture": "successor-response"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=5,
+            actual_cost_usd=0.01,
+            raw_output=raw_output,
+        )
+        journal.commit_reconstruction({"prediction_units": [unit], "review_items": []})
+    successor_commitments, successor_digest = cli._verify_stage_a_provider_replay(
+        lineage=lineage,
+        prediction_units_path=raw_path,
+        audit_path=audit_path,
+        review_queue_path=queue_path,
+        provider_attempt_namespace="claim-ontology-v2",
+    )
+    assert successor_commitments == commitments
+    assert successor_digest != digest
+
     coordinated_audit = json.loads(audit_path.read_text().strip())
     coordinated_audit["review_items"] = [
         {"unit_id": "unit-1", "reason": "low_confidence"}
