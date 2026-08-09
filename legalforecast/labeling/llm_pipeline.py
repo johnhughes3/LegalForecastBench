@@ -1051,8 +1051,7 @@ def llm_review_stage_a_units(
                 or escalation.prompt != prompt
                 or escalation.prompt_sha256
                 != hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-                or escalation.provider_attempt_namespace
-                != provider_attempt_namespace
+                or escalation.provider_attempt_namespace != provider_attempt_namespace
                 or escalation.frozen_units != tuple(unit.to_record() for unit in units)
                 or escalation.predecision_source_commitments != expected_sources
             ):

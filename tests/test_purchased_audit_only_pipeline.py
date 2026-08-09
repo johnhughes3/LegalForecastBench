@@ -1411,10 +1411,7 @@ def test_structural_review_terminal_escalation_routes_every_frozen_unit_without_
 
     assert provider_calls == 2
     assert escalation.provider_attempt_namespace == "claim-ontology-v2"
-    assert (
-        escalation.to_record()["provider_attempt_namespace"]
-        == "claim-ontology-v2"
-    )
+    assert escalation.to_record()["provider_attempt_namespace"] == "claim-ontology-v2"
     assert [row["attempt_ordinal"] for row in escalation.failed_attempts] == [1, 2]
     assert len(escalation.frozen_units) == 1
     queue = llm_pipeline.structural_review_terminal_escalation_queue_records(escalation)
