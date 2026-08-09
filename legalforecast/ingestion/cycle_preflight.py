@@ -47,6 +47,7 @@ _REQUIRED_NODES: Mapping[str, tuple[str, frozenset[str]]] = {
 _PATH_COMMITMENT_METADATA = frozenset({"record_count"})
 _SCALAR_COMMITMENTS = frozenset({"purchase_state_sha256"})
 _SHARED_ARTIFACTS = (
+    ("recovery", "purchase-baseline", ("purchase-policy-json",)),
     ("recovery", "clearance", ("recovery-card-json", "selection-jsonl")),
     (
         "recovery",
@@ -56,7 +57,7 @@ _SHARED_ARTIFACTS = (
     (
         "purchase-baseline",
         "resolution",
-        ("purchase-after-json", "resolved-jsonl"),
+        ("purchase-policy-json", "purchase-after-json", "resolved-jsonl"),
     ),
     ("clearance", "resolution", ("clearance-card-json", "clearance-jsonl")),
     (

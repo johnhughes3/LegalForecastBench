@@ -525,6 +525,32 @@ def test_resolution_selection_must_match_recovery_selection(tmp_path: Path) -> N
         verify_cycle_manifest(manifest_path)
 
 
+@pytest.mark.parametrize("node_id", ["purchase-baseline", "resolution"])
+def test_purchase_policy_is_bound_across_recovery_and_resolution(
+    tmp_path: Path, node_id: str
+) -> None:
+    capsule = tmp_path / "capsule"
+    shutil.copytree(_CAPSULE.parent, capsule)
+    alternate = capsule / "alternate-purchase-policy.json"
+    alternate.write_bytes((capsule / "purchase-policy.json").read_bytes())
+    manifest_path = capsule / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    node = next(item for item in manifest["nodes"] if item["id"] == node_id)
+    policy = next(
+        artifact
+        for artifact in node["artifacts"]
+        if artifact["name"] == "purchase-policy-json"
+    )
+    policy["path"] = "alternate-purchase-policy.json"
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+
+    with pytest.raises(
+        cycle_preflight.CyclePreflightError,
+        match="dependency artifact differs: purchase-policy-json",
+    ):
+        verify_cycle_manifest(manifest_path)
+
+
 def test_successor_descriptor_artifact_must_match_producer_coordinate(
     tmp_path: Path,
 ) -> None:

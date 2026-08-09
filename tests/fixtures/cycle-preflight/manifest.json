@@ -1,1 +1,270 @@
-{"nodes":[{"artifacts":[{"name":"recovery-card-json","path":"recovery-card.json","sha256":"48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"},{"name":"selection-jsonl","path":"selection.jsonl","sha256":"3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"},{"name":"purchase-policy-json","path":"purchase-policy.json","sha256":"2dda61cc2945a91544096b2c61c60dd9fb6bca0e7d643898ae23a46f72f6edf0"},{"name":"cohort-policy-json","path":"cohort-policy.json","sha256":"074df229e3613e1a4340bda2849f0a9bb560a85eb5fa2ece071be888d2453dff"},{"name":"budget-plan-json","path":"budget-plan.json","sha256":"d37ee26585ab4072e99222460728e8456d093ee5b9c50640a0326009d7a8cf39"},{"name":"purchase-ledger-json","path":"purchase-ledger.json","sha256":"5eb4d84cb05c497aa3fcdbd63906ab2edbfd24ec87846e965edcfd3bbc66128c"},{"name":"attempt-policy-json","path":"attempt-policy.json","sha256":"2369e50f4bfa71505d29feaa2b871a6b6bccf45d49f38ea46274b52a855c9dd6"},{"name":"replacement-authority-json","path":"replacement-authority.json","sha256":"784b5dbf6927b6573ce5c20a14e0f4834083d8bbed8cc788b056154fbb4e76b4"}],"depends_on":[],"id":"recovery","validator":{"card":"recovery-card-json","expected_kind":"successor","input_commitments":{"purchase_ledger":{"path":"purchase-ledger.json","sha256":"sha256:5eb4d84cb05c497aa3fcdbd63906ab2edbfd24ec87846e965edcfd3bbc66128c"}},"kind":"recovery_card"}},{"artifacts":[{"name":"purchase-policy-json","path":"purchase-policy.json","sha256":"2dda61cc2945a91544096b2c61c60dd9fb6bca0e7d643898ae23a46f72f6edf0"},{"name":"purchase-before-json","path":"purchase-before.json","sha256":"bc5377f5e385c3cb0e865507c3e1d4c81d6b9d637d0521a0e333cc347f10b757"},{"name":"purchase-after-json","path":"purchase-after.json","sha256":"ed3b41186b9e43084fbccaaa16e9dd9fc1469affecbb40d3a441a032a4217b26"},{"name":"resolved-jsonl","path":"resolved.jsonl","sha256":"84d285acdabcd02df2702fbcc8c0b99ed1c307d375d83d5c860765d3d6d46b9a"}],"depends_on":[],"id":"purchase-baseline","validator":{"after":"purchase-after-json","before":"purchase-before-json","kind":"purchase_transition","policy":"purchase-policy-json","resolved":"resolved-jsonl"}},{"artifacts":[{"name":"recovery-card-json","path":"recovery-card.json","sha256":"48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"},{"name":"selection-jsonl","path":"selection.jsonl","sha256":"3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"},{"name":"clearance-card-json","path":"clearance-card.json","sha256":"2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"},{"name":"clearance-jsonl","path":"clearance.jsonl","sha256":"f657e8f689bc4678ba2e5159ff6bd017fff0e92d6544582ae8b5daf017e0d938"},{"name":"quarantine-jsonl","path":"quarantine.jsonl","sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}],"depends_on":["recovery"],"id":"clearance","validator":{"card":"clearance-card-json","expected_clearance":"clearance.jsonl","kind":"clearance_card"}},{"artifacts":[{"name":"resolution-card-json","path":"resolution-card.json","sha256":"b766ebd9554c0e017ff692927143effafe9493ebbcde543c9c7c70d358283067"},{"name":"selection-jsonl","path":"selection.jsonl","sha256":"3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"},{"name":"clearance-jsonl","path":"clearance.jsonl","sha256":"f657e8f689bc4678ba2e5159ff6bd017fff0e92d6544582ae8b5daf017e0d938"},{"name":"recovery-card-json","path":"recovery-card.json","sha256":"48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"},{"name":"clearance-card-json","path":"clearance-card.json","sha256":"2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"},{"name":"resolved-jsonl","path":"resolved.jsonl","sha256":"84d285acdabcd02df2702fbcc8c0b99ed1c307d375d83d5c860765d3d6d46b9a"},{"name":"purchase-ledger-json","path":"purchase-ledger.json","sha256":"5eb4d84cb05c497aa3fcdbd63906ab2edbfd24ec87846e965edcfd3bbc66128c"},{"name":"purchase-after-json","path":"purchase-after.json","sha256":"ed3b41186b9e43084fbccaaa16e9dd9fc1469affecbb40d3a441a032a4217b26"},{"name":"empty-terminal-jsonl","path":"empty-terminal.jsonl","sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}],"depends_on":["clearance","purchase-baseline"],"id":"resolution","validator":{"after":"purchase-after-json","card":"resolution-card-json","expected_inputs":["selection.jsonl","clearance.jsonl","recovery-card.json","clearance-card.json"],"expected_resolved":"resolved.jsonl","input_commitments":{"purchase_ledger":{"path":"purchase-ledger.json","sha256":"sha256:5eb4d84cb05c497aa3fcdbd63906ab2edbfd24ec87846e965edcfd3bbc66128c"}},"kind":"resolution_card","ledger":"purchase-ledger.json","terminal":"empty-terminal-jsonl","terminal_path":"empty-terminal.jsonl"}},{"artifacts":[{"name":"recovery-card-json","path":"recovery-card.json","sha256":"48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"},{"name":"replacement-source-json","path":"replacement-source.json","sha256":"aee0f524c863e54bbb2001a9ce2fcc9a989051e60d578d1a69067feaa0183a0f"},{"name":"clearance-card-json","path":"clearance-card.json","sha256":"2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"},{"name":"resolved-jsonl","path":"resolved.jsonl","sha256":"84d285acdabcd02df2702fbcc8c0b99ed1c307d375d83d5c860765d3d6d46b9a"},{"name":"replacement-source-card-json","path":"replacement-source-card.json","sha256":"15a2ed1c36164def4e03c9949325b6157f1ab3b17206d968b4f065ed7befb013"},{"name":"purchase-after-json","path":"purchase-after.json","sha256":"ed3b41186b9e43084fbccaaa16e9dd9fc1469affecbb40d3a441a032a4217b26"}],"depends_on":["resolution"],"id":"replacement-recovery-source","validator":{"after":"purchase-after-json","clearance":"clearance.jsonl","clearance_card":"clearance-card.json","controlled_private_root":"controlled-private","descriptor":"replacement-source-json","descriptor_path":"replacement-source.json","expected_producer_inputs":["recovery-card.json","clearance-card.json","resolved.jsonl"],"kind":"replacement_source","ordinal":1,"producer_card":"replacement-source-card-json","recovery_card":"recovery-card-json","recovery_root":"recovery-output","resolved":"resolved.jsonl"}}],"schema_version":"legalforecast.cycle_preflight_manifest.v1"}
+{
+  "nodes": [
+    {
+      "artifacts": [
+        {
+          "name": "recovery-card-json",
+          "path": "recovery-card.json",
+          "sha256": "48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"
+        },
+        {
+          "name": "selection-jsonl",
+          "path": "selection.jsonl",
+          "sha256": "3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"
+        },
+        {
+          "name": "purchase-policy-json",
+          "path": "purchase-policy.json",
+          "sha256": "2dda61cc2945a91544096b2c61c60dd9fb6bca0e7d643898ae23a46f72f6edf0"
+        },
+        {
+          "name": "cohort-policy-json",
+          "path": "cohort-policy.json",
+          "sha256": "074df229e3613e1a4340bda2849f0a9bb560a85eb5fa2ece071be888d2453dff"
+        },
+        {
+          "name": "budget-plan-json",
+          "path": "budget-plan.json",
+          "sha256": "d37ee26585ab4072e99222460728e8456d093ee5b9c50640a0326009d7a8cf39"
+        },
+        {
+          "name": "purchase-ledger-json",
+          "path": "purchase-ledger.json",
+          "sha256": "5eb4d84cb05c497aa3fcdbd63906ab2edbfd24ec87846e965edcfd3bbc66128c"
+        },
+        {
+          "name": "attempt-policy-json",
+          "path": "attempt-policy.json",
+          "sha256": "2369e50f4bfa71505d29feaa2b871a6b6bccf45d49f38ea46274b52a855c9dd6"
+        },
+        {
+          "name": "replacement-authority-json",
+          "path": "replacement-authority.json",
+          "sha256": "784b5dbf6927b6573ce5c20a14e0f4834083d8bbed8cc788b056154fbb4e76b4"
+        }
+      ],
+      "depends_on": [],
+      "id": "recovery",
+      "validator": {
+        "card": "recovery-card-json",
+        "expected_kind": "successor",
+        "input_commitments": {
+          "purchase_ledger": {
+            "path": "purchase-ledger.json",
+            "sha256": "sha256:5eb4d84cb05c497aa3fcdbd63906ab2edbfd24ec87846e965edcfd3bbc66128c"
+          }
+        },
+        "kind": "recovery_card"
+      }
+    },
+    {
+      "artifacts": [
+        {
+          "name": "purchase-policy-json",
+          "path": "purchase-policy.json",
+          "sha256": "2dda61cc2945a91544096b2c61c60dd9fb6bca0e7d643898ae23a46f72f6edf0"
+        },
+        {
+          "name": "purchase-before-json",
+          "path": "purchase-before.json",
+          "sha256": "bc5377f5e385c3cb0e865507c3e1d4c81d6b9d637d0521a0e333cc347f10b757"
+        },
+        {
+          "name": "purchase-after-json",
+          "path": "purchase-after.json",
+          "sha256": "ed3b41186b9e43084fbccaaa16e9dd9fc1469affecbb40d3a441a032a4217b26"
+        },
+        {
+          "name": "resolved-jsonl",
+          "path": "resolved.jsonl",
+          "sha256": "84d285acdabcd02df2702fbcc8c0b99ed1c307d375d83d5c860765d3d6d46b9a"
+        }
+      ],
+      "depends_on": [],
+      "id": "purchase-baseline",
+      "validator": {
+        "after": "purchase-after-json",
+        "before": "purchase-before-json",
+        "kind": "purchase_transition",
+        "policy": "purchase-policy-json",
+        "resolved": "resolved-jsonl"
+      }
+    },
+    {
+      "artifacts": [
+        {
+          "name": "recovery-card-json",
+          "path": "recovery-card.json",
+          "sha256": "48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"
+        },
+        {
+          "name": "selection-jsonl",
+          "path": "selection.jsonl",
+          "sha256": "3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"
+        },
+        {
+          "name": "clearance-card-json",
+          "path": "clearance-card.json",
+          "sha256": "2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"
+        },
+        {
+          "name": "clearance-jsonl",
+          "path": "clearance.jsonl",
+          "sha256": "f657e8f689bc4678ba2e5159ff6bd017fff0e92d6544582ae8b5daf017e0d938"
+        },
+        {
+          "name": "quarantine-jsonl",
+          "path": "quarantine.jsonl",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "depends_on": [
+        "recovery"
+      ],
+      "id": "clearance",
+      "validator": {
+        "card": "clearance-card-json",
+        "expected_clearance": "clearance.jsonl",
+        "kind": "clearance_card"
+      }
+    },
+    {
+      "artifacts": [
+        {
+          "name": "resolution-card-json",
+          "path": "resolution-card.json",
+          "sha256": "b766ebd9554c0e017ff692927143effafe9493ebbcde543c9c7c70d358283067"
+        },
+        {
+          "name": "selection-jsonl",
+          "path": "selection.jsonl",
+          "sha256": "3941753defa290d09c59059884107851742029141ba34545eadcb1c2ce365216"
+        },
+        {
+          "name": "clearance-jsonl",
+          "path": "clearance.jsonl",
+          "sha256": "f657e8f689bc4678ba2e5159ff6bd017fff0e92d6544582ae8b5daf017e0d938"
+        },
+        {
+          "name": "recovery-card-json",
+          "path": "recovery-card.json",
+          "sha256": "48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"
+        },
+        {
+          "name": "clearance-card-json",
+          "path": "clearance-card.json",
+          "sha256": "2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"
+        },
+        {
+          "name": "resolved-jsonl",
+          "path": "resolved.jsonl",
+          "sha256": "84d285acdabcd02df2702fbcc8c0b99ed1c307d375d83d5c860765d3d6d46b9a"
+        },
+        {
+          "name": "purchase-ledger-json",
+          "path": "purchase-ledger.json",
+          "sha256": "5eb4d84cb05c497aa3fcdbd63906ab2edbfd24ec87846e965edcfd3bbc66128c"
+        },
+        {
+          "name": "purchase-policy-json",
+          "path": "purchase-policy.json",
+          "sha256": "2dda61cc2945a91544096b2c61c60dd9fb6bca0e7d643898ae23a46f72f6edf0"
+        },
+        {
+          "name": "purchase-after-json",
+          "path": "purchase-after.json",
+          "sha256": "ed3b41186b9e43084fbccaaa16e9dd9fc1469affecbb40d3a441a032a4217b26"
+        },
+        {
+          "name": "empty-terminal-jsonl",
+          "path": "empty-terminal.jsonl",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "depends_on": [
+        "clearance",
+        "purchase-baseline"
+      ],
+      "id": "resolution",
+      "validator": {
+        "after": "purchase-after-json",
+        "card": "resolution-card-json",
+        "expected_inputs": [
+          "selection.jsonl",
+          "clearance.jsonl",
+          "recovery-card.json",
+          "clearance-card.json"
+        ],
+        "expected_resolved": "resolved.jsonl",
+        "input_commitments": {
+          "purchase_ledger": {
+            "path": "purchase-ledger.json",
+            "sha256": "sha256:5eb4d84cb05c497aa3fcdbd63906ab2edbfd24ec87846e965edcfd3bbc66128c"
+          }
+        },
+        "kind": "resolution_card",
+        "ledger": "purchase-ledger.json",
+        "terminal": "empty-terminal-jsonl",
+        "terminal_path": "empty-terminal.jsonl"
+      }
+    },
+    {
+      "artifacts": [
+        {
+          "name": "recovery-card-json",
+          "path": "recovery-card.json",
+          "sha256": "48ecb28e18e0eaf27de4004670e204deac7a7a67f3f91155a22b8602629b4dd2"
+        },
+        {
+          "name": "replacement-source-json",
+          "path": "replacement-source.json",
+          "sha256": "aee0f524c863e54bbb2001a9ce2fcc9a989051e60d578d1a69067feaa0183a0f"
+        },
+        {
+          "name": "clearance-card-json",
+          "path": "clearance-card.json",
+          "sha256": "2d8410eb4cc55ff0e4ca0aa2b90d5a75b545ce71e7d62c0a6ae674d24a7965a0"
+        },
+        {
+          "name": "resolved-jsonl",
+          "path": "resolved.jsonl",
+          "sha256": "84d285acdabcd02df2702fbcc8c0b99ed1c307d375d83d5c860765d3d6d46b9a"
+        },
+        {
+          "name": "replacement-source-card-json",
+          "path": "replacement-source-card.json",
+          "sha256": "15a2ed1c36164def4e03c9949325b6157f1ab3b17206d968b4f065ed7befb013"
+        },
+        {
+          "name": "purchase-after-json",
+          "path": "purchase-after.json",
+          "sha256": "ed3b41186b9e43084fbccaaa16e9dd9fc1469affecbb40d3a441a032a4217b26"
+        }
+      ],
+      "depends_on": [
+        "resolution"
+      ],
+      "id": "replacement-recovery-source",
+      "validator": {
+        "after": "purchase-after-json",
+        "clearance": "clearance.jsonl",
+        "clearance_card": "clearance-card.json",
+        "controlled_private_root": "controlled-private",
+        "descriptor": "replacement-source-json",
+        "descriptor_path": "replacement-source.json",
+        "expected_producer_inputs": [
+          "recovery-card.json",
+          "clearance-card.json",
+          "resolved.jsonl"
+        ],
+        "kind": "replacement_source",
+        "ordinal": 1,
+        "producer_card": "replacement-source-card-json",
+        "recovery_card": "recovery-card-json",
+        "recovery_root": "recovery-output",
+        "resolved": "resolved.jsonl"
+      }
+    }
+  ],
+  "schema_version": "legalforecast.cycle_preflight_manifest.v1"
+}
