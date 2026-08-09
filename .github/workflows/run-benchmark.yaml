@@ -172,7 +172,7 @@ jobs:
       recommended_max_projected_model_cost_usd: ${{ steps.matrix.outputs.recommended_max_projected_model_cost_usd }}
       release_sha: ${{ steps.validate.outputs.release_sha }}
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
       LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
@@ -181,6 +181,15 @@ jobs:
       MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
       RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
     steps:
+      - name: Validate configured AWS region
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${AWS_REGION:-}" ]] || {
+            echo "LFB_AWS_REGION must be configured on the protected environment." >&2
+            exit 1
+          }
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1037,7 +1046,7 @@ jobs:
       max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
       matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
       LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
@@ -1045,6 +1054,15 @@ jobs:
       LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
+      - name: Validate configured AWS region
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${AWS_REGION:-}" ]] || {
+            echo "LFB_AWS_REGION must be configured on the protected environment." >&2
+            exit 1
+          }
+
       - name: Checkout trusted release
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1217,10 +1235,19 @@ jobs:
       contents: read
       id-token: write
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_GITHUB_FAN_IN_ROLE_ARN: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
+      - name: Validate configured AWS region
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${AWS_REGION:-}" ]] || {
+            echo "LFB_AWS_REGION must be configured on the protected environment." >&2
+            exit 1
+          }
+
       - name: Checkout trusted release
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1312,7 +1339,7 @@ jobs:
       ABLATIONS: ${{ inputs.ablations }}
       ALLOW_NO_BASELINES: ${{ inputs.allow_no_baselines }}
       ARTIFACT_RETENTION_DAYS: ${{ needs.build-matrix.outputs.artifact_retention_days }}
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       BASELINE_TRAINING_EXAMPLES_URI: ${{ inputs.baseline_training_examples_uri }}
       CLEAN_MOTION_COUNT: ${{ inputs.clean_motion_count }}
       CYCLE_ID: ${{ inputs.cycle_id }}
@@ -1329,6 +1356,15 @@ jobs:
       PREDICTION_UNIT_COUNT: ${{ inputs.prediction_unit_count }}
       RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
     steps:
+      - name: Validate configured AWS region
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${AWS_REGION:-}" ]] || {
+            echo "LFB_AWS_REGION must be configured on the protected environment." >&2
+            exit 1
+          }
+
       - name: Checkout trusted release
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

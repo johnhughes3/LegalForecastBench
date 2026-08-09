@@ -123,7 +123,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_MODEL_PACKET_PREFIX: ${{ vars.LFB_MODEL_PACKET_PREFIX || 'model-packets/' }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
@@ -277,7 +277,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_GITHUB_FAN_IN_ROLE_ARN: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
@@ -423,7 +423,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
       SHARD_RECEIPT_OBJECT_KEY: ${{ needs.validate-request.outputs.shard_receipt_object_key }}
