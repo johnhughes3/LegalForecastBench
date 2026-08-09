@@ -40,6 +40,7 @@ from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 SHA256 = "sha256:" + "a" * 64
 OTHER_SHA256 = "sha256:" + "b" * 64
 SATURATED_HOST_TIMEOUT_SECONDS = 60
+SATURATED_HOST_CLEANUP_GRACE_SECONDS = 5
 
 
 @dataclass
@@ -631,7 +632,7 @@ def test_permission_denied_group_cleanup_preserves_timeout_receipt(
         # falls back to killing and reaping the direct child. A 10ms reap
         # deadline is too short on a saturated shared host and can leave the
         # receipt's return code unset even though SIGKILL was requested.
-        termination_grace_seconds=5,
+        termination_grace_seconds=SATURATED_HOST_CLEANUP_GRACE_SECONDS,
     )
     real_killpg = os.killpg
 
@@ -1182,7 +1183,10 @@ def test_permission_denied_group_cleanup_preserves_cancellation_receipt(
                     "adapter = CommandAdapter.from_manifest_file(",
                     f"    Path({str(manifest_path)!r}),",
                     f"    timeout_seconds={SATURATED_HOST_TIMEOUT_SECONDS},",
-                    "    termination_grace_seconds=0.01,",
+                    (
+                        "    termination_grace_seconds="
+                        f"{SATURATED_HOST_CLEANUP_GRACE_SECONDS},"
+                    ),
                     ")",
                     "try:",
                     f"    adapter.capabilities(Path({str(workspace)!r}))",
