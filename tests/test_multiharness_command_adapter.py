@@ -627,7 +627,11 @@ def test_permission_denied_group_cleanup_preserves_timeout_receipt(
     adapter = CommandAdapter(
         manifest=_manifest(command=(sys.executable, str(script))),
         timeout_seconds=0.01,
-        termination_grace_seconds=0.01,
+        # Group signals are deliberately denied below, so cleanup eventually
+        # falls back to killing and reaping the direct child. A 10ms reap
+        # deadline is too short on a saturated shared host and can leave the
+        # receipt's return code unset even though SIGKILL was requested.
+        termination_grace_seconds=5,
     )
     real_killpg = os.killpg
 
