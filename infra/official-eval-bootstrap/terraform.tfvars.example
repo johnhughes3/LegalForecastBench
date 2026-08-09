@@ -1,6 +1,7 @@
 aws_region       = "us-east-1"
 state_bucket_name = "replace-with-a-globally-unique-private-state-bucket"
 state_key_prefix  = "official-eval"
+github_repository = "example-org/LegalForecastBench"
 
 tags = {
   Environment = "protected"

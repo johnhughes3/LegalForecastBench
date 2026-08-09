@@ -10,6 +10,7 @@ The one-time apply requires separately authorized human/operator AWS credentials
 
 Use an exact reviewed commit on a trusted operator machine.
 Keep the variable file and state directory outside the checkout, do not print Terraform state or outputs into logs, and do not place AWS credentials in a variable file.
+Set `github_repository` in that protected variable file to the exact reviewed GitHub `owner/repository`; the root intentionally has no account-specific default.
 Copy the exact root into that protected directory so Terraform's default local state is both discoverable by the later migration and never written beneath the repository checkout:
 
 ```bash
@@ -105,6 +106,8 @@ TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" init -migrate-state \
   -backend-config="kms_key_id=<exact-kms-key-arn>" \
   -backend-config="use_lockfile=true"
 ```
+
+The S3 backend applies that same SSE-KMS configuration to its `.tflock` writes, and the bucket policy rejects any state or lockfile write that omits `aws:kms` or names a different KMS key.
 
 Pull the migrated state into a second protected file and compare its lineage and serial with the local state without emitting either file to logs.
 Use `aws s3api head-object` on the exact bootstrap key and verify a nonempty `VersionId`, `ServerSideEncryption` equal to `aws:kms`, and `SSEKMSKeyId` equal to the reviewed key ARN.
