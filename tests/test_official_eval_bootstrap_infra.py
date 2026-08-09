@@ -6,11 +6,25 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from tests.official_infra_trust_helpers import (
+    job_environment,
+    job_grants_id_token_write,
+    replace_terraform_local,
+    role_assuming_jobs,
+    terraform_local_string,
+    terraform_variable_default,
+    workflow_jobs,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 INFRA_ROOT = ROOT / "infra" / "official-eval-bootstrap"
 POLICY_ROOT = INFRA_ROOT / "policies"
 RUNBOOK = ROOT / "docs" / "official-run-runbook.md"
+ENVIRONMENT_MANIFEST = ROOT / "infra" / "official-eval" / "github-environments.json"
+OPERATOR_WORKFLOW = (
+    ROOT / ".github" / "workflows" / "official-provider-authority-infra.yaml"
+)
+OPERATOR_ENVIRONMENT = "legalforecastbench-official-provider-authority-infra"
 
 ACCOUNT_ID = "123456789012"
 PARTITION = "aws"
@@ -219,6 +233,187 @@ def test_operator_trust_is_exact_environment_bound_oidc() -> None:
     )[1].split('variable "github_environment"', maxsplit=1)[0]
     assert "default" not in github_repository_variable
     assert 'split("/", var.github_repository)' in github_repository_variable
+
+
+def _assert_operator_trust_satisfiable(
+    *,
+    locals_text: str,
+    variables_text: str,
+    workflow_text: str,
+    manifest_text: str,
+) -> None:
+    """Raise unless every pinned operator trust condition stays reachable.
+
+    Reads only production bytes: the bootstrap Terraform locals and variable
+    defaults that render github-oidc-trust.json.tftpl, the environment
+    manifest, and the operator workflow. Any drift this catches would turn a
+    green plan into a deploy-time AssumeRoleWithWebIdentity denial.
+    """
+    ref = terraform_local_string(locals_text, "github_ref")
+    subject = terraform_local_string(locals_text, "github_subject")
+    environment = terraform_variable_default(variables_text, "github_environment")
+
+    # The rendered trust must be fed from exactly these locals and variables;
+    # otherwise the values parsed above are not the ones AWS evaluates.
+    for wiring in (
+        r"^\s*github_ref\s*=\s*local\.github_ref\s*$",
+        r"^\s*github_environment\s*=\s*var\.github_environment\s*$",
+        r"^\s*github_subject\s*=\s*local\.github_subject\s*$",
+    ):
+        assert re.search(wiring, locals_text, flags=re.MULTILINE), wiring
+    assert subject == (
+        "repo:${var.github_repository}:environment:${var.github_environment}"
+    )
+
+    # `:environment` matches only if the pinned environment is provisioned,
+    # with the environment-qualified subject that the trust's `sub` pins.
+    loaded: object = json.loads(manifest_text)
+    assert isinstance(loaded, dict)
+    manifest = cast(dict[str, object], loaded)
+    repository = manifest["repository"]
+    assert isinstance(repository, str)
+    rows = manifest["environments"]
+    assert isinstance(rows, list)
+    subjects = {
+        cast(dict[str, object], row)["name"]: cast(dict[str, object], row)[
+            "aws_oidc_subject"
+        ]
+        for row in cast(list[object], rows)
+    }
+    assert environment in subjects
+    assert subjects[environment] == f"repo:{repository}:environment:{environment}"
+
+    # `:ref` matches only from the single branch the manifest lets these
+    # environments deploy from.
+    protection = manifest["common_protection"]
+    assert isinstance(protection, dict)
+    raw_branches = cast(dict[str, object], protection)["custom_branch_policies"]
+    assert isinstance(raw_branches, list)
+    branches = cast(list[object], raw_branches)
+    assert len(branches) == 1
+    branch = branches[0]
+    assert isinstance(branch, str)
+    assert ref == f"refs/heads/{branch}"
+
+    # Only the job that assumes the role emits those claims, so the
+    # environment and the OIDC token grant must sit on that exact job. A
+    # workflow-wide substring stays green when either binding drifts onto a
+    # different job.
+    assuming = role_assuming_jobs(workflow_text)
+    assert set(assuming) == {"operate"}
+    operate = assuming["operate"]
+    assert job_environment(operate) == environment
+    assert job_grants_id_token_write(operate)
+
+    # The dispatch gate in front of that job pins the same branch the trust
+    # names, and the role-assuming job cannot run without it.
+    assert (
+        f'"${{GITHUB_REF}}" != "{ref}"'
+        in workflow_jobs(workflow_text)["validate-request"]
+    )
+    assert re.search(r"^    needs: validate-request\s*$", operate, flags=re.MULTILINE)
+
+
+def test_operator_trust_conditions_are_satisfiable_by_the_bootstrap_workflow() -> None:
+    """Every pinned claim must be one the operator job actually emits.
+
+    The trust tests `:repository`, `:ref`, and `:environment` on top of
+    `aud`/`sub`. All three are real AWS condition keys for the GitHub IdP and
+    are populated on protected-environment tokens; docs/github-aws-oidc-trust-
+    claims.md records the primary sources behind that, after two reviews
+    argued the opposite and one PR deleted the conditions on a false premise.
+
+    The live risk is not the keys, it is drift between a pinned value and what
+    the workflow can produce. AWS is explicit that `:environment` only matches
+    when "an environment must be configured and provided in the GitHub
+    workflow", and `:ref` only matches from a branch the environment permits.
+    So the guard binds to the production inputs -- the Terraform locals and
+    variable defaults that render the trust, the environment manifest, and
+    the one workflow job that assumes the role -- never to test-owned copies
+    of those values. The companion mutation test drifts the same production
+    bytes to prove this fence discriminates.
+    """
+    _assert_operator_trust_satisfiable(
+        locals_text=(INFRA_ROOT / "locals.tf").read_text(encoding="utf-8"),
+        variables_text=(INFRA_ROOT / "variables.tf").read_text(encoding="utf-8"),
+        workflow_text=OPERATOR_WORKFLOW.read_text(encoding="utf-8"),
+        manifest_text=ENVIRONMENT_MANIFEST.read_text(encoding="utf-8"),
+    )
+
+    # Other fences in this module name the operator environment directly; pin
+    # that copy to the deployed default so drift cannot hide behind it.
+    assert OPERATOR_ENVIRONMENT == terraform_variable_default(
+        (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8"),
+        "github_environment",
+    )
+
+
+def test_operator_trust_satisfiability_fence_discriminates_on_real_drift() -> None:
+    """Drifting the production inputs must redden the satisfiability fence.
+
+    Every case mutates the real bytes -- never a test-owned copy -- and each
+    models a drift that a workflow-wide or copy-based check would miss while
+    the deployed role became unassumable.
+    """
+    locals_text = (INFRA_ROOT / "locals.tf").read_text(encoding="utf-8")
+    variables_text = (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8")
+    workflow_text = OPERATOR_WORKFLOW.read_text(encoding="utf-8")
+    manifest_text = ENVIRONMENT_MANIFEST.read_text(encoding="utf-8")
+
+    def check(
+        *,
+        mutated_locals: str | None = None,
+        mutated_workflow: str | None = None,
+        mutated_manifest: str | None = None,
+    ) -> None:
+        _assert_operator_trust_satisfiable(
+            locals_text=locals_text if mutated_locals is None else mutated_locals,
+            variables_text=variables_text,
+            workflow_text=(
+                workflow_text if mutated_workflow is None else mutated_workflow
+            ),
+            manifest_text=(
+                manifest_text if mutated_manifest is None else mutated_manifest
+            ),
+        )
+
+    check()
+
+    # Repoint the production ref local at a branch the manifest forbids.
+    with pytest.raises(AssertionError):
+        check(
+            mutated_locals=replace_terraform_local(
+                locals_text, "github_ref", "refs/heads/release"
+            )
+        )
+
+    # Widen the manifest to a second deployable branch.
+    widened = manifest_text.replace(
+        '"custom_branch_policies": ["main"]',
+        '"custom_branch_policies": ["main", "release"]',
+    )
+    assert widened != manifest_text
+    with pytest.raises(AssertionError):
+        check(mutated_manifest=widened)
+
+    # Relocate the environment binding onto the non-assuming job. The binding
+    # is still present workflow-wide -- exactly the drift the previous
+    # workflow-wide substring fence stayed green on.
+    environment = terraform_variable_default(variables_text, "github_environment")
+    binding = f"\n    environment: {environment}\n"
+    assert workflow_text.count(binding) == 1
+    relocated = workflow_text.replace(binding, "\n").replace(
+        "\n  validate-request:\n", f"\n  validate-request:{binding}", 1
+    )
+    assert binding in relocated
+    with pytest.raises(AssertionError):
+        check(mutated_workflow=relocated)
+
+    # Drop the role-assuming job's OIDC token grant.
+    grant = "\n      id-token: write"
+    assert workflow_text.count(grant) == 1
+    with pytest.raises(AssertionError):
+        check(mutated_workflow=workflow_text.replace(grant, ""))
 
 
 def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:

@@ -22,6 +22,8 @@ All create-once object namespaces split read from write. The write statements re
 
 The observed repository OIDC customization uses GitHub's default subject behavior with subject prefix `repo:johnhughes3/LegalForecastBench`. Each trust therefore retains the exact environment-qualified `sub` and additionally requires exact `repository = johnhughes3/LegalForecastBench` and `ref = refs/heads/main` claims. It intentionally does not invent a workflow claim.
 
+Do not remove the `repository` or `ref` conditions. Both are documented AWS condition keys for the GitHub IdP, both are populated on protected-environment tokens, and both are satisfiable here because every role-assuming job binds a main-only environment. Reviews have twice claimed otherwise; [docs/github-aws-oidc-trust-claims.md](../../docs/github-aws-oidc-trust-claims.md) records the primary sources that settle it.
+
 ## Storage and retention
 
 Both existing buckets are modeled as global-namespace general purpose buckets that are private, `BucketOwnerEnforced`, AES-256 server-side encrypted, versioned, and TLS-only. Public-access blocks and `prevent_destroy` are mandatory. Account-regional `-an` names and directory/table bucket suffixes are rejected because this root does not set a non-global `bucket_namespace` or model those bucket types.
