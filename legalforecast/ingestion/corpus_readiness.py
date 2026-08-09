@@ -374,7 +374,18 @@ def _unitization_review_gate_reasons(
         reasons.append("stage_a_review_pending")
     if any(
         record.get("disposition")
-        not in {"ACCEPT", "AMEND", "SPLIT", "MERGE", "CANDIDATE-EXCLUSION"}
+        not in {
+            "ACCEPT",
+            "AMEND",
+            "SPLIT",
+            "MERGE",
+            "DROP",
+            "CANDIDATE-EXCLUSION",
+        }
+        or (
+            record.get("disposition") == "DROP"
+            and not _optional_str(record, "drop_reason")
+        )
         or not _optional_str(record, "adjudicator_id")
         or not _optional_str(record, "adjudication_notes")
         for review_id, record in adjudications_by_id.items()

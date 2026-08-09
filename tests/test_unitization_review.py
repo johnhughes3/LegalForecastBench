@@ -12,8 +12,11 @@ from legalforecast.cli import main
 from legalforecast.unitization.review import (
     ADJUDICATION_SCHEMA_VERSION,
     FINALIZED_SCHEMA_VERSION,
+    LEGACY_FINALIZED_SCHEMA_VERSION,
     UnitizationReviewError,
     apply_unitization_reviews,
+    canonical_sha256,
+    require_finalized_envelopes,
     verify_finalized_prediction_units,
 )
 
@@ -24,6 +27,7 @@ def test_apply_unitization_reviews_supports_every_disposition() -> None:
         _candidate("amend", [_unit("a")]),
         _candidate("split", [_unit("a")]),
         _candidate("merge", [_unit("a"), _unit("b")]),
+        _candidate("drop", [_unit("a"), _unit("b")]),
         _candidate("exclude", [_unit("a")]),
     ]
     queue = [
@@ -32,6 +36,7 @@ def test_apply_unitization_reviews_supports_every_disposition() -> None:
         _review("split", "a"),
         _review("merge", "a"),
         _review("merge", "b"),
+        _review("drop", "a"),
         _review("exclude", "a"),
     ]
     adjudications = [
@@ -39,6 +44,7 @@ def test_apply_unitization_reviews_supports_every_disposition() -> None:
         _adjudication("amend", "AMEND", ["a"], [_unit("a-amended")]),
         _adjudication("split", "SPLIT", ["a"], [_unit("a-1"), _unit("a-2")]),
         _adjudication("merge", "MERGE", ["a", "b"], [_unit("ab")]),
+        _adjudication("drop", "DROP", ["a"]),
         _adjudication(
             "exclude",
             "CANDIDATE-EXCLUSION",
@@ -61,12 +67,224 @@ def test_apply_unitization_reviews_supports_every_disposition() -> None:
     assert [unit["unit_id"] for unit in by_candidate["merge"]["prediction_units"]] == [
         "ab"
     ]
+    assert [unit["unit_id"] for unit in by_candidate["drop"]["prediction_units"]] == [
+        "b"
+    ]
     assert by_candidate["exclude"]["status"] == "candidate_excluded"
     assert by_candidate["exclude"]["prediction_units"] == []
     assert all(
         record["schema_version"] == FINALIZED_SCHEMA_VERSION for record in result
     )
     verify_finalized_prediction_units(result, raw, adjudications, queue)
+
+
+def test_one_adjudication_consumes_multiple_reviews_for_same_source_unit() -> None:
+    raw = [_candidate("cand", [_unit("a")])]
+    first = _review("cand", "a")
+    second = {**first, "review_id": "cand:a:structural:second"}
+    adjudication = _adjudication("cand", "AMEND", ["a"], [_unit("amended")])
+    adjudication["review_ids"] = [first["review_id"], second["review_id"]]
+
+    [result] = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=[first, second],
+        adjudication_records=[adjudication],
+    )
+
+    assert [unit["unit_id"] for unit in result["prediction_units"]] == ["amended"]
+    assert result["schema_version"] == LEGACY_FINALIZED_SCHEMA_VERSION
+
+
+def test_drop_cannot_remove_every_unit_from_retained_candidate() -> None:
+    with pytest.raises(UnitizationReviewError, match="must retain at least one unit"):
+        apply_unitization_reviews(
+            prediction_unit_records=[_candidate("cand", [_unit("a")])],
+            review_records=[_review("cand", "a")],
+            adjudication_records=[_adjudication("cand", "DROP", ["a"])],
+        )
+
+
+def test_drop_must_consume_exactly_one_distinct_source_unit() -> None:
+    with pytest.raises(UnitizationReviewError, match="exactly one unit"):
+        apply_unitization_reviews(
+            prediction_unit_records=[
+                _candidate("cand", [_unit("a"), _unit("b"), _unit("c")])
+            ],
+            review_records=[_review("cand", "a"), _review("cand", "b")],
+            adjudication_records=[_adjudication("cand", "DROP", ["a", "b"])],
+        )
+
+
+def test_drop_requires_explicit_source_unit_ids() -> None:
+    raw = [_candidate("cand", [_unit("a"), _unit("b")])]
+    queue = [_review("cand", "a")]
+    adjudication = _adjudication("cand", "DROP", ["a"])
+    adjudication.pop("source_unit_ids")
+
+    with pytest.raises(UnitizationReviewError, match="requires explicit"):
+        apply_unitization_reviews(
+            prediction_unit_records=raw,
+            review_records=queue,
+            adjudication_records=[adjudication],
+        )
+
+
+@pytest.mark.parametrize("disposition", ["ACCEPT", "AMEND", "SPLIT"])
+def test_single_source_dispositions_cannot_implicitly_merge(
+    disposition: str,
+) -> None:
+    finalized_units = {
+        "ACCEPT": [],
+        "AMEND": [_unit("replacement")],
+        "SPLIT": [_unit("first"), _unit("second")],
+    }[disposition]
+
+    with pytest.raises(UnitizationReviewError, match="must consume exactly one unit"):
+        apply_unitization_reviews(
+            prediction_unit_records=[_candidate("cand", [_unit("a"), _unit("b")])],
+            review_records=[_review("cand", "a"), _review("cand", "b")],
+            adjudication_records=[
+                _adjudication("cand", disposition, ["a", "b"], finalized_units)
+            ],
+        )
+
+
+def test_finalized_chain_rejects_removed_drop_provenance() -> None:
+    raw = [_candidate("cand", [_unit("a"), _unit("b")])]
+    queue = [_review("cand", "a")]
+    adjudications = [_adjudication("cand", "DROP", ["a"])]
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=queue,
+        adjudication_records=adjudications,
+    )
+    broken = deepcopy(finalized[0])
+    broken["dropped_units"] = []
+
+    with pytest.raises(UnitizationReviewError, match="does not consume adjudications"):
+        verify_finalized_prediction_units([broken], raw, adjudications, queue)
+
+
+def test_finalized_chain_rejects_drop_bound_to_wrong_or_retained_unit() -> None:
+    raw = [_candidate("cand", [_unit("a"), _unit("b")])]
+    queue = [_review("cand", "a")]
+    adjudications = [_adjudication("cand", "DROP", ["a"])]
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=queue,
+        adjudication_records=adjudications,
+    )
+    wrong = deepcopy(finalized[0])
+    wrong["dropped_units"][0]["unit_id"] = "b"
+    wrong["dropped_units"][0]["source_unit_sha256"] = canonical_sha256(_unit("b"))
+
+    with pytest.raises(UnitizationReviewError, match="remains in finalized"):
+        verify_finalized_prediction_units([wrong], raw, adjudications, queue)
+
+
+def test_finalized_chain_rejects_duplicate_drop_rows() -> None:
+    raw = [_candidate("cand", [_unit("a"), _unit("b")])]
+    queue = [_review("cand", "a")]
+    adjudications = [_adjudication("cand", "DROP", ["a"])]
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=queue,
+        adjudication_records=adjudications,
+    )
+    broken = deepcopy(finalized[0])
+    broken["dropped_units"].append(deepcopy(broken["dropped_units"][0]))
+
+    with pytest.raises(UnitizationReviewError, match="duplicate dropped unit"):
+        verify_finalized_prediction_units([broken], raw, adjudications, queue)
+
+
+@pytest.mark.parametrize(
+    "schema_version", [LEGACY_FINALIZED_SCHEMA_VERSION, FINALIZED_SCHEMA_VERSION]
+)
+def test_finalized_chain_rejects_drop_adjudication_bound_to_retained_unit(
+    schema_version: str,
+) -> None:
+    raw = [_candidate("cand", [_unit("a"), _unit("b")])]
+    queue = [_review("cand", "a")]
+    adjudications = [_adjudication("cand", "DROP", ["a"])]
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=queue,
+        adjudication_records=adjudications,
+    )
+    broken = deepcopy(finalized[0])
+    broken["schema_version"] = schema_version
+    broken["dropped_units"] = []
+    if schema_version == LEGACY_FINALIZED_SCHEMA_VERSION:
+        broken.pop("dropped_units")
+    drop = adjudications[0]
+    broken["prediction_units"].append(
+        {
+            **_unit("a"),
+            "source_unit_sha256s": [canonical_sha256(_unit("a"))],
+            "adjudication_id": drop["adjudication_id"],
+            "adjudication_sha256": canonical_sha256(drop),
+            "disposition": "DROP",
+        }
+    )
+
+    with pytest.raises(UnitizationReviewError, match="broken adjudication hash link"):
+        verify_finalized_prediction_units([broken], raw, adjudications, queue)
+
+
+def test_candidate_exclusion_rejects_dropped_unit_rows() -> None:
+    record = {
+        "schema_version": FINALIZED_SCHEMA_VERSION,
+        "status": "candidate_excluded",
+        "candidate_id": "cand",
+        "case_id": "case-cand",
+        "unitization_review_queue_sha256": "a" * 64,
+        "prediction_units": [],
+        "dropped_units": [
+            {
+                "unit_id": "a",
+                "source_unit_sha256": "b" * 64,
+                "adjudication_id": "adj-drop",
+                "adjudication_sha256": "c" * 64,
+                "disposition": "DROP",
+            }
+        ],
+        "exclusion": {"reason": "unresolvable"},
+    }
+
+    with pytest.raises(UnitizationReviewError, match="candidate-exclusion"):
+        require_finalized_envelopes([record])
+
+
+def test_lightweight_envelope_rejects_duplicate_drop_rows() -> None:
+    dropped = {
+        "unit_id": "a",
+        "source_unit_sha256": "b" * 64,
+        "adjudication_id": "adj-drop",
+        "adjudication_sha256": "c" * 64,
+        "disposition": "DROP",
+    }
+    record = {
+        "schema_version": FINALIZED_SCHEMA_VERSION,
+        "status": "finalized",
+        "candidate_id": "cand",
+        "case_id": "case-cand",
+        "unitization_review_queue_sha256": "a" * 64,
+        "prediction_units": [
+            {
+                **_unit("b"),
+                "source_unit_sha256s": ["d" * 64],
+                "adjudication_id": "automatic:" + "d" * 64,
+                "adjudication_sha256": None,
+                "disposition": "ACCEPT",
+            }
+        ],
+        "dropped_units": [dropped, deepcopy(dropped)],
+        "exclusion": None,
+    }
+
+    with pytest.raises(UnitizationReviewError, match="duplicate dropped unit"):
+        require_finalized_envelopes([record])
 
 
 def test_finalized_chain_rejects_raw_bypass_and_hash_mutation() -> None:
@@ -221,7 +439,7 @@ def test_apply_unitization_review_cli_writes_finalized_artifact(
         .read_text(encoding="utf-8")
         .strip()
     )
-    assert record["schema_version"] == FINALIZED_SCHEMA_VERSION
+    assert record["schema_version"] == LEGACY_FINALIZED_SCHEMA_VERSION
     assert record["prediction_units"][0]["adjudication_id"] == "adj-cand"
 
     finalized_path = output_root / "finalized-prediction-units.jsonl"
@@ -317,6 +535,8 @@ def _adjudication(
     }
     if exclusion_reason is not None:
         record["exclusion_reason"] = exclusion_reason
+    if disposition == "DROP":
+        record["drop_reason"] = "spurious_nonunit"
     return record
 
 

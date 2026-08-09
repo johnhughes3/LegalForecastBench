@@ -67,6 +67,50 @@ def test_structural_reviewer_flags_are_hash_linked_into_john_queue() -> None:
     assert queued["raw_prediction_units_sha256"] == "raw-hash"
 
 
+def test_structural_reviewer_accepts_spurious_nonunit_flag() -> None:
+    [flag] = validate_structural_review_flags(
+        {
+            "structural_flags": [
+                {
+                    "flag_type": "spurious",
+                    "affected_unit_ids": ["unit-1"],
+                    "source_document_ids": ["motion"],
+                    "explanation": "Untimeliness is a ground, not a claim.",
+                    "citation_excerpt": "dismiss the alternative theory",
+                }
+            ]
+        },
+        units=[_unit()],
+        documents=_documents(),
+        response=_response(),
+    )
+
+    assert flag["flag_type"] == "spurious"
+
+
+def test_structural_queue_order_is_canonical_across_flag_permutations() -> None:
+    flags = [
+        {
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "reviewer_model_key": "google:gemini-flash",
+            "model_registry_sha256": "registry-hash",
+            "raw_prediction_units_sha256": "raw-hash",
+            "flag_sha256": digest * 64,
+            "flag_type": "spurious",
+            "affected_unit_ids": ["unit-1"],
+            "source_document_ids": ["motion"],
+            "explanation": f"Spurious unit {digest}.",
+            "citation_excerpt": "dismiss the alternative theory",
+        }
+        for digest in ("a", "b")
+    ]
+
+    assert merge_structural_flags_into_review_queue([], flags) == (
+        merge_structural_flags_into_review_queue([], reversed(flags))
+    )
+
+
 def test_structural_reviewer_cannot_rewrite_or_reference_unknown_units() -> None:
     base: dict[str, Any] = {
         "flag_type": "omitted",

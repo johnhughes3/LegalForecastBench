@@ -16,6 +16,11 @@ from legalforecast.ingestion.disclosure_clearance import (
     require_clearance_policy,
 )
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
+from legalforecast.unitization.review import (
+    SUPPORTED_FINALIZED_SCHEMA_VERSIONS,
+    UnitizationReviewError,
+    require_finalized_envelopes,
+)
 
 if TYPE_CHECKING:
     from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
@@ -912,7 +917,7 @@ def _validate_finalized_unit_envelope(
     record: Mapping[str, Any], *, expected_case_id: str
 ) -> None:
     candidate_id = _required_str(record, "candidate_id")
-    if record.get("schema_version") != "legalforecast.finalized_prediction_units.v1":
+    if record.get("schema_version") not in SUPPORTED_FINALIZED_SCHEMA_VERSIONS:
         raise DecisionTextArtifactError(
             f"unsupported finalized prediction-units schema: {candidate_id}"
         )
@@ -920,6 +925,12 @@ def _validate_finalized_unit_envelope(
         raise DecisionTextArtifactError(
             f"finalized prediction-units case mismatch: {candidate_id}"
         )
+    try:
+        require_finalized_envelopes((record,))
+    except UnitizationReviewError as exc:
+        raise DecisionTextArtifactError(
+            f"invalid finalized prediction-units envelope: {candidate_id}"
+        ) from exc
     _required_sha256(record, "raw_prediction_units_sha256")
     _required_sha256(record, "unitization_review_queue_sha256")
     units = _mapping_sequence(record.get("prediction_units"), "prediction_units")

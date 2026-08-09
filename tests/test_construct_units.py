@@ -81,6 +81,30 @@ def test_constructs_securities_issuer_and_officer_units() -> None:
     json.dumps(result.to_record())
 
 
+def test_construct_rejects_duplicate_unit_ids() -> None:
+    seed = StageAUnitSeed(
+        count="I",
+        claim_name="Breach of contract",
+        defendant_names=("Acme Corp.",),
+        source_document_ids=("complaint", "mtd_memo"),
+        unit_id="duplicate-unit",
+    )
+
+    with pytest.raises(ValueError, match="duplicate Stage A unit_id"):
+        construct_stage_a_units(_input(seed, seed))
+
+
+def test_individual_seed_rejects_group_label_override() -> None:
+    with pytest.raises(ValueError, match="only allowed for grouped defendants"):
+        StageAUnitSeed(
+            count="I",
+            claim_name="Retaliation",
+            defendant_names=("Acme Corp.",),
+            source_document_ids=("complaint", "mtd_memo"),
+            group_label="Corporate defendants",
+        )
+
+
 def test_grouped_underwriters_produce_one_grouped_unit_with_rationale() -> None:
     result = construct_stage_a_units(
         _input(
