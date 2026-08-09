@@ -564,9 +564,15 @@ def test_structural_review_reconstruction_cli_preserves_completed_run_card_on_re
     assert calls == 2
 
 
+@pytest.mark.parametrize(
+    ("requested_namespace", "expected_namespace"),
+    ((None, "claim-ontology-v2"), ("claim-ontology-v3", "claim-ontology-v3")),
+)
 def test_terminalize_structural_review_cli_writes_provider_free_receipt(
     tmp_path: Path,
     monkeypatch: Any,
+    requested_namespace: str | None,
+    expected_namespace: str,
 ) -> None:
     """The terminal route verifies unchanged rows and writes no provider state."""
 
@@ -635,7 +641,7 @@ def test_terminalize_structural_review_cli_writes_provider_free_receipt(
     )
 
     def terminalize(**kwargs: object) -> object:
-        assert kwargs["provider_attempt_namespace"] == "claim-ontology-v2"
+        assert kwargs["provider_attempt_namespace"] == expected_namespace
         return SimpleNamespace(to_record=lambda: receipt)
 
     monkeypatch.setattr(
@@ -664,6 +670,7 @@ def test_terminalize_structural_review_cli_writes_provider_free_receipt(
         model_key="google:reviewer",
         candidate_id=candidate_id,
         provider_cycle_caps=caps_path,
+        provider_attempt_namespace=requested_namespace,
     )
 
     assert cli._cmd_acquisition_terminalize_llm_review_stage_a(args) == 0
