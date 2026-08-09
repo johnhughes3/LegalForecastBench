@@ -95,6 +95,8 @@ class StageAUnitSeed:
                 raise ValueError(
                     "grouping_rationale should be omitted for individual defendants"
                 )
+            if self.group_label is not None:
+                raise ValueError("group_label is only allowed for grouped defendants")
         if self.grouping is DefendantGrouping.GROUPED:
             if len(self.defendant_names) < 2:
                 raise ValueError("grouped unit seeds require multiple defendants")
@@ -232,6 +234,17 @@ def construct_stage_a_units(
                     source_document_ids=seed.source_document_ids,
                 )
             )
+
+    seen_unit_ids: set[str] = set()
+    duplicate_unit_ids: set[str] = set()
+    for unit in units:
+        if unit.unit_id in seen_unit_ids:
+            duplicate_unit_ids.add(unit.unit_id)
+        seen_unit_ids.add(unit.unit_id)
+    if duplicate_unit_ids:
+        raise ValueError(
+            f"duplicate Stage A unit_id values: {sorted(duplicate_unit_ids)}"
+        )
 
     return StageAConstructionResult(
         candidate_id=construction_input.candidate_id,

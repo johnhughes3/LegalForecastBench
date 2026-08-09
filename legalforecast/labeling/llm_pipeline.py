@@ -1179,7 +1179,15 @@ def merge_structural_flags_into_review_queue(
 
     merged = [dict(record) for record in queue_records]
     existing_ids = {_required_str(record, "review_id") for record in merged}
-    for flag in flag_records:
+    ordered_flags = sorted(
+        (dict(flag) for flag in flag_records),
+        key=lambda flag: (
+            _required_str(flag, "candidate_id"),
+            _str_tuple(flag.get("affected_unit_ids"), "affected_unit_ids"),
+            _required_str(flag, "flag_sha256"),
+        ),
+    )
+    for flag in ordered_flags:
         for unit_id in _str_tuple(flag.get("affected_unit_ids"), "affected_unit_ids"):
             review_id = (
                 f"{_required_str(flag, 'candidate_id')}:{unit_id}:structural:"
@@ -1288,8 +1296,33 @@ def _stage_a_structural_review_prompt(
                 "or edits."
             ),
             (
-                "Return a flag only for an omitted, improperly combined, or improperly "
-                "split unit."
+                "Return a flag only for an omitted, improperly combined, improperly "
+                "split, or spurious unit. A spurious unit is not an asserted legal "
+                "right and should be removed."
+            ),
+            (
+                "As non-authoritative reasoning, first reconstruct an internal "
+                "complaint claim-defendant ledger and motion-scope matrix: identify "
+                "each asserted legal right, the actual moving defendant and capacity, "
+                "and whether the target motion challenges all or only a portion of "
+                "that right."
+            ),
+            (
+                "A dismissal ground, defense, procedural predicate, claim element, "
+                "factual theory, requested remedy, or generic declaratory relief is "
+                "never itself a prediction unit. Examples include limitations, "
+                "standing, exhaustion, immunity, service, personal jurisdiction, "
+                "venue, arbitration, preemption, Section 230, SLUSA, and release."
+            ),
+            (
+                "Apply the independent-disposition test: split only when one "
+                "proposition could be dismissed while another survives as an "
+                "independently enforceable legal right against the same defendant. "
+                "A nonseparable theory remains one claim-level unit."
+            ),
+            (
+                "Flag units that name a ground, element, remedy, theory, or nonmoving "
+                "defendant as though it were a scored claim as spurious."
             ),
             (
                 "Every flag must cite one or more existing affected unit_ids so a "
@@ -1300,7 +1333,7 @@ def _stage_a_structural_review_prompt(
         "output_schema": {
             "structural_flags": [
                 {
-                    "flag_type": ["omitted", "combined", "mis_split"],
+                    "flag_type": ["omitted", "combined", "mis_split", "spurious"],
                     "affected_unit_ids": ["existing unit_id"],
                     "source_document_ids": ["predecision document id"],
                     "explanation": "specific structural defect; no proposed rewrite",
@@ -1324,7 +1357,7 @@ def validate_structural_review_flags(
 ) -> tuple[JsonRecord, ...]:
     allowed_unit_ids = {unit.unit_id for unit in units}
     documents_by_id = {document.source_document_id: document for document in documents}
-    allowed_types = {"omitted", "combined", "mis_split"}
+    allowed_types = {"omitted", "combined", "mis_split", "spurious"}
     forbidden = {"replacement_units", "proposed_units", "rewritten_units", "unit_seeds"}
     output: list[JsonRecord] = []
     for raw in _record_sequence(payload.get("structural_flags"), "structural_flags"):
@@ -2233,12 +2266,54 @@ def _unitization_prompt(
                 "group whose disposition can later be scored as fully dismissed or not."
             ),
             (
+                "A unit must represent one asserted legal right, or one independently "
+                "disposable subclaim, against an actual moving defendant in the "
+                "pleaded capacity."
+            ),
+            (
+                "A dismissal ground, defense, procedural predicate, claim element, "
+                "factual theory, requested remedy, or generic declaratory relief is "
+                "never "
+                "itself a prediction unit. Examples include limitations, standing, "
+                "exhaustion, qualified or sovereign immunity, service, personal "
+                "jurisdiction, venue, arbitration, preemption, Section 230, SLUSA, and "
+                "release. Attach those concepts to the challenged claim in your "
+                "analysis; do not emit them as unit_seeds."
+            ),
+            (
+                "Apply the independent-disposition test: create separate units only "
+                "when the court could dismiss one asserted proposition while another "
+                "survives as an independently enforceable legal right against the same "
+                "defendant."
+            ),
+            (
+                "If the motion attacks only an element, factual theory, or "
+                "application of law within one claim, keep one claim-level unit and "
+                "use partial_theory_only."
+            ),
+            (
                 "Create units only for claims actually challenged by the target motion "
                 "to dismiss or motion for judgment on the pleadings."
             ),
             (
                 "Use grouped defendants only when the pleadings/motion treat them "
                 "together on materially identical legal grounds."
+            ),
+            (
+                "defendant_names must contain actual party names. A single defendant "
+                "is individual. Never put a claim, theory, ground, role, or capacity "
+                "label in defendant_names; do not emit claims against a nonmoving "
+                "defendant. Use "
+                "group_label only for two or more actual defendants."
+            ),
+            (
+                "Examples: exhaustion and limitations attacking one retaliation count "
+                "produce one unit; Section 230 applied to six state-law claims "
+                "produces six claim units and no Section 230 unit; duty to defend and "
+                "duty to indemnify may be separable coverage units; induced and "
+                "contributory "
+                "infringement "
+                "may be separable statutory subclaims."
             ),
             (
                 "Every unit_seed must include count, claim_name, defendant_names, "
@@ -2773,6 +2848,32 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
         challenge_scope = ChallengeScope.UNCLEAR
         separable_subclaim = None
         review_reason = review_reason or UnitizationReviewReason.UNCLEAR_GROUPING
+    elif grouping is DefendantGrouping.INDIVIDUAL and group_label is not None:
+        conflict_note = (
+            "Provider response supplied group_label for an individual defendant; "
+            f"defendant_names={','.join(defendant_names)}; group_label={group_label}"
+        )
+        uncertainty_notes = (
+            f"{uncertainty_notes} {conflict_note}"
+            if uncertainty_notes is not None
+            else conflict_note
+        )
+        group_label = None
+        challenge_scope = ChallengeScope.UNCLEAR
+        separable_subclaim = None
+        review_reason = review_reason or UnitizationReviewReason.UNCLEAR_GROUPING
+    if not challenged_by_motion:
+        conflict_note = (
+            "Provider response emitted a unit not challenged by the target motion."
+        )
+        uncertainty_notes = (
+            f"{uncertainty_notes} {conflict_note}"
+            if uncertainty_notes is not None
+            else conflict_note
+        )
+        review_reason = (
+            review_reason or UnitizationReviewReason.UNCLEAR_CLAIM_OR_DEFENDANT
+        )
     return StageAUnitSeed(
         count=_required_str(record, "count"),
         claim_name=_required_str(record, "claim_name"),

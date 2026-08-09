@@ -9,7 +9,11 @@ from enum import StrEnum
 from typing import Any, cast
 
 JsonRecord = dict[str, Any]
-FINALIZED_SCHEMA_VERSION = "legalforecast.finalized_prediction_units.v1"
+LEGACY_FINALIZED_SCHEMA_VERSION = "legalforecast.finalized_prediction_units.v1"
+FINALIZED_SCHEMA_VERSION = "legalforecast.finalized_prediction_units.v2"
+SUPPORTED_FINALIZED_SCHEMA_VERSIONS = frozenset(
+    {LEGACY_FINALIZED_SCHEMA_VERSION, FINALIZED_SCHEMA_VERSION}
+)
 ADJUDICATION_SCHEMA_VERSION = "legalforecast.unitization_adjudication.v1"
 
 
@@ -24,6 +28,7 @@ class UnitizationDisposition(StrEnum):
     AMEND = "AMEND"
     SPLIT = "SPLIT"
     MERGE = "MERGE"
+    DROP = "DROP"
     CANDIDATE_EXCLUSION = "CANDIDATE-EXCLUSION"
 
 
@@ -67,6 +72,7 @@ def apply_unitization_reviews(
     expected_review_ids = set(reviews_by_id)
     review_queue_sha256 = canonical_records_sha256(reviews)
     resolved_review_ids: set[str] = set()
+    consumed_adjudication_ids: set[str] = set()
     output: list[JsonRecord] = []
 
     for candidate_id, raw_record in raw_by_candidate.items():
@@ -92,6 +98,7 @@ def apply_unitization_reviews(
         }
         excluded = False
         exclusion: JsonRecord | None = None
+        dropped_units: list[JsonRecord] = []
 
         for adjudication in candidate_adjudications:
             _validate_adjudication_header(adjudication, case_id=case_id)
@@ -119,22 +126,18 @@ def apply_unitization_reviews(
                 _required_str(candidate_reviews[review_id], "unit_id")
                 for review_id in review_ids
             )
+            source_unit_ids = tuple(dict.fromkeys(reviewed_unit_ids))
             explicit_source_unit_ids = _string_sequence(
                 adjudication.get("source_unit_ids"), "source_unit_ids"
             )
-            if len(set(reviewed_unit_ids)) != len(reviewed_unit_ids):
-                raise UnitizationReviewError(
-                    f"{adjudication_id}: reviews must reference distinct units"
-                )
             if explicit_source_unit_ids and (
                 len(set(explicit_source_unit_ids)) != len(explicit_source_unit_ids)
-                or set(explicit_source_unit_ids) != set(reviewed_unit_ids)
+                or set(explicit_source_unit_ids) != set(source_unit_ids)
             ):
                 raise UnitizationReviewError(
                     f"{adjudication_id}: source_unit_ids must include reviewed units "
                     "exactly"
                 )
-            source_unit_ids = reviewed_unit_ids
             if any(unit_id not in current for unit_id in source_unit_ids):
                 raise UnitizationReviewError(
                     f"{adjudication_id}: source unit is missing or already consumed"
@@ -151,6 +154,8 @@ def apply_unitization_reviews(
                 source_unit_ids=source_unit_ids,
                 finalized_units=finalized_units,
             )
+            if disposition is UnitizationDisposition.DROP:
+                _required_str(adjudication, "drop_reason")
             if disposition is UnitizationDisposition.CANDIDATE_EXCLUSION and (
                 set(source_unit_ids) != set(current)
                 or set(review_ids) != set(candidate_reviews)
@@ -175,6 +180,19 @@ def apply_unitization_reviews(
                 }
                 current.clear()
                 provenance.clear()
+            elif disposition is UnitizationDisposition.DROP:
+                dropped_units.extend(
+                    {
+                        "unit_id": unit_id,
+                        "source_unit_sha256": source_hash,
+                        "adjudication_id": adjudication_id,
+                        "adjudication_sha256": adjudication_hash,
+                        "disposition": disposition.value,
+                    }
+                    for unit_id, source_hash in zip(
+                        source_unit_ids, source_hashes, strict=True
+                    )
+                )
             for finalized_unit in finalized_units:
                 unit_id = _required_str(finalized_unit, "unit_id")
                 if unit_id in current:
@@ -189,11 +207,17 @@ def apply_unitization_reviews(
                     "disposition": disposition.value,
                 }
             resolved_review_ids.update(review_ids)
+            consumed_adjudication_ids.add(adjudication_id)
 
         unresolved = set(candidate_reviews) - resolved_review_ids
         if unresolved:
             raise UnitizationReviewError(
                 f"candidate {candidate_id} has unresolved reviews: {sorted(unresolved)}"
+            )
+        if not excluded and not current:
+            raise UnitizationReviewError(
+                f"candidate {candidate_id} must retain at least one unit; "
+                "use CANDIDATE-EXCLUSION instead"
             )
         finalized = [
             {**_base_unit(unit), **provenance[unit_id]}
@@ -208,6 +232,7 @@ def apply_unitization_reviews(
                 "raw_prediction_units_sha256": canonical_sha256(raw_record),
                 "unitization_review_queue_sha256": review_queue_sha256,
                 "prediction_units": finalized,
+                "dropped_units": dropped_units,
                 "exclusion": exclusion,
             }
         )
@@ -220,23 +245,7 @@ def apply_unitization_reviews(
             "reviews reference candidates with no raw units: "
             f"{sorted(missing_candidates)}"
         )
-    unconsumed_adjudications = (
-        set(adjudications_by_id)
-        - {
-            provenance["adjudication_id"]
-            for record in output
-            for provenance in _record_sequence(
-                record.get("prediction_units"), "prediction_units"
-            )
-            if isinstance(provenance.get("adjudication_id"), str)
-            and not cast(str, provenance["adjudication_id"]).startswith("automatic:")
-        }
-        - {
-            cast(str, exclusion["adjudication_id"])
-            for record in output
-            if isinstance((exclusion := record.get("exclusion")), Mapping)
-        }
-    )
+    unconsumed_adjudications = set(adjudications_by_id) - consumed_adjudication_ids
     if unconsumed_adjudications:
         raise UnitizationReviewError(
             f"adjudications were not consumed: {sorted(unconsumed_adjudications)}"
@@ -260,17 +269,25 @@ def verify_finalized_prediction_units(
 ) -> None:
     """Fail closed unless finalized records reproduce their complete hash chain."""
 
-    raw_by_candidate = _unique_by_candidate(raw_records, "raw units")
+    raw_materialized = tuple(raw_records)
+    adjudication_materialized = tuple(adjudication_records)
+    review_materialized = tuple(review_records)
+    raw_by_candidate = _unique_by_candidate(raw_materialized, "raw units")
     adjudications = _unique_by_id(
-        adjudication_records, "adjudication_id", "adjudication"
+        adjudication_materialized, "adjudication_id", "adjudication"
     )
+    reviews = _unique_by_id(review_materialized, "review_id", "review")
     finalized_by_candidate = _unique_by_candidate(finalized_records, "finalized units")
-    expected_review_queue_sha256 = canonical_records_sha256(review_records)
+    expected_review_queue_sha256 = canonical_records_sha256(review_materialized)
     if set(finalized_by_candidate) != set(raw_by_candidate):
         raise UnitizationReviewError("finalized candidates do not match raw candidates")
+    verified_adjudication_ids: set[str] = set()
     for candidate_id, record in finalized_by_candidate.items():
-        if record.get("schema_version") != FINALIZED_SCHEMA_VERSION:
+        schema_version = record.get("schema_version")
+        if schema_version not in SUPPORTED_FINALIZED_SCHEMA_VERSIONS:
             raise UnitizationReviewError("raw or unsupported prediction-units artifact")
+        if schema_version == FINALIZED_SCHEMA_VERSION and "dropped_units" not in record:
+            raise UnitizationReviewError("v2 finalized schema requires dropped_units")
         raw = raw_by_candidate[candidate_id]
         if record.get("raw_prediction_units_sha256") != canonical_sha256(raw):
             raise UnitizationReviewError(f"broken raw-unit hash link: {candidate_id}")
@@ -281,17 +298,75 @@ def verify_finalized_prediction_units(
             raise UnitizationReviewError(
                 f"broken unitization-review-queue hash link: {candidate_id}"
             )
-        raw_hashes = {
-            canonical_sha256(unit)
-            for unit in _record_sequence(
-                raw.get("prediction_units"), "prediction_units"
-            )
-        }
+        raw_units = _unique_units(
+            _record_sequence(raw.get("prediction_units"), "prediction_units")
+        )
+        raw_hashes = {canonical_sha256(unit) for unit in raw_units.values()}
         status = record.get("status")
         _required_str(record, "unitization_review_queue_sha256")
         units = _record_sequence(record.get("prediction_units"), "prediction_units")
+        finalized_units_by_id = _unique_units(units)
+        dropped_units = _record_sequence(
+            record.get("dropped_units", ()), "dropped_units"
+        )
+        if schema_version == LEGACY_FINALIZED_SCHEMA_VERSION and (
+            "dropped_units" in record or dropped_units
+        ):
+            raise UnitizationReviewError("legacy finalized schema cannot record drops")
+        dropped_units_by_id = _unique_by_id(dropped_units, "unit_id", "dropped unit")
+        if set(finalized_units_by_id).intersection(dropped_units_by_id):
+            raise UnitizationReviewError("dropped unit remains in finalized units")
+        dropped_ids_by_adjudication: dict[str, set[str]] = {}
+        for dropped in dropped_units:
+            unit_id = _required_str(dropped, "unit_id")
+            source_hash = _required_str(dropped, "source_unit_sha256")
+            adjudication_id = _required_str(dropped, "adjudication_id")
+            adjudication = adjudications.get(adjudication_id)
+            if (
+                unit_id not in raw_units
+                or source_hash != canonical_sha256(raw_units[unit_id])
+                or adjudication is None
+                or adjudication.get("candidate_id") != candidate_id
+                or adjudication.get("disposition") != "DROP"
+                or not _required_str(adjudication, "drop_reason")
+                or dropped.get("disposition") != "DROP"
+                or dropped.get("adjudication_sha256") != canonical_sha256(adjudication)
+            ):
+                raise UnitizationReviewError(
+                    f"broken dropped-unit hash link: {unit_id}"
+                )
+            dropped_ids_by_adjudication.setdefault(adjudication_id, set()).add(unit_id)
+            verified_adjudication_ids.add(adjudication_id)
+        for adjudication_id, dropped_ids in dropped_ids_by_adjudication.items():
+            adjudication = adjudications[adjudication_id]
+            source_unit_ids = _string_sequence(
+                adjudication.get("source_unit_ids"), "source_unit_ids"
+            )
+            review_ids = _string_sequence(adjudication.get("review_ids"), "review_ids")
+            if not review_ids:
+                review_ids = (_required_str(adjudication, "review_id"),)
+            reviewed_unit_ids = {
+                _required_str(reviews[review_id], "unit_id")
+                for review_id in review_ids
+                if review_id in reviews
+            }
+            if (
+                len(source_unit_ids) != 1
+                or len(review_ids) != len(set(review_ids))
+                or any(review_id not in reviews for review_id in review_ids)
+                or any(
+                    _required_str(reviews[review_id], "candidate_id") != candidate_id
+                    for review_id in review_ids
+                    if review_id in reviews
+                )
+                or set(source_unit_ids) != dropped_ids
+                or reviewed_unit_ids != dropped_ids
+            ):
+                raise UnitizationReviewError(
+                    f"DROP source units do not match provenance: {adjudication_id}"
+                )
         if status == "candidate_excluded":
-            if units:
+            if units or dropped_units:
                 raise UnitizationReviewError("invalid candidate-exclusion envelope")
             exclusion = record.get("exclusion")
             if not isinstance(exclusion, Mapping):
@@ -310,6 +385,7 @@ def verify_finalized_prediction_units(
                 raise UnitizationReviewError(
                     f"broken exclusion hash link: {adjudication_id}"
                 )
+            verified_adjudication_ids.add(adjudication_id)
             continue
         if status != "finalized" or record.get("exclusion") is not None:
             raise UnitizationReviewError("invalid finalized prediction-units envelope")
@@ -330,12 +406,26 @@ def verify_finalized_prediction_units(
                     raise UnitizationReviewError("invalid automatic finalization link")
             else:
                 adjudication = adjudications.get(adjudication_id)
-                if adjudication is None or unit.get(
-                    "adjudication_sha256"
-                ) != canonical_sha256(adjudication):
+                adjudication_disposition = (
+                    adjudication.get("disposition")
+                    if adjudication is not None
+                    else None
+                )
+                if (
+                    adjudication is None
+                    or adjudication_disposition
+                    not in {"ACCEPT", "AMEND", "SPLIT", "MERGE"}
+                    or unit.get("disposition") != adjudication_disposition
+                    or unit.get("adjudication_sha256") != canonical_sha256(adjudication)
+                ):
                     raise UnitizationReviewError(
                         f"broken adjudication hash link: {adjudication_id}"
                     )
+                verified_adjudication_ids.add(adjudication_id)
+    if verified_adjudication_ids != set(adjudications):
+        raise UnitizationReviewError(
+            "finalized artifact does not consume adjudications"
+        )
 
 
 def require_finalized_envelopes(
@@ -346,20 +436,50 @@ def require_finalized_envelopes(
     materialized = tuple(dict(record) for record in records)
     _unique_by_candidate(materialized, "finalized units")
     for record in materialized:
-        if record.get("schema_version") != FINALIZED_SCHEMA_VERSION:
+        schema_version = record.get("schema_version")
+        if schema_version not in SUPPORTED_FINALIZED_SCHEMA_VERSIONS:
             raise UnitizationReviewError("raw or unsupported prediction-units artifact")
+        if (
+            schema_version == LEGACY_FINALIZED_SCHEMA_VERSION
+            and "dropped_units" in record
+        ):
+            raise UnitizationReviewError("legacy finalized schema cannot record drops")
         _required_str(record, "unitization_review_queue_sha256")
         status = record.get("status")
         units = _record_sequence(record.get("prediction_units"), "prediction_units")
+        dropped_units = _record_sequence(
+            record.get("dropped_units", ()), "dropped_units"
+        )
+        if schema_version == FINALIZED_SCHEMA_VERSION:
+            if "dropped_units" not in record:
+                raise UnitizationReviewError(
+                    "v2 finalized schema requires dropped_units"
+                )
+            finalized_ids = {_required_str(unit, "unit_id") for unit in units}
+            dropped_ids = set(_unique_by_id(dropped_units, "unit_id", "dropped unit"))
+            if finalized_ids.intersection(dropped_ids):
+                raise UnitizationReviewError("dropped unit remains in finalized units")
+            for dropped in dropped_units:
+                _required_str(dropped, "source_unit_sha256")
+                _required_str(dropped, "adjudication_id")
+                _required_str(dropped, "adjudication_sha256")
+                if dropped.get("disposition") != "DROP":
+                    raise UnitizationReviewError("invalid dropped-unit disposition")
         if status == "candidate_excluded":
-            if units or not isinstance(record.get("exclusion"), Mapping):
+            if (
+                units
+                or (schema_version == FINALIZED_SCHEMA_VERSION and dropped_units)
+                or not isinstance(record.get("exclusion"), Mapping)
+            ):
                 raise UnitizationReviewError("invalid candidate-exclusion envelope")
             continue
         if status != "finalized" or not units:
             raise UnitizationReviewError("finalized candidate must contain units")
         for unit in units:
             _required_str(unit, "adjudication_id")
-            _required_str(unit, "disposition")
+            disposition = _required_str(unit, "disposition")
+            if disposition not in {"ACCEPT", "AMEND", "SPLIT", "MERGE"}:
+                raise UnitizationReviewError("invalid finalized-unit disposition")
             if not _string_sequence(
                 unit.get("source_unit_sha256s"), "source_unit_sha256s"
             ):
@@ -412,6 +532,7 @@ def _validate_disposition_shape(
         UnitizationDisposition.ACCEPT: 0,
         UnitizationDisposition.AMEND: 1,
         UnitizationDisposition.MERGE: 1,
+        UnitizationDisposition.DROP: 0,
         UnitizationDisposition.CANDIDATE_EXCLUSION: 0,
     }
     if disposition in expected and len(finalized_units) != expected[disposition]:
@@ -420,6 +541,8 @@ def _validate_disposition_shape(
         raise UnitizationReviewError("SPLIT must emit at least two units")
     if disposition is UnitizationDisposition.MERGE and len(source_unit_ids) < 2:
         raise UnitizationReviewError("MERGE must consume at least two units")
+    if disposition is UnitizationDisposition.DROP and len(source_unit_ids) != 1:
+        raise UnitizationReviewError("DROP must consume exactly one unit")
 
 
 def _unique_by_candidate(
