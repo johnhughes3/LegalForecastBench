@@ -40053,18 +40053,13 @@ def _preflight_approved_purchase_input_bytes(args: argparse.Namespace) -> None:
 _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN = object()
 _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION = object()
 _EXACT100_SUCCESSOR_REPLAY_ATTESTATION = object()
-_SUPPORTED_SUCCESSOR_STATE_SCHEMAS = frozenset(
-    {
-        ZERO_COST_SUCCESSOR_STATE_SCHEMA,
-        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1),
-    }
-)
 _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
     ZERO_COST_SUCCESSOR_STATE_SCHEMA: _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION,
     str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1): (
         _EXACT100_SUCCESSOR_REPLAY_ATTESTATION
     ),
 }
+_SUPPORTED_SUCCESSOR_STATE_SCHEMAS = frozenset(_SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA)
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -41663,7 +41658,9 @@ def _verify_zero_cost_successor_projection(
         or run_card.get("evaluation_authorized") is not False
         or run_card.get("freeze_authorized") is not False
         or run_card.get("dispatch_authorized") is not False
-        or (len(typed_inputs) not in {15, 21} and len(typed_inputs) < 22)
+        or not all(isinstance(path, str) and path for path in typed_inputs)
+        or not all(isinstance(path, str) and path for path in typed_outputs)
+        or (len(typed_inputs) != 15 and len(typed_inputs) < 21)
     ):
         raise CommandError("invalid completed zero-cost successor run card")
     input_paths = tuple(Path(str(path)) for path in typed_inputs)
@@ -41963,7 +41960,11 @@ def _replay_exact100_successor_inputs(
     predecessor_summary_path = cast(Path, verified_predecessor["summary_path"])
     predecessor_selection_path = cast(Path, verified_predecessor["selection_path"])
     predecessor_output_bytes = {
-        name: predecessor_snapshots[os.path.abspath(predecessor_root / name)]
+        name: _authenticated_projection_snapshot(
+            predecessor_snapshots,
+            predecessor_root / name,
+            label=f"exact100 predecessor output {name}",
+        )
         for name in EXACT100_PREDECESSOR_OUTPUT_NAMES
     }
     predecessor = _mint_verified_exact100_predecessor(
@@ -41990,28 +41991,41 @@ def _replay_exact100_successor_inputs(
 
     predecessor_card = cast(Mapping[str, object], verified_predecessor["run_card"])
     raw_inputs = predecessor_card.get("input_paths")
-    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+    predecessor_input_values = cast(list[object], raw_inputs)
+    if not isinstance(raw_inputs, list) or not all(
+        isinstance(value, str) and value for value in predecessor_input_values
+    ):
         raise CommandError("zero-cost predecessor lacks authenticated source inputs")
     predecessor_inputs = tuple(
-        Path(str(value)) for value in cast(Sequence[object], raw_inputs)
+        Path(cast(str, value)) for value in predecessor_input_values
     )
-    if len(predecessor_inputs) < 15:
+    if len(predecessor_inputs) != 15 and len(predecessor_inputs) < 21:
         raise CommandError("zero-cost predecessor source inputs are incomplete")
     original_root = predecessor_inputs[0]
     original = verify_completed_target_cohort_projection_for_purchase_approval(
         original_root
     )
-    original_card = cast(Mapping[str, object], original["run_card"])
-    original_raw_inputs = original_card.get("input_paths")
-    if not isinstance(original_raw_inputs, Sequence) or isinstance(
-        original_raw_inputs, (str, bytes)
+    original_source_paths = original.get("authenticated_input_paths")
+    if not isinstance(original_source_paths, Mapping):
+        raise CommandError("original target replay lacks authenticated source paths")
+    original_source_path_mapping = cast(Mapping[object, object], original_source_paths)
+    expected_source_names = {
+        "selection",
+        "case_relevance",
+        "download_manifest",
+        "disclosure_clearance",
+        "restriction_evidence",
+        "snapshot_manifest",
+    }
+    original_inputs = {
+        name: value
+        for name, value in original_source_path_mapping.items()
+        if isinstance(name, str) and isinstance(value, Path)
+    }
+    if set(original_inputs) != set(original_source_path_mapping) or not (
+        expected_source_names <= set(original_inputs)
     ):
-        raise CommandError("original target projection lacks authenticated inputs")
-    original_inputs = tuple(
-        Path(str(value)) for value in cast(Sequence[object], original_raw_inputs)
-    )
-    if len(original_inputs) not in {9, 19}:
-        raise CommandError("original target projection inputs differ")
+        raise CommandError("original target replay source paths are invalid")
     original_snapshots = cast(Mapping[str, bytes], original["verified_artifact_bytes"])
 
     def original_bytes(path: Path, label: str) -> bytes:
@@ -42022,26 +42036,38 @@ def _replay_exact100_successor_inputs(
                 f"original target replay did not authenticate {label}"
             ) from exc
 
-    source_selection_bytes = original_bytes(original_inputs[0], "source selection")
-    case_relevance_bytes = original_bytes(original_inputs[1], "case relevance")
-    download_manifest_bytes = original_bytes(original_inputs[2], "download manifest")
+    source_selection_bytes = original_bytes(
+        original_inputs["selection"], "source selection"
+    )
+    case_relevance_bytes = original_bytes(
+        original_inputs["case_relevance"], "case relevance"
+    )
+    download_manifest_bytes = original_bytes(
+        original_inputs["download_manifest"], "download manifest"
+    )
     disclosure_clearance_bytes = original_bytes(
-        original_inputs[3], "disclosure clearance"
+        original_inputs["disclosure_clearance"], "disclosure clearance"
     )
     restriction_evidence_bytes = original_bytes(
-        original_inputs[5], "restriction evidence"
+        original_inputs["restriction_evidence"], "restriction evidence"
     )
     snapshot_manifest_bytes = original_bytes(
-        original_inputs[8], "screening snapshot manifest"
+        original_inputs["snapshot_manifest"], "screening snapshot manifest"
     )
     ranked_reserve_path = original_root / "target-cohort-ranked-reserve.jsonl"
     ranked_reserve_bytes = original_bytes(ranked_reserve_path, "ranked reserve")
     core_filter_results_bytes = b"".join(
         canonical_json_bytes(result.to_record())
         for result in filter_core_documents(
-            _projection_jsonl_records(case_relevance_bytes, source=original_inputs[1])
+            _projection_jsonl_records(
+                case_relevance_bytes, source=original_inputs["case_relevance"]
+            )
         )
     )
+    if core_filter_results_bytes != original_bytes(
+        original_root / "core-filter-results.jsonl", "core-filter results"
+    ):
+        raise CommandError("original target core-filter results do not reproduce")
     original_summary_path = cast(Path, original["summary_path"])
     original_run_card_path = cast(Path, original["run_card_path"])
     promotion_pool = _mint_verified_successor_promotion_pool(
@@ -42061,6 +42087,17 @@ def _replay_exact100_successor_inputs(
         producer_root_bytes=snapshot_manifest_bytes,
     )
     return predecessor, promotion_pool
+
+
+def _authenticated_projection_snapshot(
+    snapshots: Mapping[str, bytes], path: Path, *, label: str
+) -> bytes:
+    """Return one verifier-owned snapshot with a boundary-specific error."""
+
+    payload = snapshots.get(os.path.abspath(path))
+    if not isinstance(payload, bytes):
+        raise CommandError(f"authenticated projection lacks {label}")
+    return payload
 
 
 def _require_zero_cost_successor_commitment_keysets(
@@ -42532,6 +42569,7 @@ def _verify_materializer_projection(
             source=paths["restriction-evidence.jsonl"],
         ),
         "selected_document_keys": selected_document_keys,
+        "authenticated_input_paths": dict(source_paths),
         "verified_artifact_bytes": {
             os.path.abspath(run_card_path): run_card_bytes,
             **{

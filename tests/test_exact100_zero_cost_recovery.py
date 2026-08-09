@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Any
+from pathlib import Path
 
 import pytest
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClient,
+    CourtListenerConfig,
     CourtListenerFixtureTransport,
     CourtListenerUnavailableError,
     RecordedCourtListenerResponse,
@@ -153,6 +154,7 @@ def test_unavailable_404_emits_only_replay_accepted_terminal_evidence() -> None:
     assert result.rest_observation is not None
     assert result.rest_observation_bytes is not None
     assert result.rest_observation_transcript_bytes is not None
+    assert result.rest_observation_response_bytes is not None
     assert result.rest_observation_response_bytes == _bytes({"detail": "not found"})
     evidence = verify_terminal_recovery_evidence(
         selection_bytes=selection_bytes,
@@ -218,6 +220,25 @@ def test_unavailable_404_without_observed_response_bytes_fails_closed() -> None:
         )
 
 
+def test_terminal_recovery_requires_canonical_courtlistener_base() -> None:
+    selection_bytes = _selection()
+    client, transport = _client(status_code=404, payload={"detail": "not found"})
+    client.config = CourtListenerConfig(
+        base_url="https://www.courtlistener.com/not-the-rest-api"
+    )
+
+    with pytest.raises(
+        Exact100ZeroCostRecoveryError,
+        match="canonical CourtListener REST v4 base",
+    ):
+        execute_exact100_zero_cost_recovery(
+            selection_bytes=selection_bytes,
+            plan_bytes=_plan(selection_bytes),
+            courtlistener=client,
+        )
+    assert transport.requests == []
+
+
 @pytest.mark.parametrize(
     "error",
     [
@@ -266,7 +287,7 @@ def test_unavailable_exception_without_exact_observation_fails_closed(
 
 
 def test_successful_public_recovery_retains_candidate_for_normal_handoff(
-    tmp_path: Any,
+    tmp_path: Path,
 ) -> None:
     selection_bytes = _selection()
     client, transport = _client(status_code=200, payload=_public_payload())
@@ -344,7 +365,7 @@ def test_request_issues_only_the_allowlisted_memorandum_not_the_complaint() -> N
     ],
 )
 def test_public_recovery_fails_closed_on_exact_docket_entry_drift(
-    tmp_path: Any, docket_entry_payload: dict[str, object]
+    tmp_path: Path, docket_entry_payload: dict[str, object]
 ) -> None:
     selection_bytes = _selection()
     client, transport = _client(
@@ -379,7 +400,7 @@ def test_public_recovery_fails_closed_on_exact_docket_entry_drift(
     ],
 )
 def test_nonterminal_or_unsafe_metadata_fails_closed(
-    tmp_path: Any, status_code: int, payload: dict[str, object]
+    tmp_path: Path, status_code: int, payload: dict[str, object]
 ) -> None:
     selection_bytes = _selection()
     client, _transport = _client(status_code=status_code, payload=payload)
@@ -406,7 +427,7 @@ def test_nonterminal_or_unsafe_metadata_fails_closed(
     ],
 )
 def test_public_recovery_rejects_unbound_or_noncanonical_url_before_download(
-    tmp_path: Any, unsafe_url: str
+    tmp_path: Path, unsafe_url: str
 ) -> None:
     selection_bytes = _selection()
     client, _transport = _client(

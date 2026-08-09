@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.contracts import (
-    ARTIFACT_CANONICAL_JSON_V1,
     EXACT100_ZERO_COST_RECOVERY_PLAN_V1,
     EXACT100_ZERO_COST_RECOVERY_PUBLIC_DOCUMENT_V1,
     EXACT100_ZERO_COST_RECOVERY_RECEIPT_V2,
@@ -27,12 +26,15 @@ from legalforecast.contracts import (
     EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_V1,
     EXACT100_ZERO_COST_RECOVERY_RUN_V2,
 )
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.courtlistener_client import (
+    DEFAULT_COURTLISTENER_BASE_URL,
     CourtListenerAuthError,
     CourtListenerClient,
     CourtListenerClientError,
     CourtListenerDocketEntry,
     CourtListenerRateLimitError,
+    CourtListenerRecapDocument,
     CourtListenerResponseError,
     CourtListenerServerError,
     CourtListenerUnavailableError,
@@ -207,6 +209,12 @@ def execute_exact100_zero_cost_recovery(
     No search, listing, provider broker, PACER, or fee-bearing surface is exposed.
     """
 
+    # The transcript commits the full REST-v4 request path.  Do not mint one
+    # from a client pointed at another same-host endpoint.
+    if courtlistener.config.base_url != DEFAULT_COURTLISTENER_BASE_URL:
+        raise Exact100ZeroCostRecoveryError(
+            "exact100 recovery requires the canonical CourtListener REST v4 base"
+        )
     request = issue_exact100_zero_cost_recovery_request(
         selection_bytes=selection_bytes, plan_bytes=plan_bytes
     )
@@ -412,12 +420,13 @@ def _unavailable_result(
 
 
 def _verify_public_document_identity(
-    recap_document: object, request: Exact100ZeroCostRecoveryRequest
+    recap_document: CourtListenerRecapDocument,
+    request: Exact100ZeroCostRecoveryRequest,
 ) -> None:
-    document = cast(Any, recap_document)
     if (
-        document.document_id != request.record["source_document_id"]
-        or document.docket_entry_id != request.record["courtlistener_docket_entry_id"]
+        recap_document.document_id != request.record["source_document_id"]
+        or recap_document.docket_entry_id
+        != request.record["courtlistener_docket_entry_id"]
     ):
         raise Exact100ZeroCostRecoveryError(
             "CourtListener recap-document identity drift"
@@ -563,7 +572,11 @@ def _positive_id(value: object, label: str) -> str:
 
 
 def _bytes(value: object) -> bytes:
-    return ARTIFACT_CANONICAL_JSON_V1.encode(value)
+    return canonical_json_bytes(
+        value,
+        error_type=Exact100ZeroCostRecoveryError,
+        error_message="zero-cost recovery serialization failed",
+    )
 
 
 def _sha(payload: bytes) -> str:

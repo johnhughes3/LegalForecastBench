@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from legalforecast.contracts import EXACT100_ZERO_COST_RECOVERY_PUBLIC_DOCUMENT_V1
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.courtlistener_client import (
     DEFAULT_COURTLISTENER_BASE_URL,
     CourtListenerClient,
@@ -150,25 +151,25 @@ def _run_with_dependencies(
     outputs = {"recovery-request.json": result.request.record_bytes}
     terminal = result.receipt_bytes is not None
     if terminal:
-        assert (
-            result.receipt_bytes
-            and result.run_card_bytes
-            and result.rest_observation_bytes
-            and result.rest_observation_transcript_bytes
-            and result.rest_observation_response_bytes is not None
+        terminal_outputs = {
+            "recovery-receipt.json": result.receipt_bytes,
+            "recovery-run-card.json": result.run_card_bytes,
+            "rest-observation.json": result.rest_observation_bytes,
+            "rest-observation-transcript.jsonl": (
+                result.rest_observation_transcript_bytes
+            ),
+            "rest-observation-response.bin": result.rest_observation_response_bytes,
+        }
+        missing_terminal_outputs = tuple(
+            name for name, payload in terminal_outputs.items() if payload is None
         )
+        if missing_terminal_outputs:
+            raise Exact100ZeroCostRecoveryCliError(
+                "terminal recovery lacks required output: "
+                + ", ".join(missing_terminal_outputs)
+            )
         outputs.update(
-            {
-                "recovery-receipt.json": result.receipt_bytes,
-                "recovery-run-card.json": result.run_card_bytes,
-                "rest-observation.json": result.rest_observation_bytes,
-                "rest-observation-transcript.jsonl": (
-                    result.rest_observation_transcript_bytes
-                ),
-                "rest-observation-response.bin": (
-                    result.rest_observation_response_bytes
-                ),
-            }
+            {name: cast(bytes, payload) for name, payload in terminal_outputs.items()}
         )
     else:
         if (
@@ -393,19 +394,17 @@ def _object(payload: bytes, path: Path) -> dict[str, object]:
         raise Exact100ZeroCostRecoveryCliError(f"{path} is not JSON") from exc
     if not isinstance(value, dict):
         raise Exact100ZeroCostRecoveryCliError(f"{path} is not a JSON object")
-    canonical = (
-        json.dumps(
-            value,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-            allow_nan=False,
+    record = cast(dict[str, object], value)
+    if (
+        canonical_json_bytes(
+            record,
+            error_type=Exact100ZeroCostRecoveryCliError,
+            error_message=f"{path} is not canonical JSON",
         )
-        + "\n"
-    )
-    if canonical.encode() != payload:
+        != payload
+    ):
         raise Exact100ZeroCostRecoveryCliError(f"{path} is not canonical JSON")
-    return cast(dict[str, object], value)
+    return record
 
 
 def _sha(payload: bytes) -> str:
@@ -424,5 +423,5 @@ def _write(path: Path, payload: bytes, *, resume: bool) -> None:
 
 
 def _overlaps(left: Path, right: Path) -> bool:
-    a, b = left.absolute(), right.absolute()
+    a, b = left.resolve(), right.resolve()
     return a == b or a in b.parents or b in a.parents

@@ -27,10 +27,7 @@ from legalforecast.selection import TrainingCutoffStatus
 
 @pytest.mark.parametrize(
     "schema_version",
-    [
-        cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
-        str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1),
-    ],
+    tuple(cli._SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA),
 )
 def test_successor_selection_card_requires_exact_replay_capability(
     tmp_path: Path, schema_version: str
@@ -82,11 +79,7 @@ def test_successor_selection_card_requires_exact_replay_capability(
     # The verifier-specific attestation is deliberately module-private. This
     # isolated test supplies it only to exercise exact-byte matching below;
     # normal callers receive it only after the corresponding semantic replay.
-    replay_attestation = (
-        cli._ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION
-        if schema_version == cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA
-        else cli._EXACT100_SUCCESSOR_REPLAY_ATTESTATION
-    )
+    replay_attestation = cli._SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA[schema_version]
     projection = cli._mint_verified_successor_selection_card_from_projection(
         self_consistent_projection,
         replay_attestation=replay_attestation,

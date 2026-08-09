@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,6 +11,7 @@ from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion import exact100_successor_replacement_cli as successor_cli
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
@@ -23,7 +25,6 @@ from tests.test_exact100_successor_replacement import (
     _fixture,
     _jsonl,
     _selection_row,
-    _write_replay_root,
 )
 
 
@@ -243,8 +244,86 @@ def _command(
 
 
 def _test_only_replay(root: Path) -> tuple[Any, Any]:
-    inputs = _fixture(root)
+    inputs = _fixture()
     return inputs["predecessor"], inputs["promotion_pool"]
+
+
+def _write_legacy_hash_consistent_forgery(
+    root: Path,
+    *,
+    predecessor_config: dict[str, Any],
+    predecessor_output_bytes: dict[str, bytes],
+    reserve: list[dict[str, Any]],
+    reserve_selection: list[dict[str, Any]],
+    reserve_artifacts: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Write the retired self-authenticating predecessor shape for rejection."""
+
+    root.joinpath("predecessor-config.json").write_bytes(_bytes(predecessor_config))
+    for name, payload in predecessor_output_bytes.items():
+        root.joinpath(f"predecessor-{name}").write_bytes(payload)
+    promotion_bytes = {
+        "ranked_reserve": _jsonl(reserve),
+        "source_selection": _jsonl(reserve_selection),
+        **{name: _jsonl(rows) for name, rows in reserve_artifacts.items()},
+    }
+    commitments = {name: _sha(payload) for name, payload in promotion_bytes.items()}
+    authority = {
+        "provider_activity_permitted": False,
+        "paid_activity_permitted": False,
+        "evaluation_authorized": False,
+        "freeze_authorized": False,
+        "dispatch_authorized": False,
+    }
+    producer_config = {
+        "schema_version": (
+            "legalforecast.exact100_successor_replacement_inputs_config.v1"
+        ),
+        "status": "completed",
+        "source_commitments": commitments,
+        **authority,
+    }
+    producer_config_bytes = _bytes(producer_config)
+    producer_run_card = {
+        "schema_version": (
+            "legalforecast.exact100_successor_replacement_inputs_run_card.v1"
+        ),
+        "stage": "replay-exact100-successor-replacement-inputs",
+        "status": "completed",
+        "config_sha256": _sha(producer_config_bytes),
+        "source_commitments": commitments,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "evaluation_authorized": False,
+        "freeze_authorized": False,
+        "dispatch_authorized": False,
+    }
+    producer_run_card_bytes = _bytes(producer_run_card)
+    producer_root = {
+        "schema_version": "legalforecast.exact100_successor_replacement_inputs_root.v1",
+        "producer_config_sha256": _sha(producer_config_bytes),
+        "producer_run_card_sha256": _sha(producer_run_card_bytes),
+        "source_commitments": commitments,
+        **authority,
+    }
+    root.joinpath("promotion-producer-config.json").write_bytes(producer_config_bytes)
+    root.joinpath("promotion-producer-run-card.json").write_bytes(
+        producer_run_card_bytes
+    )
+    root.joinpath("promotion-producer-root.json").write_bytes(_bytes(producer_root))
+    for name, payload in promotion_bytes.items():
+        file_name = {
+            "ranked_reserve": "ranked-reserve.jsonl",
+            "source_selection": "source-selection.jsonl",
+            "case_relevance": "case-relevance.jsonl",
+            "download_manifest": "document-downloads-merged.jsonl",
+            "disclosure_clearance": "disclosure-clearance.jsonl",
+            "restriction_evidence": "restriction-evidence.jsonl",
+            "core_filter_results": "core-filter-results.jsonl",
+        }[name]
+        root.joinpath(f"promotion-{file_name}").write_bytes(payload)
 
 
 def test_successor_cli_replays_sealed_input_and_materializer_projection(
@@ -253,7 +332,7 @@ def test_successor_cli_replays_sealed_input_and_materializer_projection(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture(inputs)
+    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
 
@@ -280,7 +359,7 @@ def test_successor_materializer_rejects_tampered_immutable_output(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture(inputs)
+    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     monkeypatch.setattr(
@@ -293,6 +372,48 @@ def test_successor_materializer_rejects_tampered_immutable_output(
     output.joinpath("case-relevance.jsonl").write_bytes(b"{}\n")
     with pytest.raises(cli.CommandError, match="output changed after replay"):
         cli.verify_completed_target_cohort_projection_for_purchase_approval(output)
+
+
+def test_successor_state_rejects_invalid_input_path_shape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = tmp_path / "sealed-inputs"
+    inputs.mkdir()
+    _fixture()
+    evidence = _recovery_evidence(tmp_path / "recovery")
+    output = tmp_path / "successor"
+    monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
+    assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 0
+
+    state_path = output / "run-cards/project-target-cohort.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["input_paths"][0] = 1
+    with pytest.raises(
+        successor_cli.Exact100SuccessorReplacementCliError,
+        match="invalid completed exact100 successor run card",
+    ):
+        successor_cli._verify_state(
+            state, target_root=output, expected_target_count=100
+        )
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["recovery_evidence_root_count"] = 2
+    with pytest.raises(
+        successor_cli.Exact100SuccessorReplacementCliError,
+        match="invalid completed exact100 successor run card",
+    ):
+        successor_cli._verify_state(
+            state, target_root=output, expected_target_count=100
+        )
+
+
+def test_successor_overlap_resolves_symlinked_paths(tmp_path: Path) -> None:
+    input_root = tmp_path / "input"
+    input_root.mkdir()
+    alias = tmp_path / "input-alias"
+    alias.symlink_to(input_root, target_is_directory=True)
+
+    assert successor_cli._overlaps(alias / "output", input_root)
 
 
 def test_successor_cli_exposes_no_manual_candidate_or_provider_switches(
@@ -315,7 +436,7 @@ def test_successor_rejects_unexpected_output_before_replay(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture(inputs)
+    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     output.mkdir()
@@ -334,10 +455,10 @@ def test_successor_cli_rejects_fabricated_hash_consistent_input_root(
 ) -> None:
     fabricated = tmp_path / "fabricated-inputs"
     fabricated.mkdir()
-    inputs = _fixture(fabricated)
-    _write_replay_root(
+    inputs = _fixture()
+    _write_legacy_hash_consistent_forgery(
         fabricated,
-        predecessor_config=inputs["projection"],
+        predecessor_config=inputs["predecessor"].projection,
         predecessor_output_bytes=inputs["predecessor_output_bytes"],
         reserve=inputs["reserve"],
         reserve_selection=inputs["reserve_selection"],
@@ -358,7 +479,7 @@ def test_successor_cli_rejects_self_consistent_invented_stipulated_pdf(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture(inputs)
+    _fixture()
     evidence = _stipulated_evidence(
         tmp_path / "invented-stipulated",
         source_document=b"invented PDF bytes with a fabricated dismissal",
@@ -381,7 +502,7 @@ def test_successor_cli_rejects_self_consistent_invented_stipulated_pdf(
 def test_production_replay_derives_both_capabilities_from_verified_snapshots(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fixture = _fixture(tmp_path)
+    fixture = _fixture()
     predecessor_root = tmp_path / "predecessor"
     predecessor_root.mkdir()
     predecessor_state_path = predecessor_root / "run-cards/project-target-cohort.json"
@@ -398,7 +519,7 @@ def test_production_replay_derives_both_capabilities_from_verified_snapshots(
     }
     predecessor_state_path.write_bytes(_bytes(predecessor_state))
     predecessor_summary_path = predecessor_root / "target-cohort-projection.json"
-    predecessor_summary_path.write_bytes(_bytes(fixture["projection"]))
+    predecessor_summary_path.write_bytes(_bytes(fixture["predecessor"].projection))
     predecessor_selection_path = predecessor_root / "target-cohort-selection.jsonl"
     predecessor_selection_path.write_bytes(fixture["selection_bytes"])
     predecessor_snapshots = {
@@ -417,7 +538,7 @@ def test_production_replay_derives_both_capabilities_from_verified_snapshots(
         lambda **_kwargs: {
             "run_card": predecessor_state,
             "run_card_path": predecessor_state_path,
-            "summary": fixture["projection"],
+            "summary": fixture["predecessor"].projection,
             "summary_path": predecessor_summary_path,
             "selection_path": predecessor_selection_path,
             "verified_artifact_bytes": predecessor_snapshots,
@@ -445,6 +566,9 @@ def test_production_replay_derives_both_capabilities_from_verified_snapshots(
         original_root / "target-cohort-ranked-reserve.jsonl": _jsonl(
             fixture["reserve"]
         ),
+        original_root / "core-filter-results.jsonl": _jsonl(
+            fixture["reserve_artifacts"]["core_filter_results"]
+        ),
         original_summary_path: b"{}\n",
         original_run_card_path: _bytes(original_run_card),
     }
@@ -455,6 +579,14 @@ def test_production_replay_derives_both_capabilities_from_verified_snapshots(
             "run_card": original_run_card,
             "run_card_path": original_run_card_path,
             "summary_path": original_summary_path,
+            "authenticated_input_paths": {
+                "selection": original_inputs[0],
+                "case_relevance": original_inputs[1],
+                "download_manifest": original_inputs[2],
+                "disclosure_clearance": original_inputs[3],
+                "restriction_evidence": original_inputs[5],
+                "snapshot_manifest": original_inputs[8],
+            },
             "verified_artifact_bytes": {
                 os.path.abspath(path): payload
                 for path, payload in original_payloads.items()
@@ -476,3 +608,16 @@ def test_production_replay_derives_both_capabilities_from_verified_snapshots(
 
     assert len(predecessor.selection) == 100
     assert promotion_pool.promotable_candidate_ids == ("R2", "R3")
+
+    original_payloads[original_root / "core-filter-results.jsonl"] = b"{}\n"
+    with pytest.raises(cli.CommandError, match="core-filter results do not reproduce"):
+        cli._replay_exact100_successor_inputs(predecessor_root)
+
+    del predecessor_snapshots[
+        os.path.abspath(predecessor_root / "core-filter-results.jsonl")
+    ]
+    with pytest.raises(
+        cli.CommandError,
+        match="authenticated projection lacks exact100 predecessor output",
+    ):
+        cli._replay_exact100_successor_inputs(predecessor_root)

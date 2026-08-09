@@ -390,6 +390,7 @@ def _mint_verified_exact100_predecessor(  # pyright: ignore[reportUnusedFunction
         name: tuple(_jsonl_records(payload, f"predecessor {name}"))
         for name, payload in artifact_bytes.items()
     }
+    _require_exact_predecessor_artifact_coverage(selection, **artifacts)
     value = object.__new__(VerifiedExact100Predecessor)
     for name, item in (
         ("projection", dict(projection)),
@@ -592,6 +593,14 @@ def require_verified_exact100_predecessor(
         raise Exact100SuccessorReplacementError(
             "predecessor was not produced by exact producer replay"
         )
+    _require_exact_predecessor_artifact_coverage(
+        predecessor.selection,
+        case_relevance=predecessor.case_relevance,
+        download_manifest=predecessor.download_manifest,
+        disclosure_clearance=predecessor.disclosure_clearance,
+        restriction_evidence=predecessor.restriction_evidence,
+        core_filter_results=predecessor.core_filter_results,
+    )
 
 
 def require_verified_successor_promotion_pool(
@@ -607,9 +616,14 @@ def require_verified_successor_promotion_pool(
     expected: list[str] = []
     for row in promotion_pool.ranked_reserve:
         candidate_id = _candidate_id(row)
+        selection = promotion_pool.selection_by_candidate.get(candidate_id)
+        if not isinstance(selection, Mapping):
+            raise Exact100SuccessorReplacementError(
+                "reserve candidate is absent from authenticated source selection"
+            )
         reason = _nonpromotable_reason(
             candidate_id,
-            selection=promotion_pool.selection_by_candidate[candidate_id],
+            selection=selection,
             case_relevance=promotion_pool.case_relevance,
             download_manifest=promotion_pool.download_manifest,
             disclosure_clearance=promotion_pool.disclosure_clearance,
@@ -653,6 +667,94 @@ def require_verified_successor_promotion_pool(
         )
 
 
+def _require_exact_predecessor_artifact_coverage(
+    selection: Sequence[Mapping[str, Any]],
+    *,
+    case_relevance: Sequence[Mapping[str, Any]],
+    download_manifest: Sequence[Mapping[str, Any]],
+    disclosure_clearance: Sequence[Mapping[str, Any]],
+    restriction_evidence: Sequence[Mapping[str, Any]],
+    core_filter_results: Sequence[Mapping[str, Any]],
+) -> None:
+    """Require exact selected-candidate/document coverage on consumed evidence."""
+
+    selected_by_candidate = {_candidate_id(row): row for row in selection}
+    selected_ids = set(selected_by_candidate)
+    if len(selected_by_candidate) != len(selection):
+        raise Exact100SuccessorReplacementError(
+            "predecessor selection is not exactly unique candidates"
+        )
+    _require_exact_candidate_coverage(
+        case_relevance, selected_ids, label="case relevance"
+    )
+    _require_exact_candidate_coverage(
+        core_filter_results, selected_ids, label="core filter results"
+    )
+    for label, records in (
+        ("download manifest", download_manifest),
+        ("disclosure clearance", disclosure_clearance),
+        ("restriction evidence", restriction_evidence),
+    ):
+        if not {_candidate_id(row) for row in records} <= selected_ids:
+            raise Exact100SuccessorReplacementError(
+                f"predecessor {label} includes an unselected candidate"
+            )
+    for candidate_id, selection_row in selected_by_candidate.items():
+        document_ids = _document_ids_from_selection(selection_row, "selection")
+        relevance_rows = _candidate_rows(case_relevance, candidate_id)
+        if (
+            _document_ids_from_selection(relevance_rows[0], "case relevance")
+            != document_ids
+        ):
+            raise Exact100SuccessorReplacementError(
+                "predecessor case relevance document coverage is incomplete"
+            )
+        for label, records in (
+            ("download manifest", download_manifest),
+            ("disclosure clearance", disclosure_clearance),
+            ("restriction evidence", restriction_evidence),
+        ):
+            if not _has_exact_document_coverage(
+                _candidate_rows(records, candidate_id), document_ids
+            ):
+                raise Exact100SuccessorReplacementError(
+                    f"predecessor {label} document coverage is incomplete"
+                )
+
+
+def _require_exact_candidate_coverage(
+    rows: Sequence[Mapping[str, Any]], candidate_ids: set[str], *, label: str
+) -> None:
+    observed_ids = {_candidate_id(row) for row in rows}
+    if len(rows) != len(candidate_ids) or observed_ids != candidate_ids:
+        raise Exact100SuccessorReplacementError(
+            f"predecessor {label} does not exactly cover selected candidates"
+        )
+
+
+def _document_ids_from_selection(record: Mapping[str, Any], label: str) -> set[str]:
+    documents = record.get("documents")
+    if not isinstance(documents, Sequence) or isinstance(documents, (str, bytes)):
+        raise Exact100SuccessorReplacementError(
+            f"predecessor {label} documents are invalid"
+        )
+    document_sequence = cast(Sequence[object], documents)
+    document_ids: set[str] = set()
+    for document in document_sequence:
+        if not isinstance(document, Mapping):
+            raise Exact100SuccessorReplacementError(
+                f"predecessor {label} documents are invalid"
+            )
+        document_ids.add(
+            _required_text(cast(Mapping[str, object], document), "source_document_id")
+        )
+    if not document_ids or len(document_ids) != len(document_sequence):
+        raise Exact100SuccessorReplacementError(
+            f"predecessor {label} documents are invalid"
+        )
+    return document_ids
+
+
 def _nonpromotable_reason(
     candidate_id: str,
     *,
@@ -677,6 +779,14 @@ def _nonpromotable_reason(
     relevance = _candidate_rows(case_relevance, candidate_id)
     if len(relevance) != 1:
         return "case_relevance_incomplete"
+    try:
+        relevance_document_ids = _document_ids_from_selection(
+            relevance[0], "case relevance"
+        )
+    except Exact100SuccessorReplacementError:
+        return "case_relevance_incomplete"
+    if relevance_document_ids != document_ids:
+        return "case_relevance_incomplete"
     manifest = _candidate_rows(download_manifest, candidate_id)
     clearance = _candidate_rows(disclosure_clearance, candidate_id)
     restrictions = _candidate_rows(restriction_evidence, candidate_id)
@@ -684,7 +794,7 @@ def _nonpromotable_reason(
     if not _has_exact_document_coverage(manifest, document_ids):
         return "download_manifest_incomplete"
     if any(
-        row.get("availability_status") not in {None, "available"}
+        row.get("availability_status") != "available"
         or row.get("requires_paid_recovery") is True
         or row.get("free_or_purchased") == "purchased"
         for row in manifest
@@ -700,9 +810,9 @@ def _nonpromotable_reason(
         for row in restrictions
     ):
         return "restriction_evidence_incomplete"
-    if not core or any(
+    if len(core) != 1 or any(
         row.get("missing_core_document_count", 0) != 0
-        or row.get("core_documents_complete", True) is not True
+        or row.get("core_documents_complete") is not True
         for row in core
     ):
         return "core_documents_incomplete"

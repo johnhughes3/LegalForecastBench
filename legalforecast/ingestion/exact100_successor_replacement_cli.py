@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import redirect_stdout
@@ -395,7 +396,25 @@ def _verify_state(
                 "dispatch_authorized",
             )
         )
-        or set(cast(list[str], state.get("output_paths"))) != expected_paths
+        or not isinstance(state.get("input_paths"), list)
+        or any(
+            not isinstance(value, str) or not value
+            for value in cast(list[object], state["input_paths"])
+        )
+        or type(state.get("stipulated_evidence_root_count")) is not int
+        or cast(int, state["stipulated_evidence_root_count"]) < 0
+        or type(state.get("recovery_evidence_root_count")) is not int
+        or cast(int, state["recovery_evidence_root_count"]) < 0
+        or len(cast(list[object], state["input_paths"]))
+        != 1
+        + cast(int, state["stipulated_evidence_root_count"])
+        + cast(int, state["recovery_evidence_root_count"])
+        or not isinstance(state.get("output_paths"), list)
+        or any(
+            not isinstance(value, str) or not value
+            for value in cast(list[object], state["output_paths"])
+        )
+        or set(cast(list[str], state["output_paths"])) != expected_paths
     ):
         raise Exact100SuccessorReplacementCliError(
             "invalid completed exact100 successor run card"
@@ -528,8 +547,6 @@ def _bytes(value: object) -> bytes:
 
 
 def _sha(payload: bytes) -> str:
-    import hashlib
-
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
@@ -547,10 +564,7 @@ def _object(payload: bytes, path: Path) -> dict[str, Any]:
 
 
 def _jsonl(payload: bytes, path: Path) -> tuple[dict[str, Any], ...]:
-    try:
-        rows = tuple(_object(line + b"\n", path) for line in payload.splitlines())
-    except Exact100SuccessorReplacementCliError:
-        raise
+    rows = tuple(_object(line + b"\n", path) for line in payload.splitlines())
     if (
         not rows
         or b"\n".join(_bytes(row).rstrip(b"\n") for row in rows) + b"\n" != payload
@@ -615,5 +629,5 @@ def _validate_output_root(root: Path) -> None:
 
 
 def _overlaps(left: Path, right: Path) -> bool:
-    a, b = left.absolute(), right.absolute()
+    a, b = left.resolve(), right.resolve()
     return a == b or a in b.parents or b in a.parents

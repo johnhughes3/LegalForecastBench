@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -73,7 +72,12 @@ def _candidate_artifacts(
     core: list[dict[str, Any]] = []
     for candidate_id in candidate_ids:
         document_id = f"{candidate_id}-motion"
-        relevance.append({"candidate_id": candidate_id, "documents": [document_id]})
+        relevance.append(
+            {
+                "candidate_id": candidate_id,
+                "documents": [{"source_document_id": document_id}],
+            }
+        )
         manifest.append(
             {
                 "candidate_id": candidate_id,
@@ -116,7 +120,7 @@ def _candidate_artifacts(
     }
 
 
-def _fixture(tmp_path: Path) -> dict[str, Any]:
+def _fixture() -> dict[str, Any]:
     selected_ids = [f"C{number:03d}" for number in range(1, 101)]
     selection = [_selection_row(candidate_id) for candidate_id in selected_ids]
     selection_bytes = b"".join(_bytes(record) for record in selection)
@@ -290,91 +294,22 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
         producer_run_card_bytes=b"test-only authenticated producer run card",
         producer_root_bytes=b"test-only authenticated producer root",
     )
-    return locals()
+    return {
+        "selection": selection,
+        "selection_bytes": selection_bytes,
+        "predecessor_artifacts": predecessor_artifacts,
+        "predecessor_output_bytes": predecessor_output_bytes,
+        "terminals": terminals,
+        "reserve": reserve,
+        "reserve_selection": reserve_selection,
+        "reserve_artifacts": reserve_artifacts,
+        "predecessor": predecessor,
+        "promotion_pool": promotion_pool,
+    }
 
 
-def _write_replay_root(
-    root: Path,
-    *,
-    predecessor_config: dict[str, Any],
-    predecessor_output_bytes: dict[str, bytes],
-    reserve: list[dict[str, Any]],
-    reserve_selection: list[dict[str, Any]],
-    reserve_artifacts: dict[str, list[dict[str, Any]]],
-) -> None:
-    root.joinpath("predecessor-config.json").write_bytes(_bytes(predecessor_config))
-    for name, payload in predecessor_output_bytes.items():
-        root.joinpath(f"predecessor-{name}").write_bytes(payload)
-    promotion_bytes = {
-        "ranked_reserve": _jsonl(reserve),
-        "source_selection": _jsonl(reserve_selection),
-        **{name: _jsonl(rows) for name, rows in reserve_artifacts.items()},
-    }
-    commitments = {name: _sha(payload) for name, payload in promotion_bytes.items()}
-    authority = {
-        "provider_activity_permitted": False,
-        "paid_activity_permitted": False,
-        "evaluation_authorized": False,
-        "freeze_authorized": False,
-        "dispatch_authorized": False,
-    }
-    producer_config = {
-        "schema_version": (
-            "legalforecast.exact100_successor_replacement_inputs_config.v1"
-        ),
-        "status": "completed",
-        "source_commitments": commitments,
-        **authority,
-    }
-    producer_config_bytes = _bytes(producer_config)
-    producer_run_card = {
-        "schema_version": (
-            "legalforecast.exact100_successor_replacement_inputs_run_card.v1"
-        ),
-        "stage": "replay-exact100-successor-replacement-inputs",
-        "status": "completed",
-        "config_sha256": _sha(producer_config_bytes),
-        "source_commitments": commitments,
-        "provider_activity_requested": False,
-        "provider_activity_executed": False,
-        "paid_activity_requested": False,
-        "paid_activity_executed": False,
-        "evaluation_authorized": False,
-        "freeze_authorized": False,
-        "dispatch_authorized": False,
-    }
-    producer_run_card_bytes = _bytes(producer_run_card)
-    producer_root = {
-        "schema_version": (
-            "legalforecast.exact100_successor_replacement_inputs_root.v1"
-        ),
-        "producer_config_sha256": _sha(producer_config_bytes),
-        "producer_run_card_sha256": _sha(producer_run_card_bytes),
-        "source_commitments": commitments,
-        **authority,
-    }
-    root.joinpath("promotion-producer-config.json").write_bytes(producer_config_bytes)
-    root.joinpath("promotion-producer-run-card.json").write_bytes(
-        producer_run_card_bytes
-    )
-    root.joinpath("promotion-producer-root.json").write_bytes(_bytes(producer_root))
-    for name, payload in promotion_bytes.items():
-        file_name = {
-            "ranked_reserve": "ranked-reserve.jsonl",
-            "source_selection": "source-selection.jsonl",
-            "case_relevance": "case-relevance.jsonl",
-            "download_manifest": "document-downloads-merged.jsonl",
-            "disclosure_clearance": "disclosure-clearance.jsonl",
-            "restriction_evidence": "restriction-evidence.jsonl",
-            "core_filter_results": "core-filter-results.jsonl",
-        }[name]
-        root.joinpath(f"promotion-{file_name}").write_bytes(payload)
-
-
-def test_replacement_preserves_rows_and_promotes_first_clean_reserves(
-    tmp_path: Path,
-) -> None:
-    inputs = _fixture(tmp_path)
+def test_replacement_preserves_rows_and_promotes_first_clean_reserves() -> None:
+    inputs = _fixture()
 
     result = project_exact100_successor_replacement(
         predecessor=inputs["predecessor"],
@@ -407,10 +342,8 @@ def test_replacement_preserves_rows_and_promotes_first_clean_reserves(
     assert result.state["dispatch_authorized"] is False
 
 
-def test_replacement_orders_promoted_artifacts_by_frozen_reserve_rank(
-    tmp_path: Path,
-) -> None:
-    inputs = _fixture(tmp_path)
+def test_replacement_orders_promoted_artifacts_by_frozen_reserve_rank() -> None:
+    inputs = _fixture()
     reserve_artifacts = {
         name: list(reversed(rows)) for name, rows in inputs["reserve_artifacts"].items()
     }
@@ -444,10 +377,8 @@ def test_replacement_orders_promoted_artifacts_by_frozen_reserve_rank(
         assert [row["candidate_id"] for row in artifact[-2:]] == ["R2", "R3"]
 
 
-def test_replacement_fails_closed_when_clean_reserves_are_insufficient(
-    tmp_path: Path,
-) -> None:
-    inputs = _fixture(tmp_path)
+def test_replacement_fails_closed_when_clean_reserves_are_insufficient() -> None:
+    inputs = _fixture()
     pool = inputs["promotion_pool"]
     object.__setattr__(
         pool, "core_filter_results", tuple(pool.core_filter_results[:-1])
@@ -470,9 +401,9 @@ def test_replacement_fails_closed_when_clean_reserves_are_insufficient(
     ],
 )
 def test_promotion_pool_rejects_duplicate_document_artifact_rows(
-    tmp_path: Path, artifact_name: str, expected_reason: str
+    artifact_name: str, expected_reason: str
 ) -> None:
-    inputs = _fixture(tmp_path)
+    inputs = _fixture()
     artifacts = {name: list(rows) for name, rows in inputs["reserve_artifacts"].items()}
     duplicate = next(
         row for row in artifacts[artifact_name] if row["candidate_id"] == "R2"
@@ -500,6 +431,142 @@ def test_promotion_pool_rejects_duplicate_document_artifact_rows(
     } in pool.nonpromotable
 
 
+@pytest.mark.parametrize(
+    ("artifact_name", "field_name", "expected_reason"),
+    [
+        (
+            "download_manifest",
+            "availability_status",
+            "nonzero_cost_or_unavailable_document",
+        ),
+        ("core_filter_results", "core_documents_complete", "core_documents_incomplete"),
+    ],
+)
+def test_promotion_pool_requires_explicit_availability_and_core_completion(
+    artifact_name: str, field_name: str, expected_reason: str
+) -> None:
+    inputs = _fixture()
+    artifacts = {name: list(rows) for name, rows in inputs["reserve_artifacts"].items()}
+    row = next(row for row in artifacts[artifact_name] if row["candidate_id"] == "R2")
+    row.pop(field_name)
+
+    pool = _mint_verified_successor_promotion_pool(
+        ranked_reserve_bytes=_jsonl(inputs["reserve"]),
+        source_selection_bytes=_jsonl(inputs["reserve_selection"]),
+        case_relevance_bytes=_jsonl(artifacts["case_relevance"]),
+        download_manifest_bytes=_jsonl(artifacts["download_manifest"]),
+        disclosure_clearance_bytes=_jsonl(artifacts["disclosure_clearance"]),
+        restriction_evidence_bytes=_jsonl(artifacts["restriction_evidence"]),
+        core_filter_results_bytes=_jsonl(artifacts["core_filter_results"]),
+        producer_config_bytes=b"test-only producer config",
+        producer_run_card_bytes=b"test-only producer run card",
+        producer_root_bytes=b"test-only producer root",
+    )
+
+    assert "R2" not in pool.promotable_candidate_ids
+    assert {
+        "candidate_id": "R2",
+        "reserve_rank": 2,
+        "reason": expected_reason,
+    } in pool.nonpromotable
+
+
+def test_promotion_pool_requires_relevance_documents_to_match_selection() -> None:
+    inputs = _fixture()
+    artifacts = {name: list(rows) for name, rows in inputs["reserve_artifacts"].items()}
+    relevance = next(
+        row for row in artifacts["case_relevance"] if row["candidate_id"] == "R2"
+    )
+    relevance["documents"] = [
+        {
+            **relevance["documents"][0],
+            "source_document_id": "R2-unselected-document",
+        }
+    ]
+
+    pool = _mint_verified_successor_promotion_pool(
+        ranked_reserve_bytes=_jsonl(inputs["reserve"]),
+        source_selection_bytes=_jsonl(inputs["reserve_selection"]),
+        case_relevance_bytes=_jsonl(artifacts["case_relevance"]),
+        download_manifest_bytes=_jsonl(artifacts["download_manifest"]),
+        disclosure_clearance_bytes=_jsonl(artifacts["disclosure_clearance"]),
+        restriction_evidence_bytes=_jsonl(artifacts["restriction_evidence"]),
+        core_filter_results_bytes=_jsonl(artifacts["core_filter_results"]),
+        producer_config_bytes=b"test-only producer config",
+        producer_run_card_bytes=b"test-only producer run card",
+        producer_root_bytes=b"test-only producer root",
+    )
+
+    assert "R2" not in pool.promotable_candidate_ids
+    assert {
+        "candidate_id": "R2",
+        "reserve_rank": 2,
+        "reason": "case_relevance_incomplete",
+    } in pool.nonpromotable
+
+
+def test_promotion_pool_missing_selected_candidate_is_a_domain_error() -> None:
+    inputs = _fixture()
+    inputs["promotion_pool"].selection_by_candidate.pop("R2")
+
+    with pytest.raises(
+        Exact100SuccessorReplacementError,
+        match="absent from authenticated source selection",
+    ):
+        project_exact100_successor_replacement(
+            predecessor=inputs["predecessor"],
+            terminal_exclusions=inputs["terminals"],
+            promotion_pool=inputs["promotion_pool"],
+        )
+
+
+@pytest.mark.parametrize(
+    "coverage_failure", ["missing_candidate", "duplicate_document"]
+)
+def test_predecessor_mint_requires_exact_selected_artifact_coverage(
+    coverage_failure: str,
+) -> None:
+    inputs = _fixture()
+    artifacts = {
+        name: list(rows) for name, rows in inputs["predecessor_artifacts"].items()
+    }
+    if coverage_failure == "missing_candidate":
+        artifacts["case_relevance"] = [
+            row for row in artifacts["case_relevance"] if row["candidate_id"] != "C003"
+        ]
+        error = "case relevance does not exactly cover selected candidates"
+    else:
+        duplicate = next(
+            row
+            for row in artifacts["download_manifest"]
+            if row["candidate_id"] == "C003"
+        )
+        artifacts["download_manifest"].append(dict(duplicate))
+        error = "download manifest document coverage is incomplete"
+    output_bytes = dict(inputs["predecessor_output_bytes"])
+    output_bytes["case-relevance.jsonl"] = _jsonl(artifacts["case_relevance"])
+    output_bytes["document-downloads-merged.jsonl"] = _jsonl(
+        artifacts["download_manifest"]
+    )
+    projection = dict(inputs["predecessor"].projection)
+    projection["output_commitments"] = {
+        name: _sha(payload) for name, payload in output_bytes.items()
+    }
+
+    with pytest.raises(Exact100SuccessorReplacementError, match=error):
+        _mint_verified_exact100_predecessor(
+            projection=projection,
+            projection_bytes=_bytes(projection),
+            selection_bytes=inputs["selection_bytes"],
+            case_relevance_bytes=output_bytes["case-relevance.jsonl"],
+            download_manifest_bytes=output_bytes["document-downloads-merged.jsonl"],
+            disclosure_clearance_bytes=output_bytes["disclosure-clearance.jsonl"],
+            restriction_evidence_bytes=output_bytes["restriction-evidence.jsonl"],
+            core_filter_results_bytes=output_bytes["core-filter-results.jsonl"],
+            all_output_bytes=output_bytes,
+        )
+
+
 def test_replacement_rejects_caller_constructed_authorities() -> None:
     with pytest.raises(Exact100SuccessorReplacementError, match="producer replay"):
         require_verified_exact100_predecessor(
@@ -515,8 +582,8 @@ def test_replacement_rejects_caller_constructed_authorities() -> None:
         verify_successor_promotion_pool()
 
 
-def test_replacement_rejects_terminal_selection_substitution(tmp_path: Path) -> None:
-    inputs = _fixture(tmp_path)
+def test_replacement_rejects_terminal_selection_substitution() -> None:
+    inputs = _fixture()
     object.__setattr__(
         inputs["terminals"], "selection_sha256", _sha(b"different selection")
     )
@@ -531,8 +598,8 @@ def test_replacement_rejects_terminal_selection_substitution(tmp_path: Path) -> 
         )
 
 
-def test_source_commitments_are_derived_from_the_replayed_bytes(tmp_path: Path) -> None:
-    inputs = _fixture(tmp_path)
+def test_source_commitments_are_derived_from_the_replayed_bytes() -> None:
+    inputs = _fixture()
 
     result = project_exact100_successor_replacement(
         predecessor=inputs["predecessor"],
@@ -574,10 +641,10 @@ def test_source_commitments_are_derived_from_the_replayed_bytes(tmp_path: Path) 
     }
 
 
-def test_replacement_rejects_pool_artifact_edited_after_replay(tmp_path: Path) -> None:
+def test_replacement_rejects_pool_artifact_edited_after_replay() -> None:
     """An edit invisible to the eligibility rules must still fail the commitment."""
 
-    inputs = _fixture(tmp_path)
+    inputs = _fixture()
     pool = inputs["promotion_pool"]
     # `case_id` is not read by any promotion rule, so eligibility is unchanged;
     # only the derived commitment can catch this.
@@ -591,10 +658,8 @@ def test_replacement_rejects_pool_artifact_edited_after_replay(tmp_path: Path) -
         )
 
 
-def test_replacement_rejects_promotion_root_edited_after_replay(
-    tmp_path: Path,
-) -> None:
-    inputs = _fixture(tmp_path)
+def test_replacement_rejects_promotion_root_edited_after_replay() -> None:
+    inputs = _fixture()
     object.__setattr__(inputs["promotion_pool"], "producer_root_bytes", b"tampered")
 
     with pytest.raises(Exact100SuccessorReplacementError, match="artifacts changed"):
@@ -605,10 +670,8 @@ def test_replacement_rejects_promotion_root_edited_after_replay(
         )
 
 
-def test_replacement_rejects_predecessor_artifact_edited_after_replay(
-    tmp_path: Path,
-) -> None:
-    inputs = _fixture(tmp_path)
+def test_replacement_rejects_predecessor_artifact_edited_after_replay() -> None:
+    inputs = _fixture()
     inputs["predecessor"].case_relevance[0]["documents"] = ["tampered"]
 
     with pytest.raises(Exact100SuccessorReplacementError, match="producer replay"):

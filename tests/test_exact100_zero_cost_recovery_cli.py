@@ -16,6 +16,10 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerConfig,
     CourtListenerFixtureTransport,
 )
+from legalforecast.ingestion.exact100_zero_cost_recovery import (
+    Exact100ZeroCostRecoveryResult,
+    issue_exact100_zero_cost_recovery_request,
+)
 from legalforecast.ingestion.free_document_downloader import FixtureFreeDocumentSource
 from tests.test_exact100_zero_cost_recovery import (
     _docket_entry_payload,
@@ -254,6 +258,77 @@ def test_zero_cost_recovery_cli_requires_canonical_courtlistener_rest_base(
 
     assert cli.main(_command(selection=selection, plan=plan, output=output)) == 2
     assert not output.exists()
+
+
+def test_zero_cost_recovery_cli_rejects_incomplete_terminal_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selection_bytes = _selection()
+    selection = tmp_path / "selection.jsonl"
+    plan = tmp_path / "plan.json"
+    selection.write_bytes(selection_bytes)
+    plan_bytes = _plan(selection_bytes)
+    plan.write_bytes(plan_bytes)
+    output = tmp_path / "recovery"
+    request = issue_exact100_zero_cost_recovery_request(
+        selection_bytes=selection_bytes,
+        plan_bytes=plan_bytes,
+    )
+
+    def _incomplete_terminal_result(
+        **_kwargs: object,
+    ) -> Exact100ZeroCostRecoveryResult:
+        return Exact100ZeroCostRecoveryResult(
+            request=request,
+            receipt_bytes=b"receipt",
+        )
+
+    monkeypatch.setattr(
+        recovery_cli,
+        "execute_exact100_zero_cost_recovery",
+        _incomplete_terminal_result,
+    )
+
+    with pytest.raises(
+        recovery_cli.Exact100ZeroCostRecoveryCliError,
+        match=r"terminal recovery lacks required output: recovery-run-card\.json",
+    ):
+        recovery_cli._run_with_test_dependencies(
+            selection_path=selection,
+            plan_path=plan,
+            output_root=output,
+            courtlistener=CourtListenerClient(
+                transport=CourtListenerFixtureTransport(()), max_retries=0
+            ),
+        )
+    assert not output.exists()
+
+
+def test_zero_cost_recovery_cli_resolves_symlinked_input_overlap(
+    tmp_path: Path,
+) -> None:
+    selection_bytes = _selection()
+    real_root = tmp_path / "real-inputs"
+    real_root.mkdir()
+    selection = real_root / "selection.jsonl"
+    plan = real_root / "plan.json"
+    selection.write_bytes(selection_bytes)
+    plan.write_bytes(_plan(selection_bytes))
+    alias_root = tmp_path / "aliased-inputs"
+    alias_root.symlink_to(real_root, target_is_directory=True)
+
+    with pytest.raises(
+        recovery_cli.Exact100ZeroCostRecoveryCliError,
+        match="overlaps immutable input",
+    ):
+        recovery_cli._run_with_test_dependencies(
+            selection_path=selection,
+            plan_path=plan,
+            output_root=alias_root,
+            courtlistener=CourtListenerClient(
+                transport=CourtListenerFixtureTransport(()), max_retries=0
+            ),
+        )
 
 
 def test_zero_cost_recovery_cli_rejects_fixture_404_before_terminal_authority(

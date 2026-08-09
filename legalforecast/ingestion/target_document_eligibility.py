@@ -62,10 +62,16 @@ def is_stipulated_or_voluntary_target_document(
     """Return whether the shared target gate rejects the parsed document."""
 
     try:
+        role = DocumentRole(document_role)
+    except ValueError as exc:
+        raise TargetDocumentEligibilityError(
+            f"unsupported target document role: {document_role}"
+        ) from exc
+    try:
         require_eligible_target_document(
             candidate_id=candidate_id,
             source_document_id=source_document_id,
-            document_role=document_role,
+            document_role=role,
             markdown=markdown,
         )
     except TargetDocumentEligibilityError:
