@@ -57,7 +57,7 @@
           "kms:ViaService": "${kms_via_service}"
         },
         "StringLike": {
-          "kms:EncryptionContext:aws:s3:arn": "${state_bucket_arn}/*"
+          "kms:EncryptionContext:aws:s3:arn": "${state_bucket_arn}"
         }
       }
     },
@@ -83,8 +83,6 @@
       "Effect": "Allow",
       "Action": [
         "iam:CreateRole",
-        "iam:DeleteRolePolicy",
-        "iam:DetachRolePolicy",
         "iam:GetRole",
         "iam:GetRolePolicy",
         "iam:ListAttachedRolePolicies",

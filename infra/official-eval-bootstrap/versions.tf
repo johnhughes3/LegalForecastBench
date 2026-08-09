@@ -8,10 +8,6 @@ terraform {
     }
   }
 
-  # The first apply deliberately uses `terraform init -backend=false` and
-  # protected local state. This partial backend is activated only when that
-  # verified state is migrated into the bucket created by this root.
-  backend "s3" {}
 }
 
 provider "aws" {

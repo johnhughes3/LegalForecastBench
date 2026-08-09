@@ -9,53 +9,78 @@ The one-time apply requires separately authorized human/operator AWS credentials
 ## Protected first apply
 
 Use an exact reviewed commit on a trusted operator machine.
-Keep the variable file and state directory outside the checkout, do not print Terraform state or outputs into logs, and do not place AWS credentials in a variable file:
+Keep the variable file and state directory outside the checkout, do not print Terraform state or outputs into logs, and do not place AWS credentials in a variable file.
+Copy the exact root into that protected directory so Terraform's default local state is both discoverable by the later migration and never written beneath the repository checkout:
 
 ```bash
 umask 077
 state_dir="${LFB_PROTECTED_BOOTSTRAP_STATE_DIR:?set a protected directory outside the checkout}"
 var_file="${LFB_BOOTSTRAP_VAR_FILE:?set a protected external tfvars path}"
+root_dir="$state_dir/root"
 tf_data_dir="$state_dir/tfdata"
 install -d -m 0700 "$state_dir" "$tf_data_dir"
 test -f "$var_file"
+test ! -e "$root_dir"
+cp -rf infra/official-eval-bootstrap "$root_dir"
+test ! -e "$root_dir/backend.s3.tf"
 
 TF_DATA_DIR="$tf_data_dir" \
-  terraform -chdir=infra/official-eval-bootstrap init -backend=false -input=false
-terraform -chdir=infra/official-eval-bootstrap fmt -check
+  terraform -chdir="$root_dir" init -backend=false -input=false
+terraform -chdir="$root_dir" fmt -check
 TF_DATA_DIR="$tf_data_dir" \
-  terraform -chdir=infra/official-eval-bootstrap validate
+  terraform -chdir="$root_dir" validate
 ```
 
 Inventory the account-level provider for `https://token.actions.githubusercontent.com` before planning.
 If it already exists, verify that its sole audience is `sts.amazonaws.com`, determine whether other roles depend on it, and run `terraform import` into this root before any plan; never create a duplicate provider or silently rewrite a shared audience list:
 
 ```bash
-TF_DATA_DIR="$tf_data_dir" terraform -chdir=infra/official-eval-bootstrap import \
+TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" import \
   -input=false \
-  -state="$state_dir/terraform.tfstate" \
   -var-file="$var_file" \
   aws_iam_openid_connect_provider.github_actions \
   "<exact-existing-provider-arn>"
 ```
 
-Apply the same import-first rule to any reviewed bucket, KMS key/alias, or operator role that already exists.
-Stop on any ownership ambiguity rather than planning a replacement.
+Apply the same import-first rule to every resource that already exists.
+Inventory and import each applicable address with its provider-defined ID before planning:
+
+```bash
+tf_import() {
+  TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" import \
+    -input=false -var-file="$var_file" "$1" "$2"
+}
+
+tf_import aws_s3_bucket.terraform_state "<exact-bucket-name>"
+tf_import aws_s3_bucket_public_access_block.terraform_state "<exact-bucket-name>"
+tf_import aws_s3_bucket_ownership_controls.terraform_state "<exact-bucket-name>"
+tf_import aws_s3_bucket_server_side_encryption_configuration.terraform_state "<exact-bucket-name>"
+tf_import aws_s3_bucket_versioning.terraform_state "<exact-bucket-name>"
+tf_import aws_s3_bucket_policy.terraform_state "<exact-bucket-name>"
+tf_import aws_kms_key.terraform_state "<exact-kms-key-id>"
+tf_import aws_kms_alias.terraform_state "alias/legalforecastbench-official-terraform-state"
+tf_import aws_iam_role.operator "legalforecastbench-official-provider-authority-infra"
+tf_import aws_iam_role_policy.operator "legalforecastbench-official-provider-authority-infra:reviewed-lfb-terraform-roots"
+tf_import aws_iam_role_policies_exclusive.operator "legalforecastbench-official-provider-authority-infra"
+tf_import aws_iam_role_policy_attachments_exclusive.operator "legalforecastbench-official-provider-authority-infra"
+```
+
+Import the inline and exclusive-policy ownership resources only after verifying that the role has no unrelated inline or attached policy that this root would remove.
+Stop on any ownership ambiguity or unsupported import result rather than planning a replacement.
 For an absent provider, the separately authorized bootstrap apply creates it and this root becomes its Terraform owner.
 
 Before any `terraform plan`, complete the inventory and required imports above.
 Save, review, and apply one exact local-state plan; a `terraform apply` is permitted only for the separately authorized saved plan:
 
 ```bash
-TF_DATA_DIR="$tf_data_dir" terraform -chdir=infra/official-eval-bootstrap plan \
+TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" plan \
   -input=false \
-  -state="$state_dir/terraform.tfstate" \
   -var-file="$var_file" \
   -out="$state_dir/official-eval-bootstrap.tfplan"
 
 # Run only after the exact saved plan receives separate authorization.
-TF_DATA_DIR="$tf_data_dir" terraform -chdir=infra/official-eval-bootstrap apply \
+TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" apply \
   -input=false \
-  -state="$state_dir/terraform.tfstate" \
   "$state_dir/official-eval-bootstrap.tfplan"
 ```
 
@@ -69,7 +94,8 @@ The bootstrap state key is intentionally outside the routine role's state prefix
 Run `terraform init -migrate-state` only after the live bootstrap controls have been independently verified:
 
 ```bash
-TF_DATA_DIR="$tf_data_dir" terraform -chdir=infra/official-eval-bootstrap init -migrate-state \
+cp -f "$root_dir/backend.s3.tf.example" "$root_dir/backend.s3.tf"
+TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" init -migrate-state \
   -force-copy \
   -input=false \
   -backend-config="bucket=<exact-state-bucket>" \

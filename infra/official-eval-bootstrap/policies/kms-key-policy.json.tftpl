@@ -28,7 +28,7 @@
           "kms:ViaService": "${kms_via_service}"
         },
         "StringLike": {
-          "kms:EncryptionContext:aws:s3:arn": "${state_bucket_arn}/*"
+          "kms:EncryptionContext:aws:s3:arn": "${state_bucket_arn}"
         }
       }
     }
