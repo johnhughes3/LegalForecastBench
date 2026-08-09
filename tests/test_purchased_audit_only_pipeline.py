@@ -1663,6 +1663,12 @@ def test_structural_review_exhausted_terminal_escalation_routes_every_unit_witho
         "TypeError",
         "RuntimeError",
     ]
+    assert [row["failure_message"] for row in escalation.failed_attempts] == [
+        "first validator rejection",
+        "second validator rejection",
+        "third validator rejection",
+    ]
+    assert len({row["raw_response_sha256"] for row in escalation.failed_attempts}) == 3
     monkeypatch.setattr(
         llm_pipeline,
         "complete_live_prompt",
@@ -1701,6 +1707,87 @@ def test_structural_review_exhausted_terminal_escalation_routes_every_unit_witho
             "FROM provider_attempts ORDER BY attempt_ordinal"
         ).fetchall()
     assert after_rows == before_rows
+
+
+def test_exhausted_terminal_escalation_builder_rejects_late_v2_receipt(
+    tmp_path: Path,
+) -> None:
+    """The builder fails closed when the first pair already qualified for v1."""
+
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    prompt_record = llm_pipeline.stage_a_structural_review_prompt_records(
+        selection_records=(_selection(),),
+        parser_records=parser_records,
+        prediction_unit_records=(_prediction_units(),),
+        markdown_root=markdown_root,
+    )[0]
+    journal = llm_pipeline._provider_attempt_journal(
+        path=journal_path,
+        stage="llm-review-stage-a",
+        candidate_id="cand-1",
+        prompt=prompt_record["prompt"],
+        registry_entry=registry_entry,
+        account="default",
+        model_registry_sha256="b" * 64,
+        cycle_cap_usd=100.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_attempt_namespace="claim-ontology-v2",
+    )
+    assert journal is not None
+    with journal:
+        for ordinal in (1, 2, 3):
+            if ordinal > 1:
+                assert (
+                    journal.prepare_reconstruction_retry(max_attempts=3) == 4 - ordinal
+                )
+            journal.run_attempt(1, lambda: {"output": "identical-invalid"})
+            journal.settle_attempt(
+                journal.durable_attempt_ordinal(1),
+                input_tokens=10,
+                output_tokens=2,
+                actual_cost_usd=0.01,
+                raw_output="identical-invalid",
+            )
+            journal.record_reconstruction_failure(ValueError("same rejection"))
+
+    with pytest.raises(
+        ProviderJournalError,
+        match="third attempt after the early two-identical route qualified",
+    ):
+        llm_pipeline.build_llm_stage_a_structural_review_terminal_escalation(
+            selection_record=_selection(),
+            parser_records=parser_records,
+            prediction_unit_records=(_prediction_units(),),
+            markdown_root=markdown_root,
+            markdown_bytes=None,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_account="default",
+            provider_attempt_namespace="claim-ontology-v2",
+        )
 
 
 def test_conflicting_unitization_scope_routes_to_blinded_review_without_retry(
