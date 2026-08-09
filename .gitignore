@@ -60,6 +60,7 @@ docs/cohort-policy-*.json.lock
 
 # Local agent runtime config
 .claude/
+.gc/
 
 # Beads viewer local config/cache
 .bv/
