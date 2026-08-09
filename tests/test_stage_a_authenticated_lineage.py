@@ -896,6 +896,7 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
                 model_key="google:reviewer",
                 prompt=prompt,
                 model_registry_sha256="registry-sha",
+                prompt_contract="claim-ontology-v2",
             ),
             provider="google",
             reservation_usd=0.1,
@@ -933,6 +934,7 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
                 expected_prompts=expected,
                 providers_by_model=providers,
                 model_registry_sha256="registry-sha",
+                provider_attempt_namespace="claim-ontology-v2",
             )
 
     accepted_path = tmp_path / "accepted.sqlite3"
@@ -944,6 +946,7 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
             expected_prompts=expected,
             providers_by_model=providers,
             model_registry_sha256="registry-sha",
+            provider_attempt_namespace="claim-ontology-v2",
         )["attempt_count"]
         == 2
     )
@@ -961,8 +964,12 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
     registry_path = tmp_path / "reviewer-registry.json"
     caps_path = tmp_path / "caps.json"
     unitization_card_path = tmp_path / "llm-unitize.json"
-    for path in (registry_path, caps_path, unitization_card_path):
+    for path in (registry_path, caps_path):
         _write_json(path, {})
+    _write_json(
+        unitization_card_path,
+        {"model_execution": {"provider_attempt_namespace": "claim-ontology-v2"}},
+    )
     entry = replace(
         _registry_entry(),
         provider="google",
@@ -1027,6 +1034,7 @@ def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settleme
         audit_output=None,
         model_key=entry.registry_key,
         timeout_seconds=1.0,
+        provider_attempt_namespace="claim-ontology-v2",
         resume=True,
         run_card_output=None,
         log_output=None,

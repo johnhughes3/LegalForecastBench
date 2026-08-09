@@ -323,6 +323,36 @@ def test_provider_authority_modes_are_mutually_exclusive() -> None:
         )
 
 
+def test_unitization_recovery_exposes_closed_attempt_namespace() -> None:
+    parser = argparse.ArgumentParser()
+    cli._add_acquisition_recover_llm_unitize_arguments(parser)
+
+    [action] = [
+        action
+        for action in parser._actions
+        if action.dest == "provider_attempt_namespace"
+    ]
+    assert action.choices == ("claim-ontology-v2",)
+
+
+@pytest.mark.parametrize(
+    "add_arguments",
+    (
+        cli._add_acquisition_recover_llm_review_stage_a_arguments,
+        cli._add_acquisition_terminalize_llm_review_stage_a_arguments,
+    ),
+)
+def test_structural_recovery_derives_namespace_from_authenticated_card(
+    add_arguments: Any,
+) -> None:
+    parser = argparse.ArgumentParser()
+    add_arguments(parser)
+
+    assert not any(
+        action.dest == "provider_attempt_namespace" for action in parser._actions
+    )
+
+
 def test_local_provider_journal_only_accepts_legacy_caps(
     tmp_path: Path,
 ) -> None:
@@ -1311,6 +1341,8 @@ def test_executed_llm_unitize_requires_authenticated_lineage_before_provider(
                 str(_provider_caps_path(tmp_path)),
                 "--provider-journal",
                 str(tmp_path / "shared-provider-attempts.sqlite3"),
+                "--provider-attempt-namespace",
+                "claim-ontology-v2",
                 "--output-root",
                 str(tmp_path / "out"),
                 "--execute",

@@ -78,6 +78,23 @@ def test_live_stage_a_requires_successor_namespace_before_journal_or_transport(
     """A missing namespace cannot mint a fresh call under the legacy identity."""
 
     journal_path = tmp_path / "provider-attempts.sqlite3"
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
     monkeypatch.setattr(
         llm_pipeline,
         "complete_live_prompt",
@@ -89,16 +106,23 @@ def test_live_stage_a_requires_successor_namespace_before_journal_or_transport(
         match="requires the closed successor provider-attempt namespace",
     ):
         llm_pipeline.llm_unitize_cases(
-            selection_records=(),
-            parser_records=(),
-            markdown_root=tmp_path,
+            selection_records=(_selection(),),
+            parser_records=parser_records,
+            markdown_root=markdown_root,
             registry_entry=llm_pipeline.ModelRegistryEntry.from_record(
                 _registry_record()
             ),
+            model_registry_sha256="b" * 64,
             provider_journal_path=journal_path,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
         )
 
-    assert not journal_path.exists()
+    with sqlite3.connect(journal_path) as connection:
+        row_count = connection.execute(
+            "SELECT COUNT(*) FROM provider_attempts"
+        ).fetchone()
+    assert row_count == (0,)
 
 
 def test_reconstruction_prestate_isolates_legacy_and_successor_rows() -> None:

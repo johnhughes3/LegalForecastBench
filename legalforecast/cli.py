@@ -57302,6 +57302,38 @@ def _pre_reconstruction_provider_state_sha256(
     return _canonical_json_sha256(projected)
 
 
+def _latest_reconstruction_attempt_ordinal(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    stage: str,
+    candidate_id: str,
+    model_key: str,
+    provider_attempt_namespace: str | None = None,
+) -> int:
+    """Resolve the exact latest recoverable attempt before mutating its journal."""
+
+    matches = [
+        row
+        for row in rows
+        if row.get("stage") == stage
+        and row.get("candidate_id") == candidate_id
+        and row.get("model_key") == model_key
+        and row.get("status") in {"reconstruction_failed", "settled"}
+        and row.get("logical_call_key")
+        == ProviderCallIdentity(
+            stage=stage,
+            candidate_id=candidate_id,
+            model_key=model_key,
+            prompt=_required_str(row, "prompt_text"),
+            model_registry_sha256=_required_str(row, "model_registry_sha256"),
+            prompt_contract=provider_attempt_namespace,
+        ).logical_call_key
+    ]
+    if not matches:
+        raise CommandError("reconstruction recovery journal target coverage differs")
+    return max(_required_int(row, "attempt_ordinal") for row in matches)
+
+
 def _provider_stage_attempt_rows(
     path: Path, *, stage: str | None = None
 ) -> tuple[JsonRecord, ...]:
@@ -59252,8 +59284,21 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
         )
     except ProviderJournalError as exc:
         raise CommandError(str(exc)) from exc
-    journal_before_sha256 = _canonical_json_sha256(
-        _stage_a_provider_attempt_rows(lineage.provider_journal_path)
+    journal_before_rows = _stage_a_provider_attempt_rows(lineage.provider_journal_path)
+    journal_before_sha256 = _canonical_json_sha256(journal_before_rows)
+    _pre_reconstruction_provider_state_sha256(
+        journal_before_rows,
+        stage="llm-unitize",
+        candidate_id=candidate_id,
+        model_key=lineage.registry_entry.registry_key,
+        attempt_ordinal=_latest_reconstruction_attempt_ordinal(
+            journal_before_rows,
+            stage="llm-unitize",
+            candidate_id=candidate_id,
+            model_key=lineage.registry_entry.registry_key,
+            provider_attempt_namespace=provider_attempt_namespace,
+        ),
+        provider_attempt_namespace=provider_attempt_namespace,
     )
     _require_stage_a_lineage_unchanged(lineage)
     try:
@@ -59400,6 +59445,20 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
         lineage.provider_journal_path, stage="llm-review-stage-a"
     )
     journal_before_sha256 = _canonical_json_sha256(journal_before_rows)
+    _pre_reconstruction_provider_state_sha256(
+        journal_before_rows,
+        stage="llm-review-stage-a",
+        candidate_id=candidate_id,
+        model_key=registry_entry.registry_key,
+        attempt_ordinal=_latest_reconstruction_attempt_ordinal(
+            journal_before_rows,
+            stage="llm-review-stage-a",
+            candidate_id=candidate_id,
+            model_key=registry_entry.registry_key,
+            provider_attempt_namespace=provider_attempt_namespace,
+        ),
+        provider_attempt_namespace=provider_attempt_namespace,
+    )
     _require_stage_a_lineage_unchanged(lineage)
     try:
         result = recover_llm_stage_a_structural_review_reconstruction(
@@ -59705,6 +59764,10 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     provider_attempt_namespace = cast(
         str | None, getattr(args, "provider_attempt_namespace", None)
     )
+    if not dry_run and provider_attempt_namespace is None:
+        raise CommandError(
+            "--provider-attempt-namespace is required for live Stage A unitization"
+        )
     lineage: _StageAUnitizationLineage | None = None
     if not dry_run:
         lineage = _verify_stage_a_unitization_lineage(
@@ -60393,6 +60456,11 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     provider_attempt_namespace = cast(
         str | None, getattr(args, "provider_attempt_namespace", None)
     )
+    if not dry_run and provider_attempt_namespace is None:
+        raise CommandError(
+            "--provider-attempt-namespace is required for live Stage A structural "
+            "review"
+        )
     verified_provider_chain: tuple[_StageAUnitizationLineage, Path] | None = None
     if not dry_run:
         verified_provider_chain = _verified_shared_provider_chain(
