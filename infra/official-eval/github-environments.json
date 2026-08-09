@@ -1,0 +1,65 @@
+{
+  "schema_version": "legalforecast.official_eval_github_environments.v1",
+  "repository": "johnhughes3/LegalForecastBench",
+  "common_protection": {
+    "required_reviewers": [{"type": "User", "login": "johnhughes3"}],
+    "prevent_self_review": false,
+    "deployment_branch_policy": {
+      "protected_branches": false,
+      "custom_branch_policies": true
+    },
+    "custom_branch_policies": ["main"]
+  },
+  "environments": [
+    {
+      "name": "legalforecastbench-official-provider-authority-infra",
+      "authority": "infrastructure_operator",
+      "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-provider-authority-infra",
+      "secrets": ["LFB_INFRA_PLAN_AGE_IDENTITY"],
+      "variables": [
+        "LFB_AWS_REGION",
+        "LFB_GITHUB_OIDC_PROVIDER_ARN",
+        "LFB_INFRA_OPERATOR_ROLE_ARN",
+        "LFB_INFRA_PLAN_AGE_RECIPIENT",
+        "LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256",
+        "LFB_PROVIDER_AUTHORITY_TABLE_ARN",
+        "LFB_TERRAFORM_STATE_BUCKET",
+        "LFB_TERRAFORM_STATE_KEY_PREFIX",
+        "LFB_TERRAFORM_STATE_KMS_KEY_ID"
+      ]
+    },
+    {
+      "name": "legalforecastbench-official-eval",
+      "authority": "evaluation_cell",
+      "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-eval",
+      "secrets": [
+        "ANTHROPIC_API_KEY",
+        "GEMINI_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "variables": [
+        "LFB_ANTHROPIC_BEDROCK_MODEL_ID",
+        "LFB_ANTHROPIC_RUNTIME",
+        "LFB_AWS_REGION",
+        "LFB_GITHUB_PACKET_READ_ROLE_ARN",
+        "LFB_MODEL_PACKET_PREFIX",
+        "LFB_PACKET_BUCKET",
+        "LFB_PROVIDER_AUTHORITY_TABLE",
+        "LFB_RESULTS_BUCKET",
+        "LFB_RESULTS_MANIFEST_PREFIX"
+      ]
+    },
+    {
+      "name": "legalforecastbench-official-eval-fan-in",
+      "authority": "fan_in",
+      "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-eval-fan-in",
+      "secrets": [],
+      "variables": [
+        "LFB_AWS_REGION",
+        "LFB_GITHUB_FAN_IN_ROLE_ARN",
+        "LFB_PACKET_BUCKET",
+        "LFB_RESULTS_BUCKET"
+      ]
+    }
+  ]
+}
