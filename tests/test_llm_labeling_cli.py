@@ -342,14 +342,42 @@ def test_unitization_recovery_exposes_closed_attempt_namespace() -> None:
         cli._add_acquisition_terminalize_llm_review_stage_a_arguments,
     ),
 )
-def test_structural_recovery_derives_namespace_from_authenticated_card(
+def test_structural_recovery_accepts_optional_review_namespace(
     add_arguments: Any,
 ) -> None:
     parser = argparse.ArgumentParser()
     add_arguments(parser)
 
-    assert not any(
-        action.dest == "provider_attempt_namespace" for action in parser._actions
+    [action] = [
+        action
+        for action in parser._actions
+        if action.dest == "provider_attempt_namespace"
+    ]
+    assert action.choices == ("claim-ontology-v2", "claim-ontology-v3")
+    assert action.default is None
+
+
+def test_structural_recovery_namespace_can_supersede_unitization_contract(
+    tmp_path: Path,
+) -> None:
+    unitization_card = tmp_path / "llm-unitize.json"
+    _write_json(
+        unitization_card,
+        {"model_execution": {"provider_attempt_namespace": "claim-ontology-v2"}},
+    )
+
+    assert (
+        cli._stage_a_structural_review_provider_attempt_namespace(
+            argparse.Namespace(), unitization_card
+        )
+        == "claim-ontology-v2"
+    )
+    assert (
+        cli._stage_a_structural_review_provider_attempt_namespace(
+            argparse.Namespace(provider_attempt_namespace="claim-ontology-v3"),
+            unitization_card,
+        )
+        == "claim-ontology-v3"
     )
 
 
@@ -949,7 +977,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         "--provider-journal",
         str(provider_journal),
         "--provider-attempt-namespace",
-        "claim-ontology-v2",
+        "claim-ontology-v3",
         "--provider-authority-table",
         "fixture-provider-authority",
         "--output-root",
@@ -1184,7 +1212,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                     "attempts_sha256"
                 ],
                 **(
-                    {"provider_attempt_namespace": "claim-ontology-v2"}
+                    {"provider_attempt_namespace": "claim-ontology-v3"}
                     if stage == "llm-review-stage-a"
                     else {}
                 ),

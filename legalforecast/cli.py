@@ -9671,6 +9671,7 @@ def _add_acquisition_recover_llm_review_stage_a_arguments(
         type=Path,
         help="Exact canonical cycle-wide provider journal. Required with --execute.",
     )
+    _add_stage_a_provider_attempt_namespace_argument(parser)
     parser.add_argument(
         "--candidate-id",
         required=True,
@@ -9736,6 +9737,7 @@ def _add_acquisition_terminalize_llm_review_stage_a_arguments(
         type=Path,
         help="Exact canonical cycle-wide provider journal. Required with --execute.",
     )
+    _add_stage_a_provider_attempt_namespace_argument(parser)
     parser.add_argument(
         "--candidate-id",
         required=True,
@@ -58507,16 +58509,6 @@ def _verify_stage_a_review_run_card(
     ):
         raise CommandError("structural review provider attempt namespace is invalid")
     provider_attempt_namespace = provider_attempt_namespace_value
-    unit_execution = unit_card_record.get("model_execution")
-    unitization_namespace = (
-        cast(Mapping[str, object], unit_execution).get("provider_attempt_namespace")
-        if isinstance(unit_execution, Mapping)
-        else None
-    )
-    if unitization_namespace != provider_attempt_namespace:
-        raise CommandError(
-            "structural review provider attempt namespace differs from unitization"
-        )
     try:
         stage_a_provider_attempt_stage("llm-review-stage-a", provider_attempt_namespace)
     except LlmPipelineError as exc:
@@ -58543,6 +58535,7 @@ def _verify_stage_a_review_run_card(
             parser_records=_read_records(parser_path),
             prediction_unit_records=_read_records(raw_units_path),
             markdown_root=lineage.markdown_root,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
     except (OSError, UnicodeError, ValueError) as exc:
         raise CommandError(
@@ -59427,8 +59420,8 @@ def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
         expected_parser_manifest_path=parser_path,
         expected_markdown_root=markdown_root,
     )
-    provider_attempt_namespace = (
-        _stage_a_provider_attempt_namespace_from_unitization_card(unitization_card_path)
+    provider_attempt_namespace = _stage_a_structural_review_provider_attempt_namespace(
+        args, unitization_card_path
     )
     registry_path = cast(Path, args.model_registry)
     registry_entry, registry_sha256 = _registry_entry_for_key(
@@ -59668,8 +59661,8 @@ def _cmd_acquisition_terminalize_llm_review_stage_a(args: argparse.Namespace) ->
         expected_parser_manifest_path=parser_path,
         expected_markdown_root=markdown_root,
     )
-    provider_attempt_namespace = (
-        _stage_a_provider_attempt_namespace_from_unitization_card(unitization_card_path)
+    provider_attempt_namespace = _stage_a_structural_review_provider_attempt_namespace(
+        args, unitization_card_path
     )
     registry_path = cast(Path, args.model_registry)
     registry_entry, registry_sha256 = _registry_entry_for_key(
@@ -60437,6 +60430,30 @@ def _stage_a_provider_attempt_namespace_from_unitization_card(
     return namespace
 
 
+def _stage_a_structural_review_provider_attempt_namespace(
+    args: argparse.Namespace,
+    unitization_run_card_path: Path,
+) -> str | None:
+    """Resolve the closed structural-review contract independently of unitization.
+
+    Legacy provider-free recovery derives the namespace from the authenticated
+    unitization card.  A reviewed structural-only successor may instead select
+    its own closed contract, which is verified against the structural-review
+    stage before any journal reconstruction occurs.
+    """
+
+    namespace = cast(str | None, getattr(args, "provider_attempt_namespace", None))
+    if namespace is None:
+        return _stage_a_provider_attempt_namespace_from_unitization_card(
+            unitization_run_card_path
+        )
+    try:
+        stage_a_provider_attempt_stage("llm-review-stage-a", namespace)
+    except LlmPipelineError as exc:
+        raise CommandError(str(exc)) from exc
+    return namespace
+
+
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     prospective_output_root = cast(Path, args.output_root)
     provider_journal_arg = cast(Path | None, args.provider_journal)
@@ -60511,20 +60528,6 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     else:
         assert verified_provider_chain is not None
         lineage, authenticated_unitization_card = verified_provider_chain
-        unitization_card_record = _read_json_object(authenticated_unitization_card)
-        unitization_execution = unitization_card_record.get("model_execution")
-        unitization_namespace = (
-            cast(Mapping[str, object], unitization_execution).get(
-                "provider_attempt_namespace"
-            )
-            if isinstance(unitization_execution, Mapping)
-            else None
-        )
-        if unitization_namespace != provider_attempt_namespace:
-            raise CommandError(
-                "structural-review provider attempt namespace differs from "
-                "authenticated unitization"
-            )
         assert verified_reviewer_registry is not None
         entry, registry_sha = verified_reviewer_registry
         terminal_escalations = _verified_stage_a_terminal_escalations(
