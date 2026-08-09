@@ -22,7 +22,14 @@ from legalforecast.unitization.review import (
 )
 
 
-def test_apply_unitization_reviews_supports_every_disposition() -> None:
+def test_apply_unitization_reviews_supports_every_consuming_disposition() -> None:
+    """Cover the dispositions that consume a source unit.
+
+    ADD consumes none, emits the v3 successor schema for the whole output, and
+    is covered in tests/test_unitization_add_adjudication.py; keeping it out of
+    this case preserves the v2/v1 schema-selection assertions below.
+    """
+
     raw = [
         _candidate("accept", [_unit("a")]),
         _candidate("amend", [_unit("a")]),
