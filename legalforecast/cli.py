@@ -43,6 +43,7 @@ from legalforecast.acquisition_completion_summary_cli import (
 from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
+    LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
     LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
     UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
     UNITIZATION_REVIEW_BUNDLE_V1,
@@ -2700,8 +2701,8 @@ def build_parser() -> argparse.ArgumentParser:
     acquisition_terminalize_review_stage_a = acquisition_subparsers.add_parser(
         "terminalize-llm-review-stage-a-reconstruction",
         help=(
-            "Provider-free escalation of two identical invalid Stage A reviewer "
-            "responses to the immutable John review queue."
+            "Provider-free escalation of an eligible invalid Stage A reviewer "
+            "reconstruction route to the immutable John review queue."
         ),
     )
     _add_acquisition_terminalize_llm_review_stage_a_arguments(
@@ -9738,7 +9739,10 @@ def _add_acquisition_terminalize_llm_review_stage_a_arguments(
     parser.add_argument(
         "--candidate-id",
         required=True,
-        help="Exact selected candidate with two identical failed reconstructions.",
+        help=(
+            "Exact selected candidate with either two byte-identical failed "
+            "reconstructions or all three normal reconstruction attempts exhausted."
+        ),
     )
     parser.add_argument(
         "--terminal-escalation-output",
@@ -59590,9 +59594,10 @@ def _verified_stage_a_terminal_escalations(
             ),
             label="Stage A terminal escalation receipt",
         )
-        if receipt.get("schema_version") != str(
-            LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1
-        ):
+        if receipt.get("schema_version") not in {
+            str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1),
+            str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2),
+        }:
             raise CommandError("Stage A terminal escalation receipt schema is invalid")
         candidate_id = _required_str(receipt, "candidate_id")
         selection = selection_by_candidate.get(candidate_id)

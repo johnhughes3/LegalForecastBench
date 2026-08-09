@@ -16,6 +16,7 @@ from typing import Any, cast
 
 from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
+    LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
 )
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.live_model_solver import (
@@ -80,8 +81,11 @@ from legalforecast.labeling.lawyer_review import (
 )
 from legalforecast.labeling.provider_journal import (
     DEFAULT_CYCLE_PROVIDER_CAP_USD,
+    ExhaustedReconstructionFailureEvidence,
     ProviderAttemptJournal,
     ProviderCallIdentity,
+    ProviderJournalError,
+    RepeatedReconstructionFailureEvidence,
     maximum_call_cost_usd,
 )
 from legalforecast.selection.exclusion_ledger import (
@@ -294,10 +298,16 @@ class LlmStageAStructuralReviewTerminalEscalation:
     predecision_source_commitments: tuple[JsonRecord, ...]
     failed_attempts: tuple[JsonRecord, ...]
     provider_attempt_namespace: str | None = None
+    schema_version: str = str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1)
 
     def to_record(self) -> JsonRecord:
+        if self.schema_version not in {
+            str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1),
+            str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2),
+        }:
+            raise LlmPipelineError("Stage A terminal escalation schema is invalid")
         record: JsonRecord = {
-            "schema_version": str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1),
+            "schema_version": self.schema_version,
             "candidate_id": self.candidate_id,
             "case_id": self.case_id,
             "reviewer_model_key": self.reviewer_model_key,
@@ -793,9 +803,11 @@ def build_llm_stage_a_structural_review_terminal_escalation(
 ) -> LlmStageAStructuralReviewTerminalEscalation:
     """Build one narrow, provider-free escalation from durable failures.
 
-    Ordinary structural-review retries remain the default.  This helper can be
-    reached only by an explicit CLI route after two identical normalized failed
-    reconstructions are already durably recorded for the current logical call.
+    Ordinary structural-review retries remain the default.  The early receipt
+    is available after exactly two byte-identical failed reconstructions.  A
+    separately versioned receipt is available only after all three normal
+    reconstruction attempts have failed; it binds each attempt's own validator
+    evidence and still accepts no structural flag.
     """
 
     candidate_id = _required_str(selection_record, "candidate_id")
@@ -836,7 +848,13 @@ def build_llm_stage_a_structural_review_terminal_escalation(
     if journal is None:
         raise LlmPipelineError("provider terminal escalation requires a journal")
     with journal:
-        evidence = journal.repeated_identical_reconstruction_failure_evidence()
+        try:
+            evidence: (
+                RepeatedReconstructionFailureEvidence
+                | ExhaustedReconstructionFailureEvidence
+            ) = journal.repeated_identical_reconstruction_failure_evidence()
+        except ProviderJournalError:
+            evidence = journal.exhausted_reconstruction_failure_evidence()
     source_commitments: list[JsonRecord] = []
     for document in documents:
         source_commitments.append(
@@ -849,6 +867,14 @@ def build_llm_stage_a_structural_review_terminal_escalation(
                 + hashlib.sha256(document.markdown.encode("utf-8")).hexdigest(),
             }
         )
+    if isinstance(evidence, RepeatedReconstructionFailureEvidence):
+        schema_version = str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1)
+        failure_types = (evidence.failure_type,) * len(evidence.attempts)
+        failure_messages = (evidence.failure_message,) * len(evidence.attempts)
+    else:
+        schema_version = str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2)
+        failure_types = evidence.failure_types
+        failure_messages = evidence.failure_messages
     failed_attempts = tuple(
         {
             "attempt_ordinal": attempt.attempt_ordinal,
@@ -858,10 +884,12 @@ def build_llm_stage_a_structural_review_terminal_escalation(
             + hashlib.sha256(
                 attempt.normalized_response_json.encode("utf-8")
             ).hexdigest(),
-            "failure_type": evidence.failure_type,
-            "failure_message": evidence.failure_message,
+            "failure_type": failure_type,
+            "failure_message": failure_message,
         }
-        for attempt in evidence.attempts
+        for attempt, failure_type, failure_message in zip(
+            evidence.attempts, failure_types, failure_messages, strict=True
+        )
     )
     return LlmStageAStructuralReviewTerminalEscalation(
         candidate_id=candidate_id,
@@ -875,6 +903,7 @@ def build_llm_stage_a_structural_review_terminal_escalation(
         predecision_source_commitments=tuple(source_commitments),
         failed_attempts=failed_attempts,
         provider_attempt_namespace=provider_attempt_namespace,
+        schema_version=schema_version,
     )
 
 
@@ -888,7 +917,24 @@ def structural_review_terminal_escalation_queue_records(
     receipt = dict(receipt_commitment or {})
     if receipt and set(receipt) != {"path", "sha256"}:
         raise LlmPipelineError("terminal escalation receipt commitment is invalid")
+    if escalation.schema_version not in {
+        str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1),
+        str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2),
+    }:
+        raise LlmPipelineError("Stage A terminal escalation schema is invalid")
     route_reason = "structural_reviewer_terminal_reconstruction_failure"
+    notes = (
+        "Two byte-identical normalized structural-review responses failed local "
+        "reconstruction. No structural flag was accepted; review this frozen unit "
+        "using only the blinded predecision materials below."
+        if escalation.schema_version
+        == str(LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1)
+        else (
+            "The structural reviewer exhausted all three reconstruction attempts. "
+            "No structural flag was accepted; review this frozen unit using only "
+            "the blinded predecision materials below."
+        )
+    )
     return tuple(
         {
             "schema_version": "legalforecast.unitization_review_queue.v1",
@@ -904,12 +950,7 @@ def structural_review_terminal_escalation_queue_records(
             "review_item": {
                 "unit_id": _required_str(unit, "unit_id"),
                 "reason": route_reason,
-                "notes": (
-                    "Two byte-identical normalized structural-review responses "
-                    "failed local reconstruction. No structural flag was accepted; "
-                    "review this frozen unit using only the blinded predecision "
-                    "materials below."
-                ),
+                "notes": notes,
                 "frozen_unit": dict(unit),
                 "reviewer_prompt": escalation.prompt,
                 "reviewer_prompt_sha256": escalation.prompt_sha256,

@@ -1112,7 +1112,7 @@ uv run legalforecast-provider-env-run \
 
 The command replays Stage A before resolving the reviewer model, refuses a different journal path, wrong cycle, or byte-different caps artifact before a provider call, and commits the exact reviewer model, prompt identities, provider attempts, input artifacts, merged queue, flags, and audit in its run card.
 
-If the same structural-review candidate has already produced exactly two byte-identical normalized responses that both failed local reconstruction, do not issue a third paid request or accept a flag. Generate the narrow, provider-free terminal receipt and then resume structural review with it. The receipt command authenticates the current Stage A lineage and journal, writes no journal state, and fails closed unless both attempts have the same current prompt/model identity and validator failure evidence:
+If the same structural-review candidate has already produced exactly two byte-identical normalized responses that both failed local reconstruction, do not issue a third paid request or accept a flag. Generate the narrow `v1`, provider-free terminal receipt and then resume structural review with it. If that early shortcut did not qualify, complete no more than the normal three reconstruction attempts; after all three have durably failed, the same receipt command may emit the distinct `v2` receipt binding every failure. The receipt command authenticates the current Stage A lineage and journal, writes no journal state, and fails closed unless either the v1 two-attempt evidence or the v2 exhausted-three-attempt evidence matches exactly:
 
 ```bash
 uv run legalforecast acquisition terminalize-llm-review-stage-a-reconstruction \
@@ -1133,7 +1133,7 @@ uv run legalforecast acquisition terminalize-llm-review-stage-a-reconstruction \
   --execute --no-resume
 ```
 
-Pass the emitted receipt to the resumed review command with `--terminal-escalation <terminal-escalation-receipt.json>`. This produces a deterministic pending review item for every affected frozen unit, preserving the exact reviewer prompt, the two failed-attempt commitments, and blinded predecision sources for John. It does not turn either invalid response into an accepted structural flag; ordinary retries remain unchanged for every candidate without a receipt.
+Pass the emitted receipt to the resumed review command with `--terminal-escalation <terminal-escalation-receipt.json>`. This produces a deterministic pending review item for every affected frozen unit, preserving the exact reviewer prompt, all failed-attempt commitments, and blinded predecision sources for John. It does not turn an invalid response into an accepted structural flag; ordinary retries remain unchanged for every candidate without a receipt.
 
 Before adjudication, build John’s private blinded review bundle only after the current Stage A v5 structural-review run has completed and its exact merged queue exists. This command is provider-free: it replays both Stage A cards, does not open a provider client, and never writes adjudications. Keep `<private-stage-a-review-root>` out of the repository and all public/publishable artifact roots.
 

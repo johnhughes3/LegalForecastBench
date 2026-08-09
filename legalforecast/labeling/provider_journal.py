@@ -99,6 +99,21 @@ class RepeatedReconstructionFailureEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class ExhaustedReconstructionFailureEvidence:
+    """Three durable failed reconstructions at the fixed retry ceiling.
+
+    Unlike the early two-attempt shortcut, the validator evidence may differ
+    from attempt to attempt.  The evidence remains provider-free: it records
+    every exhausted attempt for a later human-review escalation and never
+    changes the journal.
+    """
+
+    attempts: tuple[ReconstructionFailureEvidence, ...]
+    failure_types: tuple[str, ...]
+    failure_messages: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderCycleCap:
     """One provider reservation cap plus optional legacy evidence annotations."""
 
@@ -1003,6 +1018,84 @@ class ProviderAttemptJournal:
             ),
             failure_type=failure_type,
             failure_message=failure_message,
+        )
+
+    def exhausted_reconstruction_failure_evidence(
+        self,
+    ) -> ExhaustedReconstructionFailureEvidence:
+        """Return exactly three failed attempts at the normal retry ceiling.
+
+        This deliberately does not accept a fourth provider attempt, nor does
+        it relax the narrower two-identical shortcut.  All three journal rows
+        must still replay to the current frozen logical-call identity and carry
+        their own complete raw, normalized, and validator-failure evidence.
+        """
+
+        rows = self._connection.execute(
+            """
+            SELECT *
+            FROM provider_attempts
+            WHERE logical_call_key = ?
+            ORDER BY attempt_ordinal
+            """,
+            (self.identity.logical_call_key,),
+        ).fetchall()
+        if len(rows) != 3 or any(
+            int(row["attempt_ordinal"]) != ordinal
+            or row["status"] != "reconstruction_failed"
+            for ordinal, row in enumerate(rows, start=1)
+        ):
+            raise ProviderJournalError(
+                "terminal escalation requires exactly three exhausted failed "
+                "reconstructions"
+            )
+        for row in rows:
+            self._validate_replay(row)
+        first, second = rows[:2]
+        if (
+            isinstance(first["normalized_response_json"], str)
+            and isinstance(first["failure_type"], str)
+            and bool(first["failure_type"])
+            and isinstance(first["failure_message"], str)
+            and bool(first["failure_message"])
+            and first["normalized_response_json"] == second["normalized_response_json"]
+            and first["failure_type"] == second["failure_type"]
+            and first["failure_message"] == second["failure_message"]
+            and first["reconstructed_result_json"] is None
+            and second["reconstructed_result_json"] is None
+            and isinstance(first["raw_response_json"], str)
+            and isinstance(second["raw_response_json"], str)
+        ):
+            raise ProviderJournalError(
+                "terminal escalation rejects a third attempt after the early "
+                "two-identical route qualified"
+            )
+        if any(
+            row["reconstructed_result_json"] is not None
+            or not isinstance(row["raw_response_json"], str)
+            or not cast(str, row["raw_response_json"])
+            or not isinstance(row["normalized_response_json"], str)
+            or not cast(str, row["normalized_response_json"])
+            or not isinstance(row["failure_type"], str)
+            or not cast(str, row["failure_type"])
+            or not isinstance(row["failure_message"], str)
+            or not cast(str, row["failure_message"])
+            for row in rows
+        ):
+            raise ProviderJournalError(
+                "terminal escalation requires complete exhausted failure evidence"
+            )
+        return ExhaustedReconstructionFailureEvidence(
+            attempts=tuple(
+                ReconstructionFailureEvidence(
+                    attempt_ordinal=int(row["attempt_ordinal"]),
+                    raw_response_json=cast(str, row["raw_response_json"]),
+                    normalized_response_json=cast(str, row["normalized_response_json"]),
+                )
+                for row in rows
+            ),
+            failure_types=tuple(cast(str, row["failure_type"]) for row in rows),
+            failure_messages=tuple(cast(str, row["failure_message"]) for row in rows),
         )
 
     def stage_cost_total(self, stage: str) -> float:
