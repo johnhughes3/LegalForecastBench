@@ -911,6 +911,8 @@ def _verify_added_unit(
         or unit.get("adjudication_sha256") != canonical_sha256(adjudication)
     ):
         raise UnitizationReviewError(f"broken added-unit hash link: {unit_id}")
+    if _string_sequence(adjudication.get("source_unit_ids"), "source_unit_ids"):
+        raise UnitizationReviewError(f"added unit consumes source units: {unit_id}")
     review_ids = _adjudication_review_ids(adjudication)
     if review_ids != _string_sequence(
         unit.get("added_from_review_ids"), "added_from_review_ids"
