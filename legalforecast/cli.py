@@ -57419,6 +57419,7 @@ def _verify_stage_a_provider_replay(
             markdown_root=lineage.markdown_root,
             markdown_bytes=lineage.markdown_bytes,
             provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+            enforce_target_document_eligibility=False,
         )
     )
     legacy_prompts_by_candidate = {

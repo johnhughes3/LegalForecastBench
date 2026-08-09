@@ -19,6 +19,7 @@ from legalforecast.labeling.llm_pipeline import (
     _stage_a_structural_review_prompt,
     _stage_a_structural_review_response_json_schema,
     _unitization_prompt,
+    stage_a_unitization_prompt_records,
 )
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
 
@@ -208,6 +209,15 @@ def test_stipulated_target_body_gate_is_v4_only(tmp_path: Path) -> None:
             markdown_root=tmp_path,
             provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
         )
+
+    [identity_only_prompt] = stage_a_unitization_prompt_records(
+        selection_records=[selection],
+        parser_records=list(parser_by_key.values()),
+        markdown_root=tmp_path,
+        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+        enforce_target_document_eligibility=False,
+    )
+    assert identity_only_prompt["prompt_sha256"].startswith("sha256:")
 
 
 def test_structural_reviewer_prompt_uses_same_claim_ground_boundary() -> None:

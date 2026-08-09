@@ -602,6 +602,7 @@ def stage_a_unitization_prompt_records(
     markdown_root: str | Path,
     markdown_bytes: Mapping[str, bytes] | None = None,
     provider_attempt_namespace: str | None = None,
+    enforce_target_document_eligibility: bool = True,
 ) -> tuple[JsonRecord, ...]:
     """Reconstruct exact Stage A prompts from authenticated parser inputs."""
 
@@ -617,6 +618,9 @@ def stage_a_unitization_prompt_records(
                 markdown_root=Path(markdown_root),
                 markdown_bytes=markdown_bytes,
                 provider_attempt_namespace=provider_attempt_namespace,
+                enforce_target_document_eligibility=(
+                    enforce_target_document_eligibility
+                ),
             ),
             provider_attempt_namespace=provider_attempt_namespace,
         )
@@ -3264,6 +3268,7 @@ def _predecision_documents(
     markdown_root: Path,
     markdown_bytes: Mapping[str, bytes] | None = None,
     provider_attempt_namespace: str | None = None,
+    enforce_target_document_eligibility: bool = True,
 ) -> tuple[_LlmDocument, ...]:
     candidate_id = _required_str(selection, "candidate_id")
     documents: list[_LlmDocument] = []
@@ -3293,7 +3298,10 @@ def _predecision_documents(
                 markdown_bytes=markdown_bytes,
             ),
         )
-        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+        if (
+            enforce_target_document_eligibility
+            and provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+        ):
             _require_eligible_stage_a_target_document(parsed_document)
         documents.append(parsed_document)
     if not documents:
