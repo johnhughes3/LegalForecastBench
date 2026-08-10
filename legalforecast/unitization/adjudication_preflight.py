@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from legalforecast.contracts.schemas import (
     UNITIZATION_ADJUDICATION_PREFLIGHT_REPORT_V1,
@@ -231,17 +231,17 @@ def _worklist(
         for source_id in source_ids:
             if source_id not in existing:
                 existing.append(source_id)
-    for row in dropped_rows:
-        adjudication_id = str(row["adjudication_id"])
-        sources_by_adjudication.setdefault(adjudication_id, []).append(
-            str(row["unit_id"])
-        )
+    for dropped_row in dropped_rows:
+        sources_by_adjudication.setdefault(
+            str(dropped_row["adjudication_id"]), []
+        ).append(str(dropped_row["unit_id"]))
     exclusion = finalized_record.get("exclusion")
     if isinstance(exclusion, Mapping):
         # CANDIDATE-EXCLUSION consumes every raw unit; the exclusion object
         # only names the adjudication, so the sources are the whole side.
+        exclusion_record = cast(Mapping[str, Any], exclusion)
         sources_by_adjudication.setdefault(
-            str(exclusion["adjudication_id"]), list(raw_unit_ids)
+            str(exclusion_record["adjudication_id"]), list(raw_unit_ids)
         )
     added_by_adjudication = {
         str(row["adjudication_id"]): str(row["unit_id"]) for row in added_rows
@@ -345,36 +345,47 @@ def _matrix(
     fabricated cell.
     """
 
-    cells: dict[tuple[str, str], JsonRecord] = {}
-
-    def cell_for(classified: Mapping[str, Any]) -> JsonRecord:
-        key = (str(classified["claim_name"]), str(classified["defendant_group"]))
-        return cells.setdefault(
-            key,
-            {
-                "claim_name": key[0],
-                "defendant_group": key[1],
-                "before_units": [],
-                "after_units": [],
-            },
-        )
-
+    before_by_key: dict[tuple[str, str], list[JsonRecord]] = {}
+    after_by_key: dict[tuple[str, str], list[JsonRecord]] = {}
     for unit in raw_units:
         classified = _classify_unit(unit)
         if classified is None:
             continue
-        cell_for(classified)["before_units"].append(_matrix_unit(unit, classified))
+        before_by_key.setdefault(_matrix_key(classified), []).append(
+            _matrix_unit(unit, classified)
+        )
     for unit in final_units:
         classified = _classify_unit(unit)
         if classified is None:
             continue
         entry = _matrix_unit(unit, classified)
         entry["disposition"] = _unit_disposition(unit)
-        cell_for(classified)["after_units"].append(entry)
-    for cell in cells.values():
-        cell["before_units"].sort(key=lambda entry: str(entry["unit_id"]))
-        cell["after_units"].sort(key=lambda entry: str(entry["unit_id"]))
-    return [cells[key] for key in sorted(cells, key=lambda key: (key[0], key[1]))]
+        after_by_key.setdefault(_matrix_key(classified), []).append(entry)
+    return [
+        {
+            "claim_name": claim_name,
+            "defendant_group": defendant_group,
+            "before_units": sorted(
+                before_by_key.get((claim_name, defendant_group), []),
+                key=_entry_unit_id,
+            ),
+            "after_units": sorted(
+                after_by_key.get((claim_name, defendant_group), []),
+                key=_entry_unit_id,
+            ),
+        }
+        for claim_name, defendant_group in sorted(
+            set(before_by_key) | set(after_by_key)
+        )
+    ]
+
+
+def _matrix_key(classified: Mapping[str, Any]) -> tuple[str, str]:
+    return (str(classified["claim_name"]), str(classified["defendant_group"]))
+
+
+def _entry_unit_id(entry: Mapping[str, Any]) -> str:
+    return str(entry["unit_id"])
 
 
 def _matrix_unit(unit: Mapping[str, Any], classified: Mapping[str, Any]) -> JsonRecord:
