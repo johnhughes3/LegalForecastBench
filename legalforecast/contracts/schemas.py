@@ -41,11 +41,23 @@ DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v
 EXACT100_SUCCESSOR_PROMOTION_V1 = SchemaIdentifier(
     "legalforecast.exact100_successor_promotion.v1"
 )
+EXACT100_SUCCESSOR_PROMOTION_V2 = SchemaIdentifier(
+    "legalforecast.exact100_successor_promotion.v2"
+)
 EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1 = SchemaIdentifier(
     "legalforecast.exact100_successor_replacement_config.v1"
 )
+EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V2 = SchemaIdentifier(
+    "legalforecast.exact100_successor_replacement_config.v2"
+)
 EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1 = SchemaIdentifier(
     "legalforecast.exact100_successor_replacement_state.v1"
+)
+EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2 = SchemaIdentifier(
+    "legalforecast.exact100_successor_replacement_state.v2"
+)
+EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1 = SchemaIdentifier(
+    "legalforecast.exact100_successor_semantic_repair.v1"
 )
 EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1 = SchemaIdentifier(
     "legalforecast.exact100_successor_terminal_exclusion.v1"
@@ -196,8 +208,12 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1,
     DISCLOSURE_CLEARANCE_V1,
     EXACT100_SUCCESSOR_PROMOTION_V1,
+    EXACT100_SUCCESSOR_PROMOTION_V2,
     EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1,
+    EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V2,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
+    EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
+    EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1,
     EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1,
     EXACT100_ZERO_COST_RECOVERY_PLAN_V1,
     EXACT100_ZERO_COST_RECOVERY_PUBLIC_DOCUMENT_V1,

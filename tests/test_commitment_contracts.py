@@ -10,8 +10,12 @@ from legalforecast.contracts import (
     ARTIFACT_PREFIXED_SHA256_V1,
     ARTIFACT_RAW_SHA256_V1,
     EXACT100_SUCCESSOR_PROMOTION_V1,
+    EXACT100_SUCCESSOR_PROMOTION_V2,
     EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1,
+    EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V2,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
+    EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
+    EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1,
     EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1,
     EXACT100_ZERO_COST_RECOVERY_RECEIPT_V1,
     EXACT100_ZERO_COST_RECOVERY_REQUEST_V1,
@@ -190,8 +194,12 @@ def test_recovery_vertical_slice_schema_registry_is_versioned_and_unique() -> No
         TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
         FINALIZED_PREDICTION_UNITS_V3,
         EXACT100_SUCCESSOR_PROMOTION_V1,
+        EXACT100_SUCCESSOR_PROMOTION_V2,
         EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1,
+        EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V2,
         EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
+        EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
+        EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1,
         EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1,
         EXACT100_ZERO_COST_RECOVERY_RECEIPT_V1,
         EXACT100_ZERO_COST_RECOVERY_REQUEST_V1,
@@ -202,6 +210,31 @@ def test_recovery_vertical_slice_schema_registry_is_versioned_and_unique() -> No
     assert len(values) == len(set(values))
     assert all(value.startswith("legalforecast.") for value in values)
     assert all(value.rsplit(".v", maxsplit=1)[-1].isdigit() for value in values)
+
+
+def test_exact100_successor_v2_domains_do_not_reinterpret_v1() -> None:
+    assert EXACT100_SUCCESSOR_PROMOTION_V2.value == (
+        "legalforecast.exact100_successor_promotion.v2"
+    )
+    assert EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V2.value == (
+        "legalforecast.exact100_successor_replacement_config.v2"
+    )
+    assert EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2.value == (
+        "legalforecast.exact100_successor_replacement_state.v2"
+    )
+    assert EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1.value == (
+        "legalforecast.exact100_successor_semantic_repair.v1"
+    )
+
+    assert EXACT100_SUCCESSOR_PROMOTION_V2 != EXACT100_SUCCESSOR_PROMOTION_V1
+    assert (
+        EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V2
+        != EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1
+    )
+    assert (
+        EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
+        != EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1
+    )
 
 
 @pytest.mark.parametrize(
