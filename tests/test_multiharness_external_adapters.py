@@ -205,7 +205,7 @@ def test_openai_responses_baseline_advertises_live_tool_protocol(
         "max_output_tokens_per_request": 4096,
         "sdk_name": "openai",
         "sdk_max_retries": 0,
-        "sdk_version": "2.52.0",
+        "sdk_version": "2.53.0",
         "supported_families": ["legalforecast_mtd"],
         "supported_scoring_modes": ["lfb_brier"],
         "supports_sandbox_policy": True,
