@@ -93,6 +93,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [exact100-successor-terminal-exclusion-v1.md](schemas/exact100-successor-terminal-exclusion-v1.md): authenticated, reason-specific terminal evidence for removing a selected exact-100 candidate without modifying the predecessor.
 - [exact100-zero-cost-recovery-v2.md](schemas/exact100-zero-cost-recovery-v2.md): bounded CourtListener recovery with exact terminal-response evidence or document-bound public handoff.
 - [exact100-successor-replacement-v1.md](schemas/exact100-successor-replacement-v1.md): provider-free replacement of only terminally excluded exact-100 candidates with replay-verified, frozen-rank reserves.
+- [free-support-memorandum-recovery-plan-v1.md](schemas/free-support-memorandum-recovery-plan-v1.md): the non-executable, authenticated plan for recovering the one known free supporting memorandum omitted from the selected packet inputs.
 
 **Spend authority and purchase**
 
@@ -119,6 +120,8 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 **Stage A review and labeling**
 
+- [target-document-eligibility-audit-v1.md](schemas/target-document-eligibility-audit-v1.md): the provider-free semantic target-document gate required before any claim-ontology-v4 provider authority is opened.
+- [stage-a-structural-flag-v2.md](schemas/stage-a-structural-flag-v2.md): claim-ontology-v4 structural flags with locally reconstructed, per-document evidence spans and complete omission evidence.
 - [finalized-prediction-units-v3.md](schemas/finalized-prediction-units-v3.md): the authenticated Stage A successor contract that admits a structurally omitted unit without deriving it from an unrelated raw unit.
 - [finalized-prediction-units-v2.md](schemas/finalized-prediction-units-v2.md): the authenticated Stage A successor contract that records reviewed unit drops without rewriting the original unitization artifacts.
 - [llm-stage-a-structural-review-terminal-escalation-v1.md](schemas/llm-stage-a-structural-review-terminal-escalation-v1.md): the provider-free, replay-authenticated John-review route after two byte-identical invalid structural-review responses.

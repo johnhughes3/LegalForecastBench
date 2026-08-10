@@ -1,0 +1,7 @@
+# Stage A structural flag v2
+
+`legalforecast.stage_a_structural_flag.v2` is the claim-ontology-v4 structural-review flag envelope. Historical and legacy Stage A contracts continue to emit and replay `legalforecast.stage_a_structural_flag.v1` exactly; v2 is not accepted as a reinterpretation of those bytes.
+
+The v4 reviewer returns a nonempty `evidence_spans` array. Each raw span selects one supplied predecision `source_document_id` and a bounded, one-based inclusive `start_line`/`end_line` range. Document IDs must be unique within a flag. Local reconstruction resolves every selector against its named authenticated Markdown document and records the document role, selector, reconstructed exact excerpt, and page marker. The normalized flag also records `source_document_ids` in the same order as the evidence array; the two representations must match exactly when the flag is merged into the lawyer queue.
+
+For `omitted` flags, evidence must include at least one `complaint` or `amended_complaint` document for pleaded claim identity and at least one `motion_to_dismiss_notice` or `motion_to_dismiss_memorandum` document for target-motion challenge scope. Other flag types may use one or more document-bound spans. The merged review item preserves the complete evidence array and ordered document IDs so a v2 `ADD` adjudication can authorize a replacement unit whose citations cover exactly the authenticated omission evidence.

@@ -18,6 +18,7 @@ from typing import Any, cast
 from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
+    STAGE_A_STRUCTURAL_FLAG_V2,
 )
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.live_model_solver import (
@@ -670,6 +671,63 @@ def reconstruct_stage_a_unitization_response(
         payload=payload,
         model_key=model_key,
         provider_attempt_namespace=provider_attempt_namespace,
+    )
+
+
+def reconstruct_stage_a_structural_review_response(
+    *,
+    selection_record: Mapping[str, Any],
+    parser_records: Iterable[Mapping[str, Any]],
+    prediction_unit_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+    markdown_bytes: Mapping[str, bytes] | None,
+    normalized_response_json: str,
+) -> tuple[JsonRecord, ...]:
+    """Replay one v4 structural response from authenticated Stage A inputs."""
+
+    candidate_id = _required_str(selection_record, "candidate_id")
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    documents = _predecision_documents(
+        selection_record,
+        parser_by_key=parser_by_key,
+        markdown_root=Path(markdown_root),
+        markdown_bytes=markdown_bytes,
+        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+    )
+    units = _prediction_units_by_candidate(prediction_unit_records).get(
+        candidate_id, ()
+    )
+    if not units:
+        raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
+    try:
+        normalized_value: object = json.loads(normalized_response_json)
+    except json.JSONDecodeError as exc:
+        raise LlmPipelineError(
+            "journaled normalized provider response is invalid"
+        ) from exc
+    if not isinstance(normalized_value, Mapping):
+        raise LlmPipelineError(
+            "journaled normalized provider response must be an object"
+        )
+    normalized = cast(Mapping[str, object], normalized_value)
+    raw_output = normalized.get("raw_output")
+    if not isinstance(raw_output, str):
+        raise LlmPipelineError(
+            "journaled normalized provider response lacks raw_output"
+        )
+    response = SolverResponse(
+        raw_output=raw_output,
+        request_count=_optional_int(normalized, "request_count") or 1,
+        input_tokens=_optional_int(normalized, "input_tokens") or 0,
+        output_tokens=_optional_int(normalized, "output_tokens") or 0,
+        estimated_cost=_float(normalized.get("actual_cost_usd")),
+    )
+    return validate_structural_review_flags(
+        _json_object_from_response(raw_output),
+        units=units,
+        documents=documents,
+        response=response,
+        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
     )
 
 
@@ -1420,9 +1478,14 @@ def stage_a_structural_flag_records(
     output: list[JsonRecord] = []
     for flag in structural_flags:
         flag_record = dict(flag)
+        schema_version = (
+            str(STAGE_A_STRUCTURAL_FLAG_V2)
+            if "evidence_spans" in flag_record
+            else "legalforecast.stage_a_structural_flag.v1"
+        )
         output.append(
             {
-                "schema_version": "legalforecast.stage_a_structural_flag.v1",
+                "schema_version": schema_version,
                 "candidate_id": candidate_id,
                 "case_id": case_id,
                 "reviewer_model_key": reviewer_model_key,
@@ -1452,6 +1515,47 @@ def merge_structural_flags_into_review_queue(
         ),
     )
     for flag in ordered_flags:
+        schema_version_value = flag.get("schema_version")
+        schema_version = (
+            _required_str(flag, "schema_version")
+            if schema_version_value is not None
+            else (
+                str(STAGE_A_STRUCTURAL_FLAG_V2)
+                if "evidence_spans" in flag
+                else "legalforecast.stage_a_structural_flag.v1"
+            )
+        )
+        if schema_version not in {
+            "legalforecast.stage_a_structural_flag.v1",
+            str(STAGE_A_STRUCTURAL_FLAG_V2),
+        }:
+            raise LlmPipelineError(
+                f"unsupported Stage A structural flag schema: {schema_version}"
+            )
+        source_document_ids = list(
+            _str_tuple(flag.get("source_document_ids"), "source_document_ids")
+        )
+        review_evidence: JsonRecord = {}
+        if schema_version == str(STAGE_A_STRUCTURAL_FLAG_V2):
+            evidence_spans = [
+                dict(span)
+                for span in _record_sequence(
+                    flag.get("evidence_spans"), "evidence_spans"
+                )
+            ]
+            if not evidence_spans:
+                raise LlmPipelineError(
+                    "Stage A structural flag v2 requires evidence_spans"
+                )
+            evidence_document_ids = [
+                _required_str(span, "source_document_id") for span in evidence_spans
+            ]
+            if evidence_document_ids != source_document_ids:
+                raise LlmPipelineError(
+                    "Stage A structural flag v2 evidence does not match "
+                    "source_document_ids"
+                )
+            review_evidence["evidence_spans"] = evidence_spans
         for unit_id in _str_tuple(flag.get("affected_unit_ids"), "affected_unit_ids"):
             review_id = (
                 f"{_required_str(flag, 'candidate_id')}:{unit_id}:structural:"
@@ -1473,11 +1577,8 @@ def merge_structural_flags_into_review_queue(
                         "reason": f"structural_{_required_str(flag, 'flag_type')}",
                         "notes": _required_str(flag, "explanation"),
                         "citation_excerpt": _required_str(flag, "citation_excerpt"),
-                        "source_document_ids": list(
-                            _str_tuple(
-                                flag.get("source_document_ids"), "source_document_ids"
-                            )
-                        ),
+                        "source_document_ids": source_document_ids,
+                        **review_evidence,
                     },
                     "structural_flag_sha256": _required_str(flag, "flag_sha256"),
                     "raw_prediction_units_sha256": _required_str(
@@ -1638,10 +1739,18 @@ def _stage_a_structural_review_prompt(
         )
     elif v4:
         rules.append(
-            "Every flag must select exactly one supplied source_document_id and an "
-            "exact inclusive start_line/end_line range from that document's "
-            "numbered_markdown. Select at most 12 contiguous lines. Do not author, "
-            "copy, paraphrase, or stitch citation text; local code reconstructs it."
+            "Every flag must include a nonempty evidence_spans array. Each evidence "
+            "span selects one supplied source_document_id and an exact inclusive "
+            "start_line/end_line range from that document's numbered_markdown. "
+            "source_document_id values must be unique within one flag. Select at "
+            "most 12 contiguous lines per span. Do not author, copy, paraphrase, or "
+            "stitch citation text; local code reconstructs every excerpt."
+        )
+        rules.append(
+            "An omitted flag must cite both sides of the missing prediction target: "
+            "at least one complaint or amended-complaint evidence span for claim "
+            "identity and at least one target motion-to-dismiss notice or memorandum "
+            "evidence span for challenge scope."
         )
     rules.append("Return only JSON with a structural_flags array.")
     flag_schema: JsonRecord = {
@@ -1652,9 +1761,13 @@ def _stage_a_structural_review_prompt(
     if v4:
         flag_schema.update(
             {
-                "source_document_id": "predecision document id",
-                "start_line": "positive one-based inclusive line number",
-                "end_line": "positive one-based inclusive line number",
+                "evidence_spans": [
+                    {
+                        "source_document_id": "predecision document id",
+                        "start_line": "positive one-based inclusive line number",
+                        "end_line": "positive one-based inclusive line number",
+                    }
+                ],
             }
         )
     else:
@@ -1693,14 +1806,28 @@ def _stage_a_structural_review_response_json_schema(
     citation_required: list[str]
     if v4:
         citation_properties = {
-            "source_document_id": {
-                "type": "string",
-                "enum": [document.source_document_id for document in documents],
-            },
-            "start_line": {"type": "integer", "minimum": 1},
-            "end_line": {"type": "integer", "minimum": 1},
+            "evidence_spans": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": True,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "source_document_id": {
+                            "type": "string",
+                            "enum": [
+                                document.source_document_id for document in documents
+                            ],
+                        },
+                        "start_line": {"type": "integer", "minimum": 1},
+                        "end_line": {"type": "integer", "minimum": 1},
+                    },
+                    "required": ["source_document_id", "start_line", "end_line"],
+                    "additionalProperties": False,
+                },
+            }
         }
-        citation_required = ["source_document_id", "start_line", "end_line"]
+        citation_required = ["evidence_spans"]
     else:
         citation_properties = {
             "source_document_ids": {
@@ -1800,38 +1927,99 @@ def validate_structural_review_flags(
                 "affected_unit_ids must uniquely reference existing frozen units",
                 response=response,
             )
+        evidence: list[JsonRecord] = []
         if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
             allowed_fields = {
                 "flag_type",
                 "affected_unit_ids",
                 "explanation",
-                "source_document_id",
-                "start_line",
-                "end_line",
+                "evidence_spans",
             }
             if set(raw) != allowed_fields:
                 raise LlmResponseValidationError(
                     "v4 structural flag contains unsupported fields",
                     response=response,
                 )
-            source_id = _required_str(raw, "source_document_id")
-            try:
-                source_document = documents_by_id[source_id]
-            except KeyError as exc:
-                raise LlmResponseValidationError(
-                    "structural flag source_document_id must reference a supplied "
-                    "predecision document",
-                    response=response,
-                ) from exc
-            try:
-                verbatim_excerpt, _ = _document_line_span(
-                    source_document,
-                    start_line=_required_int(raw, "start_line"),
-                    end_line=_required_int(raw, "end_line"),
+            source_ids_list: list[str] = []
+            cited_roles: set[DocumentRole] = set()
+            for raw_span in _record_sequence(
+                raw.get("evidence_spans"), "evidence_spans"
+            ):
+                if set(raw_span) != {
+                    "source_document_id",
+                    "start_line",
+                    "end_line",
+                }:
+                    raise LlmResponseValidationError(
+                        "v4 structural evidence span contains unsupported fields",
+                        response=response,
+                    )
+                source_id = _required_str(raw_span, "source_document_id")
+                if source_id in source_ids_list:
+                    raise LlmResponseValidationError(
+                        "v4 structural evidence_spans requires unique document ids",
+                        response=response,
+                    )
+                try:
+                    source_document = documents_by_id[source_id]
+                except KeyError as exc:
+                    raise LlmResponseValidationError(
+                        "structural flag source_document_id must reference a supplied "
+                        "predecision document",
+                        response=response,
+                    ) from exc
+                start_line = _required_int(raw_span, "start_line")
+                end_line = _required_int(raw_span, "end_line")
+                try:
+                    excerpt, page = _document_line_span(
+                        source_document,
+                        start_line=start_line,
+                        end_line=end_line,
+                    )
+                except LlmPipelineError as exc:
+                    raise LlmResponseValidationError(
+                        str(exc), response=response
+                    ) from exc
+                source_ids_list.append(source_id)
+                cited_roles.add(source_document.document_role)
+                evidence.append(
+                    {
+                        "source_document_id": source_id,
+                        "document_role": source_document.document_role.value,
+                        "start_line": start_line,
+                        "end_line": end_line,
+                        "citation_page": page,
+                        "citation_excerpt": excerpt,
+                    }
                 )
-            except LlmPipelineError as exc:
-                raise LlmResponseValidationError(str(exc), response=response) from exc
-            source_ids = (source_id,)
+            if not evidence:
+                raise LlmResponseValidationError(
+                    "v4 structural flag requires nonempty evidence_spans",
+                    response=response,
+                )
+            if flag_type == "omitted":
+                complaint_roles = {
+                    DocumentRole.COMPLAINT,
+                    DocumentRole.AMENDED_COMPLAINT,
+                }
+                motion_roles = {
+                    DocumentRole.MTD_NOTICE,
+                    DocumentRole.MTD_MEMORANDUM,
+                }
+                if not cited_roles.intersection(complaint_roles):
+                    raise LlmResponseValidationError(
+                        "v4 omitted structural flag requires complaint or "
+                        "amended-complaint evidence",
+                        response=response,
+                    )
+                if not cited_roles.intersection(motion_roles):
+                    raise LlmResponseValidationError(
+                        "v4 omitted structural flag requires target motion-to-dismiss "
+                        "notice or memorandum evidence",
+                        response=response,
+                    )
+            source_ids = tuple(source_ids_list)
+            verbatim_excerpt = _required_str(evidence[0], "citation_excerpt")
         else:
             source_ids = _str_tuple(
                 raw.get("source_document_ids"), "source_document_ids"
@@ -1870,15 +2058,16 @@ def validate_structural_review_flags(
                     "predecision document",
                     response=response,
                 )
-        output.append(
-            {
-                "flag_type": flag_type,
-                "affected_unit_ids": list(affected),
-                "source_document_ids": list(source_ids),
-                "explanation": _required_str(raw, "explanation"),
-                "citation_excerpt": verbatim_excerpt,
-            }
-        )
+        normalized_flag: JsonRecord = {
+            "flag_type": flag_type,
+            "affected_unit_ids": list(affected),
+            "source_document_ids": list(source_ids),
+            "explanation": _required_str(raw, "explanation"),
+            "citation_excerpt": verbatim_excerpt,
+        }
+        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+            normalized_flag["evidence_spans"] = evidence
+        output.append(normalized_flag)
     return tuple(output)
 
 

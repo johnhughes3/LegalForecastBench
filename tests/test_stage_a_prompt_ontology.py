@@ -263,7 +263,12 @@ def test_v4_structural_reviewer_uses_purported_claims_and_line_selectors() -> No
     assert "no-cause-of-action is a dismissal ground" in rules
     assert "induced infringement and contributory infringement" in rules
     assert "Willfulness is ordinarily an enhancement" in rules
-    assert "source_document_id" in payload["output_schema"]["structural_flags"][0]
+    assert "evidence_spans" in payload["output_schema"]["structural_flags"][0]
+    assert (
+        "source_document_id"
+        in payload["output_schema"]["structural_flags"][0]["evidence_spans"][0]
+    )
+    assert "complaint or amended-complaint evidence span" in rules
     assert "citation_excerpt" not in payload["output_schema"]["structural_flags"][0]
     assert "numbered_markdown" in payload["documents"][0]
 
@@ -327,13 +332,14 @@ def test_v4_structural_response_schema_uses_document_line_span() -> None:
         "flag_type",
         "affected_unit_ids",
         "explanation",
-        "source_document_id",
-        "start_line",
-        "end_line",
+        "evidence_spans",
     ]
     assert "source_document_ids" not in item["properties"]
     assert "citation_excerpt" not in item["properties"]
-    assert item["properties"]["source_document_id"]["enum"] == [
+    evidence = item["properties"]["evidence_spans"]
+    assert evidence["minItems"] == 1
+    assert evidence["uniqueItems"] is True
+    assert evidence["items"]["properties"]["source_document_id"]["enum"] == [
         "complaint",
         "motion",
     ]

@@ -18,7 +18,11 @@ from legalforecast.ingestion.canonical_json import (
 )
 from legalforecast.protocol.manifest import canonical_json as manifest_canonical_json
 
-from .schemas import SchemaIdentifier
+from .schemas import (
+    RAW_BYTES_CODEC_V1,
+    RAW_BYTES_RAW_SHA256_COMMITMENT_V1,
+    SchemaIdentifier,
+)
 
 
 class CommitmentEncodingError(ValueError):
@@ -239,5 +243,22 @@ MANIFEST_RAW_SHA256_V1 = CommitmentProfile(
 RUN_CARD_RAW_SHA256_V1 = CommitmentProfile(
     "legalforecast.commitment.run-card-indented-json.raw-sha256.v1",
     RUN_CARD_INDENTED_JSON_V1,
+    DigestRepresentation.RAW_HEX,
+)
+
+
+def _raw_bytes(value: object) -> bytes:
+    if not isinstance(value, bytes):
+        raise CommitmentEncodingError("raw-bytes profile requires bytes")
+    return value
+
+
+RAW_BYTES_V1 = CanonicalJsonCodec(
+    str(RAW_BYTES_CODEC_V1),
+    _raw_bytes,
+)
+RAW_BYTES_RAW_SHA256_V1 = CommitmentProfile(
+    str(RAW_BYTES_RAW_SHA256_COMMITMENT_V1),
+    RAW_BYTES_V1,
     DigestRepresentation.RAW_HEX,
 )

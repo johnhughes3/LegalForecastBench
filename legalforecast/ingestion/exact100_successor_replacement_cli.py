@@ -46,6 +46,10 @@ _RECOVERY_FILES = {
     "rest_observation_transcript": "rest-observation-transcript.jsonl",
     "rest_observation_response": "rest-observation-response.bin",
 }
+_STIPULATED_AUDIT_FILES = {
+    "audit": "target-document-eligibility-audit.jsonl",
+    "run_card": "run-cards/audit-stage-a-target-eligibility.json",
+}
 
 
 class Exact100SuccessorReplacementCliError(ValueError):
@@ -56,6 +60,7 @@ SuccessorInputReplay = Callable[
     [Path], tuple[VerifiedExact100Predecessor, VerifiedSuccessorPromotionPool]
 ]
 TerminalRecoveryReplay = Callable[[bytes, bytes], VerifiedTerminalExclusionEvidence]
+StipulatedEligibilityReplay = Callable[[Path, bytes], VerifiedTerminalExclusionEvidence]
 
 
 def add_parser(
@@ -91,21 +96,31 @@ def run(args: argparse.Namespace) -> int:
         raise Exact100SuccessorReplacementCliError(
             "exact100 successor inputs require authenticated predecessor replay"
         )
+    stipulated_roots = tuple(cast(list[Path], args.stipulated_evidence_root))
+    recovery_roots = tuple(cast(list[Path], args.recovery_evidence_root))
+    stipulated_replay = cast(
+        StipulatedEligibilityReplay | None,
+        getattr(args, "_replay_stipulated_eligibility", None),
+    )
+    if stipulated_roots and stipulated_replay is None:
+        raise Exact100SuccessorReplacementCliError(
+            "exact100 successor stipulated exclusions require authenticated "
+            "eligibility-audit replay"
+        )
     recovery_replay = cast(
         TerminalRecoveryReplay | None, getattr(args, "_replay_terminal_recovery", None)
     )
-    if recovery_replay is None:
+    if recovery_roots and recovery_replay is None:
         raise Exact100SuccessorReplacementCliError(
             "exact100 successor recovery requires fresh producer replay"
         )
-    stipulated_roots = tuple(cast(list[Path], args.stipulated_evidence_root))
-    recovery_roots = tuple(cast(list[Path], args.recovery_evidence_root))
     output_root = cast(Path, args.output_root)
     _validate_output_root(output_root)
     result, payloads = _build(
         predecessor_root=predecessor_root,
         replay_inputs=replay_inputs,
         recovery_replay=recovery_replay,
+        stipulated_replay=stipulated_replay,
         stipulated_roots=stipulated_roots,
         recovery_roots=recovery_roots,
         output_root=output_root,
@@ -138,7 +153,8 @@ def verify_materializer_projection(
     free_clearance_path: Path,
     expected_target_count: int,
     replay_inputs: SuccessorInputReplay,
-    recovery_replay: TerminalRecoveryReplay,
+    recovery_replay: TerminalRecoveryReplay | None,
+    stipulated_replay: StipulatedEligibilityReplay | None,
 ) -> dict[str, object]:
     """Replay the saved command and return the normal materializer projection."""
 
@@ -162,6 +178,7 @@ def verify_materializer_projection(
             predecessor_root=predecessor_root,
             replay_inputs=replay_inputs,
             recovery_replay=recovery_replay,
+            stipulated_replay=stipulated_replay,
             stipulated_roots=stipulated_roots,
             recovery_roots=recovery_roots,
             output_root=target_root,
@@ -241,16 +258,12 @@ def _build(
     *,
     predecessor_root: Path,
     replay_inputs: SuccessorInputReplay,
-    recovery_replay: TerminalRecoveryReplay,
+    recovery_replay: TerminalRecoveryReplay | None,
+    stipulated_replay: StipulatedEligibilityReplay | None,
     stipulated_roots: Sequence[Path],
     recovery_roots: Sequence[Path],
     output_root: Path,
 ) -> tuple[Any, dict[str, bytes]]:
-    if stipulated_roots:
-        raise Exact100SuccessorReplacementCliError(
-            "stipulated terminal evidence is unavailable without authenticated "
-            "parser-producer replay"
-        )
     if not stipulated_roots and not recovery_roots:
         raise Exact100SuccessorReplacementCliError(
             "at least one terminal evidence root is required"
@@ -272,6 +285,15 @@ def _build(
         )
         for root in recovery_roots
     ]
+    evidence.extend(
+        _stipulated(
+            root,
+            predecessor.selection_bytes,
+            snapshots,
+            stipulated_replay=stipulated_replay,
+        )
+        for root in stipulated_roots
+    )
     terminals = verify_post_selection_terminal_exclusions(
         selection_bytes=predecessor.selection_bytes, evidence=evidence
     )
@@ -283,9 +305,36 @@ def _build(
     _check_snapshots(snapshots)
     # A second sealed-root replay closes the TOCTOU interval around the mint.
     second_predecessor, second_promotion_pool = replay_inputs(predecessor_root)
+    second_evidence = [
+        *(
+            _recovery(
+                root,
+                second_predecessor.selection_bytes,
+                snapshots,
+                recovery_replay=recovery_replay,
+            )
+            for root in recovery_roots
+        ),
+        *(
+            _stipulated(
+                root,
+                second_predecessor.selection_bytes,
+                snapshots,
+                stipulated_replay=stipulated_replay,
+            )
+            for root in stipulated_roots
+        ),
+    ]
+    second_terminals = verify_post_selection_terminal_exclusions(
+        selection_bytes=second_predecessor.selection_bytes, evidence=second_evidence
+    )
+    if terminals.records_bytes != second_terminals.records_bytes:
+        raise Exact100SuccessorReplacementCliError(
+            "terminal exclusion evidence changed during replay"
+        )
     second_result = project_exact100_successor_replacement(
         predecessor=second_predecessor,
-        terminal_exclusions=terminals,
+        terminal_exclusions=second_terminals,
         promotion_pool=second_promotion_pool,
     )
     if _result_payloads(result) != _result_payloads(second_result):
@@ -334,8 +383,12 @@ def _recovery(
     selection: bytes,
     snapshots: dict[Path, bytes],
     *,
-    recovery_replay: TerminalRecoveryReplay,
+    recovery_replay: TerminalRecoveryReplay | None,
 ) -> VerifiedTerminalExclusionEvidence:
+    if recovery_replay is None:
+        raise Exact100SuccessorReplacementCliError(
+            "exact100 successor recovery requires fresh producer replay"
+        )
     payloads = _root_payloads(root, _RECOVERY_FILES, snapshots)
     request = _object(payloads["request"], root / _RECOVERY_FILES["request"])
     candidate_id = request.get("candidate_id")
@@ -380,13 +433,41 @@ def _recovery(
     )
 
 
+def _stipulated(
+    root: Path,
+    selection: bytes,
+    snapshots: dict[Path, bytes],
+    *,
+    stipulated_replay: StipulatedEligibilityReplay | None,
+) -> VerifiedTerminalExclusionEvidence:
+    """Mint one stipulated exclusion only from an authenticated audit replay."""
+
+    if stipulated_replay is None:
+        raise Exact100SuccessorReplacementCliError(
+            "exact100 successor stipulated exclusions require authenticated "
+            "eligibility-audit replay"
+        )
+    _root_payloads(root, _STIPULATED_AUDIT_FILES, snapshots)
+    try:
+        return stipulated_replay(root, selection)
+    except ValueError as exc:
+        raise Exact100SuccessorReplacementCliError(
+            "authenticated stipulated eligibility replay did not authorize the "
+            "persisted root"
+        ) from exc
+
+
 def _root_payloads(
     root: Path, names: Mapping[str, str], snapshots: dict[Path, bytes]
 ) -> dict[str, bytes]:
     payloads = {name: _read(root / filename) for name, filename in names.items()}
-    snapshots.update(
-        {root / names[name]: payload for name, payload in payloads.items()}
-    )
+    for name, payload in payloads.items():
+        path = root / names[name]
+        previous = snapshots.setdefault(path, payload)
+        if previous != payload:
+            raise Exact100SuccessorReplacementCliError(
+                "persisted terminal evidence changed during replay"
+            )
     return payloads
 
 

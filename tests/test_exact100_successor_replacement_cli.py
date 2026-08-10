@@ -13,6 +13,9 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion import exact100_successor_replacement_cli as successor_cli
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.disclosure_review_authority import (
+    disclosure_authority_identity_from_cohort_policy,
+)
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     RECOVERY_RECEIPT_SCHEMA_VERSION,
@@ -20,14 +23,20 @@ from legalforecast.ingestion.post_selection_terminal_exclusion import (
     RECOVERY_RUN_CARD_SCHEMA_VERSION,
     REST_OBSERVATION_SCHEMA_VERSION,
     REST_OBSERVATION_TRANSCRIPT_SCHEMA_VERSION,
+    TerminalExclusionReason,
     VerifiedTerminalExclusionEvidence,
+    _mint_terminal_evidence,
     _mint_terminal_recovery_evidence_from_producer,
+)
+from tests.disclosure_review_fixtures import (
+    service_disclosure_authority_from_policy_bytes,
 )
 from tests.test_exact100_successor_replacement import (
     _fixture,
     _jsonl,
     _selection_row,
 )
+from tests.test_target_cohort_projection import _materialized_two_case_cohort
 
 
 def _bytes(value: object) -> bytes:
@@ -38,6 +47,229 @@ def _bytes(value: object) -> bytes:
 
 def _sha(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _allow_test_service_disclosure_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Permit the existing signed, provider-free materialization fixture."""
+
+    validate = cli.validate_review_receipt
+    validate_lineage = cli.validate_authenticated_clearance_lineage
+    monkeypatch.setattr(
+        cli,
+        "validate_review_receipt",
+        lambda *positional, **keywords: validate(
+            *positional,
+            **{**keywords, "allow_test_service_identity": True},
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "validate_authenticated_clearance_lineage",
+        lambda *positional, **keywords: validate_lineage(
+            *positional,
+            **{**keywords, "allow_test_service_identity": True},
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "load_main_disclosure_review_authority",
+        lambda cohort, *, reviewer_policy_bytes: (
+            service_disclosure_authority_from_policy_bytes(
+                reviewer_policy_bytes,
+                identity=disclosure_authority_identity_from_cohort_policy(cohort),
+            )
+        ),
+    )
+
+
+def _write_live_shaped_parser_fixture(
+    *,
+    parse_root: Path,
+    source_document_id: str,
+) -> None:
+    """Convert test Markdown records into the exact pinned parser wire shape.
+
+    The materialization, parser requests, parse-card commitments, and Markdown
+    tree remain real CLI artifacts.  This changes only the isolated fixture
+    transport marker so the production verifier exercises its live-output
+    acceptance path without a provider call.
+    """
+
+    manifest_path = parse_root / "mistral-markdown-conversions.jsonl"
+    parser_records = [
+        json.loads(line)
+        for line in manifest_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert parser_records
+    for record in parser_records:
+        document_id = str(record["source_document_id"])
+        markdown_path = parse_root / str(record["markdown_path"])
+        if document_id == source_document_id:
+            markdown_path.write_text(
+                "# [PROPOSED] STIPULATION FOR AND ORDER OF DISMISSAL\n",
+                encoding="utf-8",
+            )
+        markdown_bytes = markdown_path.read_bytes()
+        record["parser_config"] = {
+            "engine": "mistral",
+            "parser_revision": EXPECTED_PARSER_REVISION,
+            "expected_parser_revision": EXPECTED_PARSER_REVISION,
+        }
+        record["extracted_text"]["extraction_method"] = "mistral_parser_markdown"
+        record["extracted_text"]["text_sha256"] = _sha(markdown_bytes)
+    manifest_bytes = _jsonl(parser_records)
+    manifest_path.write_bytes(manifest_bytes)
+
+    card_path = parse_root / "run-cards/parse-documents.json"
+    card = json.loads(card_path.read_text(encoding="utf-8"))
+    card["output_commitments"]["parser_manifest"]["sha256"] = _sha(manifest_bytes)
+    card["parser_execution"] = {
+        "mode": "live_mistral",
+        "engine": "mistral",
+        "parser_revision": EXPECTED_PARSER_REVISION,
+        "parser_root": "/test/pinned-mistral-parser",
+        "fixture_markdown": False,
+    }
+    card_path.write_bytes(_bytes(card))
+
+
+def _completed_authenticated_stipulated_audit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[Path, bytes]:
+    """Build one real materialization/parse/audit root with one stipulated MTD."""
+
+    _allow_test_service_disclosure_authority(monkeypatch)
+    materialized = _materialized_two_case_cohort(tmp_path / "cohort")
+    parse_root = tmp_path / "parse"
+    selection = materialized["selection"]
+    manifest = materialized["manifest"]
+    clearance = materialized["clearance"]
+    document_root = materialized["document_root"]
+    materialization_card = materialized["run_card"]
+    runtime_args = [
+        "--purchase-policy",
+        str(materialized["purchase_policy"]),
+        "--purchase-ledger",
+        str(materialized["purchase_ledger"]),
+        "--controlled-private-root",
+        str(materialized["controlled_private_root"]),
+        "--purchase-ledger-initialization-receipt",
+        str(materialized["purchase_ledger_initialization_receipt"]),
+    ]
+    audit_replay_args = [
+        "--controlled-private-root",
+        str(materialized["controlled_private_root"]),
+        "--purchase-ledger-initialization-receipt",
+        str(materialized["purchase_ledger_initialization_receipt"]),
+    ]
+    assert (
+        cli.main(
+            [
+                "acquisition",
+                "plan-parse-documents",
+                "--selection",
+                str(selection),
+                "--download-manifest",
+                str(manifest),
+                "--disclosure-clearance",
+                str(clearance),
+                "--document-root",
+                str(document_root),
+                "--materialization-run-card",
+                str(materialization_card),
+                *runtime_args,
+                "--output-root",
+                str(parse_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    requests_path = parse_root / "parse-document-requests.jsonl"
+    requests = [
+        json.loads(line)
+        for line in requests_path.read_text(encoding="utf-8").splitlines()
+    ]
+    selection_records = [
+        json.loads(line) for line in selection.read_text(encoding="utf-8").splitlines()
+    ]
+    target_document_id = next(
+        str(document["source_document_id"])
+        for record in selection_records
+        for document in record["documents"]
+        if document["document_role"] == "motion_to_dismiss_memorandum"
+    )
+    markdown_fixtures = tmp_path / "markdown-fixtures"
+    markdown_fixtures.mkdir()
+    for request in requests:
+        (markdown_fixtures / f"{request['source_document_id']}.md").write_text(
+            f"Public filing {request['source_document_id']}", encoding="utf-8"
+        )
+    assert (
+        cli.main(
+            [
+                "acquisition",
+                "parse-documents",
+                "--selection",
+                str(selection),
+                "--requests",
+                str(requests_path),
+                "--disclosure-clearance",
+                str(clearance),
+                "--materialization-run-card",
+                str(materialization_card),
+                *runtime_args,
+                "--fixture-markdown-dir",
+                str(markdown_fixtures),
+                "--output-root",
+                str(parse_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    _write_live_shaped_parser_fixture(
+        parse_root=parse_root,
+        source_document_id=target_document_id,
+    )
+    audit_root = tmp_path / "completed-eligibility-audit"
+    assert (
+        cli.main(
+            [
+                "acquisition",
+                "audit-stage-a-target-eligibility",
+                "--selection",
+                str(selection),
+                "--selection-run-card",
+                str(selection.parent / "run-cards/project-target-cohort.json"),
+                "--download-manifest",
+                str(manifest),
+                "--disclosure-clearance",
+                str(clearance),
+                "--materialization-run-card",
+                str(materialization_card),
+                "--document-root",
+                str(document_root),
+                "--parse-requests",
+                str(requests_path),
+                "--parser-manifest",
+                str(parse_root / "mistral-markdown-conversions.jsonl"),
+                "--parser-run-card",
+                str(parse_root / "run-cards/parse-documents.json"),
+                "--markdown-root",
+                str(parse_root / "markdown"),
+                *audit_replay_args,
+                "--output-root",
+                str(audit_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    return audit_root, selection.read_bytes()
 
 
 def _stipulated_evidence(
@@ -634,6 +866,175 @@ def test_successor_cli_rejects_self_consistent_invented_stipulated_pdf(
         == 2
     )
     assert not output.exists()
+
+
+def test_successor_accepts_stipulated_root_only_after_authenticated_callback(
+    tmp_path: Path,
+) -> None:
+    """The generic projector accepts only a verifier-owned stipulated capability."""
+
+    inputs = tmp_path / "sealed-inputs"
+    inputs.mkdir()
+    _fixture()
+    root = tmp_path / "completed-eligibility-audit"
+    root.joinpath("run-cards").mkdir(parents=True)
+    root.joinpath("target-document-eligibility-audit.jsonl").write_bytes(b"audit\n")
+    root.joinpath("run-cards/audit-stage-a-target-eligibility.json").write_bytes(
+        b"card\n"
+    )
+    output = tmp_path / "successor"
+    calls: list[bytes] = []
+
+    def replay(
+        root_arg: Path, selection_bytes: bytes
+    ) -> VerifiedTerminalExclusionEvidence:
+        assert root_arg == root
+        calls.append(selection_bytes)
+        return _mint_terminal_evidence(
+            candidate_id="C001",
+            source_document_id="C001-motion",
+            reason=TerminalExclusionReason.STIPULATED_INELIGIBLE,
+            evidence_kind="test_authenticated_eligibility_replay",
+            evidence_commitments={"selection": _sha(selection_bytes)},
+        )
+
+    args = SimpleNamespace(
+        predecessor_root=inputs,
+        stipulated_evidence_root=[root],
+        recovery_evidence_root=[],
+        output_root=output,
+        resume=True,
+        _replay_inputs=_test_only_replay,
+        _replay_stipulated_eligibility=replay,
+    )
+
+    assert successor_cli.run(args) == 0
+    assert len(calls) == 2
+    verified = successor_cli.verify_materializer_projection(
+        target_root=output,
+        free_clearance_path=output / "disclosure-clearance.jsonl",
+        expected_target_count=100,
+        replay_inputs=_test_only_replay,
+        recovery_replay=None,
+        stipulated_replay=replay,
+    )
+    assert len(verified["selection_records"]) == 100
+    assert len(calls) == 4
+    records = [
+        json.loads(line)
+        for line in output.joinpath("successor-terminal-exclusions.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert records[0]["reason"] == "stipulated_ineligible"
+
+
+def test_stipulated_eligibility_replay_rejects_selection_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The audit's reconstructed selection cannot be substituted for the predecessor."""
+
+    root = tmp_path / "completed-eligibility-audit"
+    root.joinpath("run-cards").mkdir(parents=True)
+    root.joinpath("target-document-eligibility-audit.jsonl").write_bytes(b"audit\n")
+    input_paths = [str(tmp_path / f"input-{index}") for index in range(10)]
+    root.joinpath("run-cards/audit-stage-a-target-eligibility.json").write_bytes(
+        _bytes(
+            {
+                "input_paths": input_paths,
+                "replay_paths": {
+                    "controlled_private_root": None,
+                    "purchase_ledger_initialization_receipt": None,
+                },
+            }
+        )
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_verified_stage_a_parse_lineage",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            selection_bytes=b"different selection"
+        ),
+    )
+
+    with pytest.raises(ValueError, match="selection differs from exact100 predecessor"):
+        cli._replay_exact100_stipulated_eligibility(root, b"sealed predecessor")
+
+
+def test_production_stipulated_replay_accepts_completed_authenticated_audit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A real materializer/parser/audit chain can mint stipulated authority."""
+
+    root, selection_bytes = _completed_authenticated_stipulated_audit(
+        tmp_path, monkeypatch
+    )
+
+    evidence = cli._replay_exact100_stipulated_eligibility(root, selection_bytes)
+    successor_evidence = successor_cli._stipulated(
+        root,
+        selection_bytes,
+        {},
+        stipulated_replay=cli._replay_exact100_stipulated_eligibility,
+    )
+
+    assert evidence.reason is TerminalExclusionReason.STIPULATED_INELIGIBLE
+    assert evidence.evidence_kind == "authenticated_stage_a_target_eligibility_replay"
+    assert evidence.evidence_commitments["selection"] == _sha(selection_bytes)
+    assert successor_evidence == evidence
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    assert (
+        cli._replay_exact100_stipulated_eligibility(root, selection_bytes) == evidence
+    )
+
+
+def test_production_stipulated_replay_rejects_fabricated_card_after_root_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exact100 root snapshots are insufficient without materialization replay."""
+
+    root, selection_bytes = _completed_authenticated_stipulated_audit(
+        tmp_path, monkeypatch
+    )
+    fabricated = tmp_path / "fabricated-eligibility-audit"
+    fabricated.joinpath("run-cards").mkdir(parents=True)
+    audit_path = root / "target-document-eligibility-audit.jsonl"
+    card = json.loads(
+        root.joinpath("run-cards/audit-stage-a-target-eligibility.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    fake_selection = tmp_path / "fabricated-selection.jsonl"
+    fake_selection.write_bytes(selection_bytes)
+    card["input_paths"][0] = str(fake_selection)
+    fabricated.joinpath("target-document-eligibility-audit.jsonl").write_bytes(
+        audit_path.read_bytes()
+    )
+    fabricated.joinpath("run-cards/audit-stage-a-target-eligibility.json").write_bytes(
+        _bytes(card)
+    )
+
+    payloads = successor_cli._root_payloads(
+        fabricated,
+        {
+            "audit": "target-document-eligibility-audit.jsonl",
+            "run_card": "run-cards/audit-stage-a-target-eligibility.json",
+        },
+        {},
+    )
+    assert payloads["audit"] == audit_path.read_bytes()
+    assert (
+        payloads["run_card"]
+        == fabricated.joinpath(
+            "run-cards/audit-stage-a-target-eligibility.json"
+        ).read_bytes()
+    )
+
+    with pytest.raises(ValueError, match=r"target selection|selection"):
+        cli._replay_exact100_stipulated_eligibility(fabricated, selection_bytes)
 
 
 def test_production_replay_derives_both_capabilities_from_verified_snapshots(

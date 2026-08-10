@@ -94,6 +94,45 @@ def test_common_false_positives_do_not_create_candidates(text: str) -> None:
     assert candidates == ()
 
 
+@pytest.mark.parametrize(
+    ("text", "expected_term"),
+    [
+        (
+            "STIPULATED MOTION TO DISMISS this action.",
+            "stipulated motion to dismiss",
+        ),
+        (
+            "ORDER dismissing this action pursuant to the parties' stipulation "
+            "under Federal Rule of Civil Procedure 41(a)(1)(A)(ii).",
+            "dismissal pursuant to parties' stipulation",
+        ),
+    ],
+)
+def test_stipulated_dismissals_are_discovery_false_positives(
+    text: str,
+    expected_term: str,
+) -> None:
+    signals = classify_docket_entry(_entry("case-1", "entry-1", text))
+
+    assert expected_term in signals.false_positive_terms
+    assert signals.is_qualifying_mtd_entry is False
+    assert discover_mtd_candidates([signals.entry]) == ()
+
+
+def test_briefing_stipulation_does_not_hide_rule_12_merits_disposition() -> None:
+    text = (
+        "Pursuant to the parties' stipulation, briefing was extended; "
+        "ORDER granting Defendant's Motion to Dismiss under Rule 12(b)(6)."
+    )
+
+    signals = classify_docket_entry(_entry("case-1", "entry-1", text))
+
+    assert signals.false_positive_terms == ()
+    assert signals.is_qualifying_mtd_entry is True
+    assert signals.is_linkable_order_entry is True
+    assert len(discover_mtd_candidates([signals.entry])) == 1
+
+
 def test_false_positive_entry_is_kept_as_diagnostic_when_linked_to_mtd() -> None:
     candidates = discover_mtd_candidates(
         [

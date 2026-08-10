@@ -256,6 +256,22 @@ _FALSE_POSITIVE_PATTERNS = (
         DiscoveryTriggerKind.FALSE_POSITIVE,
     ),
     _pattern(
+        "stipulated motion to dismiss",
+        r"\bstipulated\s+motion\s+to\s+dismiss\b",
+        DiscoveryTriggerKind.FALSE_POSITIVE,
+    ),
+    _pattern(
+        "dismissal pursuant to parties' stipulation",
+        r"(?:"
+        r"\bdismiss(?:al|ed|ing)?\b[^.;]{0,100}"
+        r"\bpursuant\s+to\s+(?:the\s+)?parties(?:['\u2019])?\s+stipulation\b"
+        r"|"
+        r"\bpursuant\s+to\s+(?:the\s+)?parties(?:['\u2019])?\s+stipulation\b"
+        r"[^.;]{0,100}\bdismiss(?:al|ed|ing)?\b"
+        r")",
+        DiscoveryTriggerKind.FALSE_POSITIVE,
+    ),
+    _pattern(
         "voluntary dismissal",
         r"\bvoluntary\s+dismissal\b",
         DiscoveryTriggerKind.FALSE_POSITIVE,

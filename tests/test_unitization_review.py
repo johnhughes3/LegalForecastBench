@@ -14,10 +14,12 @@ from legalforecast.unitization.review import (
     FINALIZED_SCHEMA_VERSION,
     LEGACY_FINALIZED_SCHEMA_VERSION,
     UnitizationReviewError,
+    V4FinalizedCitationDocument,
     apply_unitization_reviews,
     canonical_records_sha256,
     canonical_sha256,
     require_finalized_envelopes,
+    validate_v4_finalized_unit_citations,
     verify_finalized_prediction_units,
 )
 
@@ -84,6 +86,239 @@ def test_apply_unitization_reviews_supports_every_consuming_disposition() -> Non
         record["schema_version"] == FINALIZED_SCHEMA_VERSION for record in result
     )
     verify_finalized_prediction_units(result, raw, adjudications, queue)
+
+
+def test_v4_finalized_citations_reconstruct_from_candidate_predecision_text() -> None:
+    finalized = _v4_finalized_candidate()
+
+    validate_v4_finalized_unit_citations(
+        [finalized],
+        source_documents_by_candidate={"cand": _v4_citation_documents()},
+    )
+
+
+def test_cli_v4_finalized_citations_use_authenticated_lineage_snapshot(
+    tmp_path: Path,
+) -> None:
+    markdown_root = tmp_path / "markdown" / "cand"
+    markdown_root.mkdir(parents=True)
+    (markdown_root / "complaint.md").write_bytes(
+        b"Page 1\nHeading\nCount I pleads breach of contract.\nPrayer"
+    )
+    (markdown_root / "motion.md").write_bytes(
+        b"Page 2\nIntroduction\nDefendant moves to dismiss Count I.\nArgument"
+    )
+    unitization_card = tmp_path / "llm-unitize.json"
+    unitization_card.write_text(
+        json.dumps(
+            {"model_execution": {"provider_attempt_namespace": "claim-ontology-v4"}}
+        ),
+        encoding="utf-8",
+    )
+    lineage = SimpleNamespace(
+        selection_records=(
+            {
+                "candidate_id": "cand",
+                "documents": [
+                    {
+                        "source_document_id": "complaint",
+                        "document_role": "complaint",
+                        "docket_entry_number": 1,
+                        "model_visible": True,
+                        "contains_target_outcome": False,
+                    },
+                    {
+                        "source_document_id": "motion",
+                        "document_role": "motion_to_dismiss_memorandum",
+                        "docket_entry_number": 5,
+                        "model_visible": True,
+                        "contains_target_outcome": False,
+                    },
+                ],
+            },
+        ),
+        parser_records=(
+            {
+                "candidate_id": "cand",
+                "source_document_id": "complaint",
+                "status": "succeeded",
+                "markdown_path": "cand/complaint.md",
+            },
+            {
+                "candidate_id": "cand",
+                "source_document_id": "motion",
+                "status": "succeeded",
+                "markdown_path": "cand/motion.md",
+            },
+        ),
+        markdown_root=tmp_path / "markdown",
+        markdown_bytes={
+            "cand/complaint.md": (
+                b"Page 1\nHeading\nCount I pleads breach of contract.\nPrayer"
+            ),
+            "cand/motion.md": (
+                b"Page 2\nIntroduction\nDefendant moves to dismiss Count I.\nArgument"
+            ),
+        },
+    )
+
+    cli._validate_v4_finalized_stage_a_citations(
+        [_v4_finalized_candidate()],
+        lineage=lineage,
+        llm_unitization_run_card_path=unitization_card,
+    )
+
+    tampered = deepcopy(_v4_finalized_candidate())
+    tampered["prediction_units"][0]["source_citations"][1]["excerpt"] = (
+        "Defendant moves to dismiss a different count."
+    )
+    with pytest.raises(cli.CommandError, match="authenticated Markdown"):
+        cli._validate_v4_finalized_stage_a_citations(
+            [tampered],
+            lineage=lineage,
+            llm_unitization_run_card_path=unitization_card,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("unknown_finalized_field", "forged", "canonical prediction unit"),
+        ("should_score", False, "should_score does not match"),
+    ],
+)
+def test_v4_finalized_citations_reject_unknown_or_computed_field_drift(
+    field: str,
+    value: object,
+    error: str,
+) -> None:
+    finalized = _v4_finalized_candidate()
+    finalized["prediction_units"][0][field] = value
+
+    with pytest.raises(UnitizationReviewError, match=error):
+        validate_v4_finalized_unit_citations(
+            [finalized],
+            source_documents_by_candidate={"cand": _v4_citation_documents()},
+        )
+
+
+def test_v4_finalized_citations_reject_cross_candidate_or_outcome_source() -> None:
+    finalized = _v4_finalized_candidate()
+    documents = list(_v4_citation_documents())
+    documents[0] = V4FinalizedCitationDocument(
+        document_id="complaint",
+        document_role="complaint",
+        markdown="Count I pleads breach of contract.",
+        is_predecision_material=False,
+        contains_target_outcome=True,
+    )
+
+    with pytest.raises(UnitizationReviewError, match="non-predecision"):
+        validate_v4_finalized_unit_citations(
+            [finalized], source_documents_by_candidate={"cand": documents}
+        )
+
+    with pytest.raises(UnitizationReviewError, match="unsupplied candidate document"):
+        validate_v4_finalized_unit_citations(
+            [finalized],
+            source_documents_by_candidate={"other-candidate": documents},
+        )
+
+
+def test_v4_finalized_citations_require_exact_excerpt_and_both_evidence_roles() -> None:
+    finalized = _v4_finalized_candidate()
+    finalized["prediction_units"][0]["source_citations"][0]["excerpt"] = (
+        "Count I pleads a different claim."
+    )
+    with pytest.raises(UnitizationReviewError, match="exact substring"):
+        validate_v4_finalized_unit_citations(
+            [finalized],
+            source_documents_by_candidate={"cand": _v4_citation_documents()},
+        )
+
+    finalized = _v4_finalized_candidate()
+    finalized["prediction_units"][0]["source_citations"] = [
+        finalized["prediction_units"][0]["source_citations"][0]
+    ]
+    with pytest.raises(UnitizationReviewError, match="target-MTD"):
+        validate_v4_finalized_unit_citations(
+            [finalized],
+            source_documents_by_candidate={"cand": _v4_citation_documents()},
+        )
+
+
+def test_v4_finalized_citations_reject_wrong_page_and_docket_attribution() -> None:
+    finalized = _v4_finalized_candidate()
+    finalized["prediction_units"][0]["source_citations"][0]["page"] = 2
+    with pytest.raises(UnitizationReviewError, match="page attribution"):
+        validate_v4_finalized_unit_citations(
+            [finalized],
+            source_documents_by_candidate={"cand": _v4_citation_documents()},
+        )
+
+    finalized = _v4_finalized_candidate()
+    documents = list(_v4_citation_documents())
+    documents[0] = V4FinalizedCitationDocument(
+        document_id="complaint",
+        document_role="complaint",
+        markdown="Page 1\nHeading\nCount I pleads breach of contract.\nPrayer",
+        is_predecision_material=True,
+        contains_target_outcome=False,
+        docket_entry_number=None,
+    )
+    with pytest.raises(UnitizationReviewError, match="docket-entry attribution"):
+        validate_v4_finalized_unit_citations(
+            [finalized], source_documents_by_candidate={"cand": documents}
+        )
+
+    finalized = _v4_finalized_candidate()
+    finalized["prediction_units"][0]["source_citations"][0]["docket_entry_number"] = 99
+    with pytest.raises(UnitizationReviewError, match="docket-entry attribution"):
+        validate_v4_finalized_unit_citations(
+            [finalized],
+            source_documents_by_candidate={"cand": _v4_citation_documents()},
+        )
+
+
+def test_v4_finalized_citations_reject_span_longer_than_twelve_lines() -> None:
+    finalized = _v4_finalized_candidate()
+    excerpt = "\n".join(f"evidence line {index}" for index in range(1, 14))
+    finalized["prediction_units"][0]["source_citations"][0]["excerpt"] = excerpt
+    documents = list(_v4_citation_documents())
+    documents[0] = V4FinalizedCitationDocument(
+        document_id="complaint",
+        document_role="complaint",
+        markdown=f"Page 1\n{excerpt}",
+        is_predecision_material=True,
+        contains_target_outcome=False,
+        docket_entry_number=1,
+    )
+
+    with pytest.raises(UnitizationReviewError, match="at most 12 lines"):
+        validate_v4_finalized_unit_citations(
+            [finalized], source_documents_by_candidate={"cand": documents}
+        )
+
+
+def test_v4_finalized_citations_disambiguate_duplicate_text_by_page() -> None:
+    finalized = _v4_finalized_candidate()
+    documents = list(_v4_citation_documents())
+    documents[0] = V4FinalizedCitationDocument(
+        document_id="complaint",
+        document_role="complaint",
+        markdown=(
+            "Page 1\nCount I pleads breach of contract.\n"
+            "Page 2\nCount I pleads breach of contract."
+        ),
+        is_predecision_material=True,
+        contains_target_outcome=False,
+        docket_entry_number=1,
+    )
+    finalized["prediction_units"][0]["source_citations"][0]["page"] = 2
+
+    validate_v4_finalized_unit_citations(
+        [finalized], source_documents_by_candidate={"cand": documents}
+    )
 
 
 def test_one_adjudication_consumes_multiple_reviews_for_same_source_unit() -> None:
@@ -579,6 +814,7 @@ def test_apply_unitization_review_cli_writes_finalized_artifact(
     monkeypatch.setattr(
         cli, "_verify_stage_a_review_run_card", lambda *args, **kwargs: None
     )
+    monkeypatch.setattr(cli, "_require_stage_a_lineage_unchanged", lambda lineage: None)
 
     assert (
         main(
@@ -728,6 +964,58 @@ def _unit(unit_id: str) -> dict[str, Any]:
         "uncertainty_notes": None,
         "should_score": True,
     }
+
+
+def _v4_finalized_candidate() -> dict[str, Any]:
+    unit = _unit("unit-1")
+    unit["source_citations"] = [
+        {
+            "document_id": "complaint",
+            "docket_entry_number": 1,
+            "page": 1,
+            "paragraph": None,
+            "excerpt": "Count I pleads breach of contract.",
+        },
+        {
+            "document_id": "motion",
+            "docket_entry_number": 5,
+            "page": 2,
+            "paragraph": None,
+            "excerpt": "Defendant moves to dismiss Count I.",
+        },
+    ]
+    unit.update(
+        {
+            "source_unit_sha256s": ["a" * 64],
+            "adjudication_id": "automatic:" + "a" * 64,
+            "adjudication_sha256": None,
+            "disposition": "ACCEPT",
+        }
+    )
+    return {"candidate_id": "cand", "prediction_units": [unit]}
+
+
+def _v4_citation_documents() -> tuple[V4FinalizedCitationDocument, ...]:
+    return (
+        V4FinalizedCitationDocument(
+            document_id="complaint",
+            document_role="complaint",
+            markdown="Page 1\nHeading\nCount I pleads breach of contract.\nPrayer",
+            is_predecision_material=True,
+            contains_target_outcome=False,
+            docket_entry_number=1,
+        ),
+        V4FinalizedCitationDocument(
+            document_id="motion",
+            document_role="motion_to_dismiss_memorandum",
+            markdown=(
+                "Page 2\nIntroduction\nDefendant moves to dismiss Count I.\nArgument"
+            ),
+            is_predecision_material=True,
+            contains_target_outcome=False,
+            docket_entry_number=5,
+        ),
+    )
 
 
 def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:

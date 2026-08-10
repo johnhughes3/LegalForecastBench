@@ -21,6 +21,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`provenance.py`](../legalforecast/ingestion/provenance.py) | Source-document and extracted-text provenance schemas. |
 | [`restricted_material.py`](../legalforecast/ingestion/restricted_material.py) | Fail-closed restricted-material classification. |
 | [`target_document_eligibility.py`](../legalforecast/ingestion/target_document_eligibility.py) | Deterministic semantic eligibility gate for Stage A target documents. |
+| [`target_document_eligibility_audit.py`](../legalforecast/ingestion/target_document_eligibility_audit.py) | Provider-free authenticated replay of Stage A target-document eligibility. |
 
 ## 2. Cycle orchestration, storage, and readiness
 
@@ -179,6 +180,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 
 | Module | Responsibility |
 | --- | --- |
+| [`free_support_memorandum_recovery.py`](../legalforecast/ingestion/free_support_memorandum_recovery.py) | Non-executable authenticated plan for the known free supporting memorandum. |
 | [`free_only_materialization.py`](../legalforecast/ingestion/free_only_materialization.py) | Authority for an entirely free target cohort. |
 | [`opinion_backed_disposition.py`](../legalforecast/ingestion/opinion_backed_disposition.py) | Public opinions bound to resolved docket entries. |
 | [`opinion_docket_gap_planner.py`](../legalforecast/ingestion/opinion_docket_gap_planner.py) | Refresh plans for opinion-backed docket gaps. |

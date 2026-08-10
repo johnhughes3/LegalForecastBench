@@ -24,6 +24,10 @@ from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.target_document_eligibility import (
     is_stipulated_or_voluntary_target_document,
 )
+from legalforecast.ingestion.target_document_eligibility_audit import (
+    VerifiedTargetDocumentEligibilityAudit,
+    require_verified_target_document_eligibility_audit,
+)
 
 JsonRecord = dict[str, Any]
 
@@ -79,6 +83,52 @@ class VerifiedPostSelectionTerminalExclusions:
     @property
     def candidate_ids(self) -> tuple[str, ...]:
         return tuple(cast(str, record["candidate_id"]) for record in self.records)
+
+
+def _mint_stipulated_terminal_evidence_from_verified_eligibility_audit(  # pyright: ignore[reportUnusedFunction]
+    *,
+    audit: VerifiedTargetDocumentEligibilityAudit,
+    candidate_id: str,
+    source_document_id: str,
+) -> VerifiedTerminalExclusionEvidence:
+    """Mint stipulated terminal authority from an opaque verified audit only.
+
+    A persisted audit JSONL or parser-root path has no authority at this
+    boundary.  The caller must first replay the complete materialization and
+    parser lineage and obtain ``audit`` from that verifier-owned snapshot.
+    """
+
+    try:
+        require_verified_target_document_eligibility_audit(audit)
+    except ValueError as exc:
+        raise PostSelectionTerminalExclusionError(str(exc)) from exc
+    matches = [
+        record
+        for record in audit.records
+        if record.get("candidate_id") == candidate_id
+        and record.get("source_document_id") == source_document_id
+    ]
+    if len(matches) != 1:
+        raise PostSelectionTerminalExclusionError(
+            "stipulated eligibility audit lacks one selected target document"
+        )
+    record = matches[0]
+    if record.get("status") != TerminalExclusionReason.STIPULATED_INELIGIBLE.value:
+        raise PostSelectionTerminalExclusionError(
+            "target document does not prove stipulated or voluntary ineligibility"
+        )
+    return _mint_terminal_evidence(
+        candidate_id=candidate_id,
+        source_document_id=source_document_id,
+        reason=TerminalExclusionReason.STIPULATED_INELIGIBLE,
+        evidence_kind="authenticated_stage_a_target_eligibility_replay",
+        evidence_commitments={
+            "selection": audit.selection_sha256,
+            "target_eligibility_audit": audit.commitment_sha256,
+            "target_eligibility_record": _sha(_canonical_bytes(dict(record))),
+            **dict(audit.input_commitments),
+        },
+    )
 
 
 def _verify_stipulated_target_evidence_for_test(  # pyright: ignore[reportUnusedFunction]
