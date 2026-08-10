@@ -61677,6 +61677,53 @@ def _require_stage_a_structural_review_namespace_pair(
         )
 
 
+def publish_stage_a_review_queue(
+    queue_path: Path, v1_records: Iterable[Mapping[str, Any]]
+) -> None:
+    """Validate and publish the frozen v1 queue and observational v2 sidecar.
+
+    The two files describe the same review work.  Project and validate v2
+    before changing either path, then restore the complete prior pair if a
+    filesystem failure interrupts publication.  This preserves the frozen
+    Cycle 1 v1 contract while preventing a new v1 from being stranded beside a
+    stale or absent v2 sidecar.
+    """
+
+    v1_queue = tuple(v1_records)
+    try:
+        queue_v2 = review_queue_v2_records(v1_queue)
+        verify_review_queue_v2_coverage(v1_queue, queue_v2)
+    except ReviewQueueError as exc:
+        raise CommandError(f"cannot project the Stage A review queue: {exc}") from exc
+
+    sidecar_path = review_queue_v2_sidecar_path(queue_path)
+    prior_payloads: dict[Path, bytes | None] = {}
+    try:
+        for path in (queue_path, sidecar_path):
+            prior_payloads[path] = path.read_bytes() if path.exists() else None
+    except OSError as exc:
+        raise CommandError(f"cannot snapshot the Stage A review queue: {exc}") from exc
+
+    try:
+        _write_jsonl(queue_path, v1_queue)
+        _write_jsonl(sidecar_path, queue_v2)
+    except OSError as exc:
+        rollback_errors: list[str] = []
+        for path, payload in prior_payloads.items():
+            try:
+                if payload is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(payload)
+            except OSError as rollback_exc:
+                rollback_errors.append(f"{path}: {rollback_exc}")
+        detail = f"cannot publish the Stage A review queue: {exc}"
+        if rollback_errors:
+            detail += "; rollback also failed: " + "; ".join(rollback_errors)
+        raise CommandError(detail) from exc
+
+
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     prospective_output_root = cast(Path, args.output_root)
     provider_journal_arg = cast(Path | None, args.provider_journal)
@@ -61814,20 +61861,7 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             result.records,
             result.terminal_review_queue_records,
         )
-        _write_jsonl(queue_path, merged_queue)
-        # Non-authoritative sidecar: the same review work, projected so review
-        # subject, typed reason, and allowed actions are separable.  It is
-        # deliberately absent from the run card's output commitments — Cycle 1
-        # change control keeps observational data out of authenticated bytes,
-        # and nothing downstream may consume this in place of the v1 queue.
-        try:
-            queue_v2 = review_queue_v2_records(merged_queue)
-            verify_review_queue_v2_coverage(merged_queue, queue_v2)
-        except ReviewQueueError as exc:
-            raise CommandError(
-                f"cannot project the Stage A review queue: {exc}"
-            ) from exc
-        _write_jsonl(review_queue_v2_sidecar_path(queue_path), queue_v2)
+        publish_stage_a_review_queue(queue_path, merged_queue)
         expected_prompts = {
             (
                 _required_str(record, "candidate_id"),

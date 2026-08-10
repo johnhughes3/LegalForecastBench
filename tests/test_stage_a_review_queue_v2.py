@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from legalforecast import cli
+from legalforecast.cli import CommandError
 from legalforecast.labeling import llm_pipeline
 from legalforecast.unitization.review_queue import (
     MIXED_VALIDATOR_CODE,
@@ -180,11 +182,9 @@ def test_terminal_rows_collapse_into_one_candidate_technical_item() -> None:
     assert "unit_id" not in item
     assert item["reason"]["class"] == ReviewReasonClass.TECHNICAL.value
     assert item["reason"]["code"] == TERMINAL_ROUTE_REASON
-    assert item["allowed_actions"] == [
-        ReviewAction.RETRY_STRUCTURAL_REVIEW.value,
-        ReviewAction.WAIVE_STRUCTURAL_REVIEW.value,
-        ReviewAction.EXCLUDE_CANDIDATE.value,
-    ]
+    # Cycle 1 has no candidate-level adjudication consumer. Technical options
+    # therefore remain outside the authoritative action contract.
+    assert item["allowed_actions"] == []
     assert item["affected_unit_ids"] == ["unit-1", "unit-2", "unit-3"]
     assert item["source_review_ids"] == [record["review_id"] for record in v1_records]
     assert item["terminal_escalation_sha256"] == ESCALATION_SHA
@@ -522,3 +522,53 @@ def test_sidecar_path_sits_beside_the_v1_queue() -> None:
     assert review_queue_v2_sidecar_path(queue_path) == Path(
         "/tmp/out/unitization-review-queue-reviewed-v2.jsonl"
     )
+
+
+def test_projection_failure_preserves_the_existing_queue_pair(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Projection validation runs before either frozen/public queue is published."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    sidecar_path = review_queue_v2_sidecar_path(queue_path)
+    queue_path.write_bytes(b"prior-v1\\n")
+    sidecar_path.write_bytes(b"prior-v2\\n")
+
+    def fail_projection(_: object) -> tuple[JsonRecord, ...]:
+        raise ReviewQueueError("projection rejected fixture")
+
+    monkeypatch.setattr(cli, "review_queue_v2_records", fail_projection)
+
+    with pytest.raises(CommandError, match="cannot project the Stage A review queue"):
+        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+
+    assert queue_path.read_bytes() == b"prior-v1\\n"
+    assert sidecar_path.read_bytes() == b"prior-v2\\n"
+
+
+def test_sidecar_write_failure_rolls_back_the_entire_queue_pair(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed v2 write cannot leave a new v1 beside an old sidecar."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    sidecar_path = review_queue_v2_sidecar_path(queue_path)
+    queue_path.write_bytes(b"prior-v1\\n")
+    sidecar_path.write_bytes(b"prior-v2\\n")
+    original_write_bytes = Path.write_bytes
+    failed_sidecar_write = False
+
+    def fail_sidecar_write(path: Path, payload: bytes) -> int:
+        nonlocal failed_sidecar_write
+        if path == sidecar_path and not failed_sidecar_write:
+            failed_sidecar_write = True
+            raise OSError("sidecar storage unavailable")
+        return original_write_bytes(path, payload)
+
+    monkeypatch.setattr(Path, "write_bytes", fail_sidecar_write)
+
+    with pytest.raises(CommandError, match="cannot publish the Stage A review queue"):
+        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+
+    assert queue_path.read_bytes() == b"prior-v1\\n"
+    assert sidecar_path.read_bytes() == b"prior-v2\\n"

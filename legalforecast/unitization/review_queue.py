@@ -69,8 +69,9 @@ class ReviewAction(StrEnum):
 
     The first seven mirror ``review.UnitizationDisposition`` exactly, because
     those are the only dispositions the frozen adjudication validators accept.
-    The last three are operational choices for technical items, which no unit
-    disposition can resolve.
+    The last three name possible future technical operations, but Cycle 1 has
+    no candidate-level consumer for them, so they are never authoritative
+    ``allowed_actions`` in this frozen observational projection.
     """
 
     ACCEPT = "ACCEPT"
@@ -98,11 +99,6 @@ _UNIT_ACTIONS: tuple[ReviewAction, ...] = (
     ReviewAction.CANDIDATE_EXCLUSION,
 )
 _OMISSION_ACTIONS: tuple[ReviewAction, ...] = (ReviewAction.ADD, *_UNIT_ACTIONS)
-_TECHNICAL_ACTIONS: tuple[ReviewAction, ...] = (
-    ReviewAction.RETRY_STRUCTURAL_REVIEW,
-    ReviewAction.WAIVE_STRUCTURAL_REVIEW,
-    ReviewAction.EXCLUDE_CANDIDATE,
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,7 +176,10 @@ REVIEW_REASONS: Mapping[str, ReviewReason] = {
                 "reconstruction attempt failed local validation. No unit was "
                 "adjudicated and no flag was accepted."
             ),
-            allowed_actions=_TECHNICAL_ACTIONS,
+            # Frozen Cycle 1 has no candidate-subject adjudication consumer.
+            # Naming technical operations here as authoritative would falsely
+            # advertise an executable resolution path.
+            allowed_actions=(),
         ),
     )
 }
