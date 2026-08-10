@@ -1008,6 +1008,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderJournalError,
     load_provider_cycle_caps,
     load_provider_cycle_caps_bytes,
+    open_provider_journal_snapshot,
     verify_provider_journal_identity,
 )
 from legalforecast.multiharness.cli import add_multiharness_parser
@@ -57706,6 +57707,63 @@ def _stage_a_file_commitment(path: Path, *, payload: bytes | None = None) -> Jso
     }
 
 
+def _stage_a_captured_payload(
+    path: Path, *, captured_input_bytes: Mapping[str, bytes] | None
+) -> bytes | None:
+    """Return the caller-authenticated bytes for one path, when it captured it.
+
+    This is a partial overlay, unlike `_captured_or_stable_input`: a caller
+    that already authenticated a subset of an artifact chain binds exactly that
+    subset, and every other path is still read fresh.  Reusing the captured
+    bytes is what stops a verifier from authenticating one byte set while the
+    caller commits another, which a re-read cannot detect when an input is
+    swapped and restored around the read.
+    """
+
+    if captured_input_bytes is None:
+        return None
+    return captured_input_bytes.get(str(path.resolve()))
+
+
+def _stage_a_captured_records(
+    path: Path,
+    *,
+    label: str,
+    captured_input_bytes: Mapping[str, bytes] | None,
+) -> list[JsonRecord]:
+    """Parse records from caller-authenticated bytes, or read the path fresh.
+
+    Every Stage A artifact a caller captures is JSONL, and the capturing
+    command already parses those same bytes with `_read_jsonl_payload`, so
+    reuse decodes them identically rather than re-reading the path.
+    """
+
+    payload = _stage_a_captured_payload(path, captured_input_bytes=captured_input_bytes)
+    if payload is None:
+        return _read_records(path)
+    try:
+        return _read_jsonl_payload(payload, label=label)
+    except ValueError as exc:
+        raise CommandError(str(exc)) from exc
+
+
+def _stage_a_captured_json_object(
+    path: Path,
+    *,
+    label: str,
+    captured_input_bytes: Mapping[str, bytes] | None,
+) -> JsonRecord:
+    """Parse one JSON object from caller-authenticated bytes, or read it fresh."""
+
+    payload = _stage_a_captured_payload(path, captured_input_bytes=captured_input_bytes)
+    if payload is None:
+        return _read_json_object(path)
+    try:
+        return _read_json_object_payload(payload, label=label)
+    except ValueError as exc:
+        raise CommandError(str(exc)) from exc
+
+
 def _materialization_cohort_cycle_id(
     run_card_path: Path,
     *,
@@ -57997,8 +58055,10 @@ _STAGE_A_PROVIDER_ATTEMPT_COLUMNS = (
 )
 
 
-def _stage_a_provider_attempt_rows(path: Path) -> tuple[JsonRecord, ...]:
-    return _provider_stage_attempt_rows(path, stage="llm-unitize")
+def _stage_a_provider_attempt_rows(
+    path: Path, *, snapshot: sqlite3.Connection | None = None
+) -> tuple[JsonRecord, ...]:
+    return _provider_stage_attempt_rows(path, stage="llm-unitize", snapshot=snapshot)
 
 
 def _pre_reconstruction_provider_state_sha256(
@@ -58081,25 +58141,42 @@ def _latest_reconstruction_attempt_ordinal(
 
 
 def _provider_stage_attempt_rows(
-    path: Path, *, stage: str | None = None
+    path: Path,
+    *,
+    stage: str | None = None,
+    snapshot: sqlite3.Connection | None = None,
 ) -> tuple[JsonRecord, ...]:
+    """Read attempt rows without ever opening the canonical journal for write.
+
+    ``snapshot`` reuses one already-open query-only journal copy so identity
+    and attempt-row verification can authenticate the same journal state.
+    """
+
     if path.is_symlink() or not path.is_file():
         raise CommandError(f"shared provider journal is not a regular file: {path}")
     try:
-        with sqlite3.connect(path) as connection:
-            connection.row_factory = sqlite3.Row
-            where = " WHERE stage = ?" if stage is not None else ""
-            parameters: tuple[object, ...] = (stage,) if stage is not None else ()
-            rows = connection.execute(
-                "SELECT "
-                + ", ".join(_STAGE_A_PROVIDER_ATTEMPT_COLUMNS)
-                + " FROM provider_attempts"
-                + where
-                + " ORDER BY stage, logical_call_key, attempt_ordinal",
-                parameters,
-            ).fetchall()
+        connection = (
+            snapshot if snapshot is not None else open_provider_journal_snapshot(path)
+        )
+    except ProviderJournalError as exc:
+        raise CommandError(f"cannot read shared provider journal: {exc}") from exc
+    try:
+        connection.row_factory = sqlite3.Row
+        where = " WHERE stage = ?" if stage is not None else ""
+        parameters: tuple[object, ...] = (stage,) if stage is not None else ()
+        rows = connection.execute(
+            "SELECT "
+            + ", ".join(_STAGE_A_PROVIDER_ATTEMPT_COLUMNS)
+            + " FROM provider_attempts"
+            + where
+            + " ORDER BY stage, logical_call_key, attempt_ordinal",
+            parameters,
+        ).fetchall()
     except sqlite3.Error as exc:
         raise CommandError(f"cannot read shared provider journal: {exc}") from exc
+    finally:
+        if snapshot is None:
+            connection.close()
     return tuple(
         {name: row[name] for name in _STAGE_A_PROVIDER_ATTEMPT_COLUMNS} for row in rows
     )
@@ -58112,15 +58189,28 @@ def _verify_stage_a_provider_replay(
     audit_path: Path,
     review_queue_path: Path,
     provider_attempt_namespace: str | None = None,
+    captured_input_bytes: Mapping[str, bytes] | None = None,
 ) -> tuple[dict[str, JsonRecord], str]:
+    # Identity and attempt rows must describe one journal state, so both read
+    # the same query-only snapshot of a journal SQLite never opens for write.
+    try:
+        journal_snapshot = open_provider_journal_snapshot(lineage.provider_journal_path)
+    except ProviderJournalError as exc:
+        raise CommandError(str(exc)) from exc
     try:
         verify_provider_journal_identity(
             lineage.provider_journal_path,
             cycle_id=lineage.cohort_cycle_id,
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            snapshot=journal_snapshot,
+        )
+        all_attempt_rows = _stage_a_provider_attempt_rows(
+            lineage.provider_journal_path, snapshot=journal_snapshot
         )
     except ProviderJournalError as exc:
         raise CommandError(str(exc)) from exc
+    finally:
+        journal_snapshot.close()
     try:
         prompt_records = stage_a_unitization_prompt_records(
             selection_records=lineage.selection_records,
@@ -58168,9 +58258,17 @@ def _verify_stage_a_provider_replay(
         _required_str(record, "candidate_id"): _required_str(record, "prompt")
         for record in v4_prompt_records
     }
-    raw_records = _read_records(prediction_units_path)
+    raw_records = _stage_a_captured_records(
+        prediction_units_path,
+        label="raw prediction units",
+        captured_input_bytes=captured_input_bytes,
+    )
     audit_records = _read_records(audit_path)
-    queue_records = _read_records(review_queue_path)
+    queue_records = _stage_a_captured_records(
+        review_queue_path,
+        label="merged unitization review queue",
+        captured_input_bytes=captured_input_bytes,
+    )
     raw_by_candidate: dict[str, Mapping[str, Any]] = {}
     for record in raw_records:
         candidate_id = _required_str(record, "candidate_id")
@@ -58196,7 +58294,6 @@ def _verify_stage_a_provider_replay(
         or set(audit_by_candidate) != candidate_ids
     ):
         raise CommandError("llm-unitize candidate coverage differs from selection")
-    all_attempt_rows = _stage_a_provider_attempt_rows(lineage.provider_journal_path)
     active_keys: dict[str, str] = {}
     recognized_keys: dict[str, frozenset[str]] = {}
     for candidate_id in candidate_ids:
@@ -58547,10 +58644,22 @@ def _verify_stage_a_unitization_run_card(
     expected_audit_path: Path | None = None,
     controlled_private_root: Path | None = None,
     initialization_receipt_path: Path | None = None,
+    captured_input_bytes: Mapping[str, bytes] | None = None,
 ) -> _StageAUnitizationLineage:
+    """Authenticate the executed llm-unitize run card and its Stage A lineage.
+
+    ``captured_input_bytes`` binds this authentication to bytes the caller
+    already captured, so a caller that commits those bytes downstream cannot
+    authenticate a different byte set.
+    """
+
     if run_card_path.is_symlink() or not run_card_path.is_file():
         raise CommandError("authenticated llm-unitize run card is not a regular file")
-    card = _read_json_object(run_card_path)
+    card = _stage_a_captured_json_object(
+        run_card_path,
+        label="llm-unitize run card",
+        captured_input_bytes=captured_input_bytes,
+    )
     if (
         card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
         or card.get("stage") != "llm-unitize"
@@ -58646,9 +58755,19 @@ def _verify_stage_a_unitization_run_card(
     ):
         raise CommandError("llm-unitize downstream artifact path differs")
     expected_outputs = {
-        "prediction_units": _stage_a_file_commitment(raw_path),
+        "prediction_units": _stage_a_file_commitment(
+            raw_path,
+            payload=_stage_a_captured_payload(
+                raw_path, captured_input_bytes=captured_input_bytes
+            ),
+        ),
         "llm_unitization_audit": _stage_a_file_commitment(audit_path),
-        "unitization_review_queue": _stage_a_file_commitment(queue_path),
+        "unitization_review_queue": _stage_a_file_commitment(
+            queue_path,
+            payload=_stage_a_captured_payload(
+                queue_path, captured_input_bytes=captured_input_bytes
+            ),
+        ),
     }
     if dict(output_records) != expected_outputs:
         raise CommandError("llm-unitize output commitment changed")
@@ -58658,6 +58777,7 @@ def _verify_stage_a_unitization_run_card(
         audit_path=audit_path,
         review_queue_path=queue_path,
         provider_attempt_namespace=provider_attempt_namespace,
+        captured_input_bytes=captured_input_bytes,
     )
     if card.get("prompt_commitments") != prompt_commitments:
         raise CommandError("llm-unitize prompt or output commitment changed")
@@ -58702,7 +58822,13 @@ def _verify_stage_a_unitization_run_card(
         lineage.provider_journal_path.resolve(),
     ):
         raise CommandError("llm-unitize output paths changed")
-    if card.get("record_count") != len(_read_records(raw_path)):
+    if card.get("record_count") != len(
+        _stage_a_captured_records(
+            raw_path,
+            label="raw prediction units",
+            captured_input_bytes=captured_input_bytes,
+        )
+    ):
         raise CommandError("llm-unitize record count changed")
     return lineage
 
@@ -59320,10 +59446,22 @@ def _verify_stage_a_review_run_card(
     expected_audit_path: Path | None = None,
     expected_registry_path: Path | None = None,
     expected_model_key: str | None = None,
+    captured_input_bytes: Mapping[str, bytes] | None = None,
 ) -> None:
+    """Authenticate the executed structural-review run card against Stage A.
+
+    ``captured_input_bytes`` binds this authentication to bytes the caller
+    already captured, so a caller that commits those bytes downstream cannot
+    authenticate a different byte set.
+    """
+
     if run_card_path.is_symlink() or not run_card_path.is_file():
         raise CommandError("llm-review-stage-a run card is not a regular file")
-    card = _read_json_object(run_card_path)
+    card = _stage_a_captured_json_object(
+        run_card_path,
+        label="structural-review run card",
+        captured_input_bytes=captured_input_bytes,
+    )
     if (
         card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
         or card.get("stage") != "llm-review-stage-a"
@@ -59350,10 +59488,20 @@ def _verify_stage_a_review_run_card(
     if (
         unit_card.resolve() != llm_unitization_run_card_path.resolve()
         or source_records.get("llm_unitization_run_card")
-        != _stage_a_file_commitment(llm_unitization_run_card_path)
+        != _stage_a_file_commitment(
+            llm_unitization_run_card_path,
+            payload=_stage_a_captured_payload(
+                llm_unitization_run_card_path,
+                captured_input_bytes=captured_input_bytes,
+            ),
+        )
     ):
         raise CommandError("structural review Stage A run-card lineage differs")
-    unit_card_record = _read_json_object(llm_unitization_run_card_path)
+    unit_card_record = _stage_a_captured_json_object(
+        llm_unitization_run_card_path,
+        label="llm-unitize run card",
+        captured_input_bytes=captured_input_bytes,
+    )
     unit_outputs = unit_card_record.get("output_commitments")
     if not isinstance(unit_outputs, Mapping):
         raise CommandError("structural review unitizer outputs are missing")
@@ -59382,7 +59530,12 @@ def _verify_stage_a_review_run_card(
         "provider_cycle_caps",
     ):
         path = _stage_a_committed_path(source_records, name)
-        if source_records.get(name) != _stage_a_file_commitment(path):
+        if source_records.get(name) != _stage_a_file_commitment(
+            path,
+            payload=_stage_a_captured_payload(
+                path, captured_input_bytes=captured_input_bytes
+            ),
+        ):
             raise CommandError(f"structural review {name} commitment changed")
     caps_path = _stage_a_committed_path(source_records, "provider_cycle_caps")
     if (
@@ -59412,7 +59565,12 @@ def _verify_stage_a_review_run_card(
         raise CommandError("structural review output path differs")
     expected_outputs = {
         "structural_flags": _stage_a_file_commitment(flags_path),
-        "review_queue": _stage_a_file_commitment(queue_path),
+        "review_queue": _stage_a_file_commitment(
+            queue_path,
+            payload=_stage_a_captured_payload(
+                queue_path, captured_input_bytes=captured_input_bytes
+            ),
+        ),
         "audit": _stage_a_file_commitment(audit_path),
     }
     if dict(output_records) != expected_outputs:
@@ -59460,11 +59618,16 @@ def _verify_stage_a_review_run_card(
     original_queue_path = _stage_a_committed_path(
         source_records, "unitization_review_queue"
     )
+    captured_raw_records = _stage_a_captured_records(
+        raw_units_path,
+        label="raw prediction units",
+        captured_input_bytes=captured_input_bytes,
+    )
     try:
         prompt_records = stage_a_structural_review_prompt_records(
             selection_records=_read_records(selection_path),
             parser_records=_read_records(parser_path),
-            prediction_unit_records=_read_records(raw_units_path),
+            prediction_unit_records=captured_raw_records,
             markdown_root=lineage.markdown_root,
             provider_attempt_namespace=provider_attempt_namespace,
         )
@@ -59478,7 +59641,7 @@ def _verify_stage_a_review_run_card(
         )
         for record in prompt_records
     }
-    raw_records = _read_records(raw_units_path)
+    raw_records = captured_raw_records
     raw_by_candidate = {
         _required_str(record, "candidate_id"): record for record in raw_records
     }
@@ -62546,7 +62709,11 @@ def _cmd_acquisition_preflight_unitization_adjudication(
 
     This command deliberately reuses the complete Stage A authentication
     chain and the frozen applicator, and writes nothing on any path: no
-    artifact, no run card, no log.  The printed report is private Stage A
+    artifact, no run card, no log.  Nothing writes to the provider journal
+    either — every replay reads a query-only copy, so not even SQLite sidecar
+    state changes.  The verifiers authenticate the exact bytes this command
+    captured and commits, so no swap-and-restore can split the authenticated
+    byte set from the reported one.  The printed report is private Stage A
     material — a saved copy belongs under the private review root, outside
     the repository and every publishable root.
     """
@@ -62583,18 +62750,6 @@ def _cmd_acquisition_preflight_unitization_adjudication(
     initialization_receipt_path = cast(
         Path | None, args.purchase_ledger_initialization_receipt
     )
-    lineage = _verify_stage_a_unitization_run_card(
-        unitization_card_path,
-        expected_prediction_units_path=raw_units_path,
-        controlled_private_root=controlled_private_root,
-        initialization_receipt_path=initialization_receipt_path,
-    )
-    _verify_stage_a_review_run_card(
-        structural_card_path,
-        lineage=lineage,
-        llm_unitization_run_card_path=unitization_card_path,
-        expected_review_queue_path=review_queue_path,
-    )
     captured_inputs: list[tuple[str, Path, bytes]] = [
         ("raw prediction units", raw_units_path, raw_units_payload),
         ("llm-unitize run card", unitization_card_path, unitization_card_payload),
@@ -62614,6 +62769,26 @@ def _cmd_acquisition_preflight_unitization_adjudication(
         captured_inputs.append(
             ("finalized prediction units", finalized_path, finalized_payload)
         )
+    # The verifiers authenticate these exact captured bytes, so the report
+    # cannot commit one byte set while the replay authenticated another; the
+    # rechecks below still fail closed on any input that moved underneath us.
+    captured_input_bytes = {
+        str(path.resolve()): payload for _, path, payload in captured_inputs
+    }
+    lineage = _verify_stage_a_unitization_run_card(
+        unitization_card_path,
+        expected_prediction_units_path=raw_units_path,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=initialization_receipt_path,
+        captured_input_bytes=captured_input_bytes,
+    )
+    _verify_stage_a_review_run_card(
+        structural_card_path,
+        lineage=lineage,
+        llm_unitization_run_card_path=unitization_card_path,
+        expected_review_queue_path=review_queue_path,
+        captured_input_bytes=captured_input_bytes,
+    )
     _require_adjudication_preflight_inputs_unchanged(captured_inputs)
     try:
         raw_records = _read_jsonl_payload(

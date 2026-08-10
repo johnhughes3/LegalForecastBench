@@ -11,6 +11,7 @@ equality with the recomputation, and the CLI writes nothing on any path.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -469,7 +470,20 @@ def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     )
 
 
-def _stub_authentication(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def _stub_authentication(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    on_verify: Callable[[], None] | None = None,
+) -> list[Mapping[str, bytes] | None]:
+    """Stand in for the Stage A authenticators and record what they were given.
+
+    The returned list collects each verifier's ``captured_input_bytes``, which
+    is how a caller proves the report commits exactly the bytes the replay
+    authenticates.  ``on_verify`` runs inside the first verifier, so a test can
+    move an input underneath the authentication window.
+    """
+
     lineage = SimpleNamespace(
         selection_records=(),
         parser_records=(),
@@ -481,13 +495,18 @@ def _stub_authentication(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
         document_root=tmp_path,
         document_tree={},
     )
+    authenticated: list[Mapping[str, bytes] | None] = []
 
     def verify_unitization(*args: Any, **kwargs: Any) -> Any:
-        del args, kwargs
+        del args
+        if on_verify is not None:
+            on_verify()
+        authenticated.append(kwargs.get("captured_input_bytes"))
         return lineage
 
     def verify_review(*args: Any, **kwargs: Any) -> None:
-        del args, kwargs
+        del args
+        authenticated.append(kwargs.get("captured_input_bytes"))
 
     def require_unchanged(lineage: Any) -> None:
         del lineage
@@ -495,6 +514,7 @@ def _stub_authentication(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     monkeypatch.setattr(cli, "_verify_stage_a_unitization_run_card", verify_unitization)
     monkeypatch.setattr(cli, "_verify_stage_a_review_run_card", verify_review)
     monkeypatch.setattr(cli, "_require_stage_a_lineage_unchanged", require_unchanged)
+    return authenticated
 
 
 def _preflight_inputs(
@@ -820,6 +840,77 @@ def test_omission_review_without_unit_id_is_accepted() -> None:
     assert add_row["adjudication_id"] == "adj-add"
     assert add_row["reviewed_unit_ids"] == []
     assert add_row["emitted_unit_ids"] == ["h-added"]
+
+
+def test_stage_a_verifier_reads_reuse_the_captured_bytes(tmp_path: Path) -> None:
+    """Verifier reads must consume the caller's authenticated bytes.
+
+    A path-based re-read can authenticate byte set B while the caller commits
+    byte set A, because a swap that is restored before the final recheck is
+    invisible to it.  These are the two read primitives every Stage A verifier
+    read now goes through, so pinning them pins that gap shut.
+    """
+
+    raw = tmp_path / "prediction-units.jsonl"
+    authenticated = b'{"candidate_id": "cand-1"}\n'
+    raw.write_bytes(authenticated)
+    captured = {str(raw.resolve()): authenticated}
+    raw.write_bytes(b'{"candidate_id": "cand-swapped"}\n')
+
+    assert cli._stage_a_captured_records(  # pyright: ignore[reportPrivateUsage]
+        raw, label="raw prediction units", captured_input_bytes=captured
+    ) == [{"candidate_id": "cand-1"}]
+    commitment = cli._stage_a_file_commitment(  # pyright: ignore[reportPrivateUsage]
+        raw,
+        payload=cli._stage_a_captured_payload(  # pyright: ignore[reportPrivateUsage]
+            raw, captured_input_bytes=captured
+        ),
+    )
+    assert commitment["sha256"] == cli._bytes_sha256(authenticated)  # pyright: ignore[reportPrivateUsage]
+
+    # A path the caller did not capture is still read fresh.
+    assert cli._stage_a_captured_records(  # pyright: ignore[reportPrivateUsage]
+        raw, label="raw prediction units", captured_input_bytes={}
+    ) == [{"candidate_id": "cand-swapped"}]
+
+
+def test_preflight_authenticates_exactly_the_bytes_it_reports(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The replay and the report must commit to one byte set.
+
+    The raw units are swapped and restored around the authentication window,
+    which the final byte recheck cannot see.  The verifiers must therefore be
+    handed the captured bytes, and every reported commitment must be a digest
+    of a byte string they authenticated.
+    """
+
+    raw, queue, adjudications_path, unit_card, review_card, _ = _preflight_inputs(
+        tmp_path
+    )
+    authenticated_raw = raw.read_bytes()
+
+    def swap_and_restore() -> None:
+        raw.write_bytes(authenticated_raw.replace(b"cand-1", b"cand-9"))
+        raw.write_bytes(authenticated_raw)
+
+    authenticated = _stub_authentication(
+        monkeypatch, tmp_path, on_verify=swap_and_restore
+    )
+
+    assert cli.main(_argv(raw, unit_card, review_card, queue, adjudications_path)) == 0
+
+    assert len(authenticated) == 2
+    assert authenticated[0] == authenticated[1]
+    captured_bytes = authenticated[0]
+    assert captured_bytes is not None
+    assert captured_bytes[str(raw.resolve())] == authenticated_raw
+    report = json.loads(capsys.readouterr().out)
+    for commitment in report["input_commitments"].values():
+        payload = captured_bytes[commitment["path"]]
+        assert commitment["sha256"] == cli._bytes_sha256(payload)  # pyright: ignore[reportPrivateUsage]
 
 
 def test_preflight_cli_fails_closed_when_input_changes_mid_run(

@@ -6,6 +6,8 @@
 
 The preflight is provider-free and non-writing. It replays the completed `llm-unitize` and structural-review run cards, reads every input exactly once as singly linked regular bytes, re-checks those bytes after the report is assembled, and then runs the frozen applicator over the raw prediction units, the exact merged review queue, and the proposed adjudications. A failure is the same `UnitizationReviewError` apply would raise. When `--finalized-prediction-units` is passed, the artifact is verified with the independent finalized-units verifier and must equal the recomputation byte-for-byte.
 
+Non-writing is a property of the code path, not of SELECT-only convention. The shared provider journal is authenticated through one query-only copy taken before SQLite ever opens the canonical database, so no read creates or checkpoints a `-wal`/`-shm` sidecar and no hot-journal recovery can run; journal identity and attempt rows are read from that same copy, so both describe one journal state. The replay authenticates the exact bytes the report commits rather than re-reading each path, so an input that is swapped during authentication and restored before the final recheck cannot split the authenticated byte set from the reported one.
+
 ## Report contents
 
 - `input_commitments` — resolved path plus `sha256:`-prefixed digest of every input, computed from the exact bytes that were parsed.

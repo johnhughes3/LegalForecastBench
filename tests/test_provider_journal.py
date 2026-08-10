@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any, cast
 
@@ -20,6 +21,8 @@ from legalforecast.labeling.provider_journal import (
     ProviderJournalError,
     ProviderJournalReplayMismatchError,
     load_provider_cycle_caps,
+    open_provider_journal_snapshot,
+    verify_provider_journal_identity,
 )
 
 
@@ -1425,6 +1428,115 @@ def test_one_cycle_cap_is_shared_across_provider_stages(tmp_path: Path) -> None:
     with _journal(path, stage="llm-label", reservation=0.5, cap=1.0) as label:
         with pytest.raises(ProviderBudgetExceededError, match="cycle cap"):
             label.run_attempt(1, lambda: {"request_id": "must-not-run"})
+
+
+def _tree_snapshot(root: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(root)): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _settled_journal(path: Path) -> None:
+    with _journal(path, stage="llm-unitize", reservation=0.1, cap=1.0) as unitize:
+        unitize.run_attempt(1, lambda: {"request_id": "unitize"})
+        unitize.settle_attempt(
+            1,
+            input_tokens=1,
+            output_tokens=1,
+            actual_cost_usd=0.1,
+            raw_output="{}",
+        )
+        unitize.commit_reconstruction({"prediction_units": []})
+
+
+def test_journal_authentication_never_writes_to_the_canonical_journal(
+    tmp_path: Path,
+) -> None:
+    """Authentication must not touch the journal, its WAL, or its shared index.
+
+    A SELECT-only read is not a non-writing read: an ordinary connection
+    creates sidecars, checkpoints WAL frames back into the database on close,
+    and can run hot-journal recovery.  Only the copied snapshot leaves every
+    byte on disk alone, so this pins the whole directory, sidecars included.
+    """
+
+    path = tmp_path / "provider-attempts.sqlite3"
+    _settled_journal(path)
+    before = _tree_snapshot(tmp_path)
+    assert set(before) == {"provider-attempts.sqlite3"}
+
+    identity = verify_provider_journal_identity(
+        path,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:frozen-caps",
+    )
+    with closing(open_provider_journal_snapshot(path)) as snapshot:
+        rows = snapshot.execute(
+            "SELECT stage, candidate_id, status FROM provider_attempts"
+        ).fetchall()
+
+    assert identity.cycle_id == "cycle-1"
+    assert [tuple(row) for row in rows] == [("llm-unitize", "cand-1", "settled")]
+    assert _tree_snapshot(tmp_path) == before
+
+
+def test_journal_snapshot_reads_uncheckpointed_wal_frames(tmp_path: Path) -> None:
+    """A snapshot must see committed-but-unmerged WAL frames without merging
+    them: reading the database file alone would silently authenticate stale
+    rows."""
+
+    path = tmp_path / "provider-attempts.sqlite3"
+    _settled_journal(path)
+    writer = sqlite3.connect(path, isolation_level=None)
+    try:
+        writer.execute("PRAGMA journal_mode = WAL")
+        writer.execute("PRAGMA wal_autocheckpoint = 0")
+        writer.execute(
+            "UPDATE provider_attempts SET candidate_id = 'cand-committed-in-wal'"
+        )
+        before = _tree_snapshot(tmp_path)
+        assert f"{path.name}-wal" in before
+
+        with closing(open_provider_journal_snapshot(path)) as snapshot:
+            rows = snapshot.execute(
+                "SELECT candidate_id FROM provider_attempts"
+            ).fetchall()
+
+        assert [row[0] for row in rows] == ["cand-committed-in-wal"]
+        assert _tree_snapshot(tmp_path) == before
+    finally:
+        writer.close()
+
+
+def test_journal_snapshot_is_query_only_and_fails_closed_on_a_racing_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    _settled_journal(path)
+
+    with closing(open_provider_journal_snapshot(path)) as snapshot:
+        with pytest.raises(sqlite3.OperationalError, match="readonly database"):
+            snapshot.execute("DELETE FROM provider_attempts")
+
+    real_read_bytes = Path.read_bytes
+    reads = 0
+
+    def write_between_captures(self: Path) -> bytes:
+        nonlocal reads
+        reads += 1
+        payload = real_read_bytes(self)
+        if reads == 1:
+            with _journal(path, stage="llm-review-stage-a") as racer:
+                racer.run_attempt(1, lambda: {"request_id": "racing"})
+        return payload
+
+    monkeypatch.setattr(Path, "read_bytes", write_between_captures)
+
+    with pytest.raises(ProviderJournalError, match="changed while it was read"):
+        open_provider_journal_snapshot(path)
 
 
 def _journal(
