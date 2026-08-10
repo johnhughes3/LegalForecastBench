@@ -604,6 +604,7 @@ from legalforecast.ingestion.packet_role_adjudication import (
 )
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     VerifiedTerminalExclusionEvidence,
+    _mint_stipulated_terminal_evidence_from_verified_eligibility_audit,  # pyright: ignore[reportPrivateUsage]
 )
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
@@ -848,6 +849,16 @@ from legalforecast.ingestion.target_cohort_projection import (
     project_target_cohort,
     restriction_evidence_from_case_relevance,
 )
+from legalforecast.ingestion.target_document_eligibility_audit import (
+    AUDIT_SCHEMA_VERSION as TARGET_DOCUMENT_ELIGIBILITY_AUDIT_SCHEMA_VERSION,
+)
+from legalforecast.ingestion.target_document_eligibility_audit import (
+    TargetDocumentEligibilityAuditError,
+    VerifiedTargetDocumentEligibilityAudit,
+    _mint_verified_target_document_eligibility_audit,  # pyright: ignore[reportPrivateUsage]
+    _replay_verified_target_document_eligibility_audit,  # pyright: ignore[reportPrivateUsage]
+    require_verified_target_document_eligibility_audit,
+)
 from legalforecast.ingestion.target_preparation_retarget import (
     RETARGET_IMPORT_RECEIPT_FILENAME,
     FailedSourcePreparation,
@@ -963,6 +974,7 @@ from legalforecast.labeling.llm_pipeline import (
     llm_unitize_cases,
     merge_llm_label_provider_shards,
     merge_stage_a_review_queue,
+    reconstruct_stage_a_structural_review_response,
     reconstruct_stage_a_unitization_response,
     recover_llm_stage_a_structural_review_reconstruction,
     recover_llm_unitization_reconstruction,
@@ -1066,10 +1078,12 @@ from legalforecast.unitization.construct_units import (
 )
 from legalforecast.unitization.review import (
     UnitizationReviewError,
+    V4FinalizedCitationDocument,
     apply_unitization_reviews,
     canonical_records_sha256,
     canonical_sha256,
     require_finalized_envelopes,
+    validate_v4_finalized_unit_citations,
 )
 from legalforecast.unitization.schemas import (
     ChallengeScope,
@@ -2713,6 +2727,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use a registry-backed LLM to construct frozen Stage A units.",
     )
     _add_acquisition_llm_unitize_arguments(acquisition_llm_unitize)
+    acquisition_target_eligibility_audit = acquisition_subparsers.add_parser(
+        "audit-stage-a-target-eligibility",
+        help=(
+            "Replay authenticated Stage A parse lineage and publish the "
+            "provider-free target-document eligibility audit."
+        ),
+    )
+    _add_acquisition_target_document_eligibility_audit_arguments(
+        acquisition_target_eligibility_audit
+    )
     acquisition_recover_llm_unitize = acquisition_subparsers.add_parser(
         "recover-llm-unitize-reconstruction",
         help=(
@@ -9318,6 +9342,22 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
     )
     _add_stage_a_provider_attempt_namespace_argument(parser)
     parser.add_argument(
+        "--target-eligibility-audit",
+        type=Path,
+        help=(
+            "Canonical provider-free target-document eligibility audit. Required "
+            "for live claim-ontology-v4 unitization."
+        ),
+    )
+    parser.add_argument(
+        "--target-eligibility-audit-run-card",
+        type=Path,
+        help=(
+            "Completed provider-free eligibility-audit card. Required with "
+            "--target-eligibility-audit for live claim-ontology-v4 unitization."
+        ),
+    )
+    parser.add_argument(
         "--prediction-units-output",
         type=Path,
         help="Output JSONL with candidate_id and prediction_units.",
@@ -9344,6 +9384,31 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         help="Per-provider-request timeout for the registry-backed LLM call.",
     )
     parser.set_defaults(handler=_cmd_acquisition_llm_unitize)
+
+
+def _add_acquisition_target_document_eligibility_audit_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the provider-free subset of authenticated Stage A inputs."""
+
+    _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--selection-run-card", type=Path, required=True)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--disclosure-clearance", type=Path, required=True)
+    parser.add_argument("--materialization-run-card", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--parse-requests", type=Path, required=True)
+    parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument("--parser-run-card", type=Path, required=True)
+    parser.add_argument("--markdown-root", type=Path, required=True)
+    parser.add_argument(
+        "--target-eligibility-audit-output",
+        type=Path,
+        help="Canonical eligibility-audit JSONL; defaults under --output-root.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_target_document_eligibility_audit)
 
 
 def _add_acquisition_recover_llm_unitize_arguments(
@@ -41935,11 +42000,147 @@ def _replay_exact100_terminal_recovery(
     )
 
 
+def _replay_exact100_stipulated_eligibility(
+    root: Path, selection_bytes: bytes
+) -> VerifiedTerminalExclusionEvidence:
+    """Translate the CLI verifier failure into the sealed callback contract."""
+
+    try:
+        return _replay_exact100_stipulated_eligibility_unchecked(root, selection_bytes)
+    except CommandError as exc:
+        raise ValueError(str(exc)) from exc
+
+
+def _replay_exact100_stipulated_eligibility_unchecked(
+    root: Path, selection_bytes: bytes
+) -> VerifiedTerminalExclusionEvidence:
+    """Mint one stipulated exclusion from a completed authenticated audit root.
+
+    The root supplies only the persisted audit surface and its completed-card
+    path.  Authority comes from replaying the complete materialization and
+    parser lineage named by that card, and from requiring its selection bytes
+    to equal the sealed exact-100 predecessor selection.
+    """
+
+    if root.is_symlink() or not root.is_dir():
+        raise CommandError("stipulated eligibility root is not a regular directory")
+    audit_path = root / "target-document-eligibility-audit.jsonl"
+    run_card_path = root / "run-cards" / "audit-stage-a-target-eligibility.json"
+    audit_bytes = _read_singly_linked_regular_input(
+        audit_path, label="stipulated target-document eligibility audit"
+    )
+    run_card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="stipulated target-document eligibility audit run card"
+    )
+    card = _read_json_object_payload(
+        run_card_bytes, label="stipulated target-document eligibility audit run card"
+    )
+    raw_input_paths = card.get("input_paths")
+    if not isinstance(raw_input_paths, Sequence) or isinstance(
+        raw_input_paths, (str, bytes)
+    ):
+        raise CommandError("stipulated eligibility audit run card lacks input paths")
+    input_values = tuple(cast(Sequence[object], raw_input_paths))
+    if len(input_values) < 10 or not all(
+        isinstance(value, str) and value for value in input_values
+    ):
+        raise CommandError("stipulated eligibility audit run card input paths differ")
+    input_paths = tuple(Path(cast(str, value)) for value in input_values)
+    raw_replay_paths = card.get("replay_paths")
+    if not isinstance(raw_replay_paths, Mapping):
+        raise CommandError("stipulated eligibility audit run card lacks replay paths")
+    replay_paths = cast(Mapping[str, object], raw_replay_paths)
+    if set(replay_paths) != {
+        "controlled_private_root",
+        "purchase_ledger_initialization_receipt",
+    }:
+        raise CommandError("stipulated eligibility audit run card lacks replay paths")
+
+    def optional_replay_path(name: str) -> Path | None:
+        value = replay_paths.get(name)
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value:
+            raise CommandError("stipulated eligibility audit replay path is invalid")
+        return Path(value)
+
+    lineage_args = argparse.Namespace(
+        selection=input_paths[0],
+        selection_run_card=input_paths[1],
+        download_manifest=input_paths[2],
+        disclosure_clearance=input_paths[3],
+        materialization_run_card=input_paths[4],
+        document_root=input_paths[5],
+        parse_requests=input_paths[6],
+        parser_manifest=input_paths[7],
+        parser_run_card=input_paths[8],
+        markdown_root=input_paths[9],
+        controlled_private_root=optional_replay_path("controlled_private_root"),
+        purchase_ledger_initialization_receipt=optional_replay_path(
+            "purchase_ledger_initialization_receipt"
+        ),
+    )
+    lineage = _verify_verified_stage_a_parse_lineage(
+        lineage_args, markdown_root=lineage_args.markdown_root
+    )
+    if lineage.selection_bytes != selection_bytes:
+        raise CommandError(
+            "stipulated eligibility audit selection differs from exact100 predecessor"
+        )
+    try:
+        audit = _replay_verified_target_document_eligibility_audit(
+            persisted_audit_bytes=audit_bytes,
+            selection_bytes=lineage.selection_bytes,
+            parser_manifest_bytes=lineage.parser_manifest_bytes,
+            parser_records=lineage.parser_records,
+            markdown_by_document=_stage_a_markdown_by_document(lineage),
+        )
+        require_verified_target_document_eligibility_audit(audit)
+    except TargetDocumentEligibilityAuditError as exc:
+        raise CommandError(str(exc)) from exc
+    _verify_target_document_eligibility_audit_run_card(
+        run_card_path=run_card_path,
+        audit_path=audit_path,
+        audit=audit,
+        lineage=lineage,
+        replay_paths={
+            "controlled_private_root": optional_replay_path("controlled_private_root"),
+            "purchase_ledger_initialization_receipt": optional_replay_path(
+                "purchase_ledger_initialization_receipt"
+            ),
+        },
+    )
+    if len(audit.ineligible_records) != 1:
+        raise CommandError(
+            "stipulated eligibility audit must contain exactly one ineligible target"
+        )
+    record = audit.ineligible_records[0]
+    evidence = _mint_stipulated_terminal_evidence_from_verified_eligibility_audit(
+        audit=audit,
+        candidate_id=_required_str(record, "candidate_id"),
+        source_document_id=_required_str(record, "source_document_id"),
+    )
+    _require_stage_a_parse_lineage_unchanged(lineage)
+    if (
+        _read_singly_linked_regular_input(
+            audit_path, label="stipulated target-document eligibility audit"
+        )
+        != audit_bytes
+        or _read_singly_linked_regular_input(
+            run_card_path, label="stipulated target-document eligibility audit run card"
+        )
+        != run_card_bytes
+    ):
+        raise CommandError("stipulated eligibility audit root changed during replay")
+    return evidence
+
+
 def _cmd_project_exact100_successor_replacement(args: argparse.Namespace) -> int:
     """Run exact-100 replacement only through established producer replay."""
 
     args._replay_inputs = _replay_exact100_successor_inputs
     args._replay_terminal_recovery = _replay_exact100_terminal_recovery
+    args._replay_stipulated_eligibility = _replay_exact100_stipulated_eligibility
     try:
         return run_exact100_successor_replacement(args)
     except Exact100SuccessorReplacementCliError as exc:
@@ -42199,6 +42400,7 @@ def _verify_materializer_projection(
                         expected_target_count=expected_target_count,
                         replay_inputs=_replay_exact100_successor_inputs,
                         recovery_replay=_replay_exact100_terminal_recovery,
+                        stipulated_replay=_replay_exact100_stipulated_eligibility,
                     ),
                     replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
                 )
@@ -42641,6 +42843,7 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
                     ),
                     replay_inputs=_replay_exact100_successor_inputs,
                     recovery_replay=_replay_exact100_terminal_recovery,
+                    stipulated_replay=_replay_exact100_stipulated_eligibility,
                 ),
                 replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
             )
@@ -57011,6 +57214,25 @@ _STAGE_A_UNITIZATION_LINEAGE_SCHEMA_VERSION = (
 
 
 @dataclass(frozen=True, slots=True)
+class _VerifiedStageAParseLineage:
+    """Provider-free authenticated selection, parser, and Markdown lineage."""
+
+    selection_records: tuple[JsonRecord, ...]
+    selection_bytes: bytes
+    parser_records: tuple[JsonRecord, ...]
+    parser_manifest_bytes: bytes
+    document_root: Path
+    markdown_root: Path
+    cohort_cycle_id: str
+    input_paths: tuple[Path, ...]
+    input_commitments: Mapping[str, object]
+    markdown_tree: Mapping[str, object]
+    file_snapshots: Mapping[Path, bytes]
+    document_tree: Mapping[str, bytes]
+    markdown_bytes: Mapping[str, bytes]
+
+
+@dataclass(frozen=True, slots=True)
 class _StageAUnitizationLineage:
     selection_records: tuple[JsonRecord, ...]
     parser_records: tuple[JsonRecord, ...]
@@ -57046,6 +57268,92 @@ def _verify_stage_a_unitization_lineage_uncached(
     *,
     markdown_root: Path,
 ) -> _StageAUnitizationLineage:
+    parse_lineage = _verify_stage_a_parse_lineage_uncached(
+        args, markdown_root=markdown_root
+    )
+    registry_path = cast(Path, args.model_registry)
+    caps_path = _required_stage_a_lineage_path(
+        args, "provider_cycle_caps", "--provider-cycle-caps"
+    )
+    provider_journal_path = _required_stage_a_lineage_path(
+        args, "provider_journal", "--provider-journal"
+    )
+    for path in (registry_path, caps_path):
+        if path.is_symlink() or not path.is_file():
+            raise CommandError(f"authenticated Stage A input is not a file: {path}")
+    if provider_journal_path.exists() and (
+        provider_journal_path.is_symlink() or not provider_journal_path.is_file()
+    ):
+        raise CommandError(
+            f"shared provider journal is not a regular file: {provider_journal_path}"
+        )
+    provider_snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="authenticated Stage A input"
+        )
+        for path in (registry_path, caps_path)
+    }
+    try:
+        provider_caps = load_provider_cycle_caps_bytes(
+            provider_snapshots[caps_path], source=caps_path
+        )
+    except ProviderJournalError as exc:
+        raise CommandError(str(exc)) from exc
+    if provider_caps.cycle_id != parse_lineage.cohort_cycle_id:
+        raise CommandError(
+            "provider cycle caps cycle_id differs from authenticated cohort: "
+            f"{provider_caps.cycle_id!r} != {parse_lineage.cohort_cycle_id!r}"
+        )
+    registry_entries, registry_sha256 = _registry_entries_for_keys_bytes(
+        provider_snapshots[registry_path], (cast(str, args.model_key),)
+    )
+    registry_entry = registry_entries[0]
+    provider_caps.cap_usd(registry_entry.provider)
+    _require_stage_a_parse_lineage_unchanged(parse_lineage)
+    _require_snapshot_unchanged(
+        provider_snapshots, label="authenticated Stage A provider input"
+    )
+    return _StageAUnitizationLineage(
+        selection_records=parse_lineage.selection_records,
+        parser_records=parse_lineage.parser_records,
+        registry_entry=registry_entry,
+        registry_sha256=registry_sha256,
+        provider_caps=provider_caps,
+        provider_caps_sha256=hashlib.sha256(provider_snapshots[caps_path]).hexdigest(),
+        provider_journal_path=provider_journal_path,
+        document_root=parse_lineage.document_root,
+        markdown_root=parse_lineage.markdown_root,
+        cohort_cycle_id=parse_lineage.cohort_cycle_id,
+        input_paths=(
+            *parse_lineage.input_paths[:10],
+            registry_path,
+            caps_path,
+            provider_journal_path,
+            *parse_lineage.input_paths[10:],
+        ),
+        input_commitments={
+            **parse_lineage.input_commitments,
+            "model_registry": _stage_a_file_commitment(
+                registry_path, payload=provider_snapshots[registry_path]
+            ),
+            "provider_cycle_caps": _stage_a_file_commitment(
+                caps_path, payload=provider_snapshots[caps_path]
+            ),
+        },
+        markdown_tree=parse_lineage.markdown_tree,
+        file_snapshots={**parse_lineage.file_snapshots, **provider_snapshots},
+        document_tree=parse_lineage.document_tree,
+        markdown_bytes=parse_lineage.markdown_bytes,
+    )
+
+
+def _verify_stage_a_parse_lineage_uncached(
+    args: argparse.Namespace,
+    *,
+    markdown_root: Path,
+) -> _VerifiedStageAParseLineage:
+    """Authenticate parser inputs before model registry or journal concerns."""
+
     selection_path = cast(Path, args.selection)
     selection_run_card_path = _required_stage_a_lineage_path(
         args, "selection_run_card", "--selection-run-card"
@@ -57069,13 +57377,6 @@ def _verify_stage_a_unitization_lineage_uncached(
     parser_run_card_path = _required_stage_a_lineage_path(
         args, "parser_run_card", "--parser-run-card"
     )
-    registry_path = cast(Path, args.model_registry)
-    caps_path = _required_stage_a_lineage_path(
-        args, "provider_cycle_caps", "--provider-cycle-caps"
-    )
-    provider_journal_path = _required_stage_a_lineage_path(
-        args, "provider_journal", "--provider-journal"
-    )
     regular_files = (
         selection_path,
         selection_run_card_path,
@@ -57085,8 +57386,6 @@ def _verify_stage_a_unitization_lineage_uncached(
         requests_path,
         parser_manifest_path,
         parser_run_card_path,
-        registry_path,
-        caps_path,
     )
     for path in regular_files:
         if path.is_symlink() or not path.is_file():
@@ -57105,13 +57404,6 @@ def _verify_stage_a_unitization_lineage_uncached(
         raise CommandError(
             f"authenticated Stage A Markdown root is invalid: {markdown_root}"
         )
-    if provider_journal_path.exists() and (
-        provider_journal_path.is_symlink() or not provider_journal_path.is_file()
-    ):
-        raise CommandError(
-            f"shared provider journal is not a regular file: {provider_journal_path}"
-        )
-
     parser_records = tuple(
         _projection_jsonl_records(
             stage_a_file_snapshots[parser_manifest_path], source=parser_manifest_path
@@ -57191,22 +57483,6 @@ def _verify_stage_a_unitization_lineage_uncached(
         materialization_card_path,
         captured_artifact_bytes=verified_materialization.artifact_bytes,
     )
-    try:
-        provider_caps = load_provider_cycle_caps_bytes(
-            stage_a_file_snapshots[caps_path], source=caps_path
-        )
-    except ProviderJournalError as exc:
-        raise CommandError(str(exc)) from exc
-    if provider_caps.cycle_id != cohort_cycle_id:
-        raise CommandError(
-            "provider cycle caps cycle_id differs from authenticated cohort: "
-            f"{provider_caps.cycle_id!r} != {cohort_cycle_id!r}"
-        )
-    registry_entries, registry_sha256 = _registry_entries_for_keys_bytes(
-        stage_a_file_snapshots[registry_path], (cast(str, args.model_key),)
-    )
-    registry_entry = registry_entries[0]
-    provider_caps.cap_usd(registry_entry.provider)
     input_paths = (
         selection_path,
         selection_run_card_path,
@@ -57218,9 +57494,6 @@ def _verify_stage_a_unitization_lineage_uncached(
         parser_manifest_path,
         parser_run_card_path,
         markdown_root,
-        registry_path,
-        caps_path,
-        provider_journal_path,
         *materialization_paths[1:],
     )
     file_commitments = {
@@ -57234,8 +57507,6 @@ def _verify_stage_a_unitization_lineage_uncached(
             ("parse_requests", requests_path),
             ("parser_manifest", parser_manifest_path),
             ("parser_run_card", parser_run_card_path),
-            ("model_registry", registry_path),
-            ("provider_cycle_caps", caps_path),
         )
     }
     _require_snapshot_unchanged(
@@ -57245,16 +57516,11 @@ def _verify_stage_a_unitization_lineage_uncached(
         verified_materialization.document_tree
     ):
         raise CommandError("authenticated Stage A document tree changed")
-    return _StageAUnitizationLineage(
+    return _VerifiedStageAParseLineage(
         selection_records=tuple(dict(record) for record in selection_records),
+        selection_bytes=stage_a_file_snapshots[selection_path],
         parser_records=parser_records,
-        registry_entry=registry_entry,
-        registry_sha256=registry_sha256,
-        provider_caps=provider_caps,
-        provider_caps_sha256=hashlib.sha256(
-            stage_a_file_snapshots[caps_path]
-        ).hexdigest(),
-        provider_journal_path=provider_journal_path,
+        parser_manifest_bytes=stage_a_file_snapshots[parser_manifest_path],
         document_root=document_root,
         markdown_root=markdown_root,
         cohort_cycle_id=cohort_cycle_id,
@@ -57289,6 +57555,77 @@ def _verify_stage_a_unitization_lineage(
             args,
             markdown_root=markdown_root,
         )
+
+
+def _verify_verified_stage_a_parse_lineage(
+    args: argparse.Namespace,
+    *,
+    markdown_root: Path,
+) -> _VerifiedStageAParseLineage:
+    """Replay provider-free parser lineage while reusing verified PDF scans."""
+
+    with cache_disclosure_document_scans():
+        return _verify_stage_a_parse_lineage_uncached(args, markdown_root=markdown_root)
+
+
+def _require_stage_a_parse_lineage_unchanged(
+    lineage: _VerifiedStageAParseLineage,
+) -> None:
+    """Close the parser-lineage TOCTOU interval before a downstream decision."""
+
+    _require_snapshot_unchanged(
+        lineage.file_snapshots, label="authenticated Stage A parser input"
+    )
+    if _materializer_tree_snapshot(lineage.document_root) != dict(
+        lineage.document_tree
+    ):
+        raise CommandError("authenticated Stage A document tree changed")
+    markdown_paths = {
+        lineage.markdown_root / relative_path: payload
+        for relative_path, payload in lineage.markdown_bytes.items()
+    }
+    _require_snapshot_unchanged(markdown_paths, label="authenticated Stage A Markdown")
+
+
+def _require_v4_eligibility_lineage_matches_unitization(
+    eligibility_lineage: _VerifiedStageAParseLineage,
+    unitization_lineage: _StageAUnitizationLineage,
+) -> None:
+    """Bind the clean audit snapshot to the later provider-bearing replay."""
+
+    matching_commitments = {
+        name: unitization_lineage.input_commitments.get(name)
+        for name in eligibility_lineage.input_commitments
+    }
+    if any(
+        (
+            eligibility_lineage.selection_records
+            != unitization_lineage.selection_records,
+            eligibility_lineage.parser_records != unitization_lineage.parser_records,
+            eligibility_lineage.document_root.resolve()
+            != unitization_lineage.document_root.resolve(),
+            eligibility_lineage.markdown_root.resolve()
+            != unitization_lineage.markdown_root.resolve(),
+            eligibility_lineage.cohort_cycle_id != unitization_lineage.cohort_cycle_id,
+            dict(eligibility_lineage.input_commitments) != matching_commitments,
+            dict(eligibility_lineage.markdown_tree)
+            != dict(unitization_lineage.markdown_tree),
+            dict(eligibility_lineage.document_tree)
+            != dict(unitization_lineage.document_tree),
+            dict(eligibility_lineage.markdown_bytes)
+            != dict(unitization_lineage.markdown_bytes),
+        )
+    ):
+        raise CommandError(
+            "v4 target-document eligibility lineage differs from provider-bearing "
+            "Stage A lineage"
+        )
+    for path, payload in eligibility_lineage.file_snapshots.items():
+        if unitization_lineage.file_snapshots.get(path) != payload:
+            raise CommandError(
+                "v4 target-document eligibility snapshot differs from "
+                "provider-bearing Stage A lineage"
+            )
 
 
 def _stage_a_file_commitment(path: Path, *, payload: bytes | None = None) -> JsonRecord:
@@ -58299,6 +58636,115 @@ def _verify_stage_a_unitization_run_card(
     return lineage
 
 
+def _v4_finalized_citation_documents(
+    lineage: _StageAUnitizationLineage,
+) -> dict[str, tuple[V4FinalizedCitationDocument, ...]]:
+    """Build citation authority solely from authenticated Stage A snapshots."""
+
+    parser_by_key: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for parser_record in lineage.parser_records:
+        if parser_record.get("status") != "succeeded":
+            continue
+        key = (
+            _required_str(parser_record, "candidate_id"),
+            _required_str(parser_record, "source_document_id"),
+        )
+        if key in parser_by_key:
+            raise CommandError(
+                "duplicate successful Stage A parser record: " + "/".join(key)
+            )
+        parser_by_key[key] = parser_record
+
+    documents_by_candidate: dict[str, tuple[V4FinalizedCitationDocument, ...]] = {}
+    for selection in lineage.selection_records:
+        candidate_id = _required_str(selection, "candidate_id")
+        if candidate_id in documents_by_candidate:
+            raise CommandError(f"duplicate Stage A selection: {candidate_id}")
+        raw_documents = selection.get("documents")
+        if not isinstance(raw_documents, Sequence) or isinstance(
+            raw_documents, (str, bytes)
+        ):
+            raise CommandError(f"selection documents are invalid: {candidate_id}")
+        documents: list[V4FinalizedCitationDocument] = []
+        seen_document_ids: set[str] = set()
+        for raw_document in cast(Sequence[object], raw_documents):
+            if not isinstance(raw_document, Mapping):
+                raise CommandError(f"selection document is invalid: {candidate_id}")
+            document = cast(Mapping[str, Any], raw_document)
+            source_document_id = _required_str(document, "source_document_id")
+            if source_document_id in seen_document_ids:
+                raise CommandError(
+                    f"duplicate selection document: {candidate_id}/{source_document_id}"
+                )
+            seen_document_ids.add(source_document_id)
+            role = DocumentRole(_required_str(document, "document_role"))
+            if (
+                role in {DocumentRole.DECISION, DocumentRole.ORDER}
+                or document.get("model_visible") is not True
+                or document.get("contains_target_outcome") is not False
+            ):
+                continue
+            try:
+                parser_record = parser_by_key[(candidate_id, source_document_id)]
+            except KeyError as exc:
+                raise CommandError(
+                    "model-visible predecision source is missing from authenticated "
+                    f"parser records: {candidate_id}/{source_document_id}"
+                ) from exc
+            markdown_path = _stage_a_markdown_path(
+                parser_record, markdown_root=lineage.markdown_root
+            )
+            relative_path = markdown_path.relative_to(
+                lineage.markdown_root.resolve()
+            ).as_posix()
+            try:
+                markdown = lineage.markdown_bytes[relative_path].decode("utf-8")
+            except KeyError as exc:
+                raise CommandError(
+                    "authenticated Markdown snapshot is missing: "
+                    f"{candidate_id}/{source_document_id}"
+                ) from exc
+            except UnicodeDecodeError as exc:
+                raise CommandError(
+                    "authenticated Markdown is not UTF-8: "
+                    f"{candidate_id}/{source_document_id}"
+                ) from exc
+            documents.append(
+                V4FinalizedCitationDocument(
+                    document_id=source_document_id,
+                    document_role=role.value,
+                    markdown=markdown,
+                    is_predecision_material=True,
+                    contains_target_outcome=False,
+                )
+            )
+        documents_by_candidate[candidate_id] = tuple(documents)
+    return documents_by_candidate
+
+
+def _validate_v4_finalized_stage_a_citations(
+    finalized_records: Iterable[Mapping[str, Any]],
+    *,
+    lineage: _StageAUnitizationLineage,
+    llm_unitization_run_card_path: Path,
+) -> None:
+    unitization_card = _read_json_object(llm_unitization_run_card_path)
+    if (
+        _stage_a_provider_attempt_namespace_from_unitization_card_record(
+            unitization_card
+        )
+        != STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+    ):
+        return
+    try:
+        validate_v4_finalized_unit_citations(
+            finalized_records,
+            source_documents_by_candidate=_v4_finalized_citation_documents(lineage),
+        )
+    except (UnitizationReviewError, ValueError) as exc:
+        raise CommandError(f"invalid finalized v4 citation evidence: {exc}") from exc
+
+
 def _verify_unitization_review_run_card(
     run_card_path: Path,
     *,
@@ -58406,6 +58852,11 @@ def _verify_unitization_review_run_card(
         )
     except UnitizationReviewError as exc:
         raise CommandError(f"cannot replay unitization adjudications: {exc}") from exc
+    _validate_v4_finalized_stage_a_citations(
+        reproduced,
+        lineage=lineage,
+        llm_unitization_run_card_path=llm_unitization_run_card_path,
+    )
     if _read_records(finalized_path) != reproduced:
         raise CommandError(
             "finalized prediction units do not replay from authenticated adjudications"
@@ -58959,6 +59410,12 @@ def _verify_stage_a_review_run_card(
     raw_by_candidate = {
         _required_str(record, "candidate_id"): record for record in raw_records
     }
+    selection_by_candidate = {
+        _required_str(record, "candidate_id"): record
+        for record in lineage.selection_records
+    }
+    if len(selection_by_candidate) != len(lineage.selection_records):
+        raise CommandError("structural review selection contains duplicate candidates")
     audit_records = _read_records(audit_path)
     audit_by_candidate = {
         _required_str(record, "candidate_id"): record for record in audit_records
@@ -59081,10 +59538,9 @@ def _verify_stage_a_review_run_card(
                 f"structural review requires one settled reconstruction: {candidate_id}"
             )
         row = rows[0]
+        normalized_response_json = _required_str(row, "normalized_response_json")
         try:
-            normalized_value: object = json.loads(
-                _required_str(row, "normalized_response_json")
-            )
+            normalized_value: object = json.loads(normalized_response_json)
             reconstructed_value: object = json.loads(
                 _required_str(row, "reconstructed_result_json")
             )
@@ -59111,6 +59567,36 @@ def _verify_stage_a_review_run_card(
             raise CommandError(
                 f"structural review journal flags are invalid: {candidate_id}"
             )
+        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+            try:
+                replayed_flags = reconstruct_stage_a_structural_review_response(
+                    selection_record=selection_by_candidate[candidate_id],
+                    parser_records=lineage.parser_records,
+                    prediction_unit_records=raw_records,
+                    markdown_root=lineage.markdown_root,
+                    markdown_bytes=lineage.markdown_bytes,
+                    normalized_response_json=normalized_response_json,
+                )
+            except (
+                KeyError,
+                LlmPipelineError,
+                OSError,
+                UnicodeError,
+                ValueError,
+            ) as exc:
+                raise CommandError(
+                    "structural review raw response does not reconstruct from "
+                    f"authenticated v4 inputs: {candidate_id}: {exc}"
+                ) from exc
+            stored_flags = [
+                dict(cast(Mapping[str, Any], flag))
+                for flag in cast(Sequence[object], flags)
+            ]
+            if list(replayed_flags) != stored_flags:
+                raise CommandError(
+                    "structural review raw response differs from journaled "
+                    f"reconstruction: {candidate_id}"
+                )
         raw_record = raw_by_candidate[candidate_id]
         raw_sha = canonical_sha256(raw_record)
         candidate_flags = list(
@@ -60166,6 +60652,244 @@ def _cmd_acquisition_terminalize_llm_review_stage_a(args: argparse.Namespace) ->
     return 0
 
 
+def _stage_a_markdown_by_document(
+    lineage: _VerifiedStageAParseLineage,
+) -> dict[tuple[str, str], bytes]:
+    """Key the already-authenticated Markdown snapshot by parser document key."""
+
+    result: dict[tuple[str, str], bytes] = {}
+    for record in lineage.parser_records:
+        key = (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "source_document_id"),
+        )
+        if key in result:
+            raise CommandError(f"duplicate Stage A parser document: {key[0]}/{key[1]}")
+        path = _stage_a_markdown_path(record, markdown_root=lineage.markdown_root)
+        relative_path = path.relative_to(lineage.markdown_root.resolve()).as_posix()
+        try:
+            result[key] = lineage.markdown_bytes[relative_path]
+        except KeyError as exc:
+            raise CommandError(
+                f"Stage A Markdown snapshot is missing: {key[0]}/{key[1]}"
+            ) from exc
+    return result
+
+
+def _target_document_eligibility_audit_from_parse_lineage(
+    lineage: _VerifiedStageAParseLineage,
+) -> VerifiedTargetDocumentEligibilityAudit:
+    """Mint the audit only after complete materialization/parse verification."""
+
+    try:
+        audit = _mint_verified_target_document_eligibility_audit(
+            selection_bytes=lineage.selection_bytes,
+            parser_manifest_bytes=lineage.parser_manifest_bytes,
+            parser_records=lineage.parser_records,
+            markdown_by_document=_stage_a_markdown_by_document(lineage),
+        )
+        require_verified_target_document_eligibility_audit(audit)
+    except TargetDocumentEligibilityAuditError as exc:
+        raise CommandError(str(exc)) from exc
+    return audit
+
+
+def _cmd_acquisition_target_document_eligibility_audit(
+    args: argparse.Namespace,
+) -> int:
+    """Publish a byte-exact provider-free eligibility audit from parser lineage."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "audit-stage-a-target-eligibility requires --execute; it never calls "
+            "a provider, retrieval, PACER, evaluation, freeze, or dispatch path"
+        )
+    output_root = _acquisition_output_root(args)
+    audit_path = _acquisition_path(
+        args,
+        "target_eligibility_audit_output",
+        output_root / "target-document-eligibility-audit.jsonl",
+    )
+    lineage = _verify_verified_stage_a_parse_lineage(
+        args, markdown_root=cast(Path, args.markdown_root)
+    )
+    audit = _target_document_eligibility_audit_from_parse_lineage(lineage)
+    _require_stage_a_parse_lineage_unchanged(lineage)
+    replay_paths = _target_document_eligibility_audit_replay_paths(args)
+    _ensure_projection_artifact(
+        audit_path,
+        audit.records_bytes,
+        resume=cast(bool, args.resume),
+        stage="audit-stage-a-target-eligibility",
+    )
+    _write_or_verify_immutable_recovery_completion(
+        args,
+        stage="audit-stage-a-target-eligibility",
+        input_paths=lineage.input_paths,
+        output_paths=(audit_path,),
+        record_count=len(audit.records),
+        extra={
+            "target_eligibility_audit_schema_version": (
+                TARGET_DOCUMENT_ELIGIBILITY_AUDIT_SCHEMA_VERSION
+            ),
+            "target_eligibility_audit_sha256": audit.commitment_sha256,
+            "input_commitments": dict(audit.input_commitments),
+            "stage_a_parse_lineage": dict(lineage.input_commitments),
+            "lineage_roots": {
+                "document_root": str(lineage.document_root.resolve()),
+                "markdown_root": str(lineage.markdown_root.resolve()),
+            },
+            "replay_paths": replay_paths,
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "retrieval_activity_requested": False,
+            "retrieval_activity_executed": False,
+            "pacer_activity_executed": False,
+            "recap_fetch_activity_executed": False,
+            "evaluation_authorized": False,
+            "freeze_authorized": False,
+            "dispatch_authorized": False,
+        },
+    )
+    return 0
+
+
+def _target_document_eligibility_audit_replay_paths(
+    args: argparse.Namespace,
+) -> JsonRecord:
+    """Persist the two non-lineage paths needed to reauthenticate materialization."""
+
+    result: JsonRecord = {}
+    for name in (
+        "controlled_private_root",
+        "purchase_ledger_initialization_receipt",
+    ):
+        value = cast(Path | None, getattr(args, name, None))
+        result[name] = None if value is None else str(value.resolve())
+    return result
+
+
+def _require_clean_v4_target_document_eligibility_audit(
+    *,
+    audit_path: Path | None,
+    run_card_path: Path | None,
+    lineage: _VerifiedStageAParseLineage,
+    replay_paths: Mapping[str, Path | None],
+) -> JsonRecord:
+    """Replay the persisted audit and reject an ineligible v4 Stage A input."""
+
+    if audit_path is None or run_card_path is None:
+        raise CommandError(
+            "live claim-ontology-v4 unitization requires --target-eligibility-audit "
+            "and --target-eligibility-audit-run-card"
+        )
+    if audit_path.is_symlink() or not audit_path.is_file():
+        raise CommandError("target-document eligibility audit is not a regular file")
+    if run_card_path.is_symlink() or not run_card_path.is_file():
+        raise CommandError(
+            "target-document eligibility audit run card is not a regular file"
+        )
+    audit_bytes = _read_singly_linked_regular_input(
+        audit_path, label="target-document eligibility audit"
+    )
+    try:
+        audit = _replay_verified_target_document_eligibility_audit(
+            persisted_audit_bytes=audit_bytes,
+            selection_bytes=lineage.selection_bytes,
+            parser_manifest_bytes=lineage.parser_manifest_bytes,
+            parser_records=lineage.parser_records,
+            markdown_by_document=_stage_a_markdown_by_document(lineage),
+        )
+        require_verified_target_document_eligibility_audit(audit)
+    except TargetDocumentEligibilityAuditError as exc:
+        raise CommandError(str(exc)) from exc
+    _verify_target_document_eligibility_audit_run_card(
+        run_card_path=run_card_path,
+        audit_path=audit_path,
+        audit=audit,
+        lineage=lineage,
+        replay_paths=replay_paths,
+    )
+    if audit.ineligible_records:
+        raise CommandError(
+            "target-document eligibility audit contains stipulated or voluntary "
+            "dismissal target documents"
+        )
+    return {
+        "audit": _stage_a_file_commitment(audit_path, payload=audit_bytes),
+        "run_card": _stage_a_file_commitment(run_card_path),
+        "audit_sha256": audit.commitment_sha256,
+    }
+
+
+def _verify_target_document_eligibility_audit_run_card(
+    *,
+    run_card_path: Path,
+    audit_path: Path,
+    audit: VerifiedTargetDocumentEligibilityAudit,
+    lineage: _VerifiedStageAParseLineage,
+    replay_paths: Mapping[str, Path | None],
+) -> None:
+    """Require the saved provider-free audit card to reproduce exactly."""
+
+    card = _read_json_object_payload(
+        _read_singly_linked_regular_input(
+            run_card_path, label="target-document eligibility audit run card"
+        ),
+        label="target-document eligibility audit run card",
+    )
+    generated_at = card.pop("generated_at", None)
+    resume = card.pop("resume", None)
+    normalized_replay_paths = {
+        name: None if value is None else str(value.resolve())
+        for name, value in replay_paths.items()
+    }
+    if set(normalized_replay_paths) != {
+        "controlled_private_root",
+        "purchase_ledger_initialization_receipt",
+    }:
+        raise CommandError("target-document eligibility audit replay paths are invalid")
+    expected: JsonRecord = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "audit-stage-a-target-eligibility",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "record_count": len(audit.records),
+        "input_paths": [str(path) for path in lineage.input_paths],
+        "output_paths": [str(audit_path)],
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "target_eligibility_audit_schema_version": (
+            TARGET_DOCUMENT_ELIGIBILITY_AUDIT_SCHEMA_VERSION
+        ),
+        "target_eligibility_audit_sha256": audit.commitment_sha256,
+        "input_commitments": dict(audit.input_commitments),
+        "stage_a_parse_lineage": dict(lineage.input_commitments),
+        "lineage_roots": {
+            "document_root": str(lineage.document_root.resolve()),
+            "markdown_root": str(lineage.markdown_root.resolve()),
+        },
+        "replay_paths": normalized_replay_paths,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "retrieval_activity_requested": False,
+        "retrieval_activity_executed": False,
+        "pacer_activity_executed": False,
+        "recap_fetch_activity_executed": False,
+        "evaluation_authorized": False,
+        "freeze_authorized": False,
+        "dispatch_authorized": False,
+    }
+    if (
+        not isinstance(generated_at, str)
+        or not generated_at.strip()
+        or not isinstance(resume, bool)
+        or card != expected
+    ):
+        raise CommandError("target-document eligibility audit run card changed")
+
+
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     prospective_output_root = cast(Path, args.output_root)
     provider_journal_arg = cast(Path | None, args.provider_journal)
@@ -60188,11 +60912,43 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             "--provider-attempt-namespace is required for live Stage A unitization"
         )
     lineage: _StageAUnitizationLineage | None = None
+    eligibility_commitment: JsonRecord | None = None
+    eligibility_parse_lineage: _VerifiedStageAParseLineage | None = None
     if not dry_run:
+        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+            # The eligibility gate replays only authenticated selection/parser
+            # inputs. It runs before registry, cap, journal, or provider authority
+            # is opened for the v4 unitization attempt.
+            eligibility_parse_lineage = _verify_verified_stage_a_parse_lineage(
+                args,
+                markdown_root=markdown_root,
+            )
+            eligibility_commitment = (
+                _require_clean_v4_target_document_eligibility_audit(
+                    audit_path=cast(Path | None, args.target_eligibility_audit),
+                    run_card_path=cast(
+                        Path | None, args.target_eligibility_audit_run_card
+                    ),
+                    lineage=eligibility_parse_lineage,
+                    replay_paths={
+                        name: cast(Path | None, getattr(args, name, None))
+                        for name in (
+                            "controlled_private_root",
+                            "purchase_ledger_initialization_receipt",
+                        )
+                    },
+                )
+            )
+            _require_stage_a_parse_lineage_unchanged(eligibility_parse_lineage)
         lineage = _verify_stage_a_unitization_lineage(
             args,
             markdown_root=markdown_root,
         )
+        if eligibility_parse_lineage is not None:
+            _require_v4_eligibility_lineage_matches_unitization(
+                eligibility_parse_lineage,
+                lineage,
+            )
     output_root = _acquisition_output_root(args)
     prediction_units_path = _acquisition_path(
         args,
@@ -60275,6 +61031,10 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             review_queue_path=review_queue_path,
             provider_attempt_namespace=provider_attempt_namespace,
         )
+        if eligibility_commitment is not None:
+            completion_extra["target_document_eligibility_audit"] = (
+                eligibility_commitment
+            )
         _require_stage_a_lineage_unchanged(lineage)
     _write_acquisition_completion(
         args,
@@ -61716,13 +62476,21 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
             expected_review_queue_path=review_queue_path,
         )
         try:
-            finalized = apply_unitization_reviews(
-                prediction_unit_records=_read_records(prediction_units_path),
-                review_records=_read_records(review_queue_path),
-                adjudication_records=_read_records(adjudications_path),
+            finalized = list(
+                apply_unitization_reviews(
+                    prediction_unit_records=_read_records(prediction_units_path),
+                    review_records=_read_records(review_queue_path),
+                    adjudication_records=_read_records(adjudications_path),
+                )
             )
         except UnitizationReviewError as exc:
             raise CommandError(str(exc)) from exc
+        _validate_v4_finalized_stage_a_citations(
+            finalized,
+            lineage=lineage,
+            llm_unitization_run_card_path=authenticated_unitization_card,
+        )
+        _require_stage_a_lineage_unchanged(lineage)
         _acquisition_output_root(args)
         _write_jsonl(finalized_path, finalized)
         record_count = len(finalized)
@@ -66922,6 +67690,7 @@ def _write_or_verify_immutable_recovery_completion(
     input_paths: Sequence[Path],
     output_paths: Sequence[Path],
     extra: Mapping[str, Any],
+    record_count: int = 1,
 ) -> None:
     """Publish one recovery completion once, then only authenticate it on resume."""
 
@@ -66935,7 +67704,7 @@ def _write_or_verify_immutable_recovery_completion(
             stage=stage,
             input_paths=input_paths,
             output_paths=output_paths,
-            record_count=1,
+            record_count=record_count,
             dry_run=False,
             paid_activity_requested=False,
             paid_activity_executed=False,
@@ -66954,7 +67723,7 @@ def _write_or_verify_immutable_recovery_completion(
         "status": "completed",
         "dry_run": False,
         "execute": True,
-        "record_count": 1,
+        "record_count": record_count,
         "input_paths": [str(path) for path in input_paths],
         "output_paths": [str(path) for path in output_paths],
         "paid_activity_requested": False,

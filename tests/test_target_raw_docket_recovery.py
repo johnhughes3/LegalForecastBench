@@ -2290,6 +2290,24 @@ def _write_zero_success_circuit(
     return card
 
 
+def _rewrite_run_card_paths_relative_to(
+    card_path: Path,
+    *,
+    anchor: Path,
+) -> None:
+    """Model the historical cards whose paths were relative to the repo root."""
+
+    card = json.loads(card_path.read_text())
+    for field in ("input_paths", "output_paths"):
+        card[field] = [
+            str(Path(value).resolve().relative_to(anchor.resolve()))
+            for value in card[field]
+        ]
+    card_path.write_bytes(
+        json.dumps(card, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+    )
+
+
 def _two_circuit_authority(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[
@@ -2386,6 +2404,75 @@ def _provider_contract_retry_args(
         live_firecrawl=False,
         firecrawl_fixture=fixture,
     )
+
+
+def test_successor_replays_historical_relative_card_paths_outside_origin_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _command_plan(tmp_path, monkeypatch)
+    root_plan_path = tmp_path / "root-plan.json"
+    root_sha = write_target_raw_docket_recovery_plan(root_plan_path, root)
+    root_args = _command_args(
+        root,
+        output_root=tmp_path / "root-execute",
+        execute=True,
+        plan_output=root_plan_path,
+    )
+    root_card = _write_zero_success_circuit(
+        args=root_args, plan_sha=root_sha, monkeypatch=monkeypatch
+    )
+    _rewrite_run_card_paths_relative_to(root_card, anchor=tmp_path.parent)
+
+    replay_cwd = tmp_path / "different-working-directory"
+    replay_cwd.mkdir()
+    monkeypatch.chdir(replay_cwd)
+
+    successor = recovery.build_target_raw_docket_recovery_successor_plan(
+        parent_plan_path=root_plan_path,
+        expected_parent_plan_sha256=root_sha,
+        parent_failure_run_card_path=root_card,
+        expected_parent_failure_run_card_sha256=sha256_file(root_card),
+        parent_raw_html_dir=root_args.raw_html_dir,
+        batch_id="historical-relative-successor",
+        run_id="historical-relative-successor-run",
+    )
+
+    assert successor.parent_plan_path == str(root_plan_path.resolve())
+
+
+def test_successor_rejects_escaping_historical_relative_card_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _command_plan(tmp_path, monkeypatch)
+    root_plan_path = tmp_path / "root-plan.json"
+    root_sha = write_target_raw_docket_recovery_plan(root_plan_path, root)
+    root_args = _command_args(
+        root,
+        output_root=tmp_path / "root-execute",
+        execute=True,
+        plan_output=root_plan_path,
+    )
+    root_card = _write_zero_success_circuit(
+        args=root_args, plan_sha=root_sha, monkeypatch=monkeypatch
+    )
+    card = json.loads(root_card.read_text())
+    card["input_paths"][0] = "../root-plan.json"
+    root_card.write_bytes(
+        json.dumps(card, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+    )
+
+    with pytest.raises(
+        TargetRawDocketRecoveryError, match="unsafe relative input path"
+    ):
+        recovery.build_target_raw_docket_recovery_successor_plan(
+            parent_plan_path=root_plan_path,
+            expected_parent_plan_sha256=root_sha,
+            parent_failure_run_card_path=root_card,
+            expected_parent_failure_run_card_sha256=sha256_file(root_card),
+            parent_raw_html_dir=root_args.raw_html_dir,
+            batch_id="historical-relative-successor",
+            run_id="historical-relative-successor-run",
+        )
 
 
 def test_provider_contract_retry_authenticates_two_circuits_and_shared_budget(

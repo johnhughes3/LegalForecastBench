@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, cast
 
@@ -14,6 +15,7 @@ from legalforecast.contracts.schemas import (
     UNITIZATION_ADJUDICATION_V1,
     UNITIZATION_ADJUDICATION_V2,
 )
+from legalforecast.unitization.construct_units import StageADocumentRole
 from legalforecast.unitization.schemas import prediction_unit_from_record
 
 JsonRecord = dict[str, Any]
@@ -65,6 +67,33 @@ _ADDED_UNIT_LEDGER_KEYS = frozenset(
 
 class UnitizationReviewError(ValueError):
     """Raised when Stage A review artifacts do not form a complete hash chain."""
+
+
+@dataclass(frozen=True, slots=True)
+class V4FinalizedCitationDocument:
+    """Verifier-owned predecision text available to a finalized v4 unit."""
+
+    document_id: str
+    document_role: str
+    markdown: str
+    is_predecision_material: bool
+    contains_target_outcome: bool
+
+    def __post_init__(self) -> None:
+        if type(self.document_id) is not str or not self.document_id.strip():
+            raise ValueError("document_id is required")
+        if type(self.markdown) is not str:
+            raise ValueError("markdown must be text")
+        if type(self.is_predecision_material) is not bool:
+            raise ValueError("is_predecision_material must be boolean")
+        if type(self.contains_target_outcome) is not bool:
+            raise ValueError("contains_target_outcome must be boolean")
+        try:
+            StageADocumentRole(self.document_role)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                f"unsupported Stage A document role: {self.document_role}"
+            ) from error
 
 
 class UnitizationDisposition(StrEnum):
@@ -704,6 +733,101 @@ def verify_finalized_prediction_units(
         raise UnitizationReviewError(
             "finalized artifact does not consume adjudications"
         )
+
+
+def validate_v4_finalized_unit_citations(
+    finalized_records: Iterable[Mapping[str, Any]],
+    *,
+    source_documents_by_candidate: Mapping[str, Sequence[V4FinalizedCitationDocument]],
+) -> None:
+    """Replay finalized v4 unit shape and citation evidence from trusted text.
+
+    The caller remains responsible for authenticating the supplied Markdown and
+    document roles. This pure verifier prevents finalized/adjudicated units from
+    changing the canonical prediction-unit payload, citing another candidate's
+    document, or retaining an excerpt that the authenticated source cannot
+    reconstruct exactly.
+    """
+
+    complaint_roles = {
+        StageADocumentRole.COMPLAINT,
+        StageADocumentRole.AMENDED_COMPLAINT,
+    }
+    target_motion_roles = {
+        StageADocumentRole.MTD_NOTICE,
+        StageADocumentRole.MTD_MEMORANDUM,
+    }
+    for finalized in finalized_records:
+        candidate_id = _required_str(finalized, "candidate_id")
+        supplied_documents = source_documents_by_candidate.get(candidate_id, ())
+        documents_by_id: dict[str, V4FinalizedCitationDocument] = {}
+        for document in supplied_documents:
+            if document.document_id in documents_by_id:
+                raise UnitizationReviewError(
+                    f"duplicate supplied citation document: {candidate_id}:"
+                    f"{document.document_id}"
+                )
+            documents_by_id[document.document_id] = document
+
+        units = _record_sequence(
+            finalized.get("prediction_units", ()), "prediction_units"
+        )
+        for finalized_unit in units:
+            unit_id = _required_str(finalized_unit, "unit_id")
+            base_unit = _base_unit(finalized_unit)
+            try:
+                decoded = prediction_unit_from_record(base_unit)
+            except (TypeError, ValueError) as error:
+                raise UnitizationReviewError(
+                    f"{candidate_id}:{unit_id}: invalid finalized v4 prediction "
+                    f"unit: {error}"
+                ) from error
+            if base_unit != decoded.to_record():
+                raise UnitizationReviewError(
+                    f"{candidate_id}:{unit_id}: finalized v4 unit must equal its "
+                    "canonical prediction unit"
+                )
+
+            cited_roles: set[StageADocumentRole] = set()
+            for citation in decoded.source_citations:
+                document = documents_by_id.get(citation.document_id)
+                if document is None:
+                    raise UnitizationReviewError(
+                        f"{candidate_id}:{unit_id}: citation references an "
+                        "unsupplied candidate document"
+                    )
+                if (
+                    not document.is_predecision_material
+                    or document.contains_target_outcome
+                ):
+                    raise UnitizationReviewError(
+                        f"{candidate_id}:{unit_id}: citation references outcome or "
+                        "non-predecision material"
+                    )
+                excerpt = citation.excerpt
+                if excerpt is None or not excerpt.strip():
+                    raise UnitizationReviewError(
+                        f"{candidate_id}:{unit_id}: v4 citation excerpt is required"
+                    )
+                if excerpt not in document.markdown:
+                    raise UnitizationReviewError(
+                        f"{candidate_id}:{unit_id}: citation excerpt is not an "
+                        "exact substring of its authenticated Markdown"
+                    )
+                cited_roles.add(StageADocumentRole(document.document_role))
+
+            if decoded.should_score and not cited_roles.intersection(complaint_roles):
+                raise UnitizationReviewError(
+                    f"{candidate_id}:{unit_id}: scorable v4 unit requires complaint "
+                    "or amended-complaint evidence"
+                )
+            if decoded.should_score and not cited_roles.intersection(
+                target_motion_roles
+            ):
+                raise UnitizationReviewError(
+                    f"{candidate_id}:{unit_id}: scorable v4 unit requires target-MTD "
+                    "notice or memorandum evidence"
+                )
 
 
 def _verify_adjudication_review_coverage(

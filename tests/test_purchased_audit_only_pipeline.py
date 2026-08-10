@@ -209,7 +209,8 @@ def test_google_structural_review_passes_frozen_response_schema(
             "mtd",
         ]
     else:
-        assert flag_item["properties"]["source_document_id"]["enum"] == [
+        evidence_item = flag_item["properties"]["evidence_spans"]["items"]
+        assert evidence_item["properties"]["source_document_id"]["enum"] == [
             "complaint",
             "mtd",
         ]

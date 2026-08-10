@@ -15,7 +15,7 @@ The successor uses `claim-ontology-v4` for both `llm-unitize` and `llm-review-st
 - Every supplied predecision Markdown document is rendered with stable one-based line selectors.
 - Each unitizer citation selects one supplied document and an inclusive range of at most 12 contiguous lines. Local code reconstructs the exact excerpt and page marker.
 - Every unit requires at least one operative-complaint citation for claim identity and one target-motion notice or memorandum citation for challenge scope.
-- The structural reviewer selects one document-bound line range per flag; it never authors citation text.
+- The structural reviewer returns a nonempty array of document-bound line ranges per flag; it never authors citation text. Local reconstruction requires unique document IDs and preserves each selector, role, exact excerpt, and page marker in `legalforecast.stage_a_structural_flag.v2`. An omitted-unit flag must cite at least one complaint or amended complaint for claim identity and at least one target motion-to-dismiss notice or memorandum for challenge scope, so a later `ADD` is authenticated against both sides of the prediction target.
 - V4 uses a tagged scope object so contradictory `challenge_scope` and `separable_subclaim` states fail reconstruction and receive the existing bounded retry treatment instead of becoming human legal questions.
 - Stage A represents purported claims and independently disposable subclaims as pleaded. Lack of a cognizable cause of action is a dismissal ground, not a reason to erase an expressly pleaded and challenged prediction target.
 
@@ -24,6 +24,8 @@ Historical unnamespaced, v2/v2, and v2/v3 chains remain replayable under their e
 ## Input corrections included in the successor
 
 The successor cohort must exclude stipulated or voluntary Rule 41 dismissals that were misclassified as contested motions. Strict docket screening now recognizes stipulated-motion and parties'-stipulation formulations, and Stage A independently rejects strong parsed-body evidence that a target-motion role actually contains a stipulated or voluntary dismissal filing before opening a provider client. The cohort must also contain the actual target-motion memorandum: a one-page notice that refers to an absent supporting memorandum is insufficient. Free supporting memoranda discovered in authenticated docket metadata must pass through the normal download, disclosure-clearance, parsing, and lineage checks; if a required memorandum cannot be recovered at zero additional PACER cost, replace that candidate through the supported cohort-successor path.
+
+The semantic gate is persisted as `legalforecast.target_document_eligibility_audit.v1`, but those bytes are not authority by themselves. Live v4 unitization replays the audit and its completed provider-free run card from the exact authenticated selection, parser manifest, and Markdown snapshot before it opens registry, cap, journal, or provider authority. The bounded `legalforecast.free_support_memorandum_recovery_plan.v1` likewise supplies no retrieval authority; it only authenticates the known ECF 14 public-source plan for later integration through the normal acquisition chain.
 
 ## Required validation and replay
 

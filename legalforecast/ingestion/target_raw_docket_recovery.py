@@ -1305,8 +1305,10 @@ def _verify_zero_success_parent(
     parent: TargetRawDocketRecoveryPlan,
     failure_card: Mapping[str, Any],
     parent_raw_html_dir: Path,
+    expected_plan_input: Path,
     expected_card_inputs: tuple[Path, ...] | None = None,
     expected_run_config: Mapping[str, object] | None = None,
+    first_input_error: str | None = None,
 ) -> None:
     expected_inputs = expected_card_inputs or (
         Path(parent.selection_path).resolve(),
@@ -1343,13 +1345,35 @@ def _verify_zero_success_parent(
         raise TargetRawDocketRecoveryError(
             "parent failure run card is not an authenticated circuit failure"
         )
-    resolved_inputs = tuple(Path(cast(str, item)).resolve() for item in typed_inputs)
-    if resolved_inputs[1:] != expected_inputs:
+    input_anchor = _recorded_path_anchor(
+        cast(str, typed_inputs[0]), expected_plan_input
+    )
+    resolved_inputs = tuple(
+        _resolve_recorded_path(
+            cast(str, item), anchor=input_anchor, label="parent failure run card input"
+        )
+        for item in typed_inputs
+    )
+    if resolved_inputs[0] != expected_plan_input.resolve() or resolved_inputs[1:] != (
+        expected_inputs
+    ):
+        if (
+            first_input_error is not None
+            and resolved_inputs[0] != expected_plan_input.resolve()
+        ):
+            raise TargetRawDocketRecoveryError(first_input_error)
         raise TargetRawDocketRecoveryError(
             "parent failure run card input lineage differs from parent plan"
         )
-    output_paths = tuple(Path(cast(str, output)) for output in typed_outputs)
-    resolved_outputs = tuple(path.resolve() for path in output_paths)
+    output_paths = tuple(
+        _resolve_recorded_path(
+            cast(str, output),
+            anchor=input_anchor,
+            label="parent failure run card output",
+        )
+        for output in typed_outputs
+    )
+    resolved_outputs = output_paths
     if len(set(resolved_outputs)) != 4:
         raise TargetRawDocketRecoveryError(
             "parent failure run card repeats a terminal output"
@@ -1456,6 +1480,61 @@ def _verify_zero_success_parent(
             )
 
 
+def _recorded_path_anchor(recorded: str, expected: Path) -> Path | None:
+    """Anchor historical relative card paths to their authenticated input.
+
+    Run cards from the original recovery stored paths relative to the repository
+    root.  Resolving those strings against a later process cwd changes their
+    meaning.  Instead, require the recorded first input to be an exact suffix
+    of the known, hash-pinned plan path and recover the one permissible anchor.
+    """
+
+    path = Path(recorded)
+    if path.is_absolute():
+        return None
+    if not path.parts or any(part in {".", ".."} for part in path.parts):
+        raise TargetRawDocketRecoveryError(
+            "parent failure run card has unsafe relative input path"
+        )
+    expected_path = expected.resolve()
+    if (
+        len(path.parts) > len(expected_path.parts)
+        or tuple(expected_path.parts[-len(path.parts) :]) != path.parts
+    ):
+        raise TargetRawDocketRecoveryError(
+            "parent failure run card relative input is not the pinned plan path"
+        )
+    anchor = Path(*expected_path.parts[: -len(path.parts)])
+    if not anchor.is_absolute():
+        raise TargetRawDocketRecoveryError(
+            "parent failure run card relative input has no absolute anchor"
+        )
+    return anchor
+
+
+def _resolve_recorded_path(recorded: str, *, anchor: Path | None, label: str) -> Path:
+    """Resolve a card path without consulting the process cwd."""
+
+    path = Path(recorded)
+    if path.is_absolute():
+        return path.resolve()
+    if (
+        anchor is None
+        or not path.parts
+        or any(part in {".", ".."} for part in path.parts)
+    ):
+        raise TargetRawDocketRecoveryError(f"{label} is unsafe or unanchored")
+    resolved_anchor = anchor.resolve()
+    resolved = (resolved_anchor / path).resolve()
+    try:
+        resolved.relative_to(resolved_anchor)
+    except ValueError as exc:
+        raise TargetRawDocketRecoveryError(
+            f"{label} escapes its authenticated anchor"
+        ) from exc
+    return resolved
+
+
 def build_target_raw_docket_recovery_successor_plan(
     *,
     parent_plan_path: Path,
@@ -1503,10 +1582,17 @@ def build_target_raw_docket_recovery_successor_plan(
         parent=parent,
         failure_card=cast(Mapping[str, Any], card),
         parent_raw_html_dir=parent_raw_html_dir,
+        expected_plan_input=parent_plan_path,
     )
     # Bind the card's first input separately so relative paths resolve exactly once.
     raw_inputs = cast(list[str], card["input_paths"])
-    if Path(raw_inputs[0]).resolve() != parent_plan_path.resolve():
+    input_anchor = _recorded_path_anchor(raw_inputs[0], parent_plan_path)
+    if (
+        _resolve_recorded_path(
+            raw_inputs[0], anchor=input_anchor, label="parent failure run card input"
+        )
+        != parent_plan_path.resolve()
+    ):
         raise TargetRawDocketRecoveryError(
             "parent failure run card does not bind the pinned parent plan"
         )
@@ -1642,6 +1728,7 @@ def build_target_raw_docket_recovery_provider_contract_retry_plan(
         parent=root,
         failure_card=cast(Mapping[str, Any], root_card),
         parent_raw_html_dir=Path(successor.parent_raw_html_dir),
+        expected_plan_input=root_plan_path,
     )
     _, child = resolve_target_raw_docket_recovery_successor(successor)
     child_inputs = (
@@ -1657,16 +1744,28 @@ def build_target_raw_docket_recovery_provider_contract_retry_plan(
         parent=child,
         failure_card=cast(Mapping[str, Any], child_card),
         parent_raw_html_dir=direct_successor_raw_html_dir,
+        expected_plan_input=direct_successor_plan_path,
         expected_card_inputs=child_inputs,
         expected_run_config=_expected_successor_run_config(
             parent=root,
             successor=successor,
             child_raw_html_dir=direct_successor_raw_html_dir,
         ),
+        first_input_error=(
+            "direct successor failure run card does not bind the pinned direct "
+            "successor plan"
+        ),
     )
     child_inputs_from_card = cast(list[str], child_card["input_paths"])
+    child_input_anchor = _recorded_path_anchor(
+        child_inputs_from_card[0], direct_successor_plan_path
+    )
     if (
-        Path(child_inputs_from_card[0]).resolve()
+        _resolve_recorded_path(
+            child_inputs_from_card[0],
+            anchor=child_input_anchor,
+            label="direct successor failure run card input",
+        )
         != direct_successor_plan_path.resolve()
     ):
         raise TargetRawDocketRecoveryError(
