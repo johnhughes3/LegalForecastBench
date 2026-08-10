@@ -5,6 +5,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import legalforecast.cli as cli
@@ -2613,7 +2614,9 @@ def test_live_mistral_reuse_helper_fails_closed(tmp_path: Path, failure: str) ->
         )
 
 
-@pytest.mark.parametrize("producer_mutation", [None, "input", "raw", "markdown"])
+@pytest.mark.parametrize(
+    "producer_mutation", [None, "input", "raw", "markdown", "bridge"]
+)
 def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -2693,6 +2696,31 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     document_root, materialization_card = _materialized_cli_unit_fixture(
         monkeypatch, tmp_path
     )
+    raw_provenance_bridge_path: Path | None = None
+    bridge_load_count = 0
+    if producer_mutation == "bridge":
+        raw_provenance_bridge_path = tmp_path / "raw-provenance-bridge.json"
+        raw_provenance_bridge_path.write_bytes(b"original bridge")
+
+        def load_bridge(path: Path) -> Any:
+            nonlocal bridge_load_count
+            assert path == raw_provenance_bridge_path
+            bridge_load_count += 1
+            return SimpleNamespace(
+                raw_artifacts_manifest_path=raw_artifacts_path.resolve(),
+                source_raw_html_dir=raw_html_dir.resolve(),
+                raw_artifact_bytes_by_path=(
+                    {}
+                    if path.read_bytes() == b"original bridge"
+                    else {"mutated": b"bridge"}
+                ),
+            )
+
+        monkeypatch.setattr(
+            cli,
+            "load_verified_target_raw_docket_auxiliary_provenance_bridge",
+            load_bridge,
+        )
     command = [
         "acquisition",
         "plan-packet-inputs",
@@ -2726,6 +2754,8 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
         "2026-04-24..2026-05-18",
         "--execute",
     ]
+    if raw_provenance_bridge_path is not None:
+        command.extend(("--raw-provenance-bridge", str(raw_provenance_bridge_path)))
     tree_snapshot_roots: list[Path] = []
     original_tree_snapshot = cli._materializer_tree_snapshot
 
@@ -2751,7 +2781,9 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
                 "input": selection_path,
                 "raw": raw_html_path,
                 "markdown": markdown_root / candidate_id / "complaint.md",
+                "bridge": raw_provenance_bridge_path,
             }[producer_mutation]
+            assert target is not None
             target.write_bytes(b"mutated after captured-byte planning")
             return plan
 
@@ -2760,10 +2792,13 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
             "input": "plan-packet-inputs input changed",
             "raw": "raw HTML tree changed",
             "markdown": "Markdown tree changed",
+            "bridge": "plan-packet-inputs input changed",
         }[producer_mutation]
         assert main(command) == 2
         assert expected in capsys.readouterr().err
         assert not (output_root / "run-cards" / "plan-packet-inputs.json").exists()
+        if producer_mutation == "bridge":
+            assert bridge_load_count == 1
         return
 
     assert main(command) == 0
