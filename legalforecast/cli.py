@@ -936,6 +936,7 @@ from legalforecast.ingestion.zero_cost_successor import (
 from legalforecast.ingestion.zero_cost_successor import (
     VerifiedPostPurchaseRankedResult,
     ZeroCostSuccessorError,
+    _mint_verified_historical_counter_replay,  # pyright: ignore[reportPrivateUsage]
     _mint_verified_post_purchase_ranked_result,  # pyright: ignore[reportPrivateUsage]
     normalize_successor_selection_counters,
     project_zero_cost_successor,
@@ -26777,6 +26778,9 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
         Mapping[str, Path] | None,
         getattr(args, "_verified_clearance_source_roots", None),
     )
+    verified_historical_counter_replay = getattr(
+        args, "_verified_historical_counter_replay", None
+    )
     post_purchase_paths = {
         "prior_ranked_result": cast(
             Path | None, getattr(args, "prior_ranked_result", None)
@@ -27139,6 +27143,9 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
             ),
             restriction_evidence=_projection_jsonl_records(
                 restriction_bytes, source=restriction_path
+            ),
+            _verified_historical_counter_replay=cast(
+                Any, verified_historical_counter_replay
             ),
         )
         _require_snapshot_unchanged(snapshots, label="zero-cost successor authority")
@@ -40124,6 +40131,20 @@ def _preflight_approved_purchase_input_bytes(args: argparse.Namespace) -> None:
 _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN = object()
 _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION = object()
 _EXACT100_SUCCESSOR_REPLAY_ATTESTATION = object()
+_APPROVED_HISTORICAL_SUCCESSOR_COUNTER_REPLAY_SHA256 = {
+    "selection": (
+        "sha256:85f175b6f7407053214ab6d5a97f7ca510d6594da9e7cf93457f7cad454474fd"
+    ),
+    "manifest": (
+        "sha256:ec2cb8eacd47e930677014b4ababf4e13d3cccca77072e0ee10c4e590b16745c"
+    ),
+    "config": (
+        "sha256:8109801f68648ba678fd1239573639623bd48b5b8ce6087063b8bb8958adca27"
+    ),
+    "run_card": (
+        "sha256:1e170dad9ae2bd3e6a93a4b6e7f63742b73e1b112511e4b6e415ae3edc6c3396"
+    ),
+}
 _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
     ZERO_COST_SUCCESSOR_STATE_SCHEMA: _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION,
     str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1): (
@@ -40131,6 +40152,24 @@ _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
     ),
 }
 _SUPPORTED_SUCCESSOR_STATE_SCHEMAS = frozenset(_SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA)
+
+
+def _is_approved_historical_successor_counter_replay(
+    *,
+    selection_bytes: bytes,
+    manifest_bytes: bytes,
+    config_bytes: bytes,
+    run_card_bytes: bytes,
+) -> bool:
+    """Recognize the sole pre-counter-reconciliation successor byte set."""
+
+    observed = {
+        "selection": _bytes_sha256(selection_bytes),
+        "manifest": _bytes_sha256(manifest_bytes),
+        "config": _bytes_sha256(config_bytes),
+        "run_card": _bytes_sha256(run_card_bytes),
+    }
+    return observed == _APPROVED_HISTORICAL_SUCCESSOR_COUNTER_REPLAY_SHA256
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -41776,23 +41815,32 @@ def _verify_zero_cost_successor_projection(
         raise CommandError("zero-cost successor output paths differ")
     pre_replay_selection_path = target_root / "target-cohort-selection.jsonl"
     pre_replay_manifest_path = target_root / "document-downloads-merged.jsonl"
+    pre_replay_config_path = target_root / "target-cohort-projection.json"
+    pre_replay_selection_bytes = _read_singly_linked_regular_input(
+        pre_replay_selection_path, label="zero-cost successor selection"
+    )
+    pre_replay_manifest_bytes = _read_singly_linked_regular_input(
+        pre_replay_manifest_path, label="zero-cost successor manifest"
+    )
+    historical_counter_replay = _is_approved_historical_successor_counter_replay(
+        selection_bytes=pre_replay_selection_bytes,
+        manifest_bytes=pre_replay_manifest_bytes,
+        config_bytes=_read_singly_linked_regular_input(
+            pre_replay_config_path, label="zero-cost successor config"
+        ),
+        run_card_bytes=run_card_bytes,
+    )
     try:
         normalize_successor_selection_counters(
             _projection_jsonl_records(
-                _read_singly_linked_regular_input(
-                    pre_replay_selection_path,
-                    label="zero-cost successor selection",
-                ),
+                pre_replay_selection_bytes,
                 source=pre_replay_selection_path,
             ),
             _projection_jsonl_records(
-                _read_singly_linked_regular_input(
-                    pre_replay_manifest_path,
-                    label="zero-cost successor manifest",
-                ),
+                pre_replay_manifest_bytes,
                 source=pre_replay_manifest_path,
             ),
-            validate_stored=True,
+            validate_stored=not historical_counter_replay,
         )
     except ZeroCostSuccessorError as exc:
         raise CommandError(str(exc)) from exc
@@ -41834,6 +41882,11 @@ def _verify_zero_cost_successor_projection(
         _verified_legacy_ranked_replay=_verified_legacy_ranked_replay,
         _verified_clearance_relocations=_verified_clearance_relocations,
         _verified_clearance_source_roots=_verified_clearance_source_roots,
+        _verified_historical_counter_replay=(
+            _mint_verified_historical_counter_replay()
+            if historical_counter_replay
+            else None
+        ),
     )
     with redirect_stdout(io.StringIO()):
         _cmd_project_zero_cost_successor(replay_args)
@@ -41931,7 +41984,7 @@ def _verify_zero_cost_successor_projection(
         normalize_successor_selection_counters(
             selection_records,
             merged_manifest,
-            validate_stored=True,
+            validate_stored=not historical_counter_replay,
         )
     except ZeroCostSuccessorError as exc:
         raise CommandError(str(exc)) from exc

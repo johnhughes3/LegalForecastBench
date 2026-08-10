@@ -112,6 +112,7 @@ class ZeroCostSuccessorError(ValueError):
 
 
 _VERIFIED_POST_PURCHASE_RANKED_RESULT_TOKEN = object()
+_HISTORICAL_COUNTER_REPLAY_TOKEN = object()
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -146,6 +147,32 @@ def _mint_verified_post_purchase_ranked_result(  # pyright: ignore[reportUnusedF
     )
     object.__setattr__(verified, "transition", transition)
     object.__setattr__(verified, "_token", _VERIFIED_POST_PURCHASE_RANKED_RESULT_TOKEN)
+    return verified
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class _VerifiedHistoricalCounterReplay:
+    """Opaque capability for one verifier-pinned legacy counter encoding."""
+
+    _token: object
+
+    def __init__(self, **_values: object) -> None:
+        raise TypeError(
+            "historical counter replay is created only by the projection verifier"
+        )
+
+    def is_replay_minted(self) -> bool:
+        """Return whether the projection verifier minted this capability."""
+
+        return self._token is _HISTORICAL_COUNTER_REPLAY_TOKEN
+
+
+def _mint_verified_historical_counter_replay(  # pyright: ignore[reportUnusedFunction]
+) -> _VerifiedHistoricalCounterReplay:
+    """Mint the internal capability for a byte-pinned legacy projection."""
+
+    verified = object.__new__(_VerifiedHistoricalCounterReplay)
+    object.__setattr__(verified, "_token", _HISTORICAL_COUNTER_REPLAY_TOKEN)
     return verified
 
 
@@ -198,6 +225,7 @@ def project_zero_cost_successor(
     case_relevance: Sequence[Mapping[str, Any]],
     download_manifest: Sequence[Mapping[str, Any]],
     restriction_evidence: Sequence[Mapping[str, Any]],
+    _verified_historical_counter_replay: _VerifiedHistoricalCounterReplay | None = None,
 ) -> ZeroCostSuccessor:
     """Authenticate the exact 99-case precursor and add one cleared free case."""
 
@@ -367,11 +395,20 @@ def project_zero_cost_successor(
         disclosure_clearance=selected_clearance,
         restriction_evidence=selected_restrictions,
     )
-    selection, _counter_totals = normalize_successor_selection_counters(
+    preserve_historical_counters = _verified_historical_counter_replay is not None
+    if preserve_historical_counters and (
+        type(_verified_historical_counter_replay)
+        is not _VerifiedHistoricalCounterReplay
+        or not _verified_historical_counter_replay.is_replay_minted()
+    ):
+        raise ZeroCostSuccessorError("historical counter replay capability is invalid")
+    normalized_selection, _counter_totals = normalize_successor_selection_counters(
         selection,
         selected_manifest,
         validate_stored=False,
     )
+    if not preserve_historical_counters:
+        selection = normalized_selection
     try:
         selected_filter_results = tuple(
             result.to_record() for result in filter_core_documents(selected_relevance)

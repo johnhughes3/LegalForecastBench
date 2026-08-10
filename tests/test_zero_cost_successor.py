@@ -24,6 +24,7 @@ from legalforecast.ingestion.zero_cost_successor import (
     CONFIG_SCHEMA_VERSION,
     STATE_SCHEMA_VERSION,
     ZeroCostSuccessorError,
+    _mint_verified_historical_counter_replay,
     _mint_verified_post_purchase_ranked_result,
     normalize_successor_selection_counters,
     project_zero_cost_successor,
@@ -415,6 +416,92 @@ def test_normalizes_inherited_selection_counters_from_free_manifest() -> None:
     assert successor.selection[-1]["required_document_count"] == 3
     assert successor.selection[-1]["free_required_document_count"] == 3
     assert successor.selection[-1]["missing_required_document_count"] == 0
+
+
+def test_historical_counter_capability_replays_pre_reconciliation_selection() -> None:
+    """Only verifier-minted historical replay preserves authenticated old counters."""
+
+    fixture = _fixture()
+    historical = fixture.active[0]
+    historical.update(
+        {
+            "required_document_count": 2,
+            "free_required_document_count": 0,
+            "missing_required_document_count": 2,
+        }
+    )
+    fixture.refresh()
+    fixture.kwargs["authenticated_ranked_result"] = json.loads(
+        fixture.kwargs["ranked_result_bytes"]
+    )
+
+    current = project_zero_cost_successor(**fixture.kwargs)
+    historical_replay = project_zero_cost_successor(
+        **fixture.kwargs,
+        _verified_historical_counter_replay=(
+            _mint_verified_historical_counter_replay()
+        ),
+    )
+
+    assert current.selection[0]["free_required_document_count"] == 2
+    assert current.selection[0]["missing_required_document_count"] == 0
+    assert historical_replay.selection[0]["free_required_document_count"] == 0
+    assert historical_replay.selection[0]["missing_required_document_count"] == 2
+
+
+def test_historical_counter_capability_rejects_duck_typed_imposter() -> None:
+    """A lookalike cannot opt a normal producer into legacy counter replay."""
+
+    class ImposterHistoricalCounterReplay:
+        def is_replay_minted(self) -> bool:
+            return True
+
+    with pytest.raises(
+        ZeroCostSuccessorError, match="historical counter replay capability is invalid"
+    ):
+        project_zero_cost_successor(
+            **_fixture().kwargs,
+            _verified_historical_counter_replay=cast(
+                Any, ImposterHistoricalCounterReplay()
+            ),
+        )
+
+
+def test_historical_counter_replay_pin_rejects_mutated_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The legacy replay exception accepts one complete committed byte set only."""
+
+    payloads = {
+        "selection": b"historical selection\n",
+        "manifest": b"historical manifest\n",
+        "config": b"historical config\n",
+        "run_card": b"historical run card\n",
+    }
+    monkeypatch.setattr(
+        cli,
+        "_APPROVED_HISTORICAL_SUCCESSOR_COUNTER_REPLAY_SHA256",
+        {name: _sha(payload) for name, payload in payloads.items()},
+    )
+
+    assert cli._is_approved_historical_successor_counter_replay(
+        selection_bytes=payloads["selection"],
+        manifest_bytes=payloads["manifest"],
+        config_bytes=payloads["config"],
+        run_card_bytes=payloads["run_card"],
+    )
+    assert not cli._is_approved_historical_successor_counter_replay(
+        selection_bytes=b"forged counter selection\n",
+        manifest_bytes=payloads["manifest"],
+        config_bytes=payloads["config"],
+        run_card_bytes=payloads["run_card"],
+    )
+    assert not cli._is_approved_historical_successor_counter_replay(
+        selection_bytes=payloads["selection"],
+        manifest_bytes=payloads["manifest"],
+        config_bytes=payloads["config"],
+        run_card_bytes=b"forged counter run card\n",
+    )
 
 
 def test_reproduces_exact_100_counter_recovery_shift() -> None:
@@ -1688,6 +1775,126 @@ def test_cli_publishes_standard_target_cohort_surfaces(
         ]
         * 4
     )
+
+    if not post_purchase_v4:
+        normal_selection_bytes = selection.read_bytes()
+        normal_config_bytes = (
+            output_root / "target-cohort-projection.json"
+        ).read_bytes()
+        normal_state_bytes = (
+            output_root / "run-cards/project-target-cohort.json"
+        ).read_bytes()
+        historical_selection = [
+            json.loads(line) for line in selection.read_text().splitlines()
+        ]
+        historical_selection[0]["free_required_document_count"] -= 1
+        historical_selection[0]["missing_required_document_count"] += 1
+        historical_selection_bytes = _jsonl(historical_selection)
+        selection.write_bytes(historical_selection_bytes)
+
+        config_path = output_root / "target-cohort-projection.json"
+        historical_config = json.loads(config_path.read_text())
+        historical_config["selection_sha256"] = _sha(historical_selection_bytes)
+        historical_config["output_commitments"]["target-cohort-selection.jsonl"] = _sha(
+            historical_selection_bytes
+        )
+        historical_config_bytes = canonical_json_bytes(historical_config)
+        config_path.write_bytes(historical_config_bytes)
+
+        state_path = output_root / "run-cards/project-target-cohort.json"
+        historical_state = json.loads(state_path.read_text())
+        historical_state["selection_sha256"] = _sha(historical_selection_bytes)
+        historical_state["config_sha256"] = _sha(historical_config_bytes)
+        historical_state["output_commitments"]["target-cohort-selection.jsonl"] = _sha(
+            historical_selection_bytes
+        )
+        historical_state["output_commitments"]["target-cohort-projection.json"] = _sha(
+            historical_config_bytes
+        )
+        historical_state_bytes = cli._projection_json_bytes(historical_state)
+        state_path.write_bytes(historical_state_bytes)
+
+        historical_payloads = {
+            "selection": historical_selection_bytes,
+            "manifest": (output_root / "document-downloads-merged.jsonl").read_bytes(),
+            "config": historical_config_bytes,
+            "run_card": historical_state_bytes,
+        }
+        monkeypatch.setattr(
+            cli,
+            "_APPROVED_HISTORICAL_SUCCESSOR_COUNTER_REPLAY_SHA256",
+            {name: _sha(payload) for name, payload in historical_payloads.items()},
+        )
+        replay_capabilities: list[object] = []
+
+        def replay_historical_successor(args: Any) -> int:
+            replay_capabilities.append(
+                cast(object, args._verified_historical_counter_replay)
+            )
+            return 0
+
+        with monkeypatch.context() as verifier_patch:
+            verifier_patch.setattr(
+                cli, "_cmd_project_zero_cost_successor", replay_historical_successor
+            )
+            historical_verified = cli._verify_zero_cost_successor_projection(
+                target_root=output_root,
+                free_clearance_path=output_root / "disclosure-clearance.jsonl",
+                expected_target_count=100,
+            )
+        assert len(replay_capabilities) == 1
+        assert replay_capabilities[0] is not None
+        assert (
+            historical_verified["selection_records"][0]["free_required_document_count"]
+            == historical_selection[0]["free_required_document_count"]
+        )
+
+        mutation_payloads = {
+            selection: _jsonl(
+                [
+                    {
+                        **historical_selection[0],
+                        "free_required_document_count": (
+                            historical_selection[0]["free_required_document_count"] + 2
+                        ),
+                        "missing_required_document_count": (
+                            historical_selection[0]["missing_required_document_count"]
+                            - 2
+                        ),
+                    },
+                    *historical_selection[1:],
+                ]
+            ),
+            output_root / "document-downloads-merged.jsonl": (
+                b" " + historical_payloads["manifest"]
+            ),
+            config_path: b" " + historical_payloads["config"],
+            state_path: b" " + historical_payloads["run_card"],
+        }
+        for path, mutated_payload in mutation_payloads.items():
+            baseline_payload = path.read_bytes()
+            path.write_bytes(mutated_payload)
+            with monkeypatch.context() as verifier_patch:
+                verifier_patch.setattr(
+                    cli,
+                    "_cmd_project_zero_cost_successor",
+                    lambda _args: pytest.fail(
+                        "producer replay preceded historical counter pin validation"
+                    ),
+                )
+                with pytest.raises(cli.CommandError, match="document counters differ"):
+                    cli._verify_zero_cost_successor_projection(
+                        target_root=output_root,
+                        free_clearance_path=(
+                            output_root / "disclosure-clearance.jsonl"
+                        ),
+                        expected_target_count=100,
+                    )
+            path.write_bytes(baseline_payload)
+
+        selection.write_bytes(normal_selection_bytes)
+        config_path.write_bytes(normal_config_bytes)
+        state_path.write_bytes(normal_state_bytes)
 
     selection_payload = selection.read_bytes()
     tampered_selection = [
