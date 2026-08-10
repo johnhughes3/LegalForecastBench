@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import random
@@ -56,7 +57,28 @@ class _CourtListenerResponseBodyError(CourtListenerServerError):
 
 
 class CourtListenerUnavailableError(CourtListenerClientError):
-    """Raised when requested public fallback material is unavailable."""
+    """Raised when requested public fallback material is unavailable.
+
+    The optional observation fields preserve the exact response that caused a
+    typed 404.  General callers may continue to raise this exception with only
+    a message; authority-producing callers must require the complete observed
+    response before treating the failure as terminal evidence.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        method: str | None = None,
+        path: str | None = None,
+        status_code: int | None = None,
+        response_bytes: bytes | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.method = method
+        self.path = path
+        self.status_code = status_code
+        self.response_bytes = response_bytes
 
 
 class CourtListenerProviderExhaustedError(CourtListenerUnavailableError):
@@ -97,6 +119,7 @@ class CourtListenerHTTPResponse:
     status_code: int
     payload: Mapping[str, Any]
     headers: Mapping[str, str] = field(default_factory=lambda: {})
+    raw_body: bytes | None = None
 
 
 class CourtListenerTransport(Protocol):
@@ -478,6 +501,7 @@ class UrlLibCourtListenerTransport:
                         path=path,
                     ),
                     headers=dict(response.headers.items()),
+                    raw_body=raw_body,
                 )
         except urllib.error.HTTPError as exc:
             raw_body = exc.read()
@@ -494,6 +518,7 @@ class UrlLibCourtListenerTransport:
                     path=path,
                 ),
                 headers=response_headers,
+                raw_body=raw_body,
             )
         except (TimeoutError, urllib.error.URLError) as exc:
             reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
@@ -509,18 +534,35 @@ class RecordedCourtListenerResponse:
     params: Mapping[str, Any]
     status_code: int
     payload: Mapping[str, Any]
+    raw_body: bytes | None = None
 
     @classmethod
     def from_record(
         cls,
         record: Mapping[str, Any],
     ) -> RecordedCourtListenerResponse:
+        encoded_body = record.get("response_body_base64")
+        if encoded_body is not None and not isinstance(encoded_body, str):
+            raise CourtListenerResponseError(
+                "recorded response_body_base64 must be text"
+            )
+        try:
+            raw_body = (
+                None
+                if encoded_body is None
+                else base64.b64decode(encoded_body, validate=True)
+            )
+        except ValueError as exc:
+            raise CourtListenerResponseError(
+                "recorded response_body_base64 is not canonical base64"
+            ) from exc
         return cls(
             method=_required_string(record, "method").upper(),
             path=_required_string(record, "path"),
             params=_primitive_mapping(record.get("params", {}), "params"),
             status_code=_required_int(record, "status_code"),
             payload=_mapping(record.get("payload"), "payload"),
+            raw_body=raw_body,
         )
 
 
@@ -588,6 +630,7 @@ class CourtListenerFixtureTransport:
         return CourtListenerHTTPResponse(
             status_code=response.status_code,
             payload=response.payload,
+            raw_body=response.raw_body,
         )
 
 
@@ -643,6 +686,18 @@ class CourtListenerClient:
     def get_docket(self, docket_id: str) -> CourtListenerDocket:
         payload = self._request_json("GET", f"/dockets/{docket_id}/", {})
         return CourtListenerDocket.from_record(payload)
+
+    def get_docket_entry(self, docket_entry_id: str) -> CourtListenerDocketEntry:
+        """Fetch one exact docket entry without opening a listing or search surface."""
+
+        normalized = _positive_path_identifier(docket_entry_id, "docket_entry_id")
+        payload = self._request_json("GET", f"/docket-entries/{normalized}/", {})
+        entry = CourtListenerDocketEntry.from_record(payload)
+        if entry.docket_entry_id != normalized:
+            raise CourtListenerResponseError(
+                "CourtListener docket entry response id does not match request"
+            )
+        return entry
 
     def get_opinion_cluster(self, cluster_id: str) -> CourtListenerOpinionCluster:
         normalized = _positive_path_identifier(cluster_id, "cluster_id")
@@ -811,7 +866,11 @@ class CourtListenerClient:
                 redirect_count += 1
                 continue
 
-            error = _error_for_response(response, request_path)
+            error = _error_for_response(
+                response,
+                method=method,
+                path=request_path,
+            )
             if (
                 isinstance(
                     error, CourtListenerRateLimitError | CourtListenerServerError
@@ -878,6 +937,8 @@ def _identity_mapping(record: Mapping[str, Any]) -> Mapping[str, Any]:
 
 def _error_for_response(
     response: CourtListenerHTTPResponse,
+    *,
+    method: str,
     path: str,
 ) -> CourtListenerClientError:
     message = _optional_string(response.payload, "detail", "error", "message") or (
@@ -886,7 +947,13 @@ def _error_for_response(
     if response.status_code in {401, 403}:
         return CourtListenerAuthError(message)
     if response.status_code == 404:
-        return CourtListenerUnavailableError(message)
+        return CourtListenerUnavailableError(
+            message,
+            method=method,
+            path=path,
+            status_code=response.status_code,
+            response_bytes=response.raw_body,
+        )
     if response.status_code == 429:
         return CourtListenerRateLimitError(message)
     if response.status_code >= 500:

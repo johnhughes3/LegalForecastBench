@@ -89,6 +89,9 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [accepted-attempt-map-v1.md](schemas/accepted-attempt-map-v1.md): a committed post-execution selection amendment that does not modify the frozen inputs.
 - [zero-cost-successor-v1.md](schemas/zero-cost-successor-v1.md): provider-free authentication of the 99-case ranked-reserve precursor plus the first fully cleared candidate in the frozen zero-cost order.
 - [exact100-reserve-extension-v1.md](schemas/exact100-reserve-extension-v1.md): provider-free derivation of additional reserve capacity for an authenticated exact-100 successor whose frozen reserve cannot cover fresh disclosure quarantines.
+- [exact100-successor-terminal-exclusion-v1.md](schemas/exact100-successor-terminal-exclusion-v1.md): authenticated, reason-specific terminal evidence for removing a selected exact-100 candidate without modifying the predecessor.
+- [exact100-zero-cost-recovery-v2.md](schemas/exact100-zero-cost-recovery-v2.md): bounded CourtListener recovery with exact terminal-response evidence or document-bound public handoff.
+- [exact100-successor-replacement-v1.md](schemas/exact100-successor-replacement-v1.md): provider-free replacement of only terminally excluded exact-100 candidates with replay-verified, frozen-rank reserves.
 
 **Spend authority and purchase**
 

@@ -34,6 +34,48 @@ DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1 = SchemaIdentifier(
     "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
 )
 DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v1")
+EXACT100_SUCCESSOR_PROMOTION_V1 = SchemaIdentifier(
+    "legalforecast.exact100_successor_promotion.v1"
+)
+EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1 = SchemaIdentifier(
+    "legalforecast.exact100_successor_replacement_config.v1"
+)
+EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1 = SchemaIdentifier(
+    "legalforecast.exact100_successor_replacement_state.v1"
+)
+EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1 = SchemaIdentifier(
+    "legalforecast.exact100_successor_terminal_exclusion.v1"
+)
+EXACT100_ZERO_COST_RECOVERY_PLAN_V1 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_plan.v1"
+)
+EXACT100_ZERO_COST_RECOVERY_PUBLIC_DOCUMENT_V1 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_public_document.v1"
+)
+EXACT100_ZERO_COST_RECOVERY_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_receipt.v1"
+)
+EXACT100_ZERO_COST_RECOVERY_RECEIPT_V2 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_receipt.v2"
+)
+EXACT100_ZERO_COST_RECOVERY_REQUEST_V1 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_request.v1"
+)
+EXACT100_ZERO_COST_RECOVERY_REQUEST_V2 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_request.v2"
+)
+EXACT100_ZERO_COST_RECOVERY_RUN_V1 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_run.v1"
+)
+EXACT100_ZERO_COST_RECOVERY_RUN_V2 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_run.v2"
+)
+EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_V1 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_rest_observation.v1"
+)
+EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_TRANSCRIPT_V1 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_rest_observation_transcript.v1"
+)
 FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1 = SchemaIdentifier(
     "legalforecast.firecrawl_scrape_request_contract.v1"
 )
@@ -119,6 +161,9 @@ TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_V1 = SchemaIdentifier(
 TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_RUN_CARD_V1 = SchemaIdentifier(
     "legalforecast.target_raw_docket_auxiliary_provenance_bridge_run_card.v1"
 )
+ZERO_COST_SUCCESSOR_CONFIG_V1 = SchemaIdentifier(
+    "legalforecast.zero_cost_successor_config.v1"
+)
 
 # This registry names the current recovery vertical slice without changing any
 # producer's local constant.  Migration to these imports is post-Cycle 1 work.
@@ -127,6 +172,20 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     CLEARANCE_REPLACEMENT_PLAN_V1,
     DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1,
     DISCLOSURE_CLEARANCE_V1,
+    EXACT100_SUCCESSOR_PROMOTION_V1,
+    EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1,
+    EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
+    EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1,
+    EXACT100_ZERO_COST_RECOVERY_PLAN_V1,
+    EXACT100_ZERO_COST_RECOVERY_PUBLIC_DOCUMENT_V1,
+    EXACT100_ZERO_COST_RECOVERY_RECEIPT_V1,
+    EXACT100_ZERO_COST_RECOVERY_RECEIPT_V2,
+    EXACT100_ZERO_COST_RECOVERY_REQUEST_V1,
+    EXACT100_ZERO_COST_RECOVERY_REQUEST_V2,
+    EXACT100_ZERO_COST_RECOVERY_RUN_V1,
+    EXACT100_ZERO_COST_RECOVERY_RUN_V2,
+    EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_V1,
+    EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_TRANSCRIPT_V1,
     FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1,
     FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1,
     FINALIZED_PREDICTION_UNITS_V2,
@@ -155,4 +214,5 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     TARGET_RAW_DOCKET_RECOVERY_PROVIDER_CONTRACT_RETRY_PLAN_V1,
     TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_V1,
     TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_RUN_CARD_V1,
+    ZERO_COST_SUCCESSOR_CONFIG_V1,
 )
