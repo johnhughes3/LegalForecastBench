@@ -63227,9 +63227,6 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 else {}
             ),
         }
-        _require_snapshot_unchanged(
-            completion_input_snapshots, label="plan-packet-inputs input"
-        )
         if verified_raw_provenance_bridge is not None:
             assert raw_provenance_bridge_path is not None
             try:
@@ -63247,14 +63244,6 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 raise CommandError(
                     "raw-provenance bridge changed during packet planning"
                 )
-        if _materializer_tree_snapshot(raw_html_dir) != raw_html_snapshot:
-            raise CommandError(
-                "plan-packet-inputs raw HTML tree changed during execution"
-            )
-        if _materializer_tree_snapshot(markdown_root) != markdown_snapshot:
-            raise CommandError(
-                "plan-packet-inputs Markdown tree changed during execution"
-            )
     authenticated_materialization_lineage = (
         []
         if dry_run

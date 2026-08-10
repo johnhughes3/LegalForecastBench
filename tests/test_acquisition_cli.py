@@ -2613,7 +2613,7 @@ def test_live_mistral_reuse_helper_fails_closed(tmp_path: Path, failure: str) ->
         )
 
 
-@pytest.mark.parametrize("producer_mutation", [None, "raw", "markdown"])
+@pytest.mark.parametrize("producer_mutation", [None, "input", "raw", "markdown"])
 def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -2726,31 +2726,50 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
         "2026-04-24..2026-05-18",
         "--execute",
     ]
+    tree_snapshot_roots: list[Path] = []
+    original_tree_snapshot = cli._materializer_tree_snapshot
+
+    def counted_tree_snapshot(root: Path) -> dict[str, bytes]:
+        tree_snapshot_roots.append(root.resolve())
+        return original_tree_snapshot(root)
+
+    snapshot_check_labels: list[str] = []
+    original_snapshot_check = cli._require_snapshot_unchanged
+
+    def counted_snapshot_check(snapshots: Mapping[Path, bytes], *, label: str) -> None:
+        snapshot_check_labels.append(label)
+        original_snapshot_check(snapshots, label=label)
+
+    monkeypatch.setattr(cli, "_materializer_tree_snapshot", counted_tree_snapshot)
+    monkeypatch.setattr(cli, "_require_snapshot_unchanged", counted_snapshot_check)
     if producer_mutation is not None:
         original_planner = cli.plan_packet_build_inputs
 
         def mutate_after_planning(**kwargs: Any) -> Any:
             plan = original_planner(**kwargs)
-            target = (
-                raw_html_path
-                if producer_mutation == "raw"
-                else markdown_root / candidate_id / "complaint.md"
-            )
+            target = {
+                "input": selection_path,
+                "raw": raw_html_path,
+                "markdown": markdown_root / candidate_id / "complaint.md",
+            }[producer_mutation]
             target.write_bytes(b"mutated after captured-byte planning")
             return plan
 
         monkeypatch.setattr(cli, "plan_packet_build_inputs", mutate_after_planning)
-        expected = (
-            "raw HTML tree changed"
-            if producer_mutation == "raw"
-            else "Markdown tree changed"
-        )
+        expected = {
+            "input": "plan-packet-inputs input changed",
+            "raw": "raw HTML tree changed",
+            "markdown": "Markdown tree changed",
+        }[producer_mutation]
         assert main(command) == 2
         assert expected in capsys.readouterr().err
         assert not (output_root / "run-cards" / "plan-packet-inputs.json").exists()
         return
 
     assert main(command) == 0
+    assert tree_snapshot_roots.count(raw_html_dir.resolve()) == 2
+    assert tree_snapshot_roots.count(markdown_root.resolve()) == 2
+    assert snapshot_check_labels.count("plan-packet-inputs input") == 1
 
     packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
     assert packet_input["decision_date"] == "2026-05-18"
