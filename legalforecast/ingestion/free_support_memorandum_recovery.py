@@ -9,7 +9,6 @@ plan that a separately authorized execution path may later reauthenticate.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from collections.abc import Mapping
@@ -18,6 +17,10 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
 
+from legalforecast.contracts import (
+    FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1,
+    RAW_BYTES_RAW_SHA256_V1,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
@@ -33,8 +36,8 @@ from legalforecast.ingestion.target_raw_docket_auxiliary_provenance import (
 
 JsonRecord = dict[str, Any]
 
-FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_SCHEMA = (
-    "legalforecast.free_support_memorandum_recovery_plan.v1"
+FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_SCHEMA = str(
+    FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1
 )
 
 _CANDIDATE_ID = "73327542"
@@ -112,7 +115,12 @@ def _derive_from_verified_bridge(
         "selection_sha256": selection_sha256,
         "raw_docket_bridge_sha256": bridge.bridge_sha256,
         "raw_artifacts_manifest_sha256": bridge.raw_artifacts_manifest_sha256,
-        "raw_docket_sha256": _sha256(raw_html),
+        "raw_docket_sha256": str(
+            RAW_BYTES_RAW_SHA256_V1.commit(
+                raw_html,
+                domain=FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1,
+            ).digest
+        ),
         "raw_docket_byte_count": len(raw_html),
         "target_motion_entry_number": _TARGET_ENTRY_NUMBER,
         "supporting_entry_number": _SUPPORT_ENTRY_NUMBER,
@@ -193,7 +201,15 @@ def _selected_target_selection_sha256(
         raise FreeSupportMemorandumRecoveryError(
             "raw-docket bridge descriptor is unavailable"
         ) from exc
-    if _sha256(descriptor_bytes) != bridge.bridge_sha256:
+    if (
+        str(
+            RAW_BYTES_RAW_SHA256_V1.commit(
+                descriptor_bytes,
+                domain=FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1,
+            ).digest
+        )
+        != bridge.bridge_sha256
+    ):
         raise FreeSupportMemorandumRecoveryError("raw-docket bridge descriptor drifted")
     descriptor = _canonical_object(descriptor_bytes, "raw-docket bridge descriptor")
     if set(descriptor) != {"schema_version", "bridge", "bridge_sha256"}:
@@ -226,7 +242,15 @@ def _selected_target_selection_sha256(
         raise FreeSupportMemorandumRecoveryError(
             "raw-docket bridge selection artifact is unavailable"
         ) from exc
-    if _sha256(selection_bytes) != selection_sha256:
+    if (
+        str(
+            RAW_BYTES_RAW_SHA256_V1.commit(
+                selection_bytes,
+                domain=FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1,
+            ).digest
+        )
+        != selection_sha256
+    ):
         raise FreeSupportMemorandumRecoveryError(
             "raw-docket bridge selection artifact drifted"
         )
@@ -340,7 +364,3 @@ def _canonical_bytes(record: Mapping[str, object]) -> bytes:
         error_type=FreeSupportMemorandumRecoveryError,
         error_message="support-memorandum plan cannot be canonicalized",
     )
-
-
-def _sha256(payload: bytes) -> str:
-    return hashlib.sha256(payload).hexdigest()

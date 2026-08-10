@@ -18,6 +18,7 @@ from typing import Any, cast
 from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
+    STAGE_A_STRUCTURAL_FLAG_V2,
 )
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.live_model_solver import (
@@ -1478,7 +1479,7 @@ def stage_a_structural_flag_records(
     for flag in structural_flags:
         flag_record = dict(flag)
         schema_version = (
-            "legalforecast.stage_a_structural_flag.v2"
+            str(STAGE_A_STRUCTURAL_FLAG_V2)
             if "evidence_spans" in flag_record
             else "legalforecast.stage_a_structural_flag.v1"
         )
@@ -1519,14 +1520,14 @@ def merge_structural_flags_into_review_queue(
             _required_str(flag, "schema_version")
             if schema_version_value is not None
             else (
-                "legalforecast.stage_a_structural_flag.v2"
+                str(STAGE_A_STRUCTURAL_FLAG_V2)
                 if "evidence_spans" in flag
                 else "legalforecast.stage_a_structural_flag.v1"
             )
         )
         if schema_version not in {
             "legalforecast.stage_a_structural_flag.v1",
-            "legalforecast.stage_a_structural_flag.v2",
+            str(STAGE_A_STRUCTURAL_FLAG_V2),
         }:
             raise LlmPipelineError(
                 f"unsupported Stage A structural flag schema: {schema_version}"
@@ -1535,7 +1536,7 @@ def merge_structural_flags_into_review_queue(
             _str_tuple(flag.get("source_document_ids"), "source_document_ids")
         )
         review_evidence: JsonRecord = {}
-        if schema_version == "legalforecast.stage_a_structural_flag.v2":
+        if schema_version == str(STAGE_A_STRUCTURAL_FLAG_V2):
             evidence_spans = [
                 dict(span)
                 for span in _record_sequence(

@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, cast
 
+from legalforecast.contracts import TARGET_DOCUMENT_ELIGIBILITY_AUDIT_V1
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.target_document_eligibility import (
@@ -25,7 +26,7 @@ from legalforecast.ingestion.target_document_eligibility import (
 
 JsonRecord = dict[str, Any]
 
-AUDIT_SCHEMA_VERSION = "legalforecast.target_document_eligibility_audit.v1"
+AUDIT_SCHEMA_VERSION = str(TARGET_DOCUMENT_ELIGIBILITY_AUDIT_V1)
 _VERIFICATION_SEAL = object()
 _TARGET_ROLES = frozenset(
     {DocumentRole.MTD_NOTICE.value, DocumentRole.MTD_MEMORANDUM.value}

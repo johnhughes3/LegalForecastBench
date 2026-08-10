@@ -79,6 +79,9 @@ EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_TRANSCRIPT_V1 = SchemaIdentifier(
 FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1 = SchemaIdentifier(
     "legalforecast.firecrawl_scrape_request_contract.v1"
 )
+FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1 = SchemaIdentifier(
+    "legalforecast.free_support_memorandum_recovery_plan.v1"
+)
 FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1 = SchemaIdentifier(
     "legalforecast.firecrawl_provider_contract_defect_authorization.v1"
 )
@@ -106,6 +109,9 @@ LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1 = SchemaIdentifier(
 LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2 = SchemaIdentifier(
     "legalforecast.llm_stage_a_structural_review_terminal_escalation.v2"
 )
+STAGE_A_STRUCTURAL_FLAG_V2 = SchemaIdentifier(
+    "legalforecast.stage_a_structural_flag.v2"
+)
 UNITIZATION_REVIEW_BUNDLE_V1 = SchemaIdentifier(
     "legalforecast.unitization_review_bundle.v1"
 )
@@ -121,6 +127,10 @@ POST_RECOVERY_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
 PURCHASE_SPEND_SUMMARY_V1 = SchemaIdentifier("legalforecast.purchase_spend_summary.v1")
 RECAP_FETCH_QUARANTINE_RECOVERY_V1 = SchemaIdentifier(
     "legalforecast.recap_fetch_quarantine_recovery.v1"
+)
+RAW_BYTES_CODEC_V1 = SchemaIdentifier("legalforecast.codec.raw-bytes.v1")
+RAW_BYTES_RAW_SHA256_COMMITMENT_V1 = SchemaIdentifier(
+    "legalforecast.commitment.raw-bytes.raw-sha256.v1"
 )
 RECAP_FETCH_QUARANTINE_RECOVERY_RUN_CARD_V2 = SchemaIdentifier(
     "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
@@ -161,6 +171,9 @@ TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_V1 = SchemaIdentifier(
 TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_RUN_CARD_V1 = SchemaIdentifier(
     "legalforecast.target_raw_docket_auxiliary_provenance_bridge_run_card.v1"
 )
+TARGET_DOCUMENT_ELIGIBILITY_AUDIT_V1 = SchemaIdentifier(
+    "legalforecast.target_document_eligibility_audit.v1"
+)
 ZERO_COST_SUCCESSOR_CONFIG_V1 = SchemaIdentifier(
     "legalforecast.zero_cost_successor_config.v1"
 )
@@ -188,11 +201,13 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_TRANSCRIPT_V1,
     FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1,
     FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1,
+    FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1,
     FINALIZED_PREDICTION_UNITS_V2,
     FINALIZED_PREDICTION_UNITS_V3,
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
+    STAGE_A_STRUCTURAL_FLAG_V2,
     UNITIZATION_REVIEW_BUNDLE_V1,
     UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
     UNITIZATION_REVIEW_QUEUE_V1,
@@ -214,5 +229,6 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     TARGET_RAW_DOCKET_RECOVERY_PROVIDER_CONTRACT_RETRY_PLAN_V1,
     TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_V1,
     TARGET_RAW_DOCKET_AUXILIARY_PROVENANCE_BRIDGE_RUN_CARD_V1,
+    TARGET_DOCUMENT_ELIGIBILITY_AUDIT_V1,
     ZERO_COST_SUCCESSOR_CONFIG_V1,
 )
