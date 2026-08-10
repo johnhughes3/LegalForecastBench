@@ -6,6 +6,11 @@ The routine workflow cannot apply this root and its role has no permission to ch
 Creating or importing this root does not authorize AWS work.
 The one-time apply requires separately authorized human/operator AWS credentials, independent review of the exact plan, and protected local state custody until remote migration is proven complete.
 
+## Operator role trust surface
+
+The operator trust pins five conditions: `aud`, the environment-qualified `sub`, `repository`, `ref`, and `environment`.
+Do not delete `repository`, `ref`, or `environment`. They are documented AWS condition keys for the GitHub IdP, they are populated on protected-environment tokens, and they are satisfiable here because the operator job binds the `legalforecastbench-official-provider-authority-infra` environment and runs only from `refs/heads/main`. Reviews have twice argued they are unmatchable; [docs/github-aws-oidc-trust-claims.md](../../docs/github-aws-oidc-trust-claims.md) records the primary sources that settle it, and `tests/test_official_eval_bootstrap_infra.py` binds directly to the production locals, variable defaults, environment manifest, and the role-assuming `operate` job, failing if a condition is dropped, a pinned value drifts, or that job stops producing a claim — with in-suite mutation tests proving the fence discriminates.
+
 ## Protected first apply
 
 Use an exact reviewed commit on a trusted operator machine.

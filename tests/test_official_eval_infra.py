@@ -9,10 +9,18 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from tests.official_infra_trust_helpers import (
+    job_environment,
+    job_grants_id_token_write,
+    replace_terraform_local,
+    role_assuming_jobs,
+    terraform_local_string,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 INFRA_ROOT = ROOT / "infra" / "official-eval"
 POLICY_ROOT = INFRA_ROOT / "policies"
+ENVIRONMENT_MANIFEST = INFRA_ROOT / "github-environments.json"
 RUN_BENCHMARK_WORKFLOW = ROOT / ".github" / "workflows" / "run-benchmark.yaml"
 FAN_IN_WORKFLOW = ROOT / ".github" / "workflows" / "fan-in-publish.yaml"
 WORKFLOW_ROOT = ROOT / ".github" / "workflows"
@@ -657,6 +665,215 @@ def test_trust_contract_guard_rejects_extra_principal_or_claim_drift() -> None:
     string_equals["token.actions.githubusercontent.com:ref"] = "refs/heads/*"
     with pytest.raises(AssertionError):
         _assert_exact_trust(policy, environment=CELL_ENVIRONMENT)
+
+
+def _workflow_texts() -> dict[str, str]:
+    paths = sorted([*WORKFLOW_ROOT.glob("*.yml"), *WORKFLOW_ROOT.glob("*.yaml")])
+    assert paths
+    return {path.name: path.read_text(encoding="utf-8") for path in paths}
+
+
+def _assert_eval_trust_refs_satisfiable(
+    *,
+    locals_text: str,
+    manifest_text: str,
+    workflow_texts: Mapping[str, str],
+) -> None:
+    """Raise unless the cell/fan-in trust conditions stay reachable.
+
+    Reads only production bytes: the Terraform locals that render
+    github-oidc-trust.json.tftpl for both roles, the environment manifest,
+    and every repository workflow, sweeping each role-assuming job. Any
+    drift this catches would surface as an AssumeRoleWithWebIdentity denial
+    at run time.
+    """
+    ref = terraform_local_string(locals_text, "github_ref")
+    repository = terraform_local_string(locals_text, "github_repository")
+    cell_environment = terraform_local_string(locals_text, "cell_environment_name")
+    fan_in_environment = terraform_local_string(locals_text, "fan_in_environment_name")
+
+    # Both trust renders must be fed from these exact locals, and the pinned
+    # subjects must be built from the same repository and environment names;
+    # otherwise the values parsed above are not the ones AWS evaluates.
+    wirings = re.findall(
+        r"^\s*github_ref\s*=\s*local\.github_ref\s*$",
+        locals_text,
+        flags=re.MULTILINE,
+    )
+    assert len(wirings) == 2
+    assert (
+        terraform_local_string(locals_text, "github_subject_prefix")
+        == "repo:${local.github_repository}"
+    )
+    for subject_template in (
+        '"${local.github_subject_prefix}:environment:${local.cell_environment_name}"',
+        '"${local.github_subject_prefix}:environment:${local.fan_in_environment_name}"',
+    ):
+        assert subject_template in locals_text
+
+    # `:sub` and `:repository` match only if the manifest provisions the same
+    # environments, for the same repository, with the same subjects.
+    loaded: object = json.loads(manifest_text)
+    assert isinstance(loaded, dict)
+    manifest = cast(JsonObject, loaded)
+    assert manifest["repository"] == repository
+    rows = manifest["environments"]
+    assert isinstance(rows, list)
+    subjects = {
+        cast(JsonObject, row)["name"]: cast(JsonObject, row)["aws_oidc_subject"]
+        for row in cast(list[object], rows)
+    }
+    for environment in (cell_environment, fan_in_environment):
+        assert environment in subjects
+        assert subjects[environment] == f"repo:{repository}:environment:{environment}"
+
+    # `:ref` matches only from the single branch the manifest lets these
+    # environments deploy from.
+    protection = manifest["common_protection"]
+    assert isinstance(protection, dict)
+    raw_branches = cast(JsonObject, protection)["custom_branch_policies"]
+    assert isinstance(raw_branches, list)
+    branches = cast(list[object], raw_branches)
+    assert len(branches) == 1
+    branch = branches[0]
+    assert isinstance(branch, str)
+    assert ref == f"refs/heads/{branch}"
+
+    # Every job in any workflow that assumes one of these roles must itself
+    # bind that role's provisioned environment and grant itself the OIDC
+    # token; a workflow-wide substring cannot see which job carries the
+    # binding. Jobs assuming other roles (operator, labeling) belong to
+    # other trust roots and are skipped, but each of these two roles must
+    # keep at least one conforming producer or its trust is unsatisfiable.
+    role_environments = {
+        "LFB_GITHUB_PACKET_READ_ROLE_ARN": cell_environment,
+        "LFB_GITHUB_FAN_IN_ROLE_ARN": fan_in_environment,
+    }
+    producers = {variable: 0 for variable in role_environments}
+    for workflow_name, workflow_text in workflow_texts.items():
+        for job_id, block in role_assuming_jobs(workflow_text).items():
+            label = f"{workflow_name}:{job_id}"
+            assumed: list[str] = re.findall(
+                r"role-to-assume: \$\{\{ env\.([A-Z0-9_]+) \}\}", block
+            )
+            assert assumed, label
+            for variable in assumed:
+                if variable not in role_environments:
+                    continue
+                assert job_environment(block) == role_environments[variable], label
+                assert job_grants_id_token_write(block), label
+                producers[variable] += 1
+    for variable, count in producers.items():
+        assert count > 0, f"no workflow job can satisfy the {variable} trust"
+
+
+def test_trust_ref_condition_is_satisfiable_from_the_only_deployable_branch() -> None:
+    """The pinned `:ref` must name the one branch these environments can deploy.
+
+    Reviewers have twice argued that `:ref` cannot match and should be deleted:
+    once on the premise that an environment-scoped token omits a `ref` claim,
+    once on the premise that AWS never populates the key. Both are false --
+    GitHub emits `ref` alongside an environment-qualified `sub`, and AWS
+    documents `:ref` on its GitHub condition-key tab, where "available in
+    session: no" means trust-policy-only rather than unavailable. See
+    docs/github-aws-oidc-trust-claims.md for the primary sources.
+
+    What actually has to hold is that the pinned value is reachable. An
+    environment-bound job can only run from a branch the environment's
+    deployment branch policy allows, so `:ref` is satisfiable exactly when it
+    names that branch. The guard therefore binds to the production Terraform
+    locals, the manifest, and the exact role-assuming jobs -- never to
+    test-owned copies -- and the companion mutation test drifts those same
+    production bytes to prove the fence discriminates.
+    """
+    locals_text = (INFRA_ROOT / "locals.tf").read_text(encoding="utf-8")
+    _assert_eval_trust_refs_satisfiable(
+        locals_text=locals_text,
+        manifest_text=ENVIRONMENT_MANIFEST.read_text(encoding="utf-8"),
+        workflow_texts=_workflow_texts(),
+    )
+
+    # The exact-trust renders in this module pin these copies; keep each equal
+    # to its production local so drift cannot hide behind a test-owned value.
+    assert REPOSITORY == terraform_local_string(locals_text, "github_repository")
+    assert REF == terraform_local_string(locals_text, "github_ref")
+    assert CELL_ENVIRONMENT == terraform_local_string(
+        locals_text, "cell_environment_name"
+    )
+    assert FAN_IN_ENVIRONMENT == terraform_local_string(
+        locals_text, "fan_in_environment_name"
+    )
+
+
+def test_eval_trust_satisfiability_fence_discriminates_on_real_drift() -> None:
+    """Drifting the production inputs must redden the satisfiability fence.
+
+    Every case mutates the real bytes -- never a test-owned copy -- and each
+    models a drift that a copy-based or workflow-wide check would miss while
+    the deployed roles became unassumable.
+    """
+    locals_text = (INFRA_ROOT / "locals.tf").read_text(encoding="utf-8")
+    manifest_text = ENVIRONMENT_MANIFEST.read_text(encoding="utf-8")
+    workflow_texts = _workflow_texts()
+    run_workflow_text = workflow_texts[RUN_BENCHMARK_WORKFLOW.name]
+
+    def check(
+        *,
+        mutated_locals: str | None = None,
+        mutated_manifest: str | None = None,
+        mutated_run_workflow: str | None = None,
+    ) -> None:
+        swept = dict(workflow_texts)
+        if mutated_run_workflow is not None:
+            swept[RUN_BENCHMARK_WORKFLOW.name] = mutated_run_workflow
+        _assert_eval_trust_refs_satisfiable(
+            locals_text=locals_text if mutated_locals is None else mutated_locals,
+            manifest_text=(
+                manifest_text if mutated_manifest is None else mutated_manifest
+            ),
+            workflow_texts=swept,
+        )
+
+    check()
+
+    # Repoint the production ref local at a branch the manifest forbids.
+    with pytest.raises(AssertionError):
+        check(
+            mutated_locals=replace_terraform_local(
+                locals_text, "github_ref", "refs/heads/release"
+            )
+        )
+
+    # Widen the manifest to a second deployable branch.
+    widened = manifest_text.replace(
+        '"custom_branch_policies": ["main"]',
+        '"custom_branch_policies": ["main", "release"]',
+    )
+    assert widened != manifest_text
+    with pytest.raises(AssertionError):
+        check(mutated_manifest=widened)
+
+    # Rename the cell environment local: the trust would pin a subject that
+    # no provisioned environment carries.
+    with pytest.raises(AssertionError):
+        check(
+            mutated_locals=replace_terraform_local(
+                locals_text,
+                "cell_environment_name",
+                "legalforecastbench-unprovisioned",
+            )
+        )
+
+    # Rebind one role-assuming job onto an unprovisioned environment.
+    cell_environment = terraform_local_string(locals_text, "cell_environment_name")
+    rebound = run_workflow_text.replace(
+        f"\n    environment: {cell_environment}\n",
+        "\n    environment: legalforecastbench-unprovisioned\n",
+        1,
+    )
+    assert rebound != run_workflow_text
+    with pytest.raises(AssertionError):
+        check(mutated_run_workflow=rebound)
 
 
 @pytest.mark.parametrize(
