@@ -123,12 +123,14 @@ def test_cli_v4_finalized_citations_use_authenticated_lineage_snapshot(
                     {
                         "source_document_id": "complaint",
                         "document_role": "complaint",
+                        "docket_entry_number": 1,
                         "model_visible": True,
                         "contains_target_outcome": False,
                     },
                     {
                         "source_document_id": "motion",
                         "document_role": "motion_to_dismiss_memorandum",
+                        "docket_entry_number": 5,
                         "model_visible": True,
                         "contains_target_outcome": False,
                     },
@@ -252,6 +254,21 @@ def test_v4_finalized_citations_reject_wrong_page_and_docket_attribution() -> No
         validate_v4_finalized_unit_citations(
             [finalized],
             source_documents_by_candidate={"cand": _v4_citation_documents()},
+        )
+
+    finalized = _v4_finalized_candidate()
+    documents = list(_v4_citation_documents())
+    documents[0] = V4FinalizedCitationDocument(
+        document_id="complaint",
+        document_role="complaint",
+        markdown="Page 1\nHeading\nCount I pleads breach of contract.\nPrayer",
+        is_predecision_material=True,
+        contains_target_outcome=False,
+        docket_entry_number=None,
+    )
+    with pytest.raises(UnitizationReviewError, match="docket-entry attribution"):
+        validate_v4_finalized_unit_citations(
+            [finalized], source_documents_by_candidate={"cand": documents}
         )
 
     finalized = _v4_finalized_candidate()

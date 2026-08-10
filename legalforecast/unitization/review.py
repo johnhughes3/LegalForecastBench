@@ -832,10 +832,7 @@ def validate_v4_finalized_unit_citations(
                         f"{candidate_id}:{unit_id}: citation page attribution does "
                         "not match its authenticated Markdown span"
                     )
-                if (
-                    document.docket_entry_number is not None
-                    and citation.docket_entry_number != document.docket_entry_number
-                ):
+                if citation.docket_entry_number != document.docket_entry_number:
                     raise UnitizationReviewError(
                         f"{candidate_id}:{unit_id}: citation docket-entry attribution "
                         "does not match its authenticated source document"
