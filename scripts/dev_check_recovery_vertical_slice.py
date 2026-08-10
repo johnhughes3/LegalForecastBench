@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TextIO, cast
 
+from legalforecast.contracts.schemas import CYCLE_PREFLIGHT_MANIFEST_SIDECAR_V1
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_MANIFEST = REPO_ROOT / "tests" / "fixtures" / "cycle-preflight" / "manifest.json"
 SCHEMA_VERSION = "legalforecast.dev_check_recovery_vertical_slice.v1"  # contract-ratchet: allow dev-only result  # noqa: E501
@@ -225,8 +227,7 @@ def _is_v2_sidecar(manifest: Path) -> bool:
         return False
     sidecar = cast(Mapping[str, object], record)
     return (
-        sidecar.get("schema_version")
-        == "legalforecast.cycle_preflight_manifest_sidecar.v1"
+        sidecar.get("schema_version") == CYCLE_PREFLIGHT_MANIFEST_SIDECAR_V1.value
         and sidecar.get("non_authoritative") is True
     )
 

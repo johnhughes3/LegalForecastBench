@@ -100,6 +100,7 @@ def verify_v2_sidecar(path: Path) -> dict[str, object]:
             "v2 verification requires a discovery sidecar"
         )
     cards = _object(sidecar.get("native_cards"), label="v2 native cards")
+    index_path = Path(_text(sidecar.get("index_path"), label="v2 index path"))
     slice_ = NativeRecoverySlice(
         cycle_id=_text(sidecar.get("cycle_id"), label="v2 cycle id"),
         lineage_root_identity_sha256=_text(
@@ -120,7 +121,30 @@ def verify_v2_sidecar(path: Path) -> dict[str, object]:
             _text(cards.get("replacement_source"), label="v2 source card")
         ),
     )
+    # The sidecar is only a locator.  Re-run the authenticated active-chain
+    # traversal and require every identity it carries to match exactly.
+    observed = discover_native_recovery_slice(
+        index_path=index_path, cycle_id=slice_.cycle_id
+    )
+    if observed != slice_:
+        raise CyclePreflightManifestError("v2 sidecar differs from active lineage")
+    report = _verify_v2_slice(slice_)
+    # The cards and advisory locator can change between discovery and the final
+    # read.  Reauthenticate the whole selection immediately before acceptance;
+    # do not let a time-of-check snapshot authorize a later set of bytes.
+    if (
+        discover_native_recovery_slice(index_path=index_path, cycle_id=slice_.cycle_id)
+        != slice_
+    ):
+        raise CyclePreflightManifestError("v2 lineage changed during verification")
+    return report
+
+
+def _verify_v2_slice(slice_: NativeRecoverySlice) -> dict[str, object]:
+    """Authenticate both native recovery transitions and their source closure."""
+
     recovery = _read_json(slice_.recovery_card, label="v2 recovery card")
+    _verify_card_semantics(slice_.recovery_card, recovery, label="v2 recovery card")
     recovery_inputs = _committed_paths(recovery, label="v2 recovery card")
     policy_path = _one(
         [path for path in recovery_inputs if path.name == "purchase-policy-v2.json"],
@@ -182,25 +206,94 @@ def verify_v2_sidecar(path: Path) -> dict[str, object]:
         raise CyclePreflightManifestError(
             "v2 source closure lacks both ordinal descriptors"
         )
+    producers: dict[int, tuple[Path, Mapping[str, object]]] = {}
+    descriptor_records: dict[int, Mapping[str, object]] = {}
     for descriptor in descriptors:
-        _require_committed_card(
+        descriptor_record = _require_committed_card(
             descriptor, commitments=index_commitments, label="v2 descriptor"
         )
+        _validate_descriptor(descriptor_record)
+        producer, producer_card = _producer_for_descriptor(descriptor)
+        _verify_card_inputs(producer_card, label="v2 producer card")
+        _verify_card_outputs(producer, producer_card, label="v2 producer card")
+        if descriptor_record.get("ordinal") != producer_card.get("ordinal"):
+            raise CyclePreflightManifestError(
+                "v2 producer ordinal differs from descriptor"
+            )
+        ordinal = descriptor_record.get("ordinal")
+        if not isinstance(ordinal, int) or ordinal not in {0, 1}:
+            raise CyclePreflightManifestError("v2 descriptor ordinal is invalid")
+        producers[ordinal] = (producer, producer_card)
+        descriptor_records[ordinal] = descriptor_record
+    if set(producers) != {0, 1}:
+        raise CyclePreflightManifestError("v2 source closure lacks both producers")
+
+    terminal_recovery, terminal_clearance, _terminal_resolution = _terminal_cards(
+        producers[0][1], descriptor_records[0]
+    )
+    for card_path, card, label in (
+        (
+            terminal_recovery,
+            _read_json(terminal_recovery, label="terminal recovery"),
+            "terminal recovery",
+        ),
+        (
+            terminal_clearance,
+            _read_json(terminal_clearance, label="terminal clearance"),
+            "terminal clearance",
+        ),
+        (
+            slice_.clearance_card,
+            _read_json(slice_.clearance_card, label="successor clearance"),
+            "successor clearance",
+        ),
+    ):
+        _verify_card_semantics(card_path, card, label=label)
+    # Resolver cards name a mutable SQLite implementation state.  Their logical
+    # histories are authenticated by ``reconstruct_historical_purchase_snapshots``
+    # above; treating the current database bytes as immutable would make a valid
+    # replay falsely fail.  The selected resolution itself is still required to
+    # be committed by the source closure in that reconstruction.
     return {
         "schema_version": CYCLE_PREFLIGHT_REPORT_V2.value,
         "ok": True,
         "nodes": [
             {
-                "id": "successor-resolution",
+                "id": "successor-recovery",
                 "status": "PASSED",
+                "depends_on": [],
+            },
+            {
+                "id": "successor-clearance-resolution",
+                "status": "PASSED",
+                "depends_on": ["successor-recovery"],
                 "after": snapshots.after_recovery.purchase_state_sha256,
+            },
+            {
+                "id": "terminal-recovery",
+                "status": "PASSED",
+                "depends_on": [],
+            },
+            {
+                "id": "terminal-clearance",
+                "status": "PASSED",
+                "depends_on": ["terminal-recovery"],
             },
             {
                 "id": "terminal-resolution",
                 "status": "PASSED",
+                "depends_on": ["terminal-clearance"],
                 "after": snapshots.current.purchase_state_sha256,
             },
-            {"id": "replacement-source-closure", "status": "PASSED", "descriptors": 2},
+            {
+                "id": "replacement-source-closure",
+                "status": "PASSED",
+                "depends_on": [
+                    "successor-clearance-resolution",
+                    "terminal-resolution",
+                ],
+                "descriptors": 2,
+            },
         ],
     }
 
@@ -372,15 +465,41 @@ def discover_native_recovery_slice(
         raise CyclePreflightManifestError(str(exc)) from exc
     resolved_cycle_id = _text(status.get("cycle_id"), label="lineage cycle id")
     chain = _active_head_chain(index_path, resolved_cycle_id)
-    materialize = _one(
-        [
-            Path(cast(str, head["run_card_path"]))
-            for head in chain
-            if head["stage"] == "materialize-cohort-documents"
-        ],
+    materialize_head = _one(
+        [head for head in chain if head["stage"] == "materialize-cohort-documents"],
         label="materialize stage head",
     )
-    materialize_card = _read_json(materialize, label="materialize run card")
+    materialize = Path(
+        _text(materialize_head["run_card_path"], label="materialize path")
+    )
+    expected_materialize = _text(
+        materialize_head.get("run_card_sha256"), label="materialize active-head digest"
+    )
+    if len(expected_materialize) != 64 or any(
+        character not in "0123456789abcdef" for character in expected_materialize
+    ):
+        raise CyclePreflightManifestError("materialize active-head digest is invalid")
+    try:
+        materialize_bytes = read_unique_regular_file(materialize)
+    except (OSError, ReviewBundleError) as exc:
+        raise CyclePreflightManifestError(
+            "materialize active-head card is unavailable"
+        ) from exc
+    if hashlib.sha256(materialize_bytes).hexdigest() != expected_materialize:
+        raise CyclePreflightManifestError(
+            "materialize card differs from active-head commitment"
+        )
+    try:
+        materialize_record = json.loads(materialize_bytes)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise CyclePreflightManifestError(
+            "materialize active-head card is not JSON"
+        ) from exc
+    if not isinstance(materialize_record, Mapping):
+        raise CyclePreflightManifestError(
+            "materialize active-head card is not an object"
+        )
+    materialize_card = cast(Mapping[str, object], materialize_record)
     materialize_commitments = _committed_paths(
         materialize_card, label="materialize run card"
     )
@@ -524,6 +643,307 @@ def _source_card_for_descriptor(
             ):
                 matches.append(candidate)
     return _one(matches, label="replacement source card")
+
+
+def _producer_for_descriptor(descriptor: Path) -> tuple[Path, Mapping[str, object]]:
+    """Return the one source producer which commits ``descriptor`` as output."""
+
+    cards_dir = descriptor.parent / "run-cards"
+    try:
+        candidates = tuple(sorted(cards_dir.glob("*.json")))
+    except OSError as exc:
+        raise CyclePreflightManifestError(
+            "source producer directory is unavailable"
+        ) from exc
+    matches: list[tuple[Path, Mapping[str, object]]] = []
+    for candidate in candidates:
+        if candidate.is_symlink():
+            continue
+        try:
+            card = _read_json(candidate, label="v2 producer card")
+            outputs = _committed_paths(
+                {"source_commitments": card.get("output_commitments")},
+                label="v2 producer outputs",
+            )
+        except CyclePreflightManifestError:
+            continue
+        if (
+            _stage(card) == "build-replacement-recovery-source"
+            and descriptor in outputs
+        ):
+            expected = outputs[descriptor]
+            _verify_path(descriptor, expected, label="v2 descriptor output")
+            matches.append((candidate, card))
+    return _one(matches, label="v2 descriptor producer card")
+
+
+def _verify_path(path: Path, digest: str, *, label: str) -> None:
+    """Check one regular-file SHA-256 commitment without following unsafe links."""
+
+    if not digest.startswith(_SHA256_PREFIX) or len(digest) != len(_SHA256_PREFIX) + 64:
+        raise CyclePreflightManifestError(f"{label} has an invalid commitment")
+    try:
+        payload = read_unique_regular_file(path)
+    except (OSError, ReviewBundleError) as exc:
+        raise CyclePreflightManifestError(f"{label} is unavailable or unsafe") from exc
+    if hashlib.sha256(payload).hexdigest() != digest.removeprefix(_SHA256_PREFIX):
+        raise CyclePreflightManifestError(f"{label} bytes differ from commitment")
+
+
+def _verify_card_inputs(card: Mapping[str, object], *, label: str) -> None:
+    """Authenticate every file for which a run card actually made a commitment."""
+
+    commitments = _committed_paths(card, label=label)
+    raw = _object(card.get("source_commitments"), label=f"{label} source commitments")
+    for key, value in raw.items():
+        if key.startswith("/"):
+            if not isinstance(value, str):
+                raise CyclePreflightManifestError(
+                    f"{label} has a malformed source commitment"
+                )
+            continue
+        record = _object(value, label=f"{label} source commitment")
+        if set(record) == {"path", "sha256"}:
+            _text(record["path"], label=f"{label} source commitment path")
+            _text(record["sha256"], label=f"{label} source commitment digest")
+            continue
+        if set(record) != {"path", "document_count", "tree_sha256"}:
+            raise CyclePreflightManifestError(
+                f"{label} has a malformed source commitment"
+            )
+        tree_path = Path(_text(record["path"], label=f"{label} source commitment path"))
+        if not isinstance(record["document_count"], int):
+            raise CyclePreflightManifestError(f"{label} document-tree count is invalid")
+        tree_digest = _text(
+            record["tree_sha256"], label=f"{label} document-tree digest"
+        )
+        if not tree_digest.startswith(_SHA256_PREFIX) or len(tree_digest) != 71:
+            raise CyclePreflightManifestError(
+                f"{label} document-tree digest is invalid"
+            )
+        try:
+            entries = tuple(tree_path.rglob("*"))
+        except OSError as exc:
+            raise CyclePreflightManifestError(
+                f"{label} document tree is unavailable"
+            ) from exc
+        if (
+            any(entry.is_symlink() for entry in entries)
+            or sum(entry.is_file() for entry in entries) != record["document_count"]
+        ):
+            raise CyclePreflightManifestError(
+                f"{label} document tree differs from commitment"
+            )
+    for input_path, digest in commitments.items():
+        _verify_path(input_path, digest, label=f"{label} committed input")
+
+
+def _tree_root(card: Mapping[str, object], *, label: str) -> Path:
+    """Locate the single directory output that anchors a document-tree commitment."""
+
+    roots: list[Path] = []
+    for path in _paths(card, field="output_paths", label=label):
+        if path.is_symlink():
+            continue
+        try:
+            if path.is_dir():
+                roots.append(path)
+        except OSError as exc:
+            raise CyclePreflightManifestError(
+                f"{label} output root is unavailable"
+            ) from exc
+    return _one(roots, label=f"{label} document-tree root")
+
+
+def _verify_card_outputs(path: Path, card: Mapping[str, object], *, label: str) -> None:
+    """Check each declared output, including the complete document tree exactly."""
+
+    del path  # The card itself is authenticated by its parent or active stage head.
+    outputs = _object(
+        card.get("output_commitments"), label=f"{label} output commitments"
+    )
+    for name, raw in outputs.items():
+        if isinstance(raw, str):
+            if name.startswith("/"):
+                _verify_path(Path(name), raw, label=f"{label} committed output")
+                continue
+            # Logical commitments (for example purchase state) are validated by
+            # the historical replay rather than reinterpreted as file paths.
+            if len(raw) != 64 or any(c not in "0123456789abcdef" for c in raw):
+                raise CyclePreflightManifestError(f"{label} logical output is invalid")
+            continue
+        record = _object(raw, label=f"{label} {name} output")
+        if set(record) == {"path", "sha256"}:
+            output_path = Path(_text(record["path"], label=f"{label} {name} path"))
+            if not output_path.is_absolute():
+                raise CyclePreflightManifestError(
+                    f"{label} output path is not absolute"
+                )
+            _verify_path(
+                output_path,
+                _text(record["sha256"], label=f"{label} {name} digest"),
+                label=f"{label} committed output",
+            )
+            continue
+        if name != "document_tree":
+            raise CyclePreflightManifestError(f"{label} output commitment is malformed")
+        tree_root = _tree_root(card, label=label)
+        declared: dict[Path, str] = {}
+        for relative, digest in record.items():
+            if not isinstance(digest, str):
+                raise CyclePreflightManifestError(
+                    f"{label} document-tree entry is malformed"
+                )
+            relative_path = Path(relative)
+            if relative_path.is_absolute() or ".." in relative_path.parts:
+                raise CyclePreflightManifestError(
+                    f"{label} document-tree entry escapes root"
+                )
+            declared[relative_path] = digest
+            _verify_path(
+                tree_root / relative_path, digest, label=f"{label} document tree"
+            )
+        try:
+            actual: set[Path] = set()
+            for candidate in tree_root.rglob("*"):
+                if candidate.is_symlink():
+                    raise CyclePreflightManifestError(
+                        f"{label} document tree contains a symlink"
+                    )
+                if candidate.is_file():
+                    actual.add(candidate.relative_to(tree_root))
+        except OSError as exc:
+            raise CyclePreflightManifestError(
+                f"{label} document tree is unavailable"
+            ) from exc
+        if actual != set(declared):
+            raise CyclePreflightManifestError(
+                f"{label} document tree differs from commitment"
+            )
+
+
+def _verify_card_semantics(
+    path: Path, card: Mapping[str, object], *, label: str
+) -> None:
+    """Authenticate run-card inputs and all committed outputs in one operation."""
+
+    _verify_card_inputs(card, label=label)
+    _verify_card_outputs(path, card, label=label)
+
+
+def _terminal_cards(
+    initial_producer: Mapping[str, object], initial_descriptor: Mapping[str, object]
+) -> tuple[Path, Path, Path]:
+    """Derive the initial (root14/root27/root28) chain from producer inputs."""
+
+    commitments = _committed_paths(initial_producer, label="v2 initial producer")
+    cards = _committed_cards(commitments, label="v2 initial producer input")
+    recovery_root = _text(
+        initial_descriptor.get("recovery_root"), label="terminal recovery root"
+    )
+    clearance_path = Path(
+        _text(
+            initial_descriptor.get("purchased_clearance_run_card"),
+            label="terminal clearance card",
+        )
+    )
+    resolved_path = Path(
+        _text(
+            initial_descriptor.get("resolved_post_recovery_documents"),
+            label="terminal resolved documents",
+        )
+    )
+    recovery = _one(
+        [
+            path
+            for path, card in cards
+            if _stage(card) == "recover-recap-fetch-quarantine"
+            and str(path.parent.parent) == recovery_root
+        ],
+        label="terminal recovery card",
+    )
+    clearance = _one(
+        [
+            path
+            for path, card in cards
+            if _stage(card) == "finalize-provenance-quarantine"
+            and path == clearance_path
+        ],
+        label="terminal clearance card",
+    )
+    resolution = _one(
+        [
+            path
+            for path, card in cards
+            if _stage(card) == "resolve-post-recovery-documents"
+            and path.parent.parent / "resolved-post-recovery-documents.jsonl"
+            == resolved_path
+        ],
+        label="terminal resolution card",
+    )
+    return recovery, clearance, resolution
+
+
+def _validate_descriptor(descriptor: Mapping[str, object]) -> None:
+    """Reject malformed ordinal descriptors before using their path relationships."""
+
+    ordinal = descriptor.get("ordinal")
+    if ordinal == 0:
+        expected = {
+            "kind",
+            "ordinal",
+            "post_purchase_replay",
+            "purchased_clearance",
+            "purchased_clearance_run_card",
+            "recovery_root",
+            "resolved_post_recovery_documents",
+            "selection",
+        }
+        if set(descriptor) != expected or descriptor.get("kind") != "initial_v2":
+            raise CyclePreflightManifestError(
+                "initial recovery descriptor is malformed"
+            )
+        replay = _object(
+            descriptor.get("post_purchase_replay"), label="initial descriptor replay"
+        )
+        if set(replay) != {
+            "cohort_policy",
+            "prior_ranked_result",
+            "prior_replacement_budget_plan",
+            "prior_replacement_selection",
+            "replacement_controlled_private_root",
+            "replacement_purchase_authority",
+        }:
+            raise CyclePreflightManifestError(
+                "initial recovery descriptor replay is malformed"
+            )
+        values = [*replay.values()]
+    elif ordinal == 1:
+        expected = {
+            "kind",
+            "ordinal",
+            "purchased_clearance",
+            "purchased_clearance_run_card",
+            "recovery_root",
+            "replacement_budget_plan",
+            "replacement_controlled_private_root",
+            "replacement_purchase_authority",
+            "resolved_post_recovery_documents",
+            "selection",
+        }
+        if set(descriptor) != expected or descriptor.get("kind") != "successor":
+            raise CyclePreflightManifestError(
+                "successor recovery descriptor is malformed"
+            )
+        values = [
+            value for key, value in descriptor.items() if key not in {"kind", "ordinal"}
+        ]
+    else:
+        raise CyclePreflightManifestError("recovery descriptor ordinal is invalid")
+    if any(
+        not isinstance(value, str) or not Path(value).is_absolute() for value in values
+    ):
+        raise CyclePreflightManifestError("recovery descriptor path is malformed")
 
 
 def _committed_jsonl(
@@ -696,9 +1116,25 @@ def reconstruct_historical_purchase_snapshots(
     )
 
 
-def emit_discovery_sidecar(slice_: NativeRecoverySlice, *, output: Path) -> Path:
+def emit_discovery_sidecar(
+    slice_: NativeRecoverySlice, *, index_path: Path, output: Path
+) -> Path:
     """Write a non-authoritative discovery sidecar, refusing any replacement."""
 
+    # Re-discover and verify immediately before writing.  The caller's slice is
+    # not authority: it might have been observed before a mutable locator or a
+    # selected card changed.
+    refreshed = discover_native_recovery_slice(
+        index_path=index_path, cycle_id=slice_.cycle_id
+    )
+    if refreshed != slice_:
+        raise CyclePreflightManifestError("lineage changed before sidecar emission")
+    _verify_v2_slice(refreshed)
+    if (
+        discover_native_recovery_slice(index_path=index_path, cycle_id=slice_.cycle_id)
+        != refreshed
+    ):
+        raise CyclePreflightManifestError("lineage changed during sidecar emission")
     output = output.absolute()
     if output.exists() or output.is_symlink():
         raise CyclePreflightManifestError("sidecar output already exists")
@@ -708,6 +1144,7 @@ def emit_discovery_sidecar(slice_: NativeRecoverySlice, *, output: Path) -> Path
             "schema_version": SIDECAR_SCHEMA,
             "non_authoritative": True,
             "cycle_id": slice_.cycle_id,
+            "index_path": str(index_path.absolute()),
             "lineage_root_identity_sha256": slice_.lineage_root_identity_sha256,
             "native_cards": {
                 "materialize": str(slice_.materialize_card),
@@ -754,7 +1191,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             index_path=args.index, cycle_id=args.cycle_id
         )
         sidecar = (
-            emit_discovery_sidecar(slice_, output=args.emit_sidecar)
+            emit_discovery_sidecar(
+                slice_, index_path=args.index, output=args.emit_sidecar
+            )
             if args.emit_sidecar
             else None
         )

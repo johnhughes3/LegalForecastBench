@@ -136,6 +136,40 @@ def test_quick_check_runs_only_supplied_real_lineage_manifest(
     )
 
 
+def test_quick_check_routes_discovered_sidecar_to_the_same_pass_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_module()
+    commands: list[tuple[str, ...]] = []
+
+    def succeed(command: Sequence[str], *, diagnostics: io.TextIOBase) -> int:
+        del diagnostics
+        commands.append(tuple(command))
+        return 0
+
+    sidecar = tmp_path / "sidecar.json"
+    sidecar.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.cycle_preflight_manifest_sidecar.v1",
+                "non_authoritative": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "_execute", succeed)
+    explicit = io.StringIO()
+    derived = io.StringIO()
+
+    assert module.main(["--quick", "--manifest", str(sidecar)], stdout=explicit) == 0
+    monkeypatch.setenv(module.MANIFEST_ENV, str(sidecar))
+    assert module.main(["--quick"], stdout=derived) == 0
+
+    assert json.loads(explicit.getvalue())["verdict"] == "PASS"
+    assert json.loads(derived.getvalue())["verdict"] == "PASS"
+    assert all("--verify-v2-sidecar" in command for command in commands)
+
+
 def test_full_require_real_lineage_fails_before_expensive_checks_when_manifest_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
