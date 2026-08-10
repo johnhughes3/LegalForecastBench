@@ -1085,6 +1085,12 @@ from legalforecast.unitization.review import (
     require_finalized_envelopes,
     validate_v4_finalized_unit_citations,
 )
+from legalforecast.unitization.review_queue import (
+    ReviewQueueError,
+    review_queue_v2_records,
+    review_queue_v2_sidecar_path,
+    verify_review_queue_v2_coverage,
+)
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     DefendantGrouping,
@@ -61803,14 +61809,25 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
         )
         _write_jsonl(flags_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
-        _write_jsonl(
-            queue_path,
-            merge_stage_a_review_queue(
-                _read_records(existing_queue_path),
-                result.records,
-                result.terminal_review_queue_records,
-            ),
+        merged_queue = merge_stage_a_review_queue(
+            _read_records(existing_queue_path),
+            result.records,
+            result.terminal_review_queue_records,
         )
+        _write_jsonl(queue_path, merged_queue)
+        # Non-authoritative sidecar: the same review work, projected so review
+        # subject, typed reason, and allowed actions are separable.  It is
+        # deliberately absent from the run card's output commitments — Cycle 1
+        # change control keeps observational data out of authenticated bytes,
+        # and nothing downstream may consume this in place of the v1 queue.
+        try:
+            queue_v2 = review_queue_v2_records(merged_queue)
+            verify_review_queue_v2_coverage(merged_queue, queue_v2)
+        except ReviewQueueError as exc:
+            raise CommandError(
+                f"cannot project the Stage A review queue: {exc}"
+            ) from exc
+        _write_jsonl(review_queue_v2_sidecar_path(queue_path), queue_v2)
         expected_prompts = {
             (
                 _required_str(record, "candidate_id"),
