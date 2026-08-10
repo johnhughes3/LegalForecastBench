@@ -58925,8 +58925,13 @@ def _validate_v4_finalized_stage_a_citations(
     *,
     lineage: _StageAUnitizationLineage,
     llm_unitization_run_card_path: Path,
+    captured_input_bytes: Mapping[str, bytes] | None = None,
 ) -> None:
-    unitization_card = _read_json_object(llm_unitization_run_card_path)
+    unitization_card = _stage_a_captured_json_object(
+        llm_unitization_run_card_path,
+        label="llm-unitize run card",
+        captured_input_bytes=captured_input_bytes,
+    )
     if (
         _stage_a_provider_attempt_namespace_from_unitization_card_record(
             unitization_card
@@ -59268,10 +59273,11 @@ def _verified_provider_stage_attempts(
     expected_nonsettled_attempt_counts: Mapping[tuple[str, str], int] | None = None,
     allow_additional_calls: bool = False,
     provider_attempt_namespace: str | None = None,
+    snapshot: sqlite3.Connection | None = None,
 ) -> JsonRecord:
     nonsettled_statuses = dict(expected_nonsettled_statuses or {})
     nonsettled_attempt_counts = dict(expected_nonsettled_attempt_counts or {})
-    rows = _provider_stage_attempt_rows(journal_path, stage=stage)
+    rows = _provider_stage_attempt_rows(journal_path, stage=stage, snapshot=snapshot)
     matched_rows: list[Mapping[str, Any]] = []
     rows_by_call: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
     for row in rows:
@@ -59700,6 +59706,7 @@ def _verify_stage_a_review_run_card(
         registry_entry=entry,
         registry_sha256=registry_sha,
         provider_attempt_namespace=provider_attempt_namespace,
+        captured_input_bytes=captured_input_bytes,
     )
     if set(terminal_escalations) != {
         candidate_id
@@ -59707,23 +59714,35 @@ def _verify_stage_a_review_run_card(
         if audit.get("status") == "terminal_escalation"
     }:
         raise CommandError("structural review terminal escalation coverage differs")
-    stage_attempts = _verified_provider_stage_attempts(
-        stage="llm-review-stage-a",
-        journal_path=lineage.provider_journal_path,
-        expected_prompts=expected_prompts,
-        providers_by_model={entry.registry_key: entry.provider},
-        model_registry_sha256=registry_sha,
-        expected_nonsettled_statuses={
-            key: "reconstruction_failed" for key in terminal_attempt_counts
-        },
-        expected_nonsettled_attempt_counts=terminal_attempt_counts,
-        provider_attempt_namespace=provider_attempt_namespace,
-    )
+    # Both structural-review journal reads share one query-only snapshot, so
+    # the committed attempt digest and the replayed rows describe one state.
+    try:
+        journal_snapshot = open_provider_journal_snapshot(lineage.provider_journal_path)
+    except ProviderJournalError as exc:
+        raise CommandError(str(exc)) from exc
+    try:
+        stage_attempts = _verified_provider_stage_attempts(
+            stage="llm-review-stage-a",
+            journal_path=lineage.provider_journal_path,
+            expected_prompts=expected_prompts,
+            providers_by_model={entry.registry_key: entry.provider},
+            model_registry_sha256=registry_sha,
+            expected_nonsettled_statuses={
+                key: "reconstruction_failed" for key in terminal_attempt_counts
+            },
+            expected_nonsettled_attempt_counts=terminal_attempt_counts,
+            provider_attempt_namespace=provider_attempt_namespace,
+            snapshot=journal_snapshot,
+        )
+        attempt_rows = _provider_stage_attempt_rows(
+            lineage.provider_journal_path,
+            stage="llm-review-stage-a",
+            snapshot=journal_snapshot,
+        )
+    finally:
+        journal_snapshot.close()
     if chain_record.get("stage_attempts") != stage_attempts:
         raise CommandError("structural review provider attempts changed")
-    attempt_rows = _provider_stage_attempt_rows(
-        lineage.provider_journal_path, stage="llm-review-stage-a"
-    )
     settled_by_candidate: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for row in attempt_rows:
         candidate_id = _required_str(row, "candidate_id")
@@ -59879,7 +59898,14 @@ def _verify_stage_a_review_run_card(
             terminal_queue_records,
         )
     )
-    if _read_records(queue_path) != expected_queue:
+    if (
+        _stage_a_captured_records(
+            queue_path,
+            label="merged unitization review queue",
+            captured_input_bytes=captured_input_bytes,
+        )
+        != expected_queue
+    ):
         raise CommandError("structural review queue does not reproduce from journal")
     raw_inputs = card.get("input_paths")
     raw_outputs = card.get("output_paths")
@@ -60695,6 +60721,7 @@ def _verified_stage_a_terminal_escalations(
     registry_entry: ModelRegistryEntry,
     registry_sha256: str,
     provider_attempt_namespace: str | None = None,
+    captured_input_bytes: Mapping[str, bytes] | None = None,
 ) -> dict[str, tuple[LlmStageAStructuralReviewTerminalEscalation, JsonRecord]]:
     """Rebuild every requested terminal receipt before a later live resume."""
 
@@ -60737,7 +60764,11 @@ def _verified_stage_a_terminal_escalations(
             escalation = build_llm_stage_a_structural_review_terminal_escalation(
                 selection_record=selection,
                 parser_records=lineage.parser_records,
-                prediction_unit_records=_read_records(prediction_units_path),
+                prediction_unit_records=_stage_a_captured_records(
+                    prediction_units_path,
+                    label="raw prediction units",
+                    captured_input_bytes=captured_input_bytes,
+                ),
                 markdown_root=markdown_root,
                 markdown_bytes=lineage.markdown_bytes,
                 registry_entry=registry_entry,
@@ -62842,6 +62873,7 @@ def _cmd_acquisition_preflight_unitization_adjudication(
         result.recomputed_finalized_records,
         lineage=lineage,
         llm_unitization_run_card_path=unitization_card_path,
+        captured_input_bytes=captured_input_bytes,
     )
     if finalized_payload is not None and (
         _jsonl_bytes(list(result.recomputed_finalized_records)) != finalized_payload
