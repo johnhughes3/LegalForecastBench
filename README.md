@@ -145,6 +145,15 @@ uv run legalforecast acquisition --help
 
 Treat acquisition commands as live-credential paths; default checks must not require Case.dev, CourtListener, RECAP, PACER, or provider credentials.
 
+For a provider-free recovery-slice check, use the fast preflight while iterating and require a real-lineage manifest before merge:
+
+```bash
+scripts/dev-check-recovery-vertical-slice.sh --quick --manifest <cycle-preflight-manifest.json>
+scripts/dev-check-recovery-vertical-slice.sh --manifest <cycle-preflight-manifest.json> --require-real-lineage
+```
+
+The check emits text on a terminal and one stable JSON summary when piped; child diagnostics stay on stderr.
+
 ## Context and Sampling Policy
 
 Official runs enforce prompt-size comparability against the smallest evaluated model budget: each packet must fit within `context_limit - max_output_tokens` for every model in the frozen registry. Aggregate run cards report the packet token distribution by ablation, the smallest prompt-input budget, and the registry temperature settings.

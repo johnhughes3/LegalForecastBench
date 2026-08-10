@@ -5,13 +5,20 @@ checkout but do not belong in the installed `legalforecast` CLI.
 
 ## Current Scripts
 
-- `release_check.py`: runs the full v0.1 alpha release gate: locked sync, formatting, linting, type checking, scoped public-API docstring coverage, tests, CLI smokes, fixture E2E, multi-harness no-network smokes, package build, package hashes, and installed wheel/sdist smokes.
+- `release_check.py`: runs the full v0.1 alpha release gate: locked sync, formatting, linting, type checking, scoped public-API docstring coverage, the supported four-worker pytest suite, CLI smokes, fixture E2E, multi-harness no-network smokes, package build, package hashes, and installed wheel/sdist smokes.
 
   ```bash
   uv run scripts/release_check.py
   ```
 
   Use `--dry-run` to print the planned checks without executing them.
+
+- `dev-check-recovery-vertical-slice.sh`: runs the provider-free Cycle 1 recovery developer check. No arguments run the full focused regression and public-capsule check; `--quick --manifest <path>` runs only the real-lineage preflight while iterating, and `--require-real-lineage` prevents fixture-only success before merge. Use `--json` for a stable summary on stdout; child diagnostics are written to stderr.
+
+  ```bash
+  scripts/dev-check-recovery-vertical-slice.sh --quick --manifest <cycle-preflight-manifest.json>
+  scripts/dev-check-recovery-vertical-slice.sh --manifest <cycle-preflight-manifest.json> --require-real-lineage
+  ```
 
 - `build_release_bundle.py`: copies fixture E2E artifacts, selected
   release metadata, and optional package artifacts into an alpha release bundle.

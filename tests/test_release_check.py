@@ -51,6 +51,7 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
     assert "uv run pyright" in commands
     assert "uv run python -m legalforecast.contracts.ratchet" in commands
     assert "uv run scripts/verify_review_blockers.py" in commands
+    assert "uv run pytest -q -n 4 --dist=loadscope" in commands
     assert any("legalforecast fixture e2e" in command for command in commands)
     assert any(
         "legalforecast multiharness adapters inspect" in command for command in commands
