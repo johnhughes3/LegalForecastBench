@@ -31,6 +31,10 @@ from legalforecast.labeling.provider_journal import (
 )
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
 from legalforecast.unitization.review import apply_unitization_reviews
+from legalforecast.unitization.review_queue import (
+    review_queue_v2_sidecar_path,
+    verify_review_queue_v2_coverage,
+)
 from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
@@ -1048,6 +1052,33 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     ]
     assert main(review_args) == 0
     assert provider_calls == 2
+
+    reviewed_queue_path = review_root / "unitization-review-queue-reviewed.jsonl"
+    reviewed_queue = [
+        json.loads(line)
+        for line in reviewed_queue_path.read_text().splitlines()
+        if line
+    ]
+    sidecar_path = review_queue_v2_sidecar_path(reviewed_queue_path)
+    sidecar = [
+        json.loads(line) for line in sidecar_path.read_text().splitlines() if line
+    ]
+    # The sidecar is a projection of the same review work, and the run card
+    # still commits only to the authenticated v1 outputs.
+    verify_review_queue_v2_coverage(reviewed_queue, sidecar)
+    assert {record["schema_version"] for record in sidecar} == {
+        "legalforecast.unitization_review_queue.v2"
+    }
+    structural_card_payload = json.loads(
+        (review_root / "run-cards" / "llm-review-stage-a.json").read_text()
+    )
+    # Positive control first: the v1 queue is recorded in exactly the form the
+    # negative assertion below tests for, so a future change to how output paths
+    # are serialized fails here instead of making the exclusion vacuously true.
+    assert str(reviewed_queue_path) in structural_card_payload["output_paths"]
+    assert str(sidecar_path) not in structural_card_payload["output_paths"]
+    assert "review_queue" in structural_card_payload["output_commitments"]
+    assert "review_queue_v2" not in structural_card_payload["output_commitments"]
 
     provider_calls_before_bad_journal = provider_calls
     bad_journal_args = list(review_args)

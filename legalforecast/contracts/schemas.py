@@ -125,6 +125,9 @@ UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1 = SchemaIdentifier(
 UNITIZATION_REVIEW_QUEUE_V1 = SchemaIdentifier(
     "legalforecast.unitization_review_queue.v1"
 )
+UNITIZATION_REVIEW_QUEUE_V2 = SchemaIdentifier(
+    "legalforecast.unitization_review_queue.v2"
+)
 POST_RECOVERY_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.post_recovery_restriction_evidence.v1"
 )
