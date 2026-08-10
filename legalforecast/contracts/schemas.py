@@ -27,6 +27,10 @@ class SchemaIdentifier:
 
 
 ACQUISITION_RUN_CARD_V1 = SchemaIdentifier("legalforecast.acquisition_run_card.v1")
+CYCLE_PREFLIGHT_MANIFEST_SIDECAR_V1 = SchemaIdentifier(
+    "legalforecast.cycle_preflight_manifest_sidecar.v1"
+)
+CYCLE_PREFLIGHT_REPORT_V2 = SchemaIdentifier("legalforecast.cycle_preflight_report.v2")
 CLEARANCE_REPLACEMENT_PLAN_V1 = SchemaIdentifier(
     "legalforecast.clearance_replacement_plan.v1"
 )
