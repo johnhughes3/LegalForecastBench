@@ -7,6 +7,8 @@ import json
 import math
 import re
 import sqlite3
+import stat
+import tempfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -21,6 +23,7 @@ JsonRecord = Mapping[str, object]
 DEFAULT_CYCLE_PROVIDER_CAP_USD = 1_000.0
 PROVIDER_CYCLE_CAPS_SCHEMA_VERSION = "legalforecast.provider_cycle_caps.v1"
 PROVIDER_JOURNAL_SCHEMA_VERSION = "legalforecast.provider_attempt_journal.v3"
+_PROVIDER_JOURNAL_SIDECAR_SUFFIXES = ("-wal", "-journal")
 _REPLAYABLE_RESPONSE_STATUSES = frozenset(
     {"settled", "reconstruction_failed", "validated_response", "response_received"}
 )
@@ -225,28 +228,123 @@ class ProviderJournalIdentity:
     canonical_path: str
 
 
+def _provider_journal_durable_bytes(source: Path) -> tuple[bytes, dict[str, bytes]]:
+    """Capture the journal database plus every durable sidecar it commits to.
+
+    The volatile ``-shm`` index is deliberately excluded: SQLite rebuilds it
+    from the WAL, and its read marks change whenever any other process merely
+    reads the journal, so it is evidence of nothing.
+    """
+
+    try:
+        main_payload = source.read_bytes()
+        sidecars: dict[str, bytes] = {}
+        for suffix in _PROVIDER_JOURNAL_SIDECAR_SUFFIXES:
+            sidecar = Path(f"{source}{suffix}")
+            try:
+                status = sidecar.lstat()
+            except FileNotFoundError:
+                continue
+            if not stat.S_ISREG(status.st_mode):
+                raise ProviderJournalError(
+                    f"provider journal sidecar is not a regular file: {sidecar}"
+                )
+            sidecars[suffix] = sidecar.read_bytes()
+    except OSError as exc:
+        raise ProviderJournalError(f"cannot read provider journal: {exc}") from exc
+    return main_payload, sidecars
+
+
+def open_provider_journal_snapshot(path: str | Path) -> sqlite3.Connection:
+    """Return a query-only in-memory copy of one never-opened canonical journal.
+
+    Opening the canonical journal with SQLite is not a non-writing read even
+    for SELECT-only work: a read/write connection creates the ``-wal``/``-shm``
+    sidecars, checkpoints committed WAL frames back into the database on close,
+    and runs hot-journal recovery, while a ``mode=ro`` connection still leaves
+    fresh sidecars behind.  Copying the database and its durable sidecars into
+    a private scratch directory first means SQLite only ever opens the copy, so
+    every authentication path that replays a journal is non-writing by
+    construction rather than by SELECT-only convention.  The copy carries the
+    sidecars because only SQLite can apply committed WAL frames, and it is
+    removed before this returns.  The canonical bytes are re-read after the copy
+    so a concurrent write fails closed instead of authenticating a torn
+    snapshot.
+    """
+
+    source = Path(path)
+    if source.is_symlink() or not source.is_file():
+        raise ProviderJournalError(f"provider journal is not a regular file: {source}")
+    durable_before = _provider_journal_durable_bytes(source)
+    snapshot = sqlite3.connect(":memory:")
+    try:
+        with tempfile.TemporaryDirectory(prefix="lfb-provider-journal-") as scratch:
+            replica_path = Path(scratch) / source.name
+            main_payload, sidecars = durable_before
+            try:
+                replica_path.write_bytes(main_payload)
+                for suffix, payload in sidecars.items():
+                    Path(f"{replica_path}{suffix}").write_bytes(payload)
+            except OSError as exc:
+                raise ProviderJournalError(
+                    f"cannot copy provider journal for reading: {exc}"
+                ) from exc
+            if _provider_journal_durable_bytes(source) != durable_before:
+                raise ProviderJournalError(
+                    f"provider journal changed while it was read: {source}"
+                )
+            replica: sqlite3.Connection | None = None
+            try:
+                replica = sqlite3.connect(replica_path, isolation_level=None)
+                replica.backup(snapshot)
+            except sqlite3.Error as exc:
+                raise ProviderJournalError(
+                    f"cannot read provider journal: {exc}"
+                ) from exc
+            finally:
+                if replica is not None:
+                    replica.close()
+        snapshot.row_factory = sqlite3.Row
+        snapshot.execute("PRAGMA query_only = ON")
+    except BaseException:
+        snapshot.close()
+        raise
+    return snapshot
+
+
 def verify_provider_journal_identity(
     path: str | Path,
     *,
     cycle_id: str,
     provider_cycle_caps_sha256: str,
+    snapshot: sqlite3.Connection | None = None,
 ) -> ProviderJournalIdentity:
-    """Read and verify a journal's immutable cycle, caps, and path identity."""
+    """Read and verify a journal's immutable cycle, caps, and path identity.
+
+    ``snapshot`` reuses one already-open query-only journal copy so a caller
+    can authenticate identity and attempt rows against the same journal state;
+    without it this opens and closes its own snapshot.
+    """
 
     source = Path(path)
     if source.is_symlink() or not source.is_file():
         raise ProviderJournalError(f"provider journal is not a regular file: {source}")
+    connection = (
+        snapshot if snapshot is not None else open_provider_journal_snapshot(source)
+    )
     try:
-        with sqlite3.connect(source) as connection:
-            connection.row_factory = sqlite3.Row
-            rows = connection.execute(
-                "SELECT schema_version, cycle_id, provider_cycle_caps_sha256, "
-                "canonical_path FROM provider_journal_metadata"
-            ).fetchall()
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            "SELECT schema_version, cycle_id, provider_cycle_caps_sha256, "
+            "canonical_path FROM provider_journal_metadata"
+        ).fetchall()
     except sqlite3.Error as exc:
         raise ProviderJournalError(
             f"cannot read provider journal identity: {exc}"
         ) from exc
+    finally:
+        if snapshot is None:
+            connection.close()
     if len(rows) != 1:
         raise ProviderJournalReplayMismatchError(
             "provider journal must contain exactly one authenticated identity"
