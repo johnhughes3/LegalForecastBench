@@ -22,11 +22,12 @@ from legalforecast.ingestion.post_selection_terminal_exclusion import (
     PostSelectionTerminalExclusionError,
     VerifiedPostSelectionTerminalExclusions,
     VerifiedTerminalExclusionEvidence,
+    _mint_terminal_recovery_evidence_from_producer,
     _verify_stipulated_target_evidence_for_test,
     require_verified_post_selection_terminal_exclusions,
     require_verified_terminal_exclusion_evidence,
+    validate_terminal_recovery_evidence,
     verify_post_selection_terminal_exclusions,
-    verify_terminal_recovery_evidence,
 )
 
 
@@ -329,7 +330,7 @@ def test_stipulated_target_evidence_rejects_nonproof() -> None:
 
 def test_terminal_recovery_evidence_requires_closed_authenticated_transcript() -> None:
     inputs = _recovery_fixture()
-    evidence = verify_terminal_recovery_evidence(**inputs)
+    evidence = _mint_terminal_recovery_evidence_from_producer(**inputs)
     authority = verify_post_selection_terminal_exclusions(
         selection_bytes=inputs["selection_bytes"], evidence=[evidence]
     )
@@ -346,7 +347,7 @@ def test_terminal_recovery_evidence_rejects_empty_transcript_with_rebuilt_hashes
     _rebind_recovery_transcript(inputs, b"", record_count=0)
 
     with pytest.raises(PostSelectionTerminalExclusionError, match="closed exact match"):
-        verify_terminal_recovery_evidence(**inputs)
+        validate_terminal_recovery_evidence(**inputs)
 
 
 def test_terminal_recovery_evidence_rejects_two_transcript_rows() -> None:
@@ -355,7 +356,7 @@ def test_terminal_recovery_evidence_rejects_two_transcript_rows() -> None:
     _rebind_recovery_transcript(inputs, original + original, record_count=2)
 
     with pytest.raises(PostSelectionTerminalExclusionError, match="closed exact match"):
-        verify_terminal_recovery_evidence(**inputs)
+        validate_terminal_recovery_evidence(**inputs)
 
 
 def test_terminal_recovery_evidence_rejects_changed_response_sidecar() -> None:
@@ -367,7 +368,7 @@ def test_terminal_recovery_evidence_rejects_changed_response_sidecar() -> None:
     inputs["run_card_bytes"] = _bytes(inputs["run_card"])
 
     with pytest.raises(PostSelectionTerminalExclusionError, match="not closed"):
-        verify_terminal_recovery_evidence(**inputs)
+        validate_terminal_recovery_evidence(**inputs)
 
 
 @pytest.mark.parametrize(
@@ -409,7 +410,7 @@ def test_terminal_recovery_evidence_rejects_unbound_or_self_asserted_records(
         inputs["run_card_bytes"] = _bytes(inputs["run_card"])
 
     with pytest.raises(PostSelectionTerminalExclusionError, match=message):
-        verify_terminal_recovery_evidence(**inputs)
+        validate_terminal_recovery_evidence(**inputs)
 
 
 def test_terminal_authority_rejects_caller_constructed_or_changed_objects() -> None:

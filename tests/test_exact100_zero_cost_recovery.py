@@ -14,13 +14,11 @@ from legalforecast.ingestion.courtlistener_client import (
 )
 from legalforecast.ingestion.exact100_zero_cost_recovery import (
     Exact100ZeroCostRecoveryError,
+    _execute_terminal_recovery_with_verifier,
     execute_exact100_zero_cost_recovery,
     issue_exact100_zero_cost_recovery_request,
 )
 from legalforecast.ingestion.free_document_downloader import FixtureFreeDocumentSource
-from legalforecast.ingestion.post_selection_terminal_exclusion import (
-    verify_terminal_recovery_evidence,
-)
 
 
 def _bytes(value: object) -> bytes:
@@ -138,7 +136,7 @@ def test_unavailable_404_emits_only_replay_accepted_terminal_evidence() -> None:
     selection_bytes = _selection()
     client, transport = _client(status_code=404, payload={"detail": "not found"})
 
-    result = execute_exact100_zero_cost_recovery(
+    result = _execute_terminal_recovery_with_verifier(
         selection_bytes=selection_bytes,
         plan_bytes=_plan(selection_bytes),
         courtlistener=client,
@@ -156,21 +154,26 @@ def test_unavailable_404_emits_only_replay_accepted_terminal_evidence() -> None:
     assert result.rest_observation_transcript_bytes is not None
     assert result.rest_observation_response_bytes is not None
     assert result.rest_observation_response_bytes == _bytes({"detail": "not found"})
-    evidence = verify_terminal_recovery_evidence(
-        selection_bytes=selection_bytes,
-        request=result.request.record,
-        request_bytes=result.request.record_bytes,
-        receipt=result.receipt,
-        receipt_bytes=result.receipt_bytes,
-        run_card=result.run_card,
-        run_card_bytes=result.run_card_bytes,
-        rest_observation=result.rest_observation,
-        rest_observation_bytes=result.rest_observation_bytes,
-        rest_observation_transcript_bytes=result.rest_observation_transcript_bytes,
-        rest_observation_response_bytes=result.rest_observation_response_bytes,
-    )
+    evidence = result.terminal_evidence
+    assert evidence is not None
     assert evidence.candidate_id == "72449171"
     assert evidence.source_document_id == "480673755"
+
+
+def test_caller_injected_fixture_404_cannot_mint_terminal_authority() -> None:
+    selection_bytes = _selection()
+    client, _transport = _client(
+        status_code=404, payload={"detail": "caller fabricated"}
+    )
+
+    result = execute_exact100_zero_cost_recovery(
+        selection_bytes=selection_bytes,
+        plan_bytes=_plan(selection_bytes),
+        courtlistener=client,
+    )
+
+    assert result.receipt is not None
+    assert result.terminal_evidence is None
 
 
 def test_unavailable_404_preserves_exact_noncanonical_response_bytes() -> None:
@@ -317,6 +320,7 @@ def test_successful_public_recovery_retains_candidate_for_normal_handoff(
     assert result.receipt is None
     assert result.run_card is None
     assert result.rest_observation is None
+    assert result.terminal_evidence is None
     assert result.terminal_exclusion_authority is False
     assert result.public_document_manifest is not None
     assert result.public_document_manifest["candidate_id"] == "72449171"

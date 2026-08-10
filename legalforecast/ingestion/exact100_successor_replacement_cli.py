@@ -20,8 +20,9 @@ from legalforecast.ingestion.exact100_successor_replacement import (
     project_exact100_successor_replacement,
 )
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
+    VerifiedTerminalExclusionEvidence,
+    authorize_persisted_terminal_recovery_evidence,
     verify_post_selection_terminal_exclusions,
-    verify_terminal_recovery_evidence,
 )
 
 _OUTPUT_NAMES = {
@@ -53,6 +54,7 @@ class Exact100SuccessorReplacementCliError(ValueError):
 SuccessorInputReplay = Callable[
     [Path], tuple[VerifiedExact100Predecessor, VerifiedSuccessorPromotionPool]
 ]
+TerminalRecoveryReplay = Callable[[bytes, bytes], VerifiedTerminalExclusionEvidence]
 
 
 def add_parser(
@@ -88,6 +90,13 @@ def run(args: argparse.Namespace) -> int:
         raise Exact100SuccessorReplacementCliError(
             "exact100 successor inputs require authenticated predecessor replay"
         )
+    recovery_replay = cast(
+        TerminalRecoveryReplay | None, getattr(args, "_replay_terminal_recovery", None)
+    )
+    if recovery_replay is None:
+        raise Exact100SuccessorReplacementCliError(
+            "exact100 successor recovery requires fresh producer replay"
+        )
     stipulated_roots = tuple(cast(list[Path], args.stipulated_evidence_root))
     recovery_roots = tuple(cast(list[Path], args.recovery_evidence_root))
     output_root = cast(Path, args.output_root)
@@ -95,6 +104,7 @@ def run(args: argparse.Namespace) -> int:
     result, payloads = _build(
         predecessor_root=predecessor_root,
         replay_inputs=replay_inputs,
+        recovery_replay=recovery_replay,
         stipulated_roots=stipulated_roots,
         recovery_roots=recovery_roots,
         output_root=output_root,
@@ -127,6 +137,7 @@ def verify_materializer_projection(
     free_clearance_path: Path,
     expected_target_count: int,
     replay_inputs: SuccessorInputReplay,
+    recovery_replay: TerminalRecoveryReplay,
 ) -> dict[str, object]:
     """Replay the saved command and return the normal materializer projection."""
 
@@ -149,6 +160,7 @@ def verify_materializer_projection(
         _result, expected = _build(
             predecessor_root=predecessor_root,
             replay_inputs=replay_inputs,
+            recovery_replay=recovery_replay,
             stipulated_roots=stipulated_roots,
             recovery_roots=recovery_roots,
             output_root=target_root,
@@ -228,6 +240,7 @@ def _build(
     *,
     predecessor_root: Path,
     replay_inputs: SuccessorInputReplay,
+    recovery_replay: TerminalRecoveryReplay,
     stipulated_roots: Sequence[Path],
     recovery_roots: Sequence[Path],
     output_root: Path,
@@ -250,7 +263,12 @@ def _build(
     predecessor, promotion_pool = replay_inputs(predecessor_root)
     snapshots: dict[Path, bytes] = {}
     evidence = [
-        _recovery(root, predecessor.selection_bytes, snapshots)
+        _recovery(
+            root,
+            predecessor.selection_bytes,
+            snapshots,
+            recovery_replay=recovery_replay,
+        )
         for root in recovery_roots
     ]
     terminals = verify_post_selection_terminal_exclusions(
@@ -310,11 +328,43 @@ def _build(
     }
 
 
-def _recovery(root: Path, selection: bytes, snapshots: dict[Path, bytes]) -> Any:
+def _recovery(
+    root: Path,
+    selection: bytes,
+    snapshots: dict[Path, bytes],
+    *,
+    recovery_replay: TerminalRecoveryReplay,
+) -> VerifiedTerminalExclusionEvidence:
     payloads = _root_payloads(root, _RECOVERY_FILES, snapshots)
-    return verify_terminal_recovery_evidence(
+    request = _object(payloads["request"], root / _RECOVERY_FILES["request"])
+    candidate_id = request.get("candidate_id")
+    source_document_id = request.get("source_document_id")
+    if not isinstance(candidate_id, str) or not isinstance(source_document_id, str):
+        raise Exact100SuccessorReplacementCliError(
+            "persisted recovery request lacks the fixed candidate and document"
+        )
+    plan_bytes = _bytes(
+        {
+            "schema_version": "legalforecast.exact100_zero_cost_recovery_plan.v1",
+            "selection_sha256": _sha(selection),
+            "records": [
+                {
+                    "candidate_id": candidate_id,
+                    "source_document_id": source_document_id,
+                }
+            ],
+        }
+    )
+    try:
+        live_evidence = recovery_replay(selection, plan_bytes)
+    except ValueError as exc:
+        raise Exact100SuccessorReplacementCliError(
+            "fresh terminal recovery replay did not authorize the persisted root"
+        ) from exc
+    return authorize_persisted_terminal_recovery_evidence(
+        live_evidence=live_evidence,
         selection_bytes=selection,
-        request=_object(payloads["request"], root / _RECOVERY_FILES["request"]),
+        request=request,
         request_bytes=payloads["request"],
         receipt=_object(payloads["receipt"], root / _RECOVERY_FILES["receipt"]),
         receipt_bytes=payloads["receipt"],

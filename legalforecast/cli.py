@@ -461,6 +461,9 @@ from legalforecast.ingestion.exact100_successor_replacement_cli import (
 from legalforecast.ingestion.exact100_zero_cost_recovery_cli import (
     add_parser as add_exact100_zero_cost_recovery_parser,
 )
+from legalforecast.ingestion.exact100_zero_cost_recovery_cli import (
+    execute_terminal_recovery_for_successor,
+)
 from legalforecast.ingestion.exact310_rest_rebind import (
     Exact310RestRebindError,
     execute_exact310_terminal_rest_rebind,
@@ -598,6 +601,9 @@ from legalforecast.ingestion.packet_role_adjudication import (
     VerifiedPacketRoleAdjudications,
     authenticated_packet_role_evidence_from_record,
     verify_packet_role_adjudications,
+)
+from legalforecast.ingestion.post_selection_terminal_exclusion import (
+    VerifiedTerminalExclusionEvidence,
 )
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
@@ -41919,10 +41925,21 @@ def _verify_zero_cost_successor_projection(
     )
 
 
+def _replay_exact100_terminal_recovery(
+    selection: bytes, plan: bytes
+) -> VerifiedTerminalExclusionEvidence:
+    """Obtain fresh verifier-owned terminal authority for successor replay."""
+
+    return execute_terminal_recovery_for_successor(
+        selection_bytes=selection, plan_bytes=plan
+    )
+
+
 def _cmd_project_exact100_successor_replacement(args: argparse.Namespace) -> int:
     """Run exact-100 replacement only through established producer replay."""
 
     args._replay_inputs = _replay_exact100_successor_inputs
+    args._replay_terminal_recovery = _replay_exact100_terminal_recovery
     try:
         return run_exact100_successor_replacement(args)
     except Exact100SuccessorReplacementCliError as exc:
@@ -42181,6 +42198,7 @@ def _verify_materializer_projection(
                         free_clearance_path=free_clearance_path,
                         expected_target_count=expected_target_count,
                         replay_inputs=_replay_exact100_successor_inputs,
+                        recovery_replay=_replay_exact100_terminal_recovery,
                     ),
                     replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
                 )
@@ -42622,6 +42640,7 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
                         run_card, "selected_case_count"
                     ),
                     replay_inputs=_replay_exact100_successor_inputs,
+                    recovery_replay=_replay_exact100_terminal_recovery,
                 ),
                 replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
             )

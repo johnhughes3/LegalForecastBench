@@ -181,6 +181,40 @@ def test_zero_cost_recovery_test_seam_public_handoff_is_not_terminal(
         assert cli.main(command) == 2
 
 
+def test_successor_recovery_replay_rejects_nonterminal_public_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selection_bytes = _selection()
+    plan_bytes = _plan(selection_bytes)
+    request = issue_exact100_zero_cost_recovery_request(
+        selection_bytes=selection_bytes,
+        plan_bytes=plan_bytes,
+    )
+    public_result = Exact100ZeroCostRecoveryResult(
+        request=request,
+        public_document_manifest={
+            "candidate_id": "72449171",
+            "source_document_id": "480673755",
+            "terminal_exclusion_authority": False,
+        },
+        public_document_manifest_bytes=b"public handoff",
+    )
+    monkeypatch.setattr(
+        recovery_cli,
+        "_execute_terminal_recovery_with_verifier",
+        lambda **_kwargs: public_result,
+    )
+
+    with pytest.raises(
+        recovery_cli.Exact100ZeroCostRecoveryCliError,
+        match="not terminally unavailable",
+    ):
+        recovery_cli.execute_terminal_recovery_for_successor(
+            selection_bytes=selection_bytes,
+            plan_bytes=plan_bytes,
+        )
+
+
 def test_zero_cost_recovery_cli_rejects_mixed_or_tampered_resume_output(
     tmp_path: Path,
 ) -> None:

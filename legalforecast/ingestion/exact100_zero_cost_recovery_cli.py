@@ -18,6 +18,7 @@ from legalforecast.ingestion.courtlistener_client import (
 )
 from legalforecast.ingestion.exact100_zero_cost_recovery import (
     Exact100ZeroCostRecoveryError,
+    _execute_terminal_recovery_with_verifier,  # pyright: ignore[reportPrivateUsage]
     execute_exact100_zero_cost_recovery,
     issue_exact100_zero_cost_recovery_request,
     require_exact100_public_document_url,
@@ -28,12 +29,43 @@ from legalforecast.ingestion.free_document_downloader import (
 )
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     PostSelectionTerminalExclusionError,
-    verify_terminal_recovery_evidence,
+    VerifiedTerminalExclusionEvidence,
+    validate_terminal_recovery_evidence,
 )
 
 
 class Exact100ZeroCostRecoveryCliError(ValueError):
     """Raised when the bounded recovery command cannot publish its result."""
+
+
+def execute_terminal_recovery_for_successor(
+    *, selection_bytes: bytes, plan_bytes: bytes
+) -> VerifiedTerminalExclusionEvidence:
+    """Freshly observe the fixed CourtListener tuple and return opaque authority.
+
+    This always performs the bounded live observation.  It intentionally has no
+    resume path and accepts no transport, fixture, provider, or identifier from
+    the caller.
+    """
+
+    config = CourtListenerConfig.from_env()
+    if config.base_url != DEFAULT_COURTLISTENER_BASE_URL:
+        raise Exact100ZeroCostRecoveryCliError(
+            "exact100 recovery requires the canonical CourtListener REST v4 base"
+        )
+    try:
+        result = _execute_terminal_recovery_with_verifier(
+            selection_bytes=selection_bytes,
+            plan_bytes=plan_bytes,
+            courtlistener=CourtListenerClient(config=config),
+        )
+    except Exact100ZeroCostRecoveryError as exc:
+        raise Exact100ZeroCostRecoveryCliError(str(exc)) from exc
+    if result.terminal_evidence is None:
+        raise Exact100ZeroCostRecoveryCliError(
+            "fresh CourtListener observation is not terminally unavailable"
+        )
+    return result.terminal_evidence
 
 
 def add_parser(subparsers: Any) -> None:
@@ -260,7 +292,7 @@ def _verify_terminal_resume(
             "saved recovery request binds different immutable inputs"
         )
     try:
-        verify_terminal_recovery_evidence(
+        validate_terminal_recovery_evidence(
             selection_bytes=selection_bytes,
             request=_object(_read(request_path), request_path),
             request_bytes=request_bytes,

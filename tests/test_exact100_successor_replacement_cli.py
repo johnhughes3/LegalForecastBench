@@ -20,6 +20,8 @@ from legalforecast.ingestion.post_selection_terminal_exclusion import (
     RECOVERY_RUN_CARD_SCHEMA_VERSION,
     REST_OBSERVATION_SCHEMA_VERSION,
     REST_OBSERVATION_TRANSCRIPT_SCHEMA_VERSION,
+    VerifiedTerminalExclusionEvidence,
+    _mint_terminal_recovery_evidence_from_producer,
 )
 from tests.test_exact100_successor_replacement import (
     _fixture,
@@ -228,6 +230,84 @@ def _recovery_evidence(root: Path, *, candidate_id: str = "C001") -> Path:
     return root
 
 
+def _rewrite_recovery_response_self_consistently(
+    root: Path, *, response_bytes: bytes
+) -> None:
+    """Rewrite every caller-owned commitment around a fabricated response."""
+
+    transcript_path = (
+        root / successor_cli._RECOVERY_FILES["rest_observation_transcript"]
+    )
+    transcript = json.loads(transcript_path.read_bytes())
+    transcript["response_sha256"] = _sha(response_bytes)
+    transcript_bytes = _bytes(transcript)
+    transcript_path.write_bytes(transcript_bytes)
+
+    observation_path = root / successor_cli._RECOVERY_FILES["rest_observation"]
+    observation = json.loads(observation_path.read_bytes())
+    observation["transcript_sha256"] = _sha(transcript_bytes)
+    observation_bytes = _bytes(observation)
+    observation_path.write_bytes(observation_bytes)
+
+    receipt_path = root / successor_cli._RECOVERY_FILES["receipt"]
+    receipt = json.loads(receipt_path.read_bytes())
+    receipt["rest_observation_sha256"] = _sha(observation_bytes)
+    receipt["rest_observation_transcript_sha256"] = _sha(transcript_bytes)
+    receipt_bytes = _bytes(receipt)
+    receipt_path.write_bytes(receipt_bytes)
+
+    response_path = root / successor_cli._RECOVERY_FILES["rest_observation_response"]
+    response_path.write_bytes(response_bytes)
+    run_card_path = root / successor_cli._RECOVERY_FILES["run_card"]
+    run_card = json.loads(run_card_path.read_bytes())
+    run_card["output_commitments"] = {
+        "receipt": _sha(receipt_bytes),
+        "rest_observation": _sha(observation_bytes),
+        "rest_observation_transcript": _sha(transcript_bytes),
+        "rest_observation_response": _sha(response_bytes),
+    }
+    run_card_path.write_bytes(_bytes(run_card))
+
+
+@pytest.fixture(autouse=True)
+def _fresh_terminal_recovery_test_seam(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Replace only the private live-observation dependency in offline tests."""
+
+    calls = 0
+
+    def replay(
+        *, selection_bytes: bytes, plan_bytes: bytes
+    ) -> VerifiedTerminalExclusionEvidence:
+        nonlocal calls
+        calls += 1
+        record = json.loads(plan_bytes)["records"][0]
+        root = _recovery_evidence(
+            tmp_path / f"fresh-live-recovery-{calls}",
+            candidate_id=str(record["candidate_id"]),
+        )
+        payloads = {
+            name: (root / filename).read_bytes()
+            for name, filename in successor_cli._RECOVERY_FILES.items()
+        }
+        return _mint_terminal_recovery_evidence_from_producer(
+            selection_bytes=selection_bytes,
+            request=json.loads(payloads["request"]),
+            request_bytes=payloads["request"],
+            receipt=json.loads(payloads["receipt"]),
+            receipt_bytes=payloads["receipt"],
+            run_card=json.loads(payloads["run_card"]),
+            run_card_bytes=payloads["run_card"],
+            rest_observation=json.loads(payloads["rest_observation"]),
+            rest_observation_bytes=payloads["rest_observation"],
+            rest_observation_transcript_bytes=payloads["rest_observation_transcript"],
+            rest_observation_response_bytes=payloads["rest_observation_response"],
+        )
+
+    monkeypatch.setattr(cli, "execute_terminal_recovery_for_successor", replay)
+
+
 def _command(
     *, predecessor: Path, evidence: Path, output: Path, stipulated: bool = False
 ) -> list[str]:
@@ -351,6 +431,63 @@ def test_successor_cli_replays_sealed_input_and_materializer_projection(
     assert len(selection_records) == 100
     assert (output / "successor-terminal-exclusions.jsonl").is_file()
     assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 0
+
+
+def test_saved_recovery_root_alone_cannot_mint_successor_authority(
+    tmp_path: Path,
+) -> None:
+    evidence = _recovery_evidence(tmp_path / "saved-recovery")
+    args = SimpleNamespace(
+        predecessor_root=tmp_path / "predecessor",
+        stipulated_evidence_root=[],
+        recovery_evidence_root=[evidence],
+        output_root=tmp_path / "successor",
+        _replay_inputs=_test_only_replay,
+    )
+
+    with pytest.raises(
+        successor_cli.Exact100SuccessorReplacementCliError,
+        match="requires fresh producer replay",
+    ):
+        successor_cli.run(args)
+
+
+def test_successor_rejects_self_consistent_fabricated_recovery_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = tmp_path / "sealed-inputs"
+    inputs.mkdir()
+    _fixture()
+    evidence = _recovery_evidence(tmp_path / "fabricated-recovery")
+    _rewrite_recovery_response_self_consistently(
+        evidence, response_bytes=_bytes({"detail": "fabricated terminal response"})
+    )
+    output = tmp_path / "successor"
+    monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
+
+    assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 2
+    assert not output.exists()
+
+
+def test_successor_rejects_saved_404_after_fresh_nonterminal_observation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = tmp_path / "sealed-inputs"
+    inputs.mkdir()
+    _fixture()
+    evidence = _recovery_evidence(tmp_path / "saved-404")
+    output = tmp_path / "successor"
+    monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
+
+    def reject_nonterminal(**_kwargs: object) -> VerifiedTerminalExclusionEvidence:
+        raise ValueError("fresh CourtListener observation returned a public document")
+
+    monkeypatch.setattr(
+        cli, "execute_terminal_recovery_for_successor", reject_nonterminal
+    )
+
+    assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 2
+    assert not output.exists()
 
 
 def test_successor_materializer_rejects_tampered_immutable_output(

@@ -240,7 +240,7 @@ def _verify_stipulated_target_evidence_for_test(  # pyright: ignore[reportUnused
     )
 
 
-def verify_terminal_recovery_evidence(
+def validate_terminal_recovery_evidence(
     *,
     selection_bytes: bytes,
     request: Mapping[str, object],
@@ -253,8 +253,14 @@ def verify_terminal_recovery_evidence(
     rest_observation_bytes: bytes,
     rest_observation_transcript_bytes: bytes,
     rest_observation_response_bytes: bytes,
-) -> VerifiedTerminalExclusionEvidence:
-    """Mint missing-document terminality from a closed noncharging receipt."""
+) -> None:
+    """Validate a persisted recovery bundle without granting it authority.
+
+    The bundle is self-authenticating: all of its commitments can be fabricated
+    together by its owner.  Validation therefore establishes only internal
+    integrity.  Terminal authority is minted separately, in process, by the
+    bounded recovery producer that observed CourtListener's response.
+    """
 
     _verify_object_bytes(request, request_bytes, "zero-cost recovery request")
     _verify_object_bytes(receipt, receipt_bytes, "zero-cost recovery receipt")
@@ -405,6 +411,41 @@ def verify_terminal_recovery_evidence(
         raise PostSelectionTerminalExclusionError(
             "zero-cost recovery run card does not authenticate the terminal receipt"
         )
+    return None
+
+
+def _mint_terminal_recovery_evidence_from_producer(  # pyright: ignore[reportUnusedFunction]
+    *,
+    selection_bytes: bytes,
+    request: Mapping[str, object],
+    request_bytes: bytes,
+    receipt: Mapping[str, object],
+    receipt_bytes: bytes,
+    run_card: Mapping[str, object],
+    run_card_bytes: bytes,
+    rest_observation: Mapping[str, object],
+    rest_observation_bytes: bytes,
+    rest_observation_transcript_bytes: bytes,
+    rest_observation_response_bytes: bytes,
+) -> VerifiedTerminalExclusionEvidence:
+    """Mint authority only for the live producer's in-process observation."""
+
+    validate_terminal_recovery_evidence(
+        selection_bytes=selection_bytes,
+        request=request,
+        request_bytes=request_bytes,
+        receipt=receipt,
+        receipt_bytes=receipt_bytes,
+        run_card=run_card,
+        run_card_bytes=run_card_bytes,
+        rest_observation=rest_observation,
+        rest_observation_bytes=rest_observation_bytes,
+        rest_observation_transcript_bytes=rest_observation_transcript_bytes,
+        rest_observation_response_bytes=rest_observation_response_bytes,
+    )
+    candidate_id = _required_text(request, "candidate_id")
+    source_document_id = _required_text(request, "source_document_id")
+    request_sha = _sha(request_bytes)
     return _mint_terminal_evidence(
         candidate_id=candidate_id,
         source_document_id=source_document_id,
@@ -420,6 +461,68 @@ def verify_terminal_recovery_evidence(
             "rest_observation_response": _sha(rest_observation_response_bytes),
         },
     )
+
+
+def authorize_persisted_terminal_recovery_evidence(
+    *,
+    live_evidence: VerifiedTerminalExclusionEvidence,
+    selection_bytes: bytes,
+    request: Mapping[str, object],
+    request_bytes: bytes,
+    receipt: Mapping[str, object],
+    receipt_bytes: bytes,
+    run_card: Mapping[str, object],
+    run_card_bytes: bytes,
+    rest_observation: Mapping[str, object],
+    rest_observation_bytes: bytes,
+    rest_observation_transcript_bytes: bytes,
+    rest_observation_response_bytes: bytes,
+) -> VerifiedTerminalExclusionEvidence:
+    """Bind stable audit bytes to a fresh verifier-owned terminal observation.
+
+    Persisted recovery bytes determine the reproducible evidence commitments,
+    but cannot authorize them.  A fresh in-process producer capability for the
+    same fixed candidate and document supplies that missing authority.
+    """
+
+    require_verified_terminal_exclusion_evidence(live_evidence)
+    validate_terminal_recovery_evidence(
+        selection_bytes=selection_bytes,
+        request=request,
+        request_bytes=request_bytes,
+        receipt=receipt,
+        receipt_bytes=receipt_bytes,
+        run_card=run_card,
+        run_card_bytes=run_card_bytes,
+        rest_observation=rest_observation,
+        rest_observation_bytes=rest_observation_bytes,
+        rest_observation_transcript_bytes=rest_observation_transcript_bytes,
+        rest_observation_response_bytes=rest_observation_response_bytes,
+    )
+    candidate_id = _required_text(request, "candidate_id")
+    source_document_id = _required_text(request, "source_document_id")
+    expected_commitments = {
+        "selection": _sha(selection_bytes),
+        "recovery_request": _sha(request_bytes),
+        "recovery_receipt": _sha(receipt_bytes),
+        "recovery_run_card": _sha(run_card_bytes),
+        "rest_observation": _sha(rest_observation_bytes),
+        "rest_observation_transcript": _sha(rest_observation_transcript_bytes),
+        "rest_observation_response": _sha(rest_observation_response_bytes),
+    }
+    if (
+        live_evidence.candidate_id != candidate_id
+        or live_evidence.source_document_id != source_document_id
+        or live_evidence.reason
+        is not TerminalExclusionReason.TERMINAL_MISSING_CORE_DOCUMENT
+        or live_evidence.evidence_kind
+        != "completed_courtlistener_rest_noncharging_recovery"
+        or live_evidence.evidence_commitments != expected_commitments
+    ):
+        raise PostSelectionTerminalExclusionError(
+            "live recovery authority does not bind the persisted terminal evidence"
+        )
+    return live_evidence
 
 
 def _verify_stipulated_parser_run_card(

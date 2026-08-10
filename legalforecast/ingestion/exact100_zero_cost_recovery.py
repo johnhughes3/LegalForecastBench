@@ -13,7 +13,7 @@ import json
 import re
 import urllib.parse
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -45,6 +45,10 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadRequest,
     FreeDocumentSource,
     download_free_docket_documents,
+)
+from legalforecast.ingestion.post_selection_terminal_exclusion import (
+    VerifiedTerminalExclusionEvidence,
+    _mint_terminal_recovery_evidence_from_producer,  # pyright: ignore[reportPrivateUsage]
 )
 from legalforecast.ingestion.provenance import DocumentRole
 
@@ -102,6 +106,7 @@ class Exact100ZeroCostRecoveryResult:
     public_document_manifest: JsonRecord | None = None
     public_document_manifest_bytes: bytes | None = None
     public_download: FreeDocumentDownloadRecord | None = None
+    terminal_evidence: VerifiedTerminalExclusionEvidence | None = None
 
     @property
     def terminal_exclusion_authority(self) -> bool:
@@ -307,6 +312,60 @@ def execute_exact100_zero_cost_recovery(
         public_document_manifest_bytes=_bytes(manifest),
         public_download=download,
     )
+
+
+def _execute_terminal_recovery_with_verifier(  # pyright: ignore[reportUnusedFunction]
+    *,
+    selection_bytes: bytes,
+    plan_bytes: bytes,
+    courtlistener: CourtListenerClient,
+) -> Exact100ZeroCostRecoveryResult:
+    """Issue terminal authority through the private verifier seam only.
+
+    Production successor replay constructs its own canonical CourtListener
+    client before entering this seam.  Tests may inject an offline transport;
+    the ordinary public recovery function remains non-authoritative even when
+    its caller supplies a self-consistent fixture response.
+    """
+
+    result = execute_exact100_zero_cost_recovery(
+        selection_bytes=selection_bytes,
+        plan_bytes=plan_bytes,
+        courtlistener=courtlistener,
+    )
+    if result.receipt is None:
+        return result
+    required = (
+        result.receipt_bytes,
+        result.run_card,
+        result.run_card_bytes,
+        result.rest_observation,
+        result.rest_observation_bytes,
+        result.rest_observation_transcript_bytes,
+        result.rest_observation_response_bytes,
+    )
+    if any(payload is None for payload in required):
+        raise Exact100ZeroCostRecoveryError(
+            "terminal recovery producer lacks its closed evidence bundle"
+        )
+    terminal_evidence = _mint_terminal_recovery_evidence_from_producer(
+        selection_bytes=result.request.selection_bytes,
+        request=result.request.record,
+        request_bytes=result.request.record_bytes,
+        receipt=result.receipt,
+        receipt_bytes=cast(bytes, result.receipt_bytes),
+        run_card=cast(JsonRecord, result.run_card),
+        run_card_bytes=cast(bytes, result.run_card_bytes),
+        rest_observation=cast(JsonRecord, result.rest_observation),
+        rest_observation_bytes=cast(bytes, result.rest_observation_bytes),
+        rest_observation_transcript_bytes=cast(
+            bytes, result.rest_observation_transcript_bytes
+        ),
+        rest_observation_response_bytes=cast(
+            bytes, result.rest_observation_response_bytes
+        ),
+    )
+    return replace(result, terminal_evidence=terminal_evidence)
 
 
 def _unavailable_result(

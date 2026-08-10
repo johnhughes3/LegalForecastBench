@@ -19,7 +19,7 @@ The closed reason vocabulary reserves `stipulated_ineligible` and `terminal_miss
 
 ## Noncharging recovery request, receipt, and run card
 
-The `terminal_missing_core_document` route accepts only the following closed artifacts:
+The `terminal_missing_core_document` route structurally validates only the following closed persisted artifacts:
 
 - `legalforecast.exact100_zero_cost_recovery_request.v2`
 - `legalforecast.exact100_zero_cost_recovery_receipt.v2`
@@ -34,6 +34,8 @@ The receipt must bind the request, REST observation, and exact one-row transcrip
 
 The completed run card binds exactly the request and selection input commitments and the receipt, observation, transcript, and raw-response output commitments. Its provider-activity fields describe execution of the bounded CourtListener REST request; they are not authority for any model provider, paid source, PACER, or RECAP Fetch route.
 
+Those persisted artifacts are caller-owned after serialization and therefore establish only canonical-byte integrity and internal consistency. They cannot mint terminal-exclusion authority. The public successor command and every later materializer or purchase-approval replay must make a fresh request through the canonical bounded CourtListener producer, receive an opaque verifier-owned in-process capability for the same terminal 404, and require the capability's complete evidence-commitment map to equal the persisted bundle. A saved 404 cannot override a fresh public-document or other nonterminal result, and a recovery-command resume never recreates the capability.
+
 ## Verification boundary
 
-The verifier rejects syntactically valid but unbound digests, candidate IDs outside the exact selection, wrong document roles, duplicate terminal candidates, unavailable stipulated evidence, incomplete receipts, altered canonical bytes, and any request or run card that expands the permitted route. A verified terminal record is therefore evidence for a later successor projection, not a substitute for that projection's full predecessor replay and promotion checks.
+The structural verifier rejects syntactically valid but unbound digests, candidate IDs outside the exact selection, wrong document roles, duplicate terminal candidates, unavailable stipulated evidence, incomplete receipts, altered canonical bytes, and any request or run card that expands the permitted route. Structural verification alone grants no authority. Only a fresh canonical producer capability exactly matching the persisted commitments can produce the verified terminal record used by a successor projection, and that record is not a substitute for the projection's full predecessor replay and promotion checks.
