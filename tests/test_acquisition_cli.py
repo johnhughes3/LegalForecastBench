@@ -1,5 +1,7 @@
+# pyright: reportPrivateUsage=false
 from __future__ import annotations
 
+import argparse
 import base64
 import hashlib
 import json
@@ -14,11 +16,23 @@ import legalforecast.ingestion.recap_fetch_broker as recap_broker
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 from legalforecast.cli import main
+from legalforecast.ingestion import (
+    exact100_successor_replacement_v2_cli as successor_v2_cli,
+)
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     generate_case_dev_purchase_policy,
 )
+from legalforecast.ingestion.exact100_successor_replacement_v2 import (
+    _mint_verified_exact100_v2_base,
+)
 from legalforecast.ingestion.free_document_downloader import FreeDocumentFetch
+from legalforecast.ingestion.post_selection_terminal_exclusion import (
+    TerminalExclusionReason,
+    _mint_terminal_evidence,
+    verify_post_selection_terminal_exclusions,
+)
 from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import CaptureFixture, MonkeyPatch
 from tests.purchase_approval_fixtures import (
@@ -27,6 +41,7 @@ from tests.purchase_approval_fixtures import (
     build_approved_purchase_fixture,
     build_completed_projection_fixture,
 )
+from tests.test_exact100_successor_replacement_v2 import _fixture as _v2_fixture
 
 
 @pytest.fixture
@@ -4825,3 +4840,210 @@ def _read_jsonl(path: Path) -> list[JsonRecord]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+_V2_REPLAY_ROOT_NAMES = (
+    "predecessor_root",
+    "complete_materialization_root",
+    "stipulated_evidence_root",
+    "final153_snapshot",
+    "wider_plan_root",
+    "wider_exclusion_root",
+    "historical_packet_root",
+)
+_V2_TERMINAL_CANDIDATE_ID = "69736298"
+
+
+def _rename_v2_terminal(value: Any) -> Any:
+    if isinstance(value, str):
+        return {
+            "s000": _V2_TERMINAL_CANDIDATE_ID,
+            "s000-decision": f"{_V2_TERMINAL_CANDIDATE_ID}-decision",
+        }.get(value, value)
+    if isinstance(value, dict):
+        return {key: _rename_v2_terminal(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_rename_v2_terminal(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_rename_v2_terminal(item) for item in value)
+    return value
+
+
+def _v2_authenticated_replay(
+    roots: Mapping[str, Path],
+) -> tuple[successor_v2_cli.V2InputReplay, Any, Any]:
+    """Provide one sealed replay whose terminal case has the production identity."""
+
+    inputs = _v2_fixture()
+    base = inputs["base"]
+    renamed_base = _mint_verified_exact100_v2_base(
+        predecessor_projection_bytes=base.predecessor_projection_bytes,
+        selection_rows=cast(list[JsonRecord], _rename_v2_terminal(base.selection)),
+        case_relevance_rows=cast(
+            list[JsonRecord], _rename_v2_terminal(base.case_relevance)
+        ),
+        download_manifest_rows=cast(
+            list[JsonRecord], _rename_v2_terminal(base.download_manifest)
+        ),
+        disclosure_rows=cast(
+            list[JsonRecord], _rename_v2_terminal(base.disclosure_clearance)
+        ),
+        restriction_rows=cast(
+            list[JsonRecord], _rename_v2_terminal(base.restriction_evidence)
+        ),
+        core_filter_rows=cast(
+            list[JsonRecord], _rename_v2_terminal(base.core_filter_results)
+        ),
+        source_commitments=base.source_commitments,
+    )
+    terminal = verify_post_selection_terminal_exclusions(
+        selection_bytes=renamed_base.selection_bytes,
+        evidence=(
+            _mint_terminal_evidence(
+                candidate_id=_V2_TERMINAL_CANDIDATE_ID,
+                source_document_id=f"{_V2_TERMINAL_CANDIDATE_ID}-decision",
+                reason=TerminalExclusionReason.STIPULATED_INELIGIBLE,
+                evidence_kind="test_authenticated_v2_terminal_replay",
+                evidence_commitments={
+                    "selection": "sha256:"
+                    + hashlib.sha256(renamed_base.selection_bytes).hexdigest()
+                },
+            ),
+        ),
+    )
+    expected_roots = tuple(roots[name].absolute() for name in _V2_REPLAY_ROOT_NAMES)
+
+    def replay(args: argparse.Namespace) -> tuple[Any, Any, Any, Any]:
+        actual_roots = tuple(
+            cast(Path, getattr(args, name)).absolute() for name in _V2_REPLAY_ROOT_NAMES
+        )
+        if actual_roots != expected_roots:
+            raise successor_v2_cli.Exact100SuccessorReplacementV2CliError(
+                "authenticated v2 input roots differ"
+            )
+        return renamed_base, terminal, inputs["repairs"], inputs["wider"]
+
+    return replay, renamed_base, inputs["wider"]
+
+
+def _run_v2_successor_cli(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> tuple[Path, successor_v2_cli.V2InputReplay, Any, Any]:
+    roots = {name: tmp_path / name.replace("_", "-") for name in _V2_REPLAY_ROOT_NAMES}
+    replay, base, wider = _v2_authenticated_replay(roots)
+    monkeypatch.setattr(cli, "_replay_exact100_successor_replacement_v2_inputs", replay)
+    output_root = tmp_path / "exact100-successor-v2"
+    command = ["acquisition", "project-exact100-successor-replacement-v2"]
+    for name in _V2_REPLAY_ROOT_NAMES:
+        command.extend((f"--{name.replace('_', '-')}", str(roots[name])))
+    command.extend(("--output-root", str(output_root)))
+
+    assert main(command) == 0
+    return output_root, replay, base, wider
+
+
+def test_exact100_successor_v2_cli_mints_specialized_materializer_authority(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    output_root, _replay, base, wider = _run_v2_successor_cli(tmp_path, monkeypatch)
+
+    projection = cli._verify_materializer_projection(
+        target_root=output_root,
+        free_clearance_path=output_root / "disclosure-clearance.jsonl",
+        preparation_summary_path=tmp_path / "unused-preparation-summary.json",
+        preparation_config_path=tmp_path / "unused-preparation-config.json",
+        snapshot_manifest_path=tmp_path / "unused-snapshot-manifest.json",
+        expected_target_count=100,
+    )
+    verified = cli._verified_successor_selection_card_from_projection(projection)
+    assert verified is not None and verified.is_replay_minted()
+
+    final_ids = {
+        cast(str, row["candidate_id"])
+        for row in _read_jsonl(output_root / "target-cohort-selection.jsonl")
+    }
+    predecessor_ids = {cast(str, row["candidate_id"]) for row in base.selection}
+    assert predecessor_ids - final_ids == {_V2_TERMINAL_CANDIDATE_ID}
+    assert final_ids - predecessor_ids == {wider.selected_candidate_id}
+
+    state = _read_json(output_root / "run-cards/project-target-cohort.json")
+    assert state["terminal_candidate_ids"] == [_V2_TERMINAL_CANDIDATE_ID]
+    assert state["promoted_candidate_ids"] == [wider.selected_candidate_id]
+    for field in (
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "courtlistener_activity_requested",
+        "courtlistener_activity_executed",
+        "pacer_activity_requested",
+        "pacer_activity_executed",
+        "recap_fetch_activity_requested",
+        "recap_fetch_activity_executed",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "model_activity_requested",
+        "model_activity_executed",
+        "evaluation_authorized",
+        "freeze_authorized",
+        "dispatch_authorized",
+    ):
+        assert state[field] is False
+    assert not any("network" in field for field in state)
+
+
+def test_exact100_successor_v2_rejects_generic_unattested_projection(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    output_root, replay, _base, _wider = _run_v2_successor_cli(tmp_path, monkeypatch)
+    run_card = _read_json(output_root / "run-cards/project-target-cohort.json")
+    projection = cli.verify_exact100_successor_replacement_v2_projection(
+        output_root,
+        replay=replay,
+        args=cli._exact100_successor_v2_replay_args(run_card),
+    )
+
+    with pytest.raises(
+        cli.CommandError,
+        match="requires specialized replay attestation",
+    ):
+        cli._mint_verified_successor_selection_card_from_projection(projection)
+
+
+def test_exact100_successor_v2_rejects_persisted_input_path_tampering(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    output_root, _replay, _base, _wider = _run_v2_successor_cli(tmp_path, monkeypatch)
+    state_path = output_root / "run-cards/project-target-cohort.json"
+    state = _read_json(state_path)
+    state["input_paths"][0] = str(tmp_path / "forged-predecessor")
+    state_path.write_bytes(
+        canonical_json_bytes(
+            state,
+            error_type=ValueError,
+            error_message="test state serialization failed",
+        )
+    )
+
+    with pytest.raises(cli.CommandError, match="authenticated v2 input roots differ"):
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(output_root)
+
+
+def test_exact100_successor_v2_rejects_persisted_state_tampering(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    output_root, _replay, _base, _wider = _run_v2_successor_cli(tmp_path, monkeypatch)
+    state_path = output_root / "run-cards/project-target-cohort.json"
+    state = _read_json(state_path)
+    state["dispatch_authorized"] = True
+    state_path.write_bytes(
+        canonical_json_bytes(
+            state,
+            error_type=ValueError,
+            error_message="test state serialization failed",
+        )
+    )
+
+    with pytest.raises(
+        cli.CommandError,
+        match="completed v2 successor run card differs from replay",
+    ):
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(output_root)
