@@ -5,6 +5,7 @@ from io import BytesIO
 from typing import Any
 
 import pytest
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_semantic_repair import (
     Exact100SuccessorSemanticRepairError,
     VerifiedExact100SuccessorSemanticRepairs,
@@ -90,6 +91,20 @@ def test_mint_recognizes_repairs_and_preserves_source_identity() -> None:
         == ()
     )
     assert verified.records_bytes.endswith(b"\n")
+    expected_tree = {
+        "72309378/entry-1-complaint": hashlib.sha256(complaint).hexdigest(),
+        "72309378/entry-20-motion": hashlib.sha256(motion).hexdigest(),
+    }
+    assert verified.source_commitments["document_bytes_tree"] == (
+        "sha256:"
+        + hashlib.sha256(
+            canonical_json_bytes(
+                expected_tree,
+                error_type=ValueError,
+                error_message="test serialization failed",
+            )
+        ).hexdigest()
+    )
 
 
 def test_replay_is_exact_and_metadata_must_match_bytes() -> None:

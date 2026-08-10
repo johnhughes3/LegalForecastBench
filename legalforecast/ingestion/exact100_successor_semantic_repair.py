@@ -19,19 +19,16 @@ from typing import Any, cast
 
 from pypdf import PdfReader
 
-import legalforecast.contracts as contracts
+from legalforecast.contracts import (
+    ARTIFACT_PREFIXED_SHA256_V1,
+    EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.provenance import DocumentRole
 
 JsonRecord = dict[str, Any]
 DocumentKey = tuple[str, str]
-SCHEMA_VERSION = str(
-    getattr(
-        contracts,
-        "EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1",
-        "legalforecast.exact100_successor_semantic_repair.v1",
-    )
-)
+SCHEMA_VERSION = str(EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1)
 _VERIFICATION_SEAL = object()
 _EMBEDDED_COMPLAINT_SOURCE_ROLES = frozenset(
     {
@@ -175,7 +172,19 @@ def _mint_verified_exact100_successor_semantic_repairs(  # pyright: ignore[repor
     source_commitments = MappingProxyType(
         {
             "document_metadata": _sha(_jsonl_bytes(documents)),
-            "document_bytes_tree": _document_bytes_tree_sha256(source_bytes),
+            "document_bytes_tree": str(
+                ARTIFACT_PREFIXED_SHA256_V1.commit(
+                    {
+                        f"{candidate_id}/{source_document_id}": hashlib.sha256(
+                            payload
+                        ).hexdigest()
+                        for (candidate_id, source_document_id), payload in sorted(
+                            source_bytes.items()
+                        )
+                    },
+                    domain=EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1,
+                ).digest
+            ),
         }
     )
     result = object.__new__(VerifiedExact100SuccessorSemanticRepairs)
@@ -461,18 +470,6 @@ def _raw_sha(value: object) -> str:
     if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
         raise Exact100SuccessorSemanticRepairError("source document has invalid sha256")
     return value
-
-
-def _document_bytes_tree_sha256(
-    document_bytes_by_key: Mapping[DocumentKey, bytes],
-) -> str:
-    tree = {
-        f"{candidate_id}/{source_document_id}": hashlib.sha256(payload).hexdigest()
-        for (candidate_id, source_document_id), payload in sorted(
-            document_bytes_by_key.items()
-        )
-    }
-    return _sha(_canonical_bytes(tree))
 
 
 def _jsonl_bytes(records: Sequence[Mapping[str, Any]]) -> bytes:

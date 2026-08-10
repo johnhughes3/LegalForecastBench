@@ -18,6 +18,7 @@ from legalforecast.contracts import (
     EXACT100_SUCCESSOR_PROMOTION_V2,
     EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V2,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
+    ZERO_COST_SUCCESSOR_CONFIG_V1,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.core_document_filter import filter_core_documents
@@ -431,7 +432,7 @@ def project_exact100_successor_replacement_v2(
     config: JsonRecord = {
         "schema_version": CONFIG_SCHEMA_VERSION,
         "target_case_count": _TARGET_COUNT,
-        "predecessor_schema_version": "legalforecast.zero_cost_successor_config.v1",
+        "predecessor_schema_version": str(ZERO_COST_SUCCESSOR_CONFIG_V1),
         "terminal_exclusion_count": 1,
         "promoted_candidate_ids": [promoted_id],
         "ranking_policy": [

@@ -17,6 +17,7 @@ from legalforecast.contracts import (
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
     EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1,
     EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1,
+    EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1,
     EXACT100_ZERO_COST_RECOVERY_RECEIPT_V1,
     EXACT100_ZERO_COST_RECOVERY_REQUEST_V1,
     EXACT100_ZERO_COST_RECOVERY_RUN_V1,
@@ -200,6 +201,7 @@ def test_recovery_vertical_slice_schema_registry_is_versioned_and_unique() -> No
         EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
         EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
         EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1,
+        EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1,
         EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1,
         EXACT100_ZERO_COST_RECOVERY_RECEIPT_V1,
         EXACT100_ZERO_COST_RECOVERY_REQUEST_V1,
@@ -224,6 +226,9 @@ def test_exact100_successor_v2_domains_do_not_reinterpret_v1() -> None:
     )
     assert EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1.value == (
         "legalforecast.exact100_successor_semantic_repair.v1"
+    )
+    assert EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1.value == (
+        "legalforecast.exact100_successor_wider_rank_ledger.v1"
     )
 
     assert EXACT100_SUCCESSOR_PROMOTION_V2 != EXACT100_SUCCESSOR_PROMOTION_V1

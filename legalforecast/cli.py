@@ -41,8 +41,11 @@ from legalforecast.acquisition_completion_summary_cli import (
     add_acquisition_completion_summary_parser,
 )
 from legalforecast.contracts import (
+    ARTIFACT_RAW_SHA256_V1,
+    DISCLOSURE_CLEARANCE_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
+    EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
@@ -50,6 +53,7 @@ from legalforecast.contracts import (
     UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
     UNITIZATION_REVIEW_BUNDLE_V1,
     UNITIZATION_REVIEW_QUEUE_V1,
+    ZERO_COST_SUCCESSOR_CONFIG_V1,
 )
 from legalforecast.evals.accounting import (
     OutputValidityStatus,
@@ -42536,8 +42540,7 @@ def _replay_exact100_v2_predecessor_surface(
         or run_card.get("stage") != "project-zero-cost-successor"
         or run_card.get("status") != "completed"
         or run_card.get("selected_case_count") != 100
-        or projection.get("schema_version")
-        != "legalforecast.zero_cost_successor_config.v1"
+        or projection.get("schema_version") != str(ZERO_COST_SUCCESSOR_CONFIG_V1)
     ):
         raise CommandError("exact100 v2 predecessor card differs")
     for name in output_names:
@@ -42837,9 +42840,12 @@ def _replay_exact100_successor_replacement_v2_inputs(
             "canonical_candidate_id": _required_str(
                 _mapping(row.get("candidate"), "final153 candidate"), "docket_id"
             ),
-            "snapshot_row_sha256": hashlib.sha256(
-                canonical_json_bytes(row)
-            ).hexdigest(),
+            "snapshot_row_sha256": str(
+                ARTIFACT_RAW_SHA256_V1.commit(
+                    row,
+                    domain=EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1,
+                ).digest
+            ),
         }
         for row in final153_rows
     )
@@ -43235,7 +43241,12 @@ def _exact100_v2_provider_free_clearance(
     )
     if plan.get("john_review_count") != 0:
         raise CommandError("historical public packet requires human clearance")
-    routing_sha = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+    routing_sha = str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            plan,
+            domain=DISCLOSURE_CLEARANCE_V1,
+        ).digest
+    )
     clearance = tuple(
         dict(record.to_record())
         for record in build_provenance_clearance_records(

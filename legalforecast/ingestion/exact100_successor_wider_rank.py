@@ -9,11 +9,15 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
+from legalforecast.contracts import (
+    EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1,
+    EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 
 JsonRecord = dict[str, Any]
-LEDGER_SCHEMA_VERSION = "legalforecast.exact100_successor_wider_rank_ledger.v1"
-SEMANTIC_REPAIR_SCHEMA_VERSION = "legalforecast.exact100_successor_semantic_repair.v1"
+LEDGER_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1)
+SEMANTIC_REPAIR_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1)
 _COUNTS = (153, 100, 53)
 _SHA256 = re.compile(r"(?:sha256:)?([0-9a-f]{64})")
 _SEAL = object()
