@@ -19,6 +19,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts.schemas import (
+    CYCLE_PREFLIGHT_MANIFEST_SIDECAR_V1,
+    CYCLE_PREFLIGHT_REPORT_V2,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseSnapshot,
@@ -40,7 +44,7 @@ from legalforecast.ingestion.resolved_post_recovery import (
     reconstruct_pre_resolution_purchase_snapshot,
 )
 
-SIDECAR_SCHEMA = "legalforecast.cycle_preflight_manifest_sidecar.v1"
+SIDECAR_SCHEMA = CYCLE_PREFLIGHT_MANIFEST_SIDECAR_V1.value
 _SHA256_PREFIX = "sha256:"
 _REQUIRED_NATIVE_STAGES = frozenset(
     {
@@ -77,6 +81,128 @@ class HistoricalPurchaseSnapshots:
     before_recovery: CaseDevPurchaseSnapshot
     after_recovery: CaseDevPurchaseSnapshot
     current: CaseDevPurchaseSnapshot
+
+
+def verify_v2_sidecar(path: Path) -> dict[str, object]:
+    """Verify the additive, real two-transition recovery graph from a sidecar.
+
+    v1 intentionally models one purchase transition.  This read-only v2 report
+    instead proves the two native transitions independently and keeps their
+    distinct after-states explicit.
+    """
+
+    sidecar = _read_json(path, label="v2 discovery sidecar")
+    if (
+        sidecar.get("schema_version") != SIDECAR_SCHEMA
+        or sidecar.get("non_authoritative") is not True
+    ):
+        raise CyclePreflightManifestError(
+            "v2 verification requires a discovery sidecar"
+        )
+    cards = _object(sidecar.get("native_cards"), label="v2 native cards")
+    slice_ = NativeRecoverySlice(
+        cycle_id=_text(sidecar.get("cycle_id"), label="v2 cycle id"),
+        lineage_root_identity_sha256=_text(
+            sidecar.get("lineage_root_identity_sha256"), label="v2 root identity"
+        ),
+        materialize_card=Path(
+            _text(cards.get("materialize"), label="v2 materialize card")
+        ),
+        consolidation_card=Path(
+            _text(cards.get("consolidation"), label="v2 consolidation card")
+        ),
+        recovery_card=Path(_text(cards.get("recovery"), label="v2 recovery card")),
+        clearance_card=Path(_text(cards.get("clearance"), label="v2 clearance card")),
+        resolution_card=Path(
+            _text(cards.get("resolution"), label="v2 resolution card")
+        ),
+        replacement_source_card=Path(
+            _text(cards.get("replacement_source"), label="v2 source card")
+        ),
+    )
+    recovery = _read_json(slice_.recovery_card, label="v2 recovery card")
+    recovery_inputs = _committed_paths(recovery, label="v2 recovery card")
+    policy_path = _one(
+        [path for path in recovery_inputs if path.name == "purchase-policy-v2.json"],
+        label="v2 purchase policy",
+    )
+    ledger_path = _one(
+        [
+            path
+            for path in _paths(
+                _read_json(slice_.resolution_card, label="v2 resolution card"),
+                field="input_paths",
+                label="v2 resolution card",
+            )
+            if path.suffix == ".sqlite3"
+        ],
+        label="v2 purchase ledger",
+    )
+    snapshots = reconstruct_historical_purchase_snapshots(
+        slice_,
+        ledger_path=ledger_path,
+        policy_path=policy_path,
+        initialization_receipt_path=ledger_path.parent
+        / "purchase-ledger-initialization.json",
+    )
+    if (
+        snapshots.before_recovery.purchase_state_sha256
+        == snapshots.after_recovery.purchase_state_sha256
+        or snapshots.after_recovery.purchase_state_sha256
+        == snapshots.current.purchase_state_sha256
+    ):
+        raise CyclePreflightManifestError("v2 purchase transitions are not distinct")
+    materialize = _read_json(slice_.materialize_card, label="v2 materialize card")
+    materialize_commitments = _committed_paths(materialize, label="v2 materialize card")
+    consolidation = _require_committed_card(
+        slice_.consolidation_card,
+        commitments=materialize_commitments,
+        label="v2 consolidation card",
+    )
+    consolidation_commitments = _committed_paths(
+        consolidation, label="v2 consolidation card"
+    )
+    _index_path, index_card = _one(
+        [
+            (candidate, card)
+            for candidate, card in _committed_cards(
+                consolidation_commitments, label="v2 consolidation input"
+            )
+            if _stage(card) == "build-replacement-recovery-index"
+        ],
+        label="v2 recovery index card",
+    )
+    index_commitments = _committed_paths(index_card, label="v2 recovery index card")
+    descriptors = [
+        path
+        for path in index_commitments
+        if path.name in {"0000-initial-v2.json", "0001-successor.json"}
+    ]
+    if len(descriptors) != 2:
+        raise CyclePreflightManifestError(
+            "v2 source closure lacks both ordinal descriptors"
+        )
+    for descriptor in descriptors:
+        _require_committed_card(
+            descriptor, commitments=index_commitments, label="v2 descriptor"
+        )
+    return {
+        "schema_version": CYCLE_PREFLIGHT_REPORT_V2.value,
+        "ok": True,
+        "nodes": [
+            {
+                "id": "successor-resolution",
+                "status": "PASSED",
+                "after": snapshots.after_recovery.purchase_state_sha256,
+            },
+            {
+                "id": "terminal-resolution",
+                "status": "PASSED",
+                "after": snapshots.current.purchase_state_sha256,
+            },
+            {"id": "replacement-source-closure", "status": "PASSED", "descriptors": 2},
+        ],
+    }
 
 
 def _read_json(path: Path, *, label: str) -> Mapping[str, object]:
@@ -611,12 +737,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="python -m legalforecast.ingestion.cycle_preflight_manifest",
         description="Discover a provider-free Cycle 1 recovery preflight source set.",
     )
-    parser.add_argument("--index", type=Path, required=True)
+    parser.add_argument("--index", type=Path)
     parser.add_argument("--cycle-id")
     parser.add_argument("--emit-sidecar", type=Path)
+    parser.add_argument("--verify-v2-sidecar", type=Path)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
+        if args.verify_v2_sidecar is not None:
+            report = verify_v2_sidecar(args.verify_v2_sidecar)
+            print(json.dumps(report, sort_keys=True) if args.json else "V2 PASS")
+            return 0
+        if args.index is None:
+            parser.error("--index is required unless --verify-v2-sidecar is used")
         slice_ = discover_native_recovery_slice(
             index_path=args.index, cycle_id=args.cycle_id
         )

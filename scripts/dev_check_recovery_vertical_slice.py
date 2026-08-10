@@ -214,6 +214,23 @@ def _classify_real_manifest(manifest: Path | None) -> tuple[Path | None, bool]:
     return manifest, False
 
 
+def _is_v2_sidecar(manifest: Path) -> bool:
+    """Recognize the non-authoritative v2 discovery input without trusting paths."""
+
+    try:
+        record = json.loads(manifest.read_bytes())
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return False
+    if not isinstance(record, Mapping):
+        return False
+    sidecar = cast(Mapping[str, object], record)
+    return (
+        sidecar.get("schema_version")
+        == "legalforecast.cycle_preflight_manifest_sidecar.v1"
+        and sidecar.get("non_authoritative") is True
+    )
+
+
 def _python_module(*arguments: str) -> tuple[str, ...]:
     """Build a child command using the already uv-managed interpreter."""
 
@@ -348,16 +365,26 @@ def main(
     started = time.perf_counter()
     results: list[CheckResult] = []
     if real_manifest is not None:
+        command = (
+            _python_module(
+                "legalforecast.ingestion.cycle_preflight_manifest",
+                "--verify-v2-sidecar",
+                str(real_manifest),
+                "--json",
+            )
+            if _is_v2_sidecar(real_manifest)
+            else _python_module(
+                "legalforecast.ingestion.cycle_preflight",
+                "--manifest",
+                str(real_manifest),
+                "--format",
+                "text",
+            )
+        )
         results.append(
             _run_check(
                 "real-lineage-preflight",
-                _python_module(
-                    "legalforecast.ingestion.cycle_preflight",
-                    "--manifest",
-                    str(real_manifest),
-                    "--format",
-                    "text",
-                ),
+                command,
                 diagnostics=diagnostics,
             )
         )
