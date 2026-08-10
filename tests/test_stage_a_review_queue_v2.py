@@ -572,3 +572,32 @@ def test_sidecar_write_failure_rolls_back_the_entire_queue_pair(
 
     assert queue_path.read_bytes() == b"prior-v1\\n"
     assert sidecar_path.read_bytes() == b"prior-v2\\n"
+
+
+def test_first_queue_write_failure_rolls_back_the_entire_queue_pair(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partial v1 overwrite is restored before v2 publication can begin."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    sidecar_path = review_queue_v2_sidecar_path(queue_path)
+    queue_path.write_bytes(b"prior-v1\\n")
+    sidecar_path.write_bytes(b"prior-v2\\n")
+    original_write_bytes = Path.write_bytes
+    failed_queue_write = False
+
+    def partially_overwrite_then_fail(path: Path, payload: bytes) -> int:
+        nonlocal failed_queue_write
+        if path == queue_path and not failed_queue_write:
+            failed_queue_write = True
+            original_write_bytes(path, b"partial-v1")
+            raise OSError("queue storage unavailable")
+        return original_write_bytes(path, payload)
+
+    monkeypatch.setattr(Path, "write_bytes", partially_overwrite_then_fail)
+
+    with pytest.raises(CommandError, match="cannot publish the Stage A review queue"):
+        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+
+    assert queue_path.read_bytes() == b"prior-v1\\n"
+    assert sidecar_path.read_bytes() == b"prior-v2\\n"

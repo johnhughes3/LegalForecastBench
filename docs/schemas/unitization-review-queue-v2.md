@@ -19,7 +19,7 @@ v2 keeps the four separate:
 
 For a unit-subject item, `allowed_actions` is the set of dispositions `_validate_disposition_shape` will actually accept for a review that consumes one unit: `ACCEPT`, `AMEND`, `SPLIT`, `MERGE`, `DROP`, `CANDIDATE-EXCLUSION`. `ADD` is offered only for `structural_omitted`, because the frozen ADD validator requires an omitted structural review. Narrowing further — offering only `SPLIT` on a `structural_combined` flag, say — would substitute a guess about legal judgment for a fact about the validators, so v2 does not do it.
 
-A candidate-subject technical item offers `RETRY-STRUCTURAL-REVIEW`, `WAIVE-STRUCTURAL-REVIEW`, and `EXCLUDE-CANDIDATE`. No unit disposition appears, because none can resolve it: every disposition consumes source units, and the item names no unit.
+A candidate-subject technical item currently has an empty authoritative `allowed_actions` list. Frozen Cycle 1 has no candidate-level adjudication consumer, so `RETRY-STRUCTURAL-REVIEW`, `WAIVE-STRUCTURAL-REVIEW`, and `EXCLUDE-CANDIDATE` are outside the current v2 contract rather than advertised as executable resolutions. A future version may add those operations only alongside an authoritative consumer path. No unit disposition appears, because every current disposition consumes source units and the item names no unit.
 
 ## Terminal structural-review failures become one candidate item
 
