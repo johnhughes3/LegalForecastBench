@@ -110,7 +110,7 @@ def test_sdk_is_an_exact_optional_runtime_pin() -> None:
     assert project["project"]["optional-dependencies"]["claude-agent-sdk-adapter"] == [
         f"claude-agent-sdk=={CLAUDE_AGENT_SDK_VERSION}"
     ]
-    assert CLAUDE_AGENT_SDK_VERSION == "0.2.128"
+    assert CLAUDE_AGENT_SDK_VERSION == "0.2.132"
     assert CLAUDE_BUNDLED_CLI_VERSION == "2.1.220"
     assert CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM["linux-x86_64"] == (
         "sha256:674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863"
