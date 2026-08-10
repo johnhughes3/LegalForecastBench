@@ -173,7 +173,7 @@ def _manifest_commitment_signature(value: object) -> tuple[str, ...]:
         if isinstance(candidate, Mapping):
             for key, nested in cast(Mapping[object, object], candidate).items():
                 if key == "sha256" and isinstance(nested, str):
-                    digest = nested.removeprefix("sha256:")
+                    digest = nested.removeprefix("sha256:").lower()
                     if len(digest) == 64 and all(
                         character in "0123456789abcdef" for character in digest
                     ):

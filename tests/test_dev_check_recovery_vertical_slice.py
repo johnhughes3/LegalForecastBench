@@ -326,6 +326,59 @@ def test_public_capsule_with_ignored_sha_field_remains_fixture_only(
     assert commands == []
 
 
+def test_public_capsule_with_uppercase_digest_hex_remains_fixture_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    copied_capsule = tmp_path / "uppercase-capsule"
+    shutil.copytree(module.PUBLIC_MANIFEST.parent, copied_capsule)
+    manifest = copied_capsule / "manifest.json"
+
+    def uppercase_digest(value: str) -> str:
+        prefix = "sha256:" if value.startswith("sha256:") else ""
+        return prefix + value.removeprefix(prefix).upper()
+
+    payload = json.loads(
+        manifest.read_text(encoding="utf-8"),
+        object_hook=lambda record: {
+            key: uppercase_digest(value)
+            if key == "sha256" and isinstance(value, str)
+            else value
+            for key, value in record.items()
+        },
+    )
+    manifest.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    def succeed(command: Sequence[str], *, diagnostics: io.TextIOBase) -> int:
+        commands.append(tuple(command))
+        return 0
+
+    monkeypatch.setattr(module, "_execute", succeed)
+    stdout = io.StringIO()
+
+    assert (
+        module.main(
+            [
+                "--quick",
+                "--manifest",
+                str(manifest),
+                "--require-real-lineage",
+                "--json",
+            ],
+            stdout=stdout,
+            stderr=io.StringIO(),
+        )
+        == 1
+    )
+
+    summary = json.loads(stdout.getvalue())
+    assert summary["real_lineage_evaluated"] is False
+    assert summary["checks"][0]["code"] == ("REAL_LINEAGE_MANIFEST_IS_PUBLIC_FIXTURE")
+    assert commands == []
+
+
 def test_full_check_collects_all_results_after_a_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
