@@ -23,13 +23,17 @@ from legalforecast.contracts.schemas import (
     CYCLE_PREFLIGHT_MANIFEST_SIDECAR_V1,
     CYCLE_PREFLIGHT_REPORT_V2,
 )
-from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.canonical_json import (
+    canonical_json_bytes,
+    canonical_json_value_bytes,
+)
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseSnapshot,
     read_case_dev_purchase_snapshot,
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.cycle_lineage_index import (
+    INDEX_ENVIRONMENT_VARIABLE,
     CycleLineageIndexError,
     _authenticate_stage_head_entry,  # pyright: ignore[reportPrivateUsage]
     _load_index,  # pyright: ignore[reportPrivateUsage]
@@ -38,6 +42,10 @@ from legalforecast.ingestion.cycle_lineage_index import (
 from legalforecast.ingestion.disclosure_review_bundle import (
     ReviewBundleError,
     read_unique_regular_file,
+)
+from legalforecast.ingestion.replacement_recovery_source import (
+    SOURCE_RUN_CARD_SCHEMA,
+    SOURCE_RUN_CARD_SCHEMA_V2,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
     ResolvedPostRecoveryError,
@@ -81,9 +89,12 @@ class HistoricalPurchaseSnapshots:
     before_recovery: CaseDevPurchaseSnapshot
     after_recovery: CaseDevPurchaseSnapshot
     current: CaseDevPurchaseSnapshot
+    prior_resolution_card: Path
 
 
-def verify_v2_sidecar(path: Path) -> dict[str, object]:
+def verify_v2_sidecar(
+    path: Path, *, trusted_index_path: Path | None = None
+) -> dict[str, object]:
     """Verify the additive, real two-transition recovery graph from a sidecar.
 
     v1 intentionally models one purchase transition.  This read-only v2 report
@@ -100,7 +111,12 @@ def verify_v2_sidecar(path: Path) -> dict[str, object]:
             "v2 verification requires a discovery sidecar"
         )
     cards = _object(sidecar.get("native_cards"), label="v2 native cards")
-    index_path = Path(_text(sidecar.get("index_path"), label="v2 index path"))
+    sidecar_index = Path(_text(sidecar.get("index_path"), label="v2 index path"))
+    index_path = _trusted_index_path(trusted_index_path)
+    if sidecar_index.absolute() != index_path:
+        raise CyclePreflightManifestError(
+            "v2 sidecar does not match trusted lineage index"
+        )
     slice_ = NativeRecoverySlice(
         cycle_id=_text(sidecar.get("cycle_id"), label="v2 cycle id"),
         lineage_root_identity_sha256=_text(
@@ -136,6 +152,10 @@ def verify_v2_sidecar(path: Path) -> dict[str, object]:
         discover_native_recovery_slice(index_path=index_path, cycle_id=slice_.cycle_id)
         != slice_
     ):
+        raise CyclePreflightManifestError("v2 lineage changed during verification")
+    # A path-only rediscovery cannot catch byte changes under stable coordinates.
+    # Repeat the complete semantic pass after the final active-chain check.
+    if _verify_v2_slice(slice_) != report:
         raise CyclePreflightManifestError("v2 lineage changed during verification")
     return report
 
@@ -213,7 +233,9 @@ def _verify_v2_slice(slice_: NativeRecoverySlice) -> dict[str, object]:
             descriptor, commitments=index_commitments, label="v2 descriptor"
         )
         _validate_descriptor(descriptor_record)
-        producer, producer_card = _producer_for_descriptor(descriptor)
+        producer, producer_card = _producer_for_descriptor(
+            descriptor, index_commitments=index_commitments
+        )
         _verify_card_inputs(producer_card, label="v2 producer card")
         _verify_card_outputs(producer, producer_card, label="v2 producer card")
         if descriptor_record.get("ordinal") != producer_card.get("ordinal"):
@@ -228,8 +250,11 @@ def _verify_v2_slice(slice_: NativeRecoverySlice) -> dict[str, object]:
     if set(producers) != {0, 1}:
         raise CyclePreflightManifestError("v2 source closure lacks both producers")
 
-    terminal_recovery, terminal_clearance, _terminal_resolution = _terminal_cards(
+    terminal_recovery, terminal_clearance, terminal_resolution = _terminal_cards(
         producers[0][1], descriptor_records[0]
+    )
+    _verify_terminal_resolution_transition(
+        terminal_resolution, historical_resolution=snapshots.prior_resolution_card
     )
     for card_path, card, label in (
         (
@@ -249,6 +274,14 @@ def _verify_v2_slice(slice_: NativeRecoverySlice) -> dict[str, object]:
         ),
     ):
         _verify_card_semantics(card_path, card, label=label)
+    terminal_resolution_card = _read_json(
+        terminal_resolution, label="terminal resolution"
+    )
+    _verify_resolution_card(
+        terminal_resolution_card,
+        ledger_path=ledger_path,
+        label="terminal resolution",
+    )
     # Resolver cards name a mutable SQLite implementation state.  Their logical
     # histories are authenticated by ``reconstruct_historical_purchase_snapshots``
     # above; treating the current database bytes as immutable would make a valid
@@ -320,6 +353,26 @@ def _object(value: object, *, label: str) -> Mapping[str, object]:
     ):
         raise CyclePreflightManifestError(f"{label} must be a JSON object")
     return cast(Mapping[str, object], value)
+
+
+def _trusted_index_path(configured_path: Path | None = None) -> Path:
+    """Return the operator-selected index; a diagnostic sidecar never selects it."""
+
+    configured = (
+        str(configured_path)
+        if configured_path is not None
+        else os.environ.get(INDEX_ENVIRONMENT_VARIABLE)
+    )
+    if not configured:
+        raise CyclePreflightManifestError(
+            f"{INDEX_ENVIRONMENT_VARIABLE} is required to verify a v2 sidecar"
+        )
+    path = Path(configured).absolute()
+    if path.is_symlink() or not path.is_file():
+        raise CyclePreflightManifestError(
+            "trusted lineage index is unavailable or unsafe"
+        )
+    return path
 
 
 def _paths(card: Mapping[str, object], *, field: str, label: str) -> tuple[Path, ...]:
@@ -645,36 +698,119 @@ def _source_card_for_descriptor(
     return _one(matches, label="replacement source card")
 
 
-def _producer_for_descriptor(descriptor: Path) -> tuple[Path, Mapping[str, object]]:
+def _producer_for_descriptor(
+    descriptor: Path, *, index_commitments: Mapping[Path, str]
+) -> tuple[Path, Mapping[str, object]]:
     """Return the one source producer which commits ``descriptor`` as output."""
 
-    cards_dir = descriptor.parent / "run-cards"
-    try:
-        candidates = tuple(sorted(cards_dir.glob("*.json")))
-    except OSError as exc:
-        raise CyclePreflightManifestError(
-            "source producer directory is unavailable"
-        ) from exc
-    matches: list[tuple[Path, Mapping[str, object]]] = []
-    for candidate in candidates:
-        if candidate.is_symlink():
-            continue
-        try:
-            card = _read_json(candidate, label="v2 producer card")
-            outputs = _committed_paths(
-                {"source_commitments": card.get("output_commitments")},
-                label="v2 producer outputs",
+    descriptor_card = _require_committed_card(
+        descriptor, commitments=index_commitments, label="v2 descriptor"
+    )
+    ordinal = descriptor_card.get("ordinal")
+    if not isinstance(ordinal, int) or ordinal not in {0, 1}:
+        raise CyclePreflightManifestError("v2 descriptor ordinal is invalid")
+    # The index commits the descriptor, and the descriptor has exactly one
+    # canonical producer location.  Do not glob arbitrary, self-authored cards.
+    candidate = (
+        descriptor.parent
+        / "run-cards"
+        / (f"build-replacement-recovery-source-{ordinal:04}.json")
+    )
+    card = _read_json(candidate, label="v2 producer card")
+    _validate_producer_card(card, descriptor, descriptor_card)
+    outputs = _committed_paths(
+        {"source_commitments": card.get("output_commitments")},
+        label="v2 producer outputs",
+    )
+    if set(outputs) != {descriptor}:
+        raise CyclePreflightManifestError("v2 producer output closure is malformed")
+    _verify_path(descriptor, outputs[descriptor], label="v2 descriptor output")
+    return candidate, card
+
+
+def _validate_producer_card(
+    card: Mapping[str, object],
+    descriptor: Path,
+    descriptor_card: Mapping[str, object],
+) -> None:
+    """Bind a source producer to the committed descriptor and its full witness set."""
+
+    ordinal = descriptor_card["ordinal"]
+    assert isinstance(ordinal, int)
+    expected_schema = (
+        SOURCE_RUN_CARD_SCHEMA_V2 if ordinal == 0 else SOURCE_RUN_CARD_SCHEMA
+    )
+    required = {
+        "dry_run",
+        "execute",
+        "input_paths",
+        "kind",
+        "ordinal",
+        "output_commitments",
+        "output_paths",
+        "paid_activity_executed",
+        "paid_activity_requested",
+        "provider_activity_executed",
+        "provider_activity_requested",
+        "purchase_state_sha256",
+        "record_count",
+        "schema_version",
+        "source_commitments",
+        "stage",
+        "status",
+    }
+    # The initial-v2 bridge card records a replayed state.  The successor v1
+    # card predates that field and its committed historical closure is instead
+    # checked by the resolver replay below.
+    if ordinal == 0:
+        required.add("replayed_purchase_state_sha256")
+    if (
+        set(card) != required
+        or card.get("schema_version") != expected_schema
+        or card.get("stage") != "build-replacement-recovery-source"
+        or card.get("status") != "completed"
+        or card.get("kind") != descriptor_card.get("kind")
+        or card.get("ordinal") != ordinal
+        or card.get("record_count") != 1
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or any(
+            card.get(field) is not False
+            for field in (
+                "paid_activity_executed",
+                "paid_activity_requested",
+                "provider_activity_executed",
+                "provider_activity_requested",
             )
-        except CyclePreflightManifestError:
-            continue
-        if (
-            _stage(card) == "build-replacement-recovery-source"
-            and descriptor in outputs
-        ):
-            expected = outputs[descriptor]
-            _verify_path(descriptor, expected, label="v2 descriptor output")
-            matches.append((candidate, card))
-    return _one(matches, label="v2 descriptor producer card")
+        )
+    ):
+        raise CyclePreflightManifestError(
+            "v2 producer card is not an authenticated closure"
+        )
+    inputs = set(_paths(card, field="input_paths", label="v2 producer card"))
+    commitments = _committed_paths(card, label="v2 producer card")
+    if not inputs or inputs != set(commitments):
+        raise CyclePreflightManifestError("v2 producer input closure is incomplete")
+    outputs = _paths(card, field="output_paths", label="v2 producer card")
+    if outputs != (descriptor,):
+        raise CyclePreflightManifestError("v2 producer does not bind its descriptor")
+    required_inputs = {
+        Path(
+            _text(
+                descriptor_card.get("purchased_clearance_run_card"),
+                label="descriptor clearance",
+            )
+        ),
+        Path(
+            _text(
+                descriptor_card.get("resolved_post_recovery_documents"),
+                label="descriptor resolution",
+            )
+        ),
+        Path(_text(descriptor_card.get("selection"), label="descriptor selection")),
+    }
+    if not required_inputs <= inputs:
+        raise CyclePreflightManifestError("v2 producer lacks descriptor witness inputs")
 
 
 def _verify_path(path: Path, digest: str, *, label: str) -> None:
@@ -690,7 +826,12 @@ def _verify_path(path: Path, digest: str, *, label: str) -> None:
         raise CyclePreflightManifestError(f"{label} bytes differ from commitment")
 
 
-def _verify_card_inputs(card: Mapping[str, object], *, label: str) -> None:
+def _verify_card_inputs(
+    card: Mapping[str, object],
+    *,
+    label: str,
+    mutable_paths: frozenset[Path] = frozenset(),
+) -> None:
     """Authenticate every file for which a run card actually made a commitment."""
 
     commitments = _committed_paths(card, label=label)
@@ -721,21 +862,57 @@ def _verify_card_inputs(card: Mapping[str, object], *, label: str) -> None:
             raise CyclePreflightManifestError(
                 f"{label} document-tree digest is invalid"
             )
-        try:
-            entries = tuple(tree_path.rglob("*"))
-        except OSError as exc:
-            raise CyclePreflightManifestError(
-                f"{label} document tree is unavailable"
-            ) from exc
+        observed_tree = _document_tree_commitment(tree_path, label=label)
+        expected_tree = _SHA256_PREFIX + (
+            # contract-ratchet: allow frozen raw JSON-value tree commitment
+            hashlib.sha256(
+                canonical_json_value_bytes(
+                    observed_tree,
+                    error_type=CyclePreflightManifestError,
+                    error_message=f"{label} document tree cannot be encoded",
+                )
+            ).hexdigest()
+        )
         if (
-            any(entry.is_symlink() for entry in entries)
-            or sum(entry.is_file() for entry in entries) != record["document_count"]
+            len(observed_tree) != record["document_count"]
+            or expected_tree != tree_digest
         ):
             raise CyclePreflightManifestError(
                 f"{label} document tree differs from commitment"
             )
     for input_path, digest in commitments.items():
+        if input_path in mutable_paths:
+            continue
         _verify_path(input_path, digest, label=f"{label} committed input")
+
+
+def _document_tree_commitment(root: Path, *, label: str) -> dict[str, str]:
+    """Return the canonical relative-path-to-digest map for a safe document tree."""
+
+    if root.is_symlink() or not root.is_dir():
+        raise CyclePreflightManifestError(f"{label} document tree is unavailable")
+    observed: dict[str, str] = {}
+    try:
+        entries = tuple(sorted(root.rglob("*")))
+    except OSError as exc:
+        raise CyclePreflightManifestError(
+            f"{label} document tree is unavailable"
+        ) from exc
+    for entry in entries:
+        if entry.is_symlink() or not entry.is_file():
+            if entry.is_dir():
+                continue
+            raise CyclePreflightManifestError(f"{label} document tree is unsafe")
+        try:
+            payload = read_unique_regular_file(entry)
+        except (OSError, ReviewBundleError) as exc:
+            raise CyclePreflightManifestError(
+                f"{label} document tree is unsafe"
+            ) from exc
+        observed[entry.relative_to(root).as_posix()] = (
+            _SHA256_PREFIX + hashlib.sha256(payload).hexdigest()
+        )
+    return observed
 
 
 def _tree_root(card: Mapping[str, object], *, label: str) -> Path:
@@ -829,6 +1006,26 @@ def _verify_card_semantics(
 
     _verify_card_inputs(card, label=label)
     _verify_card_outputs(path, card, label=label)
+
+
+def _verify_resolution_card(
+    card: Mapping[str, object], *, ledger_path: Path, label: str
+) -> None:
+    """Verify the designated resolver while exempting only mutable SQLite bytes."""
+
+    _verify_card_inputs(card, label=label, mutable_paths=frozenset({ledger_path}))
+    _verify_card_outputs(Path("/unused"), card, label=label)
+
+
+def _verify_terminal_resolution_transition(
+    terminal_resolution: Path, *, historical_resolution: Path
+) -> None:
+    """Require source closure to name the resolver authenticated by replay."""
+
+    if terminal_resolution != historical_resolution:
+        raise CyclePreflightManifestError(
+            "terminal resolution differs from historical replay transition"
+        )
 
 
 def _terminal_cards(
@@ -1113,6 +1310,7 @@ def reconstruct_historical_purchase_snapshots(
         before_recovery=before_recovery,
         after_recovery=after_recovery,
         current=current,
+        prior_resolution_card=_prior_resolution_path,
     )
 
 
@@ -1135,6 +1333,9 @@ def emit_discovery_sidecar(
         != refreshed
     ):
         raise CyclePreflightManifestError("lineage changed during sidecar emission")
+    # A stable locator is insufficient: authenticated card contents may have
+    # changed in place after the first semantic pass.
+    _verify_v2_slice(refreshed)
     output = output.absolute()
     if output.exists() or output.is_symlink():
         raise CyclePreflightManifestError("sidecar output already exists")
@@ -1182,7 +1383,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.verify_v2_sidecar is not None:
-            report = verify_v2_sidecar(args.verify_v2_sidecar)
+            report = verify_v2_sidecar(
+                args.verify_v2_sidecar, trusted_index_path=args.index
+            )
             print(json.dumps(report, sort_keys=True) if args.json else "V2 PASS")
             return 0
         if args.index is None:
