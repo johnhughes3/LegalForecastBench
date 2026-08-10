@@ -1068,6 +1068,10 @@ from legalforecast.unitization import (
     prediction_unit_from_record,
     source_citation_from_record,
 )
+from legalforecast.unitization.adjudication_preflight import (
+    AdjudicationPreflightError,
+    build_adjudication_preflight_report,
+)
 from legalforecast.unitization.construct_units import (
     StageAConstructionInput,
     StageADocumentRole,
@@ -2784,6 +2788,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_build_unitization_review_bundle_arguments(
         acquisition_build_unitization_review_bundle
+    )
+    acquisition_preflight_unitization_adjudication = acquisition_subparsers.add_parser(
+        "preflight-unitization-adjudication",
+        help=(
+            "Authenticate proposed Stage A adjudications read-only and print "
+            "the private grouped worklist and claim-defendant matrix."
+        ),
+    )
+    _add_acquisition_preflight_unitization_adjudication_arguments(
+        acquisition_preflight_unitization_adjudication
     )
     acquisition_apply_unitization_review = acquisition_subparsers.add_parser(
         "apply-unitization-review",
@@ -9974,6 +9988,57 @@ def _add_acquisition_build_unitization_review_bundle_arguments(
         help="Hash-bound private review-bundle manifest; defaults under --output-root.",
     )
     parser.set_defaults(handler=_cmd_acquisition_build_unitization_review_bundle)
+
+
+def _add_acquisition_preflight_unitization_adjudication_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the provider-free, non-writing Stage A adjudication preflight inputs.
+
+    The command never writes, so it deliberately omits the acquisition
+    common arguments (--output-root, --execute, run-card and log outputs).
+    """
+
+    _add_approved_purchase_runtime_arguments(parser)
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        required=True,
+        help="Raw prediction-units JSONL emitted by authenticated llm-unitize.",
+    )
+    parser.add_argument(
+        "--llm-unitization-run-card",
+        type=Path,
+        required=True,
+        help="Completed authenticated llm-unitize run card for the raw units.",
+    )
+    parser.add_argument(
+        "--llm-review-stage-a-run-card",
+        type=Path,
+        required=True,
+        help="Completed authenticated structural-review run card for the merged queue.",
+    )
+    parser.add_argument(
+        "--unitization-review-queue",
+        type=Path,
+        required=True,
+        help="Exact merged pending Stage A review queue from structural review.",
+    )
+    parser.add_argument(
+        "--adjudications",
+        type=Path,
+        required=True,
+        help="Proposed Stage A adjudications JSONL; never edit the review queue.",
+    )
+    parser.add_argument(
+        "--finalized-prediction-units",
+        type=Path,
+        help=(
+            "Optional finalized artifact from apply-unitization-review to verify "
+            "byte-for-byte against the recomputation."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_preflight_unitization_adjudication)
 
 
 def _add_acquisition_apply_lawyer_review_arguments(
@@ -62472,6 +62537,158 @@ def _unitization_review_bundle_sources(
             }
         )
     return records
+
+
+def _cmd_acquisition_preflight_unitization_adjudication(
+    args: argparse.Namespace,
+) -> int:
+    """Rehearse apply-unitization-review read-only and print the worklist.
+
+    This command deliberately reuses the complete Stage A authentication
+    chain and the frozen applicator, and writes nothing on any path: no
+    artifact, no run card, no log.  The printed report is private Stage A
+    material — a saved copy belongs under the private review root, outside
+    the repository and every publishable root.
+    """
+
+    raw_units_path = cast(Path, args.prediction_units)
+    unitization_card_path = cast(Path, args.llm_unitization_run_card)
+    structural_card_path = cast(Path, args.llm_review_stage_a_run_card)
+    review_queue_path = cast(Path, args.unitization_review_queue)
+    adjudications_path = cast(Path, args.adjudications)
+    finalized_path = cast(Path | None, args.finalized_prediction_units)
+    raw_units_payload = _read_singly_linked_regular_input(
+        raw_units_path, label="raw prediction units"
+    )
+    unitization_card_payload = _read_singly_linked_regular_input(
+        unitization_card_path, label="llm-unitize run card"
+    )
+    structural_card_payload = _read_singly_linked_regular_input(
+        structural_card_path, label="structural-review run card"
+    )
+    review_queue_payload = _read_singly_linked_regular_input(
+        review_queue_path, label="merged unitization review queue"
+    )
+    adjudications_payload = _read_singly_linked_regular_input(
+        adjudications_path, label="proposed adjudications"
+    )
+    finalized_payload = (
+        _read_singly_linked_regular_input(
+            finalized_path, label="finalized prediction units"
+        )
+        if finalized_path is not None
+        else None
+    )
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    initialization_receipt_path = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
+    lineage = _verify_stage_a_unitization_run_card(
+        unitization_card_path,
+        expected_prediction_units_path=raw_units_path,
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=initialization_receipt_path,
+    )
+    _verify_stage_a_review_run_card(
+        structural_card_path,
+        lineage=lineage,
+        llm_unitization_run_card_path=unitization_card_path,
+        expected_review_queue_path=review_queue_path,
+    )
+    captured_inputs: list[tuple[str, Path, bytes]] = [
+        ("raw prediction units", raw_units_path, raw_units_payload),
+        ("llm-unitize run card", unitization_card_path, unitization_card_payload),
+        (
+            "structural-review run card",
+            structural_card_path,
+            structural_card_payload,
+        ),
+        (
+            "merged unitization review queue",
+            review_queue_path,
+            review_queue_payload,
+        ),
+        ("proposed adjudications", adjudications_path, adjudications_payload),
+    ]
+    if finalized_path is not None and finalized_payload is not None:
+        captured_inputs.append(
+            ("finalized prediction units", finalized_path, finalized_payload)
+        )
+    _require_adjudication_preflight_inputs_unchanged(captured_inputs)
+    try:
+        raw_records = _read_jsonl_payload(
+            raw_units_payload, label="raw prediction units"
+        )
+        review_records = _read_jsonl_payload(
+            review_queue_payload, label="merged unitization review queue"
+        )
+        adjudication_records = _read_jsonl_payload(
+            adjudications_payload, label="proposed adjudications"
+        )
+        finalized_records = (
+            _read_jsonl_payload(finalized_payload, label="finalized prediction units")
+            if finalized_payload is not None
+            else None
+        )
+    except ValueError as exc:
+        raise CommandError(str(exc)) from exc
+    input_commitments: dict[str, JsonRecord] = {
+        "raw_prediction_units": _stage_a_file_commitment(
+            raw_units_path, payload=raw_units_payload
+        ),
+        "llm_unitization_run_card": _stage_a_file_commitment(
+            unitization_card_path, payload=unitization_card_payload
+        ),
+        "llm_review_stage_a_run_card": _stage_a_file_commitment(
+            structural_card_path, payload=structural_card_payload
+        ),
+        "unitization_review_queue": _stage_a_file_commitment(
+            review_queue_path, payload=review_queue_payload
+        ),
+        "adjudications": _stage_a_file_commitment(
+            adjudications_path, payload=adjudications_payload
+        ),
+    }
+    if finalized_path is not None and finalized_payload is not None:
+        input_commitments["finalized_prediction_units"] = _stage_a_file_commitment(
+            finalized_path, payload=finalized_payload
+        )
+    try:
+        result = build_adjudication_preflight_report(
+            prediction_unit_records=raw_records,
+            review_records=review_records,
+            adjudication_records=adjudication_records,
+            finalized_records=finalized_records,
+            input_commitments=input_commitments,
+        )
+    except (AdjudicationPreflightError, UnitizationReviewError) as exc:
+        raise CommandError(str(exc)) from exc
+    _validate_v4_finalized_stage_a_citations(
+        result.recomputed_finalized_records,
+        lineage=lineage,
+        llm_unitization_run_card_path=unitization_card_path,
+    )
+    if finalized_payload is not None and (
+        _jsonl_bytes(list(result.recomputed_finalized_records)) != finalized_payload
+    ):
+        raise CommandError(
+            "finalized prediction units bytes do not match the adjudication "
+            "recomputation"
+        )
+    _require_stage_a_lineage_unchanged(lineage)
+    _require_adjudication_preflight_inputs_unchanged(captured_inputs)
+    print(json.dumps(result.report, indent=2, sort_keys=True, allow_nan=False))
+    return 0
+
+
+def _require_adjudication_preflight_inputs_unchanged(
+    captured_inputs: Sequence[tuple[str, Path, bytes]],
+) -> None:
+    """Reject an input swap between the authenticated replay and the report."""
+
+    for label, path, expected_payload in captured_inputs:
+        if _read_singly_linked_regular_input(path, label=label) != expected_payload:
+            raise CommandError(f"{label} changed during adjudication preflight")
 
 
 def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:

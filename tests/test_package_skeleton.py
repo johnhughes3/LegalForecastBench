@@ -36,6 +36,7 @@ MODULES = [
     "legalforecast.unitization.construct_units",
     "legalforecast.unitization.schemas",
     "legalforecast.unitization.adjudication",
+    "legalforecast.unitization.adjudication_preflight",
     "legalforecast.labeling.label_outcomes",
     "legalforecast.labeling.ensemble",
     "legalforecast.labeling.llm_pipeline",
