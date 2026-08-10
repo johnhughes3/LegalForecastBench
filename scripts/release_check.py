@@ -89,7 +89,10 @@ def build_steps(output_dir: Path) -> tuple[CheckStep, ...]:
                 "scripts",
             ),
         ),
-        CheckStep("test", ("uv", "run", "pytest", "-q")),
+        CheckStep(
+            "test",
+            ("uv", "run", "pytest", "-q", "-n", "4", "--dist=loadscope"),
+        ),
         CheckStep(
             "review blocker verifier",
             ("uv", "run", "scripts/verify_review_blockers.py"),
