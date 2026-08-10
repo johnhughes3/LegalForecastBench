@@ -103,10 +103,10 @@ def test_cli_v4_finalized_citations_use_authenticated_lineage_snapshot(
     markdown_root = tmp_path / "markdown" / "cand"
     markdown_root.mkdir(parents=True)
     (markdown_root / "complaint.md").write_bytes(
-        b"Heading\nCount I pleads breach of contract.\nPrayer"
+        b"Page 1\nHeading\nCount I pleads breach of contract.\nPrayer"
     )
     (markdown_root / "motion.md").write_bytes(
-        b"Introduction\nDefendant moves to dismiss Count I.\nArgument"
+        b"Page 2\nIntroduction\nDefendant moves to dismiss Count I.\nArgument"
     )
     unitization_card = tmp_path / "llm-unitize.json"
     unitization_card.write_text(
@@ -152,10 +152,10 @@ def test_cli_v4_finalized_citations_use_authenticated_lineage_snapshot(
         markdown_root=tmp_path / "markdown",
         markdown_bytes={
             "cand/complaint.md": (
-                b"Heading\nCount I pleads breach of contract.\nPrayer"
+                b"Page 1\nHeading\nCount I pleads breach of contract.\nPrayer"
             ),
             "cand/motion.md": (
-                b"Introduction\nDefendant moves to dismiss Count I.\nArgument"
+                b"Page 2\nIntroduction\nDefendant moves to dismiss Count I.\nArgument"
             ),
         },
     )
@@ -243,6 +243,65 @@ def test_v4_finalized_citations_require_exact_excerpt_and_both_evidence_roles() 
             [finalized],
             source_documents_by_candidate={"cand": _v4_citation_documents()},
         )
+
+
+def test_v4_finalized_citations_reject_wrong_page_and_docket_attribution() -> None:
+    finalized = _v4_finalized_candidate()
+    finalized["prediction_units"][0]["source_citations"][0]["page"] = 2
+    with pytest.raises(UnitizationReviewError, match="page attribution"):
+        validate_v4_finalized_unit_citations(
+            [finalized],
+            source_documents_by_candidate={"cand": _v4_citation_documents()},
+        )
+
+    finalized = _v4_finalized_candidate()
+    finalized["prediction_units"][0]["source_citations"][0]["docket_entry_number"] = 99
+    with pytest.raises(UnitizationReviewError, match="docket-entry attribution"):
+        validate_v4_finalized_unit_citations(
+            [finalized],
+            source_documents_by_candidate={"cand": _v4_citation_documents()},
+        )
+
+
+def test_v4_finalized_citations_reject_span_longer_than_twelve_lines() -> None:
+    finalized = _v4_finalized_candidate()
+    excerpt = "\n".join(f"evidence line {index}" for index in range(1, 14))
+    finalized["prediction_units"][0]["source_citations"][0]["excerpt"] = excerpt
+    documents = list(_v4_citation_documents())
+    documents[0] = V4FinalizedCitationDocument(
+        document_id="complaint",
+        document_role="complaint",
+        markdown=f"Page 1\n{excerpt}",
+        is_predecision_material=True,
+        contains_target_outcome=False,
+        docket_entry_number=1,
+    )
+
+    with pytest.raises(UnitizationReviewError, match="at most 12 lines"):
+        validate_v4_finalized_unit_citations(
+            [finalized], source_documents_by_candidate={"cand": documents}
+        )
+
+
+def test_v4_finalized_citations_disambiguate_duplicate_text_by_page() -> None:
+    finalized = _v4_finalized_candidate()
+    documents = list(_v4_citation_documents())
+    documents[0] = V4FinalizedCitationDocument(
+        document_id="complaint",
+        document_role="complaint",
+        markdown=(
+            "Page 1\nCount I pleads breach of contract.\n"
+            "Page 2\nCount I pleads breach of contract."
+        ),
+        is_predecision_material=True,
+        contains_target_outcome=False,
+        docket_entry_number=1,
+    )
+    finalized["prediction_units"][0]["source_citations"][0]["page"] = 2
+
+    validate_v4_finalized_unit_citations(
+        [finalized], source_documents_by_candidate={"cand": documents}
+    )
 
 
 def test_one_adjudication_consumes_multiple_reviews_for_same_source_unit() -> None:
@@ -924,16 +983,20 @@ def _v4_citation_documents() -> tuple[V4FinalizedCitationDocument, ...]:
         V4FinalizedCitationDocument(
             document_id="complaint",
             document_role="complaint",
-            markdown="Heading\nCount I pleads breach of contract.\nPrayer",
+            markdown="Page 1\nHeading\nCount I pleads breach of contract.\nPrayer",
             is_predecision_material=True,
             contains_target_outcome=False,
+            docket_entry_number=1,
         ),
         V4FinalizedCitationDocument(
             document_id="motion",
             document_role="motion_to_dismiss_memorandum",
-            markdown="Introduction\nDefendant moves to dismiss Count I.\nArgument",
+            markdown=(
+                "Page 2\nIntroduction\nDefendant moves to dismiss Count I.\nArgument"
+            ),
             is_predecision_material=True,
             contains_target_outcome=False,
+            docket_entry_number=5,
         ),
     )
 

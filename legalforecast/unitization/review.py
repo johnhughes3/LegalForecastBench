@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -78,6 +79,7 @@ class V4FinalizedCitationDocument:
     markdown: str
     is_predecision_material: bool
     contains_target_outcome: bool
+    docket_entry_number: int | None = None
 
     def __post_init__(self) -> None:
         if type(self.document_id) is not str or not self.document_id.strip():
@@ -88,6 +90,10 @@ class V4FinalizedCitationDocument:
             raise ValueError("is_predecision_material must be boolean")
         if type(self.contains_target_outcome) is not bool:
             raise ValueError("contains_target_outcome must be boolean")
+        if self.docket_entry_number is not None and (
+            type(self.docket_entry_number) is not int or self.docket_entry_number <= 0
+        ):
+            raise ValueError("docket_entry_number must be a positive integer")
         try:
             StageADocumentRole(self.document_role)
         except (TypeError, ValueError) as error:
@@ -809,10 +815,35 @@ def validate_v4_finalized_unit_citations(
                     raise UnitizationReviewError(
                         f"{candidate_id}:{unit_id}: v4 citation excerpt is required"
                     )
-                if excerpt not in document.markdown:
+                if len(excerpt.splitlines()) > 12:
+                    raise UnitizationReviewError(
+                        f"{candidate_id}:{unit_id}: citation span may contain at "
+                        "most 12 lines"
+                    )
+                span_pages = _v4_citation_span_pages(document.markdown, excerpt)
+                if not span_pages:
                     raise UnitizationReviewError(
                         f"{candidate_id}:{unit_id}: citation excerpt is not an "
-                        "exact substring of its authenticated Markdown"
+                        "exact substring forming a bounded contiguous span of its "
+                        "authenticated Markdown"
+                    )
+                if citation.page not in span_pages:
+                    raise UnitizationReviewError(
+                        f"{candidate_id}:{unit_id}: citation page attribution does "
+                        "not match its authenticated Markdown span"
+                    )
+                if (
+                    document.docket_entry_number is not None
+                    and citation.docket_entry_number != document.docket_entry_number
+                ):
+                    raise UnitizationReviewError(
+                        f"{candidate_id}:{unit_id}: citation docket-entry attribution "
+                        "does not match its authenticated source document"
+                    )
+                if citation.paragraph is not None:
+                    raise UnitizationReviewError(
+                        f"{candidate_id}:{unit_id}: v4 line-span citation cannot "
+                        "assert paragraph metadata"
                     )
                 cited_roles.add(StageADocumentRole(document.document_role))
 
@@ -828,6 +859,57 @@ def validate_v4_finalized_unit_citations(
                     f"{candidate_id}:{unit_id}: scorable v4 unit requires target-MTD "
                     "notice or memorandum evidence"
                 )
+
+
+def _v4_citation_span_pages(markdown: str, excerpt: str) -> set[int | None]:
+    """Return pages where excerpt equals a valid v4 line-selector span."""
+
+    lines = markdown.splitlines(keepends=True)
+    matching_pages: set[int | None] = set()
+    for start_index in range(len(lines)):
+        max_end = min(len(lines), start_index + 12)
+        for end_index in range(start_index + 1, max_end + 1):
+            selected_lines = lines[start_index:end_index]
+            final_line = _without_one_line_ending(selected_lines[-1])
+            reconstructed = "".join((*selected_lines[:-1], final_line))
+            if reconstructed == excerpt:
+                matching_pages.add(_nearest_page_marker(lines, start_index))
+    return matching_pages
+
+
+def _without_one_line_ending(line: str) -> str:
+    """Mirror the v4 model-response reconstruction of the final selected line."""
+
+    for line_ending in (
+        "\r\n",
+        "\n",
+        "\r",
+        "\v",
+        "\f",
+        "\x1c",
+        "\x1d",
+        "\x1e",
+        "\x85",
+        "\u2028",
+        "\u2029",
+    ):
+        if line.endswith(line_ending):
+            return line[: -len(line_ending)]
+    return line
+
+
+def _nearest_page_marker(lines: Sequence[str], start_index: int) -> int | None:
+    """Return the v4 page marker at or before a zero-based span start."""
+
+    for line in reversed(lines[: start_index + 1]):
+        match = re.fullmatch(
+            r"\s*(?:#{1,6}\s+)?Page\s+(\d+)(?:\s+of\s+\d+)?\s*",
+            line,
+            re.I,
+        )
+        if match is not None:
+            return int(match.group(1))
+    return None
 
 
 def _verify_adjudication_review_coverage(

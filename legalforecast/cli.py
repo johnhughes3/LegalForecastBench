@@ -58716,6 +58716,7 @@ def _v4_finalized_citation_documents(
                     markdown=markdown,
                     is_predecision_material=True,
                     contains_target_outcome=False,
+                    docket_entry_number=_optional_int(document, "docket_entry_number"),
                 )
             )
         documents_by_candidate[candidate_id] = tuple(documents)
@@ -60725,8 +60726,8 @@ def _cmd_acquisition_target_document_eligibility_audit(
     _write_or_verify_immutable_recovery_completion(
         args,
         stage="audit-stage-a-target-eligibility",
-        input_paths=lineage.input_paths,
-        output_paths=(audit_path,),
+        input_paths=tuple(path.resolve() for path in lineage.input_paths),
+        output_paths=(audit_path.resolve(),),
         record_count=len(audit.records),
         extra={
             "target_eligibility_audit_schema_version": (
@@ -60856,8 +60857,8 @@ def _verify_target_document_eligibility_audit_run_card(
         "dry_run": False,
         "execute": True,
         "record_count": len(audit.records),
-        "input_paths": [str(path) for path in lineage.input_paths],
-        "output_paths": [str(audit_path)],
+        "input_paths": [str(path.resolve()) for path in lineage.input_paths],
+        "output_paths": [str(audit_path.resolve())],
         "paid_activity_requested": False,
         "paid_activity_executed": False,
         "target_eligibility_audit_schema_version": (

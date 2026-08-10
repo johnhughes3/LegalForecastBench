@@ -9,12 +9,6 @@ from pathlib import Path
 
 import legalforecast.ingestion.free_support_memorandum_recovery as support_recovery
 import pytest
-from legalforecast.ingestion.free_support_memorandum_recovery import (
-    FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_SCHEMA,
-    FreeSupportMemorandumRecoveryError,
-    derive_free_support_memorandum_recovery_plan,
-    verify_free_support_memorandum_recovery_plan,
-)
 from legalforecast.ingestion.target_raw_docket_auxiliary_provenance import (
     VerifiedTargetRawDocketAuxiliaryProvenanceBridge,
 )
@@ -122,7 +116,7 @@ def _derive(
         "load_verified_target_raw_docket_auxiliary_provenance_bridge",
         lambda descriptor_path: bridge,
     )
-    return bridge, derive_free_support_memorandum_recovery_plan(
+    return bridge, support_recovery.derive_free_support_memorandum_recovery_plan(
         bridge_descriptor_path=bridge.bridge_path
     )
 
@@ -132,7 +126,10 @@ def test_derives_the_only_free_support_memorandum_plan(
 ) -> None:
     bridge, plan = _derive(tmp_path, monkeypatch)
 
-    assert plan.record["schema_version"] == FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_SCHEMA
+    assert (
+        plan.record["schema_version"]
+        == support_recovery.FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_SCHEMA
+    )
     assert plan.record["candidate_id"] == "73327542"
     assert plan.record["target_motion_entry_number"] == 13
     assert plan.record["supporting_entry_number"] == 14
@@ -150,7 +147,7 @@ def test_derives_the_only_free_support_memorandum_plan(
         if key.endswith("_permitted")
     )
     assert (
-        verify_free_support_memorandum_recovery_plan(
+        support_recovery.verify_free_support_memorandum_recovery_plan(
             persisted_plan_bytes=plan.record_bytes,
             bridge_descriptor_path=bridge.bridge_path,
         ).record_bytes
@@ -195,17 +192,23 @@ def test_derives_the_only_free_support_memorandum_plan(
 def test_rejects_bad_support_document_or_linkage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, raw_html: bytes, match: str
 ) -> None:
-    with pytest.raises(FreeSupportMemorandumRecoveryError, match=match):
+    with pytest.raises(
+        support_recovery.FreeSupportMemorandumRecoveryError, match=match
+    ):
         _derive(tmp_path, monkeypatch, raw_html=raw_html)
 
 
 def test_rejects_wrong_selected_target_or_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    with pytest.raises(FreeSupportMemorandumRecoveryError, match="not entry 13"):
+    with pytest.raises(
+        support_recovery.FreeSupportMemorandumRecoveryError, match="not entry 13"
+    ):
         _derive(tmp_path, monkeypatch, target_entries=[12])
 
-    with pytest.raises(FreeSupportMemorandumRecoveryError, match="does not select"):
+    with pytest.raises(
+        support_recovery.FreeSupportMemorandumRecoveryError, match="does not select"
+    ):
         _derive(
             tmp_path,
             monkeypatch,
@@ -218,16 +221,20 @@ def test_persisted_plan_rejects_noncanonical_or_drifted_inputs(
 ) -> None:
     bridge, plan = _derive(tmp_path, monkeypatch)
 
-    with pytest.raises(FreeSupportMemorandumRecoveryError, match="not canonical"):
-        verify_free_support_memorandum_recovery_plan(
+    with pytest.raises(
+        support_recovery.FreeSupportMemorandumRecoveryError, match="not canonical"
+    ):
+        support_recovery.verify_free_support_memorandum_recovery_plan(
             persisted_plan_bytes=plan.record_bytes.rstrip(b"\n"),
             bridge_descriptor_path=bridge.bridge_path,
         )
 
     extra_output_root = dict(plan.record)
     extra_output_root["output_root"] = "/tmp/overlap"
-    with pytest.raises(FreeSupportMemorandumRecoveryError, match="differs"):
-        verify_free_support_memorandum_recovery_plan(
+    with pytest.raises(
+        support_recovery.FreeSupportMemorandumRecoveryError, match="differs"
+    ):
+        support_recovery.verify_free_support_memorandum_recovery_plan(
             persisted_plan_bytes=(
                 json.dumps(extra_output_root, sort_keys=True, separators=(",", ":"))
                 + "\n"
@@ -244,13 +251,15 @@ def test_persisted_plan_rejects_noncanonical_or_drifted_inputs(
             + b" ",
         },
     )
-    with pytest.raises(FreeSupportMemorandumRecoveryError, match="differs"):
+    with pytest.raises(
+        support_recovery.FreeSupportMemorandumRecoveryError, match="differs"
+    ):
         monkeypatch.setattr(
             support_recovery,
             "load_verified_target_raw_docket_auxiliary_provenance_bridge",
             lambda descriptor_path: drifted,
         )
-        verify_free_support_memorandum_recovery_plan(
+        support_recovery.verify_free_support_memorandum_recovery_plan(
             persisted_plan_bytes=plan.record_bytes,
             bridge_descriptor_path=bridge.bridge_path,
         )
@@ -261,8 +270,11 @@ def test_rejects_drifted_bridge_descriptor_or_selection(
 ) -> None:
     bridge, _ = _derive(tmp_path, monkeypatch)
     bridge.bridge_path.write_bytes(b"{}")
-    with pytest.raises(FreeSupportMemorandumRecoveryError, match="descriptor drifted"):
-        derive_free_support_memorandum_recovery_plan(
+    with pytest.raises(
+        support_recovery.FreeSupportMemorandumRecoveryError,
+        match="descriptor drifted",
+    ):
+        support_recovery.derive_free_support_memorandum_recovery_plan(
             bridge_descriptor_path=bridge.bridge_path
         )
 
@@ -272,9 +284,10 @@ def test_rejects_drifted_bridge_descriptor_or_selection(
         '{"candidate_id":"73327542","selected":true,"target_motion_entry_numbers":[13]} \n'
     )
     with pytest.raises(
-        FreeSupportMemorandumRecoveryError, match="selection artifact drifted"
+        support_recovery.FreeSupportMemorandumRecoveryError,
+        match="selection artifact drifted",
     ):
-        derive_free_support_memorandum_recovery_plan(
+        support_recovery.derive_free_support_memorandum_recovery_plan(
             bridge_descriptor_path=bridge.bridge_path
         )
 
@@ -284,7 +297,9 @@ def test_public_api_rejects_caller_constructed_bridge(
 ) -> None:
     bridge = _bridge(tmp_path)
 
-    with pytest.raises(FreeSupportMemorandumRecoveryError, match="descriptor path"):
-        derive_free_support_memorandum_recovery_plan(
+    with pytest.raises(
+        support_recovery.FreeSupportMemorandumRecoveryError, match="descriptor path"
+    ):
+        support_recovery.derive_free_support_memorandum_recovery_plan(
             bridge_descriptor_path=bridge  # type: ignore[arg-type]
         )

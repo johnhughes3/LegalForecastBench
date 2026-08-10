@@ -983,6 +983,13 @@ def test_production_stipulated_replay_accepts_completed_authenticated_audit(
     assert evidence.evidence_commitments["selection"] == _sha(selection_bytes)
     assert successor_evidence == evidence
 
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    assert (
+        cli._replay_exact100_stipulated_eligibility(root, selection_bytes) == evidence
+    )
+
 
 def test_production_stipulated_replay_rejects_fabricated_card_after_root_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
