@@ -458,6 +458,7 @@ class _TerminalGroup:
     provenance: JsonRecord
     affected_unit_ids: list[str]
     absorbed_review_ids: list[str]
+    terminal_evidence_review_ids: list[str]
 
 
 def _terminal_record(record: Mapping[str, Any]) -> JsonRecord | None:
@@ -526,6 +527,7 @@ def review_queue_v2_records(
                     provenance=_provenance(terminal),
                     affected_unit_ids=[],
                     absorbed_review_ids=[],
+                    terminal_evidence_review_ids=[],
                 )
                 groups[candidate_id] = group
             elif group.escalation_sha256 != escalation_sha256:
@@ -536,6 +538,7 @@ def review_queue_v2_records(
                 )
             if unit_id not in group.affected_unit_ids:
                 group.affected_unit_ids.append(unit_id)
+            group.terminal_evidence_review_ids.append(review_id)
         if reason.subject is ReviewSubject.CANDIDATE:
             # A standalone terminal row raises no substantive question of its
             # own, so the candidate item takes its place in the projection.
@@ -624,6 +627,7 @@ def _candidate_item(
         "affected_unit_ids": list(group.affected_unit_ids),
         "terminal_escalation_sha256": group.escalation_sha256,
         "source_review_ids": list(group.absorbed_review_ids),
+        "terminal_evidence_review_ids": list(group.terminal_evidence_review_ids),
         **group.provenance,
     }
 

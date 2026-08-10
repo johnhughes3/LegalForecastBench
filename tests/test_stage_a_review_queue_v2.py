@@ -187,6 +187,9 @@ def test_terminal_rows_collapse_into_one_candidate_technical_item() -> None:
     assert item["allowed_actions"] == []
     assert item["affected_unit_ids"] == ["unit-1", "unit-2", "unit-3"]
     assert item["source_review_ids"] == [record["review_id"] for record in v1_records]
+    assert item["terminal_evidence_review_ids"] == [
+        record["review_id"] for record in v1_records
+    ]
     assert item["terminal_escalation_sha256"] == ESCALATION_SHA
     assert item["reviewer_model_key"] == "google:reviewer"
 
@@ -233,7 +236,35 @@ def test_coalesced_terminal_row_keeps_its_substantive_unit_item() -> None:
     # the substantive item — the candidate item absorbs only the standalone row.
     assert candidate_item["affected_unit_ids"] == ["unit-1", "unit-2"]
     assert candidate_item["source_review_ids"] == [v1_records[1]["review_id"]]
+    assert candidate_item["terminal_evidence_review_ids"] == [
+        record["review_id"] for record in v1_records
+    ]
     verify_review_queue_v2_coverage(v1_records, (unit_item, candidate_item))
+
+
+def test_all_coalesced_terminal_rows_keep_candidate_evidence_visible() -> None:
+    """Coverage stays exact once while terminal provenance includes every row."""
+
+    v1_records = tuple(
+        {
+            **_construction_row(unit_id),
+            "terminal_escalation": _terminal_row(unit_id),
+        }
+        for unit_id in ("unit-1", "unit-2", "unit-3")
+    )
+    *unit_items, candidate_item = review_queue_v2_records(v1_records)
+
+    assert [item["source_review_ids"] for item in unit_items] == [
+        [record["review_id"]] for record in v1_records
+    ]
+    assert candidate_item["source_review_ids"] == []
+    assert candidate_item["terminal_evidence_review_ids"] == [
+        record["review_id"] for record in v1_records
+    ]
+    # The supported producer -> merge -> projection path keeps every frozen
+    # cohort unit in the terminal group; suggestions never narrow this fact.
+    assert candidate_item["affected_unit_ids"] == ["unit-1", "unit-2", "unit-3"]
+    verify_review_queue_v2_coverage(v1_records, (*unit_items, candidate_item))
 
 
 def test_conflicting_terminal_escalations_fail_closed() -> None:

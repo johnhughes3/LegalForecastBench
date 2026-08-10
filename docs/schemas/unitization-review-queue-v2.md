@@ -13,7 +13,7 @@ v2 keeps the four separate:
 - `allowed_actions` — authoritative. The closed set of actions that can legitimately resolve the item.
 - `suggested_actions` — non-authoritative. Every entry carries `authoritative: false` and names the unverified source it came from.
 
-`review_id` is preserved for unit items, and every item carries `source_review_ids` naming the v1 rows it represents.
+`review_id` is preserved for unit items. `source_review_ids` is the exact-once coverage relation: each v1 row appears there on exactly one v2 item. Candidate items also carry `terminal_evidence_review_ids`, which names every v1 row that supplied terminal escalation evidence, including coalesced rows whose `source_review_ids` remain on their substantive unit items.
 
 ## Allowed actions are derived, not guessed
 
@@ -28,9 +28,10 @@ Today a terminal escalation emits one v1 row per frozen unit, all carrying ident
 - `validator_code` and `invalid_field` — a stable classification of the failure, derived from the journaled `(failure_type, failure_message)` pair by an exhaustive table. Unrecognized failures classify as `unclassified` with the exact message preserved; attempts that failed *different* validators classify as `structural_review_validator_mixed` with per-attempt detail intact, rather than naming one code that would misdescribe the run.
 - `attempt_commitments` — the per-attempt `raw_response_sha256` and `normalized_response_sha256` already recorded in the escalation, plus that attempt's own classification and verbatim failure message.
 - `safe_parsed_flags` — see below; empty unless response bytes are supplied.
-- `affected_unit_ids` — every frozen unit the failed run touched.
+- `affected_unit_ids` — every frozen unit the failed run touched. The supported producer-to-merge-to-projection path collects this full cohort from the v1 rows; safe suggestions never narrow it.
+- `terminal_evidence_review_ids` — every v1 row carrying the terminal escalation evidence. This is provenance rather than coverage, so it may overlap unit items' `source_review_ids` when terminal evidence is coalesced into a substantive v1 row.
 
-A unit already under substantive review keeps its own unit item and its own `review_id`; the candidate item absorbs only the standalone terminal rows. Two different reviewer runs for one candidate fail closed rather than merging.
+A unit already under substantive review keeps its own unit item and its own `review_id`; the candidate item absorbs only standalone terminal rows in `source_review_ids`, while `terminal_evidence_review_ids` remains complete. Two different reviewer runs for one candidate fail closed rather than merging.
 
 ## Safe parsed flags are authenticated before parsing
 
