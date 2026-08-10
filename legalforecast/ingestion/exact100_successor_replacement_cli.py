@@ -11,6 +11,7 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import EXACT100_ZERO_COST_RECOVERY_PLAN_V1
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_replacement import (
     CONFIG_SCHEMA_VERSION,
@@ -345,7 +346,7 @@ def _recovery(
         )
     plan_bytes = _bytes(
         {
-            "schema_version": "legalforecast.exact100_zero_cost_recovery_plan.v1",
+            "schema_version": str(EXACT100_ZERO_COST_RECOVERY_PLAN_V1),
             "selection_sha256": _sha(selection),
             "records": [
                 {
