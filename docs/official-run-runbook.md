@@ -1170,7 +1170,7 @@ uv run legalforecast acquisition preflight-unitization-adjudication \
   --finalized-prediction-units <finalized-prediction-units.jsonl>
 ```
 
-Omit `--finalized-prediction-units` while drafting adjudications; pass it after an apply run to verify the finalized artifact byte-for-byte against the recomputation. A preflight failure is the exact failure apply would raise; fix the proposed adjudication file, never the immutable queue.
+Omit `--finalized-prediction-units` while drafting adjudications; pass it after an apply run to verify the finalized artifact byte-for-byte against the recomputation. An adjudication-invariant failure from the preflight is the exact failure apply would raise (the preflight additionally holds every input file to the stricter singly-linked non-symlink read discipline); fix the proposed adjudication file, never the immutable queue.
 
 After structural review, apply adjudications only through the authenticated unitizer card:
 

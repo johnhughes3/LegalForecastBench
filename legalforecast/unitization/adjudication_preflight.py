@@ -31,6 +31,9 @@ JsonRecord = dict[str, Any]
 ADJUDICATION_PREFLIGHT_REPORT_SCHEMA_VERSION = str(
     UNITIZATION_ADJUDICATION_PREFLIGHT_REPORT_V1
 )
+# review.py inlines this prefix for automatic finalization links
+# (adjudication_id = "automatic:<source sha256>") without exporting it;
+# keep the literal in sync with that frozen applicator.
 _AUTOMATIC_ADJUDICATION_PREFIX = "automatic:"
 
 
@@ -418,7 +421,12 @@ def _classify_unit(unit: Mapping[str, Any]) -> JsonRecord | None:
     defendant_group = unit.get("defendant_group")
     challenge_scope = unit.get("challenge_scope")
     challenged_by_motion = unit.get("challenged_by_motion")
-    grouping = unit.get("grouping", DefendantGrouping.INDIVIDUAL.value)
+    # The canonical decoder treats a null grouping the same as an absent
+    # one (individual), so an adjudicator tool that serializes the unset
+    # field as explicit JSON null must classify identically here.
+    grouping = unit.get("grouping")
+    if grouping is None:
+        grouping = DefendantGrouping.INDIVIDUAL.value
     if not isinstance(claim_name, str) or not claim_name.strip():
         return None
     if not isinstance(defendant_group, str) or not defendant_group.strip():

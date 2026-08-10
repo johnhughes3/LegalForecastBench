@@ -678,3 +678,176 @@ def test_preflight_cli_rejects_symlinked_input(
 
     assert cli.main(_argv(raw, unit_card, review_card, queue, link)) == 2
     assert "singly linked regular" in capsys.readouterr().err
+
+
+def test_explicit_null_grouping_classifies_as_individual() -> None:
+    """An adjudicated unit serializing unset grouping as JSON null stays in
+    the matrix — the canonical decoder treats null exactly like absent."""
+
+    raw = _candidate(
+        "cand-1",
+        [
+            _unit("a", claim_name="Shared Claim", defendant_group="Shared Defendant"),
+            _unit("b"),
+        ],
+    )
+    review = _review(raw, "b", route="structural_mis_split")
+    amended = _unit(
+        "b-amended",
+        claim_name="Shared Claim",
+        defendant_group="Shared Defendant",
+    )
+    amended["grouping"] = None
+    amended["grouping_rationale"] = None
+    adjudication = _adjudication(
+        "cand-1",
+        "adj-amend",
+        "AMEND",
+        [review],
+        finalized_units=[amended],
+    )
+
+    result = build_adjudication_preflight_report(
+        prediction_unit_records=[raw],
+        review_records=[review],
+        adjudication_records=[adjudication],
+        input_commitments=_COMMITMENTS,
+    )
+
+    [candidate] = result.report["candidates"]
+    assert candidate["nonconforming_unit_ids_after"] == []
+    assert candidate["duplicate_claim_defendant_keys_after"] == [
+        {
+            "claim_name": "Shared Claim",
+            "defendant_group": "Shared Defendant",
+            "unit_ids": ["a", "b-amended"],
+        }
+    ]
+    [shared_cell] = [
+        cell for cell in candidate["matrix"] if cell["claim_name"] == "Shared Claim"
+    ]
+    amended_entries = [
+        entry for entry in shared_cell["after_units"] if entry["unit_id"] == "b-amended"
+    ]
+    assert amended_entries[0]["grouping"] == "individual"
+
+
+def test_merge_and_split_worklist_rows() -> None:
+    raw = _candidate(
+        "cand-1",
+        [_unit("m1"), _unit("m2"), _unit("s")],
+    )
+    review_m1 = _review(raw, "m1", route="structural_combined")
+    review_m2 = _review(raw, "m2", route="structural_combined")
+    review_s = _review(raw, "s", route="structural_mis_split")
+    merged_unit = _unit("merged", claim_name="Merged Claim")
+    split_one = _unit("s-1", claim_name="Split Claim One")
+    split_two = _unit("s-2", claim_name="Split Claim Two")
+    adjudications = [
+        _adjudication(
+            "cand-1",
+            "adj-merge",
+            "MERGE",
+            [review_m1, review_m2],
+            finalized_units=[merged_unit],
+        ),
+        _adjudication(
+            "cand-1",
+            "adj-split",
+            "SPLIT",
+            [review_s],
+            finalized_units=[split_one, split_two],
+        ),
+    ]
+
+    result = build_adjudication_preflight_report(
+        prediction_unit_records=[raw],
+        review_records=[review_m1, review_m2, review_s],
+        adjudication_records=adjudications,
+        input_commitments=_COMMITMENTS,
+    )
+
+    [candidate] = result.report["candidates"]
+    assert candidate["before_unit_count"] == 3
+    assert candidate["after_unit_count"] == 3
+    by_id = {row["adjudication_id"]: row for row in candidate["worklist"]}
+    assert by_id["adj-merge"]["source_unit_ids"] == ["m1", "m2"]
+    assert by_id["adj-merge"]["emitted_unit_ids"] == ["merged"]
+    assert by_id["adj-merge"]["reviewed_unit_ids"] == ["m1", "m2"]
+    assert by_id["adj-split"]["source_unit_ids"] == ["s"]
+    assert by_id["adj-split"]["emitted_unit_ids"] == ["s-1", "s-2"]
+    merged_cells = [
+        cell for cell in candidate["matrix"] if cell["claim_name"] == "Merged Claim"
+    ]
+    assert [entry["unit_id"] for entry in merged_cells[0]["after_units"]] == ["merged"]
+    assert merged_cells[0]["after_units"][0]["disposition"] == "MERGE"
+    split_cells = [
+        cell
+        for cell in candidate["matrix"]
+        if cell["claim_name"].startswith("Split Claim")
+    ]
+    assert [cell["after_units"][0]["disposition"] for cell in split_cells] == [
+        "SPLIT",
+        "SPLIT",
+    ]
+
+
+def test_omission_review_without_unit_id_is_accepted() -> None:
+    """Apply never reads unit_id on an ADD-consumed omission review, so the
+    worklist must tolerate its absence instead of crashing."""
+
+    raw = _candidate("cand-1", [_unit("a")])
+    review = _omission_review(raw, "a")
+    del review["unit_id"]
+    added_unit = _unit("h-added", documents=("motion",))
+    adjudication = _adjudication(
+        "cand-1",
+        "adj-add",
+        "ADD",
+        [review],
+        finalized_units=[added_unit],
+    )
+
+    result = build_adjudication_preflight_report(
+        prediction_unit_records=[raw],
+        review_records=[review],
+        adjudication_records=[adjudication],
+        input_commitments=_COMMITMENTS,
+    )
+
+    [candidate] = result.report["candidates"]
+    [add_row] = candidate["worklist"]
+    assert add_row["adjudication_id"] == "adj-add"
+    assert add_row["reviewed_unit_ids"] == []
+    assert add_row["emitted_unit_ids"] == ["h-added"]
+
+
+def test_preflight_cli_fails_closed_when_input_changes_mid_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The post-build TOCTOU recheck must catch a swap after capture and
+    suppress the report."""
+
+    _stub_authentication(monkeypatch, tmp_path)
+    raw, queue, adjudications_path, unit_card, review_card, _ = _preflight_inputs(
+        tmp_path
+    )
+    real_build = cli.build_adjudication_preflight_report
+
+    def mutate_then_build(**kwargs: Any) -> Any:
+        # A trailing blank line parses identically but changes the bytes,
+        # so only the byte-level recheck can catch it.
+        adjudications_path.write_bytes(adjudications_path.read_bytes() + b"\n")
+        return real_build(**kwargs)
+
+    monkeypatch.setattr(cli, "build_adjudication_preflight_report", mutate_then_build)
+
+    assert cli.main(_argv(raw, unit_card, review_card, queue, adjudications_path)) == 2
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "proposed adjudications changed during adjudication preflight" in (
+        captured.err
+    )

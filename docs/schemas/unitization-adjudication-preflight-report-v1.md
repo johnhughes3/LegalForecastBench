@@ -18,4 +18,4 @@ Adjudicated `AMEND`/`SPLIT`/`MERGE` outputs are not required by apply to be cano
 
 ## Privacy
 
-Every list in the report is sorted, so identical inputs print identical bytes. The report contains blinded Stage A case content: keep any saved copy under the private review root, outside the repository and every publishable root.
+The report is deterministic: identical inputs print identical bytes. Lists are sorted, except that a worklist row's `review_ids`, `reviewed_unit_ids`, and `source_unit_ids` preserve the adjudication's own consumption order, which is itself part of the authenticated content. The report contains blinded Stage A case content: keep any saved copy under the private review root, outside the repository and every publishable root.
