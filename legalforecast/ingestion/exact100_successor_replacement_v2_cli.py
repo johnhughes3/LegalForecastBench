@@ -5,11 +5,17 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import stat
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.cohort_document_materializer import (
+    CohortDocumentMaterializationError,
+    require_materializer_artifact,
+)
 from legalforecast.ingestion.exact100_successor_replacement_v2 import (
     CONFIG_SCHEMA_VERSION,
     STATE_SCHEMA_VERSION,
@@ -132,8 +138,28 @@ def run(args: argparse.Namespace) -> int:
         },
     }
     payloads = {**first_payloads, "state": _bytes(state)}
-    for name, payload in payloads.items():
-        _write_immutable(output_root / _OUTPUT_NAMES[name], payload, resume=args.resume)
+    output_root_fd = _open_output_root_fd(output_root)
+    try:
+        for name, payload in payloads.items():
+            _write_immutable_at(
+                output_root_fd,
+                Path(_OUTPUT_NAMES[name]),
+                payload,
+                resume=args.resume,
+            )
+        if any(
+            _read_immutable_relative(output_root_fd, Path(_OUTPUT_NAMES[name]))
+            != payload
+            for name, payload in payloads.items()
+        ):
+            raise Exact100SuccessorReplacementV2CliError(
+                "v2 successor output changed during publication"
+            )
+        os.fsync(output_root_fd)
+        _require_output_root_path_identity(output_root, output_root_fd)
+    finally:
+        os.close(output_root_fd)
+    _validate_output_root(output_root)
     print(
         json.dumps(
             {
@@ -178,8 +204,22 @@ def verify_exact100_successor_replacement_v2_projection(
         "dry_run": False,
         "execute": True,
         "record_count": len(replayed.selection),
-        "input_paths": state.get("input_paths"),
-        "output_paths": state.get("output_paths"),
+        "input_paths": [
+            str(cast(Path, getattr(args, field_name)).absolute())
+            for field_name in (
+                "predecessor_root",
+                "complete_materialization_root",
+                "stipulated_evidence_root",
+                "final153_snapshot",
+                "wider_plan_root",
+                "wider_exclusion_root",
+                "historical_packet_root",
+            )
+        ],
+        "output_paths": [
+            str((target_root / relative).absolute())
+            for relative in _OUTPUT_NAMES.values()
+        ],
         "output_commitments": {
             **cast(Mapping[str, str], replayed.config["output_commitments"]),
             _OUTPUT_NAMES["config"]: _sha(replayed.config_bytes),
@@ -283,15 +323,142 @@ def _validate_output_root(root: Path) -> None:
         )
 
 
-def _write_immutable(path: Path, payload: bytes, *, resume: bool) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        if not resume or _read(path) != payload:
+def _open_output_root_fd(root: Path, *, create: bool = True) -> int:
+    absolute = Path(os.path.abspath(root))
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory = getattr(os, "O_DIRECTORY", None)
+    if nofollow is None or directory is None:
+        raise Exact100SuccessorReplacementV2CliError(
+            "immutable v2 successor writes require no-follow directory support"
+        )
+    flags = os.O_RDONLY | directory | nofollow | getattr(os, "O_CLOEXEC", 0)
+    descriptor = os.open(absolute.anchor, flags)
+    try:
+        for component in absolute.parts[1:]:
+            try:
+                child = os.open(component, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                if not create:
+                    raise Exact100SuccessorReplacementV2CliError(
+                        "v2 successor output root disappeared during publication"
+                    ) from None
+                os.mkdir(component, 0o700, dir_fd=descriptor)
+                child = os.open(component, flags, dir_fd=descriptor)
+            except OSError as exc:
+                raise Exact100SuccessorReplacementV2CliError(
+                    "v2 successor output root could not be opened without symlinks"
+                ) from exc
+            os.close(descriptor)
+            descriptor = child
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def _require_output_root_path_identity(root: Path, root_fd: int) -> None:
+    current_fd = _open_output_root_fd(root, create=False)
+    try:
+        expected = os.fstat(root_fd)
+        current = os.fstat(current_fd)
+        if (expected.st_dev, expected.st_ino) != (current.st_dev, current.st_ino):
             raise Exact100SuccessorReplacementV2CliError(
-                f"immutable v2 successor output differs: {path}"
+                "v2 successor output root changed during publication"
             )
-        return
-    path.write_bytes(payload)
+    finally:
+        os.close(current_fd)
+
+
+def _open_output_parent_fd(root_fd: int, relative_parent: Path) -> int:
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    directory = getattr(os, "O_DIRECTORY", 0)
+    flags = os.O_RDONLY | directory | nofollow | getattr(os, "O_CLOEXEC", 0)
+    descriptor = os.dup(root_fd)
+    try:
+        for component in relative_parent.parts:
+            if component in {"", ".", ".."}:
+                raise Exact100SuccessorReplacementV2CliError(
+                    "invalid relative v2 successor output path"
+                )
+            try:
+                child = os.open(component, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                os.mkdir(component, 0o700, dir_fd=descriptor)
+                child = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def _write_immutable_at(
+    root_fd: int, relative: Path, payload: bytes, *, resume: bool
+) -> None:
+    if relative.is_absolute() or relative.name in {"", ".", ".."}:
+        raise Exact100SuccessorReplacementV2CliError(
+            "invalid relative v2 successor output path"
+        )
+    parent_fd = _open_output_parent_fd(root_fd, relative.parent)
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | nofollow | getattr(os, "O_CLOEXEC", 0)
+    )
+    try:
+        try:
+            descriptor = os.open(relative.name, flags, 0o600, dir_fd=parent_fd)
+        except FileExistsError:
+            existing = _read_immutable_at(parent_fd, relative.name)
+            if not resume or existing != payload:
+                raise Exact100SuccessorReplacementV2CliError(
+                    f"immutable v2 successor output differs: {relative}"
+                ) from None
+            return
+        try:
+            with os.fdopen(descriptor, "wb", closefd=True) as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.fsync(parent_fd)
+        except BaseException:
+            try:
+                os.unlink(relative.name, dir_fd=parent_fd)
+            except FileNotFoundError:
+                pass
+            raise
+    finally:
+        os.close(parent_fd)
+
+
+def _read_immutable_at(parent_fd: int, name: str) -> bytes:
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(
+        name,
+        os.O_RDONLY
+        | nofollow
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NONBLOCK", 0),
+        dir_fd=parent_fd,
+    )
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise Exact100SuccessorReplacementV2CliError(
+                "immutable v2 successor output is not a singly linked file"
+            )
+        with os.fdopen(descriptor, "rb", closefd=False) as stream:
+            return stream.read()
+    finally:
+        os.close(descriptor)
+
+
+def _read_immutable_relative(root_fd: int, relative: Path) -> bytes:
+    parent_fd = _open_output_parent_fd(root_fd, relative.parent)
+    try:
+        return _read_immutable_at(parent_fd, relative.name)
+    finally:
+        os.close(parent_fd)
 
 
 def _overlaps(first: Path, second: Path) -> bool:
@@ -300,11 +467,12 @@ def _overlaps(first: Path, second: Path) -> bool:
 
 
 def _read(path: Path) -> bytes:
-    if path.is_symlink() or not path.is_file():
-        raise Exact100SuccessorReplacementV2CliError(
-            f"missing regular v2 successor file: {path}"
+    try:
+        return require_materializer_artifact(
+            path, label="immutable v2 successor artifact"
         )
-    return path.read_bytes()
+    except CohortDocumentMaterializationError as exc:
+        raise Exact100SuccessorReplacementV2CliError(str(exc)) from exc
 
 
 def _object(payload: bytes, path: Path) -> dict[str, Any]:

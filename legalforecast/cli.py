@@ -42,6 +42,7 @@ from legalforecast.acquisition_completion_summary_cli import (
 )
 from legalforecast.contracts import (
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
+    EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
@@ -458,6 +459,28 @@ from legalforecast.ingestion.exact100_successor_replacement_cli import (
 from legalforecast.ingestion.exact100_successor_replacement_cli import (
     verify_materializer_projection as verify_exact100_successor_replacement_projection,
 )
+from legalforecast.ingestion.exact100_successor_replacement_v2 import (
+    VerifiedExact100V2Base,
+    _mint_verified_exact100_v2_base,  # pyright: ignore[reportPrivateUsage]
+)
+from legalforecast.ingestion.exact100_successor_replacement_v2_cli import (
+    Exact100SuccessorReplacementV2CliError,
+    verify_exact100_successor_replacement_v2_projection,
+)
+from legalforecast.ingestion.exact100_successor_replacement_v2_cli import (
+    add_parser as add_exact100_successor_replacement_v2_parser,
+)
+from legalforecast.ingestion.exact100_successor_replacement_v2_cli import (
+    run as run_exact100_successor_replacement_v2,
+)
+from legalforecast.ingestion.exact100_successor_semantic_repair import (
+    VerifiedExact100SuccessorSemanticRepairs,
+    _mint_verified_exact100_successor_semantic_repairs,  # pyright: ignore[reportPrivateUsage]
+)
+from legalforecast.ingestion.exact100_successor_wider_rank import (
+    VerifiedExact100SuccessorWiderRank,
+    _mint_verified_exact100_successor_wider_rank,  # pyright: ignore[reportPrivateUsage]
+)
 from legalforecast.ingestion.exact100_zero_cost_recovery_cli import (
     add_parser as add_exact100_zero_cost_recovery_parser,
 )
@@ -603,8 +626,10 @@ from legalforecast.ingestion.packet_role_adjudication import (
     verify_packet_role_adjudications,
 )
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
+    VerifiedPostSelectionTerminalExclusions,
     VerifiedTerminalExclusionEvidence,
     _mint_stipulated_terminal_evidence_from_verified_eligibility_audit,  # pyright: ignore[reportPrivateUsage]
+    verify_post_selection_terminal_exclusions,
 )
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
@@ -2122,6 +2147,10 @@ def build_parser() -> argparse.ArgumentParser:
     add_exact100_successor_replacement_parser(
         acquisition_subparsers,
         handler=_cmd_project_exact100_successor_replacement,
+    )
+    add_exact100_successor_replacement_v2_parser(
+        acquisition_subparsers,
+        handler=_cmd_project_exact100_successor_replacement_v2,
     )
     add_exact100_zero_cost_recovery_parser(acquisition_subparsers)
     acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
@@ -40196,10 +40225,14 @@ def _preflight_approved_purchase_input_bytes(args: argparse.Namespace) -> None:
 _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN = object()
 _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION = object()
 _EXACT100_SUCCESSOR_REPLAY_ATTESTATION = object()
+_EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION = object()
 _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
     ZERO_COST_SUCCESSOR_STATE_SCHEMA: _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION,
     str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1): (
         _EXACT100_SUCCESSOR_REPLAY_ATTESTATION
+    ),
+    str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2): (
+        _EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION
     ),
 }
 _SUPPORTED_SUCCESSOR_STATE_SCHEMAS = frozenset(_SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA)
@@ -42219,6 +42252,22 @@ def _cmd_project_exact100_successor_replacement(args: argparse.Namespace) -> int
         raise CommandError(str(exc)) from exc
 
 
+def _cmd_project_exact100_successor_replacement_v2(
+    args: argparse.Namespace,
+) -> int:
+    """Run v2 only through the closed provider-free authenticated replay."""
+
+    args._replay_v2_inputs = _replay_exact100_successor_replacement_v2_inputs
+    try:
+        # The v2 runner replays every authority twice before publishing. Keep
+        # exact-byte hashing and final TOCTOU checks, but reuse identical PDF
+        # disclosure scans across those two authenticated passes.
+        with cache_disclosure_document_scans():
+            return run_exact100_successor_replacement_v2(args)
+    except Exact100SuccessorReplacementV2CliError as exc:
+        raise CommandError(str(exc)) from exc
+
+
 def _replay_exact100_successor_inputs(
     predecessor_root: Path,
 ) -> tuple[VerifiedExact100Predecessor, VerifiedSuccessorPromotionPool]:
@@ -42379,6 +42428,854 @@ def _replay_exact100_successor_inputs(
     return predecessor, promotion_pool
 
 
+_EXACT100_V2_AUTHORITY_SHA256 = {
+    "predecessor_run_card": (
+        "sha256:e88e947230a2d2ea8fe761e0c9a1b3fa7023bb556eb2d145f2b424f61338383e"
+    ),
+    "predecessor_selection": (
+        "sha256:0404bc27cc41e256fee8c62e9cea4f4ad2b930df267f84b0cc7f699998625a5c"
+    ),
+    "predecessor_projection": (
+        "sha256:f5f99ccaa5b33ec7c87e970ea0fe9891207c25024c5bc0e700054e3be5af7895"
+    ),
+    "materialization_run_card": (
+        "sha256:4059668274089f0bbd6b5bad071153c15772102715fa23ac96f0fc8144248e44"
+    ),
+    "materialization_manifest": (
+        "sha256:2271ba37fb5b7c6c69c972343a8d1e91b8f5e04ebaef6d66d73c0a167cb8d11c"
+    ),
+    "stipulated_audit_run_card": (
+        "sha256:ab746330466c2662205e9b1e4179132002bf6a0cca623ac31855b7939d254cd0"
+    ),
+    "final153_manifest": (
+        "sha256:487bec5f70289e212554a9af59fc195c9d6244060550d346612cb589405b138c"
+    ),
+    "wider_plan_run_card": (
+        "sha256:47199b60715c838efbb7adc21d5677049ca70ceb5a06e21597432d90abdbfc38"
+    ),
+    "wider_plan_summary": (
+        "sha256:2e9bfed3af833984102c68eeda8829cdb8d597995899c16e0146d5be77538a19"
+    ),
+    "wider_exclusion_run_card": (
+        "sha256:86b0fa5d1b6ec292a76893e86768ff992e147adb978d86decf67bad4cfb167cb"
+    ),
+    "wider_exclusions": (
+        "sha256:4985e8774a339c9d4c5c9ccb50f59e328da304b63992704f2c91dd9fd7d5abf2"
+    ),
+    "historical_plan_run_card": (
+        "sha256:83204b103f1a0530768c137631a26cb2de63a96f7a1e6103263beffcf941a075"
+    ),
+    "historical_plan_summary": (
+        "sha256:881969df0cd5274b93735b6928a344bd610366560fe4e1fd45ce734f204de9e5"
+    ),
+    "historical_paid_gaps": (
+        "sha256:5ab24bd35b88cc1420d96b06522152dd9cae6d00595d5ca728e91b9cc782b8be"
+    ),
+    "historical_snapshot_manifest": (
+        "sha256:59314e283aa5e8f42a0d3ef8619658d71037c74cb620e5c877159469bfe7f1f1"
+    ),
+    "historical_download_run_card": (
+        "sha256:788779d0c7c9c3e5a86c0ea532a892081a3b2061373d901e4fd8a4e65d65f5fd"
+    ),
+    "historical_download_manifest": (
+        "sha256:bd75d0832d350118dbbbac77bb02d8f8d7361bab7bbfb883465a59269f418aaa"
+    ),
+}
+_EXACT100_V2_TERMINAL_CANDIDATE_ID = "69736298"
+
+
+def _require_exact100_v2_authority_payload(payload: bytes, *, surface: str) -> None:
+    expected = _EXACT100_V2_AUTHORITY_SHA256[surface]
+    if _bytes_sha256(payload) != expected:
+        raise CommandError(f"exact100 v2 {surface} differs from sealed authority")
+
+
+def _replay_exact100_v2_predecessor_surface(
+    root: Path,
+) -> tuple[dict[str, tuple[JsonRecord, ...]], dict[Path, bytes]]:
+    """Bind the frozen root-30 outputs while root 32 proves live completeness."""
+
+    output_names = (
+        "target-cohort-selection.jsonl",
+        "target-cohort-projection.json",
+        "case-relevance.jsonl",
+        "core-filter-results.jsonl",
+    )
+    run_card_path = root / "run-cards/project-target-cohort.json"
+    snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label="exact100 v2 predecessor surface"
+        )
+        for path in (run_card_path, *(root / name for name in output_names))
+    }
+    _require_exact100_v2_authority_payload(
+        snapshots[run_card_path], surface="predecessor_run_card"
+    )
+    _require_exact100_v2_authority_payload(
+        snapshots[root / "target-cohort-selection.jsonl"],
+        surface="predecessor_selection",
+    )
+    _require_exact100_v2_authority_payload(
+        snapshots[root / "target-cohort-projection.json"],
+        surface="predecessor_projection",
+    )
+    run_card = _projection_json_object(snapshots[run_card_path], source=run_card_path)
+    projection_path = root / "target-cohort-projection.json"
+    projection = _projection_json_object(
+        snapshots[projection_path], source=projection_path
+    )
+    run_commitments = _mapping(
+        run_card.get("output_commitments"), "exact100 v2 predecessor commitments"
+    )
+    projection_commitments = _mapping(
+        projection.get("output_commitments"),
+        "exact100 v2 predecessor projection commitments",
+    )
+    if (
+        run_card.get("schema_version") != ZERO_COST_SUCCESSOR_STATE_SCHEMA
+        or run_card.get("stage") != "project-zero-cost-successor"
+        or run_card.get("status") != "completed"
+        or run_card.get("selected_case_count") != 100
+        or projection.get("schema_version")
+        != "legalforecast.zero_cost_successor_config.v1"
+    ):
+        raise CommandError("exact100 v2 predecessor card differs")
+    for name in output_names:
+        payload = snapshots[root / name]
+        commitment = _bytes_sha256(payload)
+        if run_commitments.get(name) != commitment or (
+            name != "target-cohort-projection.json"
+            and projection_commitments.get(name) != commitment
+        ):
+            raise CommandError(f"exact100 v2 predecessor output changed: {name}")
+    selection_path = root / "target-cohort-selection.jsonl"
+    case_relevance_path = root / "case-relevance.jsonl"
+    core_path = root / "core-filter-results.jsonl"
+    selection = tuple(
+        _projection_jsonl_records(snapshots[selection_path], source=selection_path)
+    )
+    if len(selection) != 100:
+        raise CommandError("exact100 v2 predecessor selection count differs")
+    return (
+        {
+            "selection": selection,
+            "case_relevance": tuple(
+                _projection_jsonl_records(
+                    snapshots[case_relevance_path], source=case_relevance_path
+                )
+            ),
+            "core_filter": tuple(
+                _projection_jsonl_records(snapshots[core_path], source=core_path)
+            ),
+        },
+        snapshots,
+    )
+
+
+def _replay_exact100_successor_replacement_v2_inputs(
+    args: argparse.Namespace,
+) -> tuple[
+    VerifiedExact100V2Base,
+    VerifiedPostSelectionTerminalExclusions,
+    VerifiedExact100SuccessorSemanticRepairs,
+    VerifiedExact100SuccessorWiderRank,
+]:
+    """Authenticate the complete provider-free v2 replacement horizon."""
+
+    predecessor_root = cast(Path, args.predecessor_root).absolute()
+    materialization_root = cast(Path, args.complete_materialization_root).absolute()
+    stipulated_root = cast(Path, args.stipulated_evidence_root).absolute()
+    final153_snapshot = cast(Path, args.final153_snapshot).absolute()
+    wider_plan_root = cast(Path, args.wider_plan_root).absolute()
+    wider_exclusion_root = cast(Path, args.wider_exclusion_root).absolute()
+    historical_root = cast(Path, args.historical_packet_root).absolute()
+
+    predecessor_surface, predecessor_snapshots = (
+        _replay_exact100_v2_predecessor_surface(predecessor_root)
+    )
+    predecessor_selection = predecessor_surface["selection"]
+    predecessor_selection_bytes = predecessor_snapshots[
+        predecessor_root / "target-cohort-selection.jsonl"
+    ]
+    audit_card_path = (
+        stipulated_root / "run-cards/audit-stage-a-target-eligibility.json"
+    )
+    audit_card_bytes = _read_singly_linked_regular_input(
+        audit_card_path, label="v2 stipulated eligibility audit run card"
+    )
+    _require_exact100_v2_authority_payload(
+        audit_card_bytes, surface="stipulated_audit_run_card"
+    )
+    audit_card = _projection_json_object(audit_card_bytes, source=audit_card_path)
+    replay_paths = _mapping(
+        audit_card.get("replay_paths"), "v2 stipulated eligibility replay paths"
+    )
+    controlled_private_root = Path(
+        _required_str(replay_paths, "controlled_private_root")
+    )
+    initialization_receipt = Path(
+        _required_str(replay_paths, "purchase_ledger_initialization_receipt")
+    )
+
+    materialized_root = materialization_root / "01-materialized"
+    materialization_card_path = (
+        materialized_root / "run-cards/materialize-cohort-documents.json"
+    )
+    materialization_manifest_path = (
+        materialized_root / "document-downloads-merged.jsonl"
+    )
+    _require_exact100_v2_authority_payload(
+        _read_singly_linked_regular_input(
+            materialization_card_path,
+            label="exact100 v2 materialization authority run card",
+        ),
+        surface="materialization_run_card",
+    )
+    _require_exact100_v2_authority_payload(
+        _read_singly_linked_regular_input(
+            materialization_manifest_path,
+            label="exact100 v2 materialization authority manifest",
+        ),
+        surface="materialization_manifest",
+    )
+    verified_materialization = _verify_materialized_downstream_lineage(
+        run_card_path=materialization_card_path,
+        manifest_path=materialization_manifest_path,
+        clearance_path=materialized_root / "disclosure-clearance.jsonl",
+        document_root=materialized_root / "documents",
+        selection_path=predecessor_root / "target-cohort-selection.jsonl",
+        controlled_private_root=controlled_private_root,
+        initialization_receipt_path=initialization_receipt,
+    )
+    if tuple(verified_materialization.selection_records) != predecessor_selection:
+        raise CommandError("v2 complete materialization selection differs")
+    restriction_path = materialized_root / "restriction-evidence.jsonl"
+    restriction_bytes = verified_materialization.artifact_bytes.get(
+        os.path.abspath(restriction_path)
+    )
+    if not isinstance(restriction_bytes, bytes):
+        raise CommandError("v2 complete materialization lacks restriction evidence")
+    restriction_records = _projection_jsonl_records(
+        restriction_bytes, source=restriction_path
+    )
+    base = _mint_verified_exact100_v2_base(
+        predecessor_projection_bytes=predecessor_snapshots[
+            predecessor_root / "target-cohort-projection.json"
+        ],
+        selection_rows=predecessor_selection,
+        case_relevance_rows=predecessor_surface["case_relevance"],
+        download_manifest_rows=verified_materialization.manifest_records,
+        disclosure_rows=verified_materialization.clearance_records,
+        restriction_rows=restriction_records,
+        core_filter_rows=predecessor_surface["core_filter"],
+        source_commitments={
+            "predecessor_projection": _bytes_sha256(
+                predecessor_snapshots[
+                    predecessor_root / "target-cohort-projection.json"
+                ]
+            ),
+            "predecessor_selection": _bytes_sha256(predecessor_selection_bytes),
+            "complete_materialization_run_card": _bytes_sha256(
+                verified_materialization.artifact_bytes[
+                    os.path.abspath(
+                        materialized_root
+                        / "run-cards/materialize-cohort-documents.json"
+                    )
+                ]
+            ),
+            "complete_materialization_document_tree": _bytes_sha256(
+                _projection_json_bytes(
+                    {
+                        path: _bytes_sha256(payload)
+                        for path, payload in sorted(
+                            verified_materialization.document_tree.items()
+                        )
+                    }
+                )
+            ),
+        },
+    )
+
+    final153_rows, final153_snapshots = _replay_exact100_v2_snapshot(
+        final153_snapshot,
+        authority_surface="final153_manifest",
+        expected_count=153,
+    )
+    wider_rows, wider_plan_snapshots = _replay_exact100_v2_public_plan(
+        plan_root=wider_plan_root / "01-public-plan",
+        snapshot_root=final153_snapshot,
+        expected_target_count=153,
+        authority_prefix="wider_plan",
+        snapshot_authority_surface="final153_manifest",
+        snapshot_expected_count=153,
+        expected_candidate_count=153,
+    )
+    exclusion_path = wider_exclusion_root / "successor-target-exclusions.jsonl"
+    exclusion_card_path = (
+        wider_exclusion_root / "run-cards/build-replacement-exclusions.json"
+    )
+    _require_exact100_v2_authority_payload(
+        _read_singly_linked_regular_input(
+            exclusion_card_path, label="exact100 v2 wider-exclusion run card"
+        ),
+        surface="wider_exclusion_run_card",
+    )
+    _require_exact100_v2_authority_payload(
+        _read_singly_linked_regular_input(
+            exclusion_path, label="exact100 v2 wider exclusions"
+        ),
+        surface="wider_exclusions",
+    )
+    exclusion_rows = _verify_replacement_exclusion_card(
+        run_card_path=exclusion_card_path,
+        output_path=exclusion_path,
+        selection_path=predecessor_root / "target-cohort-selection.jsonl",
+        screened_cases_path=final153_snapshot / "screened-cases.jsonl",
+    )
+
+    (
+        historical_rows,
+        historical_manifest,
+        historical_document_bytes,
+        historical_snapshots,
+    ) = _replay_exact100_v2_historical_packet(historical_root)
+    historical_roles: dict[str, set[str]] = defaultdict(set)
+    for record in historical_manifest:
+        historical_roles[_required_str(record, "candidate_id")].add(
+            _required_str(record, "document_role")
+        )
+    repair_source_ids = {
+        candidate_id
+        for candidate_id, roles in historical_roles.items()
+        if {
+            "complaint",
+            "motion_to_dismiss_notice",
+            "opposition",
+            "decision",
+        }
+        <= roles
+    }
+    if len(repair_source_ids) != 1:
+        raise CommandError(
+            "historical packet must contain one complete semantic-repair surface"
+        )
+    repair_source_id = next(iter(repair_source_ids))
+    semantic_source_manifest = tuple(
+        record
+        for record in historical_manifest
+        if _required_str(record, "candidate_id") == repair_source_id
+    )
+    repairs = _mint_verified_exact100_successor_semantic_repairs(
+        document_records=semantic_source_manifest,
+        document_bytes_by_key={
+            (
+                _required_str(record, "candidate_id"),
+                _required_str(record, "source_document_id"),
+            ): historical_document_bytes[_required_str(record, "local_path")]
+            for record in semantic_source_manifest
+        },
+    )
+    repaired_ids = {_required_str(record, "candidate_id") for record in repairs.records}
+    if len(repairs.records) != 2 or len(repaired_ids) != 1:
+        raise CommandError(
+            "historical packet must yield exactly one two-role semantic repair"
+        )
+    repaired_id = next(iter(repaired_ids))
+    selected_historical_rows = tuple(
+        row
+        for row in historical_rows
+        if _required_str(row, "candidate_id") == repaired_id
+    )
+    if len(selected_historical_rows) != 1:
+        raise CommandError("semantic repair candidate lacks one historical plan row")
+    historical_selection = selected_historical_rows[0]
+    candidate_manifest = tuple(
+        row
+        for row in historical_manifest
+        if _required_str(row, "candidate_id") == repaired_id
+    )
+    if len(candidate_manifest) != 5:
+        raise CommandError("semantic repair candidate lacks its five-document packet")
+    candidate_bytes = {
+        _required_str(row, "local_path"): historical_document_bytes[
+            _required_str(row, "local_path")
+        ]
+        for row in candidate_manifest
+    }
+    restriction_records, clearance_records = _exact100_v2_provider_free_clearance(
+        selection=historical_selection,
+        manifest=candidate_manifest,
+        document_root=historical_root / "documents",
+        document_bytes=candidate_bytes,
+    )
+    effective_relevance = _exact100_v2_effective_relevance(
+        historical_selection, repairs.records
+    )
+    core_rows = tuple(
+        result.to_record() for result in filter_core_documents((effective_relevance,))
+    )
+
+    exact_ids = {_required_str(row, "candidate_id") for row in predecessor_selection}
+    exclusion_ids = {_required_str(row, "candidate_id") for row in exclusion_rows}
+    materialized_by_id = {
+        _required_str(row, "candidate_id"): dict(row) for row in wider_rows
+    }
+    if set(materialized_by_id) != {
+        _required_str(_mapping(row.get("candidate"), "final153 candidate"), "docket_id")
+        for row in final153_rows
+    }:
+        raise CommandError("v2 wider public plan does not cover the final153 snapshot")
+    materialized_nonselected = tuple(
+        materialized_by_id[candidate_id] for candidate_id in sorted(exclusion_ids)
+    )
+    if set(materialized_by_id) != exact_ids | exclusion_ids:
+        raise CommandError("v2 exact100 and wider exclusions do not partition final153")
+
+    identity_rows = tuple(
+        {
+            "snapshot_candidate_id": _required_str(row, "candidate_id"),
+            "canonical_candidate_id": _required_str(
+                _mapping(row.get("candidate"), "final153 candidate"), "docket_id"
+            ),
+            "snapshot_row_sha256": hashlib.sha256(
+                canonical_json_bytes(row)
+            ).hexdigest(),
+        }
+        for row in final153_rows
+    )
+    wider = _mint_verified_exact100_successor_wider_rank(
+        final153_rows=final153_rows,
+        exact100_rows=predecessor_selection,
+        exclusion_rows=exclusion_rows,
+        materialized_selection_rows=materialized_nonselected,
+        case_relevance_rows=(historical_selection,),
+        download_manifest_rows=candidate_manifest,
+        disclosure_rows=clearance_records,
+        restriction_rows=restriction_records,
+        core_filter_rows=core_rows,
+        identity_mapping_rows=identity_rows,
+        semantic_repair_rows=repairs.records,
+        source_commitments={
+            "final153_snapshot": _bytes_sha256(
+                final153_snapshots[final153_snapshot / "manifest.json"]
+            ),
+            "wider_public_plan": _bytes_sha256(_projection_jsonl_bytes(wider_rows)),
+            "wider_exclusions": _path_sha256(exclusion_path),
+            "historical_public_plan": _bytes_sha256(
+                _projection_jsonl_bytes(historical_rows)
+            ),
+            "historical_download_manifest": _bytes_sha256(
+                historical_snapshots[historical_root / "free-document-downloads.jsonl"]
+            ),
+        },
+    )
+    if wider.selected_candidate_id != repaired_id:
+        raise CommandError(
+            "deterministic wider rank did not select the semantic repair candidate"
+        )
+
+    terminal_evidence = _replay_exact100_stipulated_eligibility_unchecked(
+        stipulated_root, predecessor_selection_bytes
+    )
+    terminal = verify_post_selection_terminal_exclusions(
+        selection_bytes=predecessor_selection_bytes,
+        evidence=(terminal_evidence,),
+    )
+    if terminal.candidate_ids != (_EXACT100_V2_TERMINAL_CANDIDATE_ID,):
+        raise CommandError(
+            "exact100 v2 terminal candidate differs from sealed authority"
+        )
+
+    _require_snapshot_unchanged(
+        {
+            audit_card_path: audit_card_bytes,
+            **final153_snapshots,
+            **wider_plan_snapshots,
+            **historical_snapshots,
+            **predecessor_snapshots,
+        },
+        label="exact100 v2 authenticated replay input",
+    )
+    _require_materialized_downstream_lineage_unchanged(
+        verified_materialization,
+        document_root=materialized_root / "documents",
+    )
+    return base, terminal, repairs, wider
+
+
+def _replay_exact100_v2_snapshot(
+    snapshot_root: Path, *, authority_surface: str, expected_count: int | None
+) -> tuple[tuple[JsonRecord, ...], dict[Path, bytes]]:
+    manifest_path = snapshot_root / "manifest.json"
+    screened_path = snapshot_root / "screened-cases.jsonl"
+    manifest_bytes = _read_singly_linked_regular_input(
+        manifest_path, label="exact100 v2 final153 manifest"
+    )
+    _require_exact100_v2_authority_payload(manifest_bytes, surface=authority_surface)
+    screened_bytes = _read_singly_linked_regular_input(
+        screened_path, label="exact100 v2 final153 screened cases"
+    )
+    manifest = _projection_json_object(manifest_bytes, source=manifest_path)
+    verified = load_verified_screening_snapshot(
+        snapshot_root,
+        expected_manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+        expected_cycle_hash=_required_str(manifest, "cycle_hash"),
+    )
+    rows = tuple(_projection_jsonl_records(screened_bytes, source=screened_path))
+    if (
+        not rows
+        or len(rows) != len(verified.screened)
+        or (expected_count is not None and len(rows) != expected_count)
+    ):
+        raise CommandError("exact100 v2 authenticated snapshot count differs")
+    return rows, {manifest_path: manifest_bytes, screened_path: screened_bytes}
+
+
+def _replay_exact100_v2_public_plan(
+    *,
+    plan_root: Path,
+    snapshot_root: Path,
+    expected_target_count: int,
+    authority_prefix: str,
+    snapshot_authority_surface: str,
+    snapshot_expected_count: int | None,
+    expected_candidate_count: int | None,
+) -> tuple[tuple[JsonRecord, ...], dict[Path, bytes]]:
+    run_card_path = plan_root / "run-cards/plan-public-downloads.json"
+    summary_path = plan_root / "public-packet-plan-summary.json"
+    output_paths = {
+        "requests": plan_root / "free-document-requests.jsonl",
+        "selection": plan_root / "public-packet-selection.jsonl",
+        "paid_gaps": plan_root / "public-packet-paid-gaps.jsonl",
+        "exclusions": plan_root / "public-packet-exclusions.jsonl",
+    }
+    snapshots = {
+        path: _read_singly_linked_regular_input(path, label="exact100 v2 public plan")
+        for path in (run_card_path, summary_path, *output_paths.values())
+    }
+    _require_exact100_v2_authority_payload(
+        snapshots[run_card_path], surface=f"{authority_prefix}_run_card"
+    )
+    _require_exact100_v2_authority_payload(
+        snapshots[summary_path], surface=f"{authority_prefix}_summary"
+    )
+    card = _projection_json_object(snapshots[run_card_path], source=run_card_path)
+    summary = _projection_json_object(snapshots[summary_path], source=summary_path)
+    raw_inputs = card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("exact100 v2 public-plan run card lacks inputs")
+    input_paths = tuple(
+        Path(str(value)) for value in cast(Sequence[object], raw_inputs)
+    )
+    if (
+        not input_paths
+        or input_paths[0].resolve() != snapshot_root.resolve()
+        or card.get("stage") != "plan-public-downloads"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+        or card.get("target_clean_cases") != expected_target_count
+        or summary.get("use_embedded_entries") is not True
+    ):
+        raise CommandError("exact100 v2 public-plan run card differs")
+    snapshot_rows, snapshot_files = _replay_exact100_v2_snapshot(
+        snapshot_root,
+        authority_surface=snapshot_authority_surface,
+        expected_count=snapshot_expected_count,
+    )
+    raw_html_bytes: Mapping[str, bytes] | None = None
+    screened_pin = summary.get("authenticated_screened_cases_sha256")
+    raw_manifest_pin = summary.get("authenticated_raw_html_manifest_sha256")
+    if isinstance(screened_pin, str) and isinstance(raw_manifest_pin, str):
+        if len(input_paths) < 4:
+            raise CommandError("exact100 v2 authenticated public-plan inputs differ")
+        (
+            authenticated_rows,
+            authenticated_screened_bytes,
+            _,
+            raw_html_bytes,
+            _,
+        ) = _read_authenticated_bridge_inputs(
+            screened_cases_path=input_paths[1],
+            expected_screened_cases_sha256=screened_pin.removeprefix("sha256:"),
+            public_first=True,
+            raw_html_dir=input_paths[2],
+            raw_html_manifest_path=input_paths[3],
+            expected_raw_html_manifest_sha256=raw_manifest_pin.removeprefix("sha256:"),
+        )
+        if tuple(authenticated_rows) != snapshot_rows:
+            raise CommandError(
+                "exact100 v2 authenticated screened cases differ from snapshot"
+            )
+        snapshot_files[input_paths[1]] = authenticated_screened_bytes
+        snapshot_files[input_paths[3]] = _read_singly_linked_regular_input(
+            input_paths[3], label="exact100 v2 raw HTML manifest"
+        )
+        if raw_html_bytes is None:
+            raise CommandError("exact100 v2 authenticated raw HTML replay failed")
+        snapshot_files.update(
+            {
+                input_paths[2] / f"{candidate_id}.html": payload
+                for candidate_id, payload in raw_html_bytes.items()
+            }
+        )
+    plan = plan_public_packet_downloads(
+        snapshot_rows,
+        raw_html_bytes_by_candidate=raw_html_bytes,
+        target_clean_cases=expected_target_count,
+        use_embedded_entries=True,
+    )
+    expected = {
+        "requests": _projection_jsonl_bytes(
+            request.to_record() for request in plan.download_requests
+        ),
+        "selection": _projection_jsonl_bytes(
+            candidate.to_record() for candidate in plan.selected_cases
+        ),
+        "paid_gaps": _projection_jsonl_bytes(
+            candidate.to_record() for candidate in plan.paid_gap_cases
+        ),
+        "exclusions": _projection_jsonl_bytes(
+            candidate.to_record() for candidate in plan.final_exclusions
+        ),
+    }
+    if plan.target_clean_cases != expected_target_count:
+        raise CommandError("exact100 v2 current public plan target differs")
+    rows = tuple(
+        record
+        for name in ("selection", "paid_gaps", "exclusions")
+        for record in _projection_jsonl_records(
+            expected[name], source=output_paths[name]
+        )
+    )
+    if not rows or (
+        expected_candidate_count is not None and len(rows) != expected_candidate_count
+    ):
+        raise CommandError("exact100 v2 public plan candidate count differs")
+    return rows, {**snapshot_files, **snapshots}
+
+
+def _replay_exact100_v2_historical_packet(
+    root: Path,
+) -> tuple[
+    tuple[JsonRecord, ...],
+    tuple[JsonRecord, ...],
+    dict[str, bytes],
+    dict[Path, bytes],
+]:
+    plan_card_path = root / "run-cards/plan-public-downloads.json"
+    plan_card_bytes = _read_singly_linked_regular_input(
+        plan_card_path, label="exact100 v2 historical public-plan card"
+    )
+    _require_exact100_v2_authority_payload(
+        plan_card_bytes, surface="historical_plan_run_card"
+    )
+    plan_card = _projection_json_object(plan_card_bytes, source=plan_card_path)
+    raw_inputs = plan_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("historical public-plan card lacks inputs")
+    plan_inputs = tuple(
+        Path(str(value)) for value in cast(Sequence[object], raw_inputs)
+    )
+    if len(plan_inputs) != 3:
+        raise CommandError("historical public-plan inputs differ")
+    plan_rows, plan_snapshots = _replay_exact100_v2_public_plan(
+        plan_root=root,
+        snapshot_root=plan_inputs[0],
+        expected_target_count=_required_int(plan_card, "target_clean_cases"),
+        authority_prefix="historical_plan",
+        snapshot_authority_surface="historical_snapshot_manifest",
+        snapshot_expected_count=None,
+        expected_candidate_count=None,
+    )
+    paid_gaps_path = root / "public-packet-paid-gaps.jsonl"
+    paid_gaps_bytes = plan_snapshots[paid_gaps_path]
+    _require_exact100_v2_authority_payload(
+        paid_gaps_bytes, surface="historical_paid_gaps"
+    )
+    historical_rows = tuple(
+        _projection_jsonl_records(paid_gaps_bytes, source=paid_gaps_path)
+    )
+    if {_required_str(row, "candidate_id") for row in historical_rows} != {
+        _required_str(row, "candidate_id") for row in plan_rows
+    }:
+        raise CommandError("historical and current public-plan candidates differ")
+    requests_path = root / "free-document-requests.jsonl"
+    manifest_path = root / "free-document-downloads.jsonl"
+    merged_path = root / "document-downloads-merged.jsonl"
+    download_card_path = root / "run-cards/download-free.json"
+    direct = {
+        path: _read_singly_linked_regular_input(path, label="historical free download")
+        for path in (requests_path, manifest_path, merged_path, download_card_path)
+    }
+    _require_exact100_v2_authority_payload(
+        direct[download_card_path], surface="historical_download_run_card"
+    )
+    _require_exact100_v2_authority_payload(
+        direct[manifest_path], surface="historical_download_manifest"
+    )
+    request_records = _projection_jsonl_records(
+        direct[requests_path], source=requests_path
+    )
+    requests = tuple(_free_document_download_request(row) for row in request_records)
+    verified_records = verify_completed_free_document_manifest(
+        requests,
+        output_root=root / "documents",
+        manifest_path=manifest_path,
+    )
+    manifest = tuple(dict(record.to_record()) for record in verified_records)
+    if (
+        _projection_jsonl_bytes(manifest) != direct[manifest_path]
+        or direct[merged_path] != direct[manifest_path]
+    ):
+        raise CommandError("historical free-document manifests differ")
+    download_card = _projection_json_object(
+        direct[download_card_path], source=download_card_path
+    )
+    if (
+        download_card.get("stage") != "download-free"
+        or download_card.get("status") != "completed"
+        or download_card.get("dry_run") is not False
+        or download_card.get("execute") is not True
+        or download_card.get("paid_activity_requested") is not False
+        or download_card.get("paid_activity_executed") is not False
+        or download_card.get("record_count") != len(manifest)
+    ):
+        raise CommandError("historical free-document run card differs")
+    document_bytes = {
+        _required_str(record, "local_path"): _read_singly_linked_regular_input(
+            root / "documents" / _required_str(record, "local_path"),
+            label="historical free document",
+        )
+        for record in manifest
+    }
+    snapshots = {
+        **plan_snapshots,
+        **direct,
+        **{
+            root / "documents" / relative: payload
+            for relative, payload in document_bytes.items()
+        },
+    }
+    return historical_rows, manifest, document_bytes, snapshots
+
+
+def _exact100_v2_provider_free_clearance(
+    *,
+    selection: Mapping[str, Any],
+    manifest: Sequence[Mapping[str, Any]],
+    document_root: Path,
+    document_bytes: Mapping[str, bytes],
+) -> tuple[tuple[JsonRecord, ...], tuple[JsonRecord, ...]]:
+    candidate_id = _required_str(selection, "candidate_id")
+    selection_documents = {
+        _required_str(document, "source_document_id"): document
+        for document in cast(Sequence[Mapping[str, Any]], selection["documents"])
+    }
+    restrictions: list[JsonRecord] = []
+    relevance_documents: list[JsonRecord] = []
+    requests: list[JsonRecord] = []
+    for source in manifest:
+        source_id = _required_str(source, "source_document_id")
+        selection_document = selection_documents.get(source_id)
+        if selection_document is None:
+            raise CommandError("historical plan omits a downloaded packet document")
+        evidence = ["courtlistener_public_download_record_checked"]
+        restrictions.append(
+            {
+                "candidate_id": candidate_id,
+                "source_document_id": source_id,
+                "restriction_status": "public",
+                "restriction_evidence": evidence,
+                "is_sealed": None,
+                "is_private": None,
+            }
+        )
+        relevance_documents.append(
+            {
+                "source_document_id": source_id,
+                "source_url_or_reference": _required_str(source, "source_url"),
+                "model_visible": selection_document.get("model_visible"),
+                "contains_target_outcome": selection_document.get(
+                    "contains_target_outcome"
+                ),
+            }
+        )
+        requests.append(
+            {
+                "schema_version": "legalforecast.disclosure_review_request.v1",
+                "candidate_id": candidate_id,
+                "source_document_id": source_id,
+                "sha256": _required_str(source, "sha256"),
+                "byte_count": _required_int(source, "byte_count"),
+                "free_or_purchased": "free",
+                "restriction_status": "public",
+                "restriction_evidence": evidence,
+                "required_human_decision": "cleared_or_quarantined",
+            }
+        )
+    relevance = ({"candidate_id": candidate_id, "documents": relevance_documents},)
+    request_bytes = _projection_jsonl_bytes(requests)
+    manifest_bytes = _projection_jsonl_bytes(manifest)
+    restriction_bytes = _projection_jsonl_bytes(restrictions)
+    relevance_bytes = _projection_jsonl_bytes(relevance)
+    plan = build_provenance_clearance_plan(
+        requests,
+        manifest,
+        restrictions,
+        relevance,
+        document_root=document_root,
+        review_requests_bytes=request_bytes,
+        download_manifest_bytes=manifest_bytes,
+        restriction_evidence_bytes=restriction_bytes,
+        case_relevance_bytes=relevance_bytes,
+        document_bytes_by_relative_path=document_bytes,
+    )
+    if plan.get("john_review_count") != 0:
+        raise CommandError("historical public packet requires human clearance")
+    routing_sha = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+    clearance = tuple(
+        dict(record.to_record())
+        for record in build_provenance_clearance_records(
+            plan, (), routing_plan_sha256=routing_sha
+        )
+    )
+    return tuple(restrictions), clearance
+
+
+def _exact100_v2_effective_relevance(
+    selection: Mapping[str, Any], repairs: Sequence[Mapping[str, Any]]
+) -> JsonRecord:
+    derived = {
+        _required_str(record, "source_document_id"): _required_str(
+            record, "derived_document_role"
+        )
+        for record in repairs
+    }
+    result = dict(selection)
+    result["documents"] = [
+        {
+            **dict(document),
+            "document_role": derived.get(
+                _required_str(document, "source_document_id"),
+                _required_str(document, "document_role"),
+            ),
+            "setup_runner_label": (
+                "core_mtd"
+                if document.get("model_visible") is True
+                else "other_substantive"
+            ),
+            "availability_status": "available",
+            "requires_paid_recovery": False,
+            "source_url_or_reference": _required_str(document, "source_url"),
+        }
+        for document in cast(Sequence[Mapping[str, Any]], selection["documents"])
+    ]
+    return result
+
+
 def _authenticated_projection_snapshot(
     snapshots: Mapping[str, bytes], path: Path, *, label: str
 ) -> bytes:
@@ -42388,6 +43285,30 @@ def _authenticated_projection_snapshot(
     if not isinstance(payload, bytes):
         raise CommandError(f"authenticated projection lacks {label}")
     return payload
+
+
+def _exact100_successor_v2_replay_args(
+    run_card: Mapping[str, object],
+) -> argparse.Namespace:
+    """Recover only the seven closed v2 evidence roots from its completed card."""
+
+    raw_inputs = run_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("exact100 v2 successor run card lacks exact inputs")
+    values = tuple(cast(Sequence[object], raw_inputs))
+    if len(values) != 7 or not all(
+        isinstance(value, str) and value for value in values
+    ):
+        raise CommandError("exact100 v2 successor input paths differ")
+    return argparse.Namespace(
+        predecessor_root=Path(cast(str, values[0])),
+        complete_materialization_root=Path(cast(str, values[1])),
+        stipulated_evidence_root=Path(cast(str, values[2])),
+        final153_snapshot=Path(cast(str, values[3])),
+        wider_plan_root=Path(cast(str, values[4])),
+        wider_exclusion_root=Path(cast(str, values[5])),
+        historical_packet_root=Path(cast(str, values[6])),
+    )
 
 
 def _require_zero_cost_successor_commitment_keysets(
@@ -42477,6 +43398,27 @@ def _verify_materializer_projection(
                     replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
                 )
             except Exact100SuccessorReplacementCliError as exc:
+                raise CommandError(str(exc)) from exc
+        if candidate_card.get("schema_version") == str(
+            EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
+        ):
+            if (
+                free_clearance_path.resolve()
+                != (target_root / "disclosure-clearance.jsonl").resolve()
+                or candidate_card.get("selected_case_count") != expected_target_count
+            ):
+                raise CommandError("exact100 v2 materializer inputs differ")
+            try:
+                replay_args = _exact100_successor_v2_replay_args(candidate_card)
+                return _mint_verified_successor_selection_card_from_projection(
+                    verify_exact100_successor_replacement_v2_projection(
+                        target_root,
+                        replay=_replay_exact100_successor_replacement_v2_inputs,
+                        args=replay_args,
+                    ),
+                    replay_attestation=_EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION,
+                )
+            except Exact100SuccessorReplacementV2CliError as exc:
                 raise CommandError(str(exc)) from exc
     paths = {name: target_root / name for name in BASE_PROJECTION_ARTIFACT_NAMES}
     output_snapshots = {
@@ -42920,6 +43862,18 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
                 replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
             )
         except Exact100SuccessorReplacementCliError as exc:
+            raise CommandError(str(exc)) from exc
+    if run_card.get("schema_version") == str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2):
+        try:
+            return _mint_verified_successor_selection_card_from_projection(
+                verify_exact100_successor_replacement_v2_projection(
+                    target_root,
+                    replay=_replay_exact100_successor_replacement_v2_inputs,
+                    args=_exact100_successor_v2_replay_args(run_card),
+                ),
+                replay_attestation=_EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION,
+            )
+        except Exact100SuccessorReplacementV2CliError as exc:
             raise CommandError(str(exc)) from exc
     raw_inputs = run_card.get("input_paths")
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):

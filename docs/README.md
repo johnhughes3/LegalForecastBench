@@ -93,6 +93,8 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [exact100-successor-terminal-exclusion-v1.md](schemas/exact100-successor-terminal-exclusion-v1.md): authenticated, reason-specific terminal evidence for removing a selected exact-100 candidate without modifying the predecessor.
 - [exact100-zero-cost-recovery-v2.md](schemas/exact100-zero-cost-recovery-v2.md): bounded CourtListener recovery with exact terminal-response evidence or document-bound public handoff.
 - [exact100-successor-replacement-v1.md](schemas/exact100-successor-replacement-v1.md): provider-free replacement of only terminally excluded exact-100 candidates with replay-verified, frozen-rank reserves.
+- [exact100-successor-replacement-v2.md](schemas/exact100-successor-replacement-v2.md): provider-free replacement over the authenticated complete downstream materialization and deterministic wider-candidate rank.
+- [exact100-successor-semantic-repair-v1.md](schemas/exact100-successor-semantic-repair-v1.md): byte-bound recognition of embedded operative complaints and combined motion-to-dismiss memoranda.
 - [free-support-memorandum-recovery-plan-v1.md](schemas/free-support-memorandum-recovery-plan-v1.md): the non-executable, authenticated plan for recovering the one known free supporting memorandum omitted from the selected packet inputs.
 
 **Spend authority and purchase**

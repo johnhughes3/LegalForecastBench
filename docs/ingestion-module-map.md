@@ -123,6 +123,10 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`exact100_reserve_extension.py`](../legalforecast/ingestion/exact100_reserve_extension.py) | Provider-free reserve extension for an authenticated exact-100 successor. |
 | [`exact100_successor_replacement.py`](../legalforecast/ingestion/exact100_successor_replacement.py) | Provider-free exact-100 successor projection from replay-verified terminal exclusions and frozen-rank promotions. |
 | [`exact100_successor_replacement_cli.py`](../legalforecast/ingestion/exact100_successor_replacement_cli.py) | Closed exact-100 successor command and materializer replay adapter. |
+| [`exact100_successor_replacement_v2.py`](../legalforecast/ingestion/exact100_successor_replacement_v2.py) | Versioned exact-100 successor projection over complete materialization and wider-rank authority. |
+| [`exact100_successor_replacement_v2_cli.py`](../legalforecast/ingestion/exact100_successor_replacement_v2_cli.py) | Closed provider-free publication and specialized replay verifier for exact-100 successor v2. |
+| [`exact100_successor_semantic_repair.py`](../legalforecast/ingestion/exact100_successor_semantic_repair.py) | Byte-bound semantic repair for embedded complaints and combined motion memoranda. |
+| [`exact100_successor_wider_rank.py`](../legalforecast/ingestion/exact100_successor_wider_rank.py) | Deterministic authenticated ranking of the complete nonselected successor horizon. |
 | [`exact100_zero_cost_recovery.py`](../legalforecast/ingestion/exact100_zero_cost_recovery.py) | One-record CourtListener-only public/terminal recovery for the stipulated exact-100 memorandum. |
 | [`exact100_zero_cost_recovery_cli.py`](../legalforecast/ingestion/exact100_zero_cost_recovery_cli.py) | Immutable CLI publication and resume verification for bounded exact-100 recovery. |
 | [`exact310_rest_rebind.py`](../legalforecast/ingestion/exact310_rest_rebind.py) | Policy layer for the exact terminal REST rebind. |

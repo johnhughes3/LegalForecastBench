@@ -40,6 +40,7 @@ _EMBEDDED_COMPLAINT_SOURCE_ROLES = frozenset(
         DocumentRole.OTHER.value,
     }
 )
+_EMBEDDED_COMPLAINT_PAGE_HORIZON = 96
 
 
 class Exact100SuccessorSemanticRepairError(ValueError):
@@ -126,7 +127,15 @@ def _mint_verified_exact100_successor_semantic_repairs(  # pyright: ignore[repor
             DocumentRole.MTD_NOTICE.value,
         ):
             continue
-        pages = _extract_normalized_pdf_pages(document_bytes_by_key[key], key=key)
+        pages = _extract_normalized_pdf_pages(
+            document_bytes_by_key[key],
+            key=key,
+            max_pages=(
+                _EMBEDDED_COMPLAINT_PAGE_HORIZON
+                if original_role in _EMBEDDED_COMPLAINT_SOURCE_ROLES
+                else None
+            ),
+        )
         if original_role in _EMBEDDED_COMPLAINT_SOURCE_ROLES:
             evidence = _embedded_amended_complaint_evidence(pages)
             kind = SemanticRepairKind.EMBEDDED_OPERATIVE_AMENDED_COMPLAINT
@@ -287,14 +296,19 @@ def _validate_source_documents(
 
 
 def _extract_normalized_pdf_pages(
-    payload: bytes, *, key: DocumentKey
+    payload: bytes, *, key: DocumentKey, max_pages: int | None = None
 ) -> tuple[str, ...]:
     try:
         reader = PdfReader(BytesIO(payload), strict=False)
         if reader.is_encrypted or not reader.pages:
             raise ValueError
+        page_count = len(reader.pages)
+        extraction_count = (
+            page_count if max_pages is None else min(page_count, max_pages)
+        )
         pages = tuple(
-            _normalize_pdf_text(page.extract_text() or "") for page in reader.pages
+            _normalize_pdf_text(reader.pages[index].extract_text() or "")
+            for index in range(extraction_count)
         )
     except Exception as exc:
         raise Exact100SuccessorSemanticRepairError(

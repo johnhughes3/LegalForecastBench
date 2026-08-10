@@ -101,6 +101,125 @@ def test_v2_base_and_projection_fail_closed_on_evidence_drift() -> None:
         )
 
 
+def test_v2_base_rejects_retained_surface_mutation_after_mint() -> None:
+    base = _fixture()["base"]
+    base.case_relevance[1]["case_name"] = "mutated after verification"
+
+    with pytest.raises(
+        Exact100SuccessorReplacementV2Error,
+        match="changed after authenticated replay",
+    ):
+        require_verified_exact100_v2_base(base)
+
+
+def test_v2_base_accepts_only_evidence_complete_public_unknown_restrictions() -> None:
+    inputs = _fixture()
+    base = inputs["base"]
+    evidence = [
+        "courtlistener_rest_docket_exact_match",
+        "courtlistener_rest_docket_entry_exact_match",
+        "courtlistener_rest_recap_document_exact_match",
+        "courtlistener_rest_recap_document_is_available_true",
+        "courtlistener_rest_recap_document_is_sealed_unknown",
+        "courtlistener_rest_public_download_url_allowlisted",
+    ]
+    rows = [dict(row) for row in base.restriction_evidence]
+    rows[0] = {
+        **rows[0],
+        "restriction_status": "unknown",
+        "restriction_evidence": evidence,
+    }
+    _mint_verified_exact100_v2_base(
+        predecessor_projection_bytes=base.predecessor_projection_bytes,
+        selection_rows=base.selection,
+        case_relevance_rows=base.case_relevance,
+        download_manifest_rows=base.download_manifest,
+        disclosure_rows=base.disclosure_clearance,
+        restriction_rows=rows,
+        core_filter_rows=base.core_filter_results,
+        source_commitments=base.source_commitments,
+    )
+
+    rows[0]["restriction_evidence"] = evidence[:-1]
+    with pytest.raises(Exact100SuccessorReplacementV2Error, match="not cleared"):
+        _mint_verified_exact100_v2_base(
+            predecessor_projection_bytes=base.predecessor_projection_bytes,
+            selection_rows=base.selection,
+            case_relevance_rows=base.case_relevance,
+            download_manifest_rows=base.download_manifest,
+            disclosure_rows=base.disclosure_clearance,
+            restriction_rows=rows,
+            core_filter_rows=base.core_filter_results,
+            source_commitments=base.source_commitments,
+        )
+
+
+def test_semantic_repair_finds_embedded_complaint_within_bounded_horizon() -> None:
+    page_texts = [""] * 96
+    page_texts[0] = "Notice of Removal"
+    page_texts[1] = (
+        "A true and correct copy of the first amended complaint is attached "
+        "hereto as Exhibit B."
+    )
+    page_texts[44] = "Exhibit B"
+    page_texts[45] = "Verified First Amended Complaint"
+    payload = _pdf(tuple(page_texts))
+    document = _promoted_document("x001-bundle", "complaint", payload, 1)
+
+    repairs = _mint_verified_exact100_successor_semantic_repairs(
+        document_records=(document,),
+        document_bytes_by_key={("x001", "x001-bundle"): payload},
+    )
+
+    assert [row["derived_document_role"] for row in repairs.records] == [
+        "amended_complaint"
+    ]
+    assert repairs.records[0]["evidence_cues"][-1]["page_number"] == 46
+
+
+def test_semantic_repair_does_not_qualify_complaint_beyond_bounded_horizon() -> None:
+    page_texts = [""] * 97
+    page_texts[0] = "Notice of Removal"
+    page_texts[1] = (
+        "A true and correct copy of the first amended complaint is attached "
+        "hereto as Exhibit B."
+    )
+    page_texts[94] = "Exhibit B"
+    page_texts[96] = "Verified First Amended Complaint"
+    payload = _pdf(tuple(page_texts))
+    document = _promoted_document("x001-bundle", "complaint", payload, 1)
+
+    repairs = _mint_verified_exact100_successor_semantic_repairs(
+        document_records=(document,),
+        document_bytes_by_key={("x001", "x001-bundle"): payload},
+    )
+
+    assert repairs.records == ()
+
+
+def test_semantic_repair_keeps_combined_mtd_scan_unbounded() -> None:
+    page_texts = [""] * 100
+    page_texts[0] = (
+        "Notice of Motion and Motion to Dismiss - Memorandum of Points and Authorities"
+    )
+    page_texts[96] = "Memorandum of Points and Authorities Introduction"
+    page_texts[99] = "Argument I. Dismissal is required"
+    payload = _pdf(tuple(page_texts))
+    document = _promoted_document(
+        "x001-opening", "motion_to_dismiss_notice", payload, 20
+    )
+
+    repairs = _mint_verified_exact100_successor_semantic_repairs(
+        document_records=(document,),
+        document_bytes_by_key={("x001", "x001-opening"): payload},
+    )
+
+    assert [row["derived_document_role"] for row in repairs.records] == [
+        "motion_to_dismiss_memorandum"
+    ]
+    assert repairs.records[0]["evidence_cues"][-1]["page_number"] == 100
+
+
 def _fixture() -> dict[str, Any]:
     selected_ids = [f"s{index:03d}" for index in range(100)]
     selection = [_selection_row(candidate_id) for candidate_id in selected_ids]

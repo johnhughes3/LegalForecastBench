@@ -46,6 +46,16 @@ _BASE_SEAL = object()
 _REQUIRED_PROMOTION_ROLES = frozenset(
     {"complaint", "motion_to_dismiss_memorandum", "opposition", "decision"}
 )
+_PUBLIC_UNKNOWN_RESTRICTION_EVIDENCE = frozenset(
+    {
+        "courtlistener_rest_docket_exact_match",
+        "courtlistener_rest_docket_entry_exact_match",
+        "courtlistener_rest_recap_document_exact_match",
+        "courtlistener_rest_recap_document_is_available_true",
+        "courtlistener_rest_recap_document_is_sealed_unknown",
+        "courtlistener_rest_public_download_url_allowlisted",
+    }
+)
 
 
 class Exact100SuccessorReplacementV2Error(ValueError):
@@ -65,6 +75,7 @@ class VerifiedExact100V2Base:
     restriction_evidence: tuple[JsonRecord, ...]
     core_filter_results: tuple[JsonRecord, ...]
     source_commitments: Mapping[str, str]
+    integrity_sha256: str
     _verification_seal: object = field(repr=False, compare=False)
 
 
@@ -169,6 +180,16 @@ def _mint_verified_exact100_v2_base(  # pyright: ignore[reportUnusedFunction]
         allowed_candidate_ids=selected_ids,
         label="predecessor",
     )
+    integrity_sha256 = _base_integrity_sha256(
+        predecessor_projection_bytes=predecessor_projection_bytes,
+        selection=selection,
+        case_relevance=case_relevance,
+        manifest=manifest,
+        clearance=clearance,
+        restriction=restriction,
+        core_filter=core_filter,
+        source_commitments=commitments,
+    )
     value = object.__new__(VerifiedExact100V2Base)
     for name, item in (
         ("predecessor_projection_bytes", bytes(predecessor_projection_bytes)),
@@ -180,6 +201,7 @@ def _mint_verified_exact100_v2_base(  # pyright: ignore[reportUnusedFunction]
         ("restriction_evidence", restriction),
         ("core_filter_results", core_filter),
         ("source_commitments", MappingProxyType(commitments)),
+        ("integrity_sha256", integrity_sha256),
         ("_verification_seal", _BASE_SEAL),
     ):
         object.__setattr__(value, name, item)
@@ -207,12 +229,58 @@ def require_verified_exact100_v2_base(base: VerifiedExact100V2Base) -> None:
         source_commitments=base.source_commitments,
     )
     if (
-        base.selection_bytes != replay.selection_bytes
+        base.integrity_sha256
+        != _base_integrity_sha256(
+            predecessor_projection_bytes=base.predecessor_projection_bytes,
+            selection=base.selection,
+            case_relevance=base.case_relevance,
+            manifest=base.download_manifest,
+            clearance=base.disclosure_clearance,
+            restriction=base.restriction_evidence,
+            core_filter=base.core_filter_results,
+            source_commitments=base.source_commitments,
+        )
+        or base.integrity_sha256 != replay.integrity_sha256
+        or base.predecessor_projection_bytes != replay.predecessor_projection_bytes
+        or base.selection != replay.selection
+        or base.selection_bytes != replay.selection_bytes
+        or base.case_relevance != replay.case_relevance
+        or base.download_manifest != replay.download_manifest
+        or base.disclosure_clearance != replay.disclosure_clearance
+        or base.restriction_evidence != replay.restriction_evidence
+        or base.core_filter_results != replay.core_filter_results
         or base.source_commitments != replay.source_commitments
     ):
         raise Exact100SuccessorReplacementV2Error(
             "v2 predecessor base changed after authenticated replay"
         )
+
+
+def _base_integrity_sha256(
+    *,
+    predecessor_projection_bytes: bytes,
+    selection: Sequence[Mapping[str, Any]],
+    case_relevance: Sequence[Mapping[str, Any]],
+    manifest: Sequence[Mapping[str, Any]],
+    clearance: Sequence[Mapping[str, Any]],
+    restriction: Sequence[Mapping[str, Any]],
+    core_filter: Sequence[Mapping[str, Any]],
+    source_commitments: Mapping[str, str],
+) -> str:
+    return _sha(
+        _canonical_bytes(
+            {
+                "predecessor_projection": _sha(predecessor_projection_bytes),
+                "selection": _sha(_jsonl_bytes(selection)),
+                "case_relevance": _sha(_jsonl_bytes(case_relevance)),
+                "download_manifest": _sha(_jsonl_bytes(manifest)),
+                "disclosure_clearance": _sha(_jsonl_bytes(clearance)),
+                "restriction_evidence": _sha(_jsonl_bytes(restriction)),
+                "core_filter_results": _sha(_jsonl_bytes(core_filter)),
+                "source_commitments": dict(source_commitments),
+            }
+        )
+    )
 
 
 def project_exact100_successor_replacement_v2(
@@ -587,13 +655,26 @@ def _require_materialized_evidence(
         restricted = restriction_by_key[key]
         if (
             clear.get("status") != "cleared"
-            or restricted.get("restriction_status") != "public"
+            or not _restriction_is_publicly_usable(restricted)
             or _raw_sha(clear, "sha256") != _raw_sha(document, "sha256")
             or clear.get("byte_count") != document.get("byte_count")
         ):
             raise Exact100SuccessorReplacementV2Error(
                 f"{label} document is not cleared and public: {key[0]}/{key[1]}"
             )
+
+
+def _restriction_is_publicly_usable(record: Mapping[str, Any]) -> bool:
+    status = record.get("restriction_status")
+    if status == "public":
+        return True
+    raw_evidence = record.get("restriction_evidence")
+    if not isinstance(raw_evidence, (list, tuple)):
+        return False
+    evidence = cast(Sequence[object], raw_evidence)
+    if status != "unknown" or not all(isinstance(value, str) for value in evidence):
+        return False
+    return _PUBLIC_UNKNOWN_RESTRICTION_EVIDENCE <= set(cast(Sequence[str], evidence))
 
 
 def _require_clean_core_result(
