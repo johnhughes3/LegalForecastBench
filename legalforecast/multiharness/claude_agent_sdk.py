@@ -28,7 +28,7 @@ from legalforecast.multiharness.validation import validate_public_record
 
 CLAUDE_AGENT_SDK_ADAPTER_ID = "claude-agent-sdk-baseline"
 CLAUDE_AGENT_SDK_ADAPTER_VERSION = "1.0.0"
-CLAUDE_AGENT_SDK_VERSION = "0.2.128"
+CLAUDE_AGENT_SDK_VERSION = "0.2.132"
 CLAUDE_BUNDLED_CLI_VERSION = "2.1.220"
 CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM: Mapping[str, str] = {
     "darwin-arm64": (
