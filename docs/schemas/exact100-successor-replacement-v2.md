@@ -17,7 +17,7 @@ Before deriving a selection, v2 replays and binds all of the following as distin
 - the wider nonselected-candidate ledger and the full deterministic rank horizon;
 - every source manifest, producer run card, and exact document byte used for a semantic repair or promoted packet;
 - the provider-free clearance and restriction result for every promoted source document; and
-- the linked opening motion, opposition, and first written disposition evidence required by the frozen cohort policy.
+- the linked opening motion and first written disposition evidence, plus a filed target opposition when one was docketed, as required by the frozen cohort policy.
 
 An input root is a locator, not authority. Each producer and output commitment is replayed from its exact bytes, and the v2 result is rejected if any source changes between verification and projection. Historical download presence, a docket label, or an internally consistent caller-authored directory cannot substitute for producer lineage.
 

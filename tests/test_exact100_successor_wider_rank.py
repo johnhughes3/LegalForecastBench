@@ -153,6 +153,102 @@ def test_selects_first_complete_candidate_and_carries_full_ledger() -> None:
     assert sum(row["selected_for_promotion"] for row in result.ordered_ledger) == 1
 
 
+def test_preserves_authenticated_plan_rank_without_candidate_evidence() -> None:
+    fixture = _fixture()
+    fixture["materialized_selection_rows"][0].update(
+        {
+            "missing_required_document_count": 0,
+            "projected_paid_cost_usd": "0.00",
+        }
+    )
+    fixture["exclusion_rows"][0]["reason"] = "sealed_or_restricted_material"
+
+    result = _mint_verified_exact100_successor_wider_rank(**fixture)
+
+    assert result.ordered_ledger[0]["candidate_id"] == "x000"
+    assert result.ordered_ledger[0]["ranking_key"] == {
+        "missing_required_document_count": 0,
+        "projected_paid_cost_usd": "0.00",
+        "candidate_id_casefold": "x000",
+        "candidate_id": "x000",
+    }
+    assert result.ordered_ledger[0]["fully_eligible_zero_cost_complete"] is False
+    assert result.selected_candidate_id == "x001"
+
+
+def test_opposition_is_required_only_when_frozen_plan_requires_it() -> None:
+    fixture = _fixture()
+    fixture["materialized_selection_rows"][1].update(
+        {
+            "documents": [],
+            "required_document_count": 3,
+            "free_required_document_count": 1,
+            "missing_required_document_count": 2,
+            "paid_gap_reasons": [
+                "no_free_operative_complaint",
+                "no_free_mtd_memorandum",
+            ],
+        }
+    )
+    fixture["download_manifest_rows"] = [
+        row
+        for row in fixture["download_manifest_rows"]
+        if row["source_document_id"] != "x001-opposition"
+    ]
+    fixture["disclosure_rows"] = [
+        row
+        for row in fixture["disclosure_rows"]
+        if row["source_document_id"] != "x001-opposition"
+    ]
+    fixture["restriction_rows"] = [
+        row
+        for row in fixture["restriction_rows"]
+        if row["source_document_id"] != "x001-opposition"
+    ]
+
+    result = _mint_verified_exact100_successor_wider_rank(**fixture)
+
+    assert result.selected_candidate_id == "x001"
+    assert result.selected_selection_row["missing_required_document_count"] == 0
+
+
+def test_missing_docketed_opposition_remains_ineligible() -> None:
+    fixture = _fixture()
+    fixture["materialized_selection_rows"][1].update(
+        {
+            "documents": [],
+            "paid_gap_reasons": ["no_free_opposition:25"],
+        }
+    )
+    fixture["download_manifest_rows"] = [
+        row
+        for row in fixture["download_manifest_rows"]
+        if row["source_document_id"] != "x001-opposition"
+    ]
+    fixture["disclosure_rows"] = [
+        row
+        for row in fixture["disclosure_rows"]
+        if row["source_document_id"] != "x001-opposition"
+    ]
+    fixture["restriction_rows"] = [
+        row
+        for row in fixture["restriction_rows"]
+        if row["source_document_id"] != "x001-opposition"
+    ]
+
+    result = _mint_verified_exact100_successor_wider_rank(**fixture)
+
+    assert result.selected_candidate_id == "x010"
+
+
+def test_rejects_partially_materialized_candidate_evidence() -> None:
+    fixture = _fixture()
+    fixture["case_relevance_rows"].append({"candidate_id": "x002"})
+
+    with pytest.raises(Exact100SuccessorWiderRankError, match="partially"):
+        _mint_verified_exact100_successor_wider_rank(**fixture)
+
+
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [

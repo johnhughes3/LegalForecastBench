@@ -342,8 +342,20 @@ def _open_output_root_fd(root: Path, *, create: bool = True) -> int:
                     raise Exact100SuccessorReplacementV2CliError(
                         "v2 successor output root disappeared during publication"
                     ) from None
-                os.mkdir(component, 0o700, dir_fd=descriptor)
-                child = os.open(component, flags, dir_fd=descriptor)
+                try:
+                    os.mkdir(component, 0o700, dir_fd=descriptor)
+                except FileExistsError:
+                    pass
+                except OSError as exc:
+                    raise Exact100SuccessorReplacementV2CliError(
+                        "v2 successor output root could not be created"
+                    ) from exc
+                try:
+                    child = os.open(component, flags, dir_fd=descriptor)
+                except OSError as exc:
+                    raise Exact100SuccessorReplacementV2CliError(
+                        "v2 successor output root could not be opened without symlinks"
+                    ) from exc
             except OSError as exc:
                 raise Exact100SuccessorReplacementV2CliError(
                     "v2 successor output root could not be opened without symlinks"
@@ -383,8 +395,24 @@ def _open_output_parent_fd(root_fd: int, relative_parent: Path) -> int:
             try:
                 child = os.open(component, flags, dir_fd=descriptor)
             except FileNotFoundError:
-                os.mkdir(component, 0o700, dir_fd=descriptor)
-                child = os.open(component, flags, dir_fd=descriptor)
+                try:
+                    os.mkdir(component, 0o700, dir_fd=descriptor)
+                except FileExistsError:
+                    pass
+                except OSError as exc:
+                    raise Exact100SuccessorReplacementV2CliError(
+                        "v2 successor output path could not be created"
+                    ) from exc
+                try:
+                    child = os.open(component, flags, dir_fd=descriptor)
+                except OSError as exc:
+                    raise Exact100SuccessorReplacementV2CliError(
+                        "v2 successor output path could not be opened without symlinks"
+                    ) from exc
+            except OSError as exc:
+                raise Exact100SuccessorReplacementV2CliError(
+                    "v2 successor output path could not be opened without symlinks"
+                ) from exc
             os.close(descriptor)
             descriptor = child
     except BaseException:
@@ -425,6 +453,7 @@ def _write_immutable_at(
             try:
                 os.unlink(relative.name, dir_fd=parent_fd)
             except FileNotFoundError:
+                # Cleanup is best-effort if another actor removed the partial file.
                 pass
             raise
     finally:

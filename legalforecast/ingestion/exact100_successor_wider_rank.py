@@ -28,10 +28,9 @@ _EVIDENCE_FIELDS = (
     "restriction_evidence",
     "core_filter_results",
 )
-_REQUIRED_ROLES = (
+_BASE_REQUIRED_ROLES = (
     "complaint",
     "motion_to_dismiss_memorandum",
-    "opposition",
     "decision",
 )
 _REPAIR_FIELDS = frozenset(
@@ -160,6 +159,13 @@ def _mint_verified_exact100_successor_wider_rank(  # pyright: ignore[reportUnuse
             name: tuple(dict(r) for r in groups.get(candidate_id, ()))
             for name, groups in evidence.items()
         }
+        bundle_presence = tuple(
+            bool(bundles[candidate_id][name]) for name in _EVIDENCE_FIELDS
+        )
+        if any(bundle_presence) and not all(bundle_presence):
+            raise Exact100SuccessorWiderRankError(
+                "candidate evidence bundle is only partially materialized"
+            )
         rows[candidate_id] = _derive_selection_row(
             base=materialized[candidate_id],
             exclusion=exclusions[candidate_id],
@@ -319,9 +325,23 @@ def _derive_selection_row(
     repairs: Mapping[str, str],
 ) -> JsonRecord:
     candidate_id = _candidate_id(base)
+    reasons = _exclusion_reasons(base, exclusion)
+    if not any(evidence.values()):
+        result = dict(base)
+        result.update(
+            {
+                "candidate_id": candidate_id,
+                "exclusion_reasons": sorted(reasons),
+            }
+        )
+        return result
     clearance = _documents_by_id(evidence["disclosure_clearance"])
     restrictions = _documents_by_id(evidence["restriction_evidence"])
-    roles: dict[str, list[JsonRecord]] = {role: [] for role in _REQUIRED_ROLES}
+    required_roles = required_packet_roles(
+        base,
+        materialized_documents=evidence["download_manifest"],
+    )
+    roles: dict[str, list[JsonRecord]] = {role: [] for role in required_roles}
     for document in evidence["download_manifest"]:
         source_document_id = _required_str(document, "source_document_id")
         role = repairs.get(source_document_id, document.get("document_role"))
@@ -334,7 +354,6 @@ def _derive_selection_row(
         ):
             roles[cast(str, role)].append(document)
     missing_roles = [role for role, documents in roles.items() if not documents]
-    reasons = _exclusion_reasons(base, exclusion)
     if roles["complaint"]:
         reasons -= {"operative_complaint_not_found", "no_free_operative_complaint"}
     if roles["motion_to_dismiss_memorandum"]:
@@ -351,6 +370,37 @@ def _derive_selection_row(
         }
     )
     return result
+
+
+def required_packet_roles(
+    selection_row: Mapping[str, Any],
+    *,
+    materialized_documents: Sequence[Mapping[str, Any]] = (),
+) -> frozenset[str]:
+    """Return frozen packet roles, requiring opposition only when docketed."""
+
+    roles: set[str] = set(_BASE_REQUIRED_ROLES)
+    planned_documents = selection_row.get("documents")
+    documents = (
+        tuple(cast(Sequence[Mapping[str, Any]], planned_documents))
+        if isinstance(planned_documents, Sequence)
+        and not isinstance(planned_documents, (str, bytes))
+        else ()
+    )
+    paid_gap_reasons = selection_row.get("paid_gap_reasons")
+    gaps = (
+        _string_items(cast(list[object] | tuple[object, ...], paid_gap_reasons))
+        if isinstance(paid_gap_reasons, (list, tuple))
+        else ()
+    )
+    if any(
+        document.get("document_role") == "opposition"
+        for document in (*documents, *materialized_documents)
+    ) or any(
+        reason.split(":", maxsplit=1)[0] == "no_free_opposition" for reason in gaps
+    ):
+        roles.add("opposition")
+    return frozenset(roles)
 
 
 def _documents_by_id(
@@ -425,7 +475,7 @@ def _rank_key(row: Mapping[str, Any]) -> tuple[int, Decimal, str, str]:
         raise Exact100SuccessorWiderRankError("invalid projected paid cost") from exc
     if not cost.is_finite() or cost < 0:
         raise Exact100SuccessorWiderRankError("invalid projected paid cost")
-    # This is the live disclosure_clearance.ranked_replacement tuple.
+    # Deterministic ranking key: fewest missing documents, then cost, then id.
     return missing, cost, candidate_id.casefold(), candidate_id
 
 

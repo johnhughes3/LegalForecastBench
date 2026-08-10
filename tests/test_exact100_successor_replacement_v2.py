@@ -38,7 +38,6 @@ def test_v2_replaces_only_sealed_terminal_with_first_wider_candidate() -> None:
         semantic_repairs=inputs["repairs"],
         wider_rank=inputs["wider"],
     )
-
     assert len(result.selection) == 100
     assert result.selection[-1]["candidate_id"] == "x001"
     assert {row["candidate_id"] for row in result.selection} == {
@@ -79,6 +78,90 @@ def test_v2_replaces_only_sealed_terminal_with_first_wider_candidate() -> None:
             "dispatch_authorized",
         )
     )
+
+
+def test_v2_does_not_require_opposition_when_none_was_docketed() -> None:
+    inputs = _fixture(include_opposition=False)
+
+    result = project_exact100_successor_replacement_v2(
+        base=inputs["base"],
+        terminal_exclusions=inputs["terminals"],
+        semantic_repairs=inputs["repairs"],
+        wider_rank=inputs["wider"],
+    )
+
+    promoted = result.selection[-1]
+    assert promoted["required_document_count"] == 3
+    assert {row["document_role"] for row in promoted["documents"]} >= {
+        "amended_complaint",
+        "motion_to_dismiss_memorandum",
+        "decision",
+    }
+    assert all(row["document_role"] != "opposition" for row in promoted["documents"])
+
+
+def test_v2_rejects_semantic_repairs_for_different_source_bytes() -> None:
+    inputs = _fixture()
+    alternate_complaint = _pdf(
+        (
+            "Notice of Removal",
+            "A true and correct copy of the first amended complaint is attached "
+            "hereto as Exhibit B.",
+            "Exhibit B",
+            "Verified First Amended Complaint with changed bytes",
+        )
+    )
+    alternate_motion = _pdf(
+        (
+            "Notice of Motion and Motion to Dismiss - Memorandum of Points and "
+            "Authorities",
+            "Memorandum of Points and Authorities Introduction",
+            "Argument I. A different source requires dismissal",
+        )
+    )
+    documents = (
+        _promoted_document("x001-bundle", "complaint", alternate_complaint, 1),
+        _promoted_document(
+            "x001-opening",
+            "motion_to_dismiss_notice",
+            alternate_motion,
+            20,
+        ),
+    )
+    foreign_repairs = _mint_verified_exact100_successor_semantic_repairs(
+        document_records=documents,
+        document_bytes_by_key={
+            ("x001", "x001-bundle"): alternate_complaint,
+            ("x001", "x001-opening"): alternate_motion,
+        },
+    )
+
+    with pytest.raises(Exact100SuccessorReplacementV2Error, match="does not bind"):
+        project_exact100_successor_replacement_v2(
+            base=inputs["base"],
+            terminal_exclusions=inputs["terminals"],
+            semantic_repairs=foreign_repairs,
+            wider_rank=inputs["wider"],
+        )
+
+
+def test_v2_rejects_missing_required_semantic_repairs() -> None:
+    inputs = _fixture()
+    empty_repairs = _mint_verified_exact100_successor_semantic_repairs(
+        document_records=(),
+        document_bytes_by_key={},
+    )
+
+    with pytest.raises(
+        Exact100SuccessorReplacementV2Error,
+        match="does not contain every required semantic role",
+    ):
+        project_exact100_successor_replacement_v2(
+            base=inputs["base"],
+            terminal_exclusions=inputs["terminals"],
+            semantic_repairs=empty_repairs,
+            wider_rank=inputs["wider"],
+        )
 
 
 def test_v2_base_and_projection_fail_closed_on_evidence_drift() -> None:
@@ -220,7 +303,7 @@ def test_semantic_repair_keeps_combined_mtd_scan_unbounded() -> None:
     assert repairs.records[0]["evidence_cues"][-1]["page_number"] == 100
 
 
-def _fixture() -> dict[str, Any]:
+def _fixture(*, include_opposition: bool = True) -> dict[str, Any]:
     selected_ids = [f"s{index:03d}" for index in range(100)]
     selection = [_selection_row(candidate_id) for candidate_id in selected_ids]
     relevance = [_selection_row(candidate_id) for candidate_id in selected_ids]
@@ -269,7 +352,11 @@ def _fixture() -> dict[str, Any]:
     promoted_docs = [
         _promoted_document("x001-bundle", "complaint", complaint, 1),
         _promoted_document("x001-opening", "motion_to_dismiss_notice", motion, 20),
-        _promoted_document("x001-opposition", "opposition", b"opp", 25),
+        *(
+            [_promoted_document("x001-opposition", "opposition", b"opp", 25)]
+            if include_opposition
+            else []
+        ),
         _promoted_document("x001-decision", "decision", b"decision", 39),
     ]
     repair_docs = promoted_docs[:2]

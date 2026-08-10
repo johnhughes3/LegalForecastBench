@@ -42915,11 +42915,11 @@ def _replay_exact100_v2_snapshot(
     manifest_path = snapshot_root / "manifest.json"
     screened_path = snapshot_root / "screened-cases.jsonl"
     manifest_bytes = _read_singly_linked_regular_input(
-        manifest_path, label="exact100 v2 final153 manifest"
+        manifest_path, label=f"exact100 v2 {authority_surface} manifest"
     )
     _require_exact100_v2_authority_payload(manifest_bytes, surface=authority_surface)
     screened_bytes = _read_singly_linked_regular_input(
-        screened_path, label="exact100 v2 final153 screened cases"
+        screened_path, label=f"exact100 v2 {authority_surface} screened cases"
     )
     manifest = _projection_json_object(manifest_bytes, source=manifest_path)
     verified = load_verified_screening_snapshot(
@@ -42933,7 +42933,9 @@ def _replay_exact100_v2_snapshot(
         or len(rows) != len(verified.screened)
         or (expected_count is not None and len(rows) != expected_count)
     ):
-        raise CommandError("exact100 v2 authenticated snapshot count differs")
+        raise CommandError(
+            f"exact100 v2 {authority_surface} authenticated snapshot count differs"
+        )
     return rows, {manifest_path: manifest_bytes, screened_path: screened_bytes}
 
 

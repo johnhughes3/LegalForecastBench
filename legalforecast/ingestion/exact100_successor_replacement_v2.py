@@ -29,6 +29,7 @@ from legalforecast.ingestion.exact100_successor_semantic_repair import (
 from legalforecast.ingestion.exact100_successor_wider_rank import (
     VerifiedExact100SuccessorWiderRank,
     require_verified_exact100_successor_wider_rank,
+    required_packet_roles,
 )
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     VerifiedPostSelectionTerminalExclusions,
@@ -44,9 +45,6 @@ PROMOTION_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_PROMOTION_V2)
 
 _TARGET_COUNT = 100
 _BASE_SEAL = object()
-_REQUIRED_PROMOTION_ROLES = frozenset(
-    {"complaint", "motion_to_dismiss_memorandum", "opposition", "decision"}
-)
 _PUBLIC_UNKNOWN_RESTRICTION_EVIDENCE = frozenset(
     {
         "courtlistener_rest_docket_exact_match",
@@ -313,9 +311,14 @@ def project_exact100_successor_replacement_v2(
         raise Exact100SuccessorReplacementV2Error(
             "terminal or promoted candidate lies outside the required partition"
         )
+    required_promotion_roles = required_packet_roles(
+        wider_rank.selected_selection_row,
+        materialized_documents=wider_rank.selected_evidence.download_manifest,
+    )
     promotion_row, promoted_relevance, promoted_manifest = _promoted_surfaces(
         wider_rank=wider_rank,
         repairs=semantic_repairs,
+        required_roles=required_promotion_roles,
     )
     retained = tuple(
         dict(row) for row in base.selection if _candidate_id(row) != terminal_id
@@ -362,18 +365,7 @@ def project_exact100_successor_replacement_v2(
         allowed_candidate_ids=set(final_ids),
         label="successor",
     )
-    selected_rank = next(
-        (
-            row["rank"]
-            for row in wider_rank.ordered_ledger
-            if row.get("selected_for_promotion") is True
-        ),
-        None,
-    )
-    if type(selected_rank) is not int:
-        raise Exact100SuccessorReplacementV2Error(
-            "wider rank lacks its selected promotion rank"
-        )
+    selected_rank = _selected_promotion_rank(wider_rank)
     promotion = {
         "schema_version": PROMOTION_SCHEMA_VERSION,
         "candidate_id": promoted_id,
@@ -396,7 +388,7 @@ def project_exact100_successor_replacement_v2(
             _required_text(row, "source_document_id"): _raw_sha(row, "sha256")
             for row in promoted_manifest
             if _required_role(_semantic_role(row, semantic_repairs))
-            in _REQUIRED_PROMOTION_ROLES
+            in required_promotion_roles
         },
         "disposition_class": "moot_non_merits_disposition",
     }
@@ -504,6 +496,7 @@ def _promoted_surfaces(
     *,
     wider_rank: VerifiedExact100SuccessorWiderRank,
     repairs: VerifiedExact100SuccessorSemanticRepairs,
+    required_roles: frozenset[str],
 ) -> tuple[JsonRecord, JsonRecord, tuple[JsonRecord, ...]]:
     candidate_id = wider_rank.selected_candidate_id
     evidence = wider_rank.selected_evidence
@@ -515,7 +508,7 @@ def _promoted_surfaces(
     clearance_by_id = _rows_by_document(evidence.disclosure_clearance)
     restriction_by_id = _rows_by_document(evidence.restriction_evidence)
     documents: list[JsonRecord] = []
-    required_roles: set[str] = set()
+    present_required_roles: set[str] = set()
     for row in sorted(
         manifest,
         key=lambda item: (
@@ -528,11 +521,11 @@ def _promoted_surfaces(
         role = _semantic_role(row, repairs)
         if role == "amended_complaint":
             model_role = "amended_complaint"
-            required_roles.add("complaint")
+            present_required_roles.add("complaint")
         else:
             model_role = role
-            if role in _REQUIRED_PROMOTION_ROLES:
-                required_roles.add(role)
+            if role in required_roles:
+                present_required_roles.add(role)
         restrictions = restriction_by_id.get(source_document_id, ())
         clearances = clearance_by_id.get(source_document_id, ())
         if len(restrictions) != 1 or len(clearances) != 1:
@@ -561,7 +554,7 @@ def _promoted_surfaces(
                 "source_url": row.get("source_url"),
             }
         )
-    if required_roles != set(_REQUIRED_PROMOTION_ROLES):
+    if present_required_roles != set(required_roles):
         raise Exact100SuccessorReplacementV2Error(
             "promoted packet does not contain every required semantic role"
         )
@@ -570,20 +563,16 @@ def _promoted_surfaces(
         {
             "candidate_id": candidate_id,
             "case_id": candidate_id,
-            "cost_rank": next(
-                cast(int, row["rank"])
-                for row in wider_rank.ordered_ledger
-                if row.get("selected_for_promotion") is True
-            ),
+            "cost_rank": _selected_promotion_rank(wider_rank),
             "documents": documents,
             "exclusion_reasons": [],
-            "free_required_document_count": len(_REQUIRED_PROMOTION_ROLES),
+            "free_required_document_count": len(required_roles),
             "missing_required_document_count": 0,
             "paid_gap_reasons": [],
             "paid_recovery_required": False,
             "planning_status": "provider_free_packet_complete",
             "projected_paid_cost_usd": "0.00",
-            "required_document_count": len(_REQUIRED_PROMOTION_ROLES),
+            "required_document_count": len(required_roles),
             "selected": True,
         }
     )
@@ -597,14 +586,47 @@ def _semantic_role(
 ) -> str:
     candidate_id = _candidate_id(document)
     source_document_id = _required_text(document, "source_document_id")
-    derived = repairs.derived_roles_for(
-        candidate_id=candidate_id, source_document_id=source_document_id
+    matching = tuple(
+        record
+        for record in repairs.records
+        if record.get("candidate_id") == candidate_id
+        and record.get("source_document_id") == source_document_id
     )
-    if len(derived) > 1:
+    if len(matching) > 1:
         raise Exact100SuccessorReplacementV2Error(
             "one promoted document has multiple derived roles"
         )
-    return derived[0] if derived else _required_text(document, "document_role")
+    if not matching:
+        return _required_text(document, "document_role")
+    repair = matching[0]
+    if (
+        _raw_sha(repair, "source_sha256") != _raw_sha(document, "sha256")
+        or repair.get("source_byte_count") != document.get("byte_count")
+        or _raw_sha(repair, "source_metadata_sha256")
+        != hashlib.sha256(_canonical_bytes(dict(document))).hexdigest()
+    ):
+        raise Exact100SuccessorReplacementV2Error(
+            "semantic repair source does not bind promoted document"
+        )
+    return _required_text(repair, "derived_document_role")
+
+
+def _selected_promotion_rank(
+    wider_rank: VerifiedExact100SuccessorWiderRank,
+) -> int:
+    rank = next(
+        (
+            row.get("rank")
+            for row in wider_rank.ordered_ledger
+            if row.get("selected_for_promotion") is True
+        ),
+        None,
+    )
+    if type(rank) is not int:
+        raise Exact100SuccessorReplacementV2Error(
+            "wider rank lacks its selected promotion rank"
+        )
+    return rank
 
 
 def _required_role(role: str) -> str:

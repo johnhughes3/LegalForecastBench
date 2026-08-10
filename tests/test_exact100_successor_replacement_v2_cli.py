@@ -235,6 +235,34 @@ def test_v2_writer_rejects_regular_output_root_replacement(
     assert detached_root.joinpath("target-cohort-selection.jsonl").is_file()
 
 
+def test_v2_output_root_open_recovers_from_concurrent_creator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output_root = tmp_path / "successor-v2"
+    output_root.mkdir()
+    original_open = os.open
+    raced = False
+
+    def open_with_creation_race(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal raced
+        if path == output_root.name and not raced:
+            raced = True
+            raise FileNotFoundError
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(successor_v2_cli.os, "open", open_with_creation_race)
+
+    descriptor = successor_v2_cli._open_output_root_fd(output_root)
+    os.close(descriptor)
+    assert raced is True
+
+
 def test_v2_verifier_rejects_symlinked_target_root(tmp_path: Path) -> None:
     replay = _authenticated_replay()
     real_root = tmp_path / "real-successor-v2"
