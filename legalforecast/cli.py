@@ -41144,7 +41144,7 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 raise CommandError(
                     "audit-only docket decision omission is outside the selection"
                 )
-            selected_document_keys = available_document_keys - omission_keys
+            selected_document_keys = authenticated_selection_keys - omission_keys
         recovery = (
             preverified_recovery
             if preverified_recovery is not None
@@ -46832,7 +46832,7 @@ def _verify_materialized_downstream_lineage(
                 raise CommandError(
                     "audit-only docket decision omission is outside the selection"
                 )
-            selected_document_keys = available_document_keys - omission_keys
+            selected_document_keys = authenticated_selection_keys - omission_keys
         recovery = (
             preverified_recovery
             if preverified_recovery is not None
