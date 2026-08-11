@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -12,6 +11,13 @@ import sys
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any, cast
+
+from legalforecast.contracts import (
+    MANIFEST_RAW_SHA256_V1,
+    PROVIDER_AUTHORITY_INFRA_IMPORT_RECEIPT_V1,
+    PROVIDER_AUTHORITY_INFRA_IMPORT_REQUEST_V1,
+    RAW_BYTES_RAW_SHA256_V1,
+)
 
 PROVIDER_AUTHORITY_TABLE = "legalforecastbench-official-eval-provider-authority"
 LABELING_ROLE = "legalforecastbench-official-labeling-authority"
@@ -83,10 +89,6 @@ _EVAL_FIXED_IMPORT_IDS: dict[str, str] = {
 _SAFE_ACTIONS = (["no-op"], ["create"], ["update"])
 
 
-def _sha256_text(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
 def resolve_import_id(
     module: str,
     address: str,
@@ -135,14 +137,16 @@ def import_authorization_sha256(
         "module": module,
         "operator_role_identity_sha256": operator_role_identity_sha256,
         "release_sha": release_sha,
-        "schema_version": "legalforecast.provider_authority_infra_import_request.v1",
+        "schema_version": str(PROVIDER_AUTHORITY_INFRA_IMPORT_REQUEST_V1),
         "state_backend_identity_sha256": state_backend_identity_sha256,
         "terraform_input_identity_sha256": terraform_input_identity_sha256,
     }
-    encoded = json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    return str(
+        MANIFEST_RAW_SHA256_V1.commit(
+            payload,
+            domain=PROVIDER_AUTHORITY_INFRA_IMPORT_REQUEST_V1,
+        ).digest
     )
-    return _sha256_text(encoded)
 
 
 def _module_resources(module: Mapping[str, Any]) -> Iterator[Mapping[str, Any]]:
@@ -354,7 +358,7 @@ def public_import_receipt(
     """Build the public-safe import receipt; raw resource IDs are never accepted."""
 
     return {
-        "schema_version": "legalforecast.provider_authority_infra_import_receipt.v1",
+        "schema_version": str(PROVIDER_AUTHORITY_INFRA_IMPORT_RECEIPT_V1),
         "module": module,
         "release_sha": release_sha,
         "import_address": address,
@@ -388,7 +392,12 @@ def _resolve_import_command(args: argparse.Namespace) -> None:
         "results_bucket_name": os.environ.get("TF_VAR_results_bucket_name", ""),
     }
     import_id = resolve_import_id(args.module, args.address, protected)
-    actual_id_sha256 = _sha256_text(import_id)
+    actual_id_sha256 = str(
+        RAW_BYTES_RAW_SHA256_V1.commit(
+            import_id.encode("utf-8"),
+            domain=PROVIDER_AUTHORITY_INFRA_IMPORT_REQUEST_V1,
+        ).digest
+    )
     _require_sha256(args.import_id_sha256, "import_id_sha256")
     _require_sha256(args.authorization_sha256, "import_authorization_sha256")
     if actual_id_sha256 != args.import_id_sha256:

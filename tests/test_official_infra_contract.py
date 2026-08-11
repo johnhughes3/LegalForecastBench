@@ -8,6 +8,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from legalforecast.contracts import (
+    PROVIDER_AUTHORITY_INFRA_IMPORT_RECEIPT_V1,
+    PROVIDER_AUTHORITY_INFRA_IMPORT_REQUEST_V1,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = ROOT / "scripts/official_infra_contract.py"
@@ -124,6 +128,20 @@ def test_import_authorization_binds_release_module_address_and_hidden_id() -> No
 
     assert first != second
     assert first != different_backend
+    expected_payload = {
+        "address": "aws_s3_bucket.packet",
+        "import_id_sha256": id_sha256,
+        "module": "official-eval",
+        "operator_role_identity_sha256": "d" * 64,
+        "release_sha": "a" * 40,
+        "schema_version": str(PROVIDER_AUTHORITY_INFRA_IMPORT_REQUEST_V1),
+        "state_backend_identity_sha256": "e" * 64,
+        "terraform_input_identity_sha256": "f" * 64,
+    }
+    expected_authorization = hashlib.sha256(
+        json.dumps(expected_payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    assert first == expected_authorization
     assert raw_id not in json.dumps(
         contract.public_import_receipt(
             module="official-eval",
@@ -139,6 +157,19 @@ def test_import_authorization_binds_release_module_address_and_hidden_id() -> No
             terraform_input_identity_sha256="f" * 64,
         )
     )
+    assert contract.public_import_receipt(
+        module="official-eval",
+        release_sha="a" * 40,
+        address="aws_s3_bucket.packet",
+        import_id_sha256=id_sha256,
+        authorization_sha256=first,
+        result="imported",
+        before_state_sha256="b" * 64,
+        after_state_sha256="c" * 64,
+        operator_role_identity_sha256="d" * 64,
+        state_backend_identity_sha256="e" * 64,
+        terraform_input_identity_sha256="f" * 64,
+    )["schema_version"] == str(PROVIDER_AUTHORITY_INFRA_IMPORT_RECEIPT_V1)
 
 
 def test_resolve_import_cli_uses_mode_0600_file_not_job_environment(
