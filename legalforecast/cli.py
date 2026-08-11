@@ -353,6 +353,10 @@ from legalforecast.ingestion.cycle_path_metadata import (
     CyclePathMetadataError,
     materialize_cycle_path_metadata,
 )
+from legalforecast.ingestion.cycle_preflight_manifest import (
+    CyclePreflightManifestError,
+    _active_head_chain,  # pyright: ignore[reportPrivateUsage]
+)
 from legalforecast.ingestion.decision_text_artifact import (
     CYCLE_1_ELIGIBILITY_ANCHOR,
     DecisionTextArtifactError,
@@ -871,6 +875,16 @@ from legalforecast.ingestion.snapshot_replay import (
     firecrawl_screening_migration_receipt,
     read_verified_replay_raw,
     source_replay_commitment,
+)
+from legalforecast.ingestion.successor_rerun_impact import (
+    RerunInputs,
+    SuccessorRerunImpactError,
+    current_documents_from_parser_records,
+    failed_successor_rerun_impact,
+    load_successor_proposal,
+    parser_output_sha256_from_records,
+    parser_revision_from_records,
+    plan_successor_rerun_impact,
 )
 from legalforecast.ingestion.supporting_document_successor import (
     SCHEMA_VERSION as SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
@@ -1752,6 +1766,20 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_locate_cycle_lineage_arguments(acquisition_locate_cycle_lineage)
+    acquisition_successor_rerun_impact = acquisition_subparsers.add_parser(
+        "explain-successor-rerun",
+        help="Explain the minimum safe rerun for proposed successor inputs.",
+        description=(
+            "Re-authenticate the active Stage A lineage and its provider journal, "
+            "compare a canonical proposed input set, and print a deterministic "
+            "advisory impact report. This command has no output or execution "
+            "option and cannot contact a provider, purchase, freeze, dispatch, "
+            "publish, or mutate authoritative state."
+        ),
+    )
+    _add_acquisition_successor_rerun_impact_arguments(
+        acquisition_successor_rerun_impact
+    )
     acquisition_run_cycle = acquisition_subparsers.add_parser(
         "run-cycle",
         help=(
@@ -3346,6 +3374,35 @@ def _add_acquisition_locate_cycle_lineage_arguments(
     )
     parser.add_argument("--json", action="store_true", help="Emit stable JSON output.")
     parser.set_defaults(handler=_cmd_acquisition_locate_cycle_lineage)
+
+
+def _add_acquisition_successor_rerun_impact_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_cycle_lineage_index_argument(parser)
+    parser.add_argument("--cycle-id", required=True, help="Cycle identifier.")
+    parser.add_argument(
+        "--llm-unitize-run-card",
+        type=Path,
+        required=True,
+        help=(
+            "Completed Stage A unitization card in the active authenticated "
+            "lineage. Failed or historical cards are rejected."
+        ),
+    )
+    parser.add_argument(
+        "--proposed-inputs",
+        type=Path,
+        required=True,
+        help=(
+            "Canonical legalforecast.successor_rerun_proposal.v1 JSON. The "
+            "proposal is compared as data and never grants execution authority."
+        ),
+    )
+    parser.add_argument(
+        "--format", choices=("json", "text"), default="text", help="Output format."
+    )
+    parser.set_defaults(handler=_cmd_acquisition_successor_rerun_impact)
 
 
 def _add_acquisition_register_cycle_stage_head_arguments(
@@ -19367,6 +19424,159 @@ def _cmd_acquisition_locate_cycle_lineage(args: argparse.Namespace) -> int:
                     f"({decision['verification']})"
                 )
     return 0
+
+
+def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
+    """Print a provider-free advisory comparison of successor Stage A inputs."""
+
+    cycle_id = cast(str, args.cycle_id)
+    run_card_path = cast(Path, args.llm_unitize_run_card).resolve()
+    proposal_path = cast(Path, args.proposed_inputs)
+    exit_code = 0
+    try:
+        index_path = _cycle_lineage_index_path(args)
+        lineage_status = locate_cycle_lineage(
+            index_path=index_path, cycle_id=cycle_id
+        )
+        chain = _active_head_chain(index_path, cycle_id)
+        matching_heads = [
+            head
+            for head in chain
+            if Path(cast(str, head["run_card_path"])).resolve() == run_card_path
+            and head.get("stage") == "llm-unitize"
+        ]
+        if len(matching_heads) != 1:
+            raise SuccessorRerunImpactError(
+                "llm-unitize run card is not unique in the active lineage"
+            )
+        card = _read_json_object(run_card_path)
+        outputs = card.get("output_commitments")
+        if not isinstance(outputs, Mapping):
+            raise SuccessorRerunImpactError(
+                "llm-unitize run card lacks output commitments"
+            )
+        output_records = cast(Mapping[str, object], outputs)
+        raw_path = _stage_a_committed_path(output_records, "prediction_units")
+        audit_path = _stage_a_committed_path(
+            output_records, "llm_unitization_audit"
+        )
+        queue_path = _stage_a_committed_path(
+            output_records, "unitization_review_queue"
+        )
+        lineage = _verify_stage_a_unitization_run_card(
+            run_card_path,
+            expected_prediction_units_path=raw_path,
+            expected_review_queue_path=queue_path,
+            expected_audit_path=audit_path,
+        )
+        namespace = _stage_a_provider_attempt_namespace_from_unitization_card_record(
+            card
+        )
+        prompt_commitments = card.get("prompt_commitments")
+        if not isinstance(prompt_commitments, Mapping):
+            raise SuccessorRerunImpactError(
+                "llm-unitize run card lacks prompt commitments"
+            )
+        typed_prompt_commitments = cast(Mapping[str, object], prompt_commitments)
+        prompt_sha256_by_candidate = {
+            candidate_id: _required_str(
+                cast(Mapping[str, Any], commitment), "prompt_sha256"
+            )
+            for candidate_id, commitment in sorted(
+                typed_prompt_commitments.items()
+            )
+            if isinstance(commitment, Mapping)
+        }
+        if len(prompt_sha256_by_candidate) != len(typed_prompt_commitments):
+            raise SuccessorRerunImpactError(
+                "llm-unitize prompt commitments are malformed"
+            )
+        provider_rows = _stage_a_provider_attempt_rows(
+            lineage.provider_journal_path
+        )
+        active_provider_rows: list[Mapping[str, object]] = []
+        for row in provider_rows:
+            if row.get("status") != "settled":
+                continue
+            prompt_text = row.get("prompt_text")
+            candidate_id = row.get("candidate_id")
+            if not isinstance(prompt_text, str) or not isinstance(candidate_id, str):
+                raise SuccessorRerunImpactError(
+                    "provider journal attempt identity is malformed"
+                )
+            active_identity = ProviderCallIdentity(
+                stage="llm-unitize",
+                candidate_id=candidate_id,
+                model_key=lineage.registry_entry.registry_key,
+                prompt=prompt_text,
+                model_registry_sha256=lineage.registry_sha256,
+                prompt_contract=namespace,
+            )
+            if row.get("logical_call_key") == active_identity.logical_call_key:
+                active_provider_rows.append(row)
+        proposal = load_successor_proposal(proposal_path)
+        proposed_registry_bytes = _read_singly_linked_regular_input(
+            proposal.model_registry_path, label="proposed model registry"
+        )
+        proposed_entries, proposed_registry_sha256 = _registry_entries_for_keys_bytes(
+            proposed_registry_bytes, (proposal.inputs.model_key,)
+        )
+        if proposed_registry_sha256 != proposal.inputs.model_registry_sha256:
+            raise SuccessorRerunImpactError(
+                "proposed model registry semantic digest differs"
+            )
+        proposed_caps = load_provider_cycle_caps(proposal.policy_path)
+        if proposed_caps.cycle_id != proposal.inputs.cycle_id:
+            raise SuccessorRerunImpactError(
+                "proposed provider policy cycle_id differs"
+            )
+        proposed_caps.cap_usd(proposed_entries[0].provider)
+        current = RerunInputs(
+            cycle_id=lineage.cohort_cycle_id,
+            selection_records=lineage.selection_records,
+            documents=current_documents_from_parser_records(lineage.parser_records),
+            parser_revision=parser_revision_from_records(lineage.parser_records),
+            provider_attempt_namespace=namespace,
+            model_key=lineage.registry_entry.registry_key,
+            model_registry_sha256=lineage.registry_sha256,
+            policy_sha256=lineage.provider_caps_sha256,
+            parser_output_sha256_by_document=parser_output_sha256_from_records(
+                lineage.parser_records
+            ),
+        )
+        report = plan_successor_rerun_impact(
+            current=current,
+            proposed=proposal,
+            settled_provider_rows=active_provider_rows,
+            current_prompt_sha256_by_candidate=prompt_sha256_by_candidate,
+        )
+        # Close every current/proposed TOCTOU interval immediately before output.
+        _require_stage_a_lineage_unchanged(lineage)
+        if load_successor_proposal(proposal_path) != proposal:
+            raise SuccessorRerunImpactError(
+                "successor proposal changed during planning"
+            )
+        if (
+            locate_cycle_lineage(index_path=index_path, cycle_id=cycle_id)
+            != lineage_status
+        ):
+            raise SuccessorRerunImpactError(
+                "active lineage changed during successor planning"
+            )
+    except (
+        CommandError,
+        CycleLineageIndexError,
+        CyclePreflightManifestError,
+        ProviderJournalError,
+        SuccessorRerunImpactError,
+    ) as exc:
+        report = failed_successor_rerun_impact(str(exc))
+        exit_code = 1
+    if cast(str, args.format) == "json":
+        sys.stdout.write(report.json_text())
+    else:
+        sys.stdout.write(report.text())
+    return exit_code
 
 
 def _cmd_acquisition_register_cycle_stage_head(args: argparse.Namespace) -> int:
