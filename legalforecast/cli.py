@@ -30078,9 +30078,13 @@ def _prepare_replacement_recovery_consolidation(
         )
     if target_projection is not None:
         authenticated_selection_path = cast(Path, target_projection["selection_path"])
-        if (
-            selection_path.resolve() != authenticated_selection_path.resolve()
-            or selection_records != target_projection["selection_records"]
+        if selection_path.resolve() != authenticated_selection_path.resolve() or tuple(
+            selection_records
+        ) != tuple(
+            cast(
+                Sequence[Mapping[str, Any]],
+                target_projection["selection_records"],
+            )
         ):
             raise ValueError(
                 "consolidation selection differs from authenticated target projection"
@@ -30486,9 +30490,13 @@ def _prepare_replacement_recovery_consolidation(
             )
         )
     authenticated_selection_path = cast(Path, target_projection["selection_path"])
-    if (
-        selection_path.resolve() != authenticated_selection_path.resolve()
-        or selection_records != target_projection["selection_records"]
+    if selection_path.resolve() != authenticated_selection_path.resolve() or tuple(
+        selection_records
+    ) != tuple(
+        cast(
+            Sequence[Mapping[str, Any]],
+            target_projection["selection_records"],
+        )
     ):
         raise ValueError(
             "consolidation selection differs from authenticated target projection"

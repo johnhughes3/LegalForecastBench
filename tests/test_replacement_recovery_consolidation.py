@@ -443,7 +443,7 @@ def test_exact100_v2_target_root_derives_empty_purchased_partition(
             "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2)
         },
         "selection_path": args.selection,
-        "selection_records": selection_records,
+        "selection_records": tuple(selection_records),
         "purchased_manifest": (),
         "verified_artifact_bytes": {
             str(target_card_path): target_card_path.read_bytes(),
