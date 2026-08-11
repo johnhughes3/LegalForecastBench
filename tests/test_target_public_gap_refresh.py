@@ -1156,6 +1156,9 @@ def test_reused_evidence_rechecks_source_after_provider_construction(
         source = Path(path)
         source.parent.mkdir(parents=True, exist_ok=True)
         source.write_bytes(payload)
+    with CycleAcquisitionStore(plan.execution_identity.cycle_store_path) as store:
+        cycle_hash = store.ensure_cycle({"anchor": "2026-06-30T00:00:00Z"})
+    plan = replace(plan, target_cycle_hash=cycle_hash)
     constructed: list[str] = []
 
     def construct_firecrawl() -> FirecrawlCourtListenerHTMLSource:
@@ -1186,7 +1189,6 @@ def test_reused_evidence_rechecks_source_after_provider_construction(
             )
 
     assert constructed == ["firecrawl"]
-    assert not plan.execution_identity.cycle_store_path.exists()
 
 
 def test_reused_evidence_only_avoids_duplicate_pure_validation(
@@ -1246,7 +1248,7 @@ def test_reused_evidence_only_avoids_duplicate_pure_validation(
                 validated_execution=evidence,
             )
 
-    assert calls == {"preflight": 2, "source": 2}
+    assert calls == {"preflight": 1, "source": 1}
 
 
 def test_reused_evidence_success_path_keeps_three_source_and_two_namespace_checks(
@@ -1347,6 +1349,70 @@ def test_reused_evidence_success_path_keeps_three_source_and_two_namespace_check
     ).read_bytes() == payloads["target-public-gap-outcomes.jsonl"]
 
 
+def test_reused_evidence_rechecks_after_store_setup_before_scheduler(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "target"
+    plan = _single_case_plan(root)
+    for path, payload in _verified_projection_bytes(root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    with CycleAcquisitionStore(plan.execution_identity.cycle_store_path) as store:
+        cycle_hash = store.ensure_cycle({"anchor": "2026-06-30T00:00:00Z"})
+    plan = replace(plan, target_cycle_hash=cycle_hash)
+    original_ensure_run = CycleAcquisitionStore.ensure_firecrawl_run
+    scheduled: list[object] = []
+
+    def mutate_after_store_setup(
+        store: CycleAcquisitionStore,
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        result = original_ensure_run(store, *args, **kwargs)
+        Path(next(iter(plan.source_artifact_commitments))).write_bytes(
+            b"mutated after store setup"
+        )
+        return result
+
+    monkeypatch.setattr(
+        CycleAcquisitionStore,
+        "ensure_firecrawl_run",
+        mutate_after_store_setup,
+    )
+    monkeypatch.setattr(
+        target_gap_module,
+        "BudgetedFirecrawlScheduler",
+        lambda **_: scheduled.append("scheduler"),
+    )
+    plan_sha256 = _plan_sha256(plan)
+
+    with bind_target_public_gap_execution(plan) as binding:
+        evidence = _validate_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=plan_sha256,
+            packet_role_replay=None,
+            execution_binding=binding,
+        )
+        with pytest.raises(ValueError, match="target source artifact changed"):
+            _execute_target_public_gap_refresh(
+                plan=plan,
+                expected_plan_sha256=plan_sha256,
+                firecrawl_source_factory=lambda: FirecrawlCourtListenerHTMLSource(
+                    FirecrawlConfig(
+                        api_key="fixture", proxy="basic", force_browser=False
+                    ),
+                    transport=cast(Any, object()),
+                ),
+                document_source_factory=lambda: pytest.fail("document source reached"),
+                allow_existing_downloads=True,
+                validated_execution=evidence,
+            )
+
+    assert scheduled == []
+
+
 def test_completed_execution_is_rejected_before_provider_construction(
     tmp_path: Path,
 ) -> None:
@@ -1440,15 +1506,21 @@ def test_execution_rejects_parent_rebind_before_any_runtime_write(
         source = Path(path)
         source.parent.mkdir(parents=True, exist_ok=True)
         source.write_bytes(payload)
+    with CycleAcquisitionStore(plan.execution_identity.cycle_store_path) as store:
+        cycle_hash = store.ensure_cycle({"anchor": "2026-06-30T00:00:00Z"})
+    plan = replace(plan, target_cycle_hash=cycle_hash)
     runtime_parent = plan.execution_identity.output_root.parent
     moved_parent = tmp_path / "moved-runtime-parent"
     constructed: list[str] = []
 
-    def construct_firecrawl() -> Any:
+    def construct_firecrawl() -> FirecrawlCourtListenerHTMLSource:
         constructed.append("firecrawl")
         runtime_parent.rename(moved_parent)
         runtime_parent.mkdir()
-        return object()
+        return FirecrawlCourtListenerHTMLSource(
+            FirecrawlConfig(api_key="fixture", proxy="basic", force_browser=False),
+            transport=cast(Any, object()),
+        )
 
     def construct_document_source() -> FixtureFreeDocumentSource:
         constructed.append("document")

@@ -1530,15 +1530,6 @@ def _execute_target_public_gap_refresh(
         )
     identity = execution_binding.runtime_identity
     firecrawl_source = firecrawl_source_factory()
-    # This is the just-in-time authority boundary before any cycle-store or
-    # scheduler activity. Evidence reuse never skips it.
-    preflight_target_public_gap_execution(
-        plan,
-        expected_plan_sha256=expected_plan_sha256,
-        packet_role_replay=packet_role_replay,
-    )
-    execution_binding.require_current(plan)
-    require_target_public_gap_sources_unchanged(plan)
     if (
         firecrawl_source.config.proxy != identity.firecrawl_proxy
         or firecrawl_source.config.force_browser != identity.force_browser
@@ -1595,7 +1586,15 @@ def _execute_target_public_gap_refresh(
                 firecrawl_source.config.max_credits_per_scrape
             ),
         )
+        # This is the just-in-time authority boundary immediately before the
+        # scheduler can cause provider activity. Evidence reuse never skips it.
+        preflight_target_public_gap_execution(
+            plan,
+            expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
+        )
         execution_binding.require_current(plan)
+        require_target_public_gap_sources_unchanged(plan)
         refresh = refresh_target_public_gaps(
             plan=plan,
             role_adjudications=role_adjudications,
