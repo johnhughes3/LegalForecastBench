@@ -22,7 +22,11 @@ from legalforecast.contracts import (
     SUPPORTING_DOCUMENT_RESTRICTION_EVIDENCE_V1,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
-from legalforecast.ingestion.disclosure_clearance import scan_disclosure_document
+from legalforecast.ingestion.disclosure_clearance import (
+    DisclosureClearanceError,
+    require_clearance_policy,
+    scan_disclosure_document,
+)
 from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadError,
     FreeDocumentFetch,
@@ -828,6 +832,16 @@ def _verify_completed_output(
         raise SupportingDocumentSuccessorCliError(
             "support memorandum is not cleared on replay"
         )
+    try:
+        require_clearance_policy(
+            clearance,
+            key=(SUPPORT_CANDIDATE_ID, SUPPORT_DOCUMENT_ID),
+            label="supporting successor document",
+        )
+    except DisclosureClearanceError as exc:
+        raise SupportingDocumentSuccessorCliError(
+            "support memorandum clearance is invalid on replay"
+        ) from exc
     promoted_records, promoted_clearance, promoted_documents = _supplemental_promoted(
         projection
     )

@@ -498,6 +498,34 @@ def test_successor_executor_writes_replays_and_detects_tamper(
     )
     resumed_result = json.loads(capsys.readouterr().out)
     assert resumed_result["provider_activity_executed"] is False
+    supplemental_clearance_path = (
+        output / successor_cli._OUTPUTS["supplemental_clearance"]
+    )
+    original_clearance = supplemental_clearance_path.read_bytes()
+    stale_clearance = list(supplemental_clearance)
+    stale_clearance[-1] = {
+        **stale_clearance[-1],
+        "routing_plan_sha256": (
+            "sha256:" + str(stale_clearance[-1]["routing_plan_sha256"])
+        ),
+    }
+    supplemental_clearance_path.write_bytes(
+        b"".join(successor_cli._bytes(row) for row in stale_clearance)
+    )
+    with pytest.raises(
+        successor_cli.SupportingDocumentSuccessorCliError,
+        match="clearance is invalid on replay",
+    ):
+        successor_cli._run_with_test_dependencies(
+            v2_root=v2_root,
+            plan_path=plan_path,
+            bridge_descriptor=bridge,
+            output_root=output,
+            verifier=verifier,
+            source=Source(),
+            resume=True,
+        )
+    supplemental_clearance_path.write_bytes(original_clearance)
     monkeypatch.setattr(
         successor_cli,
         "scan_disclosure_document",
