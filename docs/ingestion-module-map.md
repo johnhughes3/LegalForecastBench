@@ -129,6 +129,8 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`exact100_successor_wider_rank.py`](../legalforecast/ingestion/exact100_successor_wider_rank.py) | Deterministic authenticated ranking of the complete nonselected successor horizon. |
 | [`exact100_zero_cost_recovery.py`](../legalforecast/ingestion/exact100_zero_cost_recovery.py) | One-record CourtListener-only public/terminal recovery for the stipulated exact-100 memorandum. |
 | [`exact100_zero_cost_recovery_cli.py`](../legalforecast/ingestion/exact100_zero_cost_recovery_cli.py) | Immutable CLI publication and resume verification for bounded exact-100 recovery. |
+| [`supporting_document_successor.py`](../legalforecast/ingestion/supporting_document_successor.py) | Pure projection transformer for the closed ECF 14 exact-100 supporting-document successor. |
+| [`supporting_document_successor_cli.py`](../legalforecast/ingestion/supporting_document_successor_cli.py) | Authenticated download, immutable publication, replay, and materializer adapter for the supporting-document successor. |
 | [`exact310_rest_rebind.py`](../legalforecast/ingestion/exact310_rest_rebind.py) | Policy layer for the exact terminal REST rebind. |
 | [`mtd_acquisition_screen.py`](../legalforecast/ingestion/mtd_acquisition_screen.py) | Public-record MTD decision screening. |
 | [`pacer_gap_append_rebase.py`](../legalforecast/ingestion/pacer_gap_append_rebase.py) | Append-only snapshot growth authentication. |

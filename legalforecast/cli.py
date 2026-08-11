@@ -864,6 +864,19 @@ from legalforecast.ingestion.snapshot_replay import (
     read_verified_replay_raw,
     source_replay_commitment,
 )
+from legalforecast.ingestion.supporting_document_successor import (
+    SCHEMA_VERSION as SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
+)
+from legalforecast.ingestion.supporting_document_successor_cli import (
+    SupportingDocumentSuccessorCliError,
+    verify_supporting_document_successor_projection,
+)
+from legalforecast.ingestion.supporting_document_successor_cli import (
+    add_parser as add_supporting_document_successor_parser,
+)
+from legalforecast.ingestion.supporting_document_successor_cli import (
+    run as run_supporting_document_successor,
+)
 from legalforecast.ingestion.target_100_acquisition import (
     Target100PreparationConfig,
     Target100PreparationError,
@@ -2156,6 +2169,10 @@ def build_parser() -> argparse.ArgumentParser:
     add_exact100_successor_replacement_v2_parser(
         acquisition_subparsers,
         handler=_cmd_project_exact100_successor_replacement_v2,
+    )
+    add_supporting_document_successor_parser(
+        acquisition_subparsers,
+        handler=_cmd_project_exact100_supporting_document_successor,
     )
     add_exact100_zero_cost_recovery_parser(acquisition_subparsers)
     acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
@@ -30985,9 +31002,93 @@ def _materializer_successor_v2_free_sources(
     run_card = projection.get("run_card")
     selection_path = projection.get("selection_path")
     artifact_bytes = projection.get("verified_artifact_bytes")
-    if not isinstance(run_card, Mapping) or cast(Mapping[str, object], run_card).get(
-        "schema_version"
-    ) != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2):
+    if not isinstance(run_card, Mapping):
+        return (
+            DocumentSource(
+                phase="free",
+                document_root=preparation_root / "documents/free",
+                manifest=free_manifest,
+                clearance=free_clearance,
+            ),
+        )
+    run_card_record = cast(Mapping[str, object], run_card)
+    if (
+        run_card_record.get("schema_version")
+        == SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
+    ):
+        base_projection = projection.get("base_v2_projection")
+        supplemental_root = projection.get("supplemental_document_root")
+        supplemental_manifest = projection.get("supplemental_manifest")
+        supplemental_clearance = projection.get("supplemental_clearance")
+        if (
+            not isinstance(base_projection, Mapping)
+            or not isinstance(supplemental_root, Path)
+            or not isinstance(supplemental_manifest, Sequence)
+            or isinstance(supplemental_manifest, (str, bytes))
+            or not isinstance(supplemental_clearance, Sequence)
+            or isinstance(supplemental_clearance, (str, bytes))
+            or supplemental_root.is_symlink()
+            or not supplemental_root.is_dir()
+        ):
+            raise CommandError(
+                "supporting-document successor lacks supplemental source"
+            )
+        inherited_sources = _materializer_successor_v2_free_sources(
+            cast(Mapping[str, object], base_projection),
+            preparation_root=preparation_root,
+            consolidated_recovery=consolidated_recovery,
+        )
+        if len(inherited_sources) != 2:
+            raise CommandError("supporting-document successor lacks v2 free layout")
+        supplemental_records = tuple(
+            cast(Mapping[str, Any], record)
+            for record in cast(Sequence[object], supplemental_manifest)
+            if isinstance(record, Mapping)
+        )
+        supplemental_clearance_records = tuple(
+            cast(Mapping[str, Any], record)
+            for record in cast(Sequence[object], supplemental_clearance)
+            if isinstance(record, Mapping)
+        )
+        if len(supplemental_records) != 6 or len(supplemental_clearance_records) != 6:
+            raise CommandError(
+                "supporting-document successor supplemental count differs"
+            )
+        expected_supplemental_keys = {
+            _materializer_record_key(record) for record in supplemental_records
+        }
+        if (
+            len(expected_supplemental_keys) != 6
+            or {
+                _materializer_record_key(record)
+                for record in supplemental_clearance_records
+            }
+            != expected_supplemental_keys
+            or ("73327542", "73327542-entry-14-motion-to-dismiss-memorandum")
+            not in expected_supplemental_keys
+        ):
+            raise CommandError(
+                "supporting-document successor supplemental source differs"
+            )
+        if {
+            _materializer_record_key(record)
+            for record in cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
+        } != {
+            _materializer_record_key(record) for record in inherited_sources[0].manifest
+        } | expected_supplemental_keys:
+            raise CommandError("supporting-document successor free coverage differs")
+        return (
+            inherited_sources[0],
+            DocumentSource(
+                phase="free",
+                document_root=supplemental_root,
+                manifest=supplemental_records,
+                clearance=supplemental_clearance_records,
+            ),
+        )
+    if run_card_record.get("schema_version") != str(
+        EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
+    ):
         return (
             DocumentSource(
                 phase="free",
@@ -30998,7 +31099,6 @@ def _materializer_successor_v2_free_sources(
         )
     if not isinstance(selection_path, Path) or not isinstance(artifact_bytes, Mapping):
         raise CommandError("consolidated recovery lacks exact100 v2 source authority")
-    run_card_record = cast(Mapping[str, object], run_card)
     replay_args = _exact100_successor_v2_replay_args(run_card_record)
     complete_root = replay_args.complete_materialization_root / "01-materialized"
     inherited_root = complete_root / "documents"
@@ -40556,6 +40656,7 @@ _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN = object()
 _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION = object()
 _EXACT100_SUCCESSOR_REPLAY_ATTESTATION = object()
 _EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION = object()
+_SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION = object()
 _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
     ZERO_COST_SUCCESSOR_STATE_SCHEMA: _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION,
     str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1): (
@@ -40563,6 +40664,9 @@ _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
     ),
     str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2): (
         _EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION
+    ),
+    SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION: (
+        _SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION
     ),
 }
 _SUPPORTED_SUCCESSOR_STATE_SCHEMAS = frozenset(_SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA)
@@ -42601,6 +42705,38 @@ def _cmd_project_exact100_successor_replacement_v2(
         raise CommandError(str(exc)) from exc
 
 
+def _cmd_project_exact100_supporting_document_successor(
+    args: argparse.Namespace,
+) -> int:
+    """Run the one-document successor through the established v2 verifier."""
+
+    def verify_projection(root: Path) -> Mapping[str, object]:
+        if root.absolute() != cast(Path, args.v2_root).absolute():
+            raise SupportingDocumentSuccessorCliError("v2 root differs from command")
+        run_card_path = root / "run-cards/project-target-cohort.json"
+        run_card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                run_card_path, label="supporting-document v2 run card"
+            ),
+            source=run_card_path,
+        )
+        try:
+            return verify_exact100_successor_replacement_v2_projection(
+                root,
+                replay=_replay_exact100_successor_replacement_v2_inputs,
+                args=_exact100_successor_v2_replay_args(run_card),
+            )
+        except Exact100SuccessorReplacementV2CliError as exc:
+            raise SupportingDocumentSuccessorCliError(str(exc)) from exc
+
+    args._verify_v2 = verify_projection
+    try:
+        with cache_disclosure_document_scans():
+            return run_supporting_document_successor(args)
+    except SupportingDocumentSuccessorCliError as exc:
+        raise CommandError(str(exc)) from exc
+
+
 def _replay_exact100_successor_inputs(
     predecessor_root: Path,
 ) -> tuple[VerifiedExact100Predecessor, VerifiedSuccessorPromotionPool]:
@@ -43708,6 +43844,15 @@ def _verify_materializer_projection(
     _verified_clearance_source_roots: Mapping[str, Path] | None = None,
 ) -> dict[str, object]:
     run_card_path = target_root / "run-cards/project-target-cohort.json"
+    supporting_card_path = (
+        target_root / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    if supporting_card_path.is_file() and not supporting_card_path.is_symlink():
+        return _verify_supporting_document_downstream_projection(
+            target_root=target_root,
+            free_clearance_path=free_clearance_path,
+            expected_target_count=expected_target_count,
+        )
     if run_card_path.is_file() and not run_card_path.is_symlink():
         candidate_card = _projection_json_object(
             _read_singly_linked_regular_input(
@@ -44160,6 +44305,59 @@ def _verify_materializer_projection(
     }
 
 
+def _verify_supporting_document_downstream_projection(
+    *,
+    target_root: Path,
+    free_clearance_path: Path,
+    expected_target_count: int,
+) -> dict[str, object]:
+    """Replay one supporting-document successor for downstream consumers."""
+
+    card_path = (
+        target_root / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            card_path, label="supporting-document successor run card"
+        ),
+        source=card_path,
+    )
+    if (
+        card.get("schema_version") != SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
+        or card.get("selected_case_count") != expected_target_count
+        or free_clearance_path.resolve()
+        != (target_root / "disclosure-clearance.jsonl").resolve()
+    ):
+        raise CommandError("supporting-document materializer inputs differ")
+
+    def verify_v2(root: Path) -> Mapping[str, object]:
+        v2_card_path = root / "run-cards/project-target-cohort.json"
+        v2_card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                v2_card_path, label="supporting-document v2 run card"
+            ),
+            source=v2_card_path,
+        )
+        return verify_exact100_successor_replacement_v2_projection(
+            root,
+            replay=_replay_exact100_successor_replacement_v2_inputs,
+            args=_exact100_successor_v2_replay_args(v2_card),
+        )
+
+    try:
+        return _mint_verified_successor_selection_card_from_projection(
+            verify_supporting_document_successor_projection(
+                target_root, verifier=verify_v2
+            ),
+            replay_attestation=_SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION,
+        )
+    except (
+        Exact100SuccessorReplacementV2CliError,
+        SupportingDocumentSuccessorCliError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+
+
 def verify_completed_target_cohort_projection_for_purchase_approval(
     target_root: Path,
     *,
@@ -44173,6 +44371,22 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
     cannot drift into a weaker parallel interpretation of preparation,
     disclosure-clearance, snapshot, run-card, or output commitments.
     """
+
+    supporting_card_path = (
+        target_root / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    if supporting_card_path.is_file() and not supporting_card_path.is_symlink():
+        supporting_card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                supporting_card_path, label="supporting-document successor run card"
+            ),
+            source=supporting_card_path,
+        )
+        return _verify_supporting_document_downstream_projection(
+            target_root=target_root,
+            free_clearance_path=target_root / "disclosure-clearance.jsonl",
+            expected_target_count=_required_int(supporting_card, "selected_case_count"),
+        )
 
     run_card_path = target_root / "run-cards/project-target-cohort.json"
     run_card_bytes = _read_singly_linked_regular_input(
