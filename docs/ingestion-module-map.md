@@ -211,6 +211,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`disclosure_review_authorities/__init__.py`](../legalforecast/ingestion/disclosure_review_authorities/__init__.py) | Namespace for disclosure-review authority providers. |
 | [`disclosure_review_authority.py`](../legalforecast/ingestion/disclosure_review_authority.py) | Main-pinned hardware-authenticated review authority. |
 | [`disclosure_review_bundle.py`](../legalforecast/ingestion/disclosure_review_bundle.py) | Deterministic externally signed review bundles. |
+| [`successor_attorney_packet.py`](../legalforecast/ingestion/successor_attorney_packet.py) | Candidate-grouped attorney review packets bound to frozen adjudication authority and observational successor evidence. |
 | [`provenance_clearance.py`](../legalforecast/ingestion/provenance_clearance.py) | Provenance-first routing with human exceptions. |
 | [`public_marker_clearance_policy.py`](../legalforecast/ingestion/public_marker_clearance_policy.py) | Owner-bound policy for provider-free clearance of authenticated public marker-only documents. |
 | [`recap_fetch_quarantine_recovery.py`](../legalforecast/ingestion/recap_fetch_quarantine_recovery.py) | Controlled recovery of unknown-status documents. |
