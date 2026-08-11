@@ -574,3 +574,12 @@ def test_purchase_approval_verifier_routes_supporting_successor_without_legacy_c
             "expected_target_count": 100,
         }
     ]
+
+
+@pytest.mark.parametrize("payload", [b"not-json\n", b"", b"[]\n"])
+def test_legacy_jsonl_rejects_invalid_rows(payload: bytes) -> None:
+    with pytest.raises(
+        successor_cli.SupportingDocumentSuccessorCliError,
+        match="legacy manifest is not JSONL",
+    ):
+        successor_cli._legacy_jsonl(payload, "legacy manifest")
