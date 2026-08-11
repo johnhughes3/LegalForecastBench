@@ -597,7 +597,7 @@ def _supplemental_promoted(
         raise SupportingDocumentSuccessorCliError("v2 projection lacks exact inputs")
     historical_root = Path(cast(str, input_paths[6]))
     document_root = historical_root / "documents"
-    raw_manifest = _jsonl(
+    raw_manifest = _legacy_jsonl(
         _read_relative_regular(historical_root, Path("free-document-downloads.jsonl")),
         "historical free manifest",
     )
@@ -1141,6 +1141,18 @@ def _jsonl(payload: bytes, label: str) -> tuple[dict[str, Any], ...]:
         raise
     if not rows or _jsonl_bytes(rows) != payload:
         raise SupportingDocumentSuccessorCliError(f"{label} is not canonical JSONL")
+    return tuple(cast(dict[str, Any], row) for row in rows)
+
+
+def _legacy_jsonl(payload: bytes, label: str) -> tuple[dict[str, Any], ...]:
+    """Decode authenticated legacy JSONL without imposing the new byte codec."""
+
+    try:
+        rows = tuple(json.loads(line) for line in payload.splitlines())
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise SupportingDocumentSuccessorCliError(f"{label} is not JSONL") from exc
+    if not rows or any(not isinstance(row, dict) for row in rows):
+        raise SupportingDocumentSuccessorCliError(f"{label} is not JSONL")
     return tuple(cast(dict[str, Any], row) for row in rows)
 
 

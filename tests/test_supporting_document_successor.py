@@ -256,7 +256,9 @@ def _exact100_executor_fixture(
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(payload)
     (historical / "free-document-downloads.jsonl").write_bytes(
-        b"".join(successor_cli._bytes(record) for record in promoted)
+        b"".join(
+            (json.dumps(record, sort_keys=True) + "\n").encode() for record in promoted
+        )
     )
     selection_records: list[dict[str, Any]] = []
     relevance: list[dict[str, Any]] = []
@@ -572,3 +574,12 @@ def test_purchase_approval_verifier_routes_supporting_successor_without_legacy_c
             "expected_target_count": 100,
         }
     ]
+
+
+@pytest.mark.parametrize("payload", [b"not-json\n", b"", b"[]\n"])
+def test_legacy_jsonl_rejects_invalid_rows(payload: bytes) -> None:
+    with pytest.raises(
+        successor_cli.SupportingDocumentSuccessorCliError,
+        match="legacy manifest is not JSONL",
+    ):
+        successor_cli._legacy_jsonl(payload, "legacy manifest")
