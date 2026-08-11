@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import legalforecast.ingestion.free_support_memorandum_executor as executor
+import legalforecast.ingestion.free_support_memorandum_executor_cli as executor_cli
 import legalforecast.ingestion.free_support_memorandum_recovery as planner
 import pytest
 from legalforecast.ingestion.cohort_document_materializer import (
@@ -34,10 +35,7 @@ def _raw_html() -> bytes:
 
 
 def _bridge(tmp_path: Path) -> VerifiedTargetRawDocketAuxiliaryProvenanceBridge:
-    old_selection = (
-        b'{"candidate_id":"73327542","selected":true,'
-        b'"target_motion_entry_numbers":[13]}\n'
-    )
+    old_selection = _selection()
     selection_path = tmp_path / "old-selection.jsonl"
     selection_path.write_bytes(old_selection)
     descriptor = {
@@ -153,8 +151,8 @@ def test_executes_one_additive_public_source_and_replays(
         output_root=output_root,
     )
     assert replay.projection["base_selected_candidate_count"] == 100
-    assert replay.projection["base_selected_document_count"] == 100
-    assert replay.projection["augmented_selected_document_count"] == 101
+    assert replay.projection["base_selection_document_count"] == 100
+    assert replay.projection["augmented_selection_document_count"] == 101
     assert replay.clearance.to_record()["status"] == "cleared"
 
     materialization = prepare_cohort_document_materialization(
@@ -193,7 +191,9 @@ def test_rejects_selection_that_already_contains_the_fixed_document(
         for row in rows
     )
     source = FixtureFreeDocumentSource({_URL: b"%PDF-1.7\npublic memo"})
-    with pytest.raises(executor.FreeSupportMemorandumExecutorError, match="already"):
+    with pytest.raises(
+        executor.FreeSupportMemorandumExecutorError, match="differs from historical"
+    ):
         executor.execute_free_support_memorandum_source_augmentation(
             persisted_plan_bytes=plan_bytes,
             bridge_descriptor_path=bridge_path,
@@ -202,3 +202,97 @@ def test_rejects_selection_that_already_contains_the_fixed_document(
             source=source,
         )
     assert source.requested_urls == ()
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement", "match"),
+    [
+        (
+            "source_url",
+            "https://storage.courtlistener.com/recap/forged.pdf",
+            "fixed request",
+        ),
+        ("local_path", "../forged.pdf", "fixed request"),
+        ("reused_existing", True, "fixed request"),
+    ],
+)
+def test_replay_rejects_tampered_persisted_download_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    verified_plan: tuple[Path, bytes],
+    field: str,
+    replacement: str | bool,
+    match: str,
+) -> None:
+    bridge_path, plan_bytes = verified_plan
+    monkeypatch.setattr(executor, "scan_disclosure_document", _complete_scan)
+    output_root = tmp_path / "augmentation"
+    result = executor.execute_free_support_memorandum_source_augmentation(
+        persisted_plan_bytes=plan_bytes,
+        bridge_descriptor_path=bridge_path,
+        corrected_selection_bytes=_selection(),
+        output_root=output_root,
+        source=FixtureFreeDocumentSource({_URL: b"%PDF-1.7\npublic memo"}),
+    )
+    download = result.download.to_record()
+    download[field] = replacement
+    for name, payload in (
+        ("free-document-request.json", result.request_bytes),
+        ("free-document-download.json", executor._canonical_bytes(download)),
+        ("disclosure-clearance.json", result.clearance_bytes),
+        ("source-augmentation.json", result.projection_bytes),
+    ):
+        (output_root / name).write_bytes(payload)
+
+    with pytest.raises(executor.FreeSupportMemorandumExecutorError, match=match):
+        executor.verify_free_support_memorandum_source_augmentation(
+            persisted_plan_bytes=plan_bytes,
+            bridge_descriptor_path=bridge_path,
+            corrected_selection_bytes=_selection(),
+            output_root=output_root,
+        )
+
+
+@pytest.mark.parametrize("mutated_row", [0, 1])
+def test_cli_rejects_v2_selection_changed_after_authenticated_replay(
+    tmp_path: Path,
+    verified_plan: tuple[Path, bytes],
+    mutated_row: int,
+) -> None:
+    """Both the ECF-14 row and unrelated rows are bound by v2 replay bytes."""
+
+    bridge_path, _plan_bytes = verified_plan
+    successor_root = tmp_path / "successor-v2"
+    selection_path = successor_root / "target-cohort-selection.jsonl"
+    selection = _selection()
+    selection_path.parent.mkdir(parents=True)
+    selection_path.write_bytes(selection)
+
+    def verifier(root: Path) -> dict[str, object]:
+        assert root == successor_root
+        return {
+            "selection_path": selection_path,
+            "verified_artifact_bytes": {str(selection_path.absolute()): selection},
+        }
+
+    rows = [json.loads(line) for line in selection.splitlines()]
+    rows[mutated_row]["mutation"] = "forged"
+    selection_path.write_bytes(
+        b"".join(
+            json.dumps(row, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+            for row in rows
+        )
+    )
+
+    with pytest.raises(
+        executor_cli.FreeSupportMemorandumExecutorCliError,
+        match="selection changed during v2 replay",
+    ):
+        executor_cli._run_with_test_dependencies(
+            successor_root=successor_root,
+            plan_path=tmp_path / "plan.json",
+            bridge_descriptor_path=bridge_path,
+            output_root=tmp_path / "augmentation",
+            source=FixtureFreeDocumentSource({_URL: b"unused"}),
+            v2_projection_verifier=verifier,
+        )

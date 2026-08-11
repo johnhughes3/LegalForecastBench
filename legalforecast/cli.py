@@ -492,9 +492,6 @@ from legalforecast.ingestion.exact100_zero_cost_recovery_cli import (
 from legalforecast.ingestion.exact100_zero_cost_recovery_cli import (
     execute_terminal_recovery_for_successor,
 )
-from legalforecast.ingestion.free_support_memorandum_executor_cli import (
-    add_parser as add_free_support_memorandum_executor_parser,
-)
 from legalforecast.ingestion.exact310_rest_rebind import (
     Exact310RestRebindError,
     execute_exact310_terminal_rest_rebind,
@@ -575,6 +572,15 @@ from legalforecast.ingestion.free_only_materialization import (
     FreeOnlyMaterializationError,
     FreeOnlyMaterializationInputs,
     verify_free_only_materialization_authority,
+)
+from legalforecast.ingestion.free_support_memorandum_executor_cli import (
+    FreeSupportMemorandumExecutorCliError,
+)
+from legalforecast.ingestion.free_support_memorandum_executor_cli import (
+    add_parser as add_free_support_memorandum_executor_parser,
+)
+from legalforecast.ingestion.free_support_memorandum_executor_cli import (
+    run as run_free_support_memorandum_executor,
 )
 from legalforecast.ingestion.frozen_batch_firecrawl_observation import (
     FrozenBatchFirecrawlObservationError,
@@ -2161,7 +2167,10 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_cmd_project_exact100_successor_replacement_v2,
     )
     add_exact100_zero_cost_recovery_parser(acquisition_subparsers)
-    add_free_support_memorandum_executor_parser(acquisition_subparsers)
+    add_free_support_memorandum_executor_parser(
+        acquisition_subparsers,
+        handler=_cmd_recover_free_support_memorandum,
+    )
     acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
         "accumulate-replacement-clearance",
         help=(
@@ -42602,6 +42611,34 @@ def _cmd_project_exact100_successor_replacement_v2(
         with cache_disclosure_document_scans():
             return run_exact100_successor_replacement_v2(args)
     except Exact100SuccessorReplacementV2CliError as exc:
+        raise CommandError(str(exc)) from exc
+
+
+def _cmd_recover_free_support_memorandum(args: argparse.Namespace) -> int:
+    """Run the bounded recovery only after reauthenticating exact100 v2."""
+
+    def verify_projection(root: Path) -> Mapping[str, object]:
+        run_card_path = root / "run-cards/project-target-cohort.json"
+        run_card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                run_card_path, label="support memorandum exact100 v2 run card"
+            ),
+            source=run_card_path,
+        )
+        try:
+            return verify_exact100_successor_replacement_v2_projection(
+                root,
+                replay=_replay_exact100_successor_replacement_v2_inputs,
+                args=_exact100_successor_v2_replay_args(run_card),
+            )
+        except Exact100SuccessorReplacementV2CliError as exc:
+            raise FreeSupportMemorandumExecutorCliError(str(exc)) from exc
+
+    args._verify_exact100_v2_projection = verify_projection
+    try:
+        with cache_disclosure_document_scans():
+            return run_free_support_memorandum_executor(args)
+    except FreeSupportMemorandumExecutorCliError as exc:
         raise CommandError(str(exc)) from exc
 
 

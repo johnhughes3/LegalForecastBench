@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import stat
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
@@ -33,6 +35,7 @@ from legalforecast.ingestion.free_document_downloader import (
 from legalforecast.ingestion.free_support_memorandum_recovery import (
     FreeSupportMemorandumRecoveryError,
     FreeSupportMemorandumRecoveryPlan,
+    load_verified_free_support_memorandum_plan_selection_bytes,
     verify_free_support_memorandum_recovery_plan,
 )
 from legalforecast.ingestion.provenance import DocumentRole
@@ -101,7 +104,11 @@ def execute_free_support_memorandum_source_augmentation(
         bridge_descriptor_path=bridge_descriptor_path,
     )
     base_keys, candidate_row_sha256 = _corrected_selection_state(
-        corrected_selection_bytes
+        corrected_selection_bytes,
+        historical_selection_bytes=_historical_selection_bytes(
+            persisted_plan_bytes=persisted_plan_bytes,
+            bridge_descriptor_path=bridge_descriptor_path,
+        ),
     )
     addition = (_CANDIDATE_ID, _SOURCE_DOCUMENT_ID)
     if addition in base_keys:
@@ -209,9 +216,17 @@ def verify_free_support_memorandum_source_augmentation(
             "saved support memorandum request differs from the plan"
         )
     download_record = _download_record(download)
-    document_path = output_root / "documents" / download_record.local_path
+    if (
+        download_record.source_url != expected_request.source_url
+        or download_record.local_path != _expected_download_local_path()
+        or download_record.reused_existing
+    ):
+        raise FreeSupportMemorandumExecutorError(
+            "saved support memorandum download differs from the fixed request"
+        )
+    document_path = _saved_document_path(output_root, download_record)
     try:
-        payload = document_path.read_bytes()
+        payload = _read_hardened_document(document_path)
     except OSError as exc:
         raise FreeSupportMemorandumExecutorError(
             "saved support memorandum document is unavailable"
@@ -224,7 +239,11 @@ def verify_free_support_memorandum_source_augmentation(
             "saved support memorandum bytes differ from its record"
         )
     base_keys, candidate_row_sha256 = _corrected_selection_state(
-        corrected_selection_bytes
+        corrected_selection_bytes,
+        historical_selection_bytes=_historical_selection_bytes(
+            persisted_plan_bytes=persisted_plan_bytes,
+            bridge_descriptor_path=bridge_descriptor_path,
+        ),
     )
     expected_clearance = _clearance_from_saved_document(
         plan=plan,
@@ -345,8 +364,131 @@ def _request_from_plan(
     )
 
 
+def _expected_download_local_path() -> str:
+    return (
+        f"{_CANDIDATE_ID}/courtlistener_recap_public/entry-{_SUPPORT_ENTRY_NUMBER}_"
+        f"{_SOURCE_DOCUMENT_ID}.pdf"
+    )
+
+
+def _saved_document_path(output_root: Path, record: FreeDocumentDownloadRecord) -> Path:
+    local_path = PurePosixPath(record.local_path)
+    if (
+        local_path.is_absolute()
+        or local_path.as_posix() != _expected_download_local_path()
+        or any(part in {"", ".", ".."} for part in local_path.parts)
+    ):
+        raise FreeSupportMemorandumExecutorError(
+            "saved support memorandum path is not the fixed output path"
+        )
+    return output_root / "documents" / Path(*local_path.parts)
+
+
+def _read_hardened_document(path: Path) -> bytes:
+    """Read a single-link regular output without following any path links."""
+
+    try:
+        root = path.parents[3]
+        relative = path.relative_to(root)
+    except (IndexError, ValueError) as exc:
+        raise FreeSupportMemorandumExecutorError(
+            "saved support memorandum path escapes its document root"
+        ) from exc
+    current = root
+    try:
+        root_status = current.lstat()
+        if not stat.S_ISDIR(root_status.st_mode):
+            raise OSError("document root is not a directory")
+        for component in relative.parts[:-1]:
+            current = current / component
+            status = current.lstat()
+            if not stat.S_ISDIR(status.st_mode):
+                raise OSError("document path contains non-directory")
+        before = path.lstat()
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise OSError("document is not a singly linked regular file")
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+        )
+    except OSError as exc:
+        raise FreeSupportMemorandumExecutorError(
+            "saved support memorandum document is not a safe regular file"
+        ) from exc
+    try:
+        after_open = os.fstat(descriptor)
+        if (
+            before.st_dev,
+            before.st_ino,
+            before.st_mode,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_nlink,
+        ) != (
+            after_open.st_dev,
+            after_open.st_ino,
+            after_open.st_mode,
+            after_open.st_size,
+            after_open.st_mtime_ns,
+            after_open.st_nlink,
+        ):
+            raise FreeSupportMemorandumExecutorError(
+                "saved support memorandum document changed while opening"
+            )
+        payload = bytearray()
+        while chunk := os.read(descriptor, 1024 * 1024):
+            payload.extend(chunk)
+        after_read = os.fstat(descriptor)
+        after_path = path.lstat()
+        identity = (
+            after_open.st_dev,
+            after_open.st_ino,
+            after_open.st_mode,
+            after_open.st_size,
+            after_open.st_mtime_ns,
+            after_open.st_nlink,
+        )
+        if identity != (
+            after_read.st_dev,
+            after_read.st_ino,
+            after_read.st_mode,
+            after_read.st_size,
+            after_read.st_mtime_ns,
+            after_read.st_nlink,
+        ) or identity != (
+            after_path.st_dev,
+            after_path.st_ino,
+            after_path.st_mode,
+            after_path.st_size,
+            after_path.st_mtime_ns,
+            after_path.st_nlink,
+        ):
+            raise FreeSupportMemorandumExecutorError(
+                "saved support memorandum document changed while reading"
+            )
+        return bytes(payload)
+    finally:
+        os.close(descriptor)
+
+
+def _historical_selection_bytes(
+    *, persisted_plan_bytes: bytes, bridge_descriptor_path: Path
+) -> bytes:
+    try:
+        return load_verified_free_support_memorandum_plan_selection_bytes(
+            persisted_plan_bytes=persisted_plan_bytes,
+            bridge_descriptor_path=bridge_descriptor_path,
+        )
+    except (FreeSupportMemorandumRecoveryError, OSError, ValueError) as exc:
+        raise FreeSupportMemorandumExecutorError(
+            "support memorandum historical selection is not authenticated"
+        ) from exc
+
+
 def _corrected_selection_state(
     selection_bytes: bytes,
+    *,
+    historical_selection_bytes: bytes,
 ) -> tuple[set[tuple[str, str]], str]:
     rows = _jsonl(selection_bytes, "corrected selection")
     selected = [row for row in rows if row.get("selected") is True]
@@ -361,6 +503,14 @@ def _corrected_selection_state(
         raise FreeSupportMemorandumExecutorError(
             "corrected selection omits the support-memorandum candidate"
         ) from exc
+    if _selected_candidate_row_bytes(
+        selection_bytes, label="corrected selection"
+    ) != _selected_candidate_row_bytes(
+        historical_selection_bytes, label="historical plan selection"
+    ):
+        raise FreeSupportMemorandumExecutorError(
+            "corrected selection support candidate differs from historical plan row"
+        )
     if row.get("target_motion_entry_numbers") != [_TARGET_ENTRY_NUMBER]:
         raise FreeSupportMemorandumExecutorError(
             "corrected selection target motion differs from entry 13"
@@ -398,6 +548,29 @@ def _corrected_selection_state(
     return keys, hashlib.sha256(_canonical_bytes(row)).hexdigest()
 
 
+def _selected_candidate_row_bytes(selection_bytes: bytes, *, label: str) -> bytes:
+    try:
+        rows = [
+            (line, json.loads(line))
+            for line in selection_bytes.splitlines(keepends=True)
+            if line.strip()
+        ]
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise FreeSupportMemorandumExecutorError(f"{label} is not JSONL") from exc
+    selected = [
+        line
+        for line, row in rows
+        if isinstance(row, Mapping)
+        and cast(Mapping[str, object], row).get("candidate_id") == _CANDIDATE_ID
+        and cast(Mapping[str, object], row).get("selected") is True
+    ]
+    if len(selected) != 1:
+        raise FreeSupportMemorandumExecutorError(
+            f"{label} does not select the support-memorandum candidate exactly once"
+        )
+    return selected[0]
+
+
 def _projection(
     *,
     plan: FreeSupportMemorandumRecoveryPlan,
@@ -417,13 +590,13 @@ def _projection(
         "schema_version": SOURCE_AUGMENTATION_SCHEMA,
         "base_selection_sha256": hashlib.sha256(corrected_selection_bytes).hexdigest(),
         "base_selected_candidate_count": 100,
-        "base_selected_document_count": len(ordered_base),
+        "base_selection_document_count": len(ordered_base),
         "support_candidate_row_sha256": candidate_row_sha256,
         "plan_sha256": hashlib.sha256(plan.record_bytes).hexdigest(),
         "raw_docket_bridge_sha256": plan.record["raw_docket_bridge_sha256"],
         "additive_document": added,
-        "selected_document_keys": augmented,
-        "augmented_selected_document_count": len(augmented),
+        "augmented_selection_document_keys": augmented,
+        "augmented_selection_document_count": len(augmented),
         "free_document_download_sha256": hashlib.sha256(
             _canonical_bytes(download.to_record())
         ).hexdigest(),
