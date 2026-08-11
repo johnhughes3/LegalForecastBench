@@ -413,7 +413,7 @@ def test_pre_recovery_empty_manifest_uses_paid_gaps_minus_terminal_omissions(
         cli._consume_consolidated_resolved_capability(capability)
 
 
-def test_exact100_v2_target_root_derives_empty_purchased_partition(
+def test_exact100_v2_target_root_derives_paid_gaps_with_empty_partition(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     all_paid = {
@@ -503,7 +503,7 @@ def test_exact100_v2_target_root_derives_empty_purchased_partition(
         )
 
 
-def test_exact100_v2_target_root_rejects_purchased_partition(
+def test_exact100_v2_target_root_accepts_inherited_purchased_partition(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     all_paid = {
@@ -523,11 +523,14 @@ def test_exact100_v2_target_root_rejects_purchased_partition(
         for line in args.selection.read_text(encoding="utf-8").splitlines()
         if line
     ]
-    purchased_record = {
-        "candidate_id": "base-case",
-        "source_document_id": "base-doc",
-        "free_or_purchased": "purchased",
-    }
+    purchased_records = tuple(
+        {
+            "candidate_id": candidate_id,
+            "source_document_id": source_document_id,
+            "free_or_purchased": "purchased",
+        }
+        for candidate_id, source_document_id in sorted(all_paid)
+    )
 
     monkeypatch.setattr(
         cli,
@@ -538,18 +541,19 @@ def test_exact100_v2_target_root_rejects_purchased_partition(
             },
             "selection_path": args.selection,
             "selection_records": selection_records,
-            "purchased_manifest": (purchased_record,),
+            "purchased_manifest": purchased_records,
             "verified_artifact_bytes": {},
         },
     )
     args.target_purchased_manifest = None
     args.target_cohort_root = target_root
 
-    with pytest.raises(
-        ValueError,
-        match="exact100 v2 target purchased partition must be empty",
-    ):
-        cli._prepare_replacement_recovery_consolidation(args)
+    prepared = cli._prepare_replacement_recovery_consolidation(args)
+
+    assert {
+        (row["candidate_id"], row["source_document_id"])
+        for row in prepared.manifest_records
+    } == all_paid
 
 
 def test_consolidated_verifier_reuses_authenticated_history_snapshots(

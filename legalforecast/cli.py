@@ -30105,8 +30105,6 @@ def _prepare_replacement_recovery_consolidation(
     projected_purchased_keys = {
         _materializer_record_key(record) for record in target_purchased_records
     }
-    if target_cohort_root_arg is not None and projected_purchased_keys:
-        raise ValueError("exact100 v2 target purchased partition must be empty")
     operation_keys = {
         (
             _required_str(operation, "candidate_id"),
