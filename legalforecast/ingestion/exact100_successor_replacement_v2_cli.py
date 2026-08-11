@@ -244,6 +244,7 @@ def verify_exact100_successor_replacement_v2_projection(
         "summary_path": target_root / _OUTPUT_NAMES["config"],
         "run_card_path": target_root / _OUTPUT_NAMES["state"],
         "selection_path": target_root / _OUTPUT_NAMES["selection"],
+        "selection_bytes": actual["selection"],
         "selection_records": _jsonl(
             actual["selection"], target_root / _OUTPUT_NAMES["selection"]
         ),
@@ -254,8 +255,22 @@ def verify_exact100_successor_replacement_v2_projection(
         "purchased_manifest": tuple(
             row for row in manifest if row.get("free_or_purchased") == "purchased"
         ),
-        "free_clearance": _jsonl(
-            actual["clearance"], target_root / _OUTPUT_NAMES["clearance"]
+        "case_relevance": _jsonl(
+            actual["case_relevance"], target_root / _OUTPUT_NAMES["case_relevance"]
+        ),
+        "free_clearance": tuple(
+            row
+            for row in _jsonl(
+                actual["clearance"], target_root / _OUTPUT_NAMES["clearance"]
+            )
+            if row.get("free_or_purchased") == "free"
+        ),
+        "purchased_clearance": tuple(
+            row
+            for row in _jsonl(
+                actual["clearance"], target_root / _OUTPUT_NAMES["clearance"]
+            )
+            if row.get("free_or_purchased") == "purchased"
         ),
         "restriction_path": target_root / _OUTPUT_NAMES["restriction"],
         "restriction_records": _jsonl(
