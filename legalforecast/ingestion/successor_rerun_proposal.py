@@ -184,9 +184,9 @@ def load_successor_proposal(path: Path) -> SuccessorProposal:
             "successor proposal document_root is unavailable or unsafe"
         )
     successor_root = _absolute_path(raw, "successor_output_root")
-    _require_isolated_successor_root(
+    require_isolated_successor_outputs(
         successor_root,
-        committed_inputs=(*paths.values(), document_root),
+        authenticated_inputs=(*paths.values(), document_root),
     )
     return SuccessorProposal(
         cycle_id=_text(raw, "cycle_id"),
@@ -291,16 +291,21 @@ def successor_derived_output_paths(root: Path) -> tuple[Path, ...]:
     )
 
 
-def _require_isolated_successor_root(
-    root: Path, *, committed_inputs: Sequence[Path]
+def require_isolated_successor_outputs(
+    root: Path,
+    *,
+    authenticated_inputs: Sequence[Path],
+    input_label: str = "committed input",
 ) -> None:
-    resolved_inputs = tuple(path.resolve() for path in committed_inputs)
+    """Require every derived output to be disjoint from authenticated inputs."""
+
+    resolved_inputs = tuple(path.resolve() for path in authenticated_inputs)
     for output in successor_derived_output_paths(root):
         resolved_output = output.resolve()
         for input_path in resolved_inputs:
             if _paths_overlap(resolved_output, input_path):
                 raise SuccessorRerunProposalError(
-                    "successor derived output overlaps committed input: "
+                    f"successor derived output overlaps {input_label}: "
                     f"{output} vs {input_path}"
                 )
     if root.exists() or root.is_symlink():

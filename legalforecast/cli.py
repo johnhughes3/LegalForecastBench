@@ -887,6 +887,7 @@ from legalforecast.ingestion.successor_rerun_proposal import (
     load_successor_proposal,
     parser_reuse_evidence_from_authenticated_artifacts,
     provider_reuse_evidence_from_verified_rows,
+    require_isolated_successor_outputs,
     verified_documents_from_records,
 )
 from legalforecast.ingestion.supporting_document_successor import (
@@ -1074,6 +1075,7 @@ from legalforecast.labeling.provider_cycle_caps_materializer import (
     materialize_provider_cycle_caps_successor_files,
 )
 from legalforecast.labeling.provider_journal import (
+    _PROVIDER_JOURNAL_SIDECAR_SUFFIXES,  # pyright: ignore[reportPrivateUsage]
     PROVIDER_JOURNAL_SCHEMA_VERSION,
     ProviderCallIdentity,
     ProviderCycleCaps,
@@ -19602,6 +19604,38 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             parser_run_card_path=parser_run_card_path,
             markdown_root=lineage.markdown_root,
             provider_journal_path=lineage.provider_journal_path,
+        )
+        parser_reuse_paths_list: list[Path] = []
+        for name in (
+            "prior_run_card",
+            "prior_requests",
+            "prior_parser_manifest",
+        ):
+            raw_source = parser_reuse.source.get(name)
+            if not isinstance(raw_source, Mapping):
+                continue
+            source_path = cast(Mapping[str, object], raw_source).get("path")
+            if isinstance(source_path, str):
+                parser_reuse_paths_list.append(Path(source_path))
+        parser_reuse_paths = tuple(parser_reuse_paths_list)
+        journal_sidecar_paths = tuple(
+            Path(f"{journal_path}{suffix}")
+            for suffix in _PROVIDER_JOURNAL_SIDECAR_SUFFIXES
+        )
+        require_isolated_successor_outputs(
+            proposal.successor_output_root,
+            authenticated_inputs=(
+                *lineage.input_paths,
+                *lineage.file_snapshots,
+                lineage.document_root,
+                lineage.markdown_root,
+                parser_run_card_path,
+                *parser_reuse_paths,
+                *terminal_snapshots,
+                journal_path,
+                *journal_sidecar_paths,
+            ),
+            input_label="authenticated current input",
         )
         report = plan_successor_rerun_impact(
             current=current,

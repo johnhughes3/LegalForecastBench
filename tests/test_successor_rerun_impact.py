@@ -557,6 +557,38 @@ def test_successor_root_must_be_new_and_derived_paths_are_complete(
     }
 
 
+@pytest.mark.parametrize(
+    "relative_root",
+    [
+        "current-markdown/successor",
+        "current-documents/successor",
+        "units.jsonl/successor",
+        "provider.sqlite3-wal/successor",
+        "provider.sqlite3-journal/successor",
+    ],
+)
+def test_cli_successor_outputs_reject_current_input_overlap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    relative_root: str,
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    if relative_root.startswith("provider.sqlite3-wal/"):
+        (tmp_path / "provider.sqlite3-wal").write_bytes(b"durable wal")
+    proposal_path = tmp_path / "proposal.json"
+    record = json.loads(proposal_path.read_bytes())
+    record["successor_output_root"] = str(tmp_path / relative_root)
+    proposal_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 1
+    assert "successor derived output overlaps authenticated current input" in (
+        _failure_message(capsys)
+    )
+    assert _tree_bytes(tmp_path) == before
+
+
 def _install_successful_cli_fixture(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> list[str]:
@@ -675,6 +707,7 @@ def _install_successful_cli_fixture(
         document_root=current_root,
         markdown_root=current.markdown_root,
         cohort_cycle_id=current.cycle_id,
+        input_paths=(current_parser_card,),
         input_commitments={"parser_run_card": {"path": str(current_parser_card)}},
         verified_provider_attempt_rows=provider_rows,
         file_snapshots={current_parser_card: current_parser_card.read_bytes()},
@@ -718,8 +751,10 @@ def _install_successful_cli_fixture(
     def active_chain(*_args: object) -> tuple[dict[str, str], ...]:
         return ({"run_card_path": str(run_card), "stage": "llm-unitize"},)
 
-    def stable_journal_state(_path: Path) -> tuple[bytes, dict[str, bytes]]:
-        return b"stable", {}
+    def stable_journal_state(path: Path) -> tuple[bytes, dict[str, bytes]]:
+        wal_path = Path(f"{path}-wal")
+        sidecars = {"-wal": wal_path.read_bytes()} if wal_path.is_file() else {}
+        return b"stable", sidecars
 
     def open_snapshot(_path: Path) -> object:
         return snapshot
