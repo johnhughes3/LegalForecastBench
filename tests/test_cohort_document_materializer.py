@@ -6,7 +6,7 @@ import json
 import os
 import sqlite3
 import stat
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -1445,6 +1445,264 @@ def test_paid_materializer_authenticates_decision_omission_before_recovery(
 
     assert calls == ["authority", "decision_keys"]
     assert observed["selected_document_keys"] == {("candidate-1", "motion-1")}
+
+
+@pytest.mark.parametrize("caller", ["materialize", "downstream"])
+@pytest.mark.parametrize("with_supporting_successor", [False, True])
+def test_consolidated_recovery_callers_replay_authenticated_base_selection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caller: str,
+    with_supporting_successor: bool,
+) -> None:
+    """Both production callers replay recovery against the predecessor selection."""
+
+    target_root = tmp_path / "target"
+    recovery_root = tmp_path / "recovery"
+    (target_root / "run-cards").mkdir(parents=True)
+    (recovery_root / "run-cards").mkdir(parents=True)
+    (recovery_root / "run-cards/consolidate-replacement-recovery.json").write_text(
+        "{}\n", encoding="utf-8"
+    )
+    base_selection_path = (
+        tmp_path / "v2-base-selection.jsonl"
+        if with_supporting_successor
+        else target_root / "target-cohort-selection.jsonl"
+    )
+    base_record = {
+        "candidate_id": "candidate-1",
+        "documents": [{"source_document_id": "base-document"}],
+    }
+    base_selection_bytes = (json.dumps(base_record, sort_keys=True) + "\n").encode()
+    base_selection_path.write_bytes(base_selection_bytes)
+    base_projection: dict[str, object] = {
+        "selection_path": base_selection_path,
+        "selection_records": [base_record],
+        "selected_document_keys": {("candidate-1", "base-document")},
+        "verified_artifact_bytes": {
+            os.path.abspath(base_selection_path): base_selection_bytes
+        },
+    }
+    outer_projection: dict[str, object] | None = None
+    if with_supporting_successor:
+        supporting_card = (
+            target_root
+            / "run-cards/project-exact100-supporting-document-successor.json"
+        )
+        supporting_card.write_text("{}\n", encoding="utf-8")
+        outer_selection_path = target_root / "target-cohort-selection.jsonl"
+        outer_record = {
+            "candidate_id": "candidate-1",
+            "documents": [
+                {"source_document_id": "base-document"},
+                {"source_document_id": "supporting-document"},
+            ],
+        }
+        outer_selection_bytes = (
+            json.dumps(outer_record, sort_keys=True) + "\n"
+        ).encode()
+        outer_selection_path.write_bytes(outer_selection_bytes)
+        outer_projection = {
+            "selection_path": outer_selection_path,
+            "selection_records": [outer_record],
+            "selected_document_keys": {
+                ("candidate-1", "base-document"),
+                ("candidate-1", "supporting-document"),
+            },
+            "verified_artifact_bytes": {
+                os.path.abspath(base_selection_path): base_selection_bytes,
+                os.path.abspath(outer_selection_path): outer_selection_bytes,
+            },
+            "base_v2_projection": base_projection,
+        }
+
+    direct_paths = {
+        name: tmp_path / name
+        for name in (
+            "preparation-summary.json",
+            "preparation-config.json",
+            "snapshot-manifest.json",
+            "free-clearance.jsonl",
+            "purchased-clearance.jsonl",
+            "purchased-clearance-card.json",
+            "purchase-policy.json",
+            "cohort-policy.json",
+            "ledger.sqlite3",
+            "preparation-success.json",
+        )
+    }
+    for direct_path in direct_paths.values():
+        direct_path.write_text("{}\n", encoding="utf-8")
+
+    def captured_input(source: Path, **_kwargs: object) -> bytes:
+        if source.resolve() == base_selection_path.resolve():
+            return base_selection_bytes
+        return source.read_bytes() if source.exists() else b"{}\n"
+
+    monkeypatch.setattr(cli, "_read_singly_linked_regular_input", captured_input)
+    monkeypatch.setattr(
+        cli,
+        "_verify_completed_preparation_for_frontier",
+        lambda **_kwargs: SimpleNamespace(
+            target_case_count=1,
+            success_run_card_path=direct_paths["preparation-success.json"],
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_materializer_projection",
+        lambda **_kwargs: outer_projection or base_projection,
+    )
+    recovery_calls: list[dict[str, object]] = []
+
+    def replay_recovery(**kwargs: object) -> dict[str, object]:
+        recovery_calls.append(dict(kwargs))
+        return {"target_projection": base_projection}
+
+    monkeypatch.setattr(cli, "_verify_materializer_recovery", replay_recovery)
+    original_select = cli._select_materializer_projection_after_recovery
+    selected: dict[str, object] = {}
+
+    class SelectionObserved(RuntimeError):
+        pass
+
+    def capture_selection(
+        *,
+        outer_projection: dict[str, object] | None,
+        recovery_projection: Mapping[str, object],
+        recovery_selection: Sequence[Mapping[str, Any]],
+    ) -> dict[str, object]:
+        selected.update(
+            {
+                "outer_projection": outer_projection,
+                "recovery_projection": recovery_projection,
+                "recovery_selection": recovery_selection,
+            }
+        )
+        selected["result"] = original_select(
+            outer_projection=outer_projection,
+            recovery_projection=recovery_projection,
+            recovery_selection=recovery_selection,
+        )
+        raise SelectionObserved
+
+    monkeypatch.setattr(
+        cli, "_select_materializer_projection_after_recovery", capture_selection
+    )
+
+    if caller == "materialize":
+        monkeypatch.setattr(
+            cli, "_preflight_legacy_purchase_policy_rejection", lambda _args: None
+        )
+        monkeypatch.setattr(
+            cli, "_preflight_current_purchase_snapshot", lambda _args: None
+        )
+        monkeypatch.setattr(
+            cli, "_validate_projection_output_scope", lambda *_args, **_kwargs: None
+        )
+        monkeypatch.setattr(
+            cli, "_validate_materializer_writable_paths", lambda **_kwargs: None
+        )
+        args = SimpleNamespace(
+            free_only_approval_checkpoint=None,
+            free_only_approval_run_card=None,
+            free_only_fee_schedule=None,
+            free_only_canonical_ledger_path=None,
+            purchased_recovery_root=recovery_root,
+            purchased_disclosure_clearance=direct_paths["purchased-clearance.jsonl"],
+            purchased_clearance_run_card=direct_paths["purchased-clearance-card.json"],
+            purchase_policy=direct_paths["purchase-policy.json"],
+            purchase_ledger=direct_paths["ledger.sqlite3"],
+            purchase_ledger_initialization_receipt=tmp_path / "receipt.json",
+            purchase_result=None,
+            purchase_run_card=None,
+            resolved_post_recovery_documents=None,
+            preparation_root=tmp_path / "preparation",
+            preparation_summary=direct_paths["preparation-summary.json"],
+            preparation_config=direct_paths["preparation-config.json"],
+            snapshot_manifest=direct_paths["snapshot-manifest.json"],
+            target_cohort_root=target_root,
+            free_disclosure_clearance=direct_paths["free-clearance.jsonl"],
+            cohort_policy=direct_paths["cohort-policy.json"],
+            controlled_private_root=tmp_path / "private",
+            output_root=tmp_path / "output",
+            run_card_output=None,
+            log_output=None,
+        )
+        with pytest.raises(SelectionObserved):
+            cli._cmd_acquisition_materialize_cohort_documents(args)
+    else:
+        input_paths = (
+            tmp_path / "preparation",
+            direct_paths["preparation-summary.json"],
+            direct_paths["preparation-config.json"],
+            direct_paths["snapshot-manifest.json"],
+            target_root,
+            direct_paths["free-clearance.jsonl"],
+            recovery_root,
+            direct_paths["purchased-clearance.jsonl"],
+            direct_paths["purchased-clearance-card.json"],
+            direct_paths["purchase-policy.json"],
+            direct_paths["cohort-policy.json"],
+            direct_paths["ledger.sqlite3"],
+        )
+        output_root = tmp_path / "output"
+        output_paths = (
+            output_root / "document-downloads-merged.jsonl",
+            output_root / "disclosure-clearance.jsonl",
+            output_root / "restriction-evidence.jsonl",
+            output_root / "materialization-derivations.jsonl",
+            output_root / "cohort-document-materialization.json",
+            output_root / "documents",
+        )
+        run_card_path = output_root / "run-card.json"
+        run_card_bytes = (
+            json.dumps(
+                {
+                    "schema_version": "legalforecast.acquisition_run_card.v1",
+                    "stage": "materialize-cohort-documents",
+                    "status": "completed",
+                    "dry_run": False,
+                    "execute": True,
+                    "paid_activity_requested": False,
+                    "paid_activity_executed": False,
+                    "source_roots_mutated": False,
+                    "zero_provider_activity_evidence": True,
+                    "input_paths": [str(input_path) for input_path in input_paths],
+                    "output_paths": [str(output_path) for output_path in output_paths],
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode()
+        monkeypatch.setattr(
+            cli,
+            "_require_materializer_artifact",
+            lambda source, **_kwargs: (
+                run_card_bytes if source == run_card_path else b"{}\n"
+            ),
+        )
+        with pytest.raises(SelectionObserved):
+            cli._verify_materialized_downstream_lineage(
+                run_card_path=run_card_path,
+                manifest_path=output_paths[0],
+                clearance_path=output_paths[1],
+                document_root=output_paths[-1],
+                controlled_private_root=tmp_path / "private",
+                initialization_receipt_path=tmp_path / "receipt.json",
+            )
+
+    assert len(recovery_calls) == 1
+    assert recovery_calls[0]["selection_path"] == base_selection_path
+    assert recovery_calls[0]["selected_document_keys"] == {
+        ("candidate-1", "base-document")
+    }
+    assert selected["outer_projection"] is outer_projection
+    if with_supporting_successor:
+        assert selected["result"] is outer_projection
+    else:
+        assert selected["result"] == base_projection
+        assert selected["result"] is not base_projection
 
 
 def test_downstream_replay_reauthenticates_bound_decision_omission(
