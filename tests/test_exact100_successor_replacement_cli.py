@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
 from pathlib import Path
+from threading import get_ident
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -36,12 +37,18 @@ from legalforecast.ingestion.post_selection_terminal_exclusion import (
 from tests.disclosure_review_fixtures import (
     service_disclosure_authority_from_policy_bytes,
 )
+from tests.recovered_public_capability_helpers import (
+    issue_recovered_public_capability,
+)
 from tests.test_exact100_successor_replacement import (
     _fixture,
     _jsonl,
     _selection_row,
 )
-from tests.test_target_cohort_projection import _materialized_two_case_cohort
+from tests.test_target_cohort_projection import (
+    _completed_two_case_projection,
+    _materialized_two_case_cohort,
+)
 
 
 def _bytes(value: object) -> bytes:
@@ -816,6 +823,80 @@ def test_projection_verifier_rechecks_cached_exact_bytes_before_reuse(
         cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
 
     assert invocation_counts == Counter({outer_root: 1, original_root: 1})
+
+
+def test_projection_verifier_rechecks_recovered_public_transitive_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed = _completed_two_case_projection(
+        tmp_path / "completed-projection",
+        provenance_first=True,
+        monkeypatch=monkeypatch,
+    )
+    target_root = completed["projection"]
+    recovery_source = tmp_path / "authenticated-recovery-source.json"
+    recovery_source.write_bytes(b'{"status":"completed"}\n')
+    capability = issue_recovered_public_capability(
+        monkeypatch,
+        [],
+        source_snapshots={recovery_source.resolve(): recovery_source.read_bytes()},
+    )
+    verify_clearance = cli._verify_materializer_clearance_lineage
+
+    def recovered_public_lineage(**kwargs: object) -> dict[str, object]:
+        return {
+            **verify_clearance(**kwargs),  # type: ignore[arg-type]
+            "lineage_kind": "provider_free_recovered_public",
+            "authenticated_recovery_capability": capability,
+        }
+
+    monkeypatch.setattr(
+        cli, "_verify_materializer_clearance_lineage", recovered_public_lineage
+    )
+    operation = cli._VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+    try:
+        first = cli._verify_completed_target_cohort_projection_in_operation(
+            target_root, operation=operation
+        )
+        recovery_source.write_bytes(b'{"status":"mutated"}\n')
+        with pytest.raises(cli.CommandError, match="changed during execution"):
+            cli._verify_completed_target_cohort_projection_in_operation(
+                target_root, operation=operation
+            )
+    finally:
+        operation.invalidate()
+
+    assert first["selection_records"]
+
+
+def test_projection_verifier_cache_preserves_permitted_sidecar_behavior(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed = _completed_two_case_projection(
+        tmp_path / "completed-projection",
+        provenance_first=True,
+        monkeypatch=monkeypatch,
+    )
+    target_root = completed["projection"]
+    (target_root / "projection-diagnostics.json").write_bytes(b"{}\n")
+    operation = cli._VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+    try:
+        first = cli._verify_completed_target_cohort_projection_in_operation(
+            target_root, operation=operation
+        )
+        cached = cli._verify_completed_target_cohort_projection_in_operation(
+            target_root, operation=operation
+        )
+    finally:
+        operation.invalidate()
+
+    assert cached == first
 
 
 def test_projection_verifier_rereads_replacement_ledger_in_existing_order(

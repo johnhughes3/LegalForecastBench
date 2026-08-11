@@ -44079,7 +44079,7 @@ def _verify_materializer_projection(
             for name, path in source_paths.items()
         },
     )
-    _verify_materializer_clearance_lineage(
+    clearance_lineage = _verify_materializer_clearance_lineage(
         manifest_path=source_paths["download_manifest"],
         clearance_path=source_paths["disclosure_clearance"],
         run_card_path=source_paths["clearance_run_card"],
@@ -44340,11 +44340,44 @@ def _verify_materializer_projection(
         _verified_projection_operation is not None
         and _verified_projection_operation.is_live_owner()
     ):
-        _verified_projection_operation.record_byte_closure(
-            target_root=target_root,
-            run_card_bytes=run_card_bytes,
-            snapshots=clearance_snapshot,
-        )
+        raw_lineage_snapshots = clearance_lineage.get("verified_artifact_bytes")
+        if isinstance(raw_lineage_snapshots, Mapping):
+            cache_snapshots = dict(clearance_snapshot)
+            for raw_path, payload in cast(
+                Mapping[object, object], raw_lineage_snapshots
+            ).items():
+                if not isinstance(raw_path, str) or not isinstance(payload, bytes):
+                    raise CommandError("target projection cache evidence is invalid")
+                existing = cache_snapshots.get(raw_path)
+                if existing is not None and existing != payload:
+                    raise CommandError("target projection cache evidence conflicts")
+                cache_snapshots[raw_path] = payload
+            if (
+                clearance_lineage.get("lineage_kind")
+                == "provider_free_recovered_public"
+            ):
+                recovery_capability = clearance_lineage.get(
+                    "authenticated_recovery_capability"
+                )
+                recovery_snapshots = cast(
+                    Mapping[object, object],
+                    _consume_recovered_public_source_snapshots(recovery_capability),
+                )
+                for path, payload in recovery_snapshots.items():
+                    if not isinstance(path, Path) or not isinstance(payload, bytes):
+                        raise CommandError("recovered-public cache evidence is invalid")
+                    key = os.path.abspath(path)
+                    existing = cache_snapshots.get(key)
+                    if existing is not None and existing != payload:
+                        raise CommandError(
+                            "recovered-public clearance and recovery snapshots conflict"
+                        )
+                    cache_snapshots[key] = payload
+            _verified_projection_operation.record_byte_closure(
+                target_root=target_root,
+                run_card_bytes=run_card_bytes,
+                snapshots=cache_snapshots,
+            )
     return result
 
 
@@ -44665,13 +44698,6 @@ def _verify_completed_target_cohort_projection_in_operation(
         snapshots: dict[Path, bytes] = {}
         for raw_path, payload in cached.snapshots:
             snapshots[Path(raw_path)] = payload
-        root = target_root.absolute()
-        _reject_unexpected_materializer_outputs(
-            target_root,
-            expected_files={
-                path for path in snapshots if path.absolute().is_relative_to(root)
-            },
-        )
         _require_snapshot_unchanged(
             snapshots, label="cached target projection artifact"
         )
@@ -44681,7 +44707,7 @@ def _verify_completed_target_cohort_projection_in_operation(
         if cacheable:
             byte_closure = operation.byte_closures.pop(cache_key, None)
             if byte_closure is None:
-                raise CommandError("target projection cache byte closure is incomplete")
+                return result
             raw_snapshots = result.get("verified_artifact_bytes")
             if not isinstance(raw_snapshots, Mapping):
                 raise CommandError("target projection cache evidence is incomplete")
