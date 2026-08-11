@@ -225,10 +225,11 @@ def prepare_cohort_document_materialization(
         ("free", "free"),
         ("free", "purchased"),
         ("free", "free", "purchased"),
+        ("free", "free", "free", "purchased"),
     }:
         raise CohortDocumentMaterializationError(
             "document sources must be ordered exactly as free, free/free, "
-            "free/purchased, or free/free/purchased"
+            "free/purchased, free/free/purchased, or free/free/free/purchased"
         )
     output = output_root.absolute()
     document_output_root = output / "documents"

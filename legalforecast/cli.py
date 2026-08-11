@@ -46,6 +46,7 @@ from legalforecast.contracts import (
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
     EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1,
+    FREE_SUPPORT_MEMORANDUM_SOURCE_AUGMENTATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
@@ -131,6 +132,9 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlPageRecord,
     FirecrawlTargetSpec,
     load_successful_firecrawl_pages,
+)
+from legalforecast.ingestion.canonical_json import (
+    canonical_json_bytes as ingestion_canonical_json_bytes,
 )
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
@@ -572,6 +576,19 @@ from legalforecast.ingestion.free_only_materialization import (
     FreeOnlyMaterializationError,
     FreeOnlyMaterializationInputs,
     verify_free_only_materialization_authority,
+)
+from legalforecast.ingestion.free_support_memorandum_executor import (
+    FreeSupportMemorandumExecutorError,
+    verify_free_support_memorandum_source_augmentation,
+)
+from legalforecast.ingestion.free_support_memorandum_executor_cli import (
+    FreeSupportMemorandumExecutorCliError,
+)
+from legalforecast.ingestion.free_support_memorandum_executor_cli import (
+    add_parser as add_free_support_memorandum_executor_parser,
+)
+from legalforecast.ingestion.free_support_memorandum_executor_cli import (
+    run as run_free_support_memorandum_executor,
 )
 from legalforecast.ingestion.frozen_batch_firecrawl_observation import (
     FrozenBatchFirecrawlObservationError,
@@ -2158,6 +2175,10 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_cmd_project_exact100_successor_replacement_v2,
     )
     add_exact100_zero_cost_recovery_parser(acquisition_subparsers)
+    add_free_support_memorandum_executor_parser(
+        acquisition_subparsers,
+        handler=_cmd_recover_free_support_memorandum,
+    )
     acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
         "accumulate-replacement-clearance",
         help=(
@@ -8477,6 +8498,27 @@ def _add_acquisition_materialize_cohort_documents_arguments(
         help=(
             "Exact authenticated resolved-document artifact. Required iff the "
             "target contains unknown-status purchased material."
+        ),
+    )
+    parser.add_argument(
+        "--source-augmentation-root",
+        type=Path,
+        help=(
+            "Completed bounded ECF-14 free-source augmentation. Accepted only "
+            "for consolidated exact-100 successor-v2 materialization."
+        ),
+    )
+    parser.add_argument(
+        "--source-augmentation-plan",
+        type=Path,
+        help="Exact authenticated plan used to create --source-augmentation-root.",
+    )
+    parser.add_argument(
+        "--source-augmentation-bridge-descriptor",
+        type=Path,
+        help=(
+            "Exact raw-docket bridge descriptor used to create "
+            "--source-augmentation-root."
         ),
     )
     parser.set_defaults(handler=_cmd_acquisition_materialize_cohort_documents)
@@ -31104,6 +31146,258 @@ def _materializer_successor_v2_free_sources(
     )
 
 
+_FREE_SUPPORT_AUGMENTATION_SCHEMA = str(FREE_SUPPORT_MEMORANDUM_SOURCE_AUGMENTATION_V1)
+_FREE_SUPPORT_AUGMENTATION_KEY = (
+    "73327542",
+    "73327542-entry-14-motion-to-dismiss-memorandum",
+)
+_FREE_SUPPORT_AUGMENTATION_RESTRICTION_EVIDENCE = (
+    "courtlistener_public_download_record_checked",
+)
+
+
+def _materializer_free_support_augmentation_restriction_record(
+    clearance: Mapping[str, object],
+) -> Mapping[str, object]:
+    """Derive the sole augmentation restriction row from its replayed clearance."""
+
+    if (
+        _materializer_record_key(clearance) != _FREE_SUPPORT_AUGMENTATION_KEY
+        or clearance.get("restriction_status") != "public"
+        or clearance.get("restriction_evidence")
+        != list(_FREE_SUPPORT_AUGMENTATION_RESTRICTION_EVIDENCE)
+        or clearance.get("clearance_basis") != "affirmative_public_provenance"
+    ):
+        raise CommandError("source augmentation clearance cannot derive restriction")
+    return {
+        "candidate_id": _FREE_SUPPORT_AUGMENTATION_KEY[0],
+        "source_document_id": _FREE_SUPPORT_AUGMENTATION_KEY[1],
+        "restriction_status": "public",
+        "restriction_evidence": list(_FREE_SUPPORT_AUGMENTATION_RESTRICTION_EVIDENCE),
+        "is_sealed": False,
+        "is_private": False,
+    }
+
+
+def _materializer_successor_v2_source_augmentation(
+    *,
+    augmentation_root: Path,
+    plan_bytes: bytes,
+    bridge_descriptor_path: Path,
+    projection: Mapping[str, object],
+    selection_bytes: bytes,
+    authoritative_available_keys: set[tuple[str, str]],
+) -> tuple[
+    DocumentSource,
+    Mapping[Path, bytes],
+    Mapping[str, object],
+    Mapping[str, object],
+]:
+    """Authenticate the sole additive ECF-14 source without widening v2 keys.
+
+    The augmentation records all 325 selection-level keys for provenance.  The
+    materializer instead retains the v2 projection's 321 available keys and
+    adds only ECF 14, preserving the four audit-only decision omissions.
+    """
+
+    run_card = projection.get("run_card")
+    if not isinstance(run_card, Mapping) or cast(Mapping[str, object], run_card).get(
+        "schema_version"
+    ) != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2):
+        raise CommandError(
+            "source augmentation requires exact100 v2 materializer authority"
+        )
+    root = augmentation_root.absolute()
+    paths = {
+        "projection": root / "source-augmentation.json",
+        "download": root / "free-document-download.json",
+        "clearance": root / "disclosure-clearance.json",
+    }
+    snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label=f"source augmentation {name}"
+        )
+        for name, path in paths.items()
+    }
+    try:
+        verified = verify_free_support_memorandum_source_augmentation(
+            persisted_plan_bytes=plan_bytes,
+            bridge_descriptor_path=bridge_descriptor_path,
+            corrected_selection_bytes=selection_bytes,
+            output_root=root,
+        )
+    except FreeSupportMemorandumExecutorError as exc:
+        raise CommandError("source augmentation package did not replay") from exc
+    augmentation = verified.projection
+    download = verified.download.to_record()
+    clearance = verified.clearance.to_record()
+    if (
+        snapshots[paths["projection"]]
+        != ingestion_canonical_json_bytes(
+            augmentation,
+            error_type=ValueError,
+            error_message="source augmentation projection is not canonicalizable",
+        )
+        or snapshots[paths["download"]]
+        != ingestion_canonical_json_bytes(
+            download,
+            error_type=ValueError,
+            error_message="source augmentation download is not canonicalizable",
+        )
+        or snapshots[paths["clearance"]]
+        != ingestion_canonical_json_bytes(
+            clearance,
+            error_type=ValueError,
+            error_message="source augmentation clearance is not canonicalizable",
+        )
+    ):
+        raise CommandError("source augmentation artifacts changed during replay")
+    selection_records = projection.get("selection_records")
+    if not isinstance(selection_records, Sequence) or isinstance(
+        selection_records, (str, bytes)
+    ):
+        raise CommandError("source augmentation lacks authenticated v2 selection")
+    selection_keys = _replacement_consolidation_selection_keys(
+        cast(Sequence[Mapping[str, Any]], selection_records)
+    )
+    selection_rows = _projection_jsonl_records(
+        selection_bytes,
+        source=cast(Path, projection["selection_path"]),
+    )
+    support_rows = [
+        row
+        for row in selection_rows
+        if row.get("candidate_id") == _FREE_SUPPORT_AUGMENTATION_KEY[0]
+        and row.get("selected") is True
+    ]
+    if len(support_rows) != 1:
+        raise CommandError(
+            "source augmentation v2 selection lacks one support candidate"
+        )
+    expected_base_sha256 = hashlib.sha256(selection_bytes).hexdigest()
+    expected_row_sha256 = hashlib.sha256(
+        ingestion_canonical_json_bytes(
+            support_rows[0],
+            error_type=ValueError,
+            error_message="source augmentation support row is not canonicalizable",
+        )
+    ).hexdigest()
+    expected_selection_key_records = [
+        {"candidate_id": candidate_id, "source_document_id": source_document_id}
+        for candidate_id, source_document_id in sorted(selection_keys)
+    ]
+    expected_augmented_records = [
+        *expected_selection_key_records,
+        {
+            "candidate_id": _FREE_SUPPORT_AUGMENTATION_KEY[0],
+            "source_document_id": _FREE_SUPPORT_AUGMENTATION_KEY[1],
+        },
+    ]
+    expected_fields = {
+        "schema_version",
+        "base_selection_sha256",
+        "base_selected_candidate_count",
+        "base_selection_document_count",
+        "support_candidate_row_sha256",
+        "plan_sha256",
+        "raw_docket_bridge_sha256",
+        "additive_document",
+        "augmented_selection_document_keys",
+        "augmented_selection_document_count",
+        "free_document_download_sha256",
+        "disclosure_clearance_sha256",
+        "paid_activity_executed",
+        "pacer_activity_executed",
+        "recap_fetch_activity_executed",
+        "provider_activity_executed",
+        "evaluation_permitted",
+        "freeze_permitted",
+        "dispatch_permitted",
+    }
+    if (
+        set(augmentation) != expected_fields
+        or augmentation.get("schema_version") != _FREE_SUPPORT_AUGMENTATION_SCHEMA
+        or augmentation.get("base_selection_sha256") != expected_base_sha256
+        or augmentation.get("base_selected_candidate_count") != 100
+        or augmentation.get("base_selection_document_count") != len(selection_keys)
+        or augmentation.get("support_candidate_row_sha256") != expected_row_sha256
+        or augmentation.get("additive_document") != expected_augmented_records[-1]
+        or augmentation.get("augmented_selection_document_keys")
+        != expected_augmented_records
+        or augmentation.get("augmented_selection_document_count")
+        != len(expected_augmented_records)
+        or any(
+            augmentation.get(field) is not False
+            for field in (
+                "paid_activity_executed",
+                "pacer_activity_executed",
+                "recap_fetch_activity_executed",
+                "provider_activity_executed",
+                "evaluation_permitted",
+                "freeze_permitted",
+                "dispatch_permitted",
+            )
+        )
+    ):
+        raise CommandError("source augmentation projection differs from v2 authority")
+    if (
+        _materializer_record_key(download) != _FREE_SUPPORT_AUGMENTATION_KEY
+        or download.get("docket_entry_number") != 14
+        or download.get("document_role") != "motion_to_dismiss_memorandum"
+        or download.get("free_or_purchased") != "free"
+        or _materializer_record_key(clearance) != _FREE_SUPPORT_AUGMENTATION_KEY
+        or clearance.get("free_or_purchased") != "free"
+        or clearance.get("status") != "cleared"
+        or clearance.get("clearance_basis") != "affirmative_public_provenance"
+        or clearance.get("restriction_evidence")
+        != ["courtlistener_public_download_record_checked"]
+    ):
+        raise CommandError("source augmentation document or clearance is invalid")
+    restriction_record = _materializer_free_support_augmentation_restriction_record(
+        clearance
+    )
+    if (
+        augmentation.get("free_document_download_sha256")
+        != hashlib.sha256(
+            ingestion_canonical_json_bytes(
+                download,
+                error_type=ValueError,
+                error_message="source augmentation download is not canonicalizable",
+            )
+        ).hexdigest()
+        or augmentation.get("disclosure_clearance_sha256")
+        != hashlib.sha256(
+            ingestion_canonical_json_bytes(
+                clearance,
+                error_type=ValueError,
+                error_message="source augmentation clearance is not canonicalizable",
+            )
+        ).hexdigest()
+    ):
+        raise CommandError("source augmentation record commitments differ")
+    if _FREE_SUPPORT_AUGMENTATION_KEY in authoritative_available_keys:
+        raise CommandError("source augmentation key already appears in v2 projection")
+    document_root = root / "documents"
+    if document_root.is_symlink() or not document_root.is_dir():
+        raise CommandError("source augmentation document root is not a directory")
+    return (
+        DocumentSource(
+            phase="free",
+            document_root=document_root,
+            manifest=(download,),
+            clearance=(clearance,),
+        ),
+        snapshots,
+        {
+            "source_augmentation_root": str(root),
+            "selection_level_document_count": len(selection_keys),
+            "materializable_document_count": len(authoritative_available_keys) + 1,
+            "restriction_evidence_sha256": _canonical_json_sha256(restriction_record),
+        },
+        restriction_record,
+    )
+
+
 def _replacement_consolidation_active_paid_keys(
     records: Sequence[Mapping[str, Any]],
     *,
@@ -41125,6 +41419,38 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
     resolved_path = (
         raw_resolved_path.absolute() if raw_resolved_path is not None else None
     )
+    raw_augmentation_root = cast(
+        Path | None, getattr(args, "source_augmentation_root", None)
+    )
+    raw_augmentation_plan = cast(
+        Path | None, getattr(args, "source_augmentation_plan", None)
+    )
+    raw_augmentation_bridge = cast(
+        Path | None,
+        getattr(args, "source_augmentation_bridge_descriptor", None),
+    )
+    augmentation_values = (
+        raw_augmentation_root,
+        raw_augmentation_plan,
+        raw_augmentation_bridge,
+    )
+    if any(value is not None for value in augmentation_values) and not all(
+        value is not None for value in augmentation_values
+    ):
+        raise CommandError(
+            "source augmentation requires root, plan, and bridge descriptor together"
+        )
+    augmentation_root = (
+        raw_augmentation_root.absolute() if raw_augmentation_root is not None else None
+    )
+    augmentation_plan_path = (
+        raw_augmentation_plan.absolute() if raw_augmentation_plan is not None else None
+    )
+    augmentation_bridge_path = (
+        raw_augmentation_bridge.absolute()
+        if raw_augmentation_bridge is not None
+        else None
+    )
     input_paths = (
         preparation_root,
         preparation_summary_path,
@@ -41144,6 +41470,13 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             else ()
         ),
         *((resolved_path,) if resolved_path is not None else ()),
+        *(
+            (augmentation_root, augmentation_plan_path, augmentation_bridge_path)
+            if augmentation_root is not None
+            and augmentation_plan_path is not None
+            and augmentation_bridge_path is not None
+            else ()
+        ),
     )
     _validate_projection_output_scope(output_root, input_paths=input_paths)
     manifest_path = output_root / "document-downloads-merged.jsonl"
@@ -41192,6 +41525,12 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             else ()
         ),
         *((resolved_path,) if resolved_path is not None else ()),
+        *(
+            (augmentation_plan_path, augmentation_bridge_path)
+            if augmentation_plan_path is not None
+            and augmentation_bridge_path is not None
+            else ()
+        ),
     )
     materializer_direct_snapshots = {
         path: _read_singly_linked_regular_input(
@@ -41203,6 +41542,9 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
         os.path.abspath(path): payload
         for path, payload in materializer_direct_snapshots.items()
     }
+    augmentation_source: DocumentSource | None = None
+    augmentation_metadata: Mapping[str, object] | None = None
+    augmentation_restriction: Mapping[str, object] | None = None
     try:
         verified_preparation = _verify_completed_preparation_for_frontier(
             preparation_root=preparation_root,
@@ -41273,6 +41615,11 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             cast(Mapping[str, bytes], projection["verified_artifact_bytes"]),
             label="materialization projection",
         )
+        if augmentation_root is not None and preverified_recovery is None:
+            raise CommandError(
+                "source augmentation is permitted only for consolidated exact100 "
+                "v2 recovery"
+            )
         purchase_policy_artifact = _projection_json_object(
             materializer_direct_snapshots[purchase_policy_path],
             source=purchase_policy_path,
@@ -41461,9 +41808,39 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             preparation_root=preparation_root,
             consolidated_recovery=preverified_recovery is not None,
         )
+        if (
+            augmentation_root is not None
+            and augmentation_plan_path is not None
+            and augmentation_bridge_path is not None
+        ):
+            selection_path = cast(Path, projection["selection_path"])
+            selection_payload = captured_artifact_bytes[os.path.abspath(selection_path)]
+            (
+                augmentation_source,
+                augmentation_snapshots,
+                augmentation_metadata,
+                augmentation_restriction,
+            ) = _materializer_successor_v2_source_augmentation(
+                augmentation_root=augmentation_root,
+                plan_bytes=materializer_direct_snapshots[augmentation_plan_path],
+                bridge_descriptor_path=augmentation_bridge_path,
+                projection=projection,
+                selection_bytes=selection_payload,
+                authoritative_available_keys=selected_document_keys,
+            )
+            _merge_verified_artifact_bytes(
+                captured_artifact_bytes,
+                {
+                    os.path.abspath(path): payload
+                    for path, payload in augmentation_snapshots.items()
+                },
+                label="source augmentation",
+            )
+            selected_document_keys.add(_FREE_SUPPORT_AUGMENTATION_KEY)
         materialization = prepare_cohort_document_materialization(
             (
                 *free_sources,
+                *((augmentation_source,) if augmentation_source is not None else ()),
                 DocumentSource(
                     phase="purchased",
                     document_root=cast(Path, recovery["document_root"]),
@@ -41501,6 +41878,8 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
         _materializer_record_key(record)
         for record in cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
     }
+    if augmentation_source is not None:
+        free_keys.add(_FREE_SUPPORT_AUGMENTATION_KEY)
     restriction_records = tuple(
         sorted(
             (
@@ -41511,6 +41890,11 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                         projection["restriction_records"],
                     )
                     if _materializer_record_key(record) in free_keys
+                ),
+                *(
+                    (augmentation_restriction,)
+                    if augmentation_restriction is not None
+                    else ()
                 ),
                 *cast(
                     Sequence[Mapping[str, Any]],
@@ -41525,8 +41909,14 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
     )
     derivations = _build_materializer_derivations(
         materialization=materialization,
-        free_manifest=cast(Sequence[Mapping[str, Any]], projection["free_manifest"]),
-        free_clearance=cast(Sequence[Mapping[str, Any]], projection["free_clearance"]),
+        free_manifest=(
+            *cast(Sequence[Mapping[str, Any]], projection["free_manifest"]),
+            *(augmentation_source.manifest if augmentation_source is not None else ()),
+        ),
+        free_clearance=(
+            *cast(Sequence[Mapping[str, Any]], projection["free_clearance"]),
+            *(augmentation_source.clearance if augmentation_source is not None else ()),
+        ),
         purchased_manifest=cast(
             Sequence[Mapping[str, Any]], recovery["manifest_records"]
         ),
@@ -41568,6 +41958,29 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             cast(Path, projection["free_manifest_path"])
         ),
         "free_disclosure_clearance": captured_commitment(free_clearance_path),
+        **(
+            {
+                "source_augmentation_plan": captured_commitment(augmentation_plan_path),
+                "source_augmentation_bridge_descriptor": captured_commitment(
+                    augmentation_bridge_path
+                ),
+                "source_augmentation_projection": captured_commitment(
+                    augmentation_root / "source-augmentation.json"
+                ),
+                "source_augmentation_download": captured_commitment(
+                    augmentation_root / "free-document-download.json"
+                ),
+                "source_augmentation_clearance": captured_commitment(
+                    augmentation_root / "disclosure-clearance.json"
+                ),
+                "source_augmentation": dict(augmentation_metadata),
+            }
+            if augmentation_root is not None
+            and augmentation_plan_path is not None
+            and augmentation_bridge_path is not None
+            and augmentation_metadata is not None
+            else {}
+        ),
         **_materializer_recovery_source_commitments(recovery),
         "purchased_disclosure_clearance": captured_commitment(purchased_clearance_path),
         "purchased_clearance_run_card": captured_commitment(
@@ -41608,6 +42021,23 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
     def recheck_docket_decision_authority() -> None:
         if docket_decision_descriptor is not None:
             _replay_materialized_docket_decision_authority(docket_decision_descriptor)
+        if (
+            augmentation_root is not None
+            and augmentation_plan_path is not None
+            and augmentation_bridge_path is not None
+        ):
+            selection_path = cast(Path, projection["selection_path"])
+            _materializer_successor_v2_source_augmentation(
+                augmentation_root=augmentation_root,
+                plan_bytes=materializer_direct_snapshots[augmentation_plan_path],
+                bridge_descriptor_path=augmentation_bridge_path,
+                projection=projection,
+                selection_bytes=captured_artifact_bytes[
+                    os.path.abspath(selection_path)
+                ],
+                authoritative_available_keys=selected_document_keys
+                - {_FREE_SUPPORT_AUGMENTATION_KEY},
+            )
 
     return _publish_materialized_cohort_documents(
         args,
@@ -41635,6 +42065,7 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             authority_recheck=(
                 recheck_docket_decision_authority
                 if docket_decision_descriptor is not None
+                or augmentation_source is not None
                 else None
             ),
             docket_decision_partition=(
@@ -42598,6 +43029,34 @@ def _cmd_project_exact100_successor_replacement_v2(
         with cache_disclosure_document_scans():
             return run_exact100_successor_replacement_v2(args)
     except Exact100SuccessorReplacementV2CliError as exc:
+        raise CommandError(str(exc)) from exc
+
+
+def _cmd_recover_free_support_memorandum(args: argparse.Namespace) -> int:
+    """Run the bounded recovery only after reauthenticating exact100 v2."""
+
+    def verify_projection(root: Path) -> Mapping[str, object]:
+        run_card_path = root / "run-cards/project-target-cohort.json"
+        run_card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                run_card_path, label="support memorandum exact100 v2 run card"
+            ),
+            source=run_card_path,
+        )
+        try:
+            return verify_exact100_successor_replacement_v2_projection(
+                root,
+                replay=_replay_exact100_successor_replacement_v2_inputs,
+                args=_exact100_successor_v2_replay_args(run_card),
+            )
+        except Exact100SuccessorReplacementV2CliError as exc:
+            raise FreeSupportMemorandumExecutorCliError(str(exc)) from exc
+
+    args._verify_exact100_v2_projection = verify_projection
+    try:
+        with cache_disclosure_document_scans():
+            return run_free_support_memorandum_executor(args)
+    except FreeSupportMemorandumExecutorCliError as exc:
         raise CommandError(str(exc)) from exc
 
 
@@ -46799,7 +47258,15 @@ def _verify_materialized_downstream_lineage(
         )
     if authority_mode is not None:
         raise CommandError("unsupported materialization authority mode")
-    if len(input_paths) not in {12, 13, 14, 15}:
+    raw_source_commitments = card.get("source_commitments")
+    if raw_source_commitments is None:
+        source_commitments: Mapping[str, object] = {}
+    elif isinstance(raw_source_commitments, Mapping):
+        source_commitments = cast(Mapping[str, object], raw_source_commitments)
+    else:
+        raise CommandError("materialization run card lacks source commitments")
+    has_source_augmentation = "source_augmentation" in source_commitments
+    if len(input_paths) not in {12, 13, 14, 15, 16, 17, 18}:
         raise CommandError("materialization run card input paths differ")
     (
         preparation_root,
@@ -46814,12 +47281,27 @@ def _verify_materialized_downstream_lineage(
         purchase_policy_path,
         cohort_policy_path,
         ledger_path,
-        *optional_inputs,
+        *raw_optional_inputs,
     ) = input_paths
+    optional_inputs = list(raw_optional_inputs)
+    augmentation_root: Path | None = None
+    augmentation_plan_path: Path | None = None
+    augmentation_bridge_path: Path | None = None
+    if has_source_augmentation:
+        if len(optional_inputs) < 3:
+            raise CommandError("materialization augmentation input paths differ")
+        (
+            augmentation_root,
+            augmentation_plan_path,
+            augmentation_bridge_path,
+        ) = optional_inputs[-3:]
+        optional_inputs = optional_inputs[:-3]
     purchase_result_path: Path | None = None
     purchase_run_card_path: Path | None = None
-    if len(input_paths) in {14, 15}:
+    if len(optional_inputs) in {2, 3}:
         purchase_result_path, purchase_run_card_path, *optional_inputs = optional_inputs
+    elif len(optional_inputs) not in {0, 1}:
+        raise CommandError("materialization run card input paths differ")
     resolved_path = optional_inputs[0] if optional_inputs else None
     raw_outputs = card.get("output_paths")
     if not isinstance(raw_outputs, Sequence) or isinstance(raw_outputs, (str, bytes)):
@@ -46861,6 +47343,12 @@ def _verify_materialized_downstream_lineage(
             else ()
         ),
         *((resolved_path,) if resolved_path is not None else ()),
+        *(
+            (augmentation_plan_path, augmentation_bridge_path)
+            if augmentation_plan_path is not None
+            and augmentation_bridge_path is not None
+            else ()
+        ),
         *((selection_path,) if selection_path is not None else ()),
     )
     direct_output_paths = (
@@ -46882,6 +47370,9 @@ def _verify_materialized_downstream_lineage(
             os.path.abspath(path): payload for path, payload in direct_snapshots.items()
         },
     }
+    augmentation_source: DocumentSource | None = None
+    augmentation_metadata: Mapping[str, object] | None = None
+    augmentation_restriction: Mapping[str, object] | None = None
     try:
         verified_preparation = _verify_completed_preparation_for_frontier(
             preparation_root=preparation_root,
@@ -46953,6 +47444,11 @@ def _verify_materialized_downstream_lineage(
             cast(Mapping[str, bytes], projection["verified_artifact_bytes"]),
             label="downstream materialization projection",
         )
+        if has_source_augmentation and preverified_recovery is None:
+            raise CommandError(
+                "source augmentation is permitted only for consolidated exact100 "
+                "v2 recovery"
+            )
         committed_selection_path = cast(Path, projection["selection_path"])
         if selection_path is not None and (
             selection_path.resolve() != committed_selection_path.resolve()
@@ -47142,9 +47638,40 @@ def _verify_materialized_downstream_lineage(
             preparation_root=preparation_root,
             consolidated_recovery=preverified_recovery is not None,
         )
+        if (
+            augmentation_root is not None
+            and augmentation_plan_path is not None
+            and augmentation_bridge_path is not None
+        ):
+            committed_selection_path = cast(Path, projection["selection_path"])
+            (
+                augmentation_source,
+                augmentation_snapshots,
+                augmentation_metadata,
+                augmentation_restriction,
+            ) = _materializer_successor_v2_source_augmentation(
+                augmentation_root=augmentation_root,
+                plan_bytes=direct_snapshots[augmentation_plan_path],
+                bridge_descriptor_path=augmentation_bridge_path,
+                projection=projection,
+                selection_bytes=captured_artifact_bytes[
+                    os.path.abspath(committed_selection_path)
+                ],
+                authoritative_available_keys=selected_document_keys,
+            )
+            _merge_verified_artifact_bytes(
+                captured_artifact_bytes,
+                {
+                    os.path.abspath(path): payload
+                    for path, payload in augmentation_snapshots.items()
+                },
+                label="downstream source augmentation",
+            )
+            selected_document_keys.add(_FREE_SUPPORT_AUGMENTATION_KEY)
         materialization = prepare_cohort_document_materialization(
             (
                 *free_sources,
+                *((augmentation_source,) if augmentation_source is not None else ()),
                 DocumentSource(
                     phase="purchased",
                     document_root=cast(Path, recovery["document_root"]),
@@ -47182,6 +47709,8 @@ def _verify_materialized_downstream_lineage(
         _materializer_record_key(record)
         for record in cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
     }
+    if augmentation_source is not None:
+        free_keys.add(_FREE_SUPPORT_AUGMENTATION_KEY)
     expected_restrictions = tuple(
         sorted(
             (
@@ -47191,6 +47720,11 @@ def _verify_materialized_downstream_lineage(
                         Sequence[Mapping[str, Any]], projection["restriction_records"]
                     )
                     if _materializer_record_key(record) in free_keys
+                ),
+                *(
+                    (augmentation_restriction,)
+                    if augmentation_restriction is not None
+                    else ()
                 ),
                 *cast(
                     Sequence[Mapping[str, Any]],
@@ -47205,8 +47739,14 @@ def _verify_materialized_downstream_lineage(
     )
     expected_derivations = _build_materializer_derivations(
         materialization=materialization,
-        free_manifest=cast(Sequence[Mapping[str, Any]], projection["free_manifest"]),
-        free_clearance=cast(Sequence[Mapping[str, Any]], projection["free_clearance"]),
+        free_manifest=(
+            *cast(Sequence[Mapping[str, Any]], projection["free_manifest"]),
+            *(augmentation_source.manifest if augmentation_source is not None else ()),
+        ),
+        free_clearance=(
+            *cast(Sequence[Mapping[str, Any]], projection["free_clearance"]),
+            *(augmentation_source.clearance if augmentation_source is not None else ()),
+        ),
         purchased_manifest=cast(
             Sequence[Mapping[str, Any]], recovery["manifest_records"]
         ),
@@ -47251,6 +47791,29 @@ def _verify_materialized_downstream_lineage(
             cast(Path, projection["free_manifest_path"])
         ),
         "free_disclosure_clearance": verified_commitment(free_clearance_path),
+        **(
+            {
+                "source_augmentation_plan": verified_commitment(augmentation_plan_path),
+                "source_augmentation_bridge_descriptor": verified_commitment(
+                    augmentation_bridge_path
+                ),
+                "source_augmentation_projection": verified_commitment(
+                    augmentation_root / "source-augmentation.json"
+                ),
+                "source_augmentation_download": verified_commitment(
+                    augmentation_root / "free-document-download.json"
+                ),
+                "source_augmentation_clearance": verified_commitment(
+                    augmentation_root / "disclosure-clearance.json"
+                ),
+                "source_augmentation": dict(augmentation_metadata),
+            }
+            if augmentation_root is not None
+            and augmentation_plan_path is not None
+            and augmentation_bridge_path is not None
+            and augmentation_metadata is not None
+            else {}
+        ),
         **_materializer_recovery_source_commitments(recovery),
         "purchased_disclosure_clearance": verified_commitment(purchased_clearance_path),
         "purchased_clearance_run_card": verified_commitment(

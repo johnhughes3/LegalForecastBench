@@ -73,6 +73,325 @@ def _source(
     )
 
 
+def test_materializer_accepts_three_free_sources_then_purchased(
+    tmp_path: Path,
+) -> None:
+    buckets = tuple(tmp_path / name for name in ("one", "two", "three", "four"))
+    for bucket in buckets:
+        bucket.mkdir()
+    first, first_key = _source(
+        buckets[0], phase="free", candidate_id="1", document_id="free-one"
+    )
+    second, second_key = _source(
+        buckets[1], phase="free", candidate_id="2", document_id="free-two"
+    )
+    third, third_key = _source(
+        buckets[2], phase="free", candidate_id="3", document_id="free-three"
+    )
+    purchased, purchased_key = _source(
+        buckets[3], phase="purchased", candidate_id="4", document_id="paid-one"
+    )
+
+    materialization = prepare_cohort_document_materialization(
+        (first, second, third, purchased),
+        selected_document_keys={first_key, second_key, third_key, purchased_key},
+        output_root=tmp_path / "output",
+    )
+
+    assert len(materialization.documents) == 4
+
+
+def _source_batch(
+    tmp_path: Path,
+    *,
+    name: str,
+    phase: str,
+    keys: list[tuple[str, str]],
+) -> tuple[
+    DocumentSource, tuple[dict[str, object], ...], tuple[dict[str, object], ...]
+]:
+    root = tmp_path / name
+    root.mkdir()
+    manifests: list[dict[str, object]] = []
+    clearances: list[dict[str, object]] = []
+    for index, (candidate_id, source_document_id) in enumerate(keys):
+        payload = (
+            f"%PDF-1.4\n{phase}-{candidate_id}-{source_document_id}\n%%EOF"
+        ).encode()
+        local_path = f"{index}.pdf"
+        (root / local_path).write_bytes(payload)
+        digest = hashlib.sha256(payload).hexdigest()
+        manifests.append(
+            {
+                "candidate_id": candidate_id,
+                "source_document_id": source_document_id,
+                "local_path": local_path,
+                "sha256": digest,
+                "byte_count": len(payload),
+                "free_or_purchased": phase,
+                "source_url": f"https://storage.courtlistener.com/{index}.pdf",
+            }
+        )
+        clearances.append(
+            {
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "candidate_id": candidate_id,
+                "source_document_id": source_document_id,
+                "local_path": local_path,
+                "sha256": digest,
+                "byte_count": len(payload),
+                "status": "cleared",
+                "restriction_status": "public",
+                "restriction_evidence": [
+                    "courtlistener_public_download_record_checked"
+                ],
+                "reviewer_id": "reviewer:fixture",
+                "controlled_store_provenance": "private-store://cycle-1/clearance",
+                "reviewed_at": "2026-08-11T00:00:00Z",
+                "free_or_purchased": phase,
+            }
+        )
+    return (
+        DocumentSource(
+            phase=phase,
+            document_root=root,
+            manifest=tuple(manifests),
+            clearance=tuple(clearances),
+        ),
+        tuple(manifests),
+        tuple(clearances),
+    )
+
+
+def test_source_augmentation_preserves_325_321_4_322_production_shape(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selection_rows: list[dict[str, object]] = []
+    selected_keys: list[tuple[str, str]] = []
+    for candidate_index in range(100):
+        candidate_id = "73327542" if candidate_index == 0 else f"8{candidate_index:07d}"
+        document_count = 4 if candidate_index < 25 else 3
+        documents = [
+            {"source_document_id": f"{candidate_id}-base-{document_index}"}
+            for document_index in range(document_count)
+        ]
+        selected_keys.extend(
+            (candidate_id, str(document["source_document_id"]))
+            for document in documents
+        )
+        selection_rows.append(
+            {
+                "candidate_id": candidate_id,
+                "selected": True,
+                "documents": documents,
+                "target_motion_entry_numbers": [13] if candidate_index == 0 else [2],
+            }
+        )
+    assert len(selected_keys) == 325
+    selection_bytes = b"".join(
+        cli.ingestion_canonical_json_bytes(
+            row,
+            error_type=ValueError,
+            error_message="fixture selection is not canonicalizable",
+        )
+        for row in selection_rows
+    )
+    selection_path = tmp_path / "successor" / "target-cohort-selection.jsonl"
+    selection_path.parent.mkdir()
+    selection_path.write_bytes(selection_bytes)
+    available_keys = set(selected_keys[:321])
+    audit_only_keys = set(selected_keys[321:])
+    assert len(available_keys) == 321
+    assert len(audit_only_keys) == 4
+
+    first, first_manifest, first_clearance = _source_batch(
+        tmp_path, name="free-inherited", phase="free", keys=selected_keys[:200]
+    )
+    second, second_manifest, second_clearance = _source_batch(
+        tmp_path, name="free-promoted", phase="free", keys=selected_keys[200:300]
+    )
+    purchased, purchased_manifest, purchased_clearance = _source_batch(
+        tmp_path, name="purchased", phase="purchased", keys=selected_keys[300:321]
+    )
+
+    augmentation_root = tmp_path / "augmentation"
+    document_root = augmentation_root / "documents"
+    local_path = (
+        "73327542/courtlistener_recap_public/"
+        "entry-14_73327542-entry-14-motion-to-dismiss-memorandum.pdf"
+    )
+    augmentation_pdf = document_root / local_path
+    augmentation_pdf.parent.mkdir(parents=True)
+    augmentation_payload = b"%PDF-1.4\nECF 14 support memorandum\n%%EOF"
+    augmentation_pdf.write_bytes(augmentation_payload)
+    augmentation_download = {
+        "candidate_id": "73327542",
+        "source_provider": "courtlistener_recap_public",
+        "source_document_id": "73327542-entry-14-motion-to-dismiss-memorandum",
+        "docket_entry_number": 14,
+        "document_role": "motion_to_dismiss_memorandum",
+        "source_url": ("https://storage.courtlistener.com/recap/fixture/entry-14.pdf"),
+        "local_path": local_path,
+        "sha256": hashlib.sha256(augmentation_payload).hexdigest(),
+        "byte_count": len(augmentation_payload),
+        "free_or_purchased": "free",
+        "retry_count": 0,
+        "rate_limited": False,
+        "reused_existing": False,
+    }
+    augmentation_clearance = {
+        "schema_version": "legalforecast.disclosure_clearance.v1",
+        "candidate_id": "73327542",
+        "source_document_id": "73327542-entry-14-motion-to-dismiss-memorandum",
+        "local_path": local_path,
+        "sha256": augmentation_download["sha256"],
+        "byte_count": len(augmentation_payload),
+        "status": "cleared",
+        "automated_markers": [],
+        "restriction_status": "public",
+        "restriction_evidence": ["courtlistener_public_download_record_checked"],
+        "reviewer_id": None,
+        "controlled_store_provenance": augmentation_download["source_url"],
+        "reviewed_at": None,
+        "free_or_purchased": "free",
+        "clearance_basis": "affirmative_public_provenance",
+        "routing_plan_sha256": "a" * 64,
+    }
+    addition = {
+        "candidate_id": "73327542",
+        "source_document_id": "73327542-entry-14-motion-to-dismiss-memorandum",
+    }
+    support_row = selection_rows[0]
+    augmentation_projection = {
+        "schema_version": str(cli.FREE_SUPPORT_MEMORANDUM_SOURCE_AUGMENTATION_V1),
+        "base_selection_sha256": hashlib.sha256(selection_bytes).hexdigest(),
+        "base_selected_candidate_count": 100,
+        "base_selection_document_count": 325,
+        "support_candidate_row_sha256": hashlib.sha256(
+            cli.ingestion_canonical_json_bytes(
+                support_row,
+                error_type=ValueError,
+                error_message="fixture support row is not canonicalizable",
+            )
+        ).hexdigest(),
+        "plan_sha256": "b" * 64,
+        "raw_docket_bridge_sha256": "c" * 64,
+        "additive_document": addition,
+        "augmented_selection_document_keys": [
+            {"candidate_id": candidate_id, "source_document_id": source_document_id}
+            for candidate_id, source_document_id in sorted(selected_keys)
+        ]
+        + [addition],
+        "augmented_selection_document_count": 326,
+        "free_document_download_sha256": hashlib.sha256(
+            cli.ingestion_canonical_json_bytes(
+                augmentation_download,
+                error_type=ValueError,
+                error_message="fixture download is not canonicalizable",
+            )
+        ).hexdigest(),
+        "disclosure_clearance_sha256": hashlib.sha256(
+            cli.ingestion_canonical_json_bytes(
+                augmentation_clearance,
+                error_type=ValueError,
+                error_message="fixture clearance is not canonicalizable",
+            )
+        ).hexdigest(),
+        "paid_activity_executed": False,
+        "pacer_activity_executed": False,
+        "recap_fetch_activity_executed": False,
+        "provider_activity_executed": False,
+        "evaluation_permitted": False,
+        "freeze_permitted": False,
+        "dispatch_permitted": False,
+    }
+    for name, record in (
+        ("source-augmentation.json", augmentation_projection),
+        ("free-document-download.json", augmentation_download),
+        ("disclosure-clearance.json", augmentation_clearance),
+    ):
+        (augmentation_root / name).write_bytes(
+            cli.ingestion_canonical_json_bytes(
+                record,
+                error_type=ValueError,
+                error_message=f"fixture {name} is not canonicalizable",
+            )
+        )
+    monkeypatch.setattr(
+        cli,
+        "verify_free_support_memorandum_source_augmentation",
+        lambda **_kwargs: SimpleNamespace(
+            projection=augmentation_projection,
+            download=SimpleNamespace(to_record=lambda: augmentation_download),
+            clearance=SimpleNamespace(to_record=lambda: augmentation_clearance),
+        ),
+    )
+    source, _snapshots, metadata, restriction = (
+        cli._materializer_successor_v2_source_augmentation(
+            augmentation_root=augmentation_root,
+            plan_bytes=b"plan",
+            bridge_descriptor_path=tmp_path / "bridge.json",
+            projection={
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2)
+                },
+                "selection_path": selection_path,
+                "selection_records": tuple(selection_rows),
+            },
+            selection_bytes=selection_bytes,
+            authoritative_available_keys=available_keys,
+        )
+    )
+    assert metadata["selection_level_document_count"] == 325
+    assert metadata["materializable_document_count"] == 322
+    materialization = prepare_cohort_document_materialization(
+        (first, second, source, purchased),
+        selected_document_keys=available_keys
+        | {("73327542", "73327542-entry-14-motion-to-dismiss-memorandum")},
+        output_root=tmp_path / "materialized",
+    )
+    assert len(materialization.manifest) == len(materialization.clearance) == 322
+    assert len(materialization.documents) == 322
+    materialized_keys = {
+        (str(record["candidate_id"]), str(record["source_document_id"]))
+        for record in materialization.manifest
+    }
+    assert materialized_keys == available_keys | {
+        ("73327542", "73327542-entry-14-motion-to-dismiss-memorandum")
+    }
+    assert materialized_keys.isdisjoint(audit_only_keys)
+    assert restriction["candidate_id"] == "73327542"
+    assert restriction["source_document_id"] == (
+        "73327542-entry-14-motion-to-dismiss-memorandum"
+    )
+    derivations = cli._build_materializer_derivations(
+        materialization=materialization,
+        free_manifest=(*first_manifest, *second_manifest, *source.manifest),
+        free_clearance=(*first_clearance, *second_clearance, *source.clearance),
+        purchased_manifest=purchased_manifest,
+        purchased_clearance=purchased_clearance,
+    )
+    assert len(derivations) == 322
+    requests = [
+        cli._planned_parse_document_request(
+            record,
+            document_root=tmp_path / "materialized" / "documents",
+            markdown_output_root=tmp_path / "markdown",
+        )
+        for record in materialization.manifest
+    ]
+    assert len(requests) == 322
+    additive_requests = [
+        request
+        for request in requests
+        if request["candidate_id"] == "73327542"
+        and request["source_document_id"]
+        == "73327542-entry-14-motion-to-dismiss-memorandum"
+    ]
+    assert len(additive_requests) == 1
+
+
 def test_materializer_writable_path_validation_accepts_disjoint_outputs(
     tmp_path: Path,
 ) -> None:
