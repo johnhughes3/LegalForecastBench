@@ -13,6 +13,7 @@ import legalforecast.cli as legalforecast_cli
 import pytest
 from legalforecast.contracts import EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
 from legalforecast.ingestion import supporting_document_successor_cli as successor_cli
+from legalforecast.ingestion.disclosure_clearance import require_clearance_policy
 from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadError,
     FreeDocumentFetch,
@@ -365,6 +366,19 @@ def test_successor_executor_writes_replays_and_detects_tamper(
         "supplemental manifest",
     )
     assert len(supplemental) == 6
+    supplemental_clearance = successor_cli._jsonl(
+        (output / successor_cli._OUTPUTS["supplemental_clearance"]).read_bytes(),
+        "supplemental clearance",
+    )
+    added_clearance = supplemental_clearance[-1]
+    require_clearance_policy(
+        added_clearance,
+        key=(
+            str(added_clearance["candidate_id"]),
+            str(added_clearance["source_document_id"]),
+        ),
+        label="supporting successor document",
+    )
     state = successor_cli._object(
         (output / successor_cli._OUTPUTS["state"]).read_bytes(), "successor state"
     )
@@ -484,6 +498,34 @@ def test_successor_executor_writes_replays_and_detects_tamper(
     )
     resumed_result = json.loads(capsys.readouterr().out)
     assert resumed_result["provider_activity_executed"] is False
+    supplemental_clearance_path = (
+        output / successor_cli._OUTPUTS["supplemental_clearance"]
+    )
+    original_clearance = supplemental_clearance_path.read_bytes()
+    stale_clearance = list(supplemental_clearance)
+    stale_clearance[-1] = {
+        **stale_clearance[-1],
+        "routing_plan_sha256": (
+            "sha256:" + str(stale_clearance[-1]["routing_plan_sha256"])
+        ),
+    }
+    supplemental_clearance_path.write_bytes(
+        b"".join(successor_cli._bytes(row) for row in stale_clearance)
+    )
+    with pytest.raises(
+        successor_cli.SupportingDocumentSuccessorCliError,
+        match="clearance is invalid on replay",
+    ):
+        successor_cli._run_with_test_dependencies(
+            v2_root=v2_root,
+            plan_path=plan_path,
+            bridge_descriptor=bridge,
+            output_root=output,
+            verifier=verifier,
+            source=Source(),
+            resume=True,
+        )
+    supplemental_clearance_path.write_bytes(original_clearance)
     monkeypatch.setattr(
         successor_cli,
         "scan_disclosure_document",
