@@ -413,6 +413,96 @@ def test_pre_recovery_empty_manifest_uses_paid_gaps_minus_terminal_omissions(
         cli._consume_consolidated_resolved_capability(capability)
 
 
+def test_exact100_v2_target_root_derives_empty_purchased_partition(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    omitted = {("case-2", "doc-2")}
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+        terminal_omission_pairs=omitted,
+    )
+    target_root = tmp_path / "exact100-v2"
+    target_card_path = target_root / "run-cards" / "project-target-cohort.json"
+    target_card_path.parent.mkdir(parents=True)
+    target_card_path.write_text("authenticated-v2-card\n", encoding="utf-8")
+    selection_records = [
+        json.loads(line)
+        for line in args.selection.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    projection = {
+        "run_card": {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2)
+        },
+        "selection_path": args.selection,
+        "selection_records": selection_records,
+        "purchased_manifest": (),
+        "verified_artifact_bytes": {
+            str(target_card_path): target_card_path.read_bytes(),
+        },
+    }
+
+    def verify_target(path: Path, **_kwargs: object) -> dict[str, object]:
+        assert path.resolve() == target_root.resolve()
+        return projection
+
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        verify_target,
+    )
+    args.target_purchased_manifest = None
+    args.target_cohort_root = target_root
+
+    prepared = cli._prepare_replacement_recovery_consolidation(args)
+
+    assert prepared.input_paths[3] == target_root
+    assert {
+        (row["candidate_id"], row["source_document_id"])
+        for row in prepared.manifest_records
+    } == all_paid - omitted
+    assert cli._cmd_consolidate_replacement_recovery(args) == 0
+    card_path = args.output_root / "run-cards" / "consolidate-replacement-recovery.json"
+    card = json.loads(card_path.read_text(encoding="utf-8"))
+    assert card["schema_version"] == cli._REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
+    assert card["target_projection_mode"] == "exact100_successor_replacement_v2"
+    assert str(target_card_path.resolve()) in card["source_commitments"]
+
+    verified = cli._verify_materializer_consolidated_recovery(
+        recovery_root=args.output_root,
+        run_card_path=card_path,
+        selection_path=args.selection,
+        selected_document_keys=all_paid - omitted,
+        purchase_policy_path=args.purchase_policy,
+        cohort_policy_path=args.cohort_policy,
+        ledger_path=args.purchase_ledger,
+    )
+    assert tuple(verified["manifest_records"]) == prepared.manifest_records
+
+    target_card_path.write_text("mutated\n", encoding="utf-8")
+    with pytest.raises(
+        cli.CommandError,
+        match="consolidated replacement recovery source commitment changed",
+    ):
+        cli._verify_materializer_consolidated_recovery(
+            recovery_root=args.output_root,
+            run_card_path=card_path,
+            selection_path=args.selection,
+            selected_document_keys=all_paid - omitted,
+            purchase_policy_path=args.purchase_policy,
+            cohort_policy_path=args.cohort_policy,
+            ledger_path=args.purchase_ledger,
+        )
+
+
 def test_consolidated_verifier_reuses_authenticated_history_snapshots(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

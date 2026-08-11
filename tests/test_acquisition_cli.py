@@ -6,9 +6,10 @@ import base64
 import hashlib
 import json
 from collections.abc import Mapping
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 import legalforecast.cli as cli
 import legalforecast.ingestion.courtlistener_recap_fetch as recap_fetch
@@ -2309,10 +2310,11 @@ def test_parse_and_build_packet_acquisition_fixture_flow(
     )
 
 
-def test_parse_documents_reuses_authenticated_live_mistral_output_without_provider(
-    tmp_path: Path, monkeypatch: MonkeyPatch
+@pytest.mark.parametrize("with_gap", [False, True])
+def test_parse_documents_reuses_authenticated_live_mistral_output_and_parses_only_gaps(
+    tmp_path: Path, monkeypatch: MonkeyPatch, with_gap: bool
 ) -> None:
-    """Relocated exact-content inputs may copy, but never invoke the parser."""
+    """Relocated exact inputs copy; only unmatched inputs reach the parser."""
 
     output_root = tmp_path / "successor"
     previous_root = tmp_path / "previous-markdown"
@@ -2336,7 +2338,21 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_without_provid
         previous_request,
         [{**request_record, "input_path": str(tmp_path / "old" / "complaint.pdf")}],
     )
-    _write_jsonl(current_request, [{**request_record, "input_path": str(source)}])
+    current_requests = [{**request_record, "input_path": str(source)}]
+    gap_source = tmp_path / "relocated" / "new.pdf"
+    gap_source.write_bytes(b"%PDF new content")
+    gap_digest = hashlib.sha256(gap_source.read_bytes()).hexdigest()
+    if with_gap:
+        current_requests.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": "new",
+                "expected_sha256": gap_digest,
+                "expected_byte_count": gap_source.stat().st_size,
+                "input_path": str(gap_source),
+            }
+        )
+    _write_jsonl(current_request, current_requests)
     conversion = {
         "candidate_id": "cand-1",
         "source_document_id": "complaint",
@@ -2411,30 +2427,91 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_without_provid
         },
     )
     clearance = tmp_path / "clearance.jsonl"
-    _write_jsonl(
-        clearance,
-        [
+    clearance_records = [
+        {
+            "schema_version": "legalforecast.disclosure_clearance.v1",
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "sha256": digest,
+            "byte_count": source.stat().st_size,
+            "status": "cleared",
+            "restriction_status": "public",
+            "restriction_evidence": ["fixture"],
+            "reviewer_id": "fixture-reviewer",
+            "controlled_store_provenance": "private-store://fixture/reviews",
+            "reviewed_at": _GENERATED_AT,
+        }
+    ]
+    if with_gap:
+        clearance_records.append(
             {
-                "schema_version": "legalforecast.disclosure_clearance.v1",
-                "candidate_id": "cand-1",
-                "source_document_id": "complaint",
-                "sha256": digest,
-                "byte_count": source.stat().st_size,
-                "status": "cleared",
-                "restriction_status": "public",
-                "restriction_evidence": ["fixture"],
-                "reviewer_id": "fixture-reviewer",
-                "controlled_store_provenance": "private-store://fixture/reviews",
-                "reviewed_at": _GENERATED_AT,
+                **clearance_records[0],
+                "source_document_id": "new",
+                "sha256": gap_digest,
+                "byte_count": gap_source.stat().st_size,
             }
-        ],
-    )
+        )
+    _write_jsonl(clearance, clearance_records)
     _, materialization_card = _materialized_cli_unit_fixture(monkeypatch, tmp_path)
 
-    def provider_must_not_run(*args: object, **kwargs: object) -> object:
-        raise AssertionError("live Mistral provider conversion must not run")
+    provider_requests: list[tuple[str, ...]] = []
 
-    monkeypatch.setattr(cli, "convert_documents_to_markdown", provider_must_not_run)
+    def parse_gaps(
+        requests: tuple[cli.MistralMarkdownConversionRequest, ...],
+        **_kwargs: object,
+    ) -> tuple[cli.MistralMarkdownConversionRecord, ...]:
+        provider_requests.append(
+            tuple(request.source_document_id for request in requests)
+        )
+        if not with_gap:
+            raise AssertionError("live Mistral provider conversion must not run")
+        assert tuple(request.source_document_id for request in requests) == ("new",)
+        request = requests[0]
+        gap_markdown = "# New\n"
+        request.markdown_output_path.parent.mkdir(parents=True, exist_ok=True)
+        request.markdown_output_path.write_text(gap_markdown, encoding="utf-8")
+        record = cli.MistralMarkdownConversionRecord(
+            candidate_id=request.candidate_id,
+            source_document_id=request.source_document_id,
+            status=cli.MistralMarkdownConversionStatus.SUCCEEDED,
+            input_path=str(request.input_path),
+            markdown_path="cand-1/new.md",
+            metadata_path="cand-1/new.metadata.json",
+            parser_config={
+                "engine": "mistral",
+                "parser_root": str(tmp_path / "parser"),
+                "parser_version": "1.0.0",
+                "parser_revision": cli.EXPECTED_PARSER_REVISION,
+                "expected_parser_revision": cli.EXPECTED_PARSER_REVISION,
+                "timeout_seconds": 600,
+                "debug": False,
+                "command": [
+                    "uv",
+                    "run",
+                    "parser-pdf",
+                    "--file",
+                    str(request.input_path),
+                    "--mistral",
+                    "--no-ocr",
+                ],
+            },
+            quality_flags=(),
+            extracted_text=cli.ExtractedTextArtifact(
+                source_document_id=request.source_document_id,
+                extracted_at=datetime.fromisoformat(_GENERATED_AT),
+                extraction_method="mistral_parser_markdown",
+                text_sha256=hashlib.sha256(gap_markdown.encode()).hexdigest(),
+            ),
+            source_sha256=request.expected_sha256,
+            source_byte_count=request.expected_byte_count,
+        )
+        _write_json(
+            request.markdown_output_path.with_suffix(".metadata.json"),
+            record.to_record(),
+        )
+        return (record,)
+
+    monkeypatch.setattr(cli, "convert_documents_to_markdown", parse_gaps)
     assert (
         main(
             [
@@ -2469,9 +2546,12 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_without_provid
         )
         == conversion
     )
-    assert _read_jsonl(output_root / "mistral-markdown-conversions.jsonl") == [
-        conversion
-    ]
+    manifest = _read_jsonl(output_root / "mistral-markdown-conversions.jsonl")
+    assert manifest[0] == conversion
+    assert [record["source_document_id"] for record in manifest] == (
+        ["complaint", "new"] if with_gap else ["complaint"]
+    )
+    assert provider_requests == ([("new",)] if with_gap else [])
     run_card = json.loads(
         (output_root / "run-cards" / "parse-documents.json").read_text()
     )
@@ -2482,9 +2562,78 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_without_provid
     assert (
         run_card["parser_execution"]["reused_live_mistral"]["reused_record_count"] == 1
     )
+    assert run_card["parser_execution"]["reused_live_mistral"]["parsed_gap_count"] == (
+        1 if with_gap else 0
+    )
+    manifest_bytes = (output_root / "mistral-markdown-conversions.jsonl").read_bytes()
+    run_card_bytes = (output_root / "run-cards" / "parse-documents.json").read_bytes()
+
+    def reject_duplicate_provider_call(*_args: object, **_kwargs: object) -> NoReturn:
+        raise AssertionError("completed parse reuse must not call the provider")
+
+    monkeypatch.setattr(
+        cli, "convert_documents_to_markdown", reject_duplicate_provider_call
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "parse-documents",
+                "--requests",
+                str(current_request),
+                "--disclosure-clearance",
+                str(clearance),
+                "--materialization-run-card",
+                str(materialization_card),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--resume",
+                "--reuse-live-mistral-run-card",
+                str(previous_card),
+                "--reuse-markdown-root",
+                str(previous_root),
+            ]
+        )
+        == 0
+    )
+    assert (
+        output_root / "mistral-markdown-conversions.jsonl"
+    ).read_bytes() == manifest_bytes
+    assert (output_root / "run-cards" / "parse-documents.json").read_bytes() == (
+        run_card_bytes
+    )
+    (output_root / "mistral-markdown-conversions.jsonl").write_bytes(
+        manifest_bytes + b"\n"
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "parse-documents",
+                "--requests",
+                str(current_request),
+                "--disclosure-clearance",
+                str(clearance),
+                "--materialization-run-card",
+                str(materialization_card),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--resume",
+                "--reuse-live-mistral-run-card",
+                str(previous_card),
+                "--reuse-markdown-root",
+                str(previous_root),
+            ]
+        )
+        == 2
+    )
 
 
-@pytest.mark.parametrize("failure", ["tamper", "config", "symlink", "partial", "path"])
+@pytest.mark.parametrize(
+    "failure", ["tamper", "config", "quality", "symlink", "partial", "path"]
+)
 def test_live_mistral_reuse_helper_fails_closed(tmp_path: Path, failure: str) -> None:
     root = tmp_path / "prior"
     artifact = root / "cand" / "doc.md"
@@ -2604,6 +2753,21 @@ def test_live_mistral_reuse_helper_fails_closed(tmp_path: Path, failure: str) ->
                 },
             },
         )
+    elif failure == "quality":
+        record["quality_flags"] = ["empty_markdown"]
+        record["extracted_text"]["quality_flags"] = ["empty_markdown"]
+        artifact.with_suffix(".metadata.json").write_text(
+            json.dumps(record), encoding="utf-8"
+        )
+        _write_jsonl(manifest_path, [record])
+        card = json.loads(card_path.read_text())
+        card["output_commitments"] = {
+            "parser_manifest": {
+                "path": str(manifest_path),
+                "sha256": cli._bytes_sha256(manifest_path.read_bytes()),
+            }
+        }
+        _write_json(card_path, card)
     elif failure == "symlink":
         artifact.unlink()
         artifact.symlink_to(tmp_path / "elsewhere")
@@ -2627,6 +2791,149 @@ def test_live_mistral_reuse_helper_fails_closed(tmp_path: Path, failure: str) ->
             requests=(request,),
             output_root=tmp_path / "out",
         )
+
+
+def test_live_mistral_reuse_plans_exact_intersection_and_authenticates_dropped_rows(
+    tmp_path: Path,
+) -> None:
+    prior_root = tmp_path / "prior"
+    digest_by_document = {
+        "kept": hashlib.sha256(b"kept-source").hexdigest(),
+        "dropped": hashlib.sha256(b"dropped-source").hexdigest(),
+    }
+    prior_requests: list[dict[str, object]] = []
+    prior_records: list[dict[str, object]] = []
+    for document_id, digest in digest_by_document.items():
+        markdown = f"# {document_id}\n"
+        markdown_path = prior_root / "cand" / f"{document_id}.md"
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text(markdown, encoding="utf-8")
+        request = {
+            "candidate_id": "cand",
+            "source_document_id": document_id,
+            "input_path": f"/old/{document_id}.pdf",
+            "expected_sha256": digest,
+            "expected_byte_count": len(f"{document_id}-source"),
+        }
+        record = {
+            "candidate_id": "cand",
+            "source_document_id": document_id,
+            "status": "succeeded",
+            "input_path": f"/old/{document_id}.pdf",
+            "markdown_path": f"cand/{document_id}.md",
+            "metadata_path": f"cand/{document_id}.metadata.json",
+            "parser_config": {
+                "engine": "mistral",
+                "parser_root": "/parser",
+                "parser_revision": cli.EXPECTED_PARSER_REVISION,
+                "expected_parser_revision": cli.EXPECTED_PARSER_REVISION,
+                "timeout_seconds": 60,
+                "debug": False,
+                "command": [
+                    "uv",
+                    "run",
+                    "parser-pdf",
+                    "--file",
+                    f"/old/{document_id}.pdf",
+                    "--mistral",
+                    "--no-ocr",
+                ],
+            },
+            "quality_flags": [],
+            "extracted_text": {
+                "source_document_id": document_id,
+                "extraction_method": "mistral_parser_markdown",
+                "text_sha256": hashlib.sha256(markdown.encode()).hexdigest(),
+                "quality_flags": [],
+            },
+            "source_sha256": digest,
+            "source_byte_count": len(f"{document_id}-source"),
+            "stdout": "",
+            "stderr": "",
+            "error_message": None,
+        }
+        _write_json(markdown_path.with_suffix(".metadata.json"), record)
+        prior_requests.append(request)
+        prior_records.append(record)
+    requests_path = tmp_path / "prior-requests.jsonl"
+    manifest_path = tmp_path / "prior-manifest.jsonl"
+    _write_jsonl(requests_path, prior_requests)
+    _write_jsonl(manifest_path, prior_records)
+    card_path = tmp_path / "prior-card.json"
+    _write_json(
+        card_path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "parse-documents",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "record_count": 2,
+            "source_commitments": {
+                "requests": {
+                    "path": str(requests_path),
+                    "sha256": cli._bytes_sha256(requests_path.read_bytes()),
+                }
+            },
+            "output_commitments": {
+                "parser_manifest": {
+                    "path": str(manifest_path),
+                    "sha256": cli._bytes_sha256(manifest_path.read_bytes()),
+                }
+            },
+            "parser_execution": {
+                "mode": "live_mistral",
+                "engine": "mistral",
+                "parser_revision": cli.EXPECTED_PARSER_REVISION,
+                "fixture_markdown": False,
+            },
+        },
+    )
+    output_root = tmp_path / "out"
+    kept = cli.MistralMarkdownConversionRequest(
+        "cand",
+        "kept",
+        tmp_path / "relocated-kept.pdf",
+        output_root / "markdown" / "cand" / "kept.md",
+        digest_by_document["kept"],
+        len("kept-source"),
+    )
+    new_digest = hashlib.sha256(b"new-source").hexdigest()
+    new = cli.MistralMarkdownConversionRequest(
+        "cand",
+        "new",
+        tmp_path / "new.pdf",
+        output_root / "markdown" / "cand" / "new.md",
+        new_digest,
+        len("new-source"),
+    )
+
+    plan = cli._reuse_live_mistral_parse_outputs(
+        prior_run_card_path=card_path,
+        prior_markdown_root=prior_root,
+        requests=(new, kept),
+        output_root=output_root,
+    )
+
+    assert plan.gaps == (new,)
+    assert len(plan.records_by_key) == 1
+    assert plan.source["prior_record_count"] == 2
+    assert plan.source["reused_record_count"] == 1
+    assert plan.source["parsed_gap_count"] == 1
+    assert kept.markdown_output_path.read_text(encoding="utf-8") == "# kept\n"
+
+    (prior_root / "cand" / "dropped.md").write_text(
+        "tampered dropped row", encoding="utf-8"
+    )
+    second_output = tmp_path / "second-out"
+    with pytest.raises(cli.CommandError):
+        cli._reuse_live_mistral_parse_outputs(
+            prior_run_card_path=card_path,
+            prior_markdown_root=prior_root,
+            requests=(new, kept),
+            output_root=second_output,
+        )
+    assert not second_output.exists()
 
 
 @pytest.mark.parametrize(
