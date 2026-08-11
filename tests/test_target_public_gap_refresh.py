@@ -1376,6 +1376,7 @@ def test_execute_cli_loads_and_passes_packet_role_replay(
         cli._cmd_acquisition_execute_target_public_gaps(args)  # pyright: ignore[reportPrivateUsage]
 
     assert captured["role_adjudications"] is role_adjudications
+    assert captured["reuse_authenticated_evidence"] is True
     refresh = cast(target_gap_module.TargetPublicGapRefreshResult, captured["refresh"])
     assert {transition["source_document_id"] for transition in refresh.transitions} == {
         "mtd-old",

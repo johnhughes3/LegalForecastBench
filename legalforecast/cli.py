@@ -23117,6 +23117,7 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                 role_adjudications=role_adjudications,
                 packet_role_replay=packet_role_replay,
                 execution_binding=binding,
+                reuse_authenticated_evidence=True,
             )
             binding.require_current(plan)
             with bind_verified_target_public_gap_downloads(
@@ -23124,6 +23125,13 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                 requests=execution.refresh.download_requests,
                 downloads=execution.downloads,
             ):
+                # The initial preflight above authenticated the source closure
+                # and pinned writable namespaces for this invocation.  Recheck
+                # both exact bindings immediately before any terminal bytes are
+                # published; intermediate execute phases only consume that
+                # in-process evidence.
+                binding.require_current(plan)
+                require_target_public_gap_sources_unchanged(plan)
                 payloads = _target_public_gap_terminal_payloads(
                     plan=plan,
                     plan_path=cast(Path, args.plan),
@@ -23140,7 +23148,6 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                     execution_binding=binding,
                 )
             binding.require_current(plan)
-            require_target_public_gap_sources_unchanged(plan)
     except (
         CycleAcquisitionStoreError,
         FirecrawlError,

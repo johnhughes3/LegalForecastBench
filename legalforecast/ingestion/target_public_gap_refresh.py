@@ -1407,8 +1407,17 @@ def execute_target_public_gap_refresh(
     role_adjudications: VerifiedPacketRoleAdjudications | None = None,
     packet_role_replay: Mapping[str, object] | None = None,
     execution_binding: TargetPublicGapExecutionBinding | None = None,
+    reuse_authenticated_evidence: bool = False,
 ) -> TargetPublicGapExecutionResult:
-    """Execute after exact authority through the canonical acquisition stages."""
+    """Execute after exact authority through the canonical acquisition stages.
+
+    ``reuse_authenticated_evidence`` is deliberately invocation-local: its
+    caller has already run the source-closure and writable-namespace checks,
+    and supplies the pinned execution binding created from that check.  The
+    normal public API keeps revalidating at every phase; the CLI uses the
+    narrower mode only while retaining a final source and binding recheck
+    immediately before terminal publication.
+    """
 
     if _SHA256.fullmatch(expected_plan_sha256) is None:
         raise TargetPublicGapRefreshError("plan SHA-256 is invalid")
@@ -1417,13 +1426,18 @@ def execute_target_public_gap_refresh(
         != expected_plan_sha256
     ):
         raise TargetPublicGapRefreshError("plan SHA-256 mismatch")
-    preflight_target_public_gap_execution(
-        plan,
-        expected_plan_sha256=expected_plan_sha256,
-        packet_role_replay=packet_role_replay,
-    )
-    require_target_public_gap_sources_unchanged(plan)
+    if not reuse_authenticated_evidence:
+        preflight_target_public_gap_execution(
+            plan,
+            expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
+        )
+        require_target_public_gap_sources_unchanged(plan)
     if execution_binding is None:
+        if reuse_authenticated_evidence:
+            raise TargetPublicGapRefreshError(
+                "reused target public-gap evidence requires an execution binding"
+            )
         with bind_target_public_gap_execution(plan) as binding:
             return execute_target_public_gap_refresh(
                 plan=plan,
@@ -1434,14 +1448,16 @@ def execute_target_public_gap_refresh(
                 role_adjudications=role_adjudications,
                 packet_role_replay=packet_role_replay,
                 execution_binding=binding,
+                reuse_authenticated_evidence=reuse_authenticated_evidence,
             )
     execution_binding.require_current(plan)
-    preflight_target_public_gap_execution(
-        plan,
-        expected_plan_sha256=expected_plan_sha256,
-        packet_role_replay=packet_role_replay,
-    )
-    require_target_public_gap_sources_unchanged(plan)
+    if not reuse_authenticated_evidence:
+        preflight_target_public_gap_execution(
+            plan,
+            expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
+        )
+        require_target_public_gap_sources_unchanged(plan)
     if plan.execution_identity.output_root.exists():
         raise TargetPublicGapRefreshError(
             "target public-gap execution is already completed; refusing "
@@ -1450,7 +1466,8 @@ def execute_target_public_gap_refresh(
     identity = execution_binding.runtime_identity
     firecrawl_source = firecrawl_source_factory()
     execution_binding.require_current(plan)
-    require_target_public_gap_sources_unchanged(plan)
+    if not reuse_authenticated_evidence:
+        require_target_public_gap_sources_unchanged(plan)
     if (
         firecrawl_source.config.proxy != identity.firecrawl_proxy
         or firecrawl_source.config.force_browser != identity.force_browser
@@ -1507,13 +1524,15 @@ def execute_target_public_gap_refresh(
                 firecrawl_source.config.max_credits_per_scrape
             ),
         )
-        preflight_target_public_gap_execution(
-            plan,
-            expected_plan_sha256=expected_plan_sha256,
-            packet_role_replay=packet_role_replay,
-        )
+        if not reuse_authenticated_evidence:
+            preflight_target_public_gap_execution(
+                plan,
+                expected_plan_sha256=expected_plan_sha256,
+                packet_role_replay=packet_role_replay,
+            )
         execution_binding.require_current(plan)
-        require_target_public_gap_sources_unchanged(plan)
+        if not reuse_authenticated_evidence:
+            require_target_public_gap_sources_unchanged(plan)
         refresh = refresh_target_public_gaps(
             plan=plan,
             role_adjudications=role_adjudications,
@@ -1552,7 +1571,8 @@ def execute_target_public_gap_refresh(
         outcomes=typed_outcomes,
     )
     execution_binding.require_current(plan)
-    require_target_public_gap_sources_unchanged(plan)
+    if not reuse_authenticated_evidence:
+        require_target_public_gap_sources_unchanged(plan)
     return TargetPublicGapExecutionResult(
         refresh=refresh,
         downloads=typed_downloads,
