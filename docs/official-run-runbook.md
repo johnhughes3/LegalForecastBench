@@ -837,11 +837,12 @@ Do not treat the distributed-authority path as runnable merely because this code
 
 ### Reviewed provider-authority infrastructure path
 
-Use `.github/workflows/official-provider-authority-infra.yaml` for both `infra/provider-authority` and `infra/official-labeling`.
+Use `.github/workflows/official-provider-authority-infra.yaml` for `infra/provider-authority`, `infra/official-labeling`, and `infra/official-eval`.
 This is a nonblocking distributed-authority and later-evaluation path; it is not a prerequisite for the canonical Cycle 1 local-journal acquisition stages.
-It has separate `plan` and `apply` operations, accepts only an exact current `main` release, uses an externally bootstrapped OIDC operator role, and keeps Terraform state in an externally bootstrapped S3 backend encrypted by the configured KMS key.
+It has separately authorized `import`, `plan`, and `apply` operations, accepts only an exact current `main` release, uses an externally bootstrapped OIDC operator role, and keeps Terraform state in an externally bootstrapped S3 backend encrypted by one immutable KMS key ARN with native S3 locking.
+The import operation accepts one closed Terraform address and only public SHA-256 commitments; it derives the raw import ID from fixed reviewed names or protected environment variables, verifies an exact one-to-one address/ID binding within each Terraform resource type before and after any mutation, and publishes only a redacted receipt with state-snapshot commitments.
 The plan operation rejects destructive actions and any managed resource outside the selected module's closed address allowlist, uploads only an age-encrypted saved plan plus a public-safe action-and-digest receipt, and clears temporary AWS credentials before upload.
-The apply operation requires the exact successful plan run ID and attempt, canonical artifact name, GitHub artifact digest, plaintext plan digest, module, and release.
+The apply operation requires the exact successful plan run ID and attempt, canonical artifact name, GitHub artifact digest, plaintext plan digest, module, and release, then returns Terraform outputs only as an age-encrypted protected handoff.
 It rechecks hash commitments to the operator role, remote backend coordinates, and Terraform inputs before decrypting and applying that exact plan.
 
 This workflow deliberately cannot bootstrap its own authority.
@@ -864,12 +865,57 @@ That environment contains the one secret `LFB_INFRA_PLAN_AGE_IDENTITY` and only 
 - `LFB_GITHUB_OIDC_PROVIDER_ARN`
 - `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256`
 - `LFB_PROVIDER_AUTHORITY_TABLE_ARN`
+- `LFB_PACKET_BUCKET`
+- `LFB_RESULTS_BUCKET`
 
-It contains no provider key, baton identity, AWS access key, evaluation role, packet or result bucket, freeze authority, or dispatch credential.
+It contains no provider key, baton identity, AWS access key, evaluation role, freeze authority, or dispatch credential.
+The packet and result bucket variables are exact protected Terraform inputs, not credentials; the workflow commits to them without publishing their names.
 The exact provider-authority table must already be represented in that remote state through a reviewed import if it exists.
 Secure-gate must separately allow only the required infrastructure and evaluation environment names, variable names, and secret names in `infra/official-eval/github-environments.json`.
 The paid-labeling environments remain governed separately by `infra/official-labeling/github-environments.json`.
 Do not add AWS access keys, provider keys, environment-creation API calls, state-backend creation, IAM self-bootstrap, evaluation, freeze, or workflow-dispatch authority to this path.
+
+Before the first plan for a pre-existing resource, inventory it against the selected root and separately approve one exact import.
+Keep the raw import ID on the trusted operator machine, compute its lowercase SHA-256, and compute the authorization commitment over this canonical request:
+First compute and independently review the same operator-role, remote-backend, and Terraform-input identity commitments that the workflow records; changing any one requires a new import authorization.
+
+```bash
+import_id_sha256="$(printf '%s' "$protected_import_id" | sha256sum | cut -d' ' -f1)"
+import_authorization_sha256="$(
+  jq -cnS \
+    --arg address "$import_address" \
+    --arg import_id_sha256 "$import_id_sha256" \
+    --arg module "$module" \
+    --arg operator_role_identity_sha256 "$operator_role_identity_sha256" \
+    --arg release_sha "$release_sha" \
+    --arg state_backend_identity_sha256 "$state_backend_identity_sha256" \
+    --arg terraform_input_identity_sha256 "$terraform_input_identity_sha256" '{
+      address:$address,
+      import_id_sha256:$import_id_sha256,
+      module:$module,
+      operator_role_identity_sha256:$operator_role_identity_sha256,
+      release_sha:$release_sha,
+      schema_version:"legalforecast.provider_authority_infra_import_request.v1",
+      state_backend_identity_sha256:$state_backend_identity_sha256,
+      terraform_input_identity_sha256:$terraform_input_identity_sha256
+    }' | tr -d '\n' | sha256sum | cut -d' ' -f1
+)"
+gh workflow run official-provider-authority-infra.yaml \
+  --ref main \
+  -f operation=import \
+  -f module="$module" \
+  -f release_sha="$release_sha" \
+  -f import_address="$import_address" \
+  -f import_id_sha256="$import_id_sha256" \
+  -f import_authorization_sha256="$import_authorization_sha256" \
+  -f import_operator_role_identity_sha256="$operator_role_identity_sha256" \
+  -f import_state_backend_identity_sha256="$state_backend_identity_sha256" \
+  -f import_terraform_input_identity_sha256="$terraform_input_identity_sha256"
+```
+
+The request commitment must be approved independently through the protected environment; knowing or computing it does not itself grant AWS authority.
+Never place the raw import ID in workflow-dispatch inputs, issue text, receipts, or public logs.
+If the import command mutates remote state but later verification fails, the workflow uploads a redacted recovery receipt recording the authorized pending import and exact run; retry the same authorization to verify the now-present binding and produce the final `already_present` receipt.
 
 Dispatch a plan from the exact current main release:
 
@@ -915,13 +961,15 @@ terraform -chdir="$review_dir/repository/infra/provider-authority" show -no-colo
   > "$review_dir/provider-authority-plan.txt"
 ```
 
-Use `infra/official-labeling` as `-chdir` when reviewing that module.
+Use `infra/official-labeling` or `infra/official-eval` as `-chdir` when reviewing those modules.
 Inspect the protected text output for every action, resource, account, and value; do not publish the decrypted plan, text rendering, or age identity.
 After review, remove the registered checkout with `git worktree remove "$review_dir/repository"` and then remove the remaining protected temporary files.
 The public receipt remains useful for confirming the exact release, module, plan SHA-256, closed resource-action summary, and operator/backend/input identity commitments, but it is not a substitute for this review.
+The receipt also binds the age-recipient commitment; apply refuses recipient drift, and the apply receipt commits both plaintext and encrypted Terraform-output digests without publishing either plaintext output or its protected values.
 A plan dispatch does not authorize apply.
 Only after the exact plan receives separate owner approval may an operator dispatch `operation=apply` with all five plan-provenance inputs.
-Repeat the sequence for `module=official-labeling`; never reuse a plan across modules, releases, attempts, backends, operator roles, or Terraform inputs.
+Repeat the sequence for `module=official-labeling` or `module=official-eval`; never reuse a plan across modules, releases, attempts, backends, operator roles, or Terraform inputs.
+For an apply, decrypt `terraform-output.json.age` only on the trusted operator machine and route the reviewed values through the protected environment-configuration path; never publish its plaintext.
 
 ### Protected distributed paid-labeling authority
 
