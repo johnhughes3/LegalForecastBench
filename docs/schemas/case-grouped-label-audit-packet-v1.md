@@ -1,0 +1,13 @@
+# Case-grouped label-audit packet v1
+
+`legalforecast.case_grouped_label_audit_packet.v1` is a deterministic, observational attorney-facing view of the canonical per-review `legalforecast.lawyer_review_queue.v1` label-audit rows. It presents one disposition per case and preserves one independently answerable review item for every sampled prediction unit. The packet does not replace the queue, change sampling, authorize adjudication, or become an input to label application; the per-review queue rows, review IDs, unit IDs, blinded fields, and reviewer responses remain authoritative.
+
+The top-level object contains exactly `schema_version` and `cases`. `schema_version` is the identifier above. `cases` is ordered lexicographically by `case_id` and contains one object per case with exactly `case_id`, `candidate_id`, `disposition_evidence`, and `review_items`. `candidate_id` is the one canonical candidate identity shared by every queue row in that case.
+
+`disposition_evidence` copies the single queue-packet material whose `is_decision_material` value is `true`, except that its unit-scoped `material_id` is normalized to `<case_id>:first-written-disposition`. Every label-audit row for the case must carry exactly one such material and all normalized evidence objects must be equal. Conflicting evidence fails closed instead of selecting one version.
+
+`review_items` is ordered lexicographically by `review_id`. Each item contains `review_id`, `candidate_id`, `unit_id`, `audience`, `blind_reliability_study`, `review_reason`, and `materials`. `materials` preserves the source order of every non-decision material from that review's canonical packet. Decision material is omitted from each review item because the equal value already appears once at case level.
+
+The renderer accepts only rows whose `route_reason` is `label_audit_sample`, requires every row's packet-level `candidate_id`, `review_id`, and `unit_id` to equal its queue-level identities, and requires exactly one candidate per case. Missing or mismatched identities, mixed candidates, missing or duplicate disposition evidence, and cross-case evidence disagreement fail closed.
+
+The ordinary `plan-label-audit` producer derives this packet from the newly planned audit queue, while the canonical merged lawyer-review queue remains unchanged. The packet is written as UTF-8 JSON with keys sorted lexicographically, two-space indentation, non-finite numbers rejected, and one trailing newline. Case and review-item ordering above makes the bytes deterministic for the same ordered queue content. The completion run card may commit those bytes as an output, but that commitment authenticates the observational rendering only; it does not elevate the packet over the canonical per-review queue.

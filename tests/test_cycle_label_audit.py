@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from legalforecast import cli
 from legalforecast.cli import main
+from legalforecast.contracts.schemas import CYCLE_GROUPED_LABEL_AUDIT_PACKET_V1
 from legalforecast.labeling import llm_pipeline
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
@@ -262,6 +263,19 @@ def test_case_grouped_packet_deduplicates_disposition_without_mutating_queue() -
         all(material["kind"] != "decision_excerpt" for material in item["materials"])
         for item in grant_case["review_items"]
     )
+
+
+def test_case_grouped_packet_schema_has_versioned_contract() -> None:
+    _, _, queue = _fixture_plan(_policy())
+
+    packet = render_case_grouped_label_audit_packet(queue)
+    schema_version = str(CYCLE_GROUPED_LABEL_AUDIT_PACKET_V1)
+    contract = Path("docs/schemas/case-grouped-label-audit-packet-v1.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert packet["schema_version"] == schema_version
+    assert f"`{schema_version}`" in contract
 
 
 def test_case_grouped_packet_rejects_cross_case_disposition_leakage() -> None:
