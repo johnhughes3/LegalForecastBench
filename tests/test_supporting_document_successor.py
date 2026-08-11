@@ -399,14 +399,69 @@ def test_successor_executor_writes_replays_and_detects_tamper(
     assert outer is verified
     assert recovery_selection_path == projection["selection_path"]
     assert recovery_selection == list(projection["selection_records"])  # type: ignore[arg-type]
+    recovery_projection = {
+        **projection,
+        "selection_records": [
+            dict(row)
+            for row in projection["selection_records"]  # type: ignore[union-attr]
+        ],
+    }
     assert (
         legalforecast_cli._select_materializer_projection_after_recovery(
             outer_projection=outer,
-            recovery_projection=projection,
+            recovery_projection=recovery_projection,
             recovery_selection=recovery_selection,
         )
         is verified
     )
+    assert recovery_projection is not verified
+    with pytest.raises(
+        legalforecast_cli.CommandError,
+        match="recovery projection selection differs",
+    ):
+        legalforecast_cli._select_materializer_projection_after_recovery(
+            outer_projection=outer,
+            recovery_projection={**recovery_projection, "selection_records": []},
+            recovery_selection=recovery_selection,
+        )
+    with pytest.raises(
+        legalforecast_cli.CommandError,
+        match="supporting-document successor base selection differs",
+    ):
+        legalforecast_cli._select_materializer_projection_after_recovery(
+            outer_projection={
+                **verified,
+                "base_v2_projection": {
+                    **projection,
+                    "selection_records": [],
+                },
+            },
+            recovery_projection=recovery_projection,
+            recovery_selection=recovery_selection,
+        )
+    monkeypatch.setattr(
+        legalforecast_cli,
+        "_verify_materializer_projection",
+        lambda **_kwargs: {
+            **verified,
+            "base_v2_projection": {
+                **projection,
+                "selection_records": [*recovery_selection, "not-an-object"],
+            },
+        },
+    )
+    with pytest.raises(
+        legalforecast_cli.CommandError,
+        match="base selection must contain only objects",
+    ):
+        legalforecast_cli._materializer_consolidated_target_inputs(
+            target_root=output,
+            free_clearance_path=output / "disclosure-clearance.jsonl",
+            preparation_summary_path=tmp_path / "preparation-summary.json",
+            preparation_config_path=tmp_path / "preparation-config.json",
+            snapshot_manifest_path=tmp_path / "snapshot.json",
+            expected_target_count=100,
+        )
     sources = legalforecast_cli._materializer_successor_v2_free_sources(
         verified,
         preparation_root=tmp_path / "preparation",
