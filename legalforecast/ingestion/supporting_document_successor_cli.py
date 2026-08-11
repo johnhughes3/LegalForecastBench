@@ -17,6 +17,10 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import (
+    DISCLOSURE_CLEARANCE_V1,
+    SUPPORTING_DOCUMENT_RESTRICTION_EVIDENCE_V1,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.disclosure_clearance import scan_disclosure_document
 from legalforecast.ingestion.free_document_downloader import (
@@ -522,7 +526,7 @@ def _addition_records(
     if scan.automated_markers or scan.coverage_status != "complete":
         raise SupportingDocumentSuccessorCliError("support memorandum is not cleared")
     clearance: dict[str, object] = {
-        "schema_version": "legalforecast.disclosure_clearance.v1",
+        "schema_version": str(DISCLOSURE_CLEARANCE_V1),
         "candidate_id": SUPPORT_CANDIDATE_ID,
         "source_document_id": SUPPORT_DOCUMENT_ID,
         "document_role": SUPPORT_DOCUMENT_ROLE,
@@ -545,7 +549,7 @@ def _addition_records(
         ),
     }
     restriction: dict[str, object] = {
-        "schema_version": "legalforecast.supporting_document_restriction_evidence.v1",
+        "schema_version": str(SUPPORTING_DOCUMENT_RESTRICTION_EVIDENCE_V1),
         "candidate_id": SUPPORT_CANDIDATE_ID,
         "source_document_id": SUPPORT_DOCUMENT_ID,
         "document_role": SUPPORT_DOCUMENT_ROLE,
