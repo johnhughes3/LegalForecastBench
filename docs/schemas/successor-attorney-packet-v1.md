@@ -1,0 +1,11 @@
+# Successor attorney packet v1
+
+`legalforecast.successor_attorney_packet_manifest.v1` is a provider-free private manifest that binds the exact bytes of a frozen `legalforecast.unitization_review_bundle.v1` bundle and its `legalforecast.unitization_review_queue.v2` sidecar.
+
+The v1 bundle is the sole adjudication authority. The v2 queue is observational, and this packet neither changes the frozen bundle nor creates a new adjudication path.
+
+The manifest records each input's schema version, byte count, SHA-256 digest, and record count. JSONL parsing rejects duplicate object keys. It also proves exact-once coverage: every v1 bundle `review_id` occurs in precisely one v2 `source_review_ids` relation, with the same candidate, case, and unit identity. An unknown, duplicated, cross-candidate, or absent ID fails construction.
+
+`legalforecast.successor_attorney_packet_view.v1` groups the authenticated v1 bundle records by candidate and places the v2 projection in a separately labelled `observational_v2` section. Candidate-subject v2 items must exactly match the closed terminal-reconstruction technical reason, have empty authoritative actions, and carry an escalation digest plus attempt provenance in their observational v2 bytes. Terminal-evidence IDs must resolve to preserved v1 review IDs with the same candidate, case, and unit linkage. They may name a substantive v1 route: coalesced terminal evidence is deliberately stripped from the frozen v1 bundle. The terminal classification and digest are therefore observational v2 facts, never v1 authority. Their `affected_unit_ids` must exactly equal the evidence-backed v1 unit set. Safe parsed-flag suggestions use the producer's exact five-field shape, are explicitly `authoritative: false`, and name only nonempty unique affected units from that terminal cohort; they are never candidate adjudication actions. At most one terminal technical item may appear for a candidate, so repeated per-unit terminal evidence is displayed once without inventing a candidate adjudication action.
+
+This module is intentionally local and provider-free. It does not perform provider calls, retrieval, purchases, evaluation, freezes, dispatch, or publication.
