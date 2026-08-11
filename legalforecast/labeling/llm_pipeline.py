@@ -3823,6 +3823,14 @@ def _stage_a_seed(
         if forbidden_scope_fields.intersection(record):
             raise LlmPipelineError("v4 Stage A seed must use the tagged scope object")
         raw_scope = record.get("scope")
+        if isinstance(raw_scope, list):
+            scope_options = cast(list[object], raw_scope)
+            # The frozen v4 prompt presents the tagged scope alternatives as an
+            # array in its illustrative output schema.  Providers therefore may
+            # return the selected alternative as a singleton array.  Normalize
+            # only that exact shape; the canonical seed remains one tagged object.
+            if len(scope_options) == 1 and isinstance(scope_options[0], Mapping):
+                raw_scope = cast(Mapping[str, Any], scope_options[0])
         if not isinstance(raw_scope, Mapping):
             raise LlmPipelineError("scope must be an object")
         scope = cast(Mapping[str, Any], raw_scope)
