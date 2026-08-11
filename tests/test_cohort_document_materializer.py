@@ -2232,6 +2232,37 @@ def test_materializer_accepts_exact_free_only_source(tmp_path: Path) -> None:
     assert [row["free_or_purchased"] for row in prepared.manifest] == ["free"]
 
 
+def test_materializer_reuses_clearance_file_evidence_without_source_reinspection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    free, free_key = _source(
+        tmp_path,
+        phase="free",
+        candidate_id="candidate-1",
+        document_id="complaint-1",
+    )
+
+    monkeypatch.setattr(
+        materializer_module,
+        "_inspect_source_file",
+        lambda *_args, **_kwargs: pytest.fail(
+            "source was re-inspected after clearance"
+        ),
+    )
+
+    prepared = prepare_cohort_document_materialization(
+        (free,),
+        selected_document_keys={free_key},
+        output_root=tmp_path / "output",
+    )
+
+    [document] = prepared.documents
+    source_stat = document.source.stat()
+    assert document.source_device == source_stat.st_dev
+    assert document.source_inode == source_stat.st_ino
+
+
 def test_materializer_accepts_consecutive_free_sources_and_sums_counts(
     tmp_path: Path,
 ) -> None:
