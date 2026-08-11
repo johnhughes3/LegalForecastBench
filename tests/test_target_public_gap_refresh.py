@@ -43,6 +43,7 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     TargetPublicGapExecutionResult,
     TargetPublicGapPlan,
     _execute_target_public_gap_refresh,  # pyright: ignore[reportPrivateUsage]
+    _prevalidate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     _validate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     bind_target_public_gap_execution,
     download_target_public_gap_requests,
@@ -1111,6 +1112,72 @@ def test_provider_factories_are_after_final_preflight(tmp_path: Path) -> None:
     assert constructed == []
 
 
+def test_prevalidation_rejects_overlap_without_creating_writable_directories(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "target"
+    raw_root = root / "would-create-raw"
+    document_root = tmp_path / "would-create-documents"
+    plan = _single_case_plan(
+        root,
+        execution_identity=TargetPublicGapExecutionIdentity(
+            output_root=tmp_path / "would-create-output",
+            cycle_store_path=tmp_path / "would-create-work/cycle.sqlite3",
+            raw_html_root=raw_root,
+            document_output_root=document_root,
+            batch_id="target-public-gaps",
+            run_id="target-public-gaps-001",
+            firecrawl_mode="fixture",
+            document_mode="fixture",
+            firecrawl_proxy="basic",
+            force_browser=False,
+            max_attempts_per_page=3,
+            provider_breaker_threshold=5,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="overlaps authenticated source"):
+        _prevalidate_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=_plan_sha256(plan),
+            packet_role_replay=None,
+        )
+
+    assert not raw_root.exists()
+    assert not document_root.exists()
+    assert not plan.execution_identity.cycle_store_path.parent.exists()
+
+
+def test_bound_validation_rejects_cycle_store_alias_created_after_prevalidation(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "target"
+    plan = _single_case_plan(root)
+    for path, payload in _verified_projection_bytes(root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    prevalidated = _prevalidate_target_public_gap_execution(
+        plan=plan,
+        expected_plan_sha256=_plan_sha256(plan),
+        packet_role_replay=None,
+    )
+    source = Path(next(iter(plan.source_artifact_commitments)))
+
+    with bind_target_public_gap_execution(plan) as binding:
+        plan.execution_identity.cycle_store_path.hardlink_to(source)
+        with pytest.raises(ValueError, match=r"singly linked|aliases"):
+            _validate_target_public_gap_execution(
+                plan=plan,
+                expected_plan_sha256=_plan_sha256(plan),
+                packet_role_replay=None,
+                execution_binding=binding,
+                prevalidated_execution=prevalidated,
+            )
+
+    assert source.read_bytes() == _verified_projection_bytes(root)[str(source)]
+
+
 def test_execution_rejects_plan_digest_mismatch_before_provider_construction(
     tmp_path: Path,
 ) -> None:
@@ -1156,9 +1223,6 @@ def test_reused_evidence_rechecks_source_after_provider_construction(
         source = Path(path)
         source.parent.mkdir(parents=True, exist_ok=True)
         source.write_bytes(payload)
-    with CycleAcquisitionStore(plan.execution_identity.cycle_store_path) as store:
-        cycle_hash = store.ensure_cycle({"anchor": "2026-06-30T00:00:00Z"})
-    plan = replace(plan, target_cycle_hash=cycle_hash)
     constructed: list[str] = []
 
     def construct_firecrawl() -> FirecrawlCourtListenerHTMLSource:
@@ -1171,12 +1235,18 @@ def test_reused_evidence_rechecks_source_after_provider_construction(
             transport=cast(Any, object()),
         )
 
+    prevalidated = _prevalidate_target_public_gap_execution(
+        plan=plan,
+        expected_plan_sha256=_plan_sha256(plan),
+        packet_role_replay=None,
+    )
     with bind_target_public_gap_execution(plan) as binding:
         evidence = _validate_target_public_gap_execution(
             plan=plan,
             expected_plan_sha256=_plan_sha256(plan),
             packet_role_replay=None,
             execution_binding=binding,
+            prevalidated_execution=prevalidated,
         )
         with pytest.raises(ValueError, match="target source artifact changed"):
             _execute_target_public_gap_refresh(
@@ -1189,6 +1259,7 @@ def test_reused_evidence_rechecks_source_after_provider_construction(
             )
 
     assert constructed == ["firecrawl"]
+    assert not plan.execution_identity.cycle_store_path.exists()
 
 
 def test_reused_evidence_only_avoids_duplicate_pure_validation(
@@ -1226,12 +1297,18 @@ def test_reused_evidence_only_avoids_duplicate_pure_validation(
         count_source_check,
     )
 
+    prevalidated = _prevalidate_target_public_gap_execution(
+        plan=plan,
+        expected_plan_sha256=_plan_sha256(plan),
+        packet_role_replay=None,
+    )
     with bind_target_public_gap_execution(plan) as binding:
         evidence = _validate_target_public_gap_execution(
             plan=plan,
             expected_plan_sha256=_plan_sha256(plan),
             packet_role_replay=None,
             execution_binding=binding,
+            prevalidated_execution=prevalidated,
         )
         with pytest.raises(ValueError, match="Firecrawl source configuration differs"):
             _execute_target_public_gap_refresh(
@@ -1248,10 +1325,10 @@ def test_reused_evidence_only_avoids_duplicate_pure_validation(
                 validated_execution=evidence,
             )
 
-    assert calls == {"preflight": 1, "source": 1}
+    assert calls == {"preflight": 2, "source": 3}
 
 
-def test_reused_evidence_success_path_keeps_three_source_and_two_namespace_checks(
+def test_reused_evidence_success_path_keeps_six_source_and_three_namespace_checks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1295,12 +1372,18 @@ def test_reused_evidence_success_path_keeps_three_source_and_two_namespace_check
         lambda **_: _Scheduler({("70000000", 1): html}),
     )
 
+    prevalidated = _prevalidate_target_public_gap_execution(
+        plan=plan,
+        expected_plan_sha256=plan_sha256,
+        packet_role_replay=None,
+    )
     with bind_target_public_gap_execution(plan) as binding:
         evidence = _validate_target_public_gap_execution(
             plan=plan,
             expected_plan_sha256=plan_sha256,
             packet_role_replay=None,
             execution_binding=binding,
+            prevalidated_execution=prevalidated,
         )
         execution = _execute_target_public_gap_refresh(
             plan=plan,
@@ -1342,8 +1425,10 @@ def test_reused_evidence_success_path_keeps_three_source_and_two_namespace_check
                 payloads=payloads,
                 execution_binding=binding,
             )
+        binding.require_current(plan)
+        require_target_public_gap_sources_unchanged(plan)
 
-    assert calls == {"preflight": 2, "source": 3}
+    assert calls == {"preflight": 3, "source": 5}
     assert (
         plan.execution_identity.output_root / "target-public-gap-outcomes.jsonl"
     ).read_bytes() == payloads["target-public-gap-outcomes.jsonl"]
@@ -1388,12 +1473,18 @@ def test_reused_evidence_rechecks_after_store_setup_before_scheduler(
     )
     plan_sha256 = _plan_sha256(plan)
 
+    prevalidated = _prevalidate_target_public_gap_execution(
+        plan=plan,
+        expected_plan_sha256=plan_sha256,
+        packet_role_replay=None,
+    )
     with bind_target_public_gap_execution(plan) as binding:
         evidence = _validate_target_public_gap_execution(
             plan=plan,
             expected_plan_sha256=plan_sha256,
             packet_role_replay=None,
             execution_binding=binding,
+            prevalidated_execution=prevalidated,
         )
         with pytest.raises(ValueError, match="target source artifact changed"):
             _execute_target_public_gap_refresh(
@@ -1584,6 +1675,120 @@ def test_execute_mode_validation_precedes_any_plan_or_output_write(
     assert not output_root.exists()
 
 
+def _execute_target_gap_args(tmp_path: Path) -> argparse.Namespace:
+    return argparse.Namespace(
+        firecrawl_fixture=tmp_path / "firecrawl.jsonl",
+        live_firecrawl=False,
+        fixture_documents=tmp_path / "documents.json",
+        live_public_download=False,
+        firecrawl_mode="fixture",
+        document_mode="fixture",
+        workers=1,
+        output_root=tmp_path / "output",
+        target_cohort_root=tmp_path / "target",
+        expected_target_run_card_sha256="1" * 64,
+        cycle_store=tmp_path / "cycle.sqlite3",
+        batch_id="batch",
+        run_id="run",
+        fresh_credit_cap=500,
+        max_pages_per_docket=10,
+        max_attempts_per_page=3,
+        provider_breaker_threshold=5,
+        proxy="basic",
+        force_browser=False,
+        plan=tmp_path / "plan.json",
+        expected_plan_sha256="2" * 64,
+        raw_html_dir=tmp_path / "raw",
+        document_output_root=tmp_path / "documents",
+        resume=False,
+        packet_role_adjudications=None,
+        expected_packet_role_adjudications_sha256=None,
+        authenticated_packet_role_evidence=None,
+        expected_authenticated_packet_role_evidence_sha256=None,
+    )
+
+
+def test_execute_cli_rejects_source_drift_before_writable_binding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    for path, payload in _verified_projection_bytes(plan.target_cohort_root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    Path(next(iter(plan.source_artifact_commitments))).write_bytes(
+        b"mutated before execution"
+    )
+    monkeypatch.setattr(cli, "_target_public_gap_plan_from_args", lambda _: plan)
+    monkeypatch.setattr(
+        cli,
+        "_verified_packet_role_adjudications_from_args",
+        lambda _: None,
+    )
+    monkeypatch.setattr(cli, "verify_target_public_gap_plan", lambda *a, **k: None)
+
+    with pytest.raises(cli.CommandError, match="target source artifact changed"):
+        cli._cmd_acquisition_execute_target_public_gaps(  # pyright: ignore[reportPrivateUsage]
+            _execute_target_gap_args(tmp_path)
+        )
+
+    assert not plan.execution_identity.output_root.parent.exists()
+
+
+def test_execute_cli_rechecks_sources_after_terminal_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _single_case_plan(tmp_path / "target")
+    for path, payload in _verified_projection_bytes(plan.target_cohort_root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    published: list[bool] = []
+    execution = argparse.Namespace(
+        refresh=argparse.Namespace(download_requests=()),
+        downloads=(),
+    )
+    monkeypatch.setattr(cli, "_target_public_gap_plan_from_args", lambda _: plan)
+    monkeypatch.setattr(
+        cli,
+        "_verified_packet_role_adjudications_from_args",
+        lambda _: None,
+    )
+    monkeypatch.setattr(cli, "verify_target_public_gap_plan", lambda *a, **k: None)
+    monkeypatch.setattr(
+        cli,
+        "_execute_target_public_gap_refresh",
+        lambda **_: execution,
+    )
+    monkeypatch.setattr(
+        cli,
+        "bind_verified_target_public_gap_downloads",
+        lambda **_: nullcontext(),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_target_public_gap_terminal_payloads",
+        lambda **_: {},
+    )
+
+    def publish_then_mutate(**_: object) -> None:
+        published.append(True)
+        Path(next(iter(plan.source_artifact_commitments))).write_bytes(
+            b"mutated during publication"
+        )
+
+    monkeypatch.setattr(cli, "publish_target_public_gap_outputs", publish_then_mutate)
+
+    with pytest.raises(cli.CommandError, match="target source artifact changed"):
+        cli._cmd_acquisition_execute_target_public_gaps(  # pyright: ignore[reportPrivateUsage]
+            _execute_target_gap_args(tmp_path)
+        )
+
+    assert published == [True]
+
+
 def test_execute_cli_loads_and_passes_packet_role_replay(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1646,10 +1851,21 @@ def test_execute_cli_loads_and_passes_packet_role_replay(
         raise target_gap_module.TargetPublicGapRefreshError("captured replay")
 
     validated_execution = object()
+    prevalidated_execution = object()
+    monkeypatch.setattr(
+        cli,
+        "_prevalidate_target_public_gap_execution",
+        lambda **_: prevalidated_execution,
+    )
+
+    def validate_execution(**kwargs: object) -> object:
+        assert kwargs["prevalidated_execution"] is prevalidated_execution
+        return validated_execution
+
     monkeypatch.setattr(
         cli,
         "_validate_target_public_gap_execution",
-        lambda **_: validated_execution,
+        validate_execution,
     )
     monkeypatch.setattr(cli, "_execute_target_public_gap_refresh", stop_after_capture)
 

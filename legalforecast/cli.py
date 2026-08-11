@@ -930,6 +930,7 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     TargetPublicGapPlan,
     TargetPublicGapRefreshError,
     _execute_target_public_gap_refresh,  # pyright: ignore[reportPrivateUsage]
+    _prevalidate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     _validate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     bind_target_public_gap_execution,
     bind_verified_target_public_gap_downloads,
@@ -23104,12 +23105,18 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
         )
 
     try:
+        prevalidated_execution = _prevalidate_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
+        )
         with bind_target_public_gap_execution(plan) as binding:
             validated_execution = _validate_target_public_gap_execution(
                 plan=plan,
                 expected_plan_sha256=expected_plan_sha256,
                 packet_role_replay=packet_role_replay,
                 execution_binding=binding,
+                prevalidated_execution=prevalidated_execution,
             )
             execution = _execute_target_public_gap_refresh(
                 plan=plan,
@@ -23151,6 +23158,7 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                     execution_binding=binding,
                 )
             binding.require_current(plan)
+            require_target_public_gap_sources_unchanged(plan)
     except (
         CycleAcquisitionStoreError,
         FirecrawlError,

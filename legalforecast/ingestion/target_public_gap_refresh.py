@@ -339,6 +339,15 @@ class TargetPublicGapExecutionBinding:
 
 
 @dataclass(frozen=True, slots=True)
+class _PrevalidatedTargetPublicGapExecution:
+    """Private proof that read-only checks passed before writable binding."""
+
+    plan: TargetPublicGapPlan
+    expected_plan_sha256: str
+    packet_role_replay: Mapping[str, object] | None
+
+
+@dataclass(frozen=True, slots=True)
 class _ValidatedTargetPublicGapExecution:
     """Private, invocation-local hint that avoids duplicate pure reconstruction."""
 
@@ -840,15 +849,45 @@ def preflight_target_public_gap_execution(
                     ) from exc
 
 
+def _prevalidate_target_public_gap_execution(  # pyright: ignore[reportUnusedFunction]
+    *,
+    plan: TargetPublicGapPlan,
+    expected_plan_sha256: str,
+    packet_role_replay: Mapping[str, object] | None,
+) -> _PrevalidatedTargetPublicGapExecution:
+    """Run every read-only check before writable namespaces can be created."""
+
+    preflight_target_public_gap_execution(
+        plan,
+        expected_plan_sha256=expected_plan_sha256,
+        packet_role_replay=packet_role_replay,
+    )
+    require_target_public_gap_sources_unchanged(plan)
+    return _PrevalidatedTargetPublicGapExecution(
+        plan=plan,
+        expected_plan_sha256=expected_plan_sha256,
+        packet_role_replay=packet_role_replay,
+    )
+
+
 def _validate_target_public_gap_execution(  # pyright: ignore[reportUnusedFunction]
     *,
     plan: TargetPublicGapPlan,
     expected_plan_sha256: str,
     packet_role_replay: Mapping[str, object] | None,
     execution_binding: TargetPublicGapExecutionBinding,
+    prevalidated_execution: _PrevalidatedTargetPublicGapExecution,
 ) -> _ValidatedTargetPublicGapExecution:
-    """Create private evidence only after the full source and namespace checks."""
+    """Bind a matching prevalidated source closure to pinned namespaces."""
 
+    if (
+        prevalidated_execution.plan is not plan
+        or prevalidated_execution.expected_plan_sha256 != expected_plan_sha256
+        or prevalidated_execution.packet_role_replay != packet_role_replay
+    ):
+        raise TargetPublicGapRefreshError(
+            "prevalidated target public-gap execution evidence differs"
+        )
     preflight_target_public_gap_execution(
         plan,
         expected_plan_sha256=expected_plan_sha256,
@@ -1530,6 +1569,10 @@ def _execute_target_public_gap_refresh(
         )
     identity = execution_binding.runtime_identity
     firecrawl_source = firecrawl_source_factory()
+    # A source factory is code outside this authority boundary. Recheck before
+    # opening or mutating the durable cycle store.
+    execution_binding.require_current(plan)
+    require_target_public_gap_sources_unchanged(plan)
     if (
         firecrawl_source.config.proxy != identity.firecrawl_proxy
         or firecrawl_source.config.force_browser != identity.force_browser
