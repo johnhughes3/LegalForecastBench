@@ -627,6 +627,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             "providers": [
                 {
                     "provider": "openai",
+                    "account": "primary",
                     "cycle_reservation_cap_usd": "10.00",
                     "external_spend_limit_usd": "20.00",
                     "external_limit_scope": "fixture",
@@ -692,6 +693,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             model_key=registry_entry.registry_key,
             prompt=str(prompt_record["prompt"]),
             model_registry_sha256=registry_sha,
+            account="primary",
         ),
         provider="openai",
         reservation_usd=0.1,
@@ -764,7 +766,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
         },
     )
 
-    commitments, digest = cli._verify_stage_a_provider_replay(
+    commitments, digest, _attempt_rows = cli._verify_stage_a_provider_replay(
         lineage=lineage,
         prediction_units_path=raw_path,
         audit_path=audit_path,
@@ -782,6 +784,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             prompt=str(prompt_record["prompt"]),
             model_registry_sha256=registry_sha,
             prompt_contract="claim-ontology-v2",
+            account="primary",
         ),
         provider="openai",
         reservation_usd=0.1,
@@ -798,12 +801,14 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             raw_output=raw_output,
         )
         journal.commit_reconstruction({"prediction_units": [unit], "review_items": []})
-    successor_commitments, successor_digest = cli._verify_stage_a_provider_replay(
-        lineage=lineage,
-        prediction_units_path=raw_path,
-        audit_path=audit_path,
-        review_queue_path=queue_path,
-        provider_attempt_namespace="claim-ontology-v2",
+    successor_commitments, successor_digest, _successor_rows = (
+        cli._verify_stage_a_provider_replay(
+            lineage=lineage,
+            prediction_units_path=raw_path,
+            audit_path=audit_path,
+            review_queue_path=queue_path,
+            provider_attempt_namespace="claim-ontology-v2",
+        )
     )
     assert successor_commitments == commitments
     assert successor_digest != digest
@@ -823,6 +828,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             prompt=str(v4_prompt_record["prompt"]),
             model_registry_sha256=registry_sha,
             prompt_contract="claim-ontology-v4",
+            account="primary",
         ),
         provider="openai",
         reservation_usd=0.1,
@@ -842,7 +848,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
     v4_audit = json.loads(audit_path.read_text().strip())
     v4_audit["provider_prompt_sha256"] = v4_prompt_record["prompt_sha256"]
     _write_jsonl(audit_path, [v4_audit])
-    v4_commitments, v4_digest = cli._verify_stage_a_provider_replay(
+    v4_commitments, v4_digest, _v4_rows = cli._verify_stage_a_provider_replay(
         lineage=lineage,
         prediction_units_path=raw_path,
         audit_path=audit_path,
@@ -945,6 +951,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             model_key="openai:gpt-other",
             prompt=str(prompt_record["prompt"]),
             model_registry_sha256=registry_sha,
+            account="primary",
         ),
         provider="openai",
         reservation_usd=0.1,

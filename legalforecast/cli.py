@@ -60839,6 +60839,9 @@ def _verify_stage_a_provider_replay(
                     ),
                     model_registry_sha256=lineage.registry_sha256,
                     prompt_contract=contract,
+                    account=lineage.provider_caps.account(
+                        lineage.registry_entry.provider
+                    ),
                 ).logical_call_key
                 for contract in (None, *STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
             }
