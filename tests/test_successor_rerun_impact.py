@@ -1299,7 +1299,9 @@ def _install_successful_cli_fixture(
         document_tree=_relative_tree_bytes(proposal.document_root),
         fresh_ledger_namespace=None,
         docket_decision_authority=None,
-        authenticated_paths=proposed_authenticated_paths,
+        authenticated_paths=cli._authenticated_path_aliases(  # pyright: ignore[reportPrivateUsage]
+            proposed_authenticated_paths
+        ),
         paths=(),
     )
     parser_authentication = SimpleNamespace(

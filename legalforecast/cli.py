@@ -47661,6 +47661,12 @@ class _VerifiedMaterializedDownstreamLineage:
         return iter(self.paths)
 
 
+def _authenticated_path_aliases(paths: Sequence[Path]) -> tuple[Path, ...]:
+    """Keep absolute authenticated path spellings without resolving aliases."""
+
+    return tuple(Path(os.path.abspath(path)) for path in paths)
+
+
 def _downstream_docket_decision_descriptor(
     verified: object,
 ) -> _MaterializerDocketDecisionAuthority | None:
@@ -47941,7 +47947,7 @@ def _verify_materialized_downstream_lineage(
             verified_successor_selection_card=(
                 publication.verified_successor_selection_card
             ),
-            authenticated_paths=tuple(path.resolve() for path in input_paths),
+            authenticated_paths=_authenticated_path_aliases(input_paths),
         )
     if authority_mode is not None:
         raise CommandError("unsupported materialization authority mode")
@@ -48564,7 +48570,7 @@ def _verify_materialized_downstream_lineage(
         verified_successor_selection_card=(
             _verified_successor_selection_card_from_projection(projection)
         ),
-        authenticated_paths=tuple(path.resolve() for path in input_paths),
+        authenticated_paths=_authenticated_path_aliases(input_paths),
     )
 
 
