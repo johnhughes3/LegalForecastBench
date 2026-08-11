@@ -161,6 +161,10 @@ SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V1 = SchemaIdentifier(
 SUCCESSOR_ATTORNEY_PACKET_VIEW_V1 = SchemaIdentifier(
     "legalforecast.successor_attorney_packet_view.v1"
 )
+SUCCESSOR_RERUN_IMPACT_V1 = SchemaIdentifier("legalforecast.successor_rerun_impact.v1")
+SUCCESSOR_RERUN_PROPOSAL_V1 = SchemaIdentifier(
+    "legalforecast.successor_rerun_proposal.v1"
+)
 POST_RECOVERY_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.post_recovery_restriction_evidence.v1"
 )
