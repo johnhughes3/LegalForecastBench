@@ -311,6 +311,7 @@ def plan_successor_rerun_impact(
                 "candidate_id": key[0],
                 "source_document_id": key[1],
                 "markdown_sha256": _required_output_sha256(current, key),
+                # This advisory identity includes the named profile's trailing newline.
                 "parser_reuse_identity_sha256": str(
                     ARTIFACT_RAW_SHA256_V1.commit(
                         _parser_evidence_payload(current.parser_reuse_by_document[key]),

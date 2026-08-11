@@ -16,7 +16,11 @@ from legalforecast.cli import (
     _validate_successor_rerun_commands,  # pyright: ignore[reportPrivateUsage]
     main,
 )
-from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
+from legalforecast.contracts import (
+    ARTIFACT_CANONICAL_JSON_V1,
+    ARTIFACT_RAW_SHA256_V1,
+    SUCCESSOR_RERUN_IMPACT_V1,
+)
 from legalforecast.ingestion.successor_rerun_impact import (
     ADVISORY_WARNING,
     SuccessorRerunImpactError,
@@ -64,6 +68,35 @@ def test_one_document_replacement_reuses_only_fully_authenticated_work(
     assert first.record["affected_candidates"] == ["candidate-b"]
     assert first.record["affected_documents"] == ["candidate-b/document-b"]
     assert first.record["reusable_documents"] == ["candidate-a/document-a"]
+    parser_evidence = current.parser_reuse_by_document[("candidate-a", "document-a")]
+    parser_payload = {
+        "source_key": list(parser_evidence.source_key),
+        "markdown_path": parser_evidence.markdown_path,
+        "metadata_path": parser_evidence.metadata_path,
+        "record_sha256": parser_evidence.record_sha256,
+        "markdown_sha256": parser_evidence.markdown_sha256,
+        "metadata_sha256": parser_evidence.metadata_sha256,
+        "output_markdown_sha256": parser_evidence.output_markdown_sha256,
+    }
+    reusable_parser_outputs = cast(
+        list[dict[str, object]], first.record["reusable_parser_outputs"]
+    )
+    [reusable_parser_output] = reusable_parser_outputs
+    named_digest = str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            parser_payload,
+            domain=SUCCESSOR_RERUN_IMPACT_V1,
+        ).digest
+    )
+    legacy_digest = hashlib.sha256(
+        json.dumps(
+            parser_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    assert reusable_parser_output["parser_reuse_identity_sha256"] == named_digest
+    assert named_digest != legacy_digest
     reusable_calls = cast(
         list[dict[str, object]], first.record["reusable_logical_calls"]
     )
