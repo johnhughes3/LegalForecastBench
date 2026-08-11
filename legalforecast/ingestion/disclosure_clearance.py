@@ -7,6 +7,7 @@ import os
 import re
 import stat
 from collections.abc import Iterable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
@@ -408,7 +409,7 @@ def require_cleared_documents(
                 inode=inode,
                 byte_count=len(data),
                 sha256=digest,
-                authenticated_clearance=MappingProxyType(dict(clearance)),
+                authenticated_clearance=MappingProxyType(deepcopy(dict(clearance))),
             )
         )
     return tuple(evidence)

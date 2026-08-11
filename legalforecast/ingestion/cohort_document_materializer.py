@@ -733,7 +733,13 @@ def _require_matching_clearance_evidence(
 ) -> None:
     """Bind reusable verification evidence to this exact source and clearance row."""
 
-    if evidence.canonical_path != source_path.resolve(strict=True):
+    try:
+        canonical_source_path = source_path.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise CohortDocumentMaterializationError(
+            f"clearance evidence source path is unavailable: {source_path}"
+        ) from exc
+    if evidence.canonical_path != canonical_source_path:
         raise CohortDocumentMaterializationError(
             f"clearance evidence source path differs: {source_path}"
         )

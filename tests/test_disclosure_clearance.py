@@ -391,10 +391,11 @@ def test_clearance_returns_invocation_scoped_exact_file_evidence(
         restriction_records=[_public_evidence()],
     )
 
+    clearance_record = clearance.to_record()
     [evidence] = require_cleared_documents(
         [document],
         document_root=tmp_path,
-        clearance_records=[clearance.to_record()],
+        clearance_records=[clearance_record],
     )
 
     path = tmp_path / str(document["local_path"])
@@ -405,6 +406,11 @@ def test_clearance_returns_invocation_scoped_exact_file_evidence(
     assert evidence.byte_count == len(path.read_bytes())
     assert evidence.sha256 == document["sha256"]
     assert dict(evidence.authenticated_clearance) == clearance.to_record()
+
+    clearance_record["restriction_evidence"].append("later-mutation")  # type: ignore[attr-defined]
+    assert (
+        "later-mutation" not in evidence.authenticated_clearance["restriction_evidence"]
+    )
 
 
 def test_unknown_restriction_and_missing_review_timestamp_fail_closed(
