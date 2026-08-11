@@ -33,6 +33,7 @@ from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVI
 CONFIG_SCHEMA_VERSION = "legalforecast.acquisition_cycle_config.v1"
 RECEIPT_SCHEMA_VERSION = "legalforecast.acquisition_cycle_stage_receipt.v1"
 STATUS_SCHEMA_VERSION = "legalforecast.acquisition_cycle_status.v1"
+_DIRECTORY_OUTPUT_COMMITMENT_SEMANTICS = "directory-tree-sha256-v1"
 
 _STAGE_ID = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\Z")
 _TOP_LEVEL_FIELDS = frozenset(
@@ -372,6 +373,41 @@ class BoundaryPermissions:
         raise AssertionError(f"unhandled acquisition boundary: {boundary}")
 
 
+class _OutputCommitmentSession:
+    """Reuse exact directory evidence only within one cycle operation."""
+
+    def __init__(self) -> None:
+        self._directories: dict[
+            tuple[Path, str],
+            dict[str, object],
+        ] = {}
+        self._reused: set[tuple[Path, str]] = set()
+
+    def authenticate(self, path: Path) -> dict[str, object]:
+        absolute = _resolved_output_path(path)
+        key = (absolute, _DIRECTORY_OUTPUT_COMMITMENT_SEMANTICS)
+        if absolute.is_dir() and key in self._directories:
+            self._reused.add(key)
+            return dict(self._directories[key])
+        commitment = _output_commitment(absolute)
+        if commitment.get("kind") == "directory":
+            self._directories[key] = dict(commitment)
+        return commitment
+
+    def revalidate_reused(self, *, clear: bool = False) -> None:
+        """Fully rehash reused trees before returning or crossing a side effect."""
+
+        for key in sorted(self._reused, key=lambda item: str(item[0])):
+            path, _semantics = key
+            if _output_commitment(path) != self._directories[key]:
+                raise CycleOrchestratorError(
+                    f"stage output directory changed during cycle check: {path}"
+                )
+        if clear:
+            self._directories.clear()
+            self._reused.clear()
+
+
 StageExecutor = Callable[[str, tuple[str, ...]], int]
 
 
@@ -502,6 +538,7 @@ def _advance_cycle(
     next_stage: CycleStage | None = None
     stop_reason: str | None = None
     adopted_stage = False
+    output_commitments = _OutputCommitmentSession()
 
     for index, stage in enumerate(config.stages):
         _require_config_unchanged(config)
@@ -512,6 +549,7 @@ def _advance_cycle(
                 config=config,
                 stage=stage,
                 index=index,
+                output_commitments=output_commitments,
             )
             completed_count += 1
             stage_statuses.append(
@@ -526,6 +564,7 @@ def _advance_cycle(
                     "--adopt-next-completed requires the exact next unreceipted "
                     "stage to have the model_provider boundary"
                 )
+            output_commitments.revalidate_reused(clear=True)
             receipt_sha256 = _receipt_completed_stage(
                 receipt_path,
                 config=config,
@@ -533,6 +572,7 @@ def _advance_cycle(
                 index=index,
                 external_model_adoption=True,
                 external_stage_verifier=external_stage_verifier,
+                output_commitments=output_commitments,
             )
             completed_count += 1
             stage_statuses.append(
@@ -553,16 +593,19 @@ def _advance_cycle(
             stop_reason = f"{stage.boundary.value}_boundary_not_authorized"
             break
 
+        output_commitments.revalidate_reused()
         exit_code = executor(stage.command, stage.arguments)
         if exit_code != 0:
             raise CycleOrchestratorError(
                 f"stage {stage.stage_id} exited with status {exit_code}"
             )
+        output_commitments.revalidate_reused(clear=True)
         receipt_sha256 = _receipt_completed_stage(
             receipt_path,
             config=config,
             stage=stage,
             index=index,
+            output_commitments=output_commitments,
         )
         completed_count += 1
         stage_statuses.append(
@@ -619,6 +662,7 @@ def _advance_cycle(
         corpus_target_verified = True
         clean_case_count = raw_clean_count
 
+    output_commitments.revalidate_reused()
     return {
         "schema_version": STATUS_SCHEMA_VERSION,
         "cycle_id": config.cycle_id,
@@ -887,6 +931,7 @@ def _verify_receipt(
     config: AcquisitionCycleConfig,
     stage: CycleStage,
     index: int,
+    output_commitments: _OutputCommitmentSession,
 ) -> str:
     try:
         receipt_parent = path.parent.resolve(strict=True)
@@ -925,6 +970,7 @@ def _verify_receipt(
         index=index,
         run_card_payload=run_card_payload,
         run_card=run_card,
+        output_commitments=output_commitments,
     )
     if dict(receipt) != expected:
         if receipt.get("run_card_sha256") != expected["run_card_sha256"]:
@@ -1068,6 +1114,7 @@ def _receipt_record(
     index: int,
     run_card_payload: bytes,
     run_card: Mapping[str, object],
+    output_commitments: _OutputCommitmentSession,
 ) -> dict[str, object]:
     if run_card.get("stage") != stage.run_card_stage:
         raise CycleOrchestratorError(f"stage {stage.stage_id} run-card stage changed")
@@ -1085,7 +1132,11 @@ def _receipt_record(
         "run_card_path": str(stage.run_card),
         "run_card_stage": stage.run_card_stage,
         "run_card_sha256": hashlib.sha256(run_card_payload).hexdigest(),
-        "output_commitments": _output_commitments(stage, run_card),
+        "output_commitments": _output_commitments(
+            stage,
+            run_card,
+            output_commitments=output_commitments,
+        ),
     }
 
 
@@ -1095,6 +1146,7 @@ def _receipt_completed_stage(
     config: AcquisitionCycleConfig,
     stage: CycleStage,
     index: int,
+    output_commitments: _OutputCommitmentSession,
     external_model_adoption: bool = False,
     external_stage_verifier: Callable[[CycleStage, Mapping[str, object]], None]
     | None = None,
@@ -1117,8 +1169,10 @@ def _receipt_completed_stage(
             index=index,
             run_card_payload=run_card_payload,
             run_card=run_card,
+            output_commitments=output_commitments,
         )
     )
+    output_commitments.revalidate_reused(clear=True)
     _require_config_unchanged(config)
     _write_immutable(receipt_path, receipt_payload)
     return hashlib.sha256(receipt_payload).hexdigest()
@@ -2120,6 +2174,8 @@ def _required_int(record: Mapping[str, object], field: str) -> int:
 def _output_commitments(
     stage: CycleStage,
     run_card: Mapping[str, object],
+    *,
+    output_commitments: _OutputCommitmentSession,
 ) -> list[dict[str, object]]:
     if stage.command == "review-disclosure-exceptions":
         authenticated_outputs = _verify_external_disclosure_review_completion(
@@ -2134,7 +2190,10 @@ def _output_commitments(
         _required_text({"path": value}, "path")
         for value in cast(list[object], raw_paths)
     ]
-    return authenticate_output_paths(tuple(Path(value) for value in paths))
+    output_paths = tuple(Path(value) for value in paths)
+    if len(output_paths) != len(set(output_paths)):
+        raise CycleOrchestratorError("stage run card repeats an output path")
+    return [output_commitments.authenticate(path) for path in output_paths]
 
 
 def authenticate_output_paths(paths: tuple[Path, ...]) -> list[dict[str, object]]:
@@ -2146,19 +2205,7 @@ def authenticate_output_paths(paths: tuple[Path, ...]) -> list[dict[str, object]
 
 
 def _output_commitment(path: Path) -> dict[str, object]:
-    if not path.is_absolute():
-        raise CycleOrchestratorError(f"stage output path must be absolute: {path}")
-    absolute = path
-    try:
-        resolved = absolute.resolve(strict=True)
-    except OSError as exc:
-        raise CycleOrchestratorError(
-            f"stage output is unavailable: {absolute}"
-        ) from exc
-    if resolved != absolute:
-        raise CycleOrchestratorError(
-            f"stage output path must not contain symlinks: {absolute}"
-        )
+    absolute = _resolved_output_path(path)
     if absolute.suffix in {".sqlite", ".sqlite3", ".db"}:
         try:
             metadata = absolute.lstat()
@@ -2192,6 +2239,23 @@ def _output_commitment(path: Path) -> dict[str, object]:
             "file_count": sum(record["kind"] == "file" for record in tree),
         }
     raise CycleOrchestratorError(f"stage output is unavailable: {absolute}")
+
+
+def _resolved_output_path(path: Path) -> Path:
+    if not path.is_absolute():
+        raise CycleOrchestratorError(f"stage output path must be absolute: {path}")
+    absolute = path
+    try:
+        resolved = absolute.resolve(strict=True)
+    except OSError as exc:
+        raise CycleOrchestratorError(
+            f"stage output is unavailable: {absolute}"
+        ) from exc
+    if resolved != absolute:
+        raise CycleOrchestratorError(
+            f"stage output path must not contain symlinks: {absolute}"
+        )
+    return absolute
 
 
 def _file_output_commitment(path: Path, payload: bytes) -> dict[str, object]:

@@ -7,10 +7,12 @@ import os
 import re
 import stat
 from collections.abc import Iterable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from pathlib import Path
+from types import MappingProxyType
 from typing import cast
 
 from pypdf import PdfReader
@@ -70,6 +72,24 @@ _MEDICAL = re.compile(
 
 class DisclosureClearanceError(ValueError):
     """Raised when clearance evidence is missing, inconsistent, or unsafe."""
+
+
+@dataclass(frozen=True, slots=True)
+class ClearedDocumentEvidence:
+    """Invocation-scoped exact-file evidence from clearance verification.
+
+    This is deliberately not serializable: it is valid only for the caller
+    which performed the authenticated clearance recheck.
+    """
+
+    candidate_id: str
+    source_document_id: str
+    canonical_path: Path
+    device: int
+    inode: int
+    byte_count: int
+    sha256: str
+    authenticated_clearance: Mapping[str, object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,8 +368,8 @@ def require_cleared_documents(
     *,
     document_root: Path,
     clearance_records: Sequence[Mapping[str, object]],
-) -> None:
-    """Require exact artifact coverage and re-hash the bytes about to be used."""
+) -> tuple[ClearedDocumentEvidence, ...]:
+    """Require exact artifact coverage and return invocation-scoped file evidence."""
 
     index = _unique_index(clearance_records, "clearance")
     document_keys = {_document_key(document) for document in documents}
@@ -359,6 +379,7 @@ def require_cleared_documents(
         raise DisclosureClearanceError(
             f"clearance coverage mismatch; missing={missing}; extra={extra}"
         )
+    evidence: list[ClearedDocumentEvidence] = []
     for document in documents:
         key = _document_key(document)
         clearance = index[key]
@@ -368,7 +389,7 @@ def require_cleared_documents(
             raise DisclosureClearanceError(f"document lacks clearance: {key}")
         require_clearance_policy(clearance, key=key, label="document")
         path = _safe_document_path(document_root, _required_str(document, "local_path"))
-        data = _read_document(path, key)
+        data, device, inode = _read_document_with_identity(path, key)
         digest = hashlib.sha256(data).hexdigest()
         _verify_manifest_commitments(
             document, digest=digest, byte_count=len(data), key=key
@@ -379,6 +400,19 @@ def require_cleared_documents(
             raise DisclosureClearanceError(
                 f"cleared document byte count changed: {key}"
             )
+        evidence.append(
+            ClearedDocumentEvidence(
+                candidate_id=key[0],
+                source_document_id=key[1],
+                canonical_path=path,
+                device=device,
+                inode=inode,
+                byte_count=len(data),
+                sha256=digest,
+                authenticated_clearance=MappingProxyType(deepcopy(dict(clearance))),
+            )
+        )
+    return tuple(evidence)
 
 
 def verify_parse_request_bytes(request: Mapping[str, object]) -> None:
@@ -1135,6 +1169,13 @@ def _verify_review_hash(
 
 
 def _read_document(path: Path, key: tuple[str, str]) -> bytes:
+    payload, _device, _inode = _read_document_with_identity(path, key)
+    return payload
+
+
+def _read_document_with_identity(
+    path: Path, key: tuple[str, str]
+) -> tuple[bytes, int, int]:
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(path, flags)
@@ -1156,7 +1197,7 @@ def _read_document(path: Path, key: tuple[str, str]) -> bytes:
             after.st_mtime_ns,
         ) or after.st_nlink != 1:
             raise DisclosureClearanceError(f"document changed while being read: {key}")
-        return payload
+        return payload, before.st_dev, before.st_ino
     except OSError as exc:
         raise DisclosureClearanceError(f"document cannot be read: {key}") from exc
     finally:

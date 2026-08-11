@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from typing import Protocol, cast
 from urllib.request import Request
 
+import legalforecast.ingestion.cycle_orchestrator as cycle_orchestrator_module
 import legalforecast.ingestion.disclosure_model_review_authority as authority_module
 import pytest
 from legalforecast import cli
@@ -4078,6 +4079,289 @@ def test_run_cycle_fails_closed_when_receipted_output_changes(
             permissions=BoundaryPermissions(),
             executor=write_stage,
         )
+
+
+def test_run_cycle_reuses_shared_directory_commitment_then_rehashes_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_directory = tmp_path / "shared-output"
+    output_directory.mkdir()
+    (output_directory / "payload.bin").write_bytes(b"x" * 1024)
+    run_cards = [tmp_path / f"stage-{index}.json" for index in range(4)]
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id=f"stage-{index}",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+            for index, run_card in enumerate(run_cards)
+        ],
+    )
+
+    def write_card(command: str, arguments: tuple[str, ...]) -> int:
+        run_card = Path(arguments[arguments.index("--run-card-output") + 1])
+        _write_completion_card(
+            run_card,
+            stage=command,
+            output_paths=(output_directory,),
+        )
+        return 0
+
+    state_root = tmp_path / "state"
+    completed = run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=write_card,
+    )
+    assert completed["status"] == "completed"
+
+    original = cycle_orchestrator_module._directory_tree_commitment  # pyright: ignore[reportPrivateUsage]
+    scan_count = 0
+
+    def count_scan(root: Path) -> list[dict[str, object]]:
+        nonlocal scan_count
+        scan_count += 1
+        return original(root)
+
+    monkeypatch.setattr(
+        cycle_orchestrator_module,
+        "_directory_tree_commitment",
+        count_scan,
+    )
+    status = run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=False,
+        permissions=BoundaryPermissions(),
+        executor=write_card,
+    )
+
+    assert status["status"] == "completed"
+    assert scan_count == 2
+
+
+@pytest.mark.parametrize("mutation", ["bytes", "entry", "symlink", "hardlink"])
+def test_run_cycle_rehashed_shared_directory_fails_closed_on_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    output_directory = tmp_path / "shared-output"
+    output_directory.mkdir()
+    payload = output_directory / "payload.bin"
+    payload.write_bytes(b"original")
+    run_cards = [tmp_path / f"stage-{index}.json" for index in range(3)]
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id=f"stage-{index}",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+            for index, run_card in enumerate(run_cards)
+        ],
+    )
+
+    def write_card(command: str, arguments: tuple[str, ...]) -> int:
+        run_card = Path(arguments[arguments.index("--run-card-output") + 1])
+        _write_completion_card(
+            run_card,
+            stage=command,
+            output_paths=(output_directory,),
+        )
+        return 0
+
+    state_root = tmp_path / "state"
+    run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=write_card,
+    )
+    (state_root / "receipts" / "0002-stage-2.json").unlink()
+    run_cards[2].unlink()
+
+    original = cycle_orchestrator_module._directory_tree_commitment  # pyright: ignore[reportPrivateUsage]
+    mutated = False
+
+    def mutate_after_initial_scan(root: Path) -> list[dict[str, object]]:
+        nonlocal mutated
+        tree = original(root)
+        if not mutated:
+            mutated = True
+            if mutation == "bytes":
+                payload.write_bytes(b"changed")
+            elif mutation == "entry":
+                (output_directory / "new.bin").write_bytes(b"new")
+            elif mutation == "symlink":
+                (output_directory / "link").symlink_to(payload)
+            else:
+                (output_directory / "hardlink").hardlink_to(payload)
+        return tree
+
+    monkeypatch.setattr(
+        cycle_orchestrator_module,
+        "_directory_tree_commitment",
+        mutate_after_initial_scan,
+    )
+
+    def reject_side_effect(_command: str, _arguments: tuple[str, ...]) -> int:
+        pytest.fail("reused output drift must fail before executing the next stage")
+
+    with pytest.raises(CycleOrchestratorError):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=True,
+            permissions=BoundaryPermissions(),
+            executor=reject_side_effect,
+        )
+
+
+def test_run_cycle_rehashes_shared_directory_after_executor_before_receipt(
+    tmp_path: Path,
+) -> None:
+    output_directory = tmp_path / "shared-output"
+    output_directory.mkdir()
+    payload = output_directory / "payload.bin"
+    payload.write_bytes(b"original")
+    run_cards = [tmp_path / f"stage-{index}.json" for index in range(3)]
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id=f"stage-{index}",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+            for index, run_card in enumerate(run_cards)
+        ],
+    )
+
+    def write_card(command: str, arguments: tuple[str, ...]) -> int:
+        run_card = Path(arguments[arguments.index("--run-card-output") + 1])
+        _write_completion_card(
+            run_card,
+            stage=command,
+            output_paths=(output_directory,),
+        )
+        return 0
+
+    state_root = tmp_path / "state"
+    run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=write_card,
+    )
+    next_receipt = state_root / "receipts" / "0002-stage-2.json"
+    next_receipt.unlink()
+    run_cards[2].unlink()
+
+    def mutate_then_complete(command: str, arguments: tuple[str, ...]) -> int:
+        payload.write_bytes(b"changed")
+        return write_card(command, arguments)
+
+    with pytest.raises(
+        CycleOrchestratorError,
+        match="changed during cycle check",
+    ):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=True,
+            permissions=BoundaryPermissions(),
+            executor=mutate_then_complete,
+        )
+    assert not next_receipt.exists()
+
+
+def test_duplicate_output_paths_fail_before_authentication_or_receipt(
+    tmp_path: Path,
+) -> None:
+    missing_output = tmp_path / "missing-output"
+    with pytest.raises(
+        CycleOrchestratorError,
+        match=r"^stage run card repeats an output path$",
+    ):
+        cycle_orchestrator_module.authenticate_output_paths(
+            (missing_output, missing_output)
+        )
+
+    run_card = tmp_path / "stage.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="stage-0",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+        ],
+    )
+
+    def write_card(command: str, _arguments: tuple[str, ...]) -> int:
+        _write_completion_card(
+            run_card,
+            stage=command,
+            output_paths=(missing_output, missing_output),
+        )
+        return 0
+
+    state_root = tmp_path / "state"
+    receipt_path = state_root / "receipts" / "0000-stage-0.json"
+    with pytest.raises(
+        CycleOrchestratorError,
+        match=r"^stage run card repeats an output path$",
+    ):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=True,
+            permissions=BoundaryPermissions(),
+            executor=write_card,
+        )
+    assert not receipt_path.exists()
 
 
 def test_run_cycle_rejects_relative_output_path(

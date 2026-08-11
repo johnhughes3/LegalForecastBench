@@ -8,6 +8,7 @@ import pytest
 from legalforecast.ingestion.disclosure_clearance import (
     PDF_SCAN_SCHEMA_VERSION,
     PDF_SCAN_SCHEMA_VERSION_V1,
+    ClearedDocumentEvidence,
     DisclosureClearanceError,
     ReviewAuthority,
     build_clearance_records,
@@ -376,6 +377,40 @@ def test_parse_gate_rejects_uncleared_and_tampered_documents(tmp_path: Path) -> 
     }
     with pytest.raises(DisclosureClearanceError, match="byte-count mismatch"):
         require_cleared_parser_records([parser_record], [clearance.to_record()])
+
+
+def test_clearance_returns_invocation_scoped_exact_file_evidence(
+    tmp_path: Path,
+) -> None:
+    document = _document(tmp_path, _text_pdf(b"Motion memorandum"))
+    [clearance] = build_clearance_records(
+        [document],
+        document_root=tmp_path,
+        reviews=[_review(document)],
+        review_authority=_authority(),
+        restriction_records=[_public_evidence()],
+    )
+
+    clearance_record = clearance.to_record()
+    [evidence] = require_cleared_documents(
+        [document],
+        document_root=tmp_path,
+        clearance_records=[clearance_record],
+    )
+
+    path = tmp_path / str(document["local_path"])
+    metadata = path.stat()
+    assert isinstance(evidence, ClearedDocumentEvidence)
+    assert evidence.canonical_path == path.resolve()
+    assert (evidence.device, evidence.inode) == (metadata.st_dev, metadata.st_ino)
+    assert evidence.byte_count == len(path.read_bytes())
+    assert evidence.sha256 == document["sha256"]
+    assert dict(evidence.authenticated_clearance) == clearance.to_record()
+
+    clearance_record["restriction_evidence"].append("later-mutation")  # type: ignore[attr-defined]
+    assert (
+        "later-mutation" not in evidence.authenticated_clearance["restriction_evidence"]
+    )
 
 
 def test_unknown_restriction_and_missing_review_timestamp_fail_closed(

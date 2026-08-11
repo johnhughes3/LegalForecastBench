@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
+from collections import Counter
+from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from pathlib import Path
+from threading import get_ident
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -31,12 +37,18 @@ from legalforecast.ingestion.post_selection_terminal_exclusion import (
 from tests.disclosure_review_fixtures import (
     service_disclosure_authority_from_policy_bytes,
 )
+from tests.recovered_public_capability_helpers import (
+    issue_recovered_public_capability,
+)
 from tests.test_exact100_successor_replacement import (
     _fixture,
     _jsonl,
     _selection_row,
 )
-from tests.test_target_cohort_projection import _materialized_two_case_cohort
+from tests.test_target_cohort_projection import (
+    _completed_two_case_projection,
+    _materialized_two_case_cohort,
+)
 
 
 def _bytes(value: object) -> bytes:
@@ -663,6 +675,408 @@ def test_successor_cli_replays_sealed_input_and_materializer_projection(
     assert len(selection_records) == 100
     assert (output / "successor-terminal-exclusions.jsonl").is_file()
     assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 0
+
+
+def _write_cache_test_projection_root(
+    root: Path, *, input_count: int = 9
+) -> tuple[Path, Path]:
+    config_path = root.parent / f"{root.name}-config.json"
+    config_path.write_bytes(_bytes({"target_case_count": 1}))
+    run_card_path = root / "run-cards/project-target-cohort.json"
+    run_card_path.parent.mkdir(parents=True)
+    run_card_path.write_bytes(
+        _bytes(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "input_paths": [str(config_path)] * input_count,
+            }
+        )
+    )
+    artifact_path = root / "target-cohort-selection.jsonl"
+    artifact_path.write_bytes(b'{"candidate_id":"case-1"}\n')
+    return artifact_path, config_path
+
+
+def _cache_test_projection_evidence(
+    root: Path,
+    artifact_path: Path,
+    *,
+    operation: cli._VerifiedProjectionOperation | None = None,
+) -> dict[str, object]:
+    run_card_path = root / "run-cards/project-target-cohort.json"
+    run_card = json.loads(run_card_path.read_bytes())
+    config_path = Path(cast(list[str], run_card["input_paths"])[7])
+    result: dict[str, object] = {
+        "verified_artifact_bytes": {
+            str(run_card_path.absolute()): run_card_path.read_bytes(),
+            str(artifact_path.absolute()): artifact_path.read_bytes(),
+            str(config_path.absolute()): config_path.read_bytes(),
+        }
+    }
+    if operation is not None:
+        operation.record_byte_closure(
+            target_root=root,
+            run_card_bytes=run_card_path.read_bytes(),
+            snapshots=cast(Mapping[str, bytes], result["verified_artifact_bytes"]),
+        )
+    return result
+
+
+def test_projection_verifier_reuses_only_one_byte_closed_root_per_operation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outer_root = tmp_path / "outer"
+    original_root = tmp_path / "original"
+    outer_artifact, _ = _write_cache_test_projection_root(outer_root)
+    original_artifact, _ = _write_cache_test_projection_root(original_root)
+    invocation_counts: Counter[Path] = Counter()
+    read_counts: Counter[Path] = Counter()
+    read_input = cli._read_singly_linked_regular_input
+
+    def counted_read(path: Path, *, label: str) -> bytes:
+        read_counts[path.absolute()] += 1
+        return read_input(path, label=label)
+
+    monkeypatch.setattr(cli, "_read_singly_linked_regular_input", counted_read)
+
+    def verify_projection(*, target_root: Path, **_kwargs: object) -> dict[str, object]:
+        invocation_counts[target_root] += 1
+        artifact_path = (
+            outer_artifact if target_root == outer_root else original_artifact
+        )
+        result = _cache_test_projection_evidence(
+            target_root,
+            artifact_path,
+            operation=cast(
+                cli._VerifiedProjectionOperation,
+                _kwargs["_verified_projection_operation"],
+            ),
+        )
+        if target_root == outer_root:
+            first = cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                original_root
+            )
+            first["consumer_mutation"] = True
+            second = (
+                cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                    original_root
+                )
+            )
+            assert "consumer_mutation" not in second
+            assert second is not first
+        return result
+
+    monkeypatch.setattr(cli, "_verify_materializer_projection", verify_projection)
+
+    cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
+
+    assert invocation_counts == Counter({outer_root: 1, original_root: 1})
+    assert read_counts[original_artifact.absolute()] == 1
+    assert (
+        read_counts[(original_root / "run-cards/project-target-cohort.json").absolute()]
+        == 3
+    )
+
+    cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
+
+    assert invocation_counts == Counter({outer_root: 2, original_root: 2})
+    assert read_counts[original_artifact.absolute()] == 2
+
+
+def test_projection_verifier_rechecks_cached_exact_bytes_before_reuse(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outer_root = tmp_path / "outer"
+    original_root = tmp_path / "original"
+    outer_artifact, _ = _write_cache_test_projection_root(outer_root)
+    original_artifact, _ = _write_cache_test_projection_root(original_root)
+    invocation_counts: Counter[Path] = Counter()
+
+    def verify_projection(*, target_root: Path, **_kwargs: object) -> dict[str, object]:
+        invocation_counts[target_root] += 1
+        artifact_path = (
+            outer_artifact if target_root == outer_root else original_artifact
+        )
+        result = _cache_test_projection_evidence(
+            target_root,
+            artifact_path,
+            operation=cast(
+                cli._VerifiedProjectionOperation,
+                _kwargs["_verified_projection_operation"],
+            ),
+        )
+        if target_root == outer_root:
+            cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                original_root
+            )
+            original_artifact.write_bytes(b'{"candidate_id":"mutated"}\n')
+            cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                original_root
+            )
+        return result
+
+    monkeypatch.setattr(cli, "_verify_materializer_projection", verify_projection)
+
+    with pytest.raises(cli.CommandError, match="changed during execution"):
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
+
+    assert invocation_counts == Counter({outer_root: 1, original_root: 1})
+
+
+def test_projection_verifier_rechecks_recovered_public_transitive_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed = _completed_two_case_projection(
+        tmp_path / "completed-projection",
+        provenance_first=True,
+        monkeypatch=monkeypatch,
+    )
+    target_root = completed["projection"]
+    recovery_source = tmp_path / "authenticated-recovery-source.json"
+    recovery_source.write_bytes(b'{"status":"completed"}\n')
+    capability = issue_recovered_public_capability(
+        monkeypatch,
+        [],
+        source_snapshots={recovery_source.resolve(): recovery_source.read_bytes()},
+    )
+    verify_clearance = cli._verify_materializer_clearance_lineage
+
+    def recovered_public_lineage(**kwargs: object) -> dict[str, object]:
+        return {
+            **verify_clearance(**kwargs),  # type: ignore[arg-type]
+            "lineage_kind": "provider_free_recovered_public",
+            "authenticated_recovery_capability": capability,
+        }
+
+    monkeypatch.setattr(
+        cli, "_verify_materializer_clearance_lineage", recovered_public_lineage
+    )
+    operation = cli._VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+    try:
+        first = cli._verify_completed_target_cohort_projection_in_operation(
+            target_root, operation=operation
+        )
+        recovery_source.write_bytes(b'{"status":"mutated"}\n')
+        with pytest.raises(cli.CommandError, match="changed during execution"):
+            cli._verify_completed_target_cohort_projection_in_operation(
+                target_root, operation=operation
+            )
+    finally:
+        operation.invalidate()
+
+    assert first["selection_records"]
+
+
+def test_projection_verifier_cache_preserves_permitted_sidecar_behavior(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed = _completed_two_case_projection(
+        tmp_path / "completed-projection",
+        provenance_first=True,
+        monkeypatch=monkeypatch,
+    )
+    target_root = completed["projection"]
+    (target_root / "projection-diagnostics.json").write_bytes(b"{}\n")
+    operation = cli._VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+    try:
+        first = cli._verify_completed_target_cohort_projection_in_operation(
+            target_root, operation=operation
+        )
+        cached = cli._verify_completed_target_cohort_projection_in_operation(
+            target_root, operation=operation
+        )
+    finally:
+        operation.invalidate()
+
+    assert cached == first
+
+
+def test_projection_verifier_rereads_replacement_ledger_in_existing_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outer_root = tmp_path / "outer"
+    replacement_root = tmp_path / "replacement"
+    outer_artifact, _ = _write_cache_test_projection_root(outer_root)
+    replacement_artifact, replacement_config = _write_cache_test_projection_root(
+        replacement_root, input_count=19
+    )
+    ledger_path = tmp_path / "purchase-ledger.sqlite3"
+    ledger_path.write_bytes(b"initial ledger")
+    replacement_card_path = replacement_root / "run-cards/project-target-cohort.json"
+    replacement_card = json.loads(replacement_card_path.read_bytes())
+    replacement_card["input_paths"][-1] = str(ledger_path)
+    replacement_card_path.write_bytes(_bytes(replacement_card))
+    events: list[str] = []
+    ledger_reads: list[bytes] = []
+    read_input = cli._read_singly_linked_regular_input
+
+    def counted_read(path: Path, *, label: str) -> bytes:
+        if path.absolute() in {
+            (replacement_root / "run-cards/project-target-cohort.json").absolute(),
+            replacement_config.absolute(),
+            ledger_path.absolute(),
+        }:
+            events.append(label)
+        return read_input(path, label=label)
+
+    monkeypatch.setattr(cli, "_read_singly_linked_regular_input", counted_read)
+
+    def verify_projection(*, target_root: Path, **_kwargs: object) -> dict[str, object]:
+        if target_root == outer_root:
+            cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                replacement_root
+            )
+            ledger_path.write_bytes(b"mutated ledger")
+            cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                replacement_root
+            )
+            return _cache_test_projection_evidence(outer_root, outer_artifact)
+        payload = cli._read_singly_linked_regular_input(
+            ledger_path, label="replacement purchase ledger"
+        )
+        ledger_reads.append(payload)
+        if payload != b"initial ledger":
+            raise cli.CommandError("purchase ledger changed during replacement replay")
+        return _cache_test_projection_evidence(replacement_root, replacement_artifact)
+
+    monkeypatch.setattr(cli, "_verify_materializer_projection", verify_projection)
+
+    with pytest.raises(cli.CommandError, match="purchase ledger changed"):
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
+
+    assert ledger_reads == [b"initial ledger", b"mutated ledger"]
+    assert events == [
+        "target projection run card",
+        "preparation config",
+        "replacement purchase ledger",
+        "target projection run card",
+        "preparation config",
+        "replacement purchase ledger",
+    ]
+
+
+def test_projection_verifier_never_caches_zero_cost_ledger_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outer_root = tmp_path / "outer"
+    zero_cost_root = tmp_path / "zero-cost"
+    outer_artifact, _ = _write_cache_test_projection_root(outer_root)
+    zero_cost_card_path = zero_cost_root / "run-cards/project-target-cohort.json"
+    zero_cost_card_path.parent.mkdir(parents=True)
+    zero_cost_card_path.write_bytes(
+        _bytes(
+            {
+                "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+                "selected_case_count": 1,
+            }
+        )
+    )
+    zero_cost_artifact = zero_cost_root / "target-cohort-selection.jsonl"
+    zero_cost_artifact.write_bytes(b'{"candidate_id":"case-1"}\n')
+    ledger_path = tmp_path / "purchase-ledger.sqlite3"
+    ledger_path.write_bytes(b"initial ledger")
+    ledger_reads: list[bytes] = []
+
+    def verify_projection(*, target_root: Path, **_kwargs: object) -> dict[str, object]:
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(
+            zero_cost_root
+        )
+        ledger_path.write_bytes(b"mutated ledger")
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(
+            zero_cost_root
+        )
+        return _cache_test_projection_evidence(target_root, outer_artifact)
+
+    def verify_zero_cost(**_kwargs: object) -> dict[str, object]:
+        payload = cli._read_singly_linked_regular_input(
+            ledger_path, label="zero-cost purchase ledger"
+        )
+        ledger_reads.append(payload)
+        if payload != b"initial ledger":
+            raise cli.CommandError("purchase ledger changed during zero-cost replay")
+        return {
+            "verified_artifact_bytes": {
+                str(zero_cost_card_path.absolute()): zero_cost_card_path.read_bytes(),
+                str(zero_cost_artifact.absolute()): zero_cost_artifact.read_bytes(),
+            }
+        }
+
+    monkeypatch.setattr(cli, "_verify_materializer_projection", verify_projection)
+    monkeypatch.setattr(cli, "_verify_zero_cost_successor_projection", verify_zero_cost)
+
+    with pytest.raises(cli.CommandError, match="purchase ledger changed"):
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
+
+    assert ledger_reads == [b"initial ledger", b"mutated ledger"]
+
+
+def test_projection_cache_isolated_from_inherited_tasks_and_threads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outer_root = tmp_path / "outer"
+    original_root = tmp_path / "original"
+    outer_artifact, _ = _write_cache_test_projection_root(outer_root)
+    original_artifact, _ = _write_cache_test_projection_root(original_root)
+    invocation_counts: Counter[Path] = Counter()
+    task_holder: list[asyncio.Task[dict[str, object]]] = []
+
+    async def scenario() -> None:
+        release_child = asyncio.Event()
+
+        async def inherited_child() -> dict[str, object]:
+            await release_child.wait()
+            return cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                original_root
+            )
+
+        def verify_projection(
+            *, target_root: Path, **_kwargs: object
+        ) -> dict[str, object]:
+            invocation_counts[target_root] += 1
+            artifact_path = (
+                outer_artifact if target_root == outer_root else original_artifact
+            )
+            result = _cache_test_projection_evidence(
+                target_root,
+                artifact_path,
+                operation=cast(
+                    cli._VerifiedProjectionOperation,
+                    _kwargs["_verified_projection_operation"],
+                ),
+            )
+            if target_root == outer_root:
+                cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                    original_root
+                )
+                task_holder.append(asyncio.create_task(inherited_child()))
+                inherited_context = copy_context()
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    executor.submit(
+                        inherited_context.run,
+                        cli.verify_completed_target_cohort_projection_for_purchase_approval,
+                        original_root,
+                    ).result()
+            return result
+
+        monkeypatch.setattr(cli, "_verify_materializer_projection", verify_projection)
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
+        release_child.set()
+        await task_holder[0]
+
+    asyncio.run(scenario())
+
+    assert invocation_counts == Counter({original_root: 3, outer_root: 1})
 
 
 def test_saved_recovery_root_alone_cannot_mint_successor_authority(

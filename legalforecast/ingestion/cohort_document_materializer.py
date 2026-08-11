@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from legalforecast.ingestion.disclosure_clearance import (
+    ClearedDocumentEvidence,
     DisclosureClearanceError,
     require_cleared_documents,
 )
@@ -247,7 +248,7 @@ def prepare_cohort_document_materialization(
     for source in sources:
         root = source.document_root.absolute()
         try:
-            require_cleared_documents(
+            clearance_evidence = require_cleared_documents(
                 source.manifest,
                 document_root=root,
                 clearance_records=source.clearance,
@@ -255,6 +256,7 @@ def prepare_cohort_document_materialization(
         except DisclosureClearanceError as exc:
             raise CohortDocumentMaterializationError(str(exc)) from exc
         clearance_by_key = _unique_clearance_index(source.clearance)
+        evidence_by_key = _clearance_evidence_index(clearance_evidence)
         phase_counts[source.phase] = phase_counts.get(source.phase, 0) + len(
             source.manifest
         )
@@ -287,20 +289,14 @@ def prepare_cohort_document_materialization(
             source_path = root.joinpath(*relative.parts)
             expected_hash = _required_sha256(record, "sha256")
             expected_bytes = _required_nonnegative_int(record, "byte_count")
-            device, inode, actual_hash, actual_bytes = _inspect_source_file(
-                source_path,
-                root=root,
+            evidence = evidence_by_key[key]
+            _require_matching_clearance_evidence(
+                evidence,
+                source_path=source_path,
+                expected_hash=expected_hash,
+                expected_bytes=expected_bytes,
+                clearance_record=clearance_by_key[key],
             )
-            if actual_hash != expected_hash:
-                raise CohortDocumentMaterializationError(
-                    f"source hash drift for {key[0]}/{key[1]}: "
-                    f"expected {expected_hash}, got {actual_hash}"
-                )
-            if actual_bytes != expected_bytes:
-                raise CohortDocumentMaterializationError(
-                    f"source byte-count drift for {key[0]}/{key[1]}: "
-                    f"expected {expected_bytes}, got {actual_bytes}"
-                )
             suffix = source_path.suffix.lower()
             if suffix != ".pdf":
                 raise CohortDocumentMaterializationError(
@@ -346,8 +342,8 @@ def prepare_cohort_document_materialization(
                 PreparedCohortDocument(
                     source=source_path,
                     destination=destination,
-                    source_device=device,
-                    source_inode=inode,
+                    source_device=evidence.device,
+                    source_inode=evidence.inode,
                     manifest_record=rebased_manifest,
                     clearance_record=rebased_clearance,
                 )
@@ -573,11 +569,8 @@ def _sha256_and_size(path: Path) -> tuple[str, int]:
 
 
 def _open_verified_source(document: PreparedCohortDocument) -> int:
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
     try:
-        fd = os.open(document.source, flags)
+        fd = _open_materializer_artifact(document.source)
     except OSError as exc:
         raise CohortDocumentMaterializationError(
             f"cannot reopen immutable source: {document.source}"
@@ -714,6 +707,58 @@ def _unique_clearance_index(
             )
         indexed[key] = record
     return indexed
+
+
+def _clearance_evidence_index(
+    evidence: Sequence[ClearedDocumentEvidence],
+) -> dict[tuple[str, str], ClearedDocumentEvidence]:
+    indexed: dict[tuple[str, str], ClearedDocumentEvidence] = {}
+    for item in evidence:
+        key = (item.candidate_id, item.source_document_id)
+        if key in indexed:
+            raise CohortDocumentMaterializationError(
+                f"duplicate clearance evidence identity: {key[0]}/{key[1]}"
+            )
+        indexed[key] = item
+    return indexed
+
+
+def _require_matching_clearance_evidence(
+    evidence: ClearedDocumentEvidence,
+    *,
+    source_path: Path,
+    expected_hash: str,
+    expected_bytes: int,
+    clearance_record: Mapping[str, Any],
+) -> None:
+    """Bind reusable verification evidence to this exact source and clearance row."""
+
+    try:
+        canonical_source_path = source_path.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise CohortDocumentMaterializationError(
+            f"clearance evidence source path is unavailable: {source_path}"
+        ) from exc
+    if evidence.canonical_path != canonical_source_path:
+        raise CohortDocumentMaterializationError(
+            f"clearance evidence source path differs: {source_path}"
+        )
+    if evidence.sha256 != expected_hash:
+        raise CohortDocumentMaterializationError(
+            "source hash drift for "
+            f"{evidence.candidate_id}/{evidence.source_document_id}: "
+            f"expected {expected_hash}, got {evidence.sha256}"
+        )
+    if evidence.byte_count != expected_bytes:
+        raise CohortDocumentMaterializationError(
+            f"source byte-count drift for {evidence.candidate_id}/"
+            f"{evidence.source_document_id}: expected {expected_bytes}, "
+            f"got {evidence.byte_count}"
+        )
+    if dict(evidence.authenticated_clearance) != dict(clearance_record):
+        raise CohortDocumentMaterializationError(
+            "clearance evidence provenance differs from authenticated clearance record"
+        )
 
 
 def _document_key(record: Mapping[str, Any]) -> tuple[str, str]:

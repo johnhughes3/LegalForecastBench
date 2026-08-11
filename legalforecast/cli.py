@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import fcntl
 import hashlib
 import io
@@ -29,11 +30,13 @@ from collections.abc import (
 )
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import redirect_stderr, redirect_stdout
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from itertools import pairwise
 from pathlib import Path
+from threading import get_ident
 from typing import Any, cast, overload
 
 from legalforecast import __version__
@@ -926,11 +929,14 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     TargetPublicGapExecutionResult,
     TargetPublicGapPlan,
     TargetPublicGapRefreshError,
+    _AuthenticatedTargetPublicGapSources,  # pyright: ignore[reportPrivateUsage]
+    _execute_target_public_gap_refresh,  # pyright: ignore[reportPrivateUsage]
+    _plan_target_public_gaps_with_authenticated_sources,  # pyright: ignore[reportPrivateUsage]
+    _prepare_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
+    _prevalidate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
+    _validate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     bind_target_public_gap_execution,
     bind_verified_target_public_gap_downloads,
-    execute_target_public_gap_refresh,
-    plan_target_public_gaps,
-    preflight_target_public_gap_execution,
     publish_target_public_gap_outputs,
     publish_target_public_gap_plan,
     require_target_public_gap_sources_unchanged,
@@ -21775,6 +21781,13 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
 def _target_public_gap_plan_from_args(
     args: argparse.Namespace,
 ) -> TargetPublicGapPlan:
+    plan, _ = _target_public_gap_plan_with_sources_from_args(args)
+    return plan
+
+
+def _target_public_gap_plan_with_sources_from_args(
+    args: argparse.Namespace,
+) -> tuple[TargetPublicGapPlan, _AuthenticatedTargetPublicGapSources]:
     output_root = cast(Path, args.output_root).absolute()
     target_root = cast(Path, args.target_cohort_root)
     raw_html_root = cast(Path, args.raw_html_dir)
@@ -21782,7 +21795,7 @@ def _target_public_gap_plan_from_args(
     verified = verify_completed_target_cohort_projection_for_purchase_approval(
         target_root
     )
-    return plan_target_public_gaps(
+    return _plan_target_public_gaps_with_authenticated_sources(
         verified_projection=verified,
         target_cohort_root=target_root,
         expected_target_run_card_sha256=cast(
@@ -23050,7 +23063,9 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
     if firecrawl_fixture is not None and cast(int, args.workers) != 1:
         raise CommandError("Firecrawl fixture execution requires --workers 1")
     try:
-        plan = _target_public_gap_plan_from_args(args)
+        plan, authenticated_sources = _target_public_gap_plan_with_sources_from_args(
+            args
+        )
         role_adjudications = _verified_packet_role_adjudications_from_args(args)
         packet_role_replay = _packet_role_replay_receipt_from_args(
             args,
@@ -23062,12 +23077,6 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
             expected_sha256=expected_plan_sha256,
             reconstructed=plan,
         )
-        preflight_target_public_gap_execution(
-            plan,
-            expected_plan_sha256=expected_plan_sha256,
-            packet_role_replay=packet_role_replay,
-        )
-        require_target_public_gap_sources_unchanged(plan)
     except (
         CommandError,
         OSError,
@@ -23107,8 +23116,29 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
         )
 
     try:
+        prevalidated_execution = _prevalidate_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
+            authenticated_sources=authenticated_sources,
+        )
+        prepared_execution = _prepare_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
+            prevalidated_execution=prevalidated_execution,
+            firecrawl_source_factory=firecrawl_source_factory,
+        )
         with bind_target_public_gap_execution(plan) as binding:
-            execution = execute_target_public_gap_refresh(
+            validated_execution = _validate_target_public_gap_execution(
+                plan=plan,
+                expected_plan_sha256=expected_plan_sha256,
+                packet_role_replay=packet_role_replay,
+                execution_binding=binding,
+                prevalidated_execution=prevalidated_execution,
+                prepared_execution=prepared_execution,
+            )
+            execution = _execute_target_public_gap_refresh(
                 plan=plan,
                 expected_plan_sha256=expected_plan_sha256,
                 firecrawl_source_factory=firecrawl_source_factory,
@@ -23117,6 +23147,7 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                 role_adjudications=role_adjudications,
                 packet_role_replay=packet_role_replay,
                 execution_binding=binding,
+                validated_execution=validated_execution,
             )
             binding.require_current(plan)
             with bind_verified_target_public_gap_downloads(
@@ -23124,6 +23155,13 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                 requests=execution.refresh.download_requests,
                 downloads=execution.downloads,
             ):
+                # The initial preflight above authenticated the source closure
+                # and pinned writable namespaces for this invocation.  Recheck
+                # both exact bindings immediately before any terminal bytes are
+                # published; intermediate execute phases only consume that
+                # in-process evidence.
+                binding.require_current(plan)
+                require_target_public_gap_sources_unchanged(plan)
                 payloads = _target_public_gap_terminal_payloads(
                     plan=plan,
                     plan_path=cast(Path, args.plan),
@@ -43864,6 +43902,7 @@ def _verify_materializer_projection(
     _verified_legacy_ranked_replay: VerifiedLegacyRankedReserveReplay | None = None,
     _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
     _verified_clearance_source_roots: Mapping[str, Path] | None = None,
+    _verified_projection_operation: _VerifiedProjectionOperation | None = None,
 ) -> dict[str, object]:
     run_card_path = target_root / "run-cards/project-target-cohort.json"
     supporting_card_path = (
@@ -44068,7 +44107,7 @@ def _verify_materializer_projection(
             for name, path in source_paths.items()
         },
     )
-    _verify_materializer_clearance_lineage(
+    clearance_lineage = _verify_materializer_clearance_lineage(
         manifest_path=source_paths["download_manifest"],
         clearance_path=source_paths["disclosure_clearance"],
         run_card_path=source_paths["clearance_run_card"],
@@ -44294,7 +44333,7 @@ def _verify_materializer_projection(
         },
         label="target projection artifact",
     )
-    return {
+    result: dict[str, object] = {
         "run_card": run_card,
         "run_card_bytes": run_card_bytes,
         "summary": summary,
@@ -44325,6 +44364,49 @@ def _verify_materializer_projection(
             },
         },
     }
+    if (
+        _verified_projection_operation is not None
+        and _verified_projection_operation.is_live_owner()
+    ):
+        raw_lineage_snapshots = clearance_lineage.get("verified_artifact_bytes")
+        if isinstance(raw_lineage_snapshots, Mapping):
+            cache_snapshots = dict(clearance_snapshot)
+            for raw_path, payload in cast(
+                Mapping[object, object], raw_lineage_snapshots
+            ).items():
+                if not isinstance(raw_path, str) or not isinstance(payload, bytes):
+                    raise CommandError("target projection cache evidence is invalid")
+                existing = cache_snapshots.get(raw_path)
+                if existing is not None and existing != payload:
+                    raise CommandError("target projection cache evidence conflicts")
+                cache_snapshots[raw_path] = payload
+            if (
+                clearance_lineage.get("lineage_kind")
+                == "provider_free_recovered_public"
+            ):
+                recovery_capability = clearance_lineage.get(
+                    "authenticated_recovery_capability"
+                )
+                recovery_snapshots = cast(
+                    Mapping[object, object],
+                    _consume_recovered_public_source_snapshots(recovery_capability),
+                )
+                for path, payload in recovery_snapshots.items():
+                    if not isinstance(path, Path) or not isinstance(payload, bytes):
+                        raise CommandError("recovered-public cache evidence is invalid")
+                    key = os.path.abspath(path)
+                    existing = cache_snapshots.get(key)
+                    if existing is not None and existing != payload:
+                        raise CommandError(
+                            "recovered-public clearance and recovery snapshots conflict"
+                        )
+                    cache_snapshots[key] = payload
+            _verified_projection_operation.record_byte_closure(
+                target_root=target_root,
+                run_card_bytes=run_card_bytes,
+                snapshots=cache_snapshots,
+            )
+    return result
 
 
 def _verify_supporting_document_downstream_projection(
@@ -44503,6 +44585,47 @@ def _select_materializer_projection_after_recovery(
     return outer_projection
 
 
+@dataclass(frozen=True)
+class _VerifiedProjectionCacheEntry:
+    result: dict[str, object]
+    snapshots: tuple[tuple[str, bytes], ...]
+
+
+@dataclass
+class _VerifiedProjectionOperation:
+    owner_thread_id: int
+    cache: dict[tuple[str, str], _VerifiedProjectionCacheEntry]
+    byte_closures: dict[tuple[str, str], dict[str, bytes]]
+    alive: bool = True
+
+    def is_live_owner(self) -> bool:
+        return self.alive and self.owner_thread_id == get_ident()
+
+    def invalidate(self) -> None:
+        self.alive = False
+        self.cache.clear()
+        self.byte_closures.clear()
+
+    def record_byte_closure(
+        self,
+        *,
+        target_root: Path,
+        run_card_bytes: bytes,
+        snapshots: Mapping[str, bytes],
+    ) -> None:
+        if not self.is_live_owner():
+            raise RuntimeError(
+                "verified projection operation is not live for this thread"
+            )
+        key = (str(target_root.resolve()), _bytes_sha256(run_card_bytes))
+        self.byte_closures[key] = dict(snapshots)
+
+
+_VERIFIED_PROJECTION_OPERATION: ContextVar[_VerifiedProjectionOperation | None] = (
+    ContextVar("verified_projection_cache", default=None)
+)
+
+
 def verify_completed_target_cohort_projection_for_purchase_approval(
     target_root: Path,
     *,
@@ -44515,8 +44638,53 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
     This deliberately reuses the materializer's fail-closed verifier so approval
     cannot drift into a weaker parallel interpretation of preparation,
     disclosure-clearance, snapshot, run-card, or output commitments.
+
+    Recursive producer replay can encounter the same byte-closed base root more
+    than once. Keep its fully verified evidence only for this top-level call;
+    cache hits still reread every authenticated byte before reuse, preserving
+    the existing mutation check without repeating recursive lineage computation.
     """
 
+    operation = _VERIFIED_PROJECTION_OPERATION.get()
+    if operation is not None and operation.is_live_owner():
+        return _verify_completed_target_cohort_projection_in_operation(
+            target_root,
+            operation=operation,
+            _verified_legacy_ranked_replay=_verified_legacy_ranked_replay,
+            _verified_clearance_relocations=_verified_clearance_relocations,
+            _verified_clearance_source_roots=_verified_clearance_source_roots,
+        )
+    operation = _VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+    token = _VERIFIED_PROJECTION_OPERATION.set(operation)
+    try:
+        return _verify_completed_target_cohort_projection_in_operation(
+            target_root,
+            operation=operation,
+            _verified_legacy_ranked_replay=_verified_legacy_ranked_replay,
+            _verified_clearance_relocations=_verified_clearance_relocations,
+            _verified_clearance_source_roots=_verified_clearance_source_roots,
+        )
+    finally:
+        operation.invalidate()
+        _VERIFIED_PROJECTION_OPERATION.reset(token)
+
+
+def _verify_completed_target_cohort_projection_in_operation(
+    target_root: Path,
+    *,
+    operation: _VerifiedProjectionOperation,
+    _verified_legacy_ranked_replay: VerifiedLegacyRankedReserveReplay | None = None,
+    _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
+    _verified_clearance_source_roots: Mapping[str, Path] | None = None,
+) -> dict[str, object]:
+    if not operation.is_live_owner():  # pragma: no cover - guarded by public entry
+        raise RuntimeError("verified projection operation is not live for this thread")
+
+    # Supporting-document successors carry their own authenticated replay
+    # surface. Keep that new trunk path fully replayed rather than treating it
+    # as an ordinary target-cohort cache candidate.
     supporting_card_path = (
         target_root / "run-cards/project-exact100-supporting-document-successor.json"
     )
@@ -44538,41 +44706,98 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
         run_card_path, label="target projection run card"
     )
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
+    cache_key = (str(target_root.resolve()), _bytes_sha256(run_card_bytes))
+    raw_inputs_for_cache = run_card.get("input_paths")
+    cache_input_count = (
+        len(cast(Sequence[object], raw_inputs_for_cache))
+        if isinstance(raw_inputs_for_cache, Sequence)
+        and not isinstance(raw_inputs_for_cache, (str, bytes))
+        else None
+    )
+    cacheable = (
+        run_card.get("schema_version") == "legalforecast.acquisition_run_card.v1"
+        and cache_input_count == 9
+        and _verified_legacy_ranked_replay is None
+        and _verified_clearance_relocations is None
+        and _verified_clearance_source_roots is None
+    )
+    cached = operation.cache.get(cache_key) if cacheable else None
+    if cached is not None:
+        snapshots: dict[Path, bytes] = {}
+        for raw_path, payload in cached.snapshots:
+            snapshots[Path(raw_path)] = payload
+        _require_snapshot_unchanged(
+            snapshots, label="cached target projection artifact"
+        )
+        return copy.deepcopy(cached.result)
+
+    def verified(result: dict[str, object]) -> dict[str, object]:
+        if cacheable:
+            byte_closure = operation.byte_closures.pop(cache_key, None)
+            if byte_closure is None:
+                return result
+            raw_snapshots = result.get("verified_artifact_bytes")
+            if not isinstance(raw_snapshots, Mapping):
+                raise CommandError("target projection cache evidence is incomplete")
+            typed_raw_snapshots = cast(Mapping[object, object], raw_snapshots)
+            snapshots = {
+                str(raw_path): payload
+                for raw_path, payload in typed_raw_snapshots.items()
+                if isinstance(raw_path, str) and isinstance(payload, bytes)
+            }
+            if len(snapshots) != len(typed_raw_snapshots):
+                raise CommandError("target projection cache evidence is invalid")
+            for raw_path, payload in byte_closure.items():
+                existing = snapshots.get(raw_path)
+                if existing is not None and existing != payload:
+                    raise CommandError("target projection cache evidence conflicts")
+                snapshots[raw_path] = payload
+            operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
+                result=copy.deepcopy(result), snapshots=tuple(sorted(snapshots.items()))
+            )
+        return result
+
     if run_card.get("schema_version") == ZERO_COST_SUCCESSOR_STATE_SCHEMA:
-        return _verify_zero_cost_successor_projection(
-            target_root=target_root,
-            free_clearance_path=target_root / "disclosure-clearance.jsonl",
-            expected_target_count=_required_int(run_card, "selected_case_count"),
-            _verified_legacy_ranked_replay=_verified_legacy_ranked_replay,
-            _verified_clearance_relocations=_verified_clearance_relocations,
-            _verified_clearance_source_roots=_verified_clearance_source_roots,
+        return verified(
+            _verify_zero_cost_successor_projection(
+                target_root=target_root,
+                free_clearance_path=target_root / "disclosure-clearance.jsonl",
+                expected_target_count=_required_int(run_card, "selected_case_count"),
+                _verified_legacy_ranked_replay=_verified_legacy_ranked_replay,
+                _verified_clearance_relocations=_verified_clearance_relocations,
+                _verified_clearance_source_roots=_verified_clearance_source_roots,
+            )
         )
     if run_card.get("schema_version") == str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1):
         try:
-            return _mint_verified_successor_selection_card_from_projection(
-                verify_exact100_successor_replacement_projection(
-                    target_root=target_root,
-                    free_clearance_path=target_root / "disclosure-clearance.jsonl",
-                    expected_target_count=_required_int(
-                        run_card, "selected_case_count"
+            return verified(
+                _mint_verified_successor_selection_card_from_projection(
+                    verify_exact100_successor_replacement_projection(
+                        target_root=target_root,
+                        free_clearance_path=target_root / "disclosure-clearance.jsonl",
+                        expected_target_count=_required_int(
+                            run_card, "selected_case_count"
+                        ),
+                        replay_inputs=_replay_exact100_successor_inputs,
+                        recovery_replay=_replay_exact100_terminal_recovery,
+                        stipulated_replay=_replay_exact100_stipulated_eligibility,
                     ),
-                    replay_inputs=_replay_exact100_successor_inputs,
-                    recovery_replay=_replay_exact100_terminal_recovery,
-                    stipulated_replay=_replay_exact100_stipulated_eligibility,
-                ),
-                replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
+                    replay_attestation=_EXACT100_SUCCESSOR_REPLAY_ATTESTATION,
+                )
             )
         except Exact100SuccessorReplacementCliError as exc:
             raise CommandError(str(exc)) from exc
     if run_card.get("schema_version") == str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2):
         try:
-            return _mint_verified_successor_selection_card_from_projection(
-                verify_exact100_successor_replacement_v2_projection(
-                    target_root,
-                    replay=_replay_exact100_successor_replacement_v2_inputs,
-                    args=_exact100_successor_v2_replay_args(run_card),
-                ),
-                replay_attestation=_EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION,
+            return verified(
+                _mint_verified_successor_selection_card_from_projection(
+                    verify_exact100_successor_replacement_v2_projection(
+                        target_root,
+                        replay=_replay_exact100_successor_replacement_v2_inputs,
+                        args=_exact100_successor_v2_replay_args(run_card),
+                    ),
+                    replay_attestation=_EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION,
+                )
             )
         except Exact100SuccessorReplacementV2CliError as exc:
             raise CommandError(str(exc)) from exc
@@ -44590,13 +44815,16 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
         source=config_path,
     )
     target_count = _required_int(config, "target_case_count")
-    return _verify_materializer_projection(
-        target_root=target_root,
-        free_clearance_path=target_root / "disclosure-clearance.jsonl",
-        preparation_summary_path=input_paths[6],
-        preparation_config_path=config_path,
-        snapshot_manifest_path=input_paths[8],
-        expected_target_count=target_count,
+    return verified(
+        _verify_materializer_projection(
+            target_root=target_root,
+            free_clearance_path=target_root / "disclosure-clearance.jsonl",
+            preparation_summary_path=input_paths[6],
+            preparation_config_path=config_path,
+            snapshot_manifest_path=input_paths[8],
+            expected_target_count=target_count,
+            _verified_projection_operation=operation,
+        )
     )
 
 

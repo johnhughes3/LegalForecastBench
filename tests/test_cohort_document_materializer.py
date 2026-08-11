@@ -9,7 +9,7 @@ import stat
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
@@ -23,6 +23,7 @@ from legalforecast.ingestion.cohort_document_materializer import (
     require_materializer_artifact,
     validate_materializer_writable_paths,
 )
+from legalforecast.ingestion.disclosure_clearance import require_cleared_documents
 
 
 def _source(
@@ -2230,6 +2231,99 @@ def test_materializer_accepts_exact_free_only_source(tmp_path: Path) -> None:
     assert prepared.summary["free_document_count"] == 1
     assert prepared.summary["purchased_document_count"] == 0
     assert [row["free_or_purchased"] for row in prepared.manifest] == ["free"]
+
+
+def test_materializer_reuses_clearance_file_evidence_without_source_reinspection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    free, free_key = _source(
+        tmp_path,
+        phase="free",
+        candidate_id="candidate-1",
+        document_id="complaint-1",
+    )
+
+    monkeypatch.setattr(
+        materializer_module,
+        "_inspect_source_file",
+        lambda *_args, **_kwargs: pytest.fail(
+            "source was re-inspected after clearance"
+        ),
+    )
+
+    prepared = prepare_cohort_document_materialization(
+        (free,),
+        selected_document_keys={free_key},
+        output_root=tmp_path / "output",
+    )
+
+    [document] = prepared.documents
+    source_stat = document.source.stat()
+    assert document.source_device == source_stat.st_dev
+    assert document.source_inode == source_stat.st_ino
+
+
+def test_materializer_rejects_nested_clearance_provenance_mutation(
+    tmp_path: Path,
+) -> None:
+    free, _free_key = _source(
+        tmp_path,
+        phase="free",
+        candidate_id="candidate-1",
+        document_id="complaint-1",
+    )
+    [source_record] = free.manifest
+    clearance_record = dict(free.clearance[0])
+    [evidence] = require_cleared_documents(
+        free.manifest,
+        document_root=free.document_root,
+        clearance_records=(clearance_record,),
+    )
+    cast(list[str], clearance_record["restriction_evidence"]).append("mutated")
+
+    with pytest.raises(
+        CohortDocumentMaterializationError,
+        match="clearance evidence provenance differs",
+    ):
+        materializer_module._require_matching_clearance_evidence(
+            evidence,
+            source_path=free.document_root / str(source_record["local_path"]),
+            expected_hash=str(source_record["sha256"]),
+            expected_bytes=int(source_record["byte_count"]),
+            clearance_record=clearance_record,
+        )
+
+
+def test_materializer_translates_late_source_path_resolution_failure(
+    tmp_path: Path,
+) -> None:
+    free, _free_key = _source(
+        tmp_path,
+        phase="free",
+        candidate_id="candidate-1",
+        document_id="complaint-1",
+    )
+    [source_record] = free.manifest
+    [evidence] = require_cleared_documents(
+        free.manifest,
+        document_root=free.document_root,
+        clearance_records=free.clearance,
+    )
+    source_path = free.document_root / str(source_record["local_path"])
+    source_path.unlink()
+
+    with pytest.raises(
+        CohortDocumentMaterializationError,
+        match="clearance evidence source path is unavailable",
+    ):
+        materializer_module._require_matching_clearance_evidence(
+            evidence,
+            source_path=source_path,
+            expected_hash=str(source_record["sha256"]),
+            expected_bytes=int(source_record["byte_count"]),
+            clearance_record=free.clearance[0],
+        )
 
 
 def test_materializer_accepts_consecutive_free_sources_and_sums_counts(
