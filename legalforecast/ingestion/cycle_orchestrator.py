@@ -2191,16 +2191,17 @@ def _output_commitments(
         for value in cast(list[object], raw_paths)
     ]
     output_paths = tuple(Path(value) for value in paths)
+    if len(output_paths) != len(set(output_paths)):
+        raise CycleOrchestratorError("stage run card repeats an output path")
     return [output_commitments.authenticate(path) for path in output_paths]
 
 
 def authenticate_output_paths(paths: tuple[Path, ...]) -> list[dict[str, object]]:
     """Content-authenticate standalone stage outputs without publishing a receipt."""
 
-    output_commitments = _OutputCommitmentSession()
-    commitments = [output_commitments.authenticate(path) for path in paths]
-    output_commitments.revalidate_reused()
-    return commitments
+    if len(paths) != len(set(paths)):
+        raise CycleOrchestratorError("stage run card repeats an output path")
+    return [_output_commitment(path) for path in paths]
 
 
 def _output_commitment(path: Path) -> dict[str, object]:
