@@ -220,9 +220,15 @@ def prepare_cohort_document_materialization(
     """Validate immutable source lineages and prepare a single parse-ready root."""
 
     phases = tuple(source.phase for source in sources)
-    if phases not in {("free",), ("free", "purchased")}:
+    if phases not in {
+        ("free",),
+        ("free", "free"),
+        ("free", "purchased"),
+        ("free", "free", "purchased"),
+    }:
         raise CohortDocumentMaterializationError(
-            "document sources must be ordered exactly as free or free, purchased"
+            "document sources must be ordered exactly as free, free/free, "
+            "free/purchased, or free/free/purchased"
         )
     output = output_root.absolute()
     document_output_root = output / "documents"
@@ -249,7 +255,9 @@ def prepare_cohort_document_materialization(
         except DisclosureClearanceError as exc:
             raise CohortDocumentMaterializationError(str(exc)) from exc
         clearance_by_key = _unique_clearance_index(source.clearance)
-        phase_counts[source.phase] = len(source.manifest)
+        phase_counts[source.phase] = phase_counts.get(source.phase, 0) + len(
+            source.manifest
+        )
         for record in source.manifest:
             key = _document_key(record)
             if key in seen_keys:
