@@ -256,7 +256,9 @@ def _exact100_executor_fixture(
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(payload)
     (historical / "free-document-downloads.jsonl").write_bytes(
-        b"".join(successor_cli._bytes(record) for record in promoted)
+        b"".join(
+            (json.dumps(record, sort_keys=True) + "\n").encode() for record in promoted
+        )
     )
     selection_records: list[dict[str, Any]] = []
     relevance: list[dict[str, Any]] = []
