@@ -558,13 +558,25 @@ def test_successor_root_must_be_new_and_derived_paths_are_complete(
 
 
 @pytest.mark.parametrize(
-    "relative_root",
+    ("relative_root", "message"),
     [
-        "current-markdown/successor",
-        "current-documents/successor",
-        "units.jsonl/successor",
-        "provider.sqlite3-wal/successor",
-        "provider.sqlite3-journal/successor",
+        (
+            "current-markdown/successor",
+            "successor derived output overlaps authenticated current input",
+        ),
+        (
+            "current-documents/successor",
+            "successor derived output overlaps authenticated current input",
+        ),
+        ("units.jsonl/successor", "successor output root parent is unavailable"),
+        (
+            "provider.sqlite3-wal",
+            "successor derived output overlaps authenticated current input",
+        ),
+        (
+            "provider.sqlite3-journal",
+            "successor derived output overlaps authenticated current input",
+        ),
     ],
 )
 def test_cli_successor_outputs_reject_current_input_overlap(
@@ -572,10 +584,9 @@ def test_cli_successor_outputs_reject_current_input_overlap(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     relative_root: str,
+    message: str,
 ) -> None:
     argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
-    if relative_root.startswith("provider.sqlite3-wal/"):
-        (tmp_path / "provider.sqlite3-wal").write_bytes(b"durable wal")
     proposal_path = tmp_path / "proposal.json"
     record = json.loads(proposal_path.read_bytes())
     record["successor_output_root"] = str(tmp_path / relative_root)
@@ -583,10 +594,52 @@ def test_cli_successor_outputs_reject_current_input_overlap(
     before = _tree_bytes(tmp_path)
 
     assert main(argv) == 1
-    assert "successor derived output overlaps authenticated current input" in (
-        _failure_message(capsys)
-    )
+    assert message in _failure_message(capsys)
     assert _tree_bytes(tmp_path) == before
+
+
+def test_cli_canonicalizes_successor_root_and_rejects_parent_symlink_retarget(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    safe_parent = tmp_path / "safe-output-parent"
+    safe_parent.mkdir()
+    alias_parent = tmp_path / "output-alias"
+    alias_parent.symlink_to(safe_parent, target_is_directory=True)
+    alias_root = alias_parent / "successor"
+    canonical_root = safe_parent / "successor"
+    proposal_path = tmp_path / "proposal.json"
+    record = json.loads(proposal_path.read_bytes())
+    record["successor_output_root"] = str(alias_root)
+    proposal_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 0
+    report_text = capsys.readouterr().out
+    assert str(canonical_root) in report_text
+    assert str(alias_root) not in report_text
+    assert _tree_bytes(tmp_path) == before
+
+    calls = 0
+
+    def retarget_before_final_isolation(**_kwargs: object) -> dict[str, bool]:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            alias_parent.unlink()
+            alias_parent.symlink_to(
+                tmp_path / "current-markdown", target_is_directory=True
+            )
+        return {"ok": True}
+
+    monkeypatch.setattr(cli, "locate_cycle_lineage", retarget_before_final_isolation)
+
+    assert main(argv) == 1
+    assert "successor output root alias changed during planning" in _failure_message(
+        capsys
+    )
 
 
 def _install_successful_cli_fixture(

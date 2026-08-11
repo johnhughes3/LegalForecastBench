@@ -19622,20 +19622,22 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             Path(f"{journal_path}{suffix}")
             for suffix in _PROVIDER_JOURNAL_SIDECAR_SUFFIXES
         )
+        current_input_paths = (
+            *lineage.input_paths,
+            *lineage.file_snapshots,
+            lineage.document_root,
+            lineage.markdown_root,
+            parser_run_card_path,
+            *parser_reuse_paths,
+            *terminal_snapshots,
+            journal_path,
+            *journal_sidecar_paths,
+        )
         require_isolated_successor_outputs(
             proposal.successor_output_root,
-            authenticated_inputs=(
-                *lineage.input_paths,
-                *lineage.file_snapshots,
-                lineage.document_root,
-                lineage.markdown_root,
-                parser_run_card_path,
-                *parser_reuse_paths,
-                *terminal_snapshots,
-                journal_path,
-                *journal_sidecar_paths,
-            ),
+            authenticated_inputs=current_input_paths,
             input_label="authenticated current input",
+            root_alias=proposal.successor_output_root_alias,
         )
         report = plan_successor_rerun_impact(
             current=current,
@@ -19679,6 +19681,12 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             raise SuccessorRerunImpactError(
                 "active lineage changed during successor planning"
             )
+        require_isolated_successor_outputs(
+            proposal.successor_output_root,
+            authenticated_inputs=current_input_paths,
+            input_label="authenticated current input",
+            root_alias=proposal.successor_output_root_alias,
+        )
     except (
         CommandError,
         CycleLineageIndexError,

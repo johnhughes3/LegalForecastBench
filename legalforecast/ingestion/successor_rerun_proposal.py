@@ -124,6 +124,7 @@ class SuccessorProposal:
     model_registry_path: Path
     policy_path: Path
     successor_output_root: Path
+    successor_output_root_alias: Path
     provider_attempt_namespace: str | None
     model_key: str
     proposal_sha256: str
@@ -183,10 +184,14 @@ def load_successor_proposal(path: Path) -> SuccessorProposal:
         raise SuccessorRerunProposalError(
             "successor proposal document_root is unavailable or unsafe"
         )
-    successor_root = _absolute_path(raw, "successor_output_root")
+    successor_root_alias = _absolute_path(raw, "successor_output_root")
+    successor_root = _resolved_path(
+        successor_root_alias, label="successor output root"
+    )
     require_isolated_successor_outputs(
         successor_root,
         authenticated_inputs=(*paths.values(), document_root),
+        root_alias=successor_root_alias,
     )
     return SuccessorProposal(
         cycle_id=_text(raw, "cycle_id"),
@@ -199,6 +204,7 @@ def load_successor_proposal(path: Path) -> SuccessorProposal:
         model_registry_path=paths["model_registry_path"],
         policy_path=paths["policy_path"],
         successor_output_root=successor_root,
+        successor_output_root_alias=successor_root_alias,
         provider_attempt_namespace=_optional_text(raw, "provider_attempt_namespace"),
         model_key=_text(raw, "model_key"),
         proposal_sha256=hashlib.sha256(payload).hexdigest(),
@@ -296,18 +302,36 @@ def require_isolated_successor_outputs(
     *,
     authenticated_inputs: Sequence[Path],
     input_label: str = "committed input",
+    root_alias: Path | None = None,
 ) -> None:
     """Require every derived output to be disjoint from authenticated inputs."""
 
-    resolved_inputs = tuple(path.resolve() for path in authenticated_inputs)
+    if root != _resolved_path(root, label="successor output root"):
+        raise SuccessorRerunProposalError(
+            "successor output root must be canonical and resolved"
+    )
+    if root_alias is not None:
+        if _resolved_path(root_alias, label="successor output root alias") != root:
+            raise SuccessorRerunProposalError(
+                "successor output root alias changed during planning"
+            )
+    resolved_inputs = tuple(
+        _resolved_path(path, label=input_label) for path in authenticated_inputs
+    )
     for output in successor_derived_output_paths(root):
-        resolved_output = output.resolve()
+        resolved_output = _resolved_path(output, label="successor derived output")
         for input_path in resolved_inputs:
             if _paths_overlap(resolved_output, input_path):
                 raise SuccessorRerunProposalError(
                     f"successor derived output overlaps {input_label}: "
                     f"{output} vs {input_path}"
                 )
+    if root_alias is not None and not _resolved_path(
+        root_alias.parent, label="successor output root parent"
+    ).is_dir():
+        raise SuccessorRerunProposalError(
+            "successor output root parent is unavailable or unsafe"
+        )
     if root.exists() or root.is_symlink():
         raise SuccessorRerunProposalError(
             "successor output root must be a new isolated path"
@@ -316,6 +340,13 @@ def require_isolated_successor_outputs(
 
 def _paths_overlap(left: Path, right: Path) -> bool:
     return left == right or left in right.parents or right in left.parents
+
+
+def _resolved_path(path: Path, *, label: str) -> Path:
+    try:
+        return path.resolve()
+    except (OSError, RuntimeError) as exc:
+        raise SuccessorRerunProposalError(f"{label} is unavailable or unsafe") from exc
 
 
 def parser_reuse_evidence_from_authenticated_artifacts(
