@@ -929,12 +929,14 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     TargetPublicGapExecutionResult,
     TargetPublicGapPlan,
     TargetPublicGapRefreshError,
+    _AuthenticatedTargetPublicGapSources,  # pyright: ignore[reportPrivateUsage]
     _execute_target_public_gap_refresh,  # pyright: ignore[reportPrivateUsage]
+    _plan_target_public_gaps_with_authenticated_sources,  # pyright: ignore[reportPrivateUsage]
+    _prepare_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     _prevalidate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     _validate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     bind_target_public_gap_execution,
     bind_verified_target_public_gap_downloads,
-    plan_target_public_gaps,
     publish_target_public_gap_outputs,
     publish_target_public_gap_plan,
     require_target_public_gap_sources_unchanged,
@@ -21779,6 +21781,13 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
 def _target_public_gap_plan_from_args(
     args: argparse.Namespace,
 ) -> TargetPublicGapPlan:
+    plan, _ = _target_public_gap_plan_with_sources_from_args(args)
+    return plan
+
+
+def _target_public_gap_plan_with_sources_from_args(
+    args: argparse.Namespace,
+) -> tuple[TargetPublicGapPlan, _AuthenticatedTargetPublicGapSources]:
     output_root = cast(Path, args.output_root).absolute()
     target_root = cast(Path, args.target_cohort_root)
     raw_html_root = cast(Path, args.raw_html_dir)
@@ -21786,7 +21795,7 @@ def _target_public_gap_plan_from_args(
     verified = verify_completed_target_cohort_projection_for_purchase_approval(
         target_root
     )
-    return plan_target_public_gaps(
+    return _plan_target_public_gaps_with_authenticated_sources(
         verified_projection=verified,
         target_cohort_root=target_root,
         expected_target_run_card_sha256=cast(
@@ -23054,7 +23063,9 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
     if firecrawl_fixture is not None and cast(int, args.workers) != 1:
         raise CommandError("Firecrawl fixture execution requires --workers 1")
     try:
-        plan = _target_public_gap_plan_from_args(args)
+        plan, authenticated_sources = _target_public_gap_plan_with_sources_from_args(
+            args
+        )
         role_adjudications = _verified_packet_role_adjudications_from_args(args)
         packet_role_replay = _packet_role_replay_receipt_from_args(
             args,
@@ -23109,6 +23120,14 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
             plan=plan,
             expected_plan_sha256=expected_plan_sha256,
             packet_role_replay=packet_role_replay,
+            authenticated_sources=authenticated_sources,
+        )
+        prepared_execution = _prepare_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
+            prevalidated_execution=prevalidated_execution,
+            firecrawl_source_factory=firecrawl_source_factory,
         )
         with bind_target_public_gap_execution(plan) as binding:
             validated_execution = _validate_target_public_gap_execution(
@@ -23117,6 +23136,7 @@ def _cmd_acquisition_execute_target_public_gaps(args: argparse.Namespace) -> int
                 packet_role_replay=packet_role_replay,
                 execution_binding=binding,
                 prevalidated_execution=prevalidated_execution,
+                prepared_execution=prepared_execution,
             )
             execution = _execute_target_public_gap_refresh(
                 plan=plan,

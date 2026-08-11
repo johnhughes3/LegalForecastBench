@@ -339,12 +339,31 @@ class TargetPublicGapExecutionBinding:
 
 
 @dataclass(frozen=True, slots=True)
+class _AuthenticatedTargetPublicGapSources:
+    """Invocation-local proof produced with canonical target reconstruction."""
+
+    plan: TargetPublicGapPlan
+    source_artifact_commitments: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class _PrevalidatedTargetPublicGapExecution:
     """Private proof that read-only checks passed before writable binding."""
 
     plan: TargetPublicGapPlan
     expected_plan_sha256: str
     packet_role_replay: Mapping[str, object] | None
+    authenticated_sources: _AuthenticatedTargetPublicGapSources | None
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedTargetPublicGapExecution:
+    """Validated provider construction completed before writable binding."""
+
+    plan: TargetPublicGapPlan
+    expected_plan_sha256: str
+    packet_role_replay: Mapping[str, object] | None
+    firecrawl_source: FirecrawlCourtListenerHTMLSource
 
 
 @dataclass(frozen=True, slots=True)
@@ -355,6 +374,7 @@ class _ValidatedTargetPublicGapExecution:
     expected_plan_sha256: str
     packet_role_replay: Mapping[str, object] | None
     execution_binding: TargetPublicGapExecutionBinding
+    firecrawl_source: FirecrawlCourtListenerHTMLSource | None
 
 
 @dataclass(slots=True)
@@ -854,6 +874,7 @@ def _prevalidate_target_public_gap_execution(  # pyright: ignore[reportUnusedFun
     plan: TargetPublicGapPlan,
     expected_plan_sha256: str,
     packet_role_replay: Mapping[str, object] | None,
+    authenticated_sources: _AuthenticatedTargetPublicGapSources | None = None,
 ) -> _PrevalidatedTargetPublicGapExecution:
     """Run every read-only check before writable namespaces can be created."""
 
@@ -862,11 +883,59 @@ def _prevalidate_target_public_gap_execution(  # pyright: ignore[reportUnusedFun
         expected_plan_sha256=expected_plan_sha256,
         packet_role_replay=packet_role_replay,
     )
-    require_target_public_gap_sources_unchanged(plan)
+    if authenticated_sources is None:
+        # The public execution surface has no canonical reconstruction token,
+        # so it retains the conservative initial exact-byte reread.
+        require_target_public_gap_sources_unchanged(plan)
+    elif (
+        authenticated_sources.plan is not plan
+        or authenticated_sources.source_artifact_commitments
+        != tuple(sorted(plan.source_artifact_commitments.items()))
+    ):
+        raise TargetPublicGapRefreshError(
+            "authenticated target public-gap source evidence differs"
+        )
     return _PrevalidatedTargetPublicGapExecution(
         plan=plan,
         expected_plan_sha256=expected_plan_sha256,
         packet_role_replay=packet_role_replay,
+        authenticated_sources=authenticated_sources,
+    )
+
+
+def _prepare_target_public_gap_execution(  # pyright: ignore[reportUnusedFunction]
+    *,
+    plan: TargetPublicGapPlan,
+    expected_plan_sha256: str,
+    packet_role_replay: Mapping[str, object] | None,
+    prevalidated_execution: _PrevalidatedTargetPublicGapExecution,
+    firecrawl_source_factory: Callable[[], FirecrawlCourtListenerHTMLSource],
+) -> _PreparedTargetPublicGapExecution:
+    """Construct and validate the provider before writable directories exist."""
+
+    if (
+        prevalidated_execution.plan is not plan
+        or prevalidated_execution.expected_plan_sha256 != expected_plan_sha256
+        or prevalidated_execution.packet_role_replay != packet_role_replay
+    ):
+        raise TargetPublicGapRefreshError(
+            "prevalidated target public-gap execution evidence differs"
+        )
+    firecrawl_source = firecrawl_source_factory()
+    identity = plan.execution_identity
+    if (
+        firecrawl_source.config.proxy != identity.firecrawl_proxy
+        or firecrawl_source.config.force_browser != identity.force_browser
+    ):
+        raise TargetPublicGapRefreshError(
+            "Firecrawl source configuration differs from the plan-bound "
+            "execution identity"
+        )
+    return _PreparedTargetPublicGapExecution(
+        plan=plan,
+        expected_plan_sha256=expected_plan_sha256,
+        packet_role_replay=packet_role_replay,
+        firecrawl_source=firecrawl_source,
     )
 
 
@@ -877,6 +946,7 @@ def _validate_target_public_gap_execution(  # pyright: ignore[reportUnusedFuncti
     packet_role_replay: Mapping[str, object] | None,
     execution_binding: TargetPublicGapExecutionBinding,
     prevalidated_execution: _PrevalidatedTargetPublicGapExecution,
+    prepared_execution: _PreparedTargetPublicGapExecution | None = None,
 ) -> _ValidatedTargetPublicGapExecution:
     """Bind a matching prevalidated source closure to pinned namespaces."""
 
@@ -888,18 +958,49 @@ def _validate_target_public_gap_execution(  # pyright: ignore[reportUnusedFuncti
         raise TargetPublicGapRefreshError(
             "prevalidated target public-gap execution evidence differs"
         )
-    preflight_target_public_gap_execution(
-        plan,
-        expected_plan_sha256=expected_plan_sha256,
-        packet_role_replay=packet_role_replay,
-    )
-    require_target_public_gap_sources_unchanged(plan)
+    if prepared_execution is not None and (
+        prepared_execution.plan is not plan
+        or prepared_execution.expected_plan_sha256 != expected_plan_sha256
+        or prepared_execution.packet_role_replay != packet_role_replay
+    ):
+        raise TargetPublicGapRefreshError(
+            "prepared target public-gap execution evidence differs"
+        )
     execution_binding.require_current(plan)
+    cycle_store_path = plan.execution_identity.cycle_store_path
+    if cycle_store_path.exists() or cycle_store_path.is_symlink():
+        metadata = cycle_store_path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise TargetPublicGapRefreshError(
+                "cycle store must be a singly linked regular file"
+            )
+        for raw_source in plan.source_artifact_commitments:
+            try:
+                if cycle_store_path.samefile(raw_source):
+                    raise TargetPublicGapRefreshError(
+                        "cycle store aliases authenticated source by hard-link"
+                    )
+            except FileNotFoundError:
+                # The complete source rehash below reports a missing source
+                # through the stable source-drift contract.
+                continue
+            except OSError as exc:
+                raise TargetPublicGapRefreshError(
+                    "cannot inspect cycle store alias safety"
+                ) from exc
+    # This exact-byte pass covers both the external provider factory and the
+    # writable-directory binding, and still precedes durable store creation.
+    require_target_public_gap_sources_unchanged(plan)
     return _ValidatedTargetPublicGapExecution(
         plan=plan,
         expected_plan_sha256=expected_plan_sha256,
         packet_role_replay=packet_role_replay,
         execution_binding=execution_binding,
+        firecrawl_source=(
+            prepared_execution.firecrawl_source
+            if prepared_execution is not None
+            else None
+        ),
     )
 
 
@@ -1067,6 +1168,30 @@ def plan_target_public_gaps(
     execution_identity: TargetPublicGapExecutionIdentity,
 ) -> TargetPublicGapPlan:
     """Project gaps only after the canonical target verifier has succeeded."""
+
+    plan, _ = _plan_target_public_gaps_with_authenticated_sources(
+        verified_projection=verified_projection,
+        target_cohort_root=target_cohort_root,
+        expected_target_run_card_sha256=expected_target_run_card_sha256,
+        fresh_credit_cap=fresh_credit_cap,
+        workers=workers,
+        max_pages_per_docket=max_pages_per_docket,
+        execution_identity=execution_identity,
+    )
+    return plan
+
+
+def _plan_target_public_gaps_with_authenticated_sources(
+    *,
+    verified_projection: Mapping[str, object],
+    target_cohort_root: Path,
+    expected_target_run_card_sha256: str,
+    fresh_credit_cap: int,
+    workers: int,
+    max_pages_per_docket: int,
+    execution_identity: TargetPublicGapExecutionIdentity,
+) -> tuple[TargetPublicGapPlan, _AuthenticatedTargetPublicGapSources]:
+    """Project gaps and retain the canonical verifier's typed byte evidence."""
 
     if _SHA256.fullmatch(expected_target_run_card_sha256) is None:
         raise TargetPublicGapRefreshError("target run-card SHA-256 is invalid")
@@ -1282,7 +1407,7 @@ def plan_target_public_gaps(
         "verified target artifact bytes",
     )
     gap_document_ids = tuple(cast(str, gap["source_document_id"]) for gap in gaps)
-    return TargetPublicGapPlan(
+    plan = TargetPublicGapPlan(
         target_cohort_root=resolved_target_root,
         target_run_card_sha256=expected_target_run_card_sha256,
         target_projection_file_sha256=_file_sha256(
@@ -1321,6 +1446,12 @@ def plan_target_public_gaps(
         max_pages_per_docket=max_pages_per_docket,
         gap_manifest_sha256=_records_sha256(gaps),
         docket_manifest_sha256=_records_sha256(docket_records),
+    )
+    return plan, _AuthenticatedTargetPublicGapSources(
+        plan=plan,
+        source_artifact_commitments=tuple(
+            sorted(plan.source_artifact_commitments.items())
+        ),
     )
 
 
@@ -1568,11 +1699,17 @@ def _execute_target_public_gap_refresh(
             "provider re-execution"
         )
     identity = execution_binding.runtime_identity
-    firecrawl_source = firecrawl_source_factory()
-    # A source factory is code outside this authority boundary. Recheck before
-    # opening or mutating the durable cycle store.
-    execution_binding.require_current(plan)
-    require_target_public_gap_sources_unchanged(plan)
+    firecrawl_source = (
+        validated_execution.firecrawl_source
+        if validated_execution is not None
+        else None
+    )
+    if firecrawl_source is None:
+        firecrawl_source = firecrawl_source_factory()
+        # The conservative public path constructs its provider after binding;
+        # retain its distinct post-factory exact-byte check.
+        execution_binding.require_current(plan)
+        require_target_public_gap_sources_unchanged(plan)
     if (
         firecrawl_source.config.proxy != identity.firecrawl_proxy
         or firecrawl_source.config.force_browser != identity.force_browser
