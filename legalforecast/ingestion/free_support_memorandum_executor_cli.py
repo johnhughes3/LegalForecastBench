@@ -198,9 +198,7 @@ def _authenticated_corrected_selection_bytes(
         raise FreeSupportMemorandumExecutorCliError(
             "support memorandum replay lacks exact v2 selection authority"
         )
-    expected_bytes = cast(Mapping[str, object], artifact_bytes).get(
-        str(expected_path)
-    )
+    expected_bytes = cast(Mapping[str, object], artifact_bytes).get(str(expected_path))
     if not isinstance(expected_bytes, bytes):
         raise FreeSupportMemorandumExecutorCliError(
             "support memorandum replay lacks selected bytes"

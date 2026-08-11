@@ -19,6 +19,10 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
+from legalforecast.contracts import (
+    ARTIFACT_RAW_SHA256_V1,
+    FREE_SUPPORT_MEMORANDUM_SOURCE_AUGMENTATION_V1,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.disclosure_clearance import (
     ClearanceRecord,
@@ -42,9 +46,7 @@ from legalforecast.ingestion.provenance import DocumentRole
 
 JsonRecord = dict[str, Any]
 
-SOURCE_AUGMENTATION_SCHEMA = (
-    "legalforecast.free_support_memorandum_source_augmentation.v1"
-)
+SOURCE_AUGMENTATION_SCHEMA = str(FREE_SUPPORT_MEMORANDUM_SOURCE_AUGMENTATION_V1)
 _CANDIDATE_ID = "73327542"
 _SOURCE_DOCUMENT_ID = "73327542-entry-14-motion-to-dismiss-memorandum"
 _TARGET_ENTRY_NUMBER = 13
@@ -644,10 +646,18 @@ def _clearance_record(
     scan: DisclosurePdfScan,
 ) -> ClearanceRecord:
     markers = scan.automated_markers
-    routing_plan_sha256 = _routing_plan_sha256(
-        plan=plan,
-        corrected_selection_bytes=corrected_selection_bytes,
-        download=download,
+    routing_plan_sha256 = str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            {
+                "kind": "free_support_memorandum_affirmative_public_provenance",
+                "base_selection_sha256": hashlib.sha256(
+                    corrected_selection_bytes
+                ).hexdigest(),
+                "plan_sha256": hashlib.sha256(plan.record_bytes).hexdigest(),
+                "download": download.to_record(),
+            },
+            domain=FREE_SUPPORT_MEMORANDUM_SOURCE_AUGMENTATION_V1,
+        ).digest
     )
     return ClearanceRecord(
         candidate_id=_CANDIDATE_ID,
@@ -666,26 +676,6 @@ def _clearance_record(
         clearance_basis="affirmative_public_provenance",
         routing_plan_sha256=routing_plan_sha256,
     )
-
-
-def _routing_plan_sha256(
-    *,
-    plan: FreeSupportMemorandumRecoveryPlan,
-    corrected_selection_bytes: bytes,
-    download: FreeDocumentDownloadRecord,
-) -> str:
-    return hashlib.sha256(
-        _canonical_bytes(
-            {
-                "kind": "free_support_memorandum_affirmative_public_provenance",
-                "base_selection_sha256": hashlib.sha256(
-                    corrected_selection_bytes
-                ).hexdigest(),
-                "plan_sha256": hashlib.sha256(plan.record_bytes).hexdigest(),
-                "download": download.to_record(),
-            }
-        )
-    ).hexdigest()
 
 
 def _download_record(record: Mapping[str, object]) -> FreeDocumentDownloadRecord:
