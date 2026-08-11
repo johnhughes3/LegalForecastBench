@@ -492,6 +492,9 @@ from legalforecast.ingestion.exact100_zero_cost_recovery_cli import (
 from legalforecast.ingestion.exact100_zero_cost_recovery_cli import (
     execute_terminal_recovery_for_successor,
 )
+from legalforecast.ingestion.free_support_memorandum_executor_cli import (
+    add_parser as add_free_support_memorandum_executor_parser,
+)
 from legalforecast.ingestion.exact310_rest_rebind import (
     Exact310RestRebindError,
     execute_exact310_terminal_rest_rebind,
@@ -2158,6 +2161,7 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_cmd_project_exact100_successor_replacement_v2,
     )
     add_exact100_zero_cost_recovery_parser(acquisition_subparsers)
+    add_free_support_memorandum_executor_parser(acquisition_subparsers)
     acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
         "accumulate-replacement-clearance",
         help=(
