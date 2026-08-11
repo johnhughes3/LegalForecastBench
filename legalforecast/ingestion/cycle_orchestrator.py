@@ -593,12 +593,13 @@ def _advance_cycle(
             stop_reason = f"{stage.boundary.value}_boundary_not_authorized"
             break
 
-        output_commitments.revalidate_reused(clear=True)
+        output_commitments.revalidate_reused()
         exit_code = executor(stage.command, stage.arguments)
         if exit_code != 0:
             raise CycleOrchestratorError(
                 f"stage {stage.stage_id} exited with status {exit_code}"
             )
+        output_commitments.revalidate_reused(clear=True)
         receipt_sha256 = _receipt_completed_stage(
             receipt_path,
             config=config,

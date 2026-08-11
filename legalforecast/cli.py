@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import fcntl
 import hashlib
 import io
@@ -35,6 +36,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from itertools import pairwise
 from pathlib import Path
+from threading import get_ident
 from typing import Any, cast, overload
 
 from legalforecast import __version__
@@ -43872,6 +43874,7 @@ def _verify_materializer_projection(
     _verified_legacy_ranked_replay: VerifiedLegacyRankedReserveReplay | None = None,
     _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
     _verified_clearance_source_roots: Mapping[str, Path] | None = None,
+    _verified_projection_operation: _VerifiedProjectionOperation | None = None,
 ) -> dict[str, object]:
     run_card_path = target_root / "run-cards/project-target-cohort.json"
     supporting_card_path = (
@@ -44302,7 +44305,7 @@ def _verify_materializer_projection(
         },
         label="target projection artifact",
     )
-    return {
+    result: dict[str, object] = {
         "run_card": run_card,
         "run_card_bytes": run_card_bytes,
         "summary": summary,
@@ -44333,6 +44336,16 @@ def _verify_materializer_projection(
             },
         },
     }
+    if (
+        _verified_projection_operation is not None
+        and _verified_projection_operation.is_live_owner()
+    ):
+        _verified_projection_operation.record_byte_closure(
+            target_root=target_root,
+            run_card_bytes=run_card_bytes,
+            snapshots=clearance_snapshot,
+        )
+    return result
 
 
 def _verify_supporting_document_downstream_projection(
@@ -44511,9 +44524,44 @@ def _select_materializer_projection_after_recovery(
     return outer_projection
 
 
-_VerifiedProjectionCache = dict[tuple[str, str], dict[str, object]]
-_VERIFIED_PROJECTION_CACHE: ContextVar[_VerifiedProjectionCache | None] = ContextVar(
-    "verified_projection_cache", default=None
+@dataclass(frozen=True)
+class _VerifiedProjectionCacheEntry:
+    result: dict[str, object]
+    snapshots: tuple[tuple[str, bytes], ...]
+
+
+@dataclass
+class _VerifiedProjectionOperation:
+    owner_thread_id: int
+    cache: dict[tuple[str, str], _VerifiedProjectionCacheEntry]
+    byte_closures: dict[tuple[str, str], dict[str, bytes]]
+    alive: bool = True
+
+    def is_live_owner(self) -> bool:
+        return self.alive and self.owner_thread_id == get_ident()
+
+    def invalidate(self) -> None:
+        self.alive = False
+        self.cache.clear()
+        self.byte_closures.clear()
+
+    def record_byte_closure(
+        self,
+        *,
+        target_root: Path,
+        run_card_bytes: bytes,
+        snapshots: Mapping[str, bytes],
+    ) -> None:
+        if not self.is_live_owner():
+            raise RuntimeError(
+                "verified projection operation is not live for this thread"
+            )
+        key = (str(target_root.resolve()), _bytes_sha256(run_card_bytes))
+        self.byte_closures[key] = dict(snapshots)
+
+
+_VERIFIED_PROJECTION_OPERATION: ContextVar[_VerifiedProjectionOperation | None] = (
+    ContextVar("verified_projection_cache", default=None)
 )
 
 
@@ -44530,42 +44578,48 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
     cannot drift into a weaker parallel interpretation of preparation,
     disclosure-clearance, snapshot, run-card, or output commitments.
 
-    Recursive producer replay can encounter the same root more than once. Keep
-    its fully verified evidence only for this top-level call; cache hits still
-    reread every authenticated byte before reuse, preserving the existing
-    mutation check without repeating the recursive lineage computation.
+    Recursive producer replay can encounter the same byte-closed base root more
+    than once. Keep its fully verified evidence only for this top-level call;
+    cache hits still reread every authenticated byte before reuse, preserving
+    the existing mutation check without repeating recursive lineage computation.
     """
 
-    cache = _VERIFIED_PROJECTION_CACHE.get()
-    if cache is not None:
+    operation = _VERIFIED_PROJECTION_OPERATION.get()
+    if operation is not None and operation.is_live_owner():
         return _verify_completed_target_cohort_projection_in_operation(
             target_root,
+            operation=operation,
             _verified_legacy_ranked_replay=_verified_legacy_ranked_replay,
             _verified_clearance_relocations=_verified_clearance_relocations,
             _verified_clearance_source_roots=_verified_clearance_source_roots,
         )
-    token = _VERIFIED_PROJECTION_CACHE.set({})
+    operation = _VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+    token = _VERIFIED_PROJECTION_OPERATION.set(operation)
     try:
         return _verify_completed_target_cohort_projection_in_operation(
             target_root,
+            operation=operation,
             _verified_legacy_ranked_replay=_verified_legacy_ranked_replay,
             _verified_clearance_relocations=_verified_clearance_relocations,
             _verified_clearance_source_roots=_verified_clearance_source_roots,
         )
     finally:
-        _VERIFIED_PROJECTION_CACHE.reset(token)
+        operation.invalidate()
+        _VERIFIED_PROJECTION_OPERATION.reset(token)
 
 
 def _verify_completed_target_cohort_projection_in_operation(
     target_root: Path,
     *,
+    operation: _VerifiedProjectionOperation,
     _verified_legacy_ranked_replay: VerifiedLegacyRankedReserveReplay | None = None,
     _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
     _verified_clearance_source_roots: Mapping[str, Path] | None = None,
 ) -> dict[str, object]:
-    cache = _VERIFIED_PROJECTION_CACHE.get()
-    if cache is None:  # pragma: no cover - guarded by the public entry point
-        raise RuntimeError("verified projection cache scope is missing")
+    if not operation.is_live_owner():  # pragma: no cover - guarded by public entry
+        raise RuntimeError("verified projection operation is not live for this thread")
 
     # Supporting-document successors carry their own authenticated replay
     # surface. Keep that new trunk path fully replayed rather than treating it
@@ -44590,21 +44644,26 @@ def _verify_completed_target_cohort_projection_in_operation(
     run_card_bytes = _read_singly_linked_regular_input(
         run_card_path, label="target projection run card"
     )
+    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
     cache_key = (str(target_root.resolve()), _bytes_sha256(run_card_bytes))
+    raw_inputs_for_cache = run_card.get("input_paths")
+    cache_input_count = (
+        len(cast(Sequence[object], raw_inputs_for_cache))
+        if isinstance(raw_inputs_for_cache, Sequence)
+        and not isinstance(raw_inputs_for_cache, (str, bytes))
+        else None
+    )
     cacheable = (
-        _verified_legacy_ranked_replay is None
+        run_card.get("schema_version") == "legalforecast.acquisition_run_card.v1"
+        and cache_input_count == 9
+        and _verified_legacy_ranked_replay is None
         and _verified_clearance_relocations is None
         and _verified_clearance_source_roots is None
     )
-    cached = cache.get(cache_key) if cacheable else None
+    cached = operation.cache.get(cache_key) if cacheable else None
     if cached is not None:
-        raw_snapshots = cached.get("verified_artifact_bytes")
-        if not isinstance(raw_snapshots, Mapping):
-            raise CommandError("cached target projection evidence is incomplete")
         snapshots: dict[Path, bytes] = {}
-        for raw_path, payload in cast(Mapping[object, object], raw_snapshots).items():
-            if not isinstance(raw_path, str) or not isinstance(payload, bytes):
-                raise CommandError("cached target projection evidence is invalid")
+        for raw_path, payload in cached.snapshots:
             snapshots[Path(raw_path)] = payload
         root = target_root.absolute()
         _reject_unexpected_materializer_outputs(
@@ -44616,14 +44675,34 @@ def _verify_completed_target_cohort_projection_in_operation(
         _require_snapshot_unchanged(
             snapshots, label="cached target projection artifact"
         )
-        return cached
+        return copy.deepcopy(cached.result)
 
     def verified(result: dict[str, object]) -> dict[str, object]:
         if cacheable:
-            cache[cache_key] = result
+            byte_closure = operation.byte_closures.pop(cache_key, None)
+            if byte_closure is None:
+                raise CommandError("target projection cache byte closure is incomplete")
+            raw_snapshots = result.get("verified_artifact_bytes")
+            if not isinstance(raw_snapshots, Mapping):
+                raise CommandError("target projection cache evidence is incomplete")
+            typed_raw_snapshots = cast(Mapping[object, object], raw_snapshots)
+            snapshots = {
+                str(raw_path): payload
+                for raw_path, payload in typed_raw_snapshots.items()
+                if isinstance(raw_path, str) and isinstance(payload, bytes)
+            }
+            if len(snapshots) != len(typed_raw_snapshots):
+                raise CommandError("target projection cache evidence is invalid")
+            for raw_path, payload in byte_closure.items():
+                existing = snapshots.get(raw_path)
+                if existing is not None and existing != payload:
+                    raise CommandError("target projection cache evidence conflicts")
+                snapshots[raw_path] = payload
+            operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
+                result=copy.deepcopy(result), snapshots=tuple(sorted(snapshots.items()))
+            )
         return result
 
-    run_card = _projection_json_object(run_card_bytes, source=run_card_path)
     if run_card.get("schema_version") == ZERO_COST_SUCCESSOR_STATE_SCHEMA:
         return verified(
             _verify_zero_cost_successor_projection(
@@ -44690,6 +44769,7 @@ def _verify_completed_target_cohort_projection_in_operation(
             preparation_config_path=config_path,
             snapshot_manifest_path=input_paths[8],
             expected_target_count=target_count,
+            _verified_projection_operation=operation,
         )
     )
 

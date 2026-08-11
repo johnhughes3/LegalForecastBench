@@ -4241,6 +4241,73 @@ def test_run_cycle_rehashed_shared_directory_fails_closed_on_drift(
         )
 
 
+def test_run_cycle_rehashes_shared_directory_after_executor_before_receipt(
+    tmp_path: Path,
+) -> None:
+    output_directory = tmp_path / "shared-output"
+    output_directory.mkdir()
+    payload = output_directory / "payload.bin"
+    payload.write_bytes(b"original")
+    run_cards = [tmp_path / f"stage-{index}.json" for index in range(3)]
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id=f"stage-{index}",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+            for index, run_card in enumerate(run_cards)
+        ],
+    )
+
+    def write_card(command: str, arguments: tuple[str, ...]) -> int:
+        run_card = Path(arguments[arguments.index("--run-card-output") + 1])
+        _write_completion_card(
+            run_card,
+            stage=command,
+            output_paths=(output_directory,),
+        )
+        return 0
+
+    state_root = tmp_path / "state"
+    run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=write_card,
+    )
+    next_receipt = state_root / "receipts" / "0002-stage-2.json"
+    next_receipt.unlink()
+    run_cards[2].unlink()
+
+    def mutate_then_complete(command: str, arguments: tuple[str, ...]) -> int:
+        payload.write_bytes(b"changed")
+        return write_card(command, arguments)
+
+    with pytest.raises(
+        CycleOrchestratorError,
+        match="changed during cycle check",
+    ):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=True,
+            permissions=BoundaryPermissions(),
+            executor=mutate_then_complete,
+        )
+    assert not next_receipt.exists()
+
+
 def test_run_cycle_rejects_relative_output_path(
     tmp_path: Path,
 ) -> None:
