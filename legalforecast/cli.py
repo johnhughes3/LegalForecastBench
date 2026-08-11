@@ -30934,6 +30934,176 @@ def _materializer_free_clearance_records(
     )
 
 
+def _require_materializer_source_record_match(
+    *,
+    expected: Mapping[str, Any],
+    authenticated: Mapping[str, Any],
+    label: str,
+) -> None:
+    """Require that an inherited source still names the projected free bytes."""
+
+    key = _materializer_record_key(expected)
+    if _materializer_record_key(authenticated) != key or any(
+        expected.get(field) != authenticated.get(field)
+        for field in ("free_or_purchased", "local_path", "sha256", "byte_count")
+    ):
+        raise CommandError(f"{label} differs from authenticated source: {key}")
+    if expected.get("free_or_purchased") != "free":
+        raise CommandError(f"{label} is not a free document: {key}")
+
+
+def _materializer_successor_v2_free_sources(
+    projection: Mapping[str, object],
+    *,
+    preparation_root: Path,
+    consolidated_recovery: bool,
+) -> tuple[DocumentSource, ...]:
+    """Return the exact free roots for a consolidated exact-100 v2 successor.
+
+    The v2 successor keeps inherited documents in the predecessor's
+    content-addressed materialization tree, while its one promoted candidate
+    remains in the authenticated historical public-packet tree.  A generic
+    preparation root cannot safely stand in for either layout.
+    """
+
+    free_manifest = tuple(
+        cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
+    )
+    free_clearance = _materializer_free_clearance_records(
+        projection, consolidated_recovery=consolidated_recovery
+    )
+    if not consolidated_recovery:
+        return (
+            DocumentSource(
+                phase="free",
+                document_root=preparation_root / "documents/free",
+                manifest=free_manifest,
+                clearance=free_clearance,
+            ),
+        )
+
+    run_card = projection.get("run_card")
+    selection_path = projection.get("selection_path")
+    artifact_bytes = projection.get("verified_artifact_bytes")
+    if not isinstance(run_card, Mapping) or cast(Mapping[str, object], run_card).get(
+        "schema_version"
+    ) != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2):
+        return (
+            DocumentSource(
+                phase="free",
+                document_root=preparation_root / "documents/free",
+                manifest=free_manifest,
+                clearance=free_clearance,
+            ),
+        )
+    if not isinstance(selection_path, Path) or not isinstance(artifact_bytes, Mapping):
+        raise CommandError("consolidated recovery lacks exact100 v2 source authority")
+    run_card_record = cast(Mapping[str, object], run_card)
+    replay_args = _exact100_successor_v2_replay_args(run_card_record)
+    complete_root = replay_args.complete_materialization_root / "01-materialized"
+    inherited_root = complete_root / "documents"
+    historical_root = replay_args.historical_packet_root / "documents"
+    source_paths = (
+        complete_root / "document-downloads-merged.jsonl",
+        replay_args.historical_packet_root / "free-document-downloads.jsonl",
+    )
+    for path, label in (
+        (inherited_root, "complete materialization document root"),
+        (historical_root, "historical packet document root"),
+    ):
+        if path.is_symlink() or not path.is_dir():
+            raise CommandError(f"{label} is not an authenticated directory")
+    inherited_manifest = _projection_jsonl_records(
+        _read_singly_linked_regular_input(
+            source_paths[0], label="complete materialization source manifest"
+        ),
+        source=source_paths[0],
+    )
+    historical_manifest = _projection_jsonl_records(
+        _read_singly_linked_regular_input(
+            source_paths[1], label="historical packet source manifest"
+        ),
+        source=source_paths[1],
+    )
+    promotion_path = selection_path.parent / "successor-promotions.jsonl"
+    promotion_bytes = cast(Mapping[str, object], artifact_bytes).get(
+        os.path.abspath(promotion_path)
+    )
+    if not isinstance(promotion_bytes, bytes):
+        raise CommandError("exact100 v2 source authority lacks promotion bytes")
+    promotions = _projection_jsonl_records(promotion_bytes, source=promotion_path)
+    if len(promotions) != 1:
+        raise CommandError("exact100 v2 source authority lacks one promotion")
+    promoted_candidate_id = _required_str(promotions[0], "candidate_id")
+    promoted_manifest = tuple(
+        record
+        for record in free_manifest
+        if _required_str(record, "candidate_id") == promoted_candidate_id
+    )
+    inherited_projection_manifest = tuple(
+        record
+        for record in free_manifest
+        if _required_str(record, "candidate_id") != promoted_candidate_id
+    )
+    if len(promoted_manifest) != 5:
+        raise CommandError("exact100 v2 promotion must retain its five free documents")
+    inherited_by_key = {
+        _materializer_record_key(record): record
+        for record in inherited_manifest
+        if record.get("free_or_purchased") == "free"
+    }
+    historical_by_key = {
+        _materializer_record_key(record): record
+        for record in historical_manifest
+        if record.get("free_or_purchased") == "free"
+    }
+    inherited_keys = {
+        _materializer_record_key(record) for record in inherited_projection_manifest
+    }
+    promoted_keys = {_materializer_record_key(record) for record in promoted_manifest}
+    if inherited_keys & promoted_keys or inherited_keys | promoted_keys != {
+        _materializer_record_key(record) for record in free_manifest
+    }:
+        raise CommandError("exact100 v2 free documents do not have one-root coverage")
+    for record in inherited_projection_manifest:
+        key = _materializer_record_key(record)
+        source = inherited_by_key.get(key)
+        if source is None:
+            raise CommandError(
+                f"complete materialization lacks inherited free document: {key}"
+            )
+        _require_materializer_source_record_match(
+            expected=record, authenticated=source, label="inherited free document"
+        )
+    for record in promoted_manifest:
+        key = _materializer_record_key(record)
+        source = historical_by_key.get(key)
+        if source is None:
+            raise CommandError(f"historical packet lacks promoted free document: {key}")
+        _require_materializer_source_record_match(
+            expected=record, authenticated=source, label="promoted free document"
+        )
+    clearance_by_key = {
+        _materializer_record_key(record): record for record in free_clearance
+    }
+    if set(clearance_by_key) != inherited_keys | promoted_keys:
+        raise CommandError("exact100 v2 free clearance does not cover source roots")
+    return (
+        DocumentSource(
+            phase="free",
+            document_root=inherited_root,
+            manifest=inherited_projection_manifest,
+            clearance=tuple(clearance_by_key[key] for key in sorted(inherited_keys)),
+        ),
+        DocumentSource(
+            phase="free",
+            document_root=historical_root,
+            manifest=promoted_manifest,
+            clearance=tuple(clearance_by_key[key] for key in sorted(promoted_keys)),
+        ),
+    )
+
+
 def _replacement_consolidation_active_paid_keys(
     records: Sequence[Mapping[str, Any]],
     *,
@@ -41286,19 +41456,14 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             operations,
             purchased_manifest=purchased_manifest,
         )
+        free_sources = _materializer_successor_v2_free_sources(
+            projection,
+            preparation_root=preparation_root,
+            consolidated_recovery=preverified_recovery is not None,
+        )
         materialization = prepare_cohort_document_materialization(
             (
-                DocumentSource(
-                    phase="free",
-                    document_root=preparation_root / "documents/free",
-                    manifest=cast(
-                        Sequence[Mapping[str, Any]], projection["free_manifest"]
-                    ),
-                    clearance=_materializer_free_clearance_records(
-                        projection,
-                        consolidated_recovery=preverified_recovery is not None,
-                    ),
-                ),
+                *free_sources,
                 DocumentSource(
                     phase="purchased",
                     document_root=cast(Path, recovery["document_root"]),
@@ -46972,19 +47137,14 @@ def _verify_materialized_downstream_lineage(
             snapshot.operations,
             purchased_manifest=purchased_manifest,
         )
+        free_sources = _materializer_successor_v2_free_sources(
+            projection,
+            preparation_root=preparation_root,
+            consolidated_recovery=preverified_recovery is not None,
+        )
         materialization = prepare_cohort_document_materialization(
             (
-                DocumentSource(
-                    phase="free",
-                    document_root=preparation_root / "documents/free",
-                    manifest=cast(
-                        Sequence[Mapping[str, Any]], projection["free_manifest"]
-                    ),
-                    clearance=_materializer_free_clearance_records(
-                        projection,
-                        consolidated_recovery=preverified_recovery is not None,
-                    ),
-                ),
+                *free_sources,
                 DocumentSource(
                     phase="purchased",
                     document_root=cast(Path, recovery["document_root"]),

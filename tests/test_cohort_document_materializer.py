@@ -1049,6 +1049,191 @@ def test_consolidated_projection_rejects_unpartitioned_clearance() -> None:
         cli._materializer_free_clearance_records(projection, consolidated_recovery=True)
 
 
+def test_consolidated_successor_v2_uses_two_authenticated_free_roots(
+    tmp_path: Path,
+) -> None:
+    complete_root = tmp_path / "complete" / "01-materialized"
+    inherited_root = complete_root / "documents"
+    historical_root = tmp_path / "historical"
+    promoted_root = historical_root / "documents"
+    successor_root = tmp_path / "successor"
+    successor_root.mkdir()
+
+    def record(
+        *, candidate_id: str, document_id: str, root: Path, local_path: str
+    ) -> dict[str, Any]:
+        payload = f"%PDF-1.4\n{candidate_id}/{document_id}\n%%EOF".encode()
+        path = root / local_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+        return {
+            "candidate_id": candidate_id,
+            "source_document_id": document_id,
+            "free_or_purchased": "free",
+            "local_path": local_path,
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "byte_count": len(payload),
+        }
+
+    inherited = record(
+        candidate_id="retained",
+        document_id="retained-decision",
+        root=inherited_root,
+        local_path="sha256/aa/retained.pdf",
+    )
+    promoted = tuple(
+        record(
+            candidate_id="promoted",
+            document_id=f"promoted-{index}",
+            root=promoted_root,
+            local_path=f"promoted-{index}.pdf",
+        )
+        for index in range(5)
+    )
+    complete_root.mkdir(parents=True, exist_ok=True)
+    (complete_root / "document-downloads-merged.jsonl").write_text(
+        json.dumps(inherited) + "\n", encoding="utf-8"
+    )
+    (historical_root / "free-document-downloads.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in promoted), encoding="utf-8"
+    )
+    promotion_path = successor_root / "successor-promotions.jsonl"
+    promotion_bytes = (json.dumps({"candidate_id": "promoted"}) + "\n").encode()
+    projection = {
+        "run_card": {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+            "input_paths": [
+                str(tmp_path / name)
+                for name in (
+                    "predecessor",
+                    "complete",
+                    "stipulated",
+                    "snapshot",
+                    "wider-plan",
+                    "wider-exclusions",
+                    "historical",
+                )
+            ],
+        },
+        "selection_path": successor_root / "target-cohort-selection.jsonl",
+        "verified_artifact_bytes": {str(promotion_path): promotion_bytes},
+        "free_manifest": (inherited, *promoted),
+        "free_clearance": (inherited, *promoted),
+        "purchased_manifest": (),
+    }
+
+    sources = cli._materializer_successor_v2_free_sources(
+        projection,
+        preparation_root=tmp_path / "preparation",
+        consolidated_recovery=True,
+    )
+
+    assert tuple(source.document_root for source in sources) == (
+        inherited_root,
+        promoted_root,
+    )
+    assert [len(source.manifest) for source in sources] == [1, 5]
+
+
+def test_consolidated_non_v2_keeps_the_preparation_free_root(tmp_path: Path) -> None:
+    record = {"candidate_id": "candidate-1", "source_document_id": "document-1"}
+    sources = cli._materializer_successor_v2_free_sources(
+        {
+            "run_card": {"schema_version": "legalforecast.other_successor.v1"},
+            "free_manifest": (record,),
+            "free_clearance": (record,),
+            "purchased_manifest": (),
+        },
+        preparation_root=tmp_path / "preparation",
+        consolidated_recovery=True,
+    )
+
+    assert len(sources) == 1
+    assert sources[0].document_root == tmp_path / "preparation/documents/free"
+
+
+def test_consolidated_successor_v2_rejects_source_record_drift(
+    tmp_path: Path,
+) -> None:
+    complete_root = tmp_path / "complete" / "01-materialized"
+    inherited_root = complete_root / "documents"
+    historical_root = tmp_path / "historical"
+    promoted_root = historical_root / "documents"
+    successor_root = tmp_path / "successor"
+    successor_root.mkdir()
+
+    def record(
+        *, candidate_id: str, document_id: str, root: Path, local_path: str
+    ) -> dict[str, Any]:
+        payload = f"%PDF-1.4\n{candidate_id}/{document_id}\n%%EOF".encode()
+        path = root / local_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+        return {
+            "candidate_id": candidate_id,
+            "source_document_id": document_id,
+            "free_or_purchased": "free",
+            "local_path": local_path,
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "byte_count": len(payload),
+        }
+
+    inherited = record(
+        candidate_id="retained",
+        document_id="retained-decision",
+        root=inherited_root,
+        local_path="sha256/aa/retained.pdf",
+    )
+    promoted = tuple(
+        record(
+            candidate_id="promoted",
+            document_id=f"promoted-{index}",
+            root=promoted_root,
+            local_path=f"promoted-{index}.pdf",
+        )
+        for index in range(5)
+    )
+    complete_root.mkdir(parents=True, exist_ok=True)
+    drifted = {**inherited, "local_path": "sha256/aa/not-retained.pdf"}
+    (complete_root / "document-downloads-merged.jsonl").write_text(
+        json.dumps(drifted) + "\n", encoding="utf-8"
+    )
+    (historical_root / "free-document-downloads.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in promoted), encoding="utf-8"
+    )
+    promotion_path = successor_root / "successor-promotions.jsonl"
+    promotion_bytes = (json.dumps({"candidate_id": "promoted"}) + "\n").encode()
+    projection = {
+        "run_card": {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+            "input_paths": [
+                str(tmp_path / name)
+                for name in (
+                    "predecessor",
+                    "complete",
+                    "stipulated",
+                    "snapshot",
+                    "wider-plan",
+                    "wider-exclusions",
+                    "historical",
+                )
+            ],
+        },
+        "selection_path": successor_root / "target-cohort-selection.jsonl",
+        "verified_artifact_bytes": {str(promotion_path): promotion_bytes},
+        "free_manifest": (inherited, *promoted),
+        "free_clearance": (inherited, *promoted),
+        "purchased_manifest": (),
+    }
+
+    with pytest.raises(cli.CommandError, match="inherited free document differs"):
+        cli._materializer_successor_v2_free_sources(
+            projection,
+            preparation_root=tmp_path / "preparation",
+            consolidated_recovery=True,
+        )
+
+
 @pytest.mark.parametrize("input_count", [14, 15])
 def test_paid_materialization_input_extensions_preserve_fixed_authority_indices(
     tmp_path: Path,
@@ -1787,6 +1972,36 @@ def test_materializer_accepts_exact_free_only_source(tmp_path: Path) -> None:
     assert prepared.summary["free_document_count"] == 1
     assert prepared.summary["purchased_document_count"] == 0
     assert [row["free_or_purchased"] for row in prepared.manifest] == ["free"]
+
+
+def test_materializer_accepts_consecutive_free_sources_and_sums_counts(
+    tmp_path: Path,
+) -> None:
+    left = tmp_path / "left"
+    right = tmp_path / "right"
+    left.mkdir()
+    right.mkdir()
+    first, first_key = _source(
+        left,
+        phase="free",
+        candidate_id="candidate-1",
+        document_id="decision-1",
+    )
+    second, second_key = _source(
+        right,
+        phase="free",
+        candidate_id="candidate-2",
+        document_id="decision-2",
+    )
+
+    prepared = prepare_cohort_document_materialization(
+        (first, second),
+        selected_document_keys={first_key, second_key},
+        output_root=tmp_path / "output",
+    )
+
+    assert prepared.summary["free_document_count"] == 2
+    assert prepared.summary["purchased_document_count"] == 0
 
 
 def test_materializer_rejects_purchased_only_source(tmp_path: Path) -> None:
