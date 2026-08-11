@@ -883,10 +883,11 @@ from legalforecast.ingestion.successor_rerun_impact import (
 )
 from legalforecast.ingestion.successor_rerun_proposal import (
     RerunInputs,
-    current_documents_from_parser_records,
+    bind_verified_successor_proposal,
     load_successor_proposal,
-    parser_output_sha256_from_records,
-    parser_revision_from_records,
+    parser_reuse_evidence_from_authenticated_artifacts,
+    provider_reuse_evidence_from_verified_rows,
+    verified_documents_from_records,
 )
 from legalforecast.ingestion.supporting_document_successor import (
     SCHEMA_VERSION as SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
@@ -1077,6 +1078,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderCallIdentity,
     ProviderCycleCaps,
     ProviderJournalError,
+    _provider_journal_durable_bytes,  # pyright: ignore[reportPrivateUsage]
     load_provider_cycle_caps,
     load_provider_cycle_caps_bytes,
     open_provider_journal_snapshot,
@@ -19437,9 +19439,7 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
     exit_code = 0
     try:
         index_path = _cycle_lineage_index_path(args)
-        lineage_status = locate_cycle_lineage(
-            index_path=index_path, cycle_id=cycle_id
-        )
+        lineage_status = locate_cycle_lineage(index_path=index_path, cycle_id=cycle_id)
         chain = _active_head_chain(index_path, cycle_id)
         matching_heads = [
             head
@@ -19451,7 +19451,10 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             raise SuccessorRerunImpactError(
                 "llm-unitize run card is not unique in the active lineage"
             )
-        card = _read_json_object(run_card_path)
+        run_card_bytes = _read_singly_linked_regular_input(
+            run_card_path, label="llm-unitize run card"
+        )
+        card = _projection_json_object(run_card_bytes, source=run_card_path)
         outputs = card.get("output_commitments")
         if not isinstance(outputs, Mapping):
             raise SuccessorRerunImpactError(
@@ -19459,104 +19462,176 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             )
         output_records = cast(Mapping[str, object], outputs)
         raw_path = _stage_a_committed_path(output_records, "prediction_units")
-        audit_path = _stage_a_committed_path(
-            output_records, "llm_unitization_audit"
-        )
-        queue_path = _stage_a_committed_path(
-            output_records, "unitization_review_queue"
-        )
-        lineage = _verify_stage_a_unitization_run_card(
-            run_card_path,
-            expected_prediction_units_path=raw_path,
-            expected_review_queue_path=queue_path,
-            expected_audit_path=audit_path,
-        )
+        audit_path = _stage_a_committed_path(output_records, "llm_unitization_audit")
+        queue_path = _stage_a_committed_path(output_records, "unitization_review_queue")
+        terminal_snapshots = {
+            run_card_path: run_card_bytes,
+            raw_path: _read_singly_linked_regular_input(
+                raw_path, label="llm-unitize prediction units"
+            ),
+            audit_path: _read_singly_linked_regular_input(
+                audit_path, label="llm-unitize audit"
+            ),
+            queue_path: _read_singly_linked_regular_input(
+                queue_path, label="llm-unitize review queue"
+            ),
+        }
+        terminal_captured = {
+            os.path.abspath(path): payload
+            for path, payload in terminal_snapshots.items()
+        }
+        roots = card.get("lineage_roots")
+        if not isinstance(roots, Mapping):
+            raise SuccessorRerunImpactError(
+                "llm-unitize run card lacks provider journal root"
+            )
+        typed_roots = cast(Mapping[str, object], roots)
+        if not isinstance(typed_roots.get("provider_journal"), str):
+            raise SuccessorRerunImpactError(
+                "llm-unitize run card lacks provider journal root"
+            )
+        journal_path = Path(cast(str, typed_roots["provider_journal"]))
+        journal_state = _provider_journal_durable_bytes(journal_path)
+        journal_snapshot = open_provider_journal_snapshot(journal_path)
+        try:
+            lineage = _verify_stage_a_unitization_run_card(
+                run_card_path,
+                expected_prediction_units_path=raw_path,
+                expected_review_queue_path=queue_path,
+                expected_audit_path=audit_path,
+                journal_snapshot=journal_snapshot,
+                captured_input_bytes=terminal_captured,
+            )
+        finally:
+            journal_snapshot.close()
         namespace = _stage_a_provider_attempt_namespace_from_unitization_card_record(
             card
         )
-        prompt_commitments = card.get("prompt_commitments")
-        if not isinstance(prompt_commitments, Mapping):
-            raise SuccessorRerunImpactError(
-                "llm-unitize run card lacks prompt commitments"
-            )
-        typed_prompt_commitments = cast(Mapping[str, object], prompt_commitments)
-        prompt_sha256_by_candidate = {
-            candidate_id: _required_str(
-                cast(Mapping[str, Any], commitment), "prompt_sha256"
-            )
-            for candidate_id, commitment in sorted(
-                typed_prompt_commitments.items()
-            )
-            if isinstance(commitment, Mapping)
-        }
-        if len(prompt_sha256_by_candidate) != len(typed_prompt_commitments):
-            raise SuccessorRerunImpactError(
-                "llm-unitize prompt commitments are malformed"
-            )
-        provider_rows = _stage_a_provider_attempt_rows(
-            lineage.provider_journal_path
+        parser_run_card_path = _stage_a_committed_path(
+            lineage.input_commitments, "parser_run_card"
         )
-        active_provider_rows: list[Mapping[str, object]] = []
-        for row in provider_rows:
-            if row.get("status") != "settled":
-                continue
-            prompt_text = row.get("prompt_text")
-            candidate_id = row.get("candidate_id")
-            if not isinstance(prompt_text, str) or not isinstance(candidate_id, str):
-                raise SuccessorRerunImpactError(
-                    "provider journal attempt identity is malformed"
-                )
-            active_identity = ProviderCallIdentity(
-                stage="llm-unitize",
-                candidate_id=candidate_id,
-                model_key=lineage.registry_entry.registry_key,
-                prompt=prompt_text,
-                model_registry_sha256=lineage.registry_sha256,
-                prompt_contract=namespace,
-            )
-            if row.get("logical_call_key") == active_identity.logical_call_key:
-                active_provider_rows.append(row)
-        proposal = load_successor_proposal(proposal_path)
+        parser_reuse = _authenticate_live_mistral_parse_reuse(
+            prior_run_card_path=parser_run_card_path,
+            prior_markdown_root=lineage.markdown_root,
+        )
+        proposal_envelope = load_successor_proposal(proposal_path)
+        proposed_materialization = _verify_materialized_downstream_lineage(
+            run_card_path=proposal_envelope.materialization_run_card_path,
+            manifest_path=proposal_envelope.download_manifest_path,
+            clearance_path=proposal_envelope.disclosure_clearance_path,
+            document_root=proposal_envelope.document_root,
+            selection_path=proposal_envelope.selection_path,
+        )
+        proposed_selection_bytes = proposed_materialization.artifact_bytes[
+            os.path.abspath(proposal_envelope.selection_path)
+        ]
+        proposed_selection_card_bytes = _read_singly_linked_regular_input(
+            proposal_envelope.selection_run_card_path,
+            label="proposed selection run card",
+        )
+        proposed_selection_card = _projection_json_object(
+            proposed_selection_card_bytes,
+            source=proposal_envelope.selection_run_card_path,
+        )
+        _validate_selection_run_card_commitment(
+            proposed_selection_card,
+            selection_path=proposal_envelope.selection_path,
+            selection_bytes=proposed_selection_bytes,
+            selection_sha256=_bytes_sha256(proposed_selection_bytes),
+            selection_record_count=len(proposed_materialization.selection_records),
+            selection_run_card_path=proposal_envelope.selection_run_card_path,
+            selection_run_card_bytes=proposed_selection_card_bytes,
+            verified_successor_selection_card=(
+                proposed_materialization.verified_successor_selection_card
+            ),
+        )
         proposed_registry_bytes = _read_singly_linked_regular_input(
-            proposal.model_registry_path, label="proposed model registry"
+            proposal_envelope.model_registry_path, label="proposed model registry"
         )
         proposed_entries, proposed_registry_sha256 = _registry_entries_for_keys_bytes(
-            proposed_registry_bytes, (proposal.inputs.model_key,)
+            proposed_registry_bytes, (proposal_envelope.model_key,)
         )
-        if proposed_registry_sha256 != proposal.inputs.model_registry_sha256:
-            raise SuccessorRerunImpactError(
-                "proposed model registry semantic digest differs"
-            )
-        proposed_caps = load_provider_cycle_caps(proposal.policy_path)
-        if proposed_caps.cycle_id != proposal.inputs.cycle_id:
-            raise SuccessorRerunImpactError(
-                "proposed provider policy cycle_id differs"
-            )
-        proposed_caps.cap_usd(proposed_entries[0].provider)
+        proposed_caps = load_provider_cycle_caps(proposal_envelope.policy_path)
+        proposed_cycle_id = _materialization_cohort_cycle_id(
+            proposal_envelope.materialization_run_card_path,
+            captured_artifact_bytes=proposed_materialization.artifact_bytes,
+        )
+        if proposed_caps.cycle_id != proposed_cycle_id:
+            raise SuccessorRerunImpactError("proposed provider policy cycle_id differs")
+        proposed_account = proposed_caps.account(proposed_entries[0].provider)
+        proposal = bind_verified_successor_proposal(
+            proposal_envelope,
+            cycle_id=proposed_cycle_id,
+            selection_records=proposed_materialization.selection_records,
+            download_records=proposed_materialization.manifest_records,
+            model_provider=proposed_entries[0].provider,
+            provider_account=proposed_account,
+            model_registry_sha256=proposed_registry_sha256,
+            policy_sha256=hashlib.sha256(
+                _read_singly_linked_regular_input(
+                    proposal_envelope.policy_path, label="proposed provider policy"
+                )
+            ).hexdigest(),
+        )
+        current_documents = verified_documents_from_records(
+            lineage.selection_records,
+            lineage.download_records,
+            document_root=lineage.document_root,
+        )
         current = RerunInputs(
             cycle_id=lineage.cohort_cycle_id,
             selection_records=lineage.selection_records,
-            documents=current_documents_from_parser_records(lineage.parser_records),
-            parser_revision=parser_revision_from_records(lineage.parser_records),
+            documents=current_documents,
             provider_attempt_namespace=namespace,
             model_key=lineage.registry_entry.registry_key,
+            model_provider=lineage.registry_entry.provider,
+            provider_account=lineage.provider_caps.account(
+                lineage.registry_entry.provider
+            ),
             model_registry_sha256=lineage.registry_sha256,
             policy_sha256=lineage.provider_caps_sha256,
-            parser_output_sha256_by_document=parser_output_sha256_from_records(
-                lineage.parser_records
+            parser_reuse_by_document=(
+                parser_reuse_evidence_from_authenticated_artifacts(
+                    parser_reuse.artifacts_by_key
+                )
             ),
+            provider_reuse_by_candidate=provider_reuse_evidence_from_verified_rows(
+                lineage.verified_provider_attempt_rows
+            ),
+            parser_run_card_path=parser_run_card_path,
+            markdown_root=lineage.markdown_root,
+            provider_journal_path=lineage.provider_journal_path,
         )
         report = plan_successor_rerun_impact(
             current=current,
             proposed=proposal,
-            settled_provider_rows=active_provider_rows,
-            current_prompt_sha256_by_candidate=prompt_sha256_by_candidate,
         )
+        _validate_successor_rerun_commands(report.record)
         # Close every current/proposed TOCTOU interval immediately before output.
         _require_stage_a_lineage_unchanged(lineage)
-        if load_successor_proposal(proposal_path) != proposal:
+        if (
+            _authenticate_live_mistral_parse_reuse(
+                prior_run_card_path=parser_run_card_path,
+                prior_markdown_root=lineage.markdown_root,
+            )
+            != parser_reuse
+        ):
+            raise SuccessorRerunImpactError(
+                "authenticated parser reuse changed during planning"
+            )
+        _require_snapshot_unchanged(
+            terminal_snapshots, label="llm-unitize terminal replay"
+        )
+        _require_materialized_downstream_lineage_unchanged(
+            proposed_materialization, document_root=proposal.document_root
+        )
+        if load_successor_proposal(proposal_path) != proposal_envelope:
             raise SuccessorRerunImpactError(
                 "successor proposal changed during planning"
+            )
+        if _provider_journal_durable_bytes(journal_path) != journal_state:
+            raise SuccessorRerunImpactError(
+                "provider journal changed during successor planning"
             )
         if (
             locate_cycle_lineage(index_path=index_path, cycle_id=cycle_id)
@@ -19579,6 +19654,60 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
     else:
         sys.stdout.write(report.text())
     return exit_code
+
+
+def _validate_successor_rerun_commands(record: Mapping[str, object]) -> None:
+    """Prove every derived argv is a complete invocation of its named command."""
+
+    raw_commands = record.get("next_commands")
+    if not isinstance(raw_commands, Sequence) or isinstance(raw_commands, (str, bytes)):
+        raise SuccessorRerunImpactError("derived next commands are malformed")
+    forbidden = {"freeze", "dispatch", "publish", "finalize-corpus"}
+    parser = build_parser()
+    for raw_command in cast(Sequence[object], raw_commands):
+        if not isinstance(raw_command, Mapping):
+            raise SuccessorRerunImpactError("derived next command is malformed")
+        command = cast(Mapping[str, object], raw_command)
+        stage = command.get("stage")
+        argv = command.get("argv")
+        if (
+            not isinstance(stage, str)
+            or not isinstance(argv, list)
+            or not all(isinstance(item, str) for item in cast(list[object], argv))
+            or command.get("execution_authority") is not False
+            or not isinstance(command.get("requires_separate_authorization"), bool)
+        ):
+            raise SuccessorRerunImpactError("derived next command is malformed")
+        typed_argv = cast(list[str], argv)
+        if (
+            typed_argv[:4] != ["uv", "run", "legalforecast", "acquisition"]
+            or len(typed_argv) < 5
+            or typed_argv[4] != stage
+            or stage in forbidden
+            or any(token in forbidden for token in typed_argv)
+            or (
+                "--execute" in typed_argv
+                and command.get("requires_separate_authorization") is not True
+            )
+        ):
+            raise SuccessorRerunImpactError(
+                "derived next command stage or authority differs"
+            )
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        try:
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                parsed = parser.parse_args(typed_argv[3:])
+        except SystemExit as exc:
+            detail = (stderr.getvalue() or stdout.getvalue()).strip()
+            raise SuccessorRerunImpactError(
+                "derived next command is not accepted by the acquisition CLI"
+                + (f": {detail}" if detail else "")
+            ) from exc
+        if getattr(parsed, "handler", None) is None:
+            raise SuccessorRerunImpactError(
+                "derived next command has no acquisition handler"
+            )
 
 
 def _cmd_acquisition_register_cycle_stage_head(args: argparse.Namespace) -> int:
@@ -59665,6 +59794,7 @@ class _VerifiedStageAParseLineage:
     file_snapshots: Mapping[Path, bytes]
     document_tree: Mapping[str, bytes]
     markdown_bytes: Mapping[str, bytes]
+    download_records: tuple[JsonRecord, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -59685,6 +59815,8 @@ class _StageAUnitizationLineage:
     file_snapshots: Mapping[Path, bytes]
     document_tree: Mapping[str, bytes]
     markdown_bytes: Mapping[str, bytes]
+    download_records: tuple[JsonRecord, ...] = ()
+    verified_provider_attempt_rows: tuple[JsonRecord, ...] = ()
 
 
 def _required_stage_a_lineage_path(
@@ -59751,6 +59883,7 @@ def _verify_stage_a_unitization_lineage_uncached(
     return _StageAUnitizationLineage(
         selection_records=parse_lineage.selection_records,
         parser_records=parse_lineage.parser_records,
+        download_records=parse_lineage.download_records,
         registry_entry=registry_entry,
         registry_sha256=registry_sha256,
         provider_caps=provider_caps,
@@ -59955,6 +60088,9 @@ def _verify_stage_a_parse_lineage_uncached(
         selection_records=tuple(dict(record) for record in selection_records),
         selection_bytes=stage_a_file_snapshots[selection_path],
         parser_records=parser_records,
+        download_records=tuple(
+            dict(record) for record in verified_materialization.manifest_records
+        ),
         parser_manifest_bytes=stage_a_file_snapshots[parser_manifest_path],
         document_root=document_root,
         markdown_root=markdown_root,
@@ -60553,13 +60689,18 @@ def _verify_stage_a_provider_replay(
     review_queue_path: Path,
     provider_attempt_namespace: str | None = None,
     captured_input_bytes: Mapping[str, bytes] | None = None,
-) -> tuple[dict[str, JsonRecord], str]:
+    journal_snapshot: sqlite3.Connection | None = None,
+) -> tuple[dict[str, JsonRecord], str, tuple[JsonRecord, ...]]:
     # Identity and attempt rows must describe one journal state, so both read
     # the same query-only snapshot of a journal SQLite never opens for write.
-    try:
-        journal_snapshot = open_provider_journal_snapshot(lineage.provider_journal_path)
-    except ProviderJournalError as exc:
-        raise CommandError(str(exc)) from exc
+    owns_snapshot = journal_snapshot is None
+    if journal_snapshot is None:
+        try:
+            journal_snapshot = open_provider_journal_snapshot(
+                lineage.provider_journal_path
+            )
+        except ProviderJournalError as exc:
+            raise CommandError(str(exc)) from exc
     try:
         verify_provider_journal_identity(
             lineage.provider_journal_path,
@@ -60573,7 +60714,8 @@ def _verify_stage_a_provider_replay(
     except ProviderJournalError as exc:
         raise CommandError(str(exc)) from exc
     finally:
-        journal_snapshot.close()
+        if owns_snapshot:
+            journal_snapshot.close()
     try:
         prompt_records = stage_a_unitization_prompt_records(
             selection_records=lineage.selection_records,
@@ -60626,7 +60768,11 @@ def _verify_stage_a_provider_replay(
         label="raw prediction units",
         captured_input_bytes=captured_input_bytes,
     )
-    audit_records = _read_records(audit_path)
+    audit_records = _stage_a_captured_records(
+        audit_path,
+        label="llm-unitization audit",
+        captured_input_bytes=captured_input_bytes,
+    )
     queue_records = _stage_a_captured_records(
         review_queue_path,
         label="merged unitization review queue",
@@ -60667,6 +60813,7 @@ def _verify_stage_a_provider_replay(
             model_key=lineage.registry_entry.registry_key,
             prompt=prompt,
             model_registry_sha256=lineage.registry_sha256,
+            account=lineage.provider_caps.account(lineage.registry_entry.provider),
         )
         active_keys[candidate_id] = ProviderCallIdentity(
             **active_base_identity,
@@ -60719,6 +60866,8 @@ def _verify_stage_a_provider_replay(
             row.get("logical_call_key") != expected_logical_key
             or row.get("model_key") != lineage.registry_entry.registry_key
             or row.get("provider") != lineage.registry_entry.provider
+            or row.get("account")
+            != lineage.provider_caps.account(lineage.registry_entry.provider)
             or row.get("prompt_text") != prompt
             or row.get("prompt_sha256") != prompt_digest.removeprefix("sha256:")
             or row.get("model_registry_sha256") != lineage.registry_sha256
@@ -60854,7 +61003,11 @@ def _verify_stage_a_provider_replay(
         raise CommandError("llm-unitize review queue does not reproduce from journal")
     if queue_records != list(unitization_review_queue_records(audit_records)):
         raise CommandError("llm-unitize review queue does not reproduce from audit")
-    return prompt_commitments, _canonical_json_sha256(attempt_rows)
+    return (
+        prompt_commitments,
+        _canonical_json_sha256(attempt_rows),
+        tuple(dict(row) for row in attempt_rows),
+    )
 
 
 def _stage_a_unitization_run_card_extra(
@@ -60874,12 +61027,14 @@ def _stage_a_unitization_run_card_extra(
         markdown_bytes=lineage.markdown_bytes,
         provider_attempt_namespace=provider_attempt_namespace,
     )
-    prompt_commitments, attempts_sha256 = _verify_stage_a_provider_replay(
-        lineage=lineage,
-        prediction_units_path=prediction_units_path,
-        audit_path=audit_path,
-        review_queue_path=review_queue_path,
-        provider_attempt_namespace=provider_attempt_namespace,
+    prompt_commitments, attempts_sha256, _verified_rows = (
+        _verify_stage_a_provider_replay(
+            lineage=lineage,
+            prediction_units_path=prediction_units_path,
+            audit_path=audit_path,
+            review_queue_path=review_queue_path,
+            provider_attempt_namespace=provider_attempt_namespace,
+        )
     )
     # _verify_stage_a_provider_replay reconstructs prompts independently. This
     # direct equality guard prevents a future root-derivation change from widening
@@ -61008,6 +61163,7 @@ def _verify_stage_a_unitization_run_card(
     controlled_private_root: Path | None = None,
     initialization_receipt_path: Path | None = None,
     captured_input_bytes: Mapping[str, bytes] | None = None,
+    journal_snapshot: sqlite3.Connection | None = None,
 ) -> _StageAUnitizationLineage:
     """Authenticate the executed llm-unitize run card and its Stage A lineage.
 
@@ -61134,13 +61290,16 @@ def _verify_stage_a_unitization_run_card(
     }
     if dict(output_records) != expected_outputs:
         raise CommandError("llm-unitize output commitment changed")
-    prompt_commitments, attempts_sha256 = _verify_stage_a_provider_replay(
-        lineage=lineage,
-        prediction_units_path=raw_path,
-        audit_path=audit_path,
-        review_queue_path=queue_path,
-        provider_attempt_namespace=provider_attempt_namespace,
-        captured_input_bytes=captured_input_bytes,
+    prompt_commitments, attempts_sha256, verified_attempt_rows = (
+        _verify_stage_a_provider_replay(
+            lineage=lineage,
+            prediction_units_path=raw_path,
+            audit_path=audit_path,
+            review_queue_path=queue_path,
+            provider_attempt_namespace=provider_attempt_namespace,
+            captured_input_bytes=captured_input_bytes,
+            journal_snapshot=journal_snapshot,
+        )
     )
     if card.get("prompt_commitments") != prompt_commitments:
         raise CommandError("llm-unitize prompt or output commitment changed")
@@ -61193,7 +61352,7 @@ def _verify_stage_a_unitization_run_card(
         )
     ):
         raise CommandError("llm-unitize record count changed")
-    return lineage
+    return replace(lineage, verified_provider_attempt_rows=verified_attempt_rows)
 
 
 def _v4_finalized_citation_documents(
@@ -62020,7 +62179,11 @@ def _verify_stage_a_review_run_card(
     }
     if len(selection_by_candidate) != len(lineage.selection_records):
         raise CommandError("structural review selection contains duplicate candidates")
-    audit_records = _read_records(audit_path)
+    audit_records = _stage_a_captured_records(
+        audit_path,
+        label="llm-unitization audit",
+        captured_input_bytes=captured_input_bytes,
+    )
     audit_by_candidate = {
         _required_str(record, "candidate_id"): record for record in audit_records
     }

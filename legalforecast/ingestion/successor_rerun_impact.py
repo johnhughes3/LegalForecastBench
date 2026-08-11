@@ -13,6 +13,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal, cast
 
 from legalforecast.contracts import (
@@ -21,11 +22,13 @@ from legalforecast.contracts import (
 )
 from legalforecast.ingestion.successor_rerun_proposal import (
     DocumentInput,
+    ProviderReuseEvidence,
     RerunInputs,
     SuccessorProposal,
     SuccessorRerunProposalError,
 )
 from legalforecast.labeling.provider_journal import ProviderCallIdentity
+from legalforecast.path_safety import safe_path_component
 
 REPORT_SCHEMA_VERSION = SUCCESSOR_RERUN_IMPACT_V1.value
 ADVISORY_WARNING = (
@@ -50,9 +53,12 @@ class SuccessorRerunImpact:
         return self.record.get("advisory") is True
 
     def json_text(self) -> str:
-        return json.dumps(
-            self.record, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-        ) + "\n"
+        return (
+            json.dumps(
+                self.record, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            )
+            + "\n"
+        )
 
     def text(self) -> str:
         stages = cast(Sequence[Mapping[str, object]], self.record["stages"])
@@ -82,9 +88,7 @@ class SuccessorRerunImpact:
         lines.append(
             "PROVIDER_LOGICAL_CALL_GAPS "
             + _render_ids(
-                cast(
-                    Sequence[object], self.record["provider_logical_call_gaps"]
-                )
+                cast(Sequence[object], self.record["provider_logical_call_gaps"])
             )
         )
         for command in cast(
@@ -117,9 +121,7 @@ def failed_successor_rerun_impact(message: str) -> SuccessorRerunImpact:
                 {
                     "stage": "lineage",
                     "status": "FAILED",
-                    "diagnostics": [
-                        {"code": "EVIDENCE_INVALID", "message": message}
-                    ],
+                    "diagnostics": [{"code": "EVIDENCE_INVALID", "message": message}],
                 },
                 {
                     "stage": "selection",
@@ -154,12 +156,10 @@ def plan_successor_rerun_impact(
     *,
     current: RerunInputs,
     proposed: SuccessorProposal,
-    settled_provider_rows: Sequence[Mapping[str, object]],
-    current_prompt_sha256_by_candidate: Mapping[str, str],
 ) -> SuccessorRerunImpact:
     """Compare an authenticated predecessor with exact proposed input bytes."""
 
-    successor = proposed.inputs
+    successor = proposed.require_inputs()
     if current.cycle_id != successor.cycle_id:
         raise SuccessorRerunImpactError(
             "successor cycle_id differs from authenticated predecessor"
@@ -172,22 +172,30 @@ def plan_successor_rerun_impact(
     )
 
     document_keys = sorted(set(current_documents) | set(successor_documents))
-    changed_documents = [
+    parser_gap_keys = [
         key
         for key in document_keys
-        if current_documents.get(key) != successor_documents.get(key)
+        if key not in current_documents
+        or key not in successor_documents
+        or current_documents[key] != successor_documents[key]
+        or key not in current.parser_reuse_by_document
+        or current.parser_reuse_by_document[key].source_key
+        != successor_documents[key].source_key
+        or not _parser_output_layout_matches(
+            current.parser_reuse_by_document[key], key=key
+        )
     ]
-    parser_gap_keys = (
-        document_keys
-        if current.parser_revision != successor.parser_revision
-        else changed_documents
-    )
     reusable_documents = [
         key
         for key in document_keys
         if key in current_documents
         and current_documents[key] == successor_documents.get(key)
-        and current.parser_revision == successor.parser_revision
+        and key in current.parser_reuse_by_document
+        and current.parser_reuse_by_document[key].source_key
+        == successor_documents[key].source_key
+        and _parser_output_layout_matches(
+            current.parser_reuse_by_document[key], key=key
+        )
     ]
     case_ids = sorted(set(current_selections) | set(successor_selections))
     selection_changed = {
@@ -211,33 +219,35 @@ def plan_successor_rerun_impact(
 
     global_call_drift = any(
         (
-            current.provider_attempt_namespace
-            != successor.provider_attempt_namespace,
+            current.provider_attempt_namespace != successor.provider_attempt_namespace,
             current.model_key != successor.model_key,
+            current.model_provider != successor.model_provider,
+            current.provider_account != successor.provider_account,
             current.model_registry_sha256 != successor.model_registry_sha256,
             current.policy_sha256 != successor.policy_sha256,
         )
     )
-    settled_by_candidate = _settled_call_keys(
-        settled_provider_rows,
-        current=current,
-        current_prompt_sha256_by_candidate=current_prompt_sha256_by_candidate,
-    )
     reusable_calls: list[dict[str, object]] = []
     call_gaps: list[dict[str, object]] = []
+    for candidate_id, evidence in current.provider_reuse_by_candidate.items():
+        _require_provider_evidence_matches_current(
+            evidence, current=current, expected_candidate_id=candidate_id
+        )
     for candidate_id in sorted(successor_selections):
         reason: str | None = None
         if global_call_drift:
             reason = "model_prompt_or_policy_commitment_changed"
         elif candidate_id in affected_cases:
             reason = "candidate_inputs_changed"
-        elif candidate_id not in settled_by_candidate:
+        elif candidate_id not in current.provider_reuse_by_candidate:
             reason = "settled_exact_identity_missing"
         if reason is None:
+            evidence = current.provider_reuse_by_candidate[candidate_id]
             reusable_calls.append(
                 {
                     "candidate_id": candidate_id,
-                    "logical_call_key": settled_by_candidate[candidate_id],
+                    "logical_call_key": evidence.logical_call_key,
+                    "attempt_ordinal": evidence.attempt_ordinal,
                 }
             )
         else:
@@ -246,9 +256,7 @@ def plan_successor_rerun_impact(
     cohort_changed = bool(
         selection_changed or set(current_selections) != set(successor_selections)
     )
-    parser_changed = bool(parser_gap_keys) or (
-        current.parser_revision != successor.parser_revision
-    )
+    parser_changed = bool(parser_gap_keys)
     unitizer_changed = global_call_drift or bool(call_gaps)
     first_invalidated = (
         "selection"
@@ -268,7 +276,11 @@ def plan_successor_rerun_impact(
         {"stage": name, "status": statuses[name]}
         for name in ("selection", "parse-documents", "llm-unitize")
     ]
-    commands = _next_commands(proposed, first_invalidated=first_invalidated)
+    commands = _derived_next_commands(
+        current=current,
+        proposal=proposed,
+        first_invalidated=first_invalidated,
+    )
     record: dict[str, object] = {
         "schema_version": REPORT_SCHEMA_VERSION,
         "advisory": True,
@@ -286,7 +298,6 @@ def plan_successor_rerun_impact(
         "proposal_sha256": proposed.proposal_sha256,
         "proposed_global_commitments": {
             "model_registry_sha256": successor.model_registry_sha256,
-            "parser_revision": successor.parser_revision,
             "policy_sha256": successor.policy_sha256,
             "provider_attempt_namespace": successor.provider_attempt_namespace,
         },
@@ -301,6 +312,9 @@ def plan_successor_rerun_impact(
                 "candidate_id": key[0],
                 "source_document_id": key[1],
                 "markdown_sha256": _required_output_sha256(current, key),
+                "parser_reuse_identity_sha256": _parser_evidence_sha256(
+                    current.parser_reuse_by_document[key]
+                ),
             }
             for key in reusable_documents
         ],
@@ -312,72 +326,235 @@ def plan_successor_rerun_impact(
     return SuccessorRerunImpact(record=record)
 
 
-def _settled_call_keys(
-    rows: Sequence[Mapping[str, object]],
-    *,
-    current: RerunInputs,
-    current_prompt_sha256_by_candidate: Mapping[str, str],
-) -> dict[str, str]:
-    settled: dict[str, str] = {}
-    for row in rows:
-        if row.get("status") != "settled":
-            continue
-        candidate_id = _text(row, "candidate_id")
-        prompt = _text(row, "prompt_text")
-        prompt_sha256 = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-        if current_prompt_sha256_by_candidate.get(candidate_id, "").removeprefix(
-            "sha256:"
-        ) != prompt_sha256:
-            raise SuccessorRerunImpactError(
-                f"authenticated provider prompt commitment differs: {candidate_id}"
-            )
-        identity = ProviderCallIdentity(
-            stage="llm-unitize",
-            candidate_id=candidate_id,
-            model_key=current.model_key,
-            prompt=prompt,
-            model_registry_sha256=current.model_registry_sha256,
-            prompt_contract=current.provider_attempt_namespace,
-        )
-        if (
-            row.get("logical_call_key") != identity.logical_call_key
-            or row.get("model_key") != current.model_key
-            or row.get("model_registry_sha256") != current.model_registry_sha256
-        ):
-            raise SuccessorRerunImpactError(
-                f"authenticated provider logical-call identity differs: {candidate_id}"
-            )
-        if candidate_id in settled:
-            raise SuccessorRerunImpactError(
-                f"authenticated provider settled call is ambiguous: {candidate_id}"
-            )
-        settled[candidate_id] = identity.logical_call_key
-    return settled
-
-
-def _next_commands(
-    proposal: SuccessorProposal,
-    *,
-    first_invalidated: str,
+def _derived_next_commands(
+    *, current: RerunInputs, proposal: SuccessorProposal, first_invalidated: str
 ) -> list[dict[str, object]]:
     if first_invalidated == "none":
         return []
-    order = {
-        "selection": 0,
-        "plan-parse-documents": 1,
-        "parse-documents": 2,
-        "llm-unitize": 3,
+    root = proposal.successor_output_root
+    requests = root / "parse-document-requests.jsonl"
+    parser_manifest = root / "mistral-markdown-conversions.jsonl"
+    parser_card = root / "run-cards" / "parse-documents.json"
+    markdown_root = root / "markdown"
+    eligibility_audit = root / "target-document-eligibility-audit.jsonl"
+    eligibility_card = root / "run-cards" / "audit-stage-a-target-eligibility.json"
+    prefix = ["uv", "run", "legalforecast", "acquisition"]
+    plan: dict[str, object] = {
+        "stage": "plan-parse-documents",
+        "argv": [
+            *prefix,
+            "plan-parse-documents",
+            "--output-root",
+            str(root),
+            "--execute",
+            "--selection",
+            str(proposal.selection_path),
+            "--download-manifest",
+            str(proposal.download_manifest_path),
+            "--disclosure-clearance",
+            str(proposal.disclosure_clearance_path),
+            "--materialization-run-card",
+            str(proposal.materialization_run_card_path),
+            "--document-root",
+            str(proposal.document_root),
+            "--requests-output",
+            str(requests),
+            "--markdown-output-root",
+            str(markdown_root),
+        ],
+        "execution_authority": False,
+        "requires_separate_authorization": True,
     }
-    threshold = {
-        "selection": 0,
-        "parse-documents": 1,
-        "llm-unitize": 3,
-    }[first_invalidated]
-    return [
-        dict(command)
-        for command in proposal.next_commands
-        if order[cast(str, command["stage"])] >= threshold
+    parse: dict[str, object] = {
+        "stage": "parse-documents",
+        "argv": [
+            *prefix,
+            "parse-documents",
+            "--output-root",
+            str(root),
+            "--execute",
+            "--selection",
+            str(proposal.selection_path),
+            "--requests",
+            str(requests),
+            "--disclosure-clearance",
+            str(proposal.disclosure_clearance_path),
+            "--materialization-run-card",
+            str(proposal.materialization_run_card_path),
+            "--manifest-output",
+            str(parser_manifest),
+            "--reuse-live-mistral-run-card",
+            str(current.parser_run_card_path),
+            "--reuse-markdown-root",
+            str(current.markdown_root),
+        ],
+        "execution_authority": False,
+        "requires_separate_authorization": True,
+    }
+    eligibility: dict[str, object] = {
+        "stage": "audit-stage-a-target-eligibility",
+        "argv": [
+            *prefix,
+            "audit-stage-a-target-eligibility",
+            "--output-root",
+            str(root),
+            "--execute",
+            "--selection",
+            str(proposal.selection_path),
+            "--selection-run-card",
+            str(proposal.selection_run_card_path),
+            "--download-manifest",
+            str(proposal.download_manifest_path),
+            "--disclosure-clearance",
+            str(proposal.disclosure_clearance_path),
+            "--materialization-run-card",
+            str(proposal.materialization_run_card_path),
+            "--document-root",
+            str(proposal.document_root),
+            "--parse-requests",
+            str(requests),
+            "--parser-manifest",
+            str(parser_manifest),
+            "--parser-run-card",
+            str(parser_card),
+            "--markdown-root",
+            str(markdown_root),
+            "--target-eligibility-audit-output",
+            str(eligibility_audit),
+        ],
+        "execution_authority": False,
+        "requires_separate_authorization": True,
+    }
+    unitize_argv = [
+        *prefix,
+        "llm-unitize",
+        "--output-root",
+        str(root),
+        "--selection",
+        str(proposal.selection_path),
+        "--selection-run-card",
+        str(proposal.selection_run_card_path),
+        "--download-manifest",
+        str(proposal.download_manifest_path),
+        "--disclosure-clearance",
+        str(proposal.disclosure_clearance_path),
+        "--materialization-run-card",
+        str(proposal.materialization_run_card_path),
+        "--document-root",
+        str(proposal.document_root),
+        "--parse-requests",
+        str(requests),
+        "--parser-manifest",
+        str(parser_manifest),
+        "--parser-run-card",
+        str(parser_card),
+        "--markdown-root",
+        str(markdown_root),
+        "--model-registry",
+        str(proposal.model_registry_path),
+        "--model-key",
+        proposal.model_key,
+        "--provider-cycle-caps",
+        str(proposal.policy_path),
+        "--provider-journal",
+        str(current.provider_journal_path),
     ]
+    if proposal.provider_attempt_namespace is not None:
+        unitize_argv.extend(
+            ["--provider-attempt-namespace", proposal.provider_attempt_namespace]
+        )
+    if proposal.provider_attempt_namespace == "claim-ontology-v4":
+        unitize_argv.extend(
+            [
+                "--target-eligibility-audit",
+                str(eligibility_audit),
+                "--target-eligibility-audit-run-card",
+                str(eligibility_card),
+            ]
+        )
+    unitize: dict[str, object] = {
+        "stage": "llm-unitize",
+        "argv": unitize_argv,
+        "execution_authority": False,
+        "requires_separate_authorization": True,
+        "advisory_execution": "dry_run_only",
+    }
+    commands = [plan, parse]
+    if proposal.provider_attempt_namespace == "claim-ontology-v4":
+        commands.append(eligibility)
+    commands.append(unitize)
+    if first_invalidated == "llm-unitize":
+        return [unitize]
+    return commands
+
+
+def _require_provider_evidence_matches_current(
+    evidence: ProviderReuseEvidence,
+    *,
+    current: RerunInputs,
+    expected_candidate_id: str,
+) -> None:
+    expected_identity = ProviderCallIdentity(
+        stage=evidence.stage,
+        candidate_id=evidence.candidate_id,
+        model_key=current.model_key,
+        prompt=evidence.prompt_text,
+        model_registry_sha256=current.model_registry_sha256,
+        account=current.provider_account,
+        prompt_contract=current.provider_attempt_namespace,
+    )
+    if (
+        evidence.stage != "llm-unitize"
+        or evidence.candidate_id != expected_candidate_id
+        or evidence.provider != current.model_provider
+        or evidence.account != current.provider_account
+        or evidence.model_key != current.model_key
+        or evidence.model_registry_sha256 != current.model_registry_sha256
+        or expected_identity.prompt_sha256 != evidence.prompt_sha256
+        or expected_identity.logical_call_key != evidence.logical_call_key
+        or not evidence.raw_response_json
+        or not evidence.normalized_response_json
+        or not evidence.reconstructed_result_json
+        or len(evidence.attempt_record_sha256) != 64
+    ):
+        raise SuccessorRerunImpactError(
+            f"authenticated provider evidence identity differs: {evidence.candidate_id}"
+        )
+
+
+def _parser_output_layout_matches(evidence: object, *, key: tuple[str, str]) -> bool:
+    from legalforecast.ingestion.successor_rerun_proposal import ParserReuseEvidence
+
+    if not isinstance(evidence, ParserReuseEvidence):
+        return False
+    expected = (
+        safe_path_component(key[0], field_name="candidate_id")
+        + "/"
+        + safe_path_component(key[1], field_name="source_document_id")
+        + ".md"
+    )
+    return evidence.markdown_path == expected and evidence.metadata_path == str(
+        Path(expected).with_suffix(".metadata.json")
+    )
+
+
+def _parser_evidence_sha256(evidence: object) -> str:
+    from legalforecast.ingestion.successor_rerun_proposal import ParserReuseEvidence
+
+    if not isinstance(evidence, ParserReuseEvidence):
+        raise SuccessorRerunImpactError("authenticated parser evidence is malformed")
+    payload = {
+        "source_key": list(evidence.source_key),
+        "markdown_path": evidence.markdown_path,
+        "metadata_path": evidence.metadata_path,
+        "record_sha256": evidence.record_sha256,
+        "markdown_sha256": evidence.markdown_sha256,
+        "metadata_sha256": evidence.metadata_sha256,
+        "output_markdown_sha256": evidence.output_markdown_sha256,
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 def _shell_join(arguments: Sequence[str]) -> str:
@@ -423,9 +600,7 @@ def _record_digest(record: Mapping[str, Any] | None) -> str | None:
     if record is None:
         return None
     return str(
-        ARTIFACT_RAW_SHA256_V1.commit(
-            record, domain=SUCCESSOR_RERUN_IMPACT_V1
-        ).digest
+        ARTIFACT_RAW_SHA256_V1.commit(record, domain=SUCCESSOR_RERUN_IMPACT_V1).digest
     )
 
 
@@ -433,11 +608,9 @@ def _case_id(record: Mapping[str, Any]) -> str:
     return _text(record, "case_id")
 
 
-def _required_output_sha256(
-    current: RerunInputs, key: tuple[str, str]
-) -> str:
+def _required_output_sha256(current: RerunInputs, key: tuple[str, str]) -> str:
     try:
-        return current.parser_output_sha256_by_document[key]
+        return current.parser_reuse_by_document[key].output_markdown_sha256
     except KeyError as exc:
         raise SuccessorRerunImpactError(
             f"authenticated parser output is missing: {_key_text(key)}"

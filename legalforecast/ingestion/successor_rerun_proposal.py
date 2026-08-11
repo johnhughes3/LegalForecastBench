@@ -1,11 +1,17 @@
-"""Closed, non-authoritative input format for successor rerun planning."""
+"""Closed, non-authoritative input format for successor rerun planning.
+
+The proposal is only a collection of exact paths and byte commitments.  It
+does not carry commands or claim that those bytes are authentic.  The CLI
+replays the existing materialization and selection verifiers, then calls
+``bind_verified_successor_proposal`` with their already-authenticated records.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -27,16 +33,61 @@ class SuccessorRerunProposalError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class DocumentInput:
-    """Exact source-byte identity for one selected document."""
+    """Exact source-byte and selection-semantic identity for one document."""
 
     candidate_id: str
+    case_id: str
     source_document_id: str
+    document_role: str
+    model_visible: bool
     sha256: str
     byte_count: int
 
     @property
     def key(self) -> tuple[str, str]:
         return self.candidate_id, self.source_document_id
+
+    @property
+    def source_key(self) -> tuple[str, str, str, int]:
+        return (
+            self.candidate_id,
+            self.source_document_id,
+            self.sha256,
+            self.byte_count,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ParserReuseEvidence:
+    """Sealed identity produced by the complete live-Mistral reuse verifier."""
+
+    source_key: tuple[str, str, str, int]
+    markdown_path: str
+    metadata_path: str
+    record_sha256: str
+    markdown_sha256: str
+    metadata_sha256: str
+    output_markdown_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderReuseEvidence:
+    """One settled attempt returned by authenticated run-card replay."""
+
+    candidate_id: str
+    stage: str
+    logical_call_key: str
+    attempt_ordinal: int
+    provider: str
+    account: str
+    prompt_text: str
+    prompt_sha256: str
+    model_key: str
+    model_registry_sha256: str
+    raw_response_json: str
+    normalized_response_json: str
+    reconstructed_result_json: str
+    attempt_record_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,26 +97,44 @@ class RerunInputs:
     cycle_id: str
     selection_records: tuple[Mapping[str, Any], ...]
     documents: tuple[DocumentInput, ...]
-    parser_revision: str
     provider_attempt_namespace: str | None
     model_key: str
+    model_provider: str
+    provider_account: str
     model_registry_sha256: str
     policy_sha256: str
-    parser_output_sha256_by_document: Mapping[tuple[str, str], str]
+    parser_reuse_by_document: Mapping[tuple[str, str], ParserReuseEvidence]
+    provider_reuse_by_candidate: Mapping[str, ProviderReuseEvidence]
+    parser_run_card_path: Path
+    markdown_root: Path
+    provider_journal_path: Path
 
 
 @dataclass(frozen=True, slots=True)
 class SuccessorProposal:
-    """Verified bytes of a non-authoritative proposed input set."""
+    """Exact, non-authoritative proposal; ``inputs`` is set only after replay."""
 
-    inputs: RerunInputs
+    cycle_id: str
     selection_path: Path
+    selection_run_card_path: Path
     download_manifest_path: Path
+    disclosure_clearance_path: Path
+    materialization_run_card_path: Path
+    document_root: Path
     model_registry_path: Path
     policy_path: Path
     successor_output_root: Path
-    next_commands: tuple[Mapping[str, object], ...]
+    provider_attempt_namespace: str | None
+    model_key: str
     proposal_sha256: str
+    inputs: RerunInputs | None = None
+
+    def require_inputs(self) -> RerunInputs:
+        if self.inputs is None:
+            raise SuccessorRerunProposalError(
+                "successor proposal has not passed materialization replay"
+            )
+        return self.inputs
 
 
 def load_successor_proposal(path: Path) -> SuccessorProposal:
@@ -73,22 +142,24 @@ def load_successor_proposal(path: Path) -> SuccessorProposal:
 
     payload = _read_regular(path, label="successor proposal")
     raw = _json_object(payload, label="successor proposal")
+    committed_paths = {
+        "selection_path": "selection_sha256",
+        "selection_run_card_path": "selection_run_card_sha256",
+        "download_manifest_path": "download_manifest_sha256",
+        "disclosure_clearance_path": "disclosure_clearance_sha256",
+        "materialization_run_card_path": "materialization_run_card_sha256",
+        "model_registry_path": "model_registry_sha256",
+        "policy_path": "policy_sha256",
+    }
     expected_fields = {
         "schema_version",
         "cycle_id",
-        "selection_path",
-        "selection_sha256",
-        "download_manifest_path",
-        "download_manifest_sha256",
-        "parser_revision",
+        *committed_paths,
+        *committed_paths.values(),
+        "document_root",
         "provider_attempt_namespace",
-        "model_registry_path",
-        "model_registry_sha256",
         "model_key",
-        "policy_path",
-        "policy_sha256",
         "successor_output_root",
-        "next_commands",
         "non_authoritative",
     }
     if (
@@ -104,222 +175,280 @@ def load_successor_proposal(path: Path) -> SuccessorProposal:
             "successor proposal must use canonical artifact JSON bytes"
         )
 
-    selection_path = _absolute_path(raw, "selection_path")
-    downloads_path = _absolute_path(raw, "download_manifest_path")
-    registry_path = _absolute_path(raw, "model_registry_path")
-    policy_path = _absolute_path(raw, "policy_path")
-    successor_root = _absolute_path(raw, "successor_output_root")
-    selection_bytes = _committed_bytes(
-        selection_path, raw, "selection_sha256", label="proposed selection"
-    )
-    download_bytes = _committed_bytes(
-        downloads_path,
-        raw,
-        "download_manifest_sha256",
-        label="proposed download manifest",
-    )
-    _committed_bytes(
-        registry_path,
-        raw,
-        "model_registry_sha256",
-        label="proposed model registry",
-    )
-    _committed_bytes(policy_path, raw, "policy_sha256", label="proposed policy")
-    selection_records = _jsonl(selection_bytes, label="proposed selection")
-    download_records = _jsonl(download_bytes, label="proposed download manifest")
-    documents = tuple(
-        sorted(
-            (_document_from_download(record) for record in download_records),
-            key=lambda item: item.key,
+    paths = {name: _absolute_path(raw, name) for name in committed_paths}
+    for name, digest_name in committed_paths.items():
+        _committed_bytes(paths[name], raw, digest_name, label=f"proposed {name}")
+    document_root = _absolute_path(raw, "document_root")
+    if document_root.is_symlink() or not document_root.is_dir():
+        raise SuccessorRerunProposalError(
+            "successor proposal document_root is unavailable or unsafe"
         )
-    )
-    _require_unique_documents(documents, label="proposed")
-    _verify_proposed_document_bytes(download_records, documents)
-    inputs = RerunInputs(
+    successor_root = _absolute_path(raw, "successor_output_root")
+    if successor_root == document_root or successor_root in document_root.parents:
+        raise SuccessorRerunProposalError(
+            "successor output root overlaps proposed document input"
+        )
+    return SuccessorProposal(
         cycle_id=_text(raw, "cycle_id"),
-        selection_records=selection_records,
-        documents=documents,
-        parser_revision=_text(raw, "parser_revision"),
+        selection_path=paths["selection_path"],
+        selection_run_card_path=paths["selection_run_card_path"],
+        download_manifest_path=paths["download_manifest_path"],
+        disclosure_clearance_path=paths["disclosure_clearance_path"],
+        materialization_run_card_path=paths["materialization_run_card_path"],
+        document_root=document_root,
+        model_registry_path=paths["model_registry_path"],
+        policy_path=paths["policy_path"],
+        successor_output_root=successor_root,
         provider_attempt_namespace=_optional_text(raw, "provider_attempt_namespace"),
         model_key=_text(raw, "model_key"),
-        model_registry_sha256=_sha256(raw, "model_registry_sha256"),
-        policy_sha256=_sha256(raw, "policy_sha256"),
-        parser_output_sha256_by_document={},
-    )
-    return SuccessorProposal(
-        inputs=inputs,
-        selection_path=selection_path,
-        download_manifest_path=downloads_path,
-        model_registry_path=registry_path,
-        policy_path=policy_path,
-        successor_output_root=successor_root,
-        next_commands=_proposal_commands(raw.get("next_commands")),
         proposal_sha256=hashlib.sha256(payload).hexdigest(),
     )
 
 
-def current_documents_from_parser_records(
-    records: Sequence[Mapping[str, Any]],
-) -> tuple[DocumentInput, ...]:
-    """Project exact source identities from authenticated successful parser rows."""
+def bind_verified_successor_proposal(
+    proposal: SuccessorProposal,
+    *,
+    cycle_id: str,
+    selection_records: Sequence[Mapping[str, Any]],
+    download_records: Sequence[Mapping[str, Any]],
+    model_provider: str,
+    provider_account: str,
+    model_registry_sha256: str,
+    policy_sha256: str,
+) -> SuccessorProposal:
+    """Bind records emitted by existing semantic verifiers to exact proposal bytes."""
 
-    documents: list[DocumentInput] = []
-    revisions: set[str] = set()
-    for record in records:
-        if record.get("status") != "succeeded":
-            raise SuccessorRerunProposalError(
-                "authenticated parser lineage contains a non-successful row"
-            )
-        config = record.get("parser_config")
-        if not isinstance(config, Mapping):
-            raise SuccessorRerunProposalError("parser row lacks parser_config")
-        revision = cast(Mapping[str, object], config).get("parser_revision")
-        if not isinstance(revision, str) or not revision:
-            raise SuccessorRerunProposalError("parser row lacks parser revision")
-        revisions.add(revision)
-        documents.append(
-            DocumentInput(
-                candidate_id=_text(record, "candidate_id"),
-                source_document_id=_text(record, "source_document_id"),
-                sha256=_sha256(record, "source_sha256"),
-                byte_count=_nonnegative_int(record, "source_byte_count"),
-            )
-        )
-    if len(revisions) != 1:
+    if proposal.inputs is not None:
+        raise SuccessorRerunProposalError("successor proposal is already bound")
+    if cycle_id != proposal.cycle_id:
         raise SuccessorRerunProposalError(
-            f"authenticated parser revision is ambiguous ({len(revisions)} found)"
+            "successor materialization cycle_id differs from proposal"
         )
-    result = tuple(sorted(documents, key=lambda item: item.key))
-    _require_unique_documents(result, label="authenticated parser")
-    return result
-
-
-def parser_revision_from_records(records: Sequence[Mapping[str, Any]]) -> str:
-    current_documents_from_parser_records(records)
-    config = records[0].get("parser_config")
-    assert isinstance(config, Mapping)
-    return cast(str, config["parser_revision"])
-
-
-def parser_output_sha256_from_records(
-    records: Sequence[Mapping[str, Any]],
-) -> dict[tuple[str, str], str]:
-    """Project Markdown byte commitments from authenticated parser rows."""
-
-    result: dict[tuple[str, str], str] = {}
-    for record in records:
-        key = (_text(record, "candidate_id"), _text(record, "source_document_id"))
-        extracted = record.get("extracted_text")
-        if not isinstance(extracted, Mapping):
-            raise SuccessorRerunProposalError(
-                f"authenticated parser row lacks extracted text: {_key_text(key)}"
-            )
-        digest = _sha256(cast(Mapping[str, object], extracted), "text_sha256")
-        if key in result:
-            raise SuccessorRerunProposalError(
-                f"authenticated parser output is ambiguous: {_key_text(key)}"
-            )
-        result[key] = digest
-    return result
-
-
-def _proposal_commands(value: object) -> tuple[Mapping[str, object], ...]:
-    if not isinstance(value, list) or not value:
+    selection_bytes = _read_regular(
+        proposal.selection_path, label="verified proposed selection"
+    )
+    download_bytes = _read_regular(
+        proposal.download_manifest_path, label="verified proposed download manifest"
+    )
+    if _jsonl(selection_bytes, label="verified proposed selection") != tuple(
+        selection_records
+    ):
         raise SuccessorRerunProposalError(
-            "successor proposal next_commands are invalid"
+            "verified proposed selection records differ from exact bytes"
         )
-    allowed_stages = {
-        "selection",
-        "plan-parse-documents",
-        "parse-documents",
-        "llm-unitize",
-    }
-    commands: list[Mapping[str, object]] = []
-    seen: set[str] = set()
-    for raw in cast(list[object], value):
-        if not isinstance(raw, Mapping):
-            raise SuccessorRerunProposalError(
-                "successor proposal next command fields differ"
-            )
-        command = cast(Mapping[str, object], raw)
-        if set(command) != {
-            "stage",
-            "argv",
-            "execution_authority",
-            "requires_separate_authorization",
-        }:
-            raise SuccessorRerunProposalError(
-                "successor proposal next command fields differ"
-            )
-        stage = _text(command, "stage")
-        argv = command.get("argv")
-        arguments = cast(list[object], argv) if isinstance(argv, list) else []
-        if (
-            stage not in allowed_stages
-            or stage in seen
-            or not arguments
-            or any(not isinstance(item, str) or not item for item in arguments)
-            or command.get("execution_authority") is not False
-            or not isinstance(command.get("requires_separate_authorization"), bool)
-        ):
-            raise SuccessorRerunProposalError(
-                "successor proposal next command is invalid or authoritative"
-            )
-        typed = cast(list[str], arguments)
-        if typed[:4] != ["uv", "run", "legalforecast", "acquisition"]:
-            raise SuccessorRerunProposalError(
-                "successor proposal next command is not an acquisition CLI invocation"
-            )
-        if any(item in {"--api-key", "--credential", "--token"} for item in typed):
-            raise SuccessorRerunProposalError(
-                "successor proposal next command contains a credential option"
-            )
-        seen.add(stage)
-        commands.append(dict(command))
-    return tuple(commands)
-
-
-def _document_from_download(record: Mapping[str, Any]) -> DocumentInput:
-    return DocumentInput(
-        candidate_id=_text(record, "candidate_id"),
-        source_document_id=_text(record, "source_document_id"),
-        sha256=_sha256(record, "sha256"),
-        byte_count=_nonnegative_int(record, "byte_count"),
+    if _jsonl(download_bytes, label="verified proposed download manifest") != tuple(
+        download_records
+    ):
+        raise SuccessorRerunProposalError(
+            "verified proposed download records differ from exact bytes"
+        )
+    documents = verified_documents_from_records(
+        selection_records,
+        download_records,
+        document_root=proposal.document_root,
+    )
+    return replace(
+        proposal,
+        inputs=RerunInputs(
+            cycle_id=cycle_id,
+            selection_records=tuple(selection_records),
+            documents=documents,
+            provider_attempt_namespace=proposal.provider_attempt_namespace,
+            model_key=proposal.model_key,
+            model_provider=model_provider,
+            provider_account=provider_account,
+            model_registry_sha256=_digest(model_registry_sha256, "model registry"),
+            policy_sha256=_digest(policy_sha256, "provider policy"),
+            parser_reuse_by_document={},
+            provider_reuse_by_candidate={},
+            parser_run_card_path=Path("/not-evaluated/parser-run-card.json"),
+            markdown_root=Path("/not-evaluated/markdown"),
+            provider_journal_path=Path("/not-evaluated/provider-journal.sqlite3"),
+        ),
     )
 
 
-def _verify_proposed_document_bytes(
-    records: Sequence[Mapping[str, Any]], documents: Sequence[DocumentInput]
-) -> None:
-    by_key = {document.key: document for document in documents}
-    for record in records:
-        key = (_text(record, "candidate_id"), _text(record, "source_document_id"))
-        raw_path = record.get("local_path")
-        if not isinstance(raw_path, str) or not raw_path:
-            raise SuccessorRerunProposalError("proposed document lacks local_path")
-        path = Path(raw_path)
-        if not path.is_absolute():
+def parser_reuse_evidence_from_authenticated_artifacts(
+    artifacts: Mapping[
+        tuple[str, str, str, int], tuple[Mapping[str, Any], bytes, bytes]
+    ],
+) -> dict[tuple[str, str], ParserReuseEvidence]:
+    """Seal the complete output of ``_authenticate_live_mistral_parse_reuse``."""
+
+    result: dict[tuple[str, str], ParserReuseEvidence] = {}
+    for source_key, (record, markdown_bytes, metadata_bytes) in artifacts.items():
+        candidate_id, source_document_id, _digest_value, _byte_count = source_key
+        key = candidate_id, source_document_id
+        if key in result:
             raise SuccessorRerunProposalError(
-                "proposed document local_path must be absolute"
+                f"authenticated parser reuse is ambiguous: {_key_text(key)}"
             )
-        payload = _read_regular(path, label=f"proposed document {_key_text(key)}")
-        document = by_key[key]
+        extracted = record.get("extracted_text")
+        if not isinstance(extracted, Mapping):
+            raise SuccessorRerunProposalError(
+                f"authenticated parser reuse lacks extracted text: {_key_text(key)}"
+            )
+        output_sha256 = _sha256(cast(Mapping[str, object], extracted), "text_sha256")
+        actual_markdown_sha256 = hashlib.sha256(markdown_bytes).hexdigest()
+        if output_sha256 != actual_markdown_sha256:
+            raise SuccessorRerunProposalError(
+                f"authenticated parser Markdown commitment differs: {_key_text(key)}"
+            )
+        result[key] = ParserReuseEvidence(
+            source_key=source_key,
+            markdown_path=_text(record, "markdown_path"),
+            metadata_path=_text(record, "metadata_path"),
+            record_sha256=hashlib.sha256(
+                ARTIFACT_CANONICAL_JSON_V1.encode(record)
+            ).hexdigest(),
+            markdown_sha256=actual_markdown_sha256,
+            metadata_sha256=hashlib.sha256(metadata_bytes).hexdigest(),
+            output_markdown_sha256=output_sha256,
+        )
+    return result
+
+
+def provider_reuse_evidence_from_verified_rows(
+    rows: Sequence[Mapping[str, object]],
+) -> dict[str, ProviderReuseEvidence]:
+    """Seal settled rows returned by the Stage A run-card replay snapshot."""
+
+    result: dict[str, ProviderReuseEvidence] = {}
+    for row in rows:
+        if row.get("stage") != "llm-unitize" or row.get("status") != "settled":
+            continue
+        candidate_id = _text(row, "candidate_id")
+        evidence = ProviderReuseEvidence(
+            candidate_id=candidate_id,
+            stage=_text(row, "stage"),
+            logical_call_key=_text(row, "logical_call_key"),
+            attempt_ordinal=_positive_int(row, "attempt_ordinal"),
+            provider=_text(row, "provider"),
+            account=_text(row, "account"),
+            prompt_text=_text(row, "prompt_text"),
+            prompt_sha256=_sha256(row, "prompt_sha256"),
+            model_key=_text(row, "model_key"),
+            model_registry_sha256=_sha256(row, "model_registry_sha256"),
+            raw_response_json=_json_text(row, "raw_response_json"),
+            normalized_response_json=_json_text(row, "normalized_response_json"),
+            reconstructed_result_json=_json_text(row, "reconstructed_result_json"),
+            attempt_record_sha256=hashlib.sha256(
+                ARTIFACT_CANONICAL_JSON_V1.encode(row)
+            ).hexdigest(),
+        )
+        if candidate_id in result:
+            raise SuccessorRerunProposalError(
+                f"authenticated provider settled call is ambiguous: {candidate_id}"
+            )
+        result[candidate_id] = evidence
+    return result
+
+
+def verified_documents_from_records(
+    selection_records: Sequence[Mapping[str, Any]],
+    download_records: Sequence[Mapping[str, Any]],
+    *,
+    document_root: Path,
+) -> tuple[DocumentInput, ...]:
+    selected: dict[tuple[str, str], tuple[str, str, bool]] = {}
+    candidates: set[str] = set()
+    for selection in selection_records:
+        candidate_id = _text(selection, "candidate_id")
+        case_id = _text(selection, "case_id")
+        if candidate_id in candidates:
+            raise SuccessorRerunProposalError(
+                f"proposed selection has duplicate candidate_id: {candidate_id}"
+            )
+        candidates.add(candidate_id)
+        raw_documents = selection.get("documents")
         if (
-            hashlib.sha256(payload).hexdigest() != document.sha256
-            or len(payload) != document.byte_count
+            not isinstance(raw_documents, Sequence)
+            or isinstance(raw_documents, (str, bytes))
+            or not raw_documents
         ):
+            raise SuccessorRerunProposalError(
+                f"proposed selection documents are invalid: {candidate_id}"
+            )
+        for raw_document in cast(Sequence[object], raw_documents):
+            if not isinstance(raw_document, Mapping):
+                raise SuccessorRerunProposalError(
+                    f"proposed selection document is invalid: {candidate_id}"
+                )
+            document = cast(Mapping[str, object], raw_document)
+            if _text(document, "candidate_id") != candidate_id:
+                raise SuccessorRerunProposalError(
+                    f"proposed selection document candidate differs: {candidate_id}"
+                )
+            source_document_id = _text(document, "source_document_id")
+            key = candidate_id, source_document_id
+            model_visible = document.get("model_visible")
+            if not isinstance(model_visible, bool):
+                raise SuccessorRerunProposalError(
+                    f"proposed selection model visibility is invalid: {_key_text(key)}"
+                )
+            if key in selected:
+                raise SuccessorRerunProposalError(
+                    f"proposed selection document is ambiguous: {_key_text(key)}"
+                )
+            selected[key] = (case_id, _text(document, "document_role"), model_visible)
+
+    downloads: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for record in download_records:
+        key = (_text(record, "candidate_id"), _text(record, "source_document_id"))
+        if key in downloads:
+            raise SuccessorRerunProposalError(
+                f"proposed download document is ambiguous: {_key_text(key)}"
+            )
+        downloads[key] = record
+    if set(downloads) != set(selected):
+        orphaned = sorted(set(downloads) - set(selected))
+        missing = sorted(set(selected) - set(downloads))
+        detail = orphaned[0] if orphaned else missing[0]
+        kind = "orphan" if orphaned else "missing"
+        raise SuccessorRerunProposalError(
+            f"proposed selection/download coverage has {kind}: {_key_text(detail)}"
+        )
+
+    documents: list[DocumentInput] = []
+    for key in sorted(downloads):
+        record = downloads[key]
+        case_id, document_role, model_visible = selected[key]
+        if _text(record, "document_role") != document_role:
+            raise SuccessorRerunProposalError(
+                f"proposed document role differs: {_key_text(key)}"
+            )
+        relative = Path(_text(record, "local_path"))
+        if relative.is_absolute() or ".." in relative.parts:
+            raise SuccessorRerunProposalError(
+                f"proposed document local_path is unsafe: {_key_text(key)}"
+            )
+        path = document_root / relative
+        payload = _read_regular(path, label=f"proposed document {_key_text(key)}")
+        digest = _sha256(record, "sha256")
+        byte_count = _nonnegative_int(record, "byte_count")
+        if hashlib.sha256(payload).hexdigest() != digest or len(payload) != byte_count:
             raise SuccessorRerunProposalError(
                 f"proposed document bytes differ: {_key_text(key)}"
             )
+        documents.append(
+            DocumentInput(
+                candidate_id=key[0],
+                case_id=case_id,
+                source_document_id=key[1],
+                document_role=document_role,
+                model_visible=model_visible,
+                sha256=digest,
+                byte_count=byte_count,
+            )
+        )
+    return tuple(documents)
 
 
 def _read_regular(path: Path, *, label: str) -> bytes:
     try:
         return read_unique_regular_file(path)
     except (OSError, ReviewBundleError) as exc:
-        raise SuccessorRerunProposalError(
-            f"{label} is unavailable or unsafe"
-        ) from exc
+        raise SuccessorRerunProposalError(f"{label} is unavailable or unsafe") from exc
 
 
 def _committed_bytes(
@@ -335,9 +464,7 @@ def _json_object(payload: bytes, *, label: str) -> Mapping[str, object]:
     try:
         raw = json.loads(payload)
     except (UnicodeError, json.JSONDecodeError) as exc:
-        raise SuccessorRerunProposalError(
-            f"{label} is not valid UTF-8 JSON"
-        ) from exc
+        raise SuccessorRerunProposalError(f"{label} is not valid UTF-8 JSON") from exc
     if not isinstance(raw, Mapping):
         raise SuccessorRerunProposalError(f"{label} must be a JSON object")
     return cast(Mapping[str, object], raw)
@@ -351,7 +478,7 @@ def _jsonl(payload: bytes, *, label: str) -> tuple[Mapping[str, Any], ...]:
         raise SuccessorRerunProposalError(f"{label} is not UTF-8") from exc
     for line_number, line in enumerate(lines, start=1):
         if not line:
-            continue
+            raise SuccessorRerunProposalError(f"{label} line {line_number} is blank")
         try:
             raw = json.loads(line)
         except json.JSONDecodeError as exc:
@@ -371,9 +498,7 @@ def _jsonl(payload: bytes, *, label: str) -> tuple[Mapping[str, Any], ...]:
 def _absolute_path(record: Mapping[str, object], field: str) -> Path:
     path = Path(_text(record, field))
     if not path.is_absolute() or ".." in path.parts:
-        raise SuccessorRerunProposalError(
-            f"successor proposal {field} is not absolute"
-        )
+        raise SuccessorRerunProposalError(f"successor proposal {field} is not absolute")
     return path
 
 
@@ -394,10 +519,14 @@ def _optional_text(record: Mapping[str, object], field: str) -> str | None:
 
 
 def _sha256(record: Mapping[str, object], field: str) -> str:
-    value = _text(record, field).removeprefix("sha256:")
-    if len(value) != 64 or any(item not in "0123456789abcdef" for item in value):
-        raise SuccessorRerunProposalError(f"{field} must be a lowercase SHA-256")
-    return value
+    return _digest(_text(record, field), field)
+
+
+def _digest(value: str, label: str) -> str:
+    digest = value.removeprefix("sha256:")
+    if len(digest) != 64 or any(item not in "0123456789abcdef" for item in digest):
+        raise SuccessorRerunProposalError(f"{label} must be a lowercase SHA-256")
+    return digest
 
 
 def _nonnegative_int(record: Mapping[str, object], field: str) -> int:
@@ -407,12 +536,20 @@ def _nonnegative_int(record: Mapping[str, object], field: str) -> int:
     return value
 
 
-def _require_unique_documents(
-    documents: Sequence[DocumentInput], *, label: str
-) -> None:
-    keys = [document.key for document in documents]
-    if len(keys) != len(set(keys)):
-        raise SuccessorRerunProposalError(f"{label} documents are ambiguous")
+def _positive_int(record: Mapping[str, object], field: str) -> int:
+    value = _nonnegative_int(record, field)
+    if value == 0:
+        raise SuccessorRerunProposalError(f"{field} must be a positive integer")
+    return value
+
+
+def _json_text(record: Mapping[str, object], field: str) -> str:
+    value = _text(record, field)
+    try:
+        json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise SuccessorRerunProposalError(f"{field} must contain JSON") from exc
+    return value
 
 
 def _key_text(key: tuple[str, str]) -> str:
