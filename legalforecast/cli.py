@@ -30897,6 +30897,43 @@ def _materializer_complete_selected_document_keys(
     return selected_keys
 
 
+def _materializer_free_clearance_records(
+    projection: Mapping[str, object],
+    *,
+    consolidated_recovery: bool,
+) -> tuple[Mapping[str, Any], ...]:
+    """Adapt a merged successor-v2 clearance to the free source partition."""
+
+    clearance_records = tuple(
+        cast(Sequence[Mapping[str, Any]], projection["free_clearance"])
+    )
+    if not consolidated_recovery:
+        return clearance_records
+    free_keys = {
+        _materializer_record_key(record)
+        for record in cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
+    }
+    purchased_keys = {
+        _materializer_record_key(record)
+        for record in cast(
+            Sequence[Mapping[str, Any]], projection["purchased_manifest"]
+        )
+    }
+    clearance_keys = {_materializer_record_key(record) for record in clearance_records}
+    if (
+        not free_keys <= clearance_keys
+        or not clearance_keys - free_keys <= purchased_keys
+    ):
+        raise CommandError(
+            "consolidated recovery clearance differs from free/purchased partitions"
+        )
+    return tuple(
+        record
+        for record in clearance_records
+        if _materializer_record_key(record) in free_keys
+    )
+
+
 def _replacement_consolidation_active_paid_keys(
     records: Sequence[Mapping[str, Any]],
     *,
@@ -41257,8 +41294,9 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                     manifest=cast(
                         Sequence[Mapping[str, Any]], projection["free_manifest"]
                     ),
-                    clearance=cast(
-                        Sequence[Mapping[str, Any]], projection["free_clearance"]
+                    clearance=_materializer_free_clearance_records(
+                        projection,
+                        consolidated_recovery=preverified_recovery is not None,
                     ),
                 ),
                 DocumentSource(
@@ -46942,8 +46980,9 @@ def _verify_materialized_downstream_lineage(
                     manifest=cast(
                         Sequence[Mapping[str, Any]], projection["free_manifest"]
                     ),
-                    clearance=cast(
-                        Sequence[Mapping[str, Any]], projection["free_clearance"]
+                    clearance=_materializer_free_clearance_records(
+                        projection,
+                        consolidated_recovery=preverified_recovery is not None,
                     ),
                 ),
                 DocumentSource(

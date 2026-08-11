@@ -1015,6 +1015,40 @@ def test_consolidated_projection_rejects_available_document_outside_selection() 
         )
 
 
+def test_consolidated_projection_partitions_merged_clearance() -> None:
+    free = {"candidate_id": "candidate-1", "source_document_id": "free-1"}
+    purchased = {
+        "candidate_id": "candidate-1",
+        "source_document_id": "purchased-1",
+    }
+    projection = {
+        "free_manifest": (free,),
+        "purchased_manifest": (purchased,),
+        "free_clearance": (free, purchased),
+    }
+
+    assert cli._materializer_free_clearance_records(
+        projection, consolidated_recovery=True
+    ) == (free,)
+    assert cli._materializer_free_clearance_records(
+        projection, consolidated_recovery=False
+    ) == (free, purchased)
+
+
+def test_consolidated_projection_rejects_unpartitioned_clearance() -> None:
+    injected = {"candidate_id": "candidate-2", "source_document_id": "injected-1"}
+    projection = {
+        "free_manifest": (),
+        "purchased_manifest": (),
+        "free_clearance": (injected,),
+    }
+
+    with pytest.raises(
+        cli.CommandError, match="clearance differs from free/purchased partitions"
+    ):
+        cli._materializer_free_clearance_records(projection, consolidated_recovery=True)
+
+
 @pytest.mark.parametrize("input_count", [14, 15])
 def test_paid_materialization_input_extensions_preserve_fixed_authority_indices(
     tmp_path: Path,
