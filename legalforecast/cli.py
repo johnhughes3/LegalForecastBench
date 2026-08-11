@@ -41328,17 +41328,22 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             label="materialization preparation success run card",
         )
         preverified_recovery: dict[str, object] | None = None
+        consolidated_recovery_selection: Sequence[Mapping[str, Any]] | None = None
         consolidated_recovery_card = (
             recovery_root / "run-cards" / "consolidate-replacement-recovery.json"
         )
         if os.path.lexists(consolidated_recovery_card):
-            preliminary_selection_path = target_root / "target-cohort-selection.jsonl"
-            preliminary_selection = _projection_jsonl_records(
-                _read_singly_linked_regular_input(
-                    preliminary_selection_path,
-                    label="consolidated recovery target selection",
-                ),
-                source=preliminary_selection_path,
+            (
+                outer_projection,
+                preliminary_selection_path,
+                preliminary_selection,
+            ) = _materializer_consolidated_target_inputs(
+                target_root=target_root,
+                free_clearance_path=free_clearance_path,
+                preparation_summary_path=preparation_summary_path,
+                preparation_config_path=preparation_config_path,
+                snapshot_manifest_path=snapshot_manifest_path,
+                expected_target_count=verified_preparation.target_case_count,
             )
             preverified_recovery = _verify_materializer_recovery(
                 recovery_root=recovery_root,
@@ -41355,7 +41360,12 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 raise CommandError(
                     "consolidated recovery lacks authenticated target projection"
                 )
-            projection = dict(cast(Mapping[str, object], raw_projection))
+            projection = _select_materializer_projection_after_recovery(
+                outer_projection=outer_projection,
+                recovery_projection=cast(Mapping[str, object], raw_projection),
+                recovery_selection=preliminary_selection,
+            )
+            consolidated_recovery_selection = preliminary_selection
             if (
                 len(
                     cast(
@@ -41520,11 +41530,16 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
         selection_records = cast(
             Sequence[Mapping[str, Any]], projection["selection_records"]
         )
+        resolved_lineage_selection_records = (
+            consolidated_recovery_selection
+            if consolidated_recovery_selection is not None
+            else selection_records
+        )
         purchased_manifest = cast(
             Sequence[Mapping[str, Any]], recovery["manifest_records"]
         )
         needs_resolved_lineage = _selection_requires_resolved_post_recovery(
-            selection_records
+            resolved_lineage_selection_records
         ) or any(
             record.get("recovery_origin") == "unknown_status_attempt"
             for record in purchased_manifest
@@ -41548,7 +41563,7 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 lineage=purchased_clearance_lineage,
             )
             _require_resolved_post_recovery_dispatch(
-                selection_records=selection_records,
+                selection_records=resolved_lineage_selection_records,
                 download_records=purchased_manifest,
                 clearance_records=cast(
                     Sequence[Mapping[str, Any]],
@@ -44365,6 +44380,129 @@ def _verify_supporting_document_downstream_projection(
         raise CommandError(str(exc)) from exc
 
 
+def _materializer_consolidated_target_inputs(
+    *,
+    target_root: Path,
+    free_clearance_path: Path,
+    preparation_summary_path: Path,
+    preparation_config_path: Path,
+    snapshot_manifest_path: Path,
+    expected_target_count: int,
+) -> tuple[dict[str, object] | None, Path, list[dict[str, Any]]]:
+    """Select the authenticated projection that purchased recovery predates."""
+
+    supporting_card = (
+        target_root / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    if not supporting_card.is_file() or supporting_card.is_symlink():
+        selection_path = target_root / "target-cohort-selection.jsonl"
+        return (
+            None,
+            selection_path,
+            _projection_jsonl_records(
+                _read_singly_linked_regular_input(
+                    selection_path, label="consolidated recovery target selection"
+                ),
+                source=selection_path,
+            ),
+        )
+    projection = _verify_materializer_projection(
+        target_root=target_root,
+        free_clearance_path=free_clearance_path,
+        preparation_summary_path=preparation_summary_path,
+        preparation_config_path=preparation_config_path,
+        snapshot_manifest_path=snapshot_manifest_path,
+        expected_target_count=expected_target_count,
+    )
+    base = projection.get("base_v2_projection")
+    if not isinstance(base, Mapping):
+        raise CommandError("supporting-document successor lacks base v2 projection")
+    base_record = cast(Mapping[str, object], base)
+    selection_path = base_record.get("selection_path")
+    selection_records = base_record.get("selection_records")
+    if (
+        not isinstance(selection_path, Path)
+        or not isinstance(selection_records, Sequence)
+        or isinstance(selection_records, (str, bytes))
+    ):
+        raise CommandError("supporting-document successor base selection differs")
+    normalized_selection = _normalized_materializer_selection_records(
+        cast(Sequence[object], selection_records),
+        label="supporting-document successor base selection",
+    )
+    return (
+        projection,
+        selection_path,
+        normalized_selection,
+    )
+
+
+def _normalized_materializer_selection_records(
+    records: object,
+    *,
+    label: str,
+) -> list[dict[str, Any]]:
+    """Normalize an authenticated ordered selection without dropping rows."""
+
+    if not isinstance(records, Sequence) or isinstance(records, (str, bytes)):
+        raise CommandError(f"{label} must be a list")
+    rows = list(cast(Sequence[object], records))
+    if not all(isinstance(row, Mapping) for row in rows):
+        raise CommandError(f"{label} must contain only objects")
+    return [dict(cast(Mapping[str, Any], row)) for row in rows]
+
+
+def _select_materializer_projection_after_recovery(
+    *,
+    outer_projection: dict[str, object] | None,
+    recovery_projection: Mapping[str, object],
+    recovery_selection: Sequence[Mapping[str, Any]],
+) -> dict[str, object]:
+    """Retain the outer free successor after proving its purchased base."""
+
+    if outer_projection is None:
+        return dict(recovery_projection)
+    expected_records = [dict(row) for row in recovery_selection]
+    base = outer_projection.get("base_v2_projection")
+    base_records = (
+        cast(Mapping[str, object], base).get("selection_records")
+        if isinstance(base, Mapping)
+        else None
+    )
+    try:
+        normalized_base_records = _normalized_materializer_selection_records(
+            base_records,
+            label="supporting-document successor base selection",
+        )
+    except CommandError as exc:
+        raise CommandError(
+            "supporting-document successor base selection differs from "
+            "consolidated recovery"
+        ) from exc
+    if normalized_base_records != expected_records:
+        raise CommandError(
+            "supporting-document successor base selection differs from "
+            "consolidated recovery"
+        )
+    recovery_records = recovery_projection.get("selection_records")
+    try:
+        normalized_recovery_records = _normalized_materializer_selection_records(
+            recovery_records,
+            label="consolidated recovery projection selection",
+        )
+    except CommandError as exc:
+        raise CommandError(
+            "consolidated recovery projection selection differs from its "
+            "authenticated input"
+        ) from exc
+    if normalized_recovery_records != expected_records:
+        raise CommandError(
+            "consolidated recovery projection selection differs from its "
+            "authenticated input"
+        )
+    return outer_projection
+
+
 def verify_completed_target_cohort_projection_for_purchase_approval(
     target_root: Path,
     *,
@@ -47118,17 +47256,22 @@ def _verify_materialized_downstream_lineage(
             os.path.abspath(verified_preparation.success_run_card_path)
         ] = preparation_success_bytes
         preverified_recovery: dict[str, object] | None = None
+        consolidated_recovery_selection: Sequence[Mapping[str, Any]] | None = None
         consolidated_recovery_card = (
             recovery_root / "run-cards" / "consolidate-replacement-recovery.json"
         )
         if os.path.lexists(consolidated_recovery_card):
-            preliminary_selection_path = target_root / "target-cohort-selection.jsonl"
-            preliminary_selection = _projection_jsonl_records(
-                _read_singly_linked_regular_input(
-                    preliminary_selection_path,
-                    label="downstream consolidated recovery target selection",
-                ),
-                source=preliminary_selection_path,
+            (
+                outer_projection,
+                preliminary_selection_path,
+                preliminary_selection,
+            ) = _materializer_consolidated_target_inputs(
+                target_root=target_root,
+                free_clearance_path=free_clearance_path,
+                preparation_summary_path=preparation_summary_path,
+                preparation_config_path=preparation_config_path,
+                snapshot_manifest_path=snapshot_manifest_path,
+                expected_target_count=verified_preparation.target_case_count,
             )
             preverified_recovery = _verify_materializer_recovery(
                 recovery_root=recovery_root,
@@ -47145,7 +47288,12 @@ def _verify_materialized_downstream_lineage(
                 raise CommandError(
                     "consolidated recovery lacks authenticated target projection"
                 )
-            projection = dict(cast(Mapping[str, object], raw_projection))
+            projection = _select_materializer_projection_after_recovery(
+                outer_projection=outer_projection,
+                recovery_projection=cast(Mapping[str, object], raw_projection),
+                recovery_selection=preliminary_selection,
+            )
+            consolidated_recovery_selection = preliminary_selection
             if (
                 len(
                     cast(
@@ -47312,11 +47460,16 @@ def _verify_materialized_downstream_lineage(
         selection_records = cast(
             Sequence[Mapping[str, Any]], projection["selection_records"]
         )
+        resolved_lineage_selection_records = (
+            consolidated_recovery_selection
+            if consolidated_recovery_selection is not None
+            else selection_records
+        )
         purchased_manifest = cast(
             Sequence[Mapping[str, Any]], recovery["manifest_records"]
         )
         needs_resolved_lineage = _selection_requires_resolved_post_recovery(
-            selection_records
+            resolved_lineage_selection_records
         ) or any(
             record.get("recovery_origin") == "unknown_status_attempt"
             for record in purchased_manifest
@@ -47340,7 +47493,7 @@ def _verify_materialized_downstream_lineage(
                 lineage=purchased_lineage,
             )
             _require_resolved_post_recovery_dispatch(
-                selection_records=selection_records,
+                selection_records=resolved_lineage_selection_records,
                 download_records=purchased_manifest,
                 clearance_records=cast(
                     Sequence[Mapping[str, Any]], purchased_lineage["clearance_records"]
