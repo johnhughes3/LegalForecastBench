@@ -984,6 +984,13 @@ def test_consolidated_projection_uses_full_selection_for_audit_only_omissions() 
     assert cli._materializer_complete_selected_document_keys(
         projection, consolidated_recovery=False
     ) == {("candidate-1", "motion-1")}
+    omission_keys = {("candidate-1", "decision-1")}
+    assert (
+        cli._materializer_complete_selected_document_keys(
+            projection, consolidated_recovery=True
+        )
+        - omission_keys
+    ) == {("candidate-1", "motion-1")}
 
 
 def test_consolidated_projection_rejects_available_document_outside_selection() -> None:
