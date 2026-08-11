@@ -960,6 +960,54 @@ def test_docket_decision_partition_binds_exact_omission_and_residual_counts(
     ]
 
 
+def test_consolidated_projection_uses_full_selection_for_audit_only_omissions() -> None:
+    selection_records = (
+        {
+            "candidate_id": "candidate-1",
+            "documents": [
+                {"source_document_id": "motion-1"},
+                {"source_document_id": "decision-1"},
+            ],
+        },
+    )
+    projection = {
+        "selection_records": selection_records,
+        "selected_document_keys": {("candidate-1", "motion-1")},
+    }
+
+    assert cli._materializer_complete_selected_document_keys(
+        projection, consolidated_recovery=True
+    ) == {
+        ("candidate-1", "motion-1"),
+        ("candidate-1", "decision-1"),
+    }
+    assert cli._materializer_complete_selected_document_keys(
+        projection, consolidated_recovery=False
+    ) == {("candidate-1", "motion-1")}
+
+
+def test_consolidated_projection_rejects_available_document_outside_selection() -> None:
+    projection = {
+        "selection_records": (
+            {
+                "candidate_id": "candidate-1",
+                "documents": [{"source_document_id": "motion-1"}],
+            },
+        ),
+        "selected_document_keys": {
+            ("candidate-1", "motion-1"),
+            ("candidate-2", "injected-1"),
+        },
+    }
+
+    with pytest.raises(
+        cli.CommandError, match="available document is outside the selection"
+    ):
+        cli._materializer_complete_selected_document_keys(
+            projection, consolidated_recovery=True
+        )
+
+
 @pytest.mark.parametrize("input_count", [14, 15])
 def test_paid_materialization_input_extensions_preserve_fixed_authority_indices(
     tmp_path: Path,

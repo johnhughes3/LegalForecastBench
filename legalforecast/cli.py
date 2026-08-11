@@ -30865,6 +30865,38 @@ def _replacement_consolidation_selection_keys(
     return keys
 
 
+def _materializer_complete_selected_document_keys(
+    projection: Mapping[str, object],
+    *,
+    consolidated_recovery: bool,
+) -> set[tuple[str, str]]:
+    """Return the complete authenticated selection used for omission checks.
+
+    Ordinary projections expose every selected document in
+    ``selected_document_keys``.  Exact-100 successor-v2 consolidated recovery
+    exposes only the available manifest rows there; its authenticated selection
+    records additionally contain the audit-only docket decisions that are
+    intentionally absent from that manifest.
+    """
+
+    available_keys = cast(set[tuple[str, str]], projection["selected_document_keys"])
+    if not consolidated_recovery:
+        return set(available_keys)
+    raw_records = projection.get("selection_records")
+    if not isinstance(raw_records, Sequence) or isinstance(raw_records, (str, bytes)):
+        raise CommandError(
+            "consolidated recovery lacks authenticated selection records"
+        )
+    selected_keys = _replacement_consolidation_selection_keys(
+        cast(Sequence[Mapping[str, Any]], raw_records)
+    )
+    if not available_keys <= selected_keys:
+        raise CommandError(
+            "consolidated recovery available document is outside the selection"
+        )
+    return selected_keys
+
+
 def _replacement_consolidation_active_paid_keys(
     records: Sequence[Mapping[str, Any]],
     *,
@@ -41059,11 +41091,18 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             controlled_private_root=controlled_private_root,
             initialization_receipt_path=initialization_receipt,
         )
-        selected_document_keys = cast(
+        available_document_keys = cast(
             set[tuple[str, str]], projection["selected_document_keys"]
         )
+        selected_document_keys = set(available_document_keys)
         docket_decision_descriptor: _MaterializerDocketDecisionAuthority | None = None
         if purchase_result_path is not None and purchase_run_card_path is not None:
+            authenticated_selection_keys = (
+                _materializer_complete_selected_document_keys(
+                    projection,
+                    consolidated_recovery=preverified_recovery is not None,
+                )
+            )
             selection_path = cast(Path, projection["selection_path"])
             selection_payload = captured_artifact_bytes[os.path.abspath(selection_path)]
             with CaseDevPurchaseJournal(
@@ -41084,7 +41123,7 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                         ledger_path=ledger_path,
                         controlled_private_root=controlled_private_root,
                         initialization_receipt_path=initialization_receipt,
-                        selected_document_count=len(selected_document_keys),
+                        selected_document_count=len(authenticated_selection_keys),
                     )
                 )
                 _merge_verified_artifact_bytes(
@@ -41101,11 +41140,11 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                     docket_decision_descriptor.authority,
                     purchase_journal=journal,
                 )
-            if not omission_keys <= selected_document_keys:
+            if not omission_keys <= authenticated_selection_keys:
                 raise CommandError(
                     "audit-only docket decision omission is outside the selection"
                 )
-            selected_document_keys = selected_document_keys - omission_keys
+            selected_document_keys = available_document_keys - omission_keys
         recovery = (
             preverified_recovery
             if preverified_recovery is not None
@@ -46740,11 +46779,18 @@ def _verify_materialized_downstream_lineage(
             controlled_private_root=controlled_private_root,
             initialization_receipt_path=initialization_receipt_path,
         )
-        selected_document_keys = cast(
+        available_document_keys = cast(
             set[tuple[str, str]], projection["selected_document_keys"]
         )
+        selected_document_keys = set(available_document_keys)
         docket_decision_descriptor: _MaterializerDocketDecisionAuthority | None = None
         if purchase_result_path is not None and purchase_run_card_path is not None:
+            authenticated_selection_keys = (
+                _materializer_complete_selected_document_keys(
+                    projection,
+                    consolidated_recovery=preverified_recovery is not None,
+                )
+            )
             with CaseDevPurchaseJournal(
                 ledger_path.resolve(),
                 policy=purchase_policy,
@@ -46765,7 +46811,7 @@ def _verify_materialized_downstream_lineage(
                         ledger_path=ledger_path.resolve(),
                         controlled_private_root=controlled_private_root,
                         initialization_receipt_path=initialization_receipt_path,
-                        selected_document_count=len(selected_document_keys),
+                        selected_document_count=len(authenticated_selection_keys),
                     )
                 )
                 _merge_verified_artifact_bytes(
@@ -46782,11 +46828,11 @@ def _verify_materialized_downstream_lineage(
                     docket_decision_descriptor.authority,
                     purchase_journal=journal,
                 )
-            if not omission_keys <= selected_document_keys:
+            if not omission_keys <= authenticated_selection_keys:
                 raise CommandError(
                     "audit-only docket decision omission is outside the selection"
                 )
-            selected_document_keys = selected_document_keys - omission_keys
+            selected_document_keys = available_document_keys - omission_keys
         recovery = (
             preverified_recovery
             if preverified_recovery is not None
