@@ -4308,6 +4308,140 @@ def test_run_cycle_rehashes_shared_directory_after_executor_before_receipt(
     assert not next_receipt.exists()
 
 
+def test_authenticate_output_paths_preserves_duplicate_order_with_final_rehash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_directory = tmp_path / "output"
+    output_directory.mkdir()
+    (output_directory / "payload.bin").write_bytes(b"original")
+    original = cycle_orchestrator_module._directory_tree_commitment  # pyright: ignore[reportPrivateUsage]
+    scan_count = 0
+
+    def count_scan(root: Path) -> list[dict[str, object]]:
+        nonlocal scan_count
+        scan_count += 1
+        return original(root)
+
+    monkeypatch.setattr(
+        cycle_orchestrator_module,
+        "_directory_tree_commitment",
+        count_scan,
+    )
+    commitments = cycle_orchestrator_module.authenticate_output_paths(
+        (output_directory, output_directory)
+    )
+
+    assert [commitment["path"] for commitment in commitments] == [
+        str(output_directory),
+        str(output_directory),
+    ]
+    assert commitments[0] == commitments[1]
+    assert scan_count == 2
+
+
+def test_run_cycle_duplicate_output_paths_rehash_before_receipt_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_directory = tmp_path / "output"
+    output_directory.mkdir()
+    payload = output_directory / "payload.bin"
+    payload.write_bytes(b"original")
+    run_card = tmp_path / "stage.json"
+    config = _write_config(
+        tmp_path / "cycle.json",
+        stages=[
+            _stage(
+                stage_id="stage-0",
+                command="init-cycle",
+                boundary="provider_free",
+                arguments=[
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--run-card-output",
+                    str(run_card),
+                    "--execute",
+                ],
+                run_card=run_card,
+            )
+        ],
+    )
+
+    def write_card(command: str, _arguments: tuple[str, ...]) -> int:
+        _write_completion_card(
+            run_card,
+            stage=command,
+            output_paths=(output_directory, output_directory),
+        )
+        return 0
+
+    state_root = tmp_path / "state"
+    receipt_path = state_root / "receipts" / "0000-stage-0.json"
+    original = cycle_orchestrator_module._directory_tree_commitment  # pyright: ignore[reportPrivateUsage]
+    scan_count = 0
+
+    def count_scan(root: Path) -> list[dict[str, object]]:
+        nonlocal scan_count
+        scan_count += 1
+        return original(root)
+
+    monkeypatch.setattr(
+        cycle_orchestrator_module,
+        "_directory_tree_commitment",
+        count_scan,
+    )
+    status = run_acquisition_cycle(
+        config_path=config,
+        state_root=state_root,
+        execute=True,
+        permissions=BoundaryPermissions(),
+        executor=write_card,
+    )
+    receipt = cast(dict[str, object], json.loads(receipt_path.read_bytes()))
+    receipt_commitments = cast(
+        list[dict[str, object]],
+        receipt["output_commitments"],
+    )
+
+    assert status["status"] == "completed"
+    assert [commitment["path"] for commitment in receipt_commitments] == [
+        str(output_directory),
+        str(output_directory),
+    ]
+    assert scan_count == 2
+
+    receipt_path.unlink()
+    run_card.unlink()
+    mutated = False
+
+    def mutate_after_initial_scan(root: Path) -> list[dict[str, object]]:
+        nonlocal mutated
+        tree = original(root)
+        if not mutated:
+            mutated = True
+            payload.write_bytes(b"changed")
+        return tree
+
+    monkeypatch.setattr(
+        cycle_orchestrator_module,
+        "_directory_tree_commitment",
+        mutate_after_initial_scan,
+    )
+    with pytest.raises(
+        CycleOrchestratorError,
+        match="changed during cycle check",
+    ):
+        run_acquisition_cycle(
+            config_path=config,
+            state_root=state_root,
+            execute=True,
+            permissions=BoundaryPermissions(),
+            executor=write_card,
+        )
+    assert not receipt_path.exists()
+
+
 def test_run_cycle_rejects_relative_output_path(
     tmp_path: Path,
 ) -> None:
