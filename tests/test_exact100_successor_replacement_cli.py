@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -663,6 +664,142 @@ def test_successor_cli_replays_sealed_input_and_materializer_projection(
     assert len(selection_records) == 100
     assert (output / "successor-terminal-exclusions.jsonl").is_file()
     assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 0
+
+
+def test_projection_verifier_reuses_one_exact_root_within_recursive_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outer_root = tmp_path / "outer"
+    original_root = tmp_path / "original"
+    invocation_counts: Counter[Path] = Counter()
+    read_counts: Counter[Path] = Counter()
+
+    def write_root(root: Path) -> tuple[Path, bytes]:
+        run_card_path = root / "run-cards/project-target-cohort.json"
+        run_card_path.parent.mkdir(parents=True)
+        run_card_path.write_bytes(
+            _bytes(
+                {
+                    "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+                    "selected_case_count": 1,
+                }
+            )
+        )
+        artifact_path = root / "target-cohort-selection.jsonl"
+        artifact_bytes = b'{"candidate_id":"case-1"}\n'
+        artifact_path.write_bytes(artifact_bytes)
+        return artifact_path, artifact_bytes
+
+    outer_artifact = write_root(outer_root)
+    original_artifact = write_root(original_root)
+    read_input = cli._read_singly_linked_regular_input
+
+    def counted_read(path: Path, *, label: str) -> bytes:
+        read_counts[path.absolute()] += 1
+        return read_input(path, label=label)
+
+    monkeypatch.setattr(cli, "_read_singly_linked_regular_input", counted_read)
+
+    def verify_zero_cost(*, target_root: Path, **_kwargs: object) -> dict[str, object]:
+        invocation_counts[target_root] += 1
+        artifact_path, artifact_bytes = (
+            outer_artifact if target_root == outer_root else original_artifact
+        )
+        run_card_path = target_root / "run-cards/project-target-cohort.json"
+        result: dict[str, object] = {
+            "verified_artifact_bytes": {
+                str(run_card_path.absolute()): run_card_path.read_bytes(),
+                str(artifact_path.absolute()): artifact_bytes,
+            }
+        }
+        if target_root == outer_root:
+            first = cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                original_root
+            )
+            second = (
+                cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                    original_root
+                )
+            )
+            assert second is first
+        return result
+
+    monkeypatch.setattr(cli, "_verify_zero_cost_successor_projection", verify_zero_cost)
+
+    cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
+
+    assert invocation_counts == Counter({outer_root: 1, original_root: 1})
+    assert read_counts[original_artifact[0].absolute()] == 1
+    assert (
+        read_counts[(original_root / "run-cards/project-target-cohort.json").absolute()]
+        == 3
+    )
+
+    cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
+
+    assert invocation_counts == Counter({outer_root: 2, original_root: 2})
+    assert read_counts[original_artifact[0].absolute()] == 2
+    assert (
+        read_counts[(original_root / "run-cards/project-target-cohort.json").absolute()]
+        == 6
+    )
+
+
+def test_projection_verifier_rechecks_cached_exact_bytes_before_reuse(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outer_root = tmp_path / "outer"
+    original_root = tmp_path / "original"
+    invocation_counts: Counter[Path] = Counter()
+
+    def write_root(root: Path) -> Path:
+        run_card_path = root / "run-cards/project-target-cohort.json"
+        run_card_path.parent.mkdir(parents=True)
+        run_card_path.write_bytes(
+            _bytes(
+                {
+                    "schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+                    "selected_case_count": 1,
+                }
+            )
+        )
+        artifact_path = root / "target-cohort-selection.jsonl"
+        artifact_path.write_bytes(b'{"candidate_id":"case-1"}\n')
+        return artifact_path
+
+    outer_artifact = write_root(outer_root)
+    original_artifact = write_root(original_root)
+
+    def verify_zero_cost(*, target_root: Path, **_kwargs: object) -> dict[str, object]:
+        invocation_counts[target_root] += 1
+        artifact_path = (
+            outer_artifact if target_root == outer_root else original_artifact
+        )
+        run_card_path = target_root / "run-cards/project-target-cohort.json"
+        result: dict[str, object] = {
+            "verified_artifact_bytes": {
+                str(run_card_path.absolute()): run_card_path.read_bytes(),
+                str(artifact_path.absolute()): artifact_path.read_bytes(),
+            }
+        }
+        if target_root == outer_root:
+            cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                original_root
+            )
+            original_artifact.write_bytes(b'{"candidate_id":"mutated"}\n')
+            cli.verify_completed_target_cohort_projection_for_purchase_approval(
+                original_root
+            )
+        return result
+
+    monkeypatch.setattr(cli, "_verify_zero_cost_successor_projection", verify_zero_cost)
+
+    with pytest.raises(cli.CommandError, match="changed during execution"):
+        cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
+
+    assert invocation_counts == Counter({outer_root: 1, original_root: 1})
 
 
 def test_saved_recovery_root_alone_cannot_mint_successor_authority(
