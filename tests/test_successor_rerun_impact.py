@@ -12,15 +12,17 @@ from legalforecast.cli import main
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.ingestion.successor_rerun_impact import (
     ADVISORY_WARNING,
+    SuccessorRerunImpactError,
+    failed_successor_rerun_impact,
+    plan_successor_rerun_impact,
+)
+from legalforecast.ingestion.successor_rerun_proposal import (
     PROPOSAL_SCHEMA_VERSION,
     RerunInputs,
-    SuccessorRerunImpactError,
     current_documents_from_parser_records,
-    failed_successor_rerun_impact,
     load_successor_proposal,
     parser_output_sha256_from_records,
     parser_revision_from_records,
-    plan_successor_rerun_impact,
 )
 from legalforecast.labeling.provider_journal import ProviderCallIdentity
 
@@ -85,7 +87,7 @@ def test_one_document_replacement_reuses_unaffected_parser_and_provider_work(
     [
         ("source", "proposed document bytes differ"),
         ("selection", "proposed selection bytes differ"),
-        ("proposal", "successor proposal must use canonical JSON"),
+        ("proposal", "successor proposal must use canonical artifact JSON"),
     ],
 )
 def test_proposed_evidence_tamper_fails_closed_deterministically(

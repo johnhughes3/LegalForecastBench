@@ -877,14 +877,16 @@ from legalforecast.ingestion.snapshot_replay import (
     source_replay_commitment,
 )
 from legalforecast.ingestion.successor_rerun_impact import (
-    RerunInputs,
     SuccessorRerunImpactError,
-    current_documents_from_parser_records,
     failed_successor_rerun_impact,
+    plan_successor_rerun_impact,
+)
+from legalforecast.ingestion.successor_rerun_proposal import (
+    RerunInputs,
+    current_documents_from_parser_records,
     load_successor_proposal,
     parser_output_sha256_from_records,
     parser_revision_from_records,
-    plan_successor_rerun_impact,
 )
 from legalforecast.ingestion.supporting_document_successor import (
     SCHEMA_VERSION as SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
