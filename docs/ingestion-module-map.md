@@ -185,8 +185,6 @@ Use this page to find code, not as a second API specification. Module docstrings
 | Module | Responsibility |
 | --- | --- |
 | [`free_support_memorandum_recovery.py`](../legalforecast/ingestion/free_support_memorandum_recovery.py) | Non-executable authenticated plan for the known free supporting memorandum. |
-| [`free_support_memorandum_executor.py`](../legalforecast/ingestion/free_support_memorandum_executor.py) | Bounded execution and replay verification of the one permitted public ECF-14 source augmentation. |
-| [`free_support_memorandum_executor_cli.py`](../legalforecast/ingestion/free_support_memorandum_executor_cli.py) | CLI boundary for the bounded support-memorandum recovery package. |
 | [`free_only_materialization.py`](../legalforecast/ingestion/free_only_materialization.py) | Authority for an entirely free target cohort. |
 | [`opinion_backed_disposition.py`](../legalforecast/ingestion/opinion_backed_disposition.py) | Public opinions bound to resolved docket entries. |
 | [`opinion_docket_gap_planner.py`](../legalforecast/ingestion/opinion_docket_gap_planner.py) | Refresh plans for opinion-backed docket gaps. |

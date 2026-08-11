@@ -96,7 +96,6 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [exact100-successor-replacement-v2.md](schemas/exact100-successor-replacement-v2.md): provider-free replacement over the authenticated complete downstream materialization and deterministic wider-candidate rank.
 - [exact100-successor-semantic-repair-v1.md](schemas/exact100-successor-semantic-repair-v1.md): byte-bound recognition of embedded operative complaints and combined motion-to-dismiss memoranda.
 - [free-support-memorandum-recovery-plan-v1.md](schemas/free-support-memorandum-recovery-plan-v1.md): the non-executable, authenticated plan for recovering the one known free supporting memorandum omitted from the selected packet inputs.
-- [free-support-memorandum-source-augmentation-v1.md](schemas/free-support-memorandum-source-augmentation-v1.md): the bounded, replay-verified ECF-14 augmentation package used only by exact-100 successor-v2 materialization.
 
 **Spend authority and purchase**
 
