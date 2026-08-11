@@ -229,6 +229,14 @@ def verify_exact100_successor_replacement_v2_projection(
         raise Exact100SuccessorReplacementV2CliError(
             "completed v2 successor run card differs from replay"
         )
+    manifest_path = target_root / _OUTPUT_NAMES["download_manifest"]
+    manifest = _jsonl(actual["download_manifest"], manifest_path)
+    if any(
+        row.get("free_or_purchased") not in {"free", "purchased"} for row in manifest
+    ):
+        raise Exact100SuccessorReplacementV2CliError(
+            "completed v2 successor manifest has invalid phase"
+        )
     return {
         "run_card": state,
         "run_card_bytes": actual["state"],
@@ -239,12 +247,13 @@ def verify_exact100_successor_replacement_v2_projection(
         "selection_records": _jsonl(
             actual["selection"], target_root / _OUTPUT_NAMES["selection"]
         ),
-        "free_manifest_path": target_root / _OUTPUT_NAMES["download_manifest"],
-        "free_manifest": _jsonl(
-            actual["download_manifest"],
-            target_root / _OUTPUT_NAMES["download_manifest"],
+        "free_manifest_path": manifest_path,
+        "free_manifest": tuple(
+            row for row in manifest if row.get("free_or_purchased") == "free"
         ),
-        "purchased_manifest": (),
+        "purchased_manifest": tuple(
+            row for row in manifest if row.get("free_or_purchased") == "purchased"
+        ),
         "free_clearance": _jsonl(
             actual["clearance"], target_root / _OUTPUT_NAMES["clearance"]
         ),
@@ -254,10 +263,7 @@ def verify_exact100_successor_replacement_v2_projection(
         ),
         "selected_document_keys": {
             (cast(str, row["candidate_id"]), cast(str, row["source_document_id"]))
-            for row in _jsonl(
-                actual["download_manifest"],
-                target_root / _OUTPUT_NAMES["download_manifest"],
-            )
+            for row in manifest
         },
         "verified_artifact_bytes": {
             str((target_root / path).absolute()): actual[name]

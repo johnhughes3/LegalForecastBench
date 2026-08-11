@@ -503,6 +503,55 @@ def test_exact100_v2_target_root_derives_empty_purchased_partition(
         )
 
 
+def test_exact100_v2_target_root_rejects_purchased_partition(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_paid = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+    )
+    target_root = tmp_path / "exact100-v2"
+    selection_records = [
+        json.loads(line)
+        for line in args.selection.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    purchased_record = {
+        "candidate_id": "base-case",
+        "source_document_id": "base-doc",
+        "free_or_purchased": "purchased",
+    }
+
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        lambda _path: {
+            "run_card": {
+                "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2)
+            },
+            "selection_path": args.selection,
+            "selection_records": selection_records,
+            "purchased_manifest": (purchased_record,),
+            "verified_artifact_bytes": {},
+        },
+    )
+    args.target_purchased_manifest = None
+    args.target_cohort_root = target_root
+
+    with pytest.raises(
+        ValueError,
+        match="exact100 v2 target purchased partition must be empty",
+    ):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
 def test_consolidated_verifier_reuses_authenticated_history_snapshots(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
