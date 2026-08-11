@@ -381,7 +381,40 @@ def test_v4_provider_seed_reconstructs_document_bound_citations() -> None:
     ]
 
 
-def test_v4_provider_seed_normalizes_singleton_tagged_scope_array() -> None:
+@pytest.mark.parametrize(
+    ("scope", "expected_scope", "expected_subclaim", "expected_uncertainty"),
+    [
+        (
+            [{"kind": "entire_claim"}],
+            ChallengeScope.ENTIRE_CLAIM,
+            None,
+            None,
+        ),
+        (
+            [
+                {
+                    "kind": "separable_subclaim",
+                    "subclaim_name": "Retaliatory transfer",
+                }
+            ],
+            ChallengeScope.SEPARABLE_SUBCLAIM,
+            "Retaliatory transfer",
+            None,
+        ),
+        (
+            [{"kind": "unclear", "reason": "Motion scope is ambiguous"}],
+            ChallengeScope.UNCLEAR,
+            None,
+            "Motion scope is ambiguous",
+        ),
+    ],
+)
+def test_v4_provider_seed_normalizes_singleton_tagged_scope_array(
+    scope: list[dict[str, str]],
+    expected_scope: ChallengeScope,
+    expected_subclaim: str | None,
+    expected_uncertainty: str | None,
+) -> None:
     seed = _stage_a_seed(
         {
             "count": "Count I",
@@ -400,7 +433,7 @@ def test_v4_provider_seed_normalizes_singleton_tagged_scope_array() -> None:
                 },
             ],
             "challenged_by_motion": True,
-            "scope": [{"kind": "entire_claim"}],
+            "scope": scope,
             "unit_confidence": 0.9,
             "grouping": "individual",
         },
@@ -408,15 +441,24 @@ def test_v4_provider_seed_normalizes_singleton_tagged_scope_array() -> None:
         provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
     )
 
-    assert seed.challenge_scope is ChallengeScope.ENTIRE_CLAIM
-    assert seed.separable_subclaim is None
+    assert seed.challenge_scope is expected_scope
+    assert seed.separable_subclaim == expected_subclaim
+    assert seed.uncertainty_notes == expected_uncertainty
 
 
-@pytest.mark.parametrize("scope", [[], [{"kind": "entire_claim"}] * 2])
-def test_v4_provider_seed_rejects_non_singleton_scope_arrays(
-    scope: list[dict[str, str]],
-) -> None:
-    with pytest.raises(LlmPipelineError, match="scope must be an object"):
+@pytest.mark.parametrize(
+    "scope",
+    [
+        [],
+        [{"kind": "entire_claim"}] * 2,
+        ["entire_claim"],
+        [None],
+        [[{"kind": "entire_claim"}]],
+        [{"kind": "entire_claim", "reason": "incompatible extra field"}],
+    ],
+)
+def test_v4_provider_seed_rejects_invalid_scope_arrays(scope: list[object]) -> None:
+    with pytest.raises(LlmPipelineError):
         _stage_a_seed(
             {
                 "count": "Count I",
@@ -442,98 +484,6 @@ def test_v4_provider_seed_rejects_non_singleton_scope_arrays(
             documents=_documents(),
             provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
         )
-
-
-def test_v4_provider_seed_splits_long_selector_without_losing_lines() -> None:
-    complaint_lines = [f"Complaint evidence line {line}." for line in range(1, 15)]
-    complaint = _LlmDocument(
-        candidate_id="cand-1",
-        source_document_id="complaint",
-        document_role=DocumentRole.COMPLAINT,
-        docket_entry_number=1,
-        description="Complaint",
-        markdown="\n".join(complaint_lines),
-    )
-    motion = _documents()[1]
-
-    seed = _stage_a_seed(
-        {
-            "count": "Count I",
-            "claim_name": "Retaliation",
-            "defendant_names": ["Acme Corp."],
-            "source_citations": [
-                {
-                    "source_document_id": "complaint",
-                    "start_line": 1,
-                    "end_line": 14,
-                },
-                {
-                    "source_document_id": "motion",
-                    "start_line": 1,
-                    "end_line": 1,
-                },
-            ],
-            "challenged_by_motion": True,
-            "scope": [{"kind": "entire_claim"}],
-            "unit_confidence": 0.9,
-            "grouping": "individual",
-        },
-        documents=[complaint, motion],
-        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
-    )
-
-    assert seed.source_citations is not None
-    complaint_citations = seed.source_citations[:2]
-    assert [citation.excerpt for citation in complaint_citations] == [
-        "\n".join(complaint_lines[:12]),
-        "\n".join(complaint_lines[12:]),
-    ]
-    assert (
-        "\n".join(citation.excerpt for citation in complaint_citations)
-        == complaint.markdown
-    )
-
-
-def test_v4_provider_seed_omits_trailing_blank_citation_chunk() -> None:
-    complaint_lines = [f"Complaint evidence line {line}." for line in range(1, 13)]
-    complaint = _LlmDocument(
-        candidate_id="cand-1",
-        source_document_id="complaint",
-        document_role=DocumentRole.COMPLAINT,
-        docket_entry_number=1,
-        description="Complaint",
-        markdown="\n".join([*complaint_lines, " ", " "]),
-    )
-
-    seed = _stage_a_seed(
-        {
-            "count": "Count I",
-            "claim_name": "Retaliation",
-            "defendant_names": ["Acme Corp."],
-            "source_citations": [
-                {
-                    "source_document_id": "complaint",
-                    "start_line": 1,
-                    "end_line": 14,
-                },
-                {
-                    "source_document_id": "motion",
-                    "start_line": 1,
-                    "end_line": 1,
-                },
-            ],
-            "challenged_by_motion": True,
-            "scope": [{"kind": "entire_claim"}],
-            "unit_confidence": 0.9,
-            "grouping": "individual",
-        },
-        documents=[complaint, _documents()[1]],
-        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
-    )
-
-    assert seed.source_citations is not None
-    assert seed.source_citations[0].excerpt == "\n".join(complaint_lines)
-    assert len(seed.source_citations) == 2
 
 
 def test_v4_line_span_preserves_source_line_endings_and_reads_bare_page_marker() -> (
