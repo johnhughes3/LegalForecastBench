@@ -76,4 +76,13 @@ checkout but do not belong in the installed `legalforecast` CLI.
     --output tmp/infisical-systemd-smoke-receipt.json
   ```
 
+- `official_infra_contract.py`: fail-closed contract helper used by the protected infrastructure workflow to resolve reviewed import IDs, verify exact remote-state bindings, and reject destructive or unreviewed Terraform plans. Raw protected import IDs are accepted only through the workflow environment and are never printed.
+
+  ```bash
+  scripts/official_infra_contract.py --help
+  scripts/official_infra_contract.py resolve-import --help
+  scripts/official_infra_contract.py state-binding --help
+  scripts/official_infra_contract.py validate-plan --help
+  ```
+
 - `probe_claude_code_native_containment.py`: pending, host-specific zero-provider-spend characterization of Claude Code's native loop inside a whole-process systemd `DynamicUser` boundary. The outer probe requires independent source review, an exact approved source digest, and the documented sudo-gate stdout capture; it is not a portable contributor command and no successful receipt is currently claimed. See [the containment feasibility record](../docs/adapters/claude-code-native-containment.md).
