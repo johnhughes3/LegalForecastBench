@@ -52,8 +52,19 @@ def _unit_v2(review_id: str, candidate_id: str = "candidate-1") -> JsonRecord:
         "candidate_id": candidate_id,
         "case_id": "case-1",
         "unit_id": "unit-1",
-        "reason": {"code": "low_confidence", "class": "substantive"},
-        "allowed_actions": ["ACCEPT"],
+        "reason": {
+            "code": "low_confidence",
+            "class": "substantive",
+            "summary": "Stage A produced this unit below the confidence floor.",
+        },
+        "allowed_actions": [
+            "ACCEPT",
+            "AMEND",
+            "SPLIT",
+            "MERGE",
+            "DROP",
+            "CANDIDATE-EXCLUSION",
+        ],
         "suggested_actions": [],
         "source_review_ids": [review_id],
     }
@@ -88,6 +99,10 @@ def _terminal_v2(review_id: str, candidate_id: str = "candidate-1") -> JsonRecor
                     "attempt_ordinal": 1,
                     "raw_response_sha256": "sha256:" + "a" * 64,
                     "normalized_response_sha256": "sha256:" + "b" * 64,
+                    "validator_code": "unclassified",
+                    "invalid_field": None,
+                    "failure_type": "ValueError",
+                    "failure_message": "unable to reconstruct structural flags",
                 }
             ],
         },
@@ -205,6 +220,49 @@ def test_packet_rejects_cross_candidate_and_unit_lineage_swaps() -> None:
         )
 
 
+def test_packet_rejects_tampered_unit_projection_fields() -> None:
+    bundle = _jsonl([_bundle("review-1")])
+
+    for field, value, error in (
+        ("reason", {"code": "invented", "class": "substantive"}, "reason differs"),
+        ("allowed_actions", ["DROP"], "allowed_actions differ"),
+        (
+            "suggested_actions",
+            [{"authoritative": True, "action": "DROP"}],
+            "must not advertise suggestions",
+        ),
+    ):
+        tampered = _unit_v2("review-1")
+        tampered[field] = value
+        with pytest.raises(AttorneyPacketError, match=error):
+            build_successor_attorney_packet(bundle, _jsonl([tampered]))
+
+
+def test_packet_rejects_terminal_attempts_without_producer_commitments() -> None:
+    bundle = _jsonl([_bundle("review-1")])
+
+    for field, value, error in (
+        ("raw_response_sha256", "not-a-digest", "raw_response_sha256 is not"),
+        (
+            "normalized_response_sha256",
+            "sha256:" + "A" * 64,
+            "normalized_response_sha256 is not",
+        ),
+        ("validator_code", "invented", "validator_code is invalid"),
+        ("invalid_field", "invented", "invalid_field is invalid"),
+        ("attempt_ordinal", True, "ordinal is invalid"),
+    ):
+        terminal = _terminal_v2("review-1")
+        terminal["review_item"]["attempt_commitments"][0][field] = value
+        with pytest.raises(AttorneyPacketError, match=error):
+            build_successor_attorney_packet(bundle, _jsonl([terminal]))
+
+    terminal = _terminal_v2("review-1")
+    terminal["review_item"]["attempt_commitments"][0].pop("failure_message")
+    with pytest.raises(AttorneyPacketError, match="field set"):
+        build_successor_attorney_packet(bundle, _jsonl([terminal]))
+
+
 def test_packet_rejects_terminal_evidence_mismatch_and_is_deterministic() -> None:
     bundles = _jsonl([_bundle("review-1", terminal=True), _bundle("review-2")])
     terminal = _terminal_v2("review-1")
@@ -216,9 +274,10 @@ def test_packet_rejects_terminal_evidence_mismatch_and_is_deterministic() -> Non
             bundles, _jsonl([terminal, _unit_v2("review-2")])
         )
 
+    deterministic_bundles = _jsonl([_bundle("review-1"), _bundle("review-2")])
     queue = _jsonl([_unit_v2("review-1"), _unit_v2("review-2")])
-    first = build_successor_attorney_packet(bundles, queue)
-    second = build_successor_attorney_packet(bundles, queue)
+    first = build_successor_attorney_packet(deterministic_bundles, queue)
+    second = build_successor_attorney_packet(deterministic_bundles, queue)
     assert first == second
 
     with pytest.raises(

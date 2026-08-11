@@ -21,11 +21,14 @@ from legalforecast.contracts import (
     SUCCESSOR_ATTORNEY_PACKET_VIEW_V1,
     UNITIZATION_REVIEW_BUNDLE_V1,
     UNITIZATION_REVIEW_QUEUE_V2,
+    PrefixedSha256,
 )
 from legalforecast.unitization.review_queue import (
     REVIEW_REASONS,
     TERMINAL_ROUTE_REASON,
     ReviewAction,
+    ReviewSubject,
+    classify_structural_validator_failure,
 )
 
 JsonRecord = dict[str, Any]
@@ -196,6 +199,22 @@ def _validate_unit_lineage(
     review_item = _required_mapping(bundle, "review_item", "v1 bundle")
     if _required_str(review_item, "unit_id", "v1 bundle review_item") != unit_id:
         raise AttorneyPacketError("v2 unit item unit_id differs from its v1 review")
+    route_reason = _required_str(bundle, "route_reason", "v1 bundle")
+    reason = REVIEW_REASONS.get(route_reason)
+    if reason is None or reason.subject is not ReviewSubject.UNIT:
+        raise AttorneyPacketError(
+            "v1 bundle route_reason cannot project to a unit item"
+        )
+    if record.get("reason") != reason.to_record():
+        raise AttorneyPacketError("v2 unit item reason differs from its v1 projection")
+    if record.get("allowed_actions") != [
+        action.value for action in reason.allowed_actions
+    ]:
+        raise AttorneyPacketError(
+            "v2 unit item allowed_actions differ from its v1 projection"
+        )
+    if record.get("suggested_actions") != []:
+        raise AttorneyPacketError("v2 unit item must not advertise suggestions")
 
 
 def _validate_terminal_lineage(
@@ -256,10 +275,41 @@ def _validate_terminal_lineage(
                 "v2 terminal attempt commitment must be an object"
             )
         typed_attempt = cast(Mapping[str, object], attempt)
-        _required_str(typed_attempt, "raw_response_sha256", "v2 terminal attempt")
-        _required_str(
-            typed_attempt, "normalized_response_sha256", "v2 terminal attempt"
-        )
+        _validate_attempt_commitment(typed_attempt)
+
+
+def _validate_attempt_commitment(attempt: Mapping[str, object]) -> None:
+    expected_fields = {
+        "attempt_ordinal",
+        "raw_response_sha256",
+        "normalized_response_sha256",
+        "validator_code",
+        "invalid_field",
+        "failure_type",
+        "failure_message",
+    }
+    if set(attempt) != expected_fields:
+        raise AttorneyPacketError("v2 terminal attempt commitment field set is invalid")
+    ordinal = attempt.get("attempt_ordinal")
+    if not isinstance(ordinal, int) or isinstance(ordinal, bool) or ordinal < 0:
+        raise AttorneyPacketError("v2 terminal attempt ordinal is invalid")
+    for field in ("raw_response_sha256", "normalized_response_sha256"):
+        digest = _required_str(attempt, field, "v2 terminal attempt")
+        try:
+            PrefixedSha256(digest)
+        except ValueError as exc:
+            raise AttorneyPacketError(
+                f"v2 terminal attempt {field} is not a prefixed SHA-256"
+            ) from exc
+    failure_type = _required_str(attempt, "failure_type", "v2 terminal attempt")
+    failure_message = _required_str(attempt, "failure_message", "v2 terminal attempt")
+    expected_code, expected_field = classify_structural_validator_failure(
+        failure_type=failure_type, failure_message=failure_message
+    )
+    if attempt.get("validator_code") != expected_code:
+        raise AttorneyPacketError("v2 terminal attempt validator_code is invalid")
+    if attempt.get("invalid_field") != expected_field:
+        raise AttorneyPacketError("v2 terminal attempt invalid_field is invalid")
 
 
 def _validate_suggested_actions(
