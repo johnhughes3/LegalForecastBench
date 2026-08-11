@@ -927,8 +927,8 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     TargetPublicGapExecutionResult,
     TargetPublicGapPlan,
     TargetPublicGapRefreshError,
-    _execute_target_public_gap_refresh,
-    _validate_target_public_gap_execution,
+    _execute_target_public_gap_refresh,  # pyright: ignore[reportPrivateUsage]
+    _validate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     bind_target_public_gap_execution,
     bind_verified_target_public_gap_downloads,
     plan_target_public_gaps,

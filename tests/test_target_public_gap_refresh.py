@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import inspect
 import json
 import os
 from collections.abc import Mapping, Sequence
@@ -40,6 +41,8 @@ from legalforecast.ingestion.target_public_gap_refresh import (
     TargetPublicGapExecutionIdentity,
     TargetPublicGapExecutionResult,
     TargetPublicGapPlan,
+    _execute_target_public_gap_refresh,  # pyright: ignore[reportPrivateUsage]
+    _validate_target_public_gap_execution,  # pyright: ignore[reportPrivateUsage]
     bind_target_public_gap_execution,
     download_target_public_gap_requests,
     execute_target_public_gap_refresh,
@@ -1134,6 +1137,56 @@ def test_execution_rejects_plan_digest_mismatch_before_provider_construction(
     assert not plan.execution_identity.cycle_store_path.exists()
 
 
+def test_public_execution_cannot_accept_internal_validation_evidence() -> None:
+    """Only the CLI's private orchestration helper can use reused evidence."""
+
+    parameters = inspect.signature(execute_target_public_gap_refresh).parameters
+
+    assert "validated_execution" not in parameters
+    assert "reuse_authenticated_evidence" not in parameters
+
+
+def test_reused_evidence_rechecks_source_before_provider_construction(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "target"
+    plan = _single_case_plan(root)
+    for path, payload in _verified_projection_bytes(root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    constructed: list[str] = []
+
+    def construct_firecrawl() -> Never:
+        constructed.append("firecrawl")
+        raise AssertionError("provider constructed after authenticated source drift")
+
+    def construct_document_source() -> Never:
+        constructed.append("document")
+        raise AssertionError("document provider constructed after source drift")
+
+    with bind_target_public_gap_execution(plan) as binding:
+        evidence = _validate_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=_plan_sha256(plan),
+            packet_role_replay=None,
+            execution_binding=binding,
+        )
+        changed = Path(next(iter(plan.source_artifact_commitments)))
+        changed.write_bytes(b"mutated after initial validation")
+        with pytest.raises(ValueError, match="target source artifact changed"):
+            _execute_target_public_gap_refresh(
+                plan=plan,
+                expected_plan_sha256=_plan_sha256(plan),
+                firecrawl_source_factory=construct_firecrawl,
+                document_source_factory=construct_document_source,
+                allow_existing_downloads=True,
+                validated_execution=evidence,
+            )
+
+    assert constructed == []
+
+
 def test_completed_execution_is_rejected_before_provider_construction(
     tmp_path: Path,
 ) -> None:
@@ -1345,16 +1398,6 @@ def test_execute_cli_loads_and_passes_packet_role_replay(
     monkeypatch.setattr(cli, "verify_target_public_gap_plan", lambda *a, **k: None)
     monkeypatch.setattr(
         cli,
-        "preflight_target_public_gap_execution",
-        lambda *a, **k: None,
-    )
-    monkeypatch.setattr(
-        cli,
-        "require_target_public_gap_sources_unchanged",
-        lambda _: None,
-    )
-    monkeypatch.setattr(
-        cli,
         "bind_target_public_gap_execution",
         lambda _: nullcontext(cast(Any, object())),
     )
@@ -1370,13 +1413,19 @@ def test_execute_cli_loads_and_passes_packet_role_replay(
         )
         raise target_gap_module.TargetPublicGapRefreshError("captured replay")
 
-    monkeypatch.setattr(cli, "execute_target_public_gap_refresh", stop_after_capture)
+    validated_execution = object()
+    monkeypatch.setattr(
+        cli,
+        "_validate_target_public_gap_execution",
+        lambda **_: validated_execution,
+    )
+    monkeypatch.setattr(cli, "_execute_target_public_gap_refresh", stop_after_capture)
 
     with pytest.raises(cli.CommandError, match="captured replay"):
         cli._cmd_acquisition_execute_target_public_gaps(args)  # pyright: ignore[reportPrivateUsage]
 
     assert captured["role_adjudications"] is role_adjudications
-    assert captured["reuse_authenticated_evidence"] is True
+    assert captured["validated_execution"] is validated_execution
     refresh = cast(target_gap_module.TargetPublicGapRefreshResult, captured["refresh"])
     assert {transition["source_document_id"] for transition in refresh.transitions} == {
         "mtd-old",
