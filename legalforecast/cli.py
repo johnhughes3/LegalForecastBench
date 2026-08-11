@@ -47082,6 +47082,7 @@ class _VerifiedMaterializedDownstreamLineage:
     selection_records: tuple[Mapping[str, Any], ...]
     resolved_records: tuple[Mapping[str, Any], ...]
     document_tree: Mapping[str, bytes]
+    resolved_lineage_selection_records: tuple[Mapping[str, Any], ...] | None = None
     recovered_public_capability: object | None = None
     consolidated_recovery_capability: object | None = None
     fresh_ledger_namespace: Path | None = None
@@ -47377,6 +47378,7 @@ def _verify_materialized_downstream_lineage(
                 )
             ),
             selection_records=selection_records,
+            resolved_lineage_selection_records=selection_records,
             resolved_records=(),
             document_tree=document_tree_snapshot,
             fresh_ledger_namespace=ledger_path.resolve(),
@@ -47992,6 +47994,7 @@ def _verify_materialized_downstream_lineage(
             )
         ),
         selection_records=tuple(selection_records),
+        resolved_lineage_selection_records=tuple(resolved_lineage_selection_records),
         resolved_records=tuple(resolved_records),
         document_tree=dict(document_tree_snapshot),
         recovered_public_capability=clearance_kwargs.get(
@@ -56545,6 +56548,12 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
         if materialization_lineage is not None
         else (_read_records(selection_path) if selection_path is not None else [])
     )
+    resolved_lineage_selection_records = (
+        list(materialization_lineage.resolved_lineage_selection_records)
+        if materialization_lineage is not None
+        and materialization_lineage.resolved_lineage_selection_records is not None
+        else selection_records
+    )
     resolved_records = (
         list(materialization_lineage.resolved_records)
         if materialization_lineage is not None
@@ -56557,7 +56566,7 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
         stable_parse_inputs, label="parse materialization input"
     )
     needs_resolved_lineage = (
-        _selection_requires_resolved_post_recovery(selection_records)
+        _selection_requires_resolved_post_recovery(resolved_lineage_selection_records)
         or any(
             record.get("recovery_origin") == "unknown_status_attempt"
             for record in request_records
@@ -56611,7 +56620,7 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
                     }
                 _require_resolved_parse_requests_dispatch(
                     clearance_kwargs=parse_clearance_kwargs,
-                    selection_records=selection_records,
+                    selection_records=resolved_lineage_selection_records,
                     request_records=request_records,
                     resolved_records=resolved_records,
                 )
