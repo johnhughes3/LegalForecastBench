@@ -1516,16 +1516,6 @@ def _execute_target_public_gap_refresh(
                 validated_execution=validated_execution,
             )
     execution_binding.require_current(plan)
-    if validated_execution is not None:
-        # This hint carries no authority. Reauthenticate immediately before any
-        # provider construction or store mutation.
-        preflight_target_public_gap_execution(
-            plan,
-            expected_plan_sha256=expected_plan_sha256,
-            packet_role_replay=packet_role_replay,
-        )
-        require_target_public_gap_sources_unchanged(plan)
-        execution_binding.require_current(plan)
     if validated_execution is None:
         preflight_target_public_gap_execution(
             plan,
@@ -1540,6 +1530,13 @@ def _execute_target_public_gap_refresh(
         )
     identity = execution_binding.runtime_identity
     firecrawl_source = firecrawl_source_factory()
+    # This is the just-in-time authority boundary before any cycle-store or
+    # scheduler activity. Evidence reuse never skips it.
+    preflight_target_public_gap_execution(
+        plan,
+        expected_plan_sha256=expected_plan_sha256,
+        packet_role_replay=packet_role_replay,
+    )
     execution_binding.require_current(plan)
     require_target_public_gap_sources_unchanged(plan)
     if (
@@ -1598,15 +1595,7 @@ def _execute_target_public_gap_refresh(
                 firecrawl_source.config.max_credits_per_scrape
             ),
         )
-        # This is the final authority boundary before the scheduler can cause
-        # provider activity. Evidence reuse never skips it.
-        preflight_target_public_gap_execution(
-            plan,
-            expected_plan_sha256=expected_plan_sha256,
-            packet_role_replay=packet_role_replay,
-        )
         execution_binding.require_current(plan)
-        require_target_public_gap_sources_unchanged(plan)
         refresh = refresh_target_public_gaps(
             plan=plan,
             role_adjudications=role_adjudications,

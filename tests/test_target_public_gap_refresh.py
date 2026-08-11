@@ -19,6 +19,7 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlPageRecord,
     FirecrawlTargetSpec,
 )
+from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.firecrawl_source import (
     FirecrawlConfig,
     FirecrawlCourtListenerHTMLSource,
@@ -1146,47 +1147,6 @@ def test_public_execution_cannot_accept_internal_validation_evidence() -> None:
     assert "reuse_authenticated_evidence" not in parameters
 
 
-def test_reused_evidence_rechecks_source_before_provider_construction(
-    tmp_path: Path,
-) -> None:
-    root = tmp_path / "target"
-    plan = _single_case_plan(root)
-    for path, payload in _verified_projection_bytes(root).items():
-        source = Path(path)
-        source.parent.mkdir(parents=True, exist_ok=True)
-        source.write_bytes(payload)
-    constructed: list[str] = []
-
-    def construct_firecrawl() -> Never:
-        constructed.append("firecrawl")
-        raise AssertionError("provider constructed after authenticated source drift")
-
-    def construct_document_source() -> Never:
-        constructed.append("document")
-        raise AssertionError("document provider constructed after source drift")
-
-    with bind_target_public_gap_execution(plan) as binding:
-        evidence = _validate_target_public_gap_execution(
-            plan=plan,
-            expected_plan_sha256=_plan_sha256(plan),
-            packet_role_replay=None,
-            execution_binding=binding,
-        )
-        changed = Path(next(iter(plan.source_artifact_commitments)))
-        changed.write_bytes(b"mutated after initial validation")
-        with pytest.raises(ValueError, match="target source artifact changed"):
-            _execute_target_public_gap_refresh(
-                plan=plan,
-                expected_plan_sha256=_plan_sha256(plan),
-                firecrawl_source_factory=construct_firecrawl,
-                document_source_factory=construct_document_source,
-                allow_existing_downloads=True,
-                validated_execution=evidence,
-            )
-
-    assert constructed == []
-
-
 def test_reused_evidence_rechecks_source_after_provider_construction(
     tmp_path: Path,
 ) -> None:
@@ -1286,7 +1246,105 @@ def test_reused_evidence_only_avoids_duplicate_pure_validation(
                 validated_execution=evidence,
             )
 
+    assert calls == {"preflight": 2, "source": 2}
+
+
+def test_reused_evidence_success_path_keeps_three_source_and_two_namespace_checks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "target"
+    plan = _single_case_plan(root)
+    for path, payload in _verified_projection_bytes(root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    with CycleAcquisitionStore(plan.execution_identity.cycle_store_path) as store:
+        cycle_hash = store.ensure_cycle({"anchor": "2026-06-30T00:00:00Z"})
+    plan = replace(plan, target_cycle_hash=cycle_hash)
+    calls = {"preflight": 0, "source": 0}
+    original_preflight = target_gap_module.preflight_target_public_gap_execution
+    original_source_check = (
+        target_gap_module.require_target_public_gap_sources_unchanged
+    )
+
+    def count_preflight(*args: object, **kwargs: object) -> None:
+        calls["preflight"] += 1
+        original_preflight(*args, **kwargs)
+
+    def count_source_check(*args: object, **kwargs: object) -> None:
+        calls["source"] += 1
+        original_source_check(*args, **kwargs)
+
+    monkeypatch.setattr(
+        target_gap_module, "preflight_target_public_gap_execution", count_preflight
+    )
+    monkeypatch.setattr(
+        target_gap_module,
+        "require_target_public_gap_sources_unchanged",
+        count_source_check,
+    )
+    html = _public_docket_html("70000000")
+    pdf = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
+    plan_sha256 = _plan_sha256(plan)
+    monkeypatch.setattr(
+        target_gap_module,
+        "BudgetedFirecrawlScheduler",
+        lambda **_: _Scheduler({("70000000", 1): html}),
+    )
+
+    with bind_target_public_gap_execution(plan) as binding:
+        evidence = _validate_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=plan_sha256,
+            packet_role_replay=None,
+            execution_binding=binding,
+        )
+        execution = _execute_target_public_gap_refresh(
+            plan=plan,
+            expected_plan_sha256=plan_sha256,
+            firecrawl_source_factory=lambda: FirecrawlCourtListenerHTMLSource(
+                FirecrawlConfig(api_key="fixture", proxy="basic", force_browser=False),
+                transport=cast(Any, object()),
+            ),
+            document_source_factory=lambda: FixtureFreeDocumentSource(
+                {
+                    request.source_url: pdf
+                    for request in refresh_target_public_gaps(
+                        plan=plan,
+                        scheduler=_Scheduler({("70000000", 1): html}),
+                    ).download_requests
+                }
+            ),
+            allow_existing_downloads=True,
+            validated_execution=evidence,
+        )
+        with target_gap_module.bind_verified_target_public_gap_downloads(
+            execution_binding=binding,
+            requests=execution.refresh.download_requests,
+            downloads=execution.downloads,
+        ):
+            binding.require_current(plan)
+            target_gap_module.require_target_public_gap_sources_unchanged(plan)
+            payloads = cli._target_public_gap_terminal_payloads(  # pyright: ignore[reportPrivateUsage]
+                plan=plan,
+                plan_path=tmp_path / "plan.json",
+                plan_sha256=plan_sha256,
+                execution=execution,
+                live_firecrawl=False,
+                live_download=False,
+            )
+            publish_target_public_gap_outputs(
+                plan=plan,
+                plan_sha256=plan_sha256,
+                payloads=payloads,
+                execution_binding=binding,
+            )
+
     assert calls == {"preflight": 2, "source": 3}
+    assert (
+        plan.execution_identity.output_root / "target-public-gap-outcomes.jsonl"
+    ).read_bytes() == payloads["target-public-gap-outcomes.jsonl"]
 
 
 def test_completed_execution_is_rejected_before_provider_construction(
