@@ -616,13 +616,24 @@ class ProviderAttemptJournal:
             raise ValueError("max_attempts must be a positive integer")
         rows = self._connection.execute(
             """
-            SELECT attempt_ordinal, status FROM provider_attempts
+            SELECT attempt_ordinal, status, failure_type FROM provider_attempts
             WHERE logical_call_key = ?
             ORDER BY attempt_ordinal
             """,
             (self.identity.logical_call_key,),
         ).fetchall()
+        recovered = next(
+            (
+                row
+                for row in reversed(rows)
+                if row["status"] == "settled" and row["failure_type"] is not None
+            ),
+            None,
+        )
         if not any(row["status"] == "reconstruction_failed" for row in rows):
+            if recovered is not None:
+                self._durable_ordinals[1] = int(recovered["attempt_ordinal"])
+                return 1
             return max_attempts
         replayable = next(
             (
@@ -1231,6 +1242,18 @@ class ProviderAttemptJournal:
         ).fetchone()
         assert row is not None
         return int(row["count"]) == 1
+
+    @property
+    def has_reconstruction_failure(self) -> bool:
+        """Return whether this call has an exact response eligible for recovery."""
+
+        row = self._connection.execute(
+            """SELECT COUNT(*) AS count FROM provider_attempts
+            WHERE logical_call_key = ? AND status = 'reconstruction_failed'""",
+            (self.identity.logical_call_key,),
+        ).fetchone()
+        assert row is not None
+        return int(row["count"]) > 0
 
     def _create_schema(self) -> None:
         self._connection.executescript(

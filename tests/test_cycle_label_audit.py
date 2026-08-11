@@ -11,8 +11,10 @@ from legalforecast.cli import main
 from legalforecast.labeling import llm_pipeline
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
+    case_grouped_label_audit_packet_metrics,
     evaluate_cycle_label_audit,
     plan_cycle_label_audit,
+    render_case_grouped_label_audit_packet,
 )
 from legalforecast.protocol.policy_artifacts import generate_labeling_policy
 
@@ -219,6 +221,99 @@ def test_cycle_plan_rejects_empty_auto_label_population() -> None:
         )
 
 
+def test_case_grouped_packet_deduplicates_disposition_without_mutating_queue() -> None:
+    _, _, queue = _fixture_plan(_policy())
+    first = next(row for row in queue if row["candidate_id"] == "cand-grant")
+    second = json.loads(json.dumps(first))
+    second["unit_id"] = "unit-cand-grant-second"
+    second["review_id"] = "cand-grant:unit-cand-grant-second:label-audit"
+    second["packet"]["unit_id"] = second["unit_id"]
+    second["packet"]["review_id"] = second["review_id"]
+    second["packet"]["materials"][0]["material_id"] = (
+        "unit-cand-grant-second:frozen-unit"
+    )
+    second["packet"]["materials"][0]["text"] = '{"claim_name":"Count II"}'
+    second["packet"]["materials"][1]["material_id"] = (
+        "unit-cand-grant-second:first-written-disposition"
+    )
+    queue = (*reversed(queue), second)
+    queue_before = json.dumps(queue, sort_keys=True, separators=(",", ":"))
+
+    packet = render_case_grouped_label_audit_packet(queue)
+
+    assert json.dumps(queue, sort_keys=True, separators=(",", ":")) == queue_before
+    assert [case["case_id"] for case in packet["cases"]] == [
+        "case-cand-deny",
+        "case-cand-grant",
+        "case-cand-partial",
+    ]
+    grant_case = packet["cases"][1]
+    assert grant_case["candidate_id"] == "cand-grant"
+    assert grant_case["disposition_evidence"]["text"] == "The order resolves it."
+    assert (
+        grant_case["disposition_evidence"]["material_id"]
+        == "case-cand-grant:first-written-disposition"
+    )
+    assert [item["review_id"] for item in grant_case["review_items"]] == [
+        "cand-grant:unit-cand-grant-second:label-audit",
+        "cand-grant:unit-cand-grant:label-audit",
+    ]
+    assert all(
+        all(material["kind"] != "decision_excerpt" for material in item["materials"])
+        for item in grant_case["review_items"]
+    )
+
+
+def test_case_grouped_packet_rejects_cross_case_disposition_leakage() -> None:
+    _, _, queue = _fixture_plan(_policy())
+    leaked = json.loads(json.dumps(queue[0]))
+    leaked["case_id"] = queue[1]["case_id"]
+    leaked["candidate_id"] = queue[1]["candidate_id"]
+    leaked["packet"]["candidate_id"] = queue[1]["candidate_id"]
+
+    with pytest.raises(CycleLabelAuditError, match="conflicting disposition evidence"):
+        render_case_grouped_label_audit_packet((queue[1], leaked))
+
+
+def test_case_grouped_packet_rejects_multiple_candidates_for_a_case() -> None:
+    _, _, queue = _fixture_plan(_policy())
+    other_candidate = json.loads(json.dumps(queue[0]))
+    other_candidate["case_id"] = queue[1]["case_id"]
+    other_candidate["candidate_id"] = "cand-other"
+    other_candidate["packet"]["candidate_id"] = "cand-other"
+
+    with pytest.raises(CycleLabelAuditError, match="one candidate per case"):
+        render_case_grouped_label_audit_packet((queue[1], other_candidate))
+
+
+def test_case_grouped_packet_metrics_reduce_multi_unit_disposition_bytes() -> None:
+    _, _, queue = _fixture_plan(_policy())
+    duplicate = json.loads(
+        json.dumps(next(row for row in queue if row["candidate_id"] == "cand-grant"))
+    )
+    duplicate["unit_id"] = "unit-cand-grant-second"
+    duplicate["review_id"] = "cand-grant:unit-cand-grant-second:label-audit"
+    duplicate["packet"]["unit_id"] = duplicate["unit_id"]
+    duplicate["packet"]["review_id"] = duplicate["review_id"]
+    duplicate["packet"]["materials"][0]["material_id"] = (
+        "unit-cand-grant-second:frozen-unit"
+    )
+    duplicate["packet"]["materials"][1]["material_id"] = (
+        "unit-cand-grant-second:first-written-disposition"
+    )
+
+    metrics = case_grouped_label_audit_packet_metrics(
+        (
+            next(row for row in queue if row["candidate_id"] == "cand-grant"),
+            duplicate,
+        )
+    )
+
+    assert metrics["source_disposition_count"] == 2
+    assert metrics["rendered_disposition_count"] == 1
+    assert metrics["packet_byte_reduction"] > 0
+
+
 def test_plan_label_audit_cli_writes_frozen_plan_and_blind_queue(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -295,6 +390,14 @@ def test_plan_label_audit_cli_writes_frozen_plan_and_blind_queue(
     queue = _read_jsonl(output / "lawyer-review-queue-cycle-planned.jsonl")
     assert queue[0]["route_reason"] == "label_audit_sample"
     assert "ensemble" not in queue[0]["packet"]
+    grouped_packet = json.loads(
+        (output / "case-grouped-label-audit-packet.json").read_text()
+    )
+    assert grouped_packet["schema_version"].endswith(".v1")
+    assert (
+        grouped_packet["cases"][0]["review_items"][0]["review_id"]
+        == queue[0]["review_id"]
+    )
     summary = json.loads((output / "cycle-label-audit-summary.json").read_text())
     assert summary["plan_sha256"] == plan["plan_sha256"]
     assert summary["redacted"] is True

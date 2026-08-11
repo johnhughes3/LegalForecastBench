@@ -1051,6 +1051,22 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
         )
 
     monkeypatch.setattr(llm_pipeline, "_json_object_from_response", response_parser)
+    # A normal resume, rather than the explicit recovery command, must replay
+    # and settle the stored response without reaching this completion's provider
+    # callback.
+    llm_pipeline.llm_unitize_cases(
+        selection_records=(_selection(),),
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        registry_entry=registry_entry,
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_accounts={"openai": provider_account},
+        provider_attempt_namespace=provider_attempt_namespace,
+    )
     recovery = llm_pipeline.recover_llm_unitization_reconstruction(
         selection_record=_selection(),
         parser_records=parser_records,
@@ -1192,6 +1208,105 @@ def test_malformed_label_response_retries_fresh_bounded_attempts(
         (2, "reconstruction_failed", pytest.approx(0.01), "LlmPipelineError"),
         (3, "reconstruction_failed", pytest.approx(0.01), "LlmPipelineError"),
     ]
+
+
+def test_stage_b_resume_recovers_stored_response_before_provider_call(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    """A corrected Stage B reconstructor settles the old response locally."""
+
+    response = SolverResponse(
+        raw_output=json.dumps(
+            {
+                "unit_findings": [
+                    {
+                        "unit_id": "unit-1",
+                        "resolution": "fully_dismissed",
+                        "amendment_signal": "express_denial_of_leave",
+                        "supporting_excerpt": (
+                            "The motion to dismiss Count I is granted without leave "
+                            "to amend."
+                        ),
+                        "labeler_confidence": 0.95,
+                    }
+                ],
+                "missing_unit_flags": [],
+            }
+        ),
+        input_tokens=10,
+        output_tokens=5,
+        estimated_cost=0.01,
+    )
+    provider_calls = 0
+
+    def completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+
+        def provider_call() -> JsonRecord:
+            nonlocal provider_calls
+            provider_calls += 1
+            return {"fixture": "provider-response"}
+
+        handler.run_attempt(1, provider_call)
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", completion)
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    unit = cast(Any, llm_pipeline)._prediction_unit(
+        cast(list[JsonRecord], _prediction_units()["prediction_units"])[0]
+    )
+    kwargs = {
+        "selection": _selection(),
+        "decision_text": llm_pipeline.StageBDecisionText(
+            document_id="decision",
+            entered_date="2026-07-01",
+            text="The motion to dismiss Count I is granted without leave to amend.",
+        ),
+        "decision_text_commitment": {"decision_texts_sha256": "sha256:" + "a" * 64},
+        "frozen_units": (unit,),
+        "prompt": "frozen label prompt",
+        "registry_entry": registry_entry,
+        "model_registry_sha256": "b" * 64,
+        "transport": None,
+        "environ": None,
+        "timeout_seconds": 1.0,
+        "provider_journal_path": journal_path,
+        "provider_cycle_cap_usd": 100.0,
+        "provider_cycle_id": "cycle-1",
+        "provider_cycle_caps_sha256": "sha256:" + "c" * 64,
+        "provider_spend_authorities": None,
+        "provider_accounts": None,
+    }
+    original_labeler = llm_pipeline.label_stage_b_outcomes
+    monkeypatch.setattr(
+        llm_pipeline,
+        "label_stage_b_outcomes",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            llm_pipeline.LlmPipelineError("legacy reconstruction rejection")
+        ),
+    )
+    with pytest.raises(llm_pipeline.LlmResponseValidationError):
+        cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
+    monkeypatch.setattr(llm_pipeline, "label_stage_b_outcomes", original_labeler)
+
+    labels, *_ = cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
+
+    assert provider_calls == 1
+    assert labels[0].unit_id == "unit-1"
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts"
+        ).fetchall() == [(1, "settled")]
 
 
 def test_malformed_structural_review_retries_fresh_bounded_attempts(
@@ -1387,6 +1502,42 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
         llm_pipeline, "_coerced_structural_citation_excerpt", original_citation_matcher
     )
 
+    def replay_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+
+        def forbidden_provider_call() -> JsonRecord:
+            nonlocal provider_calls
+            provider_calls += 1
+            return {"fixture": "unexpected-provider-response"}
+
+        handler.run_attempt(1, forbidden_provider_call)
+        handler.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", replay_completion)
+    llm_pipeline.llm_review_stage_a_units(
+        selection_records=(_selection(),),
+        parser_records=iter(parser_records),
+        prediction_unit_records=(_prediction_units(),),
+        markdown_root=markdown_root,
+        registry_entry=registry_entry,
+        model_registry_sha256="b" * 64,
+        provider_journal_path=journal_path,
+        provider_cycle_cap_usd=100.0,
+        provider_cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_attempt_namespace="claim-ontology-v2",
+    )
+
+    # Resume itself must settle the corrected local reconstruction before the
+    # completion wrapper reaches its provider callback.
     recovery = llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
         selection_record=_selection(),
         parser_records=parser_records,
@@ -1419,40 +1570,6 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
             provider_account="default",
             provider_attempt_namespace="claim-ontology-v2",
         )
-    )
-
-    def replay_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        del args
-        handler = kwargs["attempt_handler"]
-
-        def forbidden_provider_call() -> JsonRecord:
-            nonlocal provider_calls
-            provider_calls += 1
-            return {"fixture": "unexpected-provider-response"}
-
-        handler.run_attempt(1, forbidden_provider_call)
-        handler.settle_attempt(
-            1,
-            input_tokens=response.input_tokens,
-            output_tokens=response.output_tokens,
-            actual_cost_usd=response.estimated_cost,
-            raw_output=response.raw_output,
-        )
-        return response
-
-    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", replay_completion)
-    llm_pipeline.llm_review_stage_a_units(
-        selection_records=(_selection(),),
-        parser_records=parser_records,
-        prediction_unit_records=(_prediction_units(),),
-        markdown_root=markdown_root,
-        registry_entry=registry_entry,
-        model_registry_sha256="b" * 64,
-        provider_journal_path=journal_path,
-        provider_cycle_cap_usd=100.0,
-        provider_cycle_id="cycle-1",
-        provider_cycle_caps_sha256="sha256:" + "c" * 64,
-        provider_attempt_namespace="claim-ontology-v2",
     )
 
     assert provider_calls == 1
