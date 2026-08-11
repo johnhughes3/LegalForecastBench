@@ -19432,6 +19432,110 @@ def _cmd_acquisition_locate_cycle_lineage(args: argparse.Namespace) -> int:
     return 0
 
 
+def _authenticate_current_v4_eligibility(
+    *,
+    card: Mapping[str, Any],
+    lineage: _StageAUnitizationLineage,
+) -> tuple[Path, Path, dict[Path, bytes]]:
+    """Replay the v4 gate before its paths can be recommended for reuse."""
+
+    raw_eligibility = card.get("target_document_eligibility_audit")
+    if not isinstance(raw_eligibility, Mapping):
+        raise SuccessorRerunImpactError(
+            "authenticated v4 unitization card lacks eligibility commitments"
+        )
+    eligibility = cast(Mapping[str, object], raw_eligibility)
+    audit_path = _stage_a_committed_path(eligibility, "audit")
+    run_card_path = _stage_a_committed_path(eligibility, "run_card")
+    snapshots = {
+        path: _read_singly_linked_regular_input(
+            path, label=f"authenticated v4 eligibility {name}"
+        )
+        for name, path in (("audit", audit_path), ("run_card", run_card_path))
+    }
+    try:
+        run_card = _read_json_object_payload(
+            snapshots[run_card_path],
+            label="target-document eligibility audit run card",
+        )
+    except ValueError as exc:
+        raise SuccessorRerunImpactError(
+            "target-document eligibility audit run card is invalid"
+        ) from exc
+    raw_replay_paths = run_card.get("replay_paths")
+    if not isinstance(raw_replay_paths, Mapping):
+        raise SuccessorRerunImpactError(
+            "target-document eligibility audit replay paths are invalid"
+        )
+    typed_replay_paths = cast(Mapping[object, object], raw_replay_paths)
+    if set(typed_replay_paths) != {
+        "controlled_private_root",
+        "purchase_ledger_initialization_receipt",
+    }:
+        raise SuccessorRerunImpactError(
+            "target-document eligibility audit replay paths are invalid"
+        )
+    replay_paths: dict[str, Path | None] = {}
+    for raw_name, raw_path in typed_replay_paths.items():
+        if not isinstance(raw_name, str):
+            raise SuccessorRerunImpactError(
+                "target-document eligibility audit replay paths are invalid"
+            )
+        name = raw_name
+        if raw_path is None:
+            replay_paths[name] = None
+        elif isinstance(raw_path, str) and raw_path.strip():
+            replay_paths[name] = Path(raw_path)
+        else:
+            raise SuccessorRerunImpactError(
+                "target-document eligibility audit replay paths are invalid"
+            )
+    parse_args = argparse.Namespace(
+        selection=_stage_a_committed_path(lineage.input_commitments, "selection"),
+        selection_run_card=_stage_a_committed_path(
+            lineage.input_commitments, "selection_run_card"
+        ),
+        download_manifest=_stage_a_committed_path(
+            lineage.input_commitments, "download_manifest"
+        ),
+        disclosure_clearance=_stage_a_committed_path(
+            lineage.input_commitments, "disclosure_clearance"
+        ),
+        materialization_run_card=_stage_a_committed_path(
+            lineage.input_commitments, "materialization_run_card"
+        ),
+        document_root=lineage.document_root,
+        parse_requests=_stage_a_committed_path(
+            lineage.input_commitments, "parse_requests"
+        ),
+        parser_manifest=_stage_a_committed_path(
+            lineage.input_commitments, "parser_manifest"
+        ),
+        parser_run_card=_stage_a_committed_path(
+            lineage.input_commitments, "parser_run_card"
+        ),
+        controlled_private_root=replay_paths["controlled_private_root"],
+        purchase_ledger_initialization_receipt=replay_paths[
+            "purchase_ledger_initialization_receipt"
+        ],
+    )
+    parse_lineage = _verify_verified_stage_a_parse_lineage(
+        parse_args, markdown_root=lineage.markdown_root
+    )
+    _require_v4_eligibility_lineage_matches_unitization(parse_lineage, lineage)
+    replayed = _require_clean_v4_target_document_eligibility_audit(
+        audit_path=audit_path,
+        run_card_path=run_card_path,
+        lineage=parse_lineage,
+        replay_paths=replay_paths,
+    )
+    if dict(eligibility) != replayed:
+        raise SuccessorRerunImpactError(
+            "authenticated v4 eligibility commitment differs from semantic replay"
+        )
+    return audit_path, run_card_path, snapshots
+
+
 def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
     """Print a provider-free advisory comparison of successor Stage A inputs."""
 
@@ -19509,9 +19613,37 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
         namespace = _stage_a_provider_attempt_namespace_from_unitization_card_record(
             card
         )
+        selection_path = _stage_a_committed_path(lineage.input_commitments, "selection")
+        selection_run_card_path = _stage_a_committed_path(
+            lineage.input_commitments, "selection_run_card"
+        )
+        download_manifest_path = _stage_a_committed_path(
+            lineage.input_commitments, "download_manifest"
+        )
+        disclosure_clearance_path = _stage_a_committed_path(
+            lineage.input_commitments, "disclosure_clearance"
+        )
+        materialization_run_card_path = _stage_a_committed_path(
+            lineage.input_commitments, "materialization_run_card"
+        )
+        parse_requests_path = _stage_a_committed_path(
+            lineage.input_commitments, "parse_requests"
+        )
+        parser_manifest_path = _stage_a_committed_path(
+            lineage.input_commitments, "parser_manifest"
+        )
         parser_run_card_path = _stage_a_committed_path(
             lineage.input_commitments, "parser_run_card"
         )
+        eligibility_audit_path: Path | None = None
+        eligibility_run_card_path: Path | None = None
+        eligibility_snapshots: dict[Path, bytes] = {}
+        if namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+            (
+                eligibility_audit_path,
+                eligibility_run_card_path,
+                eligibility_snapshots,
+            ) = _authenticate_current_v4_eligibility(card=card, lineage=lineage)
         parser_reuse = _authenticate_live_mistral_parse_reuse(
             prior_run_card_path=parser_run_card_path,
             prior_markdown_root=lineage.markdown_root,
@@ -19601,8 +19733,18 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             provider_reuse_by_candidate=provider_reuse_evidence_from_verified_rows(
                 lineage.verified_provider_attempt_rows
             ),
+            selection_path=selection_path,
+            selection_run_card_path=selection_run_card_path,
+            download_manifest_path=download_manifest_path,
+            disclosure_clearance_path=disclosure_clearance_path,
+            materialization_run_card_path=materialization_run_card_path,
+            document_root=lineage.document_root,
+            parse_requests_path=parse_requests_path,
+            parser_manifest_path=parser_manifest_path,
             parser_run_card_path=parser_run_card_path,
             markdown_root=lineage.markdown_root,
+            target_eligibility_audit_path=eligibility_audit_path,
+            target_eligibility_audit_run_card_path=eligibility_run_card_path,
             provider_journal_path=lineage.provider_journal_path,
         )
         parser_reuse_paths_list: list[Path] = []
@@ -19659,6 +19801,11 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
         _require_snapshot_unchanged(
             terminal_snapshots, label="llm-unitize terminal replay"
         )
+        if eligibility_snapshots:
+            _require_snapshot_unchanged(
+                eligibility_snapshots,
+                label="authenticated v4 eligibility",
+            )
         _require_materialized_downstream_lineage_unchanged(
             proposed_materialization, document_root=proposal.document_root
         )

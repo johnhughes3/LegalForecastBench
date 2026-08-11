@@ -13,6 +13,7 @@ from typing import Any, cast
 import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import (
+    _authenticate_current_v4_eligibility,  # pyright: ignore[reportPrivateUsage]
     _validate_successor_rerun_commands,  # pyright: ignore[reportPrivateUsage]
     main,
 )
@@ -248,15 +249,267 @@ def test_full_parser_source_identity_drift_becomes_gap(tmp_path: Path) -> None:
 
 
 def test_invalid_prerequisite_blocks_every_descendant_deterministically() -> None:
-    report = failed_successor_rerun_impact("active lineage is ambiguous")
-    stages = cast(list[dict[str, object]], report.record["stages"])
+    first = failed_successor_rerun_impact("active lineage is ambiguous")
+    second = failed_successor_rerun_impact("active lineage is ambiguous")
+    stages = cast(list[dict[str, object]], first.record["stages"])
     assert [node["status"] for node in stages] == [
         "FAILED",
         "NOT_EVALUATED",
         "NOT_EVALUATED",
         "NOT_EVALUATED",
     ]
-    assert report.json_text() == report.json_text()
+    assert first.ok is False
+    assert first.json_text() == second.json_text()
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("model_key", "openai:successor-unitizer"),
+        ("model_provider", "anthropic"),
+        ("provider_account", "secondary"),
+        ("provider_attempt_namespace", "claim-ontology-v5"),
+        ("model_registry_sha256", "c" * 64),
+        ("policy_sha256", "d" * 64),
+    ],
+)
+def test_global_provider_drift_reuses_authenticated_parser_inputs(
+    tmp_path: Path, field: str, replacement: str
+) -> None:
+    current, proposal = _fixture(tmp_path, replace_document=False)
+    successor = replace(proposal.require_inputs(), **{field: replacement})
+    proposal_updates: dict[str, object] = {"inputs": successor}
+    if field in {"model_key", "provider_attempt_namespace"}:
+        proposal_updates[field] = replacement
+    proposal = replace(proposal, **proposal_updates)
+
+    report = plan_successor_rerun_impact(current=current, proposed=proposal)
+
+    assert report.ok is True
+    assert report.record["first_invalidated_stage"] == "llm-unitize"
+    stages = cast(list[dict[str, object]], report.record["stages"])
+    assert stages[1] == {"stage": "parse-documents", "status": "REUSABLE"}
+    assert report.record["provider_logical_call_gaps"] == [
+        {
+            "candidate_id": "candidate-a",
+            "reason": "model_prompt_or_policy_commitment_changed",
+        },
+        {
+            "candidate_id": "candidate-b",
+            "reason": "model_prompt_or_policy_commitment_changed",
+        },
+    ]
+    commands = cast(list[dict[str, object]], report.record["next_commands"])
+    assert [command["stage"] for command in commands] == ["llm-unitize"]
+    argv = cast(list[str], commands[0]["argv"])
+    assert "plan-parse-documents" not in argv
+    assert "parse-documents" not in argv
+    assert _flag_value(argv, "--parse-requests") == str(current.parse_requests_path)
+    assert _flag_value(argv, "--parser-manifest") == str(current.parser_manifest_path)
+    assert _flag_value(argv, "--parser-run-card") == str(current.parser_run_card_path)
+    assert _flag_value(argv, "--markdown-root") == str(current.markdown_root)
+    assert _flag_value(argv, "--selection") == str(current.selection_path)
+    assert _flag_value(argv, "--selection-run-card") == str(
+        current.selection_run_card_path
+    )
+    assert _flag_value(argv, "--download-manifest") == str(
+        current.download_manifest_path
+    )
+    assert _flag_value(argv, "--disclosure-clearance") == str(
+        current.disclosure_clearance_path
+    )
+    assert _flag_value(argv, "--materialization-run-card") == str(
+        current.materialization_run_card_path
+    )
+    assert _flag_value(argv, "--document-root") == str(current.document_root)
+    assert current.selection_path != proposal.selection_path
+    if field == "policy_sha256":
+        assert "--provider-journal" not in argv
+    else:
+        assert _flag_value(argv, "--provider-journal") == str(
+            current.provider_journal_path
+        )
+    if replacement != "claim-ontology-v5":
+        assert _flag_value(argv, "--target-eligibility-audit") == str(
+            current.target_eligibility_audit_path
+        )
+        assert _flag_value(argv, "--target-eligibility-audit-run-card") == str(
+            current.target_eligibility_audit_run_card_path
+        )
+
+
+def test_v4_namespace_upgrade_creates_eligibility_before_unitization(
+    tmp_path: Path,
+) -> None:
+    current, proposal = _fixture(tmp_path, replace_document=False)
+    v3_reuse = {
+        candidate_id: replace(
+            evidence,
+            logical_call_key=ProviderCallIdentity(
+                stage=evidence.stage,
+                candidate_id=evidence.candidate_id,
+                model_key=evidence.model_key,
+                prompt=evidence.prompt_text,
+                model_registry_sha256=evidence.model_registry_sha256,
+                account=evidence.account,
+                prompt_contract="claim-ontology-v3",
+            ).logical_call_key,
+        )
+        for candidate_id, evidence in current.provider_reuse_by_candidate.items()
+    }
+    current = replace(
+        current,
+        provider_attempt_namespace="claim-ontology-v3",
+        provider_reuse_by_candidate=v3_reuse,
+        target_eligibility_audit_path=None,
+        target_eligibility_audit_run_card_path=None,
+    )
+
+    report = plan_successor_rerun_impact(current=current, proposed=proposal)
+
+    assert report.record["first_invalidated_stage"] == "llm-unitize"
+    commands = cast(list[dict[str, object]], report.record["next_commands"])
+    assert [command["stage"] for command in commands] == [
+        "audit-stage-a-target-eligibility",
+        "llm-unitize",
+    ]
+    eligibility_argv = cast(list[str], commands[0]["argv"])
+    unitize_argv = cast(list[str], commands[1]["argv"])
+    assert _flag_value(eligibility_argv, "--parse-requests") == str(
+        current.parse_requests_path
+    )
+    assert _flag_value(unitize_argv, "--target-eligibility-audit") == str(
+        proposal.successor_output_root / "target-document-eligibility-audit.jsonl"
+    )
+    assert "plan-parse-documents" not in eligibility_argv
+    assert "parse-documents" not in eligibility_argv
+
+
+def test_nonfinite_proposal_is_a_typed_deterministic_failure(tmp_path: Path) -> None:
+    _proposal_fixture(tmp_path, replace_document=False)
+    proposal_path = tmp_path / "proposal.json"
+    record = json.loads(proposal_path.read_bytes())
+    record["model_key"] = float("nan")
+    proposal_path.write_bytes(
+        (
+            json.dumps(record, sort_keys=True, separators=(",", ":"), allow_nan=True)
+            + "\n"
+        ).encode()
+    )
+
+    messages: list[str] = []
+    for _ in range(2):
+        with pytest.raises(SuccessorRerunProposalError) as raised:
+            load_successor_proposal(proposal_path)
+        messages.append(str(raised.value))
+    assert messages == [messages[0], messages[0]]
+    assert "canonical artifact JSON" in messages[0]
+
+
+def test_successor_rerun_public_contract_is_linked_and_load_bearing(
+    tmp_path: Path,
+) -> None:
+    root = Path(__file__).resolve().parents[1]
+    contract_path = root / "docs/schemas/successor-rerun-impact-v1.md"
+    contract = contract_path.read_text(encoding="utf-8")
+    index = (root / "docs/README.md").read_text(encoding="utf-8")
+
+    assert "legalforecast.successor_rerun_proposal.v1" in contract
+    assert "legalforecast.successor_rerun_impact.v1" in contract
+    assert "no execution, provider, purchase, freeze, dispatch, publication" in (
+        contract
+    )
+    assert "requires_separate_authorization" in contract
+    assert "[successor-rerun-impact-v1.md](schemas/successor-rerun-impact-v1.md)" in (
+        index
+    )
+
+    current, proposal = _fixture(tmp_path, replace_document=True)
+    successful = plan_successor_rerun_impact(current=current, proposed=proposal).record
+    assert set(successful) == {
+        "schema_version",
+        "advisory",
+        "authority",
+        "warning",
+        "cycle_id",
+        "proposal_sha256",
+        "proposed_global_commitments",
+        "first_invalidated_stage",
+        "stages",
+        "affected_cases",
+        "affected_candidates",
+        "affected_documents",
+        "reusable_documents",
+        "reusable_parser_outputs",
+        "reusable_exact_byte_output_count",
+        "reusable_logical_calls",
+        "provider_logical_call_gaps",
+        "next_commands",
+    }
+    assert set(cast(Mapping[str, object], successful["authority"])) == {
+        "artifact",
+        "dispatch",
+        "execution",
+        "freeze",
+        "provider",
+        "publication",
+        "purchase",
+    }
+    assert set(
+        cast(Mapping[str, object], successful["proposed_global_commitments"])
+    ) == {
+        "model_key",
+        "model_provider",
+        "model_registry_sha256",
+        "policy_sha256",
+        "provider_account",
+        "provider_attempt_namespace",
+    }
+    parser_output = cast(
+        list[Mapping[str, object]], successful["reusable_parser_outputs"]
+    )[0]
+    assert set(parser_output) == {
+        "candidate_id",
+        "source_document_id",
+        "markdown_sha256",
+        "parser_reuse_identity_sha256",
+    }
+    reusable_call = cast(
+        list[Mapping[str, object]], successful["reusable_logical_calls"]
+    )[0]
+    assert set(reusable_call) == {
+        "candidate_id",
+        "logical_call_key",
+        "attempt_ordinal",
+    }
+    gap = cast(list[Mapping[str, object]], successful["provider_logical_call_gaps"])[0]
+    assert set(gap) == {"candidate_id", "reason"}
+    commands = cast(list[Mapping[str, object]], successful["next_commands"])
+    assert set(commands[0]) == {
+        "stage",
+        "argv",
+        "execution_authority",
+        "requires_separate_authorization",
+    }
+    assert set(commands[-1]) == {
+        "stage",
+        "argv",
+        "execution_authority",
+        "requires_separate_authorization",
+        "advisory_execution",
+    }
+
+    failed = failed_successor_rerun_impact("invalid evidence").record
+    assert set(failed) == set(successful) - {
+        "cycle_id",
+        "proposal_sha256",
+        "proposed_global_commitments",
+    }
+    failed_stages = cast(list[Mapping[str, object]], failed["stages"])
+    assert set(failed_stages[0]) == {"stage", "status", "diagnostics"}
+    diagnostic = cast(list[Mapping[str, object]], failed_stages[0]["diagnostics"])[0]
+    assert set(diagnostic) == {"code", "message"}
+    assert set(failed_stages[1]) == {"stage", "status", "blocked_by"}
 
 
 def test_cli_missing_or_ambiguous_lineage_is_stable_json_and_nonzero(
@@ -354,10 +607,53 @@ def test_cli_failed_current_card_and_ambiguous_lineage_are_fail_closed(
     assert "not unique" in ambiguous_stages[0]["diagnostics"][0]["message"]
 
 
+def test_cli_v4_eligibility_requires_semantic_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+
+    def reject_semantic_replay(**_kwargs: object) -> object:
+        raise SuccessorRerunImpactError("eligibility semantic replay rejected")
+
+    monkeypatch.setattr(
+        cli, "_authenticate_current_v4_eligibility", reject_semantic_replay
+    )
+
+    assert main(argv) == 1
+    assert "eligibility semantic replay rejected" in _failure_message(capsys)
+
+
+def test_cli_malformed_committed_v4_eligibility_card_is_typed_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        cli,
+        "_authenticate_current_v4_eligibility",
+        _authenticate_current_v4_eligibility,
+    )
+    (tmp_path / "current-eligibility-card.json").write_bytes(b"{not-json")
+
+    assert main(argv) == 1
+    assert "eligibility audit run card is invalid" in _failure_message(capsys)
+
+
 @pytest.mark.parametrize(
     ("relative_path", "message"),
     [
         ("current-parse-card.json", "authenticated Stage A input changed"),
+        (
+            "current-eligibility-audit.jsonl",
+            "authenticated v4 eligibility changed",
+        ),
+        (
+            "current-eligibility-card.json",
+            "authenticated v4 eligibility changed",
+        ),
         (
             "current-documents/candidate-a/document-a.pdf",
             "authenticated Stage A document tree changed",
@@ -728,8 +1024,30 @@ def _install_successful_cli_fixture(
     audit = tmp_path / "audit.jsonl"
     queue = tmp_path / "queue.jsonl"
     journal = tmp_path / "provider.sqlite3"
+    current_parse_requests = current.parse_requests_path
+    current_parser_manifest = current.parser_manifest_path
     current_parser_card = current.parser_run_card_path
+    current_eligibility_audit = current.target_eligibility_audit_path
+    current_eligibility_card = current.target_eligibility_audit_run_card_path
+    assert current_eligibility_audit is not None
+    assert current_eligibility_card is not None
+    current.selection_path.write_bytes(
+        _jsonl_bytes([dict(record) for record in current.selection_records])
+    )
+    current.selection_run_card_path.write_bytes(
+        proposal.selection_run_card_path.read_bytes()
+    )
+    current.disclosure_clearance_path.write_bytes(
+        proposal.disclosure_clearance_path.read_bytes()
+    )
+    current.materialization_run_card_path.write_bytes(
+        proposal.materialization_run_card_path.read_bytes()
+    )
+    current_parse_requests.write_bytes(b'{"request":"current"}\n')
+    current_parser_manifest.write_bytes(b'{"parser":"current"}\n')
     current_parser_card.write_bytes(b'{"parser":"card"}')
+    current_eligibility_audit.write_bytes(b'{"eligible":true}\n')
+    current_eligibility_card.write_bytes(b'{"eligibility":"card"}')
     current.markdown_root.mkdir()
     current_markdown = current.markdown_root / "candidate-a" / "document-a.md"
     current_markdown.parent.mkdir()
@@ -747,11 +1065,28 @@ def _install_successful_cli_fixture(
                 },
                 "lineage_roots": {"provider_journal": str(journal)},
                 "model_execution": {"provider_attempt_namespace": "claim-ontology-v4"},
+                "target_document_eligibility_audit": {
+                    "audit": {
+                        "path": str(current_eligibility_audit),
+                        "sha256": "sha256:"
+                        + hashlib.sha256(
+                            current_eligibility_audit.read_bytes()
+                        ).hexdigest(),
+                    },
+                    "run_card": {
+                        "path": str(current_eligibility_card),
+                        "sha256": "sha256:"
+                        + hashlib.sha256(
+                            current_eligibility_card.read_bytes()
+                        ).hexdigest(),
+                    },
+                    "audit_sha256": "e" * 64,
+                },
             },
             sort_keys=True,
         ).encode()
     )
-    current_root = tmp_path / "current-documents"
+    current_root = current.document_root
     current_root.mkdir()
     current_downloads: list[dict[str, Any]] = []
     for document in current.documents:
@@ -770,6 +1105,7 @@ def _install_successful_cli_fixture(
                 "byte_count": len(payload),
             }
         )
+    current.download_manifest_path.write_bytes(_jsonl_bytes(current_downloads))
     registry_entry = SimpleNamespace(
         registry_key=current.model_key,
         provider=current.model_provider,
@@ -793,10 +1129,45 @@ def _install_successful_cli_fixture(
         document_root=current_root,
         markdown_root=current.markdown_root,
         cohort_cycle_id=current.cycle_id,
-        input_paths=(current_parser_card,),
-        input_commitments={"parser_run_card": {"path": str(current_parser_card)}},
+        input_paths=(
+            current.selection_path,
+            current.selection_run_card_path,
+            current.download_manifest_path,
+            current.disclosure_clearance_path,
+            current.materialization_run_card_path,
+            current_parse_requests,
+            current_parser_manifest,
+            current_parser_card,
+        ),
+        input_commitments={
+            "selection": {"path": str(current.selection_path)},
+            "selection_run_card": {"path": str(current.selection_run_card_path)},
+            "download_manifest": {"path": str(current.download_manifest_path)},
+            "disclosure_clearance": {"path": str(current.disclosure_clearance_path)},
+            "materialization_run_card": {
+                "path": str(current.materialization_run_card_path)
+            },
+            "parse_requests": {"path": str(current_parse_requests)},
+            "parser_manifest": {"path": str(current_parser_manifest)},
+            "parser_run_card": {"path": str(current_parser_card)},
+        },
         verified_provider_attempt_rows=provider_rows,
-        file_snapshots={current_parser_card: current_parser_card.read_bytes()},
+        file_snapshots={
+            current.selection_path: current.selection_path.read_bytes(),
+            current.selection_run_card_path: (
+                current.selection_run_card_path.read_bytes()
+            ),
+            current.download_manifest_path: current.download_manifest_path.read_bytes(),
+            current.disclosure_clearance_path: (
+                current.disclosure_clearance_path.read_bytes()
+            ),
+            current.materialization_run_card_path: (
+                current.materialization_run_card_path.read_bytes()
+            ),
+            current_parse_requests: current_parse_requests.read_bytes(),
+            current_parser_manifest: current_parser_manifest.read_bytes(),
+            current_parser_card: current_parser_card.read_bytes(),
+        },
         document_tree=_relative_tree_bytes(current_root),
         markdown_bytes={
             current_markdown.relative_to(current.markdown_root).as_posix(): (
@@ -851,6 +1222,16 @@ def _install_successful_cli_fixture(
     def return_parser_authentication(**_kwargs: object) -> object:
         return parser_authentication
 
+    def return_eligibility_authentication(**_kwargs: object) -> object:
+        return (
+            current_eligibility_audit,
+            current_eligibility_card,
+            {
+                current_eligibility_audit: current_eligibility_audit.read_bytes(),
+                current_eligibility_card: current_eligibility_card.read_bytes(),
+            },
+        )
+
     def return_proposed_materialization(**_kwargs: object) -> object:
         return verified_proposal
 
@@ -883,6 +1264,11 @@ def _install_successful_cli_fixture(
         cli,
         "_authenticate_live_mistral_parse_reuse",
         return_parser_authentication,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_authenticate_current_v4_eligibility",
+        return_eligibility_authentication,
     )
     monkeypatch.setattr(
         cli,
@@ -999,8 +1385,20 @@ def _fixture(
         policy_sha256="b" * 64,
         parser_reuse_by_document=parser_reuse,
         provider_reuse_by_candidate=provider_reuse,
+        selection_path=tmp_path / "current-selection.jsonl",
+        selection_run_card_path=tmp_path / "current-selection-card.json",
+        download_manifest_path=tmp_path / "current-downloads.jsonl",
+        disclosure_clearance_path=tmp_path / "current-clearance.jsonl",
+        materialization_run_card_path=tmp_path / "current-materialization-card.json",
+        document_root=tmp_path / "current-documents",
+        parse_requests_path=tmp_path / "current-parse-requests.jsonl",
+        parser_manifest_path=tmp_path / "current-parser-manifest.jsonl",
         parser_run_card_path=tmp_path / "current-parse-card.json",
         markdown_root=tmp_path / "current-markdown",
+        target_eligibility_audit_path=tmp_path / "current-eligibility-audit.jsonl",
+        target_eligibility_audit_run_card_path=(
+            tmp_path / "current-eligibility-card.json"
+        ),
         provider_journal_path=tmp_path / "provider.sqlite3",
     )
     return current, proposal
@@ -1134,6 +1532,10 @@ def _assert_only_path_changed(
     assert {
         path: payload for path, payload in before.items() if path != relative_path
     } == {path: payload for path, payload in after.items() if path != relative_path}
+
+
+def _flag_value(argv: list[str], flag: str) -> str:
+    return argv[argv.index(flag) + 1]
 
 
 def _jsonl_bytes(records: list[dict[str, Any]]) -> bytes:

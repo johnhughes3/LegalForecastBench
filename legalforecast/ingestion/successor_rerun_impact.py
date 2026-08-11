@@ -49,7 +49,20 @@ class SuccessorRerunImpact:
 
     @property
     def ok(self) -> bool:
-        return self.record.get("advisory") is True
+        raw_stages = self.record.get("stages")
+        if (
+            self.record.get("advisory") is not True
+            or not isinstance(raw_stages, Sequence)
+            or isinstance(raw_stages, (str, bytes))
+            or not raw_stages
+        ):
+            return False
+        return all(
+            isinstance(stage, Mapping)
+            and cast(Mapping[str, object], stage).get("status")
+            in {"REUSABLE", "AFFECTED"}
+            for stage in cast(Sequence[object], raw_stages)
+        )
 
     def json_text(self) -> str:
         return (
@@ -296,8 +309,11 @@ def plan_successor_rerun_impact(
         "cycle_id": successor.cycle_id,
         "proposal_sha256": proposed.proposal_sha256,
         "proposed_global_commitments": {
+            "model_key": successor.model_key,
+            "model_provider": successor.model_provider,
             "model_registry_sha256": successor.model_registry_sha256,
             "policy_sha256": successor.policy_sha256,
+            "provider_account": successor.provider_account,
             "provider_attempt_namespace": successor.provider_attempt_namespace,
         },
         "first_invalidated_stage": first_invalidated,
@@ -335,12 +351,57 @@ def _derived_next_commands(
     if first_invalidated == "none":
         return []
     root = proposal.successor_output_root
-    requests = root / "parse-document-requests.jsonl"
-    parser_manifest = root / "mistral-markdown-conversions.jsonl"
-    parser_card = root / "run-cards" / "parse-documents.json"
-    markdown_root = root / "markdown"
+    successor = proposal.require_inputs()
+    unitize_only = first_invalidated == "llm-unitize"
+    requests = (
+        current.parse_requests_path
+        if unitize_only
+        else root / "parse-document-requests.jsonl"
+    )
+    parser_manifest = (
+        current.parser_manifest_path
+        if unitize_only
+        else root / "mistral-markdown-conversions.jsonl"
+    )
+    parser_card = (
+        current.parser_run_card_path
+        if unitize_only
+        else root / "run-cards" / "parse-documents.json"
+    )
+    markdown_root = current.markdown_root if unitize_only else root / "markdown"
     eligibility_audit = root / "target-document-eligibility-audit.jsonl"
     eligibility_card = root / "run-cards" / "audit-stage-a-target-eligibility.json"
+    reuse_current_eligibility = (
+        unitize_only
+        and proposal.provider_attempt_namespace == "claim-ontology-v4"
+        and current.target_eligibility_audit_path is not None
+        and current.target_eligibility_audit_run_card_path is not None
+    )
+    if reuse_current_eligibility:
+        eligibility_audit = cast(Path, current.target_eligibility_audit_path)
+        eligibility_card = cast(Path, current.target_eligibility_audit_run_card_path)
+    selection_path = current.selection_path if unitize_only else proposal.selection_path
+    selection_run_card_path = (
+        current.selection_run_card_path
+        if unitize_only
+        else proposal.selection_run_card_path
+    )
+    download_manifest_path = (
+        current.download_manifest_path
+        if unitize_only
+        else proposal.download_manifest_path
+    )
+    disclosure_clearance_path = (
+        current.disclosure_clearance_path
+        if unitize_only
+        else proposal.disclosure_clearance_path
+    )
+    materialization_run_card_path = (
+        current.materialization_run_card_path
+        if unitize_only
+        else proposal.materialization_run_card_path
+    )
+    document_root = current.document_root if unitize_only else proposal.document_root
     prefix = ["uv", "run", "legalforecast", "acquisition"]
     plan: dict[str, object] = {
         "stage": "plan-parse-documents",
@@ -351,15 +412,15 @@ def _derived_next_commands(
             str(root),
             "--execute",
             "--selection",
-            str(proposal.selection_path),
+            str(selection_path),
             "--download-manifest",
-            str(proposal.download_manifest_path),
+            str(download_manifest_path),
             "--disclosure-clearance",
-            str(proposal.disclosure_clearance_path),
+            str(disclosure_clearance_path),
             "--materialization-run-card",
-            str(proposal.materialization_run_card_path),
+            str(materialization_run_card_path),
             "--document-root",
-            str(proposal.document_root),
+            str(document_root),
             "--requests-output",
             str(requests),
             "--markdown-output-root",
@@ -377,13 +438,13 @@ def _derived_next_commands(
             str(root),
             "--execute",
             "--selection",
-            str(proposal.selection_path),
+            str(selection_path),
             "--requests",
             str(requests),
             "--disclosure-clearance",
-            str(proposal.disclosure_clearance_path),
+            str(disclosure_clearance_path),
             "--materialization-run-card",
-            str(proposal.materialization_run_card_path),
+            str(materialization_run_card_path),
             "--manifest-output",
             str(parser_manifest),
             "--reuse-live-mistral-run-card",
@@ -403,17 +464,17 @@ def _derived_next_commands(
             str(root),
             "--execute",
             "--selection",
-            str(proposal.selection_path),
+            str(selection_path),
             "--selection-run-card",
-            str(proposal.selection_run_card_path),
+            str(selection_run_card_path),
             "--download-manifest",
-            str(proposal.download_manifest_path),
+            str(download_manifest_path),
             "--disclosure-clearance",
-            str(proposal.disclosure_clearance_path),
+            str(disclosure_clearance_path),
             "--materialization-run-card",
-            str(proposal.materialization_run_card_path),
+            str(materialization_run_card_path),
             "--document-root",
-            str(proposal.document_root),
+            str(document_root),
             "--parse-requests",
             str(requests),
             "--parser-manifest",
@@ -434,17 +495,17 @@ def _derived_next_commands(
         "--output-root",
         str(root),
         "--selection",
-        str(proposal.selection_path),
+        str(selection_path),
         "--selection-run-card",
-        str(proposal.selection_run_card_path),
+        str(selection_run_card_path),
         "--download-manifest",
-        str(proposal.download_manifest_path),
+        str(download_manifest_path),
         "--disclosure-clearance",
-        str(proposal.disclosure_clearance_path),
+        str(disclosure_clearance_path),
         "--materialization-run-card",
-        str(proposal.materialization_run_card_path),
+        str(materialization_run_card_path),
         "--document-root",
-        str(proposal.document_root),
+        str(document_root),
         "--parse-requests",
         str(requests),
         "--parser-manifest",
@@ -459,9 +520,9 @@ def _derived_next_commands(
         proposal.model_key,
         "--provider-cycle-caps",
         str(proposal.policy_path),
-        "--provider-journal",
-        str(current.provider_journal_path),
     ]
+    if successor.policy_sha256 == current.policy_sha256:
+        unitize_argv.extend(["--provider-journal", str(current.provider_journal_path)])
     if proposal.provider_attempt_namespace is not None:
         unitize_argv.extend(
             ["--provider-attempt-namespace", proposal.provider_attempt_namespace]
@@ -487,6 +548,11 @@ def _derived_next_commands(
         commands.append(eligibility)
     commands.append(unitize)
     if first_invalidated == "llm-unitize":
+        if (
+            proposal.provider_attempt_namespace == "claim-ontology-v4"
+            and not reuse_current_eligibility
+        ):
+            return [eligibility, unitize]
         return [unitize]
     return commands
 

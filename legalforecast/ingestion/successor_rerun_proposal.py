@@ -18,6 +18,7 @@ from typing import Any, cast
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
     SUCCESSOR_RERUN_PROPOSAL_V1,
+    CommitmentEncodingError,
 )
 from legalforecast.ingestion.disclosure_review_bundle import (
     ReviewBundleError,
@@ -105,8 +106,18 @@ class RerunInputs:
     policy_sha256: str
     parser_reuse_by_document: Mapping[tuple[str, str], ParserReuseEvidence]
     provider_reuse_by_candidate: Mapping[str, ProviderReuseEvidence]
+    selection_path: Path
+    selection_run_card_path: Path
+    download_manifest_path: Path
+    disclosure_clearance_path: Path
+    materialization_run_card_path: Path
+    document_root: Path
+    parse_requests_path: Path
+    parser_manifest_path: Path
     parser_run_card_path: Path
     markdown_root: Path
+    target_eligibility_audit_path: Path | None
+    target_eligibility_audit_run_card_path: Path | None
     provider_journal_path: Path
 
 
@@ -171,7 +182,13 @@ def load_successor_proposal(path: Path) -> SuccessorProposal:
         raise SuccessorRerunProposalError(
             "successor proposal fields, schema, or advisory marker differ"
         )
-    if ARTIFACT_CANONICAL_JSON_V1.encode(raw) != payload:
+    try:
+        canonical_payload = ARTIFACT_CANONICAL_JSON_V1.encode(raw)
+    except CommitmentEncodingError as exc:
+        raise SuccessorRerunProposalError(
+            "successor proposal is invalid for canonical artifact JSON"
+        ) from exc
+    if canonical_payload != payload:
         raise SuccessorRerunProposalError(
             "successor proposal must use canonical artifact JSON bytes"
         )
@@ -265,8 +282,18 @@ def bind_verified_successor_proposal(
             policy_sha256=_digest(policy_sha256, "provider policy"),
             parser_reuse_by_document={},
             provider_reuse_by_candidate={},
+            selection_path=proposal.selection_path,
+            selection_run_card_path=proposal.selection_run_card_path,
+            download_manifest_path=proposal.download_manifest_path,
+            disclosure_clearance_path=proposal.disclosure_clearance_path,
+            materialization_run_card_path=proposal.materialization_run_card_path,
+            document_root=proposal.document_root,
+            parse_requests_path=Path("/not-evaluated/parse-requests.jsonl"),
+            parser_manifest_path=Path("/not-evaluated/parser-manifest.jsonl"),
             parser_run_card_path=Path("/not-evaluated/parser-run-card.json"),
             markdown_root=Path("/not-evaluated/markdown"),
+            target_eligibility_audit_path=None,
+            target_eligibility_audit_run_card_path=None,
             provider_journal_path=Path("/not-evaluated/provider-journal.sqlite3"),
         ),
     )
