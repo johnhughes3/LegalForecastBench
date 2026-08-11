@@ -164,6 +164,15 @@ SUCCESSOR_ATTORNEY_PACKET_VIEW_V1 = SchemaIdentifier(
 POST_RECOVERY_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.post_recovery_restriction_evidence.v1"
 )
+PROVIDER_AUTHORITY_INFRA_IMPORT_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.provider_authority_infra_import_receipt.v1"
+)
+PROVIDER_AUTHORITY_INFRA_IMPORT_RECOVERY_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.provider_authority_infra_import_recovery_receipt.v1"
+)
+PROVIDER_AUTHORITY_INFRA_IMPORT_REQUEST_V1 = SchemaIdentifier(
+    "legalforecast.provider_authority_infra_import_request.v1"
+)
 PURCHASE_SPEND_SUMMARY_V1 = SchemaIdentifier("legalforecast.purchase_spend_summary.v1")
 RECAP_FETCH_QUARANTINE_RECOVERY_V1 = SchemaIdentifier(
     "legalforecast.recap_fetch_quarantine_recovery.v1"
