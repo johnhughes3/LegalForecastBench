@@ -166,16 +166,27 @@ def _reconstruction_retry_max_attempts(
     """Return the fixed provider-attempt budget after reconstruction failures.
 
     A settled or merely validated response remains replayable without another
-    provider call.  A response that has already failed semantic reconstruction,
-    however, is only useful after a code correction; the live labeling stages
-    instead consume one of the same bounded provider attempts for a fresh
-    response.  The journal records the durable ordinal and preserves the old
-    response/accounting evidence.
+    provider call.  A response that has failed semantic reconstruction is first
+    retried under the current local reconstructor.  If it settles, the journal
+    maps the live solver back to that exact durable response; otherwise one of
+    the same bounded attempts may be used for a fresh response.  The journal
+    preserves every durable ordinal and the original accounting evidence.
     """
 
     if journal is None:
         return DEFAULT_MAX_ATTEMPTS
     return journal.prepare_reconstruction_retry(max_attempts=DEFAULT_MAX_ATTEMPTS)
+
+
+def _has_reconstruction_failure(journal: ProviderAttemptJournal | None) -> bool:
+    """Return whether this exact call has a response eligible for local recovery.
+
+    A missing failed response is the ordinary new-call case.  Every other journal
+    error is evidence-integrity relevant and must remain fail-closed rather than
+    silently authorizing another provider attempt.
+    """
+
+    return journal is not None and journal.has_reconstruction_failure
 
 
 class LlmConsensusPolicy(StrEnum):
@@ -456,7 +467,8 @@ def llm_unitize_cases(
     provider_stage = stage_a_provider_attempt_stage(
         "llm-unitize", provider_attempt_namespace
     )
-    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    parser_rows = tuple(parser_records)
+    parser_by_key = _parser_records_by_candidate_and_document(parser_rows)
     records: list[JsonRecord] = []
     audit_records: list[JsonRecord] = []
     for selection in selection_records:
@@ -503,6 +515,34 @@ def llm_unitize_cases(
                 provider_attempt_namespace=provider_attempt_namespace,
                 stage="unitization",
             )
+            if _has_reconstruction_failure(journal):
+                try:
+                    recover_llm_unitization_reconstruction(
+                        selection_record=selection,
+                        parser_records=parser_rows,
+                        markdown_root=markdown_root,
+                        markdown_bytes=markdown_bytes,
+                        registry_entry=registry_entry,
+                        model_registry_sha256=cast(str, model_registry_sha256),
+                        provider_journal_path=cast(Path, provider_journal_path),
+                        provider_cycle_cap_usd=_provider_cycle_cap(
+                            registry_entry.provider,
+                            fallback=provider_cycle_cap_usd,
+                            caps=provider_cycle_caps_usd,
+                        ),
+                        provider_cycle_id=cast(str, provider_cycle_id),
+                        provider_cycle_caps_sha256=cast(
+                            str, provider_cycle_caps_sha256
+                        ),
+                        provider_account=(provider_accounts or {}).get(
+                            registry_entry.provider.lower(), "default"
+                        ),
+                        provider_attempt_namespace=provider_attempt_namespace,
+                    )
+                except (LlmPipelineError, ValueError):
+                    # The exact old response remains failed; the existing bounded
+                    # fresh-attempt policy below now owns the next provider call.
+                    pass
             max_attempts = _reconstruction_retry_max_attempts(journal)
             response = complete_live_prompt(
                 registry_entry,
@@ -1333,6 +1373,35 @@ def llm_review_stage_a_units(
                 provider_attempt_namespace=provider_attempt_namespace,
                 stage="structural review",
             )
+            if _has_reconstruction_failure(journal):
+                try:
+                    recover_llm_stage_a_structural_review_reconstruction(
+                        selection_record=selection,
+                        parser_records=parser_rows,
+                        prediction_unit_records=raw_unit_records,
+                        markdown_root=markdown_root,
+                        markdown_bytes=None,
+                        registry_entry=registry_entry,
+                        model_registry_sha256=cast(str, model_registry_sha256),
+                        provider_journal_path=cast(Path, provider_journal_path),
+                        provider_cycle_cap_usd=_provider_cycle_cap(
+                            registry_entry.provider,
+                            fallback=provider_cycle_cap_usd,
+                            caps=provider_cycle_caps_usd,
+                        ),
+                        provider_cycle_id=cast(str, provider_cycle_id),
+                        provider_cycle_caps_sha256=cast(
+                            str, provider_cycle_caps_sha256
+                        ),
+                        provider_account=(provider_accounts or {}).get(
+                            registry_entry.provider.lower(), "default"
+                        ),
+                        provider_attempt_namespace=provider_attempt_namespace,
+                    )
+                except (LlmPipelineError, ValueError):
+                    # Preserve the failed journal evidence and use the normal
+                    # bounded fresh-attempt path if it still cannot reconstruct.
+                    pass
             max_attempts = _reconstruction_retry_max_attempts(journal)
             response_json_schema = (
                 _stage_a_structural_review_response_json_schema(
@@ -2826,6 +2895,72 @@ def _llm_label_one_model(
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
     )
     try:
+        if _has_reconstruction_failure(journal):
+            try:
+                assert journal is not None
+                evidence = journal.latest_reconstruction_recovery_evidence()
+                normalized_value: object = json.loads(evidence.normalized_response_json)
+                if not isinstance(normalized_value, Mapping):
+                    raise LlmPipelineError(
+                        "journaled normalized provider response must be an object"
+                    )
+                raw_output = cast(Mapping[str, object], normalized_value).get(
+                    "raw_output"
+                )
+                if not isinstance(raw_output, str):
+                    raise LlmPipelineError(
+                        "journaled normalized provider response lacks raw_output"
+                    )
+                payload = _json_object_from_response(
+                    raw_output, top_level_sequence_field="unit_findings"
+                )
+                findings = tuple(
+                    _stage_b_finding(record, decision_text=decision_text)
+                    for record in _record_sequence(
+                        payload.get("unit_findings"), "unit_findings"
+                    )
+                )
+                missing_flags = tuple(
+                    _stage_b_missing_flag(record, decision_text=decision_text)
+                    for record in _optional_record_sequence(
+                        payload.get("missing_unit_flags")
+                    )
+                )
+                recovered = label_stage_b_outcomes(
+                    StageBLabelingInput(
+                        candidate_id=_required_str(selection, "candidate_id"),
+                        case_id=_required_str(selection, "case_id"),
+                        frozen_units=frozen_units,
+                        decision_text=decision_text,
+                        unit_findings=findings,
+                        missing_unit_flags=missing_flags,
+                    )
+                )
+                if recovered.requires_frozen_unit_workflow:
+                    raise _frozen_unit_workflow_required_error(
+                        selection=selection,
+                        decision_text=decision_text,
+                        frozen_units=frozen_units,
+                        response=SolverResponse(raw_output=raw_output),
+                        labeling_result=recovered,
+                    )
+                journal.commit_reconstruction_recovery(
+                    evidence.attempt_ordinal,
+                    raw_response_json=evidence.raw_response_json,
+                    normalized_response_json=evidence.normalized_response_json,
+                    record={
+                        "labels": [label.to_record() for label in recovered.labels],
+                        "finding_count": len(findings),
+                        "missing_unit_flag_count": len(missing_flags),
+                        "decision_text_commitment": dict(decision_text_commitment),
+                    },
+                )
+            except FrozenUnitWorkflowRequiredError:
+                raise
+            except (LlmPipelineError, ValueError):
+                # Retain the response as reconstruction_failed and let the fixed
+                # retry budget decide whether one fresh provider call is allowed.
+                pass
         max_attempts = _reconstruction_retry_max_attempts(journal)
         response = complete_live_prompt(
             registry_entry,

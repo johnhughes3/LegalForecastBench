@@ -10,6 +10,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
 
+from legalforecast.contracts.schemas import CYCLE_GROUPED_LABEL_AUDIT_PACKET_V1
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.labeling.label_outcomes import UnitResolution
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
@@ -21,6 +23,7 @@ JsonRecord = dict[str, Any]
 PLAN_SCHEMA_VERSION = "legalforecast.cycle_label_audit_plan.v1"
 QUEUE_SCHEMA_VERSION = "legalforecast.lawyer_review_queue.v1"
 STRATA = ("unanimous_grant", "unanimous_deny", "partial")
+CASE_GROUPED_PACKET_SCHEMA_VERSION = str(CYCLE_GROUPED_LABEL_AUDIT_PACKET_V1)
 
 
 class CycleLabelAuditError(ValueError):
@@ -509,6 +512,143 @@ def _queue_record(
         "route_reason": "label_audit_sample",
         "cycle_label_audit_plan_sha256": plan_sha256,
         "packet": packet,
+    }
+
+
+def render_case_grouped_label_audit_packet(
+    queue_records: Iterable[Mapping[str, Any]],
+) -> JsonRecord:
+    """Render a non-authoritative attorney packet from immutable audit queue rows.
+
+    The canonical per-review queue remains the adjudication input.  This view
+    deduplicates identical disposition evidence within a case while retaining a
+    separate, fully identified review item for every sampled unit.
+    """
+
+    grouped: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for record in queue_records:
+        if _required_str(record, "route_reason") != "label_audit_sample":
+            raise CycleLabelAuditError(
+                "case-grouped packet accepts only label_audit_sample queue rows"
+            )
+        grouped[_required_str(record, "case_id")].append(record)
+
+    cases: list[JsonRecord] = []
+    for case_id in sorted(grouped):
+        rows = sorted(grouped[case_id], key=lambda row: _required_str(row, "review_id"))
+        candidate_ids = {_required_str(row, "candidate_id") for row in rows}
+        if len(candidate_ids) != 1:
+            raise CycleLabelAuditError(
+                f"case-grouped packet requires one candidate per case: {case_id}"
+            )
+        evidence: JsonRecord | None = None
+        review_items: list[JsonRecord] = []
+        for row in rows:
+            packet = _mapping(row.get("packet"), "packet")
+            candidate_id = _required_str(row, "candidate_id")
+            if _required_str(packet, "candidate_id") != candidate_id:
+                raise CycleLabelAuditError(
+                    f"packet candidate identity mismatch: {candidate_id}"
+                )
+            review_id = _required_str(row, "review_id")
+            if _required_str(packet, "review_id") != review_id:
+                raise CycleLabelAuditError(
+                    f"packet review identity mismatch: {review_id}"
+                )
+            unit_id = _required_str(row, "unit_id")
+            if _required_str(packet, "unit_id") != unit_id:
+                raise CycleLabelAuditError(
+                    f"packet unit identity mismatch: {review_id}"
+                )
+            materials = _records(packet.get("materials"), "packet.materials")
+            decision_materials = [
+                material
+                for material in materials
+                if material.get("is_decision_material") is True
+            ]
+            if len(decision_materials) != 1:
+                raise CycleLabelAuditError(
+                    "case-grouped packet requires one disposition evidence: "
+                    f"{review_id}"
+                )
+            current_evidence = {
+                **dict(decision_materials[0]),
+                # Queue material IDs are intentionally unit-scoped.  This
+                # observational view needs one case-scoped identity so two
+                # units citing the same disposition compare equal.
+                "material_id": f"{case_id}:first-written-disposition",
+            }
+            if evidence is None:
+                evidence = current_evidence
+            elif evidence != current_evidence:
+                raise CycleLabelAuditError(
+                    f"conflicting disposition evidence for case: {case_id}"
+                )
+            blind_reliability_study = packet.get("blind_reliability_study")
+            if not isinstance(blind_reliability_study, bool):
+                raise CycleLabelAuditError(
+                    f"packet blind_reliability_study is required: {review_id}"
+                )
+            review_items.append(
+                {
+                    "review_id": review_id,
+                    "candidate_id": candidate_id,
+                    "unit_id": unit_id,
+                    "audience": _required_str(packet, "audience"),
+                    "blind_reliability_study": blind_reliability_study,
+                    "review_reason": _required_str(packet, "review_reason"),
+                    "materials": [
+                        dict(material)
+                        for material in materials
+                        if material.get("is_decision_material") is not True
+                    ],
+                }
+            )
+        if evidence is None:  # pragma: no cover - rows is non-empty by construction.
+            raise CycleLabelAuditError(f"case has no disposition evidence: {case_id}")
+        cases.append(
+            {
+                "case_id": case_id,
+                "candidate_id": next(iter(candidate_ids)),
+                "disposition_evidence": evidence,
+                "review_items": review_items,
+            }
+        )
+    return {"schema_version": CASE_GROUPED_PACKET_SCHEMA_VERSION, "cases": cases}
+
+
+def case_grouped_label_audit_packet_metrics(
+    queue_records: Iterable[Mapping[str, Any]],
+) -> JsonRecord:
+    """Measure the byte and repeated-disposition savings of the rendered view."""
+
+    queue = tuple(queue_records)
+    packet = render_case_grouped_label_audit_packet(queue)
+    canonical_queue_bytes = sum(
+        len(
+            canonical_json_bytes(
+                record,
+                error_type=CycleLabelAuditError,
+                error_message="case-grouped packet queue cannot be canonicalized",
+            )
+        )
+        for record in queue
+    )
+    rendered_packet_bytes = len(
+        canonical_json_bytes(
+            packet,
+            error_type=CycleLabelAuditError,
+            error_message="case-grouped packet cannot be canonicalized",
+        )
+    )
+    source_disposition_count = len(queue)
+    rendered_disposition_count = len(cast(list[object], packet["cases"]))
+    return {
+        "canonical_queue_bytes": canonical_queue_bytes,
+        "case_grouped_packet_bytes": rendered_packet_bytes,
+        "packet_byte_reduction": canonical_queue_bytes - rendered_packet_bytes,
+        "source_disposition_count": source_disposition_count,
+        "rendered_disposition_count": rendered_disposition_count,
     }
 
 

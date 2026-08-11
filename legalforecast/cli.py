@@ -622,6 +622,11 @@ from legalforecast.ingestion.pacer_gap_append_rebase import (
     verify_append_only_snapshot_union,
     verify_screened_case_projection,
 )
+from legalforecast.ingestion.packet_artifact_serialization import (
+    PacketArtifactPaths,
+    PacketArtifactRecords,
+    write_packet_artifacts_incrementally,
+)
 from legalforecast.ingestion.packet_input_planner import plan_packet_build_inputs
 from legalforecast.ingestion.packet_role_adjudication import (
     AuthenticatedPacketRoleEvidence,
@@ -992,6 +997,7 @@ from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
     evaluate_cycle_label_audit,
     plan_cycle_label_audit,
+    render_case_grouped_label_audit_packet,
 )
 from legalforecast.labeling.label_outcomes import (
     AmendmentSignal,
@@ -10196,6 +10202,7 @@ def _add_acquisition_plan_label_audit_arguments(
     )
     parser.add_argument("--cycle-label-audit-plan-output", type=Path)
     parser.add_argument("--cycle-label-audit-summary-output", type=Path)
+    parser.add_argument("--case-grouped-label-audit-packet-output", type=Path)
     parser.add_argument("--adjudication-routing-summary-output", type=Path)
     parser.add_argument("--planned-llm-label-audit-output", type=Path)
     parser.add_argument("--lawyer-review-queue-output", type=Path)
@@ -64920,6 +64927,11 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
         "cycle_label_audit_summary_output",
         output_root / "cycle-label-audit-summary.json",
     )
+    grouped_packet_path = _acquisition_path(
+        args,
+        "case_grouped_label_audit_packet_output",
+        output_root / "case-grouped-label-audit-packet.json",
+    )
     routing_summary_path = _acquisition_path(
         args,
         "adjudication_routing_summary_output",
@@ -64948,6 +64960,10 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
         )
         _write_jsonl(planned_audit_path, [])
         _write_jsonl(queue_path, _read_records(existing_queue_path))
+        _write_json(
+            grouped_packet_path,
+            {"stage": "plan-label-audit", "dry_run": True},
+        )
         _write_json(summary_path, {"stage": "plan-label-audit", "dry_run": True})
         _write_json(
             routing_summary_path,
@@ -65005,6 +65021,10 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
             [queue_by_review_id[key] for key in sorted(queue_by_review_id)],
         )
         _write_json(
+            grouped_packet_path,
+            render_case_grouped_label_audit_packet(audit_queue),
+        )
+        _write_json(
             summary_path,
             {
                 "schema_version": "legalforecast.cycle_label_audit_summary.v1",
@@ -65057,6 +65077,7 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
             routing_summary_path,
             planned_audit_path,
             queue_path,
+            grouped_packet_path,
         ),
         record_count=record_count,
         dry_run=dry_run,
@@ -65963,24 +65984,25 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             ],
         )
     else:
-        assemblies = tuple(
-            _model_packet_assembly(
-                record,
-                ablation=PacketAblation(cast(str, args.ablation)),
+
+        def build_artifacts(record: Mapping[str, Any]) -> PacketArtifactRecords:
+            assembly = _model_packet_assembly(
+                record, ablation=PacketAblation(cast(str, args.ablation))
             )
-            for record in records
-        )
-        _write_jsonl(
-            packets_path,
-            [assembly.model_packet.to_record() for assembly in assemblies],
-        )
-        _write_jsonl(
-            case_packets_path,
-            [assembly.case_packet.to_record() for assembly in assemblies],
-        )
-        _write_jsonl(
-            audit_path,
-            [assembly.audit_bundle for assembly in assemblies],
+            return PacketArtifactRecords(
+                packet=assembly.model_packet.to_record(),
+                case_packet=assembly.case_packet.to_record(),
+                audit=assembly.audit_bundle,
+            )
+
+        write_packet_artifacts_incrementally(
+            paths=PacketArtifactPaths(
+                packets=packets_path,
+                case_packets=case_packets_path,
+                audit=audit_path,
+            ),
+            source_records=records,
+            build_artifacts=build_artifacts,
         )
     if not dry_run and replay is None:
         raise AssertionError("executed packet build lacks verified replay")

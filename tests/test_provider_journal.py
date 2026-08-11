@@ -870,6 +870,53 @@ def test_journal_selects_latest_reconstruction_failure_evidence(tmp_path: Path) 
     assert json.loads(evidence.normalized_response_json)["raw_output"] == "second"
 
 
+def test_recovered_second_attempt_replays_without_returning_to_failed_first_attempt(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        with pytest.raises(LiveModelProviderError):
+            journal.run_attempt(
+                1,
+                lambda: _raise_provider_error(
+                    LiveModelProviderError("invalid request", status_code=400)
+                ),
+            )
+        journal.run_attempt(1, lambda: {"output_text": "recoverable"})
+        assert journal.durable_attempt_ordinal(1) == 2
+        journal.settle_attempt(
+            2,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="recoverable",
+        )
+        journal.record_reconstruction_failure(ValueError("old local validator"))
+        evidence = journal.latest_reconstruction_recovery_evidence()
+        journal.commit_reconstruction_recovery(
+            evidence.attempt_ordinal,
+            raw_response_json=evidence.raw_response_json,
+            normalized_response_json=evidence.normalized_response_json,
+            record={"schema_version": "test.reconstruction.v1"},
+        )
+
+    calls = 0
+
+    def provider_must_not_run() -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("recovered response must replay provider-free")
+
+    with _journal(path) as replay:
+        assert replay.prepare_reconstruction_retry(max_attempts=3) == 1
+        assert replay.durable_attempt_ordinal(1) == 2
+        assert replay.run_attempt(1, provider_must_not_run) == {
+            "output_text": "recoverable"
+        }
+
+    assert calls == 0
+
+
 def test_journal_reads_only_exact_repeated_identical_reconstruction_failures(
     tmp_path: Path,
 ) -> None:

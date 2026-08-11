@@ -173,6 +173,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`mistral_markdown_parser.py`](../legalforecast/ingestion/mistral_markdown_parser.py) | Local conversion of acquired documents to Markdown. |
 | [`model_packet_assembly.py`](../legalforecast/ingestion/model_packet_assembly.py) | Final model packets from docket and parsed artifacts. |
 | [`operative_complaint.py`](../legalforecast/ingestion/operative_complaint.py) | Strict operative-complaint selection. |
+| [`packet_artifact_serialization.py`](../legalforecast/ingestion/packet_artifact_serialization.py) | Incremental, rollback-safe publication of packet artifact projections. |
 | [`packet_input_planner.py`](../legalforecast/ingestion/packet_input_planner.py) | Authenticated packet-build and private-store inputs. |
 | [`packet_role_adjudication.py`](../legalforecast/ingestion/packet_role_adjudication.py) | Human role adjudication against parser evidence. |
 | [`public_packet_planner.py`](../legalforecast/ingestion/public_packet_planner.py) | Free public document download plans. |
