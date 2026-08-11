@@ -13,6 +13,7 @@ import legalforecast.cli as legalforecast_cli
 import pytest
 from legalforecast.contracts import EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
 from legalforecast.ingestion import supporting_document_successor_cli as successor_cli
+from legalforecast.ingestion.disclosure_clearance import require_clearance_policy
 from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadError,
     FreeDocumentFetch,
@@ -365,6 +366,19 @@ def test_successor_executor_writes_replays_and_detects_tamper(
         "supplemental manifest",
     )
     assert len(supplemental) == 6
+    supplemental_clearance = successor_cli._jsonl(
+        (output / successor_cli._OUTPUTS["supplemental_clearance"]).read_bytes(),
+        "supplemental clearance",
+    )
+    added_clearance = supplemental_clearance[-1]
+    require_clearance_policy(
+        added_clearance,
+        key=(
+            str(added_clearance["candidate_id"]),
+            str(added_clearance["source_document_id"]),
+        ),
+        label="supporting successor document",
+    )
     state = successor_cli._object(
         (output / successor_cli._OUTPUTS["state"]).read_bytes(), "successor state"
     )

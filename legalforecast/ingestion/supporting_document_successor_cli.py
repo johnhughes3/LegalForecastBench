@@ -550,9 +550,9 @@ def _addition_records(
         "reviewed_at": None,
         "free_or_purchased": "free",
         "clearance_basis": "affirmative_public_provenance",
-        "routing_plan_sha256": _sha(
+        "routing_plan_sha256": hashlib.sha256(
             base_selection + plan.record_bytes + _bytes(addition)
-        ),
+        ).hexdigest(),
     }
     restriction: dict[str, object] = {
         "schema_version": str(SUPPORTING_DOCUMENT_RESTRICTION_EVIDENCE_V1),
