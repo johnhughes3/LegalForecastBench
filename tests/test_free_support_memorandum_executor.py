@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import legalforecast.cli as cli
 import legalforecast.ingestion.free_support_memorandum_executor as executor
 import legalforecast.ingestion.free_support_memorandum_executor_cli as executor_cli
 import legalforecast.ingestion.free_support_memorandum_recovery as planner
@@ -93,6 +94,22 @@ def _selection() -> bytes:
     )
 
 
+def _materializer_v2_projection(tmp_path: Path, selection: bytes) -> dict[str, object]:
+    successor_root = tmp_path / "successor"
+    successor_root.mkdir()
+    selection_path = successor_root / "target-cohort-selection.jsonl"
+    selection_path.write_bytes(selection)
+    return {
+        "run_card": {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2)
+        },
+        "selection_path": selection_path,
+        "selection_records": tuple(
+            json.loads(line) for line in selection.splitlines() if line
+        ),
+    }
+
+
 @pytest.fixture
 def verified_plan(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -155,6 +172,38 @@ def test_executes_one_additive_public_source_and_replays(
     assert replay.projection["augmented_selection_document_count"] == 101
     assert replay.clearance.to_record()["status"] == "cleared"
 
+    v2_projection = _materializer_v2_projection(tmp_path, selection)
+    source, snapshots, metadata, restriction = (
+        cli._materializer_successor_v2_source_augmentation(
+            augmentation_root=output_root,
+            plan_bytes=plan_bytes,
+            bridge_descriptor_path=bridge_path,
+            projection=v2_projection,
+            selection_bytes=selection,
+            authoritative_available_keys={
+                (str(row["candidate_id"]), str(document["source_document_id"]))
+                for row in v2_projection["selection_records"]
+                for document in row["documents"]
+            },
+        )
+    )
+    assert source.manifest == (replay.download.to_record(),)
+    assert source.clearance == (replay.clearance.to_record(),)
+    assert set(snapshots) == {
+        output_root / "source-augmentation.json",
+        output_root / "free-document-download.json",
+        output_root / "disclosure-clearance.json",
+    }
+    assert metadata["materializable_document_count"] == 101
+    assert restriction == {
+        "candidate_id": "73327542",
+        "source_document_id": "73327542-entry-14-motion-to-dismiss-memorandum",
+        "restriction_status": "public",
+        "restriction_evidence": ["courtlistener_public_download_record_checked"],
+        "is_sealed": False,
+        "is_private": False,
+    }
+
     materialization = prepare_cohort_document_materialization(
         (
             DocumentSource(
@@ -170,6 +219,49 @@ def test_executes_one_additive_public_source_and_replays(
         output_root=tmp_path / "materialized",
     )
     assert len(materialization.documents) == 1
+
+
+def test_materializer_rejects_tampered_augmentation_sidecar(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    verified_plan: tuple[Path, bytes],
+) -> None:
+    bridge_path, plan_bytes = verified_plan
+    monkeypatch.setattr(executor, "scan_disclosure_document", _complete_scan)
+    selection = _selection()
+    output_root = tmp_path / "augmentation"
+    result = executor.execute_free_support_memorandum_source_augmentation(
+        persisted_plan_bytes=plan_bytes,
+        bridge_descriptor_path=bridge_path,
+        corrected_selection_bytes=selection,
+        output_root=output_root,
+        source=FixtureFreeDocumentSource({_URL: b"%PDF-1.7\npublic memo"}),
+    )
+    for name, payload in (
+        ("free-document-request.json", result.request_bytes),
+        ("free-document-download.json", result.download_bytes),
+        ("disclosure-clearance.json", result.clearance_bytes),
+        ("source-augmentation.json", result.projection_bytes),
+    ):
+        (output_root / name).write_bytes(payload)
+    (output_root / "source-augmentation.json").write_bytes(b"{}\n")
+    v2_projection = _materializer_v2_projection(tmp_path, selection)
+
+    with pytest.raises(
+        cli.CommandError, match="source augmentation package did not replay"
+    ):
+        cli._materializer_successor_v2_source_augmentation(
+            augmentation_root=output_root,
+            plan_bytes=plan_bytes,
+            bridge_descriptor_path=bridge_path,
+            projection=v2_projection,
+            selection_bytes=selection,
+            authoritative_available_keys={
+                (str(row["candidate_id"]), str(document["source_document_id"]))
+                for row in v2_projection["selection_records"]
+                for document in row["documents"]
+            },
+        )
 
 
 def test_rejects_selection_that_already_contains_the_fixed_document(

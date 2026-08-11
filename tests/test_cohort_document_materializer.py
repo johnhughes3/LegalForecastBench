@@ -73,6 +73,34 @@ def _source(
     )
 
 
+def test_materializer_accepts_three_free_sources_then_purchased(
+    tmp_path: Path,
+) -> None:
+    buckets = tuple(tmp_path / name for name in ("one", "two", "three", "four"))
+    for bucket in buckets:
+        bucket.mkdir()
+    first, first_key = _source(
+        buckets[0], phase="free", candidate_id="1", document_id="free-one"
+    )
+    second, second_key = _source(
+        buckets[1], phase="free", candidate_id="2", document_id="free-two"
+    )
+    third, third_key = _source(
+        buckets[2], phase="free", candidate_id="3", document_id="free-three"
+    )
+    purchased, purchased_key = _source(
+        buckets[3], phase="purchased", candidate_id="4", document_id="paid-one"
+    )
+
+    materialization = prepare_cohort_document_materialization(
+        (first, second, third, purchased),
+        selected_document_keys={first_key, second_key, third_key, purchased_key},
+        output_root=tmp_path / "output",
+    )
+
+    assert len(materialization.documents) == 4
+
+
 def test_materializer_writable_path_validation_accepts_disjoint_outputs(
     tmp_path: Path,
 ) -> None:
