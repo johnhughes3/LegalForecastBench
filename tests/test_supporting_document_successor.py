@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,7 +13,10 @@ import legalforecast.cli as legalforecast_cli
 import pytest
 from legalforecast.contracts import EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
 from legalforecast.ingestion import supporting_document_successor_cli as successor_cli
-from legalforecast.ingestion.free_document_downloader import FreeDocumentFetch
+from legalforecast.ingestion.free_document_downloader import (
+    FreeDocumentDownloadError,
+    FreeDocumentFetch,
+)
 from legalforecast.ingestion.free_support_memorandum_recovery import (
     FreeSupportMemorandumRecoveryPlan,
 )
@@ -316,7 +320,9 @@ def _exact100_executor_fixture(
 
 
 def test_successor_executor_writes_replays_and_detects_tamper(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     v2_root, plan_path, bridge, projection, plan = _exact100_executor_fixture(tmp_path)
     monkeypatch.setattr(successor_cli, "_verified_plan", lambda *_args: plan)
@@ -350,11 +356,17 @@ def test_successor_executor_writes_replays_and_detects_tamper(
         )
         == 0
     )
+    fresh_result = json.loads(capsys.readouterr().out)
+    assert fresh_result["provider_activity_executed"] is True
     supplemental = successor_cli._jsonl(
         (output / successor_cli._OUTPUTS["supplemental_manifest"]).read_bytes(),
         "supplemental manifest",
     )
     assert len(supplemental) == 6
+    state = successor_cli._object(
+        (output / successor_cli._OUTPUTS["state"]).read_bytes(), "successor state"
+    )
+    assert state["provider_activity_executed"] is True
     assert (
         len(
             successor_cli._jsonl(
@@ -386,6 +398,29 @@ def test_successor_executor_writes_replays_and_detects_tamper(
             resume=True,
         )
         == 0
+    )
+    resumed_result = json.loads(capsys.readouterr().out)
+    assert resumed_result["provider_activity_executed"] is False
+    monkeypatch.setattr(
+        successor_cli,
+        "scan_disclosure_document",
+        lambda _payload: SimpleNamespace(
+            automated_markers=("restricted",), coverage_status="complete"
+        ),
+    )
+    with pytest.raises(
+        successor_cli.SupportingDocumentSuccessorCliError,
+        match="not cleared on replay",
+    ):
+        successor_cli.verify_supporting_document_successor_projection(
+            output, verifier=verifier
+        )
+    monkeypatch.setattr(
+        successor_cli,
+        "scan_disclosure_document",
+        lambda _payload: SimpleNamespace(
+            automated_markers=(), coverage_status="complete"
+        ),
     )
     supplemental_path = output / successor_cli._OUTPUTS["supplemental_manifest"]
     original_supplemental = supplemental_path.read_bytes()
@@ -467,3 +502,73 @@ def test_successor_rejects_input_overlap_before_fetch(
             resume=False,
         )
     assert calls == []
+
+
+def test_successor_translates_download_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    v2_root, plan_path, bridge, projection, plan = _exact100_executor_fixture(tmp_path)
+    monkeypatch.setattr(successor_cli, "_verified_plan", lambda *_args: plan)
+
+    class Source:
+        def fetch(self, source_url: str) -> FreeDocumentFetch:
+            assert source_url == successor_cli.SUPPORT_SOURCE_URL
+            raise FreeDocumentDownloadError("network unavailable")
+
+    with pytest.raises(
+        successor_cli.SupportingDocumentSuccessorCliError,
+        match="support memorandum download failed: network unavailable",
+    ):
+        successor_cli._run_with_test_dependencies(
+            v2_root=v2_root,
+            plan_path=plan_path,
+            bridge_descriptor=bridge,
+            output_root=tmp_path / "successor",
+            verifier=lambda _root: projection,
+            source=Source(),
+            resume=False,
+        )
+
+
+def test_purchase_approval_verifier_routes_supporting_successor_without_legacy_card(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target_root = tmp_path / "successor"
+    card_path = (
+        target_root / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    card_path.parent.mkdir(parents=True)
+    card_path.write_bytes(
+        successor_cli._bytes(
+            {
+                "schema_version": successor_cli.SCHEMA_VERSION,
+                "selected_case_count": 100,
+            }
+        )
+    )
+    expected = {"selection_records": ()}
+    calls: list[dict[str, object]] = []
+
+    def verify(**kwargs: object) -> dict[str, object]:
+        calls.append(dict(kwargs))
+        return expected
+
+    monkeypatch.setattr(
+        legalforecast_cli,
+        "_verify_supporting_document_downstream_projection",
+        verify,
+    )
+
+    assert (
+        legalforecast_cli.verify_completed_target_cohort_projection_for_purchase_approval(
+            target_root
+        )
+        is expected
+    )
+    assert calls == [
+        {
+            "target_root": target_root,
+            "free_clearance_path": target_root / "disclosure-clearance.jsonl",
+            "expected_target_count": 100,
+        }
+    ]

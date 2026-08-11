@@ -43848,49 +43848,11 @@ def _verify_materializer_projection(
         target_root / "run-cards/project-exact100-supporting-document-successor.json"
     )
     if supporting_card_path.is_file() and not supporting_card_path.is_symlink():
-        candidate_card = _projection_json_object(
-            _read_singly_linked_regular_input(
-                supporting_card_path, label="supporting-document successor run card"
-            ),
-            source=supporting_card_path,
+        return _verify_supporting_document_downstream_projection(
+            target_root=target_root,
+            free_clearance_path=free_clearance_path,
+            expected_target_count=expected_target_count,
         )
-        if (
-            candidate_card.get("schema_version")
-            == SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
-        ):
-            if (
-                free_clearance_path.resolve()
-                != (target_root / "disclosure-clearance.jsonl").resolve()
-                or candidate_card.get("selected_case_count") != expected_target_count
-            ):
-                raise CommandError("supporting-document materializer inputs differ")
-
-            def verify_v2(root: Path) -> Mapping[str, object]:
-                card_path = root / "run-cards/project-target-cohort.json"
-                card = _projection_json_object(
-                    _read_singly_linked_regular_input(
-                        card_path, label="supporting-document v2 run card"
-                    ),
-                    source=card_path,
-                )
-                return verify_exact100_successor_replacement_v2_projection(
-                    root,
-                    replay=_replay_exact100_successor_replacement_v2_inputs,
-                    args=_exact100_successor_v2_replay_args(card),
-                )
-
-            try:
-                return _mint_verified_successor_selection_card_from_projection(
-                    verify_supporting_document_successor_projection(
-                        target_root, verifier=verify_v2
-                    ),
-                    replay_attestation=_SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION,
-                )
-            except (
-                Exact100SuccessorReplacementV2CliError,
-                SupportingDocumentSuccessorCliError,
-            ) as exc:
-                raise CommandError(str(exc)) from exc
     if run_card_path.is_file() and not run_card_path.is_symlink():
         candidate_card = _projection_json_object(
             _read_singly_linked_regular_input(
@@ -44343,6 +44305,59 @@ def _verify_materializer_projection(
     }
 
 
+def _verify_supporting_document_downstream_projection(
+    *,
+    target_root: Path,
+    free_clearance_path: Path,
+    expected_target_count: int,
+) -> dict[str, object]:
+    """Replay one supporting-document successor for downstream consumers."""
+
+    card_path = (
+        target_root / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            card_path, label="supporting-document successor run card"
+        ),
+        source=card_path,
+    )
+    if (
+        card.get("schema_version") != SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
+        or card.get("selected_case_count") != expected_target_count
+        or free_clearance_path.resolve()
+        != (target_root / "disclosure-clearance.jsonl").resolve()
+    ):
+        raise CommandError("supporting-document materializer inputs differ")
+
+    def verify_v2(root: Path) -> Mapping[str, object]:
+        v2_card_path = root / "run-cards/project-target-cohort.json"
+        v2_card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                v2_card_path, label="supporting-document v2 run card"
+            ),
+            source=v2_card_path,
+        )
+        return verify_exact100_successor_replacement_v2_projection(
+            root,
+            replay=_replay_exact100_successor_replacement_v2_inputs,
+            args=_exact100_successor_v2_replay_args(v2_card),
+        )
+
+    try:
+        return _mint_verified_successor_selection_card_from_projection(
+            verify_supporting_document_successor_projection(
+                target_root, verifier=verify_v2
+            ),
+            replay_attestation=_SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION,
+        )
+    except (
+        Exact100SuccessorReplacementV2CliError,
+        SupportingDocumentSuccessorCliError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+
+
 def verify_completed_target_cohort_projection_for_purchase_approval(
     target_root: Path,
     *,
@@ -44356,6 +44371,22 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
     cannot drift into a weaker parallel interpretation of preparation,
     disclosure-clearance, snapshot, run-card, or output commitments.
     """
+
+    supporting_card_path = (
+        target_root / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    if supporting_card_path.is_file() and not supporting_card_path.is_symlink():
+        supporting_card = _projection_json_object(
+            _read_singly_linked_regular_input(
+                supporting_card_path, label="supporting-document successor run card"
+            ),
+            source=supporting_card_path,
+        )
+        return _verify_supporting_document_downstream_projection(
+            target_root=target_root,
+            free_clearance_path=target_root / "disclosure-clearance.jsonl",
+            expected_target_count=_required_int(supporting_card, "selected_case_count"),
+        )
 
     run_card_path = target_root / "run-cards/project-target-cohort.json"
     run_card_bytes = _read_singly_linked_regular_input(

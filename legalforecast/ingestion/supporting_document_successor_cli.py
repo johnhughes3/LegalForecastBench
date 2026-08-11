@@ -24,6 +24,7 @@ from legalforecast.contracts import (
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.disclosure_clearance import scan_disclosure_document
 from legalforecast.ingestion.free_document_downloader import (
+    FreeDocumentDownloadError,
     FreeDocumentFetch,
     FreeDocumentSource,
     UrlLibFreeDocumentSource,
@@ -277,7 +278,12 @@ def _run(
         document_source = source or UrlLibFreeDocumentSource(
             final_url_validator=_require_exact_final_url
         )
-        fetched = document_source.fetch(SUPPORT_SOURCE_URL)
+        try:
+            fetched = document_source.fetch(SUPPORT_SOURCE_URL)
+        except FreeDocumentDownloadError as exc:
+            raise SupportingDocumentSuccessorCliError(
+                f"support memorandum download failed: {exc}"
+            ) from exc
         addition, clearance, restriction, document = _addition_records(
             plan=plan,
             base_selection=cast(bytes, projection["selection_bytes"]),
@@ -736,7 +742,7 @@ def _state(
         "paid_activity_executed": False,
         "pacer_activity_executed": False,
         "recap_fetch_activity_executed": False,
-        "provider_activity_executed": False,
+        "provider_activity_executed": True,
         "evaluation_permitted": False,
         "freeze_permitted": False,
         "dispatch_permitted": False,
@@ -812,6 +818,16 @@ def _verify_completed_output(
         "byte_count"
     ) != len(document):
         raise SupportingDocumentSuccessorCliError("support memorandum bytes differ")
+    scan = scan_disclosure_document(document)
+    if (
+        scan.automated_markers
+        or scan.coverage_status != "complete"
+        or clearance.get("status") != "cleared"
+        or clearance.get("automated_markers") != list(scan.automated_markers)
+    ):
+        raise SupportingDocumentSuccessorCliError(
+            "support memorandum is not cleared on replay"
+        )
     promoted_records, promoted_clearance, promoted_documents = _supplemental_promoted(
         projection
     )
@@ -1091,6 +1107,7 @@ def _write_immutable_at(root_fd: int, relative: Path, payload: bytes) -> None:
             try:
                 os.unlink(relative.name, dir_fd=parent)
             except FileNotFoundError:
+                # Another cleanup path already removed the partial leaf.
                 pass
             raise
     except FileExistsError as exc:
@@ -1148,7 +1165,7 @@ def _print_result(output_root: Path, *, resumed: bool) -> None:
                 "paid_activity_executed": False,
                 "pacer_activity_executed": False,
                 "recap_fetch_activity_executed": False,
-                "provider_activity_executed": False,
+                "provider_activity_executed": not resumed,
             },
             sort_keys=True,
         )
