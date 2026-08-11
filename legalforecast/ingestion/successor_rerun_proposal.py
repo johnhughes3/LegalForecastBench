@@ -184,10 +184,10 @@ def load_successor_proposal(path: Path) -> SuccessorProposal:
             "successor proposal document_root is unavailable or unsafe"
         )
     successor_root = _absolute_path(raw, "successor_output_root")
-    if successor_root == document_root or successor_root in document_root.parents:
-        raise SuccessorRerunProposalError(
-            "successor output root overlaps proposed document input"
-        )
+    _require_isolated_successor_root(
+        successor_root,
+        committed_inputs=(*paths.values(), document_root),
+    )
     return SuccessorProposal(
         cycle_id=_text(raw, "cycle_id"),
         selection_path=paths["selection_path"],
@@ -266,6 +266,51 @@ def bind_verified_successor_proposal(
             provider_journal_path=Path("/not-evaluated/provider-journal.sqlite3"),
         ),
     )
+
+
+def successor_derived_output_paths(root: Path) -> tuple[Path, ...]:
+    """Return every file or tree deterministically named by advisory argv."""
+
+    return (
+        root,
+        root / "parse-document-requests.jsonl",
+        root / "mistral-markdown-conversions.jsonl",
+        root / "markdown",
+        root / "target-document-eligibility-audit.jsonl",
+        root / "prediction-units.jsonl",
+        root / "llm-unitization-audit.jsonl",
+        root / "unitization-review-queue.jsonl",
+        root / "run-cards" / "plan-parse-documents.json",
+        root / "run-cards" / "parse-documents.json",
+        root / "run-cards" / "audit-stage-a-target-eligibility.json",
+        root / "run-cards" / "llm-unitize.json",
+        root / "logs" / "plan-parse-documents.jsonl",
+        root / "logs" / "parse-documents.jsonl",
+        root / "logs" / "audit-stage-a-target-eligibility.jsonl",
+        root / "logs" / "llm-unitize.jsonl",
+    )
+
+
+def _require_isolated_successor_root(
+    root: Path, *, committed_inputs: Sequence[Path]
+) -> None:
+    resolved_inputs = tuple(path.resolve() for path in committed_inputs)
+    for output in successor_derived_output_paths(root):
+        resolved_output = output.resolve()
+        for input_path in resolved_inputs:
+            if _paths_overlap(resolved_output, input_path):
+                raise SuccessorRerunProposalError(
+                    "successor derived output overlaps committed input: "
+                    f"{output} vs {input_path}"
+                )
+    if root.exists() or root.is_symlink():
+        raise SuccessorRerunProposalError(
+            "successor output root must be a new isolated path"
+        )
+
+
+def _paths_overlap(left: Path, right: Path) -> bool:
+    return left == right or left in right.parents or right in left.parents
 
 
 def parser_reuse_evidence_from_authenticated_artifacts(

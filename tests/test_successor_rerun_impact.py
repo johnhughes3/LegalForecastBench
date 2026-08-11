@@ -33,6 +33,7 @@ from legalforecast.ingestion.successor_rerun_proposal import (
     SuccessorRerunProposalError,
     bind_verified_successor_proposal,
     load_successor_proposal,
+    successor_derived_output_paths,
 )
 from legalforecast.labeling.provider_journal import ProviderCallIdentity
 
@@ -320,10 +321,290 @@ def test_cli_failed_current_card_and_ambiguous_lineage_are_fail_closed(
     assert "not unique" in ambiguous_stages[0]["diagnostics"][0]["message"]
 
 
+@pytest.mark.parametrize(
+    ("relative_path", "message"),
+    [
+        ("current-parse-card.json", "authenticated Stage A input changed"),
+        (
+            "current-documents/candidate-a/document-a.pdf",
+            "authenticated Stage A document tree changed",
+        ),
+        (
+            "current-markdown/candidate-a/document-a.md",
+            "authenticated Stage A Markdown changed",
+        ),
+    ],
+)
+def test_cli_current_authenticated_lineage_mutation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    relative_path: str,
+    message: str,
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    _mutate_after_planning(monkeypatch, tmp_path / relative_path)
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 1
+    assert message in _failure_message(capsys)
+    _assert_only_path_changed(before, _tree_bytes(tmp_path), relative_path)
+
+
+def test_cli_parser_reauthentication_change_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    states: Iterator[object] = iter(
+        (
+            SimpleNamespace(artifacts_by_key={}, source={"snapshot": "before"}),
+            SimpleNamespace(artifacts_by_key={}, source={"snapshot": "after"}),
+        )
+    )
+
+    def next_parser_authentication(**_kwargs: object) -> object:
+        return next(states)
+
+    monkeypatch.setattr(
+        cli,
+        "_authenticate_live_mistral_parse_reuse",
+        next_parser_authentication,
+    )
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 1
+    assert "authenticated parser reuse changed during planning" in _failure_message(
+        capsys
+    )
+    assert _tree_bytes(tmp_path) == before
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    ["llm-card.json", "units.jsonl", "audit.jsonl", "queue.jsonl"],
+)
+def test_cli_terminal_snapshot_mutation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    relative_path: str,
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    _mutate_after_planning(monkeypatch, tmp_path / relative_path)
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 1
+    assert "llm-unitize terminal replay changed" in _failure_message(capsys)
+    _assert_only_path_changed(before, _tree_bytes(tmp_path), relative_path)
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "message"),
+    [
+        (
+            "materialization-card.json",
+            "materialization downstream lineage artifact changed",
+        ),
+        (
+            "documents/candidate-a/document-a.pdf",
+            "materialization document tree changed",
+        ),
+    ],
+)
+def test_cli_proposed_authenticated_lineage_mutation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    relative_path: str,
+    message: str,
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    _mutate_after_planning(monkeypatch, tmp_path / relative_path)
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 1
+    assert message in _failure_message(capsys)
+    _assert_only_path_changed(before, _tree_bytes(tmp_path), relative_path)
+
+
+def test_cli_provider_policy_is_parsed_and_hashed_from_one_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    policy_path = tmp_path / "policy.json"
+    expected = policy_path.read_bytes()
+    parse_snapshot = cli.load_provider_cycle_caps_bytes
+
+    def swap_after_parse(payload: bytes, *, source: Path) -> object:
+        assert payload == expected
+        result = parse_snapshot(payload, source=source)
+        policy_path.write_bytes(b'{"policy":"swapped"}')
+        return result
+
+    monkeypatch.setattr(cli, "load_provider_cycle_caps_bytes", swap_after_parse)
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 1
+    assert "authenticated proposed provider policy changed" in _failure_message(capsys)
+    _assert_only_path_changed(before, _tree_bytes(tmp_path), "policy.json")
+
+
+@pytest.mark.parametrize("target", ["proposal", "registry"])
+def test_cli_proposal_or_committed_input_mutation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    target: str,
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    path = tmp_path / ("proposal.json" if target == "proposal" else "registry.json")
+    _mutate_after_planning(monkeypatch, path)
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 1
+    message = _failure_message(capsys)
+    assert (
+        "successor proposal changed during planning" in message
+        if target == "proposal"
+        else "proposed model_registry_path bytes differ from proposal" in message
+    )
+    _assert_only_path_changed(before, _tree_bytes(tmp_path), path.name)
+
+
+def test_cli_active_lineage_status_mutation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
+    statuses: Iterator[dict[str, bool]] = iter(({"ok": True}, {"ok": False}))
+
+    def next_lineage_status(**_kwargs: object) -> dict[str, bool]:
+        return next(statuses)
+
+    monkeypatch.setattr(cli, "locate_cycle_lineage", next_lineage_status)
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 1
+    assert "active lineage changed during successor planning" in _failure_message(
+        capsys
+    )
+    assert _tree_bytes(tmp_path) == before
+
+
+@pytest.mark.parametrize(
+    "overlap",
+    ["ancestor", "document-descendant", "artifact-descendant"],
+)
+def test_successor_root_rejects_ancestor_and_descendant_input_overlap(
+    tmp_path: Path,
+    overlap: str,
+) -> None:
+    _proposal_fixture(tmp_path, replace_document=False)
+    proposal_path = tmp_path / "proposal.json"
+    record = json.loads(proposal_path.read_bytes())
+    successor_root = {
+        "ancestor": tmp_path,
+        "document-descendant": tmp_path / "documents" / "successor",
+        "artifact-descendant": tmp_path / "selection.jsonl" / "successor",
+    }[overlap]
+    record["successor_output_root"] = str(successor_root)
+    proposal_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
+
+    with pytest.raises(
+        SuccessorRerunProposalError,
+        match="successor derived output overlaps committed input",
+    ):
+        load_successor_proposal(proposal_path)
+
+
+def test_successor_root_must_be_new_and_derived_paths_are_complete(
+    tmp_path: Path,
+) -> None:
+    _proposal_fixture(tmp_path, replace_document=False)
+    successor = tmp_path / "successor"
+    successor.mkdir()
+    with pytest.raises(
+        SuccessorRerunProposalError, match="must be a new isolated path"
+    ):
+        load_successor_proposal(tmp_path / "proposal.json")
+
+    relative_outputs = {
+        path.relative_to(successor).as_posix()
+        for path in successor_derived_output_paths(successor)
+    }
+    assert relative_outputs == {
+        ".",
+        "parse-document-requests.jsonl",
+        "mistral-markdown-conversions.jsonl",
+        "markdown",
+        "target-document-eligibility-audit.jsonl",
+        "prediction-units.jsonl",
+        "llm-unitization-audit.jsonl",
+        "unitization-review-queue.jsonl",
+        "run-cards/plan-parse-documents.json",
+        "run-cards/parse-documents.json",
+        "run-cards/audit-stage-a-target-eligibility.json",
+        "run-cards/llm-unitize.json",
+        "logs/plan-parse-documents.jsonl",
+        "logs/parse-documents.jsonl",
+        "logs/audit-stage-a-target-eligibility.jsonl",
+        "logs/llm-unitize.jsonl",
+    }
+
+
 def _install_successful_cli_fixture(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> list[str]:
     current, proposal = _fixture(tmp_path, replace_document=True)
+    authenticated_parser_artifacts: dict[
+        tuple[str, str, str, int], tuple[Mapping[str, Any], bytes, bytes]
+    ] = {}
+    for source_key, evidence in current.parser_reuse_by_document.items():
+        markdown_bytes = f"authenticated-{source_key[0]}".encode()
+        authenticated_parser_artifacts[evidence.source_key] = (
+            {
+                "markdown_path": evidence.markdown_path,
+                "metadata_path": evidence.metadata_path,
+                "extracted_text": {
+                    "text_sha256": hashlib.sha256(markdown_bytes).hexdigest()
+                },
+            },
+            markdown_bytes,
+            f"metadata-{source_key[0]}".encode(),
+        )
+    parser_reuse = cli.parser_reuse_evidence_from_authenticated_artifacts(
+        authenticated_parser_artifacts
+    )
+    provider_rows = tuple(
+        {
+            "candidate_id": evidence.candidate_id,
+            "stage": evidence.stage,
+            "status": "settled",
+            "logical_call_key": evidence.logical_call_key,
+            "attempt_ordinal": evidence.attempt_ordinal,
+            "provider": evidence.provider,
+            "account": evidence.account,
+            "prompt_text": evidence.prompt_text,
+            "prompt_sha256": evidence.prompt_sha256,
+            "model_key": evidence.model_key,
+            "model_registry_sha256": evidence.model_registry_sha256,
+            "raw_response_json": evidence.raw_response_json,
+            "normalized_response_json": evidence.normalized_response_json,
+            "reconstructed_result_json": evidence.reconstructed_result_json,
+        }
+        for evidence in current.provider_reuse_by_candidate.values()
+    )
+    provider_reuse = cli.provider_reuse_evidence_from_verified_rows(provider_rows)
+    current = replace(
+        current,
+        parser_reuse_by_document=parser_reuse,
+        provider_reuse_by_candidate=provider_reuse,
+    )
     run_card = tmp_path / "llm-card.json"
     raw = tmp_path / "units.jsonl"
     audit = tmp_path / "audit.jsonl"
@@ -332,6 +613,9 @@ def _install_successful_cli_fixture(
     current_parser_card = current.parser_run_card_path
     current_parser_card.write_bytes(b'{"parser":"card"}')
     current.markdown_root.mkdir()
+    current_markdown = current.markdown_root / "candidate-a" / "document-a.md"
+    current_markdown.parent.mkdir()
+    current_markdown.write_bytes(b"authenticated markdown")
     for path in (raw, audit, queue):
         path.write_bytes(b"{}\n")
     journal.write_bytes(b"journal")
@@ -392,12 +676,24 @@ def _install_successful_cli_fixture(
         markdown_root=current.markdown_root,
         cohort_cycle_id=current.cycle_id,
         input_commitments={"parser_run_card": {"path": str(current_parser_card)}},
-        verified_provider_attempt_rows=(),
+        verified_provider_attempt_rows=provider_rows,
+        file_snapshots={current_parser_card: current_parser_card.read_bytes()},
+        document_tree=_relative_tree_bytes(current_root),
+        markdown_bytes={
+            current_markdown.relative_to(current.markdown_root).as_posix(): (
+                current_markdown.read_bytes()
+            )
+        },
     )
     verified_proposal = SimpleNamespace(
         artifact_bytes={
-            str(proposal.selection_path.absolute()): (
-                proposal.selection_path.read_bytes()
+            str(path.absolute()): path.read_bytes()
+            for path in (
+                proposal.selection_path,
+                proposal.selection_run_card_path,
+                proposal.download_manifest_path,
+                proposal.disclosure_clearance_path,
+                proposal.materialization_run_card_path,
             )
         },
         selection_records=proposal.require_inputs().selection_records,
@@ -406,8 +702,14 @@ def _install_successful_cli_fixture(
             for line in proposal.download_manifest_path.read_text().splitlines()
         ),
         verified_successor_selection_card=None,
+        document_tree=_relative_tree_bytes(proposal.document_root),
+        fresh_ledger_namespace=None,
+        docket_decision_authority=None,
     )
-    parser_authentication = SimpleNamespace(artifacts_by_key={}, source={})
+    parser_authentication = SimpleNamespace(
+        artifacts_by_key=authenticated_parser_artifacts,
+        source={"authenticated": True},
+    )
     snapshot = SimpleNamespace(close=lambda: None)
 
     def locate(**_kwargs: object) -> dict[str, bool]:
@@ -437,21 +739,12 @@ def _install_successful_cli_fixture(
     def registry_entries(*_args: object) -> tuple[tuple[object, ...], str]:
         return (registry_entry,), current.model_registry_sha256
 
-    def return_caps(_path: Path) -> object:
+    def return_caps(_payload: bytes, *, source: Path) -> object:
+        assert source == proposal.policy_path
         return caps
 
     def cycle_id(*_args: object, **_kwargs: object) -> str:
         return "cycle-1"
-
-    def parser_evidence(
-        _artifacts: Mapping[object, object],
-    ) -> Mapping[tuple[str, str], ParserReuseEvidence]:
-        return current.parser_reuse_by_document
-
-    def provider_evidence(
-        _rows: object,
-    ) -> Mapping[str, ProviderReuseEvidence]:
-        return current.provider_reuse_by_candidate
 
     def forbidden_writer(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("advisory CLI constructed a provider or artifact writer")
@@ -481,24 +774,8 @@ def _install_successful_cli_fixture(
         "_registry_entries_for_keys_bytes",
         registry_entries,
     )
-    monkeypatch.setattr(cli, "load_provider_cycle_caps", return_caps)
+    monkeypatch.setattr(cli, "load_provider_cycle_caps_bytes", return_caps)
     monkeypatch.setattr(cli, "_materialization_cohort_cycle_id", cycle_id)
-    monkeypatch.setattr(
-        cli,
-        "parser_reuse_evidence_from_authenticated_artifacts",
-        parser_evidence,
-    )
-    monkeypatch.setattr(
-        cli,
-        "provider_reuse_evidence_from_verified_rows",
-        provider_evidence,
-    )
-    monkeypatch.setattr(cli, "_require_stage_a_lineage_unchanged", no_op)
-    monkeypatch.setattr(
-        cli,
-        "_require_materialized_downstream_lineage_unchanged",
-        no_op,
-    )
     monkeypatch.setattr(
         "legalforecast.labeling.provider_journal.ProviderAttemptJournal.__init__",
         forbidden_writer,
@@ -703,6 +980,41 @@ def _rewrite_verified_bytes(
     envelope.download_manifest_path.write_bytes(_jsonl_bytes(downloads))
 
 
+def _mutate_after_planning(
+    monkeypatch: pytest.MonkeyPatch,
+    path: Path,
+) -> None:
+    original = cli.plan_successor_rerun_impact
+
+    def mutate(*args: object, **kwargs: object) -> object:
+        report = original(*args, **kwargs)
+        if path.name == "proposal.json":
+            record = json.loads(path.read_bytes())
+            record["successor_output_root"] = str(path.parent / "changed-successor")
+            path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
+        else:
+            path.write_bytes(path.read_bytes() + b"\nmutated")
+        return report
+
+    monkeypatch.setattr(cli, "plan_successor_rerun_impact", mutate)
+
+
+def _failure_message(capsys: pytest.CaptureFixture[str]) -> str:
+    report = cast(dict[str, Any], json.loads(capsys.readouterr().out))
+    stages = cast(list[dict[str, Any]], report["stages"])
+    return cast(str, stages[0]["diagnostics"][0]["message"])
+
+
+def _assert_only_path_changed(
+    before: Mapping[str, bytes], after: Mapping[str, bytes], relative_path: str
+) -> None:
+    assert before.keys() == after.keys()
+    assert before[relative_path] != after[relative_path]
+    assert {
+        path: payload for path, payload in before.items() if path != relative_path
+    } == {path: payload for path, payload in after.items() if path != relative_path}
+
+
 def _jsonl_bytes(records: list[dict[str, Any]]) -> bytes:
     return b"".join(
         json.dumps(record, sort_keys=True, separators=(",", ":")).encode() + b"\n"
@@ -711,6 +1023,14 @@ def _jsonl_bytes(records: list[dict[str, Any]]) -> bytes:
 
 
 def _tree_bytes(root: Path) -> dict[str, bytes]:
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _relative_tree_bytes(root: Path) -> dict[str, bytes]:
     return {
         path.relative_to(root).as_posix(): path.read_bytes()
         for path in sorted(root.rglob("*"))

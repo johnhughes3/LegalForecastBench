@@ -19551,7 +19551,12 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
         proposed_entries, proposed_registry_sha256 = _registry_entries_for_keys_bytes(
             proposed_registry_bytes, (proposal_envelope.model_key,)
         )
-        proposed_caps = load_provider_cycle_caps(proposal_envelope.policy_path)
+        proposed_policy_bytes = _read_singly_linked_regular_input(
+            proposal_envelope.policy_path, label="proposed provider policy"
+        )
+        proposed_caps = load_provider_cycle_caps_bytes(
+            proposed_policy_bytes, source=proposal_envelope.policy_path
+        )
         proposed_cycle_id = _materialization_cohort_cycle_id(
             proposal_envelope.materialization_run_card_path,
             captured_artifact_bytes=proposed_materialization.artifact_bytes,
@@ -19567,11 +19572,7 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             model_provider=proposed_entries[0].provider,
             provider_account=proposed_account,
             model_registry_sha256=proposed_registry_sha256,
-            policy_sha256=hashlib.sha256(
-                _read_singly_linked_regular_input(
-                    proposal_envelope.policy_path, label="proposed provider policy"
-                )
-            ).hexdigest(),
+            policy_sha256=hashlib.sha256(proposed_policy_bytes).hexdigest(),
         )
         current_documents = verified_documents_from_records(
             lineage.selection_records,
@@ -19624,6 +19625,10 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
         )
         _require_materialized_downstream_lineage_unchanged(
             proposed_materialization, document_root=proposal.document_root
+        )
+        _require_snapshot_unchanged(
+            {proposal.policy_path: proposed_policy_bytes},
+            label="authenticated proposed provider policy",
         )
         if load_successor_proposal(proposal_path) != proposal_envelope:
             raise SuccessorRerunImpactError(
