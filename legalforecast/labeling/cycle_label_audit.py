@@ -584,14 +584,19 @@ def render_case_grouped_label_audit_packet(
                 raise CycleLabelAuditError(
                     f"conflicting disposition evidence for case: {case_id}"
                 )
+            blind_reliability_study = packet.get("blind_reliability_study")
+            if not isinstance(blind_reliability_study, bool):
+                raise CycleLabelAuditError(
+                    f"packet blind_reliability_study is required: {review_id}"
+                )
             review_items.append(
                 {
                     "review_id": review_id,
                     "candidate_id": candidate_id,
                     "unit_id": unit_id,
                     "audience": _required_str(packet, "audience"),
-                    "blind_reliability_study": packet.get("blind_reliability_study"),
-                    "review_reason": packet.get("review_reason"),
+                    "blind_reliability_study": blind_reliability_study,
+                    "review_reason": _required_str(packet, "review_reason"),
                     "materials": [
                         dict(material)
                         for material in materials

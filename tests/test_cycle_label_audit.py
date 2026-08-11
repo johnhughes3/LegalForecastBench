@@ -300,6 +300,31 @@ def test_case_grouped_packet_rejects_multiple_candidates_for_a_case() -> None:
         render_case_grouped_label_audit_packet((queue[1], other_candidate))
 
 
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("blind_reliability_study", None),
+        ("blind_reliability_study", "true"),
+        ("review_reason", None),
+        ("review_reason", False),
+    ],
+)
+def test_case_grouped_packet_rejects_missing_or_invalid_required_item_fields(
+    field: str,
+    invalid_value: object,
+) -> None:
+    _, _, queue = _fixture_plan(_policy())
+    malformed = json.loads(json.dumps(queue[0]))
+    packet = malformed["packet"]
+    if invalid_value is None:
+        packet.pop(field)
+    else:
+        packet[field] = invalid_value
+
+    with pytest.raises(CycleLabelAuditError, match=field):
+        render_case_grouped_label_audit_packet((malformed,))
+
+
 def test_case_grouped_packet_metrics_reduce_multi_unit_disposition_bytes() -> None:
     _, _, queue = _fixture_plan(_policy())
     duplicate = json.loads(
