@@ -420,6 +420,12 @@ def test_successor_rerun_public_contract_is_linked_and_load_bearing(
         contract
     )
     assert "requires_separate_authorization" in contract
+    assert "legalforecast.commitment.artifact-canonical-json.raw-sha256.v1" in contract
+    assert "domain-separated by `legalforecast.successor_rerun_impact.v1`" in contract
+    assert "profile codec's single trailing newline" in contract
+    assert "`successor_output_root` is an absolute alias" in contract
+    assert "canonical resolved root is the path exposed" in contract
+    assert "alias is resolved again after planning" in contract
     assert "[successor-rerun-impact-v1.md](schemas/successor-rerun-impact-v1.md)" in (
         index
     )
