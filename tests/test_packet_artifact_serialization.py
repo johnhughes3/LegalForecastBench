@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 import weakref
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -166,20 +165,28 @@ def test_incremental_packet_artifacts_retain_only_the_current_case(
     tmp_path: Path,
 ) -> None:
     paths = _paths(tmp_path)
-    observed: list[weakref.ReferenceType[_TrackedArtifacts]] = []
+    observed: list[weakref.ReferenceType[_TrackedPayload]] = []
 
     def build_artifacts(row: int) -> PacketArtifactRecords:
-        tracked = _TrackedArtifacts(row)
-        observed.append(weakref.ref(tracked))
+        payload = _TrackedPayload({"row": row, "payload": "x" * 4096})
+        observed.append(weakref.ref(payload))
         return PacketArtifactRecords(
-            packet={"row": tracked.row, "payload": "x" * 4096},
-            case_packet={"row": tracked.row, "payload": "x" * 4096},
-            audit={"row": tracked.row, "payload": "x" * 4096},
+            packet=payload,
+            case_packet=payload,
+            audit=payload,
         )
+
+    def source_records() -> Iterator[int]:
+        for row in range(32):
+            # An aggregating implementation retains prior payloads while it
+            # consumes the source. Incremental serialization releases them
+            # before requesting the next row.
+            assert all(reference() is None for reference in observed)
+            yield row
 
     write_packet_artifacts_incrementally(
         paths=paths,
-        source_records=range(32),
+        source_records=source_records(),
         build_artifacts=build_artifacts,
     )
 
@@ -188,9 +195,20 @@ def test_incremental_packet_artifacts_retain_only_the_current_case(
     assert all(reference() is None for reference in observed)
 
 
-@dataclass
-class _TrackedArtifacts:
-    row: int
+class _TrackedPayload(Mapping[str, Any]):
+    """Weak-referenceable serialized payload used to observe retention."""
+
+    def __init__(self, data: Mapping[str, Any]) -> None:
+        self._data = dict(data)
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
 
 
 def _paths(tmp_path: Path) -> PacketArtifactPaths:
