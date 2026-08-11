@@ -1426,9 +1426,9 @@ def test_reused_evidence_success_path_keeps_six_source_and_three_namespace_check
                 execution_binding=binding,
             )
         binding.require_current(plan)
-        require_target_public_gap_sources_unchanged(plan)
+        target_gap_module.require_target_public_gap_sources_unchanged(plan)
 
-    assert calls == {"preflight": 3, "source": 5}
+    assert calls == {"preflight": 3, "source": 6}
     assert (
         plan.execution_identity.output_root / "target-public-gap-outcomes.jsonl"
     ).read_bytes() == payloads["target-public-gap-outcomes.jsonl"]
