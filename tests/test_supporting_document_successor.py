@@ -381,6 +381,32 @@ def test_successor_executor_writes_replays_and_detects_tamper(
     verified = successor_cli.verify_supporting_document_successor_projection(
         output, verifier=verifier
     )
+    monkeypatch.setattr(
+        legalforecast_cli,
+        "_verify_materializer_projection",
+        lambda **_kwargs: verified,
+    )
+    outer, recovery_selection_path, recovery_selection = (
+        legalforecast_cli._materializer_consolidated_target_inputs(
+            target_root=output,
+            free_clearance_path=output / "disclosure-clearance.jsonl",
+            preparation_summary_path=tmp_path / "preparation-summary.json",
+            preparation_config_path=tmp_path / "preparation-config.json",
+            snapshot_manifest_path=tmp_path / "snapshot.json",
+            expected_target_count=100,
+        )
+    )
+    assert outer is verified
+    assert recovery_selection_path == projection["selection_path"]
+    assert recovery_selection == list(projection["selection_records"])  # type: ignore[arg-type]
+    assert (
+        legalforecast_cli._select_materializer_projection_after_recovery(
+            outer_projection=outer,
+            recovery_projection=projection,
+            recovery_selection=recovery_selection,
+        )
+        is verified
+    )
     sources = legalforecast_cli._materializer_successor_v2_free_sources(
         verified,
         preparation_root=tmp_path / "preparation",
