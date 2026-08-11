@@ -8,6 +8,7 @@ on:
         required: true
         type: choice
         options:
+          - import
           - plan
           - apply
       module:
@@ -17,9 +18,40 @@ on:
         options:
           - provider-authority
           - official-labeling
+          - official-eval
       release_sha:
         description: Exact trusted commit SHA on main
         required: true
+        type: string
+      import_address:
+        description: Import only - exact reviewed Terraform address
+        required: false
+        default: ""
+        type: string
+      import_id_sha256:
+        description: Import only - SHA-256 of the protected exact import ID
+        required: false
+        default: ""
+        type: string
+      import_authorization_sha256:
+        description: Import only - separately reviewed exact-request commitment
+        required: false
+        default: ""
+        type: string
+      import_operator_role_identity_sha256:
+        description: Import only - reviewed operator-role identity commitment
+        required: false
+        default: ""
+        type: string
+      import_state_backend_identity_sha256:
+        description: Import only - reviewed remote-state identity commitment
+        required: false
+        default: ""
+        type: string
+      import_terraform_input_identity_sha256:
+        description: Import only - reviewed Terraform-input identity commitment
+        required: false
+        default: ""
         type: string
       plan_run_id:
         description: Apply only - successful plan run ID
@@ -83,6 +115,12 @@ jobs:
         env:
           MODULE: ${{ inputs.module }}
           OPERATION: ${{ inputs.operation }}
+          IMPORT_ADDRESS: ${{ inputs.import_address }}
+          IMPORT_AUTHORIZATION_SHA256: ${{ inputs.import_authorization_sha256 }}
+          IMPORT_ID_SHA256: ${{ inputs.import_id_sha256 }}
+          IMPORT_OPERATOR_ROLE_IDENTITY_SHA256: ${{ inputs.import_operator_role_identity_sha256 }}
+          IMPORT_STATE_BACKEND_IDENTITY_SHA256: ${{ inputs.import_state_backend_identity_sha256 }}
+          IMPORT_TERRAFORM_INPUT_IDENTITY_SHA256: ${{ inputs.import_terraform_input_identity_sha256 }}
           PLAN_ARTIFACT_DIGEST: ${{ inputs.plan_artifact_digest }}
           PLAN_ARTIFACT_NAME: ${{ inputs.plan_artifact_name }}
           PLAN_FILE_SHA256: ${{ inputs.plan_file_sha256 }}
@@ -108,17 +146,32 @@ jobs:
               module_root="infra/official-labeling"
               state_key="official-labeling/terraform.tfstate"
               ;;
+            official-eval)
+              module_root="infra/official-eval"
+              state_key="official-eval/terraform.tfstate"
+              ;;
             *)
               echo "The Terraform module is outside the reviewed allowlist." >&2
               exit 1
               ;;
           esac
-          if [[ "${OPERATION}" == "plan" ]]; then
-            if [[ -n "${PLAN_RUN_ID}${PLAN_RUN_ATTEMPT}${PLAN_ARTIFACT_NAME}${PLAN_ARTIFACT_DIGEST}${PLAN_FILE_SHA256}" ]]; then
+          plan_provenance="${PLAN_RUN_ID}${PLAN_RUN_ATTEMPT}${PLAN_ARTIFACT_NAME}${PLAN_ARTIFACT_DIGEST}${PLAN_FILE_SHA256}"
+          import_provenance="${IMPORT_ADDRESS}${IMPORT_ID_SHA256}${IMPORT_AUTHORIZATION_SHA256}${IMPORT_OPERATOR_ROLE_IDENTITY_SHA256}${IMPORT_STATE_BACKEND_IDENTITY_SHA256}${IMPORT_TERRAFORM_INPUT_IDENTITY_SHA256}"
+          if [[ "${OPERATION}" == "import" ]]; then
+            [[ -z "${plan_provenance}" ]] || exit 1
+            [[ -n "${IMPORT_ADDRESS}" ]] || exit 1
+            [[ "${IMPORT_ID_SHA256}" =~ ^[0-9a-f]{64}$ ]] || exit 1
+            [[ "${IMPORT_AUTHORIZATION_SHA256}" =~ ^[0-9a-f]{64}$ ]] || exit 1
+            [[ "${IMPORT_OPERATOR_ROLE_IDENTITY_SHA256}" =~ ^[0-9a-f]{64}$ ]] || exit 1
+            [[ "${IMPORT_STATE_BACKEND_IDENTITY_SHA256}" =~ ^[0-9a-f]{64}$ ]] || exit 1
+            [[ "${IMPORT_TERRAFORM_INPUT_IDENTITY_SHA256}" =~ ^[0-9a-f]{64}$ ]] || exit 1
+          elif [[ "${OPERATION}" == "plan" ]]; then
+            if [[ -n "${plan_provenance}${import_provenance}" ]]; then
               echo "Plan provenance inputs must remain empty for a new plan." >&2
               exit 1
             fi
           elif [[ "${OPERATION}" == "apply" ]]; then
+            [[ -z "${import_provenance}" ]] || exit 1
             [[ "${PLAN_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || exit 1
             [[ "${PLAN_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]] || exit 1
             expected_name="provider-authority-infra-plan-${MODULE}-${PLAN_RUN_ID}-${PLAN_RUN_ATTEMPT}"
@@ -193,16 +246,24 @@ jobs:
       MODULE: ${{ inputs.module }}
       MODULE_ROOT: ${{ needs.validate-request.outputs.module_root }}
       OPERATION: ${{ inputs.operation }}
-      OUTPUT_ROOT: ${{ github.workspace }}/provider-authority-infra-output
-      PLAN_FILE: ${{ github.workspace }}/.provider-authority.tfplan
+      IMPORT_ADDRESS: ${{ inputs.import_address }}
+      IMPORT_AUTHORIZATION_SHA256: ${{ inputs.import_authorization_sha256 }}
+      IMPORT_ID_SHA256: ${{ inputs.import_id_sha256 }}
+      IMPORT_OPERATOR_ROLE_IDENTITY_SHA256: ${{ inputs.import_operator_role_identity_sha256 }}
+      IMPORT_STATE_BACKEND_IDENTITY_SHA256: ${{ inputs.import_state_backend_identity_sha256 }}
+      IMPORT_TERRAFORM_INPUT_IDENTITY_SHA256: ${{ inputs.import_terraform_input_identity_sha256 }}
+      OUTPUT_ROOT: ${{ github.workspace }}/official-infra-output
+      PLAN_FILE: ${{ github.workspace }}/.official-infra.tfplan
       RELEASE_SHA: ${{ inputs.release_sha }}
       STATE_KEY_SUFFIX: ${{ needs.validate-request.outputs.state_key }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
       TF_VAR_aws_region: ${{ vars.LFB_AWS_REGION }}
       TF_VAR_github_oidc_provider_arn: ${{ vars.LFB_GITHUB_OIDC_PROVIDER_ARN }}
+      TF_VAR_packet_bucket_name: ${{ vars.LFB_PACKET_BUCKET }}
       TF_VAR_provider_authority_resource_identity_sha256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
       TF_VAR_provider_authority_table_arn: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE_ARN }}
+      TF_VAR_results_bucket_name: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
       - name: Checkout exact main release
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -222,13 +283,18 @@ jobs:
             LFB_TERRAFORM_STATE_KEY_PREFIX
             LFB_TERRAFORM_STATE_KMS_KEY_ID
           )
-          [[ "${OPERATION}" == "apply" ]] || required+=(LFB_INFRA_PLAN_AGE_RECIPIENT)
-          if [[ "${MODULE}" == "official-labeling" ]]; then
+          if [[ "${OPERATION}" == "plan" || "${OPERATION}" == "apply" ]]; then
+            required+=(LFB_INFRA_PLAN_AGE_RECIPIENT)
+          fi
+          if [[ "${MODULE}" == "official-labeling" || "${MODULE}" == "official-eval" ]]; then
             required+=(
               TF_VAR_github_oidc_provider_arn
               TF_VAR_provider_authority_resource_identity_sha256
               TF_VAR_provider_authority_table_arn
             )
+          fi
+          if [[ "${MODULE}" == "official-eval" ]]; then
+            required+=(TF_VAR_packet_bucket_name TF_VAR_results_bucket_name)
           fi
           for name in "${required[@]}"; do
             [[ -n "${!name:-}" ]] || {
@@ -243,10 +309,22 @@ jobs:
             [[ "/${LFB_TERRAFORM_STATE_KEY_PREFIX}/" == *"/../"* ]]; then
             exit 1
           fi
-          if [[ "${OPERATION}" == "plan" ]] &&
+          if [[ "${OPERATION}" != "import" ]] &&
             [[ ! "${LFB_INFRA_PLAN_AGE_RECIPIENT}" =~ ^age1[023456789acdefghjklmnpqrstuvwxyz]{58}$ ]]; then
             exit 1
           fi
+          if [[ ! "${LFB_TERRAFORM_STATE_KMS_KEY_ID}" =~ ^arn:aws[a-zA-Z-]*:kms:[a-z0-9-]+:[0-9]{12}:key/[0-9a-fA-F-]{36}$ ]]; then
+            echo "The state backend requires one immutable KMS key ARN, not an alias." >&2
+            exit 1
+          fi
+          operator_partition="$(cut -d: -f2 <<<"${LFB_INFRA_OPERATOR_ROLE_ARN}")"
+          operator_account="$(cut -d: -f5 <<<"${LFB_INFRA_OPERATOR_ROLE_ARN}")"
+          kms_partition="$(cut -d: -f2 <<<"${LFB_TERRAFORM_STATE_KMS_KEY_ID}")"
+          kms_region="$(cut -d: -f4 <<<"${LFB_TERRAFORM_STATE_KMS_KEY_ID}")"
+          kms_account="$(cut -d: -f5 <<<"${LFB_TERRAFORM_STATE_KMS_KEY_ID}")"
+          [[ "${kms_partition}" == "${operator_partition}" ]] || exit 1
+          [[ "${kms_region}" == "${AWS_REGION}" ]] || exit 1
+          [[ "${kms_account}" == "${operator_account}" ]] || exit 1
           state_key="${LFB_TERRAFORM_STATE_KEY_PREFIX%/}/${STATE_KEY_SUFFIX}"
           operator_role_identity_sha256="$(
             jq -cn --arg role "${LFB_INFRA_OPERATOR_ROLE_ARN}" '{role:$role}' |
@@ -263,11 +341,18 @@ jobs:
             jq -cn --arg module "${MODULE}" --arg region "${TF_VAR_aws_region}" \
               --arg oidc "${TF_VAR_github_oidc_provider_arn}" \
               --arg identity "${TF_VAR_provider_authority_resource_identity_sha256}" \
+              --arg packet_bucket "${TF_VAR_packet_bucket_name}" \
+              --arg results_bucket "${TF_VAR_results_bucket_name}" \
               --arg table "${TF_VAR_provider_authority_table_arn}" \
-              '{module:$module,region:$region,oidc:$oidc,identity:$identity,table:$table}' |
+              '{module:$module,region:$region,oidc:$oidc,identity:$identity,
+                packet_bucket:$packet_bucket,results_bucket:$results_bucket,table:$table}' |
               sha256sum | cut -d' ' -f1
           )"
+          age_recipient_identity_sha256="$(
+            printf '%s' "${LFB_INFRA_PLAN_AGE_RECIPIENT}" | sha256sum | cut -d' ' -f1
+          )"
           {
+            echo "AGE_RECIPIENT_IDENTITY_SHA256=${age_recipient_identity_sha256}"
             echo "OPERATOR_ROLE_IDENTITY_SHA256=${operator_role_identity_sha256}"
             echo "STATE_BACKEND_IDENTITY_SHA256=${state_backend_identity_sha256}"
             echo "TERRAFORM_INPUT_IDENTITY_SHA256=${terraform_input_identity_sha256}"
@@ -347,6 +432,7 @@ jobs:
             exit 1
           fi
           jq -e \
+            --arg age_recipient_identity_sha256 "${AGE_RECIPIENT_IDENTITY_SHA256}" \
             --arg module "${MODULE}" \
             --arg operator_role_identity_sha256 "${OPERATOR_ROLE_IDENTITY_SHA256}" \
             --arg plan_sha256 "${EXPECTED_PLAN_SHA256}" \
@@ -355,6 +441,7 @@ jobs:
             --arg terraform_input_identity_sha256 "${TERRAFORM_INPUT_IDENTITY_SHA256}" '
               .schema_version == "legalforecast.provider_authority_infra_plan_receipt.v1" and
               .module == $module and .release_sha == $release_sha and
+              .age_recipient_identity_sha256 == $age_recipient_identity_sha256 and
               .plan_file_sha256 == $plan_sha256 and
               .operator_role_identity_sha256 == $operator_role_identity_sha256 and
               .state_backend_identity_sha256 == $state_backend_identity_sha256 and
@@ -370,6 +457,20 @@ jobs:
           printf '%s  %s\n' "${EXPECTED_PLAN_SHA256}" "${PLAN_FILE}" \
             | sha256sum --check --strict
 
+      - name: Prove release is still current main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(
+            gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+          )"
+          [[ "${current_main_sha}" == "${RELEASE_SHA}" ]] || {
+            echo "main advanced after dispatch or protected approval; refusing stale infrastructure authority." >&2
+            exit 1
+          }
+
       - name: Configure externally bootstrapped AWS authority
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
@@ -378,11 +479,29 @@ jobs:
           role-session-name: lfb-infra-${{ inputs.operation }}-${{ github.run_id }}-${{ github.run_attempt }}
           role-to-assume: ${{ env.LFB_INFRA_OPERATOR_ROLE_ARN }}
 
+      - name: Resolve separately authorized import binding
+        if: inputs.operation == 'import'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/official_infra_contract.py resolve-import \
+            --module "${MODULE}" \
+            --address "${IMPORT_ADDRESS}" \
+            --release-sha "${RELEASE_SHA}" \
+            --import-id-sha256 "${IMPORT_ID_SHA256}" \
+            --authorization-sha256 "${IMPORT_AUTHORIZATION_SHA256}" \
+            --operator-role-identity-sha256 "${IMPORT_OPERATOR_ROLE_IDENTITY_SHA256}" \
+            --state-backend-identity-sha256 "${IMPORT_STATE_BACKEND_IDENTITY_SHA256}" \
+            --terraform-input-identity-sha256 "${IMPORT_TERRAFORM_INPUT_IDENTITY_SHA256}" \
+            --import-id-file "${RUNNER_TEMP}/official-infra-import-id"
+
       - name: Initialize protected remote state
         shell: bash
         run: |
           set -euo pipefail
-          printf 'terraform {\n  backend "s3" {}\n}\n' > "${MODULE_ROOT}/backend.workflow.tf"
+          if [[ "${MODULE}" != "official-eval" ]]; then
+            printf 'terraform {\n  backend "s3" {}\n}\n' > "${MODULE_ROOT}/backend.workflow.tf"
+          fi
           state_key="${LFB_TERRAFORM_STATE_KEY_PREFIX%/}/${STATE_KEY_SUFFIX}"
           if ! terraform -chdir="${MODULE_ROOT}" init \
             -input=false -reconfigure \
@@ -397,38 +516,151 @@ jobs:
             exit 1
           fi
 
+      - name: Import and verify exact remote-state binding
+        id: import
+        if: inputs.operation == 'import'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(
+            gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+          )"
+          [[ "${current_main_sha}" == "${RELEASE_SHA}" ]] || exit 1
+          IFS= read -r LFB_IMPORT_ID < "${RUNNER_TEMP}/official-infra-import-id"
+          export LFB_IMPORT_ID
+          echo "::add-mask::${LFB_IMPORT_ID}"
+          before_state="${RUNNER_TEMP}/official-infra-state-before.json"
+          after_state="${RUNNER_TEMP}/official-infra-state-after.json"
+          if ! terraform -chdir="${MODULE_ROOT}" show -json \
+            > "${before_state}" 2> "${RUNNER_TEMP}/official-infra-state-before.log"; then
+            echo "Terraform state inspection failed; protected diagnostics were not published." >&2
+            exit 1
+          fi
+          before_state_sha256="$(sha256sum "${before_state}" | cut -d' ' -f1)"
+          scripts/official_infra_contract.py state-binding \
+            --state-json "${before_state}" \
+            --address "${IMPORT_ADDRESS}" \
+            --github-output "${GITHUB_OUTPUT}"
+          binding="$(awk -F= '$1 == "binding" {print $2}' "${GITHUB_OUTPUT}" | tail -n1)"
+          if [[ "${binding}" == "absent" ]]; then
+            current_main_sha="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+            )"
+            [[ "${current_main_sha}" == "${RELEASE_SHA}" ]] || exit 1
+            mkdir -p "${OUTPUT_ROOT}"
+            jq -cn \
+              --arg address "${IMPORT_ADDRESS}" \
+              --arg authorization_sha256 "${IMPORT_AUTHORIZATION_SHA256}" \
+              --arg before_state_sha256 "${before_state_sha256}" \
+              --arg import_id_sha256 "${IMPORT_ID_SHA256}" \
+              --arg module "${MODULE}" \
+              --arg operator_role_identity_sha256 "${OPERATOR_ROLE_IDENTITY_SHA256}" \
+              --arg release_sha "${RELEASE_SHA}" \
+              --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
+              --arg run_id "${GITHUB_RUN_ID}" \
+              --arg state_backend_identity_sha256 "${STATE_BACKEND_IDENTITY_SHA256}" \
+              --arg terraform_input_identity_sha256 "${TERRAFORM_INPUT_IDENTITY_SHA256}" '{
+                schema_version:"legalforecast.provider_authority_infra_import_recovery_receipt.v1",
+                status:"authorized_pending_import",
+                module:$module,
+                release_sha:$release_sha,
+                run_id:$run_id,
+                run_attempt:$run_attempt,
+                import_address:$address,
+                import_id_sha256:$import_id_sha256,
+                import_authorization_sha256:$authorization_sha256,
+                before_state_sha256:$before_state_sha256,
+                operator_role_identity_sha256:$operator_role_identity_sha256,
+                state_backend_identity_sha256:$state_backend_identity_sha256,
+                terraform_input_identity_sha256:$terraform_input_identity_sha256
+              }' > "${OUTPUT_ROOT}/import-recovery-receipt.json"
+            if ! terraform -chdir="${MODULE_ROOT}" import -input=false \
+              "${IMPORT_ADDRESS}" "${LFB_IMPORT_ID}" \
+              > "${RUNNER_TEMP}/official-infra-import.log" 2>&1; then
+              echo "Terraform import failed; protected diagnostics were not published." >&2
+              exit 1
+            fi
+            echo "mutation_succeeded=true" >> "${GITHUB_OUTPUT}"
+            import_result="imported"
+          elif [[ "${binding}" == "already_present" ]]; then
+            import_result="already_present"
+          else
+            exit 1
+          fi
+          if ! terraform -chdir="${MODULE_ROOT}" show -json \
+            > "${after_state}" 2> "${RUNNER_TEMP}/official-infra-state-after.log"; then
+            echo "Terraform state verification failed; protected diagnostics were not published." >&2
+            exit 1
+          fi
+          scripts/official_infra_contract.py state-binding \
+            --state-json "${after_state}" \
+            --address "${IMPORT_ADDRESS}" \
+            --require-present \
+            --github-output "${GITHUB_OUTPUT}"
+          after_state_sha256="$(sha256sum "${after_state}" | cut -d' ' -f1)"
+          mkdir -p "${OUTPUT_ROOT}"
+          jq -cn \
+            --arg address "${IMPORT_ADDRESS}" \
+            --arg after_state_sha256 "${after_state_sha256}" \
+            --arg authorization_sha256 "${IMPORT_AUTHORIZATION_SHA256}" \
+            --arg before_state_sha256 "${before_state_sha256}" \
+            --arg import_id_sha256 "${IMPORT_ID_SHA256}" \
+            --arg module "${MODULE}" \
+            --arg operator_role_identity_sha256 "${OPERATOR_ROLE_IDENTITY_SHA256}" \
+            --arg release_sha "${RELEASE_SHA}" \
+            --arg result "${import_result}" \
+            --arg state_backend_identity_sha256 "${STATE_BACKEND_IDENTITY_SHA256}" \
+            --arg terraform_input_identity_sha256 "${TERRAFORM_INPUT_IDENTITY_SHA256}" '{
+              schema_version:"legalforecast.provider_authority_infra_import_receipt.v1",
+              module:$module,
+              release_sha:$release_sha,
+              import_address:$address,
+              import_id_sha256:$import_id_sha256,
+              import_authorization_sha256:$authorization_sha256,
+              result:$result,
+              before_state_sha256:$before_state_sha256,
+              after_state_sha256:$after_state_sha256,
+              operator_role_identity_sha256:$operator_role_identity_sha256,
+              state_backend_identity_sha256:$state_backend_identity_sha256,
+              terraform_input_identity_sha256:$terraform_input_identity_sha256
+            }' > "${OUTPUT_ROOT}/import-receipt.json"
+
       - name: Produce and guard exact Terraform plan
         id: plan
         if: inputs.operation == 'plan'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          terraform -chdir="${MODULE_ROOT}" validate >/dev/null
+          current_main_sha="$(
+            gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+          )"
+          [[ "${current_main_sha}" == "${RELEASE_SHA}" ]] || exit 1
+          if ! terraform -chdir="${MODULE_ROOT}" validate \
+            > "${RUNNER_TEMP}/official-infra-validate.log" 2>&1; then
+            echo "Terraform validation failed; protected diagnostics were not published." >&2
+            exit 1
+          fi
           if ! terraform -chdir="${MODULE_ROOT}" plan -input=false -out="${PLAN_FILE}" \
             > "${RUNNER_TEMP}/provider-authority-plan.log" 2>&1; then
             echo "Terraform plan failed; protected diagnostics were not published." >&2
             exit 1
           fi
-          terraform -chdir="${MODULE_ROOT}" show -json "${PLAN_FILE}" \
-            > "${RUNNER_TEMP}/provider-authority-plan.json"
-          if [[ "${MODULE}" == "provider-authority" ]]; then
-            expected='["aws_dynamodb_table.provider_authority"]'
-          else
-            expected='["aws_iam_role.labeling","aws_iam_role_policy.labeling"]'
+          if ! terraform -chdir="${MODULE_ROOT}" show -json "${PLAN_FILE}" \
+            > "${RUNNER_TEMP}/provider-authority-plan.json" \
+            2> "${RUNNER_TEMP}/official-infra-plan-render.log"; then
+            echo "Terraform plan rendering failed; protected diagnostics were not published." >&2
+            exit 1
           fi
-          jq -e --argjson expected "${expected}" '
-            [.resource_changes[]? | select(.mode == "managed")] as $changes
-            | ([$changes[].address] - $expected | length) == 0
-            and ([ $changes[] | select(
-              (.change.actions | all(. == "no-op" or . == "create" or . == "update") | not)
-              or (.change.actions | index("delete")) != null
-              or .action_reason == "delete_before_create"
-              or .action_reason == "create_before_destroy"
-            )] | length) == 0
-          ' "${RUNNER_TEMP}/provider-authority-plan.json" >/dev/null || {
+          if ! scripts/official_infra_contract.py validate-plan \
+            --module "${MODULE}" \
+            --plan-json "${RUNNER_TEMP}/provider-authority-plan.json"; then
             echo "Unexpected Terraform resource address or destructive action." >&2
             exit 1
-          }
+          fi
           plan_sha256="$(sha256sum "${PLAN_FILE}" | cut -d' ' -f1)"
           changes="$(jq -c '
             [.resource_changes[]? | select(.mode == "managed")
@@ -436,6 +668,7 @@ jobs:
           ' "${RUNNER_TEMP}/provider-authority-plan.json")"
           mkdir -p "${OUTPUT_ROOT}"
           jq -cn \
+            --arg age_recipient_identity_sha256 "${AGE_RECIPIENT_IDENTITY_SHA256}" \
             --arg module "${MODULE}" \
             --arg operator_role_identity_sha256 "${OPERATOR_ROLE_IDENTITY_SHA256}" \
             --arg plan_sha256 "${plan_sha256}" \
@@ -446,6 +679,7 @@ jobs:
               schema_version:"legalforecast.provider_authority_infra_plan_receipt.v1",
               module:$module,
               release_sha:$release_sha,
+              age_recipient_identity_sha256:$age_recipient_identity_sha256,
               plan_file_sha256:$plan_sha256,
               operator_role_identity_sha256:$operator_role_identity_sha256,
               state_backend_identity_sha256:$state_backend_identity_sha256,
@@ -461,17 +695,40 @@ jobs:
         id: apply
         if: inputs.operation == 'apply'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          current_main_sha="$(
+            gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+          )"
+          [[ "${current_main_sha}" == "${RELEASE_SHA}" ]] || exit 1
           if ! terraform -chdir="${MODULE_ROOT}" apply -input=false -auto-approve \
             "${PLAN_FILE}" > "${RUNNER_TEMP}/provider-authority-apply.log" 2>&1; then
             echo "Terraform apply failed; protected diagnostics were not published." >&2
             exit 1
           fi
           mkdir -p "${OUTPUT_ROOT}"
+          if ! terraform -chdir="${MODULE_ROOT}" output -json \
+            > "${RUNNER_TEMP}/terraform-output.json" 2> "${RUNNER_TEMP}/official-infra-output.log"; then
+            echo "Terraform output handoff failed; protected diagnostics were not published." >&2
+            exit 1
+          fi
+          "${AGE_ROOT}/age" --encrypt \
+            --recipient "${LFB_INFRA_PLAN_AGE_RECIPIENT}" \
+            --output "${OUTPUT_ROOT}/terraform-output.json.age" \
+            "${RUNNER_TEMP}/terraform-output.json"
+          terraform_output_sha256="$(
+            sha256sum "${RUNNER_TEMP}/terraform-output.json" | cut -d' ' -f1
+          )"
+          encrypted_output_sha256="$(
+            sha256sum "${OUTPUT_ROOT}/terraform-output.json.age" | cut -d' ' -f1
+          )"
           jq -cn \
+            --arg age_recipient_identity_sha256 "${AGE_RECIPIENT_IDENTITY_SHA256}" \
             --arg artifact_digest "${{ inputs.plan_artifact_digest }}" \
             --arg artifact_name "${{ inputs.plan_artifact_name }}" \
+            --arg encrypted_output_sha256 "${encrypted_output_sha256}" \
             --arg module "${MODULE}" \
             --arg operator_role_identity_sha256 "${OPERATOR_ROLE_IDENTITY_SHA256}" \
             --arg plan_sha256 "${{ inputs.plan_file_sha256 }}" \
@@ -479,15 +736,19 @@ jobs:
             --arg plan_run_id "${{ inputs.plan_run_id }}" \
             --arg release_sha "${RELEASE_SHA}" \
             --arg state_backend_identity_sha256 "${STATE_BACKEND_IDENTITY_SHA256}" \
+            --arg terraform_output_sha256 "${terraform_output_sha256}" \
             --arg terraform_input_identity_sha256 "${TERRAFORM_INPUT_IDENTITY_SHA256}" '{
               schema_version:"legalforecast.provider_authority_infra_apply_receipt.v1",
               module:$module,
               release_sha:$release_sha,
+              age_recipient_identity_sha256:$age_recipient_identity_sha256,
               plan_file_sha256:$plan_sha256,
               plan_run_id:$plan_run_id,
               plan_run_attempt:$plan_run_attempt,
               plan_artifact_name:$artifact_name,
               plan_artifact_digest:$artifact_digest,
+              terraform_output_sha256:$terraform_output_sha256,
+              encrypted_output_sha256:$encrypted_output_sha256,
               operator_role_identity_sha256:$operator_role_identity_sha256,
               state_backend_identity_sha256:$state_backend_identity_sha256,
               terraform_input_identity_sha256:$terraform_input_identity_sha256
@@ -500,13 +761,17 @@ jobs:
         run: |
           set -euo pipefail
           find "${RUNNER_TEMP}" -maxdepth 1 -type f \
-            -name 'provider-authority-*.log' -delete
+            \( -name 'provider-authority-*.log' -o -name 'official-infra-*.log' \) \
+            -delete
           find "${RUNNER_TEMP}" -maxdepth 1 -type f \
-            -name 'provider-authority-plan.json' -delete
+            \( -name 'provider-authority-plan.json' -o \
+              -name 'official-infra-import-id' -o \
+              -name 'official-infra-state-*.json' -o \
+              -name 'terraform-output.json' \) -delete
           find "${MODULE_ROOT}" -maxdepth 1 -type f \
             -name 'backend.workflow.tf' -delete
           find "${GITHUB_WORKSPACE}" -maxdepth 1 -type f \
-            -name '.provider-authority.tfplan' -delete
+            -name '.official-infra.tfplan' -delete
           {
             echo 'AWS_ACCESS_KEY_ID='
             echo 'AWS_SECRET_ACCESS_KEY='
@@ -515,6 +780,7 @@ jobs:
           } >> "${GITHUB_ENV}"
           unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
           test ! -e "${PLAN_FILE}"
+          test ! -e "${RUNNER_TEMP}/official-infra-import-id"
           test ! -e "${MODULE_ROOT}/backend.workflow.tf"
 
       - name: Upload encrypted reviewed plan
@@ -535,7 +801,31 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
           name: provider-authority-infra-apply-${{ inputs.module }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.OUTPUT_ROOT }}/apply-receipt.json
+          path: |
+            ${{ env.OUTPUT_ROOT }}/apply-receipt.json
+            ${{ env.OUTPUT_ROOT }}/terraform-output.json.age
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+          retention-days: 30
+
+      - name: Upload redacted import receipt
+        if: inputs.operation == 'import' && steps.import.outcome == 'success' && steps.clear_sensitive.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: provider-authority-infra-import-${{ inputs.module }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.OUTPUT_ROOT }}/import-receipt.json
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+          retention-days: 30
+
+      - name: Upload import recovery receipt after post-mutation failure
+        if: always() && inputs.operation == 'import' && steps.import.outputs.mutation_succeeded == 'true' && steps.import.outcome != 'success' && steps.clear_sensitive.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: provider-authority-infra-import-recovery-${{ inputs.module }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.OUTPUT_ROOT }}/import-recovery-receipt.json
           if-no-files-found: error
           include-hidden-files: false
           overwrite: false
