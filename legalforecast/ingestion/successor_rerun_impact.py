@@ -521,8 +521,13 @@ def _derived_next_commands(
         "--provider-cycle-caps",
         str(proposal.policy_path),
     ]
-    if successor.policy_sha256 == current.policy_sha256:
-        unitize_argv.extend(["--provider-journal", str(current.provider_journal_path)])
+    # Provider journals are identity-bound to the exact provider-policy bytes.
+    provider_journal = (
+        current.provider_journal_path
+        if successor.policy_sha256 == current.policy_sha256
+        else root / "provider-attempts.sqlite3"
+    )
+    unitize_argv.extend(["--provider-journal", str(provider_journal)])
     if proposal.provider_attempt_namespace is not None:
         unitize_argv.extend(
             ["--provider-attempt-namespace", proposal.provider_attempt_namespace]
