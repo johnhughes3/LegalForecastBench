@@ -173,33 +173,6 @@ def verify_free_support_memorandum_recovery_plan(
     return expected
 
 
-def load_verified_free_support_memorandum_plan_selection_bytes(
-    *,
-    persisted_plan_bytes: bytes,
-    bridge_descriptor_path: Path,
-) -> bytes:
-    """Return the exact historical selection bytes bound by a verified plan.
-
-    The executor needs this separately from the plan's selection digest: a
-    replacement selection must preserve the ECF-14 candidate row byte-for-byte,
-    not merely carry a self-consistent count and hash supplied by a caller.
-    Re-verifying the plan first binds this read to the same raw-docket bridge
-    that authorized the one-document recovery.
-    """
-
-    plan = verify_free_support_memorandum_recovery_plan(
-        persisted_plan_bytes=persisted_plan_bytes,
-        bridge_descriptor_path=bridge_descriptor_path,
-    )
-    bridge = _load_verified_bridge(bridge_descriptor_path)
-    selection_bytes, selection_sha256 = _verified_selection_bytes(bridge)
-    if selection_sha256 != plan.record["selection_sha256"]:
-        raise FreeSupportMemorandumRecoveryError(
-            "support-memorandum plan selection differs from authenticated bridge"
-        )
-    return selection_bytes
-
-
 def _load_verified_bridge(
     bridge_descriptor_path: Path,
 ) -> VerifiedTargetRawDocketAuxiliaryProvenanceBridge:
@@ -222,13 +195,6 @@ def _selected_target_selection_sha256(
 ) -> str:
     """Re-read the bridge descriptor to bind the exact selected target row."""
 
-    _selection_bytes, selection_sha256 = _verified_selection_bytes(bridge)
-    return selection_sha256
-
-
-def _verified_selection_bytes(
-    bridge: VerifiedTargetRawDocketAuxiliaryProvenanceBridge,
-) -> tuple[bytes, str]:
     try:
         descriptor_bytes = bridge.bridge_path.read_bytes()
     except OSError as exc:
@@ -298,7 +264,7 @@ def _verified_selection_bytes(
         raise FreeSupportMemorandumRecoveryError(
             "selected support-memorandum target motion is not entry 13"
         )
-    return selection_bytes, selection_sha256
+    return selection_sha256
 
 
 def _selected_rows(selection_bytes: bytes) -> list[Mapping[str, object]]:
