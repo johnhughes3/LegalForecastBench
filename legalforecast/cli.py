@@ -19697,7 +19697,9 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
         )
         if proposed_caps.cycle_id != proposed_cycle_id:
             raise SuccessorRerunImpactError("proposed provider policy cycle_id differs")
-        proposed_account = proposed_caps.account(proposed_entries[0].provider)
+        proposed_account = _local_provider_account(
+            proposed_caps, proposed_entries[0].provider
+        )
         proposal = bind_verified_successor_proposal(
             proposal_envelope,
             cycle_id=proposed_cycle_id,
@@ -19720,8 +19722,8 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             provider_attempt_namespace=namespace,
             model_key=lineage.registry_entry.registry_key,
             model_provider=lineage.registry_entry.provider,
-            provider_account=lineage.provider_caps.account(
-                lineage.registry_entry.provider
+            provider_account=_local_provider_account(
+                lineage.provider_caps, lineage.registry_entry.provider
             ),
             model_registry_sha256=lineage.registry_sha256,
             policy_sha256=lineage.provider_caps_sha256,
@@ -19781,6 +19783,18 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             input_label="authenticated current input",
             root_alias=proposal.successor_output_root_alias,
         )
+        proposed_input_paths = (
+            *proposed_materialization.authenticated_paths,
+            *(Path(path) for path in proposed_materialization.artifact_bytes),
+            *proposed_materialization.paths,
+            proposal.document_root,
+        )
+        require_isolated_successor_outputs(
+            proposal.successor_output_root,
+            authenticated_inputs=proposed_input_paths,
+            input_label="authenticated proposed input",
+            root_alias=proposal.successor_output_root_alias,
+        )
         report = plan_successor_rerun_impact(
             current=current,
             proposed=proposal,
@@ -19832,6 +19846,12 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
             proposal.successor_output_root,
             authenticated_inputs=current_input_paths,
             input_label="authenticated current input",
+            root_alias=proposal.successor_output_root_alias,
+        )
+        require_isolated_successor_outputs(
+            proposal.successor_output_root,
+            authenticated_inputs=proposed_input_paths,
+            input_label="authenticated proposed input",
             root_alias=proposal.successor_output_root_alias,
         )
     except (
@@ -47623,6 +47643,7 @@ class _VerifiedMaterializedDownstreamLineage:
     fresh_ledger_namespace: Path | None = None
     docket_decision_authority: _MaterializerDocketDecisionAuthority | None = None
     verified_successor_selection_card: _VerifiedSuccessorSelectionCard | None = None
+    authenticated_paths: tuple[Path, ...] = ()
 
     def __len__(self) -> int:
         return len(self.paths)
@@ -47920,6 +47941,7 @@ def _verify_materialized_downstream_lineage(
             verified_successor_selection_card=(
                 publication.verified_successor_selection_card
             ),
+            authenticated_paths=tuple(path.resolve() for path in input_paths),
         )
     if authority_mode is not None:
         raise CommandError("unsupported materialization authority mode")
@@ -48542,6 +48564,7 @@ def _verify_materialized_downstream_lineage(
         verified_successor_selection_card=(
             _verified_successor_selection_card_from_projection(projection)
         ),
+        authenticated_paths=tuple(path.resolve() for path in input_paths),
     )
 
 
@@ -60997,6 +61020,9 @@ def _verify_stage_a_provider_replay(
         or set(audit_by_candidate) != candidate_ids
     ):
         raise CommandError("llm-unitize candidate coverage differs from selection")
+    provider_account = _local_provider_account(
+        lineage.provider_caps, lineage.registry_entry.provider
+    )
     active_keys: dict[str, str] = {}
     recognized_keys: dict[str, frozenset[str]] = {}
     for candidate_id in candidate_ids:
@@ -61007,7 +61033,7 @@ def _verify_stage_a_provider_replay(
             model_key=lineage.registry_entry.registry_key,
             prompt=prompt,
             model_registry_sha256=lineage.registry_sha256,
-            account=lineage.provider_caps.account(lineage.registry_entry.provider),
+            account=provider_account,
         )
         active_keys[candidate_id] = ProviderCallIdentity(
             **active_base_identity,
@@ -61028,9 +61054,7 @@ def _verify_stage_a_provider_replay(
                     ),
                     model_registry_sha256=lineage.registry_sha256,
                     prompt_contract=contract,
-                    account=lineage.provider_caps.account(
-                        lineage.registry_entry.provider
-                    ),
+                    account=provider_account,
                 ).logical_call_key
                 for contract in (None, *STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
             }
@@ -61063,8 +61087,7 @@ def _verify_stage_a_provider_replay(
             row.get("logical_call_key") != expected_logical_key
             or row.get("model_key") != lineage.registry_entry.registry_key
             or row.get("provider") != lineage.registry_entry.provider
-            or row.get("account")
-            != lineage.provider_caps.account(lineage.registry_entry.provider)
+            or row.get("account") != provider_account
             or row.get("prompt_text") != prompt
             or row.get("prompt_sha256") != prompt_digest.removeprefix("sha256:")
             or row.get("model_registry_sha256") != lineage.registry_sha256

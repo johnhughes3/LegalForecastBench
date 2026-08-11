@@ -933,6 +933,82 @@ def test_cli_successor_outputs_reject_current_input_overlap(
     assert _tree_bytes(tmp_path) == before
 
 
+def test_cli_successor_outputs_reject_proposed_lineage_root_overlap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    authenticated_root = tmp_path / "proposed-authenticated-root"
+    authenticated_root.mkdir()
+    argv = _install_successful_cli_fixture(
+        tmp_path,
+        monkeypatch,
+        proposed_authenticated_paths=(authenticated_root,),
+    )
+    proposal_path = tmp_path / "proposal.json"
+    record = json.loads(proposal_path.read_bytes())
+    record["successor_output_root"] = str(authenticated_root / "successor")
+    proposal_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
+    before = _tree_bytes(tmp_path)
+
+    assert main(argv) == 1
+    assert "successor derived output overlaps authenticated proposed input" in (
+        _failure_message(capsys)
+    )
+    assert _tree_bytes(tmp_path) == before
+
+
+def test_cli_rechecks_proposed_lineage_root_alias_before_reporting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    safe_input_root = tmp_path / "safe-proposed-input"
+    safe_input_root.mkdir()
+    output_parent = tmp_path / "successor-parent"
+    output_parent.mkdir()
+    authenticated_alias = tmp_path / "proposed-input-alias"
+    authenticated_alias.symlink_to(safe_input_root, target_is_directory=True)
+    argv = _install_successful_cli_fixture(
+        tmp_path,
+        monkeypatch,
+        proposed_authenticated_paths=(authenticated_alias,),
+    )
+
+    def retarget_after_planning(*_args: object, **_kwargs: object) -> None:
+        authenticated_alias.unlink()
+        authenticated_alias.symlink_to(output_parent, target_is_directory=True)
+
+    monkeypatch.setattr(
+        cli,
+        "_require_materialized_downstream_lineage_unchanged",
+        retarget_after_planning,
+    )
+    proposal_path = tmp_path / "proposal.json"
+    record = json.loads(proposal_path.read_bytes())
+    record["successor_output_root"] = str(output_parent / "successor")
+    proposal_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
+
+    assert main(argv) == 1
+    assert "successor derived output overlaps authenticated proposed input" in (
+        _failure_message(capsys)
+    )
+
+
+def test_cli_replays_legacy_local_account_as_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    argv = _install_successful_cli_fixture(
+        tmp_path, monkeypatch, legacy_default_account=True
+    )
+
+    assert main(argv) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["proposed_global_commitments"]["provider_account"] == "default"
+
+
 def test_cli_canonicalizes_successor_root_and_rejects_parent_symlink_retarget(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -978,9 +1054,24 @@ def test_cli_canonicalizes_successor_root_and_rejects_parent_symlink_retarget(
 
 
 def _install_successful_cli_fixture(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    legacy_default_account: bool = False,
+    proposed_authenticated_paths: tuple[Path, ...] = (),
 ) -> list[str]:
     current, proposal = _fixture(tmp_path, replace_document=True)
+    if legacy_default_account:
+        current = replace(
+            current,
+            provider_account="default",
+            provider_reuse_by_candidate={
+                candidate_id: replace(evidence, account="default")
+                for candidate_id, evidence in (
+                    current.provider_reuse_by_candidate.items()
+                )
+            },
+        )
     authenticated_parser_artifacts: dict[
         tuple[str, str, str, int], tuple[Mapping[str, Any], bytes, bytes]
     ] = {}
@@ -1118,11 +1209,18 @@ def _install_successful_cli_fixture(
     )
 
     def provider_account(_provider: str) -> str:
+        if legacy_default_account:
+            raise AssertionError("legacy local replay must not require caps.account()")
         return current.provider_account
 
     caps = SimpleNamespace(
         cycle_id=current.cycle_id,
         account=provider_account,
+        providers={
+            current.model_provider: SimpleNamespace(
+                account=None if legacy_default_account else current.provider_account
+            )
+        },
     )
     lineage = SimpleNamespace(
         selection_records=current.selection_records,
@@ -1201,6 +1299,8 @@ def _install_successful_cli_fixture(
         document_tree=_relative_tree_bytes(proposal.document_root),
         fresh_ledger_namespace=None,
         docket_decision_authority=None,
+        authenticated_paths=proposed_authenticated_paths,
+        paths=(),
     )
     parser_authentication = SimpleNamespace(
         artifacts_by_key=authenticated_parser_artifacts,

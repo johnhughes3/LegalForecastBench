@@ -568,8 +568,14 @@ def test_provider_caps_wrong_cycle_fails_before_model_or_provider(
     assert not args.provider_journal.exists()
 
 
+@pytest.mark.parametrize(
+    ("caps_account", "journal_account"),
+    [("primary", "primary"), (None, "default")],
+)
 def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
     tmp_path: Path,
+    caps_account: str | None,
+    journal_account: str,
 ) -> None:
     markdown_root = tmp_path / "markdown"
     markdown = markdown_root / "cand-1" / "complaint.md"
@@ -627,7 +633,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             "providers": [
                 {
                     "provider": "openai",
-                    "account": "primary",
+                    **({"account": caps_account} if caps_account is not None else {}),
                     "cycle_reservation_cap_usd": "10.00",
                     "external_spend_limit_usd": "20.00",
                     "external_limit_scope": "fixture",
@@ -693,7 +699,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             model_key=registry_entry.registry_key,
             prompt=str(prompt_record["prompt"]),
             model_registry_sha256=registry_sha,
-            account="primary",
+            account=journal_account,
         ),
         provider="openai",
         reservation_usd=0.1,
@@ -784,7 +790,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             prompt=str(prompt_record["prompt"]),
             model_registry_sha256=registry_sha,
             prompt_contract="claim-ontology-v2",
-            account="primary",
+            account=journal_account,
         ),
         provider="openai",
         reservation_usd=0.1,
@@ -828,7 +834,7 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             prompt=str(v4_prompt_record["prompt"]),
             model_registry_sha256=registry_sha,
             prompt_contract="claim-ontology-v4",
-            account="primary",
+            account=journal_account,
         ),
         provider="openai",
         reservation_usd=0.1,
