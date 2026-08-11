@@ -2955,6 +2955,8 @@ def _llm_label_one_model(
                         "decision_text_commitment": dict(decision_text_commitment),
                     },
                 )
+            except FrozenUnitWorkflowRequiredError:
+                raise
             except (LlmPipelineError, ValueError):
                 # Retain the response as reconstruction_failed and let the fixed
                 # retry budget decide whether one fresh provider call is allowed.

@@ -1210,12 +1210,19 @@ def test_malformed_label_response_retries_fresh_bounded_attempts(
     ]
 
 
+@pytest.mark.parametrize("missing_unit", [False, True])
 def test_stage_b_resume_recovers_stored_response_before_provider_call(
     tmp_path: Path,
     monkeypatch: Any,
+    *,
+    missing_unit: bool,
 ) -> None:
     """A corrected Stage B reconstructor settles the old response locally."""
 
+    decision_text = (
+        "The motion to dismiss Count I is granted without leave to amend. "
+        "The court also dismisses Count II."
+    )
     response = SolverResponse(
         raw_output=json.dumps(
             {
@@ -1231,7 +1238,19 @@ def test_stage_b_resume_recovers_stored_response_before_provider_call(
                         "labeler_confidence": 0.95,
                     }
                 ],
-                "missing_unit_flags": [],
+                "missing_unit_flags": (
+                    [
+                        {
+                            "missing_unit_description": (
+                                "Decision resolved Count II, which was absent from "
+                                "frozen Stage A units."
+                            ),
+                            "supporting_excerpt": "The court also dismisses Count II.",
+                        }
+                    ]
+                    if missing_unit
+                    else []
+                ),
             }
         ),
         input_tokens=10,
@@ -1239,9 +1258,12 @@ def test_stage_b_resume_recovers_stored_response_before_provider_call(
         estimated_cost=0.01,
     )
     provider_calls = 0
+    completion_calls = 0
 
     def completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        nonlocal completion_calls
         del args
+        completion_calls += 1
         handler = kwargs["attempt_handler"]
 
         def provider_call() -> JsonRecord:
@@ -1270,7 +1292,7 @@ def test_stage_b_resume_recovers_stored_response_before_provider_call(
         "decision_text": llm_pipeline.StageBDecisionText(
             document_id="decision",
             entered_date="2026-07-01",
-            text="The motion to dismiss Count I is granted without leave to amend.",
+            text=decision_text,
         ),
         "decision_text_commitment": {"decision_texts_sha256": "sha256:" + "a" * 64},
         "frozen_units": (unit,),
@@ -1299,14 +1321,19 @@ def test_stage_b_resume_recovers_stored_response_before_provider_call(
         cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
     monkeypatch.setattr(llm_pipeline, "label_stage_b_outcomes", original_labeler)
 
-    labels, *_ = cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
+    if missing_unit:
+        with pytest.raises(llm_pipeline.FrozenUnitWorkflowRequiredError):
+            cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
+    else:
+        labels, *_ = cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
+        assert labels[0].unit_id == "unit-1"
 
     assert provider_calls == 1
-    assert labels[0].unit_id == "unit-1"
+    assert completion_calls == (1 if missing_unit else 2)
     with sqlite3.connect(journal_path) as connection:
         assert connection.execute(
             "SELECT attempt_ordinal, status FROM provider_attempts"
-        ).fetchall() == [(1, "settled")]
+        ).fetchall() == [(1, "reconstruction_failed" if missing_unit else "settled")]
 
 
 def test_malformed_structural_review_retries_fresh_bounded_attempts(
