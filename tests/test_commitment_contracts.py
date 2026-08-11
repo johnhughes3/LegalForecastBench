@@ -26,6 +26,7 @@ from legalforecast.contracts import (
     MANIFEST_RAW_SHA256_V1,
     RAW_BYTES_RAW_SHA256_V1,
     RECOVERY_VERTICAL_SLICE_SCHEMAS,
+    REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2,
     RESOLVED_POST_RECOVERY_PUBLIC_DOCUMENT_V4,
     RUN_CARD_INDENTED_JSON_V1,
     RUN_CARD_RAW_SHA256_V1,
@@ -206,6 +207,7 @@ def test_recovery_vertical_slice_schema_registry_is_versioned_and_unique() -> No
         EXACT100_ZERO_COST_RECOVERY_RECEIPT_V1,
         EXACT100_ZERO_COST_RECOVERY_REQUEST_V1,
         EXACT100_ZERO_COST_RECOVERY_RUN_V1,
+        REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2,
         UNITIZATION_ADJUDICATION_V2,
         ZERO_COST_SUCCESSOR_CONFIG_V1,
     }.issubset(RECOVERY_VERTICAL_SLICE_SCHEMAS)
@@ -229,6 +231,9 @@ def test_exact100_successor_v2_domains_do_not_reinterpret_v1() -> None:
     )
     assert EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1.value == (
         "legalforecast.exact100_successor_wider_rank_ledger.v1"
+    )
+    assert REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2.value == (
+        "legalforecast.replacement_recovery_consolidation_run_card.v2"
     )
 
     assert EXACT100_SUCCESSOR_PROMOTION_V2 != EXACT100_SUCCESSOR_PROMOTION_V1

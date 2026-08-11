@@ -930,8 +930,9 @@ def test_replacement_corpus_consolidates_promoted_purchases_and_exclusions(
     assert recovery_index.boundary.value == "provider_free"
     assert consolidation.boundary.value == "provider_free"
     assert consolidation.arguments[
-        consolidation.arguments.index("--target-purchased-manifest") + 1
-    ] == str(assignments["EXACT100_ROOT"] / "purchased-document-downloads.jsonl")
+        consolidation.arguments.index("--target-cohort-root") + 1
+    ] == str(assignments["EXACT100_ROOT"])
+    assert "--target-purchased-manifest" not in consolidation.arguments
     assert consolidation.arguments[
         consolidation.arguments.index("--controlled-private-root") + 1
     ] == str(assignments["PURCHASE_PRIVATE_ROOT"] / "purchase-approval")
@@ -1100,8 +1101,8 @@ def test_replacement_corpus_consolidates_promoted_purchases_and_exclusions(
     runbook = (
         Path(__file__).parents[1] / "docs" / "official-run-runbook.md"
     ).read_text(encoding="utf-8")
-    assert "EXACT100_ROOT/purchased-document-downloads.jsonl" in runbook
-    assert "EXACT100_ROOT/document-downloads-merged.jsonl" in runbook
+    assert "exact100-successor-v2 root" in runbook
+    assert "do not synthesize or borrow" in runbook
     assert "EXACT100_ROOT/document-downloads.jsonl" not in runbook
     schema = (
         Path(__file__).parents[1] / "docs" / "schemas" / "clearance-replacement-v1.md"

@@ -50,6 +50,7 @@ from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
     LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
+    REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2,
     UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
     UNITIZATION_REVIEW_BUNDLE_V1,
     UNITIZATION_REVIEW_QUEUE_V1,
@@ -6241,14 +6242,23 @@ def _add_consolidate_replacement_recovery_arguments(
         required=True,
         help="Final authenticated exact-100 target-cohort selection JSONL.",
     )
-    parser.add_argument(
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument(
         "--target-purchased-manifest",
         type=Path,
-        required=True,
         help=(
-            "Purchased-document manifest from the same final target projection; "
+            "Legacy purchased-document manifest from the same final target projection; "
             "it may be empty only when the authenticated selection carries exact "
             "paid-recovery gap identities proved by the canonical ledger."
+        ),
+    )
+    target.add_argument(
+        "--target-cohort-root",
+        type=Path,
+        help=(
+            "Authenticated final target projection root. Versioned successor roots "
+            "derive their purchased partition from this replay rather than a "
+            "caller-selected sidecar."
         ),
     )
     parser.add_argument("--purchase-policy", type=Path, required=True)
@@ -28262,6 +28272,9 @@ _REPLACEMENT_RECOVERY_INDEX_SCHEMA_V2 = (
 _REPLACEMENT_RECOVERY_CARD_SCHEMA = (
     "legalforecast.replacement_recovery_consolidation_run_card.v1"
 )
+_REPLACEMENT_RECOVERY_CARD_SCHEMA_V2 = str(
+    REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2
+)
 _RECAP_FETCH_QUARANTINE_RECOVERY_CARD_SCHEMA = (
     "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
 )
@@ -29751,8 +29764,15 @@ def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
             prepared.source_snapshots.items(), key=lambda item: str(item[0])
         )
     }
+    target_root_mode = (
+        cast(Path | None, getattr(args, "target_cohort_root", None)) is not None
+    )
     run_card: JsonRecord = {
-        "schema_version": _REPLACEMENT_RECOVERY_CARD_SCHEMA,
+        "schema_version": (
+            _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
+            if target_root_mode
+            else _REPLACEMENT_RECOVERY_CARD_SCHEMA
+        ),
         "stage": "consolidate-replacement-recovery",
         "status": "completed",
         "dry_run": not cast(bool, args.execute),
@@ -29770,6 +29790,11 @@ def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
         "paid_activity_executed": False,
         "provider_activity_requested": False,
         "provider_activity_executed": False,
+        **(
+            {"target_projection_mode": "exact100_successor_replacement_v2"}
+            if target_root_mode
+            else {}
+        ),
     }
     if not cast(bool, args.execute):
         print(json.dumps(run_card, sort_keys=True))
@@ -29890,9 +29915,26 @@ def _prepare_replacement_recovery_consolidation(
     index_path = cast(Path, args.tranche_index).absolute()
     index_run_card_path = cast(Path, args.tranche_index_run_card).absolute()
     selection_path = cast(Path, args.selection).absolute()
-    target_purchased_manifest_path = cast(
-        Path, args.target_purchased_manifest
-    ).absolute()
+    target_purchased_manifest_arg = cast(
+        Path | None, getattr(args, "target_purchased_manifest", None)
+    )
+    target_cohort_root_arg = cast(
+        Path | None, getattr(args, "target_cohort_root", None)
+    )
+    if (target_purchased_manifest_arg is None) == (target_cohort_root_arg is None):
+        raise ValueError(
+            "exactly one of target purchased manifest or target cohort root is required"
+        )
+    target_purchased_manifest_path = (
+        target_purchased_manifest_arg.absolute()
+        if target_purchased_manifest_arg is not None
+        else None
+    )
+    target_root = (
+        target_cohort_root_arg.absolute()
+        if target_cohort_root_arg is not None
+        else cast(Path, target_purchased_manifest_path).parent
+    )
     purchase_policy_path = cast(Path, args.purchase_policy).absolute()
     cohort_policy_path = cast(Path, args.cohort_policy).absolute()
     ledger_path = cast(Path, args.purchase_ledger).resolve()
@@ -29920,7 +29962,7 @@ def _prepare_replacement_recovery_consolidation(
         index_path,
         index_run_card_path,
         selection_path,
-        target_purchased_manifest_path,
+        *((target_purchased_manifest_path,) if target_purchased_manifest_path else ()),
         purchase_policy_path,
         cohort_policy_path,
         receipt_path,
@@ -30019,12 +30061,22 @@ def _prepare_replacement_recovery_consolidation(
     )
     selected_keys = _replacement_consolidation_selection_keys(selection_records)
     target_projection: dict[str, object] | None = None
-    if sources[0].get("post_purchase_replay") is None:
+    if target_cohort_root_arg is not None:
         target_projection = (
-            verify_completed_target_cohort_projection_for_purchase_approval(
-                target_purchased_manifest_path.parent
-            )
+            verify_completed_target_cohort_projection_for_purchase_approval(target_root)
         )
+        target_card = cast(Mapping[str, object], target_projection["run_card"])
+        if target_card.get("schema_version") != str(
+            EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
+        ):
+            raise ValueError(
+                "target cohort root is not an authenticated exact100 v2 successor"
+            )
+    elif sources[0].get("post_purchase_replay") is None:
+        target_projection = (
+            verify_completed_target_cohort_projection_for_purchase_approval(target_root)
+        )
+    if target_projection is not None:
         authenticated_selection_path = cast(Path, target_projection["selection_path"])
         if (
             selection_path.resolve() != authenticated_selection_path.resolve()
@@ -30033,13 +30085,24 @@ def _prepare_replacement_recovery_consolidation(
             raise ValueError(
                 "consolidation selection differs from authenticated target projection"
             )
-    target_purchased_records = _projection_jsonl_records(
-        snapshots[target_purchased_manifest_path],
-        source=target_purchased_manifest_path,
+    target_purchased_records = (
+        list(
+            cast(
+                Sequence[Mapping[str, Any]],
+                cast(dict[str, object], target_projection)["purchased_manifest"],
+            )
+        )
+        if target_purchased_manifest_path is None
+        else _projection_jsonl_records(
+            snapshots[target_purchased_manifest_path],
+            source=target_purchased_manifest_path,
+        )
     )
     projected_purchased_keys = {
         _materializer_record_key(record) for record in target_purchased_records
     }
+    if target_cohort_root_arg is not None and projected_purchased_keys:
+        raise ValueError("exact100 v2 target purchased partition must be empty")
     operation_keys = {
         (
             _required_str(operation, "candidate_id"),
@@ -30296,10 +30359,24 @@ def _prepare_replacement_recovery_consolidation(
                 issue_resolved_transition_capability()
             ),
         )
+        legacy_target_root = target_root
+        if target_cohort_root_arg is not None:
+            if target_projection is None:
+                raise ValueError("exact100 v2 target projection was not authenticated")
+            v2_target_card = cast(Mapping[str, object], target_projection["run_card"])
+            v2_target_inputs = v2_target_card.get("input_paths")
+            if (
+                not isinstance(v2_target_inputs, Sequence)
+                or isinstance(v2_target_inputs, (str, bytes))
+                or not v2_target_inputs
+            ):
+                raise ValueError("exact100 v2 target lacks predecessor lineage")
+            predecessor_value = cast(Sequence[object], v2_target_inputs)[0]
+            if not isinstance(predecessor_value, str) or not predecessor_value:
+                raise ValueError("exact100 v2 predecessor root is invalid")
+            legacy_target_root = Path(predecessor_value).absolute()
         target_run_card_path = (
-            target_purchased_manifest_path.parent
-            / "run-cards"
-            / "project-target-cohort.json"
+            legacy_target_root / "run-cards" / "project-target-cohort.json"
         )
         target_run_card = _projection_json_object(
             capture_successor_history(
@@ -30398,7 +30475,7 @@ def _prepare_replacement_recovery_consolidation(
     if target_projection is None:
         target_projection = (
             verify_completed_target_cohort_projection_for_purchase_approval(
-                target_purchased_manifest_path.parent,
+                target_root,
                 _verified_legacy_ranked_replay=verified_legacy_ranked_replay,
                 _verified_clearance_relocations=(
                     verified_clearance_relocations or None
@@ -30717,7 +30794,11 @@ def _prepare_replacement_recovery_consolidation(
             index_path,
             index_run_card_path,
             selection_path,
-            target_purchased_manifest_path,
+            (
+                target_root
+                if target_purchased_manifest_path is None
+                else target_purchased_manifest_path
+            ),
             purchase_policy_path,
             cohort_policy_path,
             ledger_path,
@@ -44003,8 +44084,14 @@ def _verify_materializer_consolidated_recovery(
         run_card_path, label="consolidated replacement recovery run card"
     )
     card = _projection_json_object(run_card_bytes, source=run_card_path)
+    schema_version = card.get("schema_version")
+    target_root_mode = schema_version == _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
     if (
-        card.get("schema_version") != _REPLACEMENT_RECOVERY_CARD_SCHEMA
+        schema_version
+        not in {
+            _REPLACEMENT_RECOVERY_CARD_SCHEMA,
+            _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2,
+        }
         or card.get("stage") != "consolidate-replacement-recovery"
         or card.get("status") != "completed"
         or card.get("dry_run") is not False
@@ -44015,6 +44102,10 @@ def _verify_materializer_consolidated_recovery(
         or card.get("provider_activity_executed") is not False
     ):
         raise CommandError("invalid completed consolidated replacement recovery card")
+    if target_root_mode != (
+        card.get("target_projection_mode") == "exact100_successor_replacement_v2"
+    ):
+        raise CommandError("consolidated replacement recovery target mode differs")
     raw_inputs = card.get("input_paths")
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
         raise CommandError("consolidated replacement recovery lacks exact inputs")
@@ -44084,7 +44175,7 @@ def _verify_materializer_consolidated_recovery(
         verified_bytes[os.path.abspath(path)] = payload
     for required in (
         selection_path,
-        inputs[3],
+        *((inputs[3],) if not target_root_mode else ()),
         purchase_policy_path,
         cohort_policy_path,
         inputs[8],
@@ -44224,7 +44315,8 @@ def _verify_materializer_consolidated_recovery(
             tranche_index=inputs[0],
             tranche_index_run_card=inputs[1],
             selection=inputs[2],
-            target_purchased_manifest=inputs[3],
+            target_purchased_manifest=(None if target_root_mode else inputs[3]),
+            target_cohort_root=(inputs[3] if target_root_mode else None),
             purchase_policy=inputs[4],
             cohort_policy=inputs[5],
             purchase_ledger=inputs[6],
@@ -45137,7 +45229,10 @@ def _verify_materializer_clearance_lineage(
         else validated_run_card_bytes
     )
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
-    if run_card.get("schema_version") == _REPLACEMENT_RECOVERY_CARD_SCHEMA:
+    if run_card.get("schema_version") in {
+        _REPLACEMENT_RECOVERY_CARD_SCHEMA,
+        _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2,
+    }:
         expected_root = run_card_path.parents[1]
         restriction_path = expected_root / "restriction-evidence.jsonl"
         resolved_path = expected_root / "resolved-post-recovery-documents.jsonl"
@@ -55746,7 +55841,54 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
     fixture_markdown_dir = cast(Path | None, args.fixture_markdown_dir)
     parser_root = cast(Path | None, args.parser_root)
     _acquisition_output_root(args)
+    source_commitments = _parse_document_source_commitments(
+        completion_input_snapshots=completion_input_snapshots,
+        requests_path=requests_path,
+        clearance_path=clearance_path,
+        selection_path=selection_path,
+        materialization_card_path=materialization_card_path,
+        clearance_lineage_paths=clearance_lineage_paths,
+        resolved_path=resolved_path,
+        purchase_lineage_paths=purchase_lineage_paths,
+    )
+    effective_parser_root = (
+        MistralParserConfig().parser_root if parser_root is None else parser_root
+    )
     reuse_source: JsonRecord | None = None
+    completed_reuse: tuple[tuple[JsonRecord, ...], JsonRecord] | None = None
+    if not dry_run and reuse_run_card_path is not None:
+        if reuse_markdown_root is None:
+            raise AssertionError("reuse Markdown root was not validated")
+        completed_reuse = _authenticate_completed_current_mistral_reuse(
+            run_card_path=_acquisition_path(
+                args,
+                "run_card_output",
+                output_root / "run-cards" / "parse-documents.json",
+            ),
+            manifest_path=manifest_path,
+            requests=requests,
+            output_root=output_root,
+            input_paths=completion_input_paths,
+            source_commitments=source_commitments,
+            purchase_state_sha256=purchase_state_sha256,
+            effective_parser_root=effective_parser_root,
+            prior_run_card_path=reuse_run_card_path,
+            prior_markdown_root=reuse_markdown_root,
+        )
+        if completed_reuse is not None:
+            _require_snapshot_unchanged(
+                completion_input_snapshots, label="parse-documents input"
+            )
+            if (
+                materialization_lineage is not None
+                and document_source_snapshots
+                and _materializer_tree_snapshot(cast(Path, materialized_document_root))
+                != document_source_snapshots
+            ):
+                raise CommandError(
+                    "parse materialized document tree changed during execution"
+                )
+            return 0
     if dry_run:
         output_records: Sequence[Mapping[str, Any]] = (
             {
@@ -55760,12 +55902,65 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
         if reuse_run_card_path is not None:
             if reuse_markdown_root is None:
                 raise AssertionError("reuse Markdown root was not validated")
-            output_records, reuse_source = _reuse_live_mistral_parse_outputs(
+            reuse_plan = _reuse_live_mistral_parse_outputs(
                 prior_run_card_path=reuse_run_card_path,
                 prior_markdown_root=reuse_markdown_root,
                 requests=requests,
                 output_root=output_root,
             )
+            gap_records = (
+                convert_documents_to_markdown(
+                    reuse_plan.gaps,
+                    config=MistralParserConfig(
+                        parser_root=(
+                            MistralParserConfig().parser_root
+                            if parser_root is None
+                            else parser_root
+                        ),
+                        timeout_seconds=cast(int, args.timeout_seconds),
+                    ),
+                )
+                if reuse_plan.gaps
+                else ()
+            )
+            parsed_gap_records = tuple(
+                {
+                    **record.to_record(),
+                    "source_sha256": cast(str, request.expected_sha256),
+                    "source_byte_count": cast(int, request.expected_byte_count),
+                }
+                for record, request in zip(gap_records, reuse_plan.gaps, strict=True)
+            )
+            parsed_gap_by_key = _parse_reuse_record_index(
+                parsed_gap_records, label="fresh parser gap manifest"
+            )
+            expected_gap_by_key = _parse_reuse_request_object_index(
+                reuse_plan.gaps, label="fresh parser gap requests"
+            )
+            if set(parsed_gap_by_key) != set(expected_gap_by_key):
+                raise CommandError("fresh parser gap outputs differ from requests")
+            for key, record in parsed_gap_by_key.items():
+                _require_reuse_record_matches_current_output(
+                    record,
+                    destination_markdown=expected_gap_by_key[key].markdown_output_path,
+                    output_root=output_root,
+                )
+            combined_by_key = {
+                **reuse_plan.records_by_key,
+                **parsed_gap_by_key,
+            }
+            output_records = tuple(
+                combined_by_key[
+                    (
+                        request.candidate_id,
+                        request.source_document_id,
+                        cast(str, request.expected_sha256),
+                        cast(int, request.expected_byte_count),
+                    )
+                ]
+                for request in requests
+            )
+            reuse_source = reuse_plan.source
         elif fixture_markdown_dir is None:
             records = convert_documents_to_markdown(
                 requests,
@@ -55815,7 +56010,69 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
         != document_source_snapshots
     ):
         raise CommandError("parse materialized document tree changed during execution")
-    source_commitments = {
+    output_commitments = (
+        {}
+        if dry_run
+        else {
+            "parser_manifest": {
+                "path": str(manifest_path.resolve()),
+                "sha256": _bytes_sha256(manifest_bytes),
+            }
+        }
+    )
+    _write_acquisition_completion(
+        args,
+        stage="parse-documents",
+        input_paths=completion_input_paths,
+        output_paths=(manifest_path,),
+        record_count=len(requests),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "source_commitments": source_commitments,
+            "output_commitments": output_commitments,
+            "parser_execution": {
+                "mode": (
+                    "live_mistral"
+                    if fixture_markdown_dir is None
+                    else "fixture_markdown"
+                ),
+                "engine": (
+                    "mistral" if fixture_markdown_dir is None else "fixture_markdown"
+                ),
+                "parser_revision": (
+                    EXPECTED_PARSER_REVISION if fixture_markdown_dir is None else None
+                ),
+                "parser_root": str(effective_parser_root.expanduser().resolve()),
+                "fixture_markdown": fixture_markdown_dir is not None,
+                **(
+                    {
+                        "reused_authenticated_output": True,
+                        "reused_live_mistral": reuse_source,
+                    }
+                    if reuse_source is not None
+                    else {}
+                ),
+            },
+            "purchase_state_sha256": purchase_state_sha256,
+        },
+    )
+    return 0
+
+
+def _parse_document_source_commitments(
+    *,
+    completion_input_snapshots: Mapping[Path, bytes],
+    requests_path: Path,
+    clearance_path: Path,
+    selection_path: Path | None,
+    materialization_card_path: Path | None,
+    clearance_lineage_paths: Sequence[Path],
+    resolved_path: Path | None,
+    purchase_lineage_paths: Sequence[Path],
+) -> JsonRecord:
+    return {
         "requests": {
             "path": str(requests_path.resolve()),
             "sha256": _bytes_sha256(completion_input_snapshots[requests_path]),
@@ -55871,58 +56128,123 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
             for index, path in enumerate(purchase_lineage_paths)
         },
     }
-    output_commitments = (
-        {}
-        if dry_run
-        else {
-            "parser_manifest": {
-                "path": str(manifest_path.resolve()),
-                "sha256": _bytes_sha256(manifest_bytes),
-            }
+
+
+def _authenticate_completed_current_mistral_reuse(
+    *,
+    run_card_path: Path,
+    manifest_path: Path,
+    requests: Sequence[MistralMarkdownConversionRequest],
+    output_root: Path,
+    input_paths: Sequence[Path],
+    source_commitments: Mapping[str, object],
+    purchase_state_sha256: str | None,
+    effective_parser_root: Path,
+    prior_run_card_path: Path,
+    prior_markdown_root: Path,
+) -> tuple[tuple[JsonRecord, ...], JsonRecord] | None:
+    """Authenticate a completed mixed reuse run before treating resume as a no-op."""
+
+    card_exists = run_card_path.exists() or run_card_path.is_symlink()
+    manifest_exists = manifest_path.exists() or manifest_path.is_symlink()
+    if not card_exists and not manifest_exists:
+        return None
+    if card_exists != manifest_exists:
+        raise CommandError("completed parse reuse has a partial terminal output")
+
+    prior = _authenticate_live_mistral_parse_reuse(
+        prior_run_card_path=prior_run_card_path,
+        prior_markdown_root=prior_markdown_root,
+    )
+    current_by_key = _parse_reuse_request_object_index(
+        requests, label="completed current parse requests"
+    )
+    expected_reuse_source: JsonRecord = {
+        **prior.source,
+        "reused_record_count": len(set(prior.artifacts_by_key) & set(current_by_key)),
+        "parsed_gap_count": len(set(current_by_key) - set(prior.artifacts_by_key)),
+    }
+
+    card_bytes = _read_singly_linked_regular_input(
+        run_card_path, label="completed current parse run card"
+    )
+    card = _projection_json_object(card_bytes, source=run_card_path)
+    _require_reusable_live_mistral_run_card(card)
+    execution = cast(Mapping[str, object], card["parser_execution"])
+    generated_at = card.get("generated_at")
+    if (
+        card.get("resume") is not True
+        or card.get("record_count") != len(requests)
+        or card.get("input_paths") != [str(path) for path in input_paths]
+        or card.get("output_paths") != [str(manifest_path)]
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+        or card.get("source_commitments") != source_commitments
+        or card.get("purchase_state_sha256") != purchase_state_sha256
+        or not isinstance(generated_at, str)
+        or not generated_at.strip()
+        or execution.get("parser_root")
+        != str(effective_parser_root.expanduser().resolve())
+        or execution.get("reused_authenticated_output") is not True
+        or execution.get("reused_live_mistral") != expected_reuse_source
+    ):
+        raise CommandError("completed current parse reuse card differs")
+
+    manifest_bytes = _read_singly_linked_regular_input(
+        manifest_path, label="completed current parser manifest"
+    )
+    if card.get("output_commitments") != {
+        "parser_manifest": {
+            "path": str(manifest_path.resolve()),
+            "sha256": _bytes_sha256(manifest_bytes),
         }
+    }:
+        raise CommandError("completed current parser manifest commitment differs")
+    records = tuple(_projection_jsonl_records(manifest_bytes, source=manifest_path))
+    if len(records) != len(requests):
+        raise CommandError("completed current parser manifest count differs")
+    record_index = _parse_reuse_record_index(
+        records, label="completed current parser manifest"
     )
-    effective_parser_root = (
-        MistralParserConfig().parser_root if parser_root is None else parser_root
+    expected_keys = tuple(current_by_key)
+    actual_keys = tuple(
+        _parse_reuse_key(record, label="completed current parser manifest")
+        for record in records
     )
-    _write_acquisition_completion(
-        args,
-        stage="parse-documents",
-        input_paths=completion_input_paths,
-        output_paths=(manifest_path,),
-        record_count=len(requests),
-        dry_run=dry_run,
-        paid_activity_requested=False,
-        paid_activity_executed=False,
-        extra={
-            "source_commitments": source_commitments,
-            "output_commitments": output_commitments,
-            "parser_execution": {
-                "mode": (
-                    "live_mistral"
-                    if fixture_markdown_dir is None
-                    else "fixture_markdown"
-                ),
-                "engine": (
-                    "mistral" if fixture_markdown_dir is None else "fixture_markdown"
-                ),
-                "parser_revision": (
-                    EXPECTED_PARSER_REVISION if fixture_markdown_dir is None else None
-                ),
-                "parser_root": str(effective_parser_root.expanduser().resolve()),
-                "fixture_markdown": fixture_markdown_dir is not None,
-                **(
-                    {
-                        "reused_authenticated_output": True,
-                        "reused_live_mistral": reuse_source,
-                    }
-                    if reuse_source is not None
-                    else {}
-                ),
+    if actual_keys != expected_keys or set(record_index) != set(current_by_key):
+        raise CommandError("completed current parser manifest order differs")
+    for key, request in current_by_key.items():
+        record = record_index[key]
+        _require_reuse_record_matches_request(
+            record,
+            {
+                "candidate_id": request.candidate_id,
+                "source_document_id": request.source_document_id,
+                "expected_sha256": request.expected_sha256,
+                "expected_byte_count": request.expected_byte_count,
             },
-            "purchase_state_sha256": purchase_state_sha256,
-        },
-    )
-    return 0
+            label="completed current parser manifest",
+        )
+        _require_reuse_record_matches_current_output(
+            record,
+            destination_markdown=request.markdown_output_path,
+            output_root=output_root,
+        )
+        metadata_path = request.markdown_output_path.with_suffix(".metadata.json")
+        markdown_bytes = _read_singly_linked_regular_input(
+            request.markdown_output_path, label="completed current Markdown"
+        )
+        metadata_bytes = _read_singly_linked_regular_input(
+            metadata_path, label="completed current Markdown metadata"
+        )
+        try:
+            markdown = markdown_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CommandError("completed current Markdown is not UTF-8") from exc
+        if _projection_json_object(metadata_bytes, source=metadata_path) != record:
+            raise CommandError("completed current Markdown metadata differs")
+        _require_reusable_live_mistral_record(record, markdown=markdown)
+    return records, expected_reuse_source
 
 
 def _fixture_rehearsal_input_commitment(path: Path) -> JsonRecord:
@@ -69574,13 +69896,28 @@ def _mistral_markdown_request(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _MistralParseReusePlan:
+    records_by_key: Mapping[tuple[str, str, str, int], JsonRecord]
+    gaps: tuple[MistralMarkdownConversionRequest, ...]
+    source: JsonRecord
+
+
+@dataclass(frozen=True, slots=True)
+class _AuthenticatedMistralParseReuse:
+    artifacts_by_key: Mapping[
+        tuple[str, str, str, int], tuple[JsonRecord, bytes, bytes]
+    ]
+    source: JsonRecord
+
+
 def _reuse_live_mistral_parse_outputs(
     *,
     prior_run_card_path: Path,
     prior_markdown_root: Path,
     requests: Sequence[MistralMarkdownConversionRequest],
     output_root: Path,
-) -> tuple[tuple[JsonRecord, ...], JsonRecord]:
+) -> _MistralParseReusePlan:
     """Authenticate and copy a prior pinned live-Mistral parse exactly once.
 
     This deliberately accepts relocated source *inputs* but no other historical
@@ -69588,6 +69925,72 @@ def _reuse_live_mistral_parse_outputs(
     copies of the prior records so their relative Markdown paths still resolve
     beneath the caller's new output root.
     """
+
+    authenticated = _authenticate_live_mistral_parse_reuse(
+        prior_run_card_path=prior_run_card_path,
+        prior_markdown_root=prior_markdown_root,
+    )
+    current_by_key = _parse_reuse_request_object_index(
+        requests, label="current parse requests"
+    )
+    reusable = {
+        key: value
+        for key, value in authenticated.artifacts_by_key.items()
+        if key in current_by_key
+    }
+    gaps = tuple(
+        request
+        for request in requests
+        if (
+            request.candidate_id,
+            request.source_document_id,
+            cast(str, request.expected_sha256),
+            cast(int, request.expected_byte_count),
+        )
+        not in reusable
+    )
+    _require_fresh_parse_gap_destinations(gaps, output_root=output_root)
+
+    copied: dict[tuple[str, str, str, int], JsonRecord] = {}
+    for key, (record, markdown_bytes, metadata_bytes) in reusable.items():
+        current_request = current_by_key[key]
+        _require_reuse_record_matches_request(
+            record,
+            {
+                "candidate_id": current_request.candidate_id,
+                "source_document_id": current_request.source_document_id,
+                "expected_sha256": current_request.expected_sha256,
+                "expected_byte_count": current_request.expected_byte_count,
+            },
+            label="current live-Mistral conversion",
+        )
+        _require_reuse_record_matches_current_output(
+            record,
+            destination_markdown=current_request.markdown_output_path,
+            output_root=output_root,
+        )
+        _copy_reused_markdown_pair(
+            markdown_bytes=markdown_bytes,
+            metadata_bytes=metadata_bytes,
+            destination_markdown=current_request.markdown_output_path,
+            output_root=output_root,
+        )
+        copied[key] = dict(record)
+    return _MistralParseReusePlan(
+        records_by_key=copied,
+        gaps=gaps,
+        source={
+            **authenticated.source,
+            "reused_record_count": len(copied),
+            "parsed_gap_count": len(gaps),
+        },
+    )
+
+
+def _authenticate_live_mistral_parse_reuse(
+    *, prior_run_card_path: Path, prior_markdown_root: Path
+) -> _AuthenticatedMistralParseReuse:
+    """Authenticate every row and artifact in one prior live-Mistral run."""
 
     _require_safe_reuse_root(prior_markdown_root, label="prior Markdown root")
     run_card_bytes = _read_singly_linked_regular_input(
@@ -69618,42 +70021,18 @@ def _reuse_live_mistral_parse_outputs(
     prior_records_by_key = _parse_reuse_record_index(
         prior_records, label="prior parser manifest"
     )
-    current_by_key = _parse_reuse_request_object_index(
-        requests, label="current parse requests"
-    )
     if set(prior_requests_by_key) != set(prior_records_by_key):
         raise CommandError(
             "prior live-Mistral requests and conversion manifest do not match"
         )
-    if set(prior_records_by_key) != set(current_by_key):
-        raise CommandError(
-            "prior live-Mistral outputs do not match current source commitments"
-        )
-
-    copied: list[JsonRecord] = []
+    authenticated: dict[tuple[str, str, str, int], tuple[JsonRecord, bytes, bytes]] = {}
     for key, record in prior_records_by_key.items():
         old_request = prior_requests_by_key[key]
-        current_request = current_by_key[key]
         _require_reuse_record_matches_request(
             record, old_request, label="prior live-Mistral conversion"
         )
-        _require_reuse_record_matches_request(
-            record,
-            {
-                "candidate_id": current_request.candidate_id,
-                "source_document_id": current_request.source_document_id,
-                "expected_sha256": current_request.expected_sha256,
-                "expected_byte_count": current_request.expected_byte_count,
-            },
-            label="current live-Mistral conversion",
-        )
         markdown_path, metadata_path = _reuse_artifact_paths(
             record, root=prior_markdown_root
-        )
-        _require_reuse_record_matches_current_output(
-            record,
-            destination_markdown=current_request.markdown_output_path,
-            output_root=output_root,
         )
         markdown_bytes = _read_singly_linked_regular_input(
             markdown_path, label="prior reused Markdown"
@@ -69671,13 +70050,8 @@ def _reuse_live_mistral_parse_outputs(
                 "prior reused Markdown metadata differs from its committed conversion"
             )
         _require_reusable_live_mistral_record(record, markdown=markdown)
-        _copy_reused_markdown_pair(
-            markdown_bytes=markdown_bytes,
-            metadata_bytes=metadata_bytes,
-            destination_markdown=current_request.markdown_output_path,
-            output_root=output_root,
-        )
-        copied.append(dict(record))
+        authenticated[key] = (dict(record), markdown_bytes, metadata_bytes)
+
     _require_snapshot_unchanged(
         {
             prior_run_card_path: run_card_bytes,
@@ -69686,22 +70060,53 @@ def _reuse_live_mistral_parse_outputs(
         },
         label="prior live-Mistral parse reuse input",
     )
-    return tuple(copied), {
-        "prior_run_card": {
-            "path": str(prior_run_card_path.resolve()),
-            "sha256": _bytes_sha256(run_card_bytes),
+    return _AuthenticatedMistralParseReuse(
+        artifacts_by_key=authenticated,
+        source={
+            "prior_run_card": {
+                "path": str(prior_run_card_path.resolve()),
+                "sha256": _bytes_sha256(run_card_bytes),
+            },
+            "prior_requests": {
+                "path": str(prior_requests_path.resolve()),
+                "sha256": _bytes_sha256(prior_requests_bytes),
+            },
+            "prior_parser_manifest": {
+                "path": str(prior_manifest_path.resolve()),
+                "sha256": _bytes_sha256(prior_manifest_bytes),
+            },
+            "prior_markdown_root": str(prior_markdown_root.resolve()),
+            "prior_record_count": len(prior_records_by_key),
         },
-        "prior_requests": {
-            "path": str(prior_requests_path.resolve()),
-            "sha256": _bytes_sha256(prior_requests_bytes),
-        },
-        "prior_parser_manifest": {
-            "path": str(prior_manifest_path.resolve()),
-            "sha256": _bytes_sha256(prior_manifest_bytes),
-        },
-        "prior_markdown_root": str(prior_markdown_root.resolve()),
-        "reused_record_count": len(copied),
-    }
+    )
+
+
+def _require_fresh_parse_gap_destinations(
+    requests: Sequence[MistralMarkdownConversionRequest], *, output_root: Path
+) -> None:
+    """Refuse an ambiguous retry before any unmatched provider request is made."""
+
+    for request in requests:
+        markdown_path = request.markdown_output_path
+        metadata_path = markdown_path.with_suffix(".metadata.json")
+        try:
+            markdown_path.resolve().relative_to(output_root.resolve())
+            metadata_path.resolve().relative_to(output_root.resolve())
+        except ValueError as exc:
+            raise CommandError(
+                "parse gap output escapes the current output root"
+            ) from exc
+        _reject_existing_parent_symlink(markdown_path, label="parse gap Markdown")
+        _reject_existing_parent_symlink(metadata_path, label="parse gap metadata")
+        if (
+            markdown_path.exists()
+            or markdown_path.is_symlink()
+            or metadata_path.exists()
+            or metadata_path.is_symlink()
+        ):
+            raise CommandError(
+                "parse gap output already exists without a completed current run"
+            )
 
 
 def _require_safe_reuse_root(root: Path, *, label: str) -> None:
@@ -69916,7 +70321,8 @@ def _require_reusable_live_mistral_record(
         raise CommandError("prior conversion Markdown text provenance mismatch")
     quality_flag_values = cast(list[str], quality_flag_objects)
     if (
-        extracted_flags != quality_flag_values
+        quality_flag_values
+        or extracted_flags != quality_flag_values
         or extracted_record.get("source_document_id")
         != record.get("source_document_id")
         or extracted_record.get("extraction_method") != "mistral_parser_markdown"

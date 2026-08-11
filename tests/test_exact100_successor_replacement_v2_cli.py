@@ -10,6 +10,9 @@ from typing import Any
 
 import pytest
 from legalforecast.ingestion import (
+    exact100_successor_replacement_v2 as successor_v2,
+)
+from legalforecast.ingestion import (
     exact100_successor_replacement_v2_cli as successor_v2_cli,
 )
 from tests.test_exact100_successor_replacement_v2 import _fixture
@@ -43,6 +46,35 @@ def _args(
 
 def _authenticated_replay() -> successor_v2_cli.V2InputReplay:
     inputs = _fixture()
+
+    def replay(_: argparse.Namespace) -> tuple[Any, Any, Any, Any]:
+        return (
+            inputs["base"],
+            inputs["terminals"],
+            inputs["repairs"],
+            inputs["wider"],
+        )
+
+    return replay
+
+
+def _authenticated_replay_with_manifest_phase(
+    phase: str,
+) -> successor_v2_cli.V2InputReplay:
+    inputs = _fixture()
+    base = inputs["base"]
+    manifest = [dict(row) for row in base.download_manifest]
+    manifest[1]["free_or_purchased"] = phase
+    inputs["base"] = successor_v2._mint_verified_exact100_v2_base(
+        predecessor_projection_bytes=base.predecessor_projection_bytes,
+        selection_rows=base.selection,
+        case_relevance_rows=base.case_relevance,
+        download_manifest_rows=manifest,
+        disclosure_rows=base.disclosure_clearance,
+        restriction_rows=base.restriction_evidence,
+        core_filter_rows=base.core_filter_results,
+        source_commitments=base.source_commitments,
+    )
 
     def replay(_: argparse.Namespace) -> tuple[Any, Any, Any, Any]:
         return (
@@ -153,6 +185,45 @@ def test_v2_specialized_verifier_rejects_tampered_output(tmp_path: Path) -> None
     with pytest.raises(
         successor_v2_cli.Exact100SuccessorReplacementV2CliError,
         match="completed v2 successor differs from authenticated replay",
+    ):
+        successor_v2_cli.verify_exact100_successor_replacement_v2_projection(
+            output_root,
+            replay=replay,
+            args=args,
+        )
+
+
+def test_v2_specialized_verifier_partitions_authenticated_manifest(
+    tmp_path: Path,
+) -> None:
+    replay = _authenticated_replay_with_manifest_phase("purchased")
+    output_root = tmp_path / "successor-v2"
+    args = _args(tmp_path, output_root=output_root, replay=replay)
+    assert successor_v2_cli.run(args) == 0
+
+    projection = successor_v2_cli.verify_exact100_successor_replacement_v2_projection(
+        output_root,
+        replay=replay,
+        args=args,
+    )
+
+    assert len(projection["purchased_manifest"]) == 1
+    assert all(
+        row["free_or_purchased"] == "free" for row in projection["free_manifest"]
+    )
+
+
+def test_v2_specialized_verifier_rejects_unknown_manifest_phase(
+    tmp_path: Path,
+) -> None:
+    replay = _authenticated_replay_with_manifest_phase("unknown")
+    output_root = tmp_path / "successor-v2"
+    args = _args(tmp_path, output_root=output_root, replay=replay)
+    assert successor_v2_cli.run(args) == 0
+
+    with pytest.raises(
+        successor_v2_cli.Exact100SuccessorReplacementV2CliError,
+        match="manifest has invalid phase",
     ):
         successor_v2_cli.verify_exact100_successor_replacement_v2_projection(
             output_root,
