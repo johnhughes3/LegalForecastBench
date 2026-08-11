@@ -3823,6 +3823,14 @@ def _stage_a_seed(
         if forbidden_scope_fields.intersection(record):
             raise LlmPipelineError("v4 Stage A seed must use the tagged scope object")
         raw_scope = record.get("scope")
+        if isinstance(raw_scope, list):
+            scope_options = cast(list[object], raw_scope)
+            # The frozen v4 prompt presents the tagged scope alternatives as an
+            # array in its illustrative output schema.  Providers therefore may
+            # return the selected alternative as a singleton array.  Normalize
+            # only that exact shape; the canonical seed remains one tagged object.
+            if len(scope_options) == 1 and isinstance(scope_options[0], Mapping):
+                raw_scope = cast(Mapping[str, Any], scope_options[0])
         if not isinstance(raw_scope, Mapping):
             raise LlmPipelineError("scope must be an object")
         scope = cast(Mapping[str, Any], raw_scope)
@@ -3976,22 +3984,48 @@ def _stage_a_seed(
                 ) from exc
             start_line = _required_int(raw_citation, "start_line")
             end_line = _required_int(raw_citation, "end_line")
-            selector = (source_document_id, start_line, end_line)
-            if selector in selectors:
-                raise LlmPipelineError("source_citations contains a duplicate citation")
-            selectors.add(selector)
-            excerpt, page = _document_line_span(
-                document,
-                start_line=start_line,
-                end_line=end_line,
-            )
-            citations.append(
-                StageASeedCitation(
-                    document_id=source_document_id,
-                    excerpt=excerpt,
-                    page=page,
+            document_lines = document.markdown.splitlines(keepends=True)
+            document_line_count = len(document_lines)
+            if (
+                start_line <= 0
+                or end_line < start_line
+                or end_line > document_line_count
+            ):
+                raise LlmPipelineError(
+                    "citation line range is outside the source document"
                 )
-            )
+            # The frozen v4 prompt caps each citation at 12 lines.  If a
+            # provider selects one longer contiguous range, preserve every
+            # selected nonblank line and deterministically express it as
+            # consecutive bounded citations.  Purely blank chunks carry no
+            # evidence and are omitted.  Invalid or out-of-document selectors
+            # remain failures; this never clamps or invents evidence.
+            citation_added = False
+            for bounded_start in range(start_line, end_line + 1, 12):
+                bounded_end = min(bounded_start + 11, end_line)
+                if not "".join(document_lines[bounded_start - 1 : bounded_end]).strip():
+                    continue
+                selector = (source_document_id, bounded_start, bounded_end)
+                if selector in selectors:
+                    raise LlmPipelineError(
+                        "source_citations contains a duplicate citation"
+                    )
+                selectors.add(selector)
+                excerpt, page = _document_line_span(
+                    document,
+                    start_line=bounded_start,
+                    end_line=bounded_end,
+                )
+                citations.append(
+                    StageASeedCitation(
+                        document_id=source_document_id,
+                        excerpt=excerpt,
+                        page=page,
+                    )
+                )
+                citation_added = True
+            if not citation_added:
+                raise LlmPipelineError("citation line range is empty")
             cited_roles.add(document.document_role)
         complaint_roles = {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}
         motion_roles = {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}
