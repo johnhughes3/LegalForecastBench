@@ -9,7 +9,6 @@ provider authority, or artifact commitment.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -312,8 +311,11 @@ def plan_successor_rerun_impact(
                 "candidate_id": key[0],
                 "source_document_id": key[1],
                 "markdown_sha256": _required_output_sha256(current, key),
-                "parser_reuse_identity_sha256": _parser_evidence_sha256(
-                    current.parser_reuse_by_document[key]
+                "parser_reuse_identity_sha256": str(
+                    ARTIFACT_RAW_SHA256_V1.commit(
+                        _parser_evidence_payload(current.parser_reuse_by_document[key]),
+                        domain=SUCCESSOR_RERUN_IMPACT_V1,
+                    ).digest
                 ),
             }
             for key in reusable_documents
@@ -538,12 +540,12 @@ def _parser_output_layout_matches(evidence: object, *, key: tuple[str, str]) -> 
     )
 
 
-def _parser_evidence_sha256(evidence: object) -> str:
+def _parser_evidence_payload(evidence: object) -> Mapping[str, object]:
     from legalforecast.ingestion.successor_rerun_proposal import ParserReuseEvidence
 
     if not isinstance(evidence, ParserReuseEvidence):
         raise SuccessorRerunImpactError("authenticated parser evidence is malformed")
-    payload = {
+    return {
         "source_key": list(evidence.source_key),
         "markdown_path": evidence.markdown_path,
         "metadata_path": evidence.metadata_path,
@@ -552,9 +554,6 @@ def _parser_evidence_sha256(evidence: object) -> str:
         "metadata_sha256": evidence.metadata_sha256,
         "output_markdown_sha256": evidence.output_markdown_sha256,
     }
-    return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
 
 
 def _shell_join(arguments: Sequence[str]) -> str:

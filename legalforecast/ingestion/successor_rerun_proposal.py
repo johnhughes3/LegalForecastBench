@@ -185,9 +185,7 @@ def load_successor_proposal(path: Path) -> SuccessorProposal:
             "successor proposal document_root is unavailable or unsafe"
         )
     successor_root_alias = _absolute_path(raw, "successor_output_root")
-    successor_root = _resolved_path(
-        successor_root_alias, label="successor output root"
-    )
+    successor_root = _resolved_path(successor_root_alias, label="successor output root")
     require_isolated_successor_outputs(
         successor_root,
         authenticated_inputs=(*paths.values(), document_root),
@@ -309,7 +307,7 @@ def require_isolated_successor_outputs(
     if root != _resolved_path(root, label="successor output root"):
         raise SuccessorRerunProposalError(
             "successor output root must be canonical and resolved"
-    )
+        )
     if root_alias is not None:
         if _resolved_path(root_alias, label="successor output root alias") != root:
             raise SuccessorRerunProposalError(
@@ -326,9 +324,12 @@ def require_isolated_successor_outputs(
                     f"successor derived output overlaps {input_label}: "
                     f"{output} vs {input_path}"
                 )
-    if root_alias is not None and not _resolved_path(
-        root_alias.parent, label="successor output root parent"
-    ).is_dir():
+    if (
+        root_alias is not None
+        and not _resolved_path(
+            root_alias.parent, label="successor output root parent"
+        ).is_dir()
+    ):
         raise SuccessorRerunProposalError(
             "successor output root parent is unavailable or unsafe"
         )
