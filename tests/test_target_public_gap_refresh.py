@@ -1187,6 +1187,108 @@ def test_reused_evidence_rechecks_source_before_provider_construction(
     assert constructed == []
 
 
+def test_reused_evidence_rechecks_source_after_provider_construction(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "target"
+    plan = _single_case_plan(root)
+    for path, payload in _verified_projection_bytes(root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    constructed: list[str] = []
+
+    def construct_firecrawl() -> FirecrawlCourtListenerHTMLSource:
+        constructed.append("firecrawl")
+        Path(next(iter(plan.source_artifact_commitments))).write_bytes(
+            b"mutated after provider construction"
+        )
+        return FirecrawlCourtListenerHTMLSource(
+            FirecrawlConfig(api_key="fixture", proxy="basic", force_browser=False),
+            transport=cast(Any, object()),
+        )
+
+    with bind_target_public_gap_execution(plan) as binding:
+        evidence = _validate_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=_plan_sha256(plan),
+            packet_role_replay=None,
+            execution_binding=binding,
+        )
+        with pytest.raises(ValueError, match="target source artifact changed"):
+            _execute_target_public_gap_refresh(
+                plan=plan,
+                expected_plan_sha256=_plan_sha256(plan),
+                firecrawl_source_factory=construct_firecrawl,
+                document_source_factory=lambda: pytest.fail("document source reached"),
+                allow_existing_downloads=True,
+                validated_execution=evidence,
+            )
+
+    assert constructed == ["firecrawl"]
+    assert not plan.execution_identity.cycle_store_path.exists()
+
+
+def test_reused_evidence_only_avoids_duplicate_pure_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "target"
+    plan = _single_case_plan(root)
+    for path, payload in _verified_projection_bytes(root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    calls = {"preflight": 0, "source": 0}
+    original_preflight = target_gap_module.preflight_target_public_gap_execution
+    original_source_check = (
+        target_gap_module.require_target_public_gap_sources_unchanged
+    )
+
+    def count_preflight(*args: object, **kwargs: object) -> None:
+        calls["preflight"] += 1
+        original_preflight(*args, **kwargs)
+
+    def count_source_check(*args: object, **kwargs: object) -> None:
+        calls["source"] += 1
+        original_source_check(*args, **kwargs)
+
+    monkeypatch.setattr(
+        target_gap_module,
+        "preflight_target_public_gap_execution",
+        count_preflight,
+    )
+    monkeypatch.setattr(
+        target_gap_module,
+        "require_target_public_gap_sources_unchanged",
+        count_source_check,
+    )
+
+    with bind_target_public_gap_execution(plan) as binding:
+        evidence = _validate_target_public_gap_execution(
+            plan=plan,
+            expected_plan_sha256=_plan_sha256(plan),
+            packet_role_replay=None,
+            execution_binding=binding,
+        )
+        with pytest.raises(ValueError, match="Firecrawl source configuration differs"):
+            _execute_target_public_gap_refresh(
+                plan=plan,
+                expected_plan_sha256=_plan_sha256(plan),
+                firecrawl_source_factory=lambda: FirecrawlCourtListenerHTMLSource(
+                    FirecrawlConfig(
+                        api_key="fixture", proxy="enhanced", force_browser=False
+                    ),
+                    transport=cast(Any, object()),
+                ),
+                document_source_factory=lambda: pytest.fail("document source reached"),
+                allow_existing_downloads=True,
+                validated_execution=evidence,
+            )
+
+    assert calls == {"preflight": 2, "source": 3}
+
+
 def test_completed_execution_is_rejected_before_provider_construction(
     tmp_path: Path,
 ) -> None:

@@ -163,7 +163,6 @@ _TERMINAL_REMOTE_CONTENT_FAILURE_PREFIXES = (
     "free public document exceeds byte ceiling (",
     "free public document returned invalid Content-Length:",
 )
-_VALIDATED_TARGET_PUBLIC_GAP_EXECUTION_CAPABILITY = object()
 
 
 class TargetPublicGapRefreshError(ValueError):
@@ -341,13 +340,12 @@ class TargetPublicGapExecutionBinding:
 
 @dataclass(frozen=True, slots=True)
 class _ValidatedTargetPublicGapExecution:
-    """Private, invocation-local proof from the canonical validation boundary."""
+    """Private, invocation-local hint that avoids duplicate pure reconstruction."""
 
     plan: TargetPublicGapPlan
     expected_plan_sha256: str
     packet_role_replay: Mapping[str, object] | None
     execution_binding: TargetPublicGapExecutionBinding
-    capability: object
 
 
 @dataclass(slots=True)
@@ -863,7 +861,6 @@ def _validate_target_public_gap_execution(  # pyright: ignore[reportUnusedFuncti
         expected_plan_sha256=expected_plan_sha256,
         packet_role_replay=packet_role_replay,
         execution_binding=execution_binding,
-        capability=_VALIDATED_TARGET_PUBLIC_GAP_EXECUTION_CAPABILITY,
     )
 
 
@@ -1489,8 +1486,6 @@ def _execute_target_public_gap_refresh(
             validated_execution.plan is not plan
             or validated_execution.expected_plan_sha256 != expected_plan_sha256
             or validated_execution.packet_role_replay != packet_role_replay
-            or validated_execution.capability
-            is not _VALIDATED_TARGET_PUBLIC_GAP_EXECUTION_CAPABILITY
         ):
             raise TargetPublicGapRefreshError(
                 "validated target public-gap execution evidence differs"
@@ -1522,9 +1517,8 @@ def _execute_target_public_gap_refresh(
             )
     execution_binding.require_current(plan)
     if validated_execution is not None:
-        # Reauthenticate immediately before any provider construction or store
-        # mutation.  The typed evidence amortizes intermediate parsing only;
-        # it never extends authority across this TOCTOU boundary.
+        # This hint carries no authority. Reauthenticate immediately before any
+        # provider construction or store mutation.
         preflight_target_public_gap_execution(
             plan,
             expected_plan_sha256=expected_plan_sha256,
@@ -1547,8 +1541,7 @@ def _execute_target_public_gap_refresh(
     identity = execution_binding.runtime_identity
     firecrawl_source = firecrawl_source_factory()
     execution_binding.require_current(plan)
-    if validated_execution is None:
-        require_target_public_gap_sources_unchanged(plan)
+    require_target_public_gap_sources_unchanged(plan)
     if (
         firecrawl_source.config.proxy != identity.firecrawl_proxy
         or firecrawl_source.config.force_browser != identity.force_browser
@@ -1605,15 +1598,15 @@ def _execute_target_public_gap_refresh(
                 firecrawl_source.config.max_credits_per_scrape
             ),
         )
-        if validated_execution is None:
-            preflight_target_public_gap_execution(
-                plan,
-                expected_plan_sha256=expected_plan_sha256,
-                packet_role_replay=packet_role_replay,
-            )
+        # This is the final authority boundary before the scheduler can cause
+        # provider activity. Evidence reuse never skips it.
+        preflight_target_public_gap_execution(
+            plan,
+            expected_plan_sha256=expected_plan_sha256,
+            packet_role_replay=packet_role_replay,
+        )
         execution_binding.require_current(plan)
-        if validated_execution is None:
-            require_target_public_gap_sources_unchanged(plan)
+        require_target_public_gap_sources_unchanged(plan)
         refresh = refresh_target_public_gaps(
             plan=plan,
             role_adjudications=role_adjudications,
