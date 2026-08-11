@@ -1191,6 +1191,39 @@ def test_bound_validation_rejects_cycle_store_alias_created_after_prevalidation(
     assert source.read_bytes() == _verified_projection_bytes(root)[str(source)]
 
 
+def test_bound_validation_rejects_output_symlink_created_after_prevalidation(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "target"
+    plan = _single_case_plan(root)
+    for path, payload in _verified_projection_bytes(root).items():
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+    plan_sha256 = _plan_sha256(plan)
+    prevalidated = _prevalidate_target_public_gap_execution(
+        plan=plan,
+        expected_plan_sha256=plan_sha256,
+        packet_role_replay=None,
+    )
+    output_root = plan.execution_identity.output_root
+    output_root.parent.mkdir(parents=True, exist_ok=True)
+    output_root.symlink_to(tmp_path / "missing-output", target_is_directory=True)
+
+    with bind_target_public_gap_execution(plan) as binding:
+        with pytest.raises(ValueError, match=r"symlink|special file"):
+            _validate_target_public_gap_execution(
+                plan=plan,
+                expected_plan_sha256=plan_sha256,
+                packet_role_replay=None,
+                execution_binding=binding,
+                prevalidated_execution=prevalidated,
+            )
+
+    assert output_root.is_symlink()
+    assert not plan.execution_identity.cycle_store_path.exists()
+
+
 def test_execution_rejects_plan_digest_mismatch_before_provider_construction(
     tmp_path: Path,
 ) -> None:
@@ -1377,10 +1410,10 @@ def test_reused_evidence_only_avoids_duplicate_pure_validation(
                 validated_execution=evidence,
             )
 
-    assert calls == {"preflight": 1, "source": 3}
+    assert calls == {"preflight": 2, "source": 3}
 
 
-def test_cli_evidence_path_uses_four_rehashes_and_two_namespace_checks(
+def test_cli_evidence_path_uses_four_rehashes_and_three_namespace_checks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1495,7 +1528,7 @@ def test_cli_evidence_path_uses_four_rehashes_and_two_namespace_checks(
     # Canonical plan reconstruction supplied the typed initial byte proof. The
     # four counted rereads are post-factory/binding, JIT, pre-publication, and
     # post-publication: five complete closure validations in total.
-    assert calls == {"preflight": 2, "source": 4}
+    assert calls == {"preflight": 3, "source": 4}
     assert (
         plan.execution_identity.output_root / "target-public-gap-outcomes.jsonl"
     ).read_bytes() == payloads["target-public-gap-outcomes.jsonl"]

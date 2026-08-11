@@ -967,6 +967,14 @@ def _validate_target_public_gap_execution(  # pyright: ignore[reportUnusedFuncti
             "prepared target public-gap execution evidence differs"
         )
     execution_binding.require_current(plan)
+    # Prevalidation precedes provider construction and writable binding. Repeat
+    # the complete namespace check after both so a newly introduced symlink,
+    # hard link, or special entry cannot reach durable cycle-store writes.
+    preflight_target_public_gap_execution(
+        plan,
+        expected_plan_sha256=expected_plan_sha256,
+        packet_role_replay=packet_role_replay,
+    )
     cycle_store_path = plan.execution_identity.cycle_store_path
     if cycle_store_path.exists() or cycle_store_path.is_symlink():
         metadata = cycle_store_path.lstat()
