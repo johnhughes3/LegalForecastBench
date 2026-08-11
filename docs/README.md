@@ -109,6 +109,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [resolved-post-recovery-v4.md](schemas/resolved-post-recovery-v4.md): a recovered public document purchased directly through CourtListener RECAP Fetch, with no broker receipt history.
 - [recap-fetch-quarantine-recovery-v1.md](schemas/recap-fetch-quarantine-recovery-v1.md): the noncharging exact partition of recoverable purchase material and canonical terminal-unavailable operations.
 - [replacement-recovery-source-producer-v1.md](schemas/replacement-recovery-source-producer-v1.md): deterministic provider-free derivation of authenticated initial and successor recovery-source descriptors.
+- [replacement-recovery-consolidation-run-card-v2.md](schemas/replacement-recovery-consolidation-run-card-v2.md): provider-free consolidation of authenticated exact100-successor-v2 recovery without a caller-selected purchased sidecar.
 
 **Disclosure review and clearance**
 
