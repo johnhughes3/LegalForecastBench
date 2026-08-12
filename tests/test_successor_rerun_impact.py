@@ -12,11 +12,6 @@ from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import (
-    _authenticate_current_v4_eligibility,  # pyright: ignore[reportPrivateUsage]
-    _validate_successor_rerun_commands,  # pyright: ignore[reportPrivateUsage]
-    main,
-)
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
     ARTIFACT_RAW_SHA256_V1,
@@ -116,7 +111,9 @@ def test_commands_are_derived_complete_and_never_caller_supplied(
     current, proposal = _fixture(tmp_path, replace_document=True)
     report = plan_successor_rerun_impact(current=current, proposed=proposal)
 
-    _validate_successor_rerun_commands(report.record)
+    cli._validate_successor_rerun_commands(  # pyright: ignore[reportPrivateUsage]
+        report.record
+    )
     commands = cast(list[dict[str, object]], report.record["next_commands"])
     assert [command["stage"] for command in commands] == [
         "plan-parse-documents",
@@ -282,6 +279,7 @@ def test_global_provider_drift_reuses_authenticated_parser_inputs(
     if field in {"model_key", "provider_attempt_namespace"}:
         proposal_updates[field] = replacement
     proposal = replace(proposal, **proposal_updates)
+    before = _tree_bytes(tmp_path)
 
     report = plan_successor_rerun_impact(current=current, proposed=proposal)
 
@@ -301,6 +299,10 @@ def test_global_provider_drift_reuses_authenticated_parser_inputs(
     ]
     commands = cast(list[dict[str, object]], report.record["next_commands"])
     assert [command["stage"] for command in commands] == ["llm-unitize"]
+    if field != "provider_attempt_namespace":
+        cli._validate_successor_rerun_commands(  # pyright: ignore[reportPrivateUsage]
+            report.record
+        )
     argv = cast(list[str], commands[0]["argv"])
     assert "plan-parse-documents" not in argv
     assert "parse-documents" not in argv
@@ -324,11 +326,17 @@ def test_global_provider_drift_reuses_authenticated_parser_inputs(
     assert _flag_value(argv, "--document-root") == str(current.document_root)
     assert current.selection_path != proposal.selection_path
     if field == "policy_sha256":
-        assert "--provider-journal" not in argv
+        successor_journal = proposal.successor_output_root / "provider-attempts.sqlite3"
+        assert _flag_value(argv, "--provider-journal") == str(successor_journal)
+        assert str(current.provider_journal_path) not in argv
+        assert not successor_journal.exists()
     else:
         assert _flag_value(argv, "--provider-journal") == str(
             current.provider_journal_path
         )
+    assert commands[0]["advisory_execution"] == "dry_run_only"
+    assert "--execute" not in argv
+    assert "--provider-spend-authority" not in argv
     if replacement != "claim-ontology-v5":
         assert _flag_value(argv, "--target-eligibility-audit") == str(
             current.target_eligibility_audit_path
@@ -336,6 +344,7 @@ def test_global_provider_drift_reuses_authenticated_parser_inputs(
         assert _flag_value(argv, "--target-eligibility-audit-run-card") == str(
             current.target_eligibility_audit_run_card_path
         )
+    assert _tree_bytes(tmp_path) == before
 
 
 def test_v4_namespace_upgrade_creates_eligibility_before_unitization(
@@ -535,9 +544,9 @@ def test_cli_missing_or_ambiguous_lineage_is_stable_json_and_nonzero(
         "--format",
         "json",
     ]
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     first = capsys.readouterr().out
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     second = capsys.readouterr().out
     assert first == second
     failed = cast(dict[str, Any], json.loads(first))
@@ -557,9 +566,9 @@ def test_successful_cli_is_byte_identical_and_journal_mutation_fails_closed(
 ) -> None:
     argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
     before = _tree_bytes(tmp_path)
-    assert main(argv) == 0
+    assert cli.main(argv) == 0
     first = capsys.readouterr().out
-    assert main(argv) == 0
+    assert cli.main(argv) == 0
     second = capsys.readouterr().out
     assert first == second
     assert json.loads(first)["advisory"] is True
@@ -576,7 +585,7 @@ def test_successful_cli_is_byte_identical_and_journal_mutation_fails_closed(
         "_provider_journal_durable_bytes",
         changing_journal_state,
     )
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     failed = json.loads(capsys.readouterr().out)
     assert failed["stages"][0]["status"] == "FAILED"
     assert (
@@ -597,7 +606,7 @@ def test_cli_failed_current_card_and_ambiguous_lineage_are_fail_closed(
         raise cli.CommandError("failed current llm-unitize card")
 
     monkeypatch.setattr(cli, "_verify_stage_a_unitization_run_card", failed_card)
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     failed = cast(dict[str, Any], json.loads(capsys.readouterr().out))
     failed_stages = cast(list[dict[str, Any]], failed["stages"])
     assert "failed current" in failed_stages[0]["diagnostics"][0]["message"]
@@ -607,7 +616,7 @@ def test_cli_failed_current_card_and_ambiguous_lineage_are_fail_closed(
         return head, dict(head)
 
     monkeypatch.setattr(cli, "_active_head_chain", ambiguous)
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     ambiguous_report = cast(dict[str, Any], json.loads(capsys.readouterr().out))
     ambiguous_stages = cast(list[dict[str, Any]], ambiguous_report["stages"])
     assert "not unique" in ambiguous_stages[0]["diagnostics"][0]["message"]
@@ -627,7 +636,7 @@ def test_cli_v4_eligibility_requires_semantic_replay(
         cli, "_authenticate_current_v4_eligibility", reject_semantic_replay
     )
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert "eligibility semantic replay rejected" in _failure_message(capsys)
 
 
@@ -636,15 +645,18 @@ def test_cli_malformed_committed_v4_eligibility_card_is_typed_failure(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    authenticate_current_v4_eligibility = (
+        cli._authenticate_current_v4_eligibility  # pyright: ignore[reportPrivateUsage]
+    )
     argv = _install_successful_cli_fixture(tmp_path, monkeypatch)
     monkeypatch.setattr(
         cli,
         "_authenticate_current_v4_eligibility",
-        _authenticate_current_v4_eligibility,
+        authenticate_current_v4_eligibility,
     )
     (tmp_path / "current-eligibility-card.json").write_bytes(b"{not-json")
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert "eligibility audit run card is invalid" in _failure_message(capsys)
 
 
@@ -681,7 +693,7 @@ def test_cli_current_authenticated_lineage_mutation_fails_closed(
     _mutate_after_planning(monkeypatch, tmp_path / relative_path)
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert message in _failure_message(capsys)
     _assert_only_path_changed(before, _tree_bytes(tmp_path), relative_path)
 
@@ -709,7 +721,7 @@ def test_cli_parser_reauthentication_change_fails_closed(
     )
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert "authenticated parser reuse changed during planning" in _failure_message(
         capsys
     )
@@ -730,7 +742,7 @@ def test_cli_terminal_snapshot_mutation_fails_closed(
     _mutate_after_planning(monkeypatch, tmp_path / relative_path)
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert "llm-unitize terminal replay changed" in _failure_message(capsys)
     _assert_only_path_changed(before, _tree_bytes(tmp_path), relative_path)
 
@@ -759,7 +771,7 @@ def test_cli_proposed_authenticated_lineage_mutation_fails_closed(
     _mutate_after_planning(monkeypatch, tmp_path / relative_path)
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert message in _failure_message(capsys)
     _assert_only_path_changed(before, _tree_bytes(tmp_path), relative_path)
 
@@ -783,7 +795,7 @@ def test_cli_provider_policy_is_parsed_and_hashed_from_one_snapshot(
     monkeypatch.setattr(cli, "load_provider_cycle_caps_bytes", swap_after_parse)
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert "authenticated proposed provider policy changed" in _failure_message(capsys)
     _assert_only_path_changed(before, _tree_bytes(tmp_path), "policy.json")
 
@@ -800,7 +812,7 @@ def test_cli_proposal_or_committed_input_mutation_fails_closed(
     _mutate_after_planning(monkeypatch, path)
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     message = _failure_message(capsys)
     assert (
         "successor proposal changed during planning" in message
@@ -824,7 +836,7 @@ def test_cli_active_lineage_status_mutation_fails_closed(
     monkeypatch.setattr(cli, "locate_cycle_lineage", next_lineage_status)
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert "active lineage changed during successor planning" in _failure_message(
         capsys
     )
@@ -878,6 +890,10 @@ def test_successor_root_must_be_new_and_derived_paths_are_complete(
         "mistral-markdown-conversions.jsonl",
         "markdown",
         "target-document-eligibility-audit.jsonl",
+        "provider-attempts.sqlite3",
+        "provider-attempts.sqlite3-journal",
+        "provider-attempts.sqlite3-shm",
+        "provider-attempts.sqlite3-wal",
         "prediction-units.jsonl",
         "llm-unitization-audit.jsonl",
         "unitization-review-queue.jsonl",
@@ -928,7 +944,7 @@ def test_cli_successor_outputs_reject_current_input_overlap(
     proposal_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert message in _failure_message(capsys)
     assert _tree_bytes(tmp_path) == before
 
@@ -951,7 +967,7 @@ def test_cli_successor_outputs_reject_proposed_lineage_root_overlap(
     proposal_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert "successor derived output overlaps authenticated proposed input" in (
         _failure_message(capsys)
     )
@@ -989,7 +1005,7 @@ def test_cli_rechecks_proposed_lineage_root_alias_before_reporting(
     record["successor_output_root"] = str(output_parent / "successor")
     proposal_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert "successor derived output overlaps authenticated proposed input" in (
         _failure_message(capsys)
     )
@@ -1004,7 +1020,7 @@ def test_cli_replays_legacy_local_account_as_default(
         tmp_path, monkeypatch, legacy_default_account=True
     )
 
-    assert main(argv) == 0
+    assert cli.main(argv) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["proposed_global_commitments"]["provider_account"] == "default"
 
@@ -1027,7 +1043,7 @@ def test_cli_canonicalizes_successor_root_and_rejects_parent_symlink_retarget(
     proposal_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(record))
     before = _tree_bytes(tmp_path)
 
-    assert main(argv) == 0
+    assert cli.main(argv) == 0
     report_text = capsys.readouterr().out
     assert str(canonical_root) in report_text
     assert str(alias_root) not in report_text
@@ -1047,7 +1063,7 @@ def test_cli_canonicalizes_successor_root_and_rejects_parent_symlink_retarget(
 
     monkeypatch.setattr(cli, "locate_cycle_lineage", retarget_before_final_isolation)
 
-    assert main(argv) == 1
+    assert cli.main(argv) == 1
     assert "successor output root alias changed during planning" in _failure_message(
         capsys
     )
