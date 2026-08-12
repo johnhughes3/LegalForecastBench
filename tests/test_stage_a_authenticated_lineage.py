@@ -1221,6 +1221,64 @@ def test_provider_stage_replay_rejects_duplicate_cross_model_and_cross_stage_row
         )
 
 
+def test_provider_stage_replay_ignores_only_inactive_candidate_history(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    prompt = "active structural review prompt"
+    prompt_sha = hashlib.sha256(prompt.encode()).hexdigest()
+
+    def record(candidate_id: str, model_key: str, row_prompt: str) -> None:
+        with ProviderAttemptJournal(
+            path,
+            identity=ProviderCallIdentity(
+                stage="llm-review-stage-a",
+                candidate_id=candidate_id,
+                model_key=model_key,
+                prompt=row_prompt,
+                model_registry_sha256="registry-sha",
+            ),
+            provider="openai",
+            reservation_usd=0.1,
+            cycle_cap_usd=10.0,
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:caps",
+        ) as journal:
+            journal.run_attempt(1, lambda: {"fixture": "response"})
+            journal.settle_attempt(
+                1,
+                input_tokens=1,
+                output_tokens=1,
+                actual_cost_usd=0.01,
+                raw_output="{}",
+            )
+            journal.commit_reconstruction({"structural_flags": []})
+
+    record("cand-1", "openai:reviewer", prompt)
+    record("replaced-predecessor", "openai:reviewer", "historical prompt")
+    expected = {("cand-1", "openai:reviewer"): prompt_sha}
+    providers = {"openai:reviewer": "openai"}
+    cli._verified_provider_stage_attempts(
+        stage="llm-review-stage-a",
+        journal_path=path,
+        expected_prompts=expected,
+        providers_by_model=providers,
+        model_registry_sha256="registry-sha",
+        active_candidate_ids={"cand-1"},
+    )
+
+    record("cand-1", "openai:wrong-reviewer", prompt)
+    with pytest.raises(cli.CommandError, match="unexpected candidate/model"):
+        cli._verified_provider_stage_attempts(
+            stage="llm-review-stage-a",
+            journal_path=path,
+            expected_prompts=expected,
+            providers_by_model=providers,
+            model_registry_sha256="registry-sha",
+            active_candidate_ids={"cand-1"},
+        )
+
+
 def test_provider_stage_replay_accepts_only_bounded_reconstruction_then_settlement(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
