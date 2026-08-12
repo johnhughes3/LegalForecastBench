@@ -14,14 +14,127 @@ from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.decision_text_artifact import (
     DecisionTextArtifactError,
     _require_deferred_docket_public_proof,
+    _validate_finalized_unit_envelope,
     build_decision_text_records,
     verify_decision_text_artifact,
 )
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.protocol.policy_artifacts import generate_labeling_policy
-from legalforecast.unitization.review import apply_unitization_reviews
+from legalforecast.unitization.review import (
+    STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
+    apply_unitization_reviews,
+    canonical_sha256,
+)
 
 JsonRecord = dict[str, Any]
+
+
+def _structural_add_prediction_unit(unit_id: str) -> JsonRecord:
+    return {
+        "unit_id": unit_id,
+        "count": "I",
+        "claim_name": f"Claim {unit_id}",
+        "defendant_group": "Defendant",
+        "challenged_by_motion": True,
+        "challenge_scope": "entire_claim",
+        "unit_confidence": 0.9,
+        "source_citations": [
+            {
+                "document_id": "decision",
+                "docket_entry_number": None,
+                "page": 1,
+                "paragraph": None,
+                "excerpt": None,
+            }
+        ],
+        "grouping": "individual",
+        "grouping_rationale": None,
+        "separable_subclaim": None,
+        "uncertainty_notes": None,
+        "should_score": True,
+    }
+
+
+def _structural_add_finalized_envelope() -> JsonRecord:
+    raw = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "prediction_units": [_structural_add_prediction_unit("unit-1")],
+    }
+    review = {
+        "schema_version": "legalforecast.unitization_review_queue.v1",
+        "status": "pending_adjudication",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "unit_id": "unit-1",
+        "review_id": "cand-1:unit-1:stage-a-review",
+        "route_reason": "structural_omitted",
+        "review_item": {
+            "unit_id": "unit-1",
+            "reason": "structural_omitted",
+            "notes": "A structural omission requires adjudication.",
+            "source_document_ids": ["decision"],
+        },
+        "structural_flag_sha256": canonical_sha256({"flag": "flag-1"}),
+        "raw_prediction_units_sha256": canonical_sha256(raw),
+    }
+    adjudication = {
+        "schema_version": STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
+        "adjudication_id": "adj-cand-1-add",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "review_ids": [review["review_id"]],
+        "disposition": "ADD",
+        "finalized_units": [_structural_add_prediction_unit("unit-2")],
+        "adjudicator_id": "lawyer-1",
+        "adjudication_notes": "Add the omitted unit.",
+    }
+    [finalized] = apply_unitization_reviews(
+        prediction_unit_records=[raw],
+        review_records=[review],
+        adjudication_records=[adjudication],
+    )
+    return finalized
+
+
+def test_decision_text_authenticates_v3_added_unit_without_source_hash() -> None:
+    finalized = _structural_add_finalized_envelope()
+    added = next(
+        unit for unit in finalized["prediction_units"] if unit["disposition"] == "ADD"
+    )
+    assert added["source_unit_sha256s"] == []
+    _validate_finalized_unit_envelope(finalized, expected_case_id="case-1")
+
+
+def test_decision_text_rejects_empty_source_hashes_for_ordinary_schema() -> None:
+    raw = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "prediction_units": [_structural_add_prediction_unit("unit-1")],
+    }
+    [finalized] = apply_unitization_reviews(
+        prediction_unit_records=[raw], review_records=(), adjudication_records=()
+    )
+    unit = finalized["prediction_units"][0]
+    unit["source_unit_sha256s"] = []
+
+    with pytest.raises(
+        DecisionTextArtifactError, match="invalid finalized prediction-units envelope"
+    ):
+        _validate_finalized_unit_envelope(finalized, expected_case_id="case-1")
+
+
+def test_decision_text_rejects_empty_source_hashes_for_v3_non_add() -> None:
+    finalized = _structural_add_finalized_envelope()
+    added = next(
+        unit for unit in finalized["prediction_units"] if unit["disposition"] == "ADD"
+    )
+    added["disposition"] = "ACCEPT"
+
+    with pytest.raises(
+        DecisionTextArtifactError, match="invalid finalized prediction-units envelope"
+    ):
+        _validate_finalized_unit_envelope(finalized, expected_case_id="case-1")
 
 
 @pytest.fixture(autouse=True)

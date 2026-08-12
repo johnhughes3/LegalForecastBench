@@ -17,6 +17,7 @@ from legalforecast.labeling.label_outcomes import (
     UnitResolution,
 )
 from legalforecast.unitization.review import (
+    STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
     TERMINAL_UNITIZER_ADJUDICATION_SCHEMA_VERSION,
     TERMINAL_UNITIZER_REVIEW_SCHEMA_VERSION,
     UnitizationReviewError,
@@ -302,6 +303,20 @@ def _finalized_chain_gate_reasons(
         source_hashes = _value_sequence(
             unit.get("source_unit_sha256s"), "source_unit_sha256s"
         )
+        if unit.get("disposition") == "ADD":
+            adjudication = adjudications.get(adjudication_id)
+            if (
+                not adjudication_id
+                or source_hashes
+                or not _optional_str(unit, "adjudication_sha256")
+                or adjudication is None
+                or adjudication.get("schema_version")
+                != STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION
+                or adjudication.get("disposition") != "ADD"
+                or unit.get("adjudication_sha256") != canonical_sha256(adjudication)
+            ):
+                return ("stage_a_finalized_hash_chain_invalid",)
+            continue
         if (
             not adjudication_id
             or not source_hashes
@@ -451,6 +466,7 @@ def _unitization_review_gate_reasons(
         record.get("disposition")
         not in {
             "ACCEPT",
+            "ADD",
             "AMEND",
             "SPLIT",
             "MERGE",
@@ -463,6 +479,7 @@ def _unitization_review_gate_reasons(
         )
         or not _optional_str(record, "adjudicator_id")
         or not _optional_str(record, "adjudication_notes")
+        or (record.get("disposition") == "ADD" and "source_unit_ids" in record)
         for review_id, record in adjudications_by_id.items()
         if review_id in expected_reviews
     ):
@@ -470,6 +487,8 @@ def _unitization_review_gate_reasons(
     for review_id, adjudication in adjudications_by_id.items():
         review = reviews_by_id.get(review_id)
         if review is None:
+            continue
+        if adjudication.get("disposition") == "ADD":
             continue
         source_value = adjudication.get("source_unit_ids")
         source_values = (

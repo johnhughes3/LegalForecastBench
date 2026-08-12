@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import date
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from legalforecast.ingestion.corpus_readiness import (
@@ -11,7 +11,12 @@ from legalforecast.ingestion.corpus_readiness import (
     build_clean_corpus_readiness,
     require_clean_corpus_ready,
 )
-from legalforecast.unitization.review import canonical_records_sha256, canonical_sha256
+from legalforecast.unitization.review import (
+    STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
+    apply_unitization_reviews,
+    canonical_records_sha256,
+    canonical_sha256,
+)
 
 
 def _selection(candidate_id: str, case_id: str) -> dict[str, object]:
@@ -65,6 +70,69 @@ def _unit(candidate_id: str, unit_id: str) -> dict[str, object]:
     }
 
 
+def _structural_add_prediction_unit(unit_id: str) -> dict[str, object]:
+    return {
+        "unit_id": unit_id,
+        "count": "I",
+        "claim_name": f"Claim {unit_id}",
+        "defendant_group": "Defendant",
+        "challenged_by_motion": True,
+        "challenge_scope": "entire_claim",
+        "unit_confidence": 0.9,
+        "source_citations": [
+            {
+                "document_id": "cand-1-complaint",
+                "docket_entry_number": None,
+                "page": 1,
+                "paragraph": None,
+                "excerpt": None,
+            }
+        ],
+        "grouping": "individual",
+        "grouping_rationale": None,
+        "separable_subclaim": None,
+        "uncertainty_notes": None,
+        "should_score": True,
+    }
+
+
+def _structural_add_fixture() -> tuple[dict[str, object], dict[str, object]]:
+    raw = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "prediction_units": [_structural_add_prediction_unit("unit-1")],
+    }
+    review = {
+        "schema_version": "legalforecast.unitization_review_queue.v1",
+        "status": "pending_adjudication",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "unit_id": "unit-1",
+        "review_id": "cand-1:unit-1:stage-a-review",
+        "route_reason": "structural_omitted",
+        "review_item": {
+            "unit_id": "unit-1",
+            "reason": "structural_omitted",
+            "notes": "A structural omission requires adjudication.",
+            "source_document_ids": ["cand-1-complaint"],
+        },
+        "structural_flag_sha256": canonical_sha256({"flag": "flag-1"}),
+        "raw_prediction_units_sha256": canonical_sha256(raw),
+    }
+    adjudication = {
+        "schema_version": STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
+        "adjudication_id": "adj-cand-1-add",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "review_ids": [review["review_id"]],
+        "disposition": "ADD",
+        "finalized_units": [_structural_add_prediction_unit("unit-2")],
+        "adjudicator_id": "lawyer-1",
+        "adjudication_notes": "Add the omitted unit.",
+    }
+    return review, adjudication
+
+
 def _unitization_audit(candidate_id: str) -> dict[str, object]:
     return {
         "stage": "llm-unitize",
@@ -110,9 +178,11 @@ def _decision_texts(candidate_id: str) -> dict[tuple[str, str], str]:
 
 def _single_candidate_report(
     *,
+    prediction_unit_records: Sequence[Mapping[str, Any]] | None = None,
     unitization_audits: Sequence[Mapping[str, object]] | None = None,
     unitization_reviews: Sequence[Mapping[str, object]] | None = None,
     unitization_adjudications: Sequence[Mapping[str, object]] | None = None,
+    label_records: Sequence[Mapping[str, object]] | None = None,
     label_audits: Sequence[Mapping[str, object]] | None = None,
     lawyer_reviews: Sequence[Mapping[str, object]] | None = None,
     lawyer_review_audits: Sequence[Mapping[str, object]] | None = None,
@@ -120,7 +190,7 @@ def _single_candidate_report(
     return build_clean_corpus_readiness(
         selection_records=[_selection("cand-1", "case-1")],
         parser_records=_parsers("cand-1"),
-        prediction_unit_records=[_unit("cand-1", "unit-1")],
+        prediction_unit_records=prediction_unit_records or [_unit("cand-1", "unit-1")],
         unitization_audit_records=(
             unitization_audits
             if unitization_audits is not None
@@ -128,7 +198,7 @@ def _single_candidate_report(
         ),
         unitization_review_records=unitization_reviews or [],
         unitization_adjudication_records=unitization_adjudications or [],
-        label_records=[_label("unit-1")],
+        label_records=label_records or [_label("unit-1")],
         label_audit_records=(
             label_audits if label_audits is not None else [_label_audit("cand-1")]
         ),
@@ -141,6 +211,55 @@ def _single_candidate_report(
         decision_filed_on_or_after=date(2026, 6, 30),
         required_clean_count=1,
     )
+
+
+def test_stage_a_review_accepts_v3_add_without_source_unit_ids() -> None:
+    raw = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "prediction_units": [_structural_add_prediction_unit("unit-1")],
+    }
+    review, adjudication = _structural_add_fixture()
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=[raw],
+        review_records=[review],
+        adjudication_records=[adjudication],
+    )
+    audit = {
+        "stage": "llm-unitize",
+        "candidate_id": "cand-1",
+        "status": "adjudication_pending",
+        "review_items": [review["review_item"]],
+    }
+
+    report = _single_candidate_report(
+        prediction_unit_records=finalized,
+        unitization_audits=[audit],
+        unitization_reviews=[review],
+        unitization_adjudications=[adjudication],
+        label_records=[_label("unit-1"), _label("unit-2")],
+    )
+
+    assert report.clean_candidate_ids == ("cand-1",)
+
+
+def test_stage_a_review_rejects_add_with_source_unit_ids() -> None:
+    review, adjudication = _structural_add_fixture()
+    adjudication["source_unit_ids"] = ["unit-1"]
+    audit = {
+        "stage": "llm-unitize",
+        "candidate_id": "cand-1",
+        "status": "adjudication_pending",
+        "review_items": [review["review_item"]],
+    }
+
+    report = _single_candidate_report(
+        unitization_audits=[audit],
+        unitization_reviews=[review],
+        unitization_adjudications=[adjudication],
+    )
+
+    assert "stage_a_review_adjudication_invalid" in report.exclusion_reasons["cand-1"]
 
 
 def test_stage_a_review_items_fail_closed_until_queue_is_adjudicated() -> None:
