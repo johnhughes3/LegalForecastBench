@@ -57,6 +57,7 @@ from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
     LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
     REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2,
+    SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2,
     UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
     UNITIZATION_REVIEW_BUNDLE_V1,
     UNITIZATION_REVIEW_QUEUE_V1,
@@ -64842,8 +64843,7 @@ def _cmd_acquisition_convert_attorney_worksheet(args: argparse.Namespace) -> int
         snapshots[run_card_path], label="successor attorney packet run card"
     )
     if (
-        manifest.get("schema_version")
-        != "legalforecast.successor_attorney_packet_manifest.v2"
+        manifest.get("schema_version") != str(SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2)
         or run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
         or run_card.get("stage") != "build-successor-attorney-packet"
         or run_card.get("status") != "completed"

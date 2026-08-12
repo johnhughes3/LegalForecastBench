@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import hashlib
 import io
 import json
 from collections import defaultdict
@@ -11,7 +10,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
 
-from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
+from legalforecast.contracts import (
+    ARTIFACT_RAW_SHA256_V1,
+    SUCCESSOR_ATTORNEY_PACKET_VIEW_V2,
+    UNITIZATION_ADJUDICATION_V1,
+)
 from legalforecast.unitization.review import (
     ADJUDICATION_SCHEMA_VERSION,
     STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
@@ -22,7 +25,7 @@ from legalforecast.unitization.schemas import prediction_unit_from_record
 
 JsonRecord = dict[str, Any]
 
-_PACKET_SCHEMA = "legalforecast.successor_attorney_packet_view.v2"
+_PACKET_SCHEMA = str(SUCCESSOR_ATTORNEY_PACKET_VIEW_V2)
 _FINAL_STATUS = "final"
 _REQUIRED_COLUMNS = (
     "surface",
@@ -430,13 +433,9 @@ def _raw_unit_ids(bundles: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
 
 
 def _adjudication_id(record: Mapping[str, Any]) -> str:
-    digest = hashlib.sha256(
-        canonical_json_value_bytes(
-            dict(record),
-            error_type=AttorneyWorksheetError,
-            error_message="adjudication is not canonical JSON",
-        )
-    ).hexdigest()
+    digest = ARTIFACT_RAW_SHA256_V1.commit(
+        dict(record), domain=UNITIZATION_ADJUDICATION_V1
+    ).digest
     return f"attorney:{digest}"
 
 
