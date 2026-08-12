@@ -159,7 +159,7 @@ def _terminal_stage_a_paths_from_finalize_card(
 
     try:
         payload = read_unique_regular_file(finalize_run_card)
-        card = json.loads(payload)
+        card = json.loads(payload, object_pairs_hook=_reject_duplicate_json_keys)
     except (OSError, UnicodeError, json.JSONDecodeError, ReviewBundleError) as exc:
         raise CorpusCompletionSummaryError(str(exc)) from exc
     if not isinstance(card, dict):
@@ -207,6 +207,19 @@ def _terminal_stage_a_paths_from_finalize_card(
             )
         paths.append(Path(path))
     return paths[0], paths[1]
+
+
+def _reject_duplicate_json_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    record: dict[str, object] = {}
+    for key, value in pairs:
+        if key in record:
+            raise CorpusCompletionSummaryError(
+                f"finalize-corpus run card contains duplicate JSON key {key!r}"
+            )
+        record[key] = value
+    return record
 
 
 def _publish_exact(path: Path, payload: bytes) -> None:

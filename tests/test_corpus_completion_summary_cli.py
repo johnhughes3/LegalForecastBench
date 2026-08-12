@@ -147,6 +147,24 @@ def test_malformed_terminal_finalize_commitment_set_fails_closed(
     assert cli.main(_argv(inputs, tmp_path / "completion-output")) == 2
 
 
+def test_duplicate_finalize_commitment_key_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+    payload = inputs.finalize_run_card.read_text()
+    marker = '"completion_summary_input_commitments": {'
+    inputs.finalize_run_card.write_text(
+        payload.replace(
+            marker,
+            marker + '\n    "unitization_review_queue": {},',
+            1,
+        )
+    )
+
+    assert cli.main(_argv(inputs, tmp_path / "completion-output")) == 2
+
+
 def test_execute_rejects_unexpected_output_before_publication(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
