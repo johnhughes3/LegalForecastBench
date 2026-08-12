@@ -1507,6 +1507,14 @@ def llm_review_stage_a_units(
         _required_str(selection, "candidate_id") for selection in selections
     }:
         raise LlmPipelineError("terminal escalation contains an unselected candidate")
+    conflicting_terminal_candidates = unitizer_terminal_candidate_ids.intersection(
+        terminal_by_candidate
+    )
+    if conflicting_terminal_candidates:
+        raise LlmPipelineError(
+            "candidate has both unitizer and structural-review terminal evidence: "
+            f"{sorted(conflicting_terminal_candidates)}"
+        )
     for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
         if candidate_id in unitizer_terminal_candidate_ids:

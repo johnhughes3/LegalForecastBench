@@ -273,7 +273,7 @@ def test_readiness_accepts_terminal_add_with_independent_evidence() -> None:
         "case_id": "case-1",
         "review_ids": [review["review_id"]],
         "disposition": "ADD",
-        "finalized_units": [],
+        "finalized_units": [{"unit_id": "unit-1"}],
         "adjudicator_id": "attorney",
         "adjudication_notes": "Reviewed.",
     }

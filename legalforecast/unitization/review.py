@@ -28,9 +28,8 @@ LEGACY_FINALIZED_SCHEMA_VERSION = "legalforecast.finalized_prediction_units.v1"
 FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V2)
 STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V3)
 TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V4)
-# Downstream Stage B authentication (decision-text artifacts) authenticates v1
-# and v2 only; adopting the structural-ADD successor there is its own migration,
-# so a v3 envelope fails closed at that boundary until it lands.
+# Downstream Stage B authentication accepts v1, v2, and terminal v4; adopting
+# the structural-ADD v3 successor there remains its own migration.
 SUPPORTED_FINALIZED_SCHEMA_VERSIONS = frozenset(
     {LEGACY_FINALIZED_SCHEMA_VERSION, FINALIZED_SCHEMA_VERSION}
 )
@@ -1424,7 +1423,29 @@ def require_finalized_envelopes(
                 )
             _required_str(record, "unitizer_terminal_escalation_sha256")
             _required_str(record, "unitizer_terminal_review_queue_sha256")
-            _record_sequence(record.get("added_units"), "added_units")
+            terminal_units = _record_sequence(
+                record.get("prediction_units"), "prediction_units"
+            )
+            terminal_added = _record_sequence(record.get("added_units"), "added_units")
+            terminal_status = record.get("status")
+            if terminal_status == "candidate_excluded":
+                if (
+                    terminal_units
+                    or terminal_added
+                    or not isinstance(record.get("exclusion"), Mapping)
+                ):
+                    raise UnitizationReviewError(
+                        "invalid terminal candidate-exclusion envelope"
+                    )
+                continue
+            if (
+                terminal_status != "finalized"
+                or not terminal_units
+                or record.get("exclusion") is not None
+            ):
+                raise UnitizationReviewError(
+                    "invalid terminal finalized prediction-units envelope"
+                )
             continue
         _required_str(record, "unitization_review_queue_sha256")
         status = record.get("status")

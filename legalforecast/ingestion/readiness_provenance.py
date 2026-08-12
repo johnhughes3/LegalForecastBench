@@ -7,7 +7,11 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
 
 from legalforecast.evals.model_registry import ModelRegistryEntry
-from legalforecast.labeling.llm_pipeline import merge_structural_flags_into_review_queue
+from legalforecast.labeling.llm_pipeline import (
+    LlmPipelineError,
+    merge_structural_flags_into_review_queue,
+    validate_unitizer_terminal_preserved_audit_record,
+)
 from legalforecast.unitization.review import (
     canonical_records_sha256,
     canonical_sha256,
@@ -140,18 +144,30 @@ def verify_stage_a_readiness_provenance(
             raise ReadinessProvenanceError("structural flag content hash mismatch")
         flags_by_candidate[candidate_id].append(flag)
 
-    audits = _unique_by_candidate(
-        (
-            record
-            for record in structural_review_audit_records
-            if _required_str(record, "candidate_id") not in terminal_ids
-        ),
-        "Stage A structural-review audit",
+    all_audits = _unique_by_candidate(
+        structural_review_audit_records, "Stage A structural-review audit"
     )
-    if set(audits) != set(ordinary_raw_units):
+    if set(all_audits) != set(raw_units):
         raise ReadinessProvenanceError(
             "Stage A structural-review audit does not cover every candidate"
         )
+    for candidate_id in terminal_ids:
+        try:
+            validate_unitizer_terminal_preserved_audit_record(
+                all_audits[candidate_id],
+                candidate_id=candidate_id,
+                case_id=_required_str(selections[candidate_id], "case_id"),
+                reviewer_model_key=reviewer_model_key,
+                model_registry_sha256=reviewer_registry_sha256,
+                raw_prediction_units=raw_units[candidate_id],
+            )
+        except LlmPipelineError as exc:
+            raise ReadinessProvenanceError(str(exc)) from exc
+    audits = {
+        candidate_id: audit
+        for candidate_id, audit in all_audits.items()
+        if candidate_id not in terminal_ids
+    }
     for candidate_id, audit in audits.items():
         expected_flags = flags_by_candidate[candidate_id]
         if audit.get("stage") != "llm-review-stage-a" or audit.get("status") not in {

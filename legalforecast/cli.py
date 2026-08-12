@@ -62331,7 +62331,10 @@ def _verify_stage_a_unitization_run_card(
         path.resolve()
         for path in (
             *lineage.input_paths,
-            *sorted(terminal_receipt_paths, key=str),
+            *sorted(
+                terminal_receipt_paths,
+                key=lambda path: str(path.resolve()),
+            ),
         )
     ):
         raise CommandError("llm-unitize input path lineage changed")
@@ -65642,7 +65645,13 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         args,
         stage="llm-unitize",
         input_paths=(
-            (*lineage.input_paths, *sorted(terminal_receipt_paths, key=str))
+            (
+                *lineage.input_paths,
+                *sorted(
+                    terminal_receipt_paths,
+                    key=lambda path: str(path.resolve()),
+                ),
+            )
             if lineage is not None
             else (
                 selection_path,

@@ -14,6 +14,7 @@ from legalforecast.unitization.review import (
     apply_terminal_unitizer_reviews,
     canonical_records_sha256,
     canonical_sha256,
+    require_finalized_envelopes,
     verify_terminal_unitizer_finalized_units,
 )
 from legalforecast.unitization.unitizer_terminal_review import (
@@ -89,6 +90,40 @@ def test_terminal_candidate_exclusion_needs_no_frozen_source_units() -> None:
     verify_terminal_unitizer_finalized_units(
         [finalized], [review], [receipt], [adjudication]
     )
+
+
+@pytest.mark.parametrize(
+    ("status", "has_prediction_units", "message"),
+    [
+        ("candidate_excluded", True, "candidate-exclusion"),
+        ("finalized", False, "finalized prediction-units"),
+    ],
+)
+def test_generic_finalized_gate_rejects_incoherent_terminal_envelope(
+    status: str, has_prediction_units: bool, message: str
+) -> None:
+    receipt = _receipt()
+    review = _review(receipt)
+    adjudication = _adjudication(
+        receipt,
+        review,
+        "ADD",
+        finalized_units=[_unit("contract")],
+    )
+    [finalized] = apply_terminal_unitizer_reviews(
+        terminal_review_records=[review],
+        terminal_escalation_records=[receipt],
+        adjudication_records=[adjudication],
+    )
+    finalized["status"] = status
+    finalized["prediction_units"] = (
+        finalized["prediction_units"] if has_prediction_units else []
+    )
+    if status == "candidate_excluded":
+        finalized["exclusion"] = {"reason": "invalid"}
+
+    with pytest.raises(UnitizationReviewError, match=message):
+        require_finalized_envelopes([finalized])
 
 
 @pytest.mark.parametrize(

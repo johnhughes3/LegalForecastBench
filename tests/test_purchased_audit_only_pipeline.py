@@ -192,6 +192,28 @@ def test_structural_reviewer_preserves_unitizer_terminal_without_provider(
     )
 
 
+def test_structural_reviewer_rejects_conflicting_terminal_evidence() -> None:
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="both unitizer and structural-review terminal evidence",
+    ):
+        llm_pipeline.llm_review_stage_a_units(
+            selection_records=(_selection(),),
+            parser_records=(),
+            prediction_unit_records=(
+                {"candidate_id": "cand-1", "case_id": "case-1", "prediction_units": []},
+            ),
+            markdown_root="/unused",
+            registry_entry=llm_pipeline.ModelRegistryEntry.from_record(
+                _registry_record()
+            ),
+            model_registry_sha256="b" * 64,
+            terminal_escalations={"cand-1": cast(Any, (object(), {}))},
+            unitizer_terminal_candidates=("cand-1",),
+            provider_attempt_namespace="claim-ontology-v4",
+        )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     (

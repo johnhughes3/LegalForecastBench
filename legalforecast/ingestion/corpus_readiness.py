@@ -17,6 +17,8 @@ from legalforecast.labeling.label_outcomes import (
     UnitResolution,
 )
 from legalforecast.unitization.review import (
+    TERMINAL_UNITIZER_ADJUDICATION_SCHEMA_VERSION,
+    TERMINAL_UNITIZER_REVIEW_SCHEMA_VERSION,
     UnitizationReviewError,
     canonical_sha256,
     require_finalized_envelopes,
@@ -163,6 +165,7 @@ def build_clean_corpus_readiness(
             stage_a_reasons.extend(
                 _terminal_unitization_gate_reasons(
                     candidate_id=candidate_id,
+                    case_id=_required_str(selection, "case_id"),
                     units=units,
                     review_records=terminal_reviews_by_candidate[candidate_id],
                     adjudication_records=terminal_adjudications_by_candidate.get(
@@ -322,6 +325,7 @@ def _finalized_chain_gate_reasons(
 def _terminal_unitization_gate_reasons(
     *,
     candidate_id: str,
+    case_id: str,
     units: Sequence[Mapping[str, Any]],
     review_records: Sequence[Mapping[str, Any]],
     adjudication_records: Sequence[Mapping[str, Any]],
@@ -335,13 +339,25 @@ def _terminal_unitization_gate_reasons(
     review_id = _optional_str(review, "review_id")
     adjudication_id = _optional_str(adjudication, "adjudication_id")
     review_ids = _value_sequence(adjudication.get("review_ids"), "review_ids")
+    finalized_units = _value_sequence(
+        adjudication.get("finalized_units"), "finalized_units"
+    )
     if (
-        review.get("status") != "pending_adjudication"
+        review.get("schema_version") != TERMINAL_UNITIZER_REVIEW_SCHEMA_VERSION
+        or adjudication.get("schema_version")
+        != TERMINAL_UNITIZER_ADJUDICATION_SCHEMA_VERSION
+        or review.get("status") != "pending_adjudication"
         or review.get("review_subject") != "candidate"
+        or not review_id
         or _optional_str(review, "candidate_id") != candidate_id
+        or _optional_str(review, "case_id") != case_id
+        or _optional_str(adjudication, "candidate_id") != candidate_id
+        or _optional_str(adjudication, "case_id") != case_id
         or adjudication.get("disposition") != "ADD"
         or not adjudication_id
         or review_ids != (review_id,)
+        or not finalized_units
+        or not units
     ):
         return ("stage_a_terminal_evidence_invalid",)
     adjudication_sha256 = canonical_sha256(adjudication)

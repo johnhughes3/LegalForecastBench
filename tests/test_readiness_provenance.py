@@ -13,7 +13,10 @@ from legalforecast.ingestion.readiness_provenance import (
     verify_stage_a_readiness_provenance,
     verify_stage_b_readiness_provenance,
 )
-from legalforecast.labeling.llm_pipeline import merge_structural_flags_into_review_queue
+from legalforecast.labeling.llm_pipeline import (
+    merge_structural_flags_into_review_queue,
+    unitizer_terminal_preserved_audit_record,
+)
 from legalforecast.protocol import sha256_file
 from legalforecast.unitization.review import (
     ADJUDICATION_SCHEMA_VERSION,
@@ -95,6 +98,13 @@ def test_stage_a_readiness_accepts_mixed_terminal_branch_without_filtering() -> 
         *cast(list[dict[str, object]], fixture["finalized_prediction_unit_records"]),
         *terminal_finalized,
     ]
+    terminal_audit = unitizer_terminal_preserved_audit_record(
+        candidate_id="terminal",
+        case_id="case-terminal",
+        reviewer_model_key=GEMINI_KEY,
+        model_registry_sha256=cast(str, fixture["reviewer_registry_sha256"]),
+        raw_prediction_units=raw[-1],
+    )
 
     verify_stage_a_readiness_provenance(
         **{
@@ -105,11 +115,41 @@ def test_stage_a_readiness_accepts_mixed_terminal_branch_without_filtering() -> 
             ],
             "raw_prediction_unit_records": raw,
             "finalized_prediction_unit_records": finalized,
+            "structural_review_audit_records": [
+                *cast(
+                    list[dict[str, object]],
+                    fixture["structural_review_audit_records"],
+                ),
+                terminal_audit,
+            ],
             "terminal_review_records": [queue],
             "terminal_escalation_records": [receipt],
             "terminal_adjudication_records": [adjudication],
         }
     )
+
+    with pytest.raises(ReadinessProvenanceError, match="exact unitizer terminal"):
+        verify_stage_a_readiness_provenance(
+            **{
+                **fixture,
+                "selection_records": [
+                    *cast(list[dict[str, object]], fixture["selection_records"]),
+                    {"candidate_id": "terminal", "case_id": "case-terminal"},
+                ],
+                "raw_prediction_unit_records": raw,
+                "finalized_prediction_unit_records": finalized,
+                "structural_review_audit_records": [
+                    *cast(
+                        list[dict[str, object]],
+                        fixture["structural_review_audit_records"],
+                    ),
+                    {**terminal_audit, "flag_count": 1},
+                ],
+                "terminal_review_records": [queue],
+                "terminal_escalation_records": [receipt],
+                "terminal_adjudication_records": [adjudication],
+            }
+        )
 
     with pytest.raises(ReadinessProvenanceError):
         verify_stage_a_readiness_provenance(
