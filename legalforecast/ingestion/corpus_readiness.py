@@ -17,6 +17,7 @@ from legalforecast.labeling.label_outcomes import (
     UnitResolution,
 )
 from legalforecast.unitization.review import (
+    STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION,
     TERMINAL_UNITIZER_ADJUDICATION_SCHEMA_VERSION,
     TERMINAL_UNITIZER_REVIEW_SCHEMA_VERSION,
     UnitizationReviewError,
@@ -191,6 +192,7 @@ def build_clean_corpus_readiness(
             stage_a_reasons.extend(
                 _unitization_review_gate_reasons(
                     candidate_id=candidate_id,
+                    units=units,
                     audit_records=candidate_unitization_audits,
                     review_records=unitization_reviews_by_candidate.get(
                         candidate_id,
@@ -302,6 +304,20 @@ def _finalized_chain_gate_reasons(
         source_hashes = _value_sequence(
             unit.get("source_unit_sha256s"), "source_unit_sha256s"
         )
+        if unit.get("disposition") == "ADD":
+            adjudication = adjudications.get(adjudication_id)
+            if (
+                not adjudication_id
+                or source_hashes
+                or not _optional_str(unit, "adjudication_sha256")
+                or adjudication is None
+                or adjudication.get("schema_version")
+                != STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION
+                or adjudication.get("disposition") != "ADD"
+                or unit.get("adjudication_sha256") != canonical_sha256(adjudication)
+            ):
+                return ("stage_a_finalized_hash_chain_invalid",)
+            continue
         if (
             not adjudication_id
             or not source_hashes
@@ -382,6 +398,7 @@ _RESOLVED_REVIEW_STATUSES = frozenset(
 def _unitization_review_gate_reasons(
     *,
     candidate_id: str,
+    units: Sequence[Mapping[str, Any]],
     audit_records: Sequence[Mapping[str, Any]],
     review_records: Sequence[Mapping[str, Any]],
     adjudication_records: Sequence[Mapping[str, Any]],
@@ -451,6 +468,7 @@ def _unitization_review_gate_reasons(
         record.get("disposition")
         not in {
             "ACCEPT",
+            "ADD",
             "AMEND",
             "SPLIT",
             "MERGE",
@@ -463,6 +481,7 @@ def _unitization_review_gate_reasons(
         )
         or not _optional_str(record, "adjudicator_id")
         or not _optional_str(record, "adjudication_notes")
+        or (record.get("disposition") == "ADD" and "source_unit_ids" in record)
         for review_id, record in adjudications_by_id.items()
         if review_id in expected_reviews
     ):
@@ -470,6 +489,78 @@ def _unitization_review_gate_reasons(
     for review_id, adjudication in adjudications_by_id.items():
         review = reviews_by_id.get(review_id)
         if review is None:
+            continue
+        if adjudication.get("disposition") == "ADD":
+            adjudication_id = _optional_str(adjudication, "adjudication_id")
+            review_ids = _value_sequence(adjudication.get("review_ids"), "review_ids")
+            bound_reviews = [
+                reviews_by_id.get(value)
+                for value in review_ids
+                if isinstance(value, str)
+            ]
+            flag_hashes = {
+                _optional_str(bound_review, "structural_flag_sha256")
+                for bound_review in bound_reviews
+                if bound_review is not None
+            }
+            raw_hashes = {
+                _optional_str(bound_review, "raw_prediction_units_sha256")
+                for bound_review in bound_reviews
+                if bound_review is not None
+            }
+            document_ids: set[str] = set()
+            for bound_review in bound_reviews:
+                review_item = (
+                    bound_review.get("review_item")
+                    if bound_review is not None
+                    else None
+                )
+                if isinstance(review_item, Mapping):
+                    typed_review_item = cast(Mapping[str, Any], review_item)
+                    document_ids.update(
+                        value
+                        for value in _value_sequence(
+                            typed_review_item.get("source_document_ids"),
+                            "source_document_ids",
+                        )
+                        if isinstance(value, str) and value
+                    )
+            added_units = [
+                unit for unit in units if unit.get("adjudication_id") == adjudication_id
+            ]
+            if (
+                adjudication.get("schema_version")
+                != STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION
+                or not adjudication_id
+                or not review_ids
+                or len(review_ids) != len(set(review_ids))
+                or any(
+                    not isinstance(value, str) or value not in expected_reviews
+                    for value in review_ids
+                )
+                or len(bound_reviews) != len(review_ids)
+                or any(
+                    bound_review is None
+                    or bound_review.get("candidate_id") != candidate_id
+                    or bound_review.get("route_reason") != "structural_omitted"
+                    for bound_review in bound_reviews
+                )
+                or len(flag_hashes) != 1
+                or None in flag_hashes
+                or len(raw_hashes) != 1
+                or None in raw_hashes
+                or not document_ids
+                or not added_units
+                or any(
+                    unit.get("added_from_review_ids") != list(review_ids)
+                    or unit.get("structural_flag_sha256") not in flag_hashes
+                    or unit.get("raw_prediction_units_sha256") not in raw_hashes
+                    or unit.get("predecision_source_document_ids")
+                    != sorted(document_ids)
+                    for unit in added_units
+                )
+            ):
+                reasons.append("stage_a_review_adjudication_invalid")
             continue
         source_value = adjudication.get("source_unit_ids")
         source_values = (

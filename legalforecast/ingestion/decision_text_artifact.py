@@ -17,6 +17,7 @@ from legalforecast.ingestion.disclosure_clearance import (
 )
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.unitization.review import (
+    STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION,
     SUPPORTED_FINALIZED_SCHEMA_VERSIONS,
     TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION,
     UnitizationReviewError,
@@ -965,13 +966,27 @@ def _validate_finalized_unit_envelope(
                 f"duplicate finalized unit_id: {candidate_id}/{unit_id}"
             )
         seen_unit_ids.add(unit_id)
-        source_hashes = _required_nonempty_strings(unit, "source_unit_sha256s")
-        if any(not _valid_sha256(value) for value in source_hashes):
+        source_hashes = _required_strings(unit, "source_unit_sha256s")
+        adjudication_id = _required_str(unit, "adjudication_id")
+        disposition = _required_str(unit, "disposition")
+        if (
+            schema_version == STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION
+            and disposition == "ADD"
+        ):
+            if source_hashes:
+                raise DecisionTextArtifactError(
+                    "added finalized unit must not have source-unit hashes: "
+                    f"{candidate_id}/{unit_id}"
+                )
+            _required_sha256(unit, "adjudication_sha256")
+            _required_sha256(unit, "structural_flag_sha256")
+            continue
+        if not source_hashes or any(
+            not _valid_sha256(value) for value in source_hashes
+        ):
             raise DecisionTextArtifactError(
                 f"invalid finalized source-unit hash: {candidate_id}/{unit_id}"
             )
-        adjudication_id = _required_str(unit, "adjudication_id")
-        disposition = _required_str(unit, "disposition")
         if adjudication_id.startswith("automatic:"):
             base_unit = {
                 key: value
@@ -1619,11 +1634,18 @@ def _required_int_sequence(record: Mapping[str, Any], field: str) -> tuple[int, 
 def _required_nonempty_strings(
     record: Mapping[str, Any], field: str
 ) -> tuple[str, ...]:
+    output = _required_strings(record, field)
+    if not output:
+        raise DecisionTextArtifactError(f"{field} must contain non-empty strings")
+    return output
+
+
+def _required_strings(record: Mapping[str, Any], field: str) -> tuple[str, ...]:
     value = record.get(field)
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise DecisionTextArtifactError(f"{field} must be a list")
     output = tuple(cast(Sequence[object], value))
-    if not output or not all(isinstance(item, str) and item.strip() for item in output):
+    if not all(isinstance(item, str) and item.strip() for item in output):
         raise DecisionTextArtifactError(f"{field} must contain non-empty strings")
     return cast(tuple[str, ...], output)
 
