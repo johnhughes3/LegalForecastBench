@@ -6,6 +6,7 @@ import json
 import os
 import sys
 from collections.abc import Callable
+from contextlib import contextmanager
 from copy import deepcopy
 from decimal import Decimal
 from pathlib import Path
@@ -2279,6 +2280,31 @@ def test_executed_materialization_consumers_require_card_before_output_root(
     monkeypatch.setattr(cli, "_acquisition_output_root", forbidden_output_root)
     with pytest.raises(cli.CommandError, match=r"materialization|materialized"):
         handler(args)
+
+
+def test_build_decision_texts_scopes_disclosure_scan_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args = cli.argparse.Namespace()
+    events: list[str] = []
+
+    @contextmanager
+    def scan_cache() -> Any:
+        events.append("enter")
+        yield
+        events.append("exit")
+
+    def cached_handler(_args: object) -> int:
+        events.append("build")
+        return 0
+
+    monkeypatch.setattr(cli, "cache_disclosure_document_scans", scan_cache)
+    monkeypatch.setattr(
+        cli, "_cmd_acquisition_build_decision_texts_cached", cached_handler
+    )
+
+    assert cli._cmd_acquisition_build_decision_texts(args) == 0
+    assert events == ["enter", "build", "exit"]
 
 
 def test_v2_cohort_binding_rejects_target_drift(tmp_path: Path) -> None:
