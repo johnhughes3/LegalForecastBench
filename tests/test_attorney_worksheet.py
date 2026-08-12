@@ -66,6 +66,44 @@ def test_rejects_immutable_packet_field_tampering() -> None:
         )
 
 
+def test_rejects_structural_terminal_technical_item() -> None:
+    packet = _packet()
+    packet["candidates"][0]["observational_v2"]["terminal_technical_item"] = {
+        "review_id": "structural-terminal-review"
+    }
+
+    with pytest.raises(AttorneyWorksheetError, match="structural terminal technical"):
+        convert_attorney_worksheet(
+            packet=packet,
+            worksheet_tsv=_tsv(_worksheet_rows(packet)),
+            adjudicator_id="attorney-1",
+        )
+
+
+def test_rejects_noncanonical_finalized_unit() -> None:
+    packet = _packet()
+    rows = _worksheet_rows(packet)
+    rows[0].update(_merge_decision())
+    rows[1].update(_merge_decision())
+    rows[0]["finalized_units_json"] = '[{"unit_id":"not-a-unit"}]'
+    rows[1]["finalized_units_json"] = '[{"unit_id":"not-a-unit"}]'
+    rows[2].update(
+        {
+            "final_disposition": "CANDIDATE-EXCLUSION",
+            "adjudication_notes": "Cannot reconstruct defensibly.",
+            "drop_or_exclusion_reason": "unresolvable",
+            "decision_status": "final",
+        }
+    )
+
+    with pytest.raises(AttorneyWorksheetError, match="invalid prediction unit"):
+        convert_attorney_worksheet(
+            packet=packet,
+            worksheet_tsv=_tsv(rows),
+            adjudicator_id="attorney-1",
+        )
+
+
 def test_rejects_pending_decision_before_emitting_any_records() -> None:
     packet = _packet()
     rows = _worksheet_rows(packet)
@@ -337,27 +375,23 @@ def _unit_item(review_id: str, unit_id: str) -> JsonRecord:
 def _unit(unit_id: str) -> JsonRecord:
     return {
         "unit_id": unit_id,
+        "count": "Count I",
         "claim_name": "Example claim",
         "defendant_group": "Example defendant",
-        "defendants": ["Example defendant"],
-        "defendant_grouping": "individual",
-        "capacity": "entity",
-        "claim_category": "other",
-        "claim_authority": "Example law",
-        "count_label": "Count I",
+        "challenged_by_motion": True,
         "challenge_scope": "entire_claim",
-        "challenged_portion": None,
+        "unit_confidence": 0.9,
+        "grouping": "individual",
+        "grouping_rationale": None,
         "separable_subclaim": None,
+        "uncertainty_notes": None,
         "should_score": True,
-        "do_not_score_reason": None,
-        "confidence": "high",
         "source_citations": [
             {
-                "source_document_id": "complaint",
-                "document_role": "complaint",
+                "document_id": "complaint",
+                "docket_entry_number": 1,
                 "page": 1,
-                "line_start": 1,
-                "line_end": 1,
+                "paragraph": 1,
                 "excerpt": "Count I",
             }
         ],

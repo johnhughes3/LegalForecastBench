@@ -18,6 +18,7 @@ from legalforecast.unitization.review import (
     TERMINAL_UNITIZER_ADJUDICATION_SCHEMA_VERSION,
     UnitizationDisposition,
 )
+from legalforecast.unitization.schemas import prediction_unit_from_record
 
 JsonRecord = dict[str, Any]
 
@@ -168,6 +169,11 @@ def _expected_rows(
 
         authoritative = _record(candidate.get("authoritative_v1"), "authoritative_v1")
         observational = _record(candidate.get("observational_v2"), "observational_v2")
+        if observational.get("terminal_technical_item") is not None:
+            raise AttorneyWorksheetError(
+                "structural terminal technical reviews are not supported by "
+                "the worksheet compiler"
+            )
         bundles = _record_list(authoritative.get("bundle_records"), "bundle_records")
         raw_unit_ids = _raw_unit_ids(bundles)
         unit_items = _record_list(observational.get("unit_items"), "unit_items")
@@ -449,7 +455,19 @@ def _json_record_list(value: str, label: str) -> list[JsonRecord]:
         parsed = json.loads(value)
     except json.JSONDecodeError as error:
         raise AttorneyWorksheetError(f"{label} is not valid JSON") from error
-    return list(_record_list(parsed, label))
+    records = list(_record_list(parsed, label))
+    for record in records:
+        try:
+            canonical = prediction_unit_from_record(record).to_record()
+        except ValueError as error:
+            raise AttorneyWorksheetError(
+                f"{label} contains an invalid prediction unit: {error}"
+            ) from error
+        if record != canonical:
+            raise AttorneyWorksheetError(
+                f"{label} prediction unit must equal its canonical record"
+            )
+    return records
 
 
 def _record(value: object, label: str) -> Mapping[str, Any]:
