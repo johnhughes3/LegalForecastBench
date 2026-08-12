@@ -178,7 +178,11 @@ def build_corpus_completion_summary(
     """Authenticate terminal artifacts and return one deterministic summary."""
 
     payloads = _read_input_payloads(inputs)
-    finalize_card = _json_object(payloads["finalize_run_card"], "finalize run card")
+    finalize_card = _json_object(
+        payloads["finalize_run_card"],
+        "finalize run card",
+        reject_duplicate_keys=True,
+    )
     readiness = _json_object(payloads["corpus_readiness"], "corpus readiness")
     exclusion_records = _jsonl_records(
         payloads["complete_exclusion_ledger"], "complete exclusion ledger"
@@ -1126,9 +1130,27 @@ def _byte_commitment(path: Path, payload: bytes) -> dict[str, object]:
     }
 
 
-def _json_object(payload: bytes, label: str) -> dict[str, Any]:
+def _json_object(
+    payload: bytes,
+    label: str,
+    *,
+    reject_duplicate_keys: bool = False,
+) -> dict[str, Any]:
+    def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        record: dict[str, object] = {}
+        for key, value in pairs:
+            if key in record:
+                raise CorpusCompletionSummaryError(
+                    f"{label} contains duplicate JSON key {key!r}"
+                )
+            record[key] = value
+        return record
+
     try:
-        value = json.loads(payload)
+        value = json.loads(
+            payload,
+            object_pairs_hook=unique_object if reject_duplicate_keys else None,
+        )
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise CorpusCompletionSummaryError(f"{label} is not valid JSON") from exc
     if not isinstance(value, dict):

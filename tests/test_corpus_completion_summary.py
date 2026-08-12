@@ -321,6 +321,40 @@ def test_v2_summary_authenticates_and_counts_terminal_stage_a(
     }
 
 
+@pytest.mark.parametrize(
+    ("marker", "duplicate"),
+    (
+        (
+            '"completion_summary_input_commitments": {',
+            '"completion_summary_input_commitments": {'
+            '\n    "unitizer_terminal_review_queue": {},',
+        ),
+        (
+            '"stage": "finalize-corpus",',
+            '"stage": "finalize-corpus",\n  "stage": "finalize-corpus",',
+        ),
+    ),
+)
+def test_summary_builder_rejects_duplicate_finalize_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    marker: str,
+    duplicate: str,
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        terminal_stage_a_queue=({"review_id": "terminal-review"},),
+        terminal_stage_a_adjudications=(),
+        bead_references=("terminal-review=bead-terminal",),
+    )
+    payload = inputs.finalize_run_card.read_text()
+    inputs.finalize_run_card.write_text(payload.replace(marker, duplicate, 1))
+
+    with pytest.raises(CorpusCompletionSummaryError, match="duplicate JSON key"):
+        build_corpus_completion_summary(inputs)
+
+
 def test_v2_summary_rejects_cross_surface_review_id(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
