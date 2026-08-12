@@ -298,6 +298,28 @@ def test_stage_a_review_rejects_add_not_bound_to_supplied_structural_flag() -> N
     assert "stage_a_review_adjudication_invalid" in report.exclusion_reasons["cand-1"]
 
 
+def test_stage_a_review_rejects_add_review_not_requested_by_audit() -> None:
+    review, adjudication = _structural_add_fixture()
+    extra_review = deepcopy(review)
+    extra_review["unit_id"] = "unit-extra"
+    extra_review["review_id"] = "cand-1:unit-extra:stage-a-review"
+    adjudication["review_ids"] = [review["review_id"], extra_review["review_id"]]
+    audit = {
+        "stage": "llm-unitize",
+        "candidate_id": "cand-1",
+        "status": "adjudication_pending",
+        "review_items": [review["review_item"]],
+    }
+
+    report = _single_candidate_report(
+        unitization_audits=[audit],
+        unitization_reviews=[review, extra_review],
+        unitization_adjudications=[adjudication],
+    )
+
+    assert "stage_a_review_adjudication_invalid" in report.exclusion_reasons["cand-1"]
+
+
 def test_stage_a_review_items_fail_closed_until_queue_is_adjudicated() -> None:
     audit = {
         "stage": "llm-unitize",

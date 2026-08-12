@@ -534,6 +534,10 @@ def _unitization_review_gate_reasons(
                 or not adjudication_id
                 or not review_ids
                 or len(review_ids) != len(set(review_ids))
+                or any(
+                    not isinstance(value, str) or value not in expected_reviews
+                    for value in review_ids
+                )
                 or len(bound_reviews) != len(review_ids)
                 or any(
                     bound_review is None
