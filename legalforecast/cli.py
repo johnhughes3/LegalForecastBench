@@ -24,6 +24,7 @@ import uuid
 from collections import Counter, defaultdict
 from collections.abc import (
     Callable,
+    Collection,
     Iterable,
     Iterator,
     Mapping,
@@ -62944,6 +62945,7 @@ def _verified_provider_stage_attempts(
     expected_nonsettled_statuses: Mapping[tuple[str, str], str] | None = None,
     expected_nonsettled_attempt_counts: Mapping[tuple[str, str], int] | None = None,
     allow_additional_calls: bool = False,
+    active_candidate_ids: Collection[str] | None = None,
     provider_attempt_namespace: str | None = None,
     snapshot: sqlite3.Connection | None = None,
 ) -> JsonRecord:
@@ -62955,7 +62957,9 @@ def _verified_provider_stage_attempts(
     for row in rows:
         key = (_required_str(row, "candidate_id"), _required_str(row, "model_key"))
         if key not in expected_prompts:
-            if allow_additional_calls:
+            if allow_additional_calls or (
+                active_candidate_ids is not None and key[0] not in active_candidate_ids
+            ):
                 continue
             raise CommandError(
                 f"{stage} journal contains an unexpected candidate/model call: {key}"
@@ -63430,6 +63434,10 @@ def _verify_stage_a_review_run_card(
                 key: "reconstruction_failed" for key in terminal_attempt_counts
             },
             expected_nonsettled_attempt_counts=terminal_attempt_counts,
+            active_candidate_ids={
+                _required_str(record, "candidate_id")
+                for record in structural_selections
+            },
             provider_attempt_namespace=provider_attempt_namespace,
             snapshot=journal_snapshot,
         )
@@ -66509,6 +66517,12 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             model_registry_sha256=registry_sha,
             expected_nonsettled_statuses=terminal_statuses,
             expected_nonsettled_attempt_counts=terminal_attempt_counts,
+            active_candidate_ids={
+                _required_str(record, "candidate_id")
+                for record in selections
+                if _required_str(record, "candidate_id")
+                not in unitizer_terminal_candidates
+            },
             provider_attempt_namespace=provider_attempt_namespace,
         )
         completion_extra = {
