@@ -894,6 +894,107 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             (normalized_response_json, v4_prompt_sha),
         )
 
+    # A settled v4 attempt remains authentic accounting history, but must not
+    # satisfy the active v5 key.  v5 replays its own line-count selector grammar
+    # into the same canonical prediction-unit envelope.
+    with pytest.raises(cli.CommandError, match="requires exactly one settled attempt"):
+        cli._verify_stage_a_provider_replay(
+            lineage=lineage,
+            prediction_units_path=raw_path,
+            audit_path=audit_path,
+            review_queue_path=queue_path,
+            provider_attempt_namespace="claim-ontology-v5",
+        )
+    v5_prompt_record = stage_a_unitization_prompt_records(
+        selection_records=[selection],
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        provider_attempt_namespace="claim-ontology-v5",
+    )[0]
+    v5_payload = json.loads(raw_output)
+    for citation in v5_payload["unit_seeds"][0]["source_citations"]:
+        citation.pop("end_line")
+        citation["line_count"] = 1
+    v5_raw_output = json.dumps(v5_payload)
+    [v5_unit] = [
+        value.to_record()
+        for value in reconstruct_stage_a_unitization_response(
+            selection_record=selection,
+            parser_records=parser_records,
+            markdown_root=markdown_root,
+            markdown_bytes=None,
+            raw_output=v5_raw_output,
+            model_key=registry_entry.registry_key,
+            provider_attempt_namespace="claim-ontology-v5",
+        ).units
+    ]
+    assert v5_unit == unit
+    with ProviderAttemptJournal(
+        journal_path,
+        identity=ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id="cand-1",
+            model_key=registry_entry.registry_key,
+            prompt=str(v5_prompt_record["prompt"]),
+            model_registry_sha256=registry_sha,
+            prompt_contract="claim-ontology-v5",
+            account=journal_account,
+        ),
+        provider="openai",
+        reservation_usd=0.1,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=cli._path_sha256(caps_path),
+    ) as journal:
+        journal.run_attempt(1, lambda: {"fixture": "v5-response"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=5,
+            actual_cost_usd=0.01,
+            raw_output=v5_raw_output,
+        )
+        journal.commit_reconstruction(
+            {"prediction_units": [v5_unit], "review_items": []}
+        )
+    v5_audit = json.loads(audit_path.read_text().strip())
+    v5_audit["provider_prompt_sha256"] = v5_prompt_record["prompt_sha256"]
+    v5_audit["raw_output_sha256"] = (
+        "sha256:" + hashlib.sha256(v5_raw_output.encode()).hexdigest()
+    )
+    _write_jsonl(
+        raw_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [v5_unit],
+            }
+        ],
+    )
+    _write_jsonl(audit_path, [v5_audit])
+    v5_commitments, v5_digest, v5_rows = cli._verify_stage_a_provider_replay(
+        lineage=lineage,
+        prediction_units_path=raw_path,
+        audit_path=audit_path,
+        review_queue_path=queue_path,
+        provider_attempt_namespace="claim-ontology-v5",
+    )
+    assert (
+        v5_commitments["cand-1"]["prompt_sha256"] == v5_prompt_record["prompt_sha256"]
+    )
+    assert len(v5_rows) == 1
+    assert v5_digest not in {digest, successor_digest, v4_digest}
+
+    # Restore the legacy active artifacts for the remaining legacy regression
+    # assertions in this test; the v4/v5 rows stay in the shared journal.
+    legacy_audit = dict(v5_audit)
+    legacy_audit["provider_prompt_sha256"] = prompt_record["prompt_sha256"]
+    legacy_audit["raw_output_sha256"] = (
+        "sha256:" + hashlib.sha256(raw_output.encode()).hexdigest()
+    )
+    _write_jsonl(audit_path, [legacy_audit])
+
     coordinated_audit = json.loads(audit_path.read_text().strip())
     coordinated_audit["provider_prompt_sha256"] = prompt_record["prompt_sha256"]
     coordinated_audit["review_items"] = [

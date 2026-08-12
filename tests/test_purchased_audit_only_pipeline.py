@@ -7,7 +7,7 @@ from argparse import Namespace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 import legalforecast.labeling.llm_pipeline as llm_pipeline
 import pytest
@@ -123,6 +123,90 @@ def test_live_stage_a_requires_successor_namespace_before_journal_or_transport(
             "SELECT COUNT(*) FROM provider_attempts"
         ).fetchone()
     assert row_count == (0,)
+
+
+def test_structural_review_rejects_unitizer_only_v5_before_prompt_or_journal(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+
+    def unexpected_prompt(**_kwargs: Any) -> NoReturn:
+        pytest.fail("structural prompt construction must not run")
+
+    def unexpected_completion(*_args: Any, **_kwargs: Any) -> NoReturn:
+        pytest.fail("provider transport must not run")
+
+    monkeypatch.setattr(
+        llm_pipeline,
+        "stage_a_structural_review_prompt_records",
+        unexpected_prompt,
+    )
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        unexpected_completion,
+    )
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match=r"claim-ontology-v5.*llm-review-stage-a",
+    ):
+        llm_pipeline.llm_review_stage_a_units(
+            selection_records=(),
+            parser_records=(),
+            prediction_unit_records=(),
+            markdown_root=tmp_path,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_attempt_namespace="claim-ontology-v5",
+        )
+    assert not (tmp_path / "provider-attempts.sqlite3").exists()
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match=r"claim-ontology-v5.*llm-review-stage-a",
+    ):
+        llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
+            selection_record={},
+            parser_records=(),
+            prediction_unit_records=(),
+            markdown_root=tmp_path,
+            markdown_bytes=None,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_account="default",
+            provider_attempt_namespace="claim-ontology-v5",
+        )
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match=r"claim-ontology-v5.*llm-review-stage-a",
+    ):
+        llm_pipeline.build_llm_stage_a_structural_review_terminal_escalation(
+            selection_record={},
+            parser_records=(),
+            prediction_unit_records=(),
+            markdown_root=tmp_path,
+            markdown_bytes=None,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_account="default",
+            provider_attempt_namespace="claim-ontology-v5",
+        )
+    assert not (tmp_path / "provider-attempts.sqlite3").exists()
 
 
 @pytest.mark.parametrize(

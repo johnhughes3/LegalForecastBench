@@ -84,7 +84,7 @@ def _inputs(
     }
 
 
-def test_v4_unitizer_replays_eligibility_before_provider_lineage(
+def test_live_v5_unitizer_replays_eligibility_before_provider_lineage(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -126,7 +126,7 @@ def test_v4_unitizer_replays_eligibility_before_provider_lineage(
         markdown_root=tmp_path / "markdown",
         model_registry=tmp_path / "registry.json",
         provider_cycle_caps=tmp_path / "caps.json",
-        provider_attempt_namespace="claim-ontology-v4",
+        provider_attempt_namespace="claim-ontology-v5",
         target_eligibility_audit=tmp_path / "eligibility.jsonl",
         target_eligibility_audit_run_card=tmp_path / "eligibility-card.json",
         execute=True,
@@ -139,7 +139,67 @@ def test_v4_unitizer_replays_eligibility_before_provider_lineage(
     assert not output_root.exists()
 
 
-def test_v4_unitizer_rejects_lineage_changed_after_clean_eligibility_audit(
+@pytest.mark.parametrize(
+    "unitization_namespace",
+    (None, "claim-ontology-v2", "claim-ontology-v3", "claim-ontology-v4"),
+)
+def test_live_unitizer_rejects_non_v5_namespace_before_eligibility_or_lineage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    unitization_namespace: str | None,
+) -> None:
+    calls: list[str] = []
+
+    def forbidden(name: str) -> object:
+        calls.append(name)
+        raise AssertionError(f"{name} must remain unopened")
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_verified_stage_a_parse_lineage",
+        lambda *args, **kwargs: forbidden("eligibility"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_require_clean_v4_target_document_eligibility_audit",
+        lambda *args, **kwargs: forbidden("eligibility-audit"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_unitization_lineage",
+        lambda *args, **kwargs: forbidden("unitization-lineage"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_provider_spend_authorities",
+        lambda *args, **kwargs: forbidden("provider-authority"),
+    )
+    output_root = tmp_path / "must-not-exist"
+    args = Namespace(
+        output_root=output_root,
+        provider_journal=tmp_path / "provider.sqlite3",
+        selection=tmp_path / "selection.jsonl",
+        parser_manifest=tmp_path / "parser.jsonl",
+        markdown_root=tmp_path / "markdown",
+        model_registry=tmp_path / "registry.json",
+        provider_cycle_caps=tmp_path / "caps.json",
+        provider_attempt_namespace=unitization_namespace,
+        target_eligibility_audit=tmp_path / "eligibility.jsonl",
+        target_eligibility_audit_run_card=tmp_path / "eligibility-card.json",
+        execute=True,
+    )
+
+    with pytest.raises(
+        cli.CommandError,
+        match="requires --provider-attempt-namespace claim-ontology-v5",
+    ):
+        cli._cmd_acquisition_llm_unitize(args)
+
+    assert calls == []
+    assert not output_root.exists()
+
+
+def test_live_v5_unitizer_rejects_lineage_changed_after_clean_eligibility_audit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -198,7 +258,7 @@ def test_v4_unitizer_rejects_lineage_changed_after_clean_eligibility_audit(
         markdown_root=tmp_path / "markdown",
         model_registry=tmp_path / "registry.json",
         provider_cycle_caps=tmp_path / "caps.json",
-        provider_attempt_namespace="claim-ontology-v4",
+        provider_attempt_namespace="claim-ontology-v5",
         target_eligibility_audit=tmp_path / "eligibility.jsonl",
         target_eligibility_audit_run_card=tmp_path / "eligibility-card.json",
         execute=True,

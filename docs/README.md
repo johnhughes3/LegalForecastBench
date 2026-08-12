@@ -32,6 +32,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md): value-by-value record of why each committed cohort-policy value is authorized or mechanically derived.
 - [Cycle 1 change control](cycle-1-change-control.md): the change-control rules adopted for the remainder of Cycle 1, through the final gate.
 - [Cycle 1 Stage A v4 correctness migration](cycle-1-stage-a-v4-correctness-migration.md): the required citation-integrity, ontology, successor-cohort, and replay path before Cycle 1 Stage B.
+- [Cycle 1 Stage A v5 unitizer-selector migration](cycle-1-stage-a-v5-unitizer-selector-migration.md): the closed v5 unitizer and v4 structural-review pairing that replaces brittle copied citation endpoints with bounded line counts.
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for new code without migrating Cycle 1 artifacts.
 
 ## Community Multi-Harness (non-official)
@@ -125,7 +126,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 **Stage A review and labeling**
 
 - [successor-rerun-impact-v1.md](schemas/successor-rerun-impact-v1.md): the closed, provider-free proposal and advisory impact contracts for explaining the minimum safe Stage A successor rerun without granting execution authority.
-- [target-document-eligibility-audit-v1.md](schemas/target-document-eligibility-audit-v1.md): the provider-free semantic target-document gate required before any claim-ontology-v4 provider authority is opened.
+- [target-document-eligibility-audit-v1.md](schemas/target-document-eligibility-audit-v1.md): the provider-free semantic target-document gate for the line-addressed claim-ontology-v4/v5 contracts; executed `llm-unitize` currently admits only claim-ontology-v5 before provider authority is opened.
 - [stage-a-structural-flag-v2.md](schemas/stage-a-structural-flag-v2.md): claim-ontology-v4 structural flags with locally reconstructed, per-document evidence spans and complete omission evidence.
 - [finalized-prediction-units-v3.md](schemas/finalized-prediction-units-v3.md): the authenticated Stage A successor contract that admits a structurally omitted unit without deriving it from an unrelated raw unit.
 - [finalized-prediction-units-v2.md](schemas/finalized-prediction-units-v2.md): the authenticated Stage A successor contract that records reviewed unit drops without rewriting the original unitization artifacts.

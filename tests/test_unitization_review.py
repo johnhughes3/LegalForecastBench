@@ -97,8 +97,13 @@ def test_v4_finalized_citations_reconstruct_from_candidate_predecision_text() ->
     )
 
 
-def test_cli_v4_finalized_citations_use_authenticated_lineage_snapshot(
+@pytest.mark.parametrize(
+    "unitization_namespace",
+    ("claim-ontology-v4", "claim-ontology-v5"),
+)
+def test_cli_line_addressed_finalized_citations_use_authenticated_lineage_snapshot(
     tmp_path: Path,
+    unitization_namespace: str,
 ) -> None:
     markdown_root = tmp_path / "markdown" / "cand"
     markdown_root.mkdir(parents=True)
@@ -111,7 +116,7 @@ def test_cli_v4_finalized_citations_use_authenticated_lineage_snapshot(
     unitization_card = tmp_path / "llm-unitize.json"
     unitization_card.write_text(
         json.dumps(
-            {"model_execution": {"provider_attempt_namespace": "claim-ontology-v4"}}
+            {"model_execution": {"provider_attempt_namespace": unitization_namespace}}
         ),
         encoding="utf-8",
     )

@@ -35,6 +35,11 @@ ADVISORY_WARNING = (
     "dispatch, publication, or artifact authority."
 )
 
+# These contracts use the same line-addressed target-document eligibility audit.
+_LINE_ADDRESSED_STAGE_A_NAMESPACES = frozenset(
+    {"claim-ontology-v4", "claim-ontology-v5"}
+)
+
 StageStatus = Literal["REUSABLE", "AFFECTED", "FAILED", "NOT_EVALUATED"]
 
 
@@ -373,7 +378,7 @@ def _derived_next_commands(
     eligibility_card = root / "run-cards" / "audit-stage-a-target-eligibility.json"
     reuse_current_eligibility = (
         unitize_only
-        and proposal.provider_attempt_namespace == "claim-ontology-v4"
+        and proposal.provider_attempt_namespace in _LINE_ADDRESSED_STAGE_A_NAMESPACES
         and current.target_eligibility_audit_path is not None
         and current.target_eligibility_audit_run_card_path is not None
     )
@@ -532,7 +537,7 @@ def _derived_next_commands(
         unitize_argv.extend(
             ["--provider-attempt-namespace", proposal.provider_attempt_namespace]
         )
-    if proposal.provider_attempt_namespace == "claim-ontology-v4":
+    if proposal.provider_attempt_namespace in _LINE_ADDRESSED_STAGE_A_NAMESPACES:
         unitize_argv.extend(
             [
                 "--target-eligibility-audit",
@@ -549,12 +554,12 @@ def _derived_next_commands(
         "advisory_execution": "dry_run_only",
     }
     commands = [plan, parse]
-    if proposal.provider_attempt_namespace == "claim-ontology-v4":
+    if proposal.provider_attempt_namespace in _LINE_ADDRESSED_STAGE_A_NAMESPACES:
         commands.append(eligibility)
     commands.append(unitize)
     if first_invalidated == "llm-unitize":
         if (
-            proposal.provider_attempt_namespace == "claim-ontology-v4"
+            proposal.provider_attempt_namespace in _LINE_ADDRESSED_STAGE_A_NAMESPACES
             and not reuse_current_eligibility
         ):
             return [eligibility, unitize]
