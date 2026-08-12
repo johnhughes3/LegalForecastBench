@@ -61638,9 +61638,13 @@ def _verify_stage_a_provider_replay(
     attempt_rows: list[Mapping[str, Any]] = []
     for row in all_attempt_rows:
         candidate_id = _required_str(row, "candidate_id")
+        # The provider journal is cycle-wide and append-only. Authenticated
+        # successor cohorts therefore retain historical rows for candidates
+        # they replaced; only rows for the active selection participate here.
+        if candidate_id not in candidate_ids:
+            continue
         if (
-            candidate_id not in candidate_ids
-            or row.get("model_key") != lineage.registry_entry.registry_key
+            row.get("model_key") != lineage.registry_entry.registry_key
             or row.get("logical_call_key") not in recognized_keys[candidate_id]
         ):
             raise CommandError(

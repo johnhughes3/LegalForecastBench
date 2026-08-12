@@ -1054,6 +1054,38 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
         journal_path,
         identity=ProviderCallIdentity(
             stage="llm-unitize",
+            candidate_id="replaced-predecessor",
+            model_key="openai:gpt-test",
+            prompt="historical predecessor prompt",
+            model_registry_sha256=registry_sha,
+            account="primary",
+        ),
+        provider="openai",
+        reservation_usd=0.1,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=cli._path_sha256(caps_path),
+    ) as journal:
+        journal.run_attempt(1, lambda: {"fixture": "historical-response"})
+        journal.settle_attempt(
+            1,
+            input_tokens=1,
+            output_tokens=1,
+            actual_cost_usd=0.01,
+            raw_output="{}",
+        )
+        journal.commit_reconstruction({"prediction_units": [], "review_items": []})
+    cli._verify_stage_a_provider_replay(
+        lineage=lineage,
+        prediction_units_path=raw_path,
+        audit_path=audit_path,
+        review_queue_path=queue_path,
+    )
+
+    with ProviderAttemptJournal(
+        journal_path,
+        identity=ProviderCallIdentity(
+            stage="llm-unitize",
             candidate_id="cand-1",
             model_key="openai:gpt-other",
             prompt=str(prompt_record["prompt"]),
