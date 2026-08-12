@@ -64862,11 +64862,10 @@ def _cmd_acquisition_convert_attorney_worksheet(args: argparse.Namespace) -> int
         raise CommandError("packet run card lacks packet output commitments")
     typed_packet_commitment = cast(Mapping[str, object], packet_commitment)
     typed_manifest_commitment = cast(Mapping[str, object], manifest_commitment)
-    if (
-        typed_packet_commitment.get("sha256")
-        != _bytes_sha256(snapshots[packet_path])
-        or typed_manifest_commitment.get("sha256")
-        != _bytes_sha256(snapshots[manifest_path])
+    if typed_packet_commitment.get("sha256") != _bytes_sha256(
+        snapshots[packet_path]
+    ) or typed_manifest_commitment.get("sha256") != _bytes_sha256(
+        snapshots[manifest_path]
     ):
         raise CommandError("packet bytes differ from completed run-card commitments")
     review_coverage = manifest.get("review_id_coverage")
@@ -64902,9 +64901,7 @@ def _cmd_acquisition_convert_attorney_worksheet(args: argparse.Namespace) -> int
     completion_run_card_path = _acquisition_path(
         args,
         "run_card_output",
-        output_root
-        / "run-cards"
-        / "convert-unitization-adjudication-worksheet.json",
+        output_root / "run-cards" / "convert-unitization-adjudication-worksheet.json",
     )
     completion_log_path = _acquisition_path(
         args,
