@@ -60173,6 +60173,13 @@ def _cmd_acquisition_seal_paid_labeling_result(args: argparse.Namespace) -> int:
 def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
     """Materialize authenticated, audit-only first-disposition text."""
 
+    with cache_disclosure_document_scans():
+        return _cmd_acquisition_build_decision_texts_cached(args)
+
+
+def _cmd_acquisition_build_decision_texts_cached(args: argparse.Namespace) -> int:
+    """Build decision text while reusing immutable PDF scans during replay."""
+
     _preflight_materialization_purchase_runtime(args)
     dry_run = _acquisition_dry_run(args)
     if (
