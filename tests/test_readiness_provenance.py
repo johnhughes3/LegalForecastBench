@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
+from typing import cast
 
 import pytest
 from legalforecast.evals.model_registry import load_model_registry
@@ -10,14 +13,21 @@ from legalforecast.ingestion.readiness_provenance import (
     verify_stage_a_readiness_provenance,
     verify_stage_b_readiness_provenance,
 )
-from legalforecast.labeling.llm_pipeline import merge_structural_flags_into_review_queue
+from legalforecast.labeling.llm_pipeline import (
+    merge_structural_flags_into_review_queue,
+    unitizer_terminal_preserved_audit_record,
+)
 from legalforecast.protocol import sha256_file
 from legalforecast.unitization.review import (
     ADJUDICATION_SCHEMA_VERSION,
     UnitizationReviewError,
+    apply_terminal_unitizer_reviews,
     apply_unitization_reviews,
     canonical_records_sha256,
     canonical_sha256,
+)
+from legalforecast.unitization.unitizer_terminal_review import (
+    build_unitizer_terminal_review_queue_record,
 )
 
 ROOT = Path(__file__).parents[1]
@@ -61,6 +71,97 @@ def test_stage_a_readiness_rejects_served_version_and_output_tampering() -> None
     with pytest.raises(ReadinessProvenanceError, match="served model version"):
         verify_stage_a_readiness_provenance(
             **{**fixture, "structural_review_audit_records": audits}
+        )
+
+
+def test_stage_a_readiness_accepts_mixed_terminal_branch_without_filtering() -> None:
+    fixture = _stage_a_fixture()
+    receipt = _terminal_receipt()
+    queue = build_unitizer_terminal_review_queue_record(receipt)
+    adjudication = _terminal_adjudication(receipt, queue)
+    terminal_finalized = list(
+        apply_terminal_unitizer_reviews(
+            terminal_review_records=[queue],
+            terminal_escalation_records=[receipt],
+            adjudication_records=[adjudication],
+        )
+    )
+    raw = [
+        *cast(list[dict[str, object]], fixture["raw_prediction_unit_records"]),
+        {
+            "candidate_id": "terminal",
+            "case_id": "case-terminal",
+            "prediction_units": [],
+        },
+    ]
+    finalized = [
+        *cast(list[dict[str, object]], fixture["finalized_prediction_unit_records"]),
+        *terminal_finalized,
+    ]
+    terminal_audit = unitizer_terminal_preserved_audit_record(
+        candidate_id="terminal",
+        case_id="case-terminal",
+        reviewer_model_key=GEMINI_KEY,
+        model_registry_sha256=cast(str, fixture["reviewer_registry_sha256"]),
+        raw_prediction_units=raw[-1],
+    )
+
+    verify_stage_a_readiness_provenance(
+        **{
+            **fixture,
+            "selection_records": [
+                *cast(list[dict[str, object]], fixture["selection_records"]),
+                {"candidate_id": "terminal", "case_id": "case-terminal"},
+            ],
+            "raw_prediction_unit_records": raw,
+            "finalized_prediction_unit_records": finalized,
+            "structural_review_audit_records": [
+                *cast(
+                    list[dict[str, object]],
+                    fixture["structural_review_audit_records"],
+                ),
+                terminal_audit,
+            ],
+            "terminal_review_records": [queue],
+            "terminal_escalation_records": [receipt],
+            "terminal_adjudication_records": [adjudication],
+        }
+    )
+
+    with pytest.raises(ReadinessProvenanceError, match="exact unitizer terminal"):
+        verify_stage_a_readiness_provenance(
+            **{
+                **fixture,
+                "selection_records": [
+                    *cast(list[dict[str, object]], fixture["selection_records"]),
+                    {"candidate_id": "terminal", "case_id": "case-terminal"},
+                ],
+                "raw_prediction_unit_records": raw,
+                "finalized_prediction_unit_records": finalized,
+                "structural_review_audit_records": [
+                    *cast(
+                        list[dict[str, object]],
+                        fixture["structural_review_audit_records"],
+                    ),
+                    {**terminal_audit, "flag_count": 1},
+                ],
+                "terminal_review_records": [queue],
+                "terminal_escalation_records": [receipt],
+                "terminal_adjudication_records": [adjudication],
+            }
+        )
+
+    with pytest.raises(ReadinessProvenanceError):
+        verify_stage_a_readiness_provenance(
+            **{
+                **fixture,
+                "selection_records": [
+                    *cast(list[dict[str, object]], fixture["selection_records"]),
+                    {"candidate_id": "terminal", "case_id": "case-terminal"},
+                ],
+                "raw_prediction_unit_records": raw,
+                "finalized_prediction_unit_records": finalized,
+            }
         )
 
     audits = deepcopy(fixture["structural_review_audit_records"])
@@ -214,6 +315,80 @@ def _stage_a_fixture() -> dict[str, object]:
         "reviewer_registry_entries": registry.entries,
         "reviewer_registry_sha256": registry_sha,
         "reviewer_model_key": GEMINI_KEY,
+    }
+
+
+def _terminal_receipt() -> dict[str, object]:
+    prompt = "Reconstruct terminal candidate."
+    return {
+        "schema_version": "legalforecast.llm_stage_a_unitizer_terminal_escalation.v1",
+        "candidate_id": "terminal",
+        "case_id": "case-terminal",
+        "unitizer_model_key": "anthropic:test",
+        "model_registry_sha256": "1" * 64,
+        "provider_attempt_namespace": "claim-ontology-v5",
+        "prompt": prompt,
+        "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+        "predecision_source_commitments": [
+            {
+                "source_document_id": "complaint",
+                "document_role": "complaint",
+                "docket_entry_number": 1,
+                "description": "Complaint",
+                "markdown_sha256": "sha256:" + "2" * 64,
+            }
+        ],
+        "failed_attempts": [
+            {
+                "attempt_ordinal": ordinal,
+                "raw_response_sha256": "sha256:" + format(ordinal, "064x"),
+                "normalized_response_sha256": ("sha256:" + format(ordinal + 3, "064x")),
+                "failure_type": "citation_reconstruction_failure",
+                "failure_message": "invalid citation",
+            }
+            for ordinal in (1, 2, 3)
+        ],
+    }
+
+
+def _terminal_adjudication(
+    receipt: Mapping[str, object], queue: Mapping[str, object]
+) -> dict[str, object]:
+    return {
+        "schema_version": "legalforecast.unitization_adjudication.v3",
+        "adjudication_id": "adj-terminal",
+        "candidate_id": "terminal",
+        "case_id": "case-terminal",
+        "review_ids": [queue["review_id"]],
+        "disposition": "ADD",
+        "finalized_units": [
+            {
+                "unit_id": "terminal-unit",
+                "count": "I",
+                "claim_name": "Contract",
+                "defendant_group": "Defendant",
+                "challenged_by_motion": True,
+                "challenge_scope": "entire_claim",
+                "unit_confidence": 0.9,
+                "separable_subclaim": None,
+                "source_citations": [
+                    {
+                        "document_id": "complaint",
+                        "docket_entry_number": 1,
+                        "page": 1,
+                        "paragraph": None,
+                        "excerpt": "Count I",
+                    }
+                ],
+                "grouping": "individual",
+                "grouping_rationale": None,
+                "uncertainty_notes": None,
+                "should_score": True,
+            }
+        ],
+        "adjudicator_id": "attorney",
+        "adjudication_notes": "Reviewed.",
+        "terminal_escalation_sha256": canonical_sha256(receipt),
     }
 
 

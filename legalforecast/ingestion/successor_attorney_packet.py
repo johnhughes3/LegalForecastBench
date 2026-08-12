@@ -17,10 +17,15 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from legalforecast.contracts import (
+    LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1,
     SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V1,
+    SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2,
     SUCCESSOR_ATTORNEY_PACKET_VIEW_V1,
+    SUCCESSOR_ATTORNEY_PACKET_VIEW_V2,
     UNITIZATION_REVIEW_BUNDLE_V1,
     UNITIZATION_REVIEW_QUEUE_V2,
+    UNITIZER_TERMINAL_REVIEW_BUNDLE_V1,
+    UNITIZER_TERMINAL_REVIEW_QUEUE_V1,
     PrefixedSha256,
 )
 from legalforecast.unitization.review_queue import (
@@ -29,6 +34,11 @@ from legalforecast.unitization.review_queue import (
     ReviewAction,
     ReviewSubject,
     classify_structural_validator_failure,
+)
+from legalforecast.unitization.unitizer_terminal_review import (
+    UnitizerTerminalReviewError,
+    build_unitizer_terminal_review_bundle,
+    build_unitizer_terminal_review_queue_record,
 )
 
 JsonRecord = dict[str, Any]
@@ -90,6 +100,144 @@ def build_successor_attorney_packet(
     return SuccessorAttorneyPacket(manifest=manifest, attorney_view=attorney_view)
 
 
+def build_successor_attorney_packet_with_unitizer_terminals(
+    authoritative_v1_bundle_bytes: bytes,
+    observational_v2_queue_bytes: bytes,
+    unitizer_terminal_receipt_bytes: bytes,
+    unitizer_terminal_queue_bytes: bytes,
+    unitizer_terminal_bundle_bytes: bytes,
+) -> SuccessorAttorneyPacket:
+    """Build packet v2 by adding candidates with no accepted Stage A units.
+
+    The original packet builder and both frozen unit-review inputs remain
+    unchanged.  Terminal-unitizer candidates enter through separate exact-byte
+    inputs because they have no frozen unit row to place honestly in v1/v2.
+    """
+
+    if authoritative_v1_bundle_bytes or observational_v2_queue_bytes:
+        if not authoritative_v1_bundle_bytes or not observational_v2_queue_bytes:
+            raise AttorneyPacketError(
+                "ordinary v1 bundle and v2 queue must both be empty or both be nonempty"
+            )
+        base = build_successor_attorney_packet(
+            authoritative_v1_bundle_bytes, observational_v2_queue_bytes
+        )
+    else:
+        base = _empty_successor_attorney_packet(
+            authoritative_v1_bundle_bytes, observational_v2_queue_bytes
+        )
+    terminal_receipts = _jsonl_records(
+        unitizer_terminal_receipt_bytes, "unitizer terminal escalation receipts"
+    )
+    terminal_queue = _jsonl_records(
+        unitizer_terminal_queue_bytes, "unitizer terminal review queue"
+    )
+    terminal_bundles = _jsonl_records(
+        unitizer_terminal_bundle_bytes, "unitizer terminal review bundle"
+    )
+    terminals = _validated_unitizer_terminals(
+        terminal_receipts, terminal_queue, terminal_bundles
+    )
+    existing_candidates = {
+        _required_str(candidate, "candidate_id", "attorney view candidate")
+        for candidate in cast(
+            Sequence[Mapping[str, object]], base.attorney_view["candidates"]
+        )
+    }
+    overlap = existing_candidates.intersection(terminals)
+    if overlap:
+        raise AttorneyPacketError(
+            "candidate appears in both frozen-unit and terminal-unitizer review: "
+            + ", ".join(sorted(overlap))
+        )
+    candidates = list(cast(Sequence[JsonRecord], base.attorney_view["candidates"]))
+    for candidate_id in sorted(terminals):
+        queue_record, bundle_record = terminals[candidate_id]
+        candidates.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": _required_str(
+                    queue_record, "case_id", "unitizer terminal queue"
+                ),
+                "unitizer_terminal": {
+                    "queue_record": queue_record,
+                    "bundle_record": bundle_record,
+                },
+            }
+        )
+    candidates.sort(key=lambda candidate: str(candidate["candidate_id"]))
+    manifest = {
+        **base.manifest,
+        "schema_version": str(SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2),
+        "unitizer_terminal_escalation_receipts": _input_commitment(
+            unitizer_terminal_receipt_bytes,
+            schema_version=str(LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1),
+            count_field="record_count",
+            count=len(terminal_receipts),
+        ),
+        "unitizer_terminal_review_queue": _input_commitment(
+            unitizer_terminal_queue_bytes,
+            schema_version=str(UNITIZER_TERMINAL_REVIEW_QUEUE_V1),
+            count_field="record_count",
+            count=len(terminal_queue),
+        ),
+        "unitizer_terminal_review_bundle": _input_commitment(
+            unitizer_terminal_bundle_bytes,
+            schema_version=str(UNITIZER_TERMINAL_REVIEW_BUNDLE_V1),
+            count_field="record_count",
+            count=len(terminal_bundles),
+        ),
+        "unitizer_terminal_candidate_count": len(terminals),
+    }
+    attorney_view = {
+        **base.attorney_view,
+        "schema_version": str(SUCCESSOR_ATTORNEY_PACKET_VIEW_V2),
+        "unitizer_terminal_authoritative_source": str(
+            UNITIZER_TERMINAL_REVIEW_BUNDLE_V1
+        ),
+        "candidates": candidates,
+    }
+    return SuccessorAttorneyPacket(manifest=manifest, attorney_view=attorney_view)
+
+
+def _empty_successor_attorney_packet(
+    authoritative_v1_bundle_bytes: bytes,
+    observational_v2_queue_bytes: bytes,
+) -> SuccessorAttorneyPacket:
+    """Construct the authenticated empty ordinary base used only by packet v2."""
+
+    manifest: JsonRecord = {
+        "schema_version": str(SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V1),
+        "authoritative_v1_bundle": _input_commitment(
+            authoritative_v1_bundle_bytes,
+            schema_version=str(UNITIZATION_REVIEW_BUNDLE_V1),
+            count_field="review_count",
+            count=0,
+        ),
+        "observational_v2_review_queue": _input_commitment(
+            observational_v2_queue_bytes,
+            schema_version=str(UNITIZATION_REVIEW_QUEUE_V2),
+            count_field="record_count",
+            count=0,
+        ),
+        "review_id_coverage": {
+            "authoritative_v1_review_count": 0,
+            "observational_v2_source_review_count": 0,
+            "exactly_once": True,
+        },
+        "provider_free": True,
+        "authoritative_adjudication_source": "unitization_review_bundle_v1",
+        "observational_sidecar": "unitization_review_queue_v2",
+    }
+    attorney_view: JsonRecord = {
+        "schema_version": str(SUCCESSOR_ATTORNEY_PACKET_VIEW_V1),
+        "authoritative_source": str(UNITIZATION_REVIEW_BUNDLE_V1),
+        "observational_source": str(UNITIZATION_REVIEW_QUEUE_V2),
+        "candidates": [],
+    }
+    return SuccessorAttorneyPacket(manifest=manifest, attorney_view=attorney_view)
+
+
 def _input_commitment(
     payload: bytes,
     *,
@@ -103,6 +251,215 @@ def _input_commitment(
         "sha256": hashlib.sha256(payload).hexdigest(),
         count_field: count,
     }
+
+
+def _validated_unitizer_terminals(
+    receipt_records: Sequence[Mapping[str, object]],
+    queue_records: Sequence[Mapping[str, object]],
+    bundle_records: Sequence[Mapping[str, object]],
+) -> dict[str, tuple[JsonRecord, JsonRecord]]:
+    if not queue_records:
+        raise AttorneyPacketError("unitizer terminal review queue must be nonempty")
+    queue_by_id: dict[str, JsonRecord] = {}
+    for queue in queue_records:
+        if queue.get("schema_version") != str(UNITIZER_TERMINAL_REVIEW_QUEUE_V1):
+            raise AttorneyPacketError(
+                "unitizer terminal review queue has unsupported schema"
+            )
+        review_id = _required_str(queue, "review_id", "unitizer terminal queue")
+        if review_id in queue_by_id:
+            raise AttorneyPacketError(
+                f"duplicate unitizer terminal review_id: {review_id}"
+            )
+        if queue.get("status") != "pending_adjudication":
+            raise AttorneyPacketError("unitizer terminal queue item is not pending")
+        if queue.get("review_subject") != "candidate":
+            raise AttorneyPacketError(
+                "unitizer terminal queue item is not candidate-level"
+            )
+        if queue.get("allowed_actions") != ["ADD", "CANDIDATE-EXCLUSION"]:
+            raise AttorneyPacketError(
+                "unitizer terminal queue allowed actions are invalid"
+            )
+        if queue.get("suggested_actions") != []:
+            raise AttorneyPacketError(
+                "unitizer terminal queue invents a legal suggestion"
+            )
+        digest = _required_str(
+            queue, "terminal_escalation_sha256", "unitizer terminal queue"
+        )
+        if _LOWER_SHA256.fullmatch(digest) is None:
+            raise AttorneyPacketError("unitizer terminal escalation digest is invalid")
+        candidate_id = _required_str(queue, "candidate_id", "unitizer terminal queue")
+        if review_id != f"{candidate_id}:unitizer-terminal:{digest[:16]}":
+            raise AttorneyPacketError(
+                "unitizer terminal review_id differs from escalation"
+            )
+        _required_str(queue, "case_id", "unitizer terminal queue")
+        review_item = _required_mapping(queue, "review_item", "unitizer terminal queue")
+        if "prompt" in review_item or "prediction_units" in queue:
+            raise AttorneyPacketError(
+                "unitizer terminal queue leaks or invents content"
+            )
+        queue_by_id[review_id] = dict(queue)
+
+    receipt_queues: dict[str, tuple[JsonRecord, Mapping[str, object]]] = {}
+    for receipt in receipt_records:
+        try:
+            derived_queue = build_unitizer_terminal_review_queue_record(receipt)
+        except UnitizerTerminalReviewError as exc:
+            raise AttorneyPacketError(
+                f"unitizer terminal receipt is invalid: {exc}"
+            ) from exc
+        review_id = _required_str(derived_queue, "review_id", "receipt-derived queue")
+        if review_id in receipt_queues:
+            raise AttorneyPacketError(
+                f"duplicate unitizer terminal receipt: {review_id}"
+            )
+        receipt_queues[review_id] = (derived_queue, receipt)
+    if set(receipt_queues) != set(queue_by_id):
+        raise AttorneyPacketError("unitizer terminal receipt coverage differs")
+    for review_id, queue in queue_by_id.items():
+        if receipt_queues[review_id][0] != queue:
+            raise AttorneyPacketError(
+                "unitizer terminal receipt-derived queue differs from supplied queue"
+            )
+
+    bundle_by_id: dict[str, JsonRecord] = {}
+    for bundle in bundle_records:
+        if bundle.get("schema_version") != str(UNITIZER_TERMINAL_REVIEW_BUNDLE_V1):
+            raise AttorneyPacketError(
+                "unitizer terminal review bundle has unsupported schema"
+            )
+        review_id = _required_str(bundle, "review_id", "unitizer terminal bundle")
+        if review_id in bundle_by_id:
+            raise AttorneyPacketError(
+                f"duplicate unitizer terminal bundle: {review_id}"
+            )
+        bundle_by_id[review_id] = dict(bundle)
+    if set(queue_by_id) != set(bundle_by_id):
+        raise AttorneyPacketError("unitizer terminal review bundle coverage differs")
+
+    by_candidate: dict[str, tuple[JsonRecord, JsonRecord]] = {}
+    for review_id, queue in queue_by_id.items():
+        bundle = bundle_by_id[review_id]
+        receipt = receipt_queues[review_id][1]
+        for field in (
+            "candidate_id",
+            "case_id",
+            "review_subject",
+            "reason",
+            "allowed_actions",
+            "terminal_escalation_sha256",
+            "review_item",
+        ):
+            if bundle.get(field) != queue.get(field):
+                label = (
+                    "terminal escalation"
+                    if field == "terminal_escalation_sha256"
+                    else f"unitizer terminal {field}"
+                )
+                raise AttorneyPacketError(f"{label} differs between queue and bundle")
+        sources = bundle.get("cited_predecision_markdown")
+        if (
+            not isinstance(sources, Sequence)
+            or isinstance(sources, (str, bytes))
+            or not sources
+        ):
+            raise AttorneyPacketError(
+                "unitizer terminal bundle lacks predecision sources"
+            )
+        review_item = _required_mapping(queue, "review_item", "unitizer terminal queue")
+        source_ids = _string_sequence(review_item, "predecision_source_document_ids")
+        commitments_value = review_item.get("predecision_source_commitments")
+        if not isinstance(commitments_value, Sequence) or isinstance(
+            commitments_value, (str, bytes)
+        ):
+            raise AttorneyPacketError(
+                "unitizer terminal queue lacks source commitments"
+            )
+        commitments: dict[str, Mapping[str, object]] = {}
+        for commitment in cast(Sequence[object], commitments_value):
+            if not isinstance(commitment, Mapping):
+                raise AttorneyPacketError(
+                    "unitizer terminal source commitment is invalid"
+                )
+            typed_commitment = cast(Mapping[str, object], commitment)
+            commitment_id = _required_str(
+                typed_commitment,
+                "source_document_id",
+                "unitizer terminal source commitment",
+            )
+            if commitment_id in commitments:
+                raise AttorneyPacketError(
+                    "unitizer terminal source commitments are duplicated"
+                )
+            commitments[commitment_id] = typed_commitment
+        if tuple(commitments) != source_ids:
+            raise AttorneyPacketError(
+                "unitizer terminal source commitments differ from source IDs"
+            )
+        bundled_ids: list[str] = []
+        for source in cast(Sequence[object], sources):
+            if not isinstance(source, Mapping):
+                raise AttorneyPacketError("unitizer terminal bundle source is invalid")
+            typed_source = cast(Mapping[str, object], source)
+            role = _required_str(
+                typed_source, "document_role", "terminal bundle source"
+            )
+            if role.casefold() in {"decision", "order"}:
+                raise AttorneyPacketError(
+                    "unitizer terminal bundle includes outcome material"
+                )
+            _required_str(typed_source, "markdown", "terminal bundle source")
+            markdown = _required_str(typed_source, "markdown", "terminal bundle source")
+            commitment = commitments[
+                _required_str(
+                    typed_source,
+                    "source_document_id",
+                    "terminal bundle source",
+                )
+            ]
+            for field in ("document_role", "docket_entry_number", "description"):
+                if typed_source.get(field) != commitment.get(field):
+                    raise AttorneyPacketError(
+                        "unitizer terminal source metadata differs from commitment"
+                    )
+            expected_markdown_sha = (
+                "sha256:" + hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+            )
+            if commitment.get("markdown_sha256") != expected_markdown_sha:
+                raise AttorneyPacketError(
+                    "unitizer terminal source markdown commitment differs"
+                )
+            bundled_ids.append(
+                _required_str(
+                    typed_source, "source_document_id", "terminal bundle source"
+                )
+            )
+        if tuple(bundled_ids) != source_ids:
+            raise AttorneyPacketError("unitizer terminal bundle source order differs")
+        try:
+            derived_bundle = build_unitizer_terminal_review_bundle(
+                receipt=receipt,
+                queue_record=queue,
+                predecision_sources=cast(Sequence[Mapping[str, object]], sources),
+            )
+        except UnitizerTerminalReviewError as exc:
+            raise AttorneyPacketError(
+                f"unitizer terminal bundle is invalid: {exc}"
+            ) from exc
+        if derived_bundle != bundle:
+            raise AttorneyPacketError(
+                "unitizer terminal receipt-derived bundle differs from supplied bundle"
+            )
+        candidate_id = _required_str(queue, "candidate_id", "unitizer terminal queue")
+        if candidate_id in by_candidate:
+            raise AttorneyPacketError(
+                f"multiple unitizer terminal items: {candidate_id}"
+            )
+        by_candidate[candidate_id] = (queue, bundle)
+    return by_candidate
 
 
 def _jsonl_records(payload: bytes, label: str) -> tuple[JsonRecord, ...]:

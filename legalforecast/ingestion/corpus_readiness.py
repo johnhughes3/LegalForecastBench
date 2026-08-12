@@ -17,6 +17,8 @@ from legalforecast.labeling.label_outcomes import (
     UnitResolution,
 )
 from legalforecast.unitization.review import (
+    TERMINAL_UNITIZER_ADJUDICATION_SCHEMA_VERSION,
+    TERMINAL_UNITIZER_REVIEW_SCHEMA_VERSION,
     UnitizationReviewError,
     canonical_sha256,
     require_finalized_envelopes,
@@ -73,6 +75,8 @@ def build_clean_corpus_readiness(
     unitization_audit_records: Iterable[Mapping[str, Any]],
     unitization_review_records: Iterable[Mapping[str, Any]],
     unitization_adjudication_records: Iterable[Mapping[str, Any]],
+    terminal_unitization_review_records: Iterable[Mapping[str, Any]] = (),
+    terminal_unitization_adjudication_records: Iterable[Mapping[str, Any]] = (),
     label_records: Iterable[Mapping[str, Any]],
     label_audit_records: Iterable[Mapping[str, Any]],
     lawyer_review_records: Iterable[Mapping[str, Any]],
@@ -99,6 +103,12 @@ def build_clean_corpus_readiness(
     unitization_reviews_by_candidate = _group_by_candidate(unitization_review_records)
     unitization_adjudications_by_candidate = _group_by_candidate(
         unitization_adjudication_records
+    )
+    terminal_reviews_by_candidate = _group_by_candidate(
+        terminal_unitization_review_records
+    )
+    terminal_adjudications_by_candidate = _group_by_candidate(
+        terminal_unitization_adjudication_records
     )
     labels_by_unit = _index_labels(label_records)
     audits_by_candidate = _group_by_candidate(label_audit_records)
@@ -150,7 +160,20 @@ def build_clean_corpus_readiness(
             candidate_id,
             (),
         )
-        if not candidate_unitization_audits:
+        terminal_candidate = candidate_id in terminal_reviews_by_candidate
+        if terminal_candidate:
+            stage_a_reasons.extend(
+                _terminal_unitization_gate_reasons(
+                    candidate_id=candidate_id,
+                    case_id=_required_str(selection, "case_id"),
+                    units=units,
+                    review_records=terminal_reviews_by_candidate[candidate_id],
+                    adjudication_records=terminal_adjudications_by_candidate.get(
+                        candidate_id, ()
+                    ),
+                )
+            )
+        elif not candidate_unitization_audits:
             stage_a_reasons.append("stage_a_unitization_audit_missing")
         elif any(
             audit.get("status") == "failed" for audit in candidate_unitization_audits
@@ -296,6 +319,58 @@ def _finalized_chain_gate_reasons(
             adjudication
         ):
             return ("stage_a_finalized_hash_chain_invalid",)
+    return ()
+
+
+def _terminal_unitization_gate_reasons(
+    *,
+    candidate_id: str,
+    case_id: str,
+    units: Sequence[Mapping[str, Any]],
+    review_records: Sequence[Mapping[str, Any]],
+    adjudication_records: Sequence[Mapping[str, Any]],
+) -> tuple[str, ...]:
+    """Require the independently verified terminal ADD provenance at readiness."""
+
+    if len(review_records) != 1 or len(adjudication_records) != 1:
+        return ("stage_a_terminal_evidence_missing",)
+    review = review_records[0]
+    adjudication = adjudication_records[0]
+    review_id = _optional_str(review, "review_id")
+    adjudication_id = _optional_str(adjudication, "adjudication_id")
+    review_ids = _value_sequence(adjudication.get("review_ids"), "review_ids")
+    finalized_units = _value_sequence(
+        adjudication.get("finalized_units"), "finalized_units"
+    )
+    if (
+        review.get("schema_version") != TERMINAL_UNITIZER_REVIEW_SCHEMA_VERSION
+        or adjudication.get("schema_version")
+        != TERMINAL_UNITIZER_ADJUDICATION_SCHEMA_VERSION
+        or review.get("status") != "pending_adjudication"
+        or review.get("review_subject") != "candidate"
+        or not review_id
+        or _optional_str(review, "candidate_id") != candidate_id
+        or _optional_str(review, "case_id") != case_id
+        or _optional_str(adjudication, "candidate_id") != candidate_id
+        or _optional_str(adjudication, "case_id") != case_id
+        or adjudication.get("disposition") != "ADD"
+        or not adjudication_id
+        or review_ids != (review_id,)
+        or not finalized_units
+        or not units
+    ):
+        return ("stage_a_terminal_evidence_invalid",)
+    adjudication_sha256 = canonical_sha256(adjudication)
+    for unit in units:
+        if (
+            unit.get("source_unit_sha256s") != []
+            or unit.get("adjudication_id") != adjudication_id
+            or unit.get("adjudication_sha256") != adjudication_sha256
+            or unit.get("disposition") != "ADD"
+            or unit.get("added_from_review_ids") != [review_id]
+            or not _optional_str(unit, "unitizer_terminal_escalation_sha256")
+        ):
+            return ("stage_a_terminal_finalized_hash_chain_invalid",)
     return ()
 
 

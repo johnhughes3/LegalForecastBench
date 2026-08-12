@@ -33,6 +33,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Cycle 1 change control](cycle-1-change-control.md): the change-control rules adopted for the remainder of Cycle 1, through the final gate.
 - [Cycle 1 Stage A v4 correctness migration](cycle-1-stage-a-v4-correctness-migration.md): the required citation-integrity, ontology, successor-cohort, and replay path before Cycle 1 Stage B.
 - [Cycle 1 Stage A v5 unitizer-selector migration](cycle-1-stage-a-v5-unitizer-selector-migration.md): the closed v5 unitizer and v4 structural-review pairing that replaces brittle copied citation endpoints with bounded line counts.
+- [Cycle 1 Stage A unitizer terminal-review migration](cycle-1-stage-a-unitizer-terminal-review-migration.md): the provider-free attorney reconstruction route after a v5 unitizer exhausts all three reconstruction attempts without an accepted unit.
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for new code without migrating Cycle 1 artifacts.
 
 ## Community Multi-Harness (non-official)
@@ -130,10 +131,15 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [stage-a-structural-flag-v2.md](schemas/stage-a-structural-flag-v2.md): claim-ontology-v4 structural flags with locally reconstructed, per-document evidence spans and complete omission evidence.
 - [finalized-prediction-units-v3.md](schemas/finalized-prediction-units-v3.md): the authenticated Stage A successor contract that admits a structurally omitted unit without deriving it from an unrelated raw unit.
 - [finalized-prediction-units-v2.md](schemas/finalized-prediction-units-v2.md): the authenticated Stage A successor contract that records reviewed unit drops without rewriting the original unitization artifacts.
+- [llm-stage-a-unitizer-terminal-escalation-v1.md](schemas/llm-stage-a-unitizer-terminal-escalation-v1.md): the immutable provider-free receipt for one v5 unitizer candidate with exactly three exhausted reconstruction failures.
 - [llm-stage-a-structural-review-terminal-escalation-v1.md](schemas/llm-stage-a-structural-review-terminal-escalation-v1.md): the provider-free, replay-authenticated John-review route after two byte-identical invalid structural-review responses.
 - [llm-stage-a-structural-review-terminal-escalation-v2.md](schemas/llm-stage-a-structural-review-terminal-escalation-v2.md): the distinct provider-free John-review route after all three normal structural-review reconstruction attempts fail.
 - [unitization-review-queue-v2.md](schemas/unitization-review-queue-v2.md): the non-authoritative sidecar that separates review subject, immutable typed reason, authoritative allowed actions, and unverified suggestions.
 - [successor-attorney-packet-v1.md](schemas/successor-attorney-packet-v1.md): the candidate-grouped successor packet that binds frozen v1 adjudication authority to observational queue-v2 evidence for attorney review.
+- [unitizer-terminal-review-v1.md](schemas/unitizer-terminal-review-v1.md): the candidate-level queue and exact predecision Markdown bundle for an authenticated unitizer terminal receipt.
+- [successor-attorney-packet-v2.md](schemas/successor-attorney-packet-v2.md): the v1-compatible private packet extension that includes exhausted-unitizer candidates without inventing frozen units.
+- [unitization-adjudication-v3.md](schemas/unitization-adjudication-v3.md): the closed attorney `ADD` or `CANDIDATE-EXCLUSION` decision for a candidate with no accepted source unit.
+- [finalized-prediction-units-v4.md](schemas/finalized-prediction-units-v4.md): the hash-linked terminal-unitizer output containing attorney-added units or an explicit candidate exclusion.
 - [unitization-adjudication-preflight-report-v1.md](schemas/unitization-adjudication-preflight-report-v1.md): the stdout-only worklist and claim-defendant matrix printed by the provider-free, non-writing adjudication preflight.
 - [case-grouped-label-audit-packet-v1.md](schemas/case-grouped-label-audit-packet-v1.md): the deterministic observational attorney packet that presents one disposition per case while preserving every independently answerable sampled-unit review.
 

@@ -5354,3 +5354,293 @@ def test_exact100_successor_v2_rejects_persisted_state_tampering(
         match="completed v2 successor run card differs from replay",
     ):
         cli.verify_completed_target_cohort_projection_for_purchase_approval(output_root)
+
+
+def test_build_unitizer_terminal_review_bundle_is_provider_free_and_deterministic(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    document_root = tmp_path / "documents"
+    markdown_root.mkdir()
+    document_root.mkdir()
+    complaint = b"Complaint text\n"
+    opposition = b"Opposition text\n"
+    (markdown_root / "complaint.md").write_bytes(complaint)
+    (markdown_root / "opposition.md").write_bytes(opposition)
+    selection_records = (
+        {
+            "candidate_id": "candidate-b",
+            "case_id": "case-b",
+            "documents": [
+                {
+                    "source_document_id": "complaint-b",
+                    "document_role": "complaint",
+                    "docket_entry_number": 1,
+                    "description": "Complaint B",
+                    "model_visible": True,
+                    "contains_target_outcome": False,
+                }
+            ],
+        },
+        {
+            "candidate_id": "candidate-a",
+            "case_id": "case-a",
+            "documents": [
+                {
+                    "source_document_id": "opposition-a",
+                    "document_role": "opposition",
+                    "docket_entry_number": 9,
+                    "description": "Opposition A",
+                    "model_visible": True,
+                    "contains_target_outcome": False,
+                }
+            ],
+        },
+    )
+    parser_records = (
+        {
+            "candidate_id": "candidate-b",
+            "source_document_id": "complaint-b",
+            "markdown_path": "complaint.md",
+        },
+        {
+            "candidate_id": "candidate-a",
+            "source_document_id": "opposition-a",
+            "markdown_path": "opposition.md",
+        },
+    )
+    lineage = SimpleNamespace(
+        selection_records=selection_records,
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        document_root=document_root,
+        markdown_bytes={
+            "complaint.md": complaint,
+            "opposition.md": opposition,
+        },
+        input_paths=(),
+        input_commitments={"selection": {"sha256": "a" * 64}},
+        markdown_tree={
+            "complaint.md": hashlib.sha256(complaint).hexdigest(),
+            "opposition.md": hashlib.sha256(opposition).hexdigest(),
+        },
+        file_snapshots={},
+        document_tree={},
+    )
+    monkeypatch.setattr(
+        cli, "_verify_verified_stage_a_parse_lineage", lambda *args, **kwargs: lineage
+    )
+    monkeypatch.setattr(
+        cli, "_require_stage_a_parse_lineage_unchanged", lambda _lineage: None
+    )
+
+    def receipt(
+        candidate: str, case: str, source: dict[str, Any], text: bytes
+    ) -> JsonRecord:
+        prompt = f"unitize {candidate}"
+        return {
+            "schema_version": (
+                "legalforecast.llm_stage_a_unitizer_terminal_escalation.v1"
+            ),
+            "candidate_id": candidate,
+            "case_id": case,
+            "unitizer_model_key": "anthropic:unitizer",
+            "model_registry_sha256": "b" * 64,
+            "provider_attempt_namespace": "claim-ontology-v5",
+            "prompt": prompt,
+            "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+            "predecision_source_commitments": [
+                {
+                    "source_document_id": source["source_document_id"],
+                    "document_role": source["document_role"],
+                    "docket_entry_number": source["docket_entry_number"],
+                    "description": source["description"],
+                    "markdown_sha256": "sha256:" + hashlib.sha256(text).hexdigest(),
+                }
+            ],
+            "failed_attempts": [
+                {
+                    "attempt_ordinal": ordinal,
+                    "raw_response_sha256": "sha256:" + format(ordinal, "064x"),
+                    "normalized_response_sha256": (
+                        "sha256:" + format(ordinal + 10, "064x")
+                    ),
+                    "failure_type": "LlmResponseValidationError",
+                    "failure_message": "invalid citation selector",
+                }
+                for ordinal in (1, 2, 3)
+            ],
+        }
+
+    receipt_b = tmp_path / "receipt-b.json"
+    receipt_a = tmp_path / "receipt-a.json"
+    receipt_b.write_text(
+        json.dumps(
+            receipt(
+                "candidate-b", "case-b", selection_records[0]["documents"][0], complaint
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    receipt_a.write_text(
+        json.dumps(
+            receipt(
+                "candidate-a",
+                "case-a",
+                selection_records[1]["documents"][0],
+                opposition,
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    lineage_inputs = {
+        name: tmp_path / name
+        for name in (
+            "selection",
+            "selection-card",
+            "download-manifest",
+            "clearance",
+            "materialization-card",
+            "parse-requests",
+            "parser-manifest",
+            "parser-card",
+        )
+    }
+    for path in lineage_inputs.values():
+        path.write_text("{}\n", encoding="utf-8")
+    output_root = tmp_path / "terminal-review"
+    argv = [
+        "acquisition",
+        "build-unitizer-terminal-review-bundle",
+        "--output-root",
+        str(output_root),
+        "--selection",
+        str(lineage_inputs["selection"]),
+        "--selection-run-card",
+        str(lineage_inputs["selection-card"]),
+        "--download-manifest",
+        str(lineage_inputs["download-manifest"]),
+        "--disclosure-clearance",
+        str(lineage_inputs["clearance"]),
+        "--materialization-run-card",
+        str(lineage_inputs["materialization-card"]),
+        "--document-root",
+        str(document_root),
+        "--parse-requests",
+        str(lineage_inputs["parse-requests"]),
+        "--parser-manifest",
+        str(lineage_inputs["parser-manifest"]),
+        "--parser-run-card",
+        str(lineage_inputs["parser-card"]),
+        "--markdown-root",
+        str(markdown_root),
+        "--terminal-receipt",
+        str(receipt_b),
+        "--terminal-receipt",
+        str(receipt_a),
+        "--execute",
+    ]
+    assert main(argv) == 0
+    receipts = _read_jsonl(output_root / "unitizer-terminal-receipts.jsonl")
+    queue = _read_jsonl(output_root / "unitizer-terminal-review-queue.jsonl")
+    bundles = _read_jsonl(output_root / "unitizer-terminal-review-bundle.jsonl")
+    assert [row["candidate_id"] for row in receipts] == [
+        "candidate-a",
+        "candidate-b",
+    ]
+    assert [row["candidate_id"] for row in queue] == [
+        "candidate-a",
+        "candidate-b",
+    ]
+    assert bundles[0]["cited_predecision_markdown"][0]["markdown"] == (
+        "Opposition text\n"
+    )
+    card = _read_json(
+        output_root / "run-cards" / "build-unitizer-terminal-review-bundle.json"
+    )
+    assert card["paid_activity_executed"] is False
+    assert card["provider_activity_executed"] is False
+    assert card["evaluation_authorized"] is False
+    assert card["record_count"] == 2
+
+
+def test_build_unitizer_terminal_review_bundle_requires_closed_lineage_arguments(
+    tmp_path: Path,
+) -> None:
+    receipt = tmp_path / "receipt.json"
+    receipt.write_text("{}\n", encoding="utf-8")
+    parser = cli.build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "acquisition",
+                "build-unitizer-terminal-review-bundle",
+                "--terminal-receipt",
+                str(receipt),
+            ]
+        )
+
+
+def test_build_successor_attorney_packet_cli_calls_v2_builder_with_exact_bytes(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    inputs = [tmp_path / f"input-{index}.jsonl" for index in range(5)]
+    payloads = [f'{{"input":{index}}}\n'.encode() for index in range(5)]
+    for path, payload in zip(inputs, payloads, strict=True):
+        path.write_bytes(payload)
+    calls: list[tuple[bytes, ...]] = []
+
+    def build(*values: bytes) -> SimpleNamespace:
+        calls.append(values)
+        return SimpleNamespace(
+            manifest={
+                "schema_version": (
+                    "legalforecast.successor_attorney_packet_manifest.v2"
+                ),
+                "unitizer_terminal_candidate_count": 1,
+            },
+            attorney_view={
+                "schema_version": "legalforecast.successor_attorney_packet_view.v2",
+                "candidates": [{"candidate_id": "candidate-terminal"}],
+            },
+        )
+
+    monkeypatch.setattr(
+        cli, "build_successor_attorney_packet_with_unitizer_terminals", build
+    )
+    output_root = tmp_path / "packet"
+    argv = [
+        "acquisition",
+        "build-successor-attorney-packet",
+        "--output-root",
+        str(output_root),
+        "--unitization-review-bundle",
+        str(inputs[0]),
+        "--unitization-review-queue-v2",
+        str(inputs[1]),
+        "--unitizer-terminal-receipts",
+        str(inputs[2]),
+        "--unitizer-terminal-review-queue",
+        str(inputs[3]),
+        "--unitizer-terminal-review-bundle",
+        str(inputs[4]),
+        "--execute",
+    ]
+    assert main(argv) == 0
+    assert calls == [tuple(payloads)]
+    manifest = _read_json(output_root / "successor-attorney-packet-manifest.json")
+    attorney_view = _read_json(output_root / "successor-attorney-review.json")
+    assert manifest["schema_version"] == (
+        "legalforecast.successor_attorney_packet_manifest.v2"
+    )
+    assert attorney_view["candidates"] == [{"candidate_id": "candidate-terminal"}]
+    card = _read_json(
+        output_root / "run-cards" / "build-successor-attorney-packet.json"
+    )
+    assert card["record_count"] == 1
+    assert card["paid_activity_executed"] is False
+    assert card["provider_activity_executed"] is False
+    assert card["creates_adjudications"] is False
+    assert card["evaluation_authorized"] is False

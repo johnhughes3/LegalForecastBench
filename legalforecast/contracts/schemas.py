@@ -119,17 +119,26 @@ FINALIZED_PREDICTION_UNITS_V2 = SchemaIdentifier(
 FINALIZED_PREDICTION_UNITS_V3 = SchemaIdentifier(
     "legalforecast.finalized_prediction_units.v3"
 )
+FINALIZED_PREDICTION_UNITS_V4 = SchemaIdentifier(
+    "legalforecast.finalized_prediction_units.v4"
+)
 UNITIZATION_ADJUDICATION_V1 = SchemaIdentifier(
     "legalforecast.unitization_adjudication.v1"
 )
 UNITIZATION_ADJUDICATION_V2 = SchemaIdentifier(
     "legalforecast.unitization_adjudication.v2"
 )
+UNITIZATION_ADJUDICATION_V3 = SchemaIdentifier(
+    "legalforecast.unitization_adjudication.v3"
+)
 UNITIZATION_ADJUDICATION_PREFLIGHT_REPORT_V1 = SchemaIdentifier(
     "legalforecast.unitization_adjudication_preflight_report.v1"
 )
 LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1 = SchemaIdentifier(
     "legalforecast.llm_unitization_reconstruction_recovery.v1"
+)
+LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1 = SchemaIdentifier(
+    "legalforecast.llm_stage_a_unitizer_terminal_escalation.v1"
 )
 LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1 = SchemaIdentifier(
     "legalforecast.llm_stage_a_structural_review_reconstruction_recovery.v1"
@@ -155,11 +164,23 @@ UNITIZATION_REVIEW_QUEUE_V1 = SchemaIdentifier(
 UNITIZATION_REVIEW_QUEUE_V2 = SchemaIdentifier(
     "legalforecast.unitization_review_queue.v2"
 )
+UNITIZER_TERMINAL_REVIEW_QUEUE_V1 = SchemaIdentifier(
+    "legalforecast.unitizer_terminal_review_queue.v1"
+)
+UNITIZER_TERMINAL_REVIEW_BUNDLE_V1 = SchemaIdentifier(
+    "legalforecast.unitizer_terminal_review_bundle.v1"
+)
 SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V1 = SchemaIdentifier(
     "legalforecast.successor_attorney_packet_manifest.v1"
 )
+SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2 = SchemaIdentifier(
+    "legalforecast.successor_attorney_packet_manifest.v2"
+)
 SUCCESSOR_ATTORNEY_PACKET_VIEW_V1 = SchemaIdentifier(
     "legalforecast.successor_attorney_packet_view.v1"
+)
+SUCCESSOR_ATTORNEY_PACKET_VIEW_V2 = SchemaIdentifier(
+    "legalforecast.successor_attorney_packet_view.v2"
 )
 SUCCESSOR_RERUN_IMPACT_V1 = SchemaIdentifier("legalforecast.successor_rerun_impact.v1")
 SUCCESSOR_RERUN_PROPOSAL_V1 = SchemaIdentifier(

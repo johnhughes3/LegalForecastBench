@@ -7,6 +7,7 @@ import os
 import sqlite3
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import legalforecast.labeling.llm_pipeline as llm_pipeline
@@ -342,6 +343,279 @@ def test_unitization_recovery_exposes_closed_attempt_namespace() -> None:
         "claim-ontology-v4",
         "claim-ontology-v5",
     )
+
+
+def test_unitizer_terminalization_exposes_explicit_v5_candidate_surface() -> None:
+    parser = argparse.ArgumentParser()
+    cli._add_acquisition_terminalize_llm_unitize_arguments(parser)
+
+    args = parser.parse_args(
+        [
+            "--output-root",
+            "terminal",
+            "--selection",
+            "selection.jsonl",
+            "--parser-manifest",
+            "parser.jsonl",
+            "--model-registry",
+            "registry.json",
+            "--model-key",
+            "anthropic:unitizer",
+            "--candidate-id",
+            "70754103",
+            "--provider-attempt-namespace",
+            "claim-ontology-v5",
+        ]
+    )
+
+    assert args.candidate_id == "70754103"
+    assert args.provider_attempt_namespace == "claim-ontology-v5"
+    assert args.handler is cli._cmd_acquisition_terminalize_llm_unitize_reconstruction
+
+
+def test_llm_unitize_accepts_repeatable_terminal_escalation_receipts() -> None:
+    parser = cli.build_parser()
+    args = parser.parse_args(
+        [
+            "acquisition",
+            "llm-unitize",
+            "--output-root",
+            "out",
+            "--selection",
+            "selection.jsonl",
+            "--parser-manifest",
+            "parser.jsonl",
+            "--model-registry",
+            "registry.json",
+            "--model-key",
+            "anthropic:unitizer",
+            "--terminal-escalation",
+            "first.json",
+            "--terminal-escalation",
+            "second.json",
+        ]
+    )
+
+    assert args.terminal_escalation == [Path("first.json"), Path("second.json")]
+
+
+def test_unitizer_terminalization_requires_execute_and_v5_before_lineage(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    lineage_opened = False
+
+    def open_lineage(*args: object, **kwargs: object) -> object:
+        nonlocal lineage_opened
+        del args, kwargs
+        lineage_opened = True
+        raise AssertionError("terminal preflight must reject before lineage")
+
+    monkeypatch.setattr(cli, "_verify_stage_a_unitization_lineage", open_lineage)
+    common = {
+        "output_root": tmp_path / "terminal",
+        "provider_authority_table": None,
+        "provider_attempt_namespace": "claim-ontology-v5",
+    }
+    with pytest.raises(
+        CommandError,
+        match="terminalize-llm-unitize-reconstruction requires --execute",
+    ):
+        cli._cmd_acquisition_terminalize_llm_unitize_reconstruction(
+            argparse.Namespace(execute=False, **common)
+        )
+    with pytest.raises(
+        CommandError,
+        match="requires --provider-attempt-namespace claim-ontology-v5",
+    ):
+        cli._cmd_acquisition_terminalize_llm_unitize_reconstruction(
+            argparse.Namespace(
+                execute=True,
+                **{**common, "provider_attempt_namespace": "claim-ontology-v4"},
+            )
+        )
+    assert lineage_opened is False
+
+
+def test_unitizer_terminalization_writes_provider_free_replayable_receipt(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    output_root = tmp_path / "terminal"
+    receipt_path = output_root / "receipt.json"
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    journal_path.write_bytes(b"unchanged journal")
+    input_path = tmp_path / "selection.jsonl"
+    input_path.write_text("{}\n", encoding="utf-8")
+    candidate_id = "70754103"
+    selection = {"candidate_id": candidate_id, "case_id": "case-1"}
+    input_commitments = {"selection": {"sha256": "1" * 64}}
+    lineage = SimpleNamespace(
+        selection_records=(selection,),
+        parser_records=(),
+        registry_entry=SimpleNamespace(
+            registry_key="anthropic:unitizer", provider="anthropic"
+        ),
+        registry_sha256="2" * 64,
+        provider_caps=SimpleNamespace(
+            cap_usd=lambda provider: 100.0,
+            providers={"anthropic": SimpleNamespace(account=None)},
+        ),
+        provider_caps_sha256="3" * 64,
+        provider_journal_path=journal_path,
+        cohort_cycle_id="cycle-1",
+        input_paths=(input_path, journal_path),
+        input_commitments=input_commitments,
+        markdown_bytes={},
+    )
+    provider_rows = (
+        {
+            "stage": "llm-unitize",
+            "candidate_id": candidate_id,
+            "attempt_ordinal": ordinal,
+            "status": "reconstruction_failed",
+        }
+        for ordinal in (1, 2, 3)
+    )
+    frozen_rows = tuple(provider_rows)
+    receipt: JsonRecord = {
+        "schema_version": "legalforecast.llm_stage_a_unitizer_terminal_escalation.v1",
+        "candidate_id": candidate_id,
+    }
+    completion_calls: list[dict[str, Any]] = []
+    builder_calls = 0
+
+    monkeypatch.setattr(
+        cli, "_verify_stage_a_unitization_lineage", lambda *args, **kwargs: lineage
+    )
+    monkeypatch.setattr(
+        cli, "verify_provider_journal_identity", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(cli, "_require_stage_a_lineage_unchanged", lambda value: None)
+    monkeypatch.setattr(
+        cli,
+        "_provider_stage_attempt_rows",
+        lambda path, *, stage: frozen_rows,
+    )
+
+    def build(**kwargs: object) -> object:
+        nonlocal builder_calls
+        builder_calls += 1
+        assert kwargs["selection_record"] == selection
+        assert kwargs["provider_attempt_namespace"] == "claim-ontology-v5"
+        return SimpleNamespace(to_record=lambda: receipt)
+
+    monkeypatch.setattr(cli, "build_llm_stage_a_unitizer_terminal_escalation", build)
+    monkeypatch.setattr(
+        cli,
+        "_write_or_verify_immutable_recovery_completion",
+        lambda args, **kwargs: completion_calls.append(kwargs),
+    )
+    args = argparse.Namespace(
+        execute=True,
+        provider_authority_table=None,
+        provider_attempt_namespace="claim-ontology-v5",
+        output_root=output_root,
+        terminal_escalation_output=receipt_path,
+        resume=False,
+        markdown_root=tmp_path / "markdown",
+        candidate_id=candidate_id,
+    )
+
+    assert cli._cmd_acquisition_terminalize_llm_unitize_reconstruction(args) == 0
+    first_receipt = receipt_path.read_bytes()
+    args.resume = True
+    assert cli._cmd_acquisition_terminalize_llm_unitize_reconstruction(args) == 0
+
+    assert receipt_path.read_bytes() == first_receipt
+    assert journal_path.read_bytes() == b"unchanged journal"
+    assert builder_calls == 2
+    assert completion_calls == [
+        {
+            "stage": "terminalize-llm-unitize-reconstruction",
+            "input_paths": (input_path, journal_path),
+            "output_paths": (receipt_path,),
+            "extra": {
+                "source_commitments": input_commitments,
+                "unitizer_terminal_escalation": receipt,
+            },
+        },
+        {
+            "stage": "terminalize-llm-unitize-reconstruction",
+            "input_paths": (input_path, journal_path),
+            "output_paths": (receipt_path,),
+            "extra": {
+                "source_commitments": input_commitments,
+                "unitizer_terminal_escalation": receipt,
+            },
+        },
+    ]
+
+
+def test_unitizer_terminalization_rejects_provider_journal_mutation(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    candidate_id = "70754103"
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    journal_path.write_bytes(b"journal")
+    lineage = SimpleNamespace(
+        selection_records=({"candidate_id": candidate_id, "case_id": "case-1"},),
+        parser_records=(),
+        registry_entry=SimpleNamespace(
+            registry_key="anthropic:unitizer", provider="anthropic"
+        ),
+        registry_sha256="2" * 64,
+        provider_caps=SimpleNamespace(
+            cap_usd=lambda provider: 100.0,
+            providers={"anthropic": SimpleNamespace(account=None)},
+        ),
+        provider_caps_sha256="3" * 64,
+        provider_journal_path=journal_path,
+        cohort_cycle_id="cycle-1",
+        input_paths=(journal_path,),
+        input_commitments={},
+        markdown_bytes={},
+    )
+    snapshots = iter(
+        (
+            ({"attempt_ordinal": 1, "status": "reconstruction_failed"},),
+            ({"attempt_ordinal": 1, "status": "settled"},),
+        )
+    )
+    monkeypatch.setattr(
+        cli, "_verify_stage_a_unitization_lineage", lambda *args, **kwargs: lineage
+    )
+    monkeypatch.setattr(
+        cli, "verify_provider_journal_identity", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(cli, "_require_stage_a_lineage_unchanged", lambda value: None)
+    monkeypatch.setattr(
+        cli,
+        "_provider_stage_attempt_rows",
+        lambda path, *, stage: next(snapshots),
+    )
+    monkeypatch.setattr(
+        cli,
+        "build_llm_stage_a_unitizer_terminal_escalation",
+        lambda **kwargs: SimpleNamespace(
+            to_record=lambda: {"candidate_id": candidate_id}
+        ),
+    )
+
+    with pytest.raises(CommandError, match="changed the provider journal"):
+        cli._cmd_acquisition_terminalize_llm_unitize_reconstruction(
+            argparse.Namespace(
+                execute=True,
+                provider_authority_table=None,
+                provider_attempt_namespace="claim-ontology-v5",
+                output_root=tmp_path / "terminal",
+                terminal_escalation_output=None,
+                resume=False,
+                markdown_root=tmp_path / "markdown",
+                candidate_id=candidate_id,
+            )
+        )
 
 
 @pytest.mark.parametrize(

@@ -7,11 +7,16 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
 
 from legalforecast.evals.model_registry import ModelRegistryEntry
-from legalforecast.labeling.llm_pipeline import merge_structural_flags_into_review_queue
+from legalforecast.labeling.llm_pipeline import (
+    LlmPipelineError,
+    merge_structural_flags_into_review_queue,
+    validate_unitizer_terminal_preserved_audit_record,
+)
 from legalforecast.unitization.review import (
     canonical_records_sha256,
     canonical_sha256,
     verify_finalized_prediction_units,
+    verify_terminal_unitizer_finalized_units,
 )
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -41,6 +46,9 @@ def verify_stage_a_readiness_provenance(
     reviewer_registry_entries: Sequence[ModelRegistryEntry],
     reviewer_registry_sha256: str,
     reviewer_model_key: str,
+    terminal_review_records: Iterable[Mapping[str, Any]] = (),
+    terminal_escalation_records: Iterable[Mapping[str, Any]] = (),
+    terminal_adjudication_records: Iterable[Mapping[str, Any]] = (),
 ) -> None:
     """Require complete Gemini review and bind final units to its merged queue."""
 
@@ -50,6 +58,57 @@ def verify_stage_a_readiness_provenance(
         raise ReadinessProvenanceError(
             "Stage A structural-review candidate is absent from selections"
         )
+    terminal_reviews = tuple(dict(record) for record in terminal_review_records)
+    terminal_escalations = tuple(dict(record) for record in terminal_escalation_records)
+    terminal_adjudications = tuple(
+        dict(record) for record in terminal_adjudication_records
+    )
+    terminal_ids = {
+        _required_str(record, "candidate_id") for record in terminal_reviews
+    }
+    if terminal_ids:
+        if not terminal_ids.issubset(raw_units):
+            raise ReadinessProvenanceError(
+                "terminal Stage A candidate is absent from raw units"
+            )
+        if any(
+            raw_units[candidate_id].get("prediction_units") != []
+            for candidate_id in terminal_ids
+        ):
+            raise ReadinessProvenanceError(
+                "terminal Stage A raw envelope must contain zero accepted units"
+            )
+    ordinary_raw_units = {
+        candidate_id: record
+        for candidate_id, record in raw_units.items()
+        if candidate_id not in terminal_ids
+    }
+    finalized_records = tuple(
+        dict(record) for record in finalized_prediction_unit_records
+    )
+    finalized_by_candidate = _unique_by_candidate(
+        finalized_records, "finalized Stage A units"
+    )
+    if set(finalized_by_candidate) != set(raw_units):
+        raise ReadinessProvenanceError(
+            "finalized Stage A units do not exactly cover raw candidates"
+        )
+    terminal_finalized = [
+        finalized_by_candidate[candidate_id] for candidate_id in terminal_ids
+    ]
+    ordinary_finalized = [
+        finalized_by_candidate[candidate_id] for candidate_id in ordinary_raw_units
+    ]
+    try:
+        verify_terminal_unitizer_finalized_units(
+            terminal_finalized,
+            terminal_reviews,
+            terminal_escalations,
+            terminal_adjudications,
+        )
+    except ValueError as exc:
+        raise ReadinessProvenanceError(str(exc)) from exc
+
     reviewer = _registry_entry(reviewer_registry_entries, reviewer_model_key)
     _sha(reviewer_registry_sha256, "reviewer_registry_sha256")
 
@@ -63,7 +122,7 @@ def verify_stage_a_readiness_provenance(
         )
 
     flags_by_candidate: dict[str, list[Mapping[str, Any]]] = {
-        candidate_id: [] for candidate_id in raw_units
+        candidate_id: [] for candidate_id in ordinary_raw_units
     }
     for flag in flags:
         candidate_id = _required_str(flag, "candidate_id")
@@ -77,7 +136,7 @@ def verify_stage_a_readiness_provenance(
             raise ReadinessProvenanceError("structural flag reviewer model mismatch")
         if flag.get("model_registry_sha256") != reviewer_registry_sha256:
             raise ReadinessProvenanceError("structural flag registry hash mismatch")
-        raw = raw_units[candidate_id]
+        raw = ordinary_raw_units[candidate_id]
         if flag.get("raw_prediction_units_sha256") != canonical_sha256(raw):
             raise ReadinessProvenanceError("structural flag raw-unit hash mismatch")
         flag_content = {field: flag.get(field) for field in _STRUCTURAL_FLAG_FIELDS}
@@ -85,13 +144,30 @@ def verify_stage_a_readiness_provenance(
             raise ReadinessProvenanceError("structural flag content hash mismatch")
         flags_by_candidate[candidate_id].append(flag)
 
-    audits = _unique_by_candidate(
+    all_audits = _unique_by_candidate(
         structural_review_audit_records, "Stage A structural-review audit"
     )
-    if set(audits) != set(raw_units):
+    if set(all_audits) != set(raw_units):
         raise ReadinessProvenanceError(
             "Stage A structural-review audit does not cover every candidate"
         )
+    for candidate_id in terminal_ids:
+        try:
+            validate_unitizer_terminal_preserved_audit_record(
+                all_audits[candidate_id],
+                candidate_id=candidate_id,
+                case_id=_required_str(selections[candidate_id], "case_id"),
+                reviewer_model_key=reviewer_model_key,
+                model_registry_sha256=reviewer_registry_sha256,
+                raw_prediction_units=raw_units[candidate_id],
+            )
+        except LlmPipelineError as exc:
+            raise ReadinessProvenanceError(str(exc)) from exc
+    audits = {
+        candidate_id: audit
+        for candidate_id, audit in all_audits.items()
+        if candidate_id not in terminal_ids
+    }
     for candidate_id, audit in audits.items():
         expected_flags = flags_by_candidate[candidate_id]
         if audit.get("stage") != "llm-review-stage-a" or audit.get("status") not in {
@@ -113,7 +189,7 @@ def verify_stage_a_readiness_provenance(
         ):
             raise ReadinessProvenanceError("Stage A served model version mismatch")
         if audit.get("raw_prediction_units_sha256") != canonical_sha256(
-            raw_units[candidate_id]
+            ordinary_raw_units[candidate_id]
         ):
             raise ReadinessProvenanceError("Stage A audit raw-unit hash mismatch")
         _sha(audit.get("prompt_sha256"), "Stage A prompt_sha256")
@@ -126,8 +202,8 @@ def verify_stage_a_readiness_provenance(
             raise ReadinessProvenanceError("Stage A structural flag count mismatch")
 
     verify_finalized_prediction_units(
-        finalized_prediction_unit_records,
-        raw_units.values(),
+        ordinary_finalized,
+        ordinary_raw_units.values(),
         adjudication_records,
         merged,
     )

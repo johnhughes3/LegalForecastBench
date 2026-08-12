@@ -18,6 +18,7 @@ from legalforecast.ingestion.disclosure_clearance import (
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.unitization.review import (
     SUPPORTED_FINALIZED_SCHEMA_VERSIONS,
+    TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION,
     UnitizationReviewError,
     require_finalized_envelopes,
 )
@@ -917,7 +918,11 @@ def _validate_finalized_unit_envelope(
     record: Mapping[str, Any], *, expected_case_id: str
 ) -> None:
     candidate_id = _required_str(record, "candidate_id")
-    if record.get("schema_version") not in SUPPORTED_FINALIZED_SCHEMA_VERSIONS:
+    schema_version = record.get("schema_version")
+    if schema_version not in (
+        SUPPORTED_FINALIZED_SCHEMA_VERSIONS
+        | {TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION}
+    ):
         raise DecisionTextArtifactError(
             f"unsupported finalized prediction-units schema: {candidate_id}"
         )
@@ -931,6 +936,9 @@ def _validate_finalized_unit_envelope(
         raise DecisionTextArtifactError(
             f"invalid finalized prediction-units envelope: {candidate_id}"
         ) from exc
+    if schema_version == TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION:
+        _validate_terminal_finalized_unit_envelope(record)
+        return
     _required_sha256(record, "raw_prediction_units_sha256")
     _required_sha256(record, "unitization_review_queue_sha256")
     units = _mapping_sequence(record.get("prediction_units"), "prediction_units")
@@ -990,6 +998,60 @@ def _validate_finalized_unit_envelope(
                 )
         else:
             _required_sha256(unit, "adjudication_sha256")
+
+
+def _validate_terminal_finalized_unit_envelope(record: Mapping[str, Any]) -> None:
+    """Validate the self-contained v4 shape after its apply card was replayed."""
+
+    candidate_id = _required_str(record, "candidate_id")
+    _required_sha256(record, "unitizer_terminal_escalation_sha256")
+    _required_sha256(record, "unitizer_terminal_review_queue_sha256")
+    units = _mapping_sequence(record.get("prediction_units"), "prediction_units")
+    added_units = _mapping_sequence(record.get("added_units"), "added_units")
+    if record.get("status") == "candidate_excluded":
+        if units or added_units:
+            raise DecisionTextArtifactError(
+                f"invalid terminal candidate-exclusion envelope: {candidate_id}"
+            )
+        exclusion = _mapping(record.get("exclusion"), "exclusion")
+        _required_str(exclusion, "reason")
+        _required_str(exclusion, "adjudication_id")
+        _required_sha256(exclusion, "adjudication_sha256")
+        return
+    if (
+        record.get("status") != "finalized"
+        or not units
+        or record.get("exclusion") is not None
+    ):
+        raise DecisionTextArtifactError(
+            f"invalid terminal finalized prediction-units envelope: {candidate_id}"
+        )
+    escalation_sha256 = _required_sha256(record, "unitizer_terminal_escalation_sha256")
+    unit_ids: set[str] = set()
+    for unit in units:
+        unit_id = _required_str(unit, "unit_id")
+        if unit_id in unit_ids:
+            raise DecisionTextArtifactError(
+                f"duplicate finalized unit_id: {candidate_id}/{unit_id}"
+            )
+        unit_ids.add(unit_id)
+        if unit.get("source_unit_sha256s") != [] or unit.get("disposition") != "ADD":
+            raise DecisionTextArtifactError(
+                f"invalid terminal added-unit provenance: {candidate_id}/{unit_id}"
+            )
+        _required_str(unit, "adjudication_id")
+        _required_sha256(unit, "adjudication_sha256")
+        if unit.get("unitizer_terminal_escalation_sha256") != escalation_sha256:
+            raise DecisionTextArtifactError(
+                f"broken terminal escalation link: {candidate_id}/{unit_id}"
+            )
+        _required_nonempty_strings(unit, "added_from_review_ids")
+        _required_nonempty_strings(unit, "predecision_source_document_ids")
+    ledger_ids = {_required_str(row, "unit_id") for row in added_units}
+    if ledger_ids != unit_ids or len(ledger_ids) != len(added_units):
+        raise DecisionTextArtifactError(
+            f"terminal added-unit ledger differs: {candidate_id}"
+        )
 
 
 def _unitization_sha256(record: Mapping[str, Any]) -> str:
