@@ -260,6 +260,42 @@ def test_packet_v2_adds_authenticated_unitizer_terminal_candidates() -> None:
     assert "prompt" not in terminal_item["queue_record"]["review_item"]
 
 
+def test_packet_v2_allows_terminal_only_review_inputs() -> None:
+    terminal_receipts, terminal_queue, terminal_bundle = (
+        _unitizer_terminal_packet_inputs()
+    )
+
+    packet = build_successor_attorney_packet_with_unitizer_terminals(
+        b"",
+        b"",
+        terminal_receipts,
+        terminal_queue,
+        terminal_bundle,
+    )
+
+    assert packet.manifest["authoritative_v1_bundle"]["review_count"] == 0
+    assert packet.manifest["observational_v2_review_queue"]["record_count"] == 0
+    assert packet.manifest["unitizer_terminal_candidate_count"] == 1
+    assert [
+        candidate["candidate_id"] for candidate in packet.attorney_view["candidates"]
+    ] == ["candidate-terminal"]
+
+
+def test_packet_v2_rejects_one_sided_empty_ordinary_inputs() -> None:
+    terminal_receipts, terminal_queue, terminal_bundle = (
+        _unitizer_terminal_packet_inputs()
+    )
+
+    with pytest.raises(AttorneyPacketError, match="both be empty or both be nonempty"):
+        build_successor_attorney_packet_with_unitizer_terminals(
+            b"",
+            _jsonl([_unit_v2("review-1")]),
+            terminal_receipts,
+            terminal_queue,
+            terminal_bundle,
+        )
+
+
 def test_packet_v2_cli_builds_real_terminal_packet(tmp_path: Path) -> None:
     ordinary_bundle = tmp_path / "ordinary-bundle.jsonl"
     ordinary_queue = tmp_path / "ordinary-queue-v2.jsonl"

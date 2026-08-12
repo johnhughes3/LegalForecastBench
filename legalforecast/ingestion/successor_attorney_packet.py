@@ -114,9 +114,18 @@ def build_successor_attorney_packet_with_unitizer_terminals(
     inputs because they have no frozen unit row to place honestly in v1/v2.
     """
 
-    base = build_successor_attorney_packet(
-        authoritative_v1_bundle_bytes, observational_v2_queue_bytes
-    )
+    if authoritative_v1_bundle_bytes or observational_v2_queue_bytes:
+        if not authoritative_v1_bundle_bytes or not observational_v2_queue_bytes:
+            raise AttorneyPacketError(
+                "ordinary v1 bundle and v2 queue must both be empty or both be nonempty"
+            )
+        base = build_successor_attorney_packet(
+            authoritative_v1_bundle_bytes, observational_v2_queue_bytes
+        )
+    else:
+        base = _empty_successor_attorney_packet(
+            authoritative_v1_bundle_bytes, observational_v2_queue_bytes
+        )
     terminal_receipts = _jsonl_records(
         unitizer_terminal_receipt_bytes, "unitizer terminal escalation receipts"
     )
@@ -187,6 +196,44 @@ def build_successor_attorney_packet_with_unitizer_terminals(
             UNITIZER_TERMINAL_REVIEW_BUNDLE_V1
         ),
         "candidates": candidates,
+    }
+    return SuccessorAttorneyPacket(manifest=manifest, attorney_view=attorney_view)
+
+
+def _empty_successor_attorney_packet(
+    authoritative_v1_bundle_bytes: bytes,
+    observational_v2_queue_bytes: bytes,
+) -> SuccessorAttorneyPacket:
+    """Construct the authenticated empty ordinary base used only by packet v2."""
+
+    manifest: JsonRecord = {
+        "schema_version": str(SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V1),
+        "authoritative_v1_bundle": _input_commitment(
+            authoritative_v1_bundle_bytes,
+            schema_version=str(UNITIZATION_REVIEW_BUNDLE_V1),
+            count_field="review_count",
+            count=0,
+        ),
+        "observational_v2_review_queue": _input_commitment(
+            observational_v2_queue_bytes,
+            schema_version=str(UNITIZATION_REVIEW_QUEUE_V2),
+            count_field="record_count",
+            count=0,
+        ),
+        "review_id_coverage": {
+            "authoritative_v1_review_count": 0,
+            "observational_v2_source_review_count": 0,
+            "exactly_once": True,
+        },
+        "provider_free": True,
+        "authoritative_adjudication_source": "unitization_review_bundle_v1",
+        "observational_sidecar": "unitization_review_queue_v2",
+    }
+    attorney_view: JsonRecord = {
+        "schema_version": str(SUCCESSOR_ATTORNEY_PACKET_VIEW_V1),
+        "authoritative_source": str(UNITIZATION_REVIEW_BUNDLE_V1),
+        "observational_source": str(UNITIZATION_REVIEW_QUEUE_V2),
+        "candidates": [],
     }
     return SuccessorAttorneyPacket(manifest=manifest, attorney_view=attorney_view)
 
