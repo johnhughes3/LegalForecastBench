@@ -62143,6 +62143,22 @@ def _stage_a_committed_path(commitments: Mapping[str, object], name: str) -> Pat
     return Path(raw_path)
 
 
+def _capture_stage_a_committed_file(
+    commitments: Mapping[str, object], name: str
+) -> tuple[Path, bytes]:
+    """Capture a named Stage A source only when its exact commitment matches."""
+
+    commitment = commitments.get(name)
+    if not isinstance(commitment, Mapping):
+        raise CommandError(f"Stage A run card lacks {name} commitment")
+    expected = dict(cast(Mapping[str, object], commitment))
+    path = _stage_a_committed_path(commitments, name)
+    payload = _read_singly_linked_regular_input(path, label=name.replace("_", " "))
+    if _stage_a_file_commitment(path, payload=payload) != expected:
+        raise CommandError(f"Stage A run card {name} commitment differs")
+    return path, payload
+
+
 def _verify_stage_a_unitization_run_card(
     run_card_path: Path,
     *,
@@ -62880,10 +62896,20 @@ def _verify_terminal_apply_run_card(
     expected_selection_path: Path | None,
     expected_parser_manifest_path: Path | None,
     expected_markdown_root: Path | None,
+    run_card_payload: bytes | None = None,
 ) -> tuple[_StageAUnitizationLineage, Path, Path]:
     """Replay the ordinary and terminal branches of one successor apply card."""
 
-    card = _read_json_object(run_card_path)
+    captured_card_payload = (
+        run_card_payload
+        if run_card_payload is not None
+        else _read_singly_linked_regular_input(
+            run_card_path, label="terminal-unitizer apply run card"
+        )
+    )
+    card = _read_json_object_payload(
+        captured_card_payload, label="terminal-unitizer apply run card"
+    )
     if (
         card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
         or card.get("stage") != "apply-unitizer-terminal-review"
@@ -63002,6 +63028,13 @@ def _verify_terminal_apply_run_card(
         raise CommandError(str(exc)) from exc
     if _read_records(finalized_path) != replayed:
         raise CommandError("terminal apply output does not replay from exact inputs")
+    if (
+        _read_singly_linked_regular_input(
+            run_card_path, label="terminal-unitizer apply run card"
+        )
+        != captured_card_payload
+    ):
+        raise CommandError("terminal-unitizer apply run card changed during replay")
     return lineage, authenticated_unit_card, ordinary_review_queue
 
 
@@ -69394,6 +69427,10 @@ class _StageAReplay:
     terminal_review_records: tuple[JsonRecord, ...] = ()
     terminal_escalation_records: tuple[JsonRecord, ...] = ()
     terminal_adjudication_records: tuple[JsonRecord, ...] = ()
+    terminal_review_path: Path | None = None
+    terminal_review_payload: bytes | None = None
+    terminal_adjudications_path: Path | None = None
+    terminal_adjudications_payload: bytes | None = None
 
 
 def _model_registry_from_payload(payload: bytes, *, source: Path) -> ModelRegistry:
@@ -70427,10 +70464,21 @@ def _verify_stage_a_packet_authority(
             lineage.input_commitments,
             "provider_cycle_caps",
         )
-        apply_card = _read_json_object(apply_unitization_run_card_path)
+        apply_card_payload = _read_singly_linked_regular_input(
+            apply_unitization_run_card_path,
+            label="apply unitization run card",
+        )
+        apply_card = _read_json_object_payload(
+            apply_card_payload,
+            label="apply unitization run card",
+        )
         terminal_review_records: tuple[JsonRecord, ...] = ()
         terminal_escalation_records: tuple[JsonRecord, ...] = ()
         terminal_adjudication_records: tuple[JsonRecord, ...] = ()
+        terminal_review_path: Path | None = None
+        terminal_review_payload: bytes | None = None
+        terminal_adjudications_path: Path | None = None
+        terminal_adjudications_payload: bytes | None = None
         if apply_card.get("stage") == "apply-unitizer-terminal-review":
             args = argparse.Namespace(
                 unitization_review_run_card=apply_unitization_run_card_path,
@@ -70452,16 +70500,47 @@ def _verify_stage_a_packet_authority(
                     lineage.input_commitments, "parser_manifest"
                 ),
                 expected_markdown_root=lineage.markdown_root,
+                run_card_payload=apply_card_payload,
             )
-            successor_inputs = cast(Sequence[object], apply_card["input_paths"])
+            raw_source_commitments = apply_card.get("source_commitments")
+            if not isinstance(raw_source_commitments, Mapping):
+                raise CommandError(
+                    "apply-unitizer-terminal-review run card lacks source commitments"
+                )
+            source_commitments = cast(Mapping[str, object], raw_source_commitments)
+            _, terminal_escalations_payload = _capture_stage_a_committed_file(
+                source_commitments,
+                "terminal_escalations",
+            )
+            terminal_review_path, terminal_review_payload = (
+                _capture_stage_a_committed_file(
+                    source_commitments,
+                    "unitizer_terminal_review_queue",
+                )
+            )
+            terminal_adjudications_path, terminal_adjudications_payload = (
+                _capture_stage_a_committed_file(
+                    source_commitments,
+                    "unitizer_terminal_adjudications",
+                )
+            )
             terminal_escalation_records = tuple(
-                _read_records(Path(str(successor_inputs[6])))
+                _read_jsonl_payload(
+                    terminal_escalations_payload,
+                    label="unitizer terminal escalations",
+                )
             )
             terminal_review_records = tuple(
-                _read_records(Path(str(successor_inputs[7])))
+                _read_jsonl_payload(
+                    terminal_review_payload,
+                    label="unitizer terminal review queue",
+                )
             )
             terminal_adjudication_records = tuple(
-                _read_records(Path(str(successor_inputs[8])))
+                _read_jsonl_payload(
+                    terminal_adjudications_payload,
+                    label="unitizer terminal adjudications",
+                )
             )
         else:
             _verify_unitization_review_run_card(
@@ -70525,6 +70604,10 @@ def _verify_stage_a_packet_authority(
             terminal_review_records=terminal_review_records,
             terminal_escalation_records=terminal_escalation_records,
             terminal_adjudication_records=terminal_adjudication_records,
+            terminal_review_path=terminal_review_path,
+            terminal_review_payload=terminal_review_payload,
+            terminal_adjudications_path=terminal_adjudications_path,
+            terminal_adjudications_payload=terminal_adjudications_payload,
         )
 
     try:
@@ -71203,9 +71286,6 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             lawyer_review_queue=lawyer_review_path,
             lawyer_review_audit=lawyer_review_audit_path,
         )
-        completion_summary_commitments = _completion_summary_finalize_input_commitments(
-            completion_summary_inputs
-        )
         resolved_path = (
             materialization_paths[3] if len(materialization_paths) == 4 else None
         )
@@ -71466,6 +71546,47 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             initialization_receipt_path=cast(
                 Path | None, args.purchase_ledger_initialization_receipt
             ),
+        )
+        terminal_snapshots = (
+            stage_a_replay.terminal_review_path,
+            stage_a_replay.terminal_review_payload,
+            stage_a_replay.terminal_adjudications_path,
+            stage_a_replay.terminal_adjudications_payload,
+        )
+        if any(value is not None for value in terminal_snapshots):
+            if any(value is None for value in terminal_snapshots):
+                raise CommandError(
+                    "authenticated terminal Stage A summary inputs are incomplete"
+                )
+            terminal_review_path = cast(Path, stage_a_replay.terminal_review_path)
+            terminal_review_payload = cast(
+                bytes, stage_a_replay.terminal_review_payload
+            )
+            terminal_adjudications_path = cast(
+                Path, stage_a_replay.terminal_adjudications_path
+            )
+            terminal_adjudications_payload = cast(
+                bytes, stage_a_replay.terminal_adjudications_payload
+            )
+            completion_summary_inputs.update(
+                {
+                    "unitizer_terminal_review_queue": (
+                        terminal_review_path.resolve(),
+                        terminal_review_payload,
+                    ),
+                    "unitizer_terminal_adjudications": (
+                        terminal_adjudications_path.resolve(),
+                        terminal_adjudications_payload,
+                    ),
+                }
+            )
+            input_paths = (
+                *input_paths,
+                terminal_review_path,
+                terminal_adjudications_path,
+            )
+        completion_summary_commitments = _completion_summary_finalize_input_commitments(
+            completion_summary_inputs
         )
         unitization_audit_records = [
             dict(record) for record in stage_a_replay.unitization_audit_records

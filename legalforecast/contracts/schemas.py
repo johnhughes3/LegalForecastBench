@@ -27,6 +27,18 @@ class SchemaIdentifier:
 
 
 ACQUISITION_RUN_CARD_V1 = SchemaIdentifier("legalforecast.acquisition_run_card.v1")
+CORPUS_COMPLETION_SUMMARY_V1 = SchemaIdentifier(
+    "legalforecast.corpus_completion_summary.v1"
+)
+CORPUS_COMPLETION_SUMMARY_V2 = SchemaIdentifier(
+    "legalforecast.corpus_completion_summary.v2"
+)
+CORPUS_COMPLETION_SUMMARY_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.corpus_completion_summary_run_card.v1"
+)
+CORPUS_COMPLETION_SUMMARY_RUN_CARD_V2 = SchemaIdentifier(
+    "legalforecast.corpus_completion_summary_run_card.v2"
+)
 CYCLE_PREFLIGHT_MANIFEST_SIDECAR_V1 = SchemaIdentifier(
     "legalforecast.cycle_preflight_manifest_sidecar.v1"
 )

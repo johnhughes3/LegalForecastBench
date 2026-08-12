@@ -85,6 +85,9 @@ def add_acquisition_completion_summary_parser(subparsers: Any) -> None:
 
 
 def _cmd_summarize_corpus(args: argparse.Namespace) -> int:
+    terminal_review_queue, terminal_adjudications = (
+        _terminal_stage_a_paths_from_finalize_card(cast(Path, args.finalize_run_card))
+    )
     inputs = CorpusCompletionSummaryInputs(
         finalize_run_card=cast(Path, args.finalize_run_card),
         corpus_readiness=cast(Path, args.corpus_readiness),
@@ -102,6 +105,8 @@ def _cmd_summarize_corpus(args: argparse.Namespace) -> int:
         unitization_adjudications=cast(Path, args.unitization_adjudications),
         lawyer_review_queue=cast(Path, args.lawyer_review_queue),
         lawyer_review_audit=cast(Path, args.lawyer_review_audit),
+        unitizer_terminal_review_queue=terminal_review_queue,
+        unitizer_terminal_adjudications=terminal_adjudications,
         adjudication_beads=tuple(cast(list[str], args.adjudication_bead)),
     )
     summary = build_corpus_completion_summary(inputs)
@@ -145,6 +150,76 @@ def _cmd_summarize_corpus(args: argparse.Namespace) -> int:
     else:
         print(summary_path)
     return 0
+
+
+def _terminal_stage_a_paths_from_finalize_card(
+    finalize_run_card: Path,
+) -> tuple[Path | None, Path | None]:
+    """Derive successor-only Stage A inputs from the finalizer commitment set."""
+
+    try:
+        payload = read_unique_regular_file(finalize_run_card)
+        card = json.loads(payload, object_pairs_hook=_reject_duplicate_json_keys)
+    except (OSError, UnicodeError, json.JSONDecodeError, ReviewBundleError) as exc:
+        raise CorpusCompletionSummaryError(str(exc)) from exc
+    if not isinstance(card, dict):
+        raise CorpusCompletionSummaryError("finalize-corpus run card must be an object")
+    typed_card = cast(dict[str, object], card)
+    raw_commitments = typed_card.get("completion_summary_input_commitments")
+    if not isinstance(raw_commitments, dict):
+        raise CorpusCompletionSummaryError(
+            "finalize-corpus summary input commitments must be an object"
+        )
+    commitments = cast(dict[str, object], raw_commitments)
+    legacy = {
+        "materialization_run_card",
+        "model_registry",
+        "unitization_review_queue",
+        "unitization_adjudications",
+        "lawyer_review_queue",
+        "lawyer_review_audit",
+    }
+    successor = legacy | {
+        "unitizer_terminal_review_queue",
+        "unitizer_terminal_adjudications",
+    }
+    if set(commitments) == legacy:
+        return None, None
+    if set(commitments) != successor:
+        raise CorpusCompletionSummaryError(
+            "finalize-corpus summary input commitment set is neither v1 nor v2"
+        )
+    paths: list[Path] = []
+    for name in (
+        "unitizer_terminal_review_queue",
+        "unitizer_terminal_adjudications",
+    ):
+        raw_commitment = commitments.get(name)
+        if not isinstance(raw_commitment, dict):
+            raise CorpusCompletionSummaryError(
+                f"finalize-corpus {name} commitment must be an object"
+            )
+        commitment = cast(dict[str, object], raw_commitment)
+        path = commitment.get("path")
+        if not isinstance(path, str) or not path.strip():
+            raise CorpusCompletionSummaryError(
+                f"finalize-corpus {name} path must be nonempty"
+            )
+        paths.append(Path(path))
+    return paths[0], paths[1]
+
+
+def _reject_duplicate_json_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    record: dict[str, object] = {}
+    for key, value in pairs:
+        if key in record:
+            raise CorpusCompletionSummaryError(
+                f"finalize-corpus run card contains duplicate JSON key {key!r}"
+            )
+        record[key] = value
+    return record
 
 
 def _publish_exact(path: Path, payload: bytes) -> None:

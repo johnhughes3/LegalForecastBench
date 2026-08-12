@@ -34,6 +34,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Cycle 1 Stage A v4 correctness migration](cycle-1-stage-a-v4-correctness-migration.md): the required citation-integrity, ontology, successor-cohort, and replay path before Cycle 1 Stage B.
 - [Cycle 1 Stage A v5 unitizer-selector migration](cycle-1-stage-a-v5-unitizer-selector-migration.md): the closed v5 unitizer and v4 structural-review pairing that replaces brittle copied citation endpoints with bounded line counts.
 - [Cycle 1 Stage A unitizer terminal-review migration](cycle-1-stage-a-unitizer-terminal-review-migration.md): the provider-free attorney reconstruction route after a v5 unitizer exhausts all three reconstruction attempts without an accepted unit.
+- [Cycle 1 corpus-completion-summary v2 migration](cycle-1-corpus-completion-summary-v2-migration.md): the separate terminal Stage A handoff required to keep exhausted-unitizer candidates visible in the closed corpus audit.
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for new code without migrating Cycle 1 artifacts.
 
 ## Community Multi-Harness (non-official)
@@ -102,7 +103,8 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 **Spend authority and purchase**
 
-- [corpus-completion-summary-v1.md](schemas/corpus-completion-summary-v1.md): deterministic terminal acquisition, adjudication, case-mix, and canonical purchase-ledger audit.
+- [corpus-completion-summary-v2.md](schemas/corpus-completion-summary-v2.md): current terminal acquisition, adjudication, case-mix, and canonical purchase-ledger audit when the Stage A unitizer-terminal queue is present; v1 remains valid for ordinary-only lineage.
+- [corpus-completion-summary-v1.md](schemas/corpus-completion-summary-v1.md): the original deterministic terminal acquisition, adjudication, case-mix, and canonical purchase-ledger audit, retained for ordinary-only historical artifacts.
 - [purchase-spend-summary-v1.md](schemas/purchase-spend-summary-v1.md): provider-free immutable accounting that distinguishes committed PACER exposure from provable actual charges.
 - [provider-cycle-caps-v1.md](schemas/provider-cycle-caps-v1.md): the immutable pre-labeling commitment for provider and account spend.
 - [provider-cycle-caps-successor-v1.md](schemas/provider-cycle-caps-successor-v1.md): provider-free derivation of the authority-enabled caps artifact from immutable legacy caps.
