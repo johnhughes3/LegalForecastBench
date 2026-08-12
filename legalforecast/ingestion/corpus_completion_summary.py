@@ -10,6 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import (
+    CORPUS_COMPLETION_SUMMARY_RUN_CARD_V1,
+    CORPUS_COMPLETION_SUMMARY_RUN_CARD_V2,
+    CORPUS_COMPLETION_SUMMARY_V1,
+    CORPUS_COMPLETION_SUMMARY_V2,
+)
 from legalforecast.evals.model_registry import (
     earliest_eligible_decision_date,
     load_model_registry_bytes,
@@ -30,8 +36,10 @@ from legalforecast.ingestion.disclosure_review_bundle import (
     read_unique_regular_file,
 )
 
-SUMMARY_SCHEMA_VERSION = "legalforecast.corpus_completion_summary.v1"
-RUN_CARD_SCHEMA_VERSION = "legalforecast.corpus_completion_summary_run_card.v1"
+SUMMARY_SCHEMA_VERSION = str(CORPUS_COMPLETION_SUMMARY_V1)
+RUN_CARD_SCHEMA_VERSION = str(CORPUS_COMPLETION_SUMMARY_RUN_CARD_V1)
+SUMMARY_SCHEMA_VERSION_V2 = str(CORPUS_COMPLETION_SUMMARY_V2)
+RUN_CARD_SCHEMA_VERSION_V2 = str(CORPUS_COMPLETION_SUMMARY_RUN_CARD_V2)
 
 _FINAL_READINESS_FIELDS = frozenset(
     {
@@ -80,6 +88,10 @@ _FINALIZE_SUMMARY_INPUTS = (
     "lawyer_review_queue",
     "lawyer_review_audit",
 )
+_TERMINAL_STAGE_A_INPUTS = (
+    "unitizer_terminal_review_queue",
+    "unitizer_terminal_adjudications",
+)
 
 
 class CorpusCompletionSummaryError(ValueError):
@@ -104,12 +116,28 @@ class CorpusCompletionSummaryInputs:
     unitization_adjudications: Path
     lawyer_review_queue: Path
     lawyer_review_audit: Path
+    unitizer_terminal_review_queue: Path | None = None
+    unitizer_terminal_adjudications: Path | None = None
     adjudication_beads: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if (self.unitizer_terminal_review_queue is None) != (
+            self.unitizer_terminal_adjudications is None
+        ):
+            raise CorpusCompletionSummaryError(
+                "terminal Stage A queue and adjudications must be supplied together"
+            )
+
+    @property
+    def has_terminal_stage_a(self) -> bool:
+        """Return whether the versioned successor Stage A inputs are present."""
+
+        return self.unitizer_terminal_review_queue is not None
 
     def file_paths(self) -> tuple[tuple[str, Path], ...]:
         """Return regular-file inputs in deterministic semantic order."""
 
-        return (
+        paths = (
             ("finalize_run_card", self.finalize_run_card),
             ("corpus_readiness", self.corpus_readiness),
             ("complete_exclusion_ledger", self.complete_exclusion_ledger),
@@ -126,6 +154,21 @@ class CorpusCompletionSummaryInputs:
             ("unitization_adjudications", self.unitization_adjudications),
             ("lawyer_review_queue", self.lawyer_review_queue),
             ("lawyer_review_audit", self.lawyer_review_audit),
+        )
+        if not self.has_terminal_stage_a:
+            return paths
+        assert self.unitizer_terminal_review_queue is not None
+        assert self.unitizer_terminal_adjudications is not None
+        return (
+            *paths,
+            (
+                "unitizer_terminal_review_queue",
+                self.unitizer_terminal_review_queue,
+            ),
+            (
+                "unitizer_terminal_adjudications",
+                self.unitizer_terminal_adjudications,
+            ),
         )
 
 
@@ -151,6 +194,22 @@ def build_corpus_completion_summary(
     )
     stage_a_adjudications = _jsonl_records(
         payloads["unitization_adjudications"], "unitization adjudications"
+    )
+    terminal_stage_a_queue = (
+        _jsonl_records(
+            payloads["unitizer_terminal_review_queue"],
+            "unitizer terminal review queue",
+        )
+        if inputs.has_terminal_stage_a
+        else ()
+    )
+    terminal_stage_a_adjudications = (
+        _jsonl_records(
+            payloads["unitizer_terminal_adjudications"],
+            "unitizer terminal adjudications",
+        )
+        if inputs.has_terminal_stage_a
+        else ()
     )
     stage_b_queue = _jsonl_records(
         payloads["lawyer_review_queue"], "lawyer review queue"
@@ -234,6 +293,9 @@ def build_corpus_completion_summary(
     adjudication_summary = _summarize_adjudications(
         stage_a_queue=stage_a_queue,
         stage_a_adjudications=stage_a_adjudications,
+        terminal_stage_a_queue=terminal_stage_a_queue,
+        terminal_stage_a_adjudications=terminal_stage_a_adjudications,
+        include_stage_a_breakdown=inputs.has_terminal_stage_a,
         stage_b_queue=stage_b_queue,
         stage_b_audit=stage_b_audit,
         bead_references=inputs.adjudication_beads,
@@ -247,7 +309,11 @@ def build_corpus_completion_summary(
         Mapping[str, object], readiness["screening_snapshot_reconciliation"]
     )
     body: dict[str, object] = {
-        "schema_version": SUMMARY_SCHEMA_VERSION,
+        "schema_version": (
+            SUMMARY_SCHEMA_VERSION_V2
+            if inputs.has_terminal_stage_a
+            else SUMMARY_SCHEMA_VERSION
+        ),
         "target": {
             "required_clean_count": readiness["required_clean_count"],
             "clean_count": readiness["clean_count"],
@@ -320,7 +386,11 @@ def completion_summary_run_card(
     ]
     summary_commitment = _byte_commitment(summary_path, summary_payload)
     return {
-        "schema_version": RUN_CARD_SCHEMA_VERSION,
+        "schema_version": (
+            RUN_CARD_SCHEMA_VERSION_V2
+            if inputs.has_terminal_stage_a
+            else RUN_CARD_SCHEMA_VERSION
+        ),
         "stage": "summarize-corpus",
         "status": "completed" if execute else "validated",
         "dry_run": not execute,
@@ -533,6 +603,15 @@ def _validate_finalize_card(
         inputs.lawyer_review_queue.resolve(),
         inputs.lawyer_review_audit.resolve(),
     }
+    if inputs.has_terminal_stage_a:
+        assert inputs.unitizer_terminal_review_queue is not None
+        assert inputs.unitizer_terminal_adjudications is not None
+        required_inputs.update(
+            {
+                inputs.unitizer_terminal_review_queue.resolve(),
+                inputs.unitizer_terminal_adjudications.resolve(),
+            }
+        )
     if not required_inputs.issubset(committed_inputs):
         raise CorpusCompletionSummaryError(
             "summary inputs are not all owned by finalize-corpus"
@@ -542,11 +621,17 @@ def _validate_finalize_card(
         "completion_summary_input_commitments",
         "finalize-corpus run card",
     )
-    if set(raw_commitments) != set(_FINALIZE_SUMMARY_INPUTS):
+    expected_commitment_names: set[str] = set(_FINALIZE_SUMMARY_INPUTS)
+    if inputs.has_terminal_stage_a:
+        expected_commitment_names.update(_TERMINAL_STAGE_A_INPUTS)
+    if set(raw_commitments) != expected_commitment_names:
         raise CorpusCompletionSummaryError(
             "finalize-corpus summary input commitments differ"
         )
-    for name in _FINALIZE_SUMMARY_INPUTS:
+    for name in (
+        *_FINALIZE_SUMMARY_INPUTS,
+        *(_TERMINAL_STAGE_A_INPUTS if inputs.has_terminal_stage_a else ()),
+    ):
         path = cast(Path, getattr(inputs, name))
         commitment = _required_mapping(
             raw_commitments,
@@ -742,44 +827,43 @@ def _summarize_adjudications(
     *,
     stage_a_queue: Sequence[Mapping[str, Any]],
     stage_a_adjudications: Sequence[Mapping[str, Any]],
+    terminal_stage_a_queue: Sequence[Mapping[str, Any]],
+    terminal_stage_a_adjudications: Sequence[Mapping[str, Any]],
+    include_stage_a_breakdown: bool,
     stage_b_queue: Sequence[Mapping[str, Any]],
     stage_b_audit: Sequence[Mapping[str, Any]],
     bead_references: Sequence[str],
 ) -> dict[str, object]:
-    stage_a_ids = _review_ids(stage_a_queue, "Stage A queue")
-    covered_stage_a: set[str] = set()
-    adjudication_ids: set[str] = set()
-    for record in stage_a_adjudications:
-        adjudication_id = _required_str(
-            record, "adjudication_id", "Stage A adjudication"
-        )
-        if adjudication_id in adjudication_ids:
-            raise CorpusCompletionSummaryError(
-                f"duplicate Stage A adjudication: {adjudication_id}"
-            )
-        adjudication_ids.add(adjudication_id)
-        raw_review_ids = record.get("review_ids")
-        review_ids = (
-            _string_sequence(raw_review_ids, "Stage A adjudication review_ids")
-            if raw_review_ids is not None
-            else ()
-        )
-        if not review_ids:
-            review_ids = (_required_str(record, "review_id", "Stage A adjudication"),)
-        if len(set(review_ids)) != len(review_ids):
-            raise CorpusCompletionSummaryError(
-                "Stage A adjudication review_ids must be unique"
-            )
-        overlap = covered_stage_a & set(review_ids)
-        if overlap:
-            raise CorpusCompletionSummaryError(
-                f"Stage A review adjudicated more than once: {sorted(overlap)}"
-            )
-        covered_stage_a.update(review_ids)
-    if not covered_stage_a.issubset(stage_a_ids):
+    ordinary_stage_a_ids = _review_ids(stage_a_queue, "ordinary Stage A queue")
+    terminal_stage_a_ids = _review_ids(terminal_stage_a_queue, "terminal Stage A queue")
+    duplicate_review_ids = ordinary_stage_a_ids & terminal_stage_a_ids
+    if duplicate_review_ids:
         raise CorpusCompletionSummaryError(
-            "Stage A adjudication references an unknown queue row"
+            "Stage A review IDs occur in both ordinary and terminal queues: "
+            f"{sorted(duplicate_review_ids)}"
         )
+    stage_a_ids = ordinary_stage_a_ids | terminal_stage_a_ids
+    covered_ordinary, ordinary_adjudication_ids = _covered_stage_a_reviews(
+        stage_a_adjudications,
+        queue_ids=ordinary_stage_a_ids,
+        label="ordinary Stage A adjudication",
+    )
+    covered_terminal, terminal_adjudication_ids = _covered_stage_a_reviews(
+        terminal_stage_a_adjudications,
+        queue_ids=terminal_stage_a_ids,
+        label="terminal Stage A adjudication",
+    )
+    duplicate_adjudication_ids = ordinary_adjudication_ids & terminal_adjudication_ids
+    if duplicate_adjudication_ids:
+        raise CorpusCompletionSummaryError(
+            "Stage A adjudication IDs occur in both ordinary and terminal streams: "
+            f"{sorted(duplicate_adjudication_ids)}"
+        )
+    pending_ordinary = sorted(ordinary_stage_a_ids - covered_ordinary)
+    pending_terminal = sorted(terminal_stage_a_ids - covered_terminal)
+    stage_a_adjudication_count = len(stage_a_adjudications) + len(
+        terminal_stage_a_adjudications
+    )
     stage_b_ids = _review_ids(stage_b_queue, "Stage B queue")
     resolved_stage_b: set[str] = set()
     for record in stage_b_queue:
@@ -802,7 +886,7 @@ def _summarize_adjudications(
         raise CorpusCompletionSummaryError(
             "Stage B audit resolves an unknown queue row"
         )
-    pending_stage_a = sorted(stage_a_ids - covered_stage_a)
+    pending_stage_a = sorted({*pending_ordinary, *pending_terminal})
     pending_stage_b = sorted(stage_b_ids - resolved_stage_b)
     pending_ids = sorted({*pending_stage_a, *pending_stage_b})
     bead_map = _adjudication_bead_map(bead_references)
@@ -810,9 +894,9 @@ def _summarize_adjudications(
         raise CorpusCompletionSummaryError(
             "adjudication bead mappings must exactly cover pending review IDs"
         )
-    return {
+    result: dict[str, object] = {
         "stage_a_queue_count": len(stage_a_ids),
-        "stage_a_adjudication_count": len(stage_a_adjudications),
+        "stage_a_adjudication_count": stage_a_adjudication_count,
         "stage_a_pending_count": len(pending_stage_a),
         "stage_a_pending_review_ids": pending_stage_a,
         "stage_b_queue_count": len(stage_b_ids),
@@ -823,6 +907,60 @@ def _summarize_adjudications(
         "pending_bead_references": bead_map,
         "queue_empty_or_fully_adjudicated": not pending_stage_a and not pending_stage_b,
     }
+    if include_stage_a_breakdown:
+        result.update(
+            {
+                "stage_a_ordinary_queue_count": len(ordinary_stage_a_ids),
+                "stage_a_ordinary_adjudication_count": len(stage_a_adjudications),
+                "stage_a_ordinary_pending_count": len(pending_ordinary),
+                "stage_a_ordinary_pending_review_ids": pending_ordinary,
+                "stage_a_terminal_queue_count": len(terminal_stage_a_ids),
+                "stage_a_terminal_adjudication_count": len(
+                    terminal_stage_a_adjudications
+                ),
+                "stage_a_terminal_pending_count": len(pending_terminal),
+                "stage_a_terminal_pending_review_ids": pending_terminal,
+            }
+        )
+    return result
+
+
+def _covered_stage_a_reviews(
+    adjudications: Sequence[Mapping[str, Any]],
+    *,
+    queue_ids: set[str],
+    label: str,
+) -> tuple[set[str], set[str]]:
+    """Return exact review coverage and adjudication IDs for one Stage A stream."""
+
+    covered: set[str] = set()
+    adjudication_ids: set[str] = set()
+    for record in adjudications:
+        adjudication_id = _required_str(record, "adjudication_id", label)
+        if adjudication_id in adjudication_ids:
+            raise CorpusCompletionSummaryError(f"duplicate {label}: {adjudication_id}")
+        adjudication_ids.add(adjudication_id)
+        raw_review_ids = record.get("review_ids")
+        review_ids = (
+            _string_sequence(raw_review_ids, f"{label} review_ids")
+            if raw_review_ids is not None
+            else ()
+        )
+        if not review_ids:
+            review_ids = (_required_str(record, "review_id", label),)
+        if len(set(review_ids)) != len(review_ids):
+            raise CorpusCompletionSummaryError(
+                "Stage A adjudication review_ids must be unique"
+            )
+        overlap = covered & set(review_ids)
+        if overlap:
+            raise CorpusCompletionSummaryError(
+                f"Stage A review adjudicated more than once: {sorted(overlap)}"
+            )
+        covered.update(review_ids)
+    if not covered.issubset(queue_ids):
+        raise CorpusCompletionSummaryError(f"{label} references an unknown queue row")
+    return covered, adjudication_ids
 
 
 def _review_ids(records: Sequence[Mapping[str, Any]], label: str) -> set[str]:
@@ -1072,7 +1210,9 @@ def _normalize_sha256(value: str) -> str:
 
 __all__ = [
     "RUN_CARD_SCHEMA_VERSION",
+    "RUN_CARD_SCHEMA_VERSION_V2",
     "SUMMARY_SCHEMA_VERSION",
+    "SUMMARY_SCHEMA_VERSION_V2",
     "CorpusCompletionSummaryError",
     "CorpusCompletionSummaryInputs",
     "build_corpus_completion_summary",

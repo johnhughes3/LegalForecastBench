@@ -1595,6 +1595,30 @@ uv run legalforecast acquisition finalize-corpus \
 
 Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It replays the authenticated unitizer and structural-review cards against the exact raw units, original and merged review queues, structural flags, review audit, reviewer registry and key, provider-caps bytes, and canonical shared journal before accepting and reproducing the apply-review output. It then replays the authenticated `llm-label` card against the same Stage A authority, exact decision-text inputs, judge registry, journaled per-model reconstructions, and the immutable outputs supplied separately as `--original-llm-label-labels` and `--original-llm-label-audit`; the reviewed `--labels` and cycle-planned `--llm-label-audit` remain the readiness inputs and cannot masquerade as the original provider outputs. Finally it verifies the snapshot's immutable cycle-store registration, complete and saturated state, member hashes, row counts, and accepted-plus-excluded reconciliation, and accepts the packet artifacts only after those gates pass. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
 
+After `finalize-corpus --execute` succeeds, publish the provider-free closed corpus summary from the exact finalize handoff:
+
+```bash
+uv run legalforecast acquisition summarize-corpus \
+  --finalize-run-card <assembled-cycle-root>/run-cards/finalize-corpus.json \
+  --corpus-readiness <assembled-cycle-root>/corpus-readiness.json \
+  --complete-exclusion-ledger <assembled-cycle-root>/complete-exclusion-ledger.jsonl \
+  --materialization-summary <materialization-summary.json> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --purchase-policy <purchase-policy.json> \
+  --cohort-policy <cohort-policy.json> \
+  --purchase-ledger <canonical-purchase-ledger.sqlite3> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+  --model-registry model_registries/cycle-1-2026-06-30.json \
+  --unitization-review-queue <merged-unitization-review-queue.jsonl> \
+  --unitization-adjudications <ordinary-unitization-adjudications.jsonl> \
+  --lawyer-review-queue <lawyer-review-queue.jsonl> \
+  --lawyer-review-audit <lawyer-review-audit.jsonl> \
+  --output-root <corpus-completion-summary-root> \
+  --execute
+```
+
+Do not pass terminal Stage A paths to `summarize-corpus`. It derives them only from the exact authenticated `finalize-corpus` card: the exact legacy six-key commitment set emits `legalforecast.corpus_completion_summary.v1`; the exact eight-key set that additionally contains `unitizer_terminal_review_queue` and `unitizer_terminal_adjudications` emits v2 and authenticates both files. A partial terminal pair, extra key, or byte/path mismatch fails closed. V2 reports ordinary, terminal, and aggregate Stage A queue/adjudication/pending counts while v1 remains unchanged for ordinary-only lineage. If any Stage A or Stage B review remains pending, repeat `--adjudication-bead REVIEW_ID=BEAD_ID` until the mappings cover exactly the combined pending review-ID set.
+
 ## Before Dispatch
 
 Run the release gate at the exact SHA you intend to dispatch:

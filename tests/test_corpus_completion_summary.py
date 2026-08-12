@@ -48,6 +48,8 @@ def build_completion_inputs(
     monkeypatch: pytest.MonkeyPatch,
     stage_a_queue: tuple[dict[str, object], ...] = (),
     stage_a_adjudications: tuple[dict[str, object], ...] = (),
+    terminal_stage_a_queue: tuple[dict[str, object], ...] | None = None,
+    terminal_stage_a_adjudications: tuple[dict[str, object], ...] | None = None,
     stage_b_queue: tuple[dict[str, object], ...] = (),
     stage_b_audit: tuple[dict[str, object], ...] = (),
     bead_references: tuple[str, ...] = (),
@@ -80,11 +82,25 @@ def build_completion_inputs(
     stage_a_adjudications_path = root / "stage-a-adjudications.jsonl"
     stage_b_queue_path = root / "stage-b-queue.jsonl"
     stage_b_audit_path = root / "stage-b-audit.jsonl"
+    terminal_stage_a_queue_path = root / "terminal-stage-a-queue.jsonl"
+    terminal_stage_a_adjudications_path = root / "terminal-stage-a-adjudications.jsonl"
     for path, records in (
         (stage_a_queue_path, stage_a_queue),
         (stage_a_adjudications_path, stage_a_adjudications),
         (stage_b_queue_path, stage_b_queue),
         (stage_b_audit_path, stage_b_audit),
+        *(
+            (
+                (terminal_stage_a_queue_path, terminal_stage_a_queue),
+                (
+                    terminal_stage_a_adjudications_path,
+                    terminal_stage_a_adjudications,
+                ),
+            )
+            if terminal_stage_a_queue is not None
+            and terminal_stage_a_adjudications is not None
+            else ()
+        ),
     ):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(
@@ -187,6 +203,18 @@ def build_completion_inputs(
         "lawyer_review_queue": stage_b_queue_path,
         "lawyer_review_audit": stage_b_audit_path,
     }
+    if (
+        terminal_stage_a_queue is not None
+        and terminal_stage_a_adjudications is not None
+    ):
+        finalize_summary_inputs.update(
+            {
+                "unitizer_terminal_review_queue": terminal_stage_a_queue_path,
+                "unitizer_terminal_adjudications": (
+                    terminal_stage_a_adjudications_path
+                ),
+            }
+        )
     _write_json(
         finalize_path,
         {
@@ -202,12 +230,7 @@ def build_completion_inputs(
             "clean_count": 2,
             "meets_target": True,
             "input_paths": [
-                str(materialization_card_path.resolve()),
-                str(registry.resolve()),
-                str(stage_a_queue_path.resolve()),
-                str(stage_a_adjudications_path.resolve()),
-                str(stage_b_queue_path.resolve()),
-                str(stage_b_audit_path.resolve()),
+                str(path.resolve()) for path in finalize_summary_inputs.values()
             ],
             "completion_summary_input_commitments": {
                 name: {
@@ -238,8 +261,183 @@ def build_completion_inputs(
         unitization_adjudications=stage_a_adjudications_path,
         lawyer_review_queue=stage_b_queue_path,
         lawyer_review_audit=stage_b_audit_path,
+        unitizer_terminal_review_queue=(
+            terminal_stage_a_queue_path if terminal_stage_a_queue is not None else None
+        ),
+        unitizer_terminal_adjudications=(
+            terminal_stage_a_adjudications_path
+            if terminal_stage_a_adjudications is not None
+            else None
+        ),
         adjudication_beads=bead_references,
     )
+
+
+def test_v2_summary_authenticates_and_counts_terminal_stage_a(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        stage_a_queue=({"review_id": "ordinary-review"},),
+        stage_a_adjudications=(
+            {
+                "adjudication_id": "ordinary-adjudication",
+                "review_ids": ["ordinary-review"],
+            },
+        ),
+        terminal_stage_a_queue=({"review_id": "terminal-review"},),
+        terminal_stage_a_adjudications=(
+            {
+                "adjudication_id": "terminal-adjudication",
+                "review_ids": ["terminal-review"],
+            },
+        ),
+    )
+
+    summary = build_corpus_completion_summary(inputs)
+
+    assert summary["schema_version"] == "legalforecast.corpus_completion_summary.v2"
+    assert summary["adjudication"] == {
+        "stage_a_queue_count": 2,
+        "stage_a_adjudication_count": 2,
+        "stage_a_pending_count": 0,
+        "stage_a_pending_review_ids": [],
+        "stage_a_ordinary_queue_count": 1,
+        "stage_a_ordinary_adjudication_count": 1,
+        "stage_a_ordinary_pending_count": 0,
+        "stage_a_ordinary_pending_review_ids": [],
+        "stage_a_terminal_queue_count": 1,
+        "stage_a_terminal_adjudication_count": 1,
+        "stage_a_terminal_pending_count": 0,
+        "stage_a_terminal_pending_review_ids": [],
+        "stage_b_queue_count": 0,
+        "stage_b_resolved_count": 0,
+        "stage_b_pending_count": 0,
+        "stage_b_pending_review_ids": [],
+        "pending_count": 0,
+        "pending_bead_references": {},
+        "queue_empty_or_fully_adjudicated": True,
+    }
+
+
+def test_v2_summary_rejects_cross_surface_review_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        stage_a_queue=({"review_id": "duplicate"},),
+        terminal_stage_a_queue=({"review_id": "duplicate"},),
+        terminal_stage_a_adjudications=(),
+        bead_references=("duplicate=bead-1",),
+    )
+
+    with pytest.raises(
+        CorpusCompletionSummaryError, match="both ordinary and terminal"
+    ):
+        build_corpus_completion_summary(inputs)
+
+
+def test_v2_summary_reports_pending_by_stage_a_surface(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        stage_a_queue=({"review_id": "ordinary-pending"},),
+        terminal_stage_a_queue=({"review_id": "terminal-pending"},),
+        terminal_stage_a_adjudications=(),
+        bead_references=(
+            "ordinary-pending=bead-ordinary",
+            "terminal-pending=bead-terminal",
+        ),
+    )
+
+    adjudication = build_corpus_completion_summary(inputs)["adjudication"]
+    assert isinstance(adjudication, dict)
+    assert adjudication["stage_a_ordinary_pending_count"] == 1
+    assert adjudication["stage_a_ordinary_pending_review_ids"] == ["ordinary-pending"]
+    assert adjudication["stage_a_terminal_pending_count"] == 1
+    assert adjudication["stage_a_terminal_pending_review_ids"] == ["terminal-pending"]
+    assert adjudication["stage_a_pending_count"] == 2
+
+
+def test_v2_summary_rejects_cross_surface_adjudication_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        stage_a_queue=({"review_id": "ordinary-review"},),
+        stage_a_adjudications=(
+            {"adjudication_id": "duplicate", "review_ids": ["ordinary-review"]},
+        ),
+        terminal_stage_a_queue=({"review_id": "terminal-review"},),
+        terminal_stage_a_adjudications=(
+            {"adjudication_id": "duplicate", "review_ids": ["terminal-review"]},
+        ),
+    )
+
+    with pytest.raises(
+        CorpusCompletionSummaryError, match="both ordinary and terminal streams"
+    ):
+        build_corpus_completion_summary(inputs)
+
+
+def test_v2_summary_rejects_cross_surface_adjudication_reference(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        stage_a_queue=({"review_id": "ordinary-review"},),
+        terminal_stage_a_queue=({"review_id": "terminal-review"},),
+        terminal_stage_a_adjudications=(
+            {
+                "adjudication_id": "terminal-adjudication",
+                "review_ids": ["ordinary-review"],
+            },
+        ),
+        bead_references=(
+            "ordinary-review=bead-ordinary",
+            "terminal-review=bead-terminal",
+        ),
+    )
+
+    with pytest.raises(CorpusCompletionSummaryError, match="unknown queue row"):
+        build_corpus_completion_summary(inputs)
+
+
+def test_v2_summary_requires_paired_terminal_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+
+    with pytest.raises(CorpusCompletionSummaryError, match="supplied together"):
+        replace(
+            inputs,
+            unitizer_terminal_review_queue=inputs.unitization_review_queue,
+        )
+
+
+def test_v2_summary_rejects_terminal_commitment_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        terminal_stage_a_queue=({"review_id": "terminal-review"},),
+        terminal_stage_a_adjudications=(),
+        bead_references=("terminal-review=bead-terminal",),
+    )
+    assert inputs.unitizer_terminal_review_queue is not None
+    inputs.unitizer_terminal_review_queue.write_text(
+        '{"review_id":"terminal-review-changed"}\n'
+    )
+
+    with pytest.raises(CorpusCompletionSummaryError, match="byte commitment"):
+        build_corpus_completion_summary(inputs)
 
 
 def test_summary_authenticates_terminal_inputs_and_empty_queues(

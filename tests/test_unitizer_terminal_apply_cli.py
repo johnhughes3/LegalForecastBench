@@ -143,6 +143,30 @@ def test_terminal_successor_card_dispatches_stage_b_chain_verifier(
     assert calls == [(card_path, finalized_path)]
 
 
+def test_terminal_summary_capture_requires_exact_named_commitment(
+    tmp_path: Path,
+) -> None:
+    queue = tmp_path / "terminal-queue.jsonl"
+    queue.write_text('{"review_id":"terminal-review"}\n')
+    commitment = cli._stage_a_file_commitment(  # pyright: ignore[reportPrivateUsage]
+        queue
+    )
+
+    path, payload = cli._capture_stage_a_committed_file(  # pyright: ignore[reportPrivateUsage]
+        {"unitizer_terminal_review_queue": commitment},
+        "unitizer_terminal_review_queue",
+    )
+    assert path == queue
+    assert payload == queue.read_bytes()
+
+    queue.write_text('{"review_id":"changed"}\n')
+    with pytest.raises(cli.CommandError, match="commitment differs"):
+        cli._capture_stage_a_committed_file(  # pyright: ignore[reportPrivateUsage]
+            {"unitizer_terminal_review_queue": commitment},
+            "unitizer_terminal_review_queue",
+        )
+
+
 def _fixture(tmp_path: Path) -> dict[str, Any]:
     tmp_path.mkdir(parents=True, exist_ok=True)
     markdown_root = tmp_path / "markdown"

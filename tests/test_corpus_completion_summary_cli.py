@@ -9,7 +9,9 @@ import pytest
 from legalforecast import cli
 from legalforecast.ingestion.corpus_completion_summary import (
     RUN_CARD_SCHEMA_VERSION,
+    RUN_CARD_SCHEMA_VERSION_V2,
     SUMMARY_SCHEMA_VERSION,
+    SUMMARY_SCHEMA_VERSION_V2,
     CorpusCompletionSummaryInputs,
 )
 from tests.test_corpus_completion_summary import build_completion_inputs
@@ -101,6 +103,48 @@ def test_dry_run_writes_nothing_and_execute_is_exactly_resumable(
     capsys.readouterr()
     assert summary_path.read_bytes() == first_summary_bytes
     assert run_card_path.read_bytes() == first_run_card_bytes
+
+
+def test_v2_terminal_inputs_are_derived_from_finalize_card(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    inputs = build_completion_inputs(
+        tmp_path,
+        monkeypatch=monkeypatch,
+        terminal_stage_a_queue=({"review_id": "terminal-review"},),
+        terminal_stage_a_adjudications=(
+            {
+                "adjudication_id": "terminal-adjudication",
+                "review_ids": ["terminal-review"],
+            },
+        ),
+    )
+    output_root = tmp_path / "completion-output"
+
+    assert cli.main([*_argv(inputs, output_root), "--execute", "--json"]) == 0
+    summary = json.loads(capsys.readouterr().out)
+    run_card = json.loads(
+        (output_root / "run-cards" / "summarize-corpus.json").read_bytes()
+    )
+    assert summary["schema_version"] == SUMMARY_SCHEMA_VERSION_V2
+    assert summary["adjudication"]["stage_a_terminal_queue_count"] == 1
+    assert run_card["schema_version"] == RUN_CARD_SCHEMA_VERSION_V2
+
+
+def test_malformed_terminal_finalize_commitment_set_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = build_completion_inputs(tmp_path, monkeypatch=monkeypatch)
+    card = json.loads(inputs.finalize_run_card.read_bytes())
+    card["completion_summary_input_commitments"]["unitizer_terminal_review_queue"] = (
+        card["completion_summary_input_commitments"]["unitization_review_queue"]
+    )
+    inputs.finalize_run_card.write_text(json.dumps(card))
+
+    assert cli.main(_argv(inputs, tmp_path / "completion-output")) == 2
 
 
 def test_execute_rejects_unexpected_output_before_publication(
