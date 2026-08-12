@@ -5644,3 +5644,104 @@ def test_build_successor_attorney_packet_cli_calls_v2_builder_with_exact_bytes(
     assert card["provider_activity_executed"] is False
     assert card["creates_adjudications"] is False
     assert card["evaluation_authorized"] is False
+
+
+def test_convert_attorney_worksheet_cli_authenticates_packet_and_writes_outputs(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    packet = tmp_path / "successor-attorney-review.json"
+    manifest = tmp_path / "successor-attorney-packet-manifest.json"
+    packet_card = tmp_path / "build-successor-attorney-packet.json"
+    worksheet = tmp_path / "attorney-decision-worksheet.tsv"
+    packet.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.successor_attorney_packet_view.v2",
+                "candidates": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": (
+                    "legalforecast.successor_attorney_packet_manifest.v2"
+                ),
+                "review_id_coverage": {"exactly_once": True},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    worksheet.write_text("surface\n", encoding="utf-8")
+    packet_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "build-successor-attorney-packet",
+                "status": "completed",
+                "dry_run": False,
+                "output_commitments": {
+                    "attorney_view": {
+                        "sha256": "sha256:"
+                        + hashlib.sha256(packet.read_bytes()).hexdigest()
+                    },
+                    "packet_manifest": {
+                        "sha256": "sha256:"
+                        + hashlib.sha256(manifest.read_bytes()).hexdigest()
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        cli,
+        "convert_attorney_worksheet",
+        lambda **_kwargs: SimpleNamespace(
+            ordinary_adjudications=({"candidate_id": "ordinary"},),
+            terminal_adjudications=({"candidate_id": "terminal"},),
+        ),
+    )
+    output_root = tmp_path / "converted"
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "convert-unitization-adjudication-worksheet",
+                "--output-root",
+                str(output_root),
+                "--attorney-packet",
+                str(packet),
+                "--packet-manifest",
+                str(manifest),
+                "--packet-run-card",
+                str(packet_card),
+                "--worksheet",
+                str(worksheet),
+                "--adjudicator-id",
+                "attorney-1",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert _read_jsonl(output_root / "ordinary-unitization-adjudications.jsonl") == [
+        {"candidate_id": "ordinary"}
+    ]
+    assert _read_jsonl(output_root / "terminal-unitizer-adjudications.jsonl") == [
+        {"candidate_id": "terminal"}
+    ]
+    card = _read_json(
+        output_root / "run-cards" / "convert-unitization-adjudication-worksheet.json"
+    )
+    assert card["provider_activity_executed"] is False
+    assert card["retrieval_activity_executed"] is False
+    assert card["creates_adjudications"] is True
+    assert card["evaluation_authorized"] is False
+    assert card["freeze_authorized"] is False
+    assert card["dispatch_authorized"] is False
