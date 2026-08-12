@@ -22,6 +22,8 @@ from legalforecast.contracts import (
     EXACT100_ZERO_COST_RECOVERY_REQUEST_V1,
     EXACT100_ZERO_COST_RECOVERY_RUN_V1,
     FINALIZED_PREDICTION_UNITS_V3,
+    FINALIZED_PREDICTION_UNITS_V4,
+    LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1,
     MANIFEST_CANONICAL_JSON_V1,
     MANIFEST_RAW_SHA256_V1,
     RAW_BYTES_RAW_SHA256_V1,
@@ -31,12 +33,17 @@ from legalforecast.contracts import (
     RUN_CARD_INDENTED_JSON_V1,
     RUN_CARD_RAW_SHA256_V1,
     SELECTED_ACQUISITION_SLICE_V1,
+    SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2,
+    SUCCESSOR_ATTORNEY_PACKET_VIEW_V2,
     TARGET_RAW_DOCKET_RECOVERY_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_PROVENANCE_V1,
     TARGET_RAW_DOCKET_RECOVERY_RECEIPT_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUCCESSOR_PLAN_V1,
     TARGET_RAW_DOCKET_RECOVERY_SUMMARY_V1,
     UNITIZATION_ADJUDICATION_V2,
+    UNITIZATION_ADJUDICATION_V3,
+    UNITIZER_TERMINAL_REVIEW_BUNDLE_V1,
+    UNITIZER_TERMINAL_REVIEW_QUEUE_V1,
     ZERO_COST_SUCCESSOR_CONFIG_V1,
     CanonicalJsonCodec,
     CommitmentEncodingError,
@@ -48,6 +55,30 @@ from legalforecast.contracts import (
 )
 
 _PAYLOAD = {"z": "é", "a": 1}
+
+
+def test_unitizer_terminal_contracts_are_distinct_versioned_domains() -> None:
+    assert str(LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1) == (
+        "legalforecast.llm_stage_a_unitizer_terminal_escalation.v1"
+    )
+    assert str(UNITIZER_TERMINAL_REVIEW_QUEUE_V1) == (
+        "legalforecast.unitizer_terminal_review_queue.v1"
+    )
+    assert str(UNITIZER_TERMINAL_REVIEW_BUNDLE_V1) == (
+        "legalforecast.unitizer_terminal_review_bundle.v1"
+    )
+    assert str(UNITIZATION_ADJUDICATION_V3) == (
+        "legalforecast.unitization_adjudication.v3"
+    )
+    assert str(FINALIZED_PREDICTION_UNITS_V4) == (
+        "legalforecast.finalized_prediction_units.v4"
+    )
+    assert str(SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2) == (
+        "legalforecast.successor_attorney_packet_manifest.v2"
+    )
+    assert str(SUCCESSOR_ATTORNEY_PACKET_VIEW_V2) == (
+        "legalforecast.successor_attorney_packet_view.v2"
+    )
 
 
 def test_cycle_1_canonical_json_characterization_vectors() -> None:

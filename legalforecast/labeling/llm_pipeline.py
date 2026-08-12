@@ -94,6 +94,9 @@ from legalforecast.labeling.provider_journal import (
     RepeatedReconstructionFailureEvidence,
     maximum_call_cost_usd,
 )
+from legalforecast.labeling.unitizer_terminal import (
+    LlmStageAUnitizerTerminalEscalation,
+)
 from legalforecast.selection.exclusion_ledger import (
     ExclusionLedgerEntry,
     ExclusionReason,
@@ -221,12 +224,18 @@ def _reconstruction_retry_max_attempts(
 def _has_reconstruction_failure(journal: ProviderAttemptJournal | None) -> bool:
     """Return whether this exact call has a response eligible for local recovery.
 
-    A missing failed response is the ordinary new-call case.  Every other journal
-    error is evidence-integrity relevant and must remain fail-closed rather than
-    silently authorizing another provider attempt.
+    A later settled response is authoritative over an older failed response and
+    is replayed by the ordinary solver path. A missing failed response is the
+    ordinary new-call case. Every other journal error is evidence-integrity
+    relevant and must remain fail-closed rather than silently authorizing another
+    provider attempt.
     """
 
-    return journal is not None and journal.has_reconstruction_failure
+    return (
+        journal is not None
+        and journal.has_reconstruction_failure
+        and not journal.has_settled_attempt
+    )
 
 
 class LlmConsensusPolicy(StrEnum):
@@ -239,6 +248,61 @@ class LlmConsensusPolicy(StrEnum):
 
 class LlmPipelineError(ValueError):
     """Raised when an LLM response cannot produce validated benchmark artifacts."""
+
+
+def unitizer_terminal_preserved_audit_record(
+    *,
+    candidate_id: str,
+    case_id: str,
+    reviewer_model_key: str,
+    model_registry_sha256: str,
+    raw_prediction_units: Mapping[str, Any],
+) -> JsonRecord:
+    """Construct the sole valid structural-review audit for a terminal baton."""
+
+    if raw_prediction_units != {
+        "candidate_id": candidate_id,
+        "case_id": case_id,
+        "prediction_units": [],
+    }:
+        raise LlmPipelineError(
+            "unitizer terminal preserved audit requires its exact empty raw envelope"
+        )
+    return {
+        "stage": "llm-review-stage-a",
+        "status": "unitizer_terminal_preserved",
+        "candidate_id": candidate_id,
+        "case_id": case_id,
+        "model_key": reviewer_model_key,
+        "model_registry_sha256": model_registry_sha256,
+        "raw_prediction_units_sha256": canonical_sha256(raw_prediction_units),
+        "structural_flags_sha256": canonical_records_sha256(()),
+        "flag_count": 0,
+    }
+
+
+def validate_unitizer_terminal_preserved_audit_record(
+    record: Mapping[str, Any],
+    *,
+    candidate_id: str,
+    case_id: str,
+    reviewer_model_key: str,
+    model_registry_sha256: str,
+    raw_prediction_units: Mapping[str, Any],
+) -> None:
+    """Reject any terminal-baton audit that differs from the canonical record."""
+
+    expected = unitizer_terminal_preserved_audit_record(
+        candidate_id=candidate_id,
+        case_id=case_id,
+        reviewer_model_key=reviewer_model_key,
+        model_registry_sha256=model_registry_sha256,
+        raw_prediction_units=raw_prediction_units,
+    )
+    if dict(record) != expected:
+        raise LlmPipelineError(
+            "structural review did not preserve the exact unitizer terminal audit"
+        )
 
 
 class LlmResponseValidationError(LlmPipelineError):
@@ -500,6 +564,11 @@ def llm_unitize_cases(
     provider_cycle_caps_sha256: str | None = None,
     provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None = None,
     provider_accounts: Mapping[str, str] | None = None,
+    terminal_escalations: Mapping[
+        str,
+        tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]],
+    ]
+    | None = None,
     provider_attempt_namespace: str | None = None,
 ) -> LlmBatchResult:
     """Generate and validate Stage A prediction units from predecision materials."""
@@ -509,9 +578,19 @@ def llm_unitize_cases(
     )
     parser_rows = tuple(parser_records)
     parser_by_key = _parser_records_by_candidate_and_document(parser_rows)
+    selections = tuple(selection_records)
     records: list[JsonRecord] = []
     audit_records: list[JsonRecord] = []
-    for selection in selection_records:
+    terminal_queue_records: list[JsonRecord] = []
+    terminal_by_candidate = dict(terminal_escalations or {})
+    selected_candidate_ids = {
+        _required_str(selection, "candidate_id") for selection in selections
+    }
+    if not set(terminal_by_candidate) <= selected_candidate_ids:
+        raise LlmPipelineError(
+            "unitizer terminal escalation contains an unselected candidate"
+        )
+    for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
         response: SolverResponse | None = None
         journal: ProviderAttemptJournal | None = None
@@ -531,6 +610,83 @@ def llm_unitize_cases(
             prompt_sha256 = (
                 "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
             )
+            terminal = terminal_by_candidate.get(candidate_id)
+            if terminal is not None:
+                escalation, receipt_commitment = terminal
+                expected_sources = tuple(
+                    {
+                        "source_document_id": document.source_document_id,
+                        "document_role": document.document_role.value,
+                        "docket_entry_number": document.docket_entry_number,
+                        "description": document.description,
+                        "markdown_sha256": "sha256:"
+                        + hashlib.sha256(document.markdown.encode("utf-8")).hexdigest(),
+                    }
+                    for document in documents
+                )
+                if (
+                    escalation.candidate_id != candidate_id
+                    or escalation.case_id != _required_str(selection, "case_id")
+                    or escalation.unitizer_model_key != registry_entry.registry_key
+                    or escalation.model_registry_sha256
+                    != (model_registry_sha256 or "unrecorded")
+                    or escalation.provider_attempt_namespace
+                    != provider_attempt_namespace
+                    or escalation.prompt != prompt
+                    or escalation.prompt_sha256
+                    != hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+                    or escalation.predecision_source_commitments != expected_sources
+                ):
+                    raise LlmPipelineError(
+                        "unitizer terminal escalation does not match Stage A input"
+                    )
+                from legalforecast.unitization.unitizer_terminal_review import (
+                    UnitizerTerminalReviewError,
+                    build_unitizer_terminal_review_queue_record,
+                )
+
+                receipt = escalation.to_record()
+                commitment = dict(receipt_commitment)
+                if set(commitment) != {"path", "sha256"}:
+                    raise LlmPipelineError(
+                        "unitizer terminal escalation receipt commitment is invalid"
+                    )
+                try:
+                    queue_record = build_unitizer_terminal_review_queue_record(receipt)
+                except UnitizerTerminalReviewError as exc:
+                    raise LlmPipelineError(str(exc)) from exc
+                terminal_queue_records.append(queue_record)
+                records.append(
+                    {
+                        "candidate_id": candidate_id,
+                        "case_id": escalation.case_id,
+                        "prediction_units": [],
+                    }
+                )
+                audit_records.append(
+                    {
+                        "stage": "llm-unitize",
+                        "status": "terminal_escalation",
+                        "candidate_id": candidate_id,
+                        "case_id": escalation.case_id,
+                        "model_key": registry_entry.registry_key,
+                        "model_registry_sha256": model_registry_sha256 or "unrecorded",
+                        "provider_prompt_sha256": prompt_sha256,
+                        "human_verified": False,
+                        "unit_count": 0,
+                        "scorable_unit_count": 0,
+                        "review_items": [],
+                        "unitization_review_queue": [],
+                        "unitizer_terminal_review_queue": [queue_record],
+                        "terminal_escalation": receipt,
+                        "terminal_escalation_sha256": escalation.escalation_sha256,
+                        "terminal_escalation_receipt": commitment,
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "estimated_cost": 0.0,
+                    }
+                )
+                continue
             journal = _provider_attempt_journal(
                 path=provider_journal_path,
                 stage="llm-unitize",
@@ -677,7 +833,11 @@ def llm_unitize_cases(
             audit_records.append(failure_record)
             if not continue_on_error:
                 raise
-    return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
+    return LlmBatchResult(
+        records=tuple(records),
+        audit_records=tuple(audit_records),
+        terminal_review_queue_records=tuple(terminal_queue_records),
+    )
 
 
 def stage_a_unitization_prompt_records(
@@ -1302,6 +1462,7 @@ def llm_review_stage_a_units(
         tuple[LlmStageAStructuralReviewTerminalEscalation, Mapping[str, Any]],
     ]
     | None = None,
+    unitizer_terminal_candidates: Iterable[str] = (),
     provider_attempt_namespace: str | None = None,
 ) -> LlmBatchResult:
     """Flag structural defects without permitting the reviewer to rewrite Stage A."""
@@ -1314,10 +1475,24 @@ def llm_review_stage_a_units(
     parser_by_key = _parser_records_by_candidate_and_document(parser_rows)
     raw_unit_records = tuple(prediction_unit_records)
     units_by_candidate = _prediction_units_by_candidate(raw_unit_records)
+    unitizer_terminal_candidate_ids = frozenset(unitizer_terminal_candidates)
+    selected_candidate_ids = {
+        _required_str(selection, "candidate_id") for selection in selections
+    }
+    if not unitizer_terminal_candidate_ids <= selected_candidate_ids:
+        raise LlmPipelineError(
+            "unitizer terminal baton contains an unselected candidate"
+        )
+    reviewable_selections = tuple(
+        selection
+        for selection in selections
+        if _required_str(selection, "candidate_id")
+        not in unitizer_terminal_candidate_ids
+    )
     prompt_by_candidate = {
         _required_str(record, "candidate_id"): _required_str(record, "prompt")
         for record in stage_a_structural_review_prompt_records(
-            selection_records=selections,
+            selection_records=reviewable_selections,
             parser_records=parser_rows,
             prediction_unit_records=raw_unit_records,
             markdown_root=markdown_root,
@@ -1334,6 +1509,29 @@ def llm_review_stage_a_units(
         raise LlmPipelineError("terminal escalation contains an unselected candidate")
     for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
+        if candidate_id in unitizer_terminal_candidate_ids:
+            raw_record = next(
+                (
+                    record
+                    for record in raw_unit_records
+                    if _required_str(record, "candidate_id") == candidate_id
+                ),
+                None,
+            )
+            if raw_record is None or raw_record.get("prediction_units") != []:
+                raise LlmPipelineError(
+                    "unitizer terminal baton requires an empty raw candidate envelope"
+                )
+            audits.append(
+                unitizer_terminal_preserved_audit_record(
+                    candidate_id=candidate_id,
+                    case_id=_required_str(selection, "case_id"),
+                    reviewer_model_key=registry_entry.registry_key,
+                    model_registry_sha256=model_registry_sha256 or "unrecorded",
+                    raw_prediction_units=raw_record,
+                )
+            )
+            continue
         documents = _predecision_documents(
             selection,
             parser_by_key=parser_by_key,

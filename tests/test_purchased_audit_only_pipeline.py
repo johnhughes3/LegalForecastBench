@@ -33,11 +33,220 @@ from legalforecast.labeling.provider_journal import (
     ProviderCallIdentity,
     ProviderJournalError,
 )
+from legalforecast.labeling.unitizer_terminal import (
+    LlmStageAUnitizerTerminalEscalation,
+)
 from legalforecast.unitization.review import apply_unitization_reviews
+from legalforecast.unitization.unitizer_terminal_review import (
+    build_unitizer_terminal_review_queue_record,
+)
 
 JsonRecord = dict[str, Any]
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "model_registries/cycle-1-2026-06-30.json"
+
+
+def test_unitizer_terminal_baton_skips_provider_and_emits_empty_raw_envelope(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I asserts a claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    documents = llm_pipeline._predecision_documents(
+        _selection(),
+        parser_by_key=llm_pipeline._parser_records_by_candidate_and_document(
+            parser_records
+        ),
+        markdown_root=markdown_root,
+        provider_attempt_namespace="claim-ontology-v5",
+    )
+    prompt = llm_pipeline._unitization_prompt(
+        _selection(), documents, provider_attempt_namespace="claim-ontology-v5"
+    )
+    escalation = LlmStageAUnitizerTerminalEscalation(
+        candidate_id="cand-1",
+        case_id="case-1",
+        unitizer_model_key="openai:gpt-test",
+        model_registry_sha256="b" * 64,
+        provider_attempt_namespace="claim-ontology-v5",
+        prompt=prompt,
+        prompt_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+        predecision_source_commitments=tuple(
+            {
+                "source_document_id": document.source_document_id,
+                "document_role": document.document_role.value,
+                "docket_entry_number": document.docket_entry_number,
+                "description": document.description,
+                "markdown_sha256": "sha256:"
+                + hashlib.sha256(document.markdown.encode()).hexdigest(),
+            }
+            for document in documents
+        ),
+        failed_attempts=tuple(
+            {
+                "attempt_ordinal": ordinal,
+                "raw_response_sha256": "sha256:" + str(ordinal) * 64,
+                "normalized_response_sha256": "sha256:" + chr(96 + ordinal) * 64,
+                "failure_type": "ValueError",
+                "failure_message": f"failed {ordinal}",
+            }
+            for ordinal in (1, 2, 3)
+        ),
+    )
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        lambda *args, **kwargs: pytest.fail("terminal candidate reached provider"),
+    )
+
+    result = llm_pipeline.llm_unitize_cases(
+        selection_records=(_selection(),),
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        registry_entry=llm_pipeline.ModelRegistryEntry.from_record(_registry_record()),
+        model_registry_sha256="b" * 64,
+        provider_attempt_namespace="claim-ontology-v5",
+        terminal_escalations={
+            "cand-1": (
+                escalation,
+                {"path": "/receipts/cand-1.json", "sha256": "sha256:" + "d" * 64},
+            )
+        },
+    )
+
+    assert result.records == (
+        {"candidate_id": "cand-1", "case_id": "case-1", "prediction_units": []},
+    )
+    [audit] = result.audit_records
+    assert audit["status"] == "terminal_escalation"
+    assert audit["terminal_escalation"] == escalation.to_record()
+    assert audit["terminal_escalation_receipt"] == {
+        "path": "/receipts/cand-1.json",
+        "sha256": "sha256:" + "d" * 64,
+    }
+    assert result.terminal_review_queue_records == (
+        build_unitizer_terminal_review_queue_record(escalation.to_record()),
+    )
+    assert (
+        "terminal_escalation_receipt" not in (result.terminal_review_queue_records[0])
+    )
+
+
+def test_structural_reviewer_preserves_unitizer_terminal_without_provider(
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        lambda *args, **kwargs: pytest.fail("terminal baton reached reviewer provider"),
+    )
+
+    result = llm_pipeline.llm_review_stage_a_units(
+        selection_records=(_selection(),),
+        parser_records=(),
+        prediction_unit_records=(
+            {"candidate_id": "cand-1", "case_id": "case-1", "prediction_units": []},
+        ),
+        markdown_root="/unused",
+        registry_entry=llm_pipeline.ModelRegistryEntry.from_record(_registry_record()),
+        model_registry_sha256="b" * 64,
+        unitizer_terminal_candidates=("cand-1",),
+        provider_attempt_namespace="claim-ontology-v4",
+    )
+
+    assert result.records == ()
+    assert result.terminal_review_queue_records == ()
+    assert result.audit_records == (
+        {
+            "stage": "llm-review-stage-a",
+            "status": "unitizer_terminal_preserved",
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "model_key": "openai:gpt-test",
+            "model_registry_sha256": "b" * 64,
+            "raw_prediction_units_sha256": llm_pipeline.canonical_sha256(
+                {
+                    "candidate_id": "cand-1",
+                    "case_id": "case-1",
+                    "prediction_units": [],
+                }
+            ),
+            "structural_flags_sha256": llm_pipeline.canonical_records_sha256(()),
+            "flag_count": 0,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("stage", "llm-unitize"),
+        ("status", "passed"),
+        ("candidate_id", "other"),
+        ("case_id", "other-case"),
+        ("model_key", "openai:other"),
+        ("model_registry_sha256", "c" * 64),
+        ("raw_prediction_units_sha256", "d" * 64),
+        ("structural_flags_sha256", "e" * 64),
+        ("flag_count", 1),
+        ("provider_prompt_sha256", "f" * 64),
+    ),
+)
+def test_unitizer_terminal_preserved_audit_is_closed_and_exact(
+    field: str, value: object
+) -> None:
+    raw = {"candidate_id": "cand-1", "case_id": "case-1", "prediction_units": []}
+    expected = llm_pipeline.unitizer_terminal_preserved_audit_record(
+        candidate_id="cand-1",
+        case_id="case-1",
+        reviewer_model_key="openai:gpt-test",
+        model_registry_sha256="b" * 64,
+        raw_prediction_units=raw,
+    )
+    mutated = {**expected, field: value}
+
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="exact unitizer terminal"):
+        llm_pipeline.validate_unitizer_terminal_preserved_audit_record(
+            mutated,
+            candidate_id="cand-1",
+            case_id="case-1",
+            reviewer_model_key="openai:gpt-test",
+            model_registry_sha256="b" * 64,
+            raw_prediction_units=raw,
+        )
+
+
+def test_unitizer_terminal_preserved_audit_rejects_nonempty_raw_envelope() -> None:
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="exact empty raw envelope",
+    ):
+        llm_pipeline.unitizer_terminal_preserved_audit_record(
+            candidate_id="cand-1",
+            case_id="case-1",
+            reviewer_model_key="openai:gpt-test",
+            model_registry_sha256="b" * 64,
+            raw_prediction_units={
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [{"unit_id": "invented"}],
+            },
+        )
 
 
 class _FakeSpendAuthority:
@@ -1202,6 +1411,135 @@ def test_unitization_reconstruction_recovers_latest_journal_response_without_pro
         cast(Any, cli)._stage_a_provider_attempt_rows(journal_path)
     )
     assert before_authority_binding != after_authority_binding
+
+
+def test_v5_unitization_resume_replays_settled_retry_after_prior_failure(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    """A settled retry wins over a preceding failed response during resume."""
+
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+
+    def response(*, defendant_names: list[str]) -> SolverResponse:
+        return SolverResponse(
+            raw_output=json.dumps(
+                {
+                    "unit_seeds": [
+                        {
+                            "count": "Count I",
+                            "claim_name": "Section 10(b)",
+                            "defendant_names": defendant_names,
+                            "challenged_by_motion": True,
+                            "unit_confidence": 0.95,
+                            "grouping": "individual",
+                            "grouping_rationale": None,
+                            "scope": {"kind": "entire_claim"},
+                            "source_citations": [
+                                {
+                                    "source_document_id": "complaint",
+                                    "start_line": 1,
+                                    "line_count": 1,
+                                },
+                                {
+                                    "source_document_id": "mtd",
+                                    "start_line": 1,
+                                    "line_count": 1,
+                                },
+                            ],
+                        }
+                    ]
+                }
+            ),
+            input_tokens=12,
+            output_tokens=7,
+            estimated_cost=0.03,
+        )
+
+    responses = iter(
+        (
+            response(defendant_names=["Issuer", "Other"]),
+            response(defendant_names=["Issuer"]),
+        )
+    )
+    provider_calls = 0
+    replay_response = response(defendant_names=["Issuer"])
+
+    def completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        del args
+        handler = kwargs["attempt_handler"]
+        live_response: SolverResponse | None = None
+
+        def provider_call() -> JsonRecord:
+            nonlocal provider_calls, live_response
+            provider_calls += 1
+            live_response = next(responses)
+            return {"fixture": "provider-response"}
+
+        handler.run_attempt(1, provider_call)
+        completed_response = live_response or replay_response
+        handler.settle_attempt(
+            handler.durable_attempt_ordinal(1),
+            input_tokens=completed_response.input_tokens,
+            output_tokens=completed_response.output_tokens,
+            actual_cost_usd=completed_response.estimated_cost,
+            raw_output=completed_response.raw_output,
+        )
+        return completed_response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", completion)
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    kwargs = {
+        "selection_records": (_selection(),),
+        "parser_records": parser_records,
+        "markdown_root": markdown_root,
+        "registry_entry": registry_entry,
+        "model_registry_sha256": "b" * 64,
+        "provider_journal_path": journal_path,
+        "provider_cycle_cap_usd": 100.0,
+        "provider_cycle_id": "cycle-1",
+        "provider_cycle_caps_sha256": "sha256:" + "c" * 64,
+        "provider_attempt_namespace": "claim-ontology-v5",
+        "continue_on_error": True,
+    }
+
+    first = llm_pipeline.llm_unitize_cases(**kwargs)
+    assert first.records == ()
+    assert first.audit_records[0]["status"] == "failed"
+    second = llm_pipeline.llm_unitize_cases(**kwargs)
+    assert second.audit_records[0]["status"] == "succeeded"
+    assert provider_calls == 2
+
+    resumed = llm_pipeline.llm_unitize_cases(**kwargs)
+
+    assert resumed.audit_records[0]["status"] == "succeeded"
+    assert len(resumed.records[0]["prediction_units"]) == 1
+    assert provider_calls == 2
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall() == [
+            (1, "reconstruction_failed"),
+            (2, "settled"),
+        ]
 
 
 def test_malformed_label_response_retries_fresh_bounded_attempts(

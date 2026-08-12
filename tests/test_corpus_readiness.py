@@ -11,7 +11,7 @@ from legalforecast.ingestion.corpus_readiness import (
     build_clean_corpus_readiness,
     require_clean_corpus_ready,
 )
-from legalforecast.unitization.review import canonical_records_sha256
+from legalforecast.unitization.review import canonical_records_sha256, canonical_sha256
 
 
 def _selection(candidate_id: str, case_id: str) -> dict[str, object]:
@@ -255,6 +255,69 @@ def test_readiness_rejects_multiple_automatic_source_hashes() -> None:
     )
 
     assert "stage_a_finalized_hash_chain_invalid" in report.exclusion_reasons["cand-1"]
+
+
+def test_readiness_accepts_terminal_add_with_independent_evidence() -> None:
+    review = {
+        "schema_version": "legalforecast.unitizer_terminal_review_queue.v1",
+        "status": "pending_adjudication",
+        "review_subject": "candidate",
+        "review_id": "cand-1:terminal-review",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+    }
+    adjudication = {
+        "schema_version": "legalforecast.unitization_adjudication.v3",
+        "adjudication_id": "adj-terminal",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "review_ids": [review["review_id"]],
+        "disposition": "ADD",
+        "finalized_units": [],
+        "adjudicator_id": "attorney",
+        "adjudication_notes": "Reviewed.",
+    }
+    unit = _unit("cand-1", "unit-1")
+    unit["schema_version"] = "legalforecast.finalized_prediction_units.v4"
+    unit.pop("raw_prediction_units_sha256")
+    unit.pop("unitization_review_queue_sha256")
+    unit["unitizer_terminal_escalation_sha256"] = "3" * 64
+    unit["unitizer_terminal_review_queue_sha256"] = "4" * 64
+    unit["added_units"] = []
+    prediction_unit = cast(list[dict[str, object]], unit["prediction_units"])[0]
+    prediction_unit.update(
+        {
+            "source_unit_sha256s": [],
+            "adjudication_id": "adj-terminal",
+            "adjudication_sha256": canonical_sha256(adjudication),
+            "disposition": "ADD",
+            "added_from_review_ids": [review["review_id"]],
+            "unitizer_terminal_escalation_sha256": "3" * 64,
+        }
+    )
+
+    report = build_clean_corpus_readiness(
+        selection_records=[_selection("cand-1", "case-1")],
+        parser_records=_parsers("cand-1"),
+        prediction_unit_records=[unit],
+        unitization_audit_records=[],
+        unitization_review_records=[],
+        unitization_adjudication_records=[],
+        terminal_unitization_review_records=[review],
+        terminal_unitization_adjudication_records=[adjudication],
+        label_records=[_label("unit-1")],
+        label_audit_records=[_label_audit("cand-1")],
+        lawyer_review_records=[],
+        lawyer_review_audit_records=[],
+        packet_build_records=[{"candidate_id": "cand-1"}],
+        packet_records=[{"candidate_id": "cand-1"}],
+        exclusion_records=[],
+        decision_text_by_candidate_and_document=_decision_texts("cand-1"),
+        decision_filed_on_or_after=date(2026, 6, 30),
+        required_clean_count=1,
+    )
+
+    assert report.clean_candidate_ids == ("cand-1",)
 
 
 def test_readiness_rejects_two_selected_target_motions() -> None:

@@ -1093,6 +1093,61 @@ Before any provider call, the command replays the target selection, immutable ma
 
 The active Cycle 1 citation-selector successor uses `--provider-attempt-namespace claim-ontology-v5` for `llm-unitize` and `--provider-attempt-namespace claim-ontology-v4` for `llm-review-stage-a`. V5 unitizer citations select one supplied document with one-based `start_line` plus `line_count` from 1 through 12; local code derives the endpoint and reconstructs the exact complaint and target-motion excerpts. The canonical unit shape is unchanged. The v4 structural reviewer keeps its existing line-span selector and `legalforecast.stage_a_structural_flag.v2` schema. Do not use v5/v5, v4/v5, v5/legacy, legacy/v4, omitted, or invented namespaces. Historical unnamespaced/unnamespaced, v2/v2, v2/v3, and v4/v4 pairs remain replayable only under their authenticated cards. The shared canonical journal and frozen caps remain unchanged; no new namespace resets, releases, deletes, rewrites, or bypasses historical v4 attempts. Before either live v4/v5 line-addressed stage opens provider authority, replay the target-document eligibility audit and its completed provider-free card against the exact selection, parser manifest, and Markdown tree; selector syntax does not cure an ineligible target document or a missing required memorandum. A namespace versions a reviewed contract and is never a retry escape hatch for a settled or failed attempt. See [Cycle 1 Stage A v5 unitizer selector migration](cycle-1-stage-a-v5-unitizer-selector-migration.md) for the complete pair and replay contract.
 
+If one v5 unitizer call exhausts exactly three durable reconstruction failures, stop provider work for that candidate. Do not issue a fourth call, edit the journal, accept a failed response, or omit the candidate. Create one provider-free terminal receipt by repeating the exact `llm-unitize` lineage arguments above, adding the candidate and receipt output, retaining `--provider-attempt-namespace claim-ontology-v5`, and omitting provider authority:
+
+```bash
+uv run legalforecast acquisition terminalize-llm-unitize-reconstruction \
+  --output-root <unitizer-terminal-receipt-root> \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+  --selection <selection.jsonl> \
+  --selection-run-card <project-or-extend-target-cohort-run-card.json> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --document-root <materialized-document-root> \
+  --parse-requests <parse-document-requests.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --parser-run-card <parse-documents-run-card.json> \
+  --markdown-root <parsed-markdown-root> \
+  --model-registry <frozen-stage-a-registry.json> \
+  --model-key <provider:model-id> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --provider-attempt-namespace claim-ontology-v5 \
+  --candidate-id <candidate-id> \
+  --terminal-escalation-output <unitizer-terminal-receipt-root>/<candidate-id>.json \
+  --execute --no-resume
+```
+
+The command reconstructs the exact prompt and predecision sources, authenticates attempts 1, 2, and 3 as complete `reconstruction_failed` rows, writes no journal state, rejects provider authority, and commits the receipt's exact bytes. Repeat only for distinct exhausted candidates. Then resume the original unitization command with `--resume`, one `--terminal-escalation <receipt.json>` per candidate, and `--unitizer-terminal-review-queue-output <unitizer-terminal-review-queue.jsonl>`. The resumed run re-authenticates each receipt from the journal, skips provider invocation for those candidates, emits each as an empty raw candidate envelope plus terminal audit, and completes the unitizer card with exact receipt and sidecar commitments. All nonterminal candidates continue under the ordinary three-attempt v5 path.
+
+Before structural review, build the private candidate-level source bundle from those exact receipts. This provider-free command replays selection, materialization, parse, and Markdown lineage and writes a deterministic receipt JSONL, queue JSONL, and bundle JSONL:
+
+```bash
+uv run legalforecast acquisition build-unitizer-terminal-review-bundle \
+  --output-root <private-stage-a-review-root>/unitizer-terminal \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+  --selection <selection.jsonl> \
+  --selection-run-card <project-or-extend-target-cohort-run-card.json> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --document-root <materialized-document-root> \
+  --parse-requests <parse-document-requests.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --parser-run-card <parse-documents-run-card.json> \
+  --markdown-root <parsed-markdown-root> \
+  --terminal-receipt <unitizer-terminal-receipt-root>/<candidate-id>.json \
+  --receipt-output <private-stage-a-review-root>/unitizer-terminal/unitizer-terminal-receipts.jsonl \
+  --queue-output <private-stage-a-review-root>/unitizer-terminal/unitizer-terminal-review-queue.jsonl \
+  --bundle-output <private-stage-a-review-root>/unitizer-terminal/unitizer-terminal-review-bundle.jsonl \
+  --execute --no-resume
+```
+
+Repeat `--terminal-receipt` for every exhausted candidate. The bundle includes only receipt-committed predecision Markdown and offers exactly `ADD` or `CANDIDATE-EXCLUSION`; it contains no model-authored proposed unit. Pass the completed unitizer card unchanged to the v4 structural-review command below. That reviewer preserves each unitizer-terminal candidate with zero flags and makes no reviewer provider call for it; every other candidate is reviewed normally under `claim-ontology-v4`.
+
 Run the structural Stage A review against the same unitizer card, caps artifact, and canonical provider journal even when its ordinary outputs live under a different root:
 
 ```bash
@@ -1158,6 +1213,25 @@ uv run legalforecast acquisition build-unitization-review-bundle \
 
 The output is `unitization-review-bundle.jsonl` plus `unitization-review-bundle-manifest.json` and the completion run card `run-cards/build-unitization-review-bundle.json`. The completion card records this provider-free handoff's authenticated inputs, output paths, and record count. Every pending review appears exactly once with the full raw candidate units and only the predecision Mistral Markdown cited by those units or its review item. Terminal reconstruction-escalation rows derive their source IDs from authenticated frozen units and predecision commitments. Decision/order material, text from decision artifacts, mismatched candidate/unit/source identifiers, markdown escapes, links, nonregular files, hard links, and byte drift all fail closed. The manifest binds the raw units, both cards, exact merged queue, selection, parser manifest, Markdown root/tree, and output SHA-256. Do not publish a production bundle before that Stage A structural-review output exists; use the JSONL solely to prepare a separate checked-in adjudication file.
 
+If the unitizer-terminal queue is nonempty, combine the ordinary frozen-unit bundle, its observational queue-v2 projection, and the three outputs of `build-unitizer-terminal-review-bundle` into the final private successor attorney packet v2. Do not hand-join the two review surfaces or treat the terminal bundle alone as the packet:
+
+```bash
+uv run legalforecast acquisition build-successor-attorney-packet \
+  --output-root <private-stage-a-review-root>/successor-attorney-packet \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+  --unitization-review-bundle <private-stage-a-review-root>/unitization-review-bundle.jsonl \
+  --unitization-review-queue-v2 <private-stage-a-review-root>/unitization-review-queue-v2.jsonl \
+  --unitizer-terminal-receipts <private-stage-a-review-root>/unitizer-terminal/unitizer-terminal-receipts.jsonl \
+  --unitizer-terminal-review-queue <private-stage-a-review-root>/unitizer-terminal/unitizer-terminal-review-queue.jsonl \
+  --unitizer-terminal-review-bundle <private-stage-a-review-root>/unitizer-terminal/unitizer-terminal-review-bundle.jsonl \
+  --packet-manifest-output <private-stage-a-review-root>/successor-attorney-packet/successor-attorney-packet-manifest.json \
+  --attorney-view-output <private-stage-a-review-root>/successor-attorney-packet/successor-attorney-review.json \
+  --execute --no-resume
+```
+
+The command binds all five exact byte streams, reproduces every receipt-derived terminal queue and bundle, rejects candidate overlap or coverage drift between the ordinary and terminal surfaces, and emits `legalforecast.successor_attorney_packet_manifest.v2` plus the candidate-grouped `legalforecast.successor_attorney_packet_view.v2`. Its run card proves that it performed no provider, retrieval, PACER, RECAP Fetch, adjudication, evaluation, freeze, or dispatch activity. John reviews the emitted `successor-attorney-review.json`; ordinary decisions continue under the frozen v1/v2 adjudication contracts, while each `unitizer_terminal` item must receive one separate adjudication-v3 `ADD` or `CANDIDATE-EXCLUSION` row.
+
 Before running apply, rehearse the proposed adjudications read-only. The preflight replays both Stage A cards, authenticates the raw units, exact merged queue, proposed adjudications, and (optionally) an existing finalized artifact with the same invariants apply enforces, and prints the private grouped worklist plus the per-candidate claim-defendant matrix — before/after counts, additions, drops, unclear and nonmovant units, duplicate claim-defendant keys, and the immutable input hashes — to stdout. It is provider-free and writes nothing on any path: no artifact, no run card, no log, and no provider-journal sidecar — the journal is authenticated through one query-only copy taken before SQLite opens the canonical database, and identity plus attempt rows are read from that same copy. The replay authenticates the exact captured bytes the report commits, so a swap-and-restore around the authentication window cannot separate what was verified from what is reported. The printed report is private Stage A material; redirect it only under the private review root, outside the repository and every publishable root.
 
 ```bash
@@ -1190,6 +1264,34 @@ uv run legalforecast acquisition apply-unitization-review \
 ```
 
 The apply card propagates the unitizer and structural-review cards plus the exact caps and journal authority, and commits the raw units, authenticated merged queue, adjudications, and replayed finalized units. Neither this command nor finalization accepts a rehashed, hand-authored, cross-cohort, cross-model, prompt-substituted, or independently regenerated Stage A artifact.
+
+When the unitizer card contains terminalized candidates, do not use the ordinary apply command above to publish a partial Stage A artifact or represent the missing candidates with empty ordinary adjudications. After the attorney reviews successor packet v2 and writes one `legalforecast.unitization_adjudication.v3` row for each terminal candidate, use the provider-free successor apply command to replay the complete raw Stage A input and apply both ordinary and terminal decisions in one exact-cohort operation:
+
+```bash
+uv run legalforecast acquisition apply-unitizer-terminal-review \
+  --output-root <assembled-cycle-root>/terminal-applied \
+  --controlled-private-root <absolute-controlled-private-approval-root> \
+  --purchase-ledger-initialization-receipt <purchase-ledger-initialization.json> \
+  --selection <selection.jsonl> \
+  --prediction-units <prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --unitization-review-queue <verified-merged-review-queue.jsonl> \
+  --unitization-review-adjudications <ordinary-unitization-adjudications.jsonl> \
+  --terminal-escalations <private-stage-a-review-root>/unitizer-terminal/unitizer-terminal-receipts.jsonl \
+  --unitizer-terminal-review-queue <private-stage-a-review-root>/unitizer-terminal/unitizer-terminal-review-queue.jsonl \
+  --unitizer-terminal-adjudications <unitizer-terminal-adjudications-v3.jsonl> \
+  --finalized-prediction-units-output <assembled-cycle-root>/terminal-applied/finalized-prediction-units.jsonl \
+  --execute --no-resume
+```
+
+The command authenticates the complete unitizer and structural-review run-card chain, caps, journal, selection, parser manifest, and Markdown lineage; requires the raw unitizer JSONL—including empty terminal envelopes—to cover the exact selection; derives the terminal candidate set from authenticated unitizer lineage; and requires exact matching coverage across receipts, terminal queue, and terminal adjudications. It partitions ordinary and terminal candidates internally, applies the ordinary review adjudications only to ordinary raw candidates, applies terminal adjudication v3 separately, merges in selection order, and repeats the full replay after writing. It never mutates the provider journal.
+
+For every ordinary or attorney-added unit, the command reconstructs the complete citation structure against authenticated source text and verifies the exact document role, line span, quoted text, page marker, and docket evidence; naming a receipt-committed document ID alone is insufficient. It rejects a source-unit claim, receipt/queue/adjudication drift, citation drift, duplicate or missing candidates, and any overlap between the ordinary and terminal partitions.
+
+Adjudication v3 can record either `ADD` or `CANDIDATE-EXCLUSION`, but the exact-100 successor apply publishes a complete artifact only when every terminal candidate receives `ADD`. A terminal `CANDIDATE-EXCLUSION` stops apply before output because the selected cohort would otherwise shrink; authenticate a replacement candidate through the upstream acquisition and Stage A lineage first, then rerun against that replacement-bound selection. Terminal `ADD` candidates use `legalforecast.finalized_prediction_units.v4`; ordinary candidates retain their ordinary finalized schema. The completion card records the ordinary, terminal, and selected counts, every exact input/output commitment, schema versions, and `zero_provider_activity_evidence: true`. The resulting selection-complete file is the Stage A artifact passed to decision texts, Stage B, packet planning, readiness, and corpus finalization.
 
 Build the Stage B disposition-text artifact only from the exact selected cohort, authenticated materialization lineage run card, restriction evidence, and pinned Mistral parser output used by the cycle:
 

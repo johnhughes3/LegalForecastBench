@@ -4,15 +4,82 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from typing import Any
 
+import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion.successor_attorney_packet import (
     AttorneyPacketError,
     build_successor_attorney_packet,
+    build_successor_attorney_packet_with_unitizer_terminals,
+)
+from legalforecast.unitization.unitizer_terminal_review import (
+    build_unitizer_terminal_review_bundle,
+    build_unitizer_terminal_review_queue_record,
 )
 
 JsonRecord = dict[str, Any]
+
+
+def _unitizer_receipt() -> JsonRecord:
+    prompt = "frozen unitizer prompt"
+    markdown = "Complaint text"
+    return {
+        "schema_version": "legalforecast.llm_stage_a_unitizer_terminal_escalation.v1",
+        "candidate_id": "candidate-terminal",
+        "case_id": "case-terminal",
+        "unitizer_model_key": "anthropic:unitizer",
+        "model_registry_sha256": "a" * 64,
+        "provider_attempt_namespace": "claim-ontology-v5",
+        "prompt": prompt,
+        "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+        "predecision_source_commitments": [
+            {
+                "source_document_id": "complaint",
+                "document_role": "complaint",
+                "docket_entry_number": 1,
+                "description": "Complaint",
+                "markdown_sha256": "sha256:"
+                + hashlib.sha256(markdown.encode()).hexdigest(),
+            }
+        ],
+        "failed_attempts": [
+            {
+                "attempt_ordinal": ordinal,
+                "raw_response_sha256": "sha256:" + str(ordinal) * 64,
+                "normalized_response_sha256": "sha256:" + chr(96 + ordinal) * 64,
+                "failure_type": "LlmResponseValidationError",
+                "failure_message": "no accepted unit",
+            }
+            for ordinal in (1, 2, 3)
+        ],
+    }
+
+
+def _unitizer_terminal_inputs() -> tuple[bytes, bytes]:
+    receipt = _unitizer_receipt()
+    queue = build_unitizer_terminal_review_queue_record(receipt)
+    bundle = build_unitizer_terminal_review_bundle(
+        receipt=receipt,
+        queue_record=queue,
+        predecision_sources=[
+            {
+                "source_document_id": "complaint",
+                "document_role": "complaint",
+                "docket_entry_number": 1,
+                "description": "Complaint",
+                "markdown": "Complaint text",
+            }
+        ],
+    )
+    return _jsonl([queue]), _jsonl([bundle])
+
+
+def _unitizer_terminal_packet_inputs() -> tuple[bytes, bytes, bytes]:
+    receipt = _unitizer_receipt()
+    queue, bundle = _unitizer_terminal_inputs()
+    return _jsonl([receipt]), queue, bundle
 
 
 def _jsonl(records: list[JsonRecord]) -> bytes:
@@ -144,6 +211,176 @@ def test_packet_commits_exact_bytes_and_keeps_v1_authoritative() -> None:
         "review-2"
     )
     assert "candidate_actions" not in candidate["observational_v2"]
+
+
+def test_packet_v2_adds_authenticated_unitizer_terminal_candidates() -> None:
+    bundles = _jsonl([_bundle("review-1")])
+    queue = _jsonl([_unit_v2("review-1")])
+    terminal_receipts, terminal_queue, terminal_bundle = (
+        _unitizer_terminal_packet_inputs()
+    )
+
+    packet = build_successor_attorney_packet_with_unitizer_terminals(
+        bundles,
+        queue,
+        terminal_receipts,
+        terminal_queue,
+        terminal_bundle,
+    )
+
+    assert packet.manifest["schema_version"] == (
+        "legalforecast.successor_attorney_packet_manifest.v2"
+    )
+    assert packet.manifest["unitizer_terminal_review_queue"]["sha256"] == (
+        hashlib.sha256(terminal_queue).hexdigest()
+    )
+    assert packet.manifest["unitizer_terminal_escalation_receipts"]["sha256"] == (
+        hashlib.sha256(terminal_receipts).hexdigest()
+    )
+    assert packet.manifest["unitizer_terminal_review_bundle"]["sha256"] == (
+        hashlib.sha256(terminal_bundle).hexdigest()
+    )
+    assert packet.attorney_view["schema_version"] == (
+        "legalforecast.successor_attorney_packet_view.v2"
+    )
+    candidate = next(
+        item
+        for item in packet.attorney_view["candidates"]
+        if item["candidate_id"] == "candidate-terminal"
+    )
+    terminal_item = candidate["unitizer_terminal"]
+    assert terminal_item["queue_record"]["allowed_actions"] == [
+        "ADD",
+        "CANDIDATE-EXCLUSION",
+    ]
+    assert (
+        terminal_item["bundle_record"]["cited_predecision_markdown"][0]["markdown"]
+        == "Complaint text"
+    )
+    assert "prompt" not in terminal_item["queue_record"]["review_item"]
+
+
+def test_packet_v2_cli_builds_real_terminal_packet(tmp_path: Path) -> None:
+    ordinary_bundle = tmp_path / "ordinary-bundle.jsonl"
+    ordinary_queue = tmp_path / "ordinary-queue-v2.jsonl"
+    terminal_receipts_path = tmp_path / "terminal-receipts.jsonl"
+    terminal_queue_path = tmp_path / "terminal-queue.jsonl"
+    terminal_bundle_path = tmp_path / "terminal-bundle.jsonl"
+    ordinary_bundle.write_bytes(_jsonl([_bundle("review-1")]))
+    ordinary_queue.write_bytes(_jsonl([_unit_v2("review-1")]))
+    terminal_receipts, terminal_queue, terminal_bundle = (
+        _unitizer_terminal_packet_inputs()
+    )
+    terminal_receipts_path.write_bytes(terminal_receipts)
+    terminal_queue_path.write_bytes(terminal_queue)
+    terminal_bundle_path.write_bytes(terminal_bundle)
+    output_root = tmp_path / "packet"
+
+    assert (
+        cli.main(
+            [
+                "acquisition",
+                "build-successor-attorney-packet",
+                "--output-root",
+                str(output_root),
+                "--unitization-review-bundle",
+                str(ordinary_bundle),
+                "--unitization-review-queue-v2",
+                str(ordinary_queue),
+                "--unitizer-terminal-receipts",
+                str(terminal_receipts_path),
+                "--unitizer-terminal-review-queue",
+                str(terminal_queue_path),
+                "--unitizer-terminal-review-bundle",
+                str(terminal_bundle_path),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    manifest = json.loads(
+        (output_root / "successor-attorney-packet-manifest.json").read_text()
+    )
+    view = json.loads((output_root / "successor-attorney-review.json").read_text())
+    assert manifest["schema_version"] == (
+        "legalforecast.successor_attorney_packet_manifest.v2"
+    )
+    assert manifest["unitizer_terminal_candidate_count"] == 1
+    assert [candidate["candidate_id"] for candidate in view["candidates"]] == [
+        "candidate-1",
+        "candidate-terminal",
+    ]
+
+
+def test_packet_v2_rejects_terminal_queue_bundle_or_candidate_drift() -> None:
+    bundles = _jsonl([_bundle("review-1")])
+    queue = _jsonl([_unit_v2("review-1")])
+    terminal_receipts, terminal_queue, terminal_bundle = (
+        _unitizer_terminal_packet_inputs()
+    )
+
+    missing_bundle = b""
+    with pytest.raises(AttorneyPacketError, match="terminal review bundle"):
+        build_successor_attorney_packet_with_unitizer_terminals(
+            bundles, queue, terminal_receipts, terminal_queue, missing_bundle
+        )
+
+    [bundle_record] = [json.loads(line) for line in terminal_bundle.splitlines()]
+    bundle_record["terminal_escalation_sha256"] = "f" * 64
+    with pytest.raises(AttorneyPacketError, match="terminal escalation"):
+        build_successor_attorney_packet_with_unitizer_terminals(
+            bundles,
+            queue,
+            terminal_receipts,
+            terminal_queue,
+            _jsonl([bundle_record]),
+        )
+
+    [bundle_record] = [json.loads(line) for line in terminal_bundle.splitlines()]
+    bundle_record["cited_predecision_markdown"][0]["markdown"] = "tampered"
+    with pytest.raises(AttorneyPacketError, match="markdown commitment"):
+        build_successor_attorney_packet_with_unitizer_terminals(
+            bundles,
+            queue,
+            terminal_receipts,
+            terminal_queue,
+            _jsonl([bundle_record]),
+        )
+
+    [queue_record] = [json.loads(line) for line in terminal_queue.splitlines()]
+    queue_record["allowed_actions"] = ["CANDIDATE-EXCLUSION"]
+    with pytest.raises(AttorneyPacketError, match="allowed actions"):
+        build_successor_attorney_packet_with_unitizer_terminals(
+            bundles,
+            queue,
+            terminal_receipts,
+            _jsonl([queue_record]),
+            terminal_bundle,
+        )
+
+    [receipt] = [json.loads(line) for line in terminal_receipts.splitlines()]
+    receipt["failed_attempts"][0]["failure_message"] = "tampered receipt"
+    with pytest.raises(AttorneyPacketError, match=r"receipt (coverage|derived queue)"):
+        build_successor_attorney_packet_with_unitizer_terminals(
+            bundles,
+            queue,
+            _jsonl([receipt]),
+            terminal_queue,
+            terminal_bundle,
+        )
+
+
+def test_packet_v2_rejects_duplicate_candidate_across_normal_and_terminal() -> None:
+    bundles = _jsonl([_bundle("review-1", candidate_id="candidate-terminal")])
+    queue = _jsonl([_unit_v2("review-1", candidate_id="candidate-terminal")])
+    terminal_receipts, terminal_queue, terminal_bundle = (
+        _unitizer_terminal_packet_inputs()
+    )
+
+    with pytest.raises(AttorneyPacketError, match="both frozen-unit and terminal"):
+        build_successor_attorney_packet_with_unitizer_terminals(
+            bundles, queue, terminal_receipts, terminal_queue, terminal_bundle
+        )
 
 
 def test_packet_rejects_missing_or_duplicate_v1_coverage() -> None:

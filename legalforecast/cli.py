@@ -879,6 +879,10 @@ from legalforecast.ingestion.snapshot_replay import (
     read_verified_replay_raw,
     source_replay_commitment,
 )
+from legalforecast.ingestion.successor_attorney_packet import (
+    AttorneyPacketError,
+    build_successor_attorney_packet_with_unitizer_terminals,
+)
 from legalforecast.ingestion.successor_rerun_impact import (
     SuccessorRerunImpactError,
     failed_successor_rerun_impact,
@@ -1063,6 +1067,7 @@ from legalforecast.labeling.llm_pipeline import (
     structural_review_terminal_escalation_queue_records,
     unitization_review_queue_records,
     unitization_review_queue_records_from_items,
+    validate_unitizer_terminal_preserved_audit_record,
 )
 from legalforecast.labeling.official_paid_baton import (
     BatonIdentity,
@@ -1089,6 +1094,11 @@ from legalforecast.labeling.provider_journal import (
     load_provider_cycle_caps_bytes,
     open_provider_journal_snapshot,
     verify_provider_journal_identity,
+)
+from legalforecast.labeling.unitizer_terminal import (
+    LlmStageAUnitizerTerminalEscalation,
+    UnitizerTerminalEscalationError,
+    build_llm_stage_a_unitizer_terminal_escalation,
 )
 from legalforecast.multiharness.cli import add_multiharness_parser
 from legalforecast.path_safety import safe_path_component
@@ -1161,13 +1171,16 @@ from legalforecast.unitization.construct_units import (
     construct_stage_a_units,
 )
 from legalforecast.unitization.review import (
+    UnitizationDisposition,
     UnitizationReviewError,
     V4FinalizedCitationDocument,
+    apply_terminal_unitizer_reviews,
     apply_unitization_reviews,
     canonical_records_sha256,
     canonical_sha256,
     require_finalized_envelopes,
     validate_v4_finalized_unit_citations,
+    verify_terminal_unitizer_finalized_units,
 )
 from legalforecast.unitization.review_queue import (
     ReviewQueueError,
@@ -1180,6 +1193,11 @@ from legalforecast.unitization.schemas import (
     DefendantGrouping,
     PredictionUnit,
     SourceCitation,
+)
+from legalforecast.unitization.unitizer_terminal_review import (
+    UnitizerTerminalReviewError,
+    build_unitizer_terminal_review_bundle,
+    build_unitizer_terminal_review_queue_record,
 )
 
 JsonRecord = dict[str, Any]
@@ -2857,6 +2875,38 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_recover_llm_unitize_arguments(acquisition_recover_llm_unitize)
+    acquisition_terminalize_llm_unitize = acquisition_subparsers.add_parser(
+        "terminalize-llm-unitize-reconstruction",
+        help=(
+            "Provider-free escalation of one claim-ontology-v5 unitizer call "
+            "after exactly three reconstruction failures."
+        ),
+    )
+    _add_acquisition_terminalize_llm_unitize_arguments(
+        acquisition_terminalize_llm_unitize
+    )
+    acquisition_build_unitizer_terminal_review_bundle = (
+        acquisition_subparsers.add_parser(
+            "build-unitizer-terminal-review-bundle",
+            help=(
+                "Build a provider-free candidate review queue and source bundle "
+                "from authenticated unitizer terminal receipts."
+            ),
+        )
+    )
+    _add_acquisition_build_unitizer_terminal_review_bundle_arguments(
+        acquisition_build_unitizer_terminal_review_bundle
+    )
+    acquisition_build_successor_attorney_packet = acquisition_subparsers.add_parser(
+        "build-successor-attorney-packet",
+        help=(
+            "Build the provider-free successor attorney packet v2 from ordinary "
+            "and terminal Stage A review artifacts."
+        ),
+    )
+    _add_acquisition_build_successor_attorney_packet_arguments(
+        acquisition_build_successor_attorney_packet
+    )
     acquisition_review_stage_a = acquisition_subparsers.add_parser(
         "llm-review-stage-a",
         help="Flag structural Stage A defects without rewriting frozen units.",
@@ -2907,6 +2957,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_apply_unitization_review_arguments(
         acquisition_apply_unitization_review
+    )
+    acquisition_apply_unitizer_terminal_review = acquisition_subparsers.add_parser(
+        "apply-unitizer-terminal-review",
+        help=(
+            "Apply terminal-unitizer adjudications and merge them with ordinary "
+            "finalized Stage A candidates without provider activity."
+        ),
+    )
+    _add_acquisition_apply_unitizer_terminal_review_arguments(
+        acquisition_apply_unitizer_terminal_review
     )
     acquisition_llm_label = acquisition_subparsers.add_parser(
         "llm-label",
@@ -9534,6 +9594,25 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         help="Output immutable JSONL queue of blinded Stage A reviews for John.",
     )
     parser.add_argument(
+        "--unitizer-terminal-review-queue-output",
+        type=Path,
+        help=(
+            "Candidate-level sidecar queue for authenticated unitizer terminal "
+            "escalations; kept separate from the frozen unit-subject v1 queue."
+        ),
+    )
+    parser.add_argument(
+        "--terminal-escalation",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Provider-free claim-ontology-v5 unitizer terminal-escalation receipt. "
+            "Repeat for distinct candidates; those candidates are authenticated "
+            "and routed to candidate-level attorney review without another call."
+        ),
+    )
+    parser.add_argument(
         "--continue-on-error",
         action="store_true",
         help="Continue to later candidates after a model/validation failure.",
@@ -9587,6 +9666,123 @@ def _add_acquisition_recover_llm_unitize_arguments(
         help="Provider-free reconstruction receipt JSON.",
     )
     parser.set_defaults(handler=_cmd_acquisition_recover_llm_unitize_reconstruction)
+
+
+def _add_acquisition_terminalize_llm_unitize_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the provider-free v5 unitizer terminal-escalation surface."""
+
+    _add_acquisition_llm_unitize_arguments(parser)
+    parser.add_argument(
+        "--candidate-id",
+        required=True,
+        help=(
+            "Exact selected candidate whose claim-ontology-v5 unitizer call "
+            "exhausted all three reconstruction attempts."
+        ),
+    )
+    parser.add_argument(
+        "--terminal-escalation-output",
+        type=Path,
+        help="Immutable provider-free unitizer terminal-escalation receipt JSON.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_terminalize_llm_unitize_reconstruction)
+
+
+def _add_acquisition_build_unitizer_terminal_review_bundle_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the closed, provider-free terminal attorney packet surface."""
+
+    _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--selection-run-card", type=Path, required=True)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--disclosure-clearance", type=Path, required=True)
+    parser.add_argument("--materialization-run-card", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--parse-requests", type=Path, required=True)
+    parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument("--parser-run-card", type=Path, required=True)
+    parser.add_argument("--markdown-root", type=Path, required=True)
+    parser.add_argument(
+        "--terminal-receipt",
+        type=Path,
+        action="append",
+        required=True,
+        help=(
+            "Exact immutable claim-ontology-v5 unitizer terminal receipt. "
+            "Repeat once per candidate."
+        ),
+    )
+    parser.add_argument(
+        "--receipt-output",
+        type=Path,
+        help="Deterministically ordered authenticated receipt JSONL.",
+    )
+    parser.add_argument(
+        "--queue-output",
+        type=Path,
+        help="Candidate-level pending attorney-review queue JSONL.",
+    )
+    parser.add_argument(
+        "--bundle-output",
+        type=Path,
+        help="Candidate-level terminal review bundle with exact Markdown JSONL.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_build_unitizer_terminal_review_bundle)
+
+
+def _add_acquisition_build_successor_attorney_packet_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add exact ordinary and terminal review inputs for packet v2."""
+
+    _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
+    parser.add_argument(
+        "--unitization-review-bundle",
+        type=Path,
+        required=True,
+        help="Authoritative ordinary unitization review bundle v1 JSONL.",
+    )
+    parser.add_argument(
+        "--unitization-review-queue-v2",
+        type=Path,
+        required=True,
+        help="Observational candidate-grouped ordinary review queue v2 JSONL.",
+    )
+    parser.add_argument(
+        "--unitizer-terminal-receipts",
+        type=Path,
+        required=True,
+        help="Authenticated terminal receipt JSONL from the terminal bundle builder.",
+    )
+    parser.add_argument(
+        "--unitizer-terminal-review-queue",
+        type=Path,
+        required=True,
+        help="Canonical candidate-level terminal review queue JSONL.",
+    )
+    parser.add_argument(
+        "--unitizer-terminal-review-bundle",
+        type=Path,
+        required=True,
+        help="Authenticated terminal source bundle JSONL.",
+    )
+    parser.add_argument(
+        "--packet-manifest-output",
+        type=Path,
+        help="Exact-byte successor attorney packet manifest v2 JSON.",
+    )
+    parser.add_argument(
+        "--attorney-view-output",
+        type=Path,
+        help="Candidate-grouped successor attorney review view v2 JSON.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_build_successor_attorney_packet)
 
 
 def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> None:
@@ -10085,6 +10281,82 @@ def _add_acquisition_apply_unitization_review_arguments(
         help="Hash-linked Stage A units required by labeling and readiness.",
     )
     parser.set_defaults(handler=_cmd_acquisition_apply_unitization_review)
+
+
+def _add_acquisition_apply_unitizer_terminal_review_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the provider-free terminal adjudication and merge surface."""
+
+    _add_acquisition_common_arguments(parser)
+    _add_approved_purchase_runtime_arguments(parser)
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        required=True,
+        help="Exact selected-candidate JSONL used to require complete coverage.",
+    )
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        required=True,
+        help="Full raw llm-unitize JSONL, including terminal empty envelopes.",
+    )
+    parser.add_argument(
+        "--llm-unitization-run-card",
+        type=Path,
+        required=True,
+        help="Completed authenticated llm-unitize run card.",
+    )
+    parser.add_argument(
+        "--llm-review-stage-a-run-card",
+        type=Path,
+        required=True,
+        help="Completed authenticated structural-review run card.",
+    )
+    _add_provider_cycle_caps_argument(parser)
+    parser.add_argument(
+        "--provider-journal",
+        type=Path,
+        required=True,
+        help="Exact shared provider journal; this command never mutates it.",
+    )
+    parser.add_argument(
+        "--unitization-review-queue",
+        type=Path,
+        required=True,
+        help="Authenticated ordinary merged Stage A review queue.",
+    )
+    parser.add_argument(
+        "--unitization-review-adjudications",
+        type=Path,
+        required=True,
+        help="Ordinary Stage A adjudications for nonterminal candidates.",
+    )
+    parser.add_argument(
+        "--terminal-escalations",
+        type=Path,
+        required=True,
+        help="Exact terminal-escalation receipt JSONL emitted by llm-unitize.",
+    )
+    parser.add_argument(
+        "--unitizer-terminal-review-queue",
+        type=Path,
+        required=True,
+        help="Exact candidate-level terminal-review queue JSONL.",
+    )
+    parser.add_argument(
+        "--unitizer-terminal-adjudications",
+        type=Path,
+        required=True,
+        help="Attorney terminal-unitizer adjudications v3 JSONL.",
+    )
+    parser.add_argument(
+        "--finalized-prediction-units-output",
+        type=Path,
+        help="Complete merged Stage A JSONL for every selected candidate.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_apply_unitizer_terminal_review)
 
 
 def _add_acquisition_build_unitization_review_bundle_arguments(
@@ -60274,6 +60546,10 @@ class _StageAUnitizationLineage:
     markdown_bytes: Mapping[str, bytes]
     download_records: tuple[JsonRecord, ...] = ()
     verified_provider_attempt_rows: tuple[JsonRecord, ...] = ()
+    unitizer_terminal_escalations: (
+        Mapping[str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]]
+        | None
+    ) = None
 
 
 def _required_stage_a_lineage_path(
@@ -61156,7 +61432,12 @@ def _verify_stage_a_provider_replay(
     prediction_units_path: Path,
     audit_path: Path,
     review_queue_path: Path,
+    terminal_review_queue_path: Path | None = None,
     provider_attempt_namespace: str | None = None,
+    terminal_escalations: Mapping[
+        str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]
+    ]
+    | None = None,
     captured_input_bytes: Mapping[str, bytes] | None = None,
     journal_snapshot: sqlite3.Connection | None = None,
 ) -> tuple[dict[str, JsonRecord], str, tuple[JsonRecord, ...]]:
@@ -61275,6 +61556,15 @@ def _verify_stage_a_provider_replay(
         label="merged unitization review queue",
         captured_input_bytes=captured_input_bytes,
     )
+    terminal_queue_records = (
+        _stage_a_captured_records(
+            terminal_review_queue_path,
+            label="unitizer terminal review queue",
+            captured_input_bytes=captured_input_bytes,
+        )
+        if terminal_review_queue_path is not None
+        else []
+    )
     raw_by_candidate: dict[str, Mapping[str, Any]] = {}
     for record in raw_records:
         candidate_id = _required_str(record, "candidate_id")
@@ -61360,6 +61650,9 @@ def _verify_stage_a_provider_replay(
             continue
         attempt_rows.append(row)
         rows_by_candidate[candidate_id].append(row)
+    terminal_by_candidate = dict(terminal_escalations or {})
+    if not set(terminal_by_candidate) <= candidate_ids:
+        raise CommandError("unitizer terminal escalation coverage differs")
     prompt_commitments: dict[str, JsonRecord] = {}
     journal_queue_by_candidate: dict[str, list[JsonRecord]] = {}
     for candidate_id in sorted(candidate_ids):
@@ -61381,6 +61674,52 @@ def _verify_stage_a_provider_replay(
             raise CommandError(
                 f"llm-unitize provider identity or prompt differs: {candidate_id}"
             )
+        terminal = terminal_by_candidate.get(candidate_id)
+        if terminal is not None:
+            escalation, receipt_commitment = terminal
+            raw = raw_by_candidate[candidate_id]
+            audit = audit_by_candidate[candidate_id]
+            expected_queue = list(
+                llm_unitize_cases(
+                    selection_records=(selections_by_candidate[candidate_id],),
+                    parser_records=lineage.parser_records,
+                    markdown_root=lineage.markdown_root,
+                    markdown_bytes=lineage.markdown_bytes,
+                    registry_entry=lineage.registry_entry,
+                    model_registry_sha256=lineage.registry_sha256,
+                    terminal_escalations={candidate_id: terminal},
+                    provider_attempt_namespace=provider_attempt_namespace,
+                ).terminal_review_queue_records
+            )
+            if (
+                raw
+                != {
+                    "candidate_id": candidate_id,
+                    "case_id": prompt_record.get("case_id"),
+                    "prediction_units": [],
+                }
+                or audit.get("status") != "terminal_escalation"
+                or audit.get("terminal_escalation") != escalation.to_record()
+                or audit.get("terminal_escalation_receipt") != dict(receipt_commitment)
+                or audit.get("unitization_review_queue") != []
+                or audit.get("unitizer_terminal_review_queue") != expected_queue
+            ):
+                raise CommandError(
+                    f"llm-unitize terminal audit does not replay: {candidate_id}"
+                )
+            journal_queue_by_candidate[candidate_id] = expected_queue
+            prompt_commitments[candidate_id] = {
+                "case_id": prompt_record["case_id"],
+                "prompt_sha256": prompt_digest,
+                "prediction_units_sha256": _canonical_json_sha256([]),
+                "terminal_escalation_sha256": escalation.escalation_sha256,
+                "terminal_escalation_receipt": dict(receipt_commitment),
+                "provider_attempt_ordinals": [
+                    _required_int(attempt, "attempt_ordinal")
+                    for attempt in escalation.failed_attempts
+                ],
+            }
+            continue
         settled = [row for row in candidate_rows if row.get("status") == "settled"]
         if len(settled) != 1:
             raise CommandError(
@@ -61508,9 +61847,46 @@ def _verify_stage_a_provider_replay(
             _required_str(audit_record, "candidate_id")
         ]
     ]
-    if queue_records != journal_queue_records:
+    ordinary_journal_queue_records = [
+        record
+        for record in journal_queue_records
+        if record.get("review_subject") != "candidate"
+    ]
+    terminal_journal_queue_records = [
+        record
+        for record in journal_queue_records
+        if record.get("review_subject") == "candidate"
+    ]
+    if (
+        queue_records != ordinary_journal_queue_records
+        or terminal_queue_records != terminal_journal_queue_records
+    ):
         raise CommandError("llm-unitize review queue does not reproduce from journal")
-    if queue_records != list(unitization_review_queue_records(audit_records)):
+    audit_queue_records = [
+        *unitization_review_queue_records(audit_records),
+        *(
+            queue
+            for audit in audit_records
+            for queue in cast(
+                Sequence[Mapping[str, Any]],
+                audit.get("unitizer_terminal_review_queue", ()),
+            )
+        ),
+    ]
+    ordinary_audit_queue_records = [
+        record
+        for record in audit_queue_records
+        if record.get("review_subject") != "candidate"
+    ]
+    terminal_audit_queue_records = [
+        record
+        for record in audit_queue_records
+        if record.get("review_subject") == "candidate"
+    ]
+    if (
+        queue_records != ordinary_audit_queue_records
+        or terminal_queue_records != terminal_audit_queue_records
+    ):
         raise CommandError("llm-unitize review queue does not reproduce from audit")
     return (
         prompt_commitments,
@@ -61526,7 +61902,12 @@ def _stage_a_unitization_run_card_extra(
     prediction_units_path: Path,
     audit_path: Path,
     review_queue_path: Path,
+    terminal_review_queue_path: Path,
     provider_attempt_namespace: str | None = None,
+    terminal_escalations: Mapping[
+        str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]
+    ]
+    | None = None,
 ) -> JsonRecord:
     # The explicit root is required to interpret relative parser-manifest paths.
     prompt_records = stage_a_unitization_prompt_records(
@@ -61542,7 +61923,9 @@ def _stage_a_unitization_run_card_extra(
             prediction_units_path=prediction_units_path,
             audit_path=audit_path,
             review_queue_path=review_queue_path,
+            terminal_review_queue_path=terminal_review_queue_path,
             provider_attempt_namespace=provider_attempt_namespace,
+            terminal_escalations=terminal_escalations,
         )
     )
     # _verify_stage_a_provider_replay reconstructs prompts independently. This
@@ -61585,10 +61968,23 @@ def _stage_a_unitization_run_card_extra(
         "input_commitments": dict(lineage.input_commitments),
         "model_execution": model_execution,
         "prompt_commitments": prompt_commitments,
+        "unitizer_terminal_escalations": {
+            candidate_id: {
+                "terminal_escalation_sha256": escalation.escalation_sha256,
+                "receipt": dict(receipt_commitment),
+            }
+            for candidate_id, (
+                escalation,
+                receipt_commitment,
+            ) in sorted((terminal_escalations or {}).items())
+        },
         "output_commitments": {
             "prediction_units": _stage_a_file_commitment(prediction_units_path),
             "llm_unitization_audit": _stage_a_file_commitment(audit_path),
             "unitization_review_queue": _stage_a_file_commitment(review_queue_path),
+            "unitizer_terminal_review_queue": _stage_a_file_commitment(
+                terminal_review_queue_path
+            ),
         },
     }
 
@@ -61600,10 +61996,16 @@ def _incomplete_stage_a_unitization_run_card_extra(
     prediction_units_path: Path,
     audit_path: Path,
     review_queue_path: Path,
+    terminal_review_queue_path: Path,
     provider_attempt_namespace: str | None = None,
+    terminal_escalations: Mapping[
+        str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]
+    ]
+    | None = None,
 ) -> JsonRecord:
     """Commit a resumable partial run without making it downstream-admissible."""
 
+    del terminal_escalations
     attempt_rows = tuple(
         row
         for row in _stage_a_provider_attempt_rows(lineage.provider_journal_path)
@@ -61649,6 +62051,9 @@ def _incomplete_stage_a_unitization_run_card_extra(
             "prediction_units": _stage_a_file_commitment(prediction_units_path),
             "llm_unitization_audit": _stage_a_file_commitment(audit_path),
             "unitization_review_queue": _stage_a_file_commitment(review_queue_path),
+            "unitizer_terminal_review_queue": _stage_a_file_commitment(
+                terminal_review_queue_path
+            ),
         },
     }
 
@@ -61770,6 +62175,12 @@ def _verify_stage_a_unitization_run_card(
     raw_path = _stage_a_committed_path(output_records, "prediction_units")
     audit_path = _stage_a_committed_path(output_records, "llm_unitization_audit")
     queue_path = _stage_a_committed_path(output_records, "unitization_review_queue")
+    has_terminal_queue = "unitizer_terminal_review_queue" in output_records
+    terminal_queue_path = (
+        _stage_a_committed_path(output_records, "unitizer_terminal_review_queue")
+        if has_terminal_queue
+        else None
+    )
     if (
         raw_path.resolve() != expected_prediction_units_path.resolve()
         or (
@@ -61796,18 +62207,92 @@ def _verify_stage_a_unitization_run_card(
                 queue_path, captured_input_bytes=captured_input_bytes
             ),
         ),
+        **(
+            {
+                "unitizer_terminal_review_queue": _stage_a_file_commitment(
+                    terminal_queue_path,
+                    payload=_stage_a_captured_payload(
+                        terminal_queue_path,
+                        captured_input_bytes=captured_input_bytes,
+                    ),
+                )
+            }
+            if terminal_queue_path is not None
+            else {}
+        ),
     }
     if dict(output_records) != expected_outputs:
         raise CommandError("llm-unitize output commitment changed")
+    raw_terminal_commitments = card.get("unitizer_terminal_escalations", {})
+    if not isinstance(raw_terminal_commitments, Mapping):
+        raise CommandError("llm-unitize terminal escalation commitments are invalid")
+    terminal_receipt_paths: list[Path] = []
+    for value in cast(Mapping[str, object], raw_terminal_commitments).values():
+        if not isinstance(value, Mapping):
+            raise CommandError("llm-unitize terminal escalation commitment is invalid")
+        receipt_value: object = cast(Mapping[str, object], value).get("receipt")
+        if not isinstance(receipt_value, Mapping):
+            raise CommandError("llm-unitize terminal receipt commitment is invalid")
+        receipt: Mapping[str, object] = cast(Mapping[str, object], receipt_value)
+        receipt_commitments: Mapping[str, object] = {"receipt": receipt}
+        terminal_receipt_paths.append(
+            _stage_a_committed_path(receipt_commitments, "receipt")
+        )
+    terminal_escalations = _verified_stage_a_unitizer_terminal_escalations(
+        receipt_paths=terminal_receipt_paths,
+        lineage=lineage,
+        markdown_root=lineage.markdown_root,
+        provider_attempt_namespace=provider_attempt_namespace,
+    )
+    expected_terminal_commitments = {
+        candidate_id: {
+            "terminal_escalation_sha256": escalation.escalation_sha256,
+            "receipt": dict(receipt_commitment),
+        }
+        for candidate_id, (
+            escalation,
+            receipt_commitment,
+        ) in sorted(terminal_escalations.items())
+    }
+    if dict(cast(Mapping[str, object], raw_terminal_commitments)) != (
+        expected_terminal_commitments
+    ):
+        raise CommandError("llm-unitize terminal escalation commitment changed")
+    if terminal_escalations and terminal_queue_path is None:
+        raise CommandError("llm-unitize terminal review queue is missing")
+    expected_terminal_queue = [
+        queue
+        for audit in _stage_a_captured_records(
+            audit_path,
+            label="llm-unitization audit",
+            captured_input_bytes=captured_input_bytes,
+        )
+        for queue in cast(
+            Sequence[Mapping[str, Any]],
+            audit.get("unitizer_terminal_review_queue", ()),
+        )
+    ]
+    if (
+        _stage_a_captured_records(
+            terminal_queue_path,
+            label="unitizer terminal review queue",
+            captured_input_bytes=captured_input_bytes,
+        )
+        if terminal_queue_path is not None
+        else []
+    ) != expected_terminal_queue:
+        raise CommandError("llm-unitize terminal review queue changed")
     prompt_commitments, attempts_sha256, verified_attempt_rows = (
         _verify_stage_a_provider_replay(
             lineage=lineage,
             prediction_units_path=raw_path,
             audit_path=audit_path,
             review_queue_path=queue_path,
+            terminal_review_queue_path=terminal_queue_path,
             provider_attempt_namespace=provider_attempt_namespace,
             captured_input_bytes=captured_input_bytes,
             journal_snapshot=journal_snapshot,
+            terminal_escalations=terminal_escalations,
         )
     )
     if card.get("prompt_commitments") != prompt_commitments:
@@ -61843,25 +62328,28 @@ def _verify_stage_a_unitization_run_card(
     typed_input_paths = cast(Sequence[object], raw_input_paths)
     typed_output_paths = cast(Sequence[object], raw_output_paths)
     if tuple(Path(str(path)).resolve() for path in typed_input_paths) != tuple(
-        path.resolve() for path in lineage.input_paths
+        path.resolve()
+        for path in (
+            *lineage.input_paths,
+            *sorted(terminal_receipt_paths, key=str),
+        )
     ):
         raise CommandError("llm-unitize input path lineage changed")
     if tuple(Path(str(path)).resolve() for path in typed_output_paths) != (
         raw_path.resolve(),
         audit_path.resolve(),
         queue_path.resolve(),
+        *((terminal_queue_path.resolve(),) if terminal_queue_path is not None else ()),
         lineage.provider_journal_path.resolve(),
     ):
         raise CommandError("llm-unitize output paths changed")
-    if card.get("record_count") != len(
-        _stage_a_captured_records(
-            raw_path,
-            label="raw prediction units",
-            captured_input_bytes=captured_input_bytes,
-        )
-    ):
+    if card.get("record_count") != len(lineage.selection_records):
         raise CommandError("llm-unitize record count changed")
-    return replace(lineage, verified_provider_attempt_rows=verified_attempt_rows)
+    return replace(
+        lineage,
+        verified_provider_attempt_rows=verified_attempt_rows,
+        unitizer_terminal_escalations=terminal_escalations,
+    )
 
 
 def _v4_finalized_citation_documents(
@@ -62235,6 +62723,16 @@ def _verify_finalized_stage_a_provider_chain(
     review_card_path = _required_stage_a_lineage_path(
         args, "unitization_review_run_card", "--unitization-review-run-card"
     )
+    review_card = _read_json_object(review_card_path)
+    if review_card.get("stage") == "apply-unitizer-terminal-review":
+        return _verify_terminal_apply_run_card(
+            args,
+            run_card_path=review_card_path,
+            finalized_path=finalized_prediction_units_path,
+            expected_selection_path=expected_selection_path,
+            expected_parser_manifest_path=expected_parser_manifest_path,
+            expected_markdown_root=expected_markdown_root,
+        )
     (
         raw_path,
         committed_unit_card,
@@ -62294,6 +62792,139 @@ def _verify_finalized_stage_a_provider_chain(
         ),
     )
     return lineage, unit_card_path, review_queue
+
+
+def _verify_terminal_apply_run_card(
+    args: argparse.Namespace,
+    *,
+    run_card_path: Path,
+    finalized_path: Path,
+    expected_selection_path: Path | None,
+    expected_parser_manifest_path: Path | None,
+    expected_markdown_root: Path | None,
+) -> tuple[_StageAUnitizationLineage, Path, Path]:
+    """Replay the ordinary and terminal branches of one successor apply card."""
+
+    card = _read_json_object(run_card_path)
+    if (
+        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or card.get("stage") != "apply-unitizer-terminal-review"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+        or card.get("zero_provider_activity_evidence") is not True
+    ):
+        raise CommandError("invalid completed terminal-unitizer apply run card")
+    raw_inputs = card.get("input_paths")
+    raw_outputs = card.get("output_paths")
+    if (
+        not isinstance(raw_inputs, list)
+        or len(cast(list[object], raw_inputs)) != 11
+        or not isinstance(raw_outputs, list)
+        or len(cast(list[object], raw_outputs)) != 1
+    ):
+        raise CommandError("terminal-unitizer apply run card paths differ")
+    (
+        selection_path,
+        raw_path,
+        unit_card_path,
+        structural_card_path,
+        ordinary_review_queue,
+        ordinary_adjudications,
+        escalations_path,
+        terminal_queue_path,
+        terminal_adjudications_path,
+        caps_path,
+        journal_path,
+    ) = tuple(Path(str(path)) for path in cast(list[object], raw_inputs))
+    committed_output = Path(str(cast(list[object], raw_outputs)[0]))
+    if committed_output.resolve() != finalized_path.resolve():
+        raise CommandError("terminal-unitizer apply output path changed")
+    if expected_selection_path is not None and (
+        selection_path.resolve() != expected_selection_path.resolve()
+    ):
+        raise CommandError("terminal-unitizer apply selection differs")
+    expected_sources = {
+        "selection": _stage_a_file_commitment(selection_path),
+        "raw_prediction_units": _stage_a_file_commitment(raw_path),
+        "llm_unitization_run_card": _stage_a_file_commitment(unit_card_path),
+        "llm_review_stage_a_run_card": _stage_a_file_commitment(structural_card_path),
+        "unitization_review_queue": _stage_a_file_commitment(ordinary_review_queue),
+        "unitization_review_adjudications": _stage_a_file_commitment(
+            ordinary_adjudications
+        ),
+        "terminal_escalations": _stage_a_file_commitment(escalations_path),
+        "unitizer_terminal_review_queue": _stage_a_file_commitment(terminal_queue_path),
+        "unitizer_terminal_adjudications": _stage_a_file_commitment(
+            terminal_adjudications_path
+        ),
+        "provider_cycle_caps": _stage_a_file_commitment(caps_path),
+        "provider_journal": _stage_a_file_commitment(journal_path),
+    }
+    if card.get("source_commitments") != expected_sources or card.get(
+        "output_commitments"
+    ) != {"finalized_prediction_units": _stage_a_file_commitment(finalized_path)}:
+        raise CommandError("terminal-unitizer apply commitments changed")
+    selected_count = len(_read_records(selection_path))
+    terminal_count = len(_read_records(terminal_queue_path))
+    if (
+        card.get("record_count") != selected_count
+        or card.get("selected_candidate_count") != selected_count
+        or card.get("terminal_candidate_count") != terminal_count
+        or card.get("ordinary_candidate_count") != selected_count - terminal_count
+    ):
+        raise CommandError("terminal-unitizer apply candidate counts changed")
+    requested_unit_card = _required_stage_a_lineage_path(
+        args, "llm_unitization_run_card", "--llm-unitization-run-card"
+    )
+    requested_structural_card = _required_stage_a_lineage_path(
+        args, "llm_review_stage_a_run_card", "--llm-review-stage-a-run-card"
+    )
+    requested_caps = _required_stage_a_lineage_path(
+        args, "provider_cycle_caps", "--provider-cycle-caps"
+    )
+    requested_journal = _required_stage_a_lineage_path(
+        args, "provider_journal", "--provider-journal"
+    )
+    if (
+        unit_card_path.resolve() != requested_unit_card.resolve()
+        or structural_card_path.resolve() != requested_structural_card.resolve()
+        or caps_path.resolve() != requested_caps.resolve()
+        or journal_path.resolve() != requested_journal.resolve()
+    ):
+        raise CommandError("terminal apply ordinary provider authority differs")
+    lineage, authenticated_unit_card = _verified_shared_provider_chain(
+        args,
+        raw_prediction_units_path=raw_path,
+        expected_selection_path=expected_selection_path,
+        expected_parser_manifest_path=expected_parser_manifest_path,
+        expected_markdown_root=expected_markdown_root,
+    )
+    _verify_stage_a_review_run_card(
+        structural_card_path,
+        lineage=lineage,
+        llm_unitization_run_card_path=authenticated_unit_card,
+        expected_review_queue_path=ordinary_review_queue,
+    )
+    try:
+        replayed = _replay_terminal_successor_apply(
+            selection_records=_read_records(selection_path),
+            raw_records=_read_records(raw_path),
+            ordinary_review_records=_read_records(ordinary_review_queue),
+            ordinary_adjudication_records=_read_records(ordinary_adjudications),
+            terminal_escalation_records=_read_records(escalations_path),
+            terminal_review_records=_read_records(terminal_queue_path),
+            terminal_adjudication_records=_read_records(terminal_adjudications_path),
+            lineage=lineage,
+            llm_unitization_run_card_path=authenticated_unit_card,
+        )
+    except UnitizationReviewError as exc:
+        raise CommandError(str(exc)) from exc
+    if _read_records(finalized_path) != replayed:
+        raise CommandError("terminal apply output does not replay from exact inputs")
+    return lineage, authenticated_unit_card, ordinary_review_queue
 
 
 def _verified_provider_stage_attempts(
@@ -62663,9 +63294,17 @@ def _verify_stage_a_review_run_card(
         label="raw prediction units",
         captured_input_bytes=captured_input_bytes,
     )
+    unitizer_terminal_candidates = set(
+        getattr(lineage, "unitizer_terminal_escalations", None) or {}
+    )
+    structural_selections = tuple(
+        record
+        for record in _read_records(selection_path)
+        if _required_str(record, "candidate_id") not in unitizer_terminal_candidates
+    )
     try:
         prompt_records = stage_a_structural_review_prompt_records(
-            selection_records=_read_records(selection_path),
+            selection_records=structural_selections,
             parser_records=_read_records(parser_path),
             prediction_unit_records=captured_raw_records,
             markdown_root=lineage.markdown_root,
@@ -62703,6 +63342,21 @@ def _verify_stage_a_review_run_card(
         audit_records
     ):
         raise CommandError("structural review contains duplicate candidate records")
+    for candidate_id in unitizer_terminal_candidates:
+        raw = raw_by_candidate.get(candidate_id)
+        audit = audit_by_candidate.get(candidate_id)
+        selection = selection_by_candidate[candidate_id]
+        try:
+            validate_unitizer_terminal_preserved_audit_record(
+                audit or {},
+                candidate_id=candidate_id,
+                case_id=_required_str(selection, "case_id"),
+                reviewer_model_key=entry.registry_key,
+                model_registry_sha256=registry_sha,
+                raw_prediction_units=raw or {},
+            )
+        except LlmPipelineError as exc:
+            raise CommandError(str(exc)) from exc
     terminal_receipt_paths: list[Path] = []
     terminal_attempt_counts: dict[tuple[str, str], int] = {}
     for candidate_id, audit in audit_by_candidate.items():
@@ -62801,9 +63455,11 @@ def _verify_stage_a_review_run_card(
     prompt_by_candidate = {
         _required_str(record, "candidate_id"): record for record in prompt_records
     }
-    if set(raw_by_candidate) != set(prompt_by_candidate) or set(
-        audit_by_candidate
-    ) != set(prompt_by_candidate):
+    if (
+        set(raw_by_candidate) != set(prompt_by_candidate) | unitizer_terminal_candidates
+        or set(audit_by_candidate)
+        != set(prompt_by_candidate) | unitizer_terminal_candidates
+    ):
         raise CommandError("structural review candidate coverage differs")
     for candidate_id, prompt_record in prompt_by_candidate.items():
         terminal = terminal_escalations.get(candidate_id)
@@ -63564,6 +64220,504 @@ def _cmd_acquisition_recover_llm_unitize_reconstruction(
     return 0
 
 
+def _cmd_acquisition_terminalize_llm_unitize_reconstruction(
+    args: argparse.Namespace,
+) -> int:
+    """Publish one provider-free v5 unitizer terminal-escalation receipt."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "terminalize-llm-unitize-reconstruction requires --execute; it never "
+            "calls a provider"
+        )
+    table_name = cast(str | None, getattr(args, "provider_authority_table", None))
+    if table_name is not None and table_name.strip():
+        raise CommandError(
+            "Stage A unitizer terminal escalation is provider-free and rejects "
+            "--provider-authority-table"
+        )
+    provider_attempt_namespace = cast(
+        str | None, getattr(args, "provider_attempt_namespace", None)
+    )
+    if provider_attempt_namespace != STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT:
+        raise CommandError(
+            "Stage A unitizer terminal escalation requires "
+            "--provider-attempt-namespace "
+            f"{STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT}"
+        )
+
+    output_root = _acquisition_output_root(args)
+    receipt_path = _acquisition_path(
+        args,
+        "terminal_escalation_output",
+        output_root / "llm-stage-a-unitizer-terminal-escalation.json",
+    )
+    resume = cast(bool, args.resume)
+    if receipt_path.exists() and not resume:
+        raise CommandError("Stage A unitizer terminal escalation output already exists")
+
+    markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    lineage = _verify_stage_a_unitization_lineage(args, markdown_root=markdown_root)
+    candidate_id = cast(str, args.candidate_id).strip()
+    matches = tuple(
+        record
+        for record in lineage.selection_records
+        if record.get("candidate_id") == candidate_id
+    )
+    if len(matches) != 1:
+        raise CommandError(
+            "Stage A unitizer terminal escalation requires exactly one selected "
+            "candidate"
+        )
+    try:
+        verify_provider_journal_identity(
+            lineage.provider_journal_path,
+            cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+        )
+    except ProviderJournalError as exc:
+        raise CommandError(str(exc)) from exc
+
+    before_rows = _provider_stage_attempt_rows(
+        lineage.provider_journal_path, stage="llm-unitize"
+    )
+    before_sha256 = _canonical_json_sha256(before_rows)
+    _require_stage_a_lineage_unchanged(lineage)
+    try:
+        escalation = build_llm_stage_a_unitizer_terminal_escalation(
+            selection_record=matches[0],
+            parser_records=lineage.parser_records,
+            markdown_root=markdown_root,
+            markdown_bytes=lineage.markdown_bytes,
+            registry_entry=lineage.registry_entry,
+            model_registry_sha256=lineage.registry_sha256,
+            provider_journal_path=lineage.provider_journal_path,
+            provider_cycle_cap_usd=float(
+                lineage.provider_caps.cap_usd(lineage.registry_entry.provider)
+            ),
+            provider_cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+            provider_account=_local_provider_account(
+                lineage.provider_caps, lineage.registry_entry.provider
+            ),
+            provider_attempt_namespace=provider_attempt_namespace,
+        )
+    except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    _require_stage_a_lineage_unchanged(lineage)
+    after_rows = _provider_stage_attempt_rows(
+        lineage.provider_journal_path, stage="llm-unitize"
+    )
+    if _canonical_json_sha256(after_rows) != before_sha256:
+        raise CommandError(
+            "Stage A unitizer terminal escalation changed the provider journal"
+        )
+
+    receipt = escalation.to_record()
+    if receipt_path.exists():
+        existing = _read_json_object_payload(
+            _read_singly_linked_regular_input(
+                receipt_path,
+                label="Stage A unitizer terminal escalation receipt",
+            ),
+            label="Stage A unitizer terminal escalation receipt",
+        )
+        if existing != receipt:
+            raise CommandError("Stage A unitizer terminal escalation receipt changed")
+    else:
+        _atomic_write_json(receipt_path, receipt)
+    _write_or_verify_immutable_recovery_completion(
+        args,
+        stage="terminalize-llm-unitize-reconstruction",
+        input_paths=lineage.input_paths,
+        output_paths=(receipt_path,),
+        extra={
+            "source_commitments": dict(lineage.input_commitments),
+            "unitizer_terminal_escalation": receipt,
+        },
+    )
+    return 0
+
+
+def _cmd_acquisition_build_unitizer_terminal_review_bundle(
+    args: argparse.Namespace,
+) -> int:
+    """Build candidate review artifacts from receipts and authenticated Markdown."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "build-unitizer-terminal-review-bundle requires --execute; it is "
+            "provider-free and never creates adjudications"
+        )
+    output_root = cast(Path, args.output_root)
+    receipt_output = _acquisition_path(
+        args,
+        "receipt_output",
+        output_root / "unitizer-terminal-receipts.jsonl",
+    )
+    queue_output = _acquisition_path(
+        args,
+        "queue_output",
+        output_root / "unitizer-terminal-review-queue.jsonl",
+    )
+    bundle_output = _acquisition_path(
+        args,
+        "bundle_output",
+        output_root / "unitizer-terminal-review-bundle.jsonl",
+    )
+    completion_run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards" / "build-unitizer-terminal-review-bundle.json",
+    )
+    completion_log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs" / "build-unitizer-terminal-review-bundle.jsonl",
+    )
+    receipt_paths = tuple(cast(Sequence[Path], args.terminal_receipt))
+    resolved_receipt_paths = tuple(path.resolve() for path in receipt_paths)
+    if len(set(resolved_receipt_paths)) != len(resolved_receipt_paths):
+        raise CommandError("unitizer terminal receipt paths duplicate")
+    receipt_snapshots = {
+        path: _read_singly_linked_regular_input(path, label="unitizer terminal receipt")
+        for path in resolved_receipt_paths
+    }
+    markdown_root = cast(Path, args.markdown_root)
+    lineage = _verify_verified_stage_a_parse_lineage(args, markdown_root=markdown_root)
+    selections: dict[str, Mapping[str, Any]] = {}
+    for selection in lineage.selection_records:
+        candidate_id = _required_str(selection, "candidate_id")
+        if candidate_id in selections:
+            raise CommandError(
+                f"duplicate authenticated selection candidate: {candidate_id}"
+            )
+        selections[candidate_id] = selection
+    parser_by_key: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for parser_record in lineage.parser_records:
+        key = (
+            _required_str(parser_record, "candidate_id"),
+            _required_str(parser_record, "source_document_id"),
+        )
+        if key in parser_by_key:
+            raise CommandError(f"duplicate parser manifest row: {key[0]}/{key[1]}")
+        parser_by_key[key] = parser_record
+
+    receipt_records: list[JsonRecord] = []
+    queue_records: list[JsonRecord] = []
+    bundle_records: list[JsonRecord] = []
+    seen_candidates: set[str] = set()
+    parsed_receipts: list[tuple[str, JsonRecord]] = []
+    for payload in receipt_snapshots.values():
+        record = _read_json_object_payload(payload, label="unitizer terminal receipt")
+        escalation = _unitizer_terminal_from_record(record)
+        if escalation.candidate_id in seen_candidates:
+            raise CommandError("duplicate unitizer terminal receipt candidate")
+        seen_candidates.add(escalation.candidate_id)
+        parsed_receipts.append((escalation.candidate_id, record))
+
+    for candidate_id, receipt in sorted(parsed_receipts, key=lambda item: item[0]):
+        selection = selections.get(candidate_id)
+        if selection is None:
+            raise CommandError(
+                f"unitizer terminal receipt candidate is unselected: {candidate_id}"
+            )
+        if _required_str(selection, "case_id") != _required_str(receipt, "case_id"):
+            raise CommandError(
+                f"unitizer terminal receipt case_id differs: {candidate_id}"
+            )
+        documents_value = selection.get("documents")
+        if not isinstance(documents_value, Sequence) or isinstance(
+            documents_value, (str, bytes)
+        ):
+            raise CommandError(f"selection documents are invalid: {candidate_id}")
+        model_visible_documents: dict[str, Mapping[str, Any]] = {}
+        for raw_document in cast(Sequence[object], documents_value):
+            if not isinstance(raw_document, Mapping):
+                raise CommandError(f"selection document is invalid: {candidate_id}")
+            document = cast(Mapping[str, Any], raw_document)
+            source_id = _required_str(document, "source_document_id")
+            if source_id in model_visible_documents:
+                raise CommandError(
+                    f"duplicate selection document: {candidate_id}/{source_id}"
+                )
+            role = _required_str(document, "document_role")
+            if (
+                role.casefold() not in {"decision", "order"}
+                and document.get("model_visible") is True
+                and document.get("contains_target_outcome") is False
+            ):
+                model_visible_documents[source_id] = document
+        commitments = cast(
+            Sequence[Mapping[str, Any]], receipt["predecision_source_commitments"]
+        )
+        source_ids = [
+            _required_str(commitment, "source_document_id")
+            for commitment in commitments
+        ]
+        if set(source_ids) != set(model_visible_documents):
+            raise CommandError(
+                f"unitizer terminal receipt source coverage differs: {candidate_id}"
+            )
+        predecision_sources: list[JsonRecord] = []
+        for source_id in source_ids:
+            document = model_visible_documents[source_id]
+            try:
+                parser_record = parser_by_key[(candidate_id, source_id)]
+            except KeyError as exc:
+                raise CommandError(
+                    f"unitizer terminal source is missing from parser manifest: "
+                    f"{candidate_id}/{source_id}"
+                ) from exc
+            markdown_path = _stage_a_markdown_path(
+                parser_record, markdown_root=lineage.markdown_root
+            )
+            relative_path = markdown_path.relative_to(
+                lineage.markdown_root.resolve()
+            ).as_posix()
+            try:
+                markdown_payload = lineage.markdown_bytes[relative_path]
+            except KeyError as exc:
+                raise CommandError(
+                    f"unitizer terminal Markdown is absent from authenticated "
+                    f"snapshot: {candidate_id}/{source_id}"
+                ) from exc
+            try:
+                markdown = markdown_payload.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise CommandError(
+                    f"unitizer terminal Markdown is not UTF-8: "
+                    f"{candidate_id}/{source_id}"
+                ) from exc
+            predecision_sources.append(
+                {
+                    "source_document_id": source_id,
+                    "document_role": _required_str(document, "document_role"),
+                    "docket_entry_number": document.get("docket_entry_number"),
+                    "description": document.get("description")
+                    or _required_str(document, "document_role"),
+                    "markdown": markdown,
+                }
+            )
+        try:
+            queue_record = build_unitizer_terminal_review_queue_record(receipt)
+            bundle_record = build_unitizer_terminal_review_bundle(
+                receipt=receipt,
+                queue_record=queue_record,
+                predecision_sources=predecision_sources,
+            )
+        except UnitizerTerminalReviewError as exc:
+            raise CommandError(str(exc)) from exc
+        receipt_records.append(dict(receipt))
+        queue_records.append(queue_record)
+        bundle_records.append(bundle_record)
+
+    _require_stage_a_parse_lineage_unchanged(lineage)
+    _require_snapshot_unchanged(receipt_snapshots, label="unitizer terminal receipt")
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    initialization_receipt_path = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
+    _validate_disclosure_review_paths(
+        input_paths=(
+            *lineage.file_snapshots,
+            *resolved_receipt_paths,
+            *((initialization_receipt_path,) if initialization_receipt_path else ()),
+        ),
+        output_paths=(
+            receipt_output,
+            queue_output,
+            bundle_output,
+            completion_run_card_path,
+            completion_log_path,
+        ),
+        protected_roots=(
+            lineage.document_root,
+            lineage.markdown_root,
+            *((controlled_private_root,) if controlled_private_root else ()),
+        ),
+    )
+    _acquisition_output_root(args)
+    for path, records in (
+        (receipt_output, receipt_records),
+        (queue_output, queue_records),
+        (bundle_output, bundle_records),
+    ):
+        _ensure_projection_artifact(
+            path,
+            _jsonl_bytes(records),
+            resume=cast(bool, args.resume),
+            stage="build-unitizer-terminal-review-bundle",
+        )
+    _write_acquisition_completion(
+        args,
+        stage="build-unitizer-terminal-review-bundle",
+        input_paths=(*lineage.input_paths, *resolved_receipt_paths),
+        output_paths=(receipt_output, queue_output, bundle_output),
+        record_count=len(receipt_records),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "input_commitments": {
+                "stage_a_parse_lineage": dict(lineage.input_commitments),
+                "lineage_roots": {
+                    "document_root": str(lineage.document_root.resolve()),
+                    "markdown_root": str(lineage.markdown_root.resolve()),
+                },
+                "markdown_tree": dict(lineage.markdown_tree),
+                "terminal_receipts": [
+                    _stage_a_file_commitment(path, payload=receipt_snapshots[path])
+                    for path in sorted(receipt_snapshots, key=str)
+                ],
+            },
+            "output_commitments": {
+                "terminal_receipts": _stage_a_file_commitment(receipt_output),
+                "terminal_review_queue": _stage_a_file_commitment(queue_output),
+                "terminal_review_bundle": _stage_a_file_commitment(bundle_output),
+            },
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "retrieval_activity_requested": False,
+            "retrieval_activity_executed": False,
+            "pacer_activity_executed": False,
+            "recap_fetch_activity_executed": False,
+            "creates_adjudications": False,
+            "evaluation_authorized": False,
+            "freeze_authorized": False,
+            "dispatch_authorized": False,
+        },
+    )
+    return 0
+
+
+def _cmd_acquisition_build_successor_attorney_packet(
+    args: argparse.Namespace,
+) -> int:
+    """Build packet v2 from five exact, closed review-artifact byte streams."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "build-successor-attorney-packet requires --execute; it is "
+            "provider-free and never creates adjudications"
+        )
+    output_root = cast(Path, args.output_root)
+    input_paths = (
+        cast(Path, args.unitization_review_bundle).resolve(),
+        cast(Path, args.unitization_review_queue_v2).resolve(),
+        cast(Path, args.unitizer_terminal_receipts).resolve(),
+        cast(Path, args.unitizer_terminal_review_queue).resolve(),
+        cast(Path, args.unitizer_terminal_review_bundle).resolve(),
+    )
+    if len(set(input_paths)) != len(input_paths):
+        raise CommandError("successor attorney packet inputs alias one another")
+    input_labels = (
+        "ordinary unitization review bundle",
+        "ordinary unitization review queue v2",
+        "unitizer terminal receipts",
+        "unitizer terminal review queue",
+        "unitizer terminal review bundle",
+    )
+    snapshots = {
+        path: _read_singly_linked_regular_input(path, label=label)
+        for path, label in zip(input_paths, input_labels, strict=True)
+    }
+    manifest_path = _acquisition_path(
+        args,
+        "packet_manifest_output",
+        output_root / "successor-attorney-packet-manifest.json",
+    )
+    attorney_view_path = _acquisition_path(
+        args,
+        "attorney_view_output",
+        output_root / "successor-attorney-review.json",
+    )
+    completion_run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards" / "build-successor-attorney-packet.json",
+    )
+    completion_log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs" / "build-successor-attorney-packet.jsonl",
+    )
+    controlled_private_root = cast(Path | None, args.controlled_private_root)
+    initialization_receipt_path = cast(
+        Path | None, args.purchase_ledger_initialization_receipt
+    )
+    _validate_disclosure_review_paths(
+        input_paths=(
+            *input_paths,
+            *((initialization_receipt_path,) if initialization_receipt_path else ()),
+        ),
+        output_paths=(
+            manifest_path,
+            attorney_view_path,
+            completion_run_card_path,
+            completion_log_path,
+        ),
+        protected_roots=(
+            *((controlled_private_root,) if controlled_private_root else ()),
+        ),
+    )
+    try:
+        packet = build_successor_attorney_packet_with_unitizer_terminals(
+            *(snapshots[path] for path in input_paths)
+        )
+    except AttorneyPacketError as exc:
+        raise CommandError(str(exc)) from exc
+    _require_snapshot_unchanged(snapshots, label="successor attorney packet input")
+    manifest_payload = _projection_json_bytes(packet.manifest)
+    attorney_view_payload = _projection_json_bytes(packet.attorney_view)
+    _acquisition_output_root(args)
+    _ensure_projection_artifact(
+        manifest_path,
+        manifest_payload,
+        resume=cast(bool, args.resume),
+        stage="build-successor-attorney-packet",
+    )
+    _ensure_projection_artifact(
+        attorney_view_path,
+        attorney_view_payload,
+        resume=cast(bool, args.resume),
+        stage="build-successor-attorney-packet",
+    )
+    _write_acquisition_completion(
+        args,
+        stage="build-successor-attorney-packet",
+        input_paths=input_paths,
+        output_paths=(manifest_path, attorney_view_path),
+        record_count=len(cast(Sequence[object], packet.attorney_view["candidates"])),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "input_commitments": {
+                label.replace(" ", "_"): _stage_a_file_commitment(
+                    path, payload=snapshots[path]
+                )
+                for path, label in zip(input_paths, input_labels, strict=True)
+            },
+            "output_commitments": {
+                "packet_manifest": _stage_a_file_commitment(manifest_path),
+                "attorney_view": _stage_a_file_commitment(attorney_view_path),
+            },
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "retrieval_activity_requested": False,
+            "retrieval_activity_executed": False,
+            "pacer_activity_executed": False,
+            "recap_fetch_activity_executed": False,
+            "creates_adjudications": False,
+            "evaluation_authorized": False,
+            "freeze_authorized": False,
+            "dispatch_authorized": False,
+        },
+    )
+    return 0
+
+
 def _cmd_acquisition_recover_llm_review_stage_a_reconstruction(
     args: argparse.Namespace,
 ) -> int:
@@ -64194,6 +65348,111 @@ def _verify_target_document_eligibility_audit_run_card(
         raise CommandError("target-document eligibility audit run card changed")
 
 
+def _unitizer_terminal_from_record(
+    record: Mapping[str, Any],
+) -> LlmStageAUnitizerTerminalEscalation:
+    def mapping_sequence(field_name: str) -> tuple[Mapping[str, Any], ...]:
+        value = record.get(field_name)
+        if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+            raise CommandError(f"Stage A unitizer terminal {field_name} is invalid")
+        items: tuple[object, ...] = tuple(cast(Sequence[object], value))
+        if not all(isinstance(item, Mapping) for item in items):
+            raise CommandError(f"Stage A unitizer terminal {field_name} is invalid")
+        return tuple(cast(Mapping[str, Any], item) for item in items)
+
+    try:
+        escalation = LlmStageAUnitizerTerminalEscalation(
+            candidate_id=_required_str(record, "candidate_id"),
+            case_id=_required_str(record, "case_id"),
+            unitizer_model_key=_required_str(record, "unitizer_model_key"),
+            model_registry_sha256=_required_str(record, "model_registry_sha256"),
+            provider_attempt_namespace=_required_str(
+                record, "provider_attempt_namespace"
+            ),
+            prompt=_required_str(record, "prompt"),
+            prompt_sha256=_required_str(record, "prompt_sha256"),
+            predecision_source_commitments=tuple(
+                dict(item)
+                for item in mapping_sequence("predecision_source_commitments")
+            ),
+            failed_attempts=tuple(
+                dict(item) for item in mapping_sequence("failed_attempts")
+            ),
+            schema_version=_required_str(record, "schema_version"),
+        )
+        if escalation.to_record() != dict(record):
+            raise CommandError("Stage A unitizer terminal escalation receipt changed")
+        return escalation
+    except (LlmPipelineError, UnitizerTerminalEscalationError, ValueError) as exc:
+        raise CommandError(
+            "Stage A unitizer terminal escalation receipt is invalid"
+        ) from exc
+
+
+def _verified_stage_a_unitizer_terminal_escalations(
+    *,
+    receipt_paths: Sequence[Path],
+    lineage: _StageAUnitizationLineage,
+    markdown_root: Path,
+    provider_attempt_namespace: str | None,
+) -> dict[str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]]:
+    """Replay-authenticate each v1 unitizer terminal receipt without writes."""
+
+    if len({path.resolve() for path in receipt_paths}) != len(receipt_paths):
+        raise CommandError("Stage A unitizer terminal escalation receipts duplicate")
+    selections = {
+        _required_str(record, "candidate_id"): record
+        for record in lineage.selection_records
+    }
+    result: dict[
+        str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]
+    ] = {}
+    for path in sorted(receipt_paths, key=lambda value: str(value.resolve())):
+        payload = _read_singly_linked_regular_input(
+            path, label="Stage A unitizer terminal escalation receipt"
+        )
+        record = _read_json_object_payload(
+            payload, label="Stage A unitizer terminal escalation receipt"
+        )
+        escalation = _unitizer_terminal_from_record(record)
+        candidate_id = escalation.candidate_id
+        if candidate_id in result:
+            raise CommandError("duplicate Stage A unitizer terminal escalation receipt")
+        selection = selections.get(candidate_id)
+        if selection is None:
+            raise CommandError(
+                "Stage A unitizer terminal escalation candidate is unselected"
+            )
+        try:
+            expected = build_llm_stage_a_unitizer_terminal_escalation(
+                selection_record=selection,
+                parser_records=lineage.parser_records,
+                markdown_root=markdown_root,
+                markdown_bytes=lineage.markdown_bytes,
+                registry_entry=lineage.registry_entry,
+                model_registry_sha256=lineage.registry_sha256,
+                provider_journal_path=lineage.provider_journal_path,
+                provider_cycle_cap_usd=float(
+                    lineage.provider_caps.cap_usd(lineage.registry_entry.provider)
+                ),
+                provider_cycle_id=lineage.cohort_cycle_id,
+                provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+                provider_account=_local_provider_account(
+                    lineage.provider_caps, lineage.registry_entry.provider
+                ),
+                provider_attempt_namespace=provider_attempt_namespace,
+            )
+        except (LlmPipelineError, ProviderJournalError, ValueError) as exc:
+            raise CommandError(str(exc)) from exc
+        if expected.to_record() != record:
+            raise CommandError("Stage A unitizer terminal escalation receipt changed")
+        result[candidate_id] = (
+            escalation,
+            {"path": str(path.resolve()), "sha256": _bytes_sha256(payload)},
+        )
+    return result
+
+
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     prospective_output_root = cast(Path, args.output_root)
     provider_journal_arg = cast(Path | None, args.provider_journal)
@@ -64207,6 +65466,9 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     )
     model_registry_path = cast(Path, args.model_registry)
     provider_caps_path = cast(Path | None, args.provider_cycle_caps)
+    terminal_receipt_paths = tuple(
+        cast(list[Path] | None, getattr(args, "terminal_escalation", None)) or ()
+    )
     dry_run = _acquisition_dry_run(args)
     provider_attempt_namespace = cast(
         str | None, getattr(args, "provider_attempt_namespace", None)
@@ -64281,6 +65543,11 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         "unitization_review_queue_output",
         output_root / "unitization-review-queue.jsonl",
     )
+    terminal_review_queue_path = _acquisition_path(
+        args,
+        "unitizer_terminal_review_queue_output",
+        output_root / "unitizer-terminal-review-queue.jsonl",
+    )
     selection_records = _read_records(selection_path)
     completion_extra: JsonRecord = {}
     if dry_run:
@@ -64297,15 +65564,30 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             ],
         )
         _write_jsonl(review_queue_path, [])
+        _write_jsonl(terminal_review_queue_path, [])
     else:
         assert lineage is not None
-        provider_spend_authorities, provider_accounts = _provider_spend_authorities(
-            args,
-            provider_caps=lineage.provider_caps,
-            provider_caps_sha256=lineage.provider_caps_sha256,
-            cycle_id=lineage.cohort_cycle_id,
-            providers=(lineage.registry_entry.provider,),
+        terminal_escalations = _verified_stage_a_unitizer_terminal_escalations(
+            receipt_paths=terminal_receipt_paths,
+            lineage=lineage,
+            markdown_root=markdown_root,
+            provider_attempt_namespace=provider_attempt_namespace,
         )
+        terminal_candidates = set(terminal_escalations)
+        selection_candidates = {
+            _required_str(selection, "candidate_id")
+            for selection in lineage.selection_records
+        }
+        if terminal_candidates == selection_candidates:
+            provider_spend_authorities, provider_accounts = None, None
+        else:
+            provider_spend_authorities, provider_accounts = _provider_spend_authorities(
+                args,
+                provider_caps=lineage.provider_caps,
+                provider_caps_sha256=lineage.provider_caps_sha256,
+                cycle_id=lineage.cohort_cycle_id,
+                providers=(lineage.registry_entry.provider,),
+            )
         result = llm_unitize_cases(
             selection_records=lineage.selection_records,
             parser_records=lineage.parser_records,
@@ -64325,6 +65607,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             provider_cycle_caps_sha256=lineage.provider_caps_sha256,
             provider_spend_authorities=provider_spend_authorities,
             provider_accounts=provider_accounts,
+            terminal_escalations=terminal_escalations,
             provider_attempt_namespace=provider_attempt_namespace,
         )
         _require_stage_a_lineage_unchanged(lineage)
@@ -64334,6 +65617,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             review_queue_path,
             unitization_review_queue_records(result.audit_records),
         )
+        _write_jsonl(terminal_review_queue_path, result.terminal_review_queue_records)
         extra_builder = (
             _stage_a_unitization_run_card_extra
             if len(result.records) == len(lineage.selection_records)
@@ -64345,7 +65629,9 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             prediction_units_path=prediction_units_path,
             audit_path=audit_path,
             review_queue_path=review_queue_path,
+            terminal_review_queue_path=terminal_review_queue_path,
             provider_attempt_namespace=provider_attempt_namespace,
+            terminal_escalations=terminal_escalations,
         )
         if eligibility_commitment is not None:
             completion_extra["target_document_eligibility_audit"] = (
@@ -64356,7 +65642,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         args,
         stage="llm-unitize",
         input_paths=(
-            lineage.input_paths
+            (*lineage.input_paths, *sorted(terminal_receipt_paths, key=str))
             if lineage is not None
             else (
                 selection_path,
@@ -64370,13 +65656,10 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             prediction_units_path,
             audit_path,
             review_queue_path,
+            terminal_review_queue_path,
             provider_journal_path,
         ),
-        record_count=(
-            len(_read_records(prediction_units_path))
-            if not dry_run
-            else len(selection_records)
-        ),
+        record_count=len(selection_records),
         dry_run=dry_run,
         paid_activity_requested=not dry_run,
         paid_activity_executed=not dry_run,
@@ -65129,10 +66412,13 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             provider_attempt_namespace=provider_attempt_namespace,
         )
         terminal_candidates = set(terminal_escalations)
+        unitizer_terminal_candidates = set(
+            getattr(lineage, "unitizer_terminal_escalations", None) or {}
+        )
         selection_candidates = {
             _required_str(selection, "candidate_id") for selection in selections
         }
-        if terminal_candidates == selection_candidates:
+        if terminal_candidates | unitizer_terminal_candidates == selection_candidates:
             # A fully terminalized batch is a provider-free continuation.  Do
             # not even open a distributed spend authority when no provider
             # reservation can occur.
@@ -65162,6 +66448,7 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             provider_spend_authorities=provider_spend_authorities,
             provider_accounts=provider_accounts,
             terminal_escalations=terminal_escalations,
+            unitizer_terminal_candidates=unitizer_terminal_candidates,
             provider_attempt_namespace=provider_attempt_namespace,
         )
         _write_jsonl(flags_path, result.records)
@@ -65178,6 +66465,7 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
                 _required_str(record, "model_key"),
             ): _required_str(record, "prompt_sha256")
             for record in result.audit_records
+            if record.get("status") != "unitizer_terminal_preserved"
         }
         terminal_statuses: dict[tuple[str, str], str] = {}
         terminal_attempt_counts: dict[tuple[str, str], int] = {}
@@ -66059,6 +67347,352 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
         extra=completion_extra,
     )
     return 0
+
+
+def _replay_terminal_successor_apply(
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+    raw_records: Sequence[Mapping[str, Any]],
+    ordinary_review_records: Sequence[Mapping[str, Any]],
+    ordinary_adjudication_records: Sequence[Mapping[str, Any]],
+    terminal_escalation_records: Sequence[Mapping[str, Any]],
+    terminal_review_records: Sequence[Mapping[str, Any]],
+    terminal_adjudication_records: Sequence[Mapping[str, Any]],
+    lineage: _StageAUnitizationLineage,
+    llm_unitization_run_card_path: Path,
+) -> list[JsonRecord]:
+    """Replay disjoint ordinary and terminal Stage A partitions and merge them."""
+
+    selected = _unique_candidate_records(selection_records, label="selection")
+    raw = _unique_candidate_records(raw_records, label="raw prediction units")
+    if set(raw) != set(selected):
+        raise UnitizationReviewError(
+            "raw prediction-unit candidates do not exactly cover selection"
+        )
+    authenticated_terminal = dict(lineage.unitizer_terminal_escalations or {})
+    terminal_ids = set(authenticated_terminal)
+    terminal_reviews = _unique_candidate_records(
+        terminal_review_records, label="terminal unitizer review"
+    )
+    terminal_escalations = _unique_candidate_records(
+        terminal_escalation_records, label="terminal unitizer escalation"
+    )
+    terminal_adjudications = _unique_candidate_records(
+        terminal_adjudication_records, label="terminal unitizer adjudication"
+    )
+    if not terminal_ids or not (
+        terminal_ids
+        == set(terminal_reviews)
+        == set(terminal_escalations)
+        == set(terminal_adjudications)
+    ):
+        raise UnitizationReviewError(
+            "terminal apply inputs do not exactly match authenticated terminal "
+            "candidates"
+        )
+    for candidate_id in terminal_ids:
+        raw_record = raw[candidate_id]
+        if raw_record.get("prediction_units") != []:
+            raise UnitizationReviewError(
+                "terminal raw candidate must contain zero accepted units: "
+                f"{candidate_id}"
+            )
+        escalation, _commitment = authenticated_terminal[candidate_id]
+        if escalation.to_record() != terminal_escalations[candidate_id]:
+            raise UnitizationReviewError(
+                "terminal escalation differs from authenticated llm-unitize "
+                f"lineage: {candidate_id}"
+            )
+        if terminal_adjudications[candidate_id].get("disposition") == (
+            UnitizationDisposition.CANDIDATE_EXCLUSION.value
+        ):
+            raise UnitizationReviewError(
+                "terminal CANDIDATE-EXCLUSION cannot publish an exact-cohort Stage A "
+                "artifact; authenticate a replacement candidate first"
+            )
+
+    ordinary_ids = set(selected) - terminal_ids
+    for record in ordinary_review_records:
+        if _required_str(record, "candidate_id") not in ordinary_ids:
+            raise UnitizationReviewError(
+                "ordinary review queue contains a terminal or unselected candidate"
+            )
+    for record in ordinary_adjudication_records:
+        if _required_str(record, "candidate_id") not in ordinary_ids:
+            raise UnitizationReviewError(
+                "ordinary adjudications contain a terminal or unselected candidate"
+            )
+    ordinary_raw = [
+        raw[candidate_id] for candidate_id in selected if candidate_id in ordinary_ids
+    ]
+    ordinary = list(
+        apply_unitization_reviews(
+            prediction_unit_records=ordinary_raw,
+            review_records=ordinary_review_records,
+            adjudication_records=ordinary_adjudication_records,
+        )
+    )
+    terminal = list(
+        apply_terminal_unitizer_reviews(
+            terminal_review_records=terminal_review_records,
+            terminal_escalation_records=terminal_escalation_records,
+            adjudication_records=terminal_adjudication_records,
+        )
+    )
+    verify_terminal_unitizer_finalized_units(
+        terminal,
+        terminal_review_records,
+        terminal_escalation_records,
+        terminal_adjudication_records,
+    )
+    _validate_v4_finalized_stage_a_citations(
+        [*ordinary, *terminal],
+        lineage=lineage,
+        llm_unitization_run_card_path=llm_unitization_run_card_path,
+    )
+    ordinary_by_id = _unique_candidate_records(
+        ordinary, label="ordinary finalized prediction units"
+    )
+    terminal_by_id = _unique_candidate_records(
+        terminal, label="terminal finalized prediction units"
+    )
+    if set(ordinary_by_id) != ordinary_ids or set(terminal_by_id) != terminal_ids:
+        raise UnitizationReviewError("successor apply partition coverage changed")
+    merged: list[JsonRecord] = []
+    for candidate_id, selection in selected.items():
+        finalized = terminal_by_id.get(candidate_id, ordinary_by_id.get(candidate_id))
+        if finalized is None or _required_str(finalized, "case_id") != _required_str(
+            selection, "case_id"
+        ):
+            raise UnitizationReviewError(
+                f"successor finalized case differs from selection: {candidate_id}"
+            )
+        merged.append(finalized)
+    return merged
+
+
+def _cmd_acquisition_apply_unitizer_terminal_review(
+    args: argparse.Namespace,
+) -> int:
+    """Apply terminal decisions and publish one selection-complete Stage A file."""
+
+    selection_path = cast(Path, args.selection)
+    raw_path = cast(Path, args.prediction_units)
+    unitization_card_path = cast(Path, args.llm_unitization_run_card)
+    structural_card_path = cast(Path, args.llm_review_stage_a_run_card)
+    ordinary_review_queue_path = cast(Path, args.unitization_review_queue)
+    ordinary_adjudications_path = cast(Path, args.unitization_review_adjudications)
+    escalations_path = cast(Path, args.terminal_escalations)
+    terminal_review_queue_path = cast(Path, args.unitizer_terminal_review_queue)
+    terminal_adjudications_path = cast(Path, args.unitizer_terminal_adjudications)
+    provider_caps_path = cast(Path, args.provider_cycle_caps)
+    provider_journal_path = cast(Path, args.provider_journal)
+    output_root = cast(Path, args.output_root)
+    finalized_path = _acquisition_path(
+        args,
+        "finalized_prediction_units_output",
+        output_root / "finalized-prediction-units.jsonl",
+    )
+    inputs = (
+        selection_path,
+        raw_path,
+        unitization_card_path,
+        structural_card_path,
+        ordinary_review_queue_path,
+        ordinary_adjudications_path,
+        escalations_path,
+        terminal_review_queue_path,
+        terminal_adjudications_path,
+        provider_caps_path,
+        provider_journal_path,
+    )
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _acquisition_output_root(args)
+        _write_jsonl(finalized_path, ())
+        _write_acquisition_completion(
+            args,
+            stage="apply-unitizer-terminal-review",
+            input_paths=inputs,
+            output_paths=(finalized_path,),
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={"zero_provider_activity_evidence": True},
+        )
+        return 0
+
+    captured = {
+        path: _read_singly_linked_regular_input(path, label=label)
+        for path, label in (
+            (selection_path, "selection"),
+            (raw_path, "raw prediction units"),
+            (unitization_card_path, "llm-unitize run card"),
+            (structural_card_path, "structural-review run card"),
+            (ordinary_review_queue_path, "ordinary unitization review queue"),
+            (ordinary_adjudications_path, "ordinary unitization adjudications"),
+            (escalations_path, "unitizer terminal escalations"),
+            (terminal_review_queue_path, "unitizer terminal review queue"),
+            (terminal_adjudications_path, "unitizer terminal adjudications"),
+            (provider_caps_path, "provider cycle caps"),
+            (provider_journal_path, "provider journal"),
+        )
+    }
+    lineage, authenticated_unitization_card = _verified_shared_provider_chain(
+        args,
+        raw_prediction_units_path=raw_path,
+        expected_selection_path=selection_path,
+    )
+    _verify_stage_a_review_run_card(
+        structural_card_path,
+        lineage=lineage,
+        llm_unitization_run_card_path=authenticated_unitization_card,
+        expected_review_queue_path=ordinary_review_queue_path,
+    )
+    try:
+        selection = _read_jsonl_payload(captured[selection_path], label="selection")
+        raw = _read_jsonl_payload(captured[raw_path], label="raw prediction units")
+        escalations = _read_jsonl_payload(
+            captured[escalations_path], label="unitizer terminal escalations"
+        )
+        terminal_reviews = _read_jsonl_payload(
+            captured[terminal_review_queue_path],
+            label="unitizer terminal review queue",
+        )
+        terminal_adjudications = _read_jsonl_payload(
+            captured[terminal_adjudications_path],
+            label="unitizer terminal adjudications",
+        )
+        ordinary_reviews = _read_jsonl_payload(
+            captured[ordinary_review_queue_path],
+            label="ordinary unitization review queue",
+        )
+        ordinary_adjudications = _read_jsonl_payload(
+            captured[ordinary_adjudications_path],
+            label="ordinary unitization adjudications",
+        )
+        finalized = _replay_terminal_successor_apply(
+            selection_records=selection,
+            raw_records=raw,
+            ordinary_review_records=ordinary_reviews,
+            ordinary_adjudication_records=ordinary_adjudications,
+            terminal_escalation_records=escalations,
+            terminal_review_records=terminal_reviews,
+            terminal_adjudication_records=terminal_adjudications,
+            lineage=lineage,
+            llm_unitization_run_card_path=authenticated_unitization_card,
+        )
+    except (UnitizationReviewError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+
+    for path, payload in captured.items():
+        if (
+            _read_singly_linked_regular_input(path, label="terminal apply input")
+            != payload
+        ):
+            raise CommandError(f"terminal apply input changed during replay: {path}")
+    _acquisition_output_root(args)
+    _write_jsonl(finalized_path, finalized)
+    written = _read_records(finalized_path)
+    if written != finalized:
+        raise CommandError("merged finalized prediction units changed after write")
+    replayed = _replay_terminal_successor_apply(
+        selection_records=selection,
+        raw_records=raw,
+        ordinary_review_records=ordinary_reviews,
+        ordinary_adjudication_records=ordinary_adjudications,
+        terminal_escalation_records=escalations,
+        terminal_review_records=terminal_reviews,
+        terminal_adjudication_records=terminal_adjudications,
+        lineage=lineage,
+        llm_unitization_run_card_path=authenticated_unitization_card,
+    )
+    if written != replayed:
+        raise CommandError("terminal successor output failed post-write replay")
+    _require_stage_a_lineage_unchanged(lineage)
+
+    schema_versions = sorted(
+        {_required_str(record, "schema_version") for record in finalized}
+    )
+    _write_acquisition_completion(
+        args,
+        stage="apply-unitizer-terminal-review",
+        input_paths=inputs,
+        output_paths=(finalized_path,),
+        record_count=len(finalized),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "selected_candidate_count": len(selection),
+            "ordinary_candidate_count": len(selection) - len(terminal_reviews),
+            "terminal_candidate_count": len(terminal_reviews),
+            "finalized_schema_versions": schema_versions,
+            "merge_contract": (
+                "selection-order union of independently replayed ordinary and "
+                "terminal partitions from full authenticated raw Stage A inputs"
+            ),
+            "source_commitments": {
+                "selection": _stage_a_file_commitment(
+                    selection_path, payload=captured[selection_path]
+                ),
+                "raw_prediction_units": _stage_a_file_commitment(
+                    raw_path, payload=captured[raw_path]
+                ),
+                "llm_unitization_run_card": _stage_a_file_commitment(
+                    unitization_card_path, payload=captured[unitization_card_path]
+                ),
+                "llm_review_stage_a_run_card": _stage_a_file_commitment(
+                    structural_card_path, payload=captured[structural_card_path]
+                ),
+                "unitization_review_queue": _stage_a_file_commitment(
+                    ordinary_review_queue_path,
+                    payload=captured[ordinary_review_queue_path],
+                ),
+                "unitization_review_adjudications": _stage_a_file_commitment(
+                    ordinary_adjudications_path,
+                    payload=captured[ordinary_adjudications_path],
+                ),
+                "terminal_escalations": _stage_a_file_commitment(
+                    escalations_path, payload=captured[escalations_path]
+                ),
+                "unitizer_terminal_review_queue": _stage_a_file_commitment(
+                    terminal_review_queue_path,
+                    payload=captured[terminal_review_queue_path],
+                ),
+                "unitizer_terminal_adjudications": _stage_a_file_commitment(
+                    terminal_adjudications_path,
+                    payload=captured[terminal_adjudications_path],
+                ),
+                "provider_cycle_caps": _stage_a_file_commitment(
+                    provider_caps_path, payload=captured[provider_caps_path]
+                ),
+                "provider_journal": _stage_a_file_commitment(
+                    provider_journal_path, payload=captured[provider_journal_path]
+                ),
+            },
+            "output_commitments": {
+                "finalized_prediction_units": _stage_a_file_commitment(finalized_path)
+            },
+            "zero_provider_activity_evidence": True,
+        },
+    )
+    return 0
+
+
+def _unique_candidate_records(
+    records: Sequence[Mapping[str, Any]], *, label: str
+) -> dict[str, JsonRecord]:
+    """Index exact candidate envelopes without silently replacing duplicates."""
+
+    indexed: dict[str, JsonRecord] = {}
+    for record in records:
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in indexed:
+            raise CommandError(f"duplicate {label} candidate_id: {candidate_id}")
+        indexed[candidate_id] = dict(record)
+    return indexed
 
 
 def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
@@ -67480,6 +69114,9 @@ class _StageAReplay:
     structural_review_audit_records: tuple[JsonRecord, ...]
     merged_review_records: tuple[JsonRecord, ...]
     adjudication_records: tuple[JsonRecord, ...]
+    terminal_review_records: tuple[JsonRecord, ...] = ()
+    terminal_escalation_records: tuple[JsonRecord, ...] = ()
+    terminal_adjudication_records: tuple[JsonRecord, ...] = ()
 
 
 def _model_registry_from_payload(payload: bytes, *, source: Path) -> ModelRegistry:
@@ -68513,20 +70150,57 @@ def _verify_stage_a_packet_authority(
             lineage.input_commitments,
             "provider_cycle_caps",
         )
-        _verify_unitization_review_run_card(
-            apply_unitization_run_card_path,
-            llm_unitization_run_card_path=unitization_run_card_path,
-            llm_review_stage_a_run_card_path=structural_review_run_card_path,
-            raw_prediction_units_path=raw_prediction_units_path,
-            original_review_queue_path=original_review_path,
-            review_queue_path=merged_review_path,
-            adjudications_path=adjudications_path,
-            provider_cycle_caps_path=provider_caps_path,
-            provider_journal_path=lineage.provider_journal_path,
-            finalized_path=finalized_prediction_units_path,
-            controlled_private_root=controlled_private_root,
-            initialization_receipt_path=initialization_receipt_path,
-        )
+        apply_card = _read_json_object(apply_unitization_run_card_path)
+        terminal_review_records: tuple[JsonRecord, ...] = ()
+        terminal_escalation_records: tuple[JsonRecord, ...] = ()
+        terminal_adjudication_records: tuple[JsonRecord, ...] = ()
+        if apply_card.get("stage") == "apply-unitizer-terminal-review":
+            args = argparse.Namespace(
+                unitization_review_run_card=apply_unitization_run_card_path,
+                llm_unitization_run_card=unitization_run_card_path,
+                llm_review_stage_a_run_card=structural_review_run_card_path,
+                provider_cycle_caps=provider_caps_path,
+                provider_journal=lineage.provider_journal_path,
+                controlled_private_root=controlled_private_root,
+                purchase_ledger_initialization_receipt=initialization_receipt_path,
+            )
+            _verify_terminal_apply_run_card(
+                args,
+                run_card_path=apply_unitization_run_card_path,
+                finalized_path=finalized_prediction_units_path,
+                expected_selection_path=_stage_a_committed_path(
+                    lineage.input_commitments, "selection"
+                ),
+                expected_parser_manifest_path=_stage_a_committed_path(
+                    lineage.input_commitments, "parser_manifest"
+                ),
+                expected_markdown_root=lineage.markdown_root,
+            )
+            successor_inputs = cast(Sequence[object], apply_card["input_paths"])
+            terminal_escalation_records = tuple(
+                _read_records(Path(str(successor_inputs[6])))
+            )
+            terminal_review_records = tuple(
+                _read_records(Path(str(successor_inputs[7])))
+            )
+            terminal_adjudication_records = tuple(
+                _read_records(Path(str(successor_inputs[8])))
+            )
+        else:
+            _verify_unitization_review_run_card(
+                apply_unitization_run_card_path,
+                llm_unitization_run_card_path=unitization_run_card_path,
+                llm_review_stage_a_run_card_path=structural_review_run_card_path,
+                raw_prediction_units_path=raw_prediction_units_path,
+                original_review_queue_path=original_review_path,
+                review_queue_path=merged_review_path,
+                adjudications_path=adjudications_path,
+                provider_cycle_caps_path=provider_caps_path,
+                provider_journal_path=lineage.provider_journal_path,
+                finalized_path=finalized_prediction_units_path,
+                controlled_private_root=controlled_private_root,
+                initialization_receipt_path=initialization_receipt_path,
+            )
         raw_records = tuple(_read_records(raw_prediction_units_path))
         audit_records = tuple(_read_records(unitization_audit_path))
         original_review_records = tuple(_read_records(original_review_path))
@@ -68557,6 +70231,9 @@ def _verify_stage_a_packet_authority(
                     "sha256:"
                 ),
                 reviewer_model_key=structural_review_model_key,
+                terminal_review_records=terminal_review_records,
+                terminal_escalation_records=terminal_escalation_records,
+                terminal_adjudication_records=terminal_adjudication_records,
             )
         except (ReadinessProvenanceError, UnitizationReviewError) as exc:
             raise CommandError(str(exc)) from exc
@@ -68568,6 +70245,9 @@ def _verify_stage_a_packet_authority(
             structural_review_audit_records=structural_audit_records,
             merged_review_records=merged_review_records,
             adjudication_records=adjudication_records,
+            terminal_review_records=terminal_review_records,
+            terminal_escalation_records=terminal_escalation_records,
+            terminal_adjudication_records=terminal_adjudication_records,
         )
 
     try:
@@ -69379,22 +71059,35 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             expected_registry_path=structural_review_registry_path,
             expected_model_key=structural_review_model_key,
         )
-        _verify_unitization_review_run_card(
-            unitization_review_run_card_path,
-            llm_unitization_run_card_path=llm_unitization_run_card_path,
-            llm_review_stage_a_run_card_path=llm_review_stage_a_run_card_path,
-            raw_prediction_units_path=raw_prediction_units_path,
-            original_review_queue_path=original_unitization_review_path,
-            review_queue_path=unitization_review_path,
-            adjudications_path=unitization_adjudications_path,
-            provider_cycle_caps_path=provider_caps_path,
-            provider_journal_path=provider_journal_path,
-            finalized_path=prediction_units_path,
-            controlled_private_root=cast(Path | None, args.controlled_private_root),
-            initialization_receipt_path=cast(
-                Path | None, args.purchase_ledger_initialization_receipt
-            ),
-        )
+        if (
+            _read_json_object(unitization_review_run_card_path).get("stage")
+            == "apply-unitizer-terminal-review"
+        ):
+            _verify_terminal_apply_run_card(
+                args,
+                run_card_path=unitization_review_run_card_path,
+                finalized_path=prediction_units_path,
+                expected_selection_path=selection_path,
+                expected_parser_manifest_path=parser_manifest_path,
+                expected_markdown_root=markdown_root,
+            )
+        else:
+            _verify_unitization_review_run_card(
+                unitization_review_run_card_path,
+                llm_unitization_run_card_path=llm_unitization_run_card_path,
+                llm_review_stage_a_run_card_path=llm_review_stage_a_run_card_path,
+                raw_prediction_units_path=raw_prediction_units_path,
+                original_review_queue_path=original_unitization_review_path,
+                review_queue_path=unitization_review_path,
+                adjudications_path=unitization_adjudications_path,
+                provider_cycle_caps_path=provider_caps_path,
+                provider_journal_path=provider_journal_path,
+                finalized_path=prediction_units_path,
+                controlled_private_root=cast(Path | None, args.controlled_private_root),
+                initialization_receipt_path=cast(
+                    Path | None, args.purchase_ledger_initialization_receipt
+                ),
+            )
         _verify_llm_label_run_card(
             label_run_card_path,
             lineage=lineage,
@@ -69506,6 +71199,12 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         unitization_adjudication_records = [
             dict(record) for record in stage_a_replay.adjudication_records
         ]
+        terminal_unitization_review_records = [
+            dict(record) for record in stage_a_replay.terminal_review_records
+        ]
+        terminal_unitization_adjudication_records = [
+            dict(record) for record in stage_a_replay.terminal_adjudication_records
+        ]
         label_records = _read_records(labels_path)
         label_audit_records = _read_records(label_audit_path)
         lawyer_review_records = _read_records(lawyer_review_path)
@@ -69594,6 +71293,10 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             unitization_audit_records=unitization_audit_records,
             unitization_review_records=unitization_review_records,
             unitization_adjudication_records=unitization_adjudication_records,
+            terminal_unitization_review_records=(terminal_unitization_review_records),
+            terminal_unitization_adjudication_records=(
+                terminal_unitization_adjudication_records
+            ),
             label_records=label_records,
             label_audit_records=label_audit_records,
             lawyer_review_records=lawyer_review_records,
@@ -69625,6 +71328,12 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 unitization_audit_records=unitization_audit_records,
                 unitization_review_records=unitization_review_records,
                 unitization_adjudication_records=unitization_adjudication_records,
+                terminal_unitization_review_records=(
+                    terminal_unitization_review_records
+                ),
+                terminal_unitization_adjudication_records=(
+                    terminal_unitization_adjudication_records
+                ),
                 label_records=label_records,
                 label_audit_records=label_audit_records,
                 lawyer_review_records=lawyer_review_records,

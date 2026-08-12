@@ -13,8 +13,12 @@ from typing import Any, cast
 from legalforecast.contracts.schemas import (
     FINALIZED_PREDICTION_UNITS_V2,
     FINALIZED_PREDICTION_UNITS_V3,
+    FINALIZED_PREDICTION_UNITS_V4,
+    LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1,
     UNITIZATION_ADJUDICATION_V1,
     UNITIZATION_ADJUDICATION_V2,
+    UNITIZATION_ADJUDICATION_V3,
+    UNITIZER_TERMINAL_REVIEW_QUEUE_V1,
 )
 from legalforecast.unitization.construct_units import StageADocumentRole
 from legalforecast.unitization.schemas import prediction_unit_from_record
@@ -23,6 +27,7 @@ JsonRecord = dict[str, Any]
 LEGACY_FINALIZED_SCHEMA_VERSION = "legalforecast.finalized_prediction_units.v1"
 FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V2)
 STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V3)
+TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V4)
 # Downstream Stage B authentication (decision-text artifacts) authenticates v1
 # and v2 only; adopting the structural-ADD successor there is its own migration,
 # so a v3 envelope fails closed at that boundary until it lands.
@@ -30,13 +35,19 @@ SUPPORTED_FINALIZED_SCHEMA_VERSIONS = frozenset(
     {LEGACY_FINALIZED_SCHEMA_VERSION, FINALIZED_SCHEMA_VERSION}
 )
 STAGE_A_FINALIZED_SCHEMA_VERSIONS = SUPPORTED_FINALIZED_SCHEMA_VERSIONS | {
-    STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION
+    STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION,
+    TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION,
 }
 DROP_MIGRATION_SCHEMA_VERSIONS = frozenset(
     {FINALIZED_SCHEMA_VERSION, STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION}
 )
 ADJUDICATION_SCHEMA_VERSION = str(UNITIZATION_ADJUDICATION_V1)
 STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION = str(UNITIZATION_ADJUDICATION_V2)
+TERMINAL_UNITIZER_ADJUDICATION_SCHEMA_VERSION = str(UNITIZATION_ADJUDICATION_V3)
+TERMINAL_UNITIZER_REVIEW_SCHEMA_VERSION = str(UNITIZER_TERMINAL_REVIEW_QUEUE_V1)
+TERMINAL_UNITIZER_ESCALATION_SCHEMA_VERSION = str(
+    LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1
+)
 SUPPORTED_ADJUDICATION_SCHEMA_VERSIONS = frozenset(
     {ADJUDICATION_SCHEMA_VERSION, STRUCTURAL_ADD_ADJUDICATION_SCHEMA_VERSION}
 )
@@ -51,6 +62,31 @@ _PROVENANCE_KEYS = frozenset(
         "structural_flag_sha256",
         "raw_prediction_units_sha256",
         "predecision_source_document_ids",
+        "unitizer_terminal_escalation_sha256",
+    }
+)
+
+_TERMINAL_ADDED_UNIT_LEDGER_KEYS = frozenset(
+    {
+        "unit_id",
+        "review_ids",
+        "unitizer_terminal_escalation_sha256",
+        "adjudication_id",
+        "adjudication_sha256",
+        "disposition",
+    }
+)
+_TERMINAL_FINALIZED_ENVELOPE_KEYS = frozenset(
+    {
+        "schema_version",
+        "status",
+        "candidate_id",
+        "case_id",
+        "unitizer_terminal_escalation_sha256",
+        "unitizer_terminal_review_queue_sha256",
+        "prediction_units",
+        "exclusion",
+        "added_units",
     }
 )
 _ADDED_UNIT_LEDGER_KEYS = frozenset(
@@ -434,6 +470,297 @@ def apply_unitization_reviews(
         reviews,
     )
     return tuple(output)
+
+
+def apply_terminal_unitizer_reviews(
+    *,
+    terminal_review_records: Iterable[Mapping[str, Any]],
+    terminal_escalation_records: Iterable[Mapping[str, Any]],
+    adjudication_records: Iterable[Mapping[str, Any]],
+) -> tuple[JsonRecord, ...]:
+    """Finalize candidates whose unitizer exhausted before producing raw units.
+
+    This path is deliberately separate from :func:`apply_unitization_reviews`:
+    there is no frozen source-unit envelope to consume or hash.  One
+    candidate-level terminal review authorizes either all reconstructed units
+    in one ``ADD`` adjudication or a candidate exclusion.
+    """
+
+    reviews = tuple(terminal_review_records)
+    escalations = tuple(terminal_escalation_records)
+    adjudications = tuple(adjudication_records)
+    reviews_by_candidate = _unique_by_candidate(reviews, "terminal unitizer review")
+    escalations_by_candidate = _unique_by_candidate(
+        escalations, "terminal unitizer escalation"
+    )
+    adjudications_by_candidate = _unique_by_candidate(
+        adjudications, "terminal unitizer adjudication"
+    )
+    if not reviews_by_candidate:
+        if escalations or adjudications:
+            raise UnitizationReviewError(
+                "terminal unitizer inputs do not cover the same candidates"
+            )
+        return ()
+    if not (
+        set(reviews_by_candidate)
+        == set(escalations_by_candidate)
+        == set(adjudications_by_candidate)
+    ):
+        raise UnitizationReviewError(
+            "terminal unitizer inputs do not cover the same candidates"
+        )
+
+    review_queue_sha256 = canonical_records_sha256(reviews)
+    output: list[JsonRecord] = []
+    for candidate_id, review in reviews_by_candidate.items():
+        escalation = escalations_by_candidate[candidate_id]
+        adjudication = adjudications_by_candidate[candidate_id]
+        case_id, escalation_sha256, document_ids = (
+            _authenticated_terminal_unitizer_inputs(review, escalation)
+        )
+        _validate_terminal_unitizer_adjudication(
+            adjudication,
+            review=review,
+            case_id=case_id,
+            escalation_sha256=escalation_sha256,
+        )
+        adjudication_id = _required_str(adjudication, "adjudication_id")
+        adjudication_sha256 = canonical_sha256(adjudication)
+        disposition = UnitizationDisposition(
+            _required_str(adjudication, "disposition").upper()
+        )
+        proposed_units = _record_sequence(
+            adjudication.get("finalized_units"), "finalized_units"
+        )
+        finalized_units: list[JsonRecord] = []
+        added_units: list[JsonRecord] = []
+        exclusion: JsonRecord | None = None
+        if disposition is UnitizationDisposition.ADD:
+            if not proposed_units:
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: terminal ADD must emit one or more units"
+                )
+            seen_unit_ids: set[str] = set()
+            for proposed in proposed_units:
+                if _PROVENANCE_KEYS.intersection(proposed):
+                    raise UnitizationReviewError(
+                        f"{adjudication_id}: terminal ADD unit may not declare "
+                        "its own provenance"
+                    )
+                unit = _canonical_added_unit(proposed, adjudication_id)
+                unit_id = _required_str(unit, "unit_id")
+                if unit_id in seen_unit_ids:
+                    raise UnitizationReviewError(
+                        f"{adjudication_id}: duplicate added unit_id"
+                    )
+                seen_unit_ids.add(unit_id)
+                cited_document_ids = _cited_document_ids(unit)
+                if not cited_document_ids:
+                    raise UnitizationReviewError(
+                        f"{adjudication_id}: terminal ADD unit lacks "
+                        "predecision citations"
+                    )
+                if not cited_document_ids.issubset(document_ids):
+                    raise UnitizationReviewError(
+                        f"{adjudication_id}: terminal ADD unit cites "
+                        "unauthenticated predecision documents"
+                    )
+                provenance = {
+                    "source_unit_sha256s": [],
+                    "adjudication_id": adjudication_id,
+                    "adjudication_sha256": adjudication_sha256,
+                    "disposition": UnitizationDisposition.ADD.value,
+                    "added_from_review_ids": [_required_str(review, "review_id")],
+                    "unitizer_terminal_escalation_sha256": escalation_sha256,
+                    "predecision_source_document_ids": list(document_ids),
+                }
+                finalized_units.append({**unit, **provenance})
+                added_units.append(
+                    {
+                        "unit_id": unit_id,
+                        "review_ids": [_required_str(review, "review_id")],
+                        "unitizer_terminal_escalation_sha256": escalation_sha256,
+                        "adjudication_id": adjudication_id,
+                        "adjudication_sha256": adjudication_sha256,
+                        "disposition": UnitizationDisposition.ADD.value,
+                    }
+                )
+        else:
+            exclusion = {
+                "reason": _required_str(adjudication, "exclusion_reason"),
+                "adjudication_id": adjudication_id,
+                "adjudication_sha256": adjudication_sha256,
+            }
+        output.append(
+            {
+                "schema_version": TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION,
+                "status": (
+                    "finalized"
+                    if disposition is UnitizationDisposition.ADD
+                    else "candidate_excluded"
+                ),
+                "candidate_id": candidate_id,
+                "case_id": case_id,
+                "unitizer_terminal_escalation_sha256": escalation_sha256,
+                "unitizer_terminal_review_queue_sha256": review_queue_sha256,
+                "prediction_units": finalized_units,
+                "exclusion": exclusion,
+                "added_units": added_units,
+            }
+        )
+
+    verify_terminal_unitizer_finalized_units(
+        output, reviews, escalations, adjudications
+    )
+    return tuple(output)
+
+
+def verify_terminal_unitizer_finalized_units(
+    finalized_records: Iterable[Mapping[str, Any]],
+    terminal_review_records: Iterable[Mapping[str, Any]],
+    terminal_escalation_records: Iterable[Mapping[str, Any]],
+    adjudication_records: Iterable[Mapping[str, Any]],
+) -> None:
+    """Independently reproduce a terminal-unitizer finalization hash chain."""
+
+    finalized = tuple(finalized_records)
+    reviews = tuple(terminal_review_records)
+    escalations = tuple(terminal_escalation_records)
+    adjudications = tuple(adjudication_records)
+    finalized_by_candidate = _unique_by_candidate(finalized, "terminal finalized units")
+    reviews_by_candidate = _unique_by_candidate(reviews, "terminal unitizer review")
+    escalations_by_candidate = _unique_by_candidate(
+        escalations, "terminal unitizer escalation"
+    )
+    adjudications_by_candidate = _unique_by_candidate(
+        adjudications, "terminal unitizer adjudication"
+    )
+    if not (
+        set(finalized_by_candidate)
+        == set(reviews_by_candidate)
+        == set(escalations_by_candidate)
+        == set(adjudications_by_candidate)
+    ):
+        raise UnitizationReviewError(
+            "terminal unitizer inputs do not cover the same candidates"
+        )
+    expected_queue_sha256 = canonical_records_sha256(reviews)
+    for candidate_id, record in finalized_by_candidate.items():
+        if frozenset(record) != _TERMINAL_FINALIZED_ENVELOPE_KEYS:
+            raise UnitizationReviewError(
+                "invalid terminal finalized prediction-units envelope shape"
+            )
+        if record.get("schema_version") != TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION:
+            raise UnitizationReviewError(
+                "unsupported terminal finalized prediction-units schema"
+            )
+        review = reviews_by_candidate[candidate_id]
+        escalation = escalations_by_candidate[candidate_id]
+        adjudication = adjudications_by_candidate[candidate_id]
+        case_id, escalation_sha256, document_ids = (
+            _authenticated_terminal_unitizer_inputs(review, escalation)
+        )
+        _validate_terminal_unitizer_adjudication(
+            adjudication,
+            review=review,
+            case_id=case_id,
+            escalation_sha256=escalation_sha256,
+        )
+        if (
+            _required_str(record, "case_id") != case_id
+            or _required_str(record, "unitizer_terminal_escalation_sha256")
+            != escalation_sha256
+        ):
+            raise UnitizationReviewError("broken terminal escalation hash link")
+        if (
+            _required_str(record, "unitizer_terminal_review_queue_sha256")
+            != expected_queue_sha256
+        ):
+            raise UnitizationReviewError("broken terminal review queue hash link")
+        adjudication_id = _required_str(adjudication, "adjudication_id")
+        adjudication_sha256 = canonical_sha256(adjudication)
+        disposition = UnitizationDisposition(
+            _required_str(adjudication, "disposition").upper()
+        )
+        units = _record_sequence(record.get("prediction_units"), "prediction_units")
+        added_rows = _record_sequence(record.get("added_units"), "added_units")
+        if disposition is UnitizationDisposition.CANDIDATE_EXCLUSION:
+            exclusion = record.get("exclusion")
+            if (
+                record.get("status") != "candidate_excluded"
+                or units
+                or added_rows
+                or not isinstance(exclusion, Mapping)
+                or cast(Mapping[str, Any], exclusion).get("reason")
+                != _required_str(adjudication, "exclusion_reason")
+                or cast(Mapping[str, Any], exclusion).get("adjudication_id")
+                != adjudication_id
+                or cast(Mapping[str, Any], exclusion).get("adjudication_sha256")
+                != adjudication_sha256
+            ):
+                raise UnitizationReviewError(
+                    "invalid terminal candidate-exclusion envelope"
+                )
+            continue
+        if record.get("status") != "finalized" or record.get("exclusion") is not None:
+            raise UnitizationReviewError("invalid terminal finalized envelope")
+        proposed_units = _record_sequence(
+            adjudication.get("finalized_units"), "finalized_units"
+        )
+        if not proposed_units or len(units) != len(proposed_units):
+            raise UnitizationReviewError(
+                f"{adjudication_id}: terminal ADD must emit one or more units"
+            )
+        units_by_id = _unique_by_id(units, "unit_id", "terminal finalized unit")
+        ledgers_by_id = _unique_by_id(added_rows, "unit_id", "terminal added unit")
+        if set(units_by_id) != set(ledgers_by_id):
+            raise UnitizationReviewError(
+                "terminal added_units provenance does not match finalized units"
+            )
+        review_id = _required_str(review, "review_id")
+        for proposed in proposed_units:
+            expected = _canonical_added_unit(proposed, adjudication_id)
+            unit_id = _required_str(expected, "unit_id")
+            unit = units_by_id.get(unit_id)
+            if unit is None or _base_unit(unit) != expected:
+                raise UnitizationReviewError(
+                    f"terminal added unit does not match adjudication output: {unit_id}"
+                )
+            cited_document_ids = _cited_document_ids(unit)
+            if not cited_document_ids:
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: terminal ADD unit lacks predecision citations"
+                )
+            if not cited_document_ids.issubset(document_ids):
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: terminal ADD unit cites "
+                    "unauthenticated predecision documents"
+                )
+            if (
+                unit.get("source_unit_sha256s") != []
+                or unit.get("adjudication_id") != adjudication_id
+                or unit.get("adjudication_sha256") != adjudication_sha256
+                or unit.get("disposition") != UnitizationDisposition.ADD.value
+                or unit.get("added_from_review_ids") != [review_id]
+                or unit.get("unitizer_terminal_escalation_sha256") != escalation_sha256
+                or unit.get("predecision_source_document_ids") != list(document_ids)
+            ):
+                raise UnitizationReviewError(
+                    f"broken terminal added-unit provenance: {unit_id}"
+                )
+            ledger = ledgers_by_id[unit_id]
+            if frozenset(ledger) != _TERMINAL_ADDED_UNIT_LEDGER_KEYS or ledger != {
+                "unit_id": unit_id,
+                "review_ids": [review_id],
+                "unitizer_terminal_escalation_sha256": escalation_sha256,
+                "adjudication_id": adjudication_id,
+                "adjudication_sha256": adjudication_sha256,
+                "disposition": UnitizationDisposition.ADD.value,
+            }:
+                raise UnitizationReviewError(
+                    f"broken terminal added-unit ledger: {unit_id}"
+                )
 
 
 def verify_finalized_prediction_units(
@@ -1090,6 +1417,15 @@ def require_finalized_envelopes(
             raise UnitizationReviewError(
                 "legacy finalized schema cannot record additions"
             )
+        if schema_version == TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION:
+            if frozenset(record) != _TERMINAL_FINALIZED_ENVELOPE_KEYS:
+                raise UnitizationReviewError(
+                    "invalid terminal finalized prediction-units envelope shape"
+                )
+            _required_str(record, "unitizer_terminal_escalation_sha256")
+            _required_str(record, "unitizer_terminal_review_queue_sha256")
+            _record_sequence(record.get("added_units"), "added_units")
+            continue
         _required_str(record, "unitization_review_queue_sha256")
         status = record.get("status")
         units = _record_sequence(record.get("prediction_units"), "prediction_units")
@@ -1482,6 +1818,173 @@ def _automatic_provenance(unit: Mapping[str, Any]) -> JsonRecord:
 
 def _base_unit(unit: Mapping[str, Any]) -> JsonRecord:
     return {key: value for key, value in unit.items() if key not in _PROVENANCE_KEYS}
+
+
+def _authenticated_terminal_unitizer_inputs(
+    review: Mapping[str, Any], escalation: Mapping[str, Any]
+) -> tuple[str, str, tuple[str, ...]]:
+    """Authenticate one candidate-level queue row against its exact receipt."""
+
+    # Local import avoids a module cycle: the queue builder uses this module's
+    # canonical hash helper.  Equality with its closed projection ensures the
+    # applicator does not maintain a weaker duplicate receipt validator.
+    from legalforecast.unitization.unitizer_terminal_review import (
+        UnitizerTerminalReviewError,
+        build_unitizer_terminal_review_queue_record,
+    )
+
+    if escalation.get("schema_version") != TERMINAL_UNITIZER_ESCALATION_SCHEMA_VERSION:
+        raise UnitizationReviewError("unsupported terminal unitizer escalation schema")
+    if review.get("schema_version") != TERMINAL_UNITIZER_REVIEW_SCHEMA_VERSION:
+        raise UnitizationReviewError("unsupported terminal unitizer review schema")
+    try:
+        expected_review = build_unitizer_terminal_review_queue_record(escalation)
+    except UnitizerTerminalReviewError as error:
+        raise UnitizationReviewError(f"invalid terminal escalation: {error}") from error
+    if dict(review) != expected_review:
+        raise UnitizationReviewError(
+            "terminal review record differs from its authenticated escalation"
+        )
+    candidate_id = _required_str(escalation, "candidate_id")
+    case_id = _required_str(escalation, "case_id")
+    if (
+        _required_str(review, "candidate_id") != candidate_id
+        or _required_str(review, "case_id") != case_id
+        or review.get("status") != "pending_adjudication"
+        or review.get("review_subject") != "candidate"
+    ):
+        raise UnitizationReviewError("terminal review belongs to another candidate")
+    escalation_sha256 = canonical_sha256(escalation)
+    if _required_str(review, "terminal_escalation_sha256") != escalation_sha256:
+        raise UnitizationReviewError("broken terminal escalation hash link")
+    if review.get("allowed_actions") != [
+        UnitizationDisposition.ADD.value,
+        UnitizationDisposition.CANDIDATE_EXCLUSION.value,
+    ]:
+        raise UnitizationReviewError("invalid terminal review allowed_actions")
+    commitments = _record_sequence(
+        escalation.get("predecision_source_commitments"),
+        "predecision_source_commitments",
+    )
+    document_ids = tuple(
+        _required_str(commitment, "source_document_id") for commitment in commitments
+    )
+    if not document_ids or len(document_ids) != len(set(document_ids)):
+        raise UnitizationReviewError(
+            "terminal escalation requires unique predecision sources"
+        )
+    review_item = review.get("review_item")
+    if not isinstance(review_item, Mapping):
+        raise UnitizationReviewError("terminal review_item is required")
+    review_item = cast(Mapping[str, Any], review_item)
+    if (
+        _string_sequence(
+            review_item.get("predecision_source_document_ids"),
+            "predecision_source_document_ids",
+        )
+        != document_ids
+        or _record_sequence(
+            review_item.get("predecision_source_commitments"),
+            "predecision_source_commitments",
+        )
+        != commitments
+    ):
+        raise UnitizationReviewError(
+            "terminal review predecision sources do not match escalation"
+        )
+    return case_id, escalation_sha256, document_ids
+
+
+def _validate_terminal_unitizer_adjudication(
+    adjudication: Mapping[str, Any],
+    *,
+    review: Mapping[str, Any],
+    case_id: str,
+    escalation_sha256: str,
+) -> None:
+    """Require the closed candidate-level terminal decision shape."""
+
+    if (
+        adjudication.get("schema_version")
+        != TERMINAL_UNITIZER_ADJUDICATION_SCHEMA_VERSION
+    ):
+        raise UnitizationReviewError(
+            "unsupported terminal unitizer adjudication schema"
+        )
+    adjudication_id = _required_str(adjudication, "adjudication_id")
+    if (
+        _required_str(adjudication, "candidate_id")
+        != _required_str(review, "candidate_id")
+        or _required_str(adjudication, "case_id") != case_id
+    ):
+        raise UnitizationReviewError(
+            f"{adjudication_id}: terminal adjudication candidate mismatch"
+        )
+    review_ids = _string_sequence(adjudication.get("review_ids"), "review_ids")
+    if review_ids != (_required_str(review, "review_id"),):
+        raise UnitizationReviewError(
+            f"{adjudication_id}: terminal adjudication requires exactly one "
+            "terminal review"
+        )
+    if "source_unit_ids" in adjudication:
+        raise UnitizationReviewError(
+            f"{adjudication_id}: terminal adjudication must omit source_unit_ids"
+        )
+    if _required_str(adjudication, "terminal_escalation_sha256") != escalation_sha256:
+        raise UnitizationReviewError(
+            f"{adjudication_id}: terminal escalation digest mismatch"
+        )
+    try:
+        disposition = UnitizationDisposition(
+            _required_str(adjudication, "disposition").upper()
+        )
+    except ValueError as error:
+        raise UnitizationReviewError(
+            f"{adjudication_id}: invalid terminal disposition"
+        ) from error
+    if disposition not in {
+        UnitizationDisposition.ADD,
+        UnitizationDisposition.CANDIDATE_EXCLUSION,
+    }:
+        raise UnitizationReviewError(f"{adjudication_id}: invalid terminal disposition")
+    expected_fields = {
+        "schema_version",
+        "adjudication_id",
+        "candidate_id",
+        "case_id",
+        "review_ids",
+        "terminal_escalation_sha256",
+        "disposition",
+        "finalized_units",
+        "adjudicator_id",
+        "adjudication_notes",
+    }
+    if disposition is UnitizationDisposition.CANDIDATE_EXCLUSION:
+        expected_fields.add("exclusion_reason")
+    if set(adjudication) != expected_fields:
+        raise UnitizationReviewError(
+            f"{adjudication_id}: invalid terminal adjudication field set"
+        )
+    finalized_units = _record_sequence(
+        adjudication.get("finalized_units"), "finalized_units"
+    )
+    if disposition is UnitizationDisposition.ADD:
+        if not finalized_units:
+            raise UnitizationReviewError(
+                f"{adjudication_id}: terminal ADD must emit one or more units"
+            )
+        if "exclusion_reason" in adjudication:
+            raise UnitizationReviewError(
+                f"{adjudication_id}: terminal ADD cannot declare exclusion_reason"
+            )
+    elif finalized_units:
+        raise UnitizationReviewError(
+            f"{adjudication_id}: CANDIDATE-EXCLUSION cannot emit units"
+        )
+    else:
+        _required_str(adjudication, "exclusion_reason")
+    _required_str(adjudication, "adjudicator_id")
+    _required_str(adjudication, "adjudication_notes")
 
 
 def _validate_adjudication_header(record: Mapping[str, Any], *, case_id: str) -> None:
