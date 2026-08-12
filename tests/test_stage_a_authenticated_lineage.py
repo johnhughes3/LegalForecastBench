@@ -2037,6 +2037,69 @@ def test_structural_review_run_card_rejects_finalize_path_and_journal_substituti
         **expected,
     )
 
+    relocated_caps_path = tmp_path / "relocated-caps.json"
+    relocated_caps_path.write_bytes(caps_path.read_bytes())
+    run_card = json.loads(run_card_path.read_text(encoding="utf-8"))
+    run_card["source_commitments"]["provider_cycle_caps"] = (
+        cli._stage_a_file_commitment(relocated_caps_path)
+    )
+    run_card["input_paths"] = [
+        str(relocated_caps_path.resolve())
+        if value == str(caps_path.resolve())
+        else value
+        for value in run_card["input_paths"]
+    ]
+    _write_json(run_card_path, run_card)
+    cli._verify_stage_a_review_run_card(
+        run_card_path,
+        lineage=lineage,
+        llm_unitization_run_card_path=unit_card,
+        expected_review_queue_path=paths["reviewed-queue"],
+        **expected,
+    )
+
+    relocated_selection_path = tmp_path / "relocated-selection.jsonl"
+    relocated_selection_path.write_bytes(paths["selection"].read_bytes())
+    run_card["source_commitments"]["selection"] = cli._stage_a_file_commitment(
+        relocated_selection_path
+    )
+    _write_json(run_card_path, run_card)
+    with pytest.raises(cli.CommandError, match="source lineage differs from Stage A"):
+        cli._verify_stage_a_review_run_card(
+            run_card_path,
+            lineage=lineage,
+            llm_unitization_run_card_path=unit_card,
+            expected_review_queue_path=paths["reviewed-queue"],
+            **expected,
+        )
+    run_card["source_commitments"]["selection"] = cli._stage_a_file_commitment(
+        paths["selection"]
+    )
+    relocated_caps_path.write_text("{}\n", encoding="utf-8")
+    run_card["source_commitments"]["provider_cycle_caps"] = (
+        cli._stage_a_file_commitment(relocated_caps_path)
+    )
+    _write_json(run_card_path, run_card)
+    with pytest.raises(cli.CommandError, match="source lineage differs from Stage A"):
+        cli._verify_stage_a_review_run_card(
+            run_card_path,
+            lineage=lineage,
+            llm_unitization_run_card_path=unit_card,
+            expected_review_queue_path=paths["reviewed-queue"],
+            **expected,
+        )
+
+    run_card["source_commitments"]["provider_cycle_caps"] = (
+        cli._stage_a_file_commitment(caps_path)
+    )
+    run_card["input_paths"] = [
+        str(caps_path.resolve())
+        if value == str(relocated_caps_path.resolve())
+        else value
+        for value in run_card["input_paths"]
+    ]
+    _write_json(run_card_path, run_card)
+
     substituted_flags = tmp_path / "substituted-flags.jsonl"
     _write_jsonl(substituted_flags, [])
     with pytest.raises(cli.CommandError, match="structural review output path differs"):
