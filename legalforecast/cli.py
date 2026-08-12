@@ -177,7 +177,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseSnapshot,
     canonical_purchase_state_sha256,
     initialize_case_dev_purchase_journal,
-    read_case_dev_purchase_authority_snapshots,
+    read_case_dev_purchase_authority_audit,
     read_case_dev_purchase_snapshot,
     require_approved_case_dev_purchase_policy,
     verify_approved_purchase_input_bytes,
@@ -48244,22 +48244,18 @@ def _verify_materialized_downstream_lineage(
                 direct_snapshots[cohort_policy_path], source=cohort_policy_path
             ),
         )
-        snapshot = read_case_dev_purchase_snapshot(
+        purchase_authority_audit = read_case_dev_purchase_authority_audit(
             ledger_path.resolve(),
             policy=purchase_policy,
             controlled_private_root=controlled_private_root,
             initialization_receipt_path=initialization_receipt_path,
         )
+        snapshot = purchase_authority_audit.snapshot
         _merge_verified_artifact_bytes(
             captured_artifact_bytes,
             {
                 os.path.abspath(path): payload
-                for path, payload in read_case_dev_purchase_authority_snapshots(
-                    ledger_path.resolve(),
-                    policy=purchase_policy,
-                    controlled_private_root=controlled_private_root,
-                    initialization_receipt_path=initialization_receipt_path,
-                ).items()
+                for path, payload in purchase_authority_audit.snapshots.items()
             },
             label="downstream materializer purchase authority",
         )

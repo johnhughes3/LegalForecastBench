@@ -530,6 +530,14 @@ class CaseDevPurchaseSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class CaseDevPurchaseAuthorityAudit:
+    """One lock-bound logical purchase snapshot and its authority byte closure."""
+
+    snapshot: CaseDevPurchaseSnapshot
+    snapshots: Mapping[Path, bytes]
+
+
+@dataclass(frozen=True, slots=True)
 class CaseDevPurchaseSpendSummary:
     """Canonical read-only spend interpretation of one authenticated snapshot."""
 
@@ -4697,21 +4705,21 @@ def read_case_dev_purchase_snapshot(
     return snapshot
 
 
-def read_case_dev_purchase_authority_snapshots(
+def read_case_dev_purchase_authority_audit(
     path: str | Path,
     *,
     policy: CaseDevPurchasePolicy,
     controlled_private_root: Path | None = None,
     initialization_receipt_path: Path | None = None,
-) -> Mapping[Path, bytes]:
-    """Return the immutable byte closure authenticated for a read-only purchase audit.
+) -> CaseDevPurchaseAuthorityAudit:
+    """Authenticate one logical purchase state and its byte closure atomically.
 
     The canonical SQLite database may have committed ``-wal`` or rollback
     ``-journal`` companions.  They are authority-bearing bytes, while ``-shm``
     is deliberately excluded because SQLite creates it as transient reader
     coordination state.  Keep the capture inside the journal's existing
-    read-only lock and identity checks so callers can safely retain it only as
-    verifier-owned, in-process evidence.
+    read-only lock and final identity check.  The returned logical snapshot and
+    bytes therefore cannot be mixed across two ledger generations.
     """
 
     ledger_path = _canonical_requested_ledger_path(path, policy=policy)
@@ -4723,10 +4731,7 @@ def read_case_dev_purchase_authority_snapshots(
             controlled_private_root=controlled_private_root,
             initialization_receipt_path=initialization_receipt_path,
         ) as journal:
-            # Authenticate the logical state before preserving the exact bytes
-            # that supplied it.  The context manager rechecks all observed
-            # identities again when it closes.
-            journal.authenticated_snapshot()
+            snapshot = journal.authenticated_snapshot()
             if initialization_receipt_path is not None:
                 _verify_runtime_purchase_ledger_initialization_lineage(
                     initialization_receipt_path, policy=policy
@@ -4749,7 +4754,9 @@ def read_case_dev_purchase_authority_snapshots(
                 snapshots[candidate.resolve()] = _read_purchase_snapshot_bytes(
                     candidate
                 )
-            return MappingProxyType(snapshots)
+            return CaseDevPurchaseAuthorityAudit(
+                snapshot=snapshot, snapshots=MappingProxyType(snapshots)
+            )
     except sqlite3.Error as exc:
         raise CaseDevPurchaseLedgerError(
             "purchase ledger is not a complete authenticated SQLite journal"
