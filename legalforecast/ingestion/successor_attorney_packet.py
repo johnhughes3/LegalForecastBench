@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from legalforecast.contracts import (
+    LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1,
     SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V1,
     SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2,
     SUCCESSOR_ATTORNEY_PACKET_VIEW_V1,
@@ -161,7 +162,7 @@ def build_successor_attorney_packet_with_unitizer_terminals(
         "schema_version": str(SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2),
         "unitizer_terminal_escalation_receipts": _input_commitment(
             unitizer_terminal_receipt_bytes,
-            schema_version="legalforecast.llm_stage_a_unitizer_terminal_escalation.v1",
+            schema_version=str(LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1),
             count_field="record_count",
             count=len(terminal_receipts),
         ),
