@@ -1163,6 +1163,10 @@ from legalforecast.unitization.adjudication_preflight import (
     AdjudicationPreflightError,
     build_adjudication_preflight_report,
 )
+from legalforecast.unitization.attorney_worksheet import (
+    AttorneyWorksheetError,
+    convert_attorney_worksheet,
+)
 from legalforecast.unitization.construct_units import (
     StageAConstructionInput,
     StageADocumentRole,
@@ -2907,6 +2911,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_build_successor_attorney_packet_arguments(
         acquisition_build_successor_attorney_packet
+    )
+    acquisition_convert_attorney_worksheet = acquisition_subparsers.add_parser(
+        "convert-unitization-adjudication-worksheet",
+        help=(
+            "Compile a completed successor attorney worksheet into ordinary "
+            "and terminal Stage A adjudication JSONL."
+        ),
+    )
+    _add_acquisition_convert_attorney_worksheet_arguments(
+        acquisition_convert_attorney_worksheet
     )
     acquisition_review_stage_a = acquisition_subparsers.add_parser(
         "llm-review-stage-a",
@@ -9784,6 +9798,54 @@ def _add_acquisition_build_successor_attorney_packet_arguments(
         help="Candidate-grouped successor attorney review view v2 JSON.",
     )
     parser.set_defaults(handler=_cmd_acquisition_build_successor_attorney_packet)
+
+
+def _add_acquisition_convert_attorney_worksheet_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the provider-free attorney worksheet compiler surface."""
+
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--attorney-packet",
+        type=Path,
+        required=True,
+        help="Exact successor-attorney-review.json reviewed by the adjudicator.",
+    )
+    parser.add_argument(
+        "--packet-manifest",
+        type=Path,
+        required=True,
+        help="Exact successor attorney packet manifest v2.",
+    )
+    parser.add_argument(
+        "--packet-run-card",
+        type=Path,
+        required=True,
+        help="Completed build-successor-attorney-packet run card.",
+    )
+    parser.add_argument(
+        "--worksheet",
+        type=Path,
+        required=True,
+        help="Completed UTF-8 attorney decision worksheet TSV.",
+    )
+    parser.add_argument(
+        "--adjudicator-id",
+        required=True,
+        help="Nonempty identifier recorded on every emitted adjudication.",
+    )
+    parser.add_argument(
+        "--ordinary-adjudications-output",
+        type=Path,
+        help="Ordinary v1/v2 adjudication JSONL output.",
+    )
+    parser.add_argument(
+        "--terminal-adjudications-output",
+        type=Path,
+        help="Unitizer-terminal v3 adjudication JSONL output.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_convert_attorney_worksheet)
 
 
 def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> None:
@@ -64733,6 +64795,182 @@ def _cmd_acquisition_build_successor_attorney_packet(
             "pacer_activity_executed": False,
             "recap_fetch_activity_executed": False,
             "creates_adjudications": False,
+            "evaluation_authorized": False,
+            "freeze_authorized": False,
+            "dispatch_authorized": False,
+        },
+    )
+    return 0
+
+
+def _cmd_acquisition_convert_attorney_worksheet(args: argparse.Namespace) -> int:
+    """Compile a completed, authenticated packet worksheet provider-free."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "convert-unitization-adjudication-worksheet requires --execute; "
+            "it is provider-free and writes only adjudication JSONL"
+        )
+    output_root = cast(Path, args.output_root)
+    packet_path = cast(Path, args.attorney_packet).resolve()
+    manifest_path = cast(Path, args.packet_manifest).resolve()
+    run_card_path = cast(Path, args.packet_run_card).resolve()
+    worksheet_path = cast(Path, args.worksheet).resolve()
+    input_paths = (packet_path, manifest_path, run_card_path, worksheet_path)
+    if len(set(input_paths)) != len(input_paths):
+        raise CommandError("attorney worksheet compiler inputs alias one another")
+    snapshots = {
+        path: _read_singly_linked_regular_input(path, label=label)
+        for path, label in zip(
+            input_paths,
+            (
+                "successor attorney packet",
+                "successor attorney packet manifest",
+                "successor attorney packet run card",
+                "attorney decision worksheet",
+            ),
+            strict=True,
+        )
+    }
+    packet = _read_json_object_payload(
+        snapshots[packet_path], label="successor attorney packet"
+    )
+    manifest = _read_json_object_payload(
+        snapshots[manifest_path], label="successor attorney packet manifest"
+    )
+    run_card = _read_json_object_payload(
+        snapshots[run_card_path], label="successor attorney packet run card"
+    )
+    if (
+        manifest.get("schema_version")
+        != "legalforecast.successor_attorney_packet_manifest.v2"
+        or run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "build-successor-attorney-packet"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+    ):
+        raise CommandError("attorney worksheet packet authority is not completed v2")
+    output_commitments = run_card.get("output_commitments")
+    if not isinstance(output_commitments, Mapping):
+        raise CommandError("packet run card lacks output commitments")
+    typed_output_commitments = cast(Mapping[str, object], output_commitments)
+    packet_commitment = typed_output_commitments.get("attorney_view")
+    manifest_commitment = typed_output_commitments.get("packet_manifest")
+    if not isinstance(packet_commitment, Mapping) or not isinstance(
+        manifest_commitment, Mapping
+    ):
+        raise CommandError("packet run card lacks packet output commitments")
+    typed_packet_commitment = cast(Mapping[str, object], packet_commitment)
+    typed_manifest_commitment = cast(Mapping[str, object], manifest_commitment)
+    if (
+        typed_packet_commitment.get("sha256")
+        != _bytes_sha256(snapshots[packet_path])
+        or typed_manifest_commitment.get("sha256")
+        != _bytes_sha256(snapshots[manifest_path])
+    ):
+        raise CommandError("packet bytes differ from completed run-card commitments")
+    review_coverage = manifest.get("review_id_coverage")
+    if not isinstance(review_coverage, Mapping):
+        raise CommandError("packet manifest lacks exact ordinary review coverage")
+    typed_review_coverage = cast(Mapping[str, object], review_coverage)
+    if typed_review_coverage.get("exactly_once") is not True:
+        raise CommandError("packet manifest lacks exact ordinary review coverage")
+    try:
+        worksheet_text = snapshots[worksheet_path].decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CommandError("attorney decision worksheet is not UTF-8") from exc
+    try:
+        result = convert_attorney_worksheet(
+            packet=packet,
+            worksheet_tsv=worksheet_text,
+            adjudicator_id=cast(str, args.adjudicator_id),
+        )
+    except AttorneyWorksheetError as exc:
+        raise CommandError(str(exc)) from exc
+    _require_snapshot_unchanged(snapshots, label="attorney worksheet compiler input")
+
+    ordinary_path = _acquisition_path(
+        args,
+        "ordinary_adjudications_output",
+        output_root / "ordinary-unitization-adjudications.jsonl",
+    )
+    terminal_path = _acquisition_path(
+        args,
+        "terminal_adjudications_output",
+        output_root / "terminal-unitizer-adjudications.jsonl",
+    )
+    completion_run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root
+        / "run-cards"
+        / "convert-unitization-adjudication-worksheet.json",
+    )
+    completion_log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs" / "convert-unitization-adjudication-worksheet.jsonl",
+    )
+    _validate_disclosure_review_paths(
+        input_paths=input_paths,
+        output_paths=(
+            ordinary_path,
+            terminal_path,
+            completion_run_card_path,
+            completion_log_path,
+        ),
+        protected_roots=(),
+    )
+    _acquisition_output_root(args)
+    _ensure_projection_artifact(
+        ordinary_path,
+        _jsonl_bytes(result.ordinary_adjudications),
+        resume=cast(bool, args.resume),
+        stage="convert-unitization-adjudication-worksheet",
+    )
+    _ensure_projection_artifact(
+        terminal_path,
+        _jsonl_bytes(result.terminal_adjudications),
+        resume=cast(bool, args.resume),
+        stage="convert-unitization-adjudication-worksheet",
+    )
+    _write_acquisition_completion(
+        args,
+        stage="convert-unitization-adjudication-worksheet",
+        input_paths=input_paths,
+        output_paths=(ordinary_path, terminal_path),
+        record_count=(
+            len(result.ordinary_adjudications) + len(result.terminal_adjudications)
+        ),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "input_commitments": {
+                "attorney_packet": _stage_a_file_commitment(
+                    packet_path, payload=snapshots[packet_path]
+                ),
+                "packet_manifest": _stage_a_file_commitment(
+                    manifest_path, payload=snapshots[manifest_path]
+                ),
+                "packet_run_card": _stage_a_file_commitment(
+                    run_card_path, payload=snapshots[run_card_path]
+                ),
+                "worksheet": _stage_a_file_commitment(
+                    worksheet_path, payload=snapshots[worksheet_path]
+                ),
+            },
+            "output_commitments": {
+                "ordinary_adjudications": _stage_a_file_commitment(ordinary_path),
+                "terminal_adjudications": _stage_a_file_commitment(terminal_path),
+            },
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "retrieval_activity_requested": False,
+            "retrieval_activity_executed": False,
+            "pacer_activity_executed": False,
+            "recap_fetch_activity_executed": False,
+            "creates_adjudications": True,
             "evaluation_authorized": False,
             "freeze_authorized": False,
             "dispatch_authorized": False,
