@@ -63196,11 +63196,19 @@ def _verify_stage_a_review_run_card(
         "unitization_review_queue": cast(Mapping[str, object], unit_outputs).get(
             "unitization_review_queue"
         ),
-        "provider_cycle_caps": lineage.input_commitments.get("provider_cycle_caps"),
     }
     if any(
         source_records.get(name) != commitment
         for name, commitment in expected_stage_a_sources.items()
+    ):
+        raise CommandError("structural review source lineage differs from Stage A")
+    expected_caps_commitment = lineage.input_commitments.get("provider_cycle_caps")
+    review_caps_commitment = source_records.get("provider_cycle_caps")
+    if (
+        not isinstance(expected_caps_commitment, Mapping)
+        or not isinstance(review_caps_commitment, Mapping)
+        or cast(Mapping[str, object], review_caps_commitment).get("sha256")
+        != cast(Mapping[str, object], expected_caps_commitment).get("sha256")
     ):
         raise CommandError("structural review source lineage differs from Stage A")
     for name in (
