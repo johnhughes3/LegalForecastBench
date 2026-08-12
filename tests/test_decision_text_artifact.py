@@ -130,9 +130,26 @@ def test_decision_text_rejects_empty_source_hashes_for_v3_non_add() -> None:
         unit for unit in finalized["prediction_units"] if unit["disposition"] == "ADD"
     )
     added["disposition"] = "ACCEPT"
+    finalized["added_units"] = []
 
     with pytest.raises(
         DecisionTextArtifactError, match="invalid finalized prediction-units envelope"
+    ):
+        _validate_finalized_unit_envelope(finalized, expected_case_id="case-1")
+
+
+@pytest.mark.parametrize("field", ["adjudication_sha256", "structural_flag_sha256"])
+def test_decision_text_rejects_non_digest_v3_add_provenance(field: str) -> None:
+    finalized = _structural_add_finalized_envelope()
+    added = next(
+        unit for unit in finalized["prediction_units"] if unit["disposition"] == "ADD"
+    )
+    ledger = finalized["added_units"][0]
+    added[field] = "not-a-digest"
+    ledger[field] = "not-a-digest"
+
+    with pytest.raises(
+        DecisionTextArtifactError, match=rf"{field} must be a SHA-256 digest"
     ):
         _validate_finalized_unit_envelope(finalized, expected_case_id="case-1")
 

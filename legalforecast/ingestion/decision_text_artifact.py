@@ -978,6 +978,8 @@ def _validate_finalized_unit_envelope(
                     "added finalized unit must not have source-unit hashes: "
                     f"{candidate_id}/{unit_id}"
                 )
+            _required_sha256(unit, "adjudication_sha256")
+            _required_sha256(unit, "structural_flag_sha256")
             continue
         if not source_hashes or any(
             not _valid_sha256(value) for value in source_hashes

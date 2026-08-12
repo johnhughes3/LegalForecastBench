@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from datetime import date
 from typing import Any, cast
 
@@ -257,6 +258,41 @@ def test_stage_a_review_rejects_add_with_source_unit_ids() -> None:
         unitization_audits=[audit],
         unitization_reviews=[review],
         unitization_adjudications=[adjudication],
+    )
+
+    assert "stage_a_review_adjudication_invalid" in report.exclusion_reasons["cand-1"]
+
+
+def test_stage_a_review_rejects_add_not_bound_to_supplied_structural_flag() -> None:
+    raw = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "prediction_units": [_structural_add_prediction_unit("unit-1")],
+    }
+    review, adjudication = _structural_add_fixture()
+    finalized = list(
+        apply_unitization_reviews(
+            prediction_unit_records=[raw],
+            review_records=[review],
+            adjudication_records=[adjudication],
+        )
+    )
+    tampered = deepcopy(finalized)
+    tampered[0]["prediction_units"][1]["structural_flag_sha256"] = "f" * 64
+    tampered[0]["added_units"][0]["structural_flag_sha256"] = "f" * 64
+    audit = {
+        "stage": "llm-unitize",
+        "candidate_id": "cand-1",
+        "status": "adjudication_pending",
+        "review_items": [review["review_item"]],
+    }
+
+    report = _single_candidate_report(
+        prediction_unit_records=tampered,
+        unitization_audits=[audit],
+        unitization_reviews=[review],
+        unitization_adjudications=[adjudication],
+        label_records=[_label("unit-1"), _label("unit-2")],
     )
 
     assert "stage_a_review_adjudication_invalid" in report.exclusion_reasons["cand-1"]
