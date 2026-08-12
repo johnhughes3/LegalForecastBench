@@ -340,6 +340,7 @@ def test_unitization_recovery_exposes_closed_attempt_namespace() -> None:
         "claim-ontology-v2",
         "claim-ontology-v3",
         "claim-ontology-v4",
+        "claim-ontology-v5",
     )
 
 
@@ -365,6 +366,7 @@ def test_structural_recovery_accepts_optional_review_namespace(
         "claim-ontology-v2",
         "claim-ontology-v3",
         "claim-ontology-v4",
+        "claim-ontology-v5",
     )
     assert action.default is None
 
@@ -408,6 +410,7 @@ def test_structural_recovery_namespace_can_supersede_unitization_contract(
         ("claim-ontology-v2", "claim-ontology-v2"),
         ("claim-ontology-v2", "claim-ontology-v3"),
         ("claim-ontology-v4", "claim-ontology-v4"),
+        ("claim-ontology-v5", "claim-ontology-v4"),
     ),
 )
 def test_structural_review_accepts_only_closed_namespace_pairs(
@@ -426,21 +429,33 @@ def test_structural_review_accepts_only_closed_namespace_pairs(
         (None, "claim-ontology-v2"),
         (None, "claim-ontology-v3"),
         (None, "claim-ontology-v4"),
+        (None, "claim-ontology-v5"),
         ("claim-ontology-v2", None),
         ("claim-ontology-v4", None),
+        ("claim-ontology-v5", None),
         ("claim-ontology-v3", "claim-ontology-v2"),
         ("claim-ontology-v3", "claim-ontology-v3"),
         ("claim-ontology-v4", "claim-ontology-v2"),
         ("claim-ontology-v4", "claim-ontology-v3"),
         ("claim-ontology-v2", "claim-ontology-v4"),
         ("claim-ontology-v3", "claim-ontology-v4"),
+        ("claim-ontology-v4", "claim-ontology-v5"),
+        ("claim-ontology-v5", "claim-ontology-v2"),
+        ("claim-ontology-v5", "claim-ontology-v3"),
+        ("claim-ontology-v5", "claim-ontology-v5"),
     ),
 )
 def test_structural_review_rejects_unreviewed_namespace_pairs(
     unitization_namespace: str | None,
     review_namespace: str | None,
 ) -> None:
-    with raises(CommandError, match="not an approved Stage A structural-review pair"):
+    with raises(
+        CommandError,
+        match=(
+            r"not an approved Stage A structural-review pair|"
+            r"not accepted for llm-review-stage-a"
+        ),
+    ):
         cli._require_stage_a_structural_review_namespace_pair(
             unitization_namespace=unitization_namespace,
             review_namespace=review_namespace,
@@ -670,10 +685,42 @@ def _stub_authenticated_stage_a_lineage(
         document_tree=document_tree,
         markdown_bytes=markdown_bytes,
     )
+    parse_lineage = cli._VerifiedStageAParseLineage(
+        selection_records=selection_records,
+        selection_bytes=selection_path.read_bytes(),
+        parser_records=parser_records,
+        parser_manifest_bytes=parser_path.read_bytes(),
+        document_root=markdown_root,
+        markdown_root=markdown_root,
+        cohort_cycle_id=caps.cycle_id,
+        input_paths=lineage.input_paths,
+        input_commitments=lineage.input_commitments,
+        markdown_tree=markdown_tree,
+        file_snapshots=lineage.file_snapshots,
+        document_tree=document_tree,
+        markdown_bytes=markdown_bytes,
+    )
+    eligibility_audit_path = selection_path.parent / "fixture-eligibility.jsonl"
+    eligibility_card_path = selection_path.parent / "fixture-eligibility-card.json"
+    _write_jsonl(eligibility_audit_path, [])
+    _write_json(eligibility_card_path, {})
     monkeypatch.setattr(
         cli,
         "_verify_stage_a_unitization_lineage",
         lambda *args, **kwargs: lineage,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_verified_stage_a_parse_lineage",
+        lambda *args, **kwargs: parse_lineage,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_require_clean_v4_target_document_eligibility_audit",
+        lambda **kwargs: {
+            "audit": cli._stage_a_file_commitment(eligibility_audit_path),
+            "run_card": cli._stage_a_file_commitment(eligibility_card_path),
+        },
     )
     return [
         "--provider-journal",
@@ -681,7 +728,11 @@ def _stub_authenticated_stage_a_lineage(
         "--provider-authority-table",
         "fixture-provider-authority",
         "--provider-attempt-namespace",
-        "claim-ontology-v2",
+        "claim-ontology-v5",
+        "--target-eligibility-audit",
+        str(eligibility_audit_path),
+        "--target-eligibility-audit-run-card",
+        str(eligibility_card_path),
     ]
 
 
@@ -1043,7 +1094,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         "--provider-journal",
         str(provider_journal),
         "--provider-attempt-namespace",
-        "claim-ontology-v3",
+        "claim-ontology-v4",
         "--provider-authority-table",
         "fixture-provider-authority",
         "--output-root",
@@ -1305,7 +1356,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                     "attempts_sha256"
                 ],
                 **(
-                    {"provider_attempt_namespace": "claim-ontology-v3"}
+                    {"provider_attempt_namespace": "claim-ontology-v4"}
                     if stage == "llm-review-stage-a"
                     else {}
                 ),
@@ -1463,7 +1514,7 @@ def test_executed_llm_unitize_requires_authenticated_lineage_before_provider(
                 "--provider-journal",
                 str(tmp_path / "shared-provider-attempts.sqlite3"),
                 "--provider-attempt-namespace",
-                "claim-ontology-v2",
+                "claim-ontology-v5",
                 "--output-root",
                 str(tmp_path / "out"),
                 "--execute",
@@ -2162,6 +2213,21 @@ def test_acquisition_apply_lawyer_review_fails_closed_on_audit_error(
     assert not (output_root / "labels-adjudicated.jsonl").exists()
 
 
+def _v5_source_citations() -> list[JsonRecord]:
+    return [
+        {
+            "source_document_id": "complaint",
+            "start_line": 1,
+            "line_count": 1,
+        },
+        {
+            "source_document_id": "mtd",
+            "start_line": 1,
+            "line_count": 1,
+        },
+    ]
+
+
 def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -2207,12 +2273,11 @@ def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
                             "count": "Count I",
                             "claim_name": "Section 10(b)",
                             "defendant_names": "Issuer",
-                            "source_document_ids": "mtd",
+                            "source_citations": _v5_source_citations(),
                             "challenged_by_motion": True,
-                            "challenge_scope": "entire_claim",
+                            "scope": {"kind": "entire_claim"},
                             "unit_confidence": 0.92,
                             "grouping": "individual",
-                            "citation_excerpt": "dismiss Count I",
                         }
                     ]
                 }
@@ -2255,7 +2320,10 @@ def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
     )
 
     unit = _read_jsonl(output_root / "prediction-units.jsonl")[0]["prediction_units"][0]
-    assert unit["source_citations"][0]["document_id"] == "mtd"
+    assert [citation["document_id"] for citation in unit["source_citations"]] == [
+        "complaint",
+        "mtd",
+    ]
     assert unit["defendant_group"] == "Issuer"
 
 
@@ -2302,12 +2370,11 @@ def test_acquisition_llm_unitize_accepts_top_level_seed_array(
                         "count": "Count I",
                         "claim_name": "Section 10(b)",
                         "defendant_names": ["Issuer"],
-                        "source_document_ids": ["mtd"],
+                        "source_citations": _v5_source_citations(),
                         "challenged_by_motion": True,
-                        "challenge_scope": "entire_claim",
+                        "scope": {"kind": "entire_claim"},
                         "unit_confidence": 0.92,
                         "grouping": "individual",
-                        "citation_excerpt": "dismiss Count I",
                     }
                 ]
             ),
@@ -2396,10 +2463,10 @@ def test_acquisition_llm_unitize_rejects_missing_required_unit_fields(
                             "count": "Count I",
                             "claim_name": "Section 10(b)",
                             "defendant_names": ["Issuer"],
-                            "source_document_ids": ["mtd"],
+                            "source_citations": _v5_source_citations(),
+                            "scope": {"kind": "entire_claim"},
                             "unit_confidence": 0.92,
                             "grouping": "individual",
-                            "citation_excerpt": "dismiss Count I",
                         }
                     ]
                 }
@@ -2490,12 +2557,11 @@ def test_acquisition_llm_unitize_accepts_first_balanced_json_object(
                 "count": "Count I",
                 "claim_name": "Section 10(b)",
                 "defendant_names": ["Issuer"],
-                "source_document_ids": ["mtd"],
+                "source_citations": _v5_source_citations(),
                 "challenged_by_motion": True,
-                "challenge_scope": "entire_claim",
+                "scope": {"kind": "entire_claim"},
                 "unit_confidence": 0.92,
                 "grouping": "individual",
-                "citation_excerpt": "dismiss Count I",
             }
         ]
     }
@@ -2668,12 +2734,11 @@ def test_acquisition_llm_unitize_failure_audit_keeps_model_accounting(
                             "count": "Count I",
                             "claim_name": "Section 10(b)",
                             "defendant_names": ["Issuer"],
-                            "source_document_ids": {"document_id": "mtd"},
+                            "source_citations": {"document_id": "mtd"},
                             "challenged_by_motion": True,
-                            "challenge_scope": "entire_claim",
+                            "scope": {"kind": "entire_claim"},
                             "unit_confidence": 0.92,
                             "grouping": "individual",
-                            "citation_excerpt": "dismiss Count I",
                         }
                     ]
                 }
@@ -3021,12 +3086,22 @@ def _fake_completion(*args: Any, **kwargs: Any) -> SolverResponse:
                     "count": "Count I",
                     "claim_name": "Section 10(b)",
                     "defendant_names": ["Issuer"],
-                    "source_document_ids": ["complaint", "mtd"],
+                    "source_citations": [
+                        {
+                            "source_document_id": "complaint",
+                            "start_line": 1,
+                            "line_count": 1,
+                        },
+                        {
+                            "source_document_id": "mtd",
+                            "start_line": 1,
+                            "line_count": 1,
+                        },
+                    ],
                     "challenged_by_motion": True,
-                    "challenge_scope": "entire_claim",
+                    "scope": {"kind": "entire_claim"},
                     "unit_confidence": 0.42,
                     "grouping": "individual",
-                    "citation_excerpt": "Count I: 10(b).",
                 }
             ]
         }

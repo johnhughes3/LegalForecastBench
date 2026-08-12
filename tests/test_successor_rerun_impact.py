@@ -337,13 +337,12 @@ def test_global_provider_drift_reuses_authenticated_parser_inputs(
     assert commands[0]["advisory_execution"] == "dry_run_only"
     assert "--execute" not in argv
     assert "--provider-spend-authority" not in argv
-    if replacement != "claim-ontology-v5":
-        assert _flag_value(argv, "--target-eligibility-audit") == str(
-            current.target_eligibility_audit_path
-        )
-        assert _flag_value(argv, "--target-eligibility-audit-run-card") == str(
-            current.target_eligibility_audit_run_card_path
-        )
+    assert _flag_value(argv, "--target-eligibility-audit") == str(
+        current.target_eligibility_audit_path
+    )
+    assert _flag_value(argv, "--target-eligibility-audit-run-card") == str(
+        current.target_eligibility_audit_run_card_path
+    )
     assert _tree_bytes(tmp_path) == before
 
 
@@ -392,6 +391,49 @@ def test_v4_namespace_upgrade_creates_eligibility_before_unitization(
     )
     assert "plan-parse-documents" not in eligibility_argv
     assert "parse-documents" not in eligibility_argv
+
+
+def test_v5_namespace_emits_eligibility_audit_and_unitize_arguments(
+    tmp_path: Path,
+) -> None:
+    current, proposal = _fixture(tmp_path, replace_document=True)
+    v5_inputs = replace(
+        proposal.require_inputs(), provider_attempt_namespace="claim-ontology-v5"
+    )
+    proposal = replace(
+        proposal,
+        provider_attempt_namespace="claim-ontology-v5",
+        inputs=v5_inputs,
+    )
+
+    report = plan_successor_rerun_impact(current=current, proposed=proposal)
+
+    commands = cast(list[dict[str, object]], report.record["next_commands"])
+    assert [command["stage"] for command in commands] == [
+        "plan-parse-documents",
+        "parse-documents",
+        "audit-stage-a-target-eligibility",
+        "llm-unitize",
+    ]
+    eligibility_argv = cast(list[str], commands[-2]["argv"])
+    unitize_argv = cast(list[str], commands[-1]["argv"])
+    expected_audit = (
+        proposal.successor_output_root / "target-document-eligibility-audit.jsonl"
+    )
+    expected_card = (
+        proposal.successor_output_root
+        / "run-cards"
+        / "audit-stage-a-target-eligibility.json"
+    )
+    assert _flag_value(eligibility_argv, "--target-eligibility-audit-output") == str(
+        expected_audit
+    )
+    assert _flag_value(unitize_argv, "--target-eligibility-audit") == str(
+        expected_audit
+    )
+    assert _flag_value(unitize_argv, "--target-eligibility-audit-run-card") == str(
+        expected_card
+    )
 
 
 def test_nonfinite_proposal_is_a_typed_deterministic_failure(tmp_path: Path) -> None:

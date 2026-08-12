@@ -131,12 +131,56 @@ DEFAULT_LABEL_AUDIT_SAMPLE_SIZE = 30
 STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT = "claim-ontology-v2"
 STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT = "claim-ontology-v3"
 STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT = "claim-ontology-v4"
+STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT = "claim-ontology-v5"
 STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = (
     STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
     STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
     STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+    STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
 )
 _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = frozenset(STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
+_STAGE_A_LINE_ADDRESSED_UNITIZER_CONTRACTS = frozenset(
+    {
+        STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+        STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+    }
+)
+_STAGE_A_PROVIDER_ATTEMPT_CONTRACTS_BY_STAGE = {
+    "llm-unitize": _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS,
+    "llm-review-stage-a": frozenset(
+        {
+            STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
+            STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
+            STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+        }
+    ),
+}
+
+
+def _require_stage_a_provider_attempt_namespace(
+    base_stage: str, provider_attempt_namespace: str | None
+) -> None:
+    """Reject a namespace that is not reviewed for its exact Stage A stage."""
+
+    if provider_attempt_namespace is None:
+        return
+    if provider_attempt_namespace not in _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS:
+        raise LlmPipelineError(
+            "unknown Stage A provider attempt namespace; expected one of: "
+            + ", ".join(sorted(_STAGE_A_PROVIDER_ATTEMPT_CONTRACTS))
+        )
+    try:
+        allowed_namespaces = _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS_BY_STAGE[base_stage]
+    except KeyError as exc:
+        raise LlmPipelineError(
+            f"unsupported Stage A provider attempt stage: {base_stage}"
+        ) from exc
+    if provider_attempt_namespace not in allowed_namespaces:
+        raise LlmPipelineError(
+            "Stage A provider attempt namespace "
+            f"{provider_attempt_namespace!r} is not accepted for {base_stage}; "
+            "expected one of: " + ", ".join(sorted(allowed_namespaces))
+        )
 
 
 def stage_a_provider_attempt_stage(
@@ -150,13 +194,9 @@ def stage_a_provider_attempt_stage(
     contract.
     """
 
+    _require_stage_a_provider_attempt_namespace(base_stage, provider_attempt_namespace)
     if provider_attempt_namespace is None:
         return base_stage
-    if provider_attempt_namespace not in _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS:
-        raise LlmPipelineError(
-            "unknown Stage A provider attempt namespace; expected one of: "
-            + ", ".join(sorted(_STAGE_A_PROVIDER_ATTEMPT_CONTRACTS))
-        )
     return f"{base_stage}:{provider_attempt_namespace}"
 
 
@@ -924,6 +964,9 @@ def recover_llm_stage_a_structural_review_reconstruction(
 ) -> LlmStageAStructuralReviewReconstructionRecovery:
     """Revalidate and settle one failed structural-review response without a call."""
 
+    _require_stage_a_provider_attempt_namespace(
+        "llm-review-stage-a", provider_attempt_namespace
+    )
     candidate_id = _required_str(selection_record, "candidate_id")
     case_id = _required_str(selection_record, "case_id")
     parser_by_key = _parser_records_by_candidate_and_document(parser_records)
@@ -1038,6 +1081,9 @@ def build_llm_stage_a_structural_review_terminal_escalation(
     evidence and still accepts no structural flag.
     """
 
+    _require_stage_a_provider_attempt_namespace(
+        "llm-review-stage-a", provider_attempt_namespace
+    )
     candidate_id = _required_str(selection_record, "candidate_id")
     case_id = _required_str(selection_record, "case_id")
     parser_by_key = _parser_records_by_candidate_and_document(parser_records)
@@ -1502,6 +1548,9 @@ def stage_a_structural_review_prompt_records(
 ) -> tuple[JsonRecord, ...]:
     """Reconstruct exact structural-review prompts from authenticated Stage A."""
 
+    _require_stage_a_provider_attempt_namespace(
+        "llm-review-stage-a", provider_attempt_namespace
+    )
     parser_by_key = _parser_records_by_candidate_and_document(parser_records)
     units_by_candidate = _prediction_units_by_candidate(prediction_unit_records)
     output: list[JsonRecord] = []
@@ -1723,6 +1772,9 @@ def _stage_a_structural_review_prompt(
     *,
     provider_attempt_namespace: str | None = None,
 ) -> str:
+    _require_stage_a_provider_attempt_namespace(
+        "llm-review-stage-a", provider_attempt_namespace
+    )
     v4 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
     rules = [
         "Use only supplied predecision documents; never infer from a disposition.",
@@ -1870,6 +1922,9 @@ def _stage_a_structural_review_response_json_schema(
 ) -> JsonRecord:
     """Build Gemini's constrained structural-response schema from frozen inputs."""
 
+    _require_stage_a_provider_attempt_namespace(
+        "llm-review-stage-a", provider_attempt_namespace
+    )
     v4 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
     citation_properties: JsonRecord
     citation_required: list[str]
@@ -1971,6 +2026,9 @@ def validate_structural_review_flags(
     response: SolverResponse,
     provider_attempt_namespace: str | None = None,
 ) -> tuple[JsonRecord, ...]:
+    _require_stage_a_provider_attempt_namespace(
+        "llm-review-stage-a", provider_attempt_namespace
+    )
     allowed_unit_ids = {unit.unit_id for unit in units}
     documents_by_id = {document.source_document_id: document for document in documents}
     allowed_types = {"omitted", "combined", "mis_split", "spurious"}
@@ -3049,20 +3107,17 @@ def _unitization_prompt(
     *,
     provider_attempt_namespace: str | None = None,
 ) -> str:
-    v4 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
-    if not v4:
+    line_addressed = (
+        provider_attempt_namespace in _STAGE_A_LINE_ADDRESSED_UNITIZER_CONTRACTS
+    )
+    v5 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
+    if not line_addressed:
         return _legacy_unitization_prompt(selection, documents)
     unit_rule = (
         "A unit represents a claim the operative pleading purports to assert, or "
         "an independently disposable pleaded subclaim, against an actual moving "
         "defendant in the pleaded capacity. Include it without deciding whether "
         "the purported claim is legally valid or cognizable."
-        if v4
-        else (
-            "A unit must represent one asserted legal right, or one independently "
-            "disposable subclaim, against an actual moving defendant in the "
-            "pleaded capacity."
-        )
     )
     disposition_rule = (
         "Apply the independent-disposition test as pleaded: create separate units "
@@ -3071,13 +3126,6 @@ def _unitization_prompt(
         "against the same defendant. An argument that no cause of action exists is "
         "a dismissal ground, not an ontology reason to remove an expressly pleaded "
         "and challenged target."
-        if v4
-        else (
-            "Apply the independent-disposition test: create separate units only "
-            "when the court could dismiss one asserted proposition while another "
-            "survives as an independently enforceable legal right against the same "
-            "defendant."
-        )
     )
     rules = [
         "Use only the predecision documents supplied in this prompt.",
@@ -3131,17 +3179,28 @@ def _unitization_prompt(
         ),
         "defendant_names must always be a JSON array of strings.",
     ]
-    if v4:
+    if line_addressed:
+        citation_selector_rule = (
+            "Every unit_seed must include source_citations with at least one "
+            "citation to the operative complaint for claim identity and one "
+            "citation to the target motion for challenge scope. Each citation "
+            "must select one supplied source_document_id, a positive one-based "
+            "start_line, and line_count from 1 through 12 from that document's "
+            "numbered_markdown. Do not return end_line; local code derives the "
+            "inclusive endpoint."
+            if v5
+            else (
+                "Every unit_seed must include source_citations with at least one "
+                "citation to the operative complaint for claim identity and one "
+                "citation to the target motion for challenge scope. Each citation "
+                "must select one supplied source_document_id and an exact "
+                "inclusive "
+                "start_line/end_line range from that document's numbered_markdown."
+            )
+        )
         rules.extend(
             [
-                (
-                    "Every unit_seed must include source_citations with at least one "
-                    "citation to the operative complaint for claim identity and one "
-                    "citation to the target motion for challenge scope. Each citation "
-                    "must select one supplied source_document_id and an exact "
-                    "inclusive "
-                    "start_line/end_line range from that document's numbered_markdown."
-                ),
+                citation_selector_rule,
                 (
                     "Do not author, paraphrase, stitch, or repeat citation text. "
                     "Select "
@@ -3171,7 +3230,7 @@ def _unitization_prompt(
         "grouping_rationale": "required for grouped, otherwise null",
         "group_label": "optional display label",
     }
-    if v4:
+    if line_addressed:
         unit_schema["scope"] = [
             {"kind": "entire_claim"},
             {"kind": "partial_theory_only"},
@@ -3181,13 +3240,23 @@ def _unitization_prompt(
             },
             {"kind": "unclear", "reason": "required nonempty string"},
         ]
-        unit_schema["source_citations"] = [
-            {
-                "source_document_id": "id from allowed_source_document_ids",
-                "start_line": "positive one-based inclusive line number",
-                "end_line": "positive one-based inclusive line number",
-            }
-        ]
+        unit_schema["source_citations"] = (
+            [
+                {
+                    "source_document_id": "id from allowed_source_document_ids",
+                    "start_line": "positive one-based inclusive line number",
+                    "line_count": "integer from 1 through 12",
+                }
+            ]
+            if v5
+            else [
+                {
+                    "source_document_id": "id from allowed_source_document_ids",
+                    "start_line": "positive one-based inclusive line number",
+                    "end_line": "positive one-based inclusive line number",
+                }
+            ]
+        )
     else:
         unit_schema.update(
             {
@@ -3215,7 +3284,7 @@ def _unitization_prompt(
         ],
         "documents": [
             _numbered_document_prompt_record(document)
-            if v4
+            if line_addressed
             else document.prompt_record()
             for document in documents
         ],
@@ -3349,6 +3418,8 @@ def _provider_attempt_journal(
     provider_cycle_caps_sha256: str | None,
     provider_attempt_namespace: str | None = None,
 ) -> ProviderAttemptJournal | None:
+    if stage in _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS_BY_STAGE:
+        _require_stage_a_provider_attempt_namespace(stage, provider_attempt_namespace)
     if path is None:
         return None
     if not cycle_id or not provider_cycle_caps_sha256:
@@ -3628,7 +3699,7 @@ def _predecision_documents(
         )
         if (
             enforce_target_document_eligibility
-            and provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
+            and provider_attempt_namespace in _STAGE_A_LINE_ADDRESSED_UNITIZER_CONTRACTS
         ):
             _require_eligible_stage_a_target_document(parsed_document)
         documents.append(parsed_document)
@@ -3813,15 +3884,22 @@ def _stage_a_seed(
     provider_attempt_namespace: str | None = None,
 ) -> StageAUnitSeed:
     challenged_by_motion = _required_bool(record, "challenged_by_motion")
-    v4 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
-    if v4:
+    line_addressed = (
+        provider_attempt_namespace in _STAGE_A_LINE_ADDRESSED_UNITIZER_CONTRACTS
+    )
+    v5 = provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
+    if line_addressed:
         forbidden_scope_fields = {
             "challenge_scope",
             "separable_subclaim",
             "uncertainty_notes",
         }
         if forbidden_scope_fields.intersection(record):
-            raise LlmPipelineError("v4 Stage A seed must use the tagged scope object")
+            raise LlmPipelineError(
+                "v5 Stage A seed must use the tagged scope object"
+                if v5
+                else "v4 Stage A seed must use the tagged scope object"
+            )
         raw_scope = record.get("scope")
         if isinstance(raw_scope, list):
             scope_options = cast(list[object], raw_scope)
@@ -3947,7 +4025,7 @@ def _stage_a_seed(
         challenge_scope = ChallengeScope.UNCLEAR
         separable_subclaim = None
     source_citations: tuple[StageASeedCitation, ...] | None = None
-    if v4:
+    if line_addressed:
         legacy_citation_fields = {
             "source_document_ids",
             "citation_page",
@@ -3956,25 +4034,36 @@ def _stage_a_seed(
         }
         if legacy_citation_fields.intersection(record):
             raise LlmPipelineError(
-                "v4 Stage A seed may not use legacy model-authored citation fields"
+                "v5 Stage A seed may not use legacy model-authored citation fields"
+                if v5
+                else "v4 Stage A seed may not use legacy model-authored citation fields"
             )
         documents_by_id = {
             document.source_document_id: document for document in documents
         }
         if not documents_by_id:
-            raise LlmPipelineError("v4 Stage A seed validation requires documents")
+            raise LlmPipelineError(
+                "v5 Stage A seed validation requires documents"
+                if v5
+                else "v4 Stage A seed validation requires documents"
+            )
         citations: list[StageASeedCitation] = []
         selectors: set[tuple[str, int, int]] = set()
         cited_roles: set[DocumentRole] = set()
         for raw_citation in _record_sequence(
             record.get("source_citations"), "source_citations"
         ):
-            if set(raw_citation) != {
-                "source_document_id",
-                "start_line",
-                "end_line",
-            }:
-                raise LlmPipelineError("v4 source citation contains unsupported fields")
+            expected_fields = (
+                {"source_document_id", "start_line", "line_count"}
+                if v5
+                else {"source_document_id", "start_line", "end_line"}
+            )
+            if set(raw_citation) != expected_fields:
+                raise LlmPipelineError(
+                    "v5 source citation contains unsupported fields"
+                    if v5
+                    else "v4 source citation contains unsupported fields"
+                )
             source_document_id = _required_str(raw_citation, "source_document_id")
             try:
                 document = documents_by_id[source_document_id]
@@ -3982,8 +4071,21 @@ def _stage_a_seed(
                 raise LlmPipelineError(
                     "source_citations must reference supplied predecision documents"
                 ) from exc
-            start_line = _required_int(raw_citation, "start_line")
-            end_line = _required_int(raw_citation, "end_line")
+            start_line = (
+                _required_json_int(raw_citation, "start_line")
+                if v5
+                else _required_int(raw_citation, "start_line")
+            )
+            if v5:
+                line_count = _required_json_int(raw_citation, "line_count")
+                if not 1 <= line_count <= 12:
+                    raise LlmPipelineError(
+                        "v5 source citation line_count must be an integer from 1 "
+                        "through 12"
+                    )
+                end_line = start_line + line_count - 1
+            else:
+                end_line = _required_int(raw_citation, "end_line")
             selector = (source_document_id, start_line, end_line)
             if selector in selectors:
                 raise LlmPipelineError("source_citations contains a duplicate citation")
@@ -4005,11 +4107,18 @@ def _stage_a_seed(
         motion_roles = {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}
         if not cited_roles.intersection(complaint_roles):
             raise LlmPipelineError(
-                "v4 Stage A seed requires a complaint citation for claim identity"
+                "v5 Stage A seed requires a complaint citation for claim identity"
+                if v5
+                else "v4 Stage A seed requires a complaint citation for claim identity"
             )
         if not cited_roles.intersection(motion_roles):
             raise LlmPipelineError(
-                "v4 Stage A seed requires a target-motion citation for challenge scope"
+                "v5 Stage A seed requires a target-motion citation for challenge scope"
+                if v5
+                else (
+                    "v4 Stage A seed requires a target-motion citation for "
+                    "challenge scope"
+                )
             )
         source_citations = tuple(citations)
         source_document_ids = tuple(
@@ -5180,6 +5289,15 @@ def _optional_int(record: Mapping[str, Any], key: str) -> int | None:
 def _required_int(record: Mapping[str, Any], key: str) -> int:
     value = _optional_int(record, key)
     if value is None:
+        raise LlmPipelineError(f"{key} must be an integer")
+    return value
+
+
+def _required_json_int(record: Mapping[str, Any], key: str) -> int:
+    """Require a JSON integer without legacy string coercion."""
+
+    value = record.get(key)
+    if isinstance(value, bool) or not isinstance(value, int):
         raise LlmPipelineError(f"{key} must be an integer")
     return value
 

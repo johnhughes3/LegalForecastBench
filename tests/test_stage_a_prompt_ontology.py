@@ -10,6 +10,7 @@ from legalforecast.labeling.llm_pipeline import (
     STAGE_A_CLAIM_ONTOLOGY_V2_PROMPT_CONTRACT,
     STAGE_A_CLAIM_ONTOLOGY_V3_PROMPT_CONTRACT,
     STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+    STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
     LlmPipelineError,
     _document_line_span,
     _LlmDocument,
@@ -19,6 +20,7 @@ from legalforecast.labeling.llm_pipeline import (
     _stage_a_structural_review_prompt,
     _stage_a_structural_review_response_json_schema,
     _unitization_prompt,
+    stage_a_structural_review_prompt_records,
     stage_a_unitization_prompt_records,
 )
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
@@ -128,6 +130,32 @@ def test_v4_unitizer_uses_purported_claims_and_line_selectors() -> None:
     assert "citation_excerpt" not in schema
     assert "scope" in schema
     assert "challenge_scope" not in schema
+    assert hashlib.sha256(prompt.encode("utf-8")).hexdigest() == (
+        "d34a368f10dba9160399b97775d31847ad46f80610d80712f079f3410f6a7eac"
+    )
+
+
+def test_v5_unitizer_uses_line_count_selectors() -> None:
+    prompt = _unitization_prompt(
+        _selection(),
+        _documents(),
+        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+    )
+    payload = json.loads(prompt)
+    rules = " ".join(payload["rules"])
+    schema = payload["output_schema"]["unit_seeds"][0]
+
+    assert "purports to assert" in rules
+    assert "line_count from 1 through 12" in rules
+    assert "Do not return end_line" in rules
+    assert schema["source_citations"] == [
+        {
+            "source_document_id": "id from allowed_source_document_ids",
+            "start_line": "positive one-based inclusive line number",
+            "line_count": "integer from 1 through 12",
+        }
+    ]
+    assert "end_line" not in schema["source_citations"][0]
 
 
 @pytest.mark.parametrize(
@@ -168,7 +196,7 @@ def test_stage_a_target_body_gate_does_not_reject_rule_41_argument() -> None:
     _require_eligible_stage_a_target_document(document)
 
 
-def test_stipulated_target_body_gate_is_v4_only(tmp_path: Path) -> None:
+def test_stipulated_target_body_gate_is_line_addressed_only(tmp_path: Path) -> None:
     markdown = tmp_path / "motion.md"
     markdown.write_text(
         "# [PROPOSED] STIPULATION FOR AND ORDER OF DISMISSAL\n",
@@ -202,13 +230,17 @@ def test_stipulated_target_body_gate_is_v4_only(tmp_path: Path) -> None:
         markdown_root=tmp_path,
     )
     assert legacy[0].markdown.startswith("# [PROPOSED]")
-    with pytest.raises(LlmPipelineError, match="stipulated or voluntary"):
-        _predecision_documents(
-            selection,
-            parser_by_key=parser_by_key,
-            markdown_root=tmp_path,
-            provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
-        )
+    for namespace in (
+        STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+        STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+    ):
+        with pytest.raises(LlmPipelineError, match="stipulated or voluntary"):
+            _predecision_documents(
+                selection,
+                parser_by_key=parser_by_key,
+                markdown_root=tmp_path,
+                provider_attempt_namespace=namespace,
+            )
 
     [identity_only_prompt] = stage_a_unitization_prompt_records(
         selection_records=[selection],
@@ -271,6 +303,33 @@ def test_v4_structural_reviewer_uses_purported_claims_and_line_selectors() -> No
     assert "complaint or amended-complaint evidence span" in rules
     assert "citation_excerpt" not in payload["output_schema"]["structural_flags"][0]
     assert "numbered_markdown" in payload["documents"][0]
+
+
+def test_structural_reviewer_rejects_unitizer_only_v5_before_prompt_build(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        LlmPipelineError,
+        match=r"claim-ontology-v5.*llm-review-stage-a",
+    ):
+        stage_a_structural_review_prompt_records(
+            selection_records=(),
+            parser_records=(),
+            prediction_unit_records=(),
+            markdown_root=tmp_path,
+            provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+        )
+
+    with pytest.raises(
+        LlmPipelineError,
+        match=r"claim-ontology-v5.*llm-review-stage-a",
+    ):
+        _stage_a_structural_review_prompt(
+            _selection(),
+            _documents(),
+            [_unit()],
+            provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+        )
 
 
 def test_structural_reviewer_prompt_preserves_v2_bytes_and_versions_v3_delta() -> None:
@@ -379,6 +438,170 @@ def test_v4_provider_seed_reconstructs_document_bound_citations() -> None:
         "Count I asserts retaliation against Defendant.",
         "Defendant moves to dismiss Count I as untimely.",
     ]
+
+
+def _v5_seed_record(
+    source_citations: object,
+) -> dict[str, object]:
+    return {
+        "count": "Count I",
+        "claim_name": "Retaliation",
+        "defendant_names": ["Acme Corp."],
+        "source_citations": source_citations,
+        "challenged_by_motion": True,
+        "scope": {"kind": "entire_claim"},
+        "unit_confidence": 0.9,
+        "grouping": "individual",
+    }
+
+
+def test_v5_provider_seed_derives_document_bound_citation_end_lines() -> None:
+    seed = _stage_a_seed(
+        _v5_seed_record(
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                    "line_count": 1,
+                },
+                {
+                    "source_document_id": "motion",
+                    "start_line": 1,
+                    "line_count": 1,
+                },
+            ]
+        ),
+        documents=_documents(),
+        provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+    )
+
+    assert seed.source_document_ids == ("complaint", "motion")
+    assert seed.source_citations is not None
+    assert [citation.excerpt for citation in seed.source_citations] == [
+        "Count I asserts retaliation against Defendant.",
+        "Defendant moves to dismiss Count I as untimely.",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("source_citations", "message"),
+    [
+        (
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                    "end_line": 1,
+                }
+            ],
+            "unsupported fields",
+        ),
+        (
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                }
+            ],
+            "unsupported fields",
+        ),
+        (
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                    "line_count": 1,
+                    "citation_excerpt": "not permitted",
+                }
+            ],
+            "unsupported fields",
+        ),
+        (
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": "1",
+                    "line_count": 1,
+                }
+            ],
+            "start_line must be an integer",
+        ),
+        (
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                    "line_count": "1",
+                }
+            ],
+            "line_count must be an integer",
+        ),
+        (
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                    "line_count": 0,
+                }
+            ],
+            "line_count must be an integer from 1 through 12",
+        ),
+        (
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                    "line_count": 13,
+                }
+            ],
+            "line_count must be an integer from 1 through 12",
+        ),
+        (
+            [
+                {
+                    "source_document_id": "",
+                    "start_line": 1,
+                    "line_count": 1,
+                }
+            ],
+            "source_document_id is required",
+        ),
+        (
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                    "line_count": 1,
+                },
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                    "line_count": 1,
+                },
+            ],
+            "duplicate citation",
+        ),
+        (
+            [
+                {
+                    "source_document_id": "complaint",
+                    "start_line": 1,
+                    "line_count": 2,
+                }
+            ],
+            "outside the source document",
+        ),
+    ],
+)
+def test_v5_provider_seed_rejects_invalid_line_count_selectors(
+    source_citations: list[dict[str, object]], message: str
+) -> None:
+    with pytest.raises(LlmPipelineError, match=message):
+        _stage_a_seed(
+            _v5_seed_record(source_citations),
+            documents=_documents(),
+            provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+        )
 
 
 @pytest.mark.parametrize(

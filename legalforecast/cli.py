@@ -1035,6 +1035,7 @@ from legalforecast.labeling.label_outcomes import (
 from legalforecast.labeling.llm_pipeline import (
     DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
     STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+    STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
     STAGE_A_PROVIDER_ATTEMPT_CONTRACTS,
     LlmConsensusPolicy,
     LlmPipelineError,
@@ -9502,7 +9503,7 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         type=Path,
         help=(
             "Canonical provider-free target-document eligibility audit. Required "
-            "for live claim-ontology-v4 unitization."
+            "for live line-addressed claim-ontology-v4/v5 unitization."
         ),
     )
     parser.add_argument(
@@ -9510,7 +9511,8 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         type=Path,
         help=(
             "Completed provider-free eligibility-audit card. Required with "
-            "--target-eligibility-audit for live claim-ontology-v4 unitization."
+            "--target-eligibility-audit for live line-addressed "
+            "claim-ontology-v4/v5 unitization."
         ),
     )
     parser.add_argument(
@@ -19638,7 +19640,10 @@ def _cmd_acquisition_successor_rerun_impact(args: argparse.Namespace) -> int:
         eligibility_audit_path: Path | None = None
         eligibility_run_card_path: Path | None = None
         eligibility_snapshots: dict[Path, bytes] = {}
-        if namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+        if namespace in {
+            STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+            STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+        }:
             (
                 eligibility_audit_path,
                 eligibility_run_card_path,
@@ -60955,28 +60960,52 @@ def _verify_stage_a_provider_replay(
         if candidate_id in prompts_by_candidate:
             raise CommandError(f"duplicate llm-unitize prompt: {candidate_id}")
         prompts_by_candidate[candidate_id] = record
-    legacy_prompt_records = (
-        prompt_records
-        if provider_attempt_namespace != STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
-        else stage_a_unitization_prompt_records(
-            selection_records=lineage.selection_records,
-            parser_records=lineage.parser_records,
-            markdown_root=lineage.markdown_root,
-            markdown_bytes=lineage.markdown_bytes,
-            provider_attempt_namespace="claim-ontology-v2",
+
+    def prompt_records_for_contract(
+        contract: str | None,
+    ) -> tuple[Mapping[str, Any], ...]:
+        """Reconstruct the exact prompt family for one durable attempt key."""
+
+        if contract == provider_attempt_namespace:
+            return tuple(prompt_records)
+        return tuple(
+            stage_a_unitization_prompt_records(
+                selection_records=lineage.selection_records,
+                parser_records=lineage.parser_records,
+                markdown_root=lineage.markdown_root,
+                markdown_bytes=lineage.markdown_bytes,
+                provider_attempt_namespace=contract,
+                # The current card has already authenticated the eligibility
+                # artifact.  Historical-key reconstruction must not make an
+                # old v4/v5 attempt disappear merely because it is not active.
+                enforce_target_document_eligibility=(
+                    contract
+                    not in {
+                        STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+                        STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+                    }
+                ),
+            )
         )
+
+    legacy_prompt_records = (
+        tuple(prompt_records)
+        if provider_attempt_namespace
+        not in {
+            STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+            STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+        }
+        else prompt_records_for_contract("claim-ontology-v2")
     )
     v4_prompt_records = (
-        prompt_records
+        tuple(prompt_records)
         if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
-        else stage_a_unitization_prompt_records(
-            selection_records=lineage.selection_records,
-            parser_records=lineage.parser_records,
-            markdown_root=lineage.markdown_root,
-            markdown_bytes=lineage.markdown_bytes,
-            provider_attempt_namespace=STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
-            enforce_target_document_eligibility=False,
-        )
+        else prompt_records_for_contract(STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT)
+    )
+    v5_prompt_records = (
+        tuple(prompt_records)
+        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
+        else prompt_records_for_contract(STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT)
     )
     legacy_prompts_by_candidate = {
         _required_str(record, "candidate_id"): _required_str(record, "prompt")
@@ -60985,6 +61014,10 @@ def _verify_stage_a_provider_replay(
     v4_prompts_by_candidate = {
         _required_str(record, "candidate_id"): _required_str(record, "prompt")
         for record in v4_prompt_records
+    }
+    v5_prompts_by_candidate = {
+        _required_str(record, "candidate_id"): _required_str(record, "prompt")
+        for record in v5_prompt_records
     }
     raw_records = _stage_a_captured_records(
         prediction_units_path,
@@ -61047,6 +61080,7 @@ def _verify_stage_a_provider_replay(
         ).logical_call_key
         legacy_prompt = legacy_prompts_by_candidate[candidate_id]
         v4_prompt = v4_prompts_by_candidate[candidate_id]
+        v5_prompt = v5_prompts_by_candidate[candidate_id]
         recognized_keys[candidate_id] = frozenset(
             {
                 ProviderCallIdentity(
@@ -61056,7 +61090,11 @@ def _verify_stage_a_provider_replay(
                     prompt=(
                         v4_prompt
                         if contract == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
-                        else legacy_prompt
+                        else (
+                            v5_prompt
+                            if contract == STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
+                            else legacy_prompt
+                        )
                     ),
                     model_registry_sha256=lineage.registry_sha256,
                     prompt_contract=contract,
@@ -61175,7 +61213,10 @@ def _verify_stage_a_provider_replay(
             raise CommandError(
                 f"llm-unitize journal lacks normalized raw output: {candidate_id}"
             )
-        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+        if provider_attempt_namespace in {
+            STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+            STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+        }:
             try:
                 replayed = reconstruct_stage_a_unitization_response(
                     selection_record=selections_by_candidate[candidate_id],
@@ -61188,14 +61229,15 @@ def _verify_stage_a_provider_replay(
                 )
             except (LlmPipelineError, ValueError) as exc:
                 raise CommandError(
-                    f"v4 llm-unitize response does not replay: {candidate_id}: {exc}"
+                    "llm-unitize response does not replay under "
+                    f"{provider_attempt_namespace}: {candidate_id}: {exc}"
                 ) from exc
             if [unit.to_record() for unit in replayed.units] != reconstructed_units or [
                 item.to_record() for item in replayed.review_items
             ] != journal_review_items:
                 raise CommandError(
-                    f"v4 llm-unitize reconstruction differs from response: "
-                    f"{candidate_id}"
+                    "llm-unitize reconstruction differs from response under "
+                    f"{provider_attempt_namespace}: {candidate_id}"
                 )
         if (
             audit.get("status") not in {"succeeded", "adjudication_pending"}
@@ -61680,12 +61722,13 @@ def _validate_v4_finalized_stage_a_citations(
         label="llm-unitize run card",
         captured_input_bytes=captured_input_bytes,
     )
-    if (
-        _stage_a_provider_attempt_namespace_from_unitization_card_record(
-            unitization_card
-        )
-        != STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT
-    ):
+    namespace = _stage_a_provider_attempt_namespace_from_unitization_card_record(
+        unitization_card
+    )
+    if namespace not in {
+        STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+        STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+    }:
         return
     try:
         validate_v4_finalized_unit_citations(
@@ -61693,7 +61736,9 @@ def _validate_v4_finalized_stage_a_citations(
             source_documents_by_candidate=_v4_finalized_citation_documents(lineage),
         )
     except (UnitizationReviewError, ValueError) as exc:
-        raise CommandError(f"invalid finalized v4 citation evidence: {exc}") from exc
+        raise CommandError(
+            f"invalid finalized {namespace} citation evidence: {exc}"
+        ) from exc
 
 
 def _verify_unitization_review_run_card(
@@ -63794,12 +63839,12 @@ def _require_clean_v4_target_document_eligibility_audit(
     lineage: _VerifiedStageAParseLineage,
     replay_paths: Mapping[str, Path | None],
 ) -> JsonRecord:
-    """Replay the persisted audit and reject an ineligible v4 Stage A input."""
+    """Replay the persisted audit and reject an ineligible line-addressed input."""
 
     if audit_path is None or run_card_path is None:
         raise CommandError(
-            "live claim-ontology-v4 unitization requires --target-eligibility-audit "
-            "and --target-eligibility-audit-run-card"
+            "live line-addressed Stage A unitization requires "
+            "--target-eligibility-audit and --target-eligibility-audit-run-card"
         )
     if audit_path.is_symlink() or not audit_path.is_file():
         raise CommandError("target-document eligibility audit is not a regular file")
@@ -63925,18 +63970,29 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     provider_attempt_namespace = cast(
         str | None, getattr(args, "provider_attempt_namespace", None)
     )
-    if not dry_run and provider_attempt_namespace is None:
+    if (
+        not dry_run
+        and provider_attempt_namespace != STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
+    ):
+        # A live run must use the successor contract that represents citation
+        # extent as start_line + line_count.  Older contracts remain readable
+        # for dry runs, provider-free replay, and reconstruction recovery, but
+        # cannot open this executed unitization path.
         raise CommandError(
-            "--provider-attempt-namespace is required for live Stage A unitization"
+            "live Stage A unitization requires --provider-attempt-namespace "
+            f"{STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT}"
         )
     lineage: _StageAUnitizationLineage | None = None
     eligibility_commitment: JsonRecord | None = None
     eligibility_parse_lineage: _VerifiedStageAParseLineage | None = None
     if not dry_run:
-        if provider_attempt_namespace == STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT:
+        if provider_attempt_namespace in {
+            STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
+            STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
+        }:
             # The eligibility gate replays only authenticated selection/parser
             # inputs. It runs before registry, cap, journal, or provider authority
-            # is opened for the v4 unitization attempt.
+            # is opened for the current v5 unitization attempt.
             eligibility_parse_lineage = _verify_verified_stage_a_parse_lineage(
                 args,
                 markdown_root=markdown_root,
@@ -64681,6 +64737,7 @@ def _require_stage_a_structural_review_namespace_pair(
         ("claim-ontology-v2", "claim-ontology-v2"),
         ("claim-ontology-v2", "claim-ontology-v3"),
         ("claim-ontology-v4", "claim-ontology-v4"),
+        ("claim-ontology-v5", "claim-ontology-v4"),
     }:
         raise CommandError(
             "unitization/reviewer namespace pair is not an approved Stage A "
