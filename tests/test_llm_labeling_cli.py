@@ -771,8 +771,10 @@ def test_stage_a_lineage_reuses_identical_authenticated_pdf_scans(
         _args: argparse.Namespace,
         *,
         markdown_root: Path,
+        parse_lineage: object | None = None,
     ) -> object:
         assert markdown_root == tmp_path
+        assert parse_lineage is None
         for _ in range(4):
             assert (
                 provenance_clearance.document_scanner_for_plan(scanner_plan)(

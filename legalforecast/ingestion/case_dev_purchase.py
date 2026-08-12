@@ -4697,6 +4697,105 @@ def read_case_dev_purchase_snapshot(
     return snapshot
 
 
+def read_case_dev_purchase_authority_snapshots(
+    path: str | Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+    controlled_private_root: Path | None = None,
+    initialization_receipt_path: Path | None = None,
+) -> Mapping[Path, bytes]:
+    """Return the immutable byte closure authenticated for a read-only purchase audit.
+
+    The canonical SQLite database may have committed ``-wal`` or rollback
+    ``-journal`` companions.  They are authority-bearing bytes, while ``-shm``
+    is deliberately excluded because SQLite creates it as transient reader
+    coordination state.  Keep the capture inside the journal's existing
+    read-only lock and identity checks so callers can safely retain it only as
+    verifier-owned, in-process evidence.
+    """
+
+    ledger_path = _canonical_requested_ledger_path(path, policy=policy)
+    try:
+        with CaseDevPurchaseJournal(
+            ledger_path,
+            policy=policy,
+            read_only=True,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
+        ) as journal:
+            # Authenticate the logical state before preserving the exact bytes
+            # that supplied it.  The context manager rechecks all observed
+            # identities again when it closes.
+            journal.authenticated_snapshot()
+            if initialization_receipt_path is not None:
+                _verify_runtime_purchase_ledger_initialization_lineage(
+                    initialization_receipt_path, policy=policy
+                )
+            snapshots: dict[Path, bytes] = {}
+            for candidate in (
+                *(
+                    (initialization_receipt_path,)
+                    if initialization_receipt_path
+                    else ()
+                ),
+                ledger_path,
+                Path(f"{ledger_path}-wal"),
+                Path(f"{ledger_path}-journal"),
+            ):
+                try:
+                    candidate.lstat()
+                except FileNotFoundError:
+                    continue
+                snapshots[candidate.resolve()] = _read_purchase_snapshot_bytes(
+                    candidate
+                )
+            return MappingProxyType(snapshots)
+    except sqlite3.Error as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger is not a complete authenticated SQLite journal"
+        ) from exc
+
+
+def _read_purchase_snapshot_bytes(path: Path) -> bytes:
+    """Read one singly-linked authority file while preserving its identity."""
+
+    flags = _read_only_snapshot_open_flags()
+    try:
+        descriptor = os.open(path, flags)
+        try:
+            opened = os.fstat(descriptor)
+            before = path.lstat()
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or _purchase_snapshot_stat_identity(opened)
+                != _purchase_snapshot_stat_identity(before)
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase ledger path changed during read-only audit: {path}"
+                )
+            chunks: list[bytes] = []
+            while chunk := os.read(descriptor, 1024 * 1024):
+                chunks.append(chunk)
+            after = path.lstat()
+            if (
+                not stat.S_ISREG(after.st_mode)
+                or after.st_nlink != 1
+                or _purchase_snapshot_stat_identity(after)
+                != _purchase_snapshot_stat_identity(opened)
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase ledger path changed during read-only audit: {path}"
+                )
+            return b"".join(chunks)
+        finally:
+            os.close(descriptor)
+    except OSError as exc:
+        raise CaseDevPurchaseLedgerError(
+            f"purchase ledger filesystem inspection failed: {path}"
+        ) from exc
+
+
 def _copy_purchase_snapshot_namespace(source: Path, destination: Path) -> None:
     """Copy committed SQLite bytes into an expendable recovery namespace.
 

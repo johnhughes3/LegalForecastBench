@@ -1112,6 +1112,10 @@ def test_projection_operation_rejects_live_inherited_task() -> None:
         "promoted_pdf",
         "v2_output",
         "v2_transitive_source",
+        "purchase_initialization_receipt",
+        "purchase_ledger_db",
+        "purchase_ledger_wal",
+        "purchase_ledger_journal",
     ],
 )
 def test_supporting_projection_cache_reuses_complete_closure_and_deep_copies(
@@ -1140,6 +1144,10 @@ def test_supporting_projection_cache_reuses_complete_closure_and_deep_copies(
             "promoted_pdf",
             "v2_output",
             "v2_transitive_source",
+            "purchase_initialization_receipt",
+            "purchase_ledger_db",
+            "purchase_ledger_wal",
+            "purchase_ledger_journal",
         )
     }
     for name, path in closure_paths.items():
@@ -1150,7 +1158,16 @@ def test_supporting_projection_cache_reuses_complete_closure_and_deep_copies(
         nonlocal calls
         calls += 1
         closure = cast(dict[str, bytes], kwargs["_verified_byte_closure"])
-        for name in ("plan", "bridge", "supplemental_pdf", "promoted_pdf"):
+        for name in (
+            "plan",
+            "bridge",
+            "supplemental_pdf",
+            "promoted_pdf",
+            "purchase_initialization_receipt",
+            "purchase_ledger_db",
+            "purchase_ledger_wal",
+            "purchase_ledger_journal",
+        ):
             path = closure_paths[name]
             closure[os.path.abspath(path)] = path.read_bytes()
         return {

@@ -177,6 +177,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseSnapshot,
     canonical_purchase_state_sha256,
     initialize_case_dev_purchase_journal,
+    read_case_dev_purchase_authority_snapshots,
     read_case_dev_purchase_snapshot,
     require_approved_case_dev_purchase_policy,
     verify_approved_purchase_input_bytes,
@@ -48249,6 +48250,19 @@ def _verify_materialized_downstream_lineage(
             controlled_private_root=controlled_private_root,
             initialization_receipt_path=initialization_receipt_path,
         )
+        _merge_verified_artifact_bytes(
+            captured_artifact_bytes,
+            {
+                os.path.abspath(path): payload
+                for path, payload in read_case_dev_purchase_authority_snapshots(
+                    ledger_path.resolve(),
+                    policy=purchase_policy,
+                    controlled_private_root=controlled_private_root,
+                    initialization_receipt_path=initialization_receipt_path,
+                ).items()
+            },
+            label="downstream materializer purchase authority",
+        )
         available_document_keys = cast(
             set[tuple[str, str]], projection["selected_document_keys"]
         )
@@ -60463,10 +60477,12 @@ def _verify_stage_a_unitization_lineage(
     # This only reuses a scan when the scanner version, byte length, and SHA-256
     # all match within this top-level preflight.
     with cache_disclosure_document_scans():
+        if parse_lineage is None:
+            return _verify_stage_a_unitization_lineage_uncached(
+                args, markdown_root=markdown_root
+            )
         return _verify_stage_a_unitization_lineage_uncached(
-            args,
-            markdown_root=markdown_root,
-            parse_lineage=parse_lineage,
+            args, markdown_root=markdown_root, parse_lineage=parse_lineage
         )
 
 
