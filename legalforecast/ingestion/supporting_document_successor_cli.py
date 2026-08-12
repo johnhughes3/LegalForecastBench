@@ -111,7 +111,11 @@ def run(args: argparse.Namespace) -> int:
 
 
 def verify_supporting_document_successor_projection(
-    target_root: Path, *, verifier: V2ProjectionVerifier
+    target_root: Path,
+    *,
+    verifier: V2ProjectionVerifier,
+    _verified_byte_closure: dict[str, bytes] | None = None,
+    _verified_absence_closure: set[str] | None = None,
 ) -> Mapping[str, object]:
     """Reauthenticate a completed successor for ordinary materialization.
 
@@ -153,6 +157,94 @@ def verify_supporting_document_successor_projection(
         manifest = _jsonl(payloads["manifest"], "supporting-document merged manifest")
         clearance = _jsonl(payloads["clearance"], "supporting-document clearance")
         _require_output_identity(target_root, root_fd)
+        if _verified_byte_closure is not None:
+            closure: dict[str, bytes] = dict(plan.verified_artifact_bytes)
+            successor_bytes: dict[str, bytes] = {
+                os.path.abspath(target_root / relative): payloads[name]
+                for name, relative in _OUTPUTS.items()
+            }
+            successor_bytes[os.path.abspath(plan_path)] = plan_bytes
+            successor_bytes[os.path.abspath(bridge_descriptor)] = _read_regular(
+                bridge_descriptor, "raw-docket bridge"
+            )
+            supplemental_records = _jsonl(
+                payloads["supplemental_manifest"], "supplemental manifest"
+            )
+            for record in supplemental_records:
+                local_path = record.get("local_path")
+                if not isinstance(local_path, str):
+                    raise SupportingDocumentSuccessorCliError(
+                        "supplemental document path is invalid"
+                    )
+                output_path = (
+                    target_root
+                    / "supplemental-free-source/documents"
+                    / _safe_relative(local_path)
+                )
+                successor_bytes[os.path.abspath(output_path)] = _read_relative_regular(
+                    target_root,
+                    Path("supplemental-free-source/documents")
+                    / _safe_relative(local_path),
+                    root_fd=root_fd,
+                )
+            v2_card = projection.get("run_card")
+            v2_inputs = (
+                cast(Mapping[str, object], v2_card).get("input_paths")
+                if isinstance(v2_card, Mapping)
+                else None
+            )
+            if not isinstance(v2_inputs, list):
+                raise SupportingDocumentSuccessorCliError(
+                    "v2 projection lacks exact inputs"
+                )
+            typed_v2_inputs = cast(list[object], v2_inputs)
+            if len(typed_v2_inputs) != 7 or not all(
+                isinstance(value, str) and value for value in typed_v2_inputs
+            ):
+                raise SupportingDocumentSuccessorCliError(
+                    "v2 projection lacks exact inputs"
+                )
+            historical_root = Path(cast(str, typed_v2_inputs[6]))
+            historical_manifest_path = historical_root / "free-document-downloads.jsonl"
+            historical_manifest_bytes = _read_regular(
+                historical_manifest_path, "historical free manifest"
+            )
+            successor_bytes[os.path.abspath(historical_manifest_path)] = (
+                historical_manifest_bytes
+            )
+            promoted_keys = {
+                _record_key(record) for record in supplemental_records[:-1]
+            }
+            for record in _legacy_jsonl(
+                historical_manifest_bytes, "historical free manifest"
+            ):
+                if _record_key(record) not in promoted_keys:
+                    continue
+                local_path = record.get("local_path")
+                if not isinstance(local_path, str):
+                    raise SupportingDocumentSuccessorCliError(
+                        "promoted free source path is invalid"
+                    )
+                source_path = historical_root / "documents" / _safe_relative(local_path)
+                successor_bytes[os.path.abspath(source_path)] = _read_regular(
+                    source_path, "promoted free source"
+                )
+            for path, payload in successor_bytes.items():
+                existing = closure.get(path)
+                if existing is not None and existing != payload:
+                    raise SupportingDocumentSuccessorCliError(
+                        "supporting-document byte closure conflicts"
+                    )
+                closure[path] = payload
+            for path, payload in closure.items():
+                existing = _verified_byte_closure.get(path)
+                if existing is not None and existing != payload:
+                    raise SupportingDocumentSuccessorCliError(
+                        "supporting-document byte closure conflicts"
+                    )
+                _verified_byte_closure[path] = payload
+            if _verified_absence_closure is not None:
+                _verified_absence_closure.update(plan.verified_artifact_absences)
         return {
             "run_card": state,
             "run_card_path": target_root / _OUTPUTS["state"],
@@ -197,7 +289,7 @@ def verify_supporting_document_successor_projection(
             ),
             "base_v2_projection": projection,
             "verified_artifact_bytes": {
-                str((target_root / relative).absolute()): payloads[name]
+                os.path.abspath(target_root / relative): payloads[name]
                 for name, relative in _OUTPUTS.items()
             },
         }

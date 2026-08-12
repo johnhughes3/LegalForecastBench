@@ -671,7 +671,12 @@ def test_purchase_approval_verifier_routes_supporting_successor_without_legacy_c
             }
         )
     )
-    expected = {"selection_records": ()}
+    expected = {
+        "selection_records": (),
+        "verified_artifact_bytes": {
+            os.path.abspath(card_path): card_path.read_bytes(),
+        },
+    }
     calls: list[dict[str, object]] = []
 
     def verify(**kwargs: object) -> dict[str, object]:
@@ -690,13 +695,15 @@ def test_purchase_approval_verifier_routes_supporting_successor_without_legacy_c
         )
         is expected
     )
-    assert calls == [
-        {
-            "target_root": target_root,
-            "free_clearance_path": target_root / "disclosure-clearance.jsonl",
-            "expected_target_count": 100,
-        }
-    ]
+    assert len(calls) == 1
+    assert calls[0]["target_root"] == target_root
+    assert calls[0]["free_clearance_path"] == (
+        target_root / "disclosure-clearance.jsonl"
+    )
+    assert calls[0]["expected_target_count"] == 100
+    assert calls[0]["_verified_byte_closure"] == {
+        os.path.abspath(card_path): card_path.read_bytes()
+    }
 
 
 @pytest.mark.parametrize("payload", [b"not-json\n", b"", b"[]\n"])

@@ -27,6 +27,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     canonical_purchase_operation_sha256,
     generate_case_dev_purchase_policy,
+    read_case_dev_purchase_authority_audit,
     read_case_dev_purchase_snapshot,
     verify_case_dev_purchase_policy,
 )
@@ -130,6 +131,70 @@ def test_purchase_snapshot_is_strictly_read_only(tmp_path: Path) -> None:
     assert set(before) == set(after)
     assert snapshot.operations[0]["source_document_id"] == "doc-1"
     assert len(snapshot.purchase_state_sha256) == 64
+
+
+def test_purchase_authority_audit_binds_logical_snapshot_to_one_byte_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A writer cannot interleave between the audit result and its byte closure."""
+
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    journal.plan(_budget_plan("case-1", ("doc-1",), dry_run=False))
+    journal.close()
+    original = purchase_module._read_purchase_snapshot_bytes
+    reads = 0
+
+    def interleaving_read(path: Path) -> bytes:
+        nonlocal reads
+        reads += 1
+        # If the audit had released its reader lock between snapshot and byte
+        # capture this writer would complete and produce a mixed-generation
+        # result.  The nonblocking acquisition proves that it cannot.
+        writer = open(f"{journal.path}.lock", "r+b")
+        try:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(writer.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            writer.close()
+        return original(path)
+
+    monkeypatch.setattr(
+        purchase_module, "_read_purchase_snapshot_bytes", interleaving_read
+    )
+    audit = read_case_dev_purchase_authority_audit(journal.path, policy=policy)
+
+    assert reads >= 1
+    assert audit.snapshot.operations[0]["source_document_id"] == "doc-1"
+    assert journal.path.resolve() in audit.snapshots
+    assert Path(f"{journal.path}-shm").resolve() not in audit.snapshots
+
+
+def test_purchase_authority_audit_records_and_rechecks_absent_sidecars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    journal.close()
+    wal = Path(f"{journal.path}-wal")
+    rollback = Path(f"{journal.path}-journal")
+    assert not wal.exists()
+    assert not rollback.exists()
+    original_lexists = os.path.lexists
+
+    def create_wal_during_absence_recheck(path: os.PathLike[str] | str) -> bool:
+        if Path(path) == wal and not wal.exists():
+            wal.write_bytes(b"new authority")
+        return original_lexists(path)
+
+    monkeypatch.setattr(os.path, "lexists", create_wal_during_absence_recheck)
+    with pytest.raises(RuntimeError, match="changed during read-only audit"):
+        read_case_dev_purchase_authority_audit(journal.path, policy=policy)
+
+    wal.unlink()
+    monkeypatch.setattr(os.path, "lexists", original_lexists)
+    audit = read_case_dev_purchase_authority_audit(journal.path, policy=policy)
+    assert set(audit.absent_paths) == {wal.absolute(), rollback.absolute()}
 
 
 def test_purchase_snapshot_replays_wal_without_changing_sqlite_files(

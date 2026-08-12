@@ -393,6 +393,7 @@ class CycleAcquisitionStore:
             self._close_open_file_descriptors()
             raise
         self._closed = False
+        self._connection_closed = False
 
     @property
     def read_only(self) -> bool:
@@ -416,10 +417,24 @@ class CycleAcquisitionStore:
 
         if self._closed:
             return
-        self._connection.close()
+        self.close_database_for_locked_snapshot()
         fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
         self._close_open_file_descriptors()
         self._closed = True
+
+    def close_database_for_locked_snapshot(self) -> None:
+        """Close SQLite while retaining the exclusive filesystem lock.
+
+        Verifiers use this narrow boundary before capturing the durable database
+        namespace. Closing the connection may checkpoint or remove WAL state;
+        retaining the lock prevents a writer from changing that post-close
+        snapshot before it is captured.
+        """
+
+        if self._connection_closed:
+            return
+        self._connection.close()
+        self._connection_closed = True
 
     def _close_open_file_descriptors(self) -> None:
         for attribute in ("_lock_fd", "_database_fd", "_bound_parent_fd"):

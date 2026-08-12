@@ -530,6 +530,15 @@ class CaseDevPurchaseSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class CaseDevPurchaseAuthorityAudit:
+    """One lock-bound logical purchase snapshot and its authority byte closure."""
+
+    snapshot: CaseDevPurchaseSnapshot
+    snapshots: Mapping[Path, bytes]
+    absent_paths: tuple[Path, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class CaseDevPurchaseSpendSummary:
     """Canonical read-only spend interpretation of one authenticated snapshot."""
 
@@ -1647,7 +1656,15 @@ def _verify_runtime_purchase_ledger_initialization_lineage(
 ) -> str:
     """Authenticate immutable initialization lineage before opening SQLite."""
 
-    receipt = _read_purchase_ledger_initialization_receipt(receipt_path)
+    return _verify_purchase_ledger_initialization_lineage_record(
+        _read_purchase_ledger_initialization_receipt(receipt_path), policy=policy
+    )
+
+
+def _verify_purchase_ledger_initialization_lineage_record(
+    receipt: Mapping[str, object], *, policy: CaseDevPurchasePolicy
+) -> str:
+    """Verify one already-captured initialization receipt without rereading it."""
     expected_keys = {
         "schema_version",
         "cycle_id",
@@ -2049,6 +2066,7 @@ class CaseDevPurchaseJournal:
         read_only: bool = False,
         controlled_private_root: Path | None = None,
         initialization_receipt_path: Path | None = None,
+        initialization_receipt_record: Mapping[str, object] | None = None,
     ) -> None:
         if allow_create and read_only:
             raise CaseDevPurchaseLedgerError(
@@ -2066,8 +2084,12 @@ class CaseDevPurchaseJournal:
                 raise CaseDevPurchaseLedgerError(
                     "approved v2 runtime requires an initialization receipt"
                 )
-            initialization_id = _verify_runtime_purchase_ledger_initialization_lineage(
-                initialization_receipt_path,
+            initialization_id = _verify_purchase_ledger_initialization_lineage_record(
+                initialization_receipt_record
+                if initialization_receipt_record is not None
+                else _read_purchase_ledger_initialization_receipt(
+                    initialization_receipt_path
+                ),
                 policy=policy,
             )
         else:
@@ -4695,6 +4717,133 @@ def read_case_dev_purchase_snapshot(
             "purchase ledger is not a complete authenticated SQLite journal"
         ) from exc
     return snapshot
+
+
+def read_case_dev_purchase_authority_audit(
+    path: str | Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+    controlled_private_root: Path | None = None,
+    initialization_receipt_path: Path | None = None,
+) -> CaseDevPurchaseAuthorityAudit:
+    """Authenticate one logical purchase state and its byte closure atomically.
+
+    The canonical SQLite database may have committed ``-wal`` or rollback
+    ``-journal`` companions.  They are authority-bearing bytes, while ``-shm``
+    is deliberately excluded because SQLite creates it as transient reader
+    coordination state.  Keep the capture inside the journal's existing
+    read-only lock and final identity check.  The returned logical snapshot and
+    bytes therefore cannot be mixed across two ledger generations.
+    """
+
+    ledger_path = _canonical_requested_ledger_path(path, policy=policy)
+    receipt_bytes: bytes | None = None
+    receipt_record: Mapping[str, object] | None = None
+    if initialization_receipt_path is not None:
+        receipt_bytes = _read_purchase_snapshot_bytes(initialization_receipt_path)
+        try:
+            decoded = json.loads(receipt_bytes)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger initialization receipt is not valid JSON"
+            ) from exc
+        if not isinstance(decoded, Mapping):
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger initialization receipt must be an object"
+            )
+        receipt_record = cast(Mapping[str, object], decoded)
+    try:
+        with CaseDevPurchaseJournal(
+            ledger_path,
+            policy=policy,
+            read_only=True,
+            controlled_private_root=controlled_private_root,
+            initialization_receipt_path=initialization_receipt_path,
+            initialization_receipt_record=receipt_record,
+        ) as journal:
+            snapshot = journal.authenticated_snapshot()
+            snapshots: dict[Path, bytes] = {}
+            absent_paths: list[Path] = []
+            for candidate in (
+                *(
+                    (initialization_receipt_path,)
+                    if initialization_receipt_path
+                    else ()
+                ),
+                ledger_path,
+                Path(f"{ledger_path}-wal"),
+                Path(f"{ledger_path}-journal"),
+            ):
+                if (
+                    initialization_receipt_path is not None
+                    and candidate == initialization_receipt_path
+                    and receipt_bytes is not None
+                ):
+                    snapshots[candidate.absolute()] = receipt_bytes
+                    continue
+                try:
+                    candidate.lstat()
+                except FileNotFoundError:
+                    absent_paths.append(candidate.absolute())
+                    continue
+                snapshots[candidate.absolute()] = _read_purchase_snapshot_bytes(
+                    candidate
+                )
+            for absent_path in absent_paths:
+                if os.path.lexists(absent_path):
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase ledger authority sidecar changed during "
+                        "read-only audit"
+                    )
+            return CaseDevPurchaseAuthorityAudit(
+                snapshot=snapshot,
+                snapshots=MappingProxyType(snapshots),
+                absent_paths=tuple(absent_paths),
+            )
+    except sqlite3.Error as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger is not a complete authenticated SQLite journal"
+        ) from exc
+
+
+def _read_purchase_snapshot_bytes(path: Path) -> bytes:
+    """Read one singly-linked authority file while preserving its identity."""
+
+    flags = _read_only_snapshot_open_flags()
+    try:
+        descriptor = os.open(path, flags)
+        try:
+            opened = os.fstat(descriptor)
+            before = path.lstat()
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or _purchase_snapshot_stat_identity(opened)
+                != _purchase_snapshot_stat_identity(before)
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase ledger path changed during read-only audit: {path}"
+                )
+            chunks: list[bytes] = []
+            while chunk := os.read(descriptor, 1024 * 1024):
+                chunks.append(chunk)
+            after = path.lstat()
+            if (
+                not stat.S_ISREG(after.st_mode)
+                or after.st_nlink != 1
+                or _purchase_snapshot_stat_identity(after)
+                != _purchase_snapshot_stat_identity(opened)
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase ledger path changed during read-only audit: {path}"
+                )
+            return b"".join(chunks)
+        finally:
+            os.close(descriptor)
+    except OSError as exc:
+        raise CaseDevPurchaseLedgerError(
+            f"purchase ledger filesystem inspection failed: {path}"
+        ) from exc
 
 
 def _copy_purchase_snapshot_namespace(source: Path, destination: Path) -> None:
