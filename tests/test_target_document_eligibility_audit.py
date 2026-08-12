@@ -139,6 +139,77 @@ def test_live_v5_unitizer_replays_eligibility_before_provider_lineage(
     assert not output_root.exists()
 
 
+def test_live_v5_unitizer_hands_exact_verified_snapshot_to_unitization(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parse_calls = 0
+    verified_snapshot = object()
+
+    def verify_parse(*_args: object, **_kwargs: object) -> object:
+        nonlocal parse_calls
+        parse_calls += 1
+        return verified_snapshot
+
+    def verify_unitization(*_args: object, **kwargs: object) -> object:
+        assert kwargs["parse_lineage"] is verified_snapshot
+        raise cli.CommandError("stop before provider authority")
+
+    monkeypatch.setattr(cli, "_verify_verified_stage_a_parse_lineage", verify_parse)
+    monkeypatch.setattr(
+        cli,
+        "_require_clean_v4_target_document_eligibility_audit",
+        lambda **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        cli, "_require_stage_a_parse_lineage_unchanged", lambda _lineage: None
+    )
+    monkeypatch.setattr(cli, "_verify_stage_a_unitization_lineage", verify_unitization)
+    output_root = tmp_path / "must-not-exist"
+    args = Namespace(
+        output_root=output_root,
+        provider_journal=tmp_path / "provider.sqlite3",
+        selection=tmp_path / "selection.jsonl",
+        parser_manifest=tmp_path / "parser.jsonl",
+        markdown_root=tmp_path / "markdown",
+        model_registry=tmp_path / "registry.json",
+        provider_cycle_caps=tmp_path / "caps.json",
+        provider_attempt_namespace="claim-ontology-v5",
+        target_eligibility_audit=tmp_path / "eligibility.jsonl",
+        target_eligibility_audit_run_card=tmp_path / "eligibility-card.json",
+        execute=True,
+    )
+
+    with pytest.raises(cli.CommandError, match="stop before provider authority"):
+        cli._cmd_acquisition_llm_unitize(args)
+
+    assert parse_calls == 1
+    assert not output_root.exists()
+
+
+def test_unitization_rejects_unsealed_parse_lineage_handoff(tmp_path: Path) -> None:
+    fabricated = cli._VerifiedStageAParseLineage(
+        selection_records=(),
+        selection_bytes=b"",
+        parser_records=(),
+        parser_manifest_bytes=b"",
+        document_root=tmp_path / "documents",
+        markdown_root=tmp_path / "markdown",
+        cohort_cycle_id="cycle-1",
+        input_paths=(),
+        input_commitments={},
+        markdown_tree={},
+        file_snapshots={},
+        document_tree={},
+        markdown_bytes={},
+    )
+
+    with pytest.raises(cli.CommandError, match="not verifier-owned"):
+        cli._verify_stage_a_unitization_lineage_uncached(
+            Namespace(), markdown_root=tmp_path / "markdown", parse_lineage=fabricated
+        )
+
+
 @pytest.mark.parametrize(
     "unitization_namespace",
     (None, "claim-ontology-v2", "claim-ontology-v3", "claim-ontology-v4"),

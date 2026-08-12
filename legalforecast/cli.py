@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import copy
+import dataclasses
 import fcntl
 import hashlib
 import io
@@ -16148,6 +16150,13 @@ def _read_singly_linked_regular_input(path: Path, *, label: str) -> bytes:
             or after.st_nlink != 1
         ):
             raise CommandError(f"{label} changed while it was being read: {path}")
+        collector = _VERIFIED_PROJECTION_BYTE_COLLECTOR.get()
+        if collector is not None:
+            key = os.path.abspath(path)
+            existing = collector.get(key)
+            if existing is not None and existing != payload:
+                raise CommandError("verified projection byte closure conflicts")
+            collector[key] = payload
         return payload
     except OSError as exc:
         raise CommandError(f"{label} could not be read safely: {path}: {exc}") from exc
@@ -43735,6 +43744,20 @@ def _replay_exact100_successor_replacement_v2_inputs(
         controlled_private_root=controlled_private_root,
         initialization_receipt_path=initialization_receipt,
     )
+    closure = _VERIFIED_PROJECTION_BYTE_COLLECTOR.get()
+    if closure is not None:
+        materialization_snapshots = {
+            **dict(verified_materialization.artifact_bytes),
+            **{
+                os.path.abspath(materialized_root / "documents" / relative): payload
+                for relative, payload in verified_materialization.document_tree.items()
+            },
+        }
+        for path, payload in materialization_snapshots.items():
+            existing = closure.get(path)
+            if existing is not None and existing != payload:
+                raise CommandError("verified projection byte closure conflicts")
+            closure[path] = payload
     if tuple(verified_materialization.selection_records) != predecessor_selection:
         raise CommandError("v2 complete materialization selection differs")
     restriction_path = materialized_root / "restriction-evidence.jsonl"
@@ -44974,6 +44997,7 @@ def _verify_supporting_document_downstream_projection(
     target_root: Path,
     free_clearance_path: Path,
     expected_target_count: int,
+    _verified_byte_closure: dict[str, bytes] | None = None,
 ) -> dict[str, object]:
     """Replay one supporting-document successor for downstream consumers."""
 
@@ -45011,7 +45035,9 @@ def _verify_supporting_document_downstream_projection(
     try:
         return _mint_verified_successor_selection_card_from_projection(
             verify_supporting_document_successor_projection(
-                target_root, verifier=verify_v2
+                target_root,
+                verifier=verify_v2,
+                _verified_byte_closure=_verified_byte_closure,
             ),
             replay_attestation=_SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION,
         )
@@ -45151,15 +45177,28 @@ class _VerifiedProjectionCacheEntry:
     snapshots: tuple[tuple[str, bytes], ...]
 
 
+def _current_asyncio_task_id() -> int | None:
+    try:
+        task = asyncio.current_task()
+    except RuntimeError:
+        return None
+    return id(task) if task is not None else None
+
+
 @dataclass
 class _VerifiedProjectionOperation:
     owner_thread_id: int
-    cache: dict[tuple[str, str], _VerifiedProjectionCacheEntry]
-    byte_closures: dict[tuple[str, str], dict[str, bytes]]
+    cache: dict[tuple[str, str, str], _VerifiedProjectionCacheEntry]
+    byte_closures: dict[tuple[str, str, str], dict[str, bytes]]
+    owner_task_id: int | None = None
     alive: bool = True
 
     def is_live_owner(self) -> bool:
-        return self.alive and self.owner_thread_id == get_ident()
+        return (
+            self.alive
+            and self.owner_thread_id == get_ident()
+            and self.owner_task_id == _current_asyncio_task_id()
+        )
 
     def invalidate(self) -> None:
         self.alive = False
@@ -45172,17 +45211,25 @@ class _VerifiedProjectionOperation:
         target_root: Path,
         run_card_bytes: bytes,
         snapshots: Mapping[str, bytes],
+        lineage_kind: str = "legalforecast.acquisition_run_card.v1",
     ) -> None:
         if not self.is_live_owner():
             raise RuntimeError(
                 "verified projection operation is not live for this thread"
             )
-        key = (str(target_root.resolve()), _bytes_sha256(run_card_bytes))
+        key = (
+            lineage_kind,
+            str(target_root.resolve()),
+            _bytes_sha256(run_card_bytes),
+        )
         self.byte_closures[key] = dict(snapshots)
 
 
 _VERIFIED_PROJECTION_OPERATION: ContextVar[_VerifiedProjectionOperation | None] = (
     ContextVar("verified_projection_cache", default=None)
+)
+_VERIFIED_PROJECTION_BYTE_COLLECTOR: ContextVar[dict[str, bytes] | None] = ContextVar(
+    "verified_projection_byte_collector", default=None
 )
 
 
@@ -45215,7 +45262,10 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
             _verified_clearance_source_roots=_verified_clearance_source_roots,
         )
     operation = _VerifiedProjectionOperation(
-        owner_thread_id=get_ident(), cache={}, byte_closures={}
+        owner_thread_id=get_ident(),
+        cache={},
+        byte_closures={},
+        owner_task_id=_current_asyncio_task_id(),
     )
     token = _VERIFIED_PROJECTION_OPERATION.set(operation)
     try:
@@ -45242,31 +45292,81 @@ def _verify_completed_target_cohort_projection_in_operation(
     if not operation.is_live_owner():  # pragma: no cover - guarded by public entry
         raise RuntimeError("verified projection operation is not live for this thread")
 
-    # Supporting-document successors carry their own authenticated replay
-    # surface. Keep that new trunk path fully replayed rather than treating it
-    # as an ordinary target-cohort cache candidate.
     supporting_card_path = (
         target_root / "run-cards/project-exact100-supporting-document-successor.json"
     )
     if supporting_card_path.is_file() and not supporting_card_path.is_symlink():
+        supporting_card_bytes = _read_singly_linked_regular_input(
+            supporting_card_path, label="supporting-document successor run card"
+        )
         supporting_card = _projection_json_object(
-            _read_singly_linked_regular_input(
-                supporting_card_path, label="supporting-document successor run card"
-            ),
-            source=supporting_card_path,
+            supporting_card_bytes, source=supporting_card_path
         )
-        return _verify_supporting_document_downstream_projection(
-            target_root=target_root,
-            free_clearance_path=target_root / "disclosure-clearance.jsonl",
-            expected_target_count=_required_int(supporting_card, "selected_case_count"),
+        cache_key = (
+            str(SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION),
+            str(target_root.resolve()),
+            _bytes_sha256(supporting_card_bytes),
         )
+        cached = operation.cache.get(cache_key)
+        if cached is not None:
+            _require_snapshot_unchanged(
+                {Path(path): payload for path, payload in cached.snapshots},
+                label="cached supporting-document projection artifact",
+            )
+            return copy.deepcopy(cached.result)
+        closure: dict[str, bytes] = {}
+        token = _VERIFIED_PROJECTION_BYTE_COLLECTOR.set(closure)
+        try:
+            result = _verify_supporting_document_downstream_projection(
+                target_root=target_root,
+                free_clearance_path=target_root / "disclosure-clearance.jsonl",
+                expected_target_count=_required_int(
+                    supporting_card, "selected_case_count"
+                ),
+                _verified_byte_closure=closure,
+            )
+        finally:
+            _VERIFIED_PROJECTION_BYTE_COLLECTOR.reset(token)
+        raw_snapshots: object = result.get("verified_artifact_bytes")
+        base = result.get("base_v2_projection")
+        base_record: Mapping[str, object]
+        if isinstance(base, Mapping):
+            base_record = cast(Mapping[str, object], base)
+        else:
+            base_record = {}
+        raw_base_snapshots: object = base_record.get("verified_artifact_bytes", {})
+        snapshot_groups: tuple[object, ...] = (raw_snapshots, raw_base_snapshots)
+        for raw_group in snapshot_groups:
+            if not isinstance(raw_group, Mapping):
+                raise CommandError(
+                    "supporting-document projection cache evidence is incomplete"
+                )
+            for raw_path, payload in cast(Mapping[object, object], raw_group).items():
+                if not isinstance(raw_path, str) or not isinstance(payload, bytes):
+                    raise CommandError(
+                        "supporting-document projection cache evidence is invalid"
+                    )
+                existing = closure.get(raw_path)
+                if existing is not None and existing != payload:
+                    raise CommandError(
+                        "supporting-document projection cache evidence conflicts"
+                    )
+                closure[raw_path] = payload
+        operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
+            result=copy.deepcopy(result), snapshots=tuple(sorted(closure.items()))
+        )
+        return result
 
     run_card_path = target_root / "run-cards/project-target-cohort.json"
     run_card_bytes = _read_singly_linked_regular_input(
         run_card_path, label="target projection run card"
     )
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
-    cache_key = (str(target_root.resolve()), _bytes_sha256(run_card_bytes))
+    cache_key = (
+        "legalforecast.acquisition_run_card.v1",
+        str(target_root.resolve()),
+        _bytes_sha256(run_card_bytes),
+    )
     raw_inputs_for_cache = run_card.get("input_paths")
     cache_input_count = (
         len(cast(Sequence[object], raw_inputs_for_cache))
@@ -60003,6 +60103,7 @@ def _verify_decision_text_artifact_with_materialization(
 _STAGE_A_UNITIZATION_LINEAGE_SCHEMA_VERSION = (
     "legalforecast.stage_a_unitization_lineage.v1"
 )
+_VERIFIED_STAGE_A_PARSE_LINEAGE_SEAL = object()
 
 
 @dataclass(frozen=True, slots=True)
@@ -60023,6 +60124,9 @@ class _VerifiedStageAParseLineage:
     document_tree: Mapping[str, bytes]
     markdown_bytes: Mapping[str, bytes]
     download_records: tuple[JsonRecord, ...] = ()
+    verifier_seal: object | None = dataclasses.field(
+        repr=False, compare=False, default=None
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -60062,10 +60166,17 @@ def _verify_stage_a_unitization_lineage_uncached(
     args: argparse.Namespace,
     *,
     markdown_root: Path,
+    parse_lineage: object | None = None,
 ) -> _StageAUnitizationLineage:
-    parse_lineage = _verify_stage_a_parse_lineage_uncached(
-        args, markdown_root=markdown_root
-    )
+    if parse_lineage is None:
+        parse_lineage = _verify_stage_a_parse_lineage_uncached(
+            args, markdown_root=markdown_root
+        )
+    elif (
+        not isinstance(parse_lineage, _VerifiedStageAParseLineage)
+        or parse_lineage.verifier_seal is not _VERIFIED_STAGE_A_PARSE_LINEAGE_SEAL
+    ):
+        raise CommandError("Stage A parse-lineage handoff is not verifier-owned")
     registry_path = cast(Path, args.model_registry)
     caps_path = _required_stage_a_lineage_path(
         args, "provider_cycle_caps", "--provider-cycle-caps"
@@ -60336,6 +60447,7 @@ def _verify_stage_a_parse_lineage_uncached(
         file_snapshots=dict(stage_a_file_snapshots),
         document_tree=dict(verified_materialization.document_tree),
         markdown_bytes=markdown_bytes,
+        verifier_seal=_VERIFIED_STAGE_A_PARSE_LINEAGE_SEAL,
     )
 
 
@@ -60343,6 +60455,7 @@ def _verify_stage_a_unitization_lineage(
     args: argparse.Namespace,
     *,
     markdown_root: Path,
+    parse_lineage: _VerifiedStageAParseLineage | None = None,
 ) -> _StageAUnitizationLineage:
     """Replay Stage A lineage while reusing identical authenticated PDF scans."""
 
@@ -60353,6 +60466,7 @@ def _verify_stage_a_unitization_lineage(
         return _verify_stage_a_unitization_lineage_uncached(
             args,
             markdown_root=markdown_root,
+            parse_lineage=parse_lineage,
         )
 
 
@@ -64017,6 +64131,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         lineage = _verify_stage_a_unitization_lineage(
             args,
             markdown_root=markdown_root,
+            parse_lineage=eligibility_parse_lineage,
         )
         if eligibility_parse_lineage is not None:
             _require_v4_eligibility_lineage_matches_unitization(
