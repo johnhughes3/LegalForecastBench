@@ -143,8 +143,13 @@ def test_terminal_successor_card_dispatches_stage_b_chain_verifier(
     assert calls == [(card_path, finalized_path)]
 
 
+@pytest.mark.parametrize(
+    "commitment_name",
+    ("terminal_escalations", "unitizer_terminal_review_queue"),
+)
 def test_terminal_summary_capture_requires_exact_named_commitment(
     tmp_path: Path,
+    commitment_name: str,
 ) -> None:
     queue = tmp_path / "terminal-queue.jsonl"
     queue.write_text('{"review_id":"terminal-review"}\n')
@@ -153,8 +158,8 @@ def test_terminal_summary_capture_requires_exact_named_commitment(
     )
 
     path, payload = cli._capture_stage_a_committed_file(  # pyright: ignore[reportPrivateUsage]
-        {"unitizer_terminal_review_queue": commitment},
-        "unitizer_terminal_review_queue",
+        {commitment_name: commitment},
+        commitment_name,
     )
     assert path == queue
     assert payload == queue.read_bytes()
@@ -162,8 +167,8 @@ def test_terminal_summary_capture_requires_exact_named_commitment(
     queue.write_text('{"review_id":"changed"}\n')
     with pytest.raises(cli.CommandError, match="commitment differs"):
         cli._capture_stage_a_committed_file(  # pyright: ignore[reportPrivateUsage]
-            {"unitizer_terminal_review_queue": commitment},
-            "unitizer_terminal_review_queue",
+            {commitment_name: commitment},
+            commitment_name,
         )
 
 

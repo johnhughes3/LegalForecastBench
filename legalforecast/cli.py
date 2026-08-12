@@ -70502,13 +70502,16 @@ def _verify_stage_a_packet_authority(
                 expected_markdown_root=lineage.markdown_root,
                 run_card_payload=apply_card_payload,
             )
-            successor_inputs = cast(Sequence[object], apply_card["input_paths"])
             raw_source_commitments = apply_card.get("source_commitments")
             if not isinstance(raw_source_commitments, Mapping):
                 raise CommandError(
                     "apply-unitizer-terminal-review run card lacks source commitments"
                 )
             source_commitments = cast(Mapping[str, object], raw_source_commitments)
+            _, terminal_escalations_payload = _capture_stage_a_committed_file(
+                source_commitments,
+                "terminal_escalations",
+            )
             terminal_review_path, terminal_review_payload = (
                 _capture_stage_a_committed_file(
                     source_commitments,
@@ -70522,7 +70525,10 @@ def _verify_stage_a_packet_authority(
                 )
             )
             terminal_escalation_records = tuple(
-                _read_records(Path(str(successor_inputs[6])))
+                _read_jsonl_payload(
+                    terminal_escalations_payload,
+                    label="unitizer terminal escalations",
+                )
             )
             terminal_review_records = tuple(
                 _read_jsonl_payload(
