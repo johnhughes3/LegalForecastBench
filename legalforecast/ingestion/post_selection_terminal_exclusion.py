@@ -174,12 +174,12 @@ def _verify_stipulated_target_evidence_for_test(  # pyright: ignore[reportUnused
     parser_request = matching_requests[0]
     source_sha256 = _sha(source_document_bytes)
     source_byte_count = len(source_document_bytes)
-    manifest_records = _jsonl_records(
+    download_manifest_records = _jsonl_records(
         authenticated_download_manifest_bytes, "authenticated download manifest"
     )
     manifest_matches = [
         record
-        for record in manifest_records
+        for record in download_manifest_records
         if record.get("candidate_id") == candidate_id
         and record.get("source_document_id") == source_document_id
     ]
