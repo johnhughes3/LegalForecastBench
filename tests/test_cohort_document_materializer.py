@@ -8,12 +8,14 @@ import sqlite3
 import stat
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from types import SimpleNamespace
+from types import MappingProxyType, SimpleNamespace
 from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion import case_dev_purchase as purchase_module
 from legalforecast.ingestion import cohort_document_materializer as materializer_module
+from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
 from legalforecast.ingestion.cohort_document_materializer import (
     CohortDocumentMaterializationError,
     DocumentSource,
@@ -1393,7 +1395,7 @@ def test_paid_materializer_authenticates_decision_omission_before_recovery(
     monkeypatch.setattr(
         cli,
         "read_case_dev_purchase_snapshot",
-        lambda *_args, **_kwargs: SimpleNamespace(
+        lambda *_args, **_kwargs: CaseDevPurchaseSnapshot(
             operations=(),
             committed_amount_usd="0.00",
             purchase_state_sha256="b" * 64,
@@ -1841,11 +1843,14 @@ def test_downstream_replay_reauthenticates_bound_decision_omission(
     )
     monkeypatch.setattr(
         cli,
-        "read_case_dev_purchase_snapshot",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            operations=(),
-            committed_amount_usd="0.00",
-            purchase_state_sha256="b" * 64,
+        "read_case_dev_purchase_authority_audit",
+        lambda *_args, **_kwargs: purchase_module.CaseDevPurchaseAuthorityAudit(
+            snapshot=CaseDevPurchaseSnapshot(
+                operations=(),
+                committed_amount_usd="0.00",
+                purchase_state_sha256="b" * 64,
+            ),
+            snapshots=MappingProxyType({ledger: ledger.read_bytes()}),
         ),
     )
     monkeypatch.setattr(cli, "CaseDevPurchaseJournal", FakeJournal)
