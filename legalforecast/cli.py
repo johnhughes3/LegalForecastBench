@@ -43759,6 +43759,12 @@ def _replay_exact100_successor_replacement_v2_inputs(
             if existing is not None and existing != payload:
                 raise CommandError("verified projection byte closure conflicts")
             closure[path] = payload
+        absence_collector = _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.get()
+        if absence_collector is not None:
+            absence_collector.update(
+                _projection_closure_key(path)
+                for path in verified_materialization.absent_artifact_paths
+            )
     if tuple(verified_materialization.selection_records) != predecessor_selection:
         raise CommandError("v2 complete materialization selection differs")
     restriction_path = materialized_root / "restriction-evidence.jsonl"
@@ -45039,6 +45045,9 @@ def _verify_supporting_document_downstream_projection(
                 target_root,
                 verifier=verify_v2,
                 _verified_byte_closure=_verified_byte_closure,
+                _verified_absence_closure=(
+                    _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.get()
+                ),
             ),
             replay_attestation=_SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION,
         )
@@ -45176,6 +45185,7 @@ def _select_materializer_projection_after_recovery(
 class _VerifiedProjectionCacheEntry:
     result: dict[str, object]
     snapshots: tuple[tuple[str, bytes], ...]
+    absent_paths: tuple[str, ...] = ()
 
 
 def _current_asyncio_task_id() -> int | None:
@@ -45232,6 +45242,49 @@ _VERIFIED_PROJECTION_OPERATION: ContextVar[_VerifiedProjectionOperation | None] 
 _VERIFIED_PROJECTION_BYTE_COLLECTOR: ContextVar[dict[str, bytes] | None] = ContextVar(
     "verified_projection_byte_collector", default=None
 )
+_VERIFIED_PROJECTION_ABSENCE_COLLECTOR: ContextVar[set[str] | None] = ContextVar(
+    "verified_projection_absence_collector", default=None
+)
+
+
+def _projection_closure_key(path: str | os.PathLike[str]) -> str:
+    """Canonical lexical key for captured authority bytes (never resolve links)."""
+
+    return os.path.abspath(os.fspath(path))
+
+
+def _merge_projection_byte_closure(
+    target: dict[str, bytes], incoming: Mapping[str, bytes], *, label: str
+) -> None:
+    """Merge a verifier closure with one lexical identity and fail-closed overlap."""
+
+    for raw_path, payload in incoming.items():
+        key = _projection_closure_key(raw_path)
+        existing = target.get(key)
+        if existing is not None and existing != payload:
+            raise CommandError(f"{label} conflicts")
+        target[key] = payload
+
+
+def _projection_absence_keys(value: object) -> tuple[str, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise CommandError(
+            "supporting-document projection cache absence evidence is invalid"
+        )
+    typed_paths = cast(Sequence[object], value)
+    if not all(isinstance(path, str) for path in typed_paths):
+        raise CommandError(
+            "supporting-document projection cache absence evidence is invalid"
+        )
+    return tuple(
+        sorted({_projection_closure_key(cast(str, path)) for path in typed_paths})
+    )
+
+
+def _require_projection_absences_unchanged(paths: Sequence[str], *, label: str) -> None:
+    for raw_path in paths:
+        if os.path.lexists(raw_path):
+            raise CommandError(f"{label} changed during execution: {raw_path}")
 
 
 def verify_completed_target_cohort_projection_for_purchase_approval(
@@ -45314,9 +45367,24 @@ def _verify_completed_target_cohort_projection_in_operation(
                 {Path(path): payload for path, payload in cached.snapshots},
                 label="cached supporting-document projection artifact",
             )
+            _require_projection_absences_unchanged(
+                cached.absent_paths,
+                label="cached supporting-document projection artifact",
+            )
+            if _VERIFIED_PROJECTION_BYTE_COLLECTOR.get() is not None:
+                _merge_projection_byte_closure(
+                    cast(dict[str, bytes], _VERIFIED_PROJECTION_BYTE_COLLECTOR.get()),
+                    dict(cached.snapshots),
+                    label="cached supporting-document projection byte closure",
+                )
+            outer_absences = _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.get()
+            if outer_absences is not None:
+                outer_absences.update(cached.absent_paths)
             return copy.deepcopy(cached.result)
         closure: dict[str, bytes] = {}
+        collected_absences: set[str] = set()
         token = _VERIFIED_PROJECTION_BYTE_COLLECTOR.set(closure)
+        absence_token = _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.set(collected_absences)
         try:
             result = _verify_supporting_document_downstream_projection(
                 target_root=target_root,
@@ -45327,6 +45395,7 @@ def _verify_completed_target_cohort_projection_in_operation(
                 _verified_byte_closure=closure,
             )
         finally:
+            _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.reset(absence_token)
             _VERIFIED_PROJECTION_BYTE_COLLECTOR.reset(token)
         raw_snapshots: object = result.get("verified_artifact_bytes")
         base = result.get("base_v2_projection")
@@ -45347,14 +45416,47 @@ def _verify_completed_target_cohort_projection_in_operation(
                     raise CommandError(
                         "supporting-document projection cache evidence is invalid"
                     )
-                existing = closure.get(raw_path)
-                if existing is not None and existing != payload:
-                    raise CommandError(
-                        "supporting-document projection cache evidence conflicts"
-                    )
-                closure[raw_path] = payload
+                _merge_projection_byte_closure(
+                    closure,
+                    {raw_path: payload},
+                    label="supporting-document projection cache evidence",
+                )
+        absence_groups = (
+            result.get("verified_artifact_absences", ()),
+            base_record.get("verified_artifact_absences", ()),
+        )
+        absent_paths = tuple(
+            sorted(
+                collected_absences
+                | {
+                    path
+                    for group in absence_groups
+                    for path in _projection_absence_keys(group)
+                }
+            )
+        )
+        _require_snapshot_unchanged(
+            {Path(path): payload for path, payload in closure.items()},
+            label="supporting-document projection artifact",
+        )
+        _require_projection_absences_unchanged(
+            absent_paths,
+            label="supporting-document projection artifact",
+        )
+        outer_closure = _VERIFIED_PROJECTION_BYTE_COLLECTOR.get()
+        if outer_closure is not None:
+            _merge_projection_byte_closure(
+                outer_closure,
+                closure,
+                label="supporting-document projection byte closure",
+            )
+        outer_absences = _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.get()
+        if outer_absences is not None:
+            outer_absences.update(absent_paths)
         operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
-            result=copy.deepcopy(result), snapshots=tuple(sorted(closure.items()))
+            result=copy.deepcopy(result),
+            snapshots=tuple(sorted(closure.items())),
+            absent_paths=absent_paths,
         )
         return result
 
@@ -45390,6 +45492,9 @@ def _verify_completed_target_cohort_projection_in_operation(
         _require_snapshot_unchanged(
             snapshots, label="cached target projection artifact"
         )
+        _require_projection_absences_unchanged(
+            cached.absent_paths, label="cached target projection artifact"
+        )
         return copy.deepcopy(cached.result)
 
     def verified(result: dict[str, object]) -> dict[str, object]:
@@ -45402,17 +45507,15 @@ def _verify_completed_target_cohort_projection_in_operation(
                 raise CommandError("target projection cache evidence is incomplete")
             typed_raw_snapshots = cast(Mapping[object, object], raw_snapshots)
             snapshots = {
-                str(raw_path): payload
+                _projection_closure_key(raw_path): payload
                 for raw_path, payload in typed_raw_snapshots.items()
                 if isinstance(raw_path, str) and isinstance(payload, bytes)
             }
             if len(snapshots) != len(typed_raw_snapshots):
                 raise CommandError("target projection cache evidence is invalid")
-            for raw_path, payload in byte_closure.items():
-                existing = snapshots.get(raw_path)
-                if existing is not None and existing != payload:
-                    raise CommandError("target projection cache evidence conflicts")
-                snapshots[raw_path] = payload
+            _merge_projection_byte_closure(
+                snapshots, byte_closure, label="target projection cache evidence"
+            )
             operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
                 result=copy.deepcopy(result), snapshots=tuple(sorted(snapshots.items()))
             )
@@ -47743,6 +47846,7 @@ class _VerifiedMaterializedDownstreamLineage:
     selection_records: tuple[Mapping[str, Any], ...]
     resolved_records: tuple[Mapping[str, Any], ...]
     document_tree: Mapping[str, bytes]
+    absent_artifact_paths: tuple[str, ...] = ()
     resolved_lineage_selection_records: tuple[Mapping[str, Any], ...] | None = None
     recovered_public_capability: object | None = None
     consolidated_recovery_capability: object | None = None
@@ -48251,6 +48355,9 @@ def _verify_materialized_downstream_lineage(
             initialization_receipt_path=initialization_receipt_path,
         )
         snapshot = purchase_authority_audit.snapshot
+        captured_artifact_absences = tuple(
+            os.path.abspath(path) for path in purchase_authority_audit.absent_paths
+        )
         _merge_verified_artifact_bytes(
             captured_artifact_bytes,
             {
@@ -48661,6 +48768,7 @@ def _verify_materialized_downstream_lineage(
             *((resolved_path,) if resolved_path is not None else ()),
         ),
         artifact_bytes=dict(captured_artifact_bytes),
+        absent_artifact_paths=captured_artifact_absences,
         manifest_records=tuple(
             _projection_jsonl_records(
                 direct_snapshots[manifest_path], source=manifest_path

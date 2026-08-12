@@ -14,7 +14,7 @@ import json
 import os
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -72,6 +72,10 @@ class VerifiedTargetRawDocketAuxiliaryProvenanceBridge:
     selected_candidate_ids: tuple[str, ...]
     raw_artifact_bytes_by_candidate: Mapping[str, bytes]
     raw_artifact_bytes_by_path: Mapping[str, bytes]
+    verified_artifact_bytes: Mapping[str, bytes] = field(
+        default_factory=lambda: cast(Mapping[str, bytes], {})
+    )
+    verified_artifact_absences: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +111,8 @@ class _BridgeMaterial:
     run_card_body: Mapping[str, object]
     selected_candidate_ids: tuple[str, ...]
     raw_artifact_bytes_by_candidate: Mapping[str, bytes]
+    verified_input_bytes: Mapping[str, bytes]
+    verified_input_absences: tuple[str, ...]
 
 
 def build_target_raw_docket_auxiliary_provenance_bridge(
@@ -388,8 +394,14 @@ def _assemble(inputs: _BridgeInputs) -> _BridgeMaterial:
         retry_plan = load_target_raw_docket_recovery_provider_contract_retry_plan(
             inputs.recovery_plan_path, inputs.expected_recovery_plan_sha256
         )
+        recovery_authority_bytes: dict[str, bytes] = {}
+        recovery_authority_absences: set[str] = set()
         _root, recovered_plan, _successor = (
-            resolve_target_raw_docket_recovery_provider_contract_retry(retry_plan)
+            resolve_target_raw_docket_recovery_provider_contract_retry(
+                retry_plan,
+                _verified_byte_closure=recovery_authority_bytes,
+                _verified_absence_closure=recovery_authority_absences,
+            )
         )
         receipt = verify_target_raw_docket_recovery_receipt(
             receipt_path=inputs.recovery_receipt_path,
@@ -461,6 +473,94 @@ def _assemble(inputs: _BridgeInputs) -> _BridgeMaterial:
                 f"raw docket HTML byte count differs: {candidate_id}"
             )
         selected_bytes[candidate_id] = payload
+
+    verified_input_bytes: dict[str, bytes] = {
+        os.path.abspath(inputs.selection_path): selection_payload,
+        os.path.abspath(inputs.source_union_run_card_path): source_card_payload,
+        os.path.abspath(inputs.source_raw_artifacts_manifest_path): base_payload,
+        os.path.abspath(inputs.recovery_plan_path): _pinned_file(
+            inputs.recovery_plan_path,
+            inputs.expected_recovery_plan_sha256,
+            "recovery plan",
+        ),
+        os.path.abspath(inputs.recovery_receipt_path): _pinned_file(
+            inputs.recovery_receipt_path,
+            inputs.expected_recovery_receipt_sha256,
+            "recovery receipt",
+        ),
+        os.path.abspath(inputs.recovery_successes_path): _pinned_file(
+            inputs.recovery_successes_path,
+            _sha(receipt, "successes_sha256", "recovery receipt"),
+            "recovery successes",
+        ),
+        os.path.abspath(inputs.recovery_exclusions_path): _pinned_file(
+            inputs.recovery_exclusions_path,
+            _sha(receipt, "exclusions_sha256", "recovery receipt"),
+            "recovery exclusions",
+        ),
+        os.path.abspath(inputs.recovery_summary_path): _pinned_file(
+            inputs.recovery_summary_path,
+            _sha(receipt, "summary_sha256", "recovery receipt"),
+            "recovery summary",
+        ),
+    }
+    _merge_verified_bytes(verified_input_bytes, recovery_authority_bytes)
+    verified_input_absences: set[str] = set(recovery_authority_absences)
+    recovery_authority_paths = {
+        Path(path): digest
+        for path, digest in (
+            (retry_plan.root_plan_path, retry_plan.root_plan_sha256),
+            (
+                retry_plan.root_failure_run_card_path,
+                retry_plan.root_failure_run_card_sha256,
+            ),
+            (
+                retry_plan.direct_successor_plan_path,
+                retry_plan.direct_successor_plan_sha256,
+            ),
+            (
+                retry_plan.direct_successor_failure_run_card_path,
+                retry_plan.direct_successor_failure_run_card_sha256,
+            ),
+            (
+                retry_plan.provider_contract_defect_authorization_path,
+                retry_plan.provider_contract_defect_authorization_sha256,
+            ),
+            (
+                recovered_plan.source_snapshot_run_card_path,
+                recovered_plan.source_snapshot_run_card_sha256,
+            ),
+            (
+                recovered_plan.source_raw_manifest_path,
+                recovered_plan.source_raw_manifest_sha256,
+            ),
+        )
+    }
+    for path, digest in recovery_authority_paths.items():
+        _merge_verified_bytes(
+            verified_input_bytes,
+            {os.path.abspath(path): _pinned_file(path, digest, "recovery authority")},
+        )
+    for filename, payload in snapshot.payloads.items():
+        _merge_verified_bytes(
+            verified_input_bytes,
+            {os.path.abspath(inputs.source_snapshot_path / filename): payload},
+        )
+    for artifact in snapshot.raw_artifacts:
+        if artifact.content is None or not artifact.content_authenticated:
+            raise TargetRawDocketAuxiliaryProvenanceError(
+                "source screening snapshot raw-docket closure is incomplete"
+            )
+        _merge_verified_bytes(
+            verified_input_bytes,
+            {os.path.abspath(artifact.path): artifact.content},
+        )
+    for path, payload in {
+        cast(str, record["path"]): selected_bytes[cast(str, record["candidate_id"])]
+        for record in (*base_records, *recovery_records)
+        if cast(str, record["candidate_id"]) in selected_bytes
+    }.items():
+        _merge_verified_bytes(verified_input_bytes, {os.path.abspath(path): payload})
 
     # Preserve the canonical union's manifest bytes exactly.  The bridge adds
     # only the independently authenticated recovery rows, so replay can prove
@@ -546,6 +646,8 @@ def _assemble(inputs: _BridgeInputs) -> _BridgeMaterial:
         run_card_body=run_card_body,
         selected_candidate_ids=selected_candidate_ids,
         raw_artifact_bytes_by_candidate=selected_bytes,
+        verified_input_bytes=verified_input_bytes,
+        verified_input_absences=tuple(sorted(verified_input_absences)),
     )
 
 
@@ -740,6 +842,17 @@ def _verified_result(
     bridge_payload: bytes,
     run_card_payload: bytes,
 ) -> VerifiedTargetRawDocketAuxiliaryProvenanceBridge:
+    verified_artifact_bytes = dict(material.verified_input_bytes)
+    _merge_verified_bytes(
+        verified_artifact_bytes,
+        {
+            os.path.abspath(inputs.raw_artifacts_manifest_path): (
+                material.raw_artifacts_manifest
+            ),
+            os.path.abspath(inputs.bridge_path): bridge_payload,
+            os.path.abspath(inputs.run_card_path): run_card_payload,
+        },
+    )
     return VerifiedTargetRawDocketAuxiliaryProvenanceBridge(
         bridge_path=inputs.bridge_path.resolve(),
         bridge_sha256=hashlib.sha256(bridge_payload).hexdigest(),
@@ -766,7 +879,24 @@ def _verified_result(
             if cast(str, record["candidate_id"])
             in material.raw_artifact_bytes_by_candidate
         },
+        verified_artifact_bytes=verified_artifact_bytes,
+        verified_artifact_absences=material.verified_input_absences,
     )
+
+
+def _merge_verified_bytes(
+    target: dict[str, bytes], incoming: Mapping[str, bytes]
+) -> None:
+    """Merge verifier-owned lexical path evidence without hiding aliases."""
+
+    for path, payload in incoming.items():
+        key = os.path.abspath(path)
+        existing = target.get(key)
+        if existing is not None and existing != payload:
+            raise TargetRawDocketAuxiliaryProvenanceError(
+                "verified auxiliary bridge byte closure conflicts"
+            )
+        target[key] = payload
 
 
 def _bridge_payload(body: Mapping[str, object]) -> bytes:

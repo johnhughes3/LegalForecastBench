@@ -535,6 +535,7 @@ class CaseDevPurchaseAuthorityAudit:
 
     snapshot: CaseDevPurchaseSnapshot
     snapshots: Mapping[Path, bytes]
+    absent_paths: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1655,7 +1656,15 @@ def _verify_runtime_purchase_ledger_initialization_lineage(
 ) -> str:
     """Authenticate immutable initialization lineage before opening SQLite."""
 
-    receipt = _read_purchase_ledger_initialization_receipt(receipt_path)
+    return _verify_purchase_ledger_initialization_lineage_record(
+        _read_purchase_ledger_initialization_receipt(receipt_path), policy=policy
+    )
+
+
+def _verify_purchase_ledger_initialization_lineage_record(
+    receipt: Mapping[str, object], *, policy: CaseDevPurchasePolicy
+) -> str:
+    """Verify one already-captured initialization receipt without rereading it."""
     expected_keys = {
         "schema_version",
         "cycle_id",
@@ -2057,6 +2066,7 @@ class CaseDevPurchaseJournal:
         read_only: bool = False,
         controlled_private_root: Path | None = None,
         initialization_receipt_path: Path | None = None,
+        initialization_receipt_record: Mapping[str, object] | None = None,
     ) -> None:
         if allow_create and read_only:
             raise CaseDevPurchaseLedgerError(
@@ -2074,8 +2084,12 @@ class CaseDevPurchaseJournal:
                 raise CaseDevPurchaseLedgerError(
                     "approved v2 runtime requires an initialization receipt"
                 )
-            initialization_id = _verify_runtime_purchase_ledger_initialization_lineage(
-                initialization_receipt_path,
+            initialization_id = _verify_purchase_ledger_initialization_lineage_record(
+                initialization_receipt_record
+                if initialization_receipt_record is not None
+                else _read_purchase_ledger_initialization_receipt(
+                    initialization_receipt_path
+                ),
                 policy=policy,
             )
         else:
@@ -4723,6 +4737,21 @@ def read_case_dev_purchase_authority_audit(
     """
 
     ledger_path = _canonical_requested_ledger_path(path, policy=policy)
+    receipt_bytes: bytes | None = None
+    receipt_record: Mapping[str, object] | None = None
+    if initialization_receipt_path is not None:
+        receipt_bytes = _read_purchase_snapshot_bytes(initialization_receipt_path)
+        try:
+            decoded = json.loads(receipt_bytes)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger initialization receipt is not valid JSON"
+            ) from exc
+        if not isinstance(decoded, Mapping):
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger initialization receipt must be an object"
+            )
+        receipt_record = cast(Mapping[str, object], decoded)
     try:
         with CaseDevPurchaseJournal(
             ledger_path,
@@ -4730,13 +4759,11 @@ def read_case_dev_purchase_authority_audit(
             read_only=True,
             controlled_private_root=controlled_private_root,
             initialization_receipt_path=initialization_receipt_path,
+            initialization_receipt_record=receipt_record,
         ) as journal:
             snapshot = journal.authenticated_snapshot()
-            if initialization_receipt_path is not None:
-                _verify_runtime_purchase_ledger_initialization_lineage(
-                    initialization_receipt_path, policy=policy
-                )
             snapshots: dict[Path, bytes] = {}
+            absent_paths: list[Path] = []
             for candidate in (
                 *(
                     (initialization_receipt_path,)
@@ -4747,15 +4774,31 @@ def read_case_dev_purchase_authority_audit(
                 Path(f"{ledger_path}-wal"),
                 Path(f"{ledger_path}-journal"),
             ):
+                if (
+                    initialization_receipt_path is not None
+                    and candidate == initialization_receipt_path
+                    and receipt_bytes is not None
+                ):
+                    snapshots[candidate.absolute()] = receipt_bytes
+                    continue
                 try:
                     candidate.lstat()
                 except FileNotFoundError:
+                    absent_paths.append(candidate.absolute())
                     continue
-                snapshots[candidate.resolve()] = _read_purchase_snapshot_bytes(
+                snapshots[candidate.absolute()] = _read_purchase_snapshot_bytes(
                     candidate
                 )
+            for absent_path in absent_paths:
+                if os.path.lexists(absent_path):
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase ledger authority sidecar changed during "
+                        "read-only audit"
+                    )
             return CaseDevPurchaseAuthorityAudit(
-                snapshot=snapshot, snapshots=MappingProxyType(snapshots)
+                snapshot=snapshot,
+                snapshots=MappingProxyType(snapshots),
+                absent_paths=tuple(absent_paths),
             )
     except sqlite3.Error as exc:
         raise CaseDevPurchaseLedgerError(

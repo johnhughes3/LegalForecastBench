@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
@@ -59,6 +59,10 @@ class FreeSupportMemorandumRecoveryPlan:
 
     record: JsonRecord
     record_bytes: bytes
+    verified_artifact_bytes: Mapping[str, bytes] = field(
+        default_factory=lambda: cast(Mapping[str, bytes], {})
+    )
+    verified_artifact_absences: tuple[str, ...] = ()
 
 
 def derive_free_support_memorandum_recovery_plan(
@@ -144,6 +148,8 @@ def _derive_from_verified_bridge(
     return FreeSupportMemorandumRecoveryPlan(
         record=record,
         record_bytes=_canonical_bytes(record),
+        verified_artifact_bytes=dict(bridge.verified_artifact_bytes),
+        verified_artifact_absences=bridge.verified_artifact_absences,
     )
 
 

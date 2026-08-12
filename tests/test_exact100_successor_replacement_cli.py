@@ -1254,6 +1254,159 @@ def test_supporting_projection_cache_rejects_conflicting_closure_alias(
         operation.invalidate()
 
 
+def test_supporting_projection_cache_rechecks_absence_and_propagates_hit_closure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "supporting"
+    card = root / "run-cards/project-exact100-supporting-document-successor.json"
+    card.parent.mkdir(parents=True)
+    card.write_bytes(
+        _bytes(
+            {
+                "schema_version": str(cli.SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION),
+                "selected_case_count": 100,
+            }
+        )
+    )
+    authority = tmp_path / "authority"
+    authority.write_bytes(b"authority")
+    absent_wal = tmp_path / "purchase.sqlite3-wal"
+    calls = 0
+
+    def verify(**kwargs: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        closure = cast(dict[str, bytes], kwargs["_verified_byte_closure"])
+        closure[os.path.abspath(authority)] = authority.read_bytes()
+        absence_collector = cli._VERIFIED_PROJECTION_ABSENCE_COLLECTOR.get()
+        assert absence_collector is not None
+        absence_collector.add(os.path.abspath(absent_wal))
+        return {
+            "verified_artifact_bytes": {os.path.abspath(card): card.read_bytes()},
+            "base_v2_projection": {"verified_artifact_bytes": {}},
+        }
+
+    monkeypatch.setattr(
+        cli, "_verify_supporting_document_downstream_projection", verify
+    )
+    operation = cli._VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+    outer: dict[str, bytes] = {}
+    outer_absences: set[str] = set()
+    token = cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.set(outer)
+    absence_token = cli._VERIFIED_PROJECTION_ABSENCE_COLLECTOR.set(outer_absences)
+    try:
+        cli._verify_completed_target_cohort_projection_in_operation(
+            root, operation=operation
+        )
+        assert os.path.abspath(absent_wal) in outer_absences
+        outer.clear()
+        outer_absences.clear()
+        cli._verify_completed_target_cohort_projection_in_operation(
+            root, operation=operation
+        )
+        assert calls == 1
+        assert outer[os.path.abspath(authority)] == b"authority"
+        assert os.path.abspath(absent_wal) in outer_absences
+        absent_wal.write_bytes(b"new authority")
+        with pytest.raises(cli.CommandError, match="changed during execution"):
+            cli._verify_completed_target_cohort_projection_in_operation(
+                root, operation=operation
+            )
+    finally:
+        cli._VERIFIED_PROJECTION_ABSENCE_COLLECTOR.reset(absence_token)
+        cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.reset(token)
+        operation.invalidate()
+
+
+def test_supporting_projection_cache_rechecks_absence_before_first_return(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "supporting"
+    card = root / "run-cards/project-exact100-supporting-document-successor.json"
+    card.parent.mkdir(parents=True)
+    card.write_bytes(
+        _bytes(
+            {
+                "schema_version": str(cli.SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION),
+                "selected_case_count": 100,
+            }
+        )
+    )
+    appeared = tmp_path / "purchase.sqlite3-wal"
+
+    def verify(**_kwargs: object) -> dict[str, object]:
+        absence_collector = cli._VERIFIED_PROJECTION_ABSENCE_COLLECTOR.get()
+        assert absence_collector is not None
+        absence_collector.add(os.path.abspath(appeared))
+        appeared.write_bytes(b"new authority")
+        return {
+            "verified_artifact_bytes": {os.path.abspath(card): card.read_bytes()},
+            "base_v2_projection": {"verified_artifact_bytes": {}},
+        }
+
+    monkeypatch.setattr(
+        cli, "_verify_supporting_document_downstream_projection", verify
+    )
+    operation = cli._VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+    try:
+        with pytest.raises(cli.CommandError, match="changed during execution"):
+            cli._verify_completed_target_cohort_projection_in_operation(
+                root, operation=operation
+            )
+        assert operation.cache == {}
+    finally:
+        operation.invalidate()
+
+
+def test_supporting_projection_cache_rechecks_bytes_before_first_return(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "supporting"
+    card = root / "run-cards/project-exact100-supporting-document-successor.json"
+    card.parent.mkdir(parents=True)
+    card.write_bytes(
+        _bytes(
+            {
+                "schema_version": str(cli.SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION),
+                "selected_case_count": 100,
+            }
+        )
+    )
+    authority = tmp_path / "authority"
+    authority.write_bytes(b"verified")
+
+    def verify(**kwargs: object) -> dict[str, object]:
+        closure = cast(dict[str, bytes], kwargs["_verified_byte_closure"])
+        closure[os.path.abspath(authority)] = authority.read_bytes()
+        authority.write_bytes(b"changed")
+        return {
+            "verified_artifact_bytes": {os.path.abspath(card): card.read_bytes()},
+            "base_v2_projection": {"verified_artifact_bytes": {}},
+        }
+
+    monkeypatch.setattr(
+        cli, "_verify_supporting_document_downstream_projection", verify
+    )
+    operation = cli._VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+    try:
+        with pytest.raises(cli.CommandError, match="changed during execution"):
+            cli._verify_completed_target_cohort_projection_in_operation(
+                root, operation=operation
+            )
+        assert operation.cache == {}
+    finally:
+        operation.invalidate()
+
+
 def test_saved_recovery_root_alone_cannot_mint_successor_authority(
     tmp_path: Path,
 ) -> None:

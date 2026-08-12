@@ -15,6 +15,7 @@ import re
 import stat
 import uuid
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -88,6 +89,12 @@ _PROVIDER_CONTRACT_DEFECT_AUTHORIZATION: Mapping[str, object] = {
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _DOCKET_ID = re.compile(r"[1-9][0-9]*\Z")
 _CANDIDATE_PREFIX = "courtlistener-docket-"
+_VERIFIED_RECOVERY_BYTE_COLLECTOR: ContextVar[dict[str, bytes] | None] = ContextVar(
+    "verified_recovery_byte_collector", default=None
+)
+_VERIFIED_RECOVERY_ABSENCE_COLLECTOR: ContextVar[set[str] | None] = ContextVar(
+    "verified_recovery_absence_collector", default=None
+)
 
 
 class TargetRawDocketRecoveryError(ValueError):
@@ -1478,6 +1485,26 @@ def _verify_zero_success_parent(
             raise TargetRawDocketRecoveryError(
                 "parent provider attempts differ from the exact target set"
             )
+        byte_collector = _VERIFIED_RECOVERY_BYTE_COLLECTOR.get()
+        absence_collector = _VERIFIED_RECOVERY_ABSENCE_COLLECTOR.get()
+        if byte_collector is not None and absence_collector is not None:
+            store.close_database_for_locked_snapshot()
+            for path in (
+                Path(parent.cycle_store_path),
+                Path(f"{parent.cycle_store_path}-wal"),
+                Path(f"{parent.cycle_store_path}-journal"),
+            ):
+                key = os.path.abspath(path)
+                if os.path.lexists(path):
+                    payload = _read_unique_regular_file(path, "recovery cycle store")
+                    existing = byte_collector.get(key)
+                    if existing is not None and existing != payload:
+                        raise TargetRawDocketRecoveryError(
+                            "recovery cycle-store byte closure conflicts"
+                        )
+                    byte_collector[key] = payload
+                else:
+                    absence_collector.add(key)
 
 
 def _recorded_path_anchor(recorded: str, expected: Path) -> Path | None:
@@ -1820,6 +1847,9 @@ def build_target_raw_docket_recovery_provider_contract_retry_plan(
 
 def resolve_target_raw_docket_recovery_provider_contract_retry(
     plan: TargetRawDocketRecoveryProviderContractRetryPlan,
+    *,
+    _verified_byte_closure: dict[str, bytes] | None = None,
+    _verified_absence_closure: set[str] | None = None,
 ) -> tuple[
     TargetRawDocketRecoveryPlan,
     TargetRawDocketRecoveryPlan,
@@ -1827,6 +1857,22 @@ def resolve_target_raw_docket_recovery_provider_contract_retry(
 ]:
     """Reauthenticate both exhausted circuits and derive the one retry plan."""
 
+    byte_token = _VERIFIED_RECOVERY_BYTE_COLLECTOR.set(_verified_byte_closure)
+    absence_token = _VERIFIED_RECOVERY_ABSENCE_COLLECTOR.set(_verified_absence_closure)
+    try:
+        return _resolve_target_raw_docket_recovery_provider_contract_retry(plan)
+    finally:
+        _VERIFIED_RECOVERY_ABSENCE_COLLECTOR.reset(absence_token)
+        _VERIFIED_RECOVERY_BYTE_COLLECTOR.reset(byte_token)
+
+
+def _resolve_target_raw_docket_recovery_provider_contract_retry(
+    plan: TargetRawDocketRecoveryProviderContractRetryPlan,
+) -> tuple[
+    TargetRawDocketRecoveryPlan,
+    TargetRawDocketRecoveryPlan,
+    TargetRawDocketRecoverySuccessorPlan,
+]:
     rebuilt = build_target_raw_docket_recovery_provider_contract_retry_plan(
         root_plan_path=Path(plan.root_plan_path),
         expected_root_plan_sha256=plan.root_plan_sha256,

@@ -170,6 +170,33 @@ def test_purchase_authority_audit_binds_logical_snapshot_to_one_byte_generation(
     assert Path(f"{journal.path}-shm").resolve() not in audit.snapshots
 
 
+def test_purchase_authority_audit_records_and_rechecks_absent_sidecars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    journal.close()
+    wal = Path(f"{journal.path}-wal")
+    rollback = Path(f"{journal.path}-journal")
+    assert not wal.exists()
+    assert not rollback.exists()
+    original_lexists = os.path.lexists
+
+    def create_wal_during_absence_recheck(path: os.PathLike[str] | str) -> bool:
+        if Path(path) == wal and not wal.exists():
+            wal.write_bytes(b"new authority")
+        return original_lexists(path)
+
+    monkeypatch.setattr(os.path, "lexists", create_wal_during_absence_recheck)
+    with pytest.raises(RuntimeError, match="changed during read-only audit"):
+        read_case_dev_purchase_authority_audit(journal.path, policy=policy)
+
+    wal.unlink()
+    monkeypatch.setattr(os.path, "lexists", original_lexists)
+    audit = read_case_dev_purchase_authority_audit(journal.path, policy=policy)
+    assert set(audit.absent_paths) == {wal.absolute(), rollback.absolute()}
+
+
 def test_purchase_snapshot_replays_wal_without_changing_sqlite_files(
     tmp_path: Path,
 ) -> None:

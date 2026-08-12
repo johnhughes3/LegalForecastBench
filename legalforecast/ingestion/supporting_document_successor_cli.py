@@ -115,6 +115,7 @@ def verify_supporting_document_successor_projection(
     *,
     verifier: V2ProjectionVerifier,
     _verified_byte_closure: dict[str, bytes] | None = None,
+    _verified_absence_closure: set[str] | None = None,
 ) -> Mapping[str, object]:
     """Reauthenticate a completed successor for ordinary materialization.
 
@@ -157,12 +158,13 @@ def verify_supporting_document_successor_projection(
         clearance = _jsonl(payloads["clearance"], "supporting-document clearance")
         _require_output_identity(target_root, root_fd)
         if _verified_byte_closure is not None:
-            closure: dict[str, bytes] = {
+            closure: dict[str, bytes] = dict(plan.verified_artifact_bytes)
+            successor_bytes: dict[str, bytes] = {
                 os.path.abspath(target_root / relative): payloads[name]
                 for name, relative in _OUTPUTS.items()
             }
-            closure[os.path.abspath(plan_path)] = plan_bytes
-            closure[os.path.abspath(bridge_descriptor)] = _read_regular(
+            successor_bytes[os.path.abspath(plan_path)] = plan_bytes
+            successor_bytes[os.path.abspath(bridge_descriptor)] = _read_regular(
                 bridge_descriptor, "raw-docket bridge"
             )
             supplemental_records = _jsonl(
@@ -179,7 +181,7 @@ def verify_supporting_document_successor_projection(
                     / "supplemental-free-source/documents"
                     / _safe_relative(local_path)
                 )
-                closure[os.path.abspath(output_path)] = _read_relative_regular(
+                successor_bytes[os.path.abspath(output_path)] = _read_relative_regular(
                     target_root,
                     Path("supplemental-free-source/documents")
                     / _safe_relative(local_path),
@@ -207,7 +209,7 @@ def verify_supporting_document_successor_projection(
             historical_manifest_bytes = _read_regular(
                 historical_manifest_path, "historical free manifest"
             )
-            closure[os.path.abspath(historical_manifest_path)] = (
+            successor_bytes[os.path.abspath(historical_manifest_path)] = (
                 historical_manifest_bytes
             )
             promoted_keys = {
@@ -224,9 +226,16 @@ def verify_supporting_document_successor_projection(
                         "promoted free source path is invalid"
                     )
                 source_path = historical_root / "documents" / _safe_relative(local_path)
-                closure[os.path.abspath(source_path)] = _read_regular(
+                successor_bytes[os.path.abspath(source_path)] = _read_regular(
                     source_path, "promoted free source"
                 )
+            for path, payload in successor_bytes.items():
+                existing = closure.get(path)
+                if existing is not None and existing != payload:
+                    raise SupportingDocumentSuccessorCliError(
+                        "supporting-document byte closure conflicts"
+                    )
+                closure[path] = payload
             for path, payload in closure.items():
                 existing = _verified_byte_closure.get(path)
                 if existing is not None and existing != payload:
@@ -234,6 +243,8 @@ def verify_supporting_document_successor_projection(
                         "supporting-document byte closure conflicts"
                     )
                 _verified_byte_closure[path] = payload
+            if _verified_absence_closure is not None:
+                _verified_absence_closure.update(plan.verified_artifact_absences)
         return {
             "run_card": state,
             "run_card_path": target_root / _OUTPUTS["state"],
@@ -278,7 +289,7 @@ def verify_supporting_document_successor_projection(
             ),
             "base_v2_projection": projection,
             "verified_artifact_bytes": {
-                str((target_root / relative).absolute()): payloads[name]
+                os.path.abspath(target_root / relative): payloads[name]
                 for name, relative in _OUTPUTS.items()
             },
         }

@@ -108,6 +108,9 @@ def _fixture(
         "source_batch_id": "final153",
         "source_batch_digest": "c" * 64,
         "dry_run": False,
+        "successes_sha256": _sha256(successes),
+        "exclusions_sha256": _sha256(exclusions),
+        "summary_sha256": _sha256(summary),
         "raw_artifacts": [
             {
                 "candidate_id": second,
@@ -124,7 +127,22 @@ def _fixture(
         source_snapshot_manifest_sha256=source_snapshot_sha,
         cycle_hash="b" * 64,
         cycle_store_path=str(cycle_store.resolve()),
+        source_snapshot_run_card_path=str(source_card.resolve()),
+        source_snapshot_run_card_sha256=_sha256(source_card),
         source_raw_manifest_path=str((snapshot / "raw-artifacts.jsonl").resolve()),
+        source_raw_manifest_sha256=_sha256(snapshot / "raw-artifacts.jsonl"),
+    )
+    retry_plan_value = SimpleNamespace(
+        root_plan_path=str(retry_plan.resolve()),
+        root_plan_sha256=_sha256(retry_plan),
+        root_failure_run_card_path=str(source_card.resolve()),
+        root_failure_run_card_sha256=_sha256(source_card),
+        direct_successor_plan_path=str(retry_plan.resolve()),
+        direct_successor_plan_sha256=_sha256(retry_plan),
+        direct_successor_failure_run_card_path=str(source_card.resolve()),
+        direct_successor_failure_run_card_sha256=_sha256(source_card),
+        provider_contract_defect_authorization_path=str(retry_plan.resolve()),
+        provider_contract_defect_authorization_sha256=_sha256(retry_plan),
     )
     monkeypatch.setattr(
         bridge,
@@ -133,13 +151,24 @@ def _fixture(
             candidates=(
                 SimpleNamespace(candidate_id=first),
                 SimpleNamespace(candidate_id=second),
-            )
+            ),
+            payloads={
+                "manifest.json": b"snapshot-manifest",
+                "screened-cases.jsonl": b"screened\n",
+            },
+            raw_artifacts=(
+                SimpleNamespace(
+                    path=first_path,
+                    content=first_payload,
+                    content_authenticated=True,
+                ),
+            ),
         ),
     )
     monkeypatch.setattr(
         bridge,
         "load_target_raw_docket_recovery_provider_contract_retry_plan",
-        lambda *args, **kwargs: SimpleNamespace(),
+        lambda *args, **kwargs: retry_plan_value,
     )
     monkeypatch.setattr(
         bridge,
@@ -215,6 +244,18 @@ def test_builds_and_reauthenticates_provider_free_bridge(
         b"<html>baseline</html>"
     )
     assert loaded.raw_artifact_bytes_by_path[str(paths["first_path"])] == (
+        b"<html>baseline</html>"
+    )
+    assert loaded.verified_artifact_bytes[os.path.abspath(paths["selection"])] == (
+        paths["selection"].read_bytes()
+    )
+    assert (
+        loaded.verified_artifact_bytes[
+            os.path.abspath(paths["snapshot"] / "screened-cases.jsonl")
+        ]
+        == b"screened\n"
+    )
+    assert loaded.verified_artifact_bytes[os.path.abspath(paths["first_path"])] == (
         b"<html>baseline</html>"
     )
     manifest = [
