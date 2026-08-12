@@ -92,6 +92,14 @@ def _fixture(
     )
     retry_plan = tmp_path / "retry-plan.json"
     retry_plan.write_text("{}\n")
+    root_failure = tmp_path / "root-failure.json"
+    root_failure.write_text('{"stage":"root-failure"}\n')
+    direct_successor = tmp_path / "direct-successor.json"
+    direct_successor.write_text('{"stage":"direct-successor"}\n')
+    direct_failure = tmp_path / "direct-failure.json"
+    direct_failure.write_text('{"stage":"direct-failure"}\n')
+    authorization = tmp_path / "authorization.json"
+    authorization.write_text('{"authorized":true}\n')
     receipt = tmp_path / "receipt.json"
     receipt.write_text("{}\n")
     successes = tmp_path / "successes.jsonl"
@@ -135,14 +143,14 @@ def _fixture(
     retry_plan_value = SimpleNamespace(
         root_plan_path=str(retry_plan.resolve()),
         root_plan_sha256=_sha256(retry_plan),
-        root_failure_run_card_path=str(source_card.resolve()),
-        root_failure_run_card_sha256=_sha256(source_card),
-        direct_successor_plan_path=str(retry_plan.resolve()),
-        direct_successor_plan_sha256=_sha256(retry_plan),
-        direct_successor_failure_run_card_path=str(source_card.resolve()),
-        direct_successor_failure_run_card_sha256=_sha256(source_card),
-        provider_contract_defect_authorization_path=str(retry_plan.resolve()),
-        provider_contract_defect_authorization_sha256=_sha256(retry_plan),
+        root_failure_run_card_path=str(root_failure.resolve()),
+        root_failure_run_card_sha256=_sha256(root_failure),
+        direct_successor_plan_path=str(direct_successor.resolve()),
+        direct_successor_plan_sha256=_sha256(direct_successor),
+        direct_successor_failure_run_card_path=str(direct_failure.resolve()),
+        direct_successor_failure_run_card_sha256=_sha256(direct_failure),
+        provider_contract_defect_authorization_path=str(authorization.resolve()),
+        provider_contract_defect_authorization_sha256=_sha256(authorization),
     )
     monkeypatch.setattr(
         bridge,
@@ -273,6 +281,25 @@ def test_builds_and_reauthenticates_provider_free_bridge(
     envelope = json.loads(paths["bridge"].read_text())
     assert envelope["bridge"]["provider_activity_executed"] is False
     assert envelope["bridge"]["paid_activity_executed"] is False
+
+
+def test_verified_byte_pairs_reject_conflicting_lexical_aliases(
+    tmp_path: Path,
+) -> None:
+    target: dict[str, bytes] = {}
+    path = tmp_path / "evidence.json"
+
+    with pytest.raises(
+        bridge.TargetRawDocketAuxiliaryProvenanceError,
+        match="byte closure conflicts",
+    ):
+        bridge._merge_verified_byte_pairs(  # pyright: ignore[reportPrivateUsage]
+            target,
+            (
+                (str(path), b"first"),
+                (str(path.parent / "." / path.name), b"second"),
+            ),
+        )
 
 
 def test_rejects_tampered_selected_raw_html(

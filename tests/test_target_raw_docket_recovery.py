@@ -2475,6 +2475,48 @@ def test_successor_rejects_escaping_historical_relative_card_path(
         )
 
 
+def test_recovery_cycle_store_evidence_rejects_present_after_absent(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "cycle.sqlite3"
+    store.write_bytes(b"store")
+    wal = Path(f"{store}-wal")
+    bytes_seen: dict[str, bytes] = {}
+    absences: set[str] = {os.path.abspath(wal)}
+
+    wal.write_bytes(b"wal")
+    with pytest.raises(
+        TargetRawDocketRecoveryError, match="presence closure conflicts"
+    ):
+        recovery._merge_recovery_cycle_store_evidence(  # pyright: ignore[reportPrivateUsage]
+            store, bytes_seen, absences
+        )
+
+
+def test_recovery_cycle_store_evidence_rejects_absent_after_present(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "cycle.sqlite3"
+    store.write_bytes(b"store")
+    wal = Path(f"{store}-wal")
+    bytes_seen = {os.path.abspath(wal): b"wal"}
+    absences: set[str] = set()
+
+    with pytest.raises(TargetRawDocketRecoveryError, match="absence closure conflicts"):
+        recovery._merge_recovery_cycle_store_evidence(  # pyright: ignore[reportPrivateUsage]
+            store, bytes_seen, absences
+        )
+
+
+def test_recovery_retry_rejects_asymmetric_authority_collectors() -> None:
+    with pytest.raises(
+        TargetRawDocketRecoveryError, match="collectors must be installed together"
+    ):
+        recovery.resolve_target_raw_docket_recovery_provider_contract_retry(
+            cast(Any, object()), _verified_byte_closure={}
+        )
+
+
 def test_provider_contract_retry_authenticates_two_circuits_and_shared_budget(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

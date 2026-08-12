@@ -825,6 +825,44 @@ def test_projection_verifier_rechecks_cached_exact_bytes_before_reuse(
     assert invocation_counts == Counter({outer_root: 1, original_root: 1})
 
 
+def test_projection_verifier_propagates_cached_bytes_to_enclosing_closure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "projection"
+    artifact, _ = _write_cache_test_projection_root(root)
+    operation = cli._VerifiedProjectionOperation(
+        owner_thread_id=get_ident(), cache={}, byte_closures={}
+    )
+
+    def verify_projection(*, target_root: Path, **kwargs: object) -> dict[str, object]:
+        return _cache_test_projection_evidence(
+            target_root,
+            artifact,
+            operation=cast(
+                cli._VerifiedProjectionOperation,
+                kwargs["_verified_projection_operation"],
+            ),
+        )
+
+    monkeypatch.setattr(cli, "_verify_materializer_projection", verify_projection)
+    try:
+        cli._verify_completed_target_cohort_projection_in_operation(
+            root, operation=operation
+        )
+        enclosing: dict[str, bytes] = {}
+        token = cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.set(enclosing)
+        try:
+            cli._verify_completed_target_cohort_projection_in_operation(
+                root, operation=operation
+            )
+        finally:
+            cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.reset(token)
+        assert enclosing[os.path.abspath(artifact)] == artifact.read_bytes()
+    finally:
+        operation.invalidate()
+
+
 def test_projection_verifier_rechecks_recovered_public_transitive_sources(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

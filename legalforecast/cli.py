@@ -45495,6 +45495,13 @@ def _verify_completed_target_cohort_projection_in_operation(
         _require_projection_absences_unchanged(
             cached.absent_paths, label="cached target projection artifact"
         )
+        outer_closure = _VERIFIED_PROJECTION_BYTE_COLLECTOR.get()
+        if outer_closure is not None:
+            _merge_projection_byte_closure(
+                outer_closure,
+                dict(cached.snapshots),
+                label="cached target projection byte closure",
+            )
         return copy.deepcopy(cached.result)
 
     def verified(result: dict[str, object]) -> dict[str, object]:

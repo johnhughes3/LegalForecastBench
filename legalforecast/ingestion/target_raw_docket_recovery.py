@@ -1487,24 +1487,48 @@ def _verify_zero_success_parent(
             )
         byte_collector = _VERIFIED_RECOVERY_BYTE_COLLECTOR.get()
         absence_collector = _VERIFIED_RECOVERY_ABSENCE_COLLECTOR.get()
+        if (byte_collector is None) != (absence_collector is None):
+            raise TargetRawDocketRecoveryError(
+                "recovery authority collectors must be installed together"
+            )
         if byte_collector is not None and absence_collector is not None:
             store.close_database_for_locked_snapshot()
-            for path in (
-                Path(parent.cycle_store_path),
-                Path(f"{parent.cycle_store_path}-wal"),
-                Path(f"{parent.cycle_store_path}-journal"),
-            ):
-                key = os.path.abspath(path)
-                if os.path.lexists(path):
-                    payload = _read_unique_regular_file(path, "recovery cycle store")
-                    existing = byte_collector.get(key)
-                    if existing is not None and existing != payload:
-                        raise TargetRawDocketRecoveryError(
-                            "recovery cycle-store byte closure conflicts"
-                        )
-                    byte_collector[key] = payload
-                else:
-                    absence_collector.add(key)
+            _merge_recovery_cycle_store_evidence(
+                Path(parent.cycle_store_path), byte_collector, absence_collector
+            )
+
+
+def _merge_recovery_cycle_store_evidence(
+    cycle_store_path: Path,
+    byte_collector: dict[str, bytes],
+    absence_collector: set[str],
+) -> None:
+    """Merge one locked, post-close SQLite namespace without contradictions."""
+
+    for path in (
+        cycle_store_path,
+        Path(f"{cycle_store_path}-wal"),
+        Path(f"{cycle_store_path}-journal"),
+    ):
+        key = os.path.abspath(path)
+        if os.path.lexists(path):
+            payload = _read_unique_regular_file(path, "recovery cycle store")
+            if key in absence_collector:
+                raise TargetRawDocketRecoveryError(
+                    "recovery cycle-store presence closure conflicts"
+                )
+            existing = byte_collector.get(key)
+            if existing is not None and existing != payload:
+                raise TargetRawDocketRecoveryError(
+                    "recovery cycle-store byte closure conflicts"
+                )
+            byte_collector[key] = payload
+        else:
+            if key in byte_collector:
+                raise TargetRawDocketRecoveryError(
+                    "recovery cycle-store absence closure conflicts"
+                )
+            absence_collector.add(key)
 
 
 def _recorded_path_anchor(recorded: str, expected: Path) -> Path | None:
@@ -1856,6 +1880,11 @@ def resolve_target_raw_docket_recovery_provider_contract_retry(
     TargetRawDocketRecoverySuccessorPlan,
 ]:
     """Reauthenticate both exhausted circuits and derive the one retry plan."""
+
+    if (_verified_byte_closure is None) != (_verified_absence_closure is None):
+        raise TargetRawDocketRecoveryError(
+            "recovery authority collectors must be installed together"
+        )
 
     byte_token = _VERIFIED_RECOVERY_BYTE_COLLECTOR.set(_verified_byte_closure)
     absence_token = _VERIFIED_RECOVERY_ABSENCE_COLLECTOR.set(_verified_absence_closure)

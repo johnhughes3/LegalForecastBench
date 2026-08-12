@@ -474,72 +474,93 @@ def _assemble(inputs: _BridgeInputs) -> _BridgeMaterial:
             )
         selected_bytes[candidate_id] = payload
 
-    verified_input_bytes: dict[str, bytes] = {
-        os.path.abspath(inputs.selection_path): selection_payload,
-        os.path.abspath(inputs.source_union_run_card_path): source_card_payload,
-        os.path.abspath(inputs.source_raw_artifacts_manifest_path): base_payload,
-        os.path.abspath(inputs.recovery_plan_path): _pinned_file(
-            inputs.recovery_plan_path,
-            inputs.expected_recovery_plan_sha256,
-            "recovery plan",
+    verified_input_bytes: dict[str, bytes] = {}
+    _merge_verified_byte_pairs(
+        verified_input_bytes,
+        (
+            (os.path.abspath(inputs.selection_path), selection_payload),
+            (os.path.abspath(inputs.source_union_run_card_path), source_card_payload),
+            (os.path.abspath(inputs.source_raw_artifacts_manifest_path), base_payload),
+            (
+                os.path.abspath(inputs.recovery_plan_path),
+                _pinned_file(
+                    inputs.recovery_plan_path,
+                    inputs.expected_recovery_plan_sha256,
+                    "recovery plan",
+                ),
+            ),
+            (
+                os.path.abspath(inputs.recovery_receipt_path),
+                _pinned_file(
+                    inputs.recovery_receipt_path,
+                    inputs.expected_recovery_receipt_sha256,
+                    "recovery receipt",
+                ),
+            ),
+            (
+                os.path.abspath(inputs.recovery_successes_path),
+                _pinned_file(
+                    inputs.recovery_successes_path,
+                    _sha(receipt, "successes_sha256", "recovery receipt"),
+                    "recovery successes",
+                ),
+            ),
+            (
+                os.path.abspath(inputs.recovery_exclusions_path),
+                _pinned_file(
+                    inputs.recovery_exclusions_path,
+                    _sha(receipt, "exclusions_sha256", "recovery receipt"),
+                    "recovery exclusions",
+                ),
+            ),
+            (
+                os.path.abspath(inputs.recovery_summary_path),
+                _pinned_file(
+                    inputs.recovery_summary_path,
+                    _sha(receipt, "summary_sha256", "recovery receipt"),
+                    "recovery summary",
+                ),
+            ),
         ),
-        os.path.abspath(inputs.recovery_receipt_path): _pinned_file(
-            inputs.recovery_receipt_path,
-            inputs.expected_recovery_receipt_sha256,
-            "recovery receipt",
-        ),
-        os.path.abspath(inputs.recovery_successes_path): _pinned_file(
-            inputs.recovery_successes_path,
-            _sha(receipt, "successes_sha256", "recovery receipt"),
-            "recovery successes",
-        ),
-        os.path.abspath(inputs.recovery_exclusions_path): _pinned_file(
-            inputs.recovery_exclusions_path,
-            _sha(receipt, "exclusions_sha256", "recovery receipt"),
-            "recovery exclusions",
-        ),
-        os.path.abspath(inputs.recovery_summary_path): _pinned_file(
-            inputs.recovery_summary_path,
-            _sha(receipt, "summary_sha256", "recovery receipt"),
-            "recovery summary",
-        ),
-    }
+    )
     _merge_verified_bytes(verified_input_bytes, recovery_authority_bytes)
     verified_input_absences: set[str] = set(recovery_authority_absences)
-    recovery_authority_paths = {
-        Path(path): digest
-        for path, digest in (
-            (retry_plan.root_plan_path, retry_plan.root_plan_sha256),
-            (
-                retry_plan.root_failure_run_card_path,
-                retry_plan.root_failure_run_card_sha256,
-            ),
-            (
-                retry_plan.direct_successor_plan_path,
-                retry_plan.direct_successor_plan_sha256,
-            ),
-            (
-                retry_plan.direct_successor_failure_run_card_path,
-                retry_plan.direct_successor_failure_run_card_sha256,
-            ),
-            (
-                retry_plan.provider_contract_defect_authorization_path,
-                retry_plan.provider_contract_defect_authorization_sha256,
-            ),
-            (
-                recovered_plan.source_snapshot_run_card_path,
-                recovered_plan.source_snapshot_run_card_sha256,
-            ),
-            (
-                recovered_plan.source_raw_manifest_path,
-                recovered_plan.source_raw_manifest_sha256,
-            ),
-        )
-    }
-    for path, digest in recovery_authority_paths.items():
+    recovery_authority_paths = (
+        (retry_plan.root_plan_path, retry_plan.root_plan_sha256),
+        (
+            retry_plan.root_failure_run_card_path,
+            retry_plan.root_failure_run_card_sha256,
+        ),
+        (
+            retry_plan.direct_successor_plan_path,
+            retry_plan.direct_successor_plan_sha256,
+        ),
+        (
+            retry_plan.direct_successor_failure_run_card_path,
+            retry_plan.direct_successor_failure_run_card_sha256,
+        ),
+        (
+            retry_plan.provider_contract_defect_authorization_path,
+            retry_plan.provider_contract_defect_authorization_sha256,
+        ),
+        (
+            recovered_plan.source_snapshot_run_card_path,
+            recovered_plan.source_snapshot_run_card_sha256,
+        ),
+        (
+            recovered_plan.source_raw_manifest_path,
+            recovered_plan.source_raw_manifest_sha256,
+        ),
+    )
+    for path, digest in recovery_authority_paths:
+        authority_path = Path(path)
         _merge_verified_bytes(
             verified_input_bytes,
-            {os.path.abspath(path): _pinned_file(path, digest, "recovery authority")},
+            {
+                os.path.abspath(authority_path): _pinned_file(
+                    authority_path, digest, "recovery authority"
+                )
+            },
         )
     for filename, payload in snapshot.payloads.items():
         _merge_verified_bytes(
@@ -897,6 +918,15 @@ def _merge_verified_bytes(
                 "verified auxiliary bridge byte closure conflicts"
             )
         target[key] = payload
+
+
+def _merge_verified_byte_pairs(
+    target: dict[str, bytes], incoming: Sequence[tuple[str, bytes]]
+) -> None:
+    """Merge ordered evidence without pre-collapsing duplicate lexical keys."""
+
+    for path, payload in incoming:
+        _merge_verified_bytes(target, {path: payload})
 
 
 def _bridge_payload(body: Mapping[str, object]) -> bytes:
