@@ -64,6 +64,38 @@ def test_policy_v2_requires_complete_briefing_pleading_and_byte_roles() -> None:
     }
 
 
+def test_policy_v3_requires_complete_selection_accounting() -> None:
+    decisions = _decisions_v3("a" * 64)
+
+    artifact = generate_cohort_policy(decisions)
+
+    assert artifact["schema_version"] == "legalforecast.cohort_policy.v3"
+    assert verify_cohort_policy(artifact) == artifact["policy_sha256"]
+    assert artifact["policy"]["packet_completeness"] == {
+        "attacked_claim_bearing_pleading_required": True,
+        "document_role_bytes_validation_required": True,
+        "motion_or_combined_memorandum_required": True,
+        "prior_operative_pleadings_required_when_necessary_to_understand_status": True,
+        "required_briefing_roles_if_filed": [
+            "opposition",
+            "response",
+            "reply",
+            "surreply",
+            "court_ordered_supplemental_brief",
+        ],
+        "required_claim_bearing_pleading_roles": [
+            "complaint",
+            "amended_complaint",
+            "counterclaim",
+            "crossclaim",
+            "third_party_complaint",
+            "interpleader_complaint",
+            "other_claim_bearing_filing",
+        ],
+        "unselected_pleading_or_briefing_entries_require_exclusion_reason": True,
+    }
+
+
 def test_committed_policy_v2_is_reproducible() -> None:
     repository_root = Path(__file__).parents[1]
     decisions = json.loads(
@@ -81,6 +113,39 @@ def test_committed_policy_v2_is_reproducible() -> None:
     assert generate_cohort_policy(decisions) == artifact
     assert verify_cohort_policy(artifact) == (
         "e1606aae7d8d9956267b09bb26fc1211874ebe4705e6fc65402a775f70bed848"
+    )
+
+
+def test_committed_policy_v3_is_reproducible_and_changes_only_packet() -> None:
+    repository_root = Path(__file__).parents[1]
+    frozen_decisions = json.loads(
+        (
+            repository_root
+            / "docs/cohort-policy-cycle-1-target-100-2026-07-25-decisions.json"
+        ).read_text(encoding="utf-8")
+    )
+    decisions = json.loads(
+        (
+            repository_root
+            / "docs/cohort-policy-cycle-1-target-100-2026-08-13-decisions.json"
+        ).read_text(encoding="utf-8")
+    )
+    artifact = json.loads(
+        (
+            repository_root / "docs/cohort-policy-cycle-1-target-100-2026-08-13.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert {
+        key: value for key, value in decisions.items() if key != "packet_completeness"
+    } == {
+        key: value
+        for key, value in frozen_decisions.items()
+        if key != "packet_completeness"
+    }
+    assert generate_cohort_policy(decisions) == artifact
+    assert verify_cohort_policy(artifact) == (
+        "d9bb6b40bf4914ed94e17b66b5ba2cfd2a0051dbb8dc1947269fe65886806216"
     )
 
 
@@ -104,6 +169,46 @@ def test_policy_v2_rejects_incomplete_document_requirements(
         packet["required_claim_bearing_pleading_roles"].remove("crossclaim")
     else:
         packet["document_role_bytes_validation_required"] = False
+
+    with pytest.raises(CohortPolicyError, match=message):
+        generate_cohort_policy(decisions)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("missing_response", "required briefing roles"),
+        ("missing_other_claim_bearing", "claim-bearing pleading roles"),
+        (
+            "prior_operative_pleadings_disabled",
+            "prior_operative_pleadings_required_when_necessary_to_understand_status",
+        ),
+        (
+            "exclusion_ledger_disabled",
+            "unselected_pleading_or_briefing_entries_require_exclusion_reason",
+        ),
+    ],
+)
+def test_policy_v3_rejects_incomplete_selection_accounting(
+    mutation: str, message: str
+) -> None:
+    decisions = _decisions_v3("a" * 64)
+    packet = decisions["packet_completeness"]
+    assert isinstance(packet, dict)
+    if mutation == "missing_response":
+        packet["required_briefing_roles_if_filed"].remove("response")
+    elif mutation == "missing_other_claim_bearing":
+        packet["required_claim_bearing_pleading_roles"].remove(
+            "other_claim_bearing_filing"
+        )
+    elif mutation == "prior_operative_pleadings_disabled":
+        packet[
+            "prior_operative_pleadings_required_when_necessary_to_understand_status"
+        ] = False
+    else:
+        packet["unselected_pleading_or_briefing_entries_require_exclusion_reason"] = (
+            False
+        )
 
     with pytest.raises(CohortPolicyError, match=message):
         generate_cohort_policy(decisions)
@@ -613,5 +718,33 @@ def _decisions_v2(cycle_hash: str) -> dict[str, object]:
             "interpleader_complaint",
         ],
         "document_role_bytes_validation_required": True,
+    }
+    return decisions
+
+
+def _decisions_v3(cycle_hash: str) -> dict[str, object]:
+    decisions = _decisions(cycle_hash)
+    decisions["packet_completeness"] = {
+        "motion_or_combined_memorandum_required": True,
+        "required_briefing_roles_if_filed": [
+            "opposition",
+            "response",
+            "reply",
+            "surreply",
+            "court_ordered_supplemental_brief",
+        ],
+        "attacked_claim_bearing_pleading_required": True,
+        "required_claim_bearing_pleading_roles": [
+            "complaint",
+            "amended_complaint",
+            "counterclaim",
+            "crossclaim",
+            "third_party_complaint",
+            "interpleader_complaint",
+            "other_claim_bearing_filing",
+        ],
+        "prior_operative_pleadings_required_when_necessary_to_understand_status": True,
+        "document_role_bytes_validation_required": True,
+        "unselected_pleading_or_briefing_entries_require_exclusion_reason": True,
     }
     return decisions

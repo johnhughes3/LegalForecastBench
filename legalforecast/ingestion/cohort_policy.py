@@ -14,7 +14,11 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
-from legalforecast.contracts.schemas import COHORT_POLICY_V1, COHORT_POLICY_V2
+from legalforecast.contracts.schemas import (
+    COHORT_POLICY_V1,
+    COHORT_POLICY_V2,
+    COHORT_POLICY_V3,
+)
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     PublishedSnapshot,
@@ -24,6 +28,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 
 COHORT_POLICY_SCHEMA_VERSION = str(COHORT_POLICY_V1)
 COHORT_POLICY_SCHEMA_VERSION_V2 = str(COHORT_POLICY_V2)
+COHORT_POLICY_SCHEMA_VERSION_V3 = str(COHORT_POLICY_V3)
 OBSERVATION_SCHEMA_VERSION = "legalforecast.cohort_observation_manifest.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _REQUIRED_BRIEFING_ROLES = (
@@ -39,6 +44,17 @@ _REQUIRED_CLAIM_BEARING_PLEADING_ROLES = (
     "crossclaim",
     "third_party_complaint",
     "interpleader_complaint",
+)
+_REQUIRED_BRIEFING_ROLES_V3 = (
+    "opposition",
+    "response",
+    "reply",
+    "surreply",
+    "court_ordered_supplemental_brief",
+)
+_REQUIRED_CLAIM_BEARING_PLEADING_ROLES_V3 = (
+    *_REQUIRED_CLAIM_BEARING_PLEADING_ROLES,
+    "other_claim_bearing_filing",
 )
 _CLAIM_CLASS_RANK = {
     "provisional_feasibility": 0,
@@ -99,6 +115,7 @@ def verify_cohort_policy(
     if schema_version not in {
         COHORT_POLICY_SCHEMA_VERSION,
         COHORT_POLICY_SCHEMA_VERSION_V2,
+        COHORT_POLICY_SCHEMA_VERSION_V3,
     }:
         raise CohortPolicyError("unsupported cohort policy schema version")
     policy_value = artifact.get("policy")
@@ -413,7 +430,9 @@ def _validated_policy(raw: Mapping[str, Any], *, schema_version: str) -> dict[st
     _true(semantics.get("latest_wins_equal_rank"), "latest_wins_equal_rank")
 
     packet = _object(policy.get("packet_completeness"), "packet_completeness")
-    if schema_version == COHORT_POLICY_SCHEMA_VERSION_V2:
+    if schema_version == COHORT_POLICY_SCHEMA_VERSION_V3:
+        _validate_packet_completeness_v3(packet)
+    elif schema_version == COHORT_POLICY_SCHEMA_VERSION_V2:
         _validate_packet_completeness_v2(packet)
     else:
         _validate_packet_completeness_v1(packet)
@@ -480,6 +499,13 @@ def _validated_policy(raw: Mapping[str, Any], *, schema_version: str) -> dict[st
 
 def _inferred_policy_schema_version(policy: Mapping[str, Any]) -> str:
     packet = policy.get("packet_completeness")
+    if isinstance(packet, Mapping) and (
+        "required_briefing_roles_if_filed" in packet
+        or "prior_operative_pleadings_required_when_necessary_to_understand_status"
+        in packet
+        or "unselected_pleading_or_briefing_entries_require_exclusion_reason" in packet
+    ):
+        return COHORT_POLICY_SCHEMA_VERSION_V3
     if isinstance(packet, Mapping) and (
         "required_briefing_roles_if_docketed" in packet
         or "required_claim_bearing_pleading_roles" in packet
@@ -552,6 +578,63 @@ def _validate_packet_completeness_v2(packet: Mapping[str, Any]) -> None:
     _true(
         packet.get("document_role_bytes_validation_required"),
         "document_role_bytes_validation_required",
+    )
+
+
+def _validate_packet_completeness_v3(packet: Mapping[str, Any]) -> None:
+    _exact_keys(
+        packet,
+        {
+            "motion_or_combined_memorandum_required",
+            "required_briefing_roles_if_filed",
+            "attacked_claim_bearing_pleading_required",
+            "required_claim_bearing_pleading_roles",
+            "prior_operative_pleadings_required_when_necessary_to_understand_status",
+            "document_role_bytes_validation_required",
+            "unselected_pleading_or_briefing_entries_require_exclusion_reason",
+        },
+        "packet_completeness",
+    )
+    _true(
+        packet.get("motion_or_combined_memorandum_required"),
+        "motion_or_combined_memorandum_required",
+    )
+    briefing_roles = _string_list(
+        packet.get("required_briefing_roles_if_filed"),
+        "required_briefing_roles_if_filed",
+    )
+    if briefing_roles != _REQUIRED_BRIEFING_ROLES_V3:
+        raise CohortPolicyError(
+            "required briefing roles must exactly include opposition, response, "
+            "reply, surreply, and court-ordered supplemental briefing"
+        )
+    _true(
+        packet.get("attacked_claim_bearing_pleading_required"),
+        "attacked_claim_bearing_pleading_required",
+    )
+    pleading_roles = _string_list(
+        packet.get("required_claim_bearing_pleading_roles"),
+        "required_claim_bearing_pleading_roles",
+    )
+    if pleading_roles != _REQUIRED_CLAIM_BEARING_PLEADING_ROLES_V3:
+        raise CohortPolicyError(
+            "claim-bearing pleading roles must exactly include complaint, amended "
+            "complaint, counterclaim, crossclaim, third-party complaint, "
+            "interpleader complaint, and other claim-bearing filing"
+        )
+    _true(
+        packet.get(
+            "prior_operative_pleadings_required_when_necessary_to_understand_status"
+        ),
+        "prior_operative_pleadings_required_when_necessary_to_understand_status",
+    )
+    _true(
+        packet.get("document_role_bytes_validation_required"),
+        "document_role_bytes_validation_required",
+    )
+    _true(
+        packet.get("unselected_pleading_or_briefing_entries_require_exclusion_reason"),
+        "unselected_pleading_or_briefing_entries_require_exclusion_reason",
     )
 
 
