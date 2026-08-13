@@ -511,6 +511,20 @@ def test_run_spec_service_rejects_symlink_scratch_directory(tmp_path: Path) -> N
     assert "symlink" in receipt.stderr
 
 
+def test_run_spec_service_maps_missing_parent_workspace_to_failed_receipt(
+    tmp_path: Path,
+) -> None:
+    spec = RunSpec(
+        spec_id="missing-parent",
+        argv=("claude",),
+        working_directory=tmp_path / "nope" / "workspace",
+        timeout_seconds=5,
+    )
+    receipt = LocalCliExecutionService(parent_env=dict(_CANARY_ENV)).execute(spec)
+    assert receipt.status == "failed"
+    assert "real directory" in receipt.stderr
+
+
 def _execution_result(
     *,
     exit_code: int | None,

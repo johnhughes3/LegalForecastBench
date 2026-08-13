@@ -429,7 +429,12 @@ def _require_real_directory(path: Path) -> None:
         try:
             os.mkdir(path, 0o700)
         except FileExistsError:
+            # Lost the create race; the nofollow open below is the authority.
             pass
+        except OSError as exc:
+            raise LocalCliRuntimeError(
+                "working directory must be a real directory"
+            ) from exc
         try:
             descriptor = os.open(path, flags)
         except OSError as exc:
@@ -484,7 +489,6 @@ def _run_contained_cli(
     termination_grace_seconds: float,
     max_capture_bytes: int,
 ) -> LocalCliExecutionResult:
-    ensure_private_scratch_directory(scratch_root)
     argv = spec.argv()
     requested = spec.host_process_containment
     status = "launch_failed"
@@ -500,6 +504,7 @@ def _run_contained_cli(
     handle: ProcessContainmentHandle | None = None
     started = time.monotonic()
     try:
+        ensure_private_scratch_directory(scratch_root)
         prepared = prepare_contained_command(
             requested,
             argv,

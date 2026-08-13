@@ -345,6 +345,7 @@ def _ensure_private_directory(path: Path) -> None:
     try:
         os.mkdir(path, 0o700)
     except FileExistsError:
+        # Lost the create race; the nofollow open below is the authority.
         pass
     nofollow = getattr(os, "O_NOFOLLOW", None)
     if nofollow is None:
