@@ -326,3 +326,26 @@ def test_from_record_rejects_coerced_usage_transcripts_and_environment(
     spec_record["environment"] = None
     with pytest.raises(LocalCliContractError, match="environment"):
         RunSpec.from_record(spec_record)
+
+
+def test_run_spec_round_trip_keeps_stdin_digest_without_payload(tmp_path: Path) -> None:
+    spec = RunSpec(
+        spec_id="fixture-spec",
+        argv=("claude", "--print"),
+        working_directory=tmp_path,
+        timeout_seconds=30,
+        stdin_bytes=b"solve fixture",
+    )
+    record = spec.to_record()
+    assert "solve fixture" not in str(record)
+    restored = RunSpec.from_record(record)
+    assert restored.spec_sha256 == spec.spec_sha256
+    assert restored.stdin_sha256 == spec.stdin_sha256
+    assert restored.stdin_bytes == b""
+
+
+def test_identity_from_record_wraps_typed_field_errors() -> None:
+    record = _task().to_record()
+    record["task_id"] = ""
+    with pytest.raises(IdentityError, match="task_id"):
+        TaskIdentity.from_record(record)

@@ -17,7 +17,7 @@ not mixed into the matched-harness key. ``clean-native`` and
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Self
 
@@ -189,20 +189,19 @@ class TaskIdentity:
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
-        _reject_aliases(record, "task identity")
-        _require_identity_record(
+        return _parse_identity_record(
             record,
             required=_TASK_REQUIRED,
             field_name="task identity",
             schema_version=TASK_IDENTITY_SCHEMA_VERSION,
-        )
-        return cls(
-            task_id=require_str(record, "task_id"),
-            family=require_str(record, "family"),
-            scoring_mode=require_str(record, "scoring_mode"),
-            suite_version=require_str(record, "suite_version"),
-            task_sha256=require_str(record, "task_sha256"),
-            key=require_str(record, "key"),
+            construct=lambda: cls(
+                task_id=require_str(record, "task_id"),
+                family=require_str(record, "family"),
+                scoring_mode=require_str(record, "scoring_mode"),
+                suite_version=require_str(record, "suite_version"),
+                task_sha256=require_str(record, "task_sha256"),
+                key=require_str(record, "key"),
+            ),
         )
 
 
@@ -247,22 +246,24 @@ class SolverIdentity:
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
-        _reject_aliases(record, "solver identity")
-        _require_identity_record(
+        def construct() -> Self:
+            served_model = record.get("served_model")
+            if served_model is not None:
+                served_model = require_str(record, "served_model")
+            return cls(
+                provider=require_str(record, "provider"),
+                requested_model=require_str(record, "requested_model"),
+                served_model=served_model,
+                settings_sha256=require_str(record, "settings_sha256"),
+                key=require_str(record, "key"),
+            )
+
+        return _parse_identity_record(
             record,
             required=_SOLVER_REQUIRED,
             field_name="solver identity",
             schema_version=SOLVER_IDENTITY_SCHEMA_VERSION,
-        )
-        served_model = record.get("served_model")
-        if served_model is not None:
-            served_model = require_str(record, "served_model")
-        return cls(
-            provider=require_str(record, "provider"),
-            requested_model=require_str(record, "requested_model"),
-            served_model=served_model,
-            settings_sha256=require_str(record, "settings_sha256"),
-            key=require_str(record, "key"),
+            construct=construct,
         )
 
 
@@ -310,22 +311,21 @@ class RunIdentity:
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
-        _reject_aliases(record, "run identity")
-        _require_identity_record(
+        return _parse_identity_record(
             record,
             required=_RUN_REQUIRED,
             field_name="run identity",
             schema_version=RUN_IDENTITY_SCHEMA_VERSION,
-        )
-        return cls(
-            task_identity_key=require_str(record, "task_identity_key"),
-            solver_identity_key=require_str(record, "solver_identity_key"),
-            runtime_policy_sha256=require_str(record, "runtime_policy_sha256"),
-            config_sha256=require_str(record, "config_sha256"),
-            temporal_block=require_str(record, "temporal_block"),
-            order=_require_record_int(record, "order"),
-            repeat_index=_require_record_int(record, "repeat_index"),
-            key=require_str(record, "key"),
+            construct=lambda: cls(
+                task_identity_key=require_str(record, "task_identity_key"),
+                solver_identity_key=require_str(record, "solver_identity_key"),
+                runtime_policy_sha256=require_str(record, "runtime_policy_sha256"),
+                config_sha256=require_str(record, "config_sha256"),
+                temporal_block=require_str(record, "temporal_block"),
+                order=_require_record_int(record, "order"),
+                repeat_index=_require_record_int(record, "repeat_index"),
+                key=require_str(record, "key"),
+            ),
         )
 
 
@@ -379,24 +379,23 @@ class MatchedHarnessIdentity:
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
-        _reject_aliases(record, "matched-harness identity")
-        _require_identity_record(
+        return _parse_identity_record(
             record,
             required=_MATCHED_REQUIRED,
             field_name="matched-harness identity",
             schema_version=MATCHED_HARNESS_IDENTITY_SCHEMA_VERSION,
-        )
-        return cls(
-            task_identity_key=require_str(record, "task_identity_key"),
-            provider=require_str(record, "provider"),
-            served_model=require_str(record, "served_model"),
-            settings_sha256=require_str(record, "settings_sha256"),
-            evaluator_identity=require_str(record, "evaluator_identity"),
-            temporal_block=require_str(record, "temporal_block"),
-            outer_envelope=require_str(record, "outer_envelope"),
-            order=_require_record_int(record, "order"),
-            repeat_index=_require_record_int(record, "repeat_index"),
-            key=require_str(record, "key"),
+            construct=lambda: cls(
+                task_identity_key=require_str(record, "task_identity_key"),
+                provider=require_str(record, "provider"),
+                served_model=require_str(record, "served_model"),
+                settings_sha256=require_str(record, "settings_sha256"),
+                evaluator_identity=require_str(record, "evaluator_identity"),
+                temporal_block=require_str(record, "temporal_block"),
+                outer_envelope=require_str(record, "outer_envelope"),
+                order=_require_record_int(record, "order"),
+                repeat_index=_require_record_int(record, "repeat_index"),
+                key=require_str(record, "key"),
+            ),
         )
 
 
@@ -445,20 +444,19 @@ class SystemBundleLabel:
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
-        _reject_aliases(record, "system-bundle label")
-        _require_identity_record(
+        return _parse_identity_record(
             record,
             required=_BUNDLE_REQUIRED,
             field_name="system-bundle label",
             schema_version=SYSTEM_BUNDLE_LABEL_SCHEMA_VERSION,
-        )
-        return cls(
-            adapter_id=require_str(record, "adapter_id"),
-            adapter_version=require_str(record, "adapter_version"),
-            requested_model=require_str(record, "requested_model"),
-            family=require_str(record, "family"),
-            label=require_str(record, "label"),
-            key=require_str(record, "key"),
+            construct=lambda: cls(
+                adapter_id=require_str(record, "adapter_id"),
+                adapter_version=require_str(record, "adapter_version"),
+                requested_model=require_str(record, "requested_model"),
+                family=require_str(record, "family"),
+                label=require_str(record, "label"),
+                key=require_str(record, "key"),
+            ),
         )
 
 
@@ -654,6 +652,29 @@ def _system_bundle_label(
     family: str,
 ) -> str:
     return f"{adapter_id}/{adapter_version}/{family}/{requested_model}"
+
+
+def _parse_identity_record[T](
+    record: Mapping[str, Any],
+    *,
+    required: frozenset[str],
+    field_name: str,
+    schema_version: str,
+    construct: Callable[[], T],
+) -> T:
+    try:
+        _reject_aliases(record, field_name)
+        _require_identity_record(
+            record,
+            required=required,
+            field_name=field_name,
+            schema_version=schema_version,
+        )
+        return construct()
+    except IdentityError:
+        raise
+    except MultiHarnessValidationError as exc:
+        raise IdentityError(str(exc)) from exc
 
 
 def _require_identity_record(

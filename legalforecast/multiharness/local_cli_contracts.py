@@ -64,7 +64,7 @@ _RUN_SPEC_REQUIRED_FIELDS = frozenset(
         "spec_sha256",
     }
 )
-_RUN_SPEC_OPTIONAL_FIELDS = frozenset({"json_schema", "max_budget_usd"})
+_RUN_SPEC_OPTIONAL_FIELDS = frozenset({"json_schema", "max_budget_usd", "stdin_sha256"})
 _PUBLIC_RECEIPT_REQUIRED_FIELDS = frozenset(
     {
         "schema_version",
@@ -172,6 +172,7 @@ class RunSpec:
     json_schema: Mapping[str, object] | None = None
     max_budget_usd: float | None = None
     stdin_bytes: bytes = b""
+    stdin_sha256: str = ""
     spec_sha256: str = ""
     schema_version: str = LOCAL_CLI_RUN_SPEC_SCHEMA_VERSION
 
@@ -190,6 +191,13 @@ class RunSpec:
             raise LocalCliContractError("max_budget_usd must be non-negative")
         if type(self.stdin_bytes) is not bytes:
             raise LocalCliContractError("stdin_bytes must be bytes")
+        expected_stdin = _sha256_bytes(self.stdin_bytes) if self.stdin_bytes else ""
+        if self.stdin_sha256:
+            _require_prefixed_digest(self.stdin_sha256, "stdin_sha256")
+            if expected_stdin and self.stdin_sha256 != expected_stdin:
+                raise LocalCliContractError("stdin_sha256 does not match stdin_bytes")
+        else:
+            object.__setattr__(self, "stdin_sha256", expected_stdin)
         env_names = tuple(self.environment)
         validate_env_var_names(env_names, "environment")
         forbidden = CREDENTIAL_ENV_VAR_NAMES.intersection(env_names)
@@ -228,8 +236,8 @@ class RunSpec:
             payload["json_schema"] = dict(self.json_schema)
         if self.max_budget_usd is not None:
             payload["max_budget_usd"] = self.max_budget_usd
-        if self.stdin_bytes:
-            payload["stdin_sha256"] = _sha256_bytes(self.stdin_bytes)
+        if self.stdin_sha256:
+            payload["stdin_sha256"] = self.stdin_sha256
         return payload
 
     def to_record(self) -> dict[str, object]:
@@ -276,6 +284,7 @@ class RunSpec:
                 output_format=require_str(record, "output_format"),
                 json_schema=None if json_schema is None else dict(json_schema),
                 max_budget_usd=max_budget,
+                stdin_sha256=optional_str(record, "stdin_sha256") or "",
                 spec_sha256=require_str(record, "spec_sha256"),
                 schema_version=require_str(record, "schema_version"),
             )
