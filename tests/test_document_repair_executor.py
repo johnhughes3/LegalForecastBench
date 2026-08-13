@@ -1240,6 +1240,18 @@ def test_paid_runner_accepts_ledger_initialized_after_authority_mint(
     ]
     assert result.receipt.committed_cost_usd == "12.00"
 
+    with pytest.raises(
+        DocumentRepairExecutorError, match="verified purchase authority runtime"
+    ):
+        run_document_repair_execution(
+            execution=execution,
+            purchase_runtime=runtime,
+            acquire=lambda _operation: pytest.fail(
+                "single-use runtime must not reacquire"
+            ),
+            monotonic=lambda: 0.0,
+        )
+
 
 def test_full_execution_covers_every_plan_item_under_full_approval() -> None:
     manifest = _manifest_bytes(
