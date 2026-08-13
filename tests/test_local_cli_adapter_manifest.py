@@ -28,6 +28,7 @@ from legalforecast.multiharness.local_cli_manifest import (
     LocalCliTranscriptCapture,
     LocalCliUsageReporting,
     capability_digest_for,
+    project_structured_stdout_deliverable,
 )
 from legalforecast.multiharness.spec import POSIX_PROCESS_GROUP_CONTAINMENT
 
@@ -163,6 +164,9 @@ def _claude_record() -> dict[str, Any]:
             "prompt_source": "solver_input_prompt",
             "deliverable_source": "structured_stdout",
             "deliverable_relative_path": None,
+            "deliverable_event_type": None,
+            "deliverable_item_type": None,
+            "deliverable_field": "result",
         },
         "harness_binding": _binding("claude-code-clean-native"),
     }
@@ -184,9 +188,9 @@ def _codex_record() -> dict[str, Any]:
         },
         "capabilities": [
             "headless_print",
-            "json_schema_enforcement",
             "model_selection",
             "no_session_persistence",
+            "permission_mode",
             "stream_json_output",
             "working_directory_isolation",
         ],
@@ -196,23 +200,26 @@ def _codex_record() -> dict[str, Any]:
             "argv_template": [
                 "exec",
                 "--json",
+                "--color",
+                "never",
                 "--ephemeral",
-                "--model",
-                "{model}",
-                "--cd",
-                "{workspace}",
-                "--sandbox",
-                "read-only",
+                "--skip-git-repo-check",
                 "--strict-config",
                 "--ignore-user-config",
                 "--ignore-rules",
-                "--output-schema",
-                "{output_schema_path}",
-                "{prompt}",
+                "--sandbox",
+                "workspace-write",
+                "--cd",
+                "{workspace}",
+                "--model",
+                "{model}",
+                "-c",
+                'approval_policy="never"',
+                "-",
             ],
             "output_format": "stream_json",
-            "schema_enforcement": "output_schema_file",
-            "prompt_delivery": "argv_placeholder",
+            "schema_enforcement": "none",
+            "prompt_delivery": "stdin",
             "working_directory_flag": "--cd",
             "model_flag": "--model",
         },
@@ -258,6 +265,9 @@ def _codex_record() -> dict[str, Any]:
             "prompt_source": "solver_input_prompt",
             "deliverable_source": "structured_stdout",
             "deliverable_relative_path": None,
+            "deliverable_event_type": "item.completed",
+            "deliverable_item_type": "agent_message",
+            "deliverable_field": "item.text",
         },
         "harness_binding": _binding("codex-cli-clean-native"),
     }
@@ -307,7 +317,24 @@ def test_committed_fixtures_validate_claude_and_codex() -> None:
     assert codex.invocation.argv_template[0] == "exec"
     assert codex.invocation.output_format == "stream_json"
     assert "stream_json_output" in codex.capabilities
-    assert "{output_schema_path}" in codex.invocation.argv_template
+    assert "{output_schema_path}" not in codex.invocation.argv_template
+    assert "{output_schema}" not in codex.invocation.argv_template
+    assert "{prompt}" not in codex.invocation.argv_template
+    assert codex.invocation.prompt_delivery == "stdin"
+    assert codex.invocation.schema_enforcement == "none"
+    assert codex.invocation.argv_template[-1] == "-"
+    assert "workspace-write" in codex.invocation.argv_template
+    assert 'approval_policy="never"' in codex.invocation.argv_template
+    assert "--approve-for-me" not in codex.invocation.argv_template
+    assert "--ask-for-approval" not in codex.invocation.argv_template
+    assert "--json" in codex.invocation.argv_template
+    assert "--cd" in codex.invocation.argv_template
+    assert "--model" in codex.invocation.argv_template
+    assert codex.task_projection.deliverable_event_type == "item.completed"
+    assert codex.task_projection.deliverable_item_type == "agent_message"
+    assert codex.task_projection.deliverable_field == "item.text"
+    assert claude.task_projection.deliverable_field == "result"
+    assert claude.task_projection.deliverable_event_type is None
     assert set(claude.capabilities).issubset(LOCAL_CLI_CAPABILITIES)
     assert set(codex.capabilities).issubset(LOCAL_CLI_CAPABILITIES)
     assert claude.auth_profile_name in AUTH_PROFILE_NAMES
@@ -440,6 +467,8 @@ def test_json_schema_flag_rejects_path_placeholder() -> None:
 
 def test_output_schema_file_rejects_inline_schema_placeholder() -> None:
     record = _codex_record()
+    record["invocation"]["schema_enforcement"] = "output_schema_file"
+    record["invocation"]["prompt_delivery"] = "argv_placeholder"
     record["invocation"]["argv_template"] = [
         "exec",
         "--output-schema",
@@ -488,6 +517,7 @@ def test_argv_template_rejects_host_paths() -> None:
         "{output_schema}",
         "--model",
         "{model}",
+        "--add-dir",
         "/home/alice/bin/tool",
         "{workspace}",
     ]
@@ -495,6 +525,143 @@ def test_argv_template_rejects_host_paths() -> None:
 
     with pytest.raises(LocalCliAdapterManifestError, match="host paths"):
         LocalCliAdapterManifest.from_record(record)
+
+
+def test_stdin_prompt_delivery_rejects_prompt_placeholder() -> None:
+    record = _codex_record()
+    template = list(record["invocation"]["argv_template"])
+    template[-1] = "{prompt}"
+    record["invocation"]["argv_template"] = template
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(LocalCliAdapterManifestError, match="stdin prompt delivery"):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_schema_enforcement_none_rejects_schema_placeholders() -> None:
+    record = _codex_record()
+    template = list(record["invocation"]["argv_template"])
+    template.insert(-1, "--output-schema")
+    template.insert(-1, "{output_schema_path}")
+    record["invocation"]["argv_template"] = template
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(LocalCliAdapterManifestError, match="schema_enforcement none"):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_working_directory_flag_must_appear_in_argv_template() -> None:
+    record = _claude_record()
+    record["invocation"]["working_directory_flag"] = "--cd"
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(
+        LocalCliAdapterManifestError, match="working_directory_flag must appear"
+    ):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_model_flag_must_appear_in_argv_template() -> None:
+    record = _claude_record()
+    record["invocation"]["model_flag"] = "--model-id"
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(LocalCliAdapterManifestError, match="model_flag must appear"):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_stream_json_structured_stdout_requires_event_type() -> None:
+    record = _codex_record()
+    record["task_projection"]["deliverable_event_type"] = None
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(LocalCliAdapterManifestError, match="deliverable_event_type"):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_workspace_relative_file_forbids_event_projection() -> None:
+    record = _codex_record()
+    record["task_projection"] = {
+        "prompt_source": "solver_input_prompt",
+        "deliverable_source": "workspace_relative_file",
+        "deliverable_relative_path": "codex-output/submission.md",
+        "deliverable_event_type": "item.completed",
+        "deliverable_item_type": None,
+        "deliverable_field": "item.text",
+    }
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(
+        LocalCliAdapterManifestError, match="workspace_relative_file forbids"
+    ):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_codex_jsonl_deliverable_is_projected_from_the_declared_event() -> None:
+    manifest = LocalCliAdapterManifest.from_record(_codex_record())
+    stdout = "\n".join(
+        [
+            json.dumps({"type": "thread.started", "thread_id": "t1"}),
+            json.dumps({"type": "turn.started"}),
+            json.dumps(
+                {
+                    "type": "item.completed",
+                    "item": {
+                        "id": "item_cmd",
+                        "type": "command_execution",
+                        "aggregated_output": "ignored",
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "type": "item.completed",
+                    "item": {
+                        "id": "item_0",
+                        "type": "agent_message",
+                        "text": "LEGALFORECAST_FAKE_CODEX_RESULT",
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "type": "turn.completed",
+                    "usage": {"input_tokens": 3, "output_tokens": 4},
+                }
+            ),
+        ]
+    )
+
+    text = project_structured_stdout_deliverable(
+        stdout,
+        output_format=manifest.invocation.output_format,
+        projection=manifest.task_projection,
+    )
+
+    assert text == "LEGALFORECAST_FAKE_CODEX_RESULT"
+
+
+def test_corrupt_jsonl_envelope_fails_deliverable_projection() -> None:
+    manifest = LocalCliAdapterManifest.from_record(_codex_record())
+
+    with pytest.raises(LocalCliAdapterManifestError, match="malformed"):
+        project_structured_stdout_deliverable(
+            '{"type":"thread.started"\nnot-json\n',
+            output_format=manifest.invocation.output_format,
+            projection=manifest.task_projection,
+        )
+
+
+def test_claude_json_deliverable_is_projected_from_result() -> None:
+    manifest = LocalCliAdapterManifest.from_record(_claude_record())
+
+    text = project_structured_stdout_deliverable(
+        json.dumps({"type": "result", "result": "forecast-json"}),
+        output_format=manifest.invocation.output_format,
+        projection=manifest.task_projection,
+    )
+
+    assert text == "forecast-json"
 
 
 def test_schema_doc_states_existing_solver_contracts() -> None:

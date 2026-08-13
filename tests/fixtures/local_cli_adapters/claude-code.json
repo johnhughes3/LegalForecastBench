@@ -33,7 +33,7 @@
     "tool_allowlist",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:d8bedaf7f196d1046c4ba5d5821997c013eed8be98b94efac7978dfb09813dc4",
+  "capability_digest": "sha256:589dcb30806b1f204f3f6c7e7a9d071a7f7400e9ac91eec07220843b0516ba2a",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -100,6 +100,9 @@
     "published-api-key"
   ],
   "task_projection": {
+    "deliverable_event_type": null,
+    "deliverable_field": "result",
+    "deliverable_item_type": null,
     "deliverable_relative_path": null,
     "deliverable_source": "structured_stdout",
     "prompt_source": "solver_input_prompt"

@@ -183,20 +183,28 @@ def test_offline_local_cli_manifest_drives_non_interactive_exec() -> None:
     assert manifest.harness_binding.implements_harness_solver is False
 
 
-def test_clean_native_fixture_is_not_the_offline_invocation() -> None:
+def test_clean_native_fixture_matches_characterized_exec() -> None:
     offline = load_codex_local_cli_manifest()
     shipped = LocalCliAdapterManifest.from_record(
         json.loads(CLEAN_NATIVE_FIXTURE.read_text(encoding="utf-8"))
     )
 
     assert shipped.manifest_id == "codex-cli-clean-native"
-    assert shipped.invocation.prompt_delivery == "argv_placeholder"
-    assert shipped.invocation.schema_enforcement == "output_schema_file"
-    assert "read-only" in shipped.invocation.argv_template
-    assert shipped.invocation.prompt_delivery != offline.invocation.prompt_delivery
-    assert (
-        shipped.invocation.schema_enforcement != offline.invocation.schema_enforcement
-    )
+    assert shipped.manifest_id != offline.manifest_id
+    assert shipped.invocation.prompt_delivery == "stdin"
+    assert shipped.invocation.schema_enforcement == "none"
+    assert shipped.invocation.argv_template[-1] == "-"
+    assert "workspace-write" in shipped.invocation.argv_template
+    assert 'approval_policy="never"' in shipped.invocation.argv_template
+    assert "--approve-for-me" not in shipped.invocation.argv_template
+    assert "--ask-for-approval" not in shipped.invocation.argv_template
+    assert "--json" in shipped.invocation.argv_template
+    assert shipped.task_projection.deliverable_source == "structured_stdout"
+    assert shipped.task_projection.deliverable_event_type == "item.completed"
+    assert shipped.task_projection.deliverable_item_type == "agent_message"
+    assert shipped.task_projection.deliverable_field == "item.text"
+    assert offline.invocation.prompt_delivery == "stdin"
+    assert offline.task_projection.deliverable_source == "workspace_relative_file"
 
 
 def test_invocation_plan_snapshot_is_exact_and_non_interactive(tmp_path: Path) -> None:
