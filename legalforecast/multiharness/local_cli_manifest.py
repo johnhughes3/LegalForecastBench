@@ -124,6 +124,7 @@ LOCAL_CLI_DELIVERABLE_SOURCES = frozenset(
 LOCAL_CLI_ARGV_PLACEHOLDERS = frozenset(
     {
         "model",
+        "output_schema",
         "output_schema_path",
         "prompt",
         "workspace",
@@ -325,13 +326,24 @@ class LocalCliInvocation:
             raise LocalCliAdapterManifestError(
                 "argv_placeholder prompt delivery requires {prompt}"
             )
-        if (
-            self.schema_enforcement != "none"
-            and "output_schema_path" not in placeholders
-        ):
-            raise LocalCliAdapterManifestError(
-                "schema enforcement requires {output_schema_path}"
-            )
+        if self.schema_enforcement == "json_schema_flag":
+            if "output_schema" not in placeholders:
+                raise LocalCliAdapterManifestError(
+                    "json_schema_flag requires {output_schema}"
+                )
+            if "output_schema_path" in placeholders:
+                raise LocalCliAdapterManifestError(
+                    "json_schema_flag must not use {output_schema_path}"
+                )
+        elif self.schema_enforcement == "output_schema_file":
+            if "output_schema_path" not in placeholders:
+                raise LocalCliAdapterManifestError(
+                    "output_schema_file requires {output_schema_path}"
+                )
+            if "output_schema" in placeholders:
+                raise LocalCliAdapterManifestError(
+                    "output_schema_file must not use {output_schema}"
+                )
         if self.working_directory_flag is not None:
             _require_flag_name(self.working_directory_flag, "working_directory_flag")
             if "workspace" not in placeholders:
@@ -376,7 +388,8 @@ class LocalCliInvocation:
         prompt: str,
         model: str,
         workspace: str,
-        output_schema_path: str,
+        output_schema: str | None = None,
+        output_schema_path: str | None = None,
     ) -> tuple[str, ...]:
         """Substitute closed placeholders without shell interpolation."""
 
@@ -384,8 +397,16 @@ class LocalCliInvocation:
             "prompt": prompt,
             "model": model,
             "workspace": workspace,
-            "output_schema_path": output_schema_path,
         }
+        placeholders = _placeholders_in(self.argv_template)
+        if "output_schema" in placeholders:
+            if output_schema is None:
+                raise LocalCliAdapterManifestError("{output_schema} is required")
+            values["output_schema"] = output_schema
+        if "output_schema_path" in placeholders:
+            if output_schema_path is None:
+                raise LocalCliAdapterManifestError("{output_schema_path} is required")
+            values["output_schema_path"] = output_schema_path
         rendered: list[str] = []
         for token in self.argv_template:
             rendered.append(
@@ -760,15 +781,19 @@ class LocalCliHarnessBinding:
         )
 
     def to_adapter_manifest(
-        self, *, display_name: str, basename: str
+        self, *, display_name: str, command: tuple[str, ...]
     ) -> AdapterManifest:
-        """Public command-adapter identity for the B3 wrapper, not the CLI argv."""
+        """Public identity for the B3 wrapper, not CommandAdapter argv."""
 
+        if not command:
+            raise LocalCliAdapterManifestError(
+                "adapter manifest command must not be empty"
+            )
         return AdapterManifest(
             adapter_id=self.adapter_id,
             display_name=display_name,
             adapter_version=self.adapter_version,
-            command=(basename,),
+            command=command,
         )
 
     def to_adapter_capabilities(
@@ -880,6 +905,20 @@ class LocalCliAdapterManifest:
             raise LocalCliAdapterManifestError(
                 "harness_binding.adapter_id must equal manifest_id"
             )
+        if (
+            self.invocation.output_format == "json"
+            and "json_output" not in self.capabilities
+        ):
+            raise LocalCliAdapterManifestError(
+                "output_format json requires the json_output capability"
+            )
+        if (
+            self.invocation.output_format == "stream_json"
+            and "stream_json_output" not in self.capabilities
+        ):
+            raise LocalCliAdapterManifestError(
+                "output_format stream_json requires the stream_json_output capability"
+            )
         validate_public_record(self.to_record(), "local_cli_adapter_manifest")
 
     def to_record(self) -> dict[str, Any]:
@@ -953,12 +992,17 @@ class LocalCliAdapterManifest:
             ),
         )
 
-    def to_adapter_manifest(self) -> AdapterManifest:
-        """Wrapper identity for CommandAdapter; argv remains invocation."""
+    def to_adapter_manifest(self, *, command: Sequence[str]) -> AdapterManifest:
+        """Wrapper identity for the B3 HarnessAdapter, not the target CLI."""
 
+        wrapper = tuple(command)
+        if self.executable.basename in wrapper:
+            raise LocalCliAdapterManifestError(
+                "adapter manifest command must not include the target CLI basename"
+            )
         return self.harness_binding.to_adapter_manifest(
             display_name=self.display_name,
-            basename=self.executable.basename,
+            command=wrapper,
         )
 
     def to_adapter_capabilities(self) -> AdapterCapabilities:

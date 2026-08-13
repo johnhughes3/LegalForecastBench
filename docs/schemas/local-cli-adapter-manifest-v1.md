@@ -48,7 +48,7 @@ The fenced example is the committed Claude Code instance (`tests/fixtures/local_
     "tool_allowlist",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:28742e9091ce21abcadcd28e3ff2042d95271422d87b2b1dbd50a4fdc8ab8cf9",
+  "capability_digest": "sha256:d8bedaf7f196d1046c4ba5d5821997c013eed8be98b94efac7978dfb09813dc4",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -88,7 +88,7 @@ The fenced example is the committed Claude Code instance (`tests/fixtures/local_
       "--output-format",
       "json",
       "--json-schema",
-      "{output_schema_path}",
+      "{output_schema}",
       "--tools",
       "",
       "--strict-mcp-config",
@@ -168,11 +168,11 @@ Closed tokens: `headless_print`, `json_output`, `stream_json_output`, `json_sche
 
 ### Invocation
 
-`argv_template` is an argv array, not a shell string. The only placeholders are `{prompt}`, `{model}`, `{workspace}`, and `{output_schema_path}`. Empty strings are allowed so a CLI can pass `--tools ""`.
+`argv_template` is an argv array, not a shell string. The only placeholders are `{prompt}`, `{model}`, `{workspace}`, `{output_schema}`, and `{output_schema_path}`. Empty strings are allowed so a CLI can pass `--tools ""`.
 
 - `headless_mode`: `print_flag` (Claude Code `-p`) or `exec_subcommand` (Codex `exec`).
-- `output_format`: `json`, `stream_json`, or `text`.
-- `schema_enforcement`: `none`, `json_schema_flag`, or `output_schema_file`. Any mode other than `none` requires `{output_schema_path}`.
+- `output_format`: `json` (one JSON document on stdout), `stream_json` (JSONL), or `text`. `json` requires the `json_output` capability; `stream_json` requires `stream_json_output`. For `stream_json`, `usage_reporting` dotted paths are evaluated against the terminal JSON object in that stream, not against concatenated stdout.
+- `schema_enforcement`: `none`, `json_schema_flag`, or `output_schema_file`. `json_schema_flag` requires `{output_schema}` (inline JSON, as Claude Code `--json-schema` takes a schema value). `output_schema_file` requires `{output_schema_path}` (Codex `--output-schema` takes a file). The two placeholders are mutually exclusive.
 - `prompt_delivery`: `argv_placeholder` or `stdin`. The placeholder mode requires `{prompt}`.
 
 ### Authentication
@@ -201,7 +201,7 @@ Do not store account identifiers, token paths, or secret field names on this rec
 - `task_projection.prompt_source` is fixed to `solver_input_prompt` (the private `prompt.txt` from `legalforecast.multiharness.solver_inputs`).
 - `deliverable_source` is `structured_stdout` or `workspace_relative_file` (the latter requires a safe relative path).
 - `harness_binding` names the existing `HarnessAdapter`, `HarnessSolver`, and `SolverResponse` contracts. `solver_kind` must be one of the existing `SolverKind` values (`offline_mock`, `configured_model_stub`, `inspect_ai`). This schema does not add a parallel solver kind.
-- `to_adapter_manifest()` / `to_adapter_capabilities()` emit the frozen v1 records so `CommandAdapter.prepare` can keep using them. The wrapper `command` is the executable basename; B3 supplies the Python entry point that reads this manifest and renders `argv_template`.
+- `to_adapter_manifest(command=...)` emits frozen `adapter_manifest.v1` for the **B3 in-process wrapper**, never for `CommandAdapter.prepare` against `claude` or `codex`. `command` is the wrapper identity (a Python entry point). The helper rejects the target CLI basename so the existing command-adapter protocol (`capabilities --output ...`) is not aimed at the vendor binary. `to_adapter_capabilities()` emits the v1 capability advertisement keyed by this schema's `capability_digest`. B3 implements `HarnessAdapter` / `HarnessSolver` by reading this manifest and rendering `argv_template`.
 
 ## Closed field inventory
 

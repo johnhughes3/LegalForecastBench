@@ -19,13 +19,13 @@
   "auth_profile_name": "fixture-none",
   "capabilities": [
     "headless_print",
-    "json_output",
     "json_schema_enforcement",
     "model_selection",
     "no_session_persistence",
+    "stream_json_output",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:b93d46d7c15974a1b301f2faeab154464b26e2599d92f5a534dd4f8dcfe07a03",
+  "capability_digest": "sha256:0b81590639c9eb40769549bcb02b8e5da9b953ed48c0ef4d6330ad89cf38255e",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -78,7 +78,7 @@
     ],
     "headless_mode": "exec_subcommand",
     "model_flag": "--model",
-    "output_format": "json",
+    "output_format": "stream_json",
     "prompt_delivery": "argv_placeholder",
     "schema_enforcement": "output_schema_file",
     "working_directory_flag": "--cd"

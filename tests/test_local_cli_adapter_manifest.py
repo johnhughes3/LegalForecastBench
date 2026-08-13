@@ -95,7 +95,7 @@ def _claude_record() -> dict[str, Any]:
                 "--output-format",
                 "json",
                 "--json-schema",
-                "{output_schema_path}",
+                "{output_schema}",
                 "--tools",
                 "",
                 "--strict-mcp-config",
@@ -184,10 +184,10 @@ def _codex_record() -> dict[str, Any]:
         },
         "capabilities": [
             "headless_print",
-            "json_output",
             "json_schema_enforcement",
             "model_selection",
             "no_session_persistence",
+            "stream_json_output",
             "working_directory_isolation",
         ],
         "capability_digest": "sha256:" + "a" * 64,
@@ -210,7 +210,7 @@ def _codex_record() -> dict[str, Any]:
                 "{output_schema_path}",
                 "{prompt}",
             ],
-            "output_format": "json",
+            "output_format": "stream_json",
             "schema_enforcement": "output_schema_file",
             "prompt_delivery": "argv_placeholder",
             "working_directory_flag": "--cd",
@@ -287,7 +287,17 @@ def test_committed_fixtures_validate_claude_and_codex() -> None:
     assert "--no-session-persistence" in claude.invocation.argv_template
     assert claude.timeout_retry.max_attempts == 1
     assert claude.transcript_capture.public_raw_transcript is False
-    assert claude.to_adapter_manifest().adapter_id == claude.manifest_id
+    assert (
+        claude.to_adapter_manifest(
+            command=("legalforecast.multiharness.claude_code:ClaudeCodeAdapter",)
+        ).adapter_id
+        == claude.manifest_id
+    )
+    assert claude.to_adapter_manifest(
+        command=("legalforecast.multiharness.claude_code:ClaudeCodeAdapter",)
+    ).command != (claude.executable.basename,)
+    assert "{output_schema}" in claude.invocation.argv_template
+    assert "{output_schema_path}" not in claude.invocation.argv_template
     assert claude.to_adapter_capabilities().capabilities_sha256 == (
         claude.capability_digest
     )
@@ -295,6 +305,9 @@ def test_committed_fixtures_validate_claude_and_codex() -> None:
     assert codex.executable.basename == "codex"
     assert codex.invocation.headless_mode == "exec_subcommand"
     assert codex.invocation.argv_template[0] == "exec"
+    assert codex.invocation.output_format == "stream_json"
+    assert "stream_json_output" in codex.capabilities
+    assert "{output_schema_path}" in codex.invocation.argv_template
     assert set(claude.capabilities).issubset(LOCAL_CLI_CAPABILITIES)
     assert set(codex.capabilities).issubset(LOCAL_CLI_CAPABILITIES)
     assert claude.auth_profile_name in AUTH_PROFILE_NAMES
@@ -395,15 +408,59 @@ def test_render_argv_substitutes_only_closed_placeholders() -> None:
         prompt="Reply with OK",
         model="claude-haiku-4-5-20251001",
         workspace="workspace",
-        output_schema_path='{"type":"object"}',
+        output_schema='{"type":"object"}',
     )
 
     assert argv[0] == "-p"
     assert argv[1] == "Reply with OK"
     assert "{prompt}" not in argv
     assert "claude-haiku-4-5-20251001" in argv
+    assert '{"type":"object"}' in argv
     assert "--tools" in argv
     assert argv[argv.index("--tools") + 1] == ""
+
+
+def test_json_schema_flag_rejects_path_placeholder() -> None:
+    record = _claude_record()
+    record["invocation"]["argv_template"] = [
+        "-p",
+        "{prompt}",
+        "--json-schema",
+        "{output_schema_path}",
+        "--model",
+        "{model}",
+        "--add-dir",
+        "{workspace}",
+    ]
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(LocalCliAdapterManifestError, match="output_schema"):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_output_schema_file_rejects_inline_schema_placeholder() -> None:
+    record = _codex_record()
+    record["invocation"]["argv_template"] = [
+        "exec",
+        "--output-schema",
+        "{output_schema}",
+        "{prompt}",
+        "--model",
+        "{model}",
+        "--cd",
+        "{workspace}",
+    ]
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(LocalCliAdapterManifestError, match="output_schema_path"):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_adapter_manifest_rejects_target_cli_basename() -> None:
+    manifest = LocalCliAdapterManifest.from_record(_claude_record())
+
+    with pytest.raises(LocalCliAdapterManifestError, match="basename"):
+        manifest.to_adapter_manifest(command=(manifest.executable.basename,))
 
 
 def test_schema_doc_states_existing_solver_contracts() -> None:
