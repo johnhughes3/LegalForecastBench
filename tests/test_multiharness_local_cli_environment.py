@@ -57,6 +57,7 @@ def test_fixture_none_environment_excludes_ambient_secrets(tmp_path: Path) -> No
     assert environment["HOME"] == str(scratch / "adapter-home")
     assert environment["HOME"] != _CANARY_ENV["HOME"]
     assert not (Path(environment["HOME"]) / ".provider-token").exists()
+    assert (scratch.resolve().stat().st_mode & 0o777) == 0o700
     assert set(environment) == expected_child_environment_names(parent_env=_CANARY_ENV)
 
 
@@ -178,6 +179,8 @@ def test_infisical_source_uses_wrapper_and_refuses_host_fallback(
     assert isinstance(env, dict)
     assert "OPENAI_API_KEY" not in env
     assert "AWS_SECRET_ACCESS_KEY" not in env
+    assert env.get("TERM") == "dumb"
+    assert env["HOME"] == _CANARY_ENV["HOME"]
     assert values == {"OPENAI_API_KEY": "infisical-projected-key"}
 
     def _run_host_value(
@@ -336,6 +339,33 @@ def test_errors_do_not_echo_canary_values() -> None:
             projected_env_vars=("OPENAI_API_KEY",),
         )
     _assert_no_canaries(str(missing.value))
+
+
+def test_projected_credentials_cannot_shadow_managed_runtime_vars(
+    tmp_path: Path,
+) -> None:
+    profile = resolve_auth_profile(
+        PUBLISHED_API_KEY,
+        supported_profiles=(PUBLISHED_API_KEY,),
+        projected_env_vars=("HOME",),
+    )
+    with pytest.raises(AuthProfileError, match="host-managed runtime"):
+        build_local_cli_environment(
+            profile,
+            tmp_path / "scratch",
+            projected_credentials={"HOME": "/leaked-home"},
+            parent_env=_CANARY_ENV,
+        )
+
+
+def test_scratch_root_symlink_is_rejected(tmp_path: Path) -> None:
+    target = tmp_path / "real"
+    target.mkdir()
+    scratch = tmp_path / "scratch"
+    scratch.symlink_to(target)
+    profile = resolve_auth_profile(FIXTURE_NONE, supported_profiles=(FIXTURE_NONE,))
+    with pytest.raises(AuthProfileError, match="symlink"):
+        build_local_cli_environment(profile, scratch, parent_env=_CANARY_ENV)
 
 
 def _assert_no_canaries(text: str) -> None:

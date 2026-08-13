@@ -28,6 +28,15 @@ from legalforecast.multiharness.auth_profiles import (
 from legalforecast.multiharness.validation import validate_env_var_names
 
 _PASSTHROUGH_RUNTIME_ENV_VARS = ("LC_CTYPE", "PATH")
+_WRAPPER_LAUNCH_ENV_VARS = (
+    "LC_CTYPE",
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "TERM",
+)
 _MANAGED_RUNTIME_ENV_DIRS: Mapping[str, str] = {
     "HOME": "adapter-home",
     "XDG_CACHE_HOME": "adapter-home/.cache",
@@ -220,7 +229,17 @@ def build_local_cli_environment(
         raise AuthProfileError(
             "extra allowlist names collide with projected credentials"
         )
+    reserved_projected = sorted(
+        set(credentials).intersection(_RESERVED_RUNTIME_ENV_VARS)
+    )
+    if reserved_projected:
+        formatted = ", ".join(reserved_projected)
+        raise AuthProfileError(
+            "projected credentials collide with host-managed runtime "
+            f"variables: {formatted}"
+        )
     _reject_ambient_fallback(credentials, parent)
+    ensure_private_scratch_directory(scratch_root)
 
     environment: dict[str, str] = {}
     for name in _PASSTHROUGH_RUNTIME_ENV_VARS:
@@ -272,13 +291,18 @@ def _validated_extra_allowlist(extra_allowlist: Sequence[str]) -> frozenset[str]
     return frozenset(names)
 
 
+def ensure_private_scratch_directory(path: Path) -> Path:
+    """Create ``path`` as a private directory and refuse symlinks."""
+
+    _ensure_private_directory(path)
+    return path
+
+
 def _wrapper_launch_environment(parent: Mapping[str, str]) -> dict[str, str]:
     environment = {
-        name: parent[name] for name in _PASSTHROUGH_RUNTIME_ENV_VARS if parent.get(name)
+        name: parent[name] for name in _WRAPPER_LAUNCH_ENV_VARS if parent.get(name)
     }
-    home = parent.get("HOME")
-    if home:
-        environment["HOME"] = home
+    environment.setdefault("TERM", "dumb")
     return environment
 
 

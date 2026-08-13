@@ -141,6 +141,20 @@ def test_timeout_kills_hang_and_forked_grandchild(tmp_path: Path) -> None:
     _assert_dead(fork_pids["child_pid"])
 
 
+def test_zero_exit_with_leftover_child_is_not_success(tmp_path: Path) -> None:
+    workdir = tmp_path / "fork-exit"
+    result = execute_local_cli(
+        _fake_spec("fork-exit", extra_args=("--mode", "fork-and-exit")),
+        workdir,
+        parent_env=_polluted_parent_env(),
+        termination_grace_seconds=0.2,
+    )
+    assert result.status == "process_group_cleanup_requested"
+    assert result.exit_code == 0
+    pids = json.loads((workdir / "pids.json").read_text(encoding="utf-8"))
+    _assert_dead(pids["child_pid"])
+
+
 def test_crash_preserves_exit_code_and_spew_records_truncation(
     tmp_path: Path,
 ) -> None:
@@ -164,9 +178,22 @@ def test_crash_preserves_exit_code_and_spew_records_truncation(
     assert spewed.stderr_truncated is False
     assert len(spewed.stdout) == 1_048_576
     assert spewed.stdout.endswith(b"\n[truncated]\n")
-    public = json.dumps(spewed.to_public_record())
-    assert "stdout_truncated" in public
-    assert public.count("true") >= 1
+    public = spewed.to_public_record()
+    assert public["stdout_truncated"] is True
+    assert public["stderr_truncated"] is False
+
+    costly = execute_local_cli(
+        _fake_spec(
+            "spew-cost",
+            extra_args=("--mode", "spew-then-cost"),
+            timeout_seconds=10,
+        ),
+        tmp_path / "spew-cost",
+        parent_env=_polluted_parent_env(),
+        max_capture_bytes=1_048_576,
+    )
+    assert costly.stdout_truncated is True
+    assert costly.cost_usd == 1.25
 
 
 def test_eight_concurrent_tasks_stay_isolated(tmp_path: Path) -> None:
@@ -217,7 +244,7 @@ def test_service_child_env_matches_allowlist_against_polluted_parent(
     captured = json.loads(result.stdout.decode("utf-8"))
     assert result.status == "completed"
     assert result.cost_usd == 0.0 or result.cost_usd is None
-    assert result.duration_ms >= 0
+    assert result.duration_ms > 0
     allowed = expected_child_environment_names(parent_env=parent)
     assert set(captured) == allowed
     for name, value in parent.items():
@@ -236,7 +263,7 @@ def test_succeed_json_records_duration_and_cost(tmp_path: Path) -> None:
         parent_env=_polluted_parent_env(),
     )
     assert result.status == "completed"
-    assert result.duration_ms >= 0
+    assert result.duration_ms > 0
     assert result.cost_usd == 0.0
     public = result.to_public_record()
     assert public["duration_ms"] == result.duration_ms

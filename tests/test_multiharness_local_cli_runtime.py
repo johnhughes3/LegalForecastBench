@@ -19,6 +19,7 @@ from legalforecast.multiharness.local_cli_runtime import (
     NullScheduler,
     execute_local_cli,
 )
+from legalforecast.multiharness.spec import LINUX_SYSTEMD_SCOPE_CONTAINMENT
 
 _RUNTIME_SOURCE = (
     Path(__file__).resolve().parents[1]
@@ -246,7 +247,7 @@ def test_missing_profile_stops_before_spawn(tmp_path: Path) -> None:
         def fetch_projected_env(self, profile: object) -> dict[str, str]:
             raise AssertionError("credential fetch must not run")
 
-    with pytest.raises(LocalCliRuntimeError):
+    with pytest.raises(LocalCliRuntimeError, match="canonical profile ID"):
         execute_local_cli(
             LocalCliRunSpec(
                 spec_id="missing",
@@ -259,6 +260,21 @@ def test_missing_profile_stops_before_spawn(tmp_path: Path) -> None:
             ),
             tmp_path / "scratch",
             credential_source=ExplodingSource({"OPENAI_API_KEY": "secret"}),
+            parent_env=_CANARY_ENV,
+        )
+
+
+def test_systemd_containment_is_refused(tmp_path: Path) -> None:
+    script = _write_script(tmp_path, "print('should-not-run')")
+    with pytest.raises(LocalCliRuntimeError, match="posix_process_group"):
+        execute_local_cli(
+            LocalCliRunSpec(
+                spec_id="systemd",
+                manifest=_manifest(script, (FIXTURE_NONE,)),
+                auth_profile=FIXTURE_NONE,
+                host_process_containment=LINUX_SYSTEMD_SCOPE_CONTAINMENT,
+            ),
+            tmp_path / "scratch",
             parent_env=_CANARY_ENV,
         )
 

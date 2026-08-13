@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import math
 import os
 import subprocess
 import tempfile
@@ -29,6 +30,7 @@ from legalforecast.multiharness.auth_profiles import (
 from legalforecast.multiharness.local_cli_environment import (
     CredentialSource,
     build_local_cli_environment,
+    ensure_private_scratch_directory,
     project_profile_credentials,
 )
 from legalforecast.multiharness.process_containment import (
@@ -64,8 +66,11 @@ _PUBLICATION_ENVELOPE_IMPORTS = frozenset(
     }
 )
 _MAX_CAPTURE_BYTES = 1_048_576
+_MAX_STREAM_DISK_BYTES = 256 * 1_048_576
+_COST_TAIL_BYTES = 65_536
 _TRUNCATION_MARKER = b"\n[truncated]\n"
 _DEFAULT_GRACE_SECONDS = 1.0
+_WAIT_POLL_SECONDS = 0.25
 
 
 class LocalCliRuntimeError(RuntimeError):
@@ -262,6 +267,10 @@ def execute_local_cli(
         raise LocalCliRuntimeError("timeout_seconds must be positive")
     if max_capture_bytes <= 0:
         raise LocalCliRuntimeError("max_capture_bytes must be positive")
+    if spec.host_process_containment != POSIX_PROCESS_GROUP_CONTAINMENT:
+        raise LocalCliRuntimeError(
+            "local CLI runtime supports posix_process_group.v1 containment only"
+        )
     try:
         spec_sha256 = spec.spec_sha256()
         if (
@@ -336,7 +345,7 @@ def _run_contained_cli(
     termination_grace_seconds: float,
     max_capture_bytes: int,
 ) -> LocalCliExecutionResult:
-    scratch_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    ensure_private_scratch_directory(scratch_root)
     argv = spec.argv()
     requested = spec.host_process_containment
     status = "launch_failed"
@@ -346,6 +355,7 @@ def _run_contained_cli(
     stderr = b""
     stdout_truncated = False
     stderr_truncated = False
+    cost_usd: float | None = None
     establishment = "failed"
     process: subprocess.Popen[bytes] | None = None
     handle: ProcessContainmentHandle | None = None
@@ -386,12 +396,18 @@ def _run_contained_cli(
                 )
                 handle = establish_process_containment(prepared, process, handle)
                 establishment = "established"
-                try:
-                    exit_code = process.wait(timeout=spec.timeout_seconds)
-                    status = "completed" if exit_code == 0 else "nonzero"
-                except subprocess.TimeoutExpired:
-                    timed_out = True
+                exit_code, timed_out, disk_capped = _wait_for_contained_process(
+                    process,
+                    timeout_seconds=spec.timeout_seconds,
+                    stdout_handle=stdout_handle,
+                    stderr_handle=stderr_handle,
+                )
+                if timed_out:
                     status = "timed_out"
+                elif disk_capped:
+                    status = "nonzero"
+                else:
+                    status = "completed" if exit_code == 0 else "nonzero"
             finally:
                 if stdin_file is not None:
                     stdin_file.close()
@@ -404,6 +420,15 @@ def _run_contained_cli(
                     establishment = evidence.establishment
                     if process.returncode is not None:
                         exit_code = process.returncode
+                    if (
+                        status == "completed"
+                        and exit_code == 0
+                        and evidence.cleanup_requested
+                    ):
+                        status = "process_group_cleanup_requested"
+                cost_usd = _optional_cost_usd(
+                    _tail_bytes(stdout_handle, _COST_TAIL_BYTES)
+                )
                 stdout, stdout_truncated = _bounded_capture(
                     stdout_handle,
                     max_capture_bytes,
@@ -436,7 +461,7 @@ def _run_contained_cli(
         timed_out=timed_out,
         cwd=str(scratch_root.resolve()),
         duration_ms=max(0, int((time.monotonic() - started) * 1000)),
-        cost_usd=_optional_cost_usd(stdout),
+        cost_usd=cost_usd,
         containment_establishment=establishment,
     )
     validate_no_secret_values(
@@ -445,6 +470,45 @@ def _run_contained_cli(
         "local CLI execution receipt",
     )
     return result
+
+
+def _wait_for_contained_process(
+    process: subprocess.Popen[bytes],
+    *,
+    timeout_seconds: float,
+    stdout_handle: BinaryIO,
+    stderr_handle: BinaryIO,
+) -> tuple[int | None, bool, bool]:
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return process.poll(), True, False
+        try:
+            return (
+                process.wait(timeout=min(_WAIT_POLL_SECONDS, remaining)),
+                False,
+                False,
+            )
+        except subprocess.TimeoutExpired:
+            if (
+                _stream_nbytes(stdout_handle) > _MAX_STREAM_DISK_BYTES
+                or _stream_nbytes(stderr_handle) > _MAX_STREAM_DISK_BYTES
+            ):
+                return process.poll(), False, True
+
+
+def _stream_nbytes(handle: BinaryIO) -> int:
+    handle.flush()
+    return os.fstat(handle.fileno()).st_size
+
+
+def _tail_bytes(handle: BinaryIO, max_bytes: int) -> bytes:
+    handle.flush()
+    handle.seek(0, os.SEEK_END)
+    size = handle.tell()
+    handle.seek(max(0, size - max_bytes))
+    return handle.read()
 
 
 def _bounded_capture(handle: BinaryIO, max_bytes: int) -> tuple[bytes, bool]:
@@ -476,7 +540,7 @@ def _optional_cost_usd(stdout: bytes) -> float | None:
         value = payload.get("total_cost_usd")
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             continue
-        if value < 0:
+        if not math.isfinite(value) or value < 0:
             continue
         return float(value)
     return None

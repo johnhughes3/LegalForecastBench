@@ -57,7 +57,34 @@ def _spew() -> int:
     return 0
 
 
+def _spew_then_cost() -> int:
+    sys.stdout.buffer.write(b"x" * (2 * 1024 * 1024))
+    sys.stdout.buffer.write(
+        b'\n{"type":"result","subtype":"success","total_cost_usd":1.25}\n'
+    )
+    sys.stdout.buffer.flush()
+    return 0
+
+
 def _fork_child(pid_path: Path) -> int:
+    child_pid = os.fork()
+    if child_pid == 0:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        time.sleep(30)
+        os._exit(0)
+    _write_pids(pid_path, extra={"child_pid": child_pid})
+    time.sleep(30)
+    return 0
+
+
+def _fork_and_exit(pid_path: Path) -> int:
+    child_pid = os.fork()
+    if child_pid == 0:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        time.sleep(30)
+        os._exit(0)
+    _write_pids(pid_path, extra={"child_pid": child_pid})
+    return 0
     child_pid = os.fork()
     if child_pid == 0:
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -78,7 +105,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--mode",
         required=True,
-        choices=("succeed-json", "hang", "crash", "spew", "fork-child", "dump-env"),
+        choices=(
+            "succeed-json",
+            "hang",
+            "crash",
+            "spew",
+            "spew-then-cost",
+            "fork-child",
+            "fork-and-exit",
+            "dump-env",
+        ),
     )
     parser.add_argument("--pid-file", default="pids.json")
     args = parser.parse_args(argv)
@@ -94,8 +130,12 @@ def main(argv: list[str] | None = None) -> int:
         return _crash()
     if args.mode == "spew":
         return _spew()
+    if args.mode == "spew-then-cost":
+        return _spew_then_cost()
     if args.mode == "fork-child":
         return _fork_child(pid_path)
+    if args.mode == "fork-and-exit":
+        return _fork_and_exit(pid_path)
     return _dump_env()
 
 

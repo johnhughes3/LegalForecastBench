@@ -29,7 +29,6 @@ from legalforecast.multiharness.local_cli_runtime import (
 
 _WRAPPER_NAME = "infisical-agent-sandbox"
 _NAMESPACE_ROOT = "/agents/sandbox/legalforecastbench"
-_DECLARED_PATH = infisical_path_for_profile(PUBLISHED_API_KEY)
 _SIBLING_PATH = "/agents/sandbox/legalforecastbench/harness-runtime/undeclared-sibling"
 _BOOLEAN_PROBE = (
     "import json, os, sys;"
@@ -41,19 +40,21 @@ _PROBE_NAMES = "ANTHROPIC_API_KEY,OPENAI_API_KEY,CLAUDE_CODE_OAUTH_TOKEN"
 _LIVE_PROMPT = "Reply with the single word ping and nothing else."
 
 
+@pytest.mark.lfb_live_smoke
 def test_live_infisical_wrapper_reads_declared_path_not_sibling() -> None:
     wrapper = shutil.which(_WRAPPER_NAME)
     if wrapper is None:
         pytest.skip(f"{_WRAPPER_NAME} is not on PATH")
     assert Path(wrapper).name == _WRAPPER_NAME
     assert Path(wrapper).name != "infisical"
+    declared_path = infisical_path_for_profile(PUBLISHED_API_KEY)
 
     root_rc, root_present = _wrapper_boolean_probe(wrapper, _NAMESPACE_ROOT)
-    declared_rc, declared_present = _wrapper_boolean_probe(wrapper, _DECLARED_PATH)
+    declared_rc, declared_present = _wrapper_boolean_probe(wrapper, declared_path)
     sibling_rc, sibling_present = _wrapper_boolean_probe(wrapper, _SIBLING_PATH)
 
-    assert _SIBLING_PATH != _DECLARED_PATH
-    assert _DECLARED_PATH.startswith(f"{_NAMESPACE_ROOT}/")
+    assert _SIBLING_PATH != declared_path
+    assert declared_path.startswith(f"{_NAMESPACE_ROOT}/")
     assert root_rc == 0
     assert root_present is not None
     assert not any(root_present.values())
@@ -137,13 +138,12 @@ def test_live_claude_through_execution_service(tmp_path: Path) -> None:
             parent_env=parent,
         )
     except LocalCliRuntimeError as exc:
-        message = str(exc)
-        assert "canary" not in message
-        assert "ambient-openai-canary" not in message
+        leaked = secret in str(exc)
+        secret = ""
+        projected.clear()
+        assert leaked is False
         raise
 
-    transcript = scratch / "transcript.json"
-    transcript.write_bytes(result.stdout)
     public = result.to_public_record()
     assert result.status == "completed"
     assert result.exit_code == 0
@@ -153,7 +153,7 @@ def test_live_claude_through_execution_service(tmp_path: Path) -> None:
     assert result.cost_usd >= 0
     assert public["duration_ms"] == result.duration_ms
     assert public["cost_usd"] == result.cost_usd
-    persisted = transcript.read_text(encoding="utf-8")
+    persisted = result.stdout.decode("utf-8", errors="replace")
     public_text = json.dumps(public)
     leaked = secret in persisted or secret in public_text
     secret = ""
@@ -166,11 +166,6 @@ def test_live_claude_through_execution_service(tmp_path: Path) -> None:
     ):
         canary_leaked = canary in persisted or canary in public_text
         assert canary_leaked is False
-    cost_path = scratch / "live-cost.json"
-    cost_path.write_text(
-        json.dumps({"cost_usd": result.cost_usd, "duration_ms": result.duration_ms}),
-        encoding="utf-8",
-    )
 
 
 def _wrapper_boolean_probe(
