@@ -1,9 +1,8 @@
 """Shared local CLI execution service for contained solver processes.
 
-Adapters call this service instead of spawning CLIs themselves. Scheduling and
-concurrency enforcement belong to ``dm0g.4.2.10``; this module only exposes
-hooks. B1's adapter-manifest fields are stubbed here until ``dm0g.4.4.1``
-freezes them.
+Adapters call ``LocalCliExecutionService.execute(RunSpec)`` instead of
+spawning CLIs themselves. The contained launch path is ``execute_local_cli``.
+Scheduling belongs to ``dm0g.4.2.10``; this module only exposes hooks.
 """
 
 from __future__ import annotations
@@ -22,10 +21,15 @@ from pathlib import Path
 from typing import BinaryIO, Protocol, cast
 
 from legalforecast.multiharness.auth_profiles import (
+    FIXTURE_NONE,
     AuthProfileError,
     ResolvedAuthProfile,
     require_auth_profile_id,
     resolve_auth_profile,
+)
+from legalforecast.multiharness.local_cli_contracts import (
+    ExecutionReceipt,
+    RunSpec,
 )
 from legalforecast.multiharness.local_cli_environment import (
     CredentialSource,
@@ -98,6 +102,10 @@ class LocalCliAdapterManifest:
         if not self.command:
             raise LocalCliRuntimeError("command must not be empty")
         for index, value in enumerate(self.command):
+            if value == "":
+                if index == 0:
+                    raise LocalCliRuntimeError("command[0] must not be empty")
+                continue
             if not value.strip():
                 raise LocalCliRuntimeError(f"command[{index}] must not be empty")
         if not self.supported_auth_profiles:
@@ -332,6 +340,91 @@ def execute_local_cli(
                 containment_establishment="not_started",
             ),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class LocalCliExecutionService:
+    """Contained B2 service: ``execute(RunSpec) -> ExecutionReceipt``.
+
+    Adapters inject this type (tests may still inject the in-process fake).
+    Credentials are projected from ``auth_profile``, never from ``RunSpec``.
+    Envelope failure classes stay with the adapter; this wrapper only maps
+    process outcomes onto receipt status.
+    """
+
+    adapter_id: str = "contained-local-cli"
+    display_name: str = "Contained local CLI"
+    adapter_version: str = "1.0.0"
+    auth_profile: str = FIXTURE_NONE
+    supported_auth_profiles: tuple[str, ...] = ()
+    profile_env_vars: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    credential_source: CredentialSource | None = None
+    infisical_env: str = "dev"
+    parent_env: Mapping[str, str] | None = None
+    scheduler: ExecutionScheduler | None = None
+    termination_grace_seconds: float = _DEFAULT_GRACE_SECONDS
+    max_capture_bytes: int = _MAX_CAPTURE_BYTES
+
+    def execute(self, spec: RunSpec) -> ExecutionReceipt:
+        """Run one adapter ``RunSpec`` under process-group containment."""
+
+        profiles = self.supported_auth_profiles or (self.auth_profile,)
+        runtime_spec = LocalCliRunSpec(
+            spec_id=spec.spec_id,
+            manifest=LocalCliAdapterManifest(
+                adapter_id=self.adapter_id,
+                display_name=self.display_name,
+                adapter_version=self.adapter_version,
+                command=(spec.argv[0],),
+                supported_auth_profiles=profiles,
+                profile_env_vars=self.profile_env_vars,
+            ),
+            auth_profile=self.auth_profile,
+            extra_args=spec.argv[1:],
+            timeout_seconds=spec.timeout_seconds,
+            infisical_env=self.infisical_env,
+            stdin_bytes=spec.stdin_bytes,
+        )
+        result = execute_local_cli(
+            runtime_spec,
+            spec.working_directory,
+            credential_source=self.credential_source,
+            scheduler=self.scheduler,
+            parent_env=self.parent_env,
+            termination_grace_seconds=self.termination_grace_seconds,
+            max_capture_bytes=self.max_capture_bytes,
+        )
+        return execution_receipt_from_runtime(spec, result)
+
+
+def execution_receipt_from_runtime(
+    spec: RunSpec,
+    result: LocalCliExecutionResult,
+) -> ExecutionReceipt:
+    """Bind a contained-runtime result to the adapter ``RunSpec`` identity."""
+
+    if result.timed_out or result.status == "timed_out":
+        status = "timeout"
+    elif result.status == "completed" and result.exit_code == 0:
+        status = "succeeded"
+    else:
+        status = "failed"
+    returncode = result.exit_code
+    if returncode is not None and returncode < 0:
+        returncode = None
+    return ExecutionReceipt.from_transcript(
+        spec,
+        stdout=_decode_capture(result.stdout),
+        stderr=_decode_capture(result.stderr),
+        returncode=returncode,
+        status=status,
+        duration_ms=result.duration_ms,
+        cost_usd=result.cost_usd,
+    )
+
+
+def _decode_capture(payload: bytes) -> str:
+    return payload.decode("utf-8", errors="replace")
 
 
 def _run_contained_cli(
