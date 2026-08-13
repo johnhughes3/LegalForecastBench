@@ -14,6 +14,8 @@ from legalforecast.contracts import (
     EXACT100_DOCUMENT_REPAIR_PILOT_V2,
 )
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
+    CaseDevPurchaseLedgerError,
     generate_case_dev_purchase_policy,
     initialize_case_dev_purchase_journal,
 )
@@ -590,6 +592,25 @@ class _UnknownBoundAcquirer(_BoundAcquirer):
         return self._callback(operation)
 
 
+class _FailedBoundAcquirer(_BoundAcquirer):
+    def __init__(
+        self, runtime: DocumentRepairPurchaseRuntime, callback, *, response: bool
+    ):  # type: ignore[no-untyped-def]
+        super().__init__(runtime, callback)
+        self._response = response
+
+    def __call__(self, operation):  # type: ignore[no-untyped-def]
+        if operation.route == "pacer_purchase":
+            self.journal.submit(operation.recap_document_id)
+            if self._response:
+                self.journal.queue(
+                    operation.recap_document_id,
+                    response={"status": "accepted"},
+                )
+            self.journal.fail(operation.recap_document_id, RuntimeError("failed"))
+        return self._callback(operation)
+
+
 def test_purchase_policy_must_fit_exact_repair_ceiling(tmp_path: Path) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
@@ -894,6 +915,55 @@ def test_runtime_rejects_forged_purchase_authority(tmp_path: Path) -> None:
         )
 
 
+def test_runtime_closes_journal_when_budget_planning_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    authority = _purchase_authority(execution, tmp_path)
+    receipt = tmp_path / "purchase-ledger-initialization.json"
+    initialize_case_dev_purchase_journal(
+        authority.purchase_policy.canonical_ledger_path,
+        policy=authority.purchase_policy,
+        receipt_path=receipt,
+        purchase_policy_file_sha256="sha256:" + "c" * 64,
+        cohort_policy_file_sha256="sha256:" + "d" * 64,
+        initialized_at="2026-08-13T00:02:00Z",
+    )
+    closed: list[bool] = []
+    original_close = CaseDevPurchaseJournal.close
+
+    def fail_plan(self: CaseDevPurchaseJournal, _plan: object) -> None:
+        raise CaseDevPurchaseLedgerError("planning failed")
+
+    def record_close(self: CaseDevPurchaseJournal) -> None:
+        original_close(self)
+        closed.append(self._closed)
+
+    monkeypatch.setattr(CaseDevPurchaseJournal, "plan", fail_plan)
+    monkeypatch.setattr(CaseDevPurchaseJournal, "close", record_close)
+
+    with pytest.raises(DocumentRepairExecutorError, match="planning failed"):
+        verify_document_repair_purchase_runtime(
+            execution=execution,
+            purchase_authority=authority,
+            initialization_receipt_path=receipt,
+            purchase_policy_file_sha256="sha256:" + "c" * 64,
+            cohort_policy_file_sha256="sha256:" + "d" * 64,
+        )
+
+    assert closed == [True]
+
+
 def test_execution_seals_complete_successor_only_from_exact_resolved_documents() -> (
     None
 ):
@@ -1180,6 +1250,57 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome(
     assert result.receipt.operation_ledger[2]["disposition"] == (
         "not_attempted_after_unknown"
     )
+    assert runtime.journal._closed is True
+
+
+@pytest.mark.parametrize(
+    ("has_response", "callback_disposition", "expected_cost"),
+    ((True, "unknown", "3.00"), (False, "provider_error", "0.00")),
+)
+def test_failed_paid_outcome_uses_durable_response_to_retain_reservation(
+    tmp_path: Path,
+    *,
+    has_response: bool,
+    callback_disposition: str,
+    expected_cost: str,
+) -> None:
+    manifest = _manifest_bytes(_row("a", 1, free=False))
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approval=_plan_approval(manifest),
+    )
+    snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
+    )
+    runtime = _purchase_runtime(execution, tmp_path)
+    ticks = iter((1.0, 1.1))
+
+    result = run_document_repair_execution(
+        execution=execution,
+        purchase_runtime=runtime,
+        acquire=_FailedBoundAcquirer(
+            runtime,
+            lambda operation: AcquiredRepairDocument(
+                disposition=callback_disposition,
+                source_document_id=operation.recap_document_id,
+                document_bytes=None,
+                committed_cost_usd="0.00",
+                retry_count=0,
+                reason="provider failure",
+            ),
+            response=has_response,
+        ),
+        monotonic=lambda: next(ticks),
+    )
+
+    row = result.receipt.operation_ledger[0]
+    assert row["disposition"] == callback_disposition
+    assert row["committed_cost_usd"] == expected_cost
+    assert row["retry_permitted"] is (not has_response)
+    assert runtime.journal._closed is True
 
 
 def test_runner_materializes_complete_evidence_for_successor_seal(

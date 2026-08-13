@@ -569,6 +569,27 @@ def run_document_repair_execution(
     acquire: Callable[[ResolvedRepairOperation], AcquiredRepairDocument],
     monotonic: Callable[[], float],
 ) -> DocumentRepairRunResult:
+    """Run one execution and release its single-use journal capability."""
+
+    try:
+        return _run_document_repair_execution(
+            execution=execution,
+            purchase_runtime=purchase_runtime,
+            acquire=acquire,
+            monotonic=monotonic,
+        )
+    finally:
+        if purchase_runtime is not None and purchase_runtime.is_consumed():
+            purchase_runtime.journal.close()
+
+
+def _run_document_repair_execution(
+    *,
+    execution: DocumentRepairExecution,
+    purchase_runtime: DocumentRepairPurchaseRuntime | None,
+    acquire: Callable[[ResolvedRepairOperation], AcquiredRepairDocument],
+    monotonic: Callable[[], float],
+) -> DocumentRepairRunResult:
     """Run exact operations in free-first order with measured terminal stopping."""
 
     _require_replay_minted_execution(execution)
@@ -699,6 +720,7 @@ def verify_document_repair_purchase_runtime(
         raise DocumentRepairExecutorError(
             "purchase journal initialization identity is missing"
         )
+    journal: CaseDevPurchaseJournal | None = None
     try:
         journal = CaseDevPurchaseJournal(
             purchase_authority.purchase_policy.canonical_ledger_path,
@@ -707,6 +729,8 @@ def verify_document_repair_purchase_runtime(
         )
         journal.plan(execution.purchase_budget)
     except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+        if journal is not None:
+            journal.close()
         raise DocumentRepairExecutorError(
             f"purchase journal runtime is invalid: {exc}"
         ) from exc
@@ -769,7 +793,7 @@ def _verify_purchase_policy_binding(
     output_commitments = approval.get("output_commitments")
     if (
         not isinstance(output_commitments, Mapping)
-        or output_commitments.get("repair_execution")
+        or cast(Mapping[str, object], output_commitments).get("repair_execution")
         != "sha256:" + execution.execution_sha256
     ):
         raise DocumentRepairExecutorError(
@@ -1281,9 +1305,12 @@ def _journal_authenticated_result(
     elif status in {"submitted", "queued", "unknown"}:
         expected_dispositions = {"unknown"}
         cost = evidence.get("reservation_usd")
-    elif status == "failed":
+    elif status == "failed" and evidence.get("response") is None:
         expected_dispositions = {"provider_error"}
         cost = "0.00"
+    elif status == "failed":
+        expected_dispositions = {"unknown"}
+        cost = evidence.get("reservation_usd")
     else:
         raise DocumentRepairExecutorError(
             "paid callback did not produce a durable journal outcome"
