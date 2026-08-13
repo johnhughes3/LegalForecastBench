@@ -168,6 +168,9 @@ SUCCESSOR_RERUN_PROPOSAL_V1 = SchemaIdentifier(
 POST_RECOVERY_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.post_recovery_restriction_evidence.v1"
 )
+PROVIDER_AUTHORITY_INFRA_APPLY_RECOVERY_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.provider_authority_infra_apply_recovery_receipt.v1"
+)
 PROVIDER_AUTHORITY_INFRA_IMPORT_RECEIPT_V1 = SchemaIdentifier(
     "legalforecast.provider_authority_infra_import_receipt.v1"
 )

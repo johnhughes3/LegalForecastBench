@@ -584,13 +584,13 @@ jobs:
                 state_backend_identity_sha256:$state_backend_identity_sha256,
                 terraform_input_identity_sha256:$terraform_input_identity_sha256
               }' > "${OUTPUT_ROOT}/import-recovery-receipt.json"
+            echo "mutation_succeeded=true" >> "${GITHUB_OUTPUT}"
             if ! terraform -chdir="${MODULE_ROOT}" import -input=false \
               "${IMPORT_ADDRESS}" "${LFB_IMPORT_ID}" \
               > "${RUNNER_TEMP}/official-infra-import.log" 2>&1; then
               echo "Terraform import failed; protected diagnostics were not published." >&2
               exit 1
             fi
-            echo "mutation_succeeded=true" >> "${GITHUB_OUTPUT}"
             import_result="imported"
           elif [[ "${binding}" == "already_present" ]]; then
             import_result="already_present"
@@ -717,6 +717,37 @@ jobs:
             exit 1
           fi
           mkdir -p "${OUTPUT_ROOT}"
+          jq -cn \
+            --arg age_recipient_identity_sha256 "${AGE_RECIPIENT_IDENTITY_SHA256}" \
+            --arg artifact_digest "${{ inputs.plan_artifact_digest }}" \
+            --arg artifact_name "${{ inputs.plan_artifact_name }}" \
+            --arg module "${MODULE}" \
+            --arg operator_role_identity_sha256 "${OPERATOR_ROLE_IDENTITY_SHA256}" \
+            --arg plan_sha256 "${{ inputs.plan_file_sha256 }}" \
+            --arg plan_run_attempt "${{ inputs.plan_run_attempt }}" \
+            --arg plan_run_id "${{ inputs.plan_run_id }}" \
+            --arg release_sha "${RELEASE_SHA}" \
+            --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
+            --arg run_id "${GITHUB_RUN_ID}" \
+            --arg state_backend_identity_sha256 "${STATE_BACKEND_IDENTITY_SHA256}" \
+            --arg terraform_input_identity_sha256 "${TERRAFORM_INPUT_IDENTITY_SHA256}" '{
+              schema_version:"legalforecast.provider_authority_infra_apply_recovery_receipt.v1",
+              status:"applied_pending_output_handoff",
+              module:$module,
+              release_sha:$release_sha,
+              run_id:$run_id,
+              run_attempt:$run_attempt,
+              age_recipient_identity_sha256:$age_recipient_identity_sha256,
+              plan_file_sha256:$plan_sha256,
+              plan_run_id:$plan_run_id,
+              plan_run_attempt:$plan_run_attempt,
+              plan_artifact_name:$artifact_name,
+              plan_artifact_digest:$artifact_digest,
+              operator_role_identity_sha256:$operator_role_identity_sha256,
+              state_backend_identity_sha256:$state_backend_identity_sha256,
+              terraform_input_identity_sha256:$terraform_input_identity_sha256
+            }' > "${OUTPUT_ROOT}/apply-recovery-receipt.json"
+          echo "mutation_succeeded=true" >> "${GITHUB_OUTPUT}"
           if ! terraform -chdir="${MODULE_ROOT}" output -json \
             > "${RUNNER_TEMP}/terraform-output.json" 2> "${RUNNER_TEMP}/official-infra-output.log"; then
             echo "Terraform output handoff failed; protected diagnostics were not published." >&2
@@ -823,6 +854,17 @@ jobs:
         with:
           name: provider-authority-infra-import-${{ inputs.module }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.OUTPUT_ROOT }}/import-receipt.json
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+          retention-days: 30
+
+      - name: Upload apply recovery receipt after post-mutation failure
+        if: always() && inputs.operation == 'apply' && steps.apply.outputs.mutation_succeeded == 'true' && steps.apply.outcome != 'success' && steps.clear_sensitive.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: provider-authority-infra-apply-recovery-${{ inputs.module }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.OUTPUT_ROOT }}/apply-recovery-receipt.json
           if-no-files-found: error
           include-hidden-files: false
           overwrite: false

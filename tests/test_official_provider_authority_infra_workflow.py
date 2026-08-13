@@ -168,6 +168,8 @@ def test_runbook_and_toolchain_define_the_reviewed_boundary() -> None:
         'repository/infra/provider-authority" show -no-color',
         'terraform_version)" = "1.13.5"',
         'age --version)" = "v1.3.1"',
+        "jq -cn --arg role",
+        "Do not switch to `jq -cnS`",
     )
     assert "terraform_version: 1.13.5" in _text()
     assert "keep paid labeling blocked" not in runbook
@@ -239,6 +241,9 @@ def test_import_and_official_eval_are_closed_and_public_safe() -> None:
         "legalforecast.provider_authority_infra_import_recovery_receipt.v1",
         "mutation_succeeded=true",
         "Upload import recovery receipt after post-mutation failure",
+        "legalforecast.provider_authority_infra_apply_recovery_receipt.v1",
+        "applied_pending_output_handoff",
+        "Upload apply recovery receipt after post-mutation failure",
     )
     assert "import_id:" not in text
     assert 'if [[ "${MODULE}" != "official-eval" ]]; then' in text

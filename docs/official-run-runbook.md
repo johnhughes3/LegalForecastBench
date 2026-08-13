@@ -876,8 +876,33 @@ The paid-labeling environments remain governed separately by `infra/official-lab
 Do not add AWS access keys, provider keys, environment-creation API calls, state-backend creation, IAM self-bootstrap, evaluation, freeze, or workflow-dispatch authority to this path.
 
 Before the first plan for a pre-existing resource, inventory it against the selected root and separately approve one exact import.
-Keep the raw import ID on the trusted operator machine, compute its lowercase SHA-256, and compute the authorization commitment over this canonical request:
 First compute and independently review the same operator-role, remote-backend, and Terraform-input identity commitments that the workflow records; changing any one requires a new import authorization.
+Reproduce those three digests with the same unsorted `jq -cn` objects the workflow uses. Do not switch to `jq -cnS`; key order is part of the commitment. `state_key` is the environment prefix with a trailing slash stripped, then `/` and the module suffix (`provider-authority/terraform.tfstate`, `official-labeling/terraform.tfstate`, or `official-eval/terraform.tfstate`).
+
+```bash
+state_key="${terraform_state_key_prefix%/}/${state_key_suffix}"
+operator_role_identity_sha256="$(
+  jq -cn --arg role "$operator_role_arn" '{role:$role}' |
+    sha256sum | cut -d' ' -f1
+)"
+state_backend_identity_sha256="$(
+  jq -cn --arg bucket "$state_bucket" --arg key "$state_key" \
+    --arg region "$aws_region" --arg kms_key "$state_kms_key_arn" \
+    '{bucket:$bucket,key:$key,region:$region,kms_key:$kms_key}' |
+    sha256sum | cut -d' ' -f1
+)"
+terraform_input_identity_sha256="$(
+  jq -cn --arg module "$module" --arg region "$aws_region" \
+    --arg oidc "$oidc_provider_arn" --arg identity "$resource_identity_sha256" \
+    --arg packet_bucket "$packet_bucket" --arg results_bucket "$results_bucket" \
+    --arg table "$table_arn" \
+    '{module:$module,region:$region,oidc:$oidc,identity:$identity,
+      packet_bucket:$packet_bucket,results_bucket:$results_bucket,table:$table}' |
+    sha256sum | cut -d' ' -f1
+)"
+```
+
+Keep the raw import ID on the trusted operator machine, compute its lowercase SHA-256, and compute the authorization commitment over this canonical request:
 
 ```bash
 import_id_sha256="$(printf '%s' "$protected_import_id" | sha256sum | cut -d' ' -f1)"
@@ -970,6 +995,7 @@ A plan dispatch does not authorize apply.
 Only after the exact plan receives separate owner approval may an operator dispatch `operation=apply` with all five plan-provenance inputs.
 Repeat the sequence for `module=official-labeling` or `module=official-eval`; never reuse a plan across modules, releases, attempts, backends, operator roles, or Terraform inputs.
 For an apply, decrypt `terraform-output.json.age` only on the trusted operator machine and route the reviewed values through the protected environment-configuration path; never publish its plaintext.
+If apply mutates remote state but the later output handoff fails, the workflow uploads a redacted recovery receipt recording `applied_pending_output_handoff`; do not dispatch a new apply until that run is reconciled.
 
 ### Protected distributed paid-labeling authority
 
