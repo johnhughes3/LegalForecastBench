@@ -140,6 +140,12 @@ FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1 = SchemaIdentifier(
 EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1 = SchemaIdentifier(
     "legalforecast.exact100_supporting_document_successor.v1"
 )
+EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1 = SchemaIdentifier(
+    "legalforecast.exact100_missing_document_acquisition_plan.v1"
+)
+EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1 = SchemaIdentifier(
+    "legalforecast.exact100_missing_document_successor.v1"
+)
 FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1 = SchemaIdentifier(
     "legalforecast.firecrawl_provider_contract_defect_authorization.v1"
 )

@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from legalforecast.ingestion.missing_document_successor import (
     AcquisitionObservation,
     MissingDocumentSuccessorError,
     RepairApproval,
+    build_missing_document_acquisition_plan,
     project_missing_document_successor,
+    seal_missing_document_successor,
     verify_repair_approval,
 )
 
@@ -329,3 +333,295 @@ def test_replacement_recommendation_is_terminally_excluded() -> None:
         "manifest_replacement_recommendation"
     )
     assert result.state["replacement_candidate_count"] == 1
+
+
+def _plan_manifest_bytes(*records: Mapping[str, object]) -> bytes:
+    return b"".join(
+        json.dumps(record, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+        for record in records
+    )
+
+
+def _repair(
+    candidate_id: str,
+    *,
+    missing: list[dict[str, object]],
+    mismatch: list[dict[str, object]] | None = None,
+    current: list[dict[str, object]] | None = None,
+    required: list[dict[str, object]] | None = None,
+    extra: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    cost = sum(Decimal(str(row["cost_usd"])) for row in missing)
+    return {
+        "candidate_id": candidate_id,
+        "recommendation": "repair",
+        "cost_usd": float(cost),
+        "missing_docs": missing,
+        "byte_mismatches": mismatch or [],
+        "current_selection": current or [],
+        "required_entries": required or [],
+        "extra_selected": extra or [],
+    }
+
+
+def _missing(entry: int, role: str, *, free: int, paid: int) -> dict[str, object]:
+    return {
+        "entry": entry,
+        "role": role,
+        "cost_usd": 0.0 if free else 3.0,
+        "free_document_count": free,
+        "pacer_only_document_count": paid,
+        "evidence": "synthetic regression fixture",
+        "source": "pass1",
+        "opinion_derived": False,
+    }
+
+
+def _plan(manifest: bytes, *, cap: str = "453.00") -> Any:
+    return build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd=cap,
+        max_per_document_usd="3.00",
+    )
+
+
+def test_plan_is_bound_to_exact_approved_plan_manifest_bytes() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair("70754103", missing=[_missing(12, "response", free=0, paid=1)])
+    )
+
+    with pytest.raises(MissingDocumentSuccessorError, match="approved digest"):
+        build_missing_document_acquisition_plan(
+            manifest_bytes=manifest + b" ",
+            approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+            approved_maximum_usd="453.00",
+            max_per_document_usd="3.00",
+        )
+
+
+def test_plan_orders_free_recovery_before_paid_and_is_deterministic() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair(
+            "70754103",
+            missing=[
+                _missing(12, "response", free=0, paid=1),
+                _missing(13, "reply", free=1, paid=0),
+            ],
+        ),
+        _repair(
+            "71212565",
+            missing=[_missing(23, "crossclaim", free=0, paid=1)],
+        ),
+    )
+
+    plan = _plan(manifest)
+
+    assert [item.acquisition_method for item in plan.items] == [
+        "courtlistener_free",
+        "pacer_purchase",
+        "pacer_purchase",
+    ]
+    assert [(item.candidate_id, item.docket_entry_number) for item in plan.items] == [
+        ("70754103", 13),
+        ("70754103", 12),
+        ("71212565", 23),
+    ]
+    assert plan.projected_paid_cost_usd == Decimal("6.00")
+    assert plan.to_record() == _plan(manifest).to_record()
+
+
+def test_plan_refuses_per_document_and_aggregate_approval_overruns() -> None:
+    wrong_price = _plan_manifest_bytes(
+        {
+            **_repair(
+                "70754103",
+                missing=[_missing(12, "response", free=0, paid=1)],
+            ),
+            "cost_usd": 4.0,
+            "missing_docs": [
+                {
+                    **_missing(12, "response", free=0, paid=1),
+                    "cost_usd": 4.0,
+                }
+            ],
+        }
+    )
+    with pytest.raises(MissingDocumentSuccessorError, match="per-document cap"):
+        _plan(wrong_price)
+
+    two_paid = _plan_manifest_bytes(
+        _repair(
+            "70754103",
+            missing=[
+                _missing(12, "response", free=0, paid=1),
+                _missing(13, "reply", free=0, paid=1),
+            ],
+        )
+    )
+    with pytest.raises(MissingDocumentSuccessorError, match="approved maximum"):
+        _plan(two_paid, cap="3.00")
+
+
+def test_seal_requires_role_matching_bytes_before_inclusion() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair(
+            "70754103",
+            missing=[_missing(1, "complaint", free=0, paid=1)],
+            mismatch=[
+                {
+                    "entry": 4,
+                    "selected_role": "amended_complaint",
+                    "observed_role": "summons",
+                    "verdict": "mismatch",
+                    "evidence": "AO 440 summons",
+                }
+            ],
+        )
+    )
+    plan = _plan(manifest)
+    evidence = {
+        "candidate_id": "70754103",
+        "docket_entry_number": 1,
+        "document_role": "complaint",
+        "source_document_id": "70754103-entry-1",
+        "source": "pacer_purchase",
+        "sha256": hashlib.sha256(b"AO 440 summons").hexdigest(),
+        "byte_count": len(b"AO 440 summons"),
+        "document_bytes": b"AO 440 summons",
+    }
+
+    with pytest.raises(MissingDocumentSuccessorError, match="role-byte mismatch"):
+        seal_missing_document_successor(
+            plan=plan,
+            acquired_documents=[evidence],
+            exclusions=[],
+            role_bytes_match=lambda role, body: (
+                role != "complaint" or b"complaint" in body
+            ),
+        )
+
+
+def test_sealed_successor_has_complete_inclusion_exclusion_ledger() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair(
+            "70754103",
+            missing=[
+                _missing(12, "response", free=0, paid=1),
+                _missing(13, "reply", free=1, paid=0),
+            ],
+        )
+    )
+    plan = _plan(manifest)
+    reply_bytes = b"reply to response"
+    evidence = {
+        "candidate_id": "70754103",
+        "docket_entry_number": 13,
+        "document_role": "reply",
+        "source_document_id": "70754103-entry-13",
+        "source": "courtlistener_free",
+        "sha256": hashlib.sha256(reply_bytes).hexdigest(),
+        "byte_count": len(reply_bytes),
+        "document_bytes": reply_bytes,
+    }
+
+    sealed = seal_missing_document_successor(
+        plan=plan,
+        acquired_documents=[evidence],
+        exclusions=[
+            {
+                "candidate_id": "70754103",
+                "docket_entry_number": 12,
+                "document_role": "response",
+                "reason": "sealed_or_unavailable",
+            }
+        ],
+        role_bytes_match=lambda _role, _body: True,
+    )
+
+    assert sealed.status == "sealed"
+    assert len(sealed.ledger) == len(plan.items) == 2
+    assert [row["disposition"] for row in sealed.ledger] == [
+        "included",
+        "excluded",
+    ]
+    assert sealed.included_document_keys == frozenset({("70754103", 13)})
+    with pytest.raises(MissingDocumentSuccessorError, match="complete ledger"):
+        seal_missing_document_successor(
+            plan=plan,
+            acquired_documents=[evidence],
+            exclusions=[],
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_plan_accounts_for_retained_extra_and_byte_mismatch_entries() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair(
+            "70754103",
+            missing=[_missing(1, "complaint", free=0, paid=1)],
+            current=[
+                {"entry": 4, "role": "amended_complaint"},
+                {"entry": 10, "role": "motion_to_dismiss_memorandum"},
+            ],
+            required=[
+                {"entry": 1, "role": "complaint"},
+                {"entry": 10, "role": "target_motion"},
+            ],
+            extra=[{"entry": 4, "role": "amended_complaint"}],
+            mismatch=[
+                {
+                    "entry": 4,
+                    "selected_role": "amended_complaint",
+                    "observed_role": "summons",
+                    "verdict": "mismatch",
+                    "evidence": "AO 440 summons",
+                }
+            ],
+        )
+    )
+
+    plan = _plan(manifest)
+
+    assert [row["disposition"] for row in plan.existing_document_ledger] == [
+        "rejected_byte_role",
+        "retained",
+    ]
+    assert plan.existing_document_ledger[0]["reason"] == "byte_role_mismatch"
+    assert plan.existing_document_ledger[1]["docket_entry_number"] == 10
+
+
+def test_seal_rejects_wrong_bytes_and_unplanned_paid_substitution() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair("70754103", missing=[_missing(13, "reply", free=1, paid=0)])
+    )
+    plan = _plan(manifest)
+    body = b"reply"
+    evidence = {
+        "candidate_id": "70754103",
+        "docket_entry_number": 13,
+        "document_role": "reply",
+        "source_document_id": "70754103-entry-13",
+        "source": "pacer_purchase",
+        "sha256": hashlib.sha256(body).hexdigest(),
+        "byte_count": len(body),
+        "document_bytes": body,
+    }
+
+    with pytest.raises(MissingDocumentSuccessorError, match="planned method"):
+        seal_missing_document_successor(
+            plan=plan,
+            acquired_documents=[evidence],
+            exclusions=[],
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+    evidence["source"] = "courtlistener_free"
+    evidence["sha256"] = "0" * 64
+    with pytest.raises(MissingDocumentSuccessorError, match="SHA-256"):
+        seal_missing_document_successor(
+            plan=plan,
+            acquired_documents=[evidence],
+            exclusions=[],
+            role_bytes_match=lambda _role, _body: True,
+        )
