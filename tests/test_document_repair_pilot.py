@@ -13,6 +13,7 @@ from legalforecast.ingestion.document_repair_pilot import (
     build_document_repair_pilot,
 )
 from legalforecast.ingestion.missing_document_successor import (
+    MissingDocumentSuccessorError,
     build_missing_document_acquisition_plan,
     verify_repair_plan_approval,
 )
@@ -66,9 +67,9 @@ def _approval(rows: list[dict[str, object]], manifest: bytes) -> dict[str, objec
         "maximum_cost_usd": "453.00",
         "max_per_document_usd": "3.00",
         "candidate_count": len(rows),
-        "repair_count": len(rows),
-        "keep_count": 0,
-        "replace_count": 0,
+        "repair_count": sum(row["recommendation"] == "repair" for row in rows),
+        "keep_count": sum(row["recommendation"] == "keep" for row in rows),
+        "replace_count": sum(row["recommendation"] == "replace" for row in rows),
         "missing_slot_count": sum(len(row["missing_docs"]) for row in rows),
     }
 
@@ -130,6 +131,122 @@ def test_pilot_refuses_wrong_scope_or_cap(
             candidate_ids=candidate_ids,
             pilot_maximum_usd=maximum,
         )
+
+
+def test_pilot_admits_keep_candidate_from_approved_manifest() -> None:
+    manifest = _manifest_bytes(
+        _row("a", (3,)),
+        _row("b", (3,)),
+        _row("c", (0,)),
+        _row("d", (3,)),
+        {
+            "candidate_id": "kept",
+            "recommendation": "keep",
+            "cost_usd": 0.0,
+            "missing_docs": [],
+            "byte_mismatches": [],
+            "current_selection": [],
+            "required_entries": [],
+            "extra_selected": [],
+        },
+        _row("outside", (3,)),
+    )
+    plan = _plan(manifest)
+
+    pilot = build_document_repair_pilot(
+        full_plan=plan,
+        candidate_ids=("a", "b", "c", "d", "kept"),
+        pilot_maximum_usd="9.00",
+        approved_manifest_bytes=manifest,
+    )
+
+    assert pilot.candidate_ids == ("a", "b", "c", "d", "kept")
+    assert {item.candidate_id for item in pilot.items} == {"a", "b", "c", "d"}
+    assert pilot.projected_paid_cost_usd == Decimal("9.00")
+
+
+def test_pilot_rejects_keep_candidate_without_approved_manifest() -> None:
+    manifest = _manifest_bytes(
+        _row("a", (3,)),
+        _row("b", (3,)),
+        _row("c", (3,)),
+        _row("d", (3,)),
+        {
+            "candidate_id": "kept",
+            "recommendation": "keep",
+            "cost_usd": 0.0,
+            "missing_docs": [],
+            "byte_mismatches": [],
+            "current_selection": [],
+            "required_entries": [],
+            "extra_selected": [],
+        },
+    )
+    with pytest.raises(DocumentRepairPilotError, match="outside the full plan"):
+        build_document_repair_pilot(
+            full_plan=_plan(manifest),
+            candidate_ids=("a", "b", "c", "d", "kept"),
+            pilot_maximum_usd="12.00",
+        )
+
+
+def test_pilot_rejects_keep_candidate_when_manifest_digest_differs() -> None:
+    manifest = _manifest_bytes(
+        _row("a", (3,)),
+        _row("b", (3,)),
+        _row("c", (3,)),
+        _row("d", (3,)),
+        {
+            "candidate_id": "kept",
+            "recommendation": "keep",
+            "cost_usd": 0.0,
+            "missing_docs": [],
+            "byte_mismatches": [],
+            "current_selection": [],
+            "required_entries": [],
+            "extra_selected": [],
+        },
+    )
+    other = _manifest_bytes(_row("a", (3,)))
+    with pytest.raises(DocumentRepairPilotError, match="approved manifest digest"):
+        build_document_repair_pilot(
+            full_plan=_plan(manifest),
+            candidate_ids=("a", "b", "c", "d", "kept"),
+            pilot_maximum_usd="12.00",
+            approved_manifest_bytes=other,
+        )
+
+
+def test_pilot_rejects_keep_candidate_with_repair_obligations() -> None:
+    manifest = _manifest_bytes(
+        _row("a", (3,)),
+        _row("b", (3,)),
+        _row("c", (3,)),
+        _row("d", (3,)),
+        {
+            "candidate_id": "kept",
+            "recommendation": "keep",
+            "cost_usd": 3.0,
+            "missing_docs": [
+                {
+                    "entry": 1,
+                    "role": "reply",
+                    "cost_usd": 3.0,
+                    "free_document_count": 0,
+                    "pacer_only_document_count": 1,
+                    "evidence": "synthetic pilot fixture",
+                    "source": "pass1",
+                    "opinion_derived": False,
+                }
+            ],
+            "byte_mismatches": [],
+            "current_selection": [],
+            "required_entries": [],
+            "extra_selected": [],
+        },
+    )
+    with pytest.raises(MissingDocumentSuccessorError, match="keep"):
+        _plan(manifest)
 
 
 def test_pilot_rejects_tampered_full_plan() -> None:
