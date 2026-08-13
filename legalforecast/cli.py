@@ -48071,7 +48071,7 @@ _VerifiedMaterializedDownstreamLineage = (
 )
 
 
-def _authenticated_path_aliases(paths: Sequence[Path]) -> tuple[Path, ...]:
+def _authenticated_path_aliases(paths: Sequence[Path]) -> tuple[Path, ...]:  # pyright: ignore[reportUnusedFunction]
     """Keep absolute authenticated path spellings without resolving aliases."""
 
     return _downstream_lineage.authenticated_path_aliases(paths)
@@ -68425,7 +68425,7 @@ def _model_registry_from_payload(payload: bytes, *, source: Path) -> ModelRegist
         raise CommandError(str(exc)) from exc
 
 
-def _packet_card_committed_directory(
+def _packet_card_committed_directory(  # pyright: ignore[reportUnusedFunction]
     parameters: Mapping[str, object],
     *,
     name: str,
@@ -68477,7 +68477,7 @@ def _replay_packet_planner_run_card(
     )
 
 
-def _replay_packet_build_run_card(
+def _replay_packet_build_run_card(  # pyright: ignore[reportUnusedFunction]
     card: Mapping[str, object],
     *,
     run_card_sha256: str,

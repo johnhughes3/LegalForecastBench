@@ -33,8 +33,8 @@ class VerifiedMaterializedDownstreamLineage:
     recovered_public_capability: object | None = None
     consolidated_recovery_capability: object | None = None
     fresh_ledger_namespace: Path | None = None
-    docket_decision_authority: object | None = None
-    verified_successor_selection_card: object | None = None
+    docket_decision_authority: Any = None
+    verified_successor_selection_card: Any = None
     authenticated_paths: tuple[Path, ...] = ()
 
     def __len__(self) -> int:
@@ -61,7 +61,7 @@ def authenticated_path_aliases(paths: Sequence[Path]) -> tuple[Path, ...]:
 
 def downstream_docket_decision_descriptor(
     verified: object,
-) -> object | None:
+) -> Any:
     """Return authority metadata from a replay-verified downstream lineage."""
 
     _cli_ns = _cli()
