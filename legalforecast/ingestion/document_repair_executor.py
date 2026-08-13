@@ -81,6 +81,7 @@ class ResolvedRepairOperation:
 
     candidate_id: str
     docket_entry_number: int
+    document_selector: str
     document_role: str
     route: str
     recap_document_id: str
@@ -90,13 +91,14 @@ class ResolvedRepairOperation:
     docket_snapshot_sha256: str
 
     @property
-    def key(self) -> tuple[str, int]:
-        return self.candidate_id, self.docket_entry_number
+    def key(self) -> tuple[str, int, str]:
+        return self.candidate_id, self.docket_entry_number, self.document_selector
 
     def to_record(self) -> dict[str, object]:
         return {
             "candidate_id": self.candidate_id,
             "docket_entry_number": self.docket_entry_number,
+            "document_selector": self.document_selector,
             "document_role": self.document_role,
             "route": self.route,
             "recap_document_id": self.recap_document_id,
@@ -150,6 +152,7 @@ class RepairOperationOutcome:
     retry_count: int
     duration_seconds: str
     committed_cost_usd: str
+    document_selector: str = "main_document"
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +201,7 @@ class AcquiredRepairDocument:
     committed_cost_usd: str
     retry_count: int
     reason: str | None = None
+    document_selector: str = "main_document"
 
 
 @dataclass(frozen=True, slots=True)
@@ -447,7 +451,11 @@ def record_document_repair_outcomes(
     unknown_index: int | None = None
     for index, outcome in enumerate(outcomes):
         operation = execution.operations[index]
-        if (outcome.candidate_id, outcome.docket_entry_number) != operation.key:
+        if (
+            outcome.candidate_id,
+            outcome.docket_entry_number,
+            outcome.document_selector,
+        ) != operation.key:
             raise DocumentRepairExecutorError("outcome operation order is invalid")
         if unknown_index is not None:
             raise DocumentRepairExecutorError(
@@ -529,6 +537,7 @@ def run_document_repair_execution(
             retry_count=result.retry_count,
             duration_seconds=str(duration),
             committed_cost_usd=result.committed_cost_usd,
+            document_selector=operation.document_selector,
         )
         # Validate cost, retry, duration, and terminal semantics before any
         # later provider callback can run.
@@ -540,6 +549,7 @@ def run_document_repair_execution(
                 {
                     "candidate_id": operation.candidate_id,
                     "docket_entry_number": operation.docket_entry_number,
+                    "document_selector": operation.document_selector,
                     "document_role": operation.document_role,
                     "source_document_id": operation.recap_document_id,
                     "source": operation.route,
@@ -553,6 +563,7 @@ def run_document_repair_execution(
                 {
                     "candidate_id": operation.candidate_id,
                     "docket_entry_number": operation.docket_entry_number,
+                    "document_selector": operation.document_selector,
                     "document_role": operation.document_role,
                     "reason": cast(str, result.reason),
                 }
@@ -693,7 +704,7 @@ def seal_document_repair_execution(
     operation_by_key = {operation.key: operation for operation in execution.operations}
     if len(operation_by_key) != len(execution.operations):
         raise DocumentRepairExecutorError("repair execution repeats an operation")
-    evidence_dispositions: dict[tuple[str, int], str] = {}
+    evidence_dispositions: dict[tuple[str, int, str], str] = {}
     for document in acquired_documents:
         key = _evidence_key(document)
         operation = operation_by_key.get(key)
@@ -831,7 +842,7 @@ def _require_scope_binding_from_execution(
             raise DocumentRepairExecutorError("execution operation alters full plan")
 
 
-def _evidence_key(record: Mapping[str, object]) -> tuple[str, int]:
+def _evidence_key(record: Mapping[str, object]) -> tuple[str, int, str]:
     candidate_id = record.get("candidate_id")
     entry = record.get("docket_entry_number")
     if not isinstance(candidate_id, str) or not candidate_id.strip():
@@ -839,7 +850,10 @@ def _evidence_key(record: Mapping[str, object]) -> tuple[str, int]:
     resolved_entry = _positive_int(entry)
     if resolved_entry is None:
         raise DocumentRepairExecutorError("document docket entry is invalid")
-    return candidate_id, resolved_entry
+    selector = record.get("document_selector", "main_document")
+    if not isinstance(selector, str):
+        raise DocumentRepairExecutorError("document selector is invalid")
+    return candidate_id, resolved_entry, selector
 
 
 def _snapshot(payload: bytes, candidate_id: str) -> Mapping[str, object]:
@@ -883,16 +897,17 @@ def _resolve_operation(
     if _docket_identifier(entry.get("docket")) != str(snapshot["docket_id"]):
         raise DocumentRepairExecutorError("docket entry belongs to a different docket")
     documents = _mapping_list(entry.get("recap_documents"), "RECAP documents")
-    main_documents = [
+    selected_documents = [
         document
         for document in documents
-        if document.get("attachment_number") in {None, "", 0}
+        if _document_selector(document) == item.document_selector
     ]
-    if len(main_documents) != 1:
+    if len(selected_documents) != 1:
         raise DocumentRepairExecutorError(
-            f"ambiguous main document: {item.candidate_id}/{item.docket_entry_number}"
+            "ambiguous selected document: "
+            f"{item.candidate_id}/{item.docket_entry_number}/{item.document_selector}"
         )
-    document = main_documents[0]
+    document = selected_documents[0]
     document_id = _positive_identifier(document.get("id"), "RECAP document id")
     docket_entry_id = _positive_identifier(entry.get("id"), "docket entry id")
     linked_entry_id = document.get("docket_entry_id")
@@ -919,6 +934,7 @@ def _resolve_operation(
     return ResolvedRepairOperation(
         candidate_id=item.candidate_id,
         docket_entry_number=item.docket_entry_number,
+        document_selector=item.document_selector,
         document_role=item.document_role,
         route=item.acquisition_method,
         recap_document_id=document_id,
@@ -1014,6 +1030,10 @@ def _outcome_record(
 def _validate_acquired_result(
     operation: ResolvedRepairOperation, result: AcquiredRepairDocument
 ) -> None:
+    if result.document_selector != operation.document_selector:
+        raise DocumentRepairExecutorError(
+            "acquisition result differs from resolved document selector"
+        )
     if result.source_document_id != operation.recap_document_id:
         raise DocumentRepairExecutorError(
             "acquisition result differs from resolved RECAP identity"
@@ -1111,6 +1131,14 @@ def _docket_identifier(value: object) -> str | None:
     candidate = stripped.rsplit("/", 1)[-1]
     resolved = _positive_int(candidate, allow_invalid=True)
     return str(resolved) if resolved is not None else None
+
+
+def _document_selector(document: Mapping[str, object]) -> str | None:
+    attachment = document.get("attachment_number")
+    if attachment in {None, "", 0}:
+        return "main_document"
+    resolved = _positive_int(attachment, allow_invalid=True)
+    return f"attachment_{resolved}" if resolved is not None else None
 
 
 def _raise(message: str) -> None:
