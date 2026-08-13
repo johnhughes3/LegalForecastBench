@@ -1322,7 +1322,10 @@ def _journal_authenticated_result(
         expected_dispositions = {"provider_error"}
         cost = "0.00"
     elif status == "failed":
-        expected_dispositions = {"unknown"}
+        # A provider can return a terminal failure after accepting a paid
+        # queue request. The outcome is retryable at the repair layer, but the
+        # durable reservation remains committed because the POST occurred.
+        expected_dispositions = {"provider_error", "unknown"}
         cost = evidence.get("reservation_usd")
     else:
         raise DocumentRepairExecutorError(
