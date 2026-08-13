@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -14,6 +15,8 @@ from legalforecast.contracts import (
     EXACT100_DOCUMENT_REPAIR_PILOT_V2,
 )
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
+    CaseDevPurchaseLedgerError,
     generate_case_dev_purchase_policy,
     initialize_case_dev_purchase_journal,
 )
@@ -41,6 +44,7 @@ from legalforecast.ingestion.document_repair_executor import (
 from legalforecast.ingestion.document_repair_pilot import build_document_repair_pilot
 from legalforecast.ingestion.missing_document_successor import (
     build_missing_document_acquisition_plan,
+    verify_repair_plan_approval,
 )
 
 
@@ -50,6 +54,25 @@ def _canonical_bytes(value: object) -> bytes:
 
 def _manifest_bytes(*records: Mapping[str, object]) -> bytes:
     return b"".join(_canonical_bytes(record) for record in records)
+
+
+def _plan_approval(manifest: bytes, *, per_document: str = "3.00"):  # type: ignore[no-untyped-def]
+    rows = [json.loads(line) for line in manifest.splitlines()]
+    return verify_repair_plan_approval(
+        manifest,
+        {
+            "schema_version": "legalforecast.repair_manifest_approval.v2",
+            "decision": "approve",
+            "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "maximum_cost_usd": "453.00",
+            "max_per_document_usd": per_document,
+            "candidate_count": len(rows),
+            "repair_count": sum(row["recommendation"] == "repair" for row in rows),
+            "keep_count": sum(row["recommendation"] == "keep" for row in rows),
+            "replace_count": sum(row["recommendation"] == "replace" for row in rows),
+            "missing_slot_count": sum(len(row["missing_docs"]) for row in rows),
+        },
+    )
 
 
 def _row(candidate_id: str, entry: int, *, free: bool) -> dict[str, object]:
@@ -87,9 +110,7 @@ def _scope() -> tuple[object, object]:
     )
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
-        max_per_document_usd="3.00",
+        approval=_plan_approval(manifest),
     )
     pilot = build_document_repair_pilot(
         full_plan=plan,
@@ -366,8 +387,7 @@ def test_execution_rejects_snapshot_docket_id_from_another_candidate() -> None:
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshot = json.loads(_snapshot("70754103", 1, 9001, free=True))
     snapshot["docket_id"] = 71212565
@@ -390,8 +410,7 @@ def test_execution_rejects_namespaced_candidate_bound_to_another_docket() -> Non
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshot = json.loads(_snapshot("70754103", 1, 9001, free=True))
     snapshot["candidate_id"] = candidate
@@ -476,7 +495,9 @@ def _approved_purchase_policy(
         "fallback": "free_only",
         "selected_candidate_ids_sha256": _canonical_value_sha256(candidate_ids),
         "purchase_document_ids_sha256": _canonical_value_sha256(document_ids),
-        "output_commitments": {"repair_execution": "sha256:" + "b" * 64},
+        "output_commitments": {
+            "repair_execution": "sha256:" + execution.execution_sha256
+        },
     }
     policy = {
         "cycle_id": approval["cycle_id"],
@@ -541,6 +562,54 @@ def _purchase_runtime(
         purchase_policy_file_sha256="sha256:" + "c" * 64,
         cohort_policy_file_sha256="sha256:" + "d" * 64,
     )
+
+
+class _BoundAcquirer:
+    def __init__(self, runtime: DocumentRepairPurchaseRuntime, callback):  # type: ignore[no-untyped-def]
+        self.journal = runtime.journal
+        self._callback = callback
+
+    def __call__(self, operation):  # type: ignore[no-untyped-def]
+        if operation.route == "pacer_purchase":
+            self.journal.submit(operation.recap_document_id)
+            self.journal.confirm(
+                operation.recap_document_id,
+                response={"status": "confirmed"},
+                fees={"total_usd": "3.00"},
+            )
+        return self._callback(operation)
+
+
+def _bound(runtime: DocumentRepairPurchaseRuntime, callback):  # type: ignore[no-untyped-def]
+    return _BoundAcquirer(runtime, callback)
+
+
+class _UnknownBoundAcquirer(_BoundAcquirer):
+    def __call__(self, operation):  # type: ignore[no-untyped-def]
+        if operation.route == "pacer_purchase":
+            self.journal.submit(operation.recap_document_id)
+            self.journal.mark_unknown(operation.recap_document_id, "timeout")
+            return self._callback(operation)
+        return self._callback(operation)
+
+
+class _FailedBoundAcquirer(_BoundAcquirer):
+    def __init__(
+        self, runtime: DocumentRepairPurchaseRuntime, callback, *, response: bool
+    ):  # type: ignore[no-untyped-def]
+        super().__init__(runtime, callback)
+        self._response = response
+
+    def __call__(self, operation):  # type: ignore[no-untyped-def]
+        if operation.route == "pacer_purchase":
+            self.journal.submit(operation.recap_document_id)
+            if self._response:
+                self.journal.queue(
+                    operation.recap_document_id,
+                    response={"status": "accepted"},
+                )
+            self.journal.fail(operation.recap_document_id, RuntimeError("failed"))
+        return self._callback(operation)
 
 
 def test_purchase_policy_must_fit_exact_repair_ceiling(tmp_path: Path) -> None:
@@ -847,6 +916,102 @@ def test_runtime_rejects_forged_purchase_authority(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "planning_error",
+    (
+        CaseDevPurchaseLedgerError("planning failed"),
+        sqlite3.OperationalError("disk I/O error"),
+    ),
+)
+def test_runtime_closes_journal_for_every_budget_planning_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    planning_error: BaseException,
+) -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    authority = _purchase_authority(execution, tmp_path)
+    receipt = tmp_path / "purchase-ledger-initialization.json"
+    initialize_case_dev_purchase_journal(
+        authority.purchase_policy.canonical_ledger_path,
+        policy=authority.purchase_policy,
+        receipt_path=receipt,
+        purchase_policy_file_sha256="sha256:" + "c" * 64,
+        cohort_policy_file_sha256="sha256:" + "d" * 64,
+        initialized_at="2026-08-13T00:02:00Z",
+    )
+    closed: list[bool] = []
+    original_close = CaseDevPurchaseJournal.close
+
+    def fail_plan(self: CaseDevPurchaseJournal, _plan: object) -> None:
+        raise planning_error
+
+    def record_close(self: CaseDevPurchaseJournal) -> None:
+        original_close(self)
+        closed.append(self._closed)
+
+    monkeypatch.setattr(CaseDevPurchaseJournal, "plan", fail_plan)
+    monkeypatch.setattr(CaseDevPurchaseJournal, "close", record_close)
+
+    expected_error = (
+        DocumentRepairExecutorError
+        if isinstance(planning_error, CaseDevPurchaseLedgerError)
+        else type(planning_error)
+    )
+    with pytest.raises(expected_error, match=str(planning_error)):
+        verify_document_repair_purchase_runtime(
+            execution=execution,
+            purchase_authority=authority,
+            initialization_receipt_path=receipt,
+            purchase_policy_file_sha256="sha256:" + "c" * 64,
+            cohort_policy_file_sha256="sha256:" + "d" * 64,
+        )
+
+    assert closed == [True]
+
+
+def test_runner_closes_runtime_when_authenticated_snapshot_is_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    runtime = _purchase_runtime(execution, tmp_path)
+
+    def fail_snapshot(self: CaseDevPurchaseJournal) -> None:
+        raise CaseDevPurchaseLedgerError("corrupt journal")
+
+    monkeypatch.setattr(CaseDevPurchaseJournal, "authenticated_snapshot", fail_snapshot)
+
+    with pytest.raises(DocumentRepairExecutorError, match="corrupt journal"):
+        run_document_repair_execution(
+            execution=execution,
+            purchase_runtime=runtime,
+            acquire=_bound(runtime, lambda _operation: pytest.fail("must not acquire")),
+            monotonic=lambda: 0.0,
+        )
+
+    assert runtime.is_consumed() is False
+    assert runtime.journal._closed is True
+
+
 def test_execution_seals_complete_successor_only_from_exact_resolved_documents() -> (
     None
 ):
@@ -858,8 +1023,7 @@ def test_execution_seals_complete_successor_only_from_exact_resolved_documents()
     )
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = _snapshots()
     execution = build_full_document_repair_execution(
@@ -977,8 +1141,7 @@ def test_retryable_provider_error_cannot_seal_successor() -> None:
     manifest = _manifest_bytes(_row("a", 1, free=False))
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
     execution = build_full_document_repair_execution(
@@ -1013,8 +1176,7 @@ def test_retry_permitted_terminal_receipt_cannot_seal_successor() -> None:
     manifest = _manifest_bytes(_row("a", 1, free=False))
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
     execution = build_full_document_repair_execution(
@@ -1065,8 +1227,7 @@ def test_terminal_exclusion_is_not_retryable() -> None:
     manifest = _manifest_bytes(_row("a", 1, free=False))
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
     execution = build_full_document_repair_execution(
@@ -1119,10 +1280,11 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome(
             reason="purchase_outcome_unknown",
         )
 
+    runtime = _purchase_runtime(execution, tmp_path)
     result = run_document_repair_execution(
         execution=execution,
-        purchase_runtime=_purchase_runtime(execution, tmp_path),
-        acquire=acquire,
+        purchase_runtime=runtime,
+        acquire=_UnknownBoundAcquirer(runtime, acquire),
         monotonic=lambda: next(ticks),
     )
 
@@ -1136,6 +1298,57 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome(
     assert result.receipt.operation_ledger[2]["disposition"] == (
         "not_attempted_after_unknown"
     )
+    assert runtime.journal._closed is True
+
+
+@pytest.mark.parametrize(
+    ("has_response", "callback_disposition", "expected_cost"),
+    ((True, "unknown", "3.00"), (False, "provider_error", "0.00")),
+)
+def test_failed_paid_outcome_uses_durable_response_to_retain_reservation(
+    tmp_path: Path,
+    *,
+    has_response: bool,
+    callback_disposition: str,
+    expected_cost: str,
+) -> None:
+    manifest = _manifest_bytes(_row("a", 1, free=False))
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approval=_plan_approval(manifest),
+    )
+    snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
+    )
+    runtime = _purchase_runtime(execution, tmp_path)
+    ticks = iter((1.0, 1.1))
+
+    result = run_document_repair_execution(
+        execution=execution,
+        purchase_runtime=runtime,
+        acquire=_FailedBoundAcquirer(
+            runtime,
+            lambda operation: AcquiredRepairDocument(
+                disposition=callback_disposition,
+                source_document_id=operation.recap_document_id,
+                document_bytes=None,
+                committed_cost_usd="0.00",
+                retry_count=0,
+                reason="provider failure",
+            ),
+            response=has_response,
+        ),
+        monotonic=lambda: next(ticks),
+    )
+
+    row = result.receipt.operation_ledger[0]
+    assert row["disposition"] == callback_disposition
+    assert row["committed_cost_usd"] == expected_cost
+    assert row["retry_permitted"] is (not has_response)
+    assert runtime.journal._closed is True
 
 
 def test_runner_materializes_complete_evidence_for_successor_seal(
@@ -1149,8 +1362,7 @@ def test_runner_materializes_complete_evidence_for_successor_seal(
     )
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = _snapshots()
     execution = build_full_document_repair_execution(
@@ -1163,17 +1375,21 @@ def test_runner_materializes_complete_evidence_for_successor_seal(
     )
     tick = iter(float(value) for value in range(11))
 
+    runtime = _purchase_runtime(execution, tmp_path)
     result = run_document_repair_execution(
         execution=execution,
-        purchase_runtime=_purchase_runtime(execution, tmp_path),
-        acquire=lambda operation: AcquiredRepairDocument(
-            disposition="included",
-            source_document_id=operation.recap_document_id,
-            document_bytes=f"{operation.document_role} bytes".encode(),
-            committed_cost_usd=(
-                "0.00" if operation.route == "courtlistener_free" else "3.00"
+        purchase_runtime=runtime,
+        acquire=_bound(
+            runtime,
+            lambda operation: AcquiredRepairDocument(
+                disposition="included",
+                source_document_id=operation.recap_document_id,
+                document_bytes=f"{operation.document_role} bytes".encode(),
+                committed_cost_usd=(
+                    "0.00" if operation.route == "courtlistener_free" else "3.00"
+                ),
+                retry_count=0,
             ),
-            retry_count=0,
         ),
         monotonic=lambda: next(tick),
     )
@@ -1239,17 +1455,20 @@ def test_paid_runner_accepts_ledger_initialized_after_authority_mint(
     result = run_document_repair_execution(
         execution=execution,
         purchase_runtime=runtime,
-        acquire=lambda operation: (
-            invoked.append(operation.recap_document_id)
-            or AcquiredRepairDocument(
-                disposition="included",
-                source_document_id=operation.recap_document_id,
-                document_bytes=operation.document_role.encode(),
-                committed_cost_usd=(
-                    "0.00" if operation.route == "courtlistener_free" else "3.00"
-                ),
-                retry_count=0,
-            )
+        acquire=_bound(
+            runtime,
+            lambda operation: (
+                invoked.append(operation.recap_document_id)
+                or AcquiredRepairDocument(
+                    disposition="included",
+                    source_document_id=operation.recap_document_id,
+                    document_bytes=operation.document_role.encode(),
+                    committed_cost_usd=(
+                        "0.00" if operation.route == "courtlistener_free" else "3.00"
+                    ),
+                    retry_count=0,
+                )
+            ),
         ),
         monotonic=lambda: next(ticks),
     )
@@ -1281,9 +1500,7 @@ def test_full_execution_covers_every_plan_item_under_full_approval() -> None:
     )
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
-        max_per_document_usd="3.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {
         candidate: _snapshot(candidate, index, 9000 + index, free=index == 1)
@@ -1311,8 +1528,7 @@ def test_full_execution_requires_exact_snapshot_candidate_set() -> None:
     manifest = _manifest_bytes(_row("a", 1, free=True), _row("b", 2, free=False))
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=True)}
 
@@ -1333,9 +1549,7 @@ def test_execution_rejects_nonapproved_per_document_price() -> None:
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
-        max_per_document_usd="4.00",
+        approval=_plan_approval(manifest, per_document="4.00"),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
 
@@ -1359,9 +1573,7 @@ def test_pilot_execution_rejects_nonapproved_per_document_price() -> None:
     manifest = _manifest_bytes(*rows)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
-        max_per_document_usd="4.00",
+        approval=_plan_approval(manifest, per_document="4.00"),
     )
     pilot = build_document_repair_pilot(
         full_plan=plan,
@@ -1475,8 +1687,7 @@ def test_execution_resolves_same_entry_attachment_selector(tmp_path: Path) -> No
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshot = json.loads(_snapshot("73569789", 5, 9005, free=False))
     snapshot["entries"][0]["recap_documents"].append(
@@ -1510,16 +1721,20 @@ def test_execution_resolves_same_entry_attachment_selector(tmp_path: Path) -> No
     ]
 
     ticks = iter((1.0, 1.2, 2.0, 2.3))
+    runtime = _purchase_runtime(execution, tmp_path)
     result = run_document_repair_execution(
         execution=execution,
-        purchase_runtime=_purchase_runtime(execution, tmp_path),
-        acquire=lambda resolved: AcquiredRepairDocument(
-            disposition="included",
-            source_document_id=resolved.recap_document_id,
-            document_bytes=resolved.document_role.encode(),
-            committed_cost_usd="3.00",
-            retry_count=0,
-            document_selector=resolved.document_selector,
+        purchase_runtime=runtime,
+        acquire=_bound(
+            runtime,
+            lambda resolved: AcquiredRepairDocument(
+                disposition="included",
+                source_document_id=resolved.recap_document_id,
+                document_bytes=resolved.document_role.encode(),
+                committed_cost_usd="3.00",
+                retry_count=0,
+                document_selector=resolved.document_selector,
+            ),
         ),
         monotonic=lambda: next(ticks),
     )
@@ -1565,8 +1780,7 @@ def test_execution_rejects_repeated_recap_document_identity() -> None:
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshot = json.loads(_snapshot("73569789", 5, 9005, free=False))
     snapshot["entries"][0]["recap_documents"].append(

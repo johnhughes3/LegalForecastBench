@@ -14,6 +14,7 @@ from legalforecast.ingestion.document_repair_pilot import (
 )
 from legalforecast.ingestion.missing_document_successor import (
     build_missing_document_acquisition_plan,
+    verify_repair_plan_approval,
 )
 
 
@@ -50,11 +51,26 @@ def _row(candidate_id: str, costs: tuple[int, ...]) -> dict[str, object]:
 
 
 def _plan(manifest: bytes):  # type: ignore[no-untyped-def]
+    rows = [json.loads(line) for line in manifest.splitlines()]
     return build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=verify_repair_plan_approval(manifest, _approval(rows, manifest)),
     )
+
+
+def _approval(rows: list[dict[str, object]], manifest: bytes) -> dict[str, object]:
+    return {
+        "schema_version": "legalforecast.repair_manifest_approval.v2",
+        "decision": "approve",
+        "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+        "maximum_cost_usd": "453.00",
+        "max_per_document_usd": "3.00",
+        "candidate_count": len(rows),
+        "repair_count": len(rows),
+        "keep_count": 0,
+        "replace_count": 0,
+        "missing_slot_count": sum(len(row["missing_docs"]) for row in rows),
+    }
 
 
 def test_pilot_is_bound_to_full_plan_and_exact_five_case_scope() -> None:

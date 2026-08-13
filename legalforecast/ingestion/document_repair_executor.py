@@ -28,6 +28,7 @@ from legalforecast.contracts import (
     EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
 )
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
@@ -270,6 +271,7 @@ class DocumentRepairPurchaseRuntime:
     authority_sha256: str
     initialization_id: str
     policy: CaseDevPurchasePolicy
+    journal: CaseDevPurchaseJournal
     initialization_receipt_path: Path
     purchase_policy_file_sha256: str
     cohort_policy_file_sha256: str
@@ -567,10 +569,34 @@ def run_document_repair_execution(
     acquire: Callable[[ResolvedRepairOperation], AcquiredRepairDocument],
     monotonic: Callable[[], float],
 ) -> DocumentRepairRunResult:
+    """Run one execution and release its single-use journal capability."""
+
+    try:
+        return _run_document_repair_execution(
+            execution=execution,
+            purchase_runtime=purchase_runtime,
+            acquire=acquire,
+            monotonic=monotonic,
+        )
+    finally:
+        if (
+            type(purchase_runtime) is DocumentRepairPurchaseRuntime
+            and purchase_runtime.is_replay_minted()
+        ):
+            purchase_runtime.journal.close()
+
+
+def _run_document_repair_execution(
+    *,
+    execution: DocumentRepairExecution,
+    purchase_runtime: DocumentRepairPurchaseRuntime | None,
+    acquire: Callable[[ResolvedRepairOperation], AcquiredRepairDocument],
+    monotonic: Callable[[], float],
+) -> DocumentRepairRunResult:
     """Run exact operations in free-first order with measured terminal stopping."""
 
     _require_replay_minted_execution(execution)
-    _require_purchase_runtime(execution, purchase_runtime)
+    _require_purchase_runtime(execution, purchase_runtime, acquire=acquire)
     outcomes: list[RepairOperationOutcome] = []
     acquired_documents: list[Mapping[str, object]] = []
     exclusions: list[Mapping[str, object]] = []
@@ -582,6 +608,11 @@ def run_document_repair_execution(
         if duration < 0:
             raise DocumentRepairExecutorError("monotonic clock moved backwards")
         _validate_acquired_result(operation, result)
+        if operation.route == "pacer_purchase":
+            assert purchase_runtime is not None
+            result = _journal_authenticated_result(
+                operation, result, purchase_runtime.journal
+            )
         outcome = RepairOperationOutcome(
             candidate_id=operation.candidate_id,
             docket_entry_number=operation.docket_entry_number,
@@ -692,11 +723,31 @@ def verify_document_repair_purchase_runtime(
         raise DocumentRepairExecutorError(
             "purchase journal initialization identity is missing"
         )
+    journal: CaseDevPurchaseJournal | None = None
+    try:
+        journal = CaseDevPurchaseJournal(
+            purchase_authority.purchase_policy.canonical_ledger_path,
+            policy=purchase_authority.purchase_policy,
+            initialization_receipt_path=initialization_receipt_path,
+        )
+        journal.plan(execution.purchase_budget)
+    except BaseException as exc:
+        if journal is not None:
+            try:
+                journal.close()
+            except BaseException as cleanup_error:
+                exc.add_note(f"purchase journal cleanup also failed: {cleanup_error}")
+        if isinstance(exc, (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError)):
+            raise DocumentRepairExecutorError(
+                f"purchase journal runtime is invalid: {exc}"
+            ) from exc
+        raise
     return _mint_purchase_runtime(
         execution_sha256=execution.execution_sha256,
         authority_sha256=purchase_authority.authority_sha256,
         initialization_id=initialization_id,
         policy=purchase_authority.purchase_policy,
+        journal=journal,
         initialization_receipt_path=initialization_receipt_path,
         purchase_policy_file_sha256=purchase_policy_file_sha256,
         cohort_policy_file_sha256=cohort_policy_file_sha256,
@@ -747,6 +798,15 @@ def _verify_purchase_policy_binding(
         )
     approval = policy.approval
     assert approval is not None
+    output_commitments = approval.get("output_commitments")
+    if (
+        not isinstance(output_commitments, Mapping)
+        or cast(Mapping[str, object], output_commitments).get("repair_execution")
+        != "sha256:" + execution.execution_sha256
+    ):
+        raise DocumentRepairExecutorError(
+            "purchase-policy output commitment differs from repair execution"
+        )
     document_ids = tuple(
         document_id
         for plan in budget.case_plans
@@ -1085,10 +1145,6 @@ def _resolve_operation(
     if (
         document.get("is_available") is True
         and document.get("is_sealed") is False
-        and not restricted_material_markers(
-            records=(document,),
-            text_fields=(str(document.get("description") or ""),),
-        )
         and isinstance(filepath, str)
     ):
         free_url = public_recap_download_url(filepath)
@@ -1240,6 +1296,48 @@ def _validate_acquired_result(
         )
 
 
+def _journal_authenticated_result(
+    operation: ResolvedRepairOperation,
+    result: AcquiredRepairDocument,
+    journal: CaseDevPurchaseJournal,
+) -> AcquiredRepairDocument:
+    evidence = journal.operation_evidence(operation.recap_document_id)
+    if evidence is None or evidence.get("candidate_id") != operation.candidate_id:
+        raise DocumentRepairExecutorError(
+            "paid result lacks exact journal operation evidence"
+        )
+    status = evidence.get("status")
+    if status == "confirmed":
+        expected_dispositions = {"included", "excluded"}
+        cost = evidence.get("actual_usd") or evidence.get("reservation_usd")
+    elif status in {"submitted", "queued", "unknown"}:
+        expected_dispositions = {"unknown"}
+        cost = evidence.get("reservation_usd")
+    elif status == "failed" and evidence.get("response") is None:
+        expected_dispositions = {"provider_error"}
+        cost = "0.00"
+    elif status == "failed":
+        expected_dispositions = {"unknown"}
+        cost = evidence.get("reservation_usd")
+    else:
+        raise DocumentRepairExecutorError(
+            "paid callback did not produce a durable journal outcome"
+        )
+    if result.disposition not in expected_dispositions:
+        raise DocumentRepairExecutorError(
+            "paid callback disposition differs from journal evidence"
+        )
+    return AcquiredRepairDocument(
+        disposition=result.disposition,
+        source_document_id=result.source_document_id,
+        document_bytes=result.document_bytes,
+        committed_cost_usd=str(cost),
+        retry_count=result.retry_count,
+        reason=result.reason,
+        document_selector=result.document_selector,
+    )
+
+
 def _require_purchase_authority(
     execution: DocumentRepairExecution,
     authority: DocumentRepairPurchaseAuthority | None,
@@ -1279,6 +1377,8 @@ def _require_purchase_authority(
 def _require_purchase_runtime(
     execution: DocumentRepairExecution,
     runtime: DocumentRepairPurchaseRuntime | None,
+    *,
+    acquire: Callable[[ResolvedRepairOperation], AcquiredRepairDocument],
 ) -> None:
     has_paid_operations = any(
         operation.route == "pacer_purchase" for operation in execution.operations
@@ -1296,24 +1396,19 @@ def _require_purchase_runtime(
         or not runtime.authority_sha256
         or not runtime.initialization_id
         or runtime.is_consumed()
+        or getattr(acquire, "journal", None) is not runtime.journal
     ):
         raise DocumentRepairExecutorError(
             "paid execution requires verified purchase authority runtime"
         )
     try:
-        receipt = verify_case_dev_purchase_journal_initialization(
-            runtime.policy.canonical_ledger_path,
-            policy=runtime.policy,
-            receipt_path=runtime.initialization_receipt_path,
-            purchase_policy_file_sha256=runtime.purchase_policy_file_sha256,
-            cohort_policy_file_sha256=runtime.cohort_policy_file_sha256,
-        )
-    except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+        snapshot = runtime.journal.authenticated_snapshot()
+    except CaseDevPurchaseLedgerError as exc:
         raise DocumentRepairExecutorError(
-            f"purchase journal initialization is invalid: {exc}"
+            f"purchase runtime journal is invalid: {exc}"
         ) from exc
-    if receipt.get("initialization_id") != runtime.initialization_id:
-        raise DocumentRepairExecutorError("purchase runtime initialization changed")
+    if not snapshot.purchase_state_sha256:
+        raise DocumentRepairExecutorError("purchase runtime journal is invalid")
     object.__setattr__(runtime, "_consumed", True)
 
 
