@@ -1,0 +1,39 @@
+// command: structure sampled from `codex exec --json --skip-git-repo-check -c approval_policy="never" -` on codex-cli 0.147.0; stdin was a one-word prompt. Token counts and agent_message text remain synthetic. Full plan argv (including --ignore-user-config) cannot authenticate a ChatGPT login stored in config.toml; live API-key smoke is LegalForecastBench-dm0g.4.4.10.
+// generated_at: 2026-08-13T09:13:00Z
+// synthetic: true
+{
+  "crashed": false,
+  "duration_ms": 40,
+  "envelope": [
+    {
+      "thread_id": "00000000-0000-7000-8000-000000000001",
+      "type": "thread.started"
+    },
+    {
+      "type": "turn.started"
+    },
+    {
+      "item": {
+        "id": "item_0",
+        "text": "LEGALFORECAST_FAKE_CODEX_RESULT",
+        "type": "agent_message"
+      },
+      "type": "item.completed"
+    },
+    {
+      "type": "turn.completed",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 3,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      }
+    }
+  ],
+  "returncode": 0,
+  "status": "succeeded",
+  "stderr": "",
+  "stdout_text": "{\"thread_id\":\"00000000-0000-7000-8000-000000000001\",\"type\":\"thread.started\"}\n{\"type\":\"turn.started\"}\n{\"item\":{\"id\":\"item_0\",\"text\":\"LEGALFORECAST_FAKE_CODEX_RESULT\",\"type\":\"agent_message\"},\"type\":\"item.completed\"}\n{\"type\":\"turn.completed\",\"usage\":{\"cache_write_input_tokens\":0,\"cached_input_tokens\":0,\"input_tokens\":3,\"output_tokens\":4,\"reasoning_output_tokens\":0}}\n",
+  "timed_out": false
+}

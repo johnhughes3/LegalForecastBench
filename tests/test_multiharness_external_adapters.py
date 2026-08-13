@@ -43,6 +43,9 @@ CLAUDE_AGENT_SDK_FIXTURE_MANIFEST = (
     / "claude-agent-sdk"
     / "fixture-adapter-manifest.json"
 )
+CODEX_CLI_MANIFEST = (
+    ROOT / "examples" / "adapters" / "codex-cli" / "adapter-manifest.json"
+)
 
 
 def test_lq_ai_fixture_manifest_passes_conformance(tmp_path: Path) -> None:
@@ -270,6 +273,20 @@ def test_claude_agent_sdk_baseline_advertises_live_tool_protocol(
     assert capabilities.capabilities_sha256 == (
         "sha256:" + hashlib.sha256(encoded).hexdigest()
     )
+
+
+def test_codex_cli_offline_adapter_passes_offline_conformance(tmp_path: Path) -> None:
+    run = run_adapter_conformance(
+        adapter_manifest_path=CODEX_CLI_MANIFEST,
+        output_dir=tmp_path / "codex-cli-offline",
+        timeout_seconds=30,
+    )
+
+    assert run.report.status == "passed"
+    assert run.report.adapter_id == "codex-cli-offline"
+    assert run.report.checks["lfb_fixture_run"].startswith("passed:")
+    assert run.report.checks["lab_fixture_run"].startswith("skipped:")
+    assert run.report.checks["sandbox_negative_control"].startswith("passed:")
 
 
 def _read_json(path: Path) -> dict[str, Any]:
