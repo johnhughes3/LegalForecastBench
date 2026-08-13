@@ -28,6 +28,7 @@ from legalforecast.contracts import (
     EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
 )
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
@@ -270,6 +271,7 @@ class DocumentRepairPurchaseRuntime:
     authority_sha256: str
     initialization_id: str
     policy: CaseDevPurchasePolicy
+    journal: CaseDevPurchaseJournal
     initialization_receipt_path: Path
     purchase_policy_file_sha256: str
     cohort_policy_file_sha256: str
@@ -692,11 +694,23 @@ def verify_document_repair_purchase_runtime(
         raise DocumentRepairExecutorError(
             "purchase journal initialization identity is missing"
         )
+    try:
+        journal = CaseDevPurchaseJournal(
+            purchase_authority.purchase_policy.canonical_ledger_path,
+            policy=purchase_authority.purchase_policy,
+            initialization_receipt_path=initialization_receipt_path,
+        )
+        journal.plan(execution.purchase_budget)
+    except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+        raise DocumentRepairExecutorError(
+            f"purchase journal runtime is invalid: {exc}"
+        ) from exc
     return _mint_purchase_runtime(
         execution_sha256=execution.execution_sha256,
         authority_sha256=purchase_authority.authority_sha256,
         initialization_id=initialization_id,
         policy=purchase_authority.purchase_policy,
+        journal=journal,
         initialization_receipt_path=initialization_receipt_path,
         purchase_policy_file_sha256=purchase_policy_file_sha256,
         cohort_policy_file_sha256=cohort_policy_file_sha256,
@@ -1306,19 +1320,13 @@ def _require_purchase_runtime(
             "paid execution requires verified purchase authority runtime"
         )
     try:
-        receipt = verify_case_dev_purchase_journal_initialization(
-            runtime.policy.canonical_ledger_path,
-            policy=runtime.policy,
-            receipt_path=runtime.initialization_receipt_path,
-            purchase_policy_file_sha256=runtime.purchase_policy_file_sha256,
-            cohort_policy_file_sha256=runtime.cohort_policy_file_sha256,
-        )
-    except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+        snapshot = runtime.journal.authenticated_snapshot()
+    except CaseDevPurchaseLedgerError as exc:
         raise DocumentRepairExecutorError(
-            f"purchase journal initialization is invalid: {exc}"
+            f"purchase runtime journal is invalid: {exc}"
         ) from exc
-    if receipt.get("initialization_id") != runtime.initialization_id:
-        raise DocumentRepairExecutorError("purchase runtime initialization changed")
+    if not snapshot.purchase_state_sha256:
+        raise DocumentRepairExecutorError("purchase runtime journal is invalid")
     object.__setattr__(runtime, "_consumed", True)
 
 
