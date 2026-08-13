@@ -27,12 +27,86 @@ def test_policy_generation_is_stable_and_tampering_fails() -> None:
     first = generate_cohort_policy(decisions)
     second = generate_cohort_policy(json.loads(json.dumps(decisions)))
 
+    assert first["schema_version"] == "legalforecast.cohort_policy.v1"
     assert first == second
     assert verify_cohort_policy(first) == first["policy_sha256"]
     tampered = json.loads(json.dumps(first))
     tampered["policy"]["window_policy"]["overlap_days"] = 8
     with pytest.raises(CohortPolicyError, match="hash does not match"):
         verify_cohort_policy(tampered)
+
+
+def test_policy_v2_requires_complete_briefing_pleading_and_byte_roles() -> None:
+    decisions = _decisions_v2("a" * 64)
+
+    artifact = generate_cohort_policy(decisions)
+
+    assert artifact["schema_version"] == "legalforecast.cohort_policy.v2"
+    assert verify_cohort_policy(artifact) == artifact["policy_sha256"]
+    assert artifact["policy"]["packet_completeness"] == {
+        "attacked_claim_bearing_pleading_required": True,
+        "document_role_bytes_validation_required": True,
+        "motion_or_combined_memorandum_required": True,
+        "required_briefing_roles_if_docketed": [
+            "opposition",
+            "reply",
+            "surreply",
+            "court_ordered_supplemental_brief",
+        ],
+        "required_claim_bearing_pleading_roles": [
+            "complaint",
+            "amended_complaint",
+            "counterclaim",
+            "crossclaim",
+            "third_party_complaint",
+            "interpleader_complaint",
+        ],
+    }
+
+
+def test_committed_policy_v2_is_reproducible() -> None:
+    repository_root = Path(__file__).parents[1]
+    decisions = json.loads(
+        (
+            repository_root
+            / "docs/cohort-policy-cycle-1-target-100-2026-08-12-decisions.json"
+        ).read_text(encoding="utf-8")
+    )
+    artifact = json.loads(
+        (
+            repository_root / "docs/cohort-policy-cycle-1-target-100-2026-08-12.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert generate_cohort_policy(decisions) == artifact
+    assert verify_cohort_policy(artifact) == (
+        "e1606aae7d8d9956267b09bb26fc1211874ebe4705e6fc65402a775f70bed848"
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("missing_reply", "required briefing roles"),
+        ("missing_crossclaim", "claim-bearing pleading roles"),
+        ("byte_validation_disabled", "document_role_bytes_validation_required"),
+    ],
+)
+def test_policy_v2_rejects_incomplete_document_requirements(
+    mutation: str, message: str
+) -> None:
+    decisions = _decisions_v2("a" * 64)
+    packet = decisions["packet_completeness"]
+    assert isinstance(packet, dict)
+    if mutation == "missing_reply":
+        packet["required_briefing_roles_if_docketed"].remove("reply")
+    elif mutation == "missing_crossclaim":
+        packet["required_claim_bearing_pleading_roles"].remove("crossclaim")
+    else:
+        packet["document_role_bytes_validation_required"] = False
+
+    with pytest.raises(CohortPolicyError, match=message):
+        generate_cohort_policy(decisions)
 
 
 def test_policy_rejects_forbidden_restatement_and_inconsistent_values() -> None:
@@ -517,3 +591,27 @@ def _decisions(cycle_hash: str) -> dict[str, object]:
             "below_minimum_action": "pilot_only_no_official_cycle",
         },
     }
+
+
+def _decisions_v2(cycle_hash: str) -> dict[str, object]:
+    decisions = _decisions(cycle_hash)
+    decisions["packet_completeness"] = {
+        "motion_or_combined_memorandum_required": True,
+        "required_briefing_roles_if_docketed": [
+            "opposition",
+            "reply",
+            "surreply",
+            "court_ordered_supplemental_brief",
+        ],
+        "attacked_claim_bearing_pleading_required": True,
+        "required_claim_bearing_pleading_roles": [
+            "complaint",
+            "amended_complaint",
+            "counterclaim",
+            "crossclaim",
+            "third_party_complaint",
+            "interpleader_complaint",
+        ],
+        "document_role_bytes_validation_required": True,
+    }
+    return decisions

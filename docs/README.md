@@ -32,6 +32,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Cycle 1 v4 ranked-reserve continuation](cycle-1-target-100-v4-ranked-reserve-replacement.md): replacing a candidate only on terminal nonretryable exclusion evidence, consuming the reserve in frozen order under the unchanged cap.
 - [Cycle 1 target-100 recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md): keeping recovered CourtListener material quarantined until public provenance is authenticated and every PDF is scanned.
 - [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md): value-by-value record of why each committed cohort-policy value is authorized or mechanically derived.
+- [Cycle 1 exact-100 document-selection repair policy provenance](cohort-policy-cycle-1-target-100-2026-08-12-provenance.md): authority and commitments for the versioned packet-completeness successor.
 - [Cycle 1 change control](cycle-1-change-control.md): the change-control rules adopted for the remainder of Cycle 1, through the final gate.
 - [Cycle 1 Stage A v4 correctness migration](cycle-1-stage-a-v4-correctness-migration.md): the required citation-integrity, ontology, successor-cohort, and replay path before Cycle 1 Stage B.
 - [Cycle 1 Stage A v5 unitizer-selector migration](cycle-1-stage-a-v5-unitizer-selector-migration.md): the closed v5 unitizer and v4 structural-review pairing that replaces brittle copied citation endpoints with bounded line counts.
@@ -90,6 +91,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 **Cohort selection**
 
 - [cohort-policy-v1.md](schemas/cohort-policy-v1.md): the Cycle 1 acquisition precommitment schema.
+- [cohort-policy-v2.md](schemas/cohort-policy-v2.md): the versioned exact-100 packet-completeness successor requiring all filed briefing, attacked pleadings, and byte-role validation.
 - [target-cohort-preparation-v1.md](schemas/target-cohort-preparation-v1.md): the generic provider-safe preparation driver for a saturated acquisition snapshot.
 - [retained-cohort-extension-v1.md](schemas/retained-cohort-extension-v1.md): the noncharging bridge from an executed 100-case root to a combined 150-case cohort.
 - [accepted-attempt-map-v1.md](schemas/accepted-attempt-map-v1.md): a committed post-execution selection amendment that does not modify the frozen inputs.
@@ -153,7 +155,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 ## Committed Policy Data
 
-These JSON files in this folder are the committed policy values the docs above describe: `publication-governance.json`, `labeling-policy.json`, `cohort-policy.json`, the dated `cohort-policy-cycle-1-target-100-2026-07-25*.json` decision and provenance records, and `disclosure-public-marker-policy-cycle-1-2026-08-06.json`.
+These JSON files in this folder are the committed policy values the docs above describe: `publication-governance.json`, `labeling-policy.json`, `cohort-policy.json`, the dated `cohort-policy-cycle-1-target-100-2026-07-25*.json` historical decision records, the `cohort-policy-cycle-1-target-100-2026-08-12*.json` document-selection repair successor, and `disclosure-public-marker-policy-cycle-1-2026-08-06.json`.
 
 The RECAP Fetch policy records live under [`manifests/recap-fetch-policies/`](../manifests/recap-fetch-policies/). These committed copies are immutable historical, host-bound provenance snapshots, not portable configuration or replay templates, and runtime code does not load them; operators must generate fresh policies for their own environment instead of rewriting the recorded paths.
 
