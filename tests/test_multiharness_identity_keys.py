@@ -277,3 +277,52 @@ def test_partial_identity_keys_on_receipt_are_rejected(tmp_path: Path) -> None:
             stderr_sha256=receipt.stderr_sha256,
             task_identity_key=_task().key,
         )
+
+
+def test_public_receipt_rejects_partial_identity_keys(tmp_path: Path) -> None:
+    fixture = ExecutionReceipt.from_transcript(
+        _run_spec(tmp_path), stdout="ok"
+    ).to_public_record()
+    fixture["task_identity_key"] = _task().key
+    with pytest.raises(LocalCliContractError, match="must be set together"):
+        validate_public_execution_receipt(fixture)
+
+
+def test_receipt_identity_keys_require_sha256_prefix(tmp_path: Path) -> None:
+    receipt = ExecutionReceipt.from_transcript(_run_spec(tmp_path), stdout="ok")
+    with pytest.raises(LocalCliContractError, match="sha256:"):
+        ExecutionReceipt(
+            receipt_id=receipt.receipt_id,
+            spec_sha256=receipt.spec_sha256,
+            status=receipt.status,
+            returncode=receipt.returncode,
+            executable_name=receipt.executable_name,
+            stdout=receipt.stdout,
+            stderr=receipt.stderr,
+            stdout_sha256=receipt.stdout_sha256,
+            stderr_sha256=receipt.stderr_sha256,
+            task_identity_key=RAW_DIGEST,
+            solver_identity_key=RAW_DIGEST,
+            run_identity_key=RAW_DIGEST,
+        )
+
+
+def test_from_record_rejects_coerced_usage_transcripts_and_environment(
+    tmp_path: Path,
+) -> None:
+    spec = _run_spec(tmp_path)
+    receipt = ExecutionReceipt.from_transcript(spec, stdout="ok")
+    usage_record = receipt.to_record()
+    usage_record["usage"] = {"output_tokens": True}
+    with pytest.raises(LocalCliContractError, match="usage"):
+        ExecutionReceipt.from_record(usage_record)
+
+    stdout_record = receipt.to_record()
+    stdout_record["stdout"] = 123
+    with pytest.raises(LocalCliContractError, match="stdout"):
+        ExecutionReceipt.from_record(stdout_record)
+
+    spec_record = spec.to_record()
+    spec_record["environment"] = None
+    with pytest.raises(LocalCliContractError, match="environment"):
+        RunSpec.from_record(spec_record)

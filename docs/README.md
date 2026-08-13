@@ -51,6 +51,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [multiharness-evaluation-contract.md](multiharness-evaluation-contract.md): `EvaluationSpec` precommitments for deliverables, evaluator identity, judge settings, and runtime policy.
 - [multiharness-score-contract.md](multiharness-score-contract.md): the pinned score contract — deliberately a strict Harvey LAB specialization, not generic metric arithmetic.
 - [multiharness-artifact-compatibility.md](multiharness-artifact-compatibility.md): the frozen compatibility baseline for community artifact readers and writers.
+- [multiharness-identity-keys.md](multiharness-identity-keys.md): harness-independent task, solver, run, and matched-harness identity keys shared by community submissions and official runs.
 
 ### Adapter tracks
 

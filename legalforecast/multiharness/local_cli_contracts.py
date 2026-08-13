@@ -257,7 +257,7 @@ class RunSpec:
                 if not isinstance(item, str) or not item:
                     raise LocalCliContractError("argv must contain non-empty strings")
                 argv_tokens.append(item)
-            environment = optional_mapping(record, "environment") or {}
+            environment = _require_str_str_mapping(record, "environment")
             timeout = record["timeout_seconds"]
             if not isinstance(timeout, int | float) or isinstance(timeout, bool):
                 raise LocalCliContractError("timeout_seconds must be a positive number")
@@ -271,9 +271,7 @@ class RunSpec:
                 spec_id=require_str(record, "spec_id"),
                 argv=tuple(argv_tokens),
                 working_directory=Path(require_str(record, "working_directory")),
-                environment={
-                    str(key): str(value) for key, value in environment.items()
-                },
+                environment=environment,
                 timeout_seconds=timeout,
                 output_format=require_str(record, "output_format"),
                 json_schema=None if json_schema is None else dict(json_schema),
@@ -348,25 +346,15 @@ class ExecutionReceipt:
         for field_name in (
             "runtime_policy_sha256",
             "deliverable_manifest_sha256",
-            "task_identity_key",
-            "solver_identity_key",
-            "run_identity_key",
         ):
             digest = getattr(self, field_name)
             if digest is not None:
                 validate_sha256(digest, field_name)
-        identity_keys = (
+        _require_identity_keys(
             self.task_identity_key,
             self.solver_identity_key,
             self.run_identity_key,
         )
-        if any(key is None for key in identity_keys) and any(
-            key is not None for key in identity_keys
-        ):
-            raise LocalCliContractError(
-                "task_identity_key, solver_identity_key, and run_identity_key "
-                "must be set together"
-            )
         if self.schema_version != LOCAL_CLI_EXECUTION_RECEIPT_SCHEMA_VERSION:
             raise LocalCliContractError(
                 f"schema_version must be {LOCAL_CLI_EXECUTION_RECEIPT_SCHEMA_VERSION!r}"
@@ -448,7 +436,7 @@ class ExecutionReceipt:
                 field_name="execution_receipt",
             )
             require_schema_version(record, LOCAL_CLI_EXECUTION_RECEIPT_SCHEMA_VERSION)
-            usage = optional_mapping(record, "usage") or {}
+            usage = _require_usage(record)
             returncode = record["returncode"]
             if returncode is not None and type(returncode) is not int:
                 raise LocalCliContractError("returncode must be a non-negative integer")
@@ -463,14 +451,14 @@ class ExecutionReceipt:
                 status=require_str(record, "status"),
                 returncode=returncode,
                 executable_name=require_str(record, "executable_name"),
-                stdout=str(record["stdout"]),
-                stderr=str(record["stderr"]),
+                stdout=_require_text(record, "stdout"),
+                stderr=_require_text(record, "stderr"),
                 stdout_sha256=require_str(record, "stdout_sha256"),
                 stderr_sha256=require_str(record, "stderr_sha256"),
                 duration_ms=duration,
                 served_model=optional_str(record, "served_model"),
                 executable_version=optional_str(record, "executable_version"),
-                usage={str(key): int(value) for key, value in usage.items()},
+                usage=usage,
                 cost_usd=_optional_float(record, "cost_usd"),
                 runtime_policy_sha256=optional_str(record, "runtime_policy_sha256"),
                 deliverable_manifest_sha256=optional_str(
@@ -592,9 +580,81 @@ def validate_public_execution_receipt(record: Mapping[str, Any]) -> None:
         require_str(record, "executable_name")
         require_str(record, "stdout_sha256")
         require_str(record, "stderr_sha256")
+        _require_identity_keys(
+            record.get("task_identity_key"),
+            record.get("solver_identity_key"),
+            record.get("run_identity_key"),
+        )
         validate_public_record(record, "execution_receipt")
     except MultiHarnessValidationError as exc:
         raise LocalCliContractError(str(exc)) from exc
+
+
+def _require_identity_keys(
+    task_identity_key: object,
+    solver_identity_key: object,
+    run_identity_key: object,
+) -> None:
+    keys = (task_identity_key, solver_identity_key, run_identity_key)
+    if any(key is None for key in keys) and any(key is not None for key in keys):
+        raise LocalCliContractError(
+            "task_identity_key, solver_identity_key, and run_identity_key "
+            "must be set together"
+        )
+    for field_name, value in zip(
+        ("task_identity_key", "solver_identity_key", "run_identity_key"),
+        keys,
+        strict=True,
+    ):
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise LocalCliContractError(f"{field_name} must be a string")
+        _require_prefixed_digest(value, field_name)
+
+
+def _require_prefixed_digest(value: str, field_name: str) -> None:
+    try:
+        validate_sha256(value, field_name, allow_prefix=True)
+    except MultiHarnessValidationError as exc:
+        raise LocalCliContractError(str(exc)) from exc
+    if not value.startswith("sha256:"):
+        raise LocalCliContractError(f"{field_name} must use the sha256: prefix")
+
+
+def _require_text(record: Mapping[str, Any], field_name: str) -> str:
+    value = record.get(field_name)
+    if type(value) is not str:
+        raise LocalCliContractError(f"{field_name} must be a string")
+    return value
+
+
+def _require_str_str_mapping(
+    record: Mapping[str, Any], field_name: str
+) -> dict[str, str]:
+    raw = record.get(field_name)
+    if not isinstance(raw, Mapping):
+        raise LocalCliContractError(f"{field_name} must be an object")
+    values: dict[str, str] = {}
+    for key, value in cast(Mapping[object, object], raw).items():
+        if type(key) is not str or type(value) is not str:
+            raise LocalCliContractError(f"{field_name} keys and values must be strings")
+        values[key] = value
+    return values
+
+
+def _require_usage(record: Mapping[str, Any]) -> dict[str, int]:
+    raw = record.get("usage")
+    if not isinstance(raw, Mapping):
+        raise LocalCliContractError("usage must be an object")
+    usage: dict[str, int] = {}
+    for key, value in cast(Mapping[object, object], raw).items():
+        if type(key) is not str or not key.strip():
+            raise LocalCliContractError("usage key must be a non-empty string")
+        if type(value) is not int or value < 0:
+            raise LocalCliContractError(f"usage[{key}] must be a non-negative int")
+        usage[key] = value
+    return usage
 
 
 def _closed_record(
