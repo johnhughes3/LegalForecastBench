@@ -145,6 +145,11 @@ def check_baseline(root: Path, baseline_path: Path = BASELINE_PATH) -> tuple[str
         allowed = getattr(baseline_metrics, field)
         if observed > allowed:
             violations.append(f"cli_metrics.{field}: {observed} > reviewed {allowed}")
+        elif observed < allowed:
+            violations.append(
+                f"stale cli_metrics.{field} must be reduced: "
+                f"reviewed {allowed} > observed {observed}"
+            )
 
     unexpected_upward = sorted(
         set(current.upward_cli_dependencies) - set(baseline.upward_cli_dependencies)
@@ -313,6 +318,7 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                 value,
                 importlib_module_aliases=importlib_module_aliases,
                 import_module_aliases=import_module_aliases,
+                include_console=False,
             ):
                 continue
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]

@@ -134,6 +134,29 @@ monkeypatch.setattr(cli_module, "main", replacement)
     assert inventory.monkeypatch_targets == ("legalforecast.cli.main",)
 
 
+def test_architecture_scanner_ignores_dynamically_imported_console_as_cli(
+    tmp_path: Path,
+) -> None:
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_probe.py").write_text(
+        """\
+import importlib
+
+console = importlib.import_module("legalforecast.console")
+private = console._private
+monkeypatch.setattr(console, "main", replacement)
+""",
+        encoding="utf-8",
+    )
+
+    inventory = architecture_module._scan_test_compatibility(tmp_path)
+
+    assert inventory.cli_import_files == ()
+    assert inventory.private_cli_targets == ()
+    assert inventory.monkeypatch_targets == ()
+
+
 def test_console_source_detection_respects_package_boundary() -> None:
     assert architecture_module._is_console_adapter_source(
         "legalforecast/console/parser.py"
@@ -244,6 +267,31 @@ def test_architecture_baseline_reports_tightened_limits(tmp_path: Path) -> None:
         violation.startswith("cli_metrics.line_count:")
         and violation.endswith("> reviewed 1")
         for violation in violations
+    )
+
+
+def test_architecture_baseline_requires_reduced_metrics_to_shrink(
+    tmp_path: Path,
+) -> None:
+    baseline = load_baseline(ROOT / BASELINE_PATH)
+    payload = {
+        "schema_version": 1,
+        "cli_metrics": {
+            **asdict(baseline.cli_metrics),
+            "line_count": baseline.cli_metrics.line_count + 1,
+        },
+        "upward_cli_dependencies": list(baseline.upward_cli_dependencies),
+        "compatibility": asdict(baseline.compatibility),
+    }
+    path = tmp_path / "architecture.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    violations = check_baseline(ROOT, path)
+
+    assert (
+        "stale cli_metrics.line_count must be reduced: "
+        f"reviewed {baseline.cli_metrics.line_count + 1} "
+        f"> observed {baseline.cli_metrics.line_count}" in violations
     )
 
 
