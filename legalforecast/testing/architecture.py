@@ -471,6 +471,10 @@ def _is_console_adapter_source(path: str) -> bool:
 def _is_cli_adapter_module(module: str, *, include_console: bool = True) -> bool:
     if module == "legalforecast.cli" or module.startswith("legalforecast.cli."):
         return True
+    if module == "legalforecast.cli_commands" or module.startswith(
+        "legalforecast.cli_commands."
+    ):
+        return True
     return include_console and (
         module == "legalforecast.console" or module.startswith("legalforecast.console.")
     )

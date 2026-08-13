@@ -194,6 +194,7 @@ def test_console_adapter_scan_rejects_facade_cycles_but_allows_composition(
         "from legalforecast.console.commands import app",
         "import legalforecast.console",
         "import legalforecast.console.commands",
+        "import legalforecast.cli_commands.score",
         'import importlib\nimportlib.import_module("legalforecast.cli")',
         (
             "import importlib as loader\n"
@@ -223,7 +224,9 @@ def test_upward_dependency_scanner_resolves_cli_import_forms(
     "statement",
     [
         "import legalforecast.console_utils",
+        "import legalforecast.cli_commands_utils",
         'import importlib\nimportlib.import_module("legalforecast.console_utils")',
+        'import importlib\nimportlib.import_module("legalforecast.cli_commands_utils")',
     ],
 )
 def test_upward_dependency_scanner_respects_adapter_package_boundaries(
