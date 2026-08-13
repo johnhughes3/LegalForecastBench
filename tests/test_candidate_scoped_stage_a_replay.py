@@ -287,6 +287,11 @@ def test_unknown_rerun_outcome_is_nonretryable_and_unsealed(tmp_path: Path) -> N
         run_candidate_scoped_stage_a_replay(
             plan, unitizer=unitizer, reviewer=reviewer, clock=_Clock()
         )
+    reminted = _plan(tmp_path, predecessor, successor_packets=successor)
+    with pytest.raises(CandidateScopedStageAReplayError, match="plan already executed"):
+        run_candidate_scoped_stage_a_replay(
+            reminted, unitizer=unitizer, reviewer=reviewer, clock=_Clock()
+        )
     assert unitizer_calls == ["cand-a"]
 
 
@@ -356,6 +361,32 @@ def test_outcome_audit_status_mismatch_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(
         CandidateScopedStageAReplayError, match="unitizer audit status differs"
     ):
+        run_candidate_scoped_stage_a_replay(
+            plan,
+            unitizer=unitizer,
+            reviewer=lambda request, _unitize: _review_outcome(request),
+            clock=_Clock(),
+        )
+
+
+def test_outcome_audit_missing_status_is_rejected(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        return StageAStageOutcome(
+            candidate_id=request.candidate_id,
+            records=(
+                {"candidate_id": request.candidate_id, "prediction_units": ["x"]},
+            ),
+            audit={"candidate_id": request.candidate_id},
+            status="settled",
+            request_sha256=request.request_sha256,
+        )
+
+    with pytest.raises(CandidateScopedStageAReplayError, match="unitizer audit lacks"):
         run_candidate_scoped_stage_a_replay(
             plan,
             unitizer=unitizer,
@@ -633,6 +664,64 @@ def test_live_stage_a_audit_statuses_can_bind(tmp_path: Path) -> None:
     assert lineage.candidates[0].unitize_audit["status"] == "succeeded"
     assert lineage.candidates[0].review_audit["status"] == "passed"
     assert lineage.candidates[0].unitizer_status == "settled"
+
+
+def test_unknown_predecessor_audit_cannot_bind(tmp_path: Path) -> None:
+    packet = _packet("cand-a", digest=_DIGEST_A)
+    with pytest.raises(
+        CandidateScopedStageAReplayError, match="unknown and cannot bind"
+    ):
+        bind_predecessor_stage_a_lineage(
+            candidates=(
+                PredecessorCandidateStageA(
+                    packet=packet,
+                    unitize_record={
+                        "candidate_id": "cand-a",
+                        "prediction_units": ["unit-a"],
+                    },
+                    unitize_audit={"candidate_id": "cand-a", "status": "unknown"},
+                    review_flags=(),
+                    review_audit={"candidate_id": "cand-a", "status": "passed"},
+                    unitizer_status="settled",
+                    reviewer_status="settled",
+                ),
+            ),
+            unitizer_namespace=UNITIZER_NAMESPACE,
+            reviewer_namespace=REVIEWER_NAMESPACE,
+            provider_caps_sha256=_CAPS,
+            provider_journal_path=tmp_path / "provider.sqlite3",
+            selection_sha256=_SELECTION,
+            materialization_sha256=_MATERIALIZATION,
+            parser_sha256=_PARSER,
+        )
+
+
+def test_live_audit_cannot_pair_with_terminal_replay_state(tmp_path: Path) -> None:
+    packet = _packet("cand-a", digest=_DIGEST_A)
+    with pytest.raises(
+        CandidateScopedStageAReplayError,
+        match="incompatible with replay terminal state",
+    ):
+        bind_predecessor_stage_a_lineage(
+            candidates=(
+                PredecessorCandidateStageA(
+                    packet=packet,
+                    unitize_record={"candidate_id": "cand-a", "prediction_units": []},
+                    unitize_audit={"candidate_id": "cand-a", "status": "succeeded"},
+                    review_flags=(),
+                    review_audit={"candidate_id": "cand-a", "status": "passed"},
+                    unitizer_status="terminal_escalation",
+                    reviewer_status="terminal_escalation",
+                ),
+            ),
+            unitizer_namespace=UNITIZER_NAMESPACE,
+            reviewer_namespace=REVIEWER_NAMESPACE,
+            provider_caps_sha256=_CAPS,
+            provider_journal_path=tmp_path / "provider.sqlite3",
+            selection_sha256=_SELECTION,
+            materialization_sha256=_MATERIALIZATION,
+            parser_sha256=_PARSER,
+        )
 
 
 def test_concurrent_runs_cannot_double_claim_a_plan(tmp_path: Path) -> None:

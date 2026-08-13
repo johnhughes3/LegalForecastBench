@@ -53,16 +53,10 @@ _TERMINAL_STATUSES = frozenset(
     {"settled", "reconstruction_failed", "terminal_escalation"}
 )
 _OUTCOME_STATUSES = _TERMINAL_STATUSES | {"unknown"}
-_UNITIZER_AUDIT_STATUSES = _OUTCOME_STATUSES | {
-    "succeeded",
-    "adjudication_pending",
-}
-_REVIEWER_AUDIT_STATUSES = _OUTCOME_STATUSES | {
-    "passed",
-    "flags_pending",
-    "not_attempted_after_unitizer_terminal",
-    "not_attempted_after_unknown",
-}
+_LIVE_UNITIZER_AUDIT_STATUSES = frozenset({"succeeded", "adjudication_pending"})
+_LIVE_REVIEWER_AUDIT_STATUSES = frozenset({"passed", "flags_pending"})
+_CONSUMED_PLAN_DIGESTS: dict[str, None] = {}
+_CONSUMED_PLAN_DIGESTS_LOCK = threading.Lock()
 _PREDECESSOR_AUTHORITY = object()
 _PLAN_AUTHORITY = object()
 _REQUEST_AUTHORITY = object()
@@ -234,6 +228,12 @@ class CandidateScopedStageAPlan:
                 raise CandidateScopedStageAReplayError(
                     "candidate-scoped Stage A plan already executed"
                 )
+            with _CONSUMED_PLAN_DIGESTS_LOCK:
+                if self.plan_sha256 in _CONSUMED_PLAN_DIGESTS:
+                    raise CandidateScopedStageAReplayError(
+                        "candidate-scoped Stage A plan already executed"
+                    )
+                _CONSUMED_PLAN_DIGESTS[self.plan_sha256] = None
             object.__setattr__(self, "_consumed", True)
 
     def to_record(self) -> dict[str, object]:
@@ -1230,15 +1230,28 @@ def _require_nested_candidate(
         )
 
 
-def _require_audit_vocabulary(
-    record: Mapping[str, object], allowed: frozenset[str], *, label: str
+def _require_predecessor_audit(
+    record: Mapping[str, object],
+    replay_status: StageStatus,
+    *,
+    live: frozenset[str],
+    extra_terminal: frozenset[str] = frozenset(),
+    label: str,
 ) -> None:
     nested = dict(record).get("status")
     if not isinstance(nested, str) or not nested:
         raise CandidateScopedStageAReplayError(f"{label} lacks status")
+    if nested == "unknown":
+        raise CandidateScopedStageAReplayError(
+            f"{label} status is unknown and cannot bind"
+        )
+    if replay_status == "settled":
+        allowed = live | {"settled"}
+    else:
+        allowed = {replay_status} | extra_terminal
     if nested not in allowed:
         raise CandidateScopedStageAReplayError(
-            f"{label} status is not in the stage-specific vocabulary"
+            f"{label} status is incompatible with replay terminal state"
         )
 
 
@@ -1246,7 +1259,9 @@ def _require_nested_status(
     record: Mapping[str, object], status: str, *, label: str
 ) -> None:
     nested = dict(record).get("status")
-    if nested is not None and nested != status:
+    if nested is None:
+        raise CandidateScopedStageAReplayError(f"{label} lacks status")
+    if nested != status:
         raise CandidateScopedStageAReplayError(
             f"{label} status differs from the authenticated outcome"
         )
@@ -1293,9 +1308,10 @@ def _require_predecessor_candidates(
         _require_nested_candidate(
             prior.unitize_audit, candidate_id, label="predecessor unitize audit"
         )
-        _require_audit_vocabulary(
+        _require_predecessor_audit(
             prior.unitize_audit,
-            _UNITIZER_AUDIT_STATUSES,
+            prior.unitizer_status,
+            live=_LIVE_UNITIZER_AUDIT_STATUSES,
             label="predecessor unitize audit",
         )
         for flag in prior.review_flags:
@@ -1305,9 +1321,14 @@ def _require_predecessor_candidates(
         _require_nested_candidate(
             prior.review_audit, candidate_id, label="predecessor review audit"
         )
-        _require_audit_vocabulary(
+        reviewer_extra = frozenset[str]()
+        if prior.unitizer_status in {"reconstruction_failed", "terminal_escalation"}:
+            reviewer_extra = frozenset({"not_attempted_after_unitizer_terminal"})
+        _require_predecessor_audit(
             prior.review_audit,
-            _REVIEWER_AUDIT_STATUSES,
+            prior.reviewer_status,
+            live=_LIVE_REVIEWER_AUDIT_STATUSES,
+            extra_terminal=reviewer_extra,
             label="predecessor review audit",
         )
         ordered.append(_freeze_predecessor_candidate(prior))
