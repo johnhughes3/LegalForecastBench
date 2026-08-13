@@ -110,7 +110,9 @@ def test_changed_packet_reruns_only_that_candidate(tmp_path: Path) -> None:
         request: CandidateScopedStageARerunRequest, _unitize: StageAStageOutcome
     ) -> StageAStageOutcome:
         reviewer_calls.append(request.candidate_id)
-        return _review_outcome(request, flags=[{"flag": "ok"}])
+        return _review_outcome(
+            request, flags=[{"candidate_id": request.candidate_id, "flag": "ok"}]
+        )
 
     execution = run_candidate_scoped_stage_a_replay(
         plan, unitizer=unitizer, reviewer=reviewer, clock=_Clock()
@@ -128,7 +130,10 @@ def test_changed_packet_reruns_only_that_candidate(tmp_path: Path) -> None:
     assert _prediction_units(receipt.unitize_records[2]) == _prediction_units(
         predecessor.candidates[2].unitize_record
     )
-    assert {"flag": "ok"} in [dict(flag) for flag in receipt.review_flags]
+    assert any(
+        dict(flag).get("flag") == "ok" and dict(flag).get("candidate_id") == "cand-b"
+        for flag in receipt.review_flags
+    )
     timing = next(item for item in receipt.timings if item.candidate_id == "cand-b")
     assert timing.disposition == "rerun"
     assert timing.elapsed_ms == 100
@@ -796,6 +801,76 @@ def test_packet_identity_is_stable_and_role_sensitive() -> None:
     changed = packet_input_identity_sha256(_packet("cand-a", digest=_DIGEST_B))
     assert first == second
     assert first != changed
+
+
+def test_selection_record_must_match_packet_envelope() -> None:
+    packet = _packet("cand-a", digest=_DIGEST_A)
+    mismatched = CandidatePacketInput(
+        candidate_id=packet.candidate_id,
+        case_id=packet.case_id,
+        selection_record={
+            "candidate_id": "cand-b",
+            "case_id": packet.case_id,
+            "documents": [{"source_document_id": "doc-cand-a"}],
+        },
+        documents=packet.documents,
+        parser_outputs=packet.parser_outputs,
+    )
+    with pytest.raises(
+        CandidateScopedStageAReplayError, match="selection_record candidate_id"
+    ):
+        packet_input_identity_sha256(mismatched)
+
+
+def test_reviewer_flag_without_candidate_id_is_rejected(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+
+    def reviewer(
+        request: CandidateScopedStageARerunRequest, _unitize: StageAStageOutcome
+    ) -> StageAStageOutcome:
+        return _review_outcome(request, flags=[{"flag": "ok"}])
+
+    with pytest.raises(CandidateScopedStageAReplayError, match="reviewer record"):
+        run_candidate_scoped_stage_a_replay(
+            plan,
+            unitizer=_unitize_outcome,
+            reviewer=reviewer,
+            clock=_Clock(),
+        )
+
+
+def test_terminal_unitizer_cannot_bind_settled_reviewer(tmp_path: Path) -> None:
+    packet = _packet("cand-a", digest=_DIGEST_A)
+    with pytest.raises(
+        CandidateScopedStageAReplayError,
+        match="reviewer status must match the terminal unitizer status",
+    ):
+        bind_predecessor_stage_a_lineage(
+            candidates=(
+                PredecessorCandidateStageA(
+                    packet=packet,
+                    unitize_record={"candidate_id": "cand-a", "prediction_units": []},
+                    unitize_audit={
+                        "candidate_id": "cand-a",
+                        "status": "terminal_escalation",
+                    },
+                    review_flags=(),
+                    review_audit={"candidate_id": "cand-a", "status": "passed"},
+                    unitizer_status="terminal_escalation",
+                    reviewer_status="settled",
+                ),
+            ),
+            unitizer_namespace=UNITIZER_NAMESPACE,
+            reviewer_namespace=REVIEWER_NAMESPACE,
+            provider_caps_sha256=_CAPS,
+            provider_journal_path=tmp_path / "provider.sqlite3",
+            selection_sha256=_SELECTION,
+            materialization_sha256=_MATERIALIZATION,
+            parser_sha256=_PARSER,
+        )
 
 
 def test_contract_docs_are_linked() -> None:

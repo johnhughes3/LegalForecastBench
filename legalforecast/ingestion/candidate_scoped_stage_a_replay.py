@@ -464,6 +464,15 @@ def packet_input_identity_sha256(packet: CandidatePacketInput) -> str:
 
     _require_candidate_id(packet.candidate_id)
     _require_nonempty(packet.case_id, "case_id")
+    selection = _jsonable_mapping(packet.selection_record)
+    if selection.get("candidate_id") != packet.candidate_id:
+        raise CandidateScopedStageAReplayError(
+            "selection_record candidate_id differs from the packet envelope"
+        )
+    if selection.get("case_id") != packet.case_id:
+        raise CandidateScopedStageAReplayError(
+            "selection_record case_id differs from the packet envelope"
+        )
     documents = tuple(
         sorted(packet.documents, key=lambda document: document.source_document_id)
     )
@@ -490,7 +499,7 @@ def packet_input_identity_sha256(packet: CandidatePacketInput) -> str:
     payload = {
         "candidate_id": packet.candidate_id,
         "case_id": packet.case_id,
-        "selection": _jsonable_mapping(packet.selection_record),
+        "selection": selection,
         "documents": [
             {
                 "source_document_id": document.source_document_id,
@@ -1301,6 +1310,11 @@ def _require_predecessor_candidates(
             raise CandidateScopedStageAReplayError(
                 f"predecessor Stage A outcome is unknown: {candidate_id}"
             )
+        if prior.unitizer_status in {"reconstruction_failed", "terminal_escalation"}:
+            if prior.reviewer_status != prior.unitizer_status:
+                raise CandidateScopedStageAReplayError(
+                    "reviewer status must match the terminal unitizer status"
+                )
         if dict(prior.unitize_record).get("candidate_id") != candidate_id:
             raise CandidateScopedStageAReplayError(
                 "predecessor unitize record candidate_id does not match packet"
@@ -1316,7 +1330,7 @@ def _require_predecessor_candidates(
         )
         for flag in prior.review_flags:
             _require_nested_candidate(
-                flag, candidate_id, label="predecessor review flag", required=False
+                flag, candidate_id, label="predecessor review flag"
             )
         _require_nested_candidate(
             prior.review_audit, candidate_id, label="predecessor review audit"
@@ -1376,7 +1390,6 @@ def _require_outcome(
             record,
             request.candidate_id,
             label=f"{stage} record",
-            required=stage == "unitizer",
         )
     _require_nested_candidate(
         outcome.audit, request.candidate_id, label=f"{stage} audit"
