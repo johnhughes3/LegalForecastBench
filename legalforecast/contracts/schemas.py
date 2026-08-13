@@ -146,6 +146,9 @@ EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1 = SchemaIdentifier(
 EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1 = SchemaIdentifier(
     "legalforecast.exact100_missing_document_successor.v1"
 )
+EXACT100_DOCUMENT_REPAIR_PILOT_V1 = SchemaIdentifier(
+    "legalforecast.exact100_document_repair_pilot.v1"
+)
 FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1 = SchemaIdentifier(
     "legalforecast.firecrawl_provider_contract_defect_authorization.v1"
 )
