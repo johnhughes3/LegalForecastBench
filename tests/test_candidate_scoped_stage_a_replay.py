@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
@@ -123,7 +124,7 @@ def test_changed_packet_reruns_only_that_candidate(tmp_path: Path) -> None:
     assert _prediction_units(receipt.unitize_records[0]) == _prediction_units(
         predecessor.candidates[0].unitize_record
     )
-    assert receipt.unitize_records[1]["prediction_units"] == ["rerun-unit"]
+    assert _prediction_units(receipt.unitize_records[1]) == ["rerun-unit"]
     assert _prediction_units(receipt.unitize_records[2]) == _prediction_units(
         predecessor.candidates[2].unitize_record
     )
@@ -221,7 +222,7 @@ def test_terminal_predecessor_is_not_retried_when_inputs_match(tmp_path: Path) -
     receipt = seal_candidate_scoped_stage_a_replay(plan, execution)
     assert calls == []
     assert plan.decisions[0].disposition == "reused"
-    assert receipt.unitize_records[0]["prediction_units"] == []
+    assert _prediction_units(receipt.unitize_records[0]) == []
 
 
 def test_changed_terminal_candidate_is_rerun(tmp_path: Path) -> None:
@@ -246,7 +247,7 @@ def test_changed_terminal_candidate_is_rerun(tmp_path: Path) -> None:
     )
     receipt = seal_candidate_scoped_stage_a_replay(plan, execution)
     assert calls == ["unitize:cand-b", "review:cand-b"]
-    assert receipt.unitize_records[1]["prediction_units"] == ["fresh"]
+    assert _prediction_units(receipt.unitize_records[1]) == ["fresh"]
 
 
 def test_unknown_rerun_outcome_is_nonretryable_and_unsealed(tmp_path: Path) -> None:
@@ -404,7 +405,7 @@ def test_mutated_predecessor_payloads_cannot_run(tmp_path: Path) -> None:
     ):
         run_candidate_scoped_stage_a_replay(
             plan,
-            unitizer=lambda request: _unitize_outcome(request),
+            unitizer=_unitize_outcome,
             reviewer=lambda request, _unitize: _review_outcome(request),
             clock=_Clock(),
         )
@@ -510,7 +511,7 @@ def test_callbacks_bind_authenticated_rerun_request(tmp_path: Path) -> None:
     )
     assert request.unitizer_namespace == UNITIZER_NAMESPACE
     assert request.reviewer_namespace == REVIEWER_NAMESPACE
-    assert receipt.unitize_records[1]["prediction_units"] == ["bound"]
+    assert _prediction_units(receipt.unitize_records[1]) == ["bound"]
 
 
 def test_outcome_request_digest_mismatch_is_rejected(tmp_path: Path) -> None:
@@ -594,6 +595,72 @@ def test_terminal_unitizer_rerun_can_rebind_as_predecessor(tmp_path: Path) -> No
     assert rebound.candidates[1].unitizer_status == "terminal_escalation"
     assert rebound.candidates[1].reviewer_status == "terminal_escalation"
     assert rebound.candidates[1].review_audit["status"] == "terminal_escalation"
+
+
+def test_concurrent_runs_cannot_double_claim_a_plan(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+    calls: list[str] = []
+    errors: list[str] = []
+    barrier = threading.Barrier(2)
+
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        calls.append(request.candidate_id)
+        return _unitize_outcome(request, units=["once"])
+
+    def worker() -> None:
+        barrier.wait()
+        try:
+            run_candidate_scoped_stage_a_replay(
+                plan,
+                unitizer=unitizer,
+                reviewer=lambda request, _unitize: _review_outcome(request),
+                clock=_Clock(),
+            )
+        except CandidateScopedStageAReplayError as exc:
+            errors.append(str(exc))
+
+    first = threading.Thread(target=worker)
+    second = threading.Thread(target=worker)
+    first.start()
+    second.start()
+    first.join()
+    second.join()
+    assert calls == ["cand-a"]
+    assert any("already executed" in message for message in errors)
+
+
+def test_sealed_receipt_payloads_cannot_change(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+    execution = run_candidate_scoped_stage_a_replay(
+        plan,
+        unitizer=lambda request: _unitize_outcome(request, units=["fresh"]),
+        reviewer=lambda request, _unitize: _review_outcome(request),
+        clock=_Clock(),
+    )
+    receipt = seal_candidate_scoped_stage_a_replay(plan, execution)
+    frozen_record = cast(dict[str, object], receipt.unitize_records[0])
+    with pytest.raises(TypeError):
+        frozen_record["prediction_units"] = ["tampered"]
+    record = receipt.to_record()
+    assert record["receipt_sha256"] == receipt.receipt_sha256
+    object.__setattr__(
+        receipt,
+        "unitize_records",
+        (
+            {"candidate_id": "cand-a", "prediction_units": ["tampered"]},
+            *receipt.unitize_records[1:],
+        ),
+    )
+    with pytest.raises(
+        CandidateScopedStageAReplayError, match="receipt payloads changed"
+    ):
+        receipt.to_record()
 
 
 def test_packet_identity_is_stable_and_role_sensitive() -> None:

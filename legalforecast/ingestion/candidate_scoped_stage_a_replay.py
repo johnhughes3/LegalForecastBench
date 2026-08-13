@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -203,6 +204,7 @@ class CandidateScopedStageAPlan:
     predecessor_candidates: tuple[PredecessorCandidateStageA, ...]
     successor_packets: tuple[CandidatePacketInput, ...]
     _consumed: bool
+    _claim: threading.Lock
     _mint: object
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -215,6 +217,14 @@ class CandidateScopedStageAPlan:
 
     def is_consumed(self) -> bool:
         return self._consumed
+
+    def consume(self) -> None:
+        with self._claim:
+            if self._consumed:
+                raise CandidateScopedStageAReplayError(
+                    "candidate-scoped Stage A plan already executed"
+                )
+            object.__setattr__(self, "_consumed", True)
 
     def to_record(self) -> dict[str, object]:
         return {**self.content_record(), "plan_sha256": self.plan_sha256}
@@ -350,6 +360,13 @@ class CandidateScopedStageAReceipt:
         return self._mint is _RECEIPT_AUTHORITY
 
     def to_record(self) -> dict[str, object]:
+        if (
+            _commit(self.content_record(), CANDIDATE_SCOPED_STAGE_A_REPLAY_RECEIPT_V1)
+            != self.receipt_sha256
+        ):
+            raise CandidateScopedStageAReplayError(
+                "receipt payloads changed after authenticated seal"
+            )
         return {**self.content_record(), "receipt_sha256": self.receipt_sha256}
 
     def content_record(self) -> dict[str, object]:
@@ -645,6 +662,7 @@ def plan_candidate_scoped_stage_a_replay(
             successor[candidate_id] for candidate_id in candidate_ids
         ),
         _consumed=False,
+        _claim=threading.Lock(),
     )
     return _mint_plan(
         predecessor_selection_sha256=provisional.predecessor_selection_sha256,
@@ -671,6 +689,7 @@ def plan_candidate_scoped_stage_a_replay(
         predecessor_candidates=provisional.predecessor_candidates,
         successor_packets=provisional.successor_packets,
         _consumed=False,
+        _claim=threading.Lock(),
     )
 
 
@@ -684,10 +703,7 @@ def run_candidate_scoped_stage_a_replay(
     """Execute unitizer/reviewer only for rerun candidates; reuse the rest."""
 
     _require_replay_minted_plan(plan)
-    if plan.is_consumed():
-        raise CandidateScopedStageAReplayError(
-            "candidate-scoped Stage A plan already executed"
-        )
+    plan.consume()
     if tuple(packet.candidate_id for packet in plan.successor_packets) != (
         plan.candidate_ids
     ):
@@ -695,7 +711,6 @@ def run_candidate_scoped_stage_a_replay(
             "successor packets drifted from the minted candidate order"
         )
     _require_plan_predecessor_payloads(plan)
-    object.__setattr__(plan, "_consumed", True)
     tick = clock or time.monotonic
     predecessor_by_id = {
         prior.packet.candidate_id: prior for prior in plan.predecessor_candidates
@@ -900,28 +915,60 @@ def seal_candidate_scoped_stage_a_replay(
         timings=execution.timings,
         receipt_sha256="",
     )
+    frozen = _freeze_receipt_payloads(provisional)
     return _mint_receipt(
-        schema_version=provisional.schema_version,
-        plan_sha256=provisional.plan_sha256,
-        successor_selection_sha256=provisional.successor_selection_sha256,
-        successor_materialization_sha256=provisional.successor_materialization_sha256,
-        successor_parser_sha256=provisional.successor_parser_sha256,
-        unitizer_namespace=provisional.unitizer_namespace,
-        reviewer_namespace=provisional.reviewer_namespace,
-        provider_caps_sha256=provisional.provider_caps_sha256,
-        provider_journal_path=provisional.provider_journal_path,
-        candidate_ids=provisional.candidate_ids,
-        reused_candidate_ids=provisional.reused_candidate_ids,
-        rerun_candidate_ids=provisional.rerun_candidate_ids,
-        unitize_records=provisional.unitize_records,
-        unitize_audits=provisional.unitize_audits,
-        review_flags=provisional.review_flags,
-        review_audits=provisional.review_audits,
-        timings=provisional.timings,
+        schema_version=frozen.schema_version,
+        plan_sha256=frozen.plan_sha256,
+        successor_selection_sha256=frozen.successor_selection_sha256,
+        successor_materialization_sha256=frozen.successor_materialization_sha256,
+        successor_parser_sha256=frozen.successor_parser_sha256,
+        unitizer_namespace=frozen.unitizer_namespace,
+        reviewer_namespace=frozen.reviewer_namespace,
+        provider_caps_sha256=frozen.provider_caps_sha256,
+        provider_journal_path=frozen.provider_journal_path,
+        candidate_ids=frozen.candidate_ids,
+        reused_candidate_ids=frozen.reused_candidate_ids,
+        rerun_candidate_ids=frozen.rerun_candidate_ids,
+        unitize_records=frozen.unitize_records,
+        unitize_audits=frozen.unitize_audits,
+        review_flags=frozen.review_flags,
+        review_audits=frozen.review_audits,
+        timings=frozen.timings,
         receipt_sha256=_commit(
-            provisional.content_record(),
+            frozen.content_record(),
             CANDIDATE_SCOPED_STAGE_A_REPLAY_RECEIPT_V1,
         ),
+    )
+
+
+def _freeze_receipt_payloads(
+    receipt: CandidateScopedStageAReceipt,
+) -> CandidateScopedStageAReceipt:
+    return _mint_receipt(
+        schema_version=receipt.schema_version,
+        plan_sha256=receipt.plan_sha256,
+        successor_selection_sha256=receipt.successor_selection_sha256,
+        successor_materialization_sha256=receipt.successor_materialization_sha256,
+        successor_parser_sha256=receipt.successor_parser_sha256,
+        unitizer_namespace=receipt.unitizer_namespace,
+        reviewer_namespace=receipt.reviewer_namespace,
+        provider_caps_sha256=receipt.provider_caps_sha256,
+        provider_journal_path=receipt.provider_journal_path,
+        candidate_ids=receipt.candidate_ids,
+        reused_candidate_ids=receipt.reused_candidate_ids,
+        rerun_candidate_ids=receipt.rerun_candidate_ids,
+        unitize_records=tuple(
+            _freeze_mapping(record) for record in receipt.unitize_records
+        ),
+        unitize_audits=tuple(
+            _freeze_mapping(record) for record in receipt.unitize_audits
+        ),
+        review_flags=tuple(_freeze_mapping(record) for record in receipt.review_flags),
+        review_audits=tuple(
+            _freeze_mapping(record) for record in receipt.review_audits
+        ),
+        timings=receipt.timings,
+        receipt_sha256=receipt.receipt_sha256,
     )
 
 
