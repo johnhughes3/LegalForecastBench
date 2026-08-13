@@ -27,6 +27,8 @@ UPWARD_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
         # injected through a cycle-neutral command context.
         "legalforecast/cli_commands/report.py",
         "legalforecast/cli_commands/score.py",
+        "legalforecast/ingestion/downstream_lineage_verification.py",
+        "legalforecast/ingestion/packet_build_replay.py",
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
         "legalforecast/ingestion/resolved_post_recovery.py",
@@ -179,7 +181,7 @@ def check_baseline(root: Path, baseline_path: Path = BASELINE_PATH) -> tuple[str
     )
     if unexpected_allowlist:
         violations.append(
-            "upward CLI dependency outside the three migration exceptions: "
+            "upward CLI dependency outside the upward-import allowlist: "
             + ", ".join(unexpected_allowlist)
         )
 

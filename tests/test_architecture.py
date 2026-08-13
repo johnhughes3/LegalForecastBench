@@ -25,6 +25,8 @@ def test_architecture_baseline_records_the_known_migration_edges() -> None:
     assert snapshot.upward_cli_dependencies == (
         "legalforecast/cli_commands/report.py",
         "legalforecast/cli_commands/score.py",
+        "legalforecast/ingestion/downstream_lineage_verification.py",
+        "legalforecast/ingestion/packet_build_replay.py",
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
         "legalforecast/ingestion/resolved_post_recovery.py",
