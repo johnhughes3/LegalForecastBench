@@ -65,6 +65,9 @@ CLAUDE_CODE_PROMPT_VERSION = (
 CLAUDE_CODE_OUTPUT_SCHEMA_NAME = "output-schema.json"
 CLAUDE_FORECAST_SOURCE_PATH = "forecast.json"
 CLAUDE_FORECAST_SEALED_PATH = "forecast.json"
+CLAUDE_CODE_WRAPPER_COMMAND = (
+    "legalforecast.multiharness.claude_code:ClaudeCodeCliAdapter",
+)
 _OFFLINE_AUTH_PROFILE = "fixture-none"
 _FORECAST_OBJECT_KEYS = frozenset({"case_assessment", "predictions"})
 _PREDICTION_REQUIRED_KEYS = frozenset({"unit_id", "probability_fully_dismissed"})
@@ -200,7 +203,9 @@ def claude_code_local_manifest() -> LocalCliAdapterManifest:
 def claude_code_manifest() -> AdapterManifest:
     """Return the community AdapterManifest projection."""
 
-    return claude_code_local_manifest().to_adapter_manifest()
+    return claude_code_local_manifest().to_adapter_manifest(
+        command=CLAUDE_CODE_WRAPPER_COMMAND,
+    )
 
 
 def forecast_output_schema(required_unit_ids: Sequence[str]) -> dict[str, Any]:
@@ -285,7 +290,7 @@ def build_claude_invocation_plan(
         prompt=prompt,
         model=model,
         workspace=workspace.as_posix(),
-        output_schema_path=schema_token,
+        output_schema=schema_token,
     )
     argv = _apply_allowed_tools(
         (local_manifest.executable.basename, *rendered),
@@ -438,7 +443,9 @@ class ClaudeCodeCliAdapter:
 
     @property
     def manifest(self) -> AdapterManifest:
-        return self.local_manifest.to_adapter_manifest()
+        return self.local_manifest.to_adapter_manifest(
+            command=CLAUDE_CODE_WRAPPER_COMMAND,
+        )
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
         workspace.mkdir(parents=True, exist_ok=True)

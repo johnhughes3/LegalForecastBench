@@ -22,6 +22,7 @@ from legalforecast.ingestion.provenance import (
 from legalforecast.multiharness.claude_code import (
     CLAUDE_CODE_ADAPTER_ID,
     CLAUDE_CODE_ADAPTER_VERSION,
+    CLAUDE_CODE_WRAPPER_COMMAND,
     DEFAULT_CLAUDE_CODE_MANIFEST_PATH,
     ClaudeCodeCliAdapter,
     ClaudeCodeCliAdapterError,
@@ -100,7 +101,8 @@ def test_example_manifest_round_trips_community_v1() -> None:
     )
     assert manifest.adapter_id == CLAUDE_CODE_ADAPTER_ID
     assert manifest.adapter_version == CLAUDE_CODE_ADAPTER_VERSION
-    assert manifest.command == ("claude",)
+    assert manifest.command == CLAUDE_CODE_WRAPPER_COMMAND
+    assert manifest.command != ("claude",)
     assert claude_code_manifest() == manifest
 
 

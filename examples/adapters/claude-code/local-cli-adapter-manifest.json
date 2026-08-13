@@ -33,7 +33,7 @@
     "tool_allowlist",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:28742e9091ce21abcadcd28e3ff2042d95271422d87b2b1dbd50a4fdc8ab8cf9",
+  "capability_digest": "sha256:d8bedaf7f196d1046c4ba5d5821997c013eed8be98b94efac7978dfb09813dc4",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -73,7 +73,7 @@
       "--output-format",
       "json",
       "--json-schema",
-      "{output_schema_path}",
+      "{output_schema}",
       "--tools",
       "",
       "--strict-mcp-config",
