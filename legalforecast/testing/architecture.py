@@ -108,7 +108,7 @@ def scan_repository(root: Path) -> ArchitectureSnapshot:
         sorted(
             path
             for path in _python_paths(resolved_root / "legalforecast")
-            if path != CLI_PATH and _imports_cli(resolved_root / path)
+            if not _is_cli_adapter_source(path) and _imports_cli(resolved_root / path)
         )
     )
     return ArchitectureSnapshot(
@@ -311,17 +311,13 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 if node.func.attr != "setattr" or len(node.args) < 2:
                     continue
-                string_target = node.args[0]
-                if (
-                    isinstance(string_target, ast.Constant)
-                    and isinstance(string_target.value, str)
-                    and string_target.value.startswith("legalforecast.cli.")
+                for string_target in _static_string_values(
+                    node.args[0], parents=parents
                 ):
-                    monkeypatch_targets.add(string_target.value)
-                    monkeypatch_occurrences.append(f"{relative}::{string_target.value}")
-                target_names = _static_monkeypatch_target_names(
-                    node.args[1], parents=parents
-                )
+                    if string_target.startswith("legalforecast.cli."):
+                        monkeypatch_targets.add(string_target)
+                        monkeypatch_occurrences.append(f"{relative}::{string_target}")
+                target_names = _static_string_values(node.args[1], parents=parents)
                 for target_name in target_names:
                     object_target = _cli_object_target(
                         node.args[0],
@@ -394,6 +390,10 @@ def _imports_cli(path: Path) -> bool:
     return False
 
 
+def _is_cli_adapter_source(path: str) -> bool:
+    return path == CLI_PATH or path.startswith("legalforecast/console/")
+
+
 def _is_cli_adapter_module(module: str) -> bool:
     return module == "legalforecast.cli" or module.startswith("legalforecast.console")
 
@@ -424,11 +424,30 @@ def _dynamic_cli_adapter_import(
     )
 
 
-def _static_monkeypatch_target_names(
+def _static_string_values(
     node: ast.AST, *, parents: Mapping[ast.AST, ast.AST]
 ) -> tuple[str, ...]:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return (node.value,)
+    if isinstance(node, ast.JoinedStr):
+        values: tuple[str, ...] = ("",)
+        for part in node.values:
+            if isinstance(part, ast.Constant) and isinstance(part.value, str):
+                part_values: tuple[str, ...] = (part.value,)
+            elif (
+                isinstance(part, ast.FormattedValue)
+                and part.conversion == -1
+                and part.format_spec is None
+            ):
+                part_values = _static_string_values(part.value, parents=parents)
+            else:
+                return ()
+            if not part_values:
+                return ()
+            values = tuple(
+                prefix + suffix for prefix in values for suffix in part_values
+            )
+        return values
     if not isinstance(node, ast.Name):
         return ()
     current: ast.AST | None = node

@@ -75,6 +75,8 @@ stdlib_private = cli_module.argparse._SubParsersAction
 monkeypatch.setattr(cli_module.os, "link", replacement)
 for name in ("first", "second"):
     monkeypatch.setattr(cli_module, name, replacement)
+for name in ("third", "fourth"):
+    monkeypatch.setattr(f"legalforecast.cli.{name}", replacement)
 """,
         encoding="utf-8",
     )
@@ -84,8 +86,10 @@ for name in ("first", "second"):
     assert inventory.private_cli_targets == ("legalforecast.cli._private",)
     assert inventory.monkeypatch_targets == (
         "legalforecast.cli.first",
+        "legalforecast.cli.fourth",
         "legalforecast.cli.os.link",
         "legalforecast.cli.second",
+        "legalforecast.cli.third",
     )
     assert inventory.cli_import_occurrences == (
         "tests/test_probe.py",
@@ -96,8 +100,18 @@ for name in ("first", "second"):
     )
     assert inventory.monkeypatch_occurrences == (
         "tests/test_probe.py::legalforecast.cli.first",
+        "tests/test_probe.py::legalforecast.cli.fourth",
         "tests/test_probe.py::legalforecast.cli.os.link",
         "tests/test_probe.py::legalforecast.cli.second",
+        "tests/test_probe.py::legalforecast.cli.third",
+    )
+
+
+def test_console_modules_are_adapter_sources_not_domain_edge_candidates() -> None:
+    assert architecture_module._is_cli_adapter_source("legalforecast/cli.py")
+    assert architecture_module._is_cli_adapter_source("legalforecast/console/parser.py")
+    assert not architecture_module._is_cli_adapter_source(
+        "legalforecast/ingestion/purchase.py"
     )
 
 
