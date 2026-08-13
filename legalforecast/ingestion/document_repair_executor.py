@@ -330,6 +330,7 @@ def build_document_repair_execution(
         )
         for item in pilot.items
     )
+    _require_distinct_recap_documents(operations)
     purchase_budget = _purchase_budget(operations, pilot)
     provisional = _mint_execution(
         full_plan_sha256=full_plan.plan_sha256,
@@ -398,6 +399,7 @@ def build_full_document_repair_execution(
         )
         for item in full_plan.items
     )
+    _require_distinct_recap_documents(operations)
     purchase_budget = _purchase_budget_for_scope(
         operations,
         candidate_ids=candidate_ids,
@@ -1060,6 +1062,19 @@ def _resolve_operation(
             f"{item.candidate_id}/{item.docket_entry_number}/{item.document_selector}"
         )
     document = selected_documents[0]
+    restriction_markers = restricted_material_markers(
+        records=(entry, document),
+        text_fields=(
+            str(entry.get("description") or ""),
+            str(document.get("description") or ""),
+        ),
+    )
+    if restriction_markers:
+        raise DocumentRepairExecutorError(
+            "restricted material cannot receive acquisition authority: "
+            f"{item.candidate_id}/{item.docket_entry_number} "
+            f"({','.join(restriction_markers)})"
+        )
     document_id = _positive_identifier(document.get("id"), "RECAP document id")
     docket_entry_id = _positive_identifier(entry.get("id"), "docket entry id")
     linked_entry_id = document.get("docket_entry_id")
@@ -1099,6 +1114,16 @@ def _resolve_operation(
         projected_cost_usd=item.projected_cost_usd,
         docket_snapshot_sha256=snapshot_sha256,
     )
+
+
+def _require_distinct_recap_documents(
+    operations: Sequence[ResolvedRepairOperation],
+) -> None:
+    recap_document_ids = [operation.recap_document_id for operation in operations]
+    if len(recap_document_ids) != len(set(recap_document_ids)):
+        raise DocumentRepairExecutorError(
+            "repair execution repeats a resolved RECAP document identity"
+        )
 
 
 def _purchase_budget(
