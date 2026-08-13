@@ -1239,6 +1239,18 @@ def _require_nested_candidate(
         )
 
 
+def _require_nested_case(
+    record: Mapping[str, object], case_id: str, *, label: str
+) -> None:
+    nested = dict(record).get("case_id")
+    if nested is None:
+        return
+    if nested != case_id:
+        raise CandidateScopedStageAReplayError(
+            f"{label} case_id differs from the packet envelope"
+        )
+
+
 def _require_predecessor_audit(
     record: Mapping[str, object],
     replay_status: StageStatus,
@@ -1319,8 +1331,16 @@ def _require_predecessor_candidates(
             raise CandidateScopedStageAReplayError(
                 "predecessor unitize record candidate_id does not match packet"
             )
+        _require_nested_case(
+            prior.unitize_record,
+            prior.packet.case_id,
+            label="predecessor unitize record",
+        )
         _require_nested_candidate(
             prior.unitize_audit, candidate_id, label="predecessor unitize audit"
+        )
+        _require_nested_case(
+            prior.unitize_audit, prior.packet.case_id, label="predecessor unitize audit"
         )
         _require_predecessor_audit(
             prior.unitize_audit,
@@ -1332,8 +1352,14 @@ def _require_predecessor_candidates(
             _require_nested_candidate(
                 flag, candidate_id, label="predecessor review flag"
             )
+            _require_nested_case(
+                flag, prior.packet.case_id, label="predecessor review flag"
+            )
         _require_nested_candidate(
             prior.review_audit, candidate_id, label="predecessor review audit"
+        )
+        _require_nested_case(
+            prior.review_audit, prior.packet.case_id, label="predecessor review audit"
         )
         reviewer_extra = frozenset[str]()
         if prior.unitizer_status in {"reconstruction_failed", "terminal_escalation"}:
@@ -1391,9 +1417,11 @@ def _require_outcome(
             request.candidate_id,
             label=f"{stage} record",
         )
+        _require_nested_case(record, request.packet.case_id, label=f"{stage} record")
     _require_nested_candidate(
         outcome.audit, request.candidate_id, label=f"{stage} audit"
     )
+    _require_nested_case(outcome.audit, request.packet.case_id, label=f"{stage} audit")
     _require_nested_status(outcome.audit, outcome.status, label=f"{stage} audit")
     if (
         stage == "unitizer"

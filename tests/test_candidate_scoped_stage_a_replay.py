@@ -822,6 +822,38 @@ def test_selection_record_must_match_packet_envelope() -> None:
         packet_input_identity_sha256(mismatched)
 
 
+def test_outcome_record_case_mismatch_is_rejected(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        return StageAStageOutcome(
+            candidate_id=request.candidate_id,
+            records=(
+                {
+                    "candidate_id": request.candidate_id,
+                    "case_id": "case-other",
+                    "prediction_units": ["x"],
+                },
+            ),
+            audit={"candidate_id": request.candidate_id, "status": "settled"},
+            status="settled",
+            request_sha256=request.request_sha256,
+        )
+
+    with pytest.raises(
+        CandidateScopedStageAReplayError, match="unitizer record case_id"
+    ):
+        run_candidate_scoped_stage_a_replay(
+            plan,
+            unitizer=unitizer,
+            reviewer=lambda request, _unitize: _review_outcome(request),
+            clock=_Clock(),
+        )
+
+
 def test_reviewer_flag_without_candidate_id_is_rejected(tmp_path: Path) -> None:
     predecessor = _lineage(tmp_path)
     successor = _packets()
