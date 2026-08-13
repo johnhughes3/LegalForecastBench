@@ -265,14 +265,32 @@ def test_case_grouped_packet_deduplicates_disposition_without_mutating_queue() -
     )
 
 
-def test_case_grouped_packet_schema_has_versioned_contract() -> None:
+def test_case_grouped_packet_rejects_duplicate_review_ids() -> None:
+    _, _, queue = _fixture_plan(_policy())
+    duplicate = json.loads(json.dumps(queue[0]))
+
+    with pytest.raises(
+        CycleLabelAuditError,
+        match=f"unique review ids: {duplicate['case_id']}",
+    ):
+        render_case_grouped_label_audit_packet((queue[0], duplicate))
+
+
+def test_case_grouped_packet_schema_has_versioned_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _, _, queue = _fixture_plan(_policy())
 
     packet = render_case_grouped_label_audit_packet(queue)
     schema_version = str(CYCLE_GROUPED_LABEL_AUDIT_PACKET_V1)
-    contract = Path("docs/schemas/case-grouped-label-audit-packet-v1.md").read_text(
-        encoding="utf-8"
-    )
+    monkeypatch.chdir(tmp_path)
+    contract = (
+        Path(__file__).resolve().parents[1]
+        / "docs"
+        / "schemas"
+        / "case-grouped-label-audit-packet-v1.md"
+    ).read_text(encoding="utf-8")
 
     assert packet["schema_version"] == schema_version
     assert f"`{schema_version}`" in contract
@@ -429,9 +447,17 @@ def test_plan_label_audit_cli_writes_frozen_plan_and_blind_queue(
     queue = _read_jsonl(output / "lawyer-review-queue-cycle-planned.jsonl")
     assert queue[0]["route_reason"] == "label_audit_sample"
     assert "ensemble" not in queue[0]["packet"]
+    packet_path = output / "case-grouped-label-audit-packet.json"
+    packet_bytes = packet_path.read_bytes()
     grouped_packet = json.loads(
-        (output / "case-grouped-label-audit-packet.json").read_text()
+        packet_bytes.decode("utf-8"),
+        parse_constant=lambda value: (_ for _ in ()).throw(
+            ValueError(f"non-finite JSON value {value} is not supported")
+        ),
     )
+    assert packet_bytes == (
+        json.dumps(grouped_packet, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
     assert grouped_packet["schema_version"].endswith(".v1")
     assert (
         grouped_packet["cases"][0]["review_items"][0]["review_id"]
