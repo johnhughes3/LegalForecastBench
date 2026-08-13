@@ -323,8 +323,8 @@ def classify_leaderboard_models(
     return tiers
 
 
-def artifact_sha256_digest(payload: bytes) -> str:
-    """Return the sha256: digest used to key a sidecar to frozen result bytes."""
+def frozen_result_digest(payload: bytes) -> str:
+    """Return the sha256: key that binds a sidecar to already-frozen result bytes."""
 
     return _SHA256_PREFIX + hashlib.sha256(payload).hexdigest()
 

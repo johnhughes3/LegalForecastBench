@@ -31,12 +31,12 @@ from legalforecast.reporting.contamination_tiers import (
     ContaminationTierRow,
     ContaminationTierSidecar,
     ModelCohortScore,
-    artifact_sha256_digest,
     build_contamination_tier_sidecar,
     classify_contamination_tier,
     classify_leaderboard_models,
     classify_registry_entry,
     compute_contamination_drift,
+    frozen_result_digest,
     load_contamination_tier_sidecar,
     preliminary_caveat_if_needed,
     reported_model_label,
@@ -135,7 +135,7 @@ def test_sidecar_is_keyed_by_frozen_result_digest_and_is_not_a_schema_family(
     tmp_path: Path,
 ) -> None:
     result_bytes = b'{"schema_version":"legalforecast-official-aggregate-v1"}\n'
-    digest = artifact_sha256_digest(result_bytes)
+    digest = frozen_result_digest(result_bytes)
     registry = ModelRegistry.from_records(
         [
             _registry_record(RESISTANT_MODEL, cutoff="2026-02-16", status="known"),
@@ -295,7 +295,7 @@ def test_official_site_auto_loads_sidecar_and_marks_preliminary_models(
     official_dir = write_official_report_fixture(tmp_path)
     leaderboard = official_dir / "report" / "leaderboard.json"
     sidecar = build_contamination_tier_sidecar(
-        result_digest=artifact_sha256_digest(leaderboard.read_bytes()),
+        result_digest=frozen_result_digest(leaderboard.read_bytes()),
         cohort_id="fixture-cycle",
         contamination_boundary=BOUNDARY,
         rows=(
@@ -436,7 +436,7 @@ def test_report_cli_writes_sidecar_and_marks_human_outputs(
 
     assert sidecar["authoritative"] is False
     assert sidecar["kind"] == "contamination_tier_sidecar"
-    assert sidecar["result_digest"] == artifact_sha256_digest(
+    assert sidecar["result_digest"] == frozen_result_digest(
         (output_dir / "leaderboard.json").read_bytes()
     )
     assert "schema_version" not in sidecar

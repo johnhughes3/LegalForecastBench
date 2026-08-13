@@ -98,9 +98,9 @@ def run(args: argparse.Namespace) -> int:
     ):
         from legalforecast.evals.model_registry import load_model_registry
         from legalforecast.reporting.contamination_tiers import (
-            artifact_sha256_digest,
             build_contamination_tier_sidecar,
             classify_leaderboard_models,
+            frozen_result_digest,
             sidecar_rows_from_registry,
             write_contamination_tier_sidecar,
         )
@@ -115,7 +115,7 @@ def run(args: argparse.Namespace) -> int:
             contamination_boundary=contamination_boundary,
         )
         sidecar = build_contamination_tier_sidecar(
-            result_digest=artifact_sha256_digest(json_path.read_bytes()),
+            result_digest=frozen_result_digest(json_path.read_bytes()),
             cohort_id=cohort_id,
             contamination_boundary=contamination_boundary,
             rows=sidecar_rows_from_registry(

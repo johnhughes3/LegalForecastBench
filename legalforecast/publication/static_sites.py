@@ -20,7 +20,7 @@ from legalforecast.publication.publication_guardrails import (
     enforce_publication_guardrails,
 )
 from legalforecast.reporting.contamination_tiers import (
-    artifact_sha256_digest,
+    frozen_result_digest,
     load_contamination_tier_sidecar,
 )
 
@@ -235,7 +235,7 @@ def render_official_results_site(
         ).read_bytes()
         sidecar = load_contamination_tier_sidecar(
             sidecar_path,
-            expected_digest=artifact_sha256_digest(leaderboard_bytes),
+            expected_digest=frozen_result_digest(leaderboard_bytes),
         )
         contamination_tiers = sidecar.tier_by_model_id()
     page = build_official_report_page(
