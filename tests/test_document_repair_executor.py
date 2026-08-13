@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from legalforecast.contracts import (
@@ -357,6 +359,31 @@ def test_execution_rejects_snapshot_docket_id_from_another_candidate() -> None:
         )
 
 
+def test_execution_rejects_namespaced_candidate_bound_to_another_docket() -> None:
+    candidate = "courtlistener-docket-70754103"
+    row = _row(candidate, 1, free=True)
+    manifest = _manifest_bytes(row)
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
+    snapshot = json.loads(_snapshot("70754103", 1, 9001, free=True))
+    snapshot["candidate_id"] = candidate
+    snapshot["docket_id"] = 71212565
+    snapshot["entries"][0]["docket"] = 71212565
+    snapshots = {candidate: _canonical_bytes(snapshot)}
+
+    with pytest.raises(DocumentRepairExecutorError, match="differs from candidate"):
+        build_full_document_repair_execution(
+            full_plan=plan,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(snapshots[candidate]).hexdigest()
+            },
+        )
+
+
 def _purchase_policy(*, reservation: str, hard_cap: str) -> dict[str, object]:
     return generate_case_dev_purchase_policy(
         {
@@ -573,6 +600,35 @@ def test_purchase_authority_rejects_forged_execution_capability() -> None:
         )
 
 
+def test_purchase_authority_rejects_existing_ledger_path(tmp_path: Path) -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    ledger_path = tmp_path / "existing-ledger.sqlite3"
+    ledger_path.touch()
+
+    with pytest.raises(DocumentRepairExecutorError, match="fresh canonical ledger"):
+        build_document_repair_purchase_authority(
+            execution=execution,
+            canonical_ledger_path=str(ledger_path),
+            fee_schedule={
+                "source_citation": "https://example.test/public-fee-schedule",
+                "verified_at_utc": "2026-08-13T00:00:00Z",
+                "includes_service_fees": True,
+                "includes_pacer_fees": True,
+                "includes_rounding": True,
+            },
+        )
+
+
 def test_execution_seals_complete_successor_only_from_exact_resolved_documents() -> (
     None
 ):
@@ -732,6 +788,58 @@ def test_retryable_provider_error_cannot_seal_successor() -> None:
                 },
             ),
             role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_retry_permitted_terminal_receipt_cannot_seal_successor() -> None:
+    manifest = _manifest_bytes(_row("a", 1, free=False))
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
+    snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=(RepairOperationOutcome("a", 1, "included", 0, "0.10", "3.00"),),
+    )
+    row = {**receipt.operation_ledger[0], "retry_permitted": True}
+    tampered = replace(receipt, operation_ledger=(row,), receipt_sha256="")
+    tampered = replace(
+        tampered,
+        receipt_sha256=str(
+            ARTIFACT_RAW_SHA256_V1.commit(
+                tampered.content_record(),
+                domain="legalforecast.exact100_document_repair_receipt.v1",
+            ).digest
+        ),
+    )
+    body = b"reply"
+
+    with pytest.raises(DocumentRepairExecutorError, match="retry permission"):
+        seal_document_repair_execution(
+            full_plan=plan,
+            execution=execution,
+            receipt=tampered,
+            acquired_documents=(
+                {
+                    "candidate_id": "a",
+                    "docket_entry_number": 1,
+                    "document_role": "reply",
+                    "source_document_id": "9001",
+                    "source": "pacer_purchase",
+                    "sha256": hashlib.sha256(body).hexdigest(),
+                    "byte_count": len(body),
+                    "document_bytes": body,
+                },
+            ),
+            exclusions=(),
+            role_bytes_match=lambda role, value: role.encode() == value,
         )
 
 
@@ -1055,12 +1163,39 @@ def test_execution_accepts_v4_docket_resource_url() -> None:
     assert execution.operations[0].docket_entry_id == "1001"
 
 
+def test_execution_treats_string_zero_attachment_as_main_document() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    snapshot = json.loads(snapshots["a"])
+    snapshot["entries"][0]["recap_documents"][0]["attachment_number"] = "0"
+    snapshots["a"] = _canonical_bytes(snapshot)
+
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    assert execution.operations[0].document_selector == "main_document"
+
+
 def test_execution_resolves_same_entry_attachment_selector() -> None:
     row = _row("73569789", 5, free=False)
     missing = row["missing_docs"]
     assert isinstance(missing, list)
-    missing[0]["role"] = "supporting_memorandum"
-    missing[0]["document_selector"] = "attachment_1"
+    missing[0]["role"] = "motion"
+    missing.append(
+        {
+            **missing[0],
+            "role": "supporting_memorandum",
+            "document_selector": "attachment_1",
+        }
+    )
+    row["cost_usd"] = 6.0
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
@@ -1089,24 +1224,50 @@ def test_execution_resolves_same_entry_attachment_selector() -> None:
         },
     )
 
-    operation = execution.operations[0]
-    assert operation.document_selector == "attachment_1"
-    assert operation.recap_document_id == "9105"
+    assert [operation.document_selector for operation in execution.operations] == [
+        "attachment_1",
+        "main_document",
+    ]
+    assert [operation.recap_document_id for operation in execution.operations] == [
+        "9105",
+        "9005",
+    ]
 
-    ticks = iter((1.0, 1.2))
+    ticks = iter((1.0, 1.2, 2.0, 2.3))
     result = run_document_repair_execution(
         execution=execution,
         purchase_authority=_purchase_authority(execution),
         acquire=lambda resolved: AcquiredRepairDocument(
             disposition="included",
             source_document_id=resolved.recap_document_id,
-            document_bytes=b"supporting memorandum",
+            document_bytes=resolved.document_role.encode(),
             committed_cost_usd="3.00",
             retry_count=0,
-            document_selector="attachment_1",
+            document_selector=resolved.document_selector,
         ),
         monotonic=lambda: next(ticks),
     )
 
-    assert result.receipt.operation_ledger[0]["document_selector"] == "attachment_1"
-    assert result.acquired_documents[0]["document_selector"] == "attachment_1"
+    successor = seal_document_repair_execution(
+        full_plan=plan,
+        execution=execution,
+        receipt=result.receipt,
+        acquired_documents=result.acquired_documents,
+        exclusions=result.exclusions,
+        role_bytes_match=lambda role, body: role.encode() == body,
+    )
+
+    assert [row["document_selector"] for row in result.receipt.operation_ledger] == [
+        "attachment_1",
+        "main_document",
+    ]
+    assert [row["document_selector"] for row in result.acquired_documents] == [
+        "attachment_1",
+        "main_document",
+    ]
+    assert successor.included_document_keys == frozenset(
+        {
+            ("73569789", 5, "main_document"),
+            ("73569789", 5, "attachment_1"),
+        }
+    )

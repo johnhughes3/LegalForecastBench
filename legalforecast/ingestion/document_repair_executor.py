@@ -14,6 +14,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from types import MappingProxyType
 from typing import cast
 
@@ -23,7 +24,7 @@ from legalforecast.contracts import (
     EXACT100_DOCUMENT_REPAIR_PILOT_V1,
     EXACT100_DOCUMENT_REPAIR_PURCHASE_AUTHORITY_V1,
     EXACT100_DOCUMENT_REPAIR_RECEIPT_V1,
-    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
 )
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchasePolicy,
@@ -602,6 +603,11 @@ def build_document_repair_purchase_authority(
         raise DocumentRepairExecutorError(
             "purchase authority requires at least one paid operation"
         )
+    ledger_path = Path(canonical_ledger_path)
+    if ledger_path.exists():
+        raise DocumentRepairExecutorError(
+            "purchase authority requires a fresh canonical ledger"
+        )
     per_case_maximum = max(
         (plan.estimated_cost for plan in budget.case_plans), default=Decimal("0.00")
     )
@@ -740,7 +746,7 @@ def seal_document_repair_execution(
         retry_count = row.get("retry_count")
         if not isinstance(retry_count, int) or isinstance(retry_count, bool):
             raise DocumentRepairExecutorError("repair receipt retry count is invalid")
-        _outcome_record(
+        canonical_outcome = _outcome_record(
             operation,
             RepairOperationOutcome(
                 candidate_id=operation.candidate_id,
@@ -752,6 +758,10 @@ def seal_document_repair_execution(
                 document_selector=operation.document_selector,
             ),
         )
+        if row.get("retry_permitted") != canonical_outcome["retry_permitted"]:
+            raise DocumentRepairExecutorError(
+                "repair receipt retry permission differs from outcome"
+            )
         expected = "included" if row.get("disposition") == "included" else "excluded"
         if evidence_dispositions.get(operation.key) != expected:
             raise DocumentRepairExecutorError(
@@ -797,7 +807,7 @@ def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
     verified = str(
         ARTIFACT_RAW_SHA256_V1.commit(
             full_plan.content_record(),
-            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
         ).digest
     )
     if verified != full_plan.plan_sha256:
@@ -840,7 +850,7 @@ def _require_scope_binding_from_execution(
     verified_full_plan_sha256 = str(
         ARTIFACT_RAW_SHA256_V1.commit(
             full_plan.content_record(),
-            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
         ).digest
     )
     if verified_full_plan_sha256 != full_plan.plan_sha256:
@@ -905,7 +915,11 @@ def _snapshot(payload: bytes, candidate_id: str) -> Mapping[str, object]:
         record.get("docket_id"), bool
     ):
         raise DocumentRepairExecutorError("docket snapshot docket identity is invalid")
-    if candidate_id.isdigit() and str(record["docket_id"]) != candidate_id:
+    expected_docket_id = _candidate_docket_id(candidate_id)
+    if (
+        expected_docket_id is not None
+        and str(record["docket_id"]) != expected_docket_id
+    ):
         raise DocumentRepairExecutorError(
             "docket snapshot docket identity differs from candidate"
         )
@@ -1176,10 +1190,20 @@ def _docket_identifier(value: object) -> str | None:
 
 def _document_selector(document: Mapping[str, object]) -> str | None:
     attachment = document.get("attachment_number")
-    if attachment in {None, "", 0}:
+    if attachment in {None, "", 0, "0"}:
         return "main_document"
     resolved = _positive_int(attachment, allow_invalid=True)
     return f"attachment_{resolved}" if resolved is not None else None
+
+
+def _candidate_docket_id(candidate_id: str) -> str | None:
+    if candidate_id.isdigit():
+        return candidate_id
+    prefix = "courtlistener-docket-"
+    suffix = candidate_id.removeprefix(prefix)
+    if suffix != candidate_id and suffix.isdigit() and int(suffix) > 0:
+        return suffix
+    return None
 
 
 def _raise(message: str) -> None:
