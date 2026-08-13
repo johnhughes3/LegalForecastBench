@@ -69,7 +69,7 @@ def _approval(manifest: bytes, *, maximum: str = "3.00") -> RepairApproval:
 def _observation(
     *,
     entry: int = 12,
-    document_selector: str = "main",
+    document_selector: str = "main_document",
     requested_role: str = "opposition",
     source_kind: str = "free",
     status: str = "acquired",
@@ -240,7 +240,7 @@ def test_same_entry_documents_are_distinct_by_selector_and_role() -> None:
             "cost_usd": 3.0,
             "free_document_count": 0,
         }
-        for selector in ("main", "attachment_1")
+        for selector in ("main_document", "attachment_1")
     ]
     manifest = (
         json.dumps(
@@ -282,14 +282,14 @@ def test_same_entry_documents_are_distinct_by_selector_and_role() -> None:
                 cost="3.00",
                 markdown="Memorandum in Support of Motion to Dismiss",
             )
-            for selector in ("main", "attachment_1")
+            for selector in ("main_document", "attachment_1")
         ),
     )
 
     assert [
         document["document_selector"]
         for document in result.selection_records[0]["documents"]
-    ] == ["main", "attachment_1"]
+    ] == ["main_document", "attachment_1"]
 
 
 def test_replacement_recommendation_is_terminally_excluded() -> None:
@@ -364,9 +364,17 @@ def _repair(
     }
 
 
-def _missing(entry: int, role: str, *, free: int, paid: int) -> dict[str, object]:
+def _missing(
+    entry: int,
+    role: str,
+    *,
+    free: int,
+    paid: int,
+    selector: str = "main_document",
+) -> dict[str, object]:
     return {
         "entry": entry,
+        "document_selector": selector,
         "role": role,
         "cost_usd": 0.0 if free else 3.0,
         "free_document_count": free,
@@ -429,6 +437,33 @@ def test_plan_orders_free_recovery_before_paid_and_is_deterministic() -> None:
     ]
     assert plan.projected_paid_cost_usd == Decimal("6.00")
     assert plan.to_record() == _plan(manifest).to_record()
+
+
+def test_plan_distinguishes_same_entry_main_document_and_attachment() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair(
+            "73569789",
+            missing=[
+                _missing(5, "motion", free=0, paid=1),
+                _missing(
+                    5,
+                    "supporting_memorandum",
+                    free=0,
+                    paid=1,
+                    selector="attachment_1",
+                ),
+            ],
+        )
+    )
+
+    plan = _plan(manifest)
+
+    assert [
+        (item.docket_entry_number, item.document_selector) for item in plan.items
+    ] == [
+        (5, "attachment_1"),
+        (5, "main_document"),
+    ]
 
 
 def test_plan_refuses_per_document_and_aggregate_approval_overruns() -> None:
@@ -545,7 +580,9 @@ def test_sealed_successor_has_complete_inclusion_exclusion_ledger() -> None:
         "included",
         "excluded",
     ]
-    assert sealed.included_document_keys == frozenset({("70754103", 13)})
+    assert sealed.included_document_keys == frozenset(
+        {("70754103", 13, "main_document")}
+    )
     with pytest.raises(MissingDocumentSuccessorError, match="complete ledger"):
         seal_missing_document_successor(
             plan=plan,

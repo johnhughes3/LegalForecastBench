@@ -20,8 +20,8 @@ from typing import Any, cast
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     DOCUMENT_BODY_ROLE_VALIDATOR_V1,
-    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
-    EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1,
+    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
+    EXACT100_MISSING_DOCUMENT_SUCCESSOR_V2,
     MISSING_DOCUMENT_EXCLUSION_V1,
     MISSING_DOCUMENT_INCLUSION_V1,
     MISSING_DOCUMENT_SUCCESSOR_STATE_V1,
@@ -221,6 +221,7 @@ class AcquisitionObservation:
             )
 
     @property
+    # contract-ratchet: allow raw acquired-byte evidence digest
     def sha256(self) -> str | None:
         if self.content is None:
             return None
@@ -649,8 +650,8 @@ def _remove_mismatched_selections(
                     mismatch
                     for mismatch in pending
                     if mismatch["entry"] == entry
-                    and mismatch["document_selector"]
-                    == document.get("document_selector", "main")
+                    and _document_selector(mismatch["document_selector"])
+                    == _document_selector(document.get("document_selector"))
                     and mismatch["selected_role"] == role
                 ),
                 None,
@@ -830,10 +831,6 @@ def _text(value: object, field: str) -> str:
     return value
 
 
-def _document_selector(record: Mapping[str, object]) -> str:
-    return _text(record.get("document_selector", "main"), "document selector")
-
-
 def _positive_int(value: object, field: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise MissingDocumentSuccessorError(f"{field} must be a positive integer")
@@ -876,9 +873,9 @@ def _canonical_bytes(value: object) -> bytes:
     )
 
 
-DocumentKey = tuple[str, int]
-PLAN_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1)
-SUCCESSOR_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1)
+DocumentKey = tuple[str, int, str]
+PLAN_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2)
+SUCCESSOR_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_SUCCESSOR_V2)
 _ALLOWED_METHODS = frozenset({"courtlistener_free", "pacer_purchase"})
 _ALLOWED_RECOMMENDATIONS = frozenset({"keep", "repair", "replace"})
 _SEAL = object()
@@ -890,6 +887,7 @@ class MissingDocumentAcquisitionItem:
 
     candidate_id: str
     docket_entry_number: int
+    document_selector: str
     document_role: str
     acquisition_method: str
     projected_cost_usd: Decimal
@@ -898,12 +896,13 @@ class MissingDocumentAcquisitionItem:
 
     @property
     def key(self) -> DocumentKey:
-        return self.candidate_id, self.docket_entry_number
+        return self.candidate_id, self.docket_entry_number, self.document_selector
 
     def to_record(self) -> JsonRecord:
         return {
             "candidate_id": self.candidate_id,
             "docket_entry_number": self.docket_entry_number,
+            "document_selector": self.document_selector,
             "document_role": self.document_role,
             "acquisition_method": self.acquisition_method,
             "projected_cost_usd": _money(self.projected_cost_usd),
@@ -1026,7 +1025,8 @@ def build_missing_document_acquisition_plan(
         row_cost = Decimal("0.00")
         for missing_record in missing:
             entry = _positive_int(missing_record.get("entry"), "missing entry")
-            key = candidate_id, entry
+            selector = _document_selector(missing_record.get("document_selector"))
+            key = candidate_id, entry, selector
             if key in seen_items:
                 raise MissingDocumentSuccessorError(
                     f"duplicate repair-manifest document: {candidate_id}/{entry}"
@@ -1060,6 +1060,7 @@ def build_missing_document_acquisition_plan(
                 MissingDocumentAcquisitionItem(
                     candidate_id=candidate_id,
                     docket_entry_number=entry,
+                    document_selector=selector,
                     document_role=_required_text(missing_record, "role"),
                     acquisition_method=method,
                     projected_cost_usd=cost,
@@ -1140,6 +1141,7 @@ def build_missing_document_acquisition_plan(
             item.acquisition_method != "courtlistener_free",
             item.candidate_id,
             item.docket_entry_number,
+            item.document_selector,
             item.document_role,
         )
     )
@@ -1178,7 +1180,7 @@ def build_missing_document_acquisition_plan(
         manifest_repair_count=provisional.manifest_repair_count,
         plan_sha256=_commit_record(
             provisional.content_record(),
-            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
         ),
     )
 
@@ -1230,6 +1232,7 @@ def seal_missing_document_successor(
             {
                 "candidate_id": key[0],
                 "docket_entry_number": key[1],
+                "document_selector": key[2],
                 "document_role": role,
                 "disposition": "included",
                 "acquisition_method": source,
@@ -1252,6 +1255,7 @@ def seal_missing_document_successor(
             {
                 "candidate_id": key[0],
                 "docket_entry_number": key[1],
+                "document_selector": key[2],
                 "document_role": role,
                 "disposition": "excluded",
                 "reason": _required_text(exclusion, "reason"),
@@ -1288,7 +1292,7 @@ def seal_missing_document_successor(
         ),
         (
             "successor_sha256",
-            _commit_record(content, domain=EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1),
+            _commit_record(content, domain=EXACT100_MISSING_DOCUMENT_SUCCESSOR_V2),
         ),
         ("_seal", _SEAL),
     ):
@@ -1301,7 +1305,7 @@ def _require_valid_plan(plan: MissingDocumentAcquisitionPlan) -> None:
         raise MissingDocumentSuccessorError("invalid acquisition plan")
     if plan.plan_sha256 != _commit_record(
         plan.content_record(),
-        domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+        domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
     ):
         raise MissingDocumentSuccessorError("acquisition plan changed after approval")
     if plan.projected_paid_cost_usd > plan.approved_maximum_usd:
@@ -1362,7 +1366,20 @@ def _document_key(record: Mapping[str, object]) -> DocumentKey:
     return (
         _required_text(record, "candidate_id"),
         _positive_int(record.get("docket_entry_number"), "docket entry number"),
+        _document_selector(record.get("document_selector")),
     )
+
+
+def _document_selector(value: object) -> str:
+    if isinstance(value, Mapping):
+        value = cast(Mapping[str, object], value).get("document_selector")
+    if value is None:
+        return "main_document"
+    if value in {"main", "main_document"}:
+        return "main_document"
+    if isinstance(value, str) and re.fullmatch(r"attachment_[1-9][0-9]*", value):
+        return value
+    raise MissingDocumentSuccessorError("document selector is invalid")
 
 
 def _required_text(record: Mapping[str, object], field: str) -> str:
