@@ -773,3 +773,95 @@ def test_execution_rejects_nonapproved_per_document_price() -> None:
             docket_snapshot_bytes=snapshots,
             docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
         )
+
+
+def test_pilot_execution_rejects_nonapproved_per_document_price() -> None:
+    rows = []
+    for index, candidate in enumerate("abcde", start=1):
+        row = _row(candidate, index, free=False)
+        row["cost_usd"] = 4.0
+        missing = row["missing_docs"]
+        assert isinstance(missing, list)
+        missing[0]["cost_usd"] = 4.0
+        rows.append(row)
+    manifest = _manifest_bytes(*rows)
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+        max_per_document_usd="4.00",
+    )
+    pilot = build_document_repair_pilot(
+        full_plan=plan,
+        candidate_ids=tuple("abcde"),
+        pilot_maximum_usd="33.00",
+    )
+    snapshots = {
+        candidate: _snapshot(candidate, index, 9000 + index, free=False)
+        for index, candidate in enumerate("abcde", start=1)
+    }
+
+    with pytest.raises(DocumentRepairExecutorError, match=r"approved \$3\.00"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(payload).hexdigest()
+                for candidate, payload in snapshots.items()
+            },
+        )
+
+
+def test_pilot_accepts_authenticated_subset_of_snapshot_manifest() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    authority_snapshots = {
+        **snapshots,
+        "unaffected": _snapshot("unaffected", 99, 9999, free=True),
+    }
+
+    execution = _build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+        snapshot_authority=_snapshot_authority(authority_snapshots),
+    )
+
+    assert tuple(operation.candidate_id for operation in execution.operations) == tuple(
+        "abcde"
+    )
+
+
+def test_snapshot_authority_candidate_commitments_are_immutable() -> None:
+    authority = _snapshot_authority(_snapshots())
+
+    with pytest.raises(TypeError):
+        authority.candidate_sha256["a"] = "0" * 64  # type: ignore[index]
+
+
+def test_execution_accepts_v4_docket_resource_url() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    snapshot = json.loads(snapshots["a"])
+    docket_id = snapshot["docket_id"]
+    snapshot["entries"][0]["docket"] = (
+        f"https://www.courtlistener.com/api/rest/v4/dockets/{docket_id}/"
+    )
+    snapshots["a"] = _canonical_bytes(snapshot)
+
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    assert execution.operations[0].docket_entry_id == "1001"
