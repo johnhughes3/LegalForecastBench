@@ -13,18 +13,23 @@ from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     EXACT100_DOCUMENT_REPAIR_PILOT_V2,
 )
-from legalforecast.ingestion.case_dev_purchase import generate_case_dev_purchase_policy
+from legalforecast.ingestion.case_dev_purchase import (
+    generate_case_dev_purchase_policy,
+    initialize_case_dev_purchase_journal,
+)
 from legalforecast.ingestion.document_repair_executor import (
     AcquiredRepairDocument,
     DocumentRepairExecution,
     DocumentRepairExecutorError,
     DocumentRepairPurchaseAuthority,
+    DocumentRepairPurchaseRuntime,
     RepairOperationOutcome,
     build_document_repair_purchase_authority,
     record_document_repair_outcomes,
     replay_docket_snapshot_authority,
     run_document_repair_execution,
     seal_document_repair_execution,
+    verify_document_repair_purchase_runtime,
     verify_purchase_policy_compatibility,
 )
 from legalforecast.ingestion.document_repair_executor import (
@@ -497,6 +502,28 @@ def _purchase_authority(
     )
 
 
+def _purchase_runtime(
+    execution: DocumentRepairExecution, tmp_path: Path
+) -> DocumentRepairPurchaseRuntime:
+    authority = _purchase_authority(execution, tmp_path)
+    receipt = tmp_path / "purchase-ledger-initialization.json"
+    initialize_case_dev_purchase_journal(
+        authority.purchase_policy.canonical_ledger_path,
+        policy=authority.purchase_policy,
+        receipt_path=receipt,
+        purchase_policy_file_sha256="sha256:" + "c" * 64,
+        cohort_policy_file_sha256="sha256:" + "d" * 64,
+        initialized_at="2026-08-13T00:02:00Z",
+    )
+    return verify_document_repair_purchase_runtime(
+        execution=execution,
+        purchase_authority=authority,
+        initialization_receipt_path=receipt,
+        purchase_policy_file_sha256="sha256:" + "c" * 64,
+        cohort_policy_file_sha256="sha256:" + "d" * 64,
+    )
+
+
 def test_purchase_policy_must_fit_exact_repair_ceiling(tmp_path: Path) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
@@ -737,7 +764,7 @@ def test_purchase_authority_rejects_forged_execution_capability(tmp_path: Path) 
     with pytest.raises(DocumentRepairExecutorError, match="replay-minted"):
         run_document_repair_execution(
             execution=forged,
-            purchase_authority=None,
+            purchase_runtime=None,
             acquire=lambda _operation: pytest.fail("must not invoke acquisition"),
             monotonic=lambda: 0.0,
         )
@@ -767,7 +794,7 @@ def test_purchase_authority_rejects_existing_ledger_path(tmp_path: Path) -> None
         )
 
 
-def test_paid_runner_rejects_forged_purchase_authority(tmp_path: Path) -> None:
+def test_runtime_rejects_forged_purchase_authority(tmp_path: Path) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
     execution = build_document_repair_execution(
@@ -792,11 +819,12 @@ def test_paid_runner_rejects_forged_purchase_authority(tmp_path: Path) -> None:
     object.__setattr__(forged, "_mint", object())
 
     with pytest.raises(DocumentRepairExecutorError, match="purchase authority"):
-        run_document_repair_execution(
+        verify_document_repair_purchase_runtime(
             execution=execution,
             purchase_authority=forged,
-            acquire=lambda _operation: pytest.fail("must not invoke acquisition"),
-            monotonic=lambda: 0.0,
+            initialization_receipt_path=tmp_path / "must-not-read.json",
+            purchase_policy_file_sha256="sha256:" + "c" * 64,
+            cohort_policy_file_sha256="sha256:" + "d" * 64,
         )
 
 
@@ -1074,7 +1102,7 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome(
 
     result = run_document_repair_execution(
         execution=execution,
-        purchase_authority=_purchase_authority(execution, tmp_path),
+        purchase_runtime=_purchase_runtime(execution, tmp_path),
         acquire=acquire,
         monotonic=lambda: next(ticks),
     )
@@ -1118,7 +1146,7 @@ def test_runner_materializes_complete_evidence_for_successor_seal(
 
     result = run_document_repair_execution(
         execution=execution,
-        purchase_authority=_purchase_authority(execution, tmp_path),
+        purchase_runtime=_purchase_runtime(execution, tmp_path),
         acquire=lambda operation: AcquiredRepairDocument(
             disposition="included",
             source_document_id=operation.recap_document_id,
@@ -1161,16 +1189,14 @@ def test_paid_runner_requires_exact_generated_purchase_authority(
     with pytest.raises(DocumentRepairExecutorError, match="purchase authority"):
         run_document_repair_execution(
             execution=execution,
-            purchase_authority=None,
+            purchase_runtime=None,
             acquire=lambda _operation: pytest.fail("must not invoke acquisition"),
             monotonic=lambda: 0.0,
         )
 
-    authority = _purchase_authority(execution, tmp_path)
-    assert authority.execution_sha256 == execution.execution_sha256
-    assert authority.purchase_policy.per_document_reservation_usd == 3
-    assert authority.purchase_policy.hard_cap_usd == 33
-    assert authority.authority_sha256
+    runtime = _purchase_runtime(execution, tmp_path)
+    assert runtime.authority_sha256
+    assert runtime.initialization_id
 
 
 def test_paid_runner_accepts_ledger_initialized_after_authority_mint(
@@ -1187,14 +1213,13 @@ def test_paid_runner_accepts_ledger_initialized_after_authority_mint(
             for candidate, payload in snapshots.items()
         },
     )
-    authority = _purchase_authority(execution, tmp_path)
-    authority.purchase_policy.canonical_ledger_path.touch()
+    runtime = _purchase_runtime(execution, tmp_path)
     invoked: list[str] = []
     ticks = iter(float(value) for value in range(11))
 
     result = run_document_repair_execution(
         execution=execution,
-        purchase_authority=authority,
+        purchase_runtime=runtime,
         acquire=lambda operation: (
             invoked.append(operation.recap_document_id)
             or AcquiredRepairDocument(
@@ -1456,7 +1481,7 @@ def test_execution_resolves_same_entry_attachment_selector(tmp_path: Path) -> No
     ticks = iter((1.0, 1.2, 2.0, 2.3))
     result = run_document_repair_execution(
         execution=execution,
-        purchase_authority=_purchase_authority(execution, tmp_path),
+        purchase_runtime=_purchase_runtime(execution, tmp_path),
         acquire=lambda resolved: AcquiredRepairDocument(
             disposition="included",
             source_document_id=resolved.recap_document_id,
