@@ -83,7 +83,7 @@ def replay_packet_planner_run_card(
     markdown_root: Path,
     resolved_post_recovery_documents_path: Path | None,
     docket_decision_descriptor: object | None = None,
-) -> object:
+) -> Any:
     """Re-run packet planning from its exact committed inputs and parameters."""
 
     _cli_ns = _cli()
