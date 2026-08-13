@@ -12,6 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
+from math import isfinite
 from pathlib import Path
 from typing import Any, cast
 
@@ -504,4 +505,4 @@ def _mapping_record(value: object, index: int) -> Mapping[str, Any]:
 
 
 def _finite_number(value: float) -> bool:
-    return value == value and value != float("inf") and value != float("-inf")
+    return isfinite(value)

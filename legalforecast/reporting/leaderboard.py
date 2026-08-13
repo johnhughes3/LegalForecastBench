@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import html
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from io import StringIO
@@ -50,6 +51,7 @@ from legalforecast.evals.bootstrap import (
 from legalforecast.evals.scorers import ScoreSummary
 from legalforecast.reporting.calibration import calibration_records, calibration_svg
 from legalforecast.reporting.contamination_tiers import (
+    PRELIMINARY_MARKER,
     ContaminationTier,
     preliminary_caveat_if_needed,
     reported_model_label,
@@ -499,14 +501,10 @@ class BenchmarkLeaderboardReport:
         caveat_html = (
             f"<p>{html.escape(caveat, quote=False)}</p>" if caveat is not None else ""
         )
-        calibration_svg_markup = self.calibration_plot_svg
-        if contamination_tiers is not None:
-            for model_id in sorted(contamination_tiers, key=len, reverse=True):
-                marked = reported_model_label(model_id, contamination_tiers)
-                if marked != model_id:
-                    calibration_svg_markup = calibration_svg_markup.replace(
-                        model_id, marked
-                    )
+        calibration_svg_markup = _mark_preliminary_svg_model_ids(
+            self.calibration_plot_svg,
+            contamination_tiers,
+        )
         return (
             "<!doctype html><html><body>"
             f"<h1>{html.escape(self.title)}</h1>"
@@ -842,6 +840,28 @@ def _delta_against_best(
         if delta.model_a == best_model_id and delta.model_b == model_id:
             return (-delta.observed_delta, -delta.ci_high, -delta.ci_low)
     return (None, None, None)
+
+
+def _mark_preliminary_svg_model_ids(
+    svg: str,
+    contamination_tiers: Mapping[str, ContaminationTier] | None,
+) -> str:
+    """Star preliminary model labels in SVG text without rewriting shared prefixes."""
+
+    if contamination_tiers is None:
+        return svg
+    marked = svg
+    for model_id in sorted(contamination_tiers, key=len, reverse=True):
+        if contamination_tiers[model_id] is not ContaminationTier.PRELIMINARY:
+            continue
+        escaped = html.escape(model_id)
+        replacement = html.escape(f"{model_id}{PRELIMINARY_MARKER}")
+        pattern = re.compile(
+            rf"(?<![\w./+-]){re.escape(escaped)}"
+            rf"(?![\w./+-]|{re.escape(PRELIMINARY_MARKER)})"
+        )
+        marked = pattern.sub(replacement, marked)
+    return marked
 
 
 def _fmt_optional(value: float | None) -> str:

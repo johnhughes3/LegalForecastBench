@@ -238,6 +238,26 @@ def test_cutoff_past_boundary_classifies_and_renders_as_preliminary() -> None:
     assert f"{RESISTANT_MODEL}{PRELIMINARY_MARKER}" not in markdown
 
 
+def test_html_svg_does_not_star_a_resistant_id_that_shares_a_prefix() -> None:
+    html_text = build_benchmark_leaderboard_report(
+        (
+            _summary("gpt", micro_brier=0.10, ece=0.03),
+            _summary("gpt-4", micro_brier=0.12, ece=0.04),
+        )
+    ).to_html(
+        contamination_tiers={
+            "gpt": ContaminationTier.PRELIMINARY,
+            "gpt-4": ContaminationTier.RESISTANT,
+        }
+    )
+
+    assert ">gpt*</text>" in html_text
+    assert ">gpt-4</text>" in html_text
+    assert "gpt*-4" not in html_text
+    assert "gpt-4*" not in html_text
+    assert PRELIMINARY_CAVEAT in html_text
+
+
 def test_removing_the_caveat_from_a_preliminary_render_fails_the_contract() -> None:
     rendered = build_benchmark_leaderboard_report(
         (_summary(PRELIMINARY_MODEL, micro_brier=0.10, ece=0.03),)
