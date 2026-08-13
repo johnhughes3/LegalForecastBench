@@ -221,6 +221,7 @@ class AcquisitionObservation:
             )
 
     @property
+    # contract-ratchet: allow raw acquired-byte evidence digest
     def sha256(self) -> str | None:
         if self.content is None:
             return None
