@@ -48,6 +48,9 @@ from legalforecast.acquisition_completion_summary_cli import (
 )
 from legalforecast.cli_commands import report as _report_cmd
 from legalforecast.cli_commands import score as _score_cmd
+from legalforecast.cli_commands.report import (
+    run as _cmd_report,  # noqa: F401  # pyright: ignore[reportUnusedImport]
+)
 from legalforecast.cli_commands.score import (
     run as _cmd_score,  # noqa: F401  # pyright: ignore[reportUnusedImport]
 )

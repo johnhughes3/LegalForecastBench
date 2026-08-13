@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from legalforecast import cli as _cli_ns
 from legalforecast.reporting.score_summary_codec import score_summary_from_record
 
 
@@ -34,6 +33,8 @@ def register(
 
 def run(args: argparse.Namespace) -> int:
     """Render leaderboard artifacts from score summaries."""
+
+    from legalforecast import cli as _cli_ns
 
     scores_path = cast(Path, args.scores)
     output_dir = cast(Path, args.output_dir)
