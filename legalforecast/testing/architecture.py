@@ -344,7 +344,7 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
 
 
 def _imports_cli(path: Path) -> bool:
-    """Return whether a production module imports the CLI module."""
+    """Return whether a production module imports a CLI adapter module."""
 
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -352,18 +352,41 @@ def _imports_cli(path: Path) -> bool:
         return False
     for node in ast.walk(tree):
         if isinstance(node, ast.Import) and any(
-            alias.name == "legalforecast.cli" for alias in node.names
+            alias.name in {"legalforecast.cli", "legalforecast.console"}
+            for alias in node.names
         ):
+            return True
+        if isinstance(node, ast.Call) and _dynamic_cli_adapter_import(node):
             return True
         if not isinstance(node, ast.ImportFrom):
             continue
         module = _absolute_import_from_module(path, node)
-        if module == "legalforecast.cli":
+        if module in {"legalforecast.cli", "legalforecast.console"}:
             return True
         if module == "legalforecast":
-            if any(alias.name == "cli" for alias in node.names):
+            if any(alias.name in {"cli", "console"} for alias in node.names):
                 return True
     return False
+
+
+def _dynamic_cli_adapter_import(node: ast.Call) -> bool:
+    if not node.args:
+        return False
+    module = node.args[0]
+    if not isinstance(module, ast.Constant) or module.value not in {
+        "legalforecast.cli",
+        "legalforecast.console",
+    }:
+        return False
+    function = node.func
+    if isinstance(function, ast.Name):
+        return function.id in {"__import__", "import_module"}
+    return (
+        isinstance(function, ast.Attribute)
+        and isinstance(function.value, ast.Name)
+        and function.value.id == "importlib"
+        and function.attr == "import_module"
+    )
 
 
 def _python_paths(package_root: Path) -> Iterable[str]:

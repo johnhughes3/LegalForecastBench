@@ -98,8 +98,16 @@ monkeypatch.setattr(cli_module.os, "link", replacement)
     [
         "from .. import cli",
         "from ..cli import main",
+        "from .. import console",
+        "from ..console import app",
         "from legalforecast import cli",
         "from legalforecast.cli import main",
+        "from legalforecast import console",
+        "from legalforecast.console import app",
+        "import legalforecast.console",
+        'importlib.import_module("legalforecast.cli")',
+        'import_module("legalforecast.console")',
+        '__import__("legalforecast.cli")',
     ],
 )
 def test_upward_dependency_scanner_resolves_cli_import_forms(
