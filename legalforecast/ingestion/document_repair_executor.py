@@ -60,6 +60,7 @@ class DocketSnapshotAuthority:
     """Replay-minted docket-byte commitments from one pinned lineage manifest."""
 
     source_lineage_sha256: str
+    cohort_policy_sha256: str
     manifest_sha256: str
     candidate_sha256: Mapping[str, str]
     _mint: object
@@ -111,6 +112,8 @@ class DocumentRepairExecution:
 
     full_plan_sha256: str
     manifest_sha256: str
+    source_lineage_sha256: str
+    cohort_policy_sha256: str
     scope: str
     scope_sha256: str
     pilot_sha256: str | None
@@ -123,6 +126,8 @@ class DocumentRepairExecution:
             "schema_version": SCHEMA_VERSION,
             "full_plan_sha256": self.full_plan_sha256,
             "manifest_sha256": self.manifest_sha256,
+            "source_lineage_sha256": self.source_lineage_sha256,
+            "cohort_policy_sha256": self.cohort_policy_sha256,
             "scope": self.scope,
             "scope_sha256": self.scope_sha256,
             "pilot_sha256": self.pilot_sha256,
@@ -272,6 +277,8 @@ def build_document_repair_execution(
     provisional = DocumentRepairExecution(
         full_plan_sha256=full_plan.plan_sha256,
         manifest_sha256=full_plan.manifest_sha256,
+        source_lineage_sha256=snapshot_authority.source_lineage_sha256,
+        cohort_policy_sha256=snapshot_authority.cohort_policy_sha256,
         scope="pilot",
         scope_sha256=pilot.pilot_sha256,
         pilot_sha256=pilot.pilot_sha256,
@@ -282,6 +289,8 @@ def build_document_repair_execution(
     return DocumentRepairExecution(
         full_plan_sha256=provisional.full_plan_sha256,
         manifest_sha256=provisional.manifest_sha256,
+        source_lineage_sha256=provisional.source_lineage_sha256,
+        cohort_policy_sha256=provisional.cohort_policy_sha256,
         scope=provisional.scope,
         scope_sha256=provisional.scope_sha256,
         pilot_sha256=provisional.pilot_sha256,
@@ -340,6 +349,8 @@ def build_full_document_repair_execution(
     provisional = DocumentRepairExecution(
         full_plan_sha256=full_plan.plan_sha256,
         manifest_sha256=full_plan.manifest_sha256,
+        source_lineage_sha256=snapshot_authority.source_lineage_sha256,
+        cohort_policy_sha256=snapshot_authority.cohort_policy_sha256,
         scope="full_plan",
         scope_sha256=full_plan.plan_sha256,
         pilot_sha256=None,
@@ -350,6 +361,8 @@ def build_full_document_repair_execution(
     return DocumentRepairExecution(
         full_plan_sha256=provisional.full_plan_sha256,
         manifest_sha256=provisional.manifest_sha256,
+        source_lineage_sha256=provisional.source_lineage_sha256,
+        cohort_policy_sha256=provisional.cohort_policy_sha256,
         scope=provisional.scope,
         scope_sha256=provisional.scope_sha256,
         pilot_sha256=None,
@@ -381,6 +394,10 @@ def replay_docket_snapshot_authority(
     if not isinstance(raw_manifest_digest, str):
         raise DocumentRepairExecutorError("source lineage omits snapshot manifest pin")
     manifest_digest = _digest(raw_manifest_digest, "snapshot manifest digest")
+    raw_cohort_policy_digest = lineage.get("cohort_policy_sha256")
+    if not isinstance(raw_cohort_policy_digest, str):
+        raise DocumentRepairExecutorError("source lineage omits cohort policy pin")
+    cohort_policy_digest = _digest(raw_cohort_policy_digest, "cohort policy digest")
     if hashlib.sha256(manifest_bytes).hexdigest() != manifest_digest:
         raise DocumentRepairExecutorError("snapshot manifest differs from lineage pin")
     try:
@@ -405,6 +422,7 @@ def replay_docket_snapshot_authority(
     authority = object.__new__(DocketSnapshotAuthority)
     for name, field_value in (
         ("source_lineage_sha256", lineage_digest),
+        ("cohort_policy_sha256", cohort_policy_digest),
         ("manifest_sha256", manifest_digest),
         ("candidate_sha256", candidate_sha256),
         ("_mint", _SNAPSHOT_AUTHORITY),
@@ -552,7 +570,6 @@ def run_document_repair_execution(
 def build_document_repair_purchase_authority(
     *,
     execution: DocumentRepairExecution,
-    cohort_policy_sha256: str,
     canonical_ledger_path: str,
     fee_schedule: Mapping[str, object],
 ) -> DocumentRepairPurchaseAuthority:
@@ -571,9 +588,7 @@ def build_document_repair_purchase_authority(
     policy_artifact = generate_case_dev_purchase_policy(
         {
             "cycle_id": f"exact100-document-repair-{execution.scope}",
-            "cohort_policy_sha256": _digest(
-                cohort_policy_sha256, "cohort policy digest"
-            ),
+            "cohort_policy_sha256": execution.cohort_policy_sha256,
             "canonical_ledger_path": canonical_ledger_path,
             "hard_cap_usd": _money(budget.max_projected_budget),
             "opening_committed_spend_usd": "0.00",
@@ -619,6 +634,10 @@ def verify_purchase_policy_compatibility(
     if policy.per_document_reservation_usd != budget.cost_per_document:
         raise DocumentRepairExecutorError(
             "purchase-policy per-document reservation differs from repair approval"
+        )
+    if policy.cohort_policy_sha256 != execution.cohort_policy_sha256:
+        raise DocumentRepairExecutorError(
+            "purchase-policy cohort lineage differs from repair execution"
         )
     global_headroom = policy.hard_cap_usd - policy.opening_committed_spend_usd
     if global_headroom < budget.total_estimated_cost:

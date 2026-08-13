@@ -130,7 +130,10 @@ def _snapshot_authority(snapshots: Mapping[str, bytes]):
     }
     manifest = _canonical_bytes({"candidate_sha256": candidate_sha256})
     lineage = _canonical_bytes(
-        {"docket_snapshot_manifest_sha256": hashlib.sha256(manifest).hexdigest()}
+        {
+            "docket_snapshot_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "cohort_policy_sha256": "1" * 64,
+        }
     )
     return replay_docket_snapshot_authority(
         manifest_bytes=manifest,
@@ -302,7 +305,6 @@ def _purchase_policy(*, reservation: str, hard_cap: str) -> dict[str, object]:
 def _purchase_authority(execution):  # type: ignore[no-untyped-def]
     return build_document_repair_purchase_authority(
         execution=execution,
-        cohort_policy_sha256="1" * 64,
         canonical_ledger_path="/controlled/document-repair-ledger.sqlite3",
         fee_schedule={
             "source_citation": "https://example.test/public-fee-schedule",
@@ -428,6 +430,8 @@ def test_receipt_requires_monotonic_duration_and_exact_operation_prefix() -> Non
     tampered = DocumentRepairExecution(
         full_plan_sha256=execution.full_plan_sha256,
         manifest_sha256=execution.manifest_sha256,
+        source_lineage_sha256=execution.source_lineage_sha256,
+        cohort_policy_sha256=execution.cohort_policy_sha256,
         scope=execution.scope,
         scope_sha256=execution.scope_sha256,
         pilot_sha256=execution.pilot_sha256,
