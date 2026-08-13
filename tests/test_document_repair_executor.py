@@ -564,6 +564,14 @@ def test_purchase_authority_rejects_forged_execution_capability() -> None:
             },
         )
 
+    with pytest.raises(DocumentRepairExecutorError, match="replay-minted"):
+        run_document_repair_execution(
+            execution=forged,
+            purchase_authority=None,
+            acquire=lambda _operation: pytest.fail("must not invoke acquisition"),
+            monotonic=lambda: 0.0,
+        )
+
 
 def test_execution_seals_complete_successor_only_from_exact_resolved_documents() -> (
     None
