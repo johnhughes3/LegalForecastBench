@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
@@ -338,12 +339,33 @@ def _assert_no_undeclared_provider_names(
 
 
 def _ensure_private_directory(path: Path) -> None:
-    if path.is_symlink():
-        raise AuthProfileError("CLI scratch paths must not be symlinks")
-    path.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if not path.is_dir():
-        raise AuthProfileError("CLI scratch paths must be directories")
-    path.chmod(0o700)
+    parent = path.parent
+    if parent != path and not parent.exists():
+        _ensure_private_directory(parent)
+    try:
+        os.mkdir(path, 0o700)
+    except FileExistsError:
+        # Lost the create race; the nofollow open below is the authority.
+        pass
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise AuthProfileError("CLI scratch paths require O_NOFOLLOW")
+    flags = os.O_RDONLY | nofollow
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise AuthProfileError("CLI scratch paths must not be symlinks") from exc
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISDIR(info.st_mode):
+            raise AuthProfileError("CLI scratch paths must be directories")
+        os.fchmod(descriptor, 0o700)
+    finally:
+        os.close(descriptor)
 
 
 def _ensure_private_subdirectory(root: Path, relative_path: str) -> Path:

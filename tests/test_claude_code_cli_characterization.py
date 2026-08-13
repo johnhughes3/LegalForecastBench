@@ -119,6 +119,28 @@ def test_documentation_and_manifest_preserve_the_non_spending_claim_boundary() -
     assert typed.to_record() == manifest
 
 
+def test_json_schema_flag_takes_inline_json_not_a_path() -> None:
+    documentation = DOC.read_text(encoding="utf-8")
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    template = manifest["invocation"]["argv_template"]
+    auth_closed = (
+        ROOT / "tests" / "fixtures" / "claude_code" / "transcripts" / "auth_closed.json"
+    ).read_text(encoding="utf-8")
+
+    assert "inline JSON" in documentation
+    assert "rejected as invalid JSON" in documentation
+    assert "filesystem path was rejected as invalid JSON" in auth_closed
+    assert template[template.index("--json-schema") + 1] == "{output_schema}"
+    assert "{output_schema_path}" not in template
+    probe = build_safe_parser_probe(
+        executable=Path("claude"),
+        expected_model=EXPECTED_MODEL,
+    )
+    token = probe[probe.index("--json-schema") + 1]
+    json.loads(token)
+    assert not token.endswith(".json")
+
+
 def test_help_parsers_extract_only_public_interface_data() -> None:
     help_text = """Options:
   -p, --print

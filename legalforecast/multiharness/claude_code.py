@@ -2,10 +2,12 @@
 
 This adapter loads B1's frozen local CLI manifest, translates a benchmark
 task into a deterministic ``claude -p`` argv via ``LocalCliInvocation.render_argv``,
-asks B2's local CLI execution service to run it, and parses the JSON
-envelope into existing solver/result types. It never starts a process and
-never reads credentials. Live auth binding is
-``LegalForecastBench-dm0g.4.4.9``.
+asks B2's ``LocalCliExecutionService.execute(RunSpec)`` to run it, and parses
+the JSON envelope into existing solver/result types. It never starts a
+process and never reads credentials. Live auth binding is
+``LegalForecastBench-dm0g.4.4.9``. Tests inject
+the in-process fake service; production injects the contained runtime
+service.
 """
 
 from __future__ import annotations
@@ -33,7 +35,6 @@ from legalforecast.multiharness.deliverables import (
 )
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
-    LocalCliExecutionService,
     LocalCliFailureClass,
     RunSpec,
     declared_local_cli_failure_classes,
@@ -43,6 +44,7 @@ from legalforecast.multiharness.local_cli_manifest import (
     LocalCliAdapterManifest,
     LocalCliUsageReporting,
 )
+from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.spec import (
     AdapterCapabilities,
     AdapterManifest,

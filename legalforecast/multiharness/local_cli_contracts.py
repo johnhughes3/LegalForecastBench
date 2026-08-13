@@ -524,8 +524,8 @@ class ExecutionReceipt:
 class LocalCliExecutionService(Protocol):
     """B2 execute seam. Concrete type lives in ``local_cli_runtime``.
 
-    Tests inject ``FakeLocalCliExecutionService``. Production rebind is
-    ``LegalForecastBench-dm0g.4.4.19`` / ``.4.4.30``.
+    Tests inject ``FakeLocalCliExecutionService``. Production adapters bind
+    ``legalforecast.multiharness.local_cli_runtime.LocalCliExecutionService``.
     """
 
     def execute(self, spec: RunSpec) -> ExecutionReceipt:

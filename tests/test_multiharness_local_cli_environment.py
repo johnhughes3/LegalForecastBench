@@ -61,6 +61,16 @@ def test_fixture_none_environment_excludes_ambient_secrets(tmp_path: Path) -> No
     assert set(environment) == expected_child_environment_names(parent_env=_CANARY_ENV)
 
 
+def test_scratch_root_rejects_symlink(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    profile = resolve_auth_profile(FIXTURE_NONE, supported_profiles=(FIXTURE_NONE,))
+    with pytest.raises(AuthProfileError, match="symlink"):
+        build_local_cli_environment(profile, link, parent_env=_CANARY_ENV)
+
+
 def test_published_api_key_projects_only_declared_credentials(tmp_path: Path) -> None:
     profile = resolve_auth_profile(
         PUBLISHED_API_KEY,
