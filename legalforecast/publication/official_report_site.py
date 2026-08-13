@@ -13,6 +13,11 @@ from legalforecast.publication.official_report_validation import (
     load_official_bundle,
     validate_official_arithmetic,
 )
+from legalforecast.reporting.contamination_tiers import (
+    ContaminationTier,
+    preliminary_caveat_if_needed,
+    reported_model_label,
+)
 
 ArtifactLink = tuple[str, str]
 
@@ -30,6 +35,7 @@ def build_official_report_page(
     official_artifacts_dir: Path,
     artifact_links: Sequence[ArtifactLink],
     bundle: OfficialBundle | None = None,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> OfficialReportPage:
     """Build the official report body from canonical public aggregate fields."""
 
@@ -73,7 +79,12 @@ def build_official_report_page(
         _report_navigation(artifact_links),
         "<section id='headline' aria-labelledby='headline-title'>",
         "<h2 id='headline-title'>At a glance</h2>",
-        _headline_cards(best_model, prevalence=prevalence, run_card=run_card),
+        _headline_cards(
+            best_model,
+            prevalence=prevalence,
+            run_card=run_card,
+            contamination_tiers=contamination_tiers,
+        ),
         "</section>",
         "<section id='results' aria-labelledby='results-title'>",
         "<h2 id='results-title'>Evaluated models</h2>",
@@ -81,12 +92,13 @@ def build_official_report_page(
             model_rows,
             score_rows_by_model=score_rows_by_model,
             caption="Evaluated model results",
+            contamination_tiers=contamination_tiers,
         ),
-        _uncertainty(report),
+        _uncertainty(report, contamination_tiers=contamination_tiers),
         "</section>",
         "<section id='calibration' aria-labelledby='calibration-title'>",
         "<h2 id='calibration-title'>Calibration and operational reliability</h2>",
-        _calibration_summary(report),
+        _calibration_summary(report, contamination_tiers=contamination_tiers),
         _operational_summary(best_model),
         "</section>",
         "<section id='baseline' aria-labelledby='baseline-title'>",
@@ -96,6 +108,7 @@ def build_official_report_page(
             prevalence=prevalence,
             run_card=run_card,
             score_rows_by_model=score_rows_by_model,
+            contamination_tiers=contamination_tiers,
         ),
         "</section>",
         "<section id='interpretation' aria-labelledby='interpretation-title'>",
@@ -106,6 +119,7 @@ def build_official_report_page(
             "contamination risk; it does not prove immunity from memorization, "
             "pretraining overlap, or other contamination.</p>"
         ),
+        _preliminary_contamination_note(contamination_tiers),
         (
             "<h3>Limitations</h3><p>This benchmark measures probabilistic forecasts "
             "for a frozen legal task and cohort. Results do not establish general "
@@ -145,6 +159,24 @@ def _display_title(report: Mapping[str, Any]) -> str:
     return title if title != "unknown" else "LegalForecastBench Official Results"
 
 
+def _display_model_label(
+    model_id: str,
+    contamination_tiers: Mapping[str, ContaminationTier] | None,
+) -> str:
+    if model_id == "unknown":
+        return model_id
+    return reported_model_label(model_id, contamination_tiers)
+
+
+def _preliminary_contamination_note(
+    contamination_tiers: Mapping[str, ContaminationTier] | None,
+) -> str:
+    caveat = preliminary_caveat_if_needed(contamination_tiers)
+    if caveat is None:
+        return ""
+    return f"<p class='notice'>{html.escape(caveat, quote=False)}</p>"
+
+
 def _partition_official_rows(
     rows: Sequence[Mapping[str, Any]],
 ) -> tuple[tuple[Mapping[str, Any], ...], tuple[Mapping[str, Any], ...]]:
@@ -178,6 +210,7 @@ def _headline_cards(
     *,
     prevalence: float | None,
     run_card: Mapping[str, Any],
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> str:
     if best_model is None:
         return (
@@ -189,7 +222,10 @@ def _headline_cards(
         (
             "Lowest model micro-Brier",
             _fmt_number(_optional_number(best_model, "micro_brier")),
-            _first_str(best_model, ("model_id", "model_key", "solver_id")),
+            _display_model_label(
+                _first_str(best_model, ("model_id", "model_key", "solver_id")),
+                contamination_tiers,
+            ),
         ),
         (
             "Expected calibration error",
@@ -226,6 +262,7 @@ def _official_table(
     *,
     score_rows_by_model: Mapping[str, Mapping[str, Any]],
     caption: str,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> str:
     if not rows:
         return "<p>No official score rows were found in the supplied artifacts.</p>"
@@ -240,7 +277,9 @@ def _official_table(
         latency = _fmt_latency(_optional_number(score_row, "mean_latency_ms"))
         table_rows.append(
             "<tr>"
-            f"<th scope='row'>{html.escape(model)}</th>"
+            f"<th scope='row'>"
+            f"{html.escape(_display_model_label(model, contamination_tiers))}"
+            "</th>"
             "<td><span class='tier-badge'>Official</span></td>"
             f"<td>{html.escape(_provider_snapshot(score_row))}</td>"
             f"<td>{_required_int(score_row, 'case_count', label='score summary')}</td>"
@@ -273,7 +312,11 @@ def _official_table(
     )
 
 
-def _uncertainty(report: Mapping[str, Any]) -> str:
+def _uncertainty(
+    report: Mapping[str, Any],
+    *,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+) -> str:
     deltas = _mapping_rows(report.get("pairwise_deltas", ()))
     if not deltas:
         warning = _first_str(report, ("small_cluster_warning",))
@@ -292,7 +335,8 @@ def _uncertainty(report: Mapping[str, Any]) -> str:
         high = _fmt_number(_optional_number(delta, "ci_high"))
         items.append(
             "<li>"
-            f"{html.escape(model_a)} minus {html.escape(model_b)}: "
+            f"{html.escape(_display_model_label(model_a, contamination_tiers))} minus "
+            f"{html.escape(_display_model_label(model_b, contamination_tiers))}: "
             f"{html.escape(observed)} [{html.escape(low)}, {html.escape(high)}]"
             "</li>"
         )
@@ -306,12 +350,22 @@ def _uncertainty(report: Mapping[str, Any]) -> str:
     )
 
 
-def _calibration_summary(report: Mapping[str, Any]) -> str:
+def _calibration_summary(
+    report: Mapping[str, Any],
+    *,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+) -> str:
     tables = _mapping_rows(report.get("calibration_tables", ()))
     if not tables:
         return "<p>No calibration table is available in this aggregate.</p>"
-    rows = "".join(_calibration_summary_row(table) for table in tables)
-    bin_tables = "".join(_calibration_bin_table(table) for table in tables)
+    rows = "".join(
+        _calibration_summary_row(table, contamination_tiers=contamination_tiers)
+        for table in tables
+    )
+    bin_tables = "".join(
+        _calibration_bin_table(table, contamination_tiers=contamination_tiers)
+        for table in tables
+    )
     return (
         "<div class='table-scroll' role='region' tabindex='0' "
         "aria-label='Calibration summary table'><table>"
@@ -323,23 +377,37 @@ def _calibration_summary(report: Mapping[str, Any]) -> str:
     )
 
 
-def _calibration_summary_row(table: Mapping[str, Any]) -> str:
+def _calibration_summary_row(
+    table: Mapping[str, Any],
+    *,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+) -> str:
     populated = sum(
         1
         for item in _mapping_rows(table.get("bins", ()))
         if _optional_number(item, "unit_count") != 0
     )
+    model_id = _first_str(table, ("model_id",))
     return (
         "<tr>"
-        f"<th scope='row'>{html.escape(_first_str(table, ('model_id',)))}</th>"
+        f"<th scope='row'>"
+        f"{html.escape(_display_model_label(model_id, contamination_tiers))}"
+        "</th>"
         f"<td>{html.escape(_fmt_number(_optional_number(table, 'ece')))}</td>"
         f"<td>{populated}</td>"
         "</tr>"
     )
 
 
-def _calibration_bin_table(table: Mapping[str, Any]) -> str:
-    model_id = _required_text(table, "model_id", label="calibration table")
+def _calibration_bin_table(
+    table: Mapping[str, Any],
+    *,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+) -> str:
+    model_id = _display_model_label(
+        _required_text(table, "model_id", label="calibration table"),
+        contamination_tiers,
+    )
     bins = _mapping_rows(table.get("bins", ()))
     body = "".join(_calibration_bin_row(item) for item in bins)
     return (
@@ -409,6 +477,7 @@ def _baseline_context(
     prevalence: float | None,
     run_card: Mapping[str, Any],
     score_rows_by_model: Mapping[str, Mapping[str, Any]],
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> str:
     prevalence_copy = (
         f"The realized prevalence is {_fmt_percent(prevalence)}."
@@ -422,8 +491,9 @@ def _baseline_context(
             "present; no Brier skill claim is shown.</p>"
         )
     reference = _first_str(run_card, ("brier_skill_score_reference_model_id",))
+    reference_label = _display_model_label(reference, contamination_tiers)
     reference_copy = (
-        f"The aggregate identifies {reference} as its frozen skill reference."
+        f"The aggregate identifies {reference_label} as its frozen skill reference."
         if reference != "unknown"
         else (
             "The aggregate includes frozen baseline rows without naming a skill "
@@ -457,6 +527,7 @@ def _baseline_context(
             rows,
             score_rows_by_model=score_rows_by_model,
             caption="Frozen empirical baseline context",
+            contamination_tiers=contamination_tiers,
         )
     )
 

@@ -10,6 +10,12 @@ from dataclasses import dataclass
 from io import StringIO
 from typing import Any
 
+from legalforecast.reporting.contamination_tiers import (
+    ContaminationTier,
+    preliminary_caveat_if_needed,
+    reported_model_label,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class CommunityComparisonRow:
@@ -108,6 +114,8 @@ def render_community_comparison_csv(rows: Sequence[CommunityComparisonRow]) -> s
 
 def render_community_comparison_markdown(
     rows: Sequence[CommunityComparisonRow],
+    *,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> str:
     """Render comparison rows as a plain Markdown report."""
 
@@ -140,16 +148,23 @@ def render_community_comparison_markdown(
                 "| "
                 f"{row.row_id} | "
                 f"{row.row_type} | "
-                f"{row.model_key} | "
+                f"{reported_model_label(row.model_key, contamination_tiers)} | "
                 f"{row.adapter_id}@{row.adapter_version} | "
                 f"{row.task_count} | "
                 f"{row.coverage_percentage:.1f}% | "
                 f"{row.conformance_status} |"
             )
+    caveat = preliminary_caveat_if_needed(contamination_tiers)
+    if caveat is not None:
+        lines.extend(["", caveat])
     return "\n".join(lines) + "\n"
 
 
-def render_community_comparison_html(rows: Sequence[CommunityComparisonRow]) -> str:
+def render_community_comparison_html(
+    rows: Sequence[CommunityComparisonRow],
+    *,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+) -> str:
     """Render comparison rows as a simple static HTML report."""
 
     sections: list[str] = []
@@ -158,7 +173,9 @@ def render_community_comparison_html(rows: Sequence[CommunityComparisonRow]) -> 
             "<tr>"
             f"<td>{html.escape(row.row_id)}</td>"
             f"<td>{html.escape(row.row_type)}</td>"
-            f"<td>{html.escape(row.model_key)}</td>"
+            "<td>"
+            f"{html.escape(reported_model_label(row.model_key, contamination_tiers))}"
+            "</td>"
             f"<td>{html.escape(row.adapter_id)}@{html.escape(row.adapter_version)}</td>"
             f"<td>{row.task_count}</td>"
             f"<td>{row.coverage_percentage:.1f}%</td>"
@@ -177,12 +194,16 @@ def render_community_comparison_html(rows: Sequence[CommunityComparisonRow]) -> 
             f"<tbody>{section_rows}</tbody></table>"
             "</section>"
         )
+    caveat = preliminary_caveat_if_needed(contamination_tiers)
+    caveat_html = (
+        f"<p>{html.escape(caveat, quote=False)}</p>" if caveat is not None else ""
+    )
     return (
         "<!doctype html><html><body>"
         "<h1>LegalForecastBench Community Harness Comparisons</h1>"
         "<p>Community results are non-official. Compatible composites are grouped "
         "by family, scoring mode, and suite version.</p>"
-        f"{''.join(sections)}"
+        f"{''.join(sections)}{caveat_html}"
         "</body></html>"
     )
 
