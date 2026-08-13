@@ -8,6 +8,7 @@ candidate without turning them into candidate-level actions.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import re
@@ -72,7 +73,7 @@ def build_successor_attorney_packet(
     bundle_records = _jsonl_records(authoritative_v1_bundle_bytes, "v1 bundle")
     queue_records = _jsonl_records(observational_v2_queue_bytes, "v2 review queue")
     bundle_by_id = _validate_bundle(bundle_records)
-    _validate_queue_lineage(bundle_by_id, queue_records)
+    covered_review_ids = _validate_queue_lineage(bundle_by_id, queue_records)
     attorney_view = _build_attorney_view(bundle_records, queue_records)
     manifest: JsonRecord = {
         "schema_version": str(SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V1),
@@ -90,8 +91,8 @@ def build_successor_attorney_packet(
         ),
         "review_id_coverage": {
             "authoritative_v1_review_count": len(bundle_by_id),
-            "observational_v2_source_review_count": len(bundle_by_id),
-            "exactly_once": True,
+            "observational_v2_source_review_count": len(covered_review_ids),
+            "exactly_once": covered_review_ids == frozenset(bundle_by_id),
         },
         "provider_free": True,
         "authoritative_adjudication_source": "unitization_review_bundle_v1",
@@ -466,7 +467,9 @@ def _jsonl_records(payload: bytes, label: str) -> tuple[JsonRecord, ...]:
     if not payload or not payload.endswith(b"\n"):
         raise AttorneyPacketError(f"{label} must be nonempty newline-terminated JSONL")
     records: list[JsonRecord] = []
-    for line_number, line in enumerate(payload.splitlines(), start=1):
+    # Producer JSONL is LF-terminated. Split only on b"\n" so CR/VT/FF cannot
+    # invent extra record boundaries while still accepting the same producer bytes.
+    for line_number, line in enumerate(payload.split(b"\n")[:-1], start=1):
         try:
             value: object = json.loads(line, object_pairs_hook=_reject_duplicate_keys)
         except json.JSONDecodeError as exc:
@@ -490,14 +493,20 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> JsonRecord:
 
 def _validate_bundle(records: Sequence[Mapping[str, object]]) -> dict[str, JsonRecord]:
     by_id: dict[str, JsonRecord] = {}
+    cases_by_candidate: dict[str, str] = {}
     for record in records:
         if record.get("schema_version") != str(UNITIZATION_REVIEW_BUNDLE_V1):
             raise AttorneyPacketError("v1 bundle has unsupported schema")
         review_id = _required_str(record, "review_id", "v1 bundle")
         if review_id in by_id:
             raise AttorneyPacketError(f"duplicate v1 bundle review_id: {review_id}")
-        _required_str(record, "candidate_id", "v1 bundle")
-        _required_str(record, "case_id", "v1 bundle")
+        candidate_id = _required_str(record, "candidate_id", "v1 bundle")
+        case_id = _required_str(record, "case_id", "v1 bundle")
+        existing_case_id = cases_by_candidate.setdefault(candidate_id, case_id)
+        if existing_case_id != case_id:
+            raise AttorneyPacketError(
+                f"v1 bundle has inconsistent case_id: {candidate_id}"
+            )
         by_id[review_id] = dict(record)
     return by_id
 
@@ -505,8 +514,9 @@ def _validate_bundle(records: Sequence[Mapping[str, object]]) -> dict[str, JsonR
 def _validate_queue_lineage(
     bundle_by_id: Mapping[str, JsonRecord],
     queue_records: Sequence[Mapping[str, object]],
-) -> None:
+) -> frozenset[str]:
     covered: set[str] = set()
+    terminal_candidates: set[str] = set()
     for record in queue_records:
         if record.get("schema_version") != str(UNITIZATION_REVIEW_QUEUE_V2):
             raise AttorneyPacketError("v2 review queue has unsupported schema")
@@ -514,10 +524,6 @@ def _validate_queue_lineage(
         case_id = _required_str(record, "case_id", "v2 review queue")
         source_ids = _string_sequence(record, "source_review_ids")
         for source_id in source_ids:
-            if not source_id:
-                raise AttorneyPacketError(
-                    "v2 source_review_ids must be nonempty strings"
-                )
             _bundle_for_source(
                 bundle_by_id, source_id, candidate_id, case_id, "source_review_ids"
             )
@@ -530,6 +536,12 @@ def _validate_queue_lineage(
         if subject == "unit":
             _validate_unit_lineage(record, source_ids, bundle_by_id)
         elif subject == "candidate":
+            if candidate_id in terminal_candidates:
+                raise AttorneyPacketError(
+                    "v2 queue has more than one terminal technical item: "
+                    f"{candidate_id}"
+                )
+            terminal_candidates.add(candidate_id)
             _validate_terminal_lineage(record, source_ids, bundle_by_id)
         else:
             raise AttorneyPacketError(f"unsupported v2 review subject: {subject}")
@@ -537,6 +549,7 @@ def _validate_queue_lineage(
         raise AttorneyPacketError(
             "v2 queue does not cover every v1 review_id exactly once"
         )
+    return frozenset(covered)
 
 
 def _validate_unit_lineage(
@@ -765,48 +778,28 @@ def _build_attorney_view(
     for bundle in bundle_records:
         candidate_id = _required_str(bundle, "candidate_id", "v1 bundle")
         case_id = _required_str(bundle, "case_id", "v1 bundle")
-        existing_case_id = cases_by_candidate.setdefault(candidate_id, case_id)
-        if existing_case_id != case_id:
-            raise AttorneyPacketError(
-                f"v1 bundle has inconsistent case_id: {candidate_id}"
-            )
+        cases_by_candidate[candidate_id] = case_id
         bundles_by_candidate[candidate_id].append(bundle)
 
     units_by_candidate: dict[str, list[JsonRecord]] = defaultdict(list)
     terminal_by_candidate: dict[str, JsonRecord] = {}
     for item in queue_records:
         candidate_id = _required_str(item, "candidate_id", "v2 review queue")
-        case_id = _required_str(item, "case_id", "v2 review queue")
-        if cases_by_candidate.get(candidate_id) != case_id:
-            raise AttorneyPacketError(
-                f"v2 queue case_id differs from v1 bundle: {candidate_id}"
-            )
-        subject = _required_str(item, "review_subject", "v2 review queue")
-        if subject == "unit":
+        if _required_str(item, "review_subject", "v2 review queue") == "unit":
             units_by_candidate[candidate_id].append(item)
-            continue
-        if subject != "candidate":
-            raise AttorneyPacketError(f"unsupported v2 review subject: {subject}")
-        reason = item.get("reason")
-        if not isinstance(reason, Mapping):
-            raise AttorneyPacketError("candidate v2 item must be a technical item")
-        typed_reason = cast(Mapping[str, object], reason)
-        if typed_reason.get("class") != "technical":
-            raise AttorneyPacketError("candidate v2 item must be a technical item")
-        allowed_actions = item.get("allowed_actions")
-        if allowed_actions != []:
-            raise AttorneyPacketError(
-                "candidate v2 item must not advertise candidate actions"
-            )
-        if candidate_id in terminal_by_candidate:
-            raise AttorneyPacketError(
-                f"v2 queue has more than one terminal technical item: {candidate_id}"
-            )
-        terminal_by_candidate[candidate_id] = item
+        else:
+            terminal_by_candidate[candidate_id] = item
 
     candidates: list[JsonRecord] = []
     for candidate_id in sorted(bundles_by_candidate):
         authoritative = bundles_by_candidate[candidate_id]
+        observational_v2: JsonRecord = {
+            "unit_items": copy.deepcopy(units_by_candidate[candidate_id]),
+        }
+        if candidate_id in terminal_by_candidate:
+            observational_v2["terminal_technical_item"] = copy.deepcopy(
+                terminal_by_candidate[candidate_id]
+            )
         candidates.append(
             {
                 "candidate_id": candidate_id,
@@ -816,16 +809,9 @@ def _build_attorney_view(
                         _required_str(record, "review_id", "v1 bundle")
                         for record in authoritative
                     ],
-                    "bundle_records": authoritative,
+                    "bundle_records": copy.deepcopy(authoritative),
                 },
-                "observational_v2": {
-                    "unit_items": units_by_candidate[candidate_id],
-                    **(
-                        {"terminal_technical_item": terminal_by_candidate[candidate_id]}
-                        if candidate_id in terminal_by_candidate
-                        else {}
-                    ),
-                },
+                "observational_v2": observational_v2,
             }
         )
     return {
