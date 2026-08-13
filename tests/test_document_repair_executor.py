@@ -330,7 +330,26 @@ def test_execution_rejects_private_recap_record_as_free_route() -> None:
     private["entries"][0]["recap_documents"][0]["is_private"] = True
     snapshots["a"] = _canonical_bytes(private)
 
-    with pytest.raises(DocumentRepairExecutorError, match="approved free route"):
+    with pytest.raises(DocumentRepairExecutorError, match="restricted material"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(payload).hexdigest()
+                for candidate, payload in snapshots.items()
+            },
+        )
+
+
+def test_execution_rejects_private_recap_record_as_paid_route() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    private = json.loads(snapshots["b"])
+    private["entries"][0]["recap_documents"][0]["is_private"] = True
+    snapshots["b"] = _canonical_bytes(private)
+
+    with pytest.raises(DocumentRepairExecutorError, match="restricted material"):
         build_document_repair_execution(
             full_plan=plan,
             pilot=pilot,
@@ -1528,3 +1547,48 @@ def test_execution_resolves_same_entry_attachment_selector(tmp_path: Path) -> No
             ("73569789", 5, "attachment_1"),
         }
     )
+
+
+def test_execution_rejects_repeated_recap_document_identity() -> None:
+    row = _row("73569789", 5, free=False)
+    missing = row["missing_docs"]
+    assert isinstance(missing, list)
+    missing[0]["role"] = "motion"
+    missing.append(
+        {
+            **missing[0],
+            "role": "supporting_memorandum",
+            "document_selector": "attachment_1",
+        }
+    )
+    row["cost_usd"] = 6.0
+    manifest = _manifest_bytes(row)
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
+    snapshot = json.loads(_snapshot("73569789", 5, 9005, free=False))
+    snapshot["entries"][0]["recap_documents"].append(
+        {
+            "id": 9005,
+            "docket_entry_id": 1005,
+            "document_number": "5-1",
+            "attachment_number": 1,
+            "is_available": False,
+            "is_sealed": False,
+            "filepath_local": None,
+        }
+    )
+    snapshots = {"73569789": _canonical_bytes(snapshot)}
+
+    with pytest.raises(
+        DocumentRepairExecutorError, match="repeats a resolved RECAP document identity"
+    ):
+        build_full_document_repair_execution(
+            full_plan=plan,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                "73569789": hashlib.sha256(snapshots["73569789"]).hexdigest()
+            },
+        )
