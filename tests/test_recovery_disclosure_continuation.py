@@ -347,7 +347,9 @@ def test_model_review_requires_completed_plan_before_provider_call(
             ).encode("utf-8")
         )
     if run_card_variant == "tampered-plan":
-        plan_path.write_bytes(canonical_json_bytes({"documents": [auto_document]}))
+        # Keep both worksheet documents so rejection is the run-card hash bind,
+        # not a later plan/worksheet document-set mismatch.
+        plan_path.write_bytes(plan_bytes + b" ")
 
     provider_calls = 0
     capability = object()
