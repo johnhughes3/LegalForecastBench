@@ -768,6 +768,13 @@ def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
     )
     if verified != full_plan.plan_sha256:
         raise DocumentRepairExecutorError("full plan changed after approval")
+    if full_plan.max_per_document_usd != Decimal("3.00") or any(
+        item.projected_cost_usd not in {Decimal("0.00"), Decimal("3.00")}
+        for item in full_plan.items
+    ):
+        raise DocumentRepairExecutorError(
+            "repair execution requires the approved $3.00 per-document price"
+        )
 
 
 def _require_snapshot_authority(

@@ -750,3 +750,26 @@ def test_full_execution_requires_exact_snapshot_candidate_set() -> None:
             docket_snapshot_bytes=snapshots,
             docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
         )
+
+
+def test_execution_rejects_nonapproved_per_document_price() -> None:
+    row = _row("a", 1, free=False)
+    row["cost_usd"] = 4.0
+    missing = row["missing_docs"]
+    assert isinstance(missing, list)
+    missing[0]["cost_usd"] = 4.0
+    manifest = _manifest_bytes(row)
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+        max_per_document_usd="4.00",
+    )
+    snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
+
+    with pytest.raises(DocumentRepairExecutorError, match=r"approved \$3\.00"):
+        build_full_document_repair_execution(
+            full_plan=plan,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
+        )
