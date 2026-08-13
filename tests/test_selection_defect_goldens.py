@@ -40,33 +40,36 @@ from legalforecast.ingestion.operative_complaint import (
 _XFAIL_MISSED_BRIEFING = pytest.mark.xfail(
     strict=False,
     reason=(
-        "legalforecastbench-3ak: classify_courtlistener_entry_role gates "
-        "every opposition/reply/memo branch on a literal MTD-keyword match, "
-        "so generic titles and PACER event labels become OTHER"
+        "legalforecast/ingestion/courtlistener_web.py:249 and :624: "
+        "classify_courtlistener_entry_role gates every opposition/reply/memo "
+        "branch on a literal MTD-keyword match, so generic titles and PACER "
+        "event labels become OTHER"
     ),
 )
 _XFAIL_SILENT_LINKAGE = pytest.mark.xfail(
     strict=False,
     reason=(
-        "legalforecastbench-3ak: brief_targets_motion silently assumes "
-        "linkage when a brief names no entry and there is one target, and "
-        "silently denies linkage when there are two or more"
+        "legalforecast/ingestion/courtlistener_web.py:116: brief_targets_motion "
+        "silently assumes linkage when a brief names no entry and there is "
+        "one target, and silently denies linkage when there are two or more"
     ),
 )
 _XFAIL_WRONG_BYTES = pytest.mark.xfail(
     strict=False,
     reason=(
-        "legalforecastbench-3ak: no byte-vs-role check; 70754103 entry 4 is "
-        "admitted as an amended complaint although the body is AO 440 "
-        "summons forms (the operative complaint is entry 1)"
+        "legalforecast/ingestion/operative_complaint.py:31 and :98: no "
+        "byte-vs-role check; 70754103 entry 4 is admitted as an amended "
+        "complaint although the body is AO 440 summons forms (the operative "
+        "complaint is entry 1)"
     ),
 )
 _XFAIL_PLEADING_VOCAB = pytest.mark.xfail(
     strict=False,
     reason=(
-        "legalforecastbench-3ak: operative-pleading vocabulary is only "
-        "complaint/amended_complaint, so counterclaim, crossclaim, "
-        "third-party, and interpleader filings are dropped"
+        "legalforecast/ingestion/operative_complaint.py:16 and :98: operative-"
+        "pleading vocabulary is only complaint/amended_complaint, so "
+        "counterclaim, crossclaim, third-party, and interpleader filings are "
+        "dropped"
     ),
 )
 
