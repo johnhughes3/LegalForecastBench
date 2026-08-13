@@ -365,17 +365,17 @@ def classify_execution(
             receipt=receipt,
         )
     if _is_error_like(receipt, envelope):
-        if is_local_cli_sandbox_denial(_failure_text(receipt, envelope)):
-            return _classified(
-                LocalCliFailureClass.SANDBOX_DENIAL,
-                raw_output=receipt.stdout or receipt.stderr or "sandbox_denial",
-                spec=spec,
-                receipt=receipt,
-            )
         if envelope.get("is_error") is True and envelope.get("subtype") == "timeout":
             return _classified(
                 LocalCliFailureClass.TIMEOUT,
                 raw_output=_result_text(envelope) or "timeout",
+                spec=spec,
+                receipt=receipt,
+            )
+        if is_local_cli_sandbox_denial(_failure_text(receipt, envelope)):
+            return _classified(
+                LocalCliFailureClass.SANDBOX_DENIAL,
+                raw_output=receipt.stdout or receipt.stderr or "sandbox_denial",
                 spec=spec,
                 receipt=receipt,
             )
@@ -819,8 +819,10 @@ def _failure_text(
     receipt: ExecutionReceipt,
     envelope: Mapping[str, Any] | None,
 ) -> str:
-    parts = [receipt.stdout, receipt.stderr]
-    if envelope is not None:
+    if envelope is None:
+        return "\n".join((receipt.stdout, receipt.stderr))
+    parts = [receipt.stderr]
+    if envelope.get("is_error") is True:
         parts.append(_result_text(envelope))
     return "\n".join(parts)
 

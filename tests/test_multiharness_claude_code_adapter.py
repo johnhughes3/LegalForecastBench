@@ -378,6 +378,40 @@ def test_landlocked_legal_language_is_not_classified_as_sandbox_denial(
     _make_writable(tmp_path / "workspace" / "deliverable-sealed")
 
 
+def test_crash_does_not_scan_structured_forecast_for_sandbox_denial(
+    tmp_path: Path,
+) -> None:
+    def mutate(envelope: dict[str, Any]) -> None:
+        envelope["result"]["case_assessment"] = "The plaintiff is a landlocked state."
+
+    result = _adapter_from_mutated_success(
+        tmp_path,
+        mutate_envelope=mutate,
+        status="failed",
+        returncode=1,
+    )
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == LocalCliFailureClass.CRASH.value
+
+
+def test_timeout_subtype_precedes_sandbox_denial_markers(tmp_path: Path) -> None:
+    def mutate(envelope: dict[str, Any]) -> None:
+        envelope.update(
+            is_error=True,
+            subtype="timeout",
+            result="Timed out while discussing a landlocked state.",
+        )
+
+    result = _adapter_from_mutated_success(
+        tmp_path,
+        mutate_envelope=mutate,
+        status="failed",
+        returncode=1,
+    )
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == LocalCliFailureClass.TIMEOUT.value
+
+
 def test_offline_adapter_rejects_provider_environment_grants(tmp_path: Path) -> None:
     adapter = _adapter("success")
     request = _run_request(allowed_provider_env_vars=("ANTHROPIC_API_KEY",))
@@ -517,6 +551,8 @@ def _adapter_from_mutated_success(
     *,
     mutate_envelope: Callable[[dict[str, Any]], None],
     served_model: str | None = "claude-sonnet-4-6",
+    status: str = "succeeded",
+    returncode: int = 0,
 ) -> RunResult:
     _comments, record = _load_transcript_file(TRANSCRIPTS / "success.json")
     envelope = cast(dict[str, Any], json.loads(json.dumps(record["envelope"])))
@@ -524,8 +560,8 @@ def _adapter_from_mutated_success(
     transcript = FixtureTranscript(
         stdout=json.dumps(envelope, sort_keys=True, separators=(",", ":")),
         stderr="",
-        returncode=0,
-        status="succeeded",
+        returncode=returncode,
+        status=status,
         duration_ms=int(record.get("duration_ms") or 0),
         served_model=served_model,
         executable_version=record.get("executable_version"),
