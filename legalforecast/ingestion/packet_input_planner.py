@@ -1071,13 +1071,23 @@ def _has_restriction_evidence(*records: Mapping[str, Any]) -> bool:
 def _packet_section(role: DocumentRole, contains_target_outcome: bool) -> str:
     if contains_target_outcome or role in {DocumentRole.ORDER, DocumentRole.DECISION}:
         return "post_decision"
-    if role in {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}:
+    if role in {
+        DocumentRole.COMPLAINT,
+        DocumentRole.AMENDED_COMPLAINT,
+        DocumentRole.COUNTERCLAIM,
+        DocumentRole.CROSSCLAIM,
+        DocumentRole.THIRD_PARTY_COMPLAINT,
+        DocumentRole.INTERPLEADER_COMPLAINT,
+        DocumentRole.OTHER_CLAIM_BEARING,
+    }:
         return "pleadings"
     if role in {
         DocumentRole.MTD_NOTICE,
         DocumentRole.MTD_MEMORANDUM,
         DocumentRole.OPPOSITION,
         DocumentRole.REPLY,
+        DocumentRole.SURREPLY,
+        DocumentRole.SUPPLEMENTAL_BRIEF,
     }:
         return "briefing"
     return "other"

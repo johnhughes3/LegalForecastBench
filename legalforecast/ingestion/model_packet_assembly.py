@@ -34,6 +34,11 @@ _COMPLAINT_ROLES = frozenset(
     {
         DocumentRole.COMPLAINT,
         DocumentRole.AMENDED_COMPLAINT,
+        DocumentRole.COUNTERCLAIM,
+        DocumentRole.CROSSCLAIM,
+        DocumentRole.THIRD_PARTY_COMPLAINT,
+        DocumentRole.INTERPLEADER_COMPLAINT,
+        DocumentRole.OTHER_CLAIM_BEARING,
     }
 )
 _TARGET_MTD_ROLES = frozenset(
@@ -46,6 +51,11 @@ _ALWAYS_TARGET_RELEVANT_ROLES = frozenset(
     {
         DocumentRole.COMPLAINT,
         DocumentRole.AMENDED_COMPLAINT,
+        DocumentRole.COUNTERCLAIM,
+        DocumentRole.CROSSCLAIM,
+        DocumentRole.THIRD_PARTY_COMPLAINT,
+        DocumentRole.INTERPLEADER_COMPLAINT,
+        DocumentRole.OTHER_CLAIM_BEARING,
         DocumentRole.DOCKET_HISTORY,
     }
 )

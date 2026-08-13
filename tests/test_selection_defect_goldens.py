@@ -37,42 +37,6 @@ from legalforecast.ingestion.operative_complaint import (
     select_operative_complaint_entry,
 )
 
-_XFAIL_MISSED_BRIEFING = pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "legalforecast/ingestion/courtlistener_web.py:249 and :624: "
-        "classify_courtlistener_entry_role gates every opposition/reply/memo "
-        "branch on a literal MTD-keyword match, so generic titles and PACER "
-        "event labels become OTHER"
-    ),
-)
-_XFAIL_SILENT_LINKAGE = pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "legalforecast/ingestion/courtlistener_web.py:116: brief_targets_motion "
-        "silently assumes linkage when a brief names no entry and there is "
-        "one target, and silently denies linkage when there are two or more"
-    ),
-)
-_XFAIL_WRONG_BYTES = pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "legalforecast/ingestion/operative_complaint.py:31 and :98: no "
-        "byte-vs-role check; 70754103 entry 4 is admitted as an amended "
-        "complaint although the body is AO 440 summons forms (the operative "
-        "complaint is entry 1)"
-    ),
-)
-_XFAIL_PLEADING_VOCAB = pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "legalforecast/ingestion/operative_complaint.py:16 and :98: operative-"
-        "pleading vocabulary is only complaint/amended_complaint, so "
-        "counterclaim, crossclaim, third-party, and interpleader filings are "
-        "dropped"
-    ),
-)
-
 _AO440_SUMMONS_EXCERPT = (
     "AO 440 (Rev. 06/12) Summons in a Civil Action\n"
     "UNITED STATES DISTRICT COURT\n"
@@ -156,7 +120,6 @@ def _model_visible_entry_numbers(
     return selected
 
 
-@_XFAIL_MISSED_BRIEFING
 @pytest.mark.parametrize(
     ("text", "description"),
     (
@@ -185,7 +148,6 @@ def test_generic_opposition_title_is_classified_without_mtd_keyword(
     assert is_substantive_mtd_opposition_entry(entry) is True
 
 
-@_XFAIL_MISSED_BRIEFING
 @pytest.mark.parametrize(
     ("text", "description"),
     (
@@ -208,7 +170,6 @@ def test_generic_reply_title_is_classified_without_mtd_keyword(
     assert classify_courtlistener_entry_role(entry) is CourtListenerEntryRole.REPLY
 
 
-@_XFAIL_MISSED_BRIEFING
 def test_separate_memorandum_in_support_is_mtd_memorandum() -> None:
     """A standalone supporting memo is a required motion document."""
 
@@ -237,7 +198,6 @@ def test_memorandum_that_names_the_mtd_is_already_a_memorandum() -> None:
     )
 
 
-@_XFAIL_MISSED_BRIEFING
 @pytest.mark.parametrize(
     "text",
     (
@@ -256,7 +216,6 @@ def test_pacer_event_label_is_a_dispositive_motion(text: str) -> None:
     )
 
 
-@_XFAIL_SILENT_LINKAGE
 def test_brief_without_entry_number_does_not_silently_assume_single_motion() -> None:
     """One target is not evidence that an unlabeled brief attacks it."""
 
@@ -266,7 +225,6 @@ def test_brief_without_entry_number_does_not_silently_assume_single_motion() -> 
     assert brief_targets_motion(entry, (10,)) is False
 
 
-@_XFAIL_SILENT_LINKAGE
 def test_brief_without_entry_number_does_not_silently_deny_multi_motion() -> None:
     """Two targets plus no entry number is unresolved, not a boolean drop."""
 
@@ -288,7 +246,6 @@ def test_explicit_ecf_reference_still_targets_that_motion() -> None:
     assert brief_targets_motion(entry, (41,)) is False
 
 
-@_XFAIL_PLEADING_VOCAB
 @pytest.mark.parametrize(
     ("number", "text", "description", "kind"),
     (
@@ -348,7 +305,6 @@ def test_claim_bearing_pleading_vocabulary(
     assert selected.kind.value in _CLAIM_BEARING_KINDS
 
 
-@_XFAIL_MISSED_BRIEFING
 def test_70754103_selects_complaint_motion_opposition_and_reply() -> None:
     """Select 1, 10, 12, 13; later briefing on motions 41+ stays out."""
 
@@ -411,7 +367,6 @@ def test_70754103_selects_complaint_motion_opposition_and_reply() -> None:
     }
 
 
-@_XFAIL_WRONG_BYTES
 def test_70754103_rejects_summons_bytes_labeled_amended_complaint() -> None:
     """Wrong bytes behind a trusted label: entry 4 is AO 440 summons forms."""
 
@@ -437,7 +392,6 @@ def test_70754103_rejects_summons_bytes_labeled_amended_complaint() -> None:
     assert selected.kind is OperativeComplaintKind.COMPLAINT
 
 
-@_XFAIL_WRONG_BYTES
 def test_ao440_summons_body_mismatches_amended_complaint_role() -> None:
     """Byte-vs-role hook: AO 440 body cannot satisfy an amended-complaint label."""
 
@@ -472,7 +426,6 @@ def test_71212565_motion_text_cites_interpleader_and_crossclaim() -> None:
     assert explicit_motion_reference_numbers(motion) == frozenset({12, 23})
 
 
-@_XFAIL_PLEADING_VOCAB
 def test_71212565_requires_interpleader_12_and_crossclaim_23() -> None:
     """Motion 30 attacks ECF 23; the originating interpleader is ECF 12."""
 

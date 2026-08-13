@@ -1558,18 +1558,26 @@ def _best_free_document(
 ):
     if entry.restricted:
         return None
-    if role in {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}:
+    pleading_kinds = {
+        DocumentRole.COMPLAINT: OperativeComplaintKind.COMPLAINT,
+        DocumentRole.AMENDED_COMPLAINT: OperativeComplaintKind.AMENDED_COMPLAINT,
+        DocumentRole.COUNTERCLAIM: OperativeComplaintKind.COUNTERCLAIM,
+        DocumentRole.CROSSCLAIM: OperativeComplaintKind.CROSSCLAIM,
+        DocumentRole.THIRD_PARTY_COMPLAINT: (
+            OperativeComplaintKind.THIRD_PARTY_COMPLAINT
+        ),
+        DocumentRole.INTERPLEADER_COMPLAINT: (
+            OperativeComplaintKind.INTERPLEADER_COMPLAINT
+        ),
+    }
+    if role in pleading_kinds:
         number = _entry_number(entry)
         selection = (
             None
             if number is None
             else select_operative_complaint_entry((entry,), before_entry=number + 1)
         )
-        expected_kind = (
-            OperativeComplaintKind.AMENDED_COMPLAINT
-            if role is DocumentRole.AMENDED_COMPLAINT
-            else OperativeComplaintKind.COMPLAINT
-        )
+        expected_kind = pleading_kinds[role]
         if selection is not None and selection.kind is expected_kind:
             return select_operative_complaint_document(entry, require_free=True)
     matching_documents = tuple(
@@ -1634,6 +1642,14 @@ def _document_matches_role(description: str, role: DocumentRole) -> bool:
         return _looks_like_complaint_document_description(text, amended=False)
     if role is DocumentRole.AMENDED_COMPLAINT:
         return _looks_like_complaint_document_description(text, amended=True)
+    if role is DocumentRole.COUNTERCLAIM:
+        return bool(re.search(r"\bcounterclaims?\b", text))
+    if role is DocumentRole.CROSSCLAIM:
+        return bool(re.search(r"\bcross-?claims?\b", text))
+    if role is DocumentRole.THIRD_PARTY_COMPLAINT:
+        return bool(re.search(r"\bthird-?party\s+complaint\b", text))
+    if role is DocumentRole.INTERPLEADER_COMPLAINT:
+        return bool(re.search(r"\binterpleader\b", text))
     if role is DocumentRole.MTD_NOTICE:
         return bool(
             (
@@ -1655,6 +1671,16 @@ def _document_matches_role(description: str, role: DocumentRole) -> bool:
     if role is DocumentRole.REPLY:
         return bool(
             re.search(r"\breply\b", text)
+            and not _contains_non_merits_motion_marker(text)
+        )
+    if role is DocumentRole.SURREPLY:
+        return bool(
+            re.search(r"\bsur-?reply\b", text)
+            and not _contains_non_merits_motion_marker(text)
+        )
+    if role is DocumentRole.SUPPLEMENTAL_BRIEF:
+        return bool(
+            re.search(r"\bsupplemental\b.{0,80}\b(?:brief|memorandum)\b", text)
             and not _contains_non_merits_motion_marker(text)
         )
     if role is DocumentRole.DECISION:

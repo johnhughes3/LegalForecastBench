@@ -86,6 +86,18 @@ EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1 = SchemaIdentifier(
 EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1 = SchemaIdentifier(
     "legalforecast.exact100_successor_terminal_exclusion.v1"
 )
+MISSING_DOCUMENT_EXCLUSION_V1 = SchemaIdentifier(
+    "legalforecast.missing_document_exclusion.v1"
+)
+MISSING_DOCUMENT_INCLUSION_V1 = SchemaIdentifier(
+    "legalforecast.missing_document_inclusion.v1"
+)
+MISSING_DOCUMENT_SUCCESSOR_STATE_V1 = SchemaIdentifier(
+    "legalforecast.missing_document_successor_state.v1"
+)
+REPAIR_MANIFEST_APPROVAL_V1 = SchemaIdentifier(
+    "legalforecast.repair_manifest_approval.v1"
+)
 EXACT100_ZERO_COST_RECOVERY_PLAN_V1 = SchemaIdentifier(
     "legalforecast.exact100_zero_cost_recovery_plan.v1"
 )

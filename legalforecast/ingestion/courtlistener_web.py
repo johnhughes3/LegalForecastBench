@@ -136,13 +136,42 @@ def explicit_motion_reference_numbers(
 def brief_targets_motion(
     entry: CourtListenerWebDocketEntry,
     target_entries: tuple[int, ...],
-) -> bool:
-    """Return whether one brief targets the selected motion entries."""
+) -> bool | None:
+    """Return explicit linkage, supported single-motion inference, or unknown."""
 
     explicit_references = explicit_motion_reference_numbers(entry)
     if explicit_references:
         return bool(explicit_references.intersection(target_entries))
-    return len(target_entries) <= 1
+    if len(target_entries) > 1:
+        text = _normalized_text(entry.text).lower()
+        if re.search(
+            r"\bre\s*:?\s*\d+\s*:\s*\d{2,4}-[a-z]|\bre\d+\b|"
+            r"\bdocket\s+\d+(?::\d{2,4}-[a-z]|-cv-)",
+            text,
+        ):
+            return False
+        return None
+    if len(target_entries) != 1:
+        return False
+    text = _normalized_text(entry.text).lower()
+    if _references_mtd(text) and re.search(
+        r"\b(?:opposition|response|reply|surreply)\b", text
+    ):
+        return True
+    entry_number = (
+        int(entry.entry_number)
+        if entry.entry_number is not None and entry.entry_number.isdigit()
+        else None
+    )
+    target = target_entries[0]
+    return bool(
+        entry_number is not None
+        and 0 < entry_number - target <= 10
+        and re.match(r"^\d+\s+[a-z]{3,9}\s+\d{1,2},\s+\d{4}\b", text)
+        and "main document" in text
+        and re.search(r"\b(?:opposition|response|reply|surreply)\b", text)
+        and "motion" in text
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,15 +290,22 @@ def classify_courtlistener_entry_role(
         )
     ).lower()
     references_mtd = _references_mtd(text)
-    if references_mtd and starts_with_dispositive_motion(text):
+    if (references_mtd and starts_with_dispositive_motion(text)) or (
+        _looks_like_pacer_dispositive_event(text)
+    ):
         return CourtListenerEntryRole.MTD_NOTICE
     if references_mtd and _looks_like_decision(text):
         return CourtListenerEntryRole.DECISION
-    if "reply" in text and references_mtd:
+    if re.search(r"\b(?:reply|surreply)\b", text) and (
+        references_mtd or "motion" in text
+    ):
         return CourtListenerEntryRole.REPLY
     if _looks_like_substantive_mtd_opposition(text):
         return CourtListenerEntryRole.OPPOSITION
-    if "memorandum" in text and references_mtd:
+    if "memorandum" in text and (
+        references_mtd
+        or re.search(r"\bmemorandum\s+in\s+support(?:\s+of\s+(?:a\s+)?motion)?\b", text)
+    ):
         return CourtListenerEntryRole.MTD_MEMORANDUM
     if "exhibit" in text and references_mtd:
         return CourtListenerEntryRole.EXHIBIT
@@ -301,7 +337,15 @@ def is_substantive_mtd_opposition_entry(
 
 
 def _looks_like_substantive_mtd_opposition(text: str) -> bool:
-    if not _references_mtd(text):
+    if not (
+        _references_mtd(text)
+        or re.search(
+            r"\b(?:opposition\s+to|response\s+in\s+opposition|"
+            r"response\s+to)\b[^.;]{0,120}\bmotions?\b"
+            r"|\b(?:opposition|response)\b[^.;]{0,80}\bre\s+motions?\b",
+            text,
+        )
+    ):
         return False
     if re.search(
         r"\bmotions?\s+(?:for\s+(?:an?\s+)?)?"
@@ -316,6 +360,17 @@ def _looks_like_substantive_mtd_opposition(text: str) -> bool:
     ):
         return False
     return bool(re.search(r"\bopposition\b|\bresponse\b", text))
+
+
+def _looks_like_pacer_dispositive_event(text: str) -> bool:
+    return bool(
+        re.search(
+            r"(?:^|\bmain document\s+)(?:\d+\s+)?"
+            r"(?:dismiss\s+for\s+failure\s+to\s+state\s+a\s+claim|"
+            r"dismiss\s*/\s*lack\s+of\s+jurisdiction)\b",
+            text,
+        )
+    )
 
 
 def estimate_briefing_completeness(

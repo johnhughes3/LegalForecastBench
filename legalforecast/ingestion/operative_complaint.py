@@ -18,6 +18,10 @@ class OperativeComplaintKind(StrEnum):
 
     COMPLAINT = "complaint"
     AMENDED_COMPLAINT = "amended_complaint"
+    COUNTERCLAIM = "counterclaim"
+    CROSSCLAIM = "crossclaim"
+    THIRD_PARTY_COMPLAINT = "third_party_complaint"
+    INTERPLEADER_COMPLAINT = "interpleader_complaint"
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +47,10 @@ def select_operative_complaint_entry(
         if number is None or number >= before_entry:
             continue
         kind = _complaint_entry_kind(entry)
-        if kind is not None:
+        if kind is not None and (
+            entry.narrative_text is None
+            or pleading_body_matches_kind(entry.narrative_text, kind)
+        ):
             candidates.append((number, entry, kind))
     if not candidates:
         return None
@@ -95,10 +102,52 @@ def select_operative_complaint_document(
     return None
 
 
+def pleading_body_matches_kind(
+    body: str,
+    kind: OperativeComplaintKind,
+) -> bool:
+    """Return whether observed document text can satisfy a pleading label.
+
+    Docket labels remain useful discovery evidence, but obvious form bytes such
+    as summonses and civil cover sheets cannot be admitted as claim pleadings.
+    """
+
+    text = _normalized(body)
+    if not text:
+        return False
+    if re.search(
+        r"\bao\s*440\b|\bsummons\s+in\s+a\s+civil\s+action\b|"
+        r"\bproof\s+of\s+service\b|\bcivil\s+cover\s+sheet\b|"
+        r"\badversary\s+proceeding\s+cover\s+sheet\b|\bofficial\s+form\s+1040\b",
+        text,
+    ):
+        return False
+    patterns = {
+        OperativeComplaintKind.COMPLAINT: r"\bcomplaint\b",
+        OperativeComplaintKind.AMENDED_COMPLAINT: (
+            r"\b(?:(?:first|second|third)\s+)?amended\s+complaint\b"
+        ),
+        OperativeComplaintKind.COUNTERCLAIM: r"\bcounterclaims?\b",
+        OperativeComplaintKind.CROSSCLAIM: r"\bcross-?claims?\b",
+        OperativeComplaintKind.THIRD_PARTY_COMPLAINT: (r"\bthird-?party\s+complaint\b"),
+        OperativeComplaintKind.INTERPLEADER_COMPLAINT: (
+            r"\binterpleader(?:\s+(?:complaint|counterclaim))?\b"
+        ),
+    }
+    if kind is OperativeComplaintKind.COMPLAINT and re.search(
+        patterns[OperativeComplaintKind.AMENDED_COMPLAINT], text
+    ):
+        return False
+    return re.search(patterns[kind], text) is not None
+
+
 def _complaint_entry_kind(
     entry: CourtListenerWebDocketEntry,
 ) -> OperativeComplaintKind | None:
     text = _normalized(entry.text)
+    claim_kind = _non_complaint_claim_kind(text)
+    if claim_kind is not None:
+        return claim_kind
     if re.search(r"\banswer\s+to\s+(?:amended\s+)?complaint\b", text):
         return None
     procedural_pattern = (
@@ -161,6 +210,9 @@ def _complaint_entry_kind(
 
 def _complaint_document_kind(description: str) -> OperativeComplaintKind | None:
     text = _normalized(description)
+    claim_kind = _non_complaint_claim_kind(text)
+    if claim_kind is not None:
+        return claim_kind
     if re.fullmatch(
         r"(?:civil case - )?(?:(?:first|second|third)\s+)?amended complaint"
         r"|civil case - complaint, amended",
@@ -178,6 +230,25 @@ def _complaint_document_kind(description: str) -> OperativeComplaintKind | None:
         text,
     ):
         return OperativeComplaintKind.COMPLAINT
+    return None
+
+
+def _non_complaint_claim_kind(text: str) -> OperativeComplaintKind | None:
+    patterns = (
+        (OperativeComplaintKind.CROSSCLAIM, r"\bcross-?claims?\b"),
+        (OperativeComplaintKind.COUNTERCLAIM, r"\bcounterclaims?\b"),
+        (
+            OperativeComplaintKind.THIRD_PARTY_COMPLAINT,
+            r"\bthird-?party\s+complaint\b",
+        ),
+        (
+            OperativeComplaintKind.INTERPLEADER_COMPLAINT,
+            r"\binterpleader(?:\s+(?:complaint|counterclaim))?\b",
+        ),
+    )
+    for kind, pattern in patterns:
+        if re.search(pattern, text):
+            return kind
     return None
 
 
