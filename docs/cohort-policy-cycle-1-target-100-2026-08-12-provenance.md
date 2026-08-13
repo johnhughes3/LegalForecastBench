@@ -6,7 +6,7 @@ policy artifact and is never consumed as runtime authority.
 
 ## Human authority
 
-- Epic `legalforecastbench-3ak` records John's 2026-08-12 decision to repair
+- Epic `legalforecastbench-3ak` records the 2026-08-12 decision to repair
   the invalidated exact-100 document selection through a versioned successor
   lineage rather than mutate frozen artifacts.
 - Task `legalforecastbench-3ak.3` records the authorized policy changes:

@@ -466,6 +466,24 @@ def test_plan_distinguishes_same_entry_main_document_and_attachment() -> None:
     ]
 
 
+def test_plan_rejects_replacement_recommendation() -> None:
+    manifest = _plan_manifest_bytes(
+        {
+            "candidate_id": "70754103",
+            "recommendation": "replace",
+            "cost_usd": 0.0,
+            "missing_docs": [],
+            "byte_mismatches": [],
+        }
+    )
+
+    with pytest.raises(
+        MissingDocumentSuccessorError,
+        match="replacement recommendation",
+    ):
+        _plan(manifest)
+
+
 def test_plan_refuses_per_document_and_aggregate_approval_overruns() -> None:
     wrong_price = _plan_manifest_bytes(
         {
@@ -628,6 +646,88 @@ def test_plan_accounts_for_retained_extra_and_byte_mismatch_entries() -> None:
     assert plan.existing_document_ledger[1]["docket_entry_number"] == 10
 
 
+def test_plan_carries_byte_mismatches_without_current_selection() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair(
+            "70754103",
+            missing=[_missing(1, "complaint", free=0, paid=1)],
+            mismatch=[
+                {
+                    "entry": 4,
+                    "selected_role": "amended_complaint",
+                    "observed_role": "summons",
+                    "verdict": "mismatch",
+                    "evidence": "AO 440 summons",
+                }
+            ],
+        )
+    )
+
+    plan = _plan(manifest)
+
+    assert [dict(row) for row in plan.existing_document_ledger] == [
+        {
+            "candidate_id": "70754103",
+            "docket_entry_number": 4,
+            "document_selector": "main_document",
+            "document_role": "amended_complaint",
+            "disposition": "rejected_byte_role",
+            "reason": "byte_role_mismatch",
+            "observed_role": "summons",
+            "evidence": "AO 440 summons",
+        }
+    ]
+
+
+def test_plan_carries_same_entry_main_and_attachment_mismatches() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair(
+            "73569789",
+            missing=[_missing(1, "complaint", free=0, paid=1)],
+            mismatch=[
+                {
+                    "entry": 5,
+                    "document_selector": "main_document",
+                    "selected_role": "motion",
+                    "observed_role": "notice",
+                    "verdict": "mismatch",
+                    "evidence": "notice of hearing",
+                },
+                {
+                    "entry": 5,
+                    "document_selector": "attachment_1",
+                    "selected_role": "supporting_memorandum",
+                    "observed_role": "exhibit",
+                    "verdict": "mismatch",
+                    "evidence": "exhibit A",
+                },
+            ],
+        )
+    )
+
+    plan = _plan(manifest)
+
+    assert [
+        (row["docket_entry_number"], row["document_selector"], row["document_role"])
+        for row in plan.existing_document_ledger
+    ] == [
+        (5, "attachment_1", "supporting_memorandum"),
+        (5, "main_document", "motion"),
+    ]
+
+
+def test_plan_rejects_blank_manifest_lines() -> None:
+    row = json.dumps(
+        _repair("70754103", missing=[_missing(12, "response", free=0, paid=1)]),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    manifest = f"{row}\n\n{row}\n".encode()
+
+    with pytest.raises(MissingDocumentSuccessorError, match="invalid JSON"):
+        _plan(manifest)
+
+
 def test_seal_rejects_wrong_bytes_and_unplanned_paid_substitution() -> None:
     manifest = _plan_manifest_bytes(
         _repair("70754103", missing=[_missing(13, "reply", free=1, paid=0)])
@@ -659,6 +759,44 @@ def test_seal_rejects_wrong_bytes_and_unplanned_paid_substitution() -> None:
         seal_missing_document_successor(
             plan=plan,
             acquired_documents=[evidence],
+            exclusions=[],
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_seal_rejects_reused_source_document_id() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair(
+            "70754103",
+            missing=[
+                _missing(12, "response", free=1, paid=0),
+                _missing(13, "reply", free=1, paid=0),
+            ],
+        )
+    )
+    plan = _plan(manifest)
+    response = b"response"
+    reply = b"reply"
+
+    def _evidence(entry: int, role: str, body: bytes) -> dict[str, object]:
+        return {
+            "candidate_id": "70754103",
+            "docket_entry_number": entry,
+            "document_role": role,
+            "source_document_id": "reused-id",
+            "source": "courtlistener_free",
+            "sha256": hashlib.sha256(body).hexdigest(),
+            "byte_count": len(body),
+            "document_bytes": body,
+        }
+
+    with pytest.raises(MissingDocumentSuccessorError, match="source document"):
+        seal_missing_document_successor(
+            plan=plan,
+            acquired_documents=[
+                _evidence(12, "response", response),
+                _evidence(13, "reply", reply),
+            ],
             exclusions=[],
             role_bytes_match=lambda _role, _body: True,
         )
