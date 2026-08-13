@@ -14,6 +14,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from types import MappingProxyType
 from typing import cast
 
 from legalforecast.contracts import (
@@ -424,7 +425,7 @@ def replay_docket_snapshot_authority(
         ("source_lineage_sha256", lineage_digest),
         ("cohort_policy_sha256", cohort_policy_digest),
         ("manifest_sha256", manifest_digest),
-        ("candidate_sha256", candidate_sha256),
+        ("candidate_sha256", MappingProxyType(candidate_sha256)),
         ("_mint", _SNAPSHOT_AUTHORITY),
     ):
         object.__setattr__(authority, name, field_value)
@@ -735,14 +736,7 @@ def seal_document_repair_execution(
 def _require_scope_binding(
     full_plan: MissingDocumentAcquisitionPlan, pilot: DocumentRepairPilot
 ) -> None:
-    verified_full_plan_sha256 = str(
-        ARTIFACT_RAW_SHA256_V1.commit(
-            full_plan.content_record(),
-            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
-        ).digest
-    )
-    if verified_full_plan_sha256 != full_plan.plan_sha256:
-        raise DocumentRepairExecutorError("full plan changed after approval")
+    _require_valid_full_plan(full_plan)
     verified_pilot_sha256 = str(
         ARTIFACT_RAW_SHA256_V1.commit(
             pilot.content_record(), domain=EXACT100_DOCUMENT_REPAIR_PILOT_V1
@@ -790,7 +784,10 @@ def _require_snapshot_authority(
         candidate_id: _digest(digest, "docket snapshot digest")
         for candidate_id, digest in supplied_digests.items()
     }
-    if normalized != dict(authority.candidate_sha256):
+    if any(
+        authority.candidate_sha256.get(candidate_id) != digest
+        for candidate_id, digest in normalized.items()
+    ):
         raise DocumentRepairExecutorError(
             "docket snapshot digests differ from committed authority"
         )
@@ -886,7 +883,7 @@ def _resolve_operation(
             f"{item.candidate_id}/{item.docket_entry_number}"
         )
     entry = matches[0]
-    if str(entry.get("docket")) != str(snapshot["docket_id"]):
+    if _docket_identifier(entry.get("docket")) != str(snapshot["docket_id"]):
         raise DocumentRepairExecutorError("docket entry belongs to a different docket")
     documents = _mapping_list(entry.get("recap_documents"), "RECAP documents")
     main_documents = [
@@ -1104,6 +1101,19 @@ def _positive_identifier(value: object, label: str) -> str:
     if result is None:
         raise DocumentRepairExecutorError(f"{label} is invalid")
     return str(result)
+
+
+def _docket_identifier(value: object) -> str | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return str(value) if value > 0 else None
+    if not isinstance(value, str):
+        return None
+    stripped = value.rstrip("/")
+    candidate = stripped.rsplit("/", 1)[-1]
+    resolved = _positive_int(candidate, allow_invalid=True)
+    return str(resolved) if resolved is not None else None
 
 
 def _raise(message: str) -> None:
