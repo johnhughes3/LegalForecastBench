@@ -2,7 +2,10 @@
 
 Adapters call ``LocalCliExecutionService.execute(RunSpec)`` instead of
 spawning CLIs themselves. The contained launch path is ``execute_local_cli``.
-Scheduling belongs to ``dm0g.4.2.10``; this module only exposes hooks.
+Executable identity is bound fail-closed before spend (``dm0g.4.2.8``).
+Scheduling is enforced and recorded as requested-versus-actual evidence
+(``dm0g.4.2.10``). B1's adapter-manifest fields are stubbed here until
+``dm0g.4.4.1`` freezes them.
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, Protocol, cast
 
@@ -36,6 +39,23 @@ from legalforecast.multiharness.local_cli_environment import (
     build_local_cli_environment,
     ensure_private_scratch_directory,
     project_profile_credentials,
+)
+from legalforecast.multiharness.local_cli_identity import (
+    ExecutableIdentityPin,
+    LocalCliIdentityError,
+    ObservedExecutableIdentity,
+    bind_executable_identity,
+)
+from legalforecast.multiharness.local_cli_scheduler import (
+    ORDERING_SERIAL,
+    ORDERINGS,
+    LocalCliScheduler,
+    LocalCliSchedulerError,
+    SchedulingEvidence,
+    unevaluated_scheduling,
+)
+from legalforecast.multiharness.local_cli_scheduler import (
+    NullScheduler as NullScheduler,
 )
 from legalforecast.multiharness.process_containment import (
     ProcessContainmentError,
@@ -90,8 +110,11 @@ class LocalCliAdapterManifest:
     display_name: str
     adapter_version: str
     command: tuple[str, ...]
+    executable: ExecutableIdentityPin
     supported_auth_profiles: tuple[str, ...]
     profile_env_vars: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    version_probe_args: tuple[str, ...] = ()
+    required_capabilities: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.adapter_id.strip():
@@ -120,6 +143,16 @@ class LocalCliAdapterManifest:
                 )
             seen.add(canonical)
             validate_env_var_names(env_names, "profile_env_vars")
+        for index, value in enumerate(self.version_probe_args):
+            if not value.strip():
+                raise LocalCliRuntimeError(
+                    f"version_probe_args[{index}] must not be empty"
+                )
+        for index, value in enumerate(self.required_capabilities):
+            if not value.strip():
+                raise LocalCliRuntimeError(
+                    f"required_capabilities[{index}] must not be empty"
+                )
 
     def env_vars_for_profile(self, profile_id: str) -> tuple[str, ...]:
         """Return projected environment names declared for one profile."""
@@ -138,11 +171,14 @@ class LocalCliAdapterManifest:
             "adapter_id": self.adapter_id,
             "adapter_version": self.adapter_version,
             "command": list(self.command),
+            "executable": self.executable.to_record(),
             "supported_auth_profiles": list(self.supported_auth_profiles),
             "profile_env_vars": [
                 {"auth_profile": profile_id, "env_vars": list(env_names)}
                 for profile_id, env_names in self.profile_env_vars
             ],
+            "version_probe_args": list(self.version_probe_args),
+            "required_capabilities": list(self.required_capabilities),
         }
 
 
@@ -159,6 +195,15 @@ class LocalCliRunSpec:
     stdin_bytes: bytes = b""
     resume_of_spec_sha256: str | None = None
     host_process_containment: str = POSIX_PROCESS_GROUP_CONTAINMENT
+    max_concurrency: int = 1
+    ordering: str = ORDERING_SERIAL
+    requested_model: str | None = None
+
+    def __post_init__(self) -> None:
+        if type(self.max_concurrency) is not int or self.max_concurrency < 1:
+            raise LocalCliRuntimeError("max_concurrency must be a positive integer")
+        if self.ordering not in ORDERINGS:
+            raise LocalCliRuntimeError("ordering must be serial or parallel")
 
     def argv(self) -> tuple[str, ...]:
         """Return the exact argv the service will launch."""
@@ -187,6 +232,9 @@ class LocalCliRunSpec:
             "infisical_env": self.infisical_env,
             "stdin_sha256": _sha256_bytes(self.stdin_bytes),
             "host_process_containment": self.host_process_containment,
+            "max_concurrency": self.max_concurrency,
+            "ordering": self.ordering,
+            "requested_model": self.requested_model,
         }
         return _sha256_record(record)
 
@@ -209,6 +257,9 @@ class LocalCliExecutionResult:
     duration_ms: int
     cost_usd: float | None
     containment_establishment: str
+    executable_sha256: str
+    executable_version: str
+    scheduling: SchedulingEvidence
 
     def to_public_record(self) -> dict[str, object]:
         """Return the secret-free public receipt."""
@@ -226,37 +277,27 @@ class LocalCliExecutionResult:
             "duration_ms": self.duration_ms,
             "cost_usd": self.cost_usd,
             "containment_establishment": self.containment_establishment,
+            "executable_sha256": self.executable_sha256,
+            "executable_version": self.executable_version,
+            "scheduling": self.scheduling.to_public_record(),
         }
         validate_public_record(record, "local CLI execution receipt")
         return record
 
 
 class ExecutionScheduler(Protocol):
-    """Hook replaced by ``dm0g.4.2.10``; this runtime does not schedule."""
+    """Acquire a slot, then return requested-versus-actual evidence on release."""
 
     def before_execute(self, spec: LocalCliRunSpec) -> None:
-        """Acquire any future concurrency/cap slot."""
+        """Acquire any concurrency/cap slot."""
 
     def after_execute(
         self,
         spec: LocalCliRunSpec,
         result: LocalCliExecutionResult,
-    ) -> None:
-        """Release any future concurrency/cap slot."""
-
-
-class NullScheduler:
-    """No-op scheduler. Sequencing semantics are intentionally unimplemented."""
-
-    def before_execute(self, spec: LocalCliRunSpec) -> None:
-        del spec
-
-    def after_execute(
-        self,
-        spec: LocalCliRunSpec,
-        result: LocalCliExecutionResult,
-    ) -> None:
-        del spec, result
+    ) -> SchedulingEvidence | None:
+        """Release the slot and return what actually happened."""
+        ...
 
 
 def execute_local_cli(
@@ -292,6 +333,18 @@ def execute_local_cli(
         raise LocalCliRuntimeError(str(exc)) from exc
     parent = os.environ if parent_env is None else parent_env
     try:
+        observed = bind_executable_identity(
+            spec.manifest.executable,
+            spec.argv(),
+            version_probe_args=spec.manifest.version_probe_args,
+            required_capabilities=spec.manifest.required_capabilities,
+            scratch_root=scratch_root,
+            parent_env=parent,
+            requested_model=spec.requested_model,
+        )
+    except LocalCliIdentityError as exc:
+        raise LocalCliRuntimeError(str(exc)) from exc
+    try:
         projected = project_profile_credentials(
             profile,
             credential_source=credential_source,
@@ -305,8 +358,11 @@ def execute_local_cli(
         )
     except AuthProfileError as exc:
         raise LocalCliRuntimeError(str(exc)) from exc
-    active_scheduler = scheduler if scheduler is not None else NullScheduler()
-    active_scheduler.before_execute(spec)
+    active_scheduler = scheduler if scheduler is not None else LocalCliScheduler()
+    try:
+        active_scheduler.before_execute(spec)
+    except LocalCliSchedulerError as exc:
+        raise LocalCliRuntimeError(str(exc)) from exc
     result: LocalCliExecutionResult | None = None
     try:
         result = _run_contained_cli(
@@ -318,29 +374,27 @@ def execute_local_cli(
             projected_values=tuple(projected.values()),
             termination_grace_seconds=termination_grace_seconds,
             max_capture_bytes=max_capture_bytes,
+            observed=observed,
         )
-        return result
     finally:
-        active_scheduler.after_execute(
+        dummy = _scheduler_release_result(
             spec,
-            result
-            or LocalCliExecutionResult(
-                spec_id=spec.spec_id,
-                spec_sha256=spec_sha256,
-                auth_profile=profile.profile_id,
-                status="scheduler_release",
-                exit_code=None,
-                stdout=b"",
-                stderr=b"",
-                stdout_truncated=False,
-                stderr_truncated=False,
-                timed_out=False,
-                cwd=str(scratch_root),
-                duration_ms=0,
-                cost_usd=None,
-                containment_establishment="not_started",
-            ),
+            spec_sha256=spec_sha256,
+            profile=profile,
+            scratch_root=scratch_root,
+            observed=observed,
         )
+        evidence = active_scheduler.after_execute(spec, result or dummy)
+        if not isinstance(evidence, SchedulingEvidence):
+            evidence = unevaluated_scheduling(
+                requested_max_concurrency=spec.max_concurrency,
+                requested_ordering=spec.ordering,
+            )
+        if result is not None:
+            result = replace(result, scheduling=evidence)
+    if result is None:
+        raise LocalCliRuntimeError("local CLI execution produced no receipt")
+    return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -488,6 +542,7 @@ def _run_contained_cli(
     projected_values: Sequence[str],
     termination_grace_seconds: float,
     max_capture_bytes: int,
+    observed: ObservedExecutableIdentity,
 ) -> LocalCliExecutionResult:
     argv = spec.argv()
     requested = spec.host_process_containment
@@ -525,6 +580,19 @@ def _run_contained_cli(
                 stdin_file.seek(0)
                 stdin_handle = stdin_file
             try:
+                try:
+                    bind_executable_identity(
+                        spec.manifest.executable,
+                        spec.argv(),
+                        version_probe_args=spec.manifest.version_probe_args,
+                        required_capabilities=spec.manifest.required_capabilities,
+                        scratch_root=scratch_root,
+                        parent_env=environment,
+                        requested_model=spec.requested_model,
+                        probe=False,
+                    )
+                except LocalCliIdentityError as exc:
+                    raise LocalCliRuntimeError(str(exc)) from exc
                 process = subprocess.Popen(
                     prepared.argv,
                     stdin=stdin_handle,
@@ -609,6 +677,12 @@ def _run_contained_cli(
         duration_ms=max(0, int((time.monotonic() - started) * 1000)),
         cost_usd=cost_usd,
         containment_establishment=establishment,
+        executable_sha256=observed.sha256,
+        executable_version=observed.version,
+        scheduling=unevaluated_scheduling(
+            requested_max_concurrency=spec.max_concurrency,
+            requested_ordering=spec.ordering,
+        ),
     )
     validate_no_secret_values(
         result.to_public_record(),
@@ -616,6 +690,38 @@ def _run_contained_cli(
         "local CLI execution receipt",
     )
     return result
+
+
+def _scheduler_release_result(
+    spec: LocalCliRunSpec,
+    *,
+    spec_sha256: str,
+    profile: ResolvedAuthProfile,
+    scratch_root: Path,
+    observed: ObservedExecutableIdentity,
+) -> LocalCliExecutionResult:
+    return LocalCliExecutionResult(
+        spec_id=spec.spec_id,
+        spec_sha256=spec_sha256,
+        auth_profile=profile.profile_id,
+        status="scheduler_release",
+        exit_code=None,
+        stdout=b"",
+        stderr=b"",
+        stdout_truncated=False,
+        stderr_truncated=False,
+        timed_out=False,
+        cwd=str(scratch_root),
+        duration_ms=0,
+        cost_usd=None,
+        containment_establishment="not_started",
+        executable_sha256=observed.sha256,
+        executable_version=observed.version,
+        scheduling=unevaluated_scheduling(
+            requested_max_concurrency=spec.max_concurrency,
+            requested_ordering=spec.ordering,
+        ),
+    )
 
 
 def _wait_for_contained_process(

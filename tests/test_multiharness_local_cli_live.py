@@ -20,6 +20,7 @@ from legalforecast.multiharness.local_cli_environment import (
     InfisicalSandboxCredentialSource,
     StaticCredentialSource,
 )
+from legalforecast.multiharness.local_cli_identity import executable_pin_for
 from legalforecast.multiharness.local_cli_runtime import (
     LocalCliAdapterManifest,
     LocalCliRunSpec,
@@ -117,6 +118,7 @@ def test_live_claude_through_execution_service(tmp_path: Path) -> None:
                     display_name="Claude Code",
                     adapter_version="live",
                     command=(claude,),
+                    executable=executable_pin_for(Path(claude), version="live"),
                     supported_auth_profiles=(PUBLISHED_API_KEY,),
                     profile_env_vars=((PUBLISHED_API_KEY, ("ANTHROPIC_API_KEY",)),),
                 ),

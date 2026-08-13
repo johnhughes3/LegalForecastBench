@@ -18,6 +18,7 @@ from legalforecast.multiharness.local_cli_environment import (
     InfisicalSandboxCredentialSource,
     expected_child_environment_names,
 )
+from legalforecast.multiharness.local_cli_identity import executable_pin_for
 from legalforecast.multiharness.local_cli_runtime import (
     LocalCliAdapterManifest,
     LocalCliRunSpec,
@@ -292,14 +293,23 @@ def _manifest(
     *,
     profile_env_vars: tuple[tuple[str, tuple[str, ...]], ...] = (),
 ) -> LocalCliAdapterManifest:
+    path = script.resolve()
     return LocalCliAdapterManifest(
         adapter_id="fixture-cli",
         display_name="Fixture CLI",
         adapter_version="0.1.0",
-        command=(sys.executable, str(script)),
+        command=(sys.executable, str(path)),
+        executable=executable_pin_for(path, version="0.1.0"),
         supported_auth_profiles=supported,
         profile_env_vars=profile_env_vars,
+        version_probe_args=_version_probe_args(path),
     )
+
+
+def _version_probe_args(path: Path) -> tuple[str, ...]:
+    if path.name == "local_cli_fake_cli.py":
+        return ("--mode", "version")
+    return ()
 
 
 def _pid_alive(pid: int) -> bool:

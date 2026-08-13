@@ -14,6 +14,7 @@ from legalforecast.multiharness.auth_profiles import (
 )
 from legalforecast.multiharness.local_cli_contracts import RunSpec
 from legalforecast.multiharness.local_cli_environment import StaticCredentialSource
+from legalforecast.multiharness.local_cli_identity import executable_pin_for
 from legalforecast.multiharness.local_cli_runtime import (
     LocalCliAdapterManifest,
     LocalCliExecutionResult,
@@ -221,8 +222,9 @@ def test_scheduler_hooks_run_without_implementing_sequencing(tmp_path: Path) -> 
             self,
             spec: LocalCliRunSpec,
             result: LocalCliExecutionResult,
-        ) -> None:
+        ) -> object:
             events.append(f"after:{spec.spec_id}:{result.status}")
+            return super().after_execute(spec, result)
 
     script = _write_script(tmp_path, "print('ok')")
     result = execute_local_cli(
@@ -307,13 +309,16 @@ def _manifest(
     *,
     profile_env_vars: tuple[tuple[str, tuple[str, ...]], ...] = (),
 ) -> LocalCliAdapterManifest:
+    path = script.resolve()
     return LocalCliAdapterManifest(
         adapter_id="fixture-cli",
         display_name="Fixture CLI",
         adapter_version="0.1.0",
-        command=(sys.executable, str(script)),
+        command=(sys.executable, str(path)),
+        executable=executable_pin_for(path, version="0.1.0"),
         supported_auth_profiles=supported,
         profile_env_vars=profile_env_vars,
+        version_probe_args=_version_probe_args(path),
     )
 
 
@@ -547,6 +552,12 @@ def _execution_result(
         cost_usd=None,
         containment_establishment="established",
     )
+
+
+def _version_probe_args(path: Path) -> tuple[str, ...]:
+    if path.name == "local_cli_fake_cli.py":
+        return ("--mode", "version")
+    return ()
 
 
 def _write_script(tmp_path: Path, body: str, *, name: str = "cli.py") -> Path:
