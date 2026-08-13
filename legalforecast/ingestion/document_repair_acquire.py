@@ -38,7 +38,10 @@ class RepairRecapPurchaseClient(Protocol):
 
     def execute_one_document(
         self, candidate_id: str, document_id: str
-    ) -> CaseDevPacerPurchaseAttempt: ...
+    ) -> CaseDevPacerPurchaseAttempt:
+        """Purchase one already-planned journal document through RECAP Fetch."""
+
+        raise NotImplementedError
 
 
 @dataclass(frozen=True, slots=True)
