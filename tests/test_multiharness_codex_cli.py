@@ -479,6 +479,8 @@ def test_first_person_refusal_is_still_classified(tmp_path: Path) -> None:
 
     assert result.status == "failed"
     assert result.public_summary["failure_class"] == "refusal"
+    assert result.public_summary["input_tokens"] == 3
+    assert result.public_summary["output_tokens"] == 4
 
 
 def test_landlocked_legal_language_is_not_classified_as_sandbox_denial(
@@ -513,6 +515,34 @@ def test_thread_started_must_be_the_unique_first_event() -> None:
         {
             "type": "turn.completed",
             "usage": {"input_tokens": 3, "output_tokens": 4},
+        },
+    )
+    envelope = parse_codex_jsonl(
+        stdout,
+        requested_model_name="gpt-5.1",
+        returncode=0,
+        timed_out=False,
+        crashed=False,
+    )
+
+    assert envelope.failure_class == "schema_violation"
+
+
+def test_turn_completed_before_turn_started_is_schema_violation() -> None:
+    stdout = _jsonl(
+        {"type": "thread.started", "thread_id": THREAD_ID},
+        {
+            "type": "turn.completed",
+            "usage": {"input_tokens": 3, "output_tokens": 4},
+        },
+        {"type": "turn.started"},
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item_0",
+                "text": "LEGALFORECAST_FAKE_CODEX_RESULT",
+                "type": "agent_message",
+            },
         },
     )
     envelope = parse_codex_jsonl(

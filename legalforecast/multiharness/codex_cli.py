@@ -356,11 +356,34 @@ def parse_codex_jsonl(
     if served_model is not None and served_model != requested_model_name:
         return _failed_envelope("schema_violation", events)
 
+    turn_started_indexes = tuple(
+        index for index, event_type in enumerate(types) if event_type == "turn.started"
+    )
+    turn_completed_indexes = tuple(
+        index
+        for index, event_type in enumerate(types)
+        if event_type == "turn.completed"
+    )
+    if len(turn_started_indexes) != 1:
+        return _failed_envelope("schema_violation", events)
+    if len(turn_completed_indexes) > 1:
+        return _failed_envelope("schema_violation", events)
+    if turn_completed_indexes and turn_completed_indexes[0] < turn_started_indexes[0]:
+        return _failed_envelope("schema_violation", events)
+
     last_message = last_message_file if last_message_file is not None else ""
     if not last_message.strip():
         last_message = _agent_message(events)
+    usage = _usage(events)
+    usage_tokens = usage if usage is not None else (0, 0)
     if _is_refusal(last_message):
-        return _failed_envelope("refusal", events, last_message=last_message)
+        return _failed_envelope(
+            "refusal",
+            events,
+            last_message=last_message,
+            input_tokens=usage_tokens[0],
+            output_tokens=usage_tokens[1],
+        )
 
     if "turn.failed" in types or "error" in types:
         return _failed_envelope(_failure_from_errors(events, returncode), events)
@@ -759,6 +782,8 @@ def _failed_envelope(
     events: Sequence[Mapping[str, Any]],
     *,
     last_message: str = "",
+    input_tokens: int = 0,
+    output_tokens: int = 0,
 ) -> CodexCliParsedEnvelope:
     if failure_class not in CODEX_FAILURE_CLASSES:
         failure_class = "schema_violation"
@@ -766,8 +791,8 @@ def _failed_envelope(
         failure_class=failure_class,
         last_message=last_message,
         events=tuple(events),
-        input_tokens=0,
-        output_tokens=0,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
         served_model=None,
         thread_id=None,
     )
@@ -954,8 +979,8 @@ def _failed_result(
         requested_model=requested_model(request.model_key),
         served_model=envelope.served_model,
         failure_class=envelope.failure_class,
-        input_tokens=0,
-        output_tokens=0,
+        input_tokens=envelope.input_tokens,
+        output_tokens=envelope.output_tokens,
         returncode=returncode,
         offline_protocol_fixture=False,
         deliverable_manifest_sha256=None,
