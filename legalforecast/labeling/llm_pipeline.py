@@ -1163,7 +1163,7 @@ def recover_llm_stage_a_structural_review_reconstruction(
     )
     if journal is None:
         raise LlmPipelineError("provider reconstruction recovery requires a journal")
-    try:
+    with journal:
         evidence = journal.latest_reconstruction_recovery_evidence()
         try:
             normalized_value: object = json.loads(evidence.normalized_response_json)
@@ -1212,8 +1212,6 @@ def recover_llm_stage_a_structural_review_reconstruction(
             + hashlib.sha256(evidence.normalized_response_json.encode()).hexdigest(),
             structural_flags=flags,
         )
-    finally:
-        journal.close()
 
 
 def build_llm_stage_a_structural_review_terminal_escalation(
