@@ -36,6 +36,8 @@ from legalforecast.multiharness.local_cli_contracts import (
     LocalCliExecutionService,
     LocalCliFailureClass,
     RunSpec,
+    declared_local_cli_failure_classes,
+    is_local_cli_sandbox_denial,
 )
 from legalforecast.multiharness.local_cli_manifest import (
     LocalCliAdapterManifest,
@@ -110,7 +112,6 @@ _ALLOWED_BARE_FLAGS = frozenset(
     }
 )
 _ALLOWED_CLAUDE_FLAGS = _ALLOWED_VALUE_FLAGS | _ALLOWED_BARE_FLAGS
-_DECLARED_FAILURE_CLASSES = tuple(item.value for item in LocalCliFailureClass)
 
 
 class ClaudeCodeCliAdapterError(AdapterError):
@@ -349,27 +350,38 @@ def classify_execution(
             receipt=receipt,
         )
     envelope = _parse_json_envelope(receipt.stdout)
-    if (
-        receipt.status == "failed"
-        or (receipt.returncode is not None and receipt.returncode != 0)
-        or envelope is None
-        or envelope.get("type") != "result"
-    ):
+    if envelope is None:
+        if is_local_cli_sandbox_denial(_failure_text(receipt, None)):
+            return _classified(
+                LocalCliFailureClass.SANDBOX_DENIAL,
+                raw_output=receipt.stdout or receipt.stderr or "sandbox_denial",
+                spec=spec,
+                receipt=receipt,
+            )
         return _classified(
             LocalCliFailureClass.CRASH,
             raw_output=receipt.stdout or "crash",
             spec=spec,
             receipt=receipt,
         )
-    if envelope.get("is_error") is True:
-        subtype = envelope.get("subtype")
-        if subtype == "timeout":
-            failure = LocalCliFailureClass.TIMEOUT
-        else:
-            failure = LocalCliFailureClass.CRASH
+    if _is_error_like(receipt, envelope):
+        if envelope.get("is_error") is True and envelope.get("subtype") == "timeout":
+            return _classified(
+                LocalCliFailureClass.TIMEOUT,
+                raw_output=_result_text(envelope) or "timeout",
+                spec=spec,
+                receipt=receipt,
+            )
+        if is_local_cli_sandbox_denial(_failure_text(receipt, envelope)):
+            return _classified(
+                LocalCliFailureClass.SANDBOX_DENIAL,
+                raw_output=receipt.stdout or receipt.stderr or "sandbox_denial",
+                spec=spec,
+                receipt=receipt,
+            )
         return _classified(
-            failure,
-            raw_output=_result_text(envelope) or "error",
+            LocalCliFailureClass.CRASH,
+            raw_output=receipt.stdout or "crash",
             spec=spec,
             receipt=receipt,
         )
@@ -426,7 +438,7 @@ def classify_execution(
 def declared_failure_classes() -> tuple[str, ...]:
     """Return the failure classes this adapter classifies fail-closed."""
 
-    return _DECLARED_FAILURE_CLASSES
+    return declared_local_cli_failure_classes()
 
 
 @dataclass(frozen=True, slots=True)
@@ -792,6 +804,27 @@ def _classified(
         spec=spec,
         receipt=bound,
     )
+
+
+def _is_error_like(receipt: ExecutionReceipt, envelope: Mapping[str, Any]) -> bool:
+    return (
+        receipt.status == "failed"
+        or (receipt.returncode is not None and receipt.returncode != 0)
+        or envelope.get("type") != "result"
+        or envelope.get("is_error") is True
+    )
+
+
+def _failure_text(
+    receipt: ExecutionReceipt,
+    envelope: Mapping[str, Any] | None,
+) -> str:
+    if envelope is None:
+        return "\n".join((receipt.stdout, receipt.stderr))
+    parts = [receipt.stderr]
+    if envelope.get("is_error") is True:
+        parts.append(_result_text(envelope))
+    return "\n".join(parts)
 
 
 def _parse_json_envelope(stdout: str) -> dict[str, Any] | None:
