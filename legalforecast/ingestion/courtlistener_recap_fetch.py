@@ -639,6 +639,9 @@ class CourtListenerRecapFetchClient:
     ) -> CaseDevPacerPurchaseAttempt:
         """Purchase one already-planned journal document through RECAP Fetch."""
 
+        intended = ((candidate_id, document_id),)
+        self._recover_receipts(intended)
+        self.journal.require_reconciled()
         return self._execute_one(candidate_id, document_id)
 
     def _execute_one(

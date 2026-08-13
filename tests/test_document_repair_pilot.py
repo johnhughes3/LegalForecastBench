@@ -165,6 +165,41 @@ def test_pilot_admits_keep_candidate_from_approved_manifest() -> None:
     assert pilot.projected_paid_cost_usd == Decimal("9.00")
 
 
+def test_keep_admission_does_not_split_authenticated_jsonl_on_cr() -> None:
+    keep_row = {
+        "candidate_id": "kept",
+        "recommendation": "keep",
+        "cost_usd": 0.0,
+        "missing_docs": [],
+        "byte_mismatches": [],
+        "current_selection": [],
+        "required_entries": [],
+        "extra_selected": [],
+    }
+    smuggled = {**keep_row, "candidate_id": "smuggled"}
+    poisoned = (
+        _manifest_bytes(
+            _row("a", (3,)),
+            _row("b", (3,)),
+            _row("c", (3,)),
+            _row("d", (3,)),
+        )
+        + json.dumps(keep_row, sort_keys=True, separators=(",", ":")).encode()
+        + b"\r"
+        + json.dumps(smuggled, sort_keys=True, separators=(",", ":")).encode()
+        + b"\n"
+    )
+    plan = _plan(poisoned)
+
+    with pytest.raises(DocumentRepairPilotError, match="invalid JSONL"):
+        build_document_repair_pilot(
+            full_plan=plan,
+            candidate_ids=("a", "b", "c", "d", "smuggled"),
+            pilot_maximum_usd="12.00",
+            approved_manifest_bytes=poisoned,
+        )
+
+
 def test_pilot_rejects_keep_candidate_without_approved_manifest() -> None:
     manifest = _manifest_bytes(
         _row("a", (3,)),

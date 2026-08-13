@@ -244,6 +244,53 @@ def test_execution_accepts_live_v4_null_sealed_public_filepath() -> None:
     )
 
 
+def test_execution_rejects_free_route_when_sealed_key_is_omitted() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    omitted = json.loads(snapshots["a"])
+    del omitted["entries"][0]["recap_documents"][0]["is_sealed"]
+    snapshots["a"] = _canonical_bytes(omitted)
+
+    with pytest.raises(DocumentRepairExecutorError, match="approved free route"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(payload).hexdigest()
+                for candidate, payload in snapshots.items()
+            },
+        )
+
+
+def test_execution_does_not_treat_omitted_sealed_key_as_became_free() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    paid = json.loads(snapshots["b"])
+    paid["entries"][0]["recap_documents"][0]["is_available"] = True
+    paid["entries"][0]["recap_documents"][0]["filepath_local"] = (
+        "recap/example/9002.pdf"
+    )
+    del paid["entries"][0]["recap_documents"][0]["is_sealed"]
+    snapshots["b"] = _canonical_bytes(paid)
+
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    paid_operation = next(
+        operation for operation in execution.operations if operation.candidate_id == "b"
+    )
+    assert paid_operation.route == "pacer_purchase"
+    assert paid_operation.source_url is None
+
+
 def test_execution_rejects_tampered_full_plan_and_pilot_objects() -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()

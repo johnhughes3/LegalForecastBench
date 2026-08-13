@@ -10,8 +10,10 @@ from typing import Any
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPacerPurchaseStatus,
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
+    CaseDevPurchaseReconciliationRequired,
     generate_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
 )
@@ -1423,6 +1425,89 @@ def test_receipt_recovery_includes_locally_failed_paid_operation(
         assert evidence["reconciliation"] is not None
         assert journal.committed_amount_usd == "0.00"
         assert broker.receipt_requests == [operation_key]
+
+
+def test_execute_one_document_recovers_broker_receipt_before_resume(
+    tmp_path: Path,
+) -> None:
+    class _ReceiptBroker(FixtureRecapFetchPurchaseBroker):
+        def __init__(self, receipt: Mapping[str, Any]) -> None:
+            super().__init__([])
+            self.receipt_value = receipt
+            self.receipt_requests: list[str] = []
+
+        def receipt(self, operation_key: str) -> Mapping[str, Any]:
+            self.receipt_requests.append(operation_key)
+            return self.receipt_value
+
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123")
+        journal.mark_unknown("123", "connection lost after dispatch")
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        receipt = _broker_receipt(
+            str(operation["operation_key"]),
+            policy.policy_sha256,
+            state="queued",
+            authoritative_fee_usd="0.00",
+        )
+        receipt["held_usd"] = "3.05"
+        receipt["authoritative_fee_usd"] = None
+        receipt["reconciled_at"] = None
+        receipt["billing_evidence"] = None
+        operation_key = str(operation["operation_key"])
+
+    receipt_broker = _ReceiptBroker(receipt)
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        attempt = CourtListenerRecapFetchClient(
+            _config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [
+                    _response("GET", "/recap-fetch/77/", {"status": 2}),
+                    _response(
+                        "GET",
+                        "/recap-documents/123/",
+                        {
+                            "id": 123,
+                            "is_available": True,
+                            "filepath_local": (
+                                "https://storage.courtlistener.com/123.pdf"
+                            ),
+                        },
+                    ),
+                ]
+            ),
+            purchase_broker=receipt_broker,
+        ).execute_one_document("case-1", "123")
+        assert journal.statuses() == {"123": "confirmed"}
+
+    assert attempt.status is CaseDevPacerPurchaseStatus.PURCHASED
+    assert receipt_broker.receipt_requests == [operation_key]
+    assert receipt_broker.requests == []
+
+
+def test_execute_one_document_refuses_unreconciled_unknown_without_receipt(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123")
+        journal.mark_unknown("123", "connection lost after dispatch")
+        with pytest.raises(
+            CaseDevPurchaseReconciliationRequired, match="unknown paid outcome"
+        ):
+            CourtListenerRecapFetchClient(
+                _config(),
+                journal=journal,
+                transport=FixtureRecapFetchTransport([]),
+                purchase_broker=FixtureRecapFetchPurchaseBroker([]),
+            ).execute_one_document("case-1", "123")
 
 
 def _response(

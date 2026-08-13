@@ -1142,12 +1142,13 @@ def _resolve_operation(
         raise DocumentRepairExecutorError("RECAP document belongs to another entry")
     free_url = None
     filepath = document.get("filepath_local")
-    # Nested v4 docket-entry RECAP rows often omit an explicit false and send
-    # is_sealed=null while still publishing filepath_local. Treat only an
-    # affirmative sealed flag as blocking; restricted_material_markers already
-    # fail-closed on is_sealed=true.
+    # Nested v4 docket-entry RECAP rows send an explicit is_sealed=null while
+    # still publishing filepath_local. Require the key so an omitted seal
+    # field cannot mint a free route; treat only an affirmative sealed flag
+    # as blocking. restricted_material_markers already fail-closed on true.
     if (
         document.get("is_available") is True
+        and "is_sealed" in document
         and document.get("is_sealed") is not True
         and isinstance(filepath, str)
     ):

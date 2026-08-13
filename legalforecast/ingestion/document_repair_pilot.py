@@ -129,10 +129,12 @@ def _keep_candidate_ids(
         raise DocumentRepairPilotError(
             "approved manifest digest differs from the full plan"
         )
+    if not manifest_bytes.endswith(b"\n"):
+        raise DocumentRepairPilotError("approved manifest is invalid JSONL")
     keep: set[str] = set()
-    for line in manifest_bytes.splitlines():
-        if not line.strip():
-            continue
+    # Producer JSONL is LF-terminated. Split only on b"\n" so CR/VT/FF/NEL
+    # cannot invent extra keep rows from the same authenticated bytes.
+    for line in manifest_bytes.split(b"\n")[:-1]:
         try:
             parsed = json.loads(line)
         except json.JSONDecodeError as exc:
