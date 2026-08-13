@@ -264,6 +264,11 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=relative)
         except SyntaxError:
             continue
+        parents = {
+            child: parent
+            for parent in ast.walk(tree)
+            for child in ast.iter_child_nodes(parent)
+        }
         direct_aliases: set[str] = set()
         package_aliases: set[str] = set()
         for node in ast.walk(tree):
@@ -314,22 +319,24 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                 ):
                     monkeypatch_targets.add(string_target.value)
                     monkeypatch_occurrences.append(f"{relative}::{string_target.value}")
-                target = node.args[1]
-                if isinstance(target, ast.Constant) and isinstance(target.value, str):
+                target_names = _static_monkeypatch_target_names(
+                    node.args[1], parents=parents
+                )
+                for target_name in target_names:
                     object_target = _cli_object_target(
                         node.args[0],
                         direct_aliases=direct_aliases,
                         package_aliases=package_aliases,
                     )
                     if object_target is not None:
-                        qualified_target = f"{object_target}.{target.value}"
+                        qualified_target = f"{object_target}.{target_name}"
                         monkeypatch_targets.add(qualified_target)
                         monkeypatch_occurrences.append(
                             f"{relative}::{qualified_target}"
                         )
-                    elif target.value.startswith("legalforecast.cli."):
-                        monkeypatch_targets.add(target.value)
-                        monkeypatch_occurrences.append(f"{relative}::{target.value}")
+                    elif target_name.startswith("legalforecast.cli."):
+                        monkeypatch_targets.add(target_name)
+                        monkeypatch_occurrences.append(f"{relative}::{target_name}")
         if relative in private_files:
             cli_import_files.add(relative)
     return CompatibilityInventory(
@@ -350,18 +357,36 @@ def _imports_cli(path: Path) -> bool:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except SyntaxError:
         return False
+    importlib_module_aliases = {"importlib"}
+    import_module_aliases: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            importlib_module_aliases.update(
+                alias.asname or alias.name
+                for alias in node.names
+                if alias.name == "importlib"
+            )
+        elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
+            import_module_aliases.update(
+                alias.asname or alias.name
+                for alias in node.names
+                if alias.name == "import_module"
+            )
     for node in ast.walk(tree):
         if isinstance(node, ast.Import) and any(
-            alias.name in {"legalforecast.cli", "legalforecast.console"}
-            for alias in node.names
+            _is_cli_adapter_module(alias.name) for alias in node.names
         ):
             return True
-        if isinstance(node, ast.Call) and _dynamic_cli_adapter_import(node):
+        if isinstance(node, ast.Call) and _dynamic_cli_adapter_import(
+            node,
+            importlib_module_aliases=importlib_module_aliases,
+            import_module_aliases=import_module_aliases,
+        ):
             return True
         if not isinstance(node, ast.ImportFrom):
             continue
         module = _absolute_import_from_module(path, node)
-        if module in {"legalforecast.cli", "legalforecast.console"}:
+        if module is not None and _is_cli_adapter_module(module):
             return True
         if module == "legalforecast":
             if any(alias.name in {"cli", "console"} for alias in node.names):
@@ -369,24 +394,59 @@ def _imports_cli(path: Path) -> bool:
     return False
 
 
-def _dynamic_cli_adapter_import(node: ast.Call) -> bool:
+def _is_cli_adapter_module(module: str) -> bool:
+    return module == "legalforecast.cli" or module.startswith("legalforecast.console")
+
+
+def _dynamic_cli_adapter_import(
+    node: ast.Call,
+    *,
+    importlib_module_aliases: set[str],
+    import_module_aliases: set[str],
+) -> bool:
     if not node.args:
         return False
     module = node.args[0]
-    if not isinstance(module, ast.Constant) or module.value not in {
-        "legalforecast.cli",
-        "legalforecast.console",
-    }:
+    if (
+        not isinstance(module, ast.Constant)
+        or not isinstance(module.value, str)
+        or not _is_cli_adapter_module(module.value)
+    ):
         return False
     function = node.func
     if isinstance(function, ast.Name):
-        return function.id in {"__import__", "import_module"}
+        return function.id == "__import__" or function.id in import_module_aliases
     return (
         isinstance(function, ast.Attribute)
         and isinstance(function.value, ast.Name)
-        and function.value.id == "importlib"
+        and function.value.id in importlib_module_aliases
         and function.attr == "import_module"
     )
+
+
+def _static_monkeypatch_target_names(
+    node: ast.AST, *, parents: Mapping[ast.AST, ast.AST]
+) -> tuple[str, ...]:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return (node.value,)
+    if not isinstance(node, ast.Name):
+        return ()
+    current: ast.AST | None = node
+    while current is not None:
+        current = parents.get(current)
+        if not isinstance(current, ast.For):
+            continue
+        if not isinstance(current.target, ast.Name) or current.target.id != node.id:
+            continue
+        if not isinstance(current.iter, (ast.List, ast.Tuple, ast.Set)):
+            return ()
+        values = tuple(
+            element.value
+            for element in current.iter.elts
+            if isinstance(element, ast.Constant) and isinstance(element.value, str)
+        )
+        return values if len(values) == len(current.iter.elts) else ()
+    return ()
 
 
 def _python_paths(package_root: Path) -> Iterable[str]:

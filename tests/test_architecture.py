@@ -73,6 +73,8 @@ from legalforecast import cli as cli_module
 _private = legalforecast.cli._private
 stdlib_private = cli_module.argparse._SubParsersAction
 monkeypatch.setattr(cli_module.os, "link", replacement)
+for name in ("first", "second"):
+    monkeypatch.setattr(cli_module, name, replacement)
 """,
         encoding="utf-8",
     )
@@ -80,7 +82,11 @@ monkeypatch.setattr(cli_module.os, "link", replacement)
     inventory = architecture_module._scan_test_compatibility(tmp_path)
 
     assert inventory.private_cli_targets == ("legalforecast.cli._private",)
-    assert inventory.monkeypatch_targets == ("legalforecast.cli.os.link",)
+    assert inventory.monkeypatch_targets == (
+        "legalforecast.cli.first",
+        "legalforecast.cli.os.link",
+        "legalforecast.cli.second",
+    )
     assert inventory.cli_import_occurrences == (
         "tests/test_probe.py",
         "tests/test_probe.py",
@@ -89,7 +95,9 @@ monkeypatch.setattr(cli_module.os, "link", replacement)
         "tests/test_probe.py::legalforecast.cli._private",
     )
     assert inventory.monkeypatch_occurrences == (
+        "tests/test_probe.py::legalforecast.cli.first",
         "tests/test_probe.py::legalforecast.cli.os.link",
+        "tests/test_probe.py::legalforecast.cli.second",
     )
 
 
@@ -104,9 +112,16 @@ monkeypatch.setattr(cli_module.os, "link", replacement)
         "from legalforecast.cli import main",
         "from legalforecast import console",
         "from legalforecast.console import app",
+        "from legalforecast.console.commands import app",
         "import legalforecast.console",
-        'importlib.import_module("legalforecast.cli")',
-        'import_module("legalforecast.console")',
+        "import legalforecast.console.commands",
+        'import importlib\nimportlib.import_module("legalforecast.cli")',
+        (
+            "import importlib as loader\n"
+            'loader.import_module("legalforecast.console.commands")'
+        ),
+        'from importlib import import_module\nimport_module("legalforecast.console")',
+        'from importlib import import_module as load\nload("legalforecast.cli")',
         '__import__("legalforecast.cli")',
     ],
 )
