@@ -39,7 +39,10 @@ from legalforecast.multiharness.local_cli_contracts import (
     LocalCliFailureClass,
     RunSpec,
 )
-from legalforecast.multiharness.local_cli_manifest import LocalCliAdapterManifest
+from legalforecast.multiharness.local_cli_manifest import (
+    LocalCliAdapterManifest,
+    capability_digest_for,
+)
 from legalforecast.multiharness.spec import (
     AdapterManifest,
     CanonicalTask,
@@ -64,6 +67,27 @@ PROMPT = "Forecast this fixture case. ; rm -rf / && echo $HOME"
 CANARY = "fixture-secret-canary-7Jx9"
 PLAN_WORKSPACE = Path("workspace")
 PLAN_SCHEMA = PLAN_WORKSPACE / "output-schema.json"
+PLAN_MODEL = "claude-sonnet-4-6"
+SOLVER_MODEL_KEY = f"anthropic:{PLAN_MODEL}"
+CANONICAL_ARGV = (
+    "claude",
+    "-p",
+    PROMPT,
+    "--output-format",
+    "json",
+    "--json-schema",
+    PLAN_SCHEMA.as_posix(),
+    "--tools",
+    "",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--setting-sources",
+    "",
+    "--model",
+    PLAN_MODEL,
+    "--add-dir",
+    PLAN_WORKSPACE.as_posix(),
+)
 
 
 def test_example_manifest_round_trips_community_v1() -> None:
@@ -87,44 +111,83 @@ def test_adapter_consumes_b1_frozen_manifest() -> None:
     assert "--bare" not in b1.invocation.argv_template
 
 
-def test_invocation_plan_is_deterministic_and_shell_safe() -> None:
+def test_invocation_plan_snapshot_is_exact_and_order_sensitive() -> None:
     first = build_claude_invocation_plan(
         prompt=PROMPT,
-        model="claude-sonnet-4-6",
+        model=PLAN_MODEL,
         required_unit_ids=("count_i",),
         workspace=PLAN_WORKSPACE,
         output_schema_path=PLAN_SCHEMA,
     )
     second = build_claude_invocation_plan(
         prompt=PROMPT,
-        model="claude-sonnet-4-6",
+        model=PLAN_MODEL,
         required_unit_ids=("count_i",),
         workspace=PLAN_WORKSPACE,
         output_schema_path=PLAN_SCHEMA,
     )
 
+    assert first.argv == CANONICAL_ARGV
     assert first.argv == second.argv
-    assert first.argv[0] == "claude"
-    assert first.argv[1:3] == ("-p", PROMPT)
-    assert first.argv[first.argv.index("--output-format") + 1] == "json"
-    assert first.argv[first.argv.index("--json-schema") + 1] == PLAN_SCHEMA.as_posix()
-    assert first.argv[first.argv.index("--tools") + 1] == ""
-    assert first.argv[first.argv.index("--setting-sources") + 1] == ""
-    assert first.argv[first.argv.index("--model") + 1] == "claude-sonnet-4-6"
-    assert first.argv[first.argv.index("--add-dir") + 1] == PLAN_WORKSPACE.as_posix()
-    assert "--no-session-persistence" in first.argv
-    assert "--strict-mcp-config" in first.argv
     assert "--bare" not in first.argv
-    assert "--resume" not in first.argv
-    assert "--session-id" not in first.argv
     assert "sh" not in first.argv
     assert "-c" not in first.argv
+
+
+def test_manifest_model_placeholder_propagates_and_is_not_hardcoded() -> None:
+    haiku = build_claude_invocation_plan(
+        prompt=PROMPT,
+        model="claude-haiku-4-5",
+        required_unit_ids=("count_i",),
+        workspace=PLAN_WORKSPACE,
+        output_schema_path=PLAN_SCHEMA,
+    )
+    source = ADAPTER_SOURCE.read_text(encoding="utf-8")
+    assert haiku.argv[haiku.argv.index("--model") + 1] == "claude-haiku-4-5"
+    assert haiku.argv != CANONICAL_ARGV
+    assert "claude-sonnet-4-6" not in source
+    assert "claude-haiku-4-5" not in source
+
+
+def test_unallowlisted_manifest_flag_is_refused_at_plan_time() -> None:
+    record = json.loads(B1_MANIFEST.read_text(encoding="utf-8"))
+    template = list(record["invocation"]["argv_template"])
+    template.extend(["--verbose"])
+    record["invocation"]["argv_template"] = template
+    record["capability_digest"] = capability_digest_for(record)
+    manifest = LocalCliAdapterManifest.from_record(record)
+    with pytest.raises(ClaudeCodeCliAdapterError, match="un-allowlisted flag"):
+        build_claude_invocation_plan(
+            prompt=PROMPT,
+            model=PLAN_MODEL,
+            required_unit_ids=("count_i",),
+            workspace=PLAN_WORKSPACE,
+            output_schema_path=PLAN_SCHEMA,
+            manifest=manifest,
+        )
+
+
+def test_fixture_transcripts_declare_synthetic_provenance() -> None:
+    inventory = {
+        "success": True,
+        "timeout": True,
+        "refusal": True,
+        "schema_violation": True,
+        "crash": True,
+        "malformed": True,
+        "auth_closed": False,
+    }
+    for name, synthetic in inventory.items():
+        comments, _record = _load_transcript_file(TRANSCRIPTS / f"{name}.json")
+        assert any(line.startswith("command:") for line in comments)
+        assert any(line.startswith("generated_at:") for line in comments)
+        assert f"synthetic: {str(synthetic).lower()}" in comments
 
 
 def test_invocation_plan_enables_tools_only_when_the_task_profile_lists_them() -> None:
     plan = build_claude_invocation_plan(
         prompt="prompt",
-        model="claude-sonnet-4-6",
+        model=PLAN_MODEL,
         required_unit_ids=("count_i",),
         workspace=PLAN_WORKSPACE,
         output_schema_path=PLAN_SCHEMA,
@@ -216,9 +279,39 @@ def test_declared_failure_fixtures_fail_closed(
 
     assert result.status == "failed"
     assert result.public_summary["failure_class"] == failure_class.value
+    assert result.public_summary["task_id"] == "lfb:case-1:full_packet"
+    assert "returncode" in result.public_summary
     assert "deliverable_manifest_sha256" not in result.public_summary
     assert CANARY not in json.dumps(result.to_record(), sort_keys=True)
     assert not (tmp_path / "workspace" / "deliverable-sealed").exists()
+
+
+def test_unparseable_envelope_is_crash_not_empty_success(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _plant_credential_canaries(monkeypatch)
+    result = _adapter("malformed").run(_run_request(), tmp_path / "workspace")
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == LocalCliFailureClass.CRASH.value
+    assert result.public_summary["task_id"] == "lfb:case-1:full_packet"
+    assert result.public_summary["returncode"] == 0
+    assert result.artifacts == ()
+
+
+def test_observed_auth_closed_envelope_is_crash_with_zero_cost(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _plant_credential_canaries(monkeypatch)
+    result = _adapter("auth_closed").run(_run_request(), tmp_path / "workspace")
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == LocalCliFailureClass.CRASH.value
+    assert result.public_summary["task_id"] == "lfb:case-1:full_packet"
+    assert result.public_summary["returncode"] == 1
+    assert result.public_summary["estimated_cost"] == 0.0
 
 
 def test_declared_failure_classes_match_fixtures() -> None:
@@ -240,7 +333,10 @@ def test_offline_adapter_rejects_provider_environment_grants(tmp_path: Path) -> 
 
 
 def test_solver_uses_inspect_ai_kind() -> None:
-    solver = ClaudeCodeCliSolver(execution_service=_service("success"))
+    solver = ClaudeCodeCliSolver(
+        execution_service=_service("success"),
+        model_key=SOLVER_MODEL_KEY,
+    )
 
     assert solver.solver_kind is SolverKind.INSPECT_AI
     assert solver.solver_id.startswith(CLAUDE_CODE_ADAPTER_ID)
@@ -254,6 +350,7 @@ def test_solver_returns_structured_output_from_fixture_transcript(
 ) -> None:
     solver = ClaudeCodeCliSolver(
         execution_service=_service("success"),
+        model_key=SOLVER_MODEL_KEY,
         workspace=tmp_path / "solver-workspace",
     )
     response = solver.solve(_harness_request())
@@ -267,8 +364,14 @@ def test_solver_returns_structured_output_from_fixture_transcript(
 
 
 def test_solver_raises_typed_failure_for_refusal() -> None:
-    solver = ClaudeCodeCliSolver(execution_service=_service("refusal"))
-    with pytest.raises(ClaudeCodeCliAdapterError, match="refusal") as exc_info:
+    solver = ClaudeCodeCliSolver(
+        execution_service=_service("refusal"),
+        model_key=SOLVER_MODEL_KEY,
+    )
+    with pytest.raises(
+        ClaudeCodeCliAdapterError,
+        match="refusal task_id=sample-1 returncode=0",
+    ) as exc_info:
         solver.solve(_harness_request())
     assert exc_info.value.failure_class is LocalCliFailureClass.REFUSAL
 
@@ -313,9 +416,7 @@ def _service(fixture_name: str) -> FakeLocalCliExecutionService:
 
 
 def _transcript(fixture_name: str) -> FixtureTranscript:
-    record = json.loads(
-        (TRANSCRIPTS / f"{fixture_name}.json").read_text(encoding="utf-8")
-    )
+    _comments, record = _load_transcript_file(TRANSCRIPTS / f"{fixture_name}.json")
     envelope = record.get("envelope")
     if "stdout_text" in record:
         stdout = record["stdout_text"]
@@ -381,7 +482,7 @@ def _run_request(
         request_id="request-1",
         task=task,
         adapter=claude_code_manifest(),
-        model_key="anthropic:claude-sonnet-4-6",
+        model_key=SOLVER_MODEL_KEY,
         sandbox_policy=policy,
         request_sha256="sha256:" + "3" * 64,
     )
@@ -437,6 +538,20 @@ def _harness_request() -> HarnessRequest:
         use_docket_tool=False,
     )
     return HarnessRequest(sample=sample, docket_tool=sample.build_docket_tool())
+
+
+def _load_transcript_file(path: Path) -> tuple[list[str], dict[str, Any]]:
+    comments: list[str] = []
+    body_lines: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not body_lines and line.startswith("//"):
+            comments.append(line[2:].strip())
+            continue
+        body_lines.append(line)
+    record = json.loads("\n".join(body_lines))
+    if not isinstance(record, dict):
+        raise AssertionError(f"{path.name} must be a JSON object")
+    return comments, cast(dict[str, Any], record)
 
 
 def _plant_credential_canaries(monkeypatch: pytest.MonkeyPatch) -> None:

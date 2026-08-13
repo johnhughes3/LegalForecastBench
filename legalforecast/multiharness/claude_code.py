@@ -79,6 +79,25 @@ _FORBIDDEN_SESSION_FLAGS = frozenset(
         "--fork-session",
     }
 )
+_ALLOWED_VALUE_FLAGS = frozenset(
+    {
+        "-p",
+        "--print",
+        "--output-format",
+        "--json-schema",
+        "--tools",
+        "--setting-sources",
+        "--model",
+        "--add-dir",
+    }
+)
+_ALLOWED_BARE_FLAGS = frozenset(
+    {
+        "--strict-mcp-config",
+        "--no-session-persistence",
+    }
+)
+_ALLOWED_CLAUDE_FLAGS = _ALLOWED_VALUE_FLAGS | _ALLOWED_BARE_FLAGS
 _DECLARED_FAILURE_CLASSES = tuple(item.value for item in LocalCliFailureClass)
 
 
@@ -133,6 +152,7 @@ class ClaudeInvocationPlan:
             raise ClaudeCodeCliAdapterError("invocation must set --strict-mcp-config")
         if "sh" in self.argv or "bash" in self.argv or "-c" in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must not invoke a shell")
+        _reject_unallowlisted_argv(self.argv)
 
 
 @dataclass(frozen=True, slots=True)
@@ -482,11 +502,12 @@ class ClaudeCodeCliSolver:
     """HarnessSolver that uses the Claude Code CLI adapter without forking it."""
 
     execution_service: LocalCliExecutionService
-    model_key: str = "anthropic:claude-sonnet-4-6"
+    model_key: str
     workspace: Path | None = None
     adapter: ClaudeCodeCliAdapter | None = None
 
     def __post_init__(self) -> None:
+        _requested_model(self.model_key)
         if self.adapter is None:
             object.__setattr__(
                 self,
@@ -546,7 +567,10 @@ class ClaudeCodeCliSolver:
         )
         if classified.failure_class is not None:
             raise ClaudeCodeCliAdapterError(
-                f"Claude Code CLI solver failed: {classified.failure_class.value}",
+                "Claude Code CLI solver failed: "
+                f"{classified.failure_class.value} "
+                f"task_id={request.sample.sample_id} "
+                f"returncode={classified.receipt.returncode!r}",
                 failure_class=classified.failure_class,
             )
         usage = _usage_from_envelope(
@@ -700,6 +724,7 @@ def _public_summary(
         )
     if classified.failure_class is not None:
         summary["failure_class"] = classified.failure_class.value
+    summary["returncode"] = classified.receipt.returncode
     return summary
 
 
@@ -949,6 +974,29 @@ def _apply_allowed_tools(
     mutable = list(argv)
     mutable[index + 1] = ",".join(allowed_tools)
     return tuple(mutable)
+
+
+def _reject_unallowlisted_argv(argv: Sequence[str]) -> None:
+    """Refuse flags the frozen clean-native template does not name."""
+
+    index = 1
+    while index < len(argv):
+        token = argv[index]
+        if token in _ALLOWED_BARE_FLAGS:
+            index += 1
+            continue
+        if token in _ALLOWED_VALUE_FLAGS:
+            if index + 1 >= len(argv):
+                raise ClaudeCodeCliAdapterError(f"flag {token} is missing a value")
+            index += 2
+            continue
+        if token.startswith("-"):
+            raise ClaudeCodeCliAdapterError(
+                f"un-allowlisted flag refused at plan time: {token}"
+            )
+        raise ClaudeCodeCliAdapterError(
+            f"un-allowlisted argv token refused at plan time: {token}"
+        )
 
 
 def _require_flag_value(argv: Sequence[str], flag: str, expected: str) -> None:
