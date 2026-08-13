@@ -476,6 +476,41 @@ def test_run_spec_service_maps_missing_executable_to_failed_receipt(
     assert receipt.failure_class is None
 
 
+def test_run_spec_service_rejects_symlink_working_directory(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    parent = dict(_CANARY_ENV)
+    spec = RunSpec(
+        spec_id="symlink-workspace",
+        argv=("claude",),
+        working_directory=link,
+        timeout_seconds=5,
+    )
+    receipt = LocalCliExecutionService(parent_env=parent).execute(spec)
+    assert receipt.status == "failed"
+    assert "real directory" in receipt.stderr
+
+
+def test_run_spec_service_rejects_symlink_scratch_directory(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (workspace / "local-cli-scratch").symlink_to(outside)
+    parent = dict(_CANARY_ENV)
+    spec = RunSpec(
+        spec_id="symlink-scratch",
+        argv=("claude",),
+        working_directory=workspace,
+        timeout_seconds=5,
+    )
+    receipt = LocalCliExecutionService(parent_env=parent).execute(spec)
+    assert receipt.status == "failed"
+    assert "symlink" in receipt.stderr
+
+
 def _execution_result(
     *,
     exit_code: int | None,

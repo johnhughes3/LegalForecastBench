@@ -75,6 +75,7 @@ _COST_TAIL_BYTES = 65_536
 _TRUNCATION_MARKER = b"\n[truncated]\n"
 _DEFAULT_GRACE_SECONDS = 1.0
 _WAIT_POLL_SECONDS = 0.25
+_LOCAL_CLI_SCRATCH_DIR = "local-cli-scratch"
 
 
 class LocalCliRuntimeError(RuntimeError):
@@ -388,7 +389,7 @@ class LocalCliExecutionService:
         try:
             result = execute_local_cli(
                 runtime_spec,
-                spec.working_directory,
+                _contained_scratch_root(spec.working_directory),
                 credential_source=self.credential_source,
                 scheduler=self.scheduler,
                 parent_env=self.parent_env,
@@ -404,6 +405,42 @@ class LocalCliExecutionService:
                 status="failed",
             )
         return execution_receipt_from_runtime(spec, result)
+
+
+def _contained_scratch_root(working_directory: Path) -> Path:
+    """Return a private scratch dir under a real, non-symlink workspace."""
+
+    _require_real_directory(working_directory)
+    return working_directory / _LOCAL_CLI_SCRATCH_DIR
+
+
+def _require_real_directory(path: Path) -> None:
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise LocalCliRuntimeError("working directory requires O_NOFOLLOW")
+    flags = os.O_RDONLY | nofollow
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    try:
+        descriptor = os.open(path, flags)
+    except FileNotFoundError:
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        try:
+            descriptor = os.open(path, flags)
+        except OSError as exc:
+            raise LocalCliRuntimeError(
+                "working directory must be a real directory"
+            ) from exc
+    except OSError as exc:
+        raise LocalCliRuntimeError(
+            "working directory must be a real directory"
+        ) from exc
+    os.close(descriptor)
 
 
 def execution_receipt_from_runtime(
@@ -543,6 +580,8 @@ def _run_contained_cli(
         raise LocalCliRuntimeError(
             f"required host process containment was unavailable: {exc}"
         ) from exc
+    except AuthProfileError as exc:
+        raise LocalCliRuntimeError(str(exc)) from exc
     except OSError as exc:
         if handle is None:
             launch_failure_evidence(requested)
