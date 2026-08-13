@@ -155,6 +155,9 @@ EXACT100_DOCUMENT_REPAIR_EXECUTION_V1 = SchemaIdentifier(
 EXACT100_DOCUMENT_REPAIR_RECEIPT_V1 = SchemaIdentifier(
     "legalforecast.exact100_document_repair_receipt.v1"
 )
+EXACT100_DOCUMENT_REPAIR_PURCHASE_AUTHORITY_V1 = SchemaIdentifier(
+    "legalforecast.exact100_document_repair_purchase_authority.v1"
+)
 FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1 = SchemaIdentifier(
     "legalforecast.firecrawl_provider_contract_defect_authorization.v1"
 )

@@ -14,6 +14,8 @@ from legalforecast.ingestion.document_repair_executor import (
     DocumentRepairExecutorError,
     RepairOperationOutcome,
     build_document_repair_execution,
+    build_document_repair_purchase_authority,
+    build_full_document_repair_execution,
     record_document_repair_outcomes,
     run_document_repair_execution,
     seal_document_repair_execution,
@@ -246,6 +248,21 @@ def _purchase_policy(*, reservation: str, hard_cap: str) -> dict[str, object]:
     )
 
 
+def _purchase_authority(execution):  # type: ignore[no-untyped-def]
+    return build_document_repair_purchase_authority(
+        execution=execution,
+        cohort_policy_sha256="1" * 64,
+        canonical_ledger_path="/controlled/document-repair-ledger.sqlite3",
+        fee_schedule={
+            "source_citation": "https://example.test/public-fee-schedule",
+            "verified_at_utc": "2026-08-13T00:00:00Z",
+            "includes_service_fees": True,
+            "includes_pacer_fees": True,
+            "includes_rounding": True,
+        },
+    )
+
+
 def test_purchase_policy_must_fit_exact_repair_ceiling() -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
@@ -352,6 +369,8 @@ def test_receipt_requires_monotonic_duration_and_exact_operation_prefix() -> Non
     tampered = DocumentRepairExecution(
         full_plan_sha256=execution.full_plan_sha256,
         manifest_sha256=execution.manifest_sha256,
+        scope=execution.scope,
+        scope_sha256=execution.scope_sha256,
         pilot_sha256=execution.pilot_sha256,
         operations=execution.operations,
         purchase_budget=execution.purchase_budget,
@@ -496,6 +515,7 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome() -> Non
 
     result = run_document_repair_execution(
         execution=execution,
+        purchase_authority=_purchase_authority(execution),
         acquire=acquire,
         monotonic=lambda: next(ticks),
     )
@@ -528,6 +548,7 @@ def test_runner_materializes_complete_evidence_for_successor_seal() -> None:
 
     result = run_document_repair_execution(
         execution=execution,
+        purchase_authority=_purchase_authority(execution),
         acquire=lambda operation: AcquiredRepairDocument(
             disposition="included",
             source_document_id=operation.recap_document_id,
@@ -550,3 +571,83 @@ def test_runner_materializes_complete_evidence_for_successor_seal() -> None:
 
     assert successor.status == "sealed"
     assert result.receipt.committed_cost_usd == "12.00"
+
+
+def test_paid_runner_requires_exact_generated_purchase_authority() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="purchase authority"):
+        run_document_repair_execution(
+            execution=execution,
+            purchase_authority=None,
+            acquire=lambda _operation: pytest.fail("must not invoke acquisition"),
+            monotonic=lambda: 0.0,
+        )
+
+    authority = _purchase_authority(execution)
+    assert authority.execution_sha256 == execution.execution_sha256
+    assert authority.purchase_policy.per_document_reservation_usd == 3
+    assert authority.purchase_policy.hard_cap_usd == 33
+    assert authority.authority_sha256
+
+
+def test_full_execution_covers_every_plan_item_under_full_approval() -> None:
+    manifest = _manifest_bytes(
+        *(
+            _row(candidate, index, free=index == 1)
+            for index, candidate in enumerate("abcdef", start=1)
+        )
+    )
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+        max_per_document_usd="3.00",
+    )
+    snapshots = {
+        candidate: _snapshot(candidate, index, 9000 + index, free=index == 1)
+        for index, candidate in enumerate("abcdef", start=1)
+    }
+
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    assert execution.scope == "full_plan"
+    assert execution.scope_sha256 == plan.plan_sha256
+    assert execution.pilot_sha256 is None
+    assert len(execution.operations) == len(plan.items) == 6
+    assert execution.purchase_budget.max_projected_budget_usd == "453.00"
+    assert execution.purchase_budget.total_estimated_cost_usd == "15.00"
+
+
+def test_full_execution_requires_exact_snapshot_candidate_set() -> None:
+    manifest = _manifest_bytes(_row("a", 1, free=True), _row("b", 2, free=False))
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
+    snapshots = {"a": _snapshot("a", 1, 9001, free=True)}
+
+    with pytest.raises(DocumentRepairExecutorError, match="exactly cover"):
+        build_full_document_repair_execution(
+            full_plan=plan,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
+        )
