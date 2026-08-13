@@ -472,7 +472,7 @@ def _repair_work(
         for raw_slot in raw_slots:
             entry = _positive_int(raw_slot.get("entry"), "missing document entry")
             role = _text(raw_slot.get("role"), "missing document role")
-            document_selector = _document_selector(raw_slot)
+            document_selector = _legacy_document_selector(raw_slot)
             key = (candidate_id, entry, document_selector, role)
             if key in slot_keys:
                 raise MissingDocumentSuccessorError(
@@ -501,7 +501,7 @@ def _repair_work(
                     "entry": _positive_int(
                         raw_mismatch.get("entry"), "byte mismatch entry"
                     ),
-                    "document_selector": _document_selector(raw_mismatch),
+                    "document_selector": _legacy_document_selector(raw_mismatch),
                     "selected_role": _text(
                         raw_mismatch.get("selected_role"),
                         "byte mismatch selected role",
@@ -650,8 +650,8 @@ def _remove_mismatched_selections(
                     mismatch
                     for mismatch in pending
                     if mismatch["entry"] == entry
-                    and _document_selector(mismatch["document_selector"])
-                    == _document_selector(document.get("document_selector"))
+                    and _legacy_document_selector(mismatch["document_selector"])
+                    == _legacy_document_selector(document.get("document_selector"))
                     and mismatch["selected_role"] == role
                 ),
                 None,
@@ -1390,6 +1390,16 @@ def _document_selector(value: object) -> str:
     if isinstance(value, str) and re.fullmatch(r"attachment_[1-9][0-9]*", value):
         return value
     raise MissingDocumentSuccessorError("document selector is invalid")
+
+
+def _legacy_document_selector(value: object) -> str:
+    """Preserve the frozen v1 selector spelling without v2 normalization."""
+
+    if isinstance(value, Mapping):
+        value = cast(Mapping[str, object], value).get("document_selector", "main")
+    if value is None:
+        value = "main"
+    return _text(value, "document selector")
 
 
 def _required_text(record: Mapping[str, object], field: str) -> str:

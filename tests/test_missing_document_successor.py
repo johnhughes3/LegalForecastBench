@@ -69,7 +69,7 @@ def _approval(manifest: bytes, *, maximum: str = "3.00") -> RepairApproval:
 def _observation(
     *,
     entry: int = 12,
-    document_selector: str = "main_document",
+    document_selector: str = "main",
     requested_role: str = "opposition",
     source_kind: str = "free",
     status: str = "acquired",
@@ -143,6 +143,22 @@ def test_successor_removes_wrong_bytes_and_admits_free_role_match() -> None:
             result.selection_bytes
         ).hexdigest(),
     }
+
+
+def test_v1_projection_preserves_legacy_main_selector_bytes() -> None:
+    manifest = _manifest_bytes()
+
+    result = project_missing_document_successor(
+        base_selection=_base_selection(),
+        manifest_bytes=manifest,
+        approval=_approval(manifest),
+        acquisitions=(_observation(),),
+    )
+
+    assert result.inclusion_ledger[0]["document_selector"] == "main"
+    assert result.selection_records[0]["documents"][-1]["document_selector"] == "main"
+    assert b'"document_selector":"main"' in result.inclusion_ledger_bytes
+    assert b'"document_selector":"main_document"' not in result.inclusion_ledger_bytes
 
 
 def test_paid_acquisition_requires_prior_free_exhaustion() -> None:
