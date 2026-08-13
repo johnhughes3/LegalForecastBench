@@ -168,7 +168,7 @@ Closed tokens: `headless_print`, `json_output`, `stream_json_output`, `json_sche
 
 ### Invocation
 
-`argv_template` is an argv array, not a shell string. The only placeholders are `{prompt}`, `{model}`, `{workspace}`, `{output_schema}`, and `{output_schema_path}`. Empty strings are allowed so a CLI can pass `--tools ""`.
+`argv_template` is an argv array, not a shell string. The only placeholders are `{prompt}`, `{model}`, `{workspace}`, `{output_schema}`, and `{output_schema_path}`. Empty strings are allowed so a CLI can pass `--tools ""`. Literal tokens must not contain `/`, `\`, or `~`.
 
 - `headless_mode`: `print_flag` (Claude Code `-p`) or `exec_subcommand` (Codex `exec`).
 - `output_format`: `json` (one JSON document on stdout), `stream_json` (JSONL), or `text`. `json` requires the `json_output` capability; `stream_json` requires `stream_json_output`. For `stream_json`, `usage_reporting` dotted paths are evaluated against the terminal JSON object in that stream, not against concatenated stdout.

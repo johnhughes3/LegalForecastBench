@@ -463,6 +463,40 @@ def test_adapter_manifest_rejects_target_cli_basename() -> None:
         manifest.to_adapter_manifest(command=(manifest.executable.basename,))
 
 
+def test_adapter_manifest_rejects_string_command() -> None:
+    manifest = LocalCliAdapterManifest.from_record(_claude_record())
+
+    with pytest.raises(LocalCliAdapterManifestError, match="argv sequence"):
+        manifest.to_adapter_manifest(
+            command="legalforecast.multiharness.claude_code:ClaudeCodeAdapter"
+        )
+
+
+def test_adapter_manifest_rejects_absolute_target_cli_command() -> None:
+    manifest = LocalCliAdapterManifest.from_record(_claude_record())
+
+    with pytest.raises(LocalCliAdapterManifestError, match="basename"):
+        manifest.to_adapter_manifest(command=("/usr/bin/claude",))
+
+
+def test_argv_template_rejects_host_paths() -> None:
+    record = _claude_record()
+    record["invocation"]["argv_template"] = [
+        "-p",
+        "{prompt}",
+        "--json-schema",
+        "{output_schema}",
+        "--model",
+        "{model}",
+        "/home/alice/bin/tool",
+        "{workspace}",
+    ]
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(LocalCliAdapterManifestError, match="host paths"):
+        LocalCliAdapterManifest.from_record(record)
+
+
 def test_schema_doc_states_existing_solver_contracts() -> None:
     documentation = SCHEMA_DOC.read_text(encoding="utf-8")
 

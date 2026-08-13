@@ -15,6 +15,7 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Self, cast
 
 from legalforecast.evals.inspect_task import SolverKind
@@ -311,6 +312,11 @@ class LocalCliInvocation:
             raise LocalCliAdapterManifestError(
                 f"invocation.argv_template has unknown placeholder(s): {formatted}"
             )
+        for token in self.argv_template:
+            if "/" in token or "\\" in token or token.startswith("~"):
+                raise LocalCliAdapterManifestError(
+                    "invocation.argv_template must not contain host paths"
+                )
         _require_member(self.output_format, LOCAL_CLI_OUTPUT_FORMATS, "output_format")
         _require_member(
             self.schema_enforcement,
@@ -995,11 +1001,18 @@ class LocalCliAdapterManifest:
     def to_adapter_manifest(self, *, command: Sequence[str]) -> AdapterManifest:
         """Wrapper identity for the B3 HarnessAdapter, not the target CLI."""
 
-        wrapper = tuple(command)
-        if self.executable.basename in wrapper:
+        if isinstance(command, (str, bytes, bytearray)):
             raise LocalCliAdapterManifestError(
-                "adapter manifest command must not include the target CLI basename"
+                "adapter manifest command must be an argv sequence, not a string"
             )
+        wrapper = tuple(command)
+        basename = self.executable.basename
+        for token in wrapper:
+            names = {token, PurePosixPath(token).name, PureWindowsPath(token).name}
+            if basename in names:
+                raise LocalCliAdapterManifestError(
+                    "adapter manifest command must not include the target CLI basename"
+                )
         return self.harness_binding.to_adapter_manifest(
             display_name=self.display_name,
             command=wrapper,
