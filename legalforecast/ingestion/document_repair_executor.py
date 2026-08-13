@@ -14,6 +14,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from types import MappingProxyType
 from typing import cast
 
@@ -27,9 +28,11 @@ from legalforecast.contracts import (
     EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
 )
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
     require_approved_case_dev_purchase_policy,
+    verify_case_dev_purchase_journal_initialization,
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.document_repair_pilot import DocumentRepairPilot
@@ -58,6 +61,7 @@ class DocumentRepairExecutorError(ValueError):
 _SNAPSHOT_AUTHORITY = object()
 _EXECUTION_AUTHORITY = object()
 _PURCHASE_AUTHORITY = object()
+_PURCHASE_RUNTIME_AUTHORITY = object()
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -256,6 +260,24 @@ class DocumentRepairPurchaseAuthority:
 
     def to_record(self) -> dict[str, object]:
         return {**self.content_record(), "authority_sha256": self.authority_sha256}
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class DocumentRepairPurchaseRuntime:
+    """Verified initialized-journal capability for one repair authority."""
+
+    execution_sha256: str
+    authority_sha256: str
+    initialization_id: str
+    _mint: object
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise DocumentRepairExecutorError(
+            "purchase runtime can be created only by journal verification"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._mint is _PURCHASE_RUNTIME_AUTHORITY
 
 
 def build_document_repair_execution(
@@ -531,14 +553,14 @@ def record_document_repair_outcomes(
 def run_document_repair_execution(
     *,
     execution: DocumentRepairExecution,
-    purchase_authority: DocumentRepairPurchaseAuthority | None,
+    purchase_runtime: DocumentRepairPurchaseRuntime | None,
     acquire: Callable[[ResolvedRepairOperation], AcquiredRepairDocument],
     monotonic: Callable[[], float],
 ) -> DocumentRepairRunResult:
     """Run exact operations in free-first order with measured terminal stopping."""
 
     _require_replay_minted_execution(execution)
-    _require_purchase_authority(execution, purchase_authority)
+    _require_purchase_runtime(execution, purchase_runtime)
     outcomes: list[RepairOperationOutcome] = []
     acquired_documents: list[Mapping[str, object]] = []
     exclusions: list[Mapping[str, object]] = []
@@ -629,6 +651,41 @@ def build_document_repair_purchase_authority(
         scope_sha256=provisional.scope_sha256,
         purchase_policy=provisional.purchase_policy,
         authority_sha256=_commit_purchase_authority(provisional.content_record()),
+    )
+
+
+def verify_document_repair_purchase_runtime(
+    *,
+    execution: DocumentRepairExecution,
+    purchase_authority: DocumentRepairPurchaseAuthority,
+    initialization_receipt_path: Path,
+    purchase_policy_file_sha256: str,
+    cohort_policy_file_sha256: str,
+) -> DocumentRepairPurchaseRuntime:
+    """Verify the exact initialized ledger before any paid callback is reachable."""
+
+    _require_purchase_authority(execution, purchase_authority)
+    try:
+        receipt = verify_case_dev_purchase_journal_initialization(
+            purchase_authority.purchase_policy.canonical_ledger_path,
+            policy=purchase_authority.purchase_policy,
+            receipt_path=initialization_receipt_path,
+            purchase_policy_file_sha256=purchase_policy_file_sha256,
+            cohort_policy_file_sha256=cohort_policy_file_sha256,
+        )
+    except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+        raise DocumentRepairExecutorError(
+            f"purchase journal initialization is invalid: {exc}"
+        ) from exc
+    initialization_id = receipt.get("initialization_id")
+    if not isinstance(initialization_id, str) or not initialization_id:
+        raise DocumentRepairExecutorError(
+            "purchase journal initialization identity is missing"
+        )
+    return _mint_purchase_runtime(
+        execution_sha256=execution.execution_sha256,
+        authority_sha256=purchase_authority.authority_sha256,
+        initialization_id=initialization_id,
     )
 
 
@@ -1181,6 +1238,31 @@ def _require_purchase_authority(
         raise DocumentRepairExecutorError("purchase authority policy changed")
 
 
+def _require_purchase_runtime(
+    execution: DocumentRepairExecution,
+    runtime: DocumentRepairPurchaseRuntime | None,
+) -> None:
+    has_paid_operations = any(
+        operation.route == "pacer_purchase" for operation in execution.operations
+    )
+    if not has_paid_operations:
+        if runtime is not None:
+            raise DocumentRepairExecutorError(
+                "purchase runtime was supplied for a free-only execution"
+            )
+        return
+    if (
+        type(runtime) is not DocumentRepairPurchaseRuntime
+        or not runtime.is_replay_minted()
+        or runtime.execution_sha256 != execution.execution_sha256
+        or not runtime.authority_sha256
+        or not runtime.initialization_id
+    ):
+        raise DocumentRepairExecutorError(
+            "paid execution requires verified purchase authority runtime"
+        )
+
+
 def _mapping_list(value: object, label: str) -> list[Mapping[str, object]]:
     if not isinstance(value, list):
         raise DocumentRepairExecutorError(f"{label} must be an object array")
@@ -1301,6 +1383,13 @@ def _mint_purchase_authority(**fields: object) -> DocumentRepairPurchaseAuthorit
     for name, value in (*fields.items(), ("_mint", _PURCHASE_AUTHORITY)):
         object.__setattr__(authority, name, value)
     return authority
+
+
+def _mint_purchase_runtime(**fields: object) -> DocumentRepairPurchaseRuntime:
+    runtime = object.__new__(DocumentRepairPurchaseRuntime)
+    for name, value in (*fields.items(), ("_mint", _PURCHASE_RUNTIME_AUTHORITY)):
+        object.__setattr__(runtime, name, value)
+    return runtime
 
 
 def _commit_receipt(record: Mapping[str, object]) -> str:
