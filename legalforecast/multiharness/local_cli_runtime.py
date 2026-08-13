@@ -47,9 +47,13 @@ from legalforecast.multiharness.validation import (
 )
 
 LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-persisted local CLI runtime identity
     "legalforecast.multiharness.local_cli_adapter_manifest.v1"
 )
-LOCAL_CLI_EXECUTION_SCHEMA_VERSION = "legalforecast.multiharness.local_cli_execution.v1"
+LOCAL_CLI_EXECUTION_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-persisted local CLI runtime receipt
+    "legalforecast.multiharness.local_cli_execution.v1"
+)
 _PUBLICATION_ENVELOPE_IMPORTS = frozenset(
     {
         "legalforecast.contracts",
@@ -478,10 +482,12 @@ def _optional_cost_usd(stdout: bytes) -> float | None:
     return None
 
 
+# contract-ratchet: allow non-persisted in-memory spec identity
 def _sha256_bytes(payload: bytes) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
+# contract-ratchet: allow non-persisted in-memory spec identity
 def _sha256_record(record: Mapping[str, object]) -> str:
     encoded = json.dumps(
         record,
