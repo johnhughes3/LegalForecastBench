@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -240,6 +241,21 @@ def test_adapter_source_never_spawns_or_reads_credentials() -> None:
         assert "Popen" not in source
         assert "os.environ" not in source
         assert "os.getenv" not in source
+
+
+def test_adapter_execute_path_imports_the_contained_runtime_service() -> None:
+    source = ADAPTER_SOURCE.read_text(encoding="utf-8")
+    assert (
+        "from legalforecast.multiharness.local_cli_runtime import "
+        "LocalCliExecutionService" in source
+    )
+    tree = ast.parse(source)
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            imported.update(alias.name for alias in node.names)
+    assert "FakeLocalCliExecutionService" not in imported
+    assert "subprocess" not in imported
 
 
 def test_fake_success_binds_spec_receipt_and_deliverable(

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import ast
 import json
+import os
+import stat
 import sys
 from pathlib import Path
 
@@ -10,10 +12,12 @@ from legalforecast.multiharness.auth_profiles import (
     FIXTURE_NONE,
     PUBLISHED_API_KEY,
 )
+from legalforecast.multiharness.local_cli_contracts import RunSpec
 from legalforecast.multiharness.local_cli_environment import StaticCredentialSource
 from legalforecast.multiharness.local_cli_runtime import (
     LocalCliAdapterManifest,
     LocalCliExecutionResult,
+    LocalCliExecutionService,
     LocalCliRunSpec,
     LocalCliRuntimeError,
     NullScheduler,
@@ -312,7 +316,129 @@ def _manifest(
     )
 
 
+def test_run_spec_service_binds_receipt_identity_without_ambient_env(
+    tmp_path: Path,
+) -> None:
+    bindir = tmp_path / "bin"
+    _write_path_cli(
+        bindir / "claude",
+        "import json, os, sys; json.dump({'ok': True}, sys.stdout)",
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    spec = RunSpec(
+        spec_id="run-spec-1",
+        argv=("claude", "-p", "prompt"),
+        working_directory=workspace,
+        timeout_seconds=5,
+    )
+    parent = dict(_CANARY_ENV)
+    parent["PATH"] = f"{bindir}{os.pathsep}/usr/bin"
+    receipt = LocalCliExecutionService(parent_env=parent).execute(spec)
+
+    assert receipt.spec_sha256 == spec.spec_sha256
+    assert receipt.status == "succeeded"
+    assert receipt.executable_name == "claude"
+    assert receipt.failure_class is None
+    assert '"ok":true' in receipt.stdout.replace(" ", "")
+    assert "ambient-openai-canary" not in receipt.stdout
+    public = receipt.to_public_record()
+    assert "stdout" not in public
+    assert "ANTHROPIC_API_KEY" not in str(public)
+
+
+def test_run_spec_service_delivers_stdin_and_maps_timeout_and_nonzero(
+    tmp_path: Path,
+) -> None:
+    bindir = tmp_path / "bin"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    parent = dict(_CANARY_ENV)
+    parent["PATH"] = f"{bindir}{os.pathsep}/usr/bin"
+    _write_path_cli(
+        bindir / "echo-cli",
+        "import sys; sys.stdout.write(sys.stdin.read())",
+    )
+    echoed = LocalCliExecutionService(parent_env=parent).execute(
+        RunSpec(
+            spec_id="stdin-1",
+            argv=("echo-cli",),
+            working_directory=workspace,
+            stdin_bytes=b'{"task":"fixture"}',
+            timeout_seconds=5,
+        )
+    )
+    assert echoed.status == "succeeded"
+    assert echoed.stdout == '{"task":"fixture"}'
+    assert echoed.failure_class is None
+
+    _write_path_cli(bindir / "hang-cli", "import time; time.sleep(30)")
+    timed_out = LocalCliExecutionService(
+        parent_env=parent,
+        termination_grace_seconds=0.2,
+    ).execute(
+        RunSpec(
+            spec_id="hang-1",
+            argv=("hang-cli",),
+            working_directory=workspace,
+            timeout_seconds=0.4,
+        )
+    )
+    assert timed_out.status == "timeout"
+    assert timed_out.failure_class is None
+
+    _write_path_cli(bindir / "fail-cli", "raise SystemExit(2)")
+    failed = LocalCliExecutionService(parent_env=parent).execute(
+        RunSpec(
+            spec_id="fail-1",
+            argv=("fail-cli",),
+            working_directory=workspace,
+            timeout_seconds=5,
+        )
+    )
+    assert failed.status == "failed"
+    assert failed.returncode == 2
+    assert failed.failure_class is None
+
+
+def test_run_spec_service_preserves_empty_argv_tokens(tmp_path: Path) -> None:
+    bindir = tmp_path / "bin"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    parent = dict(_CANARY_ENV)
+    parent["PATH"] = f"{bindir}{os.pathsep}/usr/bin"
+    _write_path_cli(
+        bindir / "claude",
+        "import json, sys; json.dump(sys.argv, sys.stdout)",
+    )
+    spec = RunSpec(
+        spec_id="empty-token",
+        argv=("claude", "--tools", "", "--print"),
+        working_directory=workspace,
+        timeout_seconds=5,
+    )
+    receipt = LocalCliExecutionService(parent_env=parent).execute(spec)
+    assert receipt.status == "succeeded"
+    assert json.loads(receipt.stdout) == [
+        str(bindir / "claude"),
+        "--tools",
+        "",
+        "--print",
+    ]
+
+
 def _write_script(tmp_path: Path, body: str, *, name: str = "cli.py") -> Path:
     path = tmp_path / name
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body.strip() + "\n", encoding="utf-8")
+    return path
+
+
+def _write_path_cli(path: Path, body: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"#!{sys.executable}\n{body.strip()}\n",
+        encoding="utf-8",
+    )
+    path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     return path

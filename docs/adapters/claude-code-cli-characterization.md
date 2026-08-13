@@ -84,3 +84,9 @@ uv run python scripts/probe_claude_code_cli_interface.py \
   --expected-model claude-haiku-4-5 \
   --print-observation
 ```
+
+## `--json-schema` grammar
+
+Help text on this binary is `--json-schema <schema>` — a JSON Schema value, not a file path. The safe parser probe therefore passes inline JSON (`{"type":"object"}`). The frozen local-CLI argv_template uses `{output_schema}` (inline) and must not use `{output_schema_path}`.
+
+A credential-free print that supplied a filesystem path as the flag value was rejected as invalid JSON. The auth-closed envelope fixture records that observation. Do not switch the freeze to a path token without a new characterization of this exact 2.1.231 binary.
