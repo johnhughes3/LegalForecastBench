@@ -52,6 +52,7 @@ from legalforecast.multiharness.local_cli_identity import (
     executable_pin_for,
 )
 from legalforecast.multiharness.local_cli_redaction import (
+    LocalCliRedactionError,
     persist_execution_artifacts,
     redact_text,
     redaction_secret_values,
@@ -355,18 +356,21 @@ def execute_local_cli(
         )
     except LocalCliRuntimeError as exc:
         message = redact_text(str(exc), secret_values)
-        persist_execution_artifacts(
-            scratch_root,
-            receipt={
-                "schema_version": LOCAL_CLI_EXECUTION_SCHEMA_VERSION,
-                "status": "error",
-            },
-            argv=spec.argv(),
-            stdout=b"",
-            stderr=b"",
-            secret_values=secret_values,
-            error_message=message,
-        )
+        try:
+            persist_execution_artifacts(
+                scratch_root,
+                receipt={
+                    "schema_version": LOCAL_CLI_EXECUTION_SCHEMA_VERSION,
+                    "status": "error",
+                },
+                argv=spec.argv(),
+                stdout=b"",
+                stderr=b"",
+                secret_values=secret_values,
+                error_message=message,
+            )
+        except (LocalCliRedactionError, OSError, AuthProfileError):
+            pass
         raise LocalCliRuntimeError(message) from exc
 
 
@@ -458,14 +462,17 @@ def _execute_local_cli_bound(
             result = replace(result, scheduling=evidence)
     if result is None:
         raise LocalCliRuntimeError("local CLI execution produced no receipt")
-    persist_execution_artifacts(
-        scratch_root,
-        receipt=result.to_public_record(),
-        argv=spec.argv(),
-        stdout=result.stdout,
-        stderr=result.stderr,
-        secret_values=secret_values,
-    )
+    try:
+        persist_execution_artifacts(
+            scratch_root,
+            receipt=result.to_public_record(),
+            argv=observed.resolved_argv,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            secret_values=secret_values,
+        )
+    except (LocalCliRedactionError, OSError, AuthProfileError) as exc:
+        raise LocalCliRuntimeError(str(exc)) from exc
     return result
 
 

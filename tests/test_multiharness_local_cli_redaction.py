@@ -37,7 +37,13 @@ def test_redaction_helpers_replace_exact_secret_bytes() -> None:
     values = redaction_secret_values(
         projected={"OPENAI_API_KEY": _ENV_SECRET},
         parent_env={"CANARY_PLANTED": _PARENT_SECRET, "PATH": "/usr/bin"},
-        extra_args=("--token", _ARG_SECRET, "--mode", "dump-env"),
+        extra_args=(
+            "--token",
+            _ARG_SECRET,
+            f"--token={_ARG_SECRET}",
+            "--mode",
+            "dump-env",
+        ),
     )
     assert _ENV_SECRET in values
     assert _ARG_SECRET in values
@@ -119,6 +125,68 @@ def test_identity_refusal_error_and_artifacts_omit_planted_arg_secret(
     )
     assert "digest mismatch" in error_text
     assert _ARG_SECRET not in error_text
+    assert oct(scratch.stat().st_mode)[-3:] == "700"
+    assert oct((scratch / PRIVATE_EXECUTION_DIR).stat().st_mode)[-3:] == "700"
+
+
+def test_combined_flag_assignment_is_redacted_from_artifacts(tmp_path: Path) -> None:
+    scratch = tmp_path / "scratch"
+    spec = _canary_spec()
+    spec = LocalCliRunSpec(
+        spec_id="canary-eq",
+        manifest=spec.manifest,
+        auth_profile=spec.auth_profile,
+        extra_args=("--mode", "dump-env", f"--token={_ARG_SECRET}"),
+    )
+    result = execute_local_cli(
+        spec,
+        scratch,
+        credential_source=StaticCredentialSource({"OPENAI_API_KEY": _ENV_SECRET}),
+        parent_env={
+            "PATH": os.environ.get("PATH", "/usr/bin"),
+            "LC_CTYPE": "C.UTF-8",
+        },
+    )
+    assert _ARG_SECRET.encode("utf-8") in result.stderr
+    assert not artifact_dir_contains_secret(scratch, _ARG_SECRET)
+    events = (scratch / PRIVATE_EXECUTION_DIR / "events.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert _ARG_SECRET not in events
+    assert REDACTED in events
+
+
+def test_planted_artifact_symlink_is_refused(tmp_path: Path) -> None:
+    scratch = tmp_path / "scratch"
+    leaked = tmp_path / "leaked"
+    leaked.mkdir()
+    scratch.mkdir(mode=0o700)
+    (scratch / PRIVATE_EXECUTION_DIR).symlink_to(leaked)
+    with pytest.raises(LocalCliRuntimeError, match="symlink"):
+        execute_local_cli(
+            LocalCliRunSpec(
+                spec_id="symlink",
+                manifest=LocalCliAdapterManifest(
+                    adapter_id="fixture-cli",
+                    display_name="Fixture CLI",
+                    adapter_version="0.1.0",
+                    command=(sys.executable, str(_FAKE_CLI.resolve())),
+                    executable=executable_pin_for(_FAKE_CLI, version="0.1.0"),
+                    supported_auth_profiles=(PUBLISHED_API_KEY,),
+                    profile_env_vars=((PUBLISHED_API_KEY, ("OPENAI_API_KEY",)),),
+                    version_probe_args=("--mode", "version"),
+                ),
+                auth_profile=PUBLISHED_API_KEY,
+                extra_args=("--mode", "succeed-json"),
+            ),
+            scratch,
+            credential_source=StaticCredentialSource({"OPENAI_API_KEY": _ENV_SECRET}),
+            parent_env={
+                "PATH": os.environ.get("PATH", "/usr/bin"),
+                "LC_CTYPE": "C.UTF-8",
+            },
+        )
+    assert list(leaked.iterdir()) == []
 
 
 def _canary_spec() -> LocalCliRunSpec:

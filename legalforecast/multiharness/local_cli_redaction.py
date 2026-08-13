@@ -8,9 +8,14 @@ parsers can read provider envelopes; disk bytes do not.
 from __future__ import annotations
 
 import json
+import os
+import stat
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from legalforecast.multiharness.local_cli_environment import (
+    ensure_private_scratch_directory,
+)
 from legalforecast.multiharness.validation import SECRET_FIELD_PATTERN
 
 REDACTED = "[redacted]"
@@ -30,6 +35,10 @@ _SKIP_ENV_NAMES = frozenset(
 _MIN_ARG_SECRET_LENGTH = 16
 
 
+class LocalCliRedactionError(RuntimeError):
+    """Raised when redacted artifacts cannot be written fail-closed."""
+
+
 def redaction_secret_values(
     *,
     projected: Mapping[str, str],
@@ -44,11 +53,21 @@ def redaction_secret_values(
             continue
         if SECRET_FIELD_PATTERN.search(name) is not None or name.startswith("CANARY"):
             values.add(value)
-    for arg in extra_args:
-        if arg.startswith("-") or len(arg) < _MIN_ARG_SECRET_LENGTH:
-            continue
-        values.add(arg)
+    values.update(_arg_secret_values(extra_args))
     return tuple(sorted(values, key=len, reverse=True))
+
+
+def _arg_secret_values(extra_args: Sequence[str]) -> set[str]:
+    values: set[str] = set()
+    for arg in extra_args:
+        if arg.startswith("-"):
+            _, separator, assigned = arg.partition("=")
+            if separator and len(assigned) >= _MIN_ARG_SECRET_LENGTH:
+                values.add(assigned)
+            continue
+        if len(arg) >= _MIN_ARG_SECRET_LENGTH:
+            values.add(arg)
+    return values
 
 
 def redact_text(text: str, secret_values: Sequence[str]) -> str:
@@ -96,12 +115,12 @@ def persist_execution_artifacts(
 ) -> Path:
     """Write redacted receipt, event log, and transcripts under scratch."""
 
-    artifact_dir = scratch_root / PRIVATE_EXECUTION_DIR
-    artifact_dir.mkdir(parents=True, exist_ok=True)
+    ensure_private_scratch_directory(scratch_root)
+    artifact_dir = _ensure_private_artifact_dir(scratch_root)
     receipt_bytes = (
         json.dumps(redact_json_record(receipt, secret_values), sort_keys=True) + "\n"
     ).encode("utf-8")
-    (artifact_dir / "receipt.json").write_bytes(receipt_bytes)
+    _write_private_bytes(artifact_dir / "receipt.json", receipt_bytes)
     event = redact_json_record(
         {
             "event": "launch",
@@ -110,17 +129,22 @@ def persist_execution_artifacts(
         secret_values,
     )
     event_line = json.dumps(event, sort_keys=True) + "\n"
-    (artifact_dir / "events.jsonl").write_text(event_line, encoding="utf-8")
-    (artifact_dir / "stdout.transcript").write_bytes(
-        redact_bytes(stdout, secret_values)
+    _write_private_bytes(
+        artifact_dir / "events.jsonl",
+        event_line.encode("utf-8"),
     )
-    (artifact_dir / "stderr.transcript").write_bytes(
-        redact_bytes(stderr, secret_values)
+    _write_private_bytes(
+        artifact_dir / "stdout.transcript",
+        redact_bytes(stdout, secret_values),
+    )
+    _write_private_bytes(
+        artifact_dir / "stderr.transcript",
+        redact_bytes(stderr, secret_values),
     )
     if error_message is not None:
-        (artifact_dir / "error.txt").write_text(
-            redact_text(error_message, secret_values) + "\n",
-            encoding="utf-8",
+        _write_private_bytes(
+            artifact_dir / "error.txt",
+            (redact_text(error_message, secret_values) + "\n").encode("utf-8"),
         )
     return artifact_dir
 
@@ -132,8 +156,56 @@ def artifact_dir_contains_secret(root: Path, secret: str) -> bool:
         return False
     encoded = secret.encode("utf-8")
     for path in root.rglob("*"):
-        if not path.is_file():
+        if path.is_symlink() or not path.is_file():
             continue
         if encoded in path.read_bytes():
             return True
     return False
+
+
+def _ensure_private_artifact_dir(scratch_root: Path) -> Path:
+    artifact_dir = scratch_root / PRIVATE_EXECUTION_DIR
+    if artifact_dir.is_symlink():
+        raise LocalCliRedactionError("CLI scratch paths must not be symlinks")
+    artifact_dir.mkdir(mode=0o700, exist_ok=True)
+    if artifact_dir.is_symlink() or not artifact_dir.is_dir():
+        raise LocalCliRedactionError("CLI scratch paths must be directories")
+    artifact_dir.chmod(0o700)
+    return artifact_dir
+
+
+def _write_private_bytes(path: Path, payload: bytes) -> None:
+    try:
+        path_info = path.lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        if stat.S_ISLNK(path_info.st_mode):
+            raise LocalCliRedactionError("private execution paths must not be symlinks")
+        if not stat.S_ISREG(path_info.st_mode):
+            raise LocalCliRedactionError(
+                "private execution paths must be regular files"
+            )
+        try:
+            path.unlink()
+        except OSError as exc:
+            raise LocalCliRedactionError(
+                "private execution path could not be replaced"
+            ) from exc
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    try:
+        file_descriptor = os.open(path, flags, 0o600)
+    except OSError as exc:
+        raise LocalCliRedactionError(
+            "private execution path could not be created"
+        ) from exc
+    try:
+        os.fchmod(file_descriptor, 0o600)
+        with os.fdopen(file_descriptor, "wb") as handle:
+            file_descriptor = -1
+            handle.write(payload)
+            handle.flush()
+    finally:
+        if file_descriptor >= 0:
+            os.close(file_descriptor)
