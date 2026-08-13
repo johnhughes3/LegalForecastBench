@@ -979,6 +979,39 @@ def test_runtime_closes_journal_for_every_budget_planning_failure(
     assert closed == [True]
 
 
+def test_runner_closes_runtime_when_authenticated_snapshot_is_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    runtime = _purchase_runtime(execution, tmp_path)
+
+    def fail_snapshot(self: CaseDevPurchaseJournal) -> None:
+        raise CaseDevPurchaseLedgerError("corrupt journal")
+
+    monkeypatch.setattr(CaseDevPurchaseJournal, "authenticated_snapshot", fail_snapshot)
+
+    with pytest.raises(DocumentRepairExecutorError, match="corrupt journal"):
+        run_document_repair_execution(
+            execution=execution,
+            purchase_runtime=runtime,
+            acquire=_bound(runtime, lambda _operation: pytest.fail("must not acquire")),
+            monotonic=lambda: 0.0,
+        )
+
+    assert runtime.is_consumed() is False
+    assert runtime.journal._closed is True
+
+
 def test_execution_seals_complete_successor_only_from_exact_resolved_documents() -> (
     None
 ):

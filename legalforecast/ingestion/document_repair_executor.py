@@ -579,7 +579,10 @@ def run_document_repair_execution(
             monotonic=monotonic,
         )
     finally:
-        if purchase_runtime is not None and purchase_runtime.is_consumed():
+        if (
+            type(purchase_runtime) is DocumentRepairPurchaseRuntime
+            and purchase_runtime.is_replay_minted()
+        ):
             purchase_runtime.journal.close()
 
 
