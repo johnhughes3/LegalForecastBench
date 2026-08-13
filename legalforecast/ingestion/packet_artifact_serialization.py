@@ -118,7 +118,7 @@ def _snapshot_destinations(
     """Retain cheap same-filesystem snapshots for publication rollback.
 
     Hardlinks are preferred.  When the filesystem cannot create them, a
-    byte-for-byte copy preserves the same rollback and cleanup contract.
+    metadata-preserving copy keeps the same rollback and cleanup contract.
     """
 
     backups: dict[Path, Path | None] = {}
@@ -141,7 +141,7 @@ def _snapshot_destinations(
                 if not _hardlink_snapshot_unsupported(exc):
                     raise
                 try:
-                    shutil.copyfile(destination, backup, follow_symlinks=False)
+                    shutil.copy2(destination, backup, follow_symlinks=False)
                 except OSError:
                     backup.unlink(missing_ok=True)
                     raise

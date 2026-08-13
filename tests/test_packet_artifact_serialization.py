@@ -215,6 +215,7 @@ def test_incremental_packet_artifacts_restore_copied_snapshots_when_publish_fail
     destinations = (paths.packets, paths.case_packets, paths.audit)
     for path, payload in zip(destinations, original, strict=True):
         path.write_bytes(payload)
+        path.chmod(0o600)
 
     def reject_hardlinks(source: str | Path, destination: str | Path) -> None:
         del source, destination
@@ -246,6 +247,7 @@ def test_incremental_packet_artifacts_restore_copied_snapshots_when_publish_fail
         )
 
     assert tuple(path.read_bytes() for path in destinations) == original
+    assert all(path.stat().st_mode & 0o777 == 0o600 for path in destinations)
     assert not list(tmp_path.glob(".*.tmp"))
     assert not list(tmp_path.glob(".*.backup"))
 
