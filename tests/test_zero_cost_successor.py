@@ -1756,6 +1756,241 @@ def test_cli_publishes_standard_target_cohort_surfaces(
         )
 
 
+@dataclass
+class _ZeroCostCliHarness:
+    command: list[str]
+    output_root: Path
+    fixture: Fixture
+    projection: dict[str, Any]
+    summary_path: Path
+    selection_path: Path
+    verified_bytes: dict[str, bytes]
+
+
+def _zero_cost_cli_harness(tmp_path: Path) -> _ZeroCostCliHarness:
+    """Build the same non-v4 CLI inputs as the happy-path publication test."""
+
+    fixture = _fixture()
+    target_root = tmp_path / "target"
+    target_root.mkdir()
+    summary_path = target_root / "target-cohort-projection.json"
+    selection_path = target_root / "target-cohort-selection.jsonl"
+    reserve_path = target_root / "target-cohort-ranked-reserve.jsonl"
+    original_exclusions_path = target_root / "target-cohort-exclusions.jsonl"
+    source_path = tmp_path / "public-packet-selection-reconciled.jsonl"
+    projection = fixture.kwargs["target_projection"]
+    projection["input_commitments"] = {
+        str(source_path): _sha(_jsonl(fixture.kwargs["source_pool"]))
+    }
+    original_bytes = _jsonl(fixture.kwargs["original_selection"])
+    reserve_bytes = _jsonl(fixture.kwargs["ranked_reserve"])
+    source_bytes = _jsonl(fixture.kwargs["source_pool"])
+    for path, payload in (
+        (summary_path, canonical_json_bytes(projection)),
+        (selection_path, original_bytes),
+        (reserve_path, reserve_bytes),
+        (original_exclusions_path, b""),
+        (source_path, source_bytes),
+    ):
+        path.write_bytes(payload)
+    verified_bytes = {
+        os.path.abspath(summary_path): summary_path.read_bytes(),
+        os.path.abspath(selection_path): original_bytes,
+        os.path.abspath(reserve_path): reserve_bytes,
+        os.path.abspath(original_exclusions_path): b"",
+        os.path.abspath(source_path): source_bytes,
+    }
+    inputs = {
+        "ranked-reserve-result.json": fixture.kwargs["ranked_result_bytes"],
+        "active-selection.jsonl": fixture.kwargs["active_selection_bytes"],
+        "replacement-selection.jsonl": fixture.kwargs["replacement_selection_bytes"],
+        "successor-exclusions.jsonl": fixture.kwargs["successor_exclusions_bytes"],
+        "replacement-budget.json": fixture.kwargs["replacement_budget_plan_bytes"],
+        "disclosure-clearance.jsonl": fixture.kwargs["disclosure_clearance_bytes"],
+        "case-relevance.jsonl": _jsonl(fixture.kwargs["case_relevance"]),
+        "download-manifest.jsonl": _jsonl(fixture.kwargs["download_manifest"]),
+        "restriction-evidence.jsonl": _jsonl(fixture.kwargs["restriction_evidence"]),
+    }
+    paths: dict[str, Path] = {}
+    for name, payload in inputs.items():
+        path = tmp_path / name
+        path.write_bytes(payload)
+        paths[name] = path
+    clearance_card = {
+        "source_commitments": {
+            name: {
+                "path": str(path),
+                "sha256": _sha(path.read_bytes()),
+            }
+            for name, path in (
+                ("case_relevance", paths["case-relevance.jsonl"]),
+                ("download_manifest", paths["download-manifest.jsonl"]),
+                ("restriction_evidence", paths["restriction-evidence.jsonl"]),
+            )
+        }
+    }
+    clearance_card_path = tmp_path / "clearance-card.json"
+    clearance_card_path.write_bytes(canonical_json_bytes(clearance_card))
+    controlled_private_root = tmp_path / "private"
+    controlled_private_root.mkdir()
+    precursor_paths = {
+        name: tmp_path / name
+        for name in (
+            "purchase-policy.json",
+            "purchase-ledger.sqlite3",
+            "purchase-ledger-receipt.json",
+            "purchase-result.json",
+            "purchase-run-card.json",
+            "screening-snapshot-manifest.json",
+        )
+    }
+    for path in precursor_paths.values():
+        path.write_bytes(b"{}\n")
+    output_root = tmp_path / "successor"
+    command = [
+        "acquisition",
+        "project-zero-cost-successor",
+        "--target-cohort-root",
+        str(target_root),
+        "--purchase-policy",
+        str(precursor_paths["purchase-policy.json"]),
+        "--controlled-private-root",
+        str(controlled_private_root),
+        "--purchase-ledger",
+        str(precursor_paths["purchase-ledger.sqlite3"]),
+        "--purchase-ledger-initialization-receipt",
+        str(precursor_paths["purchase-ledger-receipt.json"]),
+        "--purchase-result",
+        str(precursor_paths["purchase-result.json"]),
+        "--purchase-run-card",
+        str(precursor_paths["purchase-run-card.json"]),
+        "--screening-snapshot-manifest",
+        str(precursor_paths["screening-snapshot-manifest.json"]),
+        "--ranked-reserve-result",
+        str(paths["ranked-reserve-result.json"]),
+        "--active-selection",
+        str(paths["active-selection.jsonl"]),
+        "--replacement-selection",
+        str(paths["replacement-selection.jsonl"]),
+        "--successor-exclusions",
+        str(paths["successor-exclusions.jsonl"]),
+        "--replacement-budget-plan",
+        str(paths["replacement-budget.json"]),
+        "--disclosure-clearance",
+        str(paths["disclosure-clearance.jsonl"]),
+        "--disclosure-clearance-run-card",
+        str(clearance_card_path),
+        "--output-root",
+        str(output_root),
+    ]
+    return _ZeroCostCliHarness(
+        command=command,
+        output_root=output_root,
+        fixture=fixture,
+        projection=projection,
+        summary_path=summary_path,
+        selection_path=selection_path,
+        verified_bytes=verified_bytes,
+    )
+
+
+def _install_zero_cost_cli_auth_stubs(
+    monkeypatch: pytest.MonkeyPatch,
+    harness: _ZeroCostCliHarness,
+    *,
+    purchase_approval: bool = True,
+    clearance: bool = True,
+    precursor: bool = True,
+    precursor_result: Mapping[str, object] | None = None,
+) -> None:
+    if purchase_approval:
+        monkeypatch.setattr(
+            cli,
+            "verify_completed_target_cohort_projection_for_purchase_approval",
+            lambda _root: {
+                "summary": harness.projection,
+                "summary_path": harness.summary_path,
+                "selection_path": harness.selection_path,
+                "verified_artifact_bytes": harness.verified_bytes,
+            },
+        )
+    if clearance:
+        monkeypatch.setattr(
+            cli, "_verify_authenticated_clearance_run_card", lambda **_kwargs: ()
+        )
+    if precursor:
+        result = (
+            precursor_result
+            if precursor_result is not None
+            else harness.fixture.kwargs["authenticated_ranked_result"]
+        )
+
+        def authenticate_precursor(**_kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(result=result)
+
+        monkeypatch.setattr(
+            cli, "_authenticate_ranked_reserve_precursor", authenticate_precursor
+        )
+
+
+def _published_zero_cost_output_files(output_root: Path) -> set[str]:
+    if not output_root.exists():
+        return set()
+    return {
+        path.relative_to(output_root).as_posix()
+        for path in output_root.rglob("*")
+        if path.is_file()
+    }
+
+
+def test_zero_cost_cli_rejects_unauthenticated_target_projection_before_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    harness = _zero_cost_cli_harness(tmp_path)
+    _install_zero_cost_cli_auth_stubs(monkeypatch, harness, purchase_approval=False)
+
+    assert cli.main(harness.command) == 2
+    assert "target projection run card must be" in capsys.readouterr().err
+    assert _published_zero_cost_output_files(harness.output_root) == set()
+
+
+def test_zero_cost_cli_rejects_unauthenticated_clearance_run_card_before_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    harness = _zero_cost_cli_harness(tmp_path)
+    _install_zero_cost_cli_auth_stubs(monkeypatch, harness, clearance=False)
+
+    assert cli.main(harness.command) == 2
+    assert "clearance run card lacks output_commitments" in capsys.readouterr().err
+    assert _published_zero_cost_output_files(harness.output_root) == set()
+
+
+def test_zero_cost_cli_rejects_mismatched_ranked_precursor_before_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    harness = _zero_cost_cli_harness(tmp_path)
+    mismatched = dict(
+        cast(
+            Mapping[str, object], harness.fixture.kwargs["authenticated_ranked_result"]
+        )
+    )
+    mismatched["committed_spend_usd"] = "0.00"
+    _install_zero_cost_cli_auth_stubs(monkeypatch, harness, precursor_result=mismatched)
+
+    assert cli.main(harness.command) == 2
+    assert (
+        "ranked result differs from authenticated ranked-reserve replay"
+        in capsys.readouterr().err
+    )
+    assert _published_zero_cost_output_files(harness.output_root) == set()
+
+
 def test_zero_cost_cli_rejects_incomplete_v4_authority_bundle_before_output(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
