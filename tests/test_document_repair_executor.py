@@ -7,6 +7,10 @@ import json
 from collections.abc import Mapping
 
 import pytest
+from legalforecast.contracts import (
+    ARTIFACT_RAW_SHA256_V1,
+    EXACT100_DOCUMENT_REPAIR_PILOT_V1,
+)
 from legalforecast.ingestion.case_dev_purchase import generate_case_dev_purchase_policy
 from legalforecast.ingestion.document_repair_executor import (
     AcquiredRepairDocument,
@@ -88,14 +92,17 @@ def _scope() -> tuple[object, object]:
 
 
 def _snapshot(candidate_id: str, entry: int, document_id: int, *, free: bool) -> bytes:
+    docket_id = (
+        int(candidate_id) if candidate_id.isdigit() else int(candidate_id, 36) + 100
+    )
     return _canonical_bytes(
         {
             "candidate_id": candidate_id,
-            "docket_id": int(candidate_id, 36) + 100,
+            "docket_id": docket_id,
             "entries": [
                 {
                     "id": entry + 1000,
-                    "docket": int(candidate_id, 36) + 100,
+                    "docket": docket_id,
                     "entry_number": entry,
                     "recap_documents": [
                         {
@@ -203,6 +210,32 @@ def test_execution_rejects_tampered_full_plan_and_pilot_objects() -> None:
         )
 
 
+def test_execution_requires_exact_ordered_pilot_projection() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    object.__setattr__(pilot, "items", pilot.items[:-1])
+    object.__setattr__(
+        pilot,
+        "pilot_sha256",
+        str(
+            ARTIFACT_RAW_SHA256_V1.commit(
+                pilot.content_record(), domain=EXACT100_DOCUMENT_REPAIR_PILOT_V1
+            ).digest
+        ),
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="exact full-plan projection"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(payload).hexdigest()
+                for candidate, payload in snapshots.items()
+            },
+        )
+
+
 def test_execution_rejects_tampered_or_ambiguous_resolution() -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
@@ -278,6 +311,48 @@ def test_execution_rejects_free_paid_route_substitution() -> None:
             docket_snapshot_sha256={
                 candidate: hashlib.sha256(payload).hexdigest()
                 for candidate, payload in snapshots.items()
+            },
+        )
+
+
+def test_execution_rejects_private_recap_record_as_free_route() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    private = json.loads(snapshots["a"])
+    private["entries"][0]["recap_documents"][0]["is_private"] = True
+    snapshots["a"] = _canonical_bytes(private)
+
+    with pytest.raises(DocumentRepairExecutorError, match="approved free route"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(payload).hexdigest()
+                for candidate, payload in snapshots.items()
+            },
+        )
+
+
+def test_execution_rejects_snapshot_docket_id_from_another_candidate() -> None:
+    row = _row("70754103", 1, free=True)
+    manifest = _manifest_bytes(row)
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
+    snapshot = json.loads(_snapshot("70754103", 1, 9001, free=True))
+    snapshot["docket_id"] = 71212565
+    snapshot["entries"][0]["docket"] = 71212565
+    snapshots = {"70754103": _canonical_bytes(snapshot)}
+
+    with pytest.raises(DocumentRepairExecutorError, match="differs from candidate"):
+        build_full_document_repair_execution(
+            full_plan=plan,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                "70754103": hashlib.sha256(snapshots["70754103"]).hexdigest()
             },
         )
 
@@ -605,6 +680,28 @@ def test_retryable_provider_error_cannot_seal_successor() -> None:
             ),
             role_bytes_match=lambda _role, _body: True,
         )
+
+
+def test_terminal_exclusion_is_not_retryable() -> None:
+    manifest = _manifest_bytes(_row("a", 1, free=False))
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
+    snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
+    )
+
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=(RepairOperationOutcome("a", 1, "excluded", 0, "0.10", "0.00"),),
+    )
+
+    assert receipt.operation_ledger[0]["retry_permitted"] is False
 
 
 def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome() -> None:

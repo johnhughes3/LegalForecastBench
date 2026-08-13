@@ -43,6 +43,7 @@ from legalforecast.ingestion.missing_document_successor import (
     seal_missing_document_successor,
 )
 from legalforecast.ingestion.recap_api_discovery import public_recap_download_url
+from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 SCHEMA_VERSION = str(EXACT100_DOCUMENT_REPAIR_EXECUTION_V1)
 RECEIPT_SCHEMA_VERSION = str(EXACT100_DOCUMENT_REPAIR_RECEIPT_V1)
@@ -756,9 +757,14 @@ def _require_scope_binding(
         raise DocumentRepairExecutorError("pilot is not bound to the full plan")
     if pilot.manifest_sha256 != full_plan.manifest_sha256:
         raise DocumentRepairExecutorError("pilot manifest binding is invalid")
-    planned = {item.key: item.to_record() for item in full_plan.items}
-    if any(planned.get(item.key) != item.to_record() for item in pilot.items):
-        raise DocumentRepairExecutorError("pilot contains altered plan items")
+    selected = set(pilot.candidate_ids)
+    expected_items = tuple(
+        item for item in full_plan.items if item.candidate_id in selected
+    )
+    if pilot.items != expected_items:
+        raise DocumentRepairExecutorError(
+            "pilot items differ from the exact full-plan projection"
+        )
 
 
 def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
@@ -872,6 +878,10 @@ def _snapshot(payload: bytes, candidate_id: str) -> Mapping[str, object]:
         record.get("docket_id"), bool
     ):
         raise DocumentRepairExecutorError("docket snapshot docket identity is invalid")
+    if candidate_id.isdigit() and str(record["docket_id"]) != candidate_id:
+        raise DocumentRepairExecutorError(
+            "docket snapshot docket identity differs from candidate"
+        )
     return record
 
 
@@ -918,6 +928,10 @@ def _resolve_operation(
     if (
         document.get("is_available") is True
         and document.get("is_sealed") is False
+        and not restricted_material_markers(
+            records=(document,),
+            text_fields=(str(document.get("description") or ""),),
+        )
         and isinstance(filepath, str)
     ):
         free_url = public_recap_download_url(filepath)
@@ -1023,7 +1037,7 @@ def _outcome_record(
         "retry_count": outcome.retry_count,
         "duration_seconds": f"{duration:.6f}",
         "committed_cost_usd": _money(cost),
-        "retry_permitted": outcome.disposition not in {"unknown", "included"},
+        "retry_permitted": outcome.disposition == "provider_error",
     }
 
 
