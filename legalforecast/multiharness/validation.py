@@ -209,6 +209,27 @@ def validate_unique_ids(values: Iterable[str], field_name: str) -> None:
         )
 
 
+def require_known_fields(
+    record: Mapping[str, Any],
+    *,
+    required: frozenset[str],
+    optional: frozenset[str] = frozenset(),
+    field_name: str,
+) -> None:
+    """Reject missing required fields and unknown fields, naming each field."""
+
+    missing = sorted(required.difference(record))
+    if missing:
+        raise MultiHarnessValidationError(
+            f"{field_name} has missing field(s): {', '.join(missing)}"
+        )
+    unexpected = sorted(set(record).difference(required.union(optional)))
+    if unexpected:
+        raise MultiHarnessValidationError(
+            f"{field_name} has unexpected field(s): {', '.join(unexpected)}"
+        )
+
+
 def validate_public_record(
     record: Mapping[str, Any], field_name: str = "record"
 ) -> None:

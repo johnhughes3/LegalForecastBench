@@ -112,6 +112,10 @@ def test_stdin_bytes_change_spec_identity_without_leaking_payload() -> None:
     assert with_stdin.spec_sha256 != empty.spec_sha256
     assert "solve fixture" not in str(with_stdin.to_record())
     assert with_stdin.to_record()["stdin_sha256"].startswith("sha256:")
+    restored = RunSpec.from_record(with_stdin.to_record())
+    assert restored.spec_sha256 == with_stdin.spec_sha256
+    assert restored.stdin_bytes == b""
+    assert restored.stdin_sha256 == with_stdin.to_record()["stdin_sha256"]
 
 
 def test_contracts_module_does_not_spawn_or_read_credentials() -> None:
