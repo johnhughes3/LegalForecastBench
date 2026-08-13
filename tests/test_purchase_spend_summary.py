@@ -194,6 +194,75 @@ def test_uses_ledger_actuals_to_report_partial_unavailability(
     }
 
 
+def test_classifies_partial_unavailability_from_ledger_actuals_with_null_fees(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch=monkeypatch)
+    ledger = Path(inputs["purchase_ledger"])
+    policy = verify_case_dev_purchase_policy(
+        json.loads(Path(inputs["purchase_policy"]).read_text(encoding="utf-8"))
+    )
+    with CaseDevPurchaseJournal(
+        ledger,
+        policy=policy,
+        controlled_private_root=Path(inputs["controlled_private_root"]),
+        initialization_receipt_path=Path(
+            inputs["purchase_ledger_initialization_receipt"]
+        ),
+    ) as journal:
+        journal.reconcile(
+            {
+                "source_document_id": "doc-001",
+                "disposition": "confirmed",
+                "source_type": "billing_receipt",
+                "source_reference": "receipt-001",
+                "pacer_fees": {
+                    "pacerFee": "3.00",
+                    "serviceFee": "0.05",
+                    "total": "3.05",
+                },
+                "download_url": "https://example.test/doc-001.pdf",
+            }
+        )
+
+    for result_path in (
+        Path(inputs["initial_purchase_result"]),
+        Path(inputs["replacement_purchase_result"]),
+    ):
+        payload = json.loads(result_path.read_text(encoding="utf-8"))
+        for attempt in payload["attempts"]:
+            assert attempt["pacer_fees"] is None
+
+    summary = build_purchase_spend_summary(**inputs)
+
+    assert summary["actual_charge_reconciliation"] == {
+        "classification": "actual_charge_partially_unavailable",
+        "reason": (
+            "authenticated provider billing evidence is present only for reconciled "
+            "operations; the listed operations remain unresolved"
+        ),
+        "unavailable_operation_count": 1,
+        "unavailable_source_document_ids": ["doc-002"],
+    }
+
+
+def test_rejects_purchase_roots_that_overlap_a_source_document(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch=monkeypatch)
+    _write_purchase_result(
+        Path(inputs["initial_purchase_result"]),
+        [_attempt("doc-001"), _attempt("doc-002")],
+    )
+    _write_purchase_result(
+        Path(inputs["replacement_purchase_result"]),
+        [_attempt("doc-002")],
+    )
+
+    with pytest.raises(PurchaseSpendSummaryError, match="overlap a source document"):
+        build_purchase_spend_summary(**inputs)
+
+
 def test_rejects_malformed_provider_fee_shape(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
