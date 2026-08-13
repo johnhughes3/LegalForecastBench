@@ -1732,8 +1732,7 @@ def test_execution_rejects_repeated_recap_document_identity() -> None:
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshot = json.loads(_snapshot("73569789", 5, 9005, free=False))
     snapshot["entries"][0]["recap_documents"].append(
