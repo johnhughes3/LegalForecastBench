@@ -212,6 +212,9 @@ LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2 = SchemaIdentifier(
 STAGE_A_STRUCTURAL_FLAG_V2 = SchemaIdentifier(
     "legalforecast.stage_a_structural_flag.v2"
 )
+STAGE_A_SUCCESSOR_REPLAY_V1 = SchemaIdentifier(
+    "legalforecast.stage_a_successor_replay.v1"
+)
 UNITIZATION_REVIEW_BUNDLE_V1 = SchemaIdentifier(
     "legalforecast.unitization_review_bundle.v1"
 )

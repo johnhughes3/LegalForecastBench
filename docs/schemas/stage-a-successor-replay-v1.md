@@ -1,0 +1,11 @@
+# Stage A successor replay v1
+
+`legalforecast.stage_a_successor_replay.v1` is the authenticated, candidate-scoped Stage A successor contract. It binds one successful `legalforecast.successor_rerun_impact.v1` advisory report to the **full** predecessor cohort — the exact ordered candidate IDs of the live exact-100 selection — and records which of those candidates must be re-executed versus reused.
+
+The binder does not subset or hand-author a five-case Stage A lineage. Successor candidate IDs must equal the predecessor IDs in the same order. Reusable logical calls and affected candidates from the impact report must partition that cohort: disjoint, complete, and inside it. The live pair is `claim-ontology-v5` for the unitizer and `claim-ontology-v4` for the structural reviewer; any other pair, including v5/v5, v4/v4, and v4/v5, fails closed. The impact report's `proposed_global_commitments.provider_attempt_namespace` must be the v5 unitizer contract. Shared provider-journal, successor selection, materialization, and parser identities are bound as lowercase SHA-256 digests.
+
+Binding is provider-free. `provider_activity_requested` is true when at least one candidate is affected; `provider_activity_executed` stays false until the separate runner invokes unitizer/reviewer callbacks. The authority mapping contains exactly `artifact`, `dispatch`, `execution`, `freeze`, `provider`, `publication`, and `purchase`, all `false`. This sidecar grants none of those.
+
+The runner copies authenticated prior unitizer and reviewer records for every reusable candidate and calls the injected unitizer then reviewer only for affected candidates. It records per-candidate disposition (`reused` or `executed`), monotonic unitizer and reviewer durations, and the summed retry count. Merged outputs keep predecessor cohort order. A missing reusable prior record, a callback that returns a different candidate, or a clock that moves backwards fails closed. Timing and retry fields are observational; they are not added to frozen `legalforecast.acquisition_run_card.v1` bytes.
+
+JSON rendering uses `legalforecast.commitment.artifact-canonical-json.raw-sha256.v1` domain-separated by this schema. Replay and receipt identities are the lowercase SHA-256 of their exact content records.

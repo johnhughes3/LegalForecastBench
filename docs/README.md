@@ -144,6 +144,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 **Stage A review and labeling**
 
 - [successor-rerun-impact-v1.md](schemas/successor-rerun-impact-v1.md): the closed, provider-free proposal and advisory impact contracts for explaining the minimum safe Stage A successor rerun without granting execution authority.
+- [stage-a-successor-replay-v1.md](schemas/stage-a-successor-replay-v1.md): the authenticated candidate-scoped Stage A successor that reuses unaffected exact-100 results and executes unitizer/reviewer only for candidates whose packet inputs changed.
 - [target-document-eligibility-audit-v1.md](schemas/target-document-eligibility-audit-v1.md): the provider-free semantic target-document gate for the line-addressed claim-ontology-v4/v5 contracts; executed `llm-unitize` currently admits only claim-ontology-v5 before provider authority is opened.
 - [stage-a-structural-flag-v2.md](schemas/stage-a-structural-flag-v2.md): claim-ontology-v4 structural flags with locally reconstructed, per-document evidence spans and complete omission evidence.
 - [finalized-prediction-units-v3.md](schemas/finalized-prediction-units-v3.md): the authenticated Stage A successor contract that admits a structurally omitted unit without deriving it from an unrelated raw unit.
