@@ -86,6 +86,9 @@ EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1 = SchemaIdentifier(
 EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1 = SchemaIdentifier(
     "legalforecast.exact100_successor_terminal_exclusion.v1"
 )
+DOCUMENT_BODY_ROLE_VALIDATOR_V1 = SchemaIdentifier(
+    "legalforecast.document_body_role_validator.v1"
+)
 MISSING_DOCUMENT_EXCLUSION_V1 = SchemaIdentifier(
     "legalforecast.missing_document_exclusion.v1"
 )

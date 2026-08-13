@@ -26,7 +26,8 @@ opaque approval capability used by the projector.
 `legalforecast.missing_document_inclusion.v1` records one admitted
 `(candidate_id, docket_entry_number, requested_role)` obligation. It binds the
 material `source_document_id`, acquisition source and cost, byte hash and count,
-markdown hash, admitted role, and validator version.
+markdown hash, admitted role, and validator version
+(`legalforecast.document_body_role_validator.v1`).
 
 `legalforecast.missing_document_exclusion.v1` records either a removed inherited
 document whose bytes mismatch its selected role or the terminal reason an

@@ -16,9 +16,11 @@ from decimal import Decimal
 from typing import Any, cast
 
 from legalforecast.contracts import (
+    DOCUMENT_BODY_ROLE_VALIDATOR_V1,
     MISSING_DOCUMENT_EXCLUSION_V1,
     MISSING_DOCUMENT_INCLUSION_V1,
     MISSING_DOCUMENT_SUCCESSOR_STATE_V1,
+    RAW_BYTES_RAW_SHA256_V1,
     REPAIR_MANIFEST_APPROVAL_V1,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
@@ -37,7 +39,7 @@ APPROVAL_SCHEMA_VERSION = str(REPAIR_MANIFEST_APPROVAL_V1)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _SOURCE_KINDS = frozenset({"free", "pacer"})
 _STATUSES = frozenset({"acquired", "unavailable"})
-ROLE_VALIDATOR_VERSION = "legalforecast.document_body_role_validator.v1"
+ROLE_VALIDATOR_VERSION = str(DOCUMENT_BODY_ROLE_VALIDATOR_V1)
 _ROLE_ALIASES = {
     "interpleader": "interpleader_complaint",
     "response": "opposition",
@@ -208,8 +210,13 @@ class AcquisitionObservation:
 
     @property
     def sha256(self) -> str | None:
-        return (
-            None if self.content is None else hashlib.sha256(self.content).hexdigest()
+        if self.content is None:
+            return None
+        return str(
+            RAW_BYTES_RAW_SHA256_V1.commit(
+                self.content,
+                domain=MISSING_DOCUMENT_INCLUSION_V1,
+            ).digest
         )
 
     @property
