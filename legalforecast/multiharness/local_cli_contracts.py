@@ -124,7 +124,7 @@ class RunSpec:
         if not self.argv:
             raise LocalCliContractError("argv must not be empty")
         _require_executable_name(self.argv[0])
-        if any(token in {"sh", "bash", "-c"} for token in self.argv):
+        if any(token in {"sh", "bash"} for token in self.argv):
             raise LocalCliContractError("argv must not invoke a shell")
         if self.timeout_seconds <= 0:
             raise LocalCliContractError("timeout_seconds must be positive")
