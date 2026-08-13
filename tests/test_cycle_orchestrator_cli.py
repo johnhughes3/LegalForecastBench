@@ -3,6 +3,7 @@ from __future__ import annotations
 import fcntl
 import hashlib
 import json
+import re
 import sqlite3
 from collections.abc import Mapping
 from io import BytesIO
@@ -16,6 +17,7 @@ import legalforecast.ingestion.disclosure_model_review_authority as authority_mo
 import pytest
 from legalforecast import cli
 from legalforecast.cli import main
+from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.cycle_orchestrator import (
     COMMAND_BOUNDARIES,
     BoundaryPermissions,
@@ -3295,13 +3297,11 @@ def test_run_cycle_rejects_noncompletion_v2_replacement_approval(
             "paid_activity_executed": False,
         }
         body.update(body_change)
-        body_bytes = json.dumps(
+        body_bytes = canonical_json_value_bytes(
             body,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-            allow_nan=False,
-        ).encode("utf-8")
+            error_type=ValueError,
+            error_message="purchase approval run card body is not canonicalizable",
+        )
         approval_card.write_bytes(
             canonical_json_bytes(
                 {
@@ -3315,7 +3315,7 @@ def test_run_cycle_rejects_noncompletion_v2_replacement_approval(
         )
         return 0
 
-    with pytest.raises(CycleOrchestratorError, match=expected_error):
+    with pytest.raises(CycleOrchestratorError, match=re.escape(expected_error)):
         run_acquisition_cycle(
             config_path=config,
             state_root=tmp_path / "state",
