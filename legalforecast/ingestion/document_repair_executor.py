@@ -55,6 +55,7 @@ class DocumentRepairExecutorError(ValueError):
 
 
 _SNAPSHOT_AUTHORITY = object()
+_EXECUTION_AUTHORITY = object()
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -110,7 +111,7 @@ class ResolvedRepairOperation:
         }
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class DocumentRepairExecution:
     """Exact provider inputs derived from an approved plan and pilot scope."""
 
@@ -124,6 +125,15 @@ class DocumentRepairExecution:
     operations: tuple[ResolvedRepairOperation, ...]
     purchase_budget: MissingCoreBudgetPlan
     execution_sha256: str
+    _mint: object
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise DocumentRepairExecutorError(
+            "document repair execution can be created only by authenticated replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._mint is _EXECUTION_AUTHORITY
 
     def content_record(self) -> dict[str, object]:
         return {
@@ -280,7 +290,7 @@ def build_document_repair_execution(
         for item in pilot.items
     )
     purchase_budget = _purchase_budget(operations, pilot)
-    provisional = DocumentRepairExecution(
+    provisional = _mint_execution(
         full_plan_sha256=full_plan.plan_sha256,
         manifest_sha256=full_plan.manifest_sha256,
         source_lineage_sha256=snapshot_authority.source_lineage_sha256,
@@ -292,7 +302,7 @@ def build_document_repair_execution(
         purchase_budget=purchase_budget,
         execution_sha256="",
     )
-    return DocumentRepairExecution(
+    return _mint_execution(
         full_plan_sha256=provisional.full_plan_sha256,
         manifest_sha256=provisional.manifest_sha256,
         source_lineage_sha256=provisional.source_lineage_sha256,
@@ -352,7 +362,7 @@ def build_full_document_repair_execution(
         candidate_ids=candidate_ids,
         maximum=full_plan.approved_maximum_usd,
     )
-    provisional = DocumentRepairExecution(
+    provisional = _mint_execution(
         full_plan_sha256=full_plan.plan_sha256,
         manifest_sha256=full_plan.manifest_sha256,
         source_lineage_sha256=snapshot_authority.source_lineage_sha256,
@@ -364,7 +374,7 @@ def build_full_document_repair_execution(
         purchase_budget=purchase_budget,
         execution_sha256="",
     )
-    return DocumentRepairExecution(
+    return _mint_execution(
         full_plan_sha256=provisional.full_plan_sha256,
         manifest_sha256=provisional.manifest_sha256,
         source_lineage_sha256=provisional.source_lineage_sha256,
@@ -588,6 +598,10 @@ def build_document_repair_purchase_authority(
 ) -> DocumentRepairPurchaseAuthority:
     """Derive the narrow legacy purchase policy from one exact execution."""
 
+    if not execution.is_replay_minted():
+        raise DocumentRepairExecutorError(
+            "purchase authority requires a replay-minted execution"
+        )
     if _commit_execution(execution.content_record()) != execution.execution_sha256:
         raise DocumentRepairExecutorError("execution changed after resolution")
     budget = execution.purchase_budget
@@ -1192,6 +1206,13 @@ def _commit_execution(record: Mapping[str, object]) -> str:
             record, domain=EXACT100_DOCUMENT_REPAIR_EXECUTION_V1
         ).digest
     )
+
+
+def _mint_execution(**fields: object) -> DocumentRepairExecution:
+    execution = object.__new__(DocumentRepairExecution)
+    for name, value in (*fields.items(), ("_mint", _EXECUTION_AUTHORITY)):
+        object.__setattr__(execution, name, value)
+    return execution
 
 
 def _commit_receipt(record: Mapping[str, object]) -> str:

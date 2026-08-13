@@ -1377,7 +1377,7 @@ def _document_selector(value: object) -> str:
     if value is None:
         return "main_document"
     if value == "main_document":
-        return value
+        return "main_document"
     if isinstance(value, str) and re.fullmatch(r"attachment_[1-9][0-9]*", value):
         return value
     raise MissingDocumentSuccessorError("document selector is invalid")

@@ -504,20 +504,65 @@ def test_receipt_requires_monotonic_duration_and_exact_operation_prefix() -> Non
             outcomes=(RepairOperationOutcome("b", 2, "included", 0, "0.10", "3.00"),),
         )
 
-    tampered = DocumentRepairExecution(
-        full_plan_sha256=execution.full_plan_sha256,
-        manifest_sha256=execution.manifest_sha256,
-        source_lineage_sha256=execution.source_lineage_sha256,
-        cohort_policy_sha256=execution.cohort_policy_sha256,
-        scope=execution.scope,
-        scope_sha256=execution.scope_sha256,
-        pilot_sha256=execution.pilot_sha256,
-        operations=execution.operations,
-        purchase_budget=execution.purchase_budget,
-        execution_sha256="0" * 64,
-    )
+    tampered = object.__new__(DocumentRepairExecution)
+    for name in (
+        "full_plan_sha256",
+        "manifest_sha256",
+        "source_lineage_sha256",
+        "cohort_policy_sha256",
+        "scope",
+        "scope_sha256",
+        "pilot_sha256",
+        "operations",
+        "purchase_budget",
+        "_mint",
+    ):
+        object.__setattr__(tampered, name, getattr(execution, name))
+    object.__setattr__(tampered, "execution_sha256", "0" * 64)
     with pytest.raises(DocumentRepairExecutorError, match="changed"):
         record_document_repair_outcomes(execution=tampered, outcomes=())
+
+
+def test_purchase_authority_rejects_forged_execution_capability() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    forged = object.__new__(DocumentRepairExecution)
+    for name in (
+        "full_plan_sha256",
+        "manifest_sha256",
+        "source_lineage_sha256",
+        "cohort_policy_sha256",
+        "scope",
+        "scope_sha256",
+        "pilot_sha256",
+        "operations",
+        "purchase_budget",
+        "execution_sha256",
+    ):
+        object.__setattr__(forged, name, getattr(execution, name))
+    object.__setattr__(forged, "_mint", object())
+
+    with pytest.raises(DocumentRepairExecutorError, match="replay-minted"):
+        build_document_repair_purchase_authority(
+            execution=forged,
+            canonical_ledger_path="/controlled/document-repair-ledger.sqlite3",
+            fee_schedule={
+                "source_citation": "https://example.test/public-fee-schedule",
+                "verified_at_utc": "2026-08-13T00:00:00Z",
+                "includes_service_fees": True,
+                "includes_pacer_fees": True,
+                "includes_rounding": True,
+            },
+        )
 
 
 def test_execution_seals_complete_successor_only_from_exact_resolved_documents() -> (
