@@ -1,0 +1,8 @@
+{
+  "adapter_id": "claude-code-clean-native",
+  "adapter_version": "1.0.0",
+  "command": ["claude"],
+  "contributors": [],
+  "display_name": "Claude Code clean-native local CLI",
+  "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
+}

@@ -1,0 +1,20 @@
+{
+  "status": "succeeded",
+  "returncode": 0,
+  "stderr": "",
+  "duration_ms": 80,
+  "served_model": "claude-sonnet-4-6",
+  "envelope": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 9,
+      "output_tokens": 4
+    },
+    "result": "I cannot provide a forecast for this case."
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "status": "succeeded",
+  "returncode": 0,
+  "stderr": "",
+  "duration_ms": 20,
+  "stdout_text": "{\"type\":\"assistant\"\nFAKE_CLAUDE_MIXED_STDOUT\n"
+}
