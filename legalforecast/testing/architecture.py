@@ -106,7 +106,11 @@ def scan_repository(root: Path) -> ArchitectureSnapshot:
         sorted(
             path
             for path in _python_paths(resolved_root / "legalforecast")
-            if not _is_cli_adapter_source(path) and _imports_cli(resolved_root / path)
+            if path != CLI_PATH
+            and _imports_cli(
+                resolved_root / path,
+                include_console=not _is_console_adapter_source(path),
+            )
         )
     )
     return ArchitectureSnapshot(
@@ -286,6 +290,37 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
         }
         direct_aliases: set[str] = set()
         package_aliases: set[str] = set()
+        importlib_module_aliases = {"importlib"}
+        import_module_aliases: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                importlib_module_aliases.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "importlib"
+                )
+            elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
+                import_module_aliases.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "import_module"
+                )
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if not isinstance(value, ast.Call) or not _dynamic_cli_adapter_import(
+                value,
+                importlib_module_aliases=importlib_module_aliases,
+                import_module_aliases=import_module_aliases,
+            ):
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    direct_aliases.add(target.id)
+                    cli_import_files.add(relative)
+                    cli_import_occurrences.append(relative)
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -365,7 +400,7 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
     )
 
 
-def _imports_cli(path: Path) -> bool:
+def _imports_cli(path: Path, *, include_console: bool = True) -> bool:
     """Return whether a production module imports a CLI adapter module."""
 
     try:
@@ -389,35 +424,41 @@ def _imports_cli(path: Path) -> bool:
             )
     for node in ast.walk(tree):
         if isinstance(node, ast.Import) and any(
-            _is_cli_adapter_module(alias.name) for alias in node.names
+            _is_cli_adapter_module(alias.name, include_console=include_console)
+            for alias in node.names
         ):
             return True
         if isinstance(node, ast.Call) and _dynamic_cli_adapter_import(
             node,
             importlib_module_aliases=importlib_module_aliases,
             import_module_aliases=import_module_aliases,
+            include_console=include_console,
         ):
             return True
         if not isinstance(node, ast.ImportFrom):
             continue
         module = _absolute_import_from_module(path, node)
-        if module is not None and _is_cli_adapter_module(module):
+        if module is not None and _is_cli_adapter_module(
+            module, include_console=include_console
+        ):
             return True
         if module == "legalforecast":
-            if any(alias.name in {"cli", "console"} for alias in node.names):
+            adapter_names = {"cli", "console"} if include_console else {"cli"}
+            if any(alias.name in adapter_names for alias in node.names):
                 return True
     return False
 
 
-def _is_cli_adapter_source(path: str) -> bool:
-    return path == CLI_PATH or path.startswith("legalforecast/console/")
+def _is_console_adapter_source(path: str) -> bool:
+    return path.startswith("legalforecast/console/")
 
 
-def _is_cli_adapter_module(module: str) -> bool:
-    return module in {
-        "legalforecast.cli",
-        "legalforecast.console",
-    } or module.startswith(("legalforecast.cli.", "legalforecast.console."))
+def _is_cli_adapter_module(module: str, *, include_console: bool = True) -> bool:
+    if module == "legalforecast.cli" or module.startswith("legalforecast.cli."):
+        return True
+    return include_console and (
+        module == "legalforecast.console" or module.startswith("legalforecast.console.")
+    )
 
 
 def _dynamic_cli_adapter_import(
@@ -425,6 +466,7 @@ def _dynamic_cli_adapter_import(
     *,
     importlib_module_aliases: set[str],
     import_module_aliases: set[str],
+    include_console: bool = True,
 ) -> bool:
     module = _call_argument(node, 0, "name")
     if module is None:
@@ -432,7 +474,7 @@ def _dynamic_cli_adapter_import(
     if (
         not isinstance(module, ast.Constant)
         or not isinstance(module.value, str)
-        or not _is_cli_adapter_module(module.value)
+        or not _is_cli_adapter_module(module.value, include_console=include_console)
     ):
         return False
     function = node.func

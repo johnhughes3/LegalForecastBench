@@ -110,12 +110,50 @@ monkeypatch.setattr(target=cli_module, name="fifth", value=replacement)
     )
 
 
-def test_console_modules_are_adapter_sources_not_domain_edge_candidates() -> None:
-    assert architecture_module._is_cli_adapter_source("legalforecast/cli.py")
-    assert architecture_module._is_cli_adapter_source("legalforecast/console/parser.py")
-    assert not architecture_module._is_cli_adapter_source(
+def test_architecture_scanner_tracks_dynamically_imported_test_facade(
+    tmp_path: Path,
+) -> None:
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_probe.py").write_text(
+        """\
+import importlib as loader
+
+cli_module = loader.import_module(name="legalforecast.cli")
+private = cli_module._private
+monkeypatch.setattr(cli_module, "main", replacement)
+""",
+        encoding="utf-8",
+    )
+
+    inventory = architecture_module._scan_test_compatibility(tmp_path)
+
+    assert inventory.cli_import_files == ("tests/test_probe.py",)
+    assert inventory.cli_import_occurrences == ("tests/test_probe.py",)
+    assert inventory.private_cli_targets == ("legalforecast.cli._private",)
+    assert inventory.monkeypatch_targets == ("legalforecast.cli.main",)
+
+
+def test_console_source_detection_respects_package_boundary() -> None:
+    assert architecture_module._is_console_adapter_source(
+        "legalforecast/console/parser.py"
+    )
+    assert not architecture_module._is_console_adapter_source(
         "legalforecast/ingestion/purchase.py"
     )
+
+
+def test_console_adapter_scan_rejects_facade_cycles_but_allows_composition(
+    tmp_path: Path,
+) -> None:
+    console = tmp_path / "legalforecast" / "console"
+    console.mkdir(parents=True)
+    module = console / "command.py"
+    module.write_text("from legalforecast.console import parser\n", encoding="utf-8")
+    assert not architecture_module._imports_cli(module, include_console=False)
+
+    module.write_text("from legalforecast.cli import handler\n", encoding="utf-8")
+    assert architecture_module._imports_cli(module, include_console=False)
 
 
 @pytest.mark.parametrize(
