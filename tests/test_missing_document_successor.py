@@ -69,7 +69,7 @@ def _approval(manifest: bytes, *, maximum: str = "3.00") -> RepairApproval:
 def _observation(
     *,
     entry: int = 12,
-    document_selector: str = "main_document",
+    document_selector: str = "main",
     requested_role: str = "opposition",
     source_kind: str = "free",
     status: str = "acquired",
@@ -143,6 +143,51 @@ def test_successor_removes_wrong_bytes_and_admits_free_role_match() -> None:
             result.selection_bytes
         ).hexdigest(),
     }
+
+
+def test_v1_projection_preserves_legacy_main_selector_bytes() -> None:
+    manifest = _manifest_bytes()
+
+    result = project_missing_document_successor(
+        base_selection=_base_selection(),
+        manifest_bytes=manifest,
+        approval=_approval(manifest),
+        acquisitions=(_observation(),),
+    )
+
+    assert result.inclusion_ledger[0]["document_selector"] == "main"
+    assert result.selection_records[0]["documents"][-1]["document_selector"] == "main"
+    assert b'"document_selector":"main"' in result.inclusion_ledger_bytes
+    assert b'"document_selector":"main_document"' not in result.inclusion_ledger_bytes
+
+
+def test_v1_projection_rejects_explicit_null_selector() -> None:
+    record = json.loads(_manifest_bytes().decode())
+    record["missing_docs"][0]["document_selector"] = None
+    manifest = (json.dumps(record, sort_keys=True) + "\n").encode()
+
+    with pytest.raises(MissingDocumentSuccessorError, match="document selector"):
+        _approval(manifest)
+    with pytest.raises(MissingDocumentSuccessorError, match="document selector"):
+        build_missing_document_acquisition_plan(
+            manifest_bytes=manifest,
+            approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+            approved_maximum_usd=Decimal("3.00"),
+            max_per_document_usd=Decimal("3.00"),
+        )
+
+
+def test_v1_projection_treats_main_aliases_as_one_slot() -> None:
+    record = json.loads(_manifest_bytes().decode())
+    first = dict(record["missing_docs"][0])
+    record["missing_docs"] = [
+        {**first, "document_selector": "main"},
+        {**first, "document_selector": "main_document"},
+    ]
+    manifest = (json.dumps(record, sort_keys=True) + "\n").encode()
+
+    with pytest.raises(MissingDocumentSuccessorError, match="duplicated"):
+        _approval(manifest)
 
 
 def test_paid_acquisition_requires_prior_free_exhaustion() -> None:
@@ -289,7 +334,7 @@ def test_same_entry_documents_are_distinct_by_selector_and_role() -> None:
     assert [
         document["document_selector"]
         for document in result.selection_records[0]["documents"]
-    ] == ["main_document", "attachment_1"]
+    ] == ["main", "attachment_1"]
 
 
 def test_replacement_recommendation_is_terminally_excluded() -> None:
