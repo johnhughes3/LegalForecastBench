@@ -650,8 +650,8 @@ def _remove_mismatched_selections(
                     mismatch
                     for mismatch in pending
                     if mismatch["entry"] == entry
-                    and mismatch["document_selector"]
-                    == document.get("document_selector", "main")
+                    and _document_selector(mismatch["document_selector"])
+                    == _document_selector(document.get("document_selector"))
                     and mismatch["selected_role"] == role
                 ),
                 None,
@@ -829,10 +829,6 @@ def _text(value: object, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise MissingDocumentSuccessorError(f"{field} must be nonempty text")
     return value
-
-
-def _document_selector(record: Mapping[str, object]) -> str:
-    return _text(record.get("document_selector", "main"), "document selector")
 
 
 def _positive_int(value: object, field: str) -> int:
@@ -1375,9 +1371,11 @@ def _document_key(record: Mapping[str, object]) -> DocumentKey:
 
 
 def _document_selector(value: object) -> str:
+    if isinstance(value, Mapping):
+        value = value.get("document_selector")
     if value is None:
         return "main_document"
-    if value == "main_document":
+    if value in {"main", "main_document"}:
         return "main_document"
     if isinstance(value, str) and re.fullmatch(r"attachment_[1-9][0-9]*", value):
         return value

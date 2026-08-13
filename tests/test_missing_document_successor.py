@@ -69,7 +69,7 @@ def _approval(manifest: bytes, *, maximum: str = "3.00") -> RepairApproval:
 def _observation(
     *,
     entry: int = 12,
-    document_selector: str = "main",
+    document_selector: str = "main_document",
     requested_role: str = "opposition",
     source_kind: str = "free",
     status: str = "acquired",
@@ -240,7 +240,7 @@ def test_same_entry_documents_are_distinct_by_selector_and_role() -> None:
             "cost_usd": 3.0,
             "free_document_count": 0,
         }
-        for selector in ("main", "attachment_1")
+        for selector in ("main_document", "attachment_1")
     ]
     manifest = (
         json.dumps(
@@ -282,14 +282,14 @@ def test_same_entry_documents_are_distinct_by_selector_and_role() -> None:
                 cost="3.00",
                 markdown="Memorandum in Support of Motion to Dismiss",
             )
-            for selector in ("main", "attachment_1")
+            for selector in ("main_document", "attachment_1")
         ),
     )
 
     assert [
         document["document_selector"]
         for document in result.selection_records[0]["documents"]
-    ] == ["main", "attachment_1"]
+    ] == ["main_document", "attachment_1"]
 
 
 def test_replacement_recommendation_is_terminally_excluded() -> None:
