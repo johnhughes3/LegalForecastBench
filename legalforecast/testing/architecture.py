@@ -21,6 +21,11 @@ BASELINE_PATH: Final[Path] = Path("legalforecast/testing/architecture_baseline.j
 CLI_PATH: Final[str] = "legalforecast/cli.py"
 UPWARD_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
     {
+        # Temporary compatibility bridge for extracted adapters.  The adapter
+        # late-binds facade helpers so existing monkeypatch targets keep
+        # working; this exception must disappear once those helpers are
+        # injected through a cycle-neutral command context.
+        "legalforecast/cli_commands/score.py",
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
         "legalforecast/ingestion/resolved_post_recovery.py",
@@ -409,6 +414,10 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
 def _imports_cli(path: Path, *, include_console: bool = True) -> bool:
     """Return whether a production module imports a CLI adapter module."""
 
+    path_text = path.as_posix()
+    if path_text.endswith("legalforecast/cli.py"):
+        return False
+
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except SyntaxError:
@@ -449,7 +458,11 @@ def _imports_cli(path: Path, *, include_console: bool = True) -> bool:
         ):
             return True
         if module == "legalforecast":
-            adapter_names = {"cli", "console"} if include_console else {"cli"}
+            adapter_names = (
+                {"cli", "cli_commands", "console"}
+                if include_console
+                else {"cli", "cli_commands"}
+            )
             if any(alias.name in adapter_names for alias in node.names):
                 return True
     return False
@@ -461,6 +474,10 @@ def _is_console_adapter_source(path: str) -> bool:
 
 def _is_cli_adapter_module(module: str, *, include_console: bool = True) -> bool:
     if module == "legalforecast.cli" or module.startswith("legalforecast.cli."):
+        return True
+    if module == "legalforecast.cli_commands" or module.startswith(
+        "legalforecast.cli_commands."
+    ):
         return True
     return include_console and (
         module == "legalforecast.console" or module.startswith("legalforecast.console.")
