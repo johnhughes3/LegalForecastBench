@@ -13,13 +13,18 @@ from legalforecast.ingestion.document_repair_executor import (
     DocumentRepairExecution,
     DocumentRepairExecutorError,
     RepairOperationOutcome,
-    build_document_repair_execution,
     build_document_repair_purchase_authority,
-    build_full_document_repair_execution,
     record_document_repair_outcomes,
+    replay_docket_snapshot_authority,
     run_document_repair_execution,
     seal_document_repair_execution,
     verify_purchase_policy_compatibility,
+)
+from legalforecast.ingestion.document_repair_executor import (
+    build_document_repair_execution as _build_document_repair_execution,
+)
+from legalforecast.ingestion.document_repair_executor import (
+    build_full_document_repair_execution as _build_full_document_repair_execution,
 )
 from legalforecast.ingestion.document_repair_pilot import build_document_repair_pilot
 from legalforecast.ingestion.missing_document_successor import (
@@ -96,7 +101,7 @@ def _snapshot(candidate_id: str, entry: int, document_id: int, *, free: bool) ->
                         {
                             "id": document_id,
                             "docket_entry_id": entry + 1000,
-                            "document_number": None,
+                            "document_number": str(entry),
                             "attachment_number": None,
                             "is_available": free,
                             "is_sealed": False,
@@ -116,6 +121,36 @@ def _snapshots() -> dict[str, bytes]:
         candidate: _snapshot(candidate, index, 9000 + index, free=index == 1)
         for index, candidate in enumerate("abcde", start=1)
     }
+
+
+def _snapshot_authority(snapshots: Mapping[str, bytes]):
+    candidate_sha256 = {
+        candidate: hashlib.sha256(payload).hexdigest()
+        for candidate, payload in snapshots.items()
+    }
+    manifest = _canonical_bytes({"candidate_sha256": candidate_sha256})
+    lineage = _canonical_bytes(
+        {"docket_snapshot_manifest_sha256": hashlib.sha256(manifest).hexdigest()}
+    )
+    return replay_docket_snapshot_authority(
+        manifest_bytes=manifest,
+        source_lineage_bytes=lineage,
+        expected_source_lineage_sha256=hashlib.sha256(lineage).hexdigest(),
+    )
+
+
+def build_document_repair_execution(**kwargs):  # type: ignore[no-untyped-def]
+    snapshots = kwargs["docket_snapshot_bytes"]
+    return _build_document_repair_execution(
+        **kwargs, snapshot_authority=_snapshot_authority(snapshots)
+    )
+
+
+def build_full_document_repair_execution(**kwargs):  # type: ignore[no-untyped-def]
+    snapshots = kwargs["docket_snapshot_bytes"]
+    return _build_full_document_repair_execution(
+        **kwargs, snapshot_authority=_snapshot_authority(snapshots)
+    )
 
 
 def test_execution_resolves_exact_recap_id_and_builds_three_dollar_budget() -> None:
@@ -174,11 +209,27 @@ def test_execution_rejects_tampered_or_ambiguous_resolution() -> None:
     }
     digests["a"] = "0" * 64
     with pytest.raises(DocumentRepairExecutorError, match="snapshot digest"):
-        build_document_repair_execution(
+        _build_document_repair_execution(
             full_plan=plan,
             pilot=pilot,
             docket_snapshot_bytes=snapshots,
             docket_snapshot_sha256=digests,
+            snapshot_authority=_snapshot_authority(snapshots),
+        )
+
+    changed = dict(snapshots)
+    changed["a"] = changed["a"] + b" "
+    changed_digests = {
+        candidate: hashlib.sha256(payload).hexdigest()
+        for candidate, payload in changed.items()
+    }
+    with pytest.raises(DocumentRepairExecutorError, match="committed authority"):
+        _build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=changed,
+            docket_snapshot_sha256=changed_digests,
+            snapshot_authority=_snapshot_authority(snapshots),
         )
 
     ambiguous = json.loads(snapshots["a"])
@@ -340,6 +391,14 @@ def test_unknown_paid_outcome_stops_later_operations_and_is_not_retryable() -> N
                 RepairOperationOutcome("c", 3, "included", 0, "1.00", "3.00"),
             ),
         )
+    with pytest.raises(DocumentRepairExecutorError, match="full approved reservation"):
+        record_document_repair_outcomes(
+            execution=execution,
+            outcomes=(
+                RepairOperationOutcome("a", 1, "included", 0, "0.20", "0.00"),
+                RepairOperationOutcome("b", 2, "unknown", 0, "1.50", "0.00"),
+            ),
+        )
 
 
 def test_receipt_requires_monotonic_duration_and_exact_operation_prefix() -> None:
@@ -383,11 +442,20 @@ def test_receipt_requires_monotonic_duration_and_exact_operation_prefix() -> Non
 def test_execution_seals_complete_successor_only_from_exact_resolved_documents() -> (
     None
 ):
-    plan, pilot = _scope()
+    manifest = _manifest_bytes(
+        *(
+            _row(candidate, index, free=index == 1)
+            for index, candidate in enumerate("abcde", start=1)
+        )
+    )
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
     snapshots = _snapshots()
-    execution = build_document_repair_execution(
+    execution = build_full_document_repair_execution(
         full_plan=plan,
-        pilot=pilot,
         docket_snapshot_bytes=snapshots,
         docket_snapshot_sha256={
             candidate: hashlib.sha256(payload).hexdigest()
@@ -447,6 +515,24 @@ def test_execution_seals_complete_successor_only_from_exact_resolved_documents()
             role_bytes_match=lambda _role, _body: True,
         )
 
+    acquired[0]["source_document_id"] = "9001"
+    with pytest.raises(DocumentRepairExecutorError, match="contradicts"):
+        seal_document_repair_execution(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=tuple(acquired[1:]),
+            exclusions=(
+                {
+                    "candidate_id": "a",
+                    "docket_entry_number": 1,
+                    "document_role": "reply",
+                    "reason": "contradictory exclusion",
+                },
+            ),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
 
 def test_unknown_receipt_cannot_seal_successor() -> None:
     plan, pilot = _scope()
@@ -468,7 +554,7 @@ def test_unknown_receipt_cannot_seal_successor() -> None:
         ),
     )
 
-    with pytest.raises(DocumentRepairExecutorError, match="unresolved"):
+    with pytest.raises(DocumentRepairExecutorError, match="full-plan"):
         seal_document_repair_execution(
             full_plan=plan,
             execution=execution,
@@ -533,11 +619,20 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome() -> Non
 
 
 def test_runner_materializes_complete_evidence_for_successor_seal() -> None:
-    plan, pilot = _scope()
+    manifest = _manifest_bytes(
+        *(
+            _row(candidate, index, free=index == 1)
+            for index, candidate in enumerate("abcde", start=1)
+        )
+    )
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
     snapshots = _snapshots()
-    execution = build_document_repair_execution(
+    execution = build_full_document_repair_execution(
         full_plan=plan,
-        pilot=pilot,
         docket_snapshot_bytes=snapshots,
         docket_snapshot_sha256={
             candidate: hashlib.sha256(payload).hexdigest()

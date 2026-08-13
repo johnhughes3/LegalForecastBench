@@ -52,6 +52,27 @@ class DocumentRepairExecutorError(ValueError):
     """Raised when repair execution is not exactly authorized and replayable."""
 
 
+_SNAPSHOT_AUTHORITY = object()
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class DocketSnapshotAuthority:
+    """Replay-minted docket-byte commitments from one pinned lineage manifest."""
+
+    source_lineage_sha256: str
+    manifest_sha256: str
+    candidate_sha256: Mapping[str, str]
+    _mint: object
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise DocumentRepairExecutorError(
+            "docket snapshot authority can be created only by manifest replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._mint is _SNAPSHOT_AUTHORITY
+
+
 @dataclass(frozen=True, slots=True)
 class ResolvedRepairOperation:
     """One manifest obligation resolved to one exact RECAP document."""
@@ -211,10 +232,12 @@ def build_document_repair_execution(
     pilot: DocumentRepairPilot,
     docket_snapshot_bytes: Mapping[str, bytes],
     docket_snapshot_sha256: Mapping[str, str],
+    snapshot_authority: DocketSnapshotAuthority,
 ) -> DocumentRepairExecution:
     """Resolve the exact pilot obligations from authenticated docket snapshots."""
 
     _require_scope_binding(full_plan, pilot)
+    _require_snapshot_authority(snapshot_authority, docket_snapshot_sha256)
     expected_candidates = set(pilot.candidate_ids)
     if (
         set(docket_snapshot_bytes) != expected_candidates
@@ -273,10 +296,12 @@ def build_full_document_repair_execution(
     full_plan: MissingDocumentAcquisitionPlan,
     docket_snapshot_bytes: Mapping[str, bytes],
     docket_snapshot_sha256: Mapping[str, str],
+    snapshot_authority: DocketSnapshotAuthority,
 ) -> DocumentRepairExecution:
     """Resolve every approved full-plan obligation without a pilot sub-scope."""
 
     _require_valid_full_plan(full_plan)
+    _require_snapshot_authority(snapshot_authority, docket_snapshot_sha256)
     candidate_ids = tuple(dict.fromkeys(item.candidate_id for item in full_plan.items))
     expected_candidates = set(candidate_ids)
     if (
@@ -332,6 +357,60 @@ def build_full_document_repair_execution(
         purchase_budget=provisional.purchase_budget,
         execution_sha256=_commit_execution(provisional.content_record()),
     )
+
+
+def replay_docket_snapshot_authority(
+    *,
+    manifest_bytes: bytes,
+    source_lineage_bytes: bytes,
+    expected_source_lineage_sha256: str,
+) -> DocketSnapshotAuthority:
+    """Mint exact candidate-byte commitments from an externally pinned manifest."""
+
+    lineage_digest = _digest(expected_source_lineage_sha256, "source lineage digest")
+    if hashlib.sha256(source_lineage_bytes).hexdigest() != lineage_digest:
+        raise DocumentRepairExecutorError("source lineage differs from its pin")
+    try:
+        lineage_value = json.loads(source_lineage_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise DocumentRepairExecutorError("source lineage is invalid JSON") from exc
+    if not isinstance(lineage_value, Mapping):
+        raise DocumentRepairExecutorError("source lineage must be an object")
+    lineage = cast(Mapping[str, object], lineage_value)
+    raw_manifest_digest = lineage.get("docket_snapshot_manifest_sha256")
+    if not isinstance(raw_manifest_digest, str):
+        raise DocumentRepairExecutorError("source lineage omits snapshot manifest pin")
+    manifest_digest = _digest(raw_manifest_digest, "snapshot manifest digest")
+    if hashlib.sha256(manifest_bytes).hexdigest() != manifest_digest:
+        raise DocumentRepairExecutorError("snapshot manifest differs from lineage pin")
+    try:
+        value = json.loads(manifest_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise DocumentRepairExecutorError("snapshot manifest is invalid JSON") from exc
+    if not isinstance(value, Mapping):
+        raise DocumentRepairExecutorError("snapshot manifest must be an object")
+    manifest = cast(Mapping[str, object], value)
+    raw_candidates = manifest.get("candidate_sha256")
+    if not isinstance(raw_candidates, Mapping):
+        raise DocumentRepairExecutorError(
+            "snapshot manifest candidate commitments are missing"
+        )
+    candidate_sha256: dict[str, str] = {}
+    for candidate_id, digest in cast(Mapping[object, object], raw_candidates).items():
+        if not isinstance(candidate_id, str) or not candidate_id.strip():
+            raise DocumentRepairExecutorError("snapshot manifest candidate is invalid")
+        if not isinstance(digest, str):
+            raise DocumentRepairExecutorError("snapshot manifest digest is invalid")
+        candidate_sha256[candidate_id] = _digest(digest, "snapshot candidate digest")
+    authority = object.__new__(DocketSnapshotAuthority)
+    for name, field_value in (
+        ("source_lineage_sha256", lineage_digest),
+        ("manifest_sha256", manifest_digest),
+        ("candidate_sha256", candidate_sha256),
+        ("_mint", _SNAPSHOT_AUTHORITY),
+    ):
+        object.__setattr__(authority, name, field_value)
+    return authority
 
 
 def record_document_repair_outcomes(
@@ -424,16 +503,18 @@ def run_document_repair_execution(
         if duration < 0:
             raise DocumentRepairExecutorError("monotonic clock moved backwards")
         _validate_acquired_result(operation, result)
-        outcomes.append(
-            RepairOperationOutcome(
-                candidate_id=operation.candidate_id,
-                docket_entry_number=operation.docket_entry_number,
-                disposition=result.disposition,
-                retry_count=result.retry_count,
-                duration_seconds=str(duration),
-                committed_cost_usd=result.committed_cost_usd,
-            )
+        outcome = RepairOperationOutcome(
+            candidate_id=operation.candidate_id,
+            docket_entry_number=operation.docket_entry_number,
+            disposition=result.disposition,
+            retry_count=result.retry_count,
+            duration_seconds=str(duration),
+            committed_cost_usd=result.committed_cost_usd,
         )
+        # Validate cost, retry, duration, and terminal semantics before any
+        # later provider callback can run.
+        _outcome_record(operation, outcome)
+        outcomes.append(outcome)
         if result.disposition == "included":
             assert result.document_bytes is not None
             acquired_documents.append(
@@ -568,6 +649,10 @@ def seal_document_repair_execution(
     """Seal only a complete resolved execution with exact RECAP identities."""
 
     _require_scope_binding_from_execution(full_plan, execution)
+    if execution.scope != "full_plan":
+        raise DocumentRepairExecutorError(
+            "only a complete full-plan execution may seal the exact-100 successor"
+        )
     if _commit_receipt(receipt.content_record()) != receipt.receipt_sha256:
         raise DocumentRepairExecutorError("repair receipt changed after execution")
     if (
@@ -578,6 +663,8 @@ def seal_document_repair_execution(
         or receipt.pilot_sha256 != execution.pilot_sha256
     ):
         raise DocumentRepairExecutorError("repair receipt binding is invalid")
+    if len(receipt.operation_ledger) != len(execution.operations):
+        raise DocumentRepairExecutorError("repair receipt ledger is incomplete")
     dispositions = [str(row.get("disposition")) for row in receipt.operation_ledger]
     if any(
         disposition in {"unknown", "not_attempted_after_unknown"}
@@ -589,6 +676,7 @@ def seal_document_repair_execution(
     operation_by_key = {operation.key: operation for operation in execution.operations}
     if len(operation_by_key) != len(execution.operations):
         raise DocumentRepairExecutorError("repair execution repeats an operation")
+    evidence_dispositions: dict[tuple[str, int], str] = {}
     for document in acquired_documents:
         key = _evidence_key(document)
         operation = operation_by_key.get(key)
@@ -598,9 +686,22 @@ def seal_document_repair_execution(
             raise DocumentRepairExecutorError(
                 "acquired document differs from resolved RECAP identity"
             )
+        evidence_dispositions[key] = "included"
     for exclusion in exclusions:
-        if _evidence_key(exclusion) not in operation_by_key:
+        key = _evidence_key(exclusion)
+        if key not in operation_by_key:
             raise DocumentRepairExecutorError("exclusion is outside execution")
+        if key in evidence_dispositions:
+            raise DocumentRepairExecutorError("duplicate sealing disposition")
+        evidence_dispositions[key] = "excluded"
+    for operation, row in zip(
+        execution.operations, receipt.operation_ledger, strict=True
+    ):
+        expected = "included" if row.get("disposition") == "included" else "excluded"
+        if evidence_dispositions.get(operation.key) != expected:
+            raise DocumentRepairExecutorError(
+                "sealing evidence contradicts repair receipt disposition"
+            )
     try:
         return seal_missing_document_successor(
             plan=full_plan,
@@ -648,6 +749,25 @@ def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
     )
     if verified != full_plan.plan_sha256:
         raise DocumentRepairExecutorError("full plan changed after approval")
+
+
+def _require_snapshot_authority(
+    authority: DocketSnapshotAuthority,
+    supplied_digests: Mapping[str, str],
+) -> None:
+    if (
+        type(authority) is not DocketSnapshotAuthority
+        or not authority.is_replay_minted()
+    ):
+        raise DocumentRepairExecutorError("docket snapshots lack replayed authority")
+    normalized = {
+        candidate_id: _digest(digest, "docket snapshot digest")
+        for candidate_id, digest in supplied_digests.items()
+    }
+    if normalized != dict(authority.candidate_sha256):
+        raise DocumentRepairExecutorError(
+            "docket snapshot digests differ from committed authority"
+        )
 
 
 def _require_scope_binding_from_execution(
@@ -747,7 +867,6 @@ def _resolve_operation(
         document
         for document in documents
         if document.get("attachment_number") in {None, "", 0}
-        and document.get("document_number") in {None, "", "0", 0}
     ]
     if len(main_documents) != 1:
         raise DocumentRepairExecutorError(
@@ -858,6 +977,10 @@ def _outcome_record(
         raise DocumentRepairExecutorError("operation cost exceeds approved amount")
     if operation.route == "courtlistener_free" and cost != 0:
         raise DocumentRepairExecutorError("free operation recorded paid cost")
+    if outcome.disposition == "unknown" and cost != maximum:
+        raise DocumentRepairExecutorError(
+            "unknown paid outcome must retain its full approved reservation"
+        )
     return {
         **operation.to_record(),
         "disposition": outcome.disposition,
