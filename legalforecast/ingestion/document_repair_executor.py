@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import cast
@@ -36,6 +36,8 @@ from legalforecast.ingestion.missing_core_budget import (
 from legalforecast.ingestion.missing_document_successor import (
     MissingDocumentAcquisitionItem,
     MissingDocumentAcquisitionPlan,
+    SealedMissingDocumentSuccessor,
+    seal_missing_document_successor,
 )
 from legalforecast.ingestion.recap_api_discovery import public_recap_download_url
 
@@ -147,6 +149,27 @@ class DocumentRepairReceipt:
 
     def to_record(self) -> dict[str, object]:
         return {**self.content_record(), "receipt_sha256": self.receipt_sha256}
+
+
+@dataclass(frozen=True, slots=True)
+class AcquiredRepairDocument:
+    """One dependency-injected acquisition result before successor sealing."""
+
+    disposition: str
+    source_document_id: str
+    document_bytes: bytes | None
+    committed_cost_usd: str
+    retry_count: int
+    reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentRepairRunResult:
+    """Measured acquisition result ready for semantic successor validation."""
+
+    receipt: DocumentRepairReceipt
+    acquired_documents: tuple[Mapping[str, object], ...]
+    exclusions: tuple[Mapping[str, object], ...]
 
 
 def build_document_repair_execution(
@@ -271,6 +294,71 @@ def record_document_repair_outcomes(
     )
 
 
+def run_document_repair_execution(
+    *,
+    execution: DocumentRepairExecution,
+    acquire: Callable[[ResolvedRepairOperation], AcquiredRepairDocument],
+    monotonic: Callable[[], float],
+) -> DocumentRepairRunResult:
+    """Run exact operations in free-first order with measured terminal stopping."""
+
+    if _commit_execution(execution.content_record()) != execution.execution_sha256:
+        raise DocumentRepairExecutorError("execution changed after resolution")
+    outcomes: list[RepairOperationOutcome] = []
+    acquired_documents: list[Mapping[str, object]] = []
+    exclusions: list[Mapping[str, object]] = []
+    for operation in execution.operations:
+        started = monotonic()
+        result = acquire(operation)
+        finished = monotonic()
+        duration = Decimal(str(finished)) - Decimal(str(started))
+        if duration < 0:
+            raise DocumentRepairExecutorError("monotonic clock moved backwards")
+        _validate_acquired_result(operation, result)
+        outcomes.append(
+            RepairOperationOutcome(
+                candidate_id=operation.candidate_id,
+                docket_entry_number=operation.docket_entry_number,
+                disposition=result.disposition,
+                retry_count=result.retry_count,
+                duration_seconds=str(duration),
+                committed_cost_usd=result.committed_cost_usd,
+            )
+        )
+        if result.disposition == "included":
+            assert result.document_bytes is not None
+            acquired_documents.append(
+                {
+                    "candidate_id": operation.candidate_id,
+                    "docket_entry_number": operation.docket_entry_number,
+                    "document_role": operation.document_role,
+                    "source_document_id": operation.recap_document_id,
+                    "source": operation.route,
+                    "sha256": hashlib.sha256(result.document_bytes).hexdigest(),
+                    "byte_count": len(result.document_bytes),
+                    "document_bytes": result.document_bytes,
+                }
+            )
+        elif result.disposition in {"excluded", "provider_error"}:
+            exclusions.append(
+                {
+                    "candidate_id": operation.candidate_id,
+                    "docket_entry_number": operation.docket_entry_number,
+                    "document_role": operation.document_role,
+                    "reason": cast(str, result.reason),
+                }
+            )
+        elif result.disposition == "unknown":
+            break
+    return DocumentRepairRunResult(
+        receipt=record_document_repair_outcomes(
+            execution=execution, outcomes=tuple(outcomes)
+        ),
+        acquired_documents=tuple(acquired_documents),
+        exclusions=tuple(exclusions),
+    )
+
+
 def verify_purchase_policy_compatibility(
     *,
     execution: DocumentRepairExecution,
@@ -306,6 +394,60 @@ def verify_purchase_policy_compatibility(
     return policy
 
 
+def seal_document_repair_execution(
+    *,
+    full_plan: MissingDocumentAcquisitionPlan,
+    execution: DocumentRepairExecution,
+    receipt: DocumentRepairReceipt,
+    acquired_documents: Sequence[Mapping[str, object]],
+    exclusions: Sequence[Mapping[str, object]],
+    role_bytes_match: Callable[[str, bytes], bool],
+) -> SealedMissingDocumentSuccessor:
+    """Seal only a complete resolved execution with exact RECAP identities."""
+
+    _require_scope_binding_from_execution(full_plan, execution)
+    if _commit_receipt(receipt.content_record()) != receipt.receipt_sha256:
+        raise DocumentRepairExecutorError("repair receipt changed after execution")
+    if (
+        receipt.execution_sha256 != execution.execution_sha256
+        or receipt.full_plan_sha256 != full_plan.plan_sha256
+        or receipt.pilot_sha256 != execution.pilot_sha256
+    ):
+        raise DocumentRepairExecutorError("repair receipt binding is invalid")
+    dispositions = [str(row.get("disposition")) for row in receipt.operation_ledger]
+    if any(
+        disposition in {"unknown", "not_attempted_after_unknown"}
+        for disposition in dispositions
+    ):
+        raise DocumentRepairExecutorError(
+            "repair execution has unresolved paid outcomes and cannot seal"
+        )
+    operation_by_key = {operation.key: operation for operation in execution.operations}
+    if len(operation_by_key) != len(execution.operations):
+        raise DocumentRepairExecutorError("repair execution repeats an operation")
+    for document in acquired_documents:
+        key = _evidence_key(document)
+        operation = operation_by_key.get(key)
+        if operation is None:
+            raise DocumentRepairExecutorError("acquired document is outside execution")
+        if document.get("source_document_id") != operation.recap_document_id:
+            raise DocumentRepairExecutorError(
+                "acquired document differs from resolved RECAP identity"
+            )
+    for exclusion in exclusions:
+        if _evidence_key(exclusion) not in operation_by_key:
+            raise DocumentRepairExecutorError("exclusion is outside execution")
+    try:
+        return seal_missing_document_successor(
+            plan=full_plan,
+            acquired_documents=acquired_documents,
+            exclusions=exclusions,
+            role_bytes_match=role_bytes_match,
+        )
+    except ValueError as exc:
+        raise DocumentRepairExecutorError(str(exc)) from exc
+
+
 def _require_scope_binding(
     full_plan: MissingDocumentAcquisitionPlan, pilot: DocumentRepairPilot
 ) -> None:
@@ -331,6 +473,47 @@ def _require_scope_binding(
     planned = {item.key: item.to_record() for item in full_plan.items}
     if any(planned.get(item.key) != item.to_record() for item in pilot.items):
         raise DocumentRepairExecutorError("pilot contains altered plan items")
+
+
+def _require_scope_binding_from_execution(
+    full_plan: MissingDocumentAcquisitionPlan, execution: DocumentRepairExecution
+) -> None:
+    verified_full_plan_sha256 = str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            full_plan.content_record(),
+            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+        ).digest
+    )
+    if verified_full_plan_sha256 != full_plan.plan_sha256:
+        raise DocumentRepairExecutorError("full plan changed after approval")
+    if execution.full_plan_sha256 != full_plan.plan_sha256:
+        raise DocumentRepairExecutorError("execution is not bound to the full plan")
+    if _commit_execution(execution.content_record()) != execution.execution_sha256:
+        raise DocumentRepairExecutorError("execution changed after resolution")
+    planned = {item.key: item.to_record() for item in full_plan.items}
+    for operation in execution.operations:
+        plan_record = planned.get(operation.key)
+        if plan_record is None:
+            raise DocumentRepairExecutorError(
+                "execution operation is outside full plan"
+            )
+        if (
+            plan_record["document_role"] != operation.document_role
+            or plan_record["acquisition_method"] != operation.route
+            or plan_record["projected_cost_usd"] != _money(operation.projected_cost_usd)
+        ):
+            raise DocumentRepairExecutorError("execution operation alters full plan")
+
+
+def _evidence_key(record: Mapping[str, object]) -> tuple[str, int]:
+    candidate_id = record.get("candidate_id")
+    entry = record.get("docket_entry_number")
+    if not isinstance(candidate_id, str) or not candidate_id.strip():
+        raise DocumentRepairExecutorError("document candidate identity is invalid")
+    resolved_entry = _positive_int(entry)
+    if resolved_entry is None:
+        raise DocumentRepairExecutorError("document docket entry is invalid")
+    return candidate_id, resolved_entry
 
 
 def _snapshot(payload: bytes, candidate_id: str) -> Mapping[str, object]:
@@ -484,6 +667,34 @@ def _outcome_record(
         "committed_cost_usd": _money(cost),
         "retry_permitted": outcome.disposition not in {"unknown", "included"},
     }
+
+
+def _validate_acquired_result(
+    operation: ResolvedRepairOperation, result: AcquiredRepairDocument
+) -> None:
+    if result.source_document_id != operation.recap_document_id:
+        raise DocumentRepairExecutorError(
+            "acquisition result differs from resolved RECAP identity"
+        )
+    if result.disposition not in {
+        "included",
+        "excluded",
+        "provider_error",
+        "unknown",
+    }:
+        raise DocumentRepairExecutorError("unsupported acquisition disposition")
+    if result.disposition == "included" and result.document_bytes is None:
+        raise DocumentRepairExecutorError("included acquisition has no document bytes")
+    if result.disposition != "included" and result.document_bytes is not None:
+        raise DocumentRepairExecutorError(
+            "non-included acquisition unexpectedly returned bytes"
+        )
+    if result.disposition in {"excluded", "provider_error", "unknown"} and (
+        result.reason is None or not result.reason.strip()
+    ):
+        raise DocumentRepairExecutorError(
+            "non-included acquisition requires a specific reason"
+        )
 
 
 def _mapping_list(value: object, label: str) -> list[Mapping[str, object]]:

@@ -9,11 +9,14 @@ from collections.abc import Mapping
 import pytest
 from legalforecast.ingestion.case_dev_purchase import generate_case_dev_purchase_policy
 from legalforecast.ingestion.document_repair_executor import (
+    AcquiredRepairDocument,
     DocumentRepairExecution,
     DocumentRepairExecutorError,
     RepairOperationOutcome,
     build_document_repair_execution,
     record_document_repair_outcomes,
+    run_document_repair_execution,
+    seal_document_repair_execution,
     verify_purchase_policy_compatibility,
 )
 from legalforecast.ingestion.document_repair_pilot import build_document_repair_pilot
@@ -356,3 +359,194 @@ def test_receipt_requires_monotonic_duration_and_exact_operation_prefix() -> Non
     )
     with pytest.raises(DocumentRepairExecutorError, match="changed"):
         record_document_repair_outcomes(execution=tampered, outcomes=())
+
+
+def test_execution_seals_complete_successor_only_from_exact_resolved_documents() -> (
+    None
+):
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=tuple(
+            RepairOperationOutcome(
+                operation.candidate_id,
+                operation.docket_entry_number,
+                "included",
+                0,
+                "0.10",
+                "0.00" if operation.route == "courtlistener_free" else "3.00",
+            )
+            for operation in execution.operations
+        ),
+    )
+    acquired = []
+    for operation in execution.operations:
+        body = f"{operation.document_role} bytes {operation.recap_document_id}".encode()
+        acquired.append(
+            {
+                "candidate_id": operation.candidate_id,
+                "docket_entry_number": operation.docket_entry_number,
+                "document_role": operation.document_role,
+                "source_document_id": operation.recap_document_id,
+                "source": operation.route,
+                "sha256": hashlib.sha256(body).hexdigest(),
+                "byte_count": len(body),
+                "document_bytes": body,
+            }
+        )
+
+    successor = seal_document_repair_execution(
+        full_plan=plan,
+        execution=execution,
+        receipt=receipt,
+        acquired_documents=tuple(acquired),
+        exclusions=(),
+        role_bytes_match=lambda role, body: role.encode() in body,
+    )
+
+    assert successor.status == "sealed"
+    assert len(successor.included_document_keys) == 5
+
+    acquired[0]["source_document_id"] = "9999"
+    with pytest.raises(DocumentRepairExecutorError, match="resolved RECAP identity"):
+        seal_document_repair_execution(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=tuple(acquired),
+            exclusions=(),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_unknown_receipt_cannot_seal_successor() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=(
+            RepairOperationOutcome("a", 1, "included", 0, "0.10", "0.00"),
+            RepairOperationOutcome("b", 2, "unknown", 0, "0.10", "3.00"),
+        ),
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="unresolved"):
+        seal_document_repair_execution(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=(),
+            exclusions=(),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    invoked: list[str] = []
+    ticks = iter((1.0, 1.2, 2.0, 3.5))
+
+    def acquire(operation):  # type: ignore[no-untyped-def]
+        invoked.append(operation.recap_document_id)
+        if operation.route == "courtlistener_free":
+            return AcquiredRepairDocument(
+                disposition="included",
+                source_document_id=operation.recap_document_id,
+                document_bytes=b"reply free bytes",
+                committed_cost_usd="0.00",
+                retry_count=1,
+            )
+        return AcquiredRepairDocument(
+            disposition="unknown",
+            source_document_id=operation.recap_document_id,
+            document_bytes=None,
+            committed_cost_usd="3.00",
+            retry_count=0,
+            reason="purchase_outcome_unknown",
+        )
+
+    result = run_document_repair_execution(
+        execution=execution,
+        acquire=acquire,
+        monotonic=lambda: next(ticks),
+    )
+
+    assert invoked == ["9001", "9002"]
+    assert [row["duration_seconds"] for row in result.receipt.operation_ledger[:2]] == [
+        "0.200000",
+        "1.500000",
+    ]
+    assert len(result.acquired_documents) == 1
+    assert result.exclusions == ()
+    assert result.receipt.operation_ledger[2]["disposition"] == (
+        "not_attempted_after_unknown"
+    )
+
+
+def test_runner_materializes_complete_evidence_for_successor_seal() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    tick = iter(float(value) for value in range(11))
+
+    result = run_document_repair_execution(
+        execution=execution,
+        acquire=lambda operation: AcquiredRepairDocument(
+            disposition="included",
+            source_document_id=operation.recap_document_id,
+            document_bytes=f"{operation.document_role} bytes".encode(),
+            committed_cost_usd=(
+                "0.00" if operation.route == "courtlistener_free" else "3.00"
+            ),
+            retry_count=0,
+        ),
+        monotonic=lambda: next(tick),
+    )
+    successor = seal_document_repair_execution(
+        full_plan=plan,
+        execution=execution,
+        receipt=result.receipt,
+        acquired_documents=result.acquired_documents,
+        exclusions=result.exclusions,
+        role_bytes_match=lambda role, body: role.encode() in body,
+    )
+
+    assert successor.status == "sealed"
+    assert result.receipt.committed_cost_usd == "12.00"
