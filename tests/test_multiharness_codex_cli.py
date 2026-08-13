@@ -19,13 +19,17 @@ from legalforecast.multiharness.codex_cli import (
     adapter_bundle_sha256,
     build_capabilities,
     build_codex_invocation_plan,
+    declared_failure_classes,
     load_codex_local_cli_manifest,
     parse_codex_jsonl,
     run_offline_protocol_fixture,
 )
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.conformance import run_adapter_conformance
-from legalforecast.multiharness.local_cli_manifest import LocalCliAdapterManifest
+from legalforecast.multiharness.local_cli_manifest import (
+    LocalCliAdapterManifest,
+    capability_digest_for,
+)
 from legalforecast.multiharness.spec import (
     AdapterManifest,
     CanonicalTask,
@@ -42,12 +46,44 @@ LOCAL_CLI_MANIFEST = (
 CLEAN_NATIVE_FIXTURE = (
     ROOT / "tests" / "fixtures" / "local_cli_adapters" / "codex-cli.json"
 )
-SUCCESS_TRANSCRIPT = ROOT / "tests" / "fixtures" / "codex_cli_adapter" / "success.jsonl"
+TRANSCRIPTS = ROOT / "tests" / "fixtures" / "codex_cli_adapter" / "transcripts"
 MODULE = ROOT / "legalforecast" / "multiharness" / "codex_cli.py"
 SHA256 = "sha256:" + "1" * 64
 OTHER_SHA256 = "sha256:" + "2" * 64
 SECRET_CANARY = "LEGALFORECAST_SECRET_CANARY_7f3a"
 THREAD_ID = "00000000-0000-7000-8000-000000000001"
+PLAN_MODEL = "gpt-5.1"
+PLAN_PROMPT = "solve fixture"
+
+
+def _canonical_argv(
+    workspace: Path, *, model: str = PLAN_MODEL, effort: str = "medium"
+) -> tuple[str, ...]:
+    return (
+        "codex",
+        "exec",
+        "--json",
+        "--color",
+        "never",
+        "--ephemeral",
+        "--skip-git-repo-check",
+        "--strict-config",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--sandbox",
+        "workspace-write",
+        "--cd",
+        str(workspace),
+        "--model",
+        model,
+        "-c",
+        'approval_policy="never"',
+        "-c",
+        f'model_reasoning_effort="{effort}"',
+        "--output-last-message",
+        "private-logs/codex-last-message.txt",
+        "-",
+    )
 
 
 class RecordingFakeExecutionService:
@@ -66,19 +102,6 @@ def _jsonl(*events: Mapping[str, Any]) -> str:
     return "".join(
         json.dumps(dict(event), sort_keys=True, separators=(",", ":")) + "\n"
         for event in events
-    )
-
-
-def _error_outcome(message: str, returncode: int) -> CodexCliExecutionOutcome:
-    return CodexCliExecutionOutcome(
-        returncode=returncode,
-        stdout=_jsonl(
-            {"type": "thread.started", "thread_id": THREAD_ID},
-            {"type": "turn.started"},
-            {"type": "error", "message": message},
-            {"type": "turn.failed", "error": {"message": message}},
-        ),
-        stderr="",
     )
 
 
@@ -153,7 +176,7 @@ def test_offline_local_cli_manifest_drives_non_interactive_exec() -> None:
     assert manifest.invocation.argv_template[-1] == "-"
     assert "--approve-for-me" not in manifest.invocation.argv_template
     assert "--ask-for-approval" not in manifest.invocation.argv_template
-    assert manifest.auth_profile_name == "fixture_none"
+    assert manifest.auth_profile_name == "fixture-none"
     assert manifest.harness_binding.implements_harness_adapter is True
     assert manifest.harness_binding.implements_harness_solver is False
 
@@ -172,6 +195,89 @@ def test_clean_native_fixture_is_not_the_offline_invocation() -> None:
     assert (
         shipped.invocation.schema_enforcement != offline.invocation.schema_enforcement
     )
+
+
+def test_invocation_plan_snapshot_is_exact_and_non_interactive(tmp_path: Path) -> None:
+    request = _request()
+    first = build_codex_invocation_plan(request, tmp_path, prompt=PLAN_PROMPT)
+    second = build_codex_invocation_plan(request, tmp_path, prompt=PLAN_PROMPT)
+
+    assert first.argv == _canonical_argv(tmp_path)
+    assert first.argv == second.argv
+    assert first.stdin == PLAN_PROMPT
+    assert "--ask-for-approval" not in first.argv
+    assert "--approve-for-me" not in first.argv
+    assert not any(char in token for token in first.argv for char in ";|&`$")
+
+
+def test_manifest_model_and_reasoning_placeholders_propagate(tmp_path: Path) -> None:
+    plan = build_codex_invocation_plan(
+        _request(model_key="codex:gpt-5-nano", metadata={"reasoning_effort": "low"}),
+        tmp_path,
+        prompt=PLAN_PROMPT,
+    )
+    source = MODULE.read_text(encoding="utf-8")
+
+    assert plan.argv == _canonical_argv(tmp_path, model="gpt-5-nano", effort="low")
+    assert "gpt-5.1" not in source
+    assert "gpt-5-nano" not in source
+
+
+def test_unallowlisted_manifest_flag_is_refused_at_plan_time(tmp_path: Path) -> None:
+    manifest = _mutated_manifest(extra_flags=("--verbose",))
+    with pytest.raises(CodexCliAdapterError, match="un-allowlisted flag"):
+        build_codex_invocation_plan(
+            _request(),
+            tmp_path,
+            prompt=PLAN_PROMPT,
+            local_cli_manifest=manifest,
+        )
+
+
+def test_interactive_approval_mode_is_refused_at_plan_time(tmp_path: Path) -> None:
+    asked = _mutated_manifest(extra_flags=("--ask-for-approval",))
+    with pytest.raises(CodexCliAdapterError, match="interactive"):
+        build_codex_invocation_plan(
+            _request(),
+            tmp_path,
+            prompt=PLAN_PROMPT,
+            local_cli_manifest=asked,
+        )
+    on_request = _mutated_manifest(
+        replace=('approval_policy="never"', 'approval_policy="on-request"')
+    )
+    with pytest.raises(CodexCliAdapterError, match="approval"):
+        build_codex_invocation_plan(
+            _request(),
+            tmp_path,
+            prompt=PLAN_PROMPT,
+            local_cli_manifest=on_request,
+        )
+
+
+def test_fixture_transcripts_declare_synthetic_provenance() -> None:
+    inventory = {
+        "success": True,
+        "timeout": True,
+        "refusal": True,
+        "schema_violation": True,
+        "crash": True,
+        "sandbox_denial": True,
+        "malformed": True,
+    }
+    for name, synthetic in inventory.items():
+        comments, _record = _load_transcript_file(TRANSCRIPTS / f"{name}.json")
+        assert any(line.startswith("command:") for line in comments)
+        assert any(line.startswith("generated_at:") for line in comments)
+        assert f"synthetic: {str(synthetic).lower()}" in comments
+
+
+def test_declared_failure_classes_include_sandbox_denial() -> None:
+    assert declared_failure_classes() == CODEX_FAILURE_CLASSES
+    assert "sandbox_denial" in declared_failure_classes()
+    for name in declared_failure_classes():
+        assert (TRANSCRIPTS / f"{name}.json").is_file()
+    assert (TRANSCRIPTS / "malformed.json").is_file()
 
 
 def test_invocation_plan_is_deterministic_and_non_interactive(tmp_path: Path) -> None:
@@ -237,7 +343,7 @@ def test_success_fixture_binds_run_result_and_deliverable(tmp_path: Path) -> Non
     workspace = tmp_path / "row"
     workspace.mkdir()
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
-    service = RecordingFakeExecutionService(_success_outcome())
+    service = RecordingFakeExecutionService(_outcome_from_fixture("success"))
     adapter = CodexCliAdapter(execution_service=service)
     request = _request()
 
@@ -245,6 +351,8 @@ def test_success_fixture_binds_run_result_and_deliverable(tmp_path: Path) -> Non
 
     assert result.status == "succeeded"
     assert result.request_id == request.request_id
+    assert result.public_summary["task_id"] == request.task.task_id
+    assert result.public_summary["returncode"] == 0
     assert (
         result.public_summary["sandbox_policy_id"] == request.sandbox_policy.policy_id
     )
@@ -259,120 +367,86 @@ def test_success_fixture_binds_run_result_and_deliverable(tmp_path: Path) -> Non
     executed = service.requests[0]
     assert executed.environment == {}
     assert executed.stdin == "solve fixture\n"
-    assert executed.argv[0] == "codex"
+    assert executed.argv == _canonical_argv(workspace)
     assert (workspace / "sealed-deliverable" / "work-product" / "answer.md").read_text(
         encoding="utf-8"
     ) == "LEGALFORECAST_FAKE_CODEX_RESULT\n"
 
 
 @pytest.mark.parametrize(
-    ("outcome", "expected"),
+    ("fixture_name", "expected"),
     (
-        (
-            CodexCliExecutionOutcome(
-                returncode=-1, stdout="", stderr="", timed_out=True
-            ),
-            "timeout",
-        ),
-        (
-            CodexCliExecutionOutcome(
-                returncode=139, stdout="", stderr="", crashed=True
-            ),
-            "crash",
-        ),
-        (_error_outcome("sandbox denied write under landlock", 1), "sandbox_denial"),
-        (_message_outcome("I must refuse this request."), "refusal"),
-        (
-            CodexCliExecutionOutcome(
-                returncode=0,
-                stdout='{"type":"thread.started"}\n{"type":',
-                stderr="",
-            ),
-            "schema_violation",
-        ),
-        (
-            CodexCliExecutionOutcome(
-                returncode=0,
-                stdout=_jsonl(
-                    {"type": "thread.started", "thread_id": THREAD_ID},
-                    {"type": "turn.started"},
-                )
-                + "not-json\n",
-                stderr="",
-            ),
-            "schema_violation",
-        ),
-        (
-            CodexCliExecutionOutcome(
-                returncode=0,
-                stdout=_jsonl(
-                    {"type": "thread.started", "thread_id": THREAD_ID},
-                    {"type": "turn.started"},
-                    {
-                        "type": "item.completed",
-                        "item": {
-                            "id": "item_0",
-                            "type": "agent_message",
-                            "text": "partial",
-                        },
-                    },
-                ),
-                stderr="",
-            ),
-            "schema_violation",
-        ),
-        (_error_outcome("fake provider failure", 17), "crash"),
-        (
-            CodexCliExecutionOutcome(
-                returncode=0,
-                stdout=_jsonl(
-                    {
-                        "type": "thread.started",
-                        "thread_id": THREAD_ID,
-                        "requested_model": "gpt-5.1",
-                        "actual_model": "unexpected-model",
-                    },
-                    {"type": "turn.started"},
-                    {
-                        "type": "item.completed",
-                        "item": {
-                            "id": "item_0",
-                            "type": "agent_message",
-                            "text": "drift",
-                        },
-                    },
-                    {
-                        "type": "turn.completed",
-                        "usage": {
-                            "input_tokens": 1,
-                            "output_tokens": 1,
-                            "cached_input_tokens": 0,
-                        },
-                    },
-                ),
-                stderr="",
-            ),
-            "schema_violation",
-        ),
+        ("timeout", "timeout"),
+        ("crash", "crash"),
+        ("sandbox_denial", "sandbox_denial"),
+        ("refusal", "refusal"),
+        ("schema_violation", "schema_violation"),
+        ("malformed", "schema_violation"),
     ),
 )
 def test_declared_failure_fixtures_are_classified_fail_closed(
     tmp_path: Path,
-    outcome: CodexCliExecutionOutcome,
+    fixture_name: str,
     expected: str,
 ) -> None:
     assert expected in CODEX_FAILURE_CLASSES
     workspace = tmp_path / "row"
     workspace.mkdir()
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
-    adapter = CodexCliAdapter(execution_service=RecordingFakeExecutionService(outcome))
+    adapter = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            _outcome_from_fixture(fixture_name)
+        )
+    )
+    request = _request()
 
-    result = adapter.run(_request(), workspace)
+    result = adapter.run(request, workspace)
 
     assert result.status == "failed"
     assert result.public_summary["failure_class"] == expected
+    assert result.public_summary["task_id"] == request.task.task_id
+    assert "returncode" in result.public_summary
+    assert f"task_id={request.task.task_id}" in result.public_summary["failure_detail"]
+    assert "returncode=" in result.public_summary["failure_detail"]
     assert "deliverable_manifest_sha256" not in result.public_summary
     validate_public_record(result.to_record(), "failed_run_result")
+
+
+def test_unparseable_envelope_is_error_not_empty_success(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            _outcome_from_fixture("malformed")
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "schema_violation"
+    assert result.public_summary["task_id"] == "lfb:case-1:full_packet"
+    assert result.artifacts == ()
+
+
+def test_sandbox_denial_is_distinct_from_crash(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    denied = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            _outcome_from_fixture("sandbox_denial")
+        )
+    ).run(_request(), workspace)
+    crashed = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(_outcome_from_fixture("crash"))
+    ).run(_request(), workspace)
+
+    assert denied.public_summary["failure_class"] == "sandbox_denial"
+    assert crashed.public_summary["failure_class"] == "crash"
+    assert (
+        denied.public_summary["failure_class"]
+        != crashed.public_summary["failure_class"]
+    )
 
 
 def test_secret_canary_is_confined_to_private_workspace_bytes(tmp_path: Path) -> None:
@@ -475,12 +549,58 @@ def test_parser_rejects_unknown_event_types() -> None:
     assert envelope.failure_class == "schema_violation"
 
 
-def _success_outcome() -> CodexCliExecutionOutcome:
+def _load_transcript_file(path: Path) -> tuple[list[str], dict[str, Any]]:
+    comments: list[str] = []
+    body: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("//"):
+            comments.append(line[2:].strip())
+        else:
+            body.append(line)
+    decoded = json.loads("\n".join(body))
+    if not isinstance(decoded, dict):
+        raise AssertionError(f"{path} must contain a JSON object")
+    return comments, decoded
+
+
+def _outcome_from_fixture(name: str) -> CodexCliExecutionOutcome:
+    _comments, record = _load_transcript_file(TRANSCRIPTS / f"{name}.json")
+    stdout = record.get("stdout_text")
+    if not isinstance(stdout, str):
+        stdout = ""
+    returncode = record.get("returncode", 0)
+    if type(returncode) is not int:
+        returncode = 0
     return CodexCliExecutionOutcome(
-        returncode=0,
-        stdout=SUCCESS_TRANSCRIPT.read_text(encoding="utf-8"),
-        stderr="",
+        returncode=returncode,
+        stdout=stdout,
+        stderr=str(record.get("stderr") or ""),
+        timed_out=bool(record.get("timed_out")),
+        crashed=bool(record.get("crashed")),
     )
+
+
+def _mutated_manifest(
+    *,
+    extra_flags: tuple[str, ...] = (),
+    replace: tuple[str, str] | None = None,
+) -> LocalCliAdapterManifest:
+    record = json.loads(LOCAL_CLI_MANIFEST.read_text(encoding="utf-8"))
+    template = list(record["invocation"]["argv_template"])
+    if replace is not None:
+        template = [replace[1] if token == replace[0] else token for token in template]
+    if extra_flags:
+        insert_at = template.index("-") if "-" in template else len(template)
+        for flag in extra_flags:
+            template.insert(insert_at, flag)
+            insert_at += 1
+    record["invocation"]["argv_template"] = template
+    record["capability_digest"] = capability_digest_for(record)
+    return LocalCliAdapterManifest.from_record(record)
+
+
+def _success_outcome() -> CodexCliExecutionOutcome:
+    return _outcome_from_fixture("success")
 
 
 def _manifest() -> AdapterManifest:

@@ -42,28 +42,58 @@ CODEX_DEFAULT_REASONING_EFFORT = "medium"
 CODEX_REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 CODEX_SANDBOX_MODE = "workspace-write"
 CODEX_APPROVAL_POLICY = "never"
-CODEX_FAILURE_CLASSES = frozenset(
+CODEX_FAILURE_CLASSES = (
+    "timeout",
+    "refusal",
+    "schema_violation",
+    "crash",
+    "sandbox_denial",
+)
+_ALLOWED_SUBCOMMANDS = frozenset({"exec"})
+_ALLOWED_BARE_FLAGS = frozenset(
     {
-        "timeout",
-        "refusal",
-        "schema_violation",
-        "crash",
-        "sandbox_denial",
+        "-",
+        "--ephemeral",
+        "--ignore-rules",
+        "--ignore-user-config",
+        "--json",
+        "--skip-git-repo-check",
+        "--strict-config",
+    }
+)
+_ALLOWED_VALUE_FLAGS = frozenset(
+    {
+        "--cd",
+        "--color",
+        "--model",
+        "--output-last-message",
+        "--sandbox",
+        "-c",
+    }
+)
+_INTERACTIVE_FLAGS = frozenset(
+    {
+        "--approve-for-me",
+        "--ask-for-approval",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--dangerously-bypass-hook-trust",
     }
 )
 _FORBIDDEN_FLAGS = frozenset(
     {
         "--add-dir",
-        "--approve-for-me",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "--dangerously-bypass-hook-trust",
         "--last",
         "--local-provider",
         "--oss",
         "--profile",
         "--remote",
         "--search",
+        *_INTERACTIVE_FLAGS,
     }
+)
+_REQUIRED_NONINTERACTIVE = (
+    ("--color", "never"),
+    ("--sandbox", CODEX_SANDBOX_MODE),
 )
 _REQUIRED_EVENTS = ("thread.started", "turn.started")
 _ALLOWED_EVENT_TYPES = frozenset(
@@ -253,7 +283,8 @@ def build_codex_invocation_plan(
         output_schema_path="",
     )
     argv = _apply_reasoning_effort((executable, *rendered), effort)
-    _reject_forbidden_argv(argv)
+    _reject_unallowlisted_argv(argv)
+    _require_noninteractive_argv(argv)
     stdin = prompt if manifest.invocation.prompt_delivery == "stdin" else ""
     return CodexCliInvocationPlan(
         argv=argv,
@@ -264,6 +295,12 @@ def build_codex_invocation_plan(
         reasoning_effort=effort,
         timeout_seconds=float(request.sandbox_policy.timeout_seconds),
     )
+
+
+def declared_failure_classes() -> tuple[str, ...]:
+    """Return the closed fail-closed taxonomy, including sandbox_denial."""
+
+    return CODEX_FAILURE_CLASSES
 
 
 def parse_codex_jsonl(
@@ -352,6 +389,7 @@ def run_offline_protocol_fixture(request: RunRequest, workspace: Path) -> RunRes
         failure_class=None,
         input_tokens=0,
         output_tokens=0,
+        returncode=0,
         offline_protocol_fixture=True,
         deliverable_manifest_sha256=None,
     )
@@ -425,8 +463,10 @@ class CodexCliAdapter:
             last_message_file=last_message_file,
         )
         if envelope.failure_class is not None:
-            return _failed_result(request, envelope)
-        return _successful_result(request, workspace, plan, envelope)
+            return _failed_result(request, envelope, returncode=outcome.returncode)
+        return _successful_result(
+            request, workspace, plan, envelope, returncode=outcome.returncode
+        )
 
 
 def adapter_bundle_sha256() -> str:
@@ -515,13 +555,76 @@ def _apply_reasoning_effort(argv: Sequence[str], effort: str) -> tuple[str, ...]
     return tuple(tokens)
 
 
-def _reject_forbidden_argv(argv: Sequence[str]) -> None:
-    for token in argv:
-        if token in _FORBIDDEN_FLAGS:
-            raise CodexCliAdapterError(f"Codex CLI invocation must not include {token}")
-        if "auth.json" in token:
+def _reject_unallowlisted_argv(argv: Sequence[str]) -> None:
+    """Refuse flags the offline Codex template does not name."""
+
+    if len(argv) < 2 or argv[0] != CODEX_CLI_EXECUTABLE:
+        raise CodexCliAdapterError("invocation executable must be the basename 'codex'")
+    if argv[1] not in _ALLOWED_SUBCOMMANDS:
+        raise CodexCliAdapterError("offline Codex CLI adapter requires exec_subcommand")
+    index = 2
+    while index < len(argv):
+        token = argv[index]
+        if token in _FORBIDDEN_FLAGS or token in _INTERACTIVE_FLAGS:
             raise CodexCliAdapterError(
-                "Codex CLI invocation must not reference auth.json"
+                f"interactive or forbidden flag refused at plan time: {token}"
+            )
+        if token in _ALLOWED_BARE_FLAGS:
+            index += 1
+            continue
+        if token in _ALLOWED_VALUE_FLAGS:
+            if index + 1 >= len(argv):
+                raise CodexCliAdapterError(f"flag {token} is missing a value")
+            _reject_interactive_config_value(argv[index + 1])
+            index += 2
+            continue
+        if token.startswith("-"):
+            raise CodexCliAdapterError(
+                f"un-allowlisted flag refused at plan time: {token}"
+            )
+        raise CodexCliAdapterError(
+            f"un-allowlisted argv token refused at plan time: {token}"
+        )
+
+
+def _reject_interactive_config_value(token: str) -> None:
+    if token.startswith("approval_policy=") and token != (
+        f'approval_policy="{CODEX_APPROVAL_POLICY}"'
+    ):
+        raise CodexCliAdapterError(
+            "interactive approval mode refused at plan time: "
+            "approval_policy must be never"
+        )
+    if "auth.json" in token:
+        raise CodexCliAdapterError("Codex CLI invocation must not reference auth.json")
+
+
+def _require_noninteractive_argv(argv: Sequence[str]) -> None:
+    """Refuse any argv that could prompt a hung eval run."""
+
+    if argv[-1] != "-":
+        raise CodexCliAdapterError("offline Codex exec must read the prompt from stdin")
+    if "--json" not in argv:
+        raise CodexCliAdapterError("offline Codex exec must request JSONL via --json")
+    if "--ephemeral" not in argv:
+        raise CodexCliAdapterError(
+            "offline Codex exec must disable session persistence"
+        )
+    if f'approval_policy="{CODEX_APPROVAL_POLICY}"' not in argv:
+        raise CodexCliAdapterError(
+            "offline Codex exec must pin approval_policy to never"
+        )
+    for flag, expected in _REQUIRED_NONINTERACTIVE:
+        try:
+            index = argv.index(flag)
+        except ValueError as exc:
+            raise CodexCliAdapterError(f"invocation must set {flag}") from exc
+        if index + 1 >= len(argv) or argv[index + 1] != expected:
+            raise CodexCliAdapterError(f"invocation {flag} must be {expected}")
+    for token in argv:
+        if token in _INTERACTIVE_FLAGS:
+            raise CodexCliAdapterError(
+                f"interactive or approval flag refused at plan time: {token}"
             )
 
 
@@ -530,10 +633,11 @@ def _load_events(
 ) -> tuple[tuple[Mapping[str, Any], ...], str | None]:
     events: list[Mapping[str, Any]] = []
     for line in stdout.splitlines():
-        if not line.strip():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//") or stripped.startswith("#"):
             continue
         try:
-            decoded = json.loads(line)
+            decoded = json.loads(stripped)
         except json.JSONDecodeError:
             return tuple(events), "schema_violation"
         if not isinstance(decoded, dict):
@@ -674,6 +778,7 @@ def _public_summary(
     failure_class: str | None,
     input_tokens: int,
     output_tokens: int,
+    returncode: int,
     offline_protocol_fixture: bool,
     deliverable_manifest_sha256: str | None,
 ) -> dict[str, Any]:
@@ -691,6 +796,7 @@ def _public_summary(
         "provider": "openai",
         "provider_request_count": 0,
         "requested_model": requested_model,
+        "returncode": returncode,
         "sandbox_mode": CODEX_SANDBOX_MODE,
         "sandbox_policy_id": request.sandbox_policy.policy_id,
         "subscription_login_claimed": False,
@@ -702,6 +808,9 @@ def _public_summary(
         summary["served_model"] = served_model
     if failure_class is not None:
         summary["failure_class"] = failure_class
+        summary["failure_detail"] = (
+            f"{failure_class} task_id={request.task.task_id} returncode={returncode}"
+        )
     if deliverable_manifest_sha256 is not None:
         summary["deliverable_manifest_sha256"] = deliverable_manifest_sha256
     validate_public_record(summary, "codex_cli.public_summary")
@@ -711,6 +820,8 @@ def _public_summary(
 def _failed_result(
     request: RunRequest,
     envelope: CodexCliParsedEnvelope,
+    *,
+    returncode: int,
 ) -> RunResult:
     summary = _public_summary(
         request,
@@ -720,6 +831,7 @@ def _failed_result(
         failure_class=envelope.failure_class,
         input_tokens=0,
         output_tokens=0,
+        returncode=returncode,
         offline_protocol_fixture=False,
         deliverable_manifest_sha256=None,
     )
@@ -737,6 +849,8 @@ def _successful_result(
     workspace: Path,
     plan: CodexCliInvocationPlan,
     envelope: CodexCliParsedEnvelope,
+    *,
+    returncode: int,
 ) -> RunResult:
     source_root = workspace / "codex-output"
     source_root.mkdir(parents=True, exist_ok=True)
@@ -781,6 +895,7 @@ def _successful_result(
         failure_class=None,
         input_tokens=envelope.input_tokens,
         output_tokens=envelope.output_tokens,
+        returncode=returncode,
         offline_protocol_fixture=False,
         deliverable_manifest_sha256=manifest.manifest_sha256,
     )

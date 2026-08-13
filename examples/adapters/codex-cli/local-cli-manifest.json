@@ -1,6 +1,22 @@
 {
   "adapter_kind": "local_cli",
-  "auth_profile_name": "fixture_none",
+  "auth_environment_variables": [
+    {
+      "names": [],
+      "profile": "contributor-subscription"
+    },
+    {
+      "names": [],
+      "profile": "fixture-none"
+    },
+    {
+      "names": [
+        "OPENAI_API_KEY"
+      ],
+      "profile": "published-api-key"
+    }
+  ],
+  "auth_profile_name": "fixture-none",
   "capabilities": [
     "isolated_setting_sources",
     "json_output",
@@ -9,7 +25,7 @@
     "permission_mode",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:3689e250b20c53dd6415fe21591a0ef5d4246ad6918e3e43b6b4f8007fa70bd8",
+  "capability_digest": "sha256:18efaf81ee19b83916d2f9c38c647edc88d21f246164845b092c044212e7802e",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -76,6 +92,11 @@
   },
   "manifest_id": "codex-cli-offline",
   "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "supported_auth_profiles": [
+    "contributor-subscription",
+    "fixture-none",
+    "published-api-key"
+  ],
   "task_projection": {
     "deliverable_relative_path": "codex-output/submission.md",
     "deliverable_source": "workspace_relative_file",
