@@ -1230,11 +1230,31 @@ def _dotted_lookup(record: Mapping[str, Any], path: str) -> object:
 
 
 def _require_deliverable_text(value: object, field_path: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise LocalCliAdapterManifestError(
-            f"deliverable_field {field_path} must be a non-empty string"
-        )
-    return value
+    if isinstance(value, str):
+        if not value.strip():
+            raise LocalCliAdapterManifestError(
+                f"deliverable_field {field_path} must be a non-empty string"
+            )
+        return value
+    if isinstance(value, Mapping):
+        record = cast(Mapping[str, Any], value)
+        try:
+            return (
+                json.dumps(
+                    dict(record),
+                    indent=2,
+                    sort_keys=True,
+                    allow_nan=False,
+                )
+                + "\n"
+            )
+        except (TypeError, ValueError) as exc:
+            raise LocalCliAdapterManifestError(
+                f"deliverable_field {field_path} must be JSON-serializable"
+            ) from exc
+    raise LocalCliAdapterManifestError(
+        f"deliverable_field {field_path} must be a non-empty string or object"
+    )
 
 
 def _require_exact_fields(

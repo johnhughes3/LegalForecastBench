@@ -664,6 +664,20 @@ def test_claude_json_deliverable_is_projected_from_result() -> None:
     assert text == "forecast-json"
 
 
+def test_claude_object_result_is_projected_as_json_text() -> None:
+    manifest = LocalCliAdapterManifest.from_record(_claude_record())
+    payload = {"case_assessment": "ok", "predictions": []}
+
+    text = project_structured_stdout_deliverable(
+        json.dumps({"type": "result", "result": payload}),
+        output_format=manifest.invocation.output_format,
+        projection=manifest.task_projection,
+    )
+
+    assert json.loads(text) == payload
+    assert text.endswith("\n")
+
+
 def test_schema_doc_states_existing_solver_contracts() -> None:
     documentation = SCHEMA_DOC.read_text(encoding="utf-8")
 
