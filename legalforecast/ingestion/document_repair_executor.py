@@ -454,8 +454,7 @@ def record_document_repair_outcomes(
 ) -> DocumentRepairReceipt:
     """Record an exact ordered result prefix, stopping permanently on unknown."""
 
-    if _commit_execution(execution.content_record()) != execution.execution_sha256:
-        raise DocumentRepairExecutorError("execution changed after resolution")
+    _require_replay_minted_execution(execution)
     if len(outcomes) > len(execution.operations):
         raise DocumentRepairExecutorError("outcomes exceed planned operations")
     ledger: list[Mapping[str, object]] = []
@@ -527,8 +526,7 @@ def run_document_repair_execution(
 ) -> DocumentRepairRunResult:
     """Run exact operations in free-first order with measured terminal stopping."""
 
-    if _commit_execution(execution.content_record()) != execution.execution_sha256:
-        raise DocumentRepairExecutorError("execution changed after resolution")
+    _require_replay_minted_execution(execution)
     _require_purchase_authority(execution, purchase_authority)
     outcomes: list[RepairOperationOutcome] = []
     acquired_documents: list[Mapping[str, object]] = []
@@ -598,12 +596,7 @@ def build_document_repair_purchase_authority(
 ) -> DocumentRepairPurchaseAuthority:
     """Derive the narrow legacy purchase policy from one exact execution."""
 
-    if not execution.is_replay_minted():
-        raise DocumentRepairExecutorError(
-            "purchase authority requires a replay-minted execution"
-        )
-    if _commit_execution(execution.content_record()) != execution.execution_sha256:
-        raise DocumentRepairExecutorError("execution changed after resolution")
+    _require_replay_minted_execution(execution)
     budget = execution.purchase_budget
     if not budget.case_plans:
         raise DocumentRepairExecutorError(
@@ -651,8 +644,7 @@ def verify_purchase_policy_compatibility(
 ) -> CaseDevPurchasePolicy:
     """Require an existing typed purchase policy to fit this exact execution."""
 
-    if _commit_execution(execution.content_record()) != execution.execution_sha256:
-        raise DocumentRepairExecutorError("execution changed after resolution")
+    _require_replay_minted_execution(execution)
     try:
         policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
     except CaseDevPurchasePolicyError as exc:
@@ -740,6 +732,26 @@ def seal_document_repair_execution(
     for operation, row in zip(
         execution.operations, receipt.operation_ledger, strict=True
     ):
+        operation_record = operation.to_record()
+        if any(row.get(field) != value for field, value in operation_record.items()):
+            raise DocumentRepairExecutorError(
+                "repair receipt operation differs from execution"
+            )
+        retry_count = row.get("retry_count")
+        if not isinstance(retry_count, int) or isinstance(retry_count, bool):
+            raise DocumentRepairExecutorError("repair receipt retry count is invalid")
+        _outcome_record(
+            operation,
+            RepairOperationOutcome(
+                candidate_id=operation.candidate_id,
+                docket_entry_number=operation.docket_entry_number,
+                disposition=str(row.get("disposition")),
+                retry_count=retry_count,
+                duration_seconds=str(row.get("duration_seconds")),
+                committed_cost_usd=str(row.get("committed_cost_usd")),
+                document_selector=operation.document_selector,
+            ),
+        )
         expected = "included" if row.get("disposition") == "included" else "excluded"
         if evidence_dispositions.get(operation.key) != expected:
             raise DocumentRepairExecutorError(
@@ -824,6 +836,7 @@ def _require_snapshot_authority(
 def _require_scope_binding_from_execution(
     full_plan: MissingDocumentAcquisitionPlan, execution: DocumentRepairExecution
 ) -> None:
+    _require_replay_minted_execution(execution)
     verified_full_plan_sha256 = str(
         ARTIFACT_RAW_SHA256_V1.commit(
             full_plan.content_record(),
@@ -1206,6 +1219,16 @@ def _commit_execution(record: Mapping[str, object]) -> str:
             record, domain=EXACT100_DOCUMENT_REPAIR_EXECUTION_V1
         ).digest
     )
+
+
+def _require_replay_minted_execution(execution: DocumentRepairExecution) -> None:
+    if (
+        type(execution) is not DocumentRepairExecution
+        or not execution.is_replay_minted()
+    ):
+        raise DocumentRepairExecutorError("execution lacks replay-minted authority")
+    if _commit_execution(execution.content_record()) != execution.execution_sha256:
+        raise DocumentRepairExecutorError("execution changed after resolution")
 
 
 def _mint_execution(**fields: object) -> DocumentRepairExecution:
