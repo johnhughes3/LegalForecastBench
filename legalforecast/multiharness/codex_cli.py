@@ -202,18 +202,29 @@ def _parser_execution_flags(receipt: ExecutionReceipt) -> tuple[int, bool, bool]
     """Map a B2 receipt onto the JSONL parser's returncode/timeout/crash flags."""
 
     timed_out = receipt.status == "timeout"
-    crashed = (
-        receipt.status == "failed"
-        and not receipt.stdout.strip()
-        and receipt.returncode not in (0, None)
-    )
+    crashed = receipt.status == "failed" and not receipt.stdout.strip()
     if receipt.returncode is not None:
         returncode = receipt.returncode
-    elif timed_out:
+    elif receipt.status != "succeeded":
         returncode = 1
     else:
         returncode = 0
     return returncode, timed_out, crashed
+
+
+def _bind_envelope_to_receipt(
+    receipt: ExecutionReceipt,
+    envelope: CodexCliParsedEnvelope,
+) -> CodexCliParsedEnvelope:
+    """Honor B2 receipt status even when JSONL looks complete."""
+
+    if envelope.failure_class is not None:
+        return envelope
+    if receipt.status == "timeout":
+        return _failed_envelope(LocalCliFailureClass.TIMEOUT.value, envelope.events)
+    if receipt.status == "failed":
+        return _failed_envelope(LocalCliFailureClass.CRASH.value, envelope.events)
+    return envelope
 
 
 @dataclass(frozen=True, slots=True)
@@ -511,6 +522,7 @@ class CodexCliAdapter:
             crashed=crashed,
             last_message_file=last_message_file,
         )
+        envelope = _bind_envelope_to_receipt(receipt, envelope)
         if envelope.failure_class is not None:
             return _failed_result(request, envelope, returncode=returncode)
         return _successful_result(

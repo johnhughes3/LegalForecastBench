@@ -472,6 +472,66 @@ def test_sandbox_denial_is_distinct_from_crash(tmp_path: Path) -> None:
     )
 
 
+def test_failed_receipt_with_empty_stdout_is_crash_without_returncode(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            FixtureTranscript(stdout="", stderr="", returncode=None, status="failed")
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "crash"
+    assert result.public_summary["returncode"] == 1
+
+
+def test_failed_receipt_cannot_succeed_from_complete_jsonl(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    success = _success_transcript()
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            FixtureTranscript(
+                stdout=success.stdout,
+                stderr=success.stderr,
+                returncode=0,
+                status="failed",
+            )
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "crash"
+    assert "deliverable_manifest_sha256" not in result.public_summary
+
+
+def test_failed_receipt_still_classifies_sandbox_denial_from_jsonl(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    denied = _transcript_from_fixture("sandbox_denial")
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            FixtureTranscript(
+                stdout=denied.stdout,
+                stderr=denied.stderr,
+                returncode=None,
+                status="failed",
+            )
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "sandbox_denial"
+
+
 def test_legal_refused_language_is_not_classified_as_refusal(tmp_path: Path) -> None:
     workspace = tmp_path / "row"
     workspace.mkdir()
