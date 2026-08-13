@@ -30,13 +30,16 @@ class ScheduledSpec(Protocol):
     """Duck-typed run spec fields the scheduler needs."""
 
     @property
-    def spec_id(self) -> str: ...
+    def spec_id(self) -> str:
+        raise NotImplementedError
 
     @property
-    def max_concurrency(self) -> int: ...
+    def max_concurrency(self) -> int:
+        raise NotImplementedError
 
     @property
-    def ordering(self) -> str: ...
+    def ordering(self) -> str:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +120,7 @@ class LocalCliScheduler:
         self.on_oversubscribe = on_oversubscribe
         self._lock = threading.Lock()
         self._inflight = 0
+        self._serial_inflight = 0
         self._peak = 0
         self._next_sequence = 1
         self._tls = threading.local()
@@ -168,6 +172,8 @@ class LocalCliScheduler:
                     failure_class=divergence,
                 )
             self._inflight = next_inflight
+            if ordering == ORDERING_SERIAL:
+                self._serial_inflight += 1
             if next_inflight > self._peak:
                 self._peak = next_inflight
             sequence = self._next_sequence
@@ -181,6 +187,7 @@ class LocalCliScheduler:
                 divergence=divergence,
             )
         self._tls.evidence = evidence
+        self._tls.serial = ordering == ORDERING_SERIAL
 
     def after_execute(self, spec: ScheduledSpec, result: object) -> SchedulingEvidence:
         """Release the slot and return requested-versus-actual evidence."""
@@ -195,6 +202,8 @@ class LocalCliScheduler:
         with self._lock:
             if self._inflight > 0:
                 self._inflight -= 1
+            if getattr(self._tls, "serial", False) and self._serial_inflight > 0:
+                self._serial_inflight -= 1
             peak = self._peak
         undersubscribed = (
             evidence.divergence is None
@@ -222,6 +231,8 @@ class LocalCliScheduler:
         next_inflight: int,
     ) -> str | None:
         if ordering == ORDERING_SERIAL and self._inflight > 0:
+            return "serial_overlap"
+        if ordering == ORDERING_PARALLEL and self._serial_inflight > 0:
             return "serial_overlap"
         if next_inflight > cap:
             return "observed_concurrency_exceeds_cap"

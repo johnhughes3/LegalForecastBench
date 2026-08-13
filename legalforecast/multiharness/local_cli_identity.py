@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.multiharness.auth_profiles import AuthProfileError
+from legalforecast.multiharness.local_cli_environment import identity_probe_environment
 from legalforecast.multiharness.validation import validate_sha256
 
 LOCAL_CLI_EXECUTABLE_PIN_SCHEMA_VERSION = (
@@ -104,6 +106,7 @@ class ObservedExecutableIdentity:
     version: str
     sha256: str
     distribution_kind: str
+    resolved_argv: tuple[str, ...]
 
 
 BoundExecutableIdentity = ObservedExecutableIdentity
@@ -161,7 +164,12 @@ def bind_executable_identity(
 ) -> ObservedExecutableIdentity:
     """Resolve the identity file from argv, hash it, and refuse on mismatch."""
 
-    identity_path = _resolve_identity_path(argv, pin.basename)
+    search_path = (parent_env or os.environ).get("PATH", "/usr/bin")
+    identity_path = _resolve_identity_path(
+        argv,
+        pin.basename,
+        search_path=search_path,
+    )
     digest = sha256_file(identity_path)
     if identity_path.name != pin.basename:
         raise LocalCliIdentityError(
@@ -173,11 +181,13 @@ def bind_executable_identity(
             "executable digest mismatch",
             failure_class="digest_mismatch",
         )
+    resolved_argv = _argv_with_identity(argv, pin.basename, identity_path)
     observed = ObservedExecutableIdentity(
         basename=pin.basename,
         version=pin.version,
         sha256=digest,
         distribution_kind=pin.distribution_kind,
+        resolved_argv=resolved_argv,
     )
     needs_probe = bool(
         version_probe_args
@@ -204,13 +214,24 @@ def bind_executable_identity(
             "identity probe required for capability framing",
             failure_class="probe_framing",
         )
-    cwd = scratch_root if scratch_root is not None else identity_path.parent
-    cwd.mkdir(parents=True, exist_ok=True)
-    prefix = _launch_prefix(argv, pin.basename)
+    if scratch_root is None:
+        raise LocalCliIdentityError(
+            "identity probe requires scratch isolation",
+            failure_class="probe_framing",
+        )
+    probe_parent = os.environ if parent_env is None else parent_env
+    try:
+        probe_env = identity_probe_environment(scratch_root, probe_parent)
+    except AuthProfileError as exc:
+        raise LocalCliIdentityError(
+            str(exc),
+            failure_class="probe_framing",
+        ) from exc
+    prefix = _launch_prefix(resolved_argv, pin.basename)
     probe_record = _run_identity_probe(
         (*prefix, *version_probe_args),
-        environment=_probe_environment(parent_env),
-        cwd=cwd,
+        environment=probe_env,
+        cwd=scratch_root,
     )
     _check_probe(
         probe_record,
@@ -221,13 +242,28 @@ def bind_executable_identity(
     return observed
 
 
-def _probe_environment(parent_env: Mapping[str, str] | None) -> dict[str, str]:
-    parent = os.environ if parent_env is None else parent_env
-    environment = {
-        "PATH": parent.get("PATH", "/usr/bin"),
-        "LC_CTYPE": parent.get("LC_CTYPE", "C.UTF-8"),
-    }
-    return environment
+def _argv_with_identity(
+    argv: Sequence[str],
+    basename: str,
+    identity_path: Path,
+) -> tuple[str, ...]:
+    """Replace the pinned basename token with the hashed absolute path."""
+
+    rewritten: list[str] = []
+    replaced = 0
+    identity = str(identity_path)
+    for token in argv:
+        if Path(token).name == basename:
+            rewritten.append(identity)
+            replaced += 1
+        else:
+            rewritten.append(token)
+    if replaced != 1:
+        raise LocalCliIdentityError(
+            "executable basename mismatch",
+            failure_class="basename_mismatch",
+        )
+    return tuple(rewritten)
 
 
 def _launch_prefix(argv: Sequence[str], basename: str) -> tuple[str, ...]:
@@ -240,26 +276,37 @@ def _launch_prefix(argv: Sequence[str], basename: str) -> tuple[str, ...]:
     )
 
 
-def _resolve_identity_path(argv: Sequence[str], basename: str) -> Path:
+def _resolve_identity_path(
+    argv: Sequence[str],
+    basename: str,
+    *,
+    search_path: str,
+) -> Path:
     matches: list[Path] = []
     for token in argv:
         candidate = Path(token)
         if candidate.name != basename:
             continue
-        if candidate.is_file():
-            matches.append(candidate)
+        if candidate.is_absolute():
+            resolved = candidate.resolve()
+            if resolved.is_file():
+                matches.append(resolved)
             continue
-        if not candidate.is_absolute() and "/" not in token and "\\" not in token:
-            located = _which(token)
-            if located is not None:
-                matches.append(located)
+        if "/" in token or "\\" in token:
+            raise LocalCliIdentityError(
+                "executable path must be absolute",
+                failure_class="basename_mismatch",
+            )
+        located = _which(token, search_path)
+        if located is not None:
+            matches.append(located)
     if len(matches) != 1:
         raise LocalCliIdentityError(
             "executable basename mismatch",
             failure_class="basename_mismatch",
         )
     resolved = matches[0]
-    if not resolved.is_file():
+    if not resolved.is_file() or not resolved.is_absolute():
         raise LocalCliIdentityError(
             "executable basename mismatch",
             failure_class="basename_mismatch",
@@ -267,14 +314,13 @@ def _resolve_identity_path(argv: Sequence[str], basename: str) -> Path:
     return resolved
 
 
-def _which(name: str) -> Path | None:
-    path_value = os.environ.get("PATH", "")
-    for directory in path_value.split(os.pathsep):
+def _which(name: str, search_path: str) -> Path | None:
+    for directory in search_path.split(os.pathsep):
         if not directory:
             continue
         candidate = Path(directory) / name
         if candidate.is_file() and os.access(candidate, os.X_OK):
-            return candidate
+            return candidate.resolve()
     return None
 
 
@@ -301,6 +347,7 @@ def _run_identity_probe(
         try:
             process.communicate(timeout=1)
         except (subprocess.TimeoutExpired, ValueError):
+            # Pipes may already be closed after SIGKILL; drain is best-effort.
             pass
         raise LocalCliIdentityError(
             "identity probe timed out",
@@ -345,7 +392,7 @@ def _check_probe(
     requested_model: str | None,
 ) -> None:
     reported_version = _optional_str(record, "version")
-    if reported_version is not None and reported_version != pin.version:
+    if reported_version is None or reported_version != pin.version:
         raise LocalCliIdentityError(
             "executable version mismatch",
             failure_class="version_mismatch",

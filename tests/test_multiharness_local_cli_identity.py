@@ -233,6 +233,89 @@ def test_matching_pin_runs_and_receipt_binds_identity(tmp_path: Path) -> None:
     assert public["executable_version"] == "0.1.0"
 
 
+def test_relative_executable_path_is_refused(tmp_path: Path) -> None:
+    script = tmp_path / "nested" / "cli.py"
+    script.parent.mkdir()
+    script.write_text("print('ok')\n", encoding="utf-8")
+    pin = executable_pin_for(script, version="0.1.0")
+    with pytest.raises(LocalCliRuntimeError, match="absolute"):
+        execute_local_cli(
+            LocalCliRunSpec(
+                spec_id="relative",
+                manifest=LocalCliAdapterManifest(
+                    adapter_id="fixture-cli",
+                    display_name="Fixture CLI",
+                    adapter_version="0.1.0",
+                    command=(sys.executable, "nested/cli.py"),
+                    executable=pin,
+                    supported_auth_profiles=(FIXTURE_NONE,),
+                ),
+                auth_profile=FIXTURE_NONE,
+            ),
+            tmp_path / "scratch",
+            parent_env=_CANARY_ENV,
+        )
+
+
+def test_omitted_probe_version_is_mismatch(tmp_path: Path) -> None:
+    script = tmp_path / "cli.py"
+    script.write_text(
+        "\n".join(
+            [
+                "import json",
+                "print(json.dumps({",
+                "    'schema_version':",
+                f"    {LOCAL_CLI_IDENTITY_PROBE_SCHEMA_VERSION!r},",
+                "    'basename': 'cli.py',",
+                "}))",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(LocalCliRuntimeError, match="executable version mismatch"):
+        execute_local_cli(
+            _spec_for(script, version_probe_args=("--mode", "version")),
+            tmp_path / "scratch",
+            parent_env=_CANARY_ENV,
+        )
+
+
+def test_identity_probe_uses_isolated_home(tmp_path: Path) -> None:
+    script = tmp_path / "cli.py"
+    script.write_text(
+        "\n".join(
+            [
+                "import json, os",
+                "from pathlib import Path",
+                "Path('probe-home.txt').write_text(os.environ.get('HOME', ''))",
+                "print(json.dumps({",
+                "    'schema_version':",
+                f"    {LOCAL_CLI_IDENTITY_PROBE_SCHEMA_VERSION!r},",
+                "    'basename': 'cli.py',",
+                "    'version': '0.1.0',",
+                "    'capabilities': ['json_output'],",
+                "}))",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    scratch = tmp_path / "scratch"
+    execute_local_cli(
+        _spec_for(
+            script,
+            extra_args=("--mode", "version"),
+            version_probe_args=("--mode", "version"),
+        ),
+        scratch,
+        parent_env=_CANARY_ENV,
+    )
+    recorded = (scratch / "probe-home.txt").read_text(encoding="utf-8")
+    assert recorded.endswith("adapter-home")
+    assert "/private/operator-home" not in recorded
+
+
 def _identity_spec(
     *,
     extra_args: tuple[str, ...],

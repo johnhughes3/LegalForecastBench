@@ -54,9 +54,6 @@ from legalforecast.multiharness.local_cli_scheduler import (
     SchedulingEvidence,
     unevaluated_scheduling,
 )
-from legalforecast.multiharness.local_cli_scheduler import (
-    NullScheduler as NullScheduler,
-)
 from legalforecast.multiharness.process_containment import (
     ProcessContainmentError,
     ProcessContainmentHandle,
@@ -290,6 +287,7 @@ class ExecutionScheduler(Protocol):
 
     def before_execute(self, spec: LocalCliRunSpec) -> None:
         """Acquire any concurrency/cap slot."""
+        raise NotImplementedError
 
     def after_execute(
         self,
@@ -297,7 +295,7 @@ class ExecutionScheduler(Protocol):
         result: LocalCliExecutionResult,
     ) -> SchedulingEvidence | None:
         """Release the slot and return what actually happened."""
-        ...
+        raise NotImplementedError
 
 
 def execute_local_cli(
@@ -544,7 +542,8 @@ def _run_contained_cli(
     max_capture_bytes: int,
     observed: ObservedExecutableIdentity,
 ) -> LocalCliExecutionResult:
-    argv = spec.argv()
+    ensure_private_scratch_directory(scratch_root)
+    argv = observed.resolved_argv
     requested = spec.host_process_containment
     status = "launch_failed"
     exit_code: int | None = None
@@ -583,7 +582,7 @@ def _run_contained_cli(
                 try:
                     bind_executable_identity(
                         spec.manifest.executable,
-                        spec.argv(),
+                        observed.resolved_argv,
                         version_probe_args=spec.manifest.version_probe_args,
                         required_capabilities=spec.manifest.required_capabilities,
                         scratch_root=scratch_root,

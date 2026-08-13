@@ -299,6 +299,27 @@ def ensure_private_scratch_directory(path: Path) -> Path:
     return path
 
 
+def identity_probe_environment(
+    scratch_root: Path,
+    parent_env: Mapping[str, str],
+) -> dict[str, str]:
+    """Return a credential-free isolated env for version/capability probes."""
+
+    ensure_private_scratch_directory(scratch_root)
+    environment: dict[str, str] = {}
+    for name in _PASSTHROUGH_RUNTIME_ENV_VARS:
+        value = parent_env.get(name)
+        if value:
+            environment[name] = value
+    environment.setdefault("PATH", "/usr/bin")
+    environment.setdefault("LC_CTYPE", "C.UTF-8")
+    for name, relative_path in _MANAGED_RUNTIME_ENV_DIRS.items():
+        environment[name] = str(
+            _ensure_private_subdirectory(scratch_root, relative_path)
+        )
+    return environment
+
+
 def _wrapper_launch_environment(parent: Mapping[str, str]) -> dict[str, str]:
     environment = {
         name: parent[name] for name in _WRAPPER_LAUNCH_ENV_VARS if parent.get(name)

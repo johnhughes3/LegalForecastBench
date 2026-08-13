@@ -21,9 +21,13 @@ from legalforecast.multiharness.local_cli_runtime import (
     LocalCliExecutionService,
     LocalCliRunSpec,
     LocalCliRuntimeError,
-    NullScheduler,
     execute_local_cli,
     execution_receipt_from_runtime,
+)
+from legalforecast.multiharness.local_cli_scheduler import (
+    NullScheduler,
+    ScheduledSpec,
+    SchedulingEvidence,
 )
 from legalforecast.multiharness.spec import LINUX_SYSTEMD_SCOPE_CONTAINMENT
 
@@ -215,15 +219,16 @@ def test_scheduler_hooks_run_without_implementing_sequencing(tmp_path: Path) -> 
     events: list[str] = []
 
     class Recorder(NullScheduler):
-        def before_execute(self, spec: LocalCliRunSpec) -> None:
+        def before_execute(self, spec: ScheduledSpec) -> None:
             events.append(f"before:{spec.spec_id}")
 
         def after_execute(
             self,
-            spec: LocalCliRunSpec,
-            result: LocalCliExecutionResult,
-        ) -> object:
-            events.append(f"after:{spec.spec_id}:{result.status}")
+            spec: ScheduledSpec,
+            result: object,
+        ) -> SchedulingEvidence:
+            status = getattr(result, "status", "unknown")
+            events.append(f"after:{spec.spec_id}:{status}")
             return super().after_execute(spec, result)
 
     script = _write_script(tmp_path, "print('ok')")

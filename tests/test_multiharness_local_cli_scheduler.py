@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -123,7 +124,10 @@ def test_parallel_cap_allows_requested_concurrency(tmp_path: Path) -> None:
         }
         for record in records
     )
-    assert all(int(record["peak_concurrency"]) <= 2 for record in records)
+    for record in records:
+        peak = record["peak_concurrency"]
+        assert isinstance(peak, int)
+        assert peak <= 2
 
 
 def test_hard_cap_refuses_before_spawn(tmp_path: Path) -> None:
@@ -164,6 +168,47 @@ def test_receipt_records_requested_schedule(tmp_path: Path) -> None:
     assert public["observed_concurrency"] == 1
     assert public["peak_concurrency"] == 1
     assert public["divergence"] is None
+
+
+def test_parallel_cannot_join_inflight_serial(tmp_path: Path) -> None:
+    scheduler = LocalCliScheduler(max_concurrency=2)
+    script = _write_sleeper(tmp_path)
+    serial_done = threading.Event()
+
+    def _serial() -> None:
+        try:
+            execute_local_cli(
+                _spec(script, spec_id="serial", max_concurrency=1),
+                tmp_path / "scratch-serial",
+                scheduler=scheduler,
+                parent_env=_CANARY_ENV,
+            )
+        finally:
+            serial_done.set()
+
+    worker = threading.Thread(target=_serial)
+    worker.start()
+    try:
+        deadline = time.monotonic() + 2
+        while scheduler.peak_concurrency < 1:
+            if time.monotonic() > deadline:
+                raise AssertionError("serial run did not acquire a slot")
+            time.sleep(0.01)
+        with pytest.raises(LocalCliRuntimeError, match="over-subscribe"):
+            execute_local_cli(
+                _spec(
+                    script,
+                    spec_id="parallel",
+                    max_concurrency=2,
+                    ordering=ORDERING_PARALLEL,
+                ),
+                tmp_path / "scratch-parallel",
+                scheduler=scheduler,
+                parent_env=_CANARY_ENV,
+            )
+    finally:
+        worker.join(timeout=5)
+    assert serial_done.is_set()
 
 
 def _spec(
