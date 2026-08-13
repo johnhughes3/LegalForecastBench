@@ -1101,6 +1101,18 @@ def build_missing_document_acquisition_plan(
         extras = _record_list(record, "extra_selected", required=False)
         if recommendation == "keep" and (missing or byte_mismatches):
             raise MissingDocumentSuccessorError("keep row contains repair obligations")
+        if recommendation == "replace":
+            if missing or byte_mismatches:
+                raise MissingDocumentSuccessorError(
+                    "replace row contains repair obligations"
+                )
+            if _money_value(record.get("cost_usd"), "candidate cost") != Decimal(
+                "0.00"
+            ):
+                raise MissingDocumentSuccessorError(
+                    f"candidate cost does not reconcile: {candidate_id}"
+                )
+            continue
         if recommendation == "repair":
             repair_count += 1
         row_cost = Decimal("0.00")
