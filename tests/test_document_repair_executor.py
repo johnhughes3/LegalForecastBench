@@ -567,11 +567,27 @@ class _BoundAcquirer:
         self._callback = callback
 
     def __call__(self, operation):  # type: ignore[no-untyped-def]
+        if operation.route == "pacer_purchase":
+            self.journal.submit(operation.recap_document_id)
+            self.journal.confirm(
+                operation.recap_document_id,
+                response={"status": "confirmed"},
+                fees={"total_usd": "3.00"},
+            )
         return self._callback(operation)
 
 
 def _bound(runtime: DocumentRepairPurchaseRuntime, callback):  # type: ignore[no-untyped-def]
     return _BoundAcquirer(runtime, callback)
+
+
+class _UnknownBoundAcquirer(_BoundAcquirer):
+    def __call__(self, operation):  # type: ignore[no-untyped-def]
+        if operation.route == "pacer_purchase":
+            self.journal.submit(operation.recap_document_id)
+            self.journal.mark_unknown(operation.recap_document_id, "timeout")
+            return self._callback(operation)
+        return self._callback(operation)
 
 
 def test_purchase_policy_must_fit_exact_repair_ceiling(tmp_path: Path) -> None:
@@ -1150,7 +1166,7 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome(
     result = run_document_repair_execution(
         execution=execution,
         purchase_runtime=runtime,
-        acquire=_bound(runtime, acquire),
+        acquire=_UnknownBoundAcquirer(runtime, acquire),
         monotonic=lambda: next(ticks),
     )
 

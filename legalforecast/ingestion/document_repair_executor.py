@@ -584,6 +584,11 @@ def run_document_repair_execution(
         if duration < 0:
             raise DocumentRepairExecutorError("monotonic clock moved backwards")
         _validate_acquired_result(operation, result)
+        if operation.route == "pacer_purchase":
+            assert purchase_runtime is not None
+            result = _journal_authenticated_result(
+                operation, result, purchase_runtime.journal
+            )
         outcome = RepairOperationOutcome(
             candidate_id=operation.candidate_id,
             docket_entry_number=operation.docket_entry_number,
@@ -1257,6 +1262,45 @@ def _validate_acquired_result(
         raise DocumentRepairExecutorError(
             "non-included acquisition requires a specific reason"
         )
+
+
+def _journal_authenticated_result(
+    operation: ResolvedRepairOperation,
+    result: AcquiredRepairDocument,
+    journal: CaseDevPurchaseJournal,
+) -> AcquiredRepairDocument:
+    evidence = journal.operation_evidence(operation.recap_document_id)
+    if evidence is None or evidence.get("candidate_id") != operation.candidate_id:
+        raise DocumentRepairExecutorError(
+            "paid result lacks exact journal operation evidence"
+        )
+    status = evidence.get("status")
+    if status == "confirmed":
+        expected_dispositions = {"included", "excluded"}
+        cost = evidence.get("actual_usd") or evidence.get("reservation_usd")
+    elif status in {"submitted", "queued", "unknown"}:
+        expected_dispositions = {"unknown"}
+        cost = evidence.get("reservation_usd")
+    elif status == "failed":
+        expected_dispositions = {"provider_error"}
+        cost = "0.00"
+    else:
+        raise DocumentRepairExecutorError(
+            "paid callback did not produce a durable journal outcome"
+        )
+    if result.disposition not in expected_dispositions:
+        raise DocumentRepairExecutorError(
+            "paid callback disposition differs from journal evidence"
+        )
+    return AcquiredRepairDocument(
+        disposition=result.disposition,
+        source_document_id=result.source_document_id,
+        document_bytes=result.document_bytes,
+        committed_cost_usd=str(cost),
+        retry_count=result.retry_count,
+        reason=result.reason,
+        document_selector=result.document_selector,
+    )
 
 
 def _require_purchase_authority(
