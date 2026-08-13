@@ -1,0 +1,18 @@
+{
+  "adapter_id": "codex-cli-offline",
+  "adapter_version": "0.1.0",
+  "command": [
+    "python",
+    "-m",
+    "legalforecast.multiharness.codex_cli_cli"
+  ],
+  "contributors": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "adapter_author"
+    }
+  ],
+  "display_name": "Codex CLI Offline Adapter",
+  "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
+}
