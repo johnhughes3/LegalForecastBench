@@ -11,7 +11,9 @@ candidate in predecessor order.
 The live Cycle 1 pair is ``claim-ontology-v5`` unitizer plus
 ``claim-ontology-v4`` reviewer, bound to the shared provider caps digest and
 journal path. Terminal predecessor statuses are not retried when inputs
-match. Unknown rerun outcomes are permanently nonretryable and cannot seal.
+match. Unknown rerun outcomes stop later rerun callbacks, are permanently
+nonretryable, and cannot seal. Injected callbacks receive a replay-minted
+rerun request and must echo its digest.
 """
 
 from __future__ import annotations
@@ -22,7 +24,8 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from types import MappingProxyType
+from typing import Literal, cast
 
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
@@ -51,6 +54,7 @@ _TERMINAL_STATUSES = frozenset(
 _OUTCOME_STATUSES = _TERMINAL_STATUSES | {"unknown"}
 _PREDECESSOR_AUTHORITY = object()
 _PLAN_AUTHORITY = object()
+_REQUEST_AUTHORITY = object()
 _EXECUTION_AUTHORITY = object()
 _RECEIPT_AUTHORITY = object()
 
@@ -162,6 +166,7 @@ class StageAStageOutcome:
     records: tuple[Mapping[str, object], ...]
     audit: Mapping[str, object]
     status: StageStatus
+    request_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -279,10 +284,16 @@ class CandidateScopedStageAExecution:
             "plan_sha256": self.plan_sha256,
             "reused_candidate_ids": list(self.reused_candidate_ids),
             "rerun_candidate_ids": list(self.rerun_candidate_ids),
-            "unitize_records": [dict(record) for record in self.unitize_records],
-            "unitize_audits": [dict(record) for record in self.unitize_audits],
-            "review_flags": [dict(record) for record in self.review_flags],
-            "review_audits": [dict(record) for record in self.review_audits],
+            "unitize_records": [
+                _jsonable_mapping(record) for record in self.unitize_records
+            ],
+            "unitize_audits": [
+                _jsonable_mapping(record) for record in self.unitize_audits
+            ],
+            "review_flags": [_jsonable_mapping(record) for record in self.review_flags],
+            "review_audits": [
+                _jsonable_mapping(record) for record in self.review_audits
+            ],
             "timings": [
                 {
                     "candidate_id": timing.candidate_id,
@@ -355,10 +366,16 @@ class CandidateScopedStageAReceipt:
             "candidate_ids": list(self.candidate_ids),
             "reused_candidate_ids": list(self.reused_candidate_ids),
             "rerun_candidate_ids": list(self.rerun_candidate_ids),
-            "unitize_records": [dict(record) for record in self.unitize_records],
-            "unitize_audits": [dict(record) for record in self.unitize_audits],
-            "review_flags": [dict(record) for record in self.review_flags],
-            "review_audits": [dict(record) for record in self.review_audits],
+            "unitize_records": [
+                _jsonable_mapping(record) for record in self.unitize_records
+            ],
+            "unitize_audits": [
+                _jsonable_mapping(record) for record in self.unitize_audits
+            ],
+            "review_flags": [_jsonable_mapping(record) for record in self.review_flags],
+            "review_audits": [
+                _jsonable_mapping(record) for record in self.review_audits
+            ],
             "timings": [
                 {
                     "candidate_id": timing.candidate_id,
@@ -372,8 +389,46 @@ class CandidateScopedStageAReceipt:
         }
 
 
-UnitizerCallback = Callable[[str], StageAStageOutcome]
-ReviewerCallback = Callable[[str, StageAStageOutcome], StageAStageOutcome]
+@dataclass(frozen=True, slots=True, init=False)
+class CandidateScopedStageARerunRequest:
+    """Replay-minted successor packet and provider identity for one rerun."""
+
+    candidate_id: str
+    packet: CandidatePacketInput
+    packet_sha256: str
+    plan_sha256: str
+    unitizer_namespace: str
+    reviewer_namespace: str
+    provider_caps_sha256: str
+    provider_journal_path: Path
+    request_sha256: str
+    _mint: object
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise CandidateScopedStageAReplayError(
+            "candidate-scoped Stage A rerun request can be created only by "
+            "authenticated replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._mint is _REQUEST_AUTHORITY
+
+    def content_record(self) -> dict[str, object]:
+        return {
+            "candidate_id": self.candidate_id,
+            "packet_sha256": self.packet_sha256,
+            "plan_sha256": self.plan_sha256,
+            "unitizer_namespace": self.unitizer_namespace,
+            "reviewer_namespace": self.reviewer_namespace,
+            "provider_caps_sha256": self.provider_caps_sha256,
+            "provider_journal_path": os.path.abspath(self.provider_journal_path),
+        }
+
+
+UnitizerCallback = Callable[[CandidateScopedStageARerunRequest], StageAStageOutcome]
+ReviewerCallback = Callable[
+    [CandidateScopedStageARerunRequest, StageAStageOutcome], StageAStageOutcome
+]
 Clock = Callable[[], float]
 
 
@@ -408,7 +463,7 @@ def packet_input_identity_sha256(packet: CandidatePacketInput) -> str:
     payload = {
         "candidate_id": packet.candidate_id,
         "case_id": packet.case_id,
-        "selection": dict(packet.selection_record),
+        "selection": _jsonable_mapping(packet.selection_record),
         "documents": [
             {
                 "source_document_id": document.source_document_id,
@@ -639,11 +694,13 @@ def run_candidate_scoped_stage_a_replay(
         raise CandidateScopedStageAReplayError(
             "successor packets drifted from the minted candidate order"
         )
+    _require_plan_predecessor_payloads(plan)
     object.__setattr__(plan, "_consumed", True)
     tick = clock or time.monotonic
     predecessor_by_id = {
         prior.packet.candidate_id: prior for prior in plan.predecessor_candidates
     }
+    successor_by_id = {packet.candidate_id: packet for packet in plan.successor_packets}
     unitize_records: list[Mapping[str, object]] = []
     unitize_audits: list[Mapping[str, object]] = []
     review_flags: list[Mapping[str, object]] = []
@@ -651,13 +708,14 @@ def run_candidate_scoped_stage_a_replay(
     timings: list[CandidateStageATiming] = []
     statuses: list[tuple[str, StageStatus, StageStatus]] = []
     attempted: set[str] = set()
+    halt_reruns = False
     for decision in plan.decisions:
         prior = predecessor_by_id[decision.candidate_id]
         if decision.disposition == "reused":
-            unitize_records.append(dict(prior.unitize_record))
-            unitize_audits.append(dict(prior.unitize_audit))
-            review_flags.extend(dict(flag) for flag in prior.review_flags)
-            review_audits.append(dict(prior.review_audit))
+            unitize_records.append(_jsonable_mapping(prior.unitize_record))
+            unitize_audits.append(_jsonable_mapping(prior.unitize_audit))
+            review_flags.extend(_jsonable_mapping(flag) for flag in prior.review_flags)
+            review_audits.append(_jsonable_mapping(prior.review_audit))
             timings.append(
                 CandidateStageATiming(
                     candidate_id=decision.candidate_id,
@@ -671,18 +729,32 @@ def run_candidate_scoped_stage_a_replay(
                 (decision.candidate_id, prior.unitizer_status, prior.reviewer_status)
             )
             continue
+        if halt_reruns:
+            _append_unattempted_after_unknown(
+                decision.candidate_id,
+                unitize_records=unitize_records,
+                unitize_audits=unitize_audits,
+                review_audits=review_audits,
+                timings=timings,
+                statuses=statuses,
+            )
+            continue
         if decision.candidate_id in attempted:
             raise CandidateScopedStageAReplayError(
                 f"rerun candidate was retried: {decision.candidate_id}"
             )
         attempted.add(decision.candidate_id)
+        request = _mint_rerun_request(
+            plan, successor_by_id[decision.candidate_id], decision=decision
+        )
         started = tick()
-        unitize_outcome = unitizer(decision.candidate_id)
+        unitize_outcome = unitizer(request)
         after_unitizer = tick()
-        _require_outcome(unitize_outcome, decision.candidate_id, stage="unitizer")
-        if unitize_outcome.status == "unknown":
-            unitize_records.append(_single_record(unitize_outcome, "unitizer"))
-            unitize_audits.append(dict(unitize_outcome.audit))
+        _require_outcome(unitize_outcome, request, stage="unitizer")
+        retained_unitize = _snapshot_outcome(unitize_outcome)
+        if retained_unitize.status == "unknown":
+            unitize_records.append(_single_record(retained_unitize, "unitizer"))
+            unitize_audits.append(_jsonable_mapping(retained_unitize.audit))
             timings.append(
                 CandidateStageATiming(
                     candidate_id=decision.candidate_id,
@@ -693,14 +765,16 @@ def run_candidate_scoped_stage_a_replay(
                 )
             )
             statuses.append((decision.candidate_id, "unknown", "unknown"))
+            halt_reruns = True
             continue
-        if unitize_outcome.status in {"reconstruction_failed", "terminal_escalation"}:
-            unitize_records.append(_single_record(unitize_outcome, "unitizer"))
-            unitize_audits.append(dict(unitize_outcome.audit))
+        if retained_unitize.status in {"reconstruction_failed", "terminal_escalation"}:
+            unitize_records.append(_single_record(retained_unitize, "unitizer"))
+            unitize_audits.append(_jsonable_mapping(retained_unitize.audit))
             review_audits.append(
                 {
                     "candidate_id": decision.candidate_id,
-                    "status": "not_attempted_after_unitizer_terminal",
+                    "status": retained_unitize.status,
+                    "reviewer": "not_attempted_after_unitizer_terminal",
                 }
             )
             timings.append(
@@ -713,16 +787,22 @@ def run_candidate_scoped_stage_a_replay(
                 )
             )
             statuses.append(
-                (decision.candidate_id, unitize_outcome.status, unitize_outcome.status)
+                (
+                    decision.candidate_id,
+                    retained_unitize.status,
+                    retained_unitize.status,
+                )
             )
             continue
-        review_outcome = reviewer(decision.candidate_id, unitize_outcome)
+        review_outcome = reviewer(request, _mutable_outcome(retained_unitize))
         finished = tick()
-        _require_outcome(review_outcome, decision.candidate_id, stage="reviewer")
-        unitize_records.append(_single_record(unitize_outcome, "unitizer"))
-        unitize_audits.append(dict(unitize_outcome.audit))
-        review_flags.extend(dict(record) for record in review_outcome.records)
-        review_audits.append(dict(review_outcome.audit))
+        _require_outcome(review_outcome, request, stage="reviewer")
+        unitize_records.append(_single_record(retained_unitize, "unitizer"))
+        unitize_audits.append(_jsonable_mapping(retained_unitize.audit))
+        review_flags.extend(
+            _jsonable_mapping(record) for record in review_outcome.records
+        )
+        review_audits.append(_jsonable_mapping(review_outcome.audit))
         timings.append(
             CandidateStageATiming(
                 candidate_id=decision.candidate_id,
@@ -733,8 +813,10 @@ def run_candidate_scoped_stage_a_replay(
             )
         )
         statuses.append(
-            (decision.candidate_id, unitize_outcome.status, review_outcome.status)
+            (decision.candidate_id, retained_unitize.status, review_outcome.status)
         )
+        if review_outcome.status == "unknown":
+            halt_reruns = True
     provisional = _mint_execution(
         plan_sha256=plan.plan_sha256,
         reused_candidate_ids=plan.reused_candidate_ids,
@@ -867,10 +949,10 @@ def _predecessor_candidate_record(
         "packet_sha256": packet_input_identity_sha256(candidate.packet),
         "candidate_id": candidate.packet.candidate_id,
         "case_id": candidate.packet.case_id,
-        "unitize_record": dict(candidate.unitize_record),
-        "unitize_audit": dict(candidate.unitize_audit),
-        "review_flags": [dict(flag) for flag in candidate.review_flags],
-        "review_audit": dict(candidate.review_audit),
+        "unitize_record": _jsonable_mapping(candidate.unitize_record),
+        "unitize_audit": _jsonable_mapping(candidate.unitize_audit),
+        "review_flags": [_jsonable_mapping(flag) for flag in candidate.review_flags],
+        "review_audit": _jsonable_mapping(candidate.review_audit),
         "unitizer_status": candidate.unitizer_status,
         "reviewer_status": candidate.reviewer_status,
     }
@@ -880,20 +962,197 @@ def _freeze_predecessor_candidate(
     prior: PredecessorCandidateStageA,
 ) -> PredecessorCandidateStageA:
     return PredecessorCandidateStageA(
-        packet=CandidatePacketInput(
-            candidate_id=prior.packet.candidate_id,
-            case_id=prior.packet.case_id,
-            selection_record=dict(prior.packet.selection_record),
-            documents=prior.packet.documents,
-            parser_outputs=prior.packet.parser_outputs,
-        ),
-        unitize_record=dict(prior.unitize_record),
-        unitize_audit=dict(prior.unitize_audit),
-        review_flags=tuple(dict(flag) for flag in prior.review_flags),
-        review_audit=dict(prior.review_audit),
+        packet=_freeze_packet(prior.packet),
+        unitize_record=_freeze_mapping(prior.unitize_record),
+        unitize_audit=_freeze_mapping(prior.unitize_audit),
+        review_flags=tuple(_freeze_mapping(flag) for flag in prior.review_flags),
+        review_audit=_freeze_mapping(prior.review_audit),
         unitizer_status=prior.unitizer_status,
         reviewer_status=prior.reviewer_status,
     )
+
+
+def _freeze_packet(packet: CandidatePacketInput) -> CandidatePacketInput:
+    return CandidatePacketInput(
+        candidate_id=packet.candidate_id,
+        case_id=packet.case_id,
+        selection_record=_freeze_mapping(packet.selection_record),
+        documents=packet.documents,
+        parser_outputs=packet.parser_outputs,
+    )
+
+
+def _freeze_mapping(value: Mapping[str, object]) -> Mapping[str, object]:
+    copied = _require_str_mapping(value)
+    return MappingProxyType({key: _freeze_value(item) for key, item in copied.items()})
+
+
+def _freeze_value(value: object) -> object:
+    copied = _copy_str_mapping(value)
+    if copied is not None:
+        return MappingProxyType(
+            {key: _freeze_value(item) for key, item in copied.items()}
+        )
+    sequence = _sequence_items(value)
+    if sequence is not None:
+        return tuple(_freeze_value(item) for item in sequence)
+    return value
+
+
+def _jsonable_mapping(value: Mapping[str, object]) -> dict[str, object]:
+    copied = _require_str_mapping(value)
+    return {key: _jsonable_value(item) for key, item in copied.items()}
+
+
+def _jsonable_value(value: object) -> object:
+    copied = _copy_str_mapping(value)
+    if copied is not None:
+        return {key: _jsonable_value(item) for key, item in copied.items()}
+    sequence = _sequence_items(value)
+    if sequence is not None:
+        return [_jsonable_value(item) for item in sequence]
+    return value
+
+
+def _require_str_mapping(value: Mapping[str, object]) -> dict[str, object]:
+    copied = _copy_str_mapping(value)
+    if copied is None:
+        raise CandidateScopedStageAReplayError("payload is not a mapping")
+    return copied
+
+
+def _copy_str_mapping(value: object) -> dict[str, object] | None:
+    if not isinstance(value, Mapping):
+        return None
+    typed = cast(Mapping[object, object], value)
+    copied: dict[str, object] = {}
+    for raw_key in typed:
+        if not isinstance(raw_key, str):
+            raise CandidateScopedStageAReplayError("mapping key is not a string")
+        copied[raw_key] = typed[raw_key]
+    return copied
+
+
+def _sequence_items(value: object) -> tuple[object, ...] | None:
+    if isinstance(value, list):
+        return tuple(cast(list[object], value))
+    if isinstance(value, tuple):
+        return cast(tuple[object, ...], value)
+    return None
+
+
+def _snapshot_outcome(outcome: StageAStageOutcome) -> StageAStageOutcome:
+    return StageAStageOutcome(
+        candidate_id=outcome.candidate_id,
+        records=tuple(_freeze_mapping(record) for record in outcome.records),
+        audit=_freeze_mapping(outcome.audit),
+        status=outcome.status,
+        request_sha256=outcome.request_sha256,
+    )
+
+
+def _mutable_outcome(outcome: StageAStageOutcome) -> StageAStageOutcome:
+    return StageAStageOutcome(
+        candidate_id=outcome.candidate_id,
+        records=tuple(_jsonable_mapping(record) for record in outcome.records),
+        audit=_jsonable_mapping(outcome.audit),
+        status=outcome.status,
+        request_sha256=outcome.request_sha256,
+    )
+
+
+def _require_plan_predecessor_payloads(plan: CandidateScopedStageAPlan) -> None:
+    payload = {
+        "candidates": [
+            _predecessor_candidate_record(candidate)
+            for candidate in plan.predecessor_candidates
+        ],
+        "unitizer_namespace": plan.unitizer_namespace,
+        "reviewer_namespace": plan.reviewer_namespace,
+        "provider_caps_sha256": plan.provider_caps_sha256,
+        "provider_journal_path": os.path.abspath(plan.provider_journal_path),
+        "selection_sha256": plan.predecessor_selection_sha256,
+        "materialization_sha256": plan.predecessor_materialization_sha256,
+        "parser_sha256": plan.predecessor_parser_sha256,
+    }
+    if (
+        _commit(payload, CANDIDATE_SCOPED_STAGE_A_REPLAY_V1)
+        != plan.predecessor_lineage_sha256
+    ):
+        raise CandidateScopedStageAReplayError(
+            "predecessor payloads changed after classification"
+        )
+
+
+def _mint_rerun_request(
+    plan: CandidateScopedStageAPlan,
+    packet: CandidatePacketInput,
+    *,
+    decision: CandidateReplayDecision,
+) -> CandidateScopedStageARerunRequest:
+    if packet.candidate_id != decision.candidate_id:
+        raise CandidateScopedStageAReplayError(
+            "successor packet candidate_id differs from the planned rerun"
+        )
+    packet_sha256 = packet_input_identity_sha256(packet)
+    if packet_sha256 != decision.successor_packet_sha256:
+        raise CandidateScopedStageAReplayError(
+            "successor packet identity drifted from the minted plan"
+        )
+    provisional = _mint_request(
+        candidate_id=decision.candidate_id,
+        packet=_freeze_packet(packet),
+        packet_sha256=packet_sha256,
+        plan_sha256=plan.plan_sha256,
+        unitizer_namespace=plan.unitizer_namespace,
+        reviewer_namespace=plan.reviewer_namespace,
+        provider_caps_sha256=plan.provider_caps_sha256,
+        provider_journal_path=plan.provider_journal_path,
+        request_sha256="",
+    )
+    return _mint_request(
+        candidate_id=provisional.candidate_id,
+        packet=provisional.packet,
+        packet_sha256=provisional.packet_sha256,
+        plan_sha256=provisional.plan_sha256,
+        unitizer_namespace=provisional.unitizer_namespace,
+        reviewer_namespace=provisional.reviewer_namespace,
+        provider_caps_sha256=provisional.provider_caps_sha256,
+        provider_journal_path=provisional.provider_journal_path,
+        request_sha256=_commit(
+            provisional.content_record(),
+            CANDIDATE_SCOPED_STAGE_A_REPLAY_V1,
+        ),
+    )
+
+
+def _append_unattempted_after_unknown(
+    candidate_id: str,
+    *,
+    unitize_records: list[Mapping[str, object]],
+    unitize_audits: list[Mapping[str, object]],
+    review_audits: list[Mapping[str, object]],
+    timings: list[CandidateStageATiming],
+    statuses: list[tuple[str, StageStatus, StageStatus]],
+) -> None:
+    unitize_records.append({"candidate_id": candidate_id})
+    unitize_audits.append({"candidate_id": candidate_id, "status": "unknown"})
+    review_audits.append(
+        {
+            "candidate_id": candidate_id,
+            "status": "not_attempted_after_unknown",
+        }
+    )
+    timings.append(
+        CandidateStageATiming(
+            candidate_id=candidate_id,
+            disposition="rerun",
+            elapsed_ms=0,
+            unitizer_elapsed_ms=0,
+            reviewer_elapsed_ms=0,
+        )
+    )
+    statuses.append((candidate_id, "unknown", "unknown"))
 
 
 def _require_nested_candidate(
@@ -1004,25 +1263,34 @@ def _require_successor_packets(
             "successor packets must cover the predecessor candidates "
             "without subsetting or hand-authoring the exact-100 lineage"
         )
-    return {packet.candidate_id: packet for packet in packets}
+    return {packet.candidate_id: _freeze_packet(packet) for packet in packets}
 
 
 def _require_outcome(
-    outcome: StageAStageOutcome, candidate_id: str, *, stage: str
+    outcome: StageAStageOutcome,
+    request: CandidateScopedStageARerunRequest,
+    *,
+    stage: str,
 ) -> None:
-    if outcome.candidate_id != candidate_id:
+    if outcome.candidate_id != request.candidate_id:
         raise CandidateScopedStageAReplayError(
             f"{stage} outcome candidate_id differs from the planned rerun"
+        )
+    if outcome.request_sha256 != request.request_sha256:
+        raise CandidateScopedStageAReplayError(
+            f"{stage} outcome request digest differs from the minted rerun request"
         )
     _require_status(outcome.status, f"{stage} status")
     for record in outcome.records:
         _require_nested_candidate(
             record,
-            candidate_id,
+            request.candidate_id,
             label=f"{stage} record",
             required=stage == "unitizer",
         )
-    _require_nested_candidate(outcome.audit, candidate_id, label=f"{stage} audit")
+    _require_nested_candidate(
+        outcome.audit, request.candidate_id, label=f"{stage} audit"
+    )
     _require_nested_status(outcome.audit, outcome.status, label=f"{stage} audit")
     if (
         stage == "unitizer"
@@ -1039,7 +1307,7 @@ def _single_record(outcome: StageAStageOutcome, stage: str) -> Mapping[str, obje
         raise CandidateScopedStageAReplayError(
             f"{stage} outcome must contain one candidate envelope"
         )
-    return dict(outcome.records[0])
+    return _jsonable_mapping(outcome.records[0])
 
 
 def _require_replay_minted_plan(plan: CandidateScopedStageAPlan) -> None:
@@ -1122,6 +1390,13 @@ def _mint_plan(**fields: object) -> CandidateScopedStageAPlan:
     for name, value in (*fields.items(), ("_mint", _PLAN_AUTHORITY)):
         object.__setattr__(plan, name, value)
     return plan
+
+
+def _mint_request(**fields: object) -> CandidateScopedStageARerunRequest:
+    request = object.__new__(CandidateScopedStageARerunRequest)
+    for name, value in (*fields.items(), ("_mint", _REQUEST_AUTHORITY)):
+        object.__setattr__(request, name, value)
+    return request
 
 
 def _mint_execution(**fields: object) -> CandidateScopedStageAExecution:

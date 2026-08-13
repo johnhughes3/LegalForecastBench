@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from pathlib import Path
+from typing import cast
 
 import pytest
 from legalforecast.contracts import (
@@ -20,6 +22,7 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
     CandidateScopedStageAPlan,
     CandidateScopedStageAReceipt,
     CandidateScopedStageAReplayError,
+    CandidateScopedStageARerunRequest,
     PacketDocument,
     ParserOutputIdentity,
     PredecessorCandidateStageA,
@@ -60,8 +63,10 @@ def test_unchanged_packets_reuse_prior_stage_a_without_executor_calls(
     plan = _plan(tmp_path, predecessor, successor_packets=_packets())
     calls: list[str] = []
 
-    def forbidden(candidate_id: str, *_args: object) -> StageAStageOutcome:
-        calls.append(candidate_id)
+    def forbidden(
+        request: CandidateScopedStageARerunRequest, *_args: object
+    ) -> StageAStageOutcome:
+        calls.append(request.candidate_id)
         raise AssertionError("reuse must not invoke unitizer or reviewer")
 
     monkeypatch.setattr(
@@ -81,7 +86,9 @@ def test_unchanged_packets_reuse_prior_stage_a_without_executor_calls(
         "cand-b",
         "cand-c",
     ]
-    assert receipt.unitize_records[0] == predecessor.candidates[0].unitize_record
+    assert _prediction_units(receipt.unitize_records[0]) == _prediction_units(
+        predecessor.candidates[0].unitize_record
+    )
     assert all(timing.elapsed_ms == 0 for timing in receipt.timings)
     assert receipt.provider_journal_path == predecessor.provider_journal_path
 
@@ -94,13 +101,15 @@ def test_changed_packet_reruns_only_that_candidate(tmp_path: Path) -> None:
     unitizer_calls: list[str] = []
     reviewer_calls: list[str] = []
 
-    def unitizer(candidate_id: str) -> StageAStageOutcome:
-        unitizer_calls.append(candidate_id)
-        return _unitize_outcome(candidate_id, units=["rerun-unit"])
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        unitizer_calls.append(request.candidate_id)
+        return _unitize_outcome(request, units=["rerun-unit"])
 
-    def reviewer(candidate_id: str, _unitize: StageAStageOutcome) -> StageAStageOutcome:
-        reviewer_calls.append(candidate_id)
-        return _review_outcome(candidate_id, flags=[{"flag": "ok"}])
+    def reviewer(
+        request: CandidateScopedStageARerunRequest, _unitize: StageAStageOutcome
+    ) -> StageAStageOutcome:
+        reviewer_calls.append(request.candidate_id)
+        return _review_outcome(request, flags=[{"flag": "ok"}])
 
     execution = run_candidate_scoped_stage_a_replay(
         plan, unitizer=unitizer, reviewer=reviewer, clock=_Clock()
@@ -111,9 +120,13 @@ def test_changed_packet_reruns_only_that_candidate(tmp_path: Path) -> None:
     assert plan.rerun_candidate_ids == ("cand-b",)
     assert unitizer_calls == ["cand-b"]
     assert reviewer_calls == ["cand-b"]
-    assert receipt.unitize_records[0] == predecessor.candidates[0].unitize_record
+    assert _prediction_units(receipt.unitize_records[0]) == _prediction_units(
+        predecessor.candidates[0].unitize_record
+    )
     assert receipt.unitize_records[1]["prediction_units"] == ["rerun-unit"]
-    assert receipt.unitize_records[2] == predecessor.candidates[2].unitize_record
+    assert _prediction_units(receipt.unitize_records[2]) == _prediction_units(
+        predecessor.candidates[2].unitize_record
+    )
     assert {"flag": "ok"} in [dict(flag) for flag in receipt.review_flags]
     timing = next(item for item in receipt.timings if item.candidate_id == "cand-b")
     assert timing.disposition == "rerun"
@@ -196,9 +209,11 @@ def test_terminal_predecessor_is_not_retried_when_inputs_match(tmp_path: Path) -
     plan = _plan(tmp_path, predecessor)
     calls: list[str] = []
 
-    def spy(candidate_id: str, *_args: object) -> StageAStageOutcome:
-        calls.append(candidate_id)
-        return _unitize_outcome(candidate_id)
+    def spy(
+        request: CandidateScopedStageARerunRequest, *_args: object
+    ) -> StageAStageOutcome:
+        calls.append(request.candidate_id)
+        return _unitize_outcome(request)
 
     execution = run_candidate_scoped_stage_a_replay(
         plan, unitizer=spy, reviewer=spy, clock=_Clock()
@@ -216,13 +231,15 @@ def test_changed_terminal_candidate_is_rerun(tmp_path: Path) -> None:
     plan = _plan(tmp_path, predecessor, successor_packets=successor)
     calls: list[str] = []
 
-    def unitizer(candidate_id: str) -> StageAStageOutcome:
-        calls.append(f"unitize:{candidate_id}")
-        return _unitize_outcome(candidate_id, units=["fresh"])
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        calls.append(f"unitize:{request.candidate_id}")
+        return _unitize_outcome(request, units=["fresh"])
 
-    def reviewer(candidate_id: str, _unitize: StageAStageOutcome) -> StageAStageOutcome:
-        calls.append(f"review:{candidate_id}")
-        return _review_outcome(candidate_id)
+    def reviewer(
+        request: CandidateScopedStageARerunRequest, _unitize: StageAStageOutcome
+    ) -> StageAStageOutcome:
+        calls.append(f"review:{request.candidate_id}")
+        return _review_outcome(request)
 
     execution = run_candidate_scoped_stage_a_replay(
         plan, unitizer=unitizer, reviewer=reviewer, clock=_Clock()
@@ -240,18 +257,21 @@ def test_unknown_rerun_outcome_is_nonretryable_and_unsealed(tmp_path: Path) -> N
     unitizer_calls: list[str] = []
     reviewer_calls: list[str] = []
 
-    def unitizer(candidate_id: str) -> StageAStageOutcome:
-        unitizer_calls.append(candidate_id)
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        unitizer_calls.append(request.candidate_id)
         return StageAStageOutcome(
-            candidate_id=candidate_id,
-            records=({"candidate_id": candidate_id, "prediction_units": []},),
-            audit={"candidate_id": candidate_id, "status": "unknown"},
+            candidate_id=request.candidate_id,
+            records=({"candidate_id": request.candidate_id, "prediction_units": []},),
+            audit={"candidate_id": request.candidate_id, "status": "unknown"},
             status="unknown",
+            request_sha256=request.request_sha256,
         )
 
-    def reviewer(candidate_id: str, _unitize: StageAStageOutcome) -> StageAStageOutcome:
-        reviewer_calls.append(candidate_id)
-        return _review_outcome(candidate_id)
+    def reviewer(
+        request: CandidateScopedStageARerunRequest, _unitize: StageAStageOutcome
+    ) -> StageAStageOutcome:
+        reviewer_calls.append(request.candidate_id)
+        return _review_outcome(request)
 
     execution = run_candidate_scoped_stage_a_replay(
         plan, unitizer=unitizer, reviewer=reviewer, clock=_Clock()
@@ -276,12 +296,13 @@ def test_mutated_execution_payloads_cannot_seal(tmp_path: Path) -> None:
     plan = _plan(tmp_path, predecessor, successor_packets=successor)
     execution = run_candidate_scoped_stage_a_replay(
         plan,
-        unitizer=lambda candidate_id: _unitize_outcome(candidate_id, units=["fresh"]),
-        reviewer=lambda candidate_id, _unitize: _review_outcome(candidate_id),
+        unitizer=lambda request: _unitize_outcome(request, units=["fresh"]),
+        reviewer=lambda request, _unitize: _review_outcome(request),
         clock=_Clock(),
     )
-    dict(execution.unitize_records[0])  # mapping is the stored dict
-    execution.unitize_records[0]["prediction_units"] = ["tampered"]
+    record = execution.unitize_records[0]
+    assert isinstance(record, dict)
+    record["prediction_units"] = ["tampered"]
     with pytest.raises(
         CandidateScopedStageAReplayError, match="execution payloads changed"
     ):
@@ -294,12 +315,13 @@ def test_outcome_record_candidate_mismatch_is_rejected(tmp_path: Path) -> None:
     successor[0] = _packet("cand-a", digest=_DIGEST_C)
     plan = _plan(tmp_path, predecessor, successor_packets=successor)
 
-    def unitizer(candidate_id: str) -> StageAStageOutcome:
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
         return StageAStageOutcome(
-            candidate_id=candidate_id,
+            candidate_id=request.candidate_id,
             records=({"candidate_id": "cand-b", "prediction_units": ["x"]},),
-            audit={"candidate_id": candidate_id, "status": "settled"},
+            audit={"candidate_id": request.candidate_id, "status": "settled"},
             status="settled",
+            request_sha256=request.request_sha256,
         )
 
     with pytest.raises(
@@ -308,7 +330,7 @@ def test_outcome_record_candidate_mismatch_is_rejected(tmp_path: Path) -> None:
         run_candidate_scoped_stage_a_replay(
             plan,
             unitizer=unitizer,
-            reviewer=lambda candidate_id, _unitize: _review_outcome(candidate_id),
+            reviewer=lambda request, _unitize: _review_outcome(request),
             clock=_Clock(),
         )
 
@@ -319,12 +341,15 @@ def test_outcome_audit_status_mismatch_is_rejected(tmp_path: Path) -> None:
     successor[0] = _packet("cand-a", digest=_DIGEST_C)
     plan = _plan(tmp_path, predecessor, successor_packets=successor)
 
-    def unitizer(candidate_id: str) -> StageAStageOutcome:
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
         return StageAStageOutcome(
-            candidate_id=candidate_id,
-            records=({"candidate_id": candidate_id, "prediction_units": ["x"]},),
-            audit={"candidate_id": candidate_id, "status": "unknown"},
+            candidate_id=request.candidate_id,
+            records=(
+                {"candidate_id": request.candidate_id, "prediction_units": ["x"]},
+            ),
+            audit={"candidate_id": request.candidate_id, "status": "unknown"},
             status="settled",
+            request_sha256=request.request_sha256,
         )
 
     with pytest.raises(
@@ -333,7 +358,7 @@ def test_outcome_audit_status_mismatch_is_rejected(tmp_path: Path) -> None:
         run_candidate_scoped_stage_a_replay(
             plan,
             unitizer=unitizer,
-            reviewer=lambda candidate_id, _unitize: _review_outcome(candidate_id),
+            reviewer=lambda request, _unitize: _review_outcome(request),
             clock=_Clock(),
         )
 
@@ -347,6 +372,228 @@ def test_plan_and_receipt_constructors_are_sealed() -> None:
         CandidateScopedStageAExecution()
     with pytest.raises(CandidateScopedStageAReplayError, match="authenticated replay"):
         CandidateScopedStageAReceipt()
+    with pytest.raises(CandidateScopedStageAReplayError, match="authenticated replay"):
+        CandidateScopedStageARerunRequest()
+
+
+def test_mutated_predecessor_payloads_cannot_run(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    plan = _plan(tmp_path, predecessor)
+    original = plan.predecessor_candidates[0]
+    object.__setattr__(
+        plan,
+        "predecessor_candidates",
+        (
+            PredecessorCandidateStageA(
+                packet=original.packet,
+                unitize_record={
+                    "candidate_id": original.packet.candidate_id,
+                    "prediction_units": ["tampered"],
+                },
+                unitize_audit=dict(original.unitize_audit),
+                review_flags=original.review_flags,
+                review_audit=dict(original.review_audit),
+                unitizer_status=original.unitizer_status,
+                reviewer_status=original.reviewer_status,
+            ),
+            *plan.predecessor_candidates[1:],
+        ),
+    )
+    with pytest.raises(
+        CandidateScopedStageAReplayError, match="predecessor payloads changed"
+    ):
+        run_candidate_scoped_stage_a_replay(
+            plan,
+            unitizer=lambda request: _unitize_outcome(request),
+            reviewer=lambda request, _unitize: _review_outcome(request),
+            clock=_Clock(),
+        )
+
+
+def test_unknown_stops_later_rerun_callbacks(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    successor[2] = _packet("cand-c", digest=_DIGEST_B)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+    unitizer_calls: list[str] = []
+    reviewer_calls: list[str] = []
+
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        unitizer_calls.append(request.candidate_id)
+        if request.candidate_id == "cand-a":
+            return StageAStageOutcome(
+                candidate_id=request.candidate_id,
+                records=(
+                    {"candidate_id": request.candidate_id, "prediction_units": []},
+                ),
+                audit={"candidate_id": request.candidate_id, "status": "unknown"},
+                status="unknown",
+                request_sha256=request.request_sha256,
+            )
+        return _unitize_outcome(request)
+
+    def reviewer(
+        request: CandidateScopedStageARerunRequest, _unitize: StageAStageOutcome
+    ) -> StageAStageOutcome:
+        reviewer_calls.append(request.candidate_id)
+        return _review_outcome(request)
+
+    execution = run_candidate_scoped_stage_a_replay(
+        plan, unitizer=unitizer, reviewer=reviewer, clock=_Clock()
+    )
+    assert unitizer_calls == ["cand-a"]
+    assert reviewer_calls == []
+    assert execution.statuses[2] == ("cand-c", "unknown", "unknown")
+    with pytest.raises(
+        CandidateScopedStageAReplayError, match="unknown Stage A outcome"
+    ):
+        seal_candidate_scoped_stage_a_replay(plan, execution)
+
+
+def test_reviewer_cannot_mutate_retained_unitizer_outcome(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+
+    def reviewer(
+        request: CandidateScopedStageARerunRequest, unitize: StageAStageOutcome
+    ) -> StageAStageOutcome:
+        envelope = unitize.records[0]
+        audit = unitize.audit
+        assert isinstance(envelope, dict)
+        assert isinstance(audit, dict)
+        envelope["prediction_units"] = ["mutated-by-reviewer"]
+        audit["status"] = "unknown"
+        return _review_outcome(request)
+
+    execution = run_candidate_scoped_stage_a_replay(
+        plan,
+        unitizer=lambda request: _unitize_outcome(request, units=["fresh"]),
+        reviewer=reviewer,
+        clock=_Clock(),
+    )
+    receipt = seal_candidate_scoped_stage_a_replay(plan, execution)
+    assert _prediction_units(receipt.unitize_records[0]) == ["fresh"]
+    assert receipt.unitize_audits[0]["status"] == "settled"
+
+
+def test_callbacks_bind_authenticated_rerun_request(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[1] = _packet("cand-b", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+    seen: list[CandidateScopedStageARerunRequest] = []
+
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        seen.append(request)
+        return _unitize_outcome(request, units=["bound"])
+
+    def reviewer(
+        request: CandidateScopedStageARerunRequest, _unitize: StageAStageOutcome
+    ) -> StageAStageOutcome:
+        assert request.request_sha256 == seen[0].request_sha256
+        return _review_outcome(request)
+
+    execution = run_candidate_scoped_stage_a_replay(
+        plan, unitizer=unitizer, reviewer=reviewer, clock=_Clock()
+    )
+    receipt = seal_candidate_scoped_stage_a_replay(plan, execution)
+    request = seen[0]
+    assert request.candidate_id == "cand-b"
+    assert request.packet_sha256 == plan.decisions[1].successor_packet_sha256
+    assert request.plan_sha256 == plan.plan_sha256
+    assert request.provider_caps_sha256 == _CAPS
+    assert request.provider_journal_path == Path(
+        os.path.abspath(tmp_path / "provider.sqlite3")
+    )
+    assert request.unitizer_namespace == UNITIZER_NAMESPACE
+    assert request.reviewer_namespace == REVIEWER_NAMESPACE
+    assert receipt.unitize_records[1]["prediction_units"] == ["bound"]
+
+
+def test_outcome_request_digest_mismatch_is_rejected(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        return StageAStageOutcome(
+            candidate_id=request.candidate_id,
+            records=(
+                {"candidate_id": request.candidate_id, "prediction_units": ["x"]},
+            ),
+            audit={"candidate_id": request.candidate_id, "status": "settled"},
+            status="settled",
+            request_sha256="0" * 64,
+        )
+
+    with pytest.raises(CandidateScopedStageAReplayError, match="request digest"):
+        run_candidate_scoped_stage_a_replay(
+            plan,
+            unitizer=unitizer,
+            reviewer=lambda request, _unitize: _review_outcome(request),
+            clock=_Clock(),
+        )
+
+
+def test_terminal_unitizer_rerun_can_rebind_as_predecessor(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[1] = _packet("cand-b", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        if request.candidate_id != "cand-b":
+            return _unitize_outcome(request)
+        return StageAStageOutcome(
+            candidate_id=request.candidate_id,
+            records=({"candidate_id": request.candidate_id, "prediction_units": []},),
+            audit={
+                "candidate_id": request.candidate_id,
+                "status": "terminal_escalation",
+            },
+            status="terminal_escalation",
+            request_sha256=request.request_sha256,
+        )
+
+    execution = run_candidate_scoped_stage_a_replay(
+        plan,
+        unitizer=unitizer,
+        reviewer=lambda request, _unitize: _review_outcome(request),
+        clock=_Clock(),
+    )
+    receipt = seal_candidate_scoped_stage_a_replay(plan, execution)
+    rebound = bind_predecessor_stage_a_lineage(
+        candidates=tuple(
+            PredecessorCandidateStageA(
+                packet=packet,
+                unitize_record=dict(receipt.unitize_records[index]),
+                unitize_audit=dict(receipt.unitize_audits[index]),
+                review_flags=tuple(
+                    dict(flag)
+                    for flag in receipt.review_flags
+                    if dict(flag).get("candidate_id") == packet.candidate_id
+                ),
+                review_audit=dict(receipt.review_audits[index]),
+                unitizer_status=execution.statuses[index][1],
+                reviewer_status=execution.statuses[index][2],
+            )
+            for index, packet in enumerate(successor)
+        ),
+        unitizer_namespace=UNITIZER_NAMESPACE,
+        reviewer_namespace=REVIEWER_NAMESPACE,
+        provider_caps_sha256=_CAPS,
+        provider_journal_path=tmp_path / "provider.sqlite3",
+        selection_sha256=_SUCCESSOR_SELECTION,
+        materialization_sha256=_SUCCESSOR_MATERIALIZATION,
+        parser_sha256=_SUCCESSOR_PARSER,
+    )
+    assert rebound.candidates[1].unitizer_status == "terminal_escalation"
+    assert rebound.candidates[1].reviewer_status == "terminal_escalation"
+    assert rebound.candidates[1].review_audit["status"] == "terminal_escalation"
 
 
 def test_packet_identity_is_stable_and_role_sensitive() -> None:
@@ -386,8 +633,8 @@ def test_sealed_receipt_binds_successor_lineage_and_shared_journal(
     plan = _plan(tmp_path, predecessor, successor_packets=successor)
     execution = run_candidate_scoped_stage_a_replay(
         plan,
-        unitizer=lambda candidate_id: _unitize_outcome(candidate_id, units=["c"]),
-        reviewer=lambda candidate_id, _unitize: _review_outcome(candidate_id),
+        unitizer=lambda request: _unitize_outcome(request, units=["c"]),
+        reviewer=lambda request, _unitize: _review_outcome(request),
         clock=_Clock(),
     )
     receipt = seal_candidate_scoped_stage_a_replay(plan, execution)
@@ -426,7 +673,7 @@ def _plan(
 def _lineage(
     tmp_path: Path, *, terminal_ids: tuple[str, ...] = ()
 ) -> PredecessorStageALineage:
-    candidates = []
+    candidates: list[PredecessorCandidateStageA] = []
     for candidate_id, digest in (
         ("cand-a", _DIGEST_A),
         ("cand-b", _DIGEST_B),
@@ -505,9 +752,19 @@ def _packet(candidate_id: str, *, digest: str) -> CandidatePacketInput:
     )
 
 
+def _prediction_units(record: Mapping[str, object]) -> list[object]:
+    units = record["prediction_units"]
+    if isinstance(units, list):
+        return list(cast(list[object], units))
+    if isinstance(units, tuple):
+        return list(cast(tuple[object, ...], units))
+    raise AssertionError("prediction_units is not a sequence")
+
+
 def _unitize_outcome(
-    candidate_id: str, *, units: list[str] | None = None
+    request: CandidateScopedStageARerunRequest, *, units: list[str] | None = None
 ) -> StageAStageOutcome:
+    candidate_id = request.candidate_id
     return StageAStageOutcome(
         candidate_id=candidate_id,
         records=(
@@ -518,15 +775,20 @@ def _unitize_outcome(
         ),
         audit={"candidate_id": candidate_id, "status": "settled"},
         status="settled",
+        request_sha256=request.request_sha256,
     )
 
 
 def _review_outcome(
-    candidate_id: str, *, flags: list[Mapping[str, object]] | None = None
+    request: CandidateScopedStageARerunRequest,
+    *,
+    flags: list[Mapping[str, object]] | None = None,
 ) -> StageAStageOutcome:
+    candidate_id = request.candidate_id
     return StageAStageOutcome(
         candidate_id=candidate_id,
         records=tuple(flags or ({"candidate_id": candidate_id, "flag": "none"},)),
         audit={"candidate_id": candidate_id, "status": "settled"},
         status="settled",
+        request_sha256=request.request_sha256,
     )
