@@ -256,6 +256,7 @@ def test_provider_free_render_connects_recovery_v2_to_disclosure_and_resolution(
         ("missing", 2, 0),
         ("wrong-stage", 2, 0),
         ("incomplete", 2, 0),
+        ("tampered-plan", 2, 0),
         ("completed", 0, 1),
     ],
 )
@@ -339,10 +340,14 @@ def test_model_review_requires_completed_plan_before_provider_call(
     elif run_card_variant == "incomplete":
         plan_run_card["status"] = "failed"
     if run_card_variant != "missing":
-        plan_run_card_path.write_text(
-            json.dumps(plan_run_card, indent=2, sort_keys=True, allow_nan=False) + "\n",
-            encoding="utf-8",
+        plan_run_card_path.write_bytes(
+            (
+                json.dumps(plan_run_card, indent=2, sort_keys=True, allow_nan=False)
+                + "\n"
+            ).encode("utf-8")
         )
+    if run_card_variant == "tampered-plan":
+        plan_path.write_bytes(canonical_json_bytes({"documents": [auto_document]}))
 
     provider_calls = 0
     capability = object()

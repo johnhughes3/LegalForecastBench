@@ -4,7 +4,7 @@ import argparse
 import hashlib
 import json
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,6 +12,7 @@ from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion import case_dev_purchase as purchase_module
 from legalforecast.ingestion import recap_fetch_attempt_policy as attempt_module
 from legalforecast.ingestion import recovered_public_replay as replay_module
 from legalforecast.ingestion import replacement_purchase_approval as approval_module
@@ -24,6 +25,65 @@ from legalforecast.ingestion.case_dev_purchase import (
 )
 
 _VERIFIED_POLICY_SHA256 = "7" * 64
+
+_REEXPORT_SOURCES: dict[str, tuple[Any, ...]] = {
+    "CaseDevPurchaseJournal": (purchase_module, approval_module),
+    "derive_recovery_source_coordinates": (source_module, replay_module),
+    "read_case_dev_purchase_snapshot": (purchase_module, approval_module),
+    "require_approved_case_dev_purchase_policy": (
+        purchase_module,
+        attempt_module,
+        approval_module,
+    ),
+    "require_resolved_post_recovery_operation_bindings": (resolved_module,),
+    "verify_approved_purchase_input_bytes": (purchase_module, attempt_module),
+    "verify_case_dev_purchase_policy": (
+        purchase_module,
+        attempt_module,
+        approval_module,
+    ),
+    "verify_case_dev_purchase_policy_cohort_binding": (
+        purchase_module,
+        attempt_module,
+        approval_module,
+    ),
+    "verify_recap_fetch_attempt_policy": (attempt_module,),
+    "verify_replacement_purchase_authority": (approval_module,),
+    "_consume_live_resolved_transition_evidence": (approval_module,),
+    "_issue_resolved_transition_capability_factory": (approval_module,),
+    "_issue_terminal_disposition_capability": (resolved_module,),
+}
+
+_ISOLATED_BINDINGS: tuple[tuple[Any, str], ...] = tuple(
+    [(cli, name) for name in _REEXPORT_SOURCES]
+    + [
+        (module, name)
+        for name, modules in _REEXPORT_SOURCES.items()
+        for module in modules
+    ]
+)
+_ISOLATED_ORIGINALS = {
+    (id(module), name): getattr(module, name) for module, name in _ISOLATED_BINDINGS
+}
+
+
+@pytest.fixture(autouse=True)
+def _isolate_producer_shared_lookups() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """Reset producer re-exports so leftover SimpleNamespace stand-ins cannot leak."""
+
+    for module, name in _ISOLATED_BINDINGS:
+        setattr(module, name, _ISOLATED_ORIGINALS[(id(module), name)])
+    try:
+        yield
+    finally:
+        for module, name in _ISOLATED_BINDINGS:
+            setattr(module, name, _ISOLATED_ORIGINALS[(id(module), name)])
+
+
+def _patch_cli(monkeypatch: pytest.MonkeyPatch, name: str, value: Any) -> None:
+    monkeypatch.setattr(cli, name, value)
+    for module in _REEXPORT_SOURCES.get(name, ()):
+        monkeypatch.setattr(module, name, value)
 
 
 def _json_bytes(value: object) -> bytes:
@@ -321,33 +381,39 @@ def _fixture(
         "_verify_materializer_recovery_clearance_binding",
         lambda **_kwargs: None,
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "verify_case_dev_purchase_policy",
         lambda _artifact: SimpleNamespace(
             canonical_ledger_path=ledger.resolve(),
             policy_sha256=_VERIFIED_POLICY_SHA256,
         ),
     )
-    monkeypatch.setattr(
-        cli, "require_approved_case_dev_purchase_policy", lambda *_args, **_kwargs: None
+    _patch_cli(
+        monkeypatch,
+        "require_approved_case_dev_purchase_policy",
+        lambda *_args, **_kwargs: None,
     )
-    monkeypatch.setattr(
-        cli, "verify_case_dev_purchase_policy_cohort_binding", lambda *_args: None
+    _patch_cli(
+        monkeypatch,
+        "verify_case_dev_purchase_policy_cohort_binding",
+        lambda *_args: None,
     )
-    monkeypatch.setattr(
-        cli, "verify_approved_purchase_input_bytes", lambda *_args, **_kwargs: None
+    _patch_cli(
+        monkeypatch,
+        "verify_approved_purchase_input_bytes",
+        lambda *_args, **_kwargs: None,
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "verify_recap_fetch_attempt_policy",
         lambda *_args, **kwargs: verified_calls.append({"attempt": kwargs}),
     )
     monkeypatch.setattr(
         cli, "_missing_core_budget_plan", lambda _artifact: SimpleNamespace()
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "read_case_dev_purchase_snapshot",
         lambda *_args, **_kwargs: SimpleNamespace(
             purchase_state_sha256="state-1",
@@ -357,13 +423,13 @@ def _fixture(
             ],
         ),
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "require_resolved_post_recovery_operation_bindings",
         lambda **kwargs: verified_calls.append({"resolved": kwargs}),
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "verify_replacement_purchase_authority",
         lambda **kwargs: verified_calls.append({"authority": kwargs}),
     )
@@ -743,7 +809,7 @@ def test_provider_free_terminal_capability_routes_legacy_schema_to_recovered_dis
 
     terminal_authority = object()
     monkeypatch.setattr(cli, "_verify_materializer_clearance_lineage", verify_clearance)
-    monkeypatch.setattr(cli, "CaseDevPurchaseJournal", FakeJournal)
+    _patch_cli(monkeypatch, "CaseDevPurchaseJournal", FakeJournal)
     monkeypatch.setattr(
         cli,
         "_verify_materializer_docket_decision_authority",
@@ -758,8 +824,8 @@ def test_provider_free_terminal_capability_routes_legacy_schema_to_recovered_dis
         assert kwargs["verified_recovery_capability"] is recovery_capability
         return terminal_capability
 
-    monkeypatch.setattr(
-        cli, "_issue_terminal_disposition_capability", issue_terminal_capability
+    _patch_cli(
+        monkeypatch, "_issue_terminal_disposition_capability", issue_terminal_capability
     )
 
     def clearance_kwargs(**kwargs: object) -> dict[str, object]:
@@ -784,8 +850,8 @@ def test_provider_free_terminal_capability_routes_legacy_schema_to_recovered_dis
     def reject_legacy_verifier(**_kwargs: object) -> None:
         pytest.fail("legacy operation-bindings verifier selected")
 
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "require_resolved_post_recovery_operation_bindings",
         reject_legacy_verifier,
     )
@@ -1350,8 +1416,8 @@ def test_producer_rejects_purchase_ledger_drift_before_run_card_publication(
             ),
         )
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "read_case_dev_purchase_snapshot",
         lambda *_args, **_kwargs: next(snapshots),
     )
@@ -1435,8 +1501,8 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
         cli, "_authenticated_pre_successor_purchase_snapshot", authenticate_history
     )
     top_level_attempt_calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "verify_recap_fetch_attempt_policy",
         lambda *_args, **kwargs: top_level_attempt_calls.append(kwargs),
     )
@@ -1476,13 +1542,13 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
 
         return issue
 
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "_issue_resolved_transition_capability_factory",
         issue_transition_capability_factory,
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "_consume_live_resolved_transition_evidence",
         lambda capability: (
             (
@@ -1494,8 +1560,8 @@ def test_producer_routes_authenticated_successor_history_for_initial_replay(
             else pytest.fail("unexpected transition capability")
         ),
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "read_case_dev_purchase_snapshot",
         lambda *_args, **_kwargs: SimpleNamespace(
             purchase_state_sha256="current-state-2",
@@ -1590,13 +1656,13 @@ def test_successor_producer_binds_transition_prior_to_direct_verifiers(
 
         return issue
 
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "_issue_resolved_transition_capability_factory",
         issue_transition_capability_factory,
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "_consume_live_resolved_transition_evidence",
         lambda capability: (
             (prior, {}, {paths["resolved_card"].absolute(): "state-1"})
@@ -1605,8 +1671,8 @@ def test_successor_producer_binds_transition_prior_to_direct_verifiers(
         ),
     )
     attempt_calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "verify_recap_fetch_attempt_policy",
         lambda *_args, **kwargs: attempt_calls.append(kwargs),
     )
@@ -1697,8 +1763,10 @@ def _successor_history_helper_fixture(
         cohort_policy_path=cohort_policy,
         purchase_ledger_path=ledger,
     )
-    monkeypatch.setattr(
-        replay_module, "derive_recovery_source_coordinates", lambda _card: coordinates
+    _patch_cli(
+        monkeypatch,
+        "derive_recovery_source_coordinates",
+        lambda _card: coordinates,
     )
     monkeypatch.setattr(
         cli,
@@ -1706,8 +1774,8 @@ def _successor_history_helper_fixture(
         lambda _records: {("successor-case", "101"), ("successor-case", "102")},
     )
     monkeypatch.setattr(cli, "_missing_core_budget_plan", lambda _artifact: object())
-    monkeypatch.setattr(
-        cli, "verify_recap_fetch_attempt_policy", lambda *_args, **_kwargs: None
+    _patch_cli(
+        monkeypatch, "verify_recap_fetch_attempt_policy", lambda *_args, **_kwargs: None
     )
     monkeypatch.setattr(
         cli,
@@ -1752,8 +1820,8 @@ def _successor_history_helper_fixture(
         committed_spend_usd="3.05",
         purchase_journal_state_sha256="sha256:" + baseline_state,
     )
-    monkeypatch.setattr(
-        cli,
+    _patch_cli(
+        monkeypatch,
         "verify_replacement_purchase_authority",
         lambda **_kwargs: request,
     )
@@ -1811,8 +1879,8 @@ def test_authenticated_successor_history_binds_transition_prior_to_both_verifier
     def verify_attempt(*_args: object, **call_kwargs: Any) -> None:
         observed.append(call_kwargs.get("_verified_resolved_transition_capability"))
 
-    monkeypatch.setattr(cli, "verify_replacement_purchase_authority", verify_authority)
-    monkeypatch.setattr(cli, "verify_recap_fetch_attempt_policy", verify_attempt)
+    _patch_cli(monkeypatch, "verify_replacement_purchase_authority", verify_authority)
+    _patch_cli(monkeypatch, "verify_recap_fetch_attempt_policy", verify_attempt)
 
     capability = object()
     replay_module.authenticated_pre_successor_purchase_snapshot(
@@ -2449,7 +2517,7 @@ def test_authenticated_successor_history_threads_trailing_pairs_to_attempt_repla
             call_kwargs.get("allowed_additional_operation_pairs")  # type: ignore[arg-type]
         )
 
-    monkeypatch.setattr(cli, "verify_recap_fetch_attempt_policy", capture_attempt)
+    _patch_cli(monkeypatch, "verify_recap_fetch_attempt_policy", capture_attempt)
 
     cli._authenticated_pre_successor_purchase_snapshot(
         **kwargs,
