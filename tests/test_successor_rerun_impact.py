@@ -51,8 +51,8 @@ def test_one_document_replacement_reuses_only_fully_authenticated_work(
         "legalforecast.labeling.provider_journal.ProviderAttemptJournal.__init__",
         forbidden,
     )
-    monkeypatch.setattr("legalforecast.cli._write_jsonl", forbidden)
-    monkeypatch.setattr("legalforecast.cli._write_immutable_bytes", forbidden)
+    monkeypatch.setattr(cli, "_write_jsonl", forbidden)
+    monkeypatch.setattr(cli, "_write_immutable_bytes", forbidden)
 
     first = plan_successor_rerun_impact(current=current, proposed=proposal)
     second = plan_successor_rerun_impact(current=current, proposed=proposal)
@@ -304,6 +304,9 @@ def test_global_provider_drift_reuses_authenticated_parser_inputs(
             report.record
         )
     argv = cast(list[str], commands[0]["argv"])
+    assert _flag_value(argv, "--provider-attempt-namespace") == (
+        successor.provider_attempt_namespace
+    )
     assert "plan-parse-documents" not in argv
     assert "parse-documents" not in argv
     assert _flag_value(argv, "--parse-requests") == str(current.parse_requests_path)
@@ -417,6 +420,9 @@ def test_v5_namespace_emits_eligibility_audit_and_unitize_arguments(
     ]
     eligibility_argv = cast(list[str], commands[-2]["argv"])
     unitize_argv = cast(list[str], commands[-1]["argv"])
+    assert _flag_value(unitize_argv, "--provider-attempt-namespace") == (
+        "claim-ontology-v5"
+    )
     expected_audit = (
         proposal.successor_output_root / "target-document-eligibility-audit.jsonl"
     )
