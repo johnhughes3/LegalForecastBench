@@ -686,12 +686,9 @@ def seal_document_repair_execution(
     if len(receipt.operation_ledger) != len(execution.operations):
         raise DocumentRepairExecutorError("repair receipt ledger is incomplete")
     dispositions = [str(row.get("disposition")) for row in receipt.operation_ledger]
-    if any(
-        disposition in {"unknown", "not_attempted_after_unknown"}
-        for disposition in dispositions
-    ):
+    if any(disposition not in {"included", "excluded"} for disposition in dispositions):
         raise DocumentRepairExecutorError(
-            "repair execution has unresolved paid outcomes and cannot seal"
+            "repair execution has nonterminal outcomes and cannot seal"
         )
     operation_by_key = {operation.key: operation for operation in execution.operations}
     if len(operation_by_key) != len(execution.operations):

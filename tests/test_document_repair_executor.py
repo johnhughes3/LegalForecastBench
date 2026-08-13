@@ -569,6 +569,42 @@ def test_unknown_receipt_cannot_seal_successor() -> None:
         )
 
 
+def test_retryable_provider_error_cannot_seal_successor() -> None:
+    manifest = _manifest_bytes(_row("a", 1, free=False))
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
+    snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=(RepairOperationOutcome("a", 1, "provider_error", 0, "0.10", "0.00"),),
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="nonterminal outcomes"):
+        seal_document_repair_execution(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=(),
+            exclusions=(
+                {
+                    "candidate_id": "a",
+                    "docket_entry_number": 1,
+                    "document_role": "complaint",
+                    "reason": "temporary provider failure",
+                },
+            ),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+
 def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome() -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
