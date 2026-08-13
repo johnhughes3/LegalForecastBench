@@ -16,7 +16,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from legalforecast import cli as _cli_ns
 from legalforecast.evals.run_record_scoring import score_run_records
 from legalforecast.labeling import outcome_label_from_record
 
@@ -41,6 +40,8 @@ def register(
 
 def run(args: argparse.Namespace) -> int:
     """Score model runs against locked labels and write the result artifacts."""
+
+    from legalforecast import cli as _cli_ns
 
     runs_path = cast(Path, args.runs)
     labels_path = cast(Path, args.labels)
