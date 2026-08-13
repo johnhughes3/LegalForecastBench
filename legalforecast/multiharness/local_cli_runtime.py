@@ -3,7 +3,9 @@
 Adapters call ``LocalCliExecutionService.execute(RunSpec)`` instead of
 spawning CLIs themselves. The contained launch path is ``execute_local_cli``.
 Executable identity is bound fail-closed before spend (``dm0g.4.2.8``).
-Scheduling is enforced and recorded as requested-versus-actual evidence
+Persisted transcripts, events, and errors go through one redaction module
+(``dm0g.4.2.9``). Streams are drained during execution at the capture cap
+(GitHub #699). Scheduling is recorded as requested-versus-actual evidence
 (``dm0g.4.2.10``). B1's adapter-manifest fields are stubbed here until
 ``dm0g.4.4.1`` freezes them.
 """
@@ -22,7 +24,8 @@ import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import BinaryIO, Protocol, cast
+from threading import Thread
+from typing import IO, Protocol, cast
 
 from legalforecast.multiharness.auth_profiles import (
     FIXTURE_NONE,
@@ -48,6 +51,11 @@ from legalforecast.multiharness.local_cli_identity import (
     bind_executable_identity,
     executable_pin_for,
 )
+from legalforecast.multiharness.local_cli_redaction import (
+    persist_execution_artifacts,
+    redact_text,
+    redaction_secret_values,
+)
 from legalforecast.multiharness.local_cli_scheduler import (
     ORDERING_SERIAL,
     ORDERINGS,
@@ -55,6 +63,11 @@ from legalforecast.multiharness.local_cli_scheduler import (
     LocalCliSchedulerError,
     SchedulingEvidence,
     unevaluated_scheduling,
+)
+from legalforecast.multiharness.local_cli_stream import (
+    StreamDrain,
+    join_pipe_drains,
+    start_pipe_drain,
 )
 from legalforecast.multiharness.process_containment import (
     ProcessContainmentError,
@@ -91,10 +104,10 @@ _PUBLICATION_ENVELOPE_IMPORTS = frozenset(
 _MAX_CAPTURE_BYTES = 1_048_576
 _MAX_STREAM_DISK_BYTES = 256 * 1_048_576
 _COST_TAIL_BYTES = 65_536
-_TRUNCATION_MARKER = b"\n[truncated]\n"
 _DEFAULT_GRACE_SECONDS = 1.0
 _WAIT_POLL_SECONDS = 0.25
 _LOCAL_CLI_SCRATCH_DIR = "local-cli-scratch"
+_DRAIN_JOIN_SECONDS = 2.0
 
 
 class LocalCliRuntimeError(RuntimeError):
@@ -321,6 +334,53 @@ def execute_local_cli(
         raise LocalCliRuntimeError(
             "local CLI runtime supports posix_process_group.v1 containment only"
         )
+    parent = os.environ if parent_env is None else parent_env
+    secret_values = list(
+        redaction_secret_values(
+            projected={},
+            parent_env=parent,
+            extra_args=spec.extra_args,
+        )
+    )
+    try:
+        return _execute_local_cli_bound(
+            spec,
+            scratch_root,
+            credential_source=credential_source,
+            scheduler=scheduler,
+            parent=parent,
+            secret_values=secret_values,
+            termination_grace_seconds=termination_grace_seconds,
+            max_capture_bytes=max_capture_bytes,
+        )
+    except LocalCliRuntimeError as exc:
+        message = redact_text(str(exc), secret_values)
+        persist_execution_artifacts(
+            scratch_root,
+            receipt={
+                "schema_version": LOCAL_CLI_EXECUTION_SCHEMA_VERSION,
+                "status": "error",
+            },
+            argv=spec.argv(),
+            stdout=b"",
+            stderr=b"",
+            secret_values=secret_values,
+            error_message=message,
+        )
+        raise LocalCliRuntimeError(message) from exc
+
+
+def _execute_local_cli_bound(
+    spec: LocalCliRunSpec,
+    scratch_root: Path,
+    *,
+    credential_source: CredentialSource | None,
+    scheduler: ExecutionScheduler | None,
+    parent: Mapping[str, str],
+    secret_values: list[str],
+    termination_grace_seconds: float,
+    max_capture_bytes: int,
+) -> LocalCliExecutionResult:
     try:
         spec_sha256 = spec.spec_sha256()
         if (
@@ -331,7 +391,6 @@ def execute_local_cli(
         profile = spec.resolved_profile()
     except AuthProfileError as exc:
         raise LocalCliRuntimeError(str(exc)) from exc
-    parent = os.environ if parent_env is None else parent_env
     try:
         observed = bind_executable_identity(
             spec.manifest.executable,
@@ -358,6 +417,11 @@ def execute_local_cli(
         )
     except AuthProfileError as exc:
         raise LocalCliRuntimeError(str(exc)) from exc
+    secret_values[:] = redaction_secret_values(
+        projected=projected,
+        parent_env=parent,
+        extra_args=spec.extra_args,
+    )
     active_scheduler = scheduler if scheduler is not None else LocalCliScheduler()
     try:
         active_scheduler.before_execute(spec)
@@ -371,7 +435,7 @@ def execute_local_cli(
             profile=profile,
             environment=environment,
             scratch_root=scratch_root,
-            projected_values=tuple(projected.values()),
+            secret_values=secret_values,
             termination_grace_seconds=termination_grace_seconds,
             max_capture_bytes=max_capture_bytes,
             observed=observed,
@@ -394,6 +458,14 @@ def execute_local_cli(
             result = replace(result, scheduling=evidence)
     if result is None:
         raise LocalCliRuntimeError("local CLI execution produced no receipt")
+    persist_execution_artifacts(
+        scratch_root,
+        receipt=result.to_public_record(),
+        argv=spec.argv(),
+        stdout=result.stdout,
+        stderr=result.stderr,
+        secret_values=secret_values,
+    )
     return result
 
 
@@ -587,7 +659,7 @@ def _run_contained_cli(
     profile: ResolvedAuthProfile,
     environment: Mapping[str, str],
     scratch_root: Path,
-    projected_values: Sequence[str],
+    secret_values: Sequence[str],
     termination_grace_seconds: float,
     max_capture_bytes: int,
     observed: ObservedExecutableIdentity,
@@ -606,6 +678,16 @@ def _run_contained_cli(
     establishment = "failed"
     process: subprocess.Popen[bytes] | None = None
     handle: ProcessContainmentHandle | None = None
+    stdin_file: IO[bytes] | None = None
+    stdout_drain = StreamDrain(
+        max_capture_bytes=max_capture_bytes,
+        tail_bytes=_COST_TAIL_BYTES,
+    )
+    stderr_drain = StreamDrain(
+        max_capture_bytes=max_capture_bytes,
+        tail_bytes=_COST_TAIL_BYTES,
+    )
+    drain_threads: list[Thread] = []
     started = time.monotonic()
     try:
         ensure_private_scratch_directory(scratch_root)
@@ -617,87 +699,87 @@ def _run_contained_cli(
             + (2 * termination_grace_seconds)
             + 5,
         )
-        with (
-            tempfile.TemporaryFile(mode="w+b", dir=scratch_root) as stdout_handle,
-            tempfile.TemporaryFile(mode="w+b", dir=scratch_root) as stderr_handle,
-        ):
-            stdin_file = None
-            stdin_handle: object = subprocess.DEVNULL
-            if spec.stdin_bytes:
-                stdin_file = tempfile.TemporaryFile(mode="w+b", dir=scratch_root)
-                stdin_file.write(spec.stdin_bytes)
-                stdin_file.seek(0)
-                stdin_handle = stdin_file
+        stdin_handle: object = subprocess.DEVNULL
+        if spec.stdin_bytes:
+            stdin_file = tempfile.TemporaryFile(mode="w+b", dir=scratch_root)
+            stdin_file.write(spec.stdin_bytes)
+            stdin_file.seek(0)
+            stdin_handle = stdin_file
+        try:
             try:
-                try:
-                    bind_executable_identity(
-                        spec.manifest.executable,
-                        observed.resolved_argv,
-                        version_probe_args=spec.manifest.version_probe_args,
-                        required_capabilities=spec.manifest.required_capabilities,
-                        scratch_root=scratch_root,
-                        parent_env=environment,
-                        requested_model=spec.requested_model,
-                        probe=False,
-                    )
-                except LocalCliIdentityError as exc:
-                    raise LocalCliRuntimeError(str(exc)) from exc
-                process = subprocess.Popen(
-                    prepared.argv,
-                    stdin=stdin_handle,
-                    stdout=stdout_handle,
-                    stderr=stderr_handle,
-                    cwd=scratch_root,
-                    env=dict(environment),
-                    start_new_session=True,
+                bind_executable_identity(
+                    spec.manifest.executable,
+                    observed.resolved_argv,
+                    version_probe_args=spec.manifest.version_probe_args,
+                    required_capabilities=spec.manifest.required_capabilities,
+                    scratch_root=scratch_root,
+                    parent_env=environment,
+                    requested_model=spec.requested_model,
+                    probe=False,
                 )
-                handle = ProcessContainmentHandle(
-                    requested=requested,
-                    unit_name=prepared.unit_name,
-                )
-                handle = establish_process_containment(prepared, process, handle)
-                establishment = "established"
-                exit_code, timed_out, disk_capped = _wait_for_contained_process(
+            except LocalCliIdentityError as exc:
+                raise LocalCliRuntimeError(str(exc)) from exc
+            process = subprocess.Popen(
+                prepared.argv,
+                stdin=stdin_handle,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=scratch_root,
+                env=dict(environment),
+                start_new_session=True,
+                bufsize=0,
+            )
+            stdout_pipe = process.stdout
+            stderr_pipe = process.stderr
+            if stdout_pipe is None or stderr_pipe is None:
+                raise LocalCliRuntimeError("local CLI pipes were not created")
+            drain_threads = [
+                start_pipe_drain(stdout_pipe, stdout_drain),
+                start_pipe_drain(stderr_pipe, stderr_drain),
+            ]
+            handle = ProcessContainmentHandle(
+                requested=requested,
+                unit_name=prepared.unit_name,
+            )
+            handle = establish_process_containment(prepared, process, handle)
+            establishment = "established"
+            exit_code, timed_out, disk_capped = _wait_for_contained_process(
+                process,
+                timeout_seconds=spec.timeout_seconds,
+                stdout_drain=stdout_drain,
+                stderr_drain=stderr_drain,
+            )
+            if timed_out:
+                status = "timed_out"
+            elif disk_capped:
+                status = "nonzero"
+            else:
+                status = "completed" if exit_code == 0 else "nonzero"
+        finally:
+            if stdin_file is not None:
+                stdin_file.close()
+            if handle is not None and process is not None:
+                evidence = cleanup_process_containment(
+                    handle,
                     process,
-                    timeout_seconds=spec.timeout_seconds,
-                    stdout_handle=stdout_handle,
-                    stderr_handle=stderr_handle,
+                    termination_grace_seconds,
                 )
-                if timed_out:
-                    status = "timed_out"
-                elif disk_capped:
-                    status = "nonzero"
-                else:
-                    status = "completed" if exit_code == 0 else "nonzero"
-            finally:
-                if stdin_file is not None:
-                    stdin_file.close()
-                if handle is not None and process is not None:
-                    evidence = cleanup_process_containment(
-                        handle,
-                        process,
-                        termination_grace_seconds,
-                    )
-                    establishment = evidence.establishment
-                    if process.returncode is not None:
-                        exit_code = process.returncode
-                    if (
-                        status == "completed"
-                        and exit_code == 0
-                        and evidence.cleanup_requested
-                    ):
-                        status = "process_group_cleanup_requested"
-                cost_usd = _optional_cost_usd(
-                    _tail_bytes(stdout_handle, _COST_TAIL_BYTES)
-                )
-                stdout, stdout_truncated = _bounded_capture(
-                    stdout_handle,
-                    max_capture_bytes,
-                )
-                stderr, stderr_truncated = _bounded_capture(
-                    stderr_handle,
-                    max_capture_bytes,
-                )
+                establishment = evidence.establishment
+                if process.returncode is not None:
+                    exit_code = process.returncode
+                if (
+                    status == "completed"
+                    and exit_code == 0
+                    and evidence.cleanup_requested
+                ):
+                    status = "process_group_cleanup_requested"
+            join_pipe_drains(
+                drain_threads,
+                timeout_seconds=max(termination_grace_seconds, _DRAIN_JOIN_SECONDS),
+            )
+            cost_usd = _optional_cost_usd(stdout_drain.tail_bytes_copy())
+            stdout, stdout_truncated = stdout_drain.finish()
+            stderr, stderr_truncated = stderr_drain.finish()
     except ProcessContainmentError as exc:
         raise LocalCliRuntimeError(
             f"required host process containment was unavailable: {exc}"
@@ -735,7 +817,7 @@ def _run_contained_cli(
     )
     validate_no_secret_values(
         result.to_public_record(),
-        projected_values,
+        secret_values,
         "local CLI execution receipt",
     )
     return result
@@ -777,8 +859,8 @@ def _wait_for_contained_process(
     process: subprocess.Popen[bytes],
     *,
     timeout_seconds: float,
-    stdout_handle: BinaryIO,
-    stderr_handle: BinaryIO,
+    stdout_drain: StreamDrain,
+    stderr_drain: StreamDrain,
 ) -> tuple[int | None, bool, bool]:
     deadline = time.monotonic() + timeout_seconds
     while True:
@@ -793,37 +875,10 @@ def _wait_for_contained_process(
             )
         except subprocess.TimeoutExpired:
             if (
-                _stream_nbytes(stdout_handle) > _MAX_STREAM_DISK_BYTES
-                or _stream_nbytes(stderr_handle) > _MAX_STREAM_DISK_BYTES
+                stdout_drain.total > _MAX_STREAM_DISK_BYTES
+                or stderr_drain.total > _MAX_STREAM_DISK_BYTES
             ):
                 return process.poll(), False, True
-
-
-def _stream_nbytes(handle: BinaryIO) -> int:
-    handle.flush()
-    return os.fstat(handle.fileno()).st_size
-
-
-def _tail_bytes(handle: BinaryIO, max_bytes: int) -> bytes:
-    handle.flush()
-    handle.seek(0, os.SEEK_END)
-    size = handle.tell()
-    handle.seek(max(0, size - max_bytes))
-    return handle.read()
-
-
-def _bounded_capture(handle: BinaryIO, max_bytes: int) -> tuple[bytes, bool]:
-    stream = handle
-    stream.flush()
-    stream.seek(0, os.SEEK_END)
-    size = stream.tell()
-    stream.seek(0)
-    raw = stream.read(max_bytes)
-    truncated = size > max_bytes
-    if truncated:
-        marker = _TRUNCATION_MARKER[:max_bytes]
-        raw = raw[: max(0, max_bytes - len(marker))] + marker
-    return raw, truncated
 
 
 def _optional_cost_usd(stdout: bytes) -> float | None:
