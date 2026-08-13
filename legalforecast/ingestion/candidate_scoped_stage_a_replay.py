@@ -49,6 +49,7 @@ _TERMINAL_STATUSES = frozenset(
     {"settled", "reconstruction_failed", "terminal_escalation"}
 )
 _OUTCOME_STATUSES = _TERMINAL_STATUSES | {"unknown"}
+_PREDECESSOR_AUTHORITY = object()
 _PLAN_AUTHORITY = object()
 _EXECUTION_AUTHORITY = object()
 _RECEIPT_AUTHORITY = object()
@@ -101,9 +102,9 @@ class PredecessorCandidateStageA:
     reviewer_status: StageStatus
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class PredecessorStageALineage:
-    """Complete predecessor Stage A lineage bound to shared provider identity."""
+    """Replay-minted predecessor Stage A outputs bound to shared provider identity."""
 
     candidates: tuple[PredecessorCandidateStageA, ...]
     unitizer_namespace: str
@@ -113,6 +114,31 @@ class PredecessorStageALineage:
     selection_sha256: str
     materialization_sha256: str
     parser_sha256: str
+    lineage_sha256: str
+    _mint: object
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise CandidateScopedStageAReplayError(
+            "predecessor Stage A lineage can be created only by authenticated bind"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._mint is _PREDECESSOR_AUTHORITY
+
+    def content_record(self) -> dict[str, object]:
+        return {
+            "candidates": [
+                _predecessor_candidate_record(candidate)
+                for candidate in self.candidates
+            ],
+            "unitizer_namespace": self.unitizer_namespace,
+            "reviewer_namespace": self.reviewer_namespace,
+            "provider_caps_sha256": self.provider_caps_sha256,
+            "provider_journal_path": os.path.abspath(self.provider_journal_path),
+            "selection_sha256": self.selection_sha256,
+            "materialization_sha256": self.materialization_sha256,
+            "parser_sha256": self.parser_sha256,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,8 +194,10 @@ class CandidateScopedStageAPlan:
     reused_candidate_ids: tuple[str, ...]
     rerun_candidate_ids: tuple[str, ...]
     plan_sha256: str
+    predecessor_lineage_sha256: str
     predecessor_candidates: tuple[PredecessorCandidateStageA, ...]
     successor_packets: tuple[CandidatePacketInput, ...]
+    _consumed: bool
     _mint: object
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -179,6 +207,9 @@ class CandidateScopedStageAPlan:
 
     def is_replay_minted(self) -> bool:
         return self._mint is _PLAN_AUTHORITY
+
+    def is_consumed(self) -> bool:
+        return self._consumed
 
     def to_record(self) -> dict[str, object]:
         return {**self.content_record(), "plan_sha256": self.plan_sha256}
@@ -213,6 +244,7 @@ class CandidateScopedStageAPlan:
             ],
             "reused_candidate_ids": list(self.reused_candidate_ids),
             "rerun_candidate_ids": list(self.rerun_candidate_ids),
+            "predecessor_lineage_sha256": self.predecessor_lineage_sha256,
         }
 
 
@@ -230,6 +262,7 @@ class CandidateScopedStageAExecution:
     timings: tuple[CandidateStageATiming, ...]
     statuses: tuple[tuple[str, StageStatus, StageStatus], ...]
     provider_journal_path: Path
+    execution_sha256: str
     _mint: object
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -240,6 +273,36 @@ class CandidateScopedStageAExecution:
 
     def is_replay_minted(self) -> bool:
         return self._mint is _EXECUTION_AUTHORITY
+
+    def content_record(self) -> dict[str, object]:
+        return {
+            "plan_sha256": self.plan_sha256,
+            "reused_candidate_ids": list(self.reused_candidate_ids),
+            "rerun_candidate_ids": list(self.rerun_candidate_ids),
+            "unitize_records": [dict(record) for record in self.unitize_records],
+            "unitize_audits": [dict(record) for record in self.unitize_audits],
+            "review_flags": [dict(record) for record in self.review_flags],
+            "review_audits": [dict(record) for record in self.review_audits],
+            "timings": [
+                {
+                    "candidate_id": timing.candidate_id,
+                    "disposition": timing.disposition,
+                    "elapsed_ms": timing.elapsed_ms,
+                    "unitizer_elapsed_ms": timing.unitizer_elapsed_ms,
+                    "reviewer_elapsed_ms": timing.reviewer_elapsed_ms,
+                }
+                for timing in self.timings
+            ],
+            "statuses": [
+                {
+                    "candidate_id": candidate_id,
+                    "unitizer_status": unitizer_status,
+                    "reviewer_status": reviewer_status,
+                }
+                for candidate_id, unitizer_status, reviewer_status in self.statuses
+            ],
+            "provider_journal_path": os.path.abspath(self.provider_journal_path),
+        }
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -370,6 +433,53 @@ def packet_input_identity_sha256(packet: CandidatePacketInput) -> str:
     return _commit(payload, CANDIDATE_SCOPED_STAGE_A_REPLAY_V1)
 
 
+def bind_predecessor_stage_a_lineage(
+    *,
+    candidates: Sequence[PredecessorCandidateStageA],
+    unitizer_namespace: str,
+    reviewer_namespace: str,
+    provider_caps_sha256: str,
+    provider_journal_path: Path,
+    selection_sha256: str,
+    materialization_sha256: str,
+    parser_sha256: str,
+) -> PredecessorStageALineage:
+    """Mint predecessor Stage A outputs after committing their exact payloads."""
+
+    _require_live_namespace_pair(
+        unitizer_namespace=unitizer_namespace,
+        reviewer_namespace=reviewer_namespace,
+    )
+    frozen = _require_predecessor_candidates(candidates)
+    provisional = _mint_predecessor(
+        candidates=frozen,
+        unitizer_namespace=unitizer_namespace,
+        reviewer_namespace=reviewer_namespace,
+        provider_caps_sha256=_digest(provider_caps_sha256, "provider caps digest"),
+        provider_journal_path=Path(os.path.abspath(provider_journal_path)),
+        selection_sha256=_digest(selection_sha256, "predecessor selection digest"),
+        materialization_sha256=_digest(
+            materialization_sha256, "predecessor materialization digest"
+        ),
+        parser_sha256=_digest(parser_sha256, "predecessor parser digest"),
+        lineage_sha256="",
+    )
+    return _mint_predecessor(
+        candidates=provisional.candidates,
+        unitizer_namespace=provisional.unitizer_namespace,
+        reviewer_namespace=provisional.reviewer_namespace,
+        provider_caps_sha256=provisional.provider_caps_sha256,
+        provider_journal_path=provisional.provider_journal_path,
+        selection_sha256=provisional.selection_sha256,
+        materialization_sha256=provisional.materialization_sha256,
+        parser_sha256=provisional.parser_sha256,
+        lineage_sha256=_commit(
+            provisional.content_record(),
+            CANDIDATE_SCOPED_STAGE_A_REPLAY_V1,
+        ),
+    )
+
+
 def plan_candidate_scoped_stage_a_replay(
     *,
     predecessor: PredecessorStageALineage,
@@ -384,6 +494,7 @@ def plan_candidate_scoped_stage_a_replay(
 ) -> CandidateScopedStageAPlan:
     """Classify reuse versus rerun without opening provider or execution authority."""
 
+    _require_replay_minted_predecessor(predecessor)
     _require_live_namespace_pair(
         unitizer_namespace=unitizer_namespace,
         reviewer_namespace=reviewer_namespace,
@@ -407,7 +518,7 @@ def plan_candidate_scoped_stage_a_replay(
         raise CandidateScopedStageAReplayError(
             "successor provider journal is not the shared predecessor journal"
         )
-    predecessor_candidates = _require_predecessor_candidates(predecessor.candidates)
+    predecessor_candidates = predecessor.candidates
     successor = _require_successor_packets(
         successor_packets, predecessor_candidates=predecessor_candidates
     )
@@ -473,10 +584,12 @@ def plan_candidate_scoped_stage_a_replay(
         reused_candidate_ids=tuple(reused),
         rerun_candidate_ids=tuple(rerun),
         plan_sha256="",
+        predecessor_lineage_sha256=predecessor.lineage_sha256,
         predecessor_candidates=predecessor_candidates,
         successor_packets=tuple(
             successor[candidate_id] for candidate_id in candidate_ids
         ),
+        _consumed=False,
     )
     return _mint_plan(
         predecessor_selection_sha256=provisional.predecessor_selection_sha256,
@@ -499,8 +612,10 @@ def plan_candidate_scoped_stage_a_replay(
             provisional.content_record(),
             CANDIDATE_SCOPED_STAGE_A_REPLAY_V1,
         ),
+        predecessor_lineage_sha256=provisional.predecessor_lineage_sha256,
         predecessor_candidates=provisional.predecessor_candidates,
         successor_packets=provisional.successor_packets,
+        _consumed=False,
     )
 
 
@@ -514,12 +629,17 @@ def run_candidate_scoped_stage_a_replay(
     """Execute unitizer/reviewer only for rerun candidates; reuse the rest."""
 
     _require_replay_minted_plan(plan)
+    if plan.is_consumed():
+        raise CandidateScopedStageAReplayError(
+            "candidate-scoped Stage A plan already executed"
+        )
     if tuple(packet.candidate_id for packet in plan.successor_packets) != (
         plan.candidate_ids
     ):
         raise CandidateScopedStageAReplayError(
             "successor packets drifted from the minted candidate order"
         )
+    object.__setattr__(plan, "_consumed", True)
     tick = clock or time.monotonic
     predecessor_by_id = {
         prior.packet.candidate_id: prior for prior in plan.predecessor_candidates
@@ -615,7 +735,7 @@ def run_candidate_scoped_stage_a_replay(
         statuses.append(
             (decision.candidate_id, unitize_outcome.status, review_outcome.status)
         )
-    return _mint_execution(
+    provisional = _mint_execution(
         plan_sha256=plan.plan_sha256,
         reused_candidate_ids=plan.reused_candidate_ids,
         rerun_candidate_ids=plan.rerun_candidate_ids,
@@ -626,6 +746,23 @@ def run_candidate_scoped_stage_a_replay(
         timings=tuple(timings),
         statuses=tuple(statuses),
         provider_journal_path=plan.provider_journal_path,
+        execution_sha256="",
+    )
+    return _mint_execution(
+        plan_sha256=provisional.plan_sha256,
+        reused_candidate_ids=provisional.reused_candidate_ids,
+        rerun_candidate_ids=provisional.rerun_candidate_ids,
+        unitize_records=provisional.unitize_records,
+        unitize_audits=provisional.unitize_audits,
+        review_flags=provisional.review_flags,
+        review_audits=provisional.review_audits,
+        timings=provisional.timings,
+        statuses=provisional.statuses,
+        provider_journal_path=provisional.provider_journal_path,
+        execution_sha256=_commit(
+            provisional.content_record(),
+            CANDIDATE_SCOPED_STAGE_A_REPLAY_RECEIPT_V1,
+        ),
     )
 
 
@@ -706,6 +843,87 @@ def seal_candidate_scoped_stage_a_replay(
     )
 
 
+def _require_replay_minted_predecessor(predecessor: PredecessorStageALineage) -> None:
+    if (
+        type(predecessor) is not PredecessorStageALineage
+        or not predecessor.is_replay_minted()
+    ):
+        raise CandidateScopedStageAReplayError(
+            "predecessor Stage A lineage lacks replay-minted authority"
+        )
+    if (
+        _commit(predecessor.content_record(), CANDIDATE_SCOPED_STAGE_A_REPLAY_V1)
+        != predecessor.lineage_sha256
+    ):
+        raise CandidateScopedStageAReplayError(
+            "predecessor Stage A lineage changed after bind"
+        )
+
+
+def _predecessor_candidate_record(
+    candidate: PredecessorCandidateStageA,
+) -> dict[str, object]:
+    return {
+        "packet_sha256": packet_input_identity_sha256(candidate.packet),
+        "candidate_id": candidate.packet.candidate_id,
+        "case_id": candidate.packet.case_id,
+        "unitize_record": dict(candidate.unitize_record),
+        "unitize_audit": dict(candidate.unitize_audit),
+        "review_flags": [dict(flag) for flag in candidate.review_flags],
+        "review_audit": dict(candidate.review_audit),
+        "unitizer_status": candidate.unitizer_status,
+        "reviewer_status": candidate.reviewer_status,
+    }
+
+
+def _freeze_predecessor_candidate(
+    prior: PredecessorCandidateStageA,
+) -> PredecessorCandidateStageA:
+    return PredecessorCandidateStageA(
+        packet=CandidatePacketInput(
+            candidate_id=prior.packet.candidate_id,
+            case_id=prior.packet.case_id,
+            selection_record=dict(prior.packet.selection_record),
+            documents=prior.packet.documents,
+            parser_outputs=prior.packet.parser_outputs,
+        ),
+        unitize_record=dict(prior.unitize_record),
+        unitize_audit=dict(prior.unitize_audit),
+        review_flags=tuple(dict(flag) for flag in prior.review_flags),
+        review_audit=dict(prior.review_audit),
+        unitizer_status=prior.unitizer_status,
+        reviewer_status=prior.reviewer_status,
+    )
+
+
+def _require_nested_candidate(
+    record: Mapping[str, object],
+    candidate_id: str,
+    *,
+    label: str,
+    required: bool = True,
+) -> None:
+    nested = dict(record).get("candidate_id")
+    if nested is None:
+        if required:
+            raise CandidateScopedStageAReplayError(f"{label} lacks candidate_id")
+        return
+    if nested != candidate_id:
+        raise CandidateScopedStageAReplayError(
+            f"{label} candidate_id differs from the planned candidate"
+        )
+
+
+def _require_nested_status(
+    record: Mapping[str, object], status: str, *, label: str
+) -> None:
+    nested = dict(record).get("status")
+    if nested is not None and nested != status:
+        raise CandidateScopedStageAReplayError(
+            f"{label} status differs from the authenticated outcome"
+        )
+
+
 def _require_live_namespace_pair(
     *, unitizer_namespace: str, reviewer_namespace: str
 ) -> None:
@@ -744,7 +962,27 @@ def _require_predecessor_candidates(
             raise CandidateScopedStageAReplayError(
                 "predecessor unitize record candidate_id does not match packet"
             )
-        ordered.append(prior)
+        _require_nested_candidate(
+            prior.unitize_audit, candidate_id, label="predecessor unitize audit"
+        )
+        _require_nested_status(
+            prior.unitize_audit,
+            prior.unitizer_status,
+            label="predecessor unitize audit",
+        )
+        for flag in prior.review_flags:
+            _require_nested_candidate(
+                flag, candidate_id, label="predecessor review flag", required=False
+            )
+        _require_nested_candidate(
+            prior.review_audit, candidate_id, label="predecessor review audit"
+        )
+        _require_nested_status(
+            prior.review_audit,
+            prior.reviewer_status,
+            label="predecessor review audit",
+        )
+        ordered.append(_freeze_predecessor_candidate(prior))
     return tuple(ordered)
 
 
@@ -777,6 +1015,15 @@ def _require_outcome(
             f"{stage} outcome candidate_id differs from the planned rerun"
         )
     _require_status(outcome.status, f"{stage} status")
+    for record in outcome.records:
+        _require_nested_candidate(
+            record,
+            candidate_id,
+            label=f"{stage} record",
+            required=stage == "unitizer",
+        )
+    _require_nested_candidate(outcome.audit, candidate_id, label=f"{stage} audit")
+    _require_nested_status(outcome.audit, outcome.status, label=f"{stage} audit")
     if (
         stage == "unitizer"
         and outcome.status == "settled"
@@ -812,6 +1059,13 @@ def _require_replay_minted_execution(execution: CandidateScopedStageAExecution) 
     ):
         raise CandidateScopedStageAReplayError(
             "execution lacks replay-minted authority"
+        )
+    if (
+        _commit(execution.content_record(), CANDIDATE_SCOPED_STAGE_A_REPLAY_RECEIPT_V1)
+        != execution.execution_sha256
+    ):
+        raise CandidateScopedStageAReplayError(
+            "execution payloads changed after authenticated replay"
         )
 
 
@@ -854,6 +1108,13 @@ def _elapsed_ms(started: float, finished: float) -> int:
 
 def _commit(record: Mapping[str, object], domain: SchemaIdentifier) -> str:
     return str(ARTIFACT_RAW_SHA256_V1.commit(record, domain=domain).digest)
+
+
+def _mint_predecessor(**fields: object) -> PredecessorStageALineage:
+    lineage = object.__new__(PredecessorStageALineage)
+    for name, value in (*fields.items(), ("_mint", _PREDECESSOR_AUTHORITY)):
+        object.__setattr__(lineage, name, value)
+    return lineage
 
 
 def _mint_plan(**fields: object) -> CandidateScopedStageAPlan:

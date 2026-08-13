@@ -25,6 +25,7 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
     PredecessorCandidateStageA,
     PredecessorStageALineage,
     StageAStageOutcome,
+    bind_predecessor_stage_a_lineage,
     packet_input_identity_sha256,
     plan_candidate_scoped_stage_a_replay,
     run_candidate_scoped_stage_a_replay,
@@ -261,9 +262,85 @@ def test_unknown_rerun_outcome_is_nonretryable_and_unsealed(tmp_path: Path) -> N
         CandidateScopedStageAReplayError, match="unknown Stage A outcome"
     ):
         seal_candidate_scoped_stage_a_replay(plan, execution)
+    with pytest.raises(CandidateScopedStageAReplayError, match="plan already executed"):
+        run_candidate_scoped_stage_a_replay(
+            plan, unitizer=unitizer, reviewer=reviewer, clock=_Clock()
+        )
+    assert unitizer_calls == ["cand-a"]
+
+
+def test_mutated_execution_payloads_cannot_seal(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+    execution = run_candidate_scoped_stage_a_replay(
+        plan,
+        unitizer=lambda candidate_id: _unitize_outcome(candidate_id, units=["fresh"]),
+        reviewer=lambda candidate_id, _unitize: _review_outcome(candidate_id),
+        clock=_Clock(),
+    )
+    dict(execution.unitize_records[0])  # mapping is the stored dict
+    execution.unitize_records[0]["prediction_units"] = ["tampered"]
+    with pytest.raises(
+        CandidateScopedStageAReplayError, match="execution payloads changed"
+    ):
+        seal_candidate_scoped_stage_a_replay(plan, execution)
+
+
+def test_outcome_record_candidate_mismatch_is_rejected(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+
+    def unitizer(candidate_id: str) -> StageAStageOutcome:
+        return StageAStageOutcome(
+            candidate_id=candidate_id,
+            records=({"candidate_id": "cand-b", "prediction_units": ["x"]},),
+            audit={"candidate_id": candidate_id, "status": "settled"},
+            status="settled",
+        )
+
+    with pytest.raises(
+        CandidateScopedStageAReplayError, match="unitizer record candidate_id"
+    ):
+        run_candidate_scoped_stage_a_replay(
+            plan,
+            unitizer=unitizer,
+            reviewer=lambda candidate_id, _unitize: _review_outcome(candidate_id),
+            clock=_Clock(),
+        )
+
+
+def test_outcome_audit_status_mismatch_is_rejected(tmp_path: Path) -> None:
+    predecessor = _lineage(tmp_path)
+    successor = _packets()
+    successor[0] = _packet("cand-a", digest=_DIGEST_C)
+    plan = _plan(tmp_path, predecessor, successor_packets=successor)
+
+    def unitizer(candidate_id: str) -> StageAStageOutcome:
+        return StageAStageOutcome(
+            candidate_id=candidate_id,
+            records=({"candidate_id": candidate_id, "prediction_units": ["x"]},),
+            audit={"candidate_id": candidate_id, "status": "unknown"},
+            status="settled",
+        )
+
+    with pytest.raises(
+        CandidateScopedStageAReplayError, match="unitizer audit status differs"
+    ):
+        run_candidate_scoped_stage_a_replay(
+            plan,
+            unitizer=unitizer,
+            reviewer=lambda candidate_id, _unitize: _review_outcome(candidate_id),
+            clock=_Clock(),
+        )
 
 
 def test_plan_and_receipt_constructors_are_sealed() -> None:
+    with pytest.raises(CandidateScopedStageAReplayError, match="authenticated bind"):
+        PredecessorStageALineage()
     with pytest.raises(CandidateScopedStageAReplayError, match="authenticated replay"):
         CandidateScopedStageAPlan()
     with pytest.raises(CandidateScopedStageAReplayError, match="authenticated replay"):
@@ -379,7 +456,7 @@ def _lineage(
                 reviewer_status="terminal_escalation" if terminal else "settled",
             )
         )
-    return PredecessorStageALineage(
+    return bind_predecessor_stage_a_lineage(
         candidates=tuple(candidates),
         unitizer_namespace=UNITIZER_NAMESPACE,
         reviewer_namespace=REVIEWER_NAMESPACE,
