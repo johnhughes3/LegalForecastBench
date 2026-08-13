@@ -81,7 +81,7 @@ def _canonical_argv(
         "-c",
         f'model_reasoning_effort="{effort}"',
         "--output-last-message",
-        "private-logs/codex-last-message.txt",
+        "codex-last-message.txt",
         "-",
     )
 
@@ -302,7 +302,7 @@ def test_invocation_plan_is_deterministic_and_non_interactive(tmp_path: Path) ->
     assert 'model_reasoning_effort="medium"' in first.argv
     assert first.argv[-1] == "-"
     assert first.argv[first.argv.index("--output-last-message") + 1] == (
-        "private-logs/codex-last-message.txt"
+        "codex-last-message.txt"
     )
     for forbidden in (
         "--dangerously-bypass-approvals-and-sandbox",
@@ -574,7 +574,7 @@ def test_last_message_symlink_is_rejected(tmp_path: Path) -> None:
         execution_service=_SymlinkDuringExecute(
             _success_outcome(),
             target=outside,
-            relative="private-logs/codex-last-message.txt",
+            relative="codex-last-message.txt",
         )
     )
 
@@ -650,9 +650,9 @@ def test_stale_last_message_file_is_cleared_before_execute(tmp_path: Path) -> No
     workspace = tmp_path / "row"
     workspace.mkdir()
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
-    stale = workspace / "private-logs"
-    stale.mkdir(mode=0o700)
-    (stale / "codex-last-message.txt").write_text("STALE_ANSWER\n", encoding="utf-8")
+    (workspace / "codex-last-message.txt").write_text(
+        "STALE_ANSWER\n", encoding="utf-8"
+    )
     result = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(_success_outcome())
     ).run(_request(), workspace)

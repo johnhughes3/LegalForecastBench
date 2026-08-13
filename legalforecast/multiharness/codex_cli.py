@@ -132,7 +132,7 @@ CODEX_LOCAL_CLI_MANIFEST_PATH = (
     / "codex-cli"
     / "local-cli-manifest.json"
 )
-_LAST_MESSAGE_RELATIVE_PATH = Path("private-logs") / "codex-last-message.txt"
+_LAST_MESSAGE_RELATIVE_PATH = Path("codex-last-message.txt")
 _REASONING_EFFORT_PREFIX = "model_reasoning_effort="
 
 

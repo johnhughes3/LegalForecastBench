@@ -25,7 +25,7 @@
     "permission_mode",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:18efaf81ee19b83916d2f9c38c647edc88d21f246164845b092c044212e7802e",
+  "capability_digest": "sha256:7cbebcee3d017eead59c8ecff39be9ab8ca40d8796fef2678205dbff34dd1e2a",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -80,7 +80,7 @@
       "-c",
       "model_reasoning_effort=\"medium\"",
       "--output-last-message",
-      "private-logs/codex-last-message.txt",
+      "codex-last-message.txt",
       "-"
     ],
     "headless_mode": "exec_subcommand",
