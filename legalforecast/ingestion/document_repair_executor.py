@@ -269,6 +269,11 @@ class DocumentRepairPurchaseRuntime:
     execution_sha256: str
     authority_sha256: str
     initialization_id: str
+    policy: CaseDevPurchasePolicy
+    initialization_receipt_path: Path
+    purchase_policy_file_sha256: str
+    cohort_policy_file_sha256: str
+    _consumed: bool
     _mint: object
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -278,6 +283,9 @@ class DocumentRepairPurchaseRuntime:
 
     def is_replay_minted(self) -> bool:
         return self._mint is _PURCHASE_RUNTIME_AUTHORITY
+
+    def is_consumed(self) -> bool:
+        return self._consumed
 
 
 def build_document_repair_execution(
@@ -686,6 +694,11 @@ def verify_document_repair_purchase_runtime(
         execution_sha256=execution.execution_sha256,
         authority_sha256=purchase_authority.authority_sha256,
         initialization_id=initialization_id,
+        policy=purchase_authority.purchase_policy,
+        initialization_receipt_path=initialization_receipt_path,
+        purchase_policy_file_sha256=purchase_policy_file_sha256,
+        cohort_policy_file_sha256=cohort_policy_file_sha256,
+        _consumed=False,
     )
 
 
@@ -1257,10 +1270,26 @@ def _require_purchase_runtime(
         or runtime.execution_sha256 != execution.execution_sha256
         or not runtime.authority_sha256
         or not runtime.initialization_id
+        or runtime.is_consumed()
     ):
         raise DocumentRepairExecutorError(
             "paid execution requires verified purchase authority runtime"
         )
+    try:
+        receipt = verify_case_dev_purchase_journal_initialization(
+            runtime.policy.canonical_ledger_path,
+            policy=runtime.policy,
+            receipt_path=runtime.initialization_receipt_path,
+            purchase_policy_file_sha256=runtime.purchase_policy_file_sha256,
+            cohort_policy_file_sha256=runtime.cohort_policy_file_sha256,
+        )
+    except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+        raise DocumentRepairExecutorError(
+            f"purchase journal initialization is invalid: {exc}"
+        ) from exc
+    if receipt.get("initialization_id") != runtime.initialization_id:
+        raise DocumentRepairExecutorError("purchase runtime initialization changed")
+    object.__setattr__(runtime, "_consumed", True)
 
 
 def _mapping_list(value: object, label: str) -> list[Mapping[str, object]]:
