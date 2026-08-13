@@ -7,6 +7,7 @@ import sys
 import threading
 from pathlib import Path
 
+import pytest
 from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
 from legalforecast.multiharness.local_cli_identity import executable_pin_for
 from legalforecast.multiharness.local_cli_runtime import (
@@ -14,7 +15,7 @@ from legalforecast.multiharness.local_cli_runtime import (
     LocalCliRunSpec,
     execute_local_cli,
 )
-from legalforecast.multiharness.local_cli_stream import StreamDrain
+from legalforecast.multiharness.local_cli_stream import StreamDrain, join_pipe_drains
 
 _FAKE_CLI = Path(__file__).resolve().parent / "fixtures" / "local_cli_fake_cli.py"
 _SPEW_BYTES = 32 * 1024 * 1024
@@ -89,6 +90,49 @@ def test_spew_then_cost_still_parses_cost_from_rolling_tail(tmp_path: Path) -> N
     )
     assert result.stdout_truncated is True
     assert result.cost_usd == 1.25
+
+
+def test_join_pipe_drains_reports_unfinished_threads() -> None:
+    blocker = threading.Event()
+
+    def hang() -> None:
+        blocker.wait(timeout=5)
+
+    thread = threading.Thread(target=hang, daemon=True)
+    thread.start()
+    assert join_pipe_drains((thread,), timeout_seconds=0.05) is False
+    blocker.set()
+    assert join_pipe_drains((thread,), timeout_seconds=1.0) is True
+
+
+def test_unfinished_drain_join_is_recorded_as_truncation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unfinished(threads: object, *, timeout_seconds: float) -> bool:
+        del threads, timeout_seconds
+        return False
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.local_cli_runtime.join_pipe_drains",
+        unfinished,
+    )
+    result = execute_local_cli(
+        LocalCliRunSpec(
+            spec_id="join-timeout",
+            manifest=_manifest(),
+            auth_profile=FIXTURE_NONE,
+            extra_args=("--mode", "succeed-json"),
+        ),
+        tmp_path / "join-timeout",
+        parent_env=_CANARY_ENV,
+    )
+    assert result.status == "completed"
+    assert result.stdout_truncated is True
+    assert result.stderr_truncated is True
+    public = result.to_public_record()
+    assert public["stdout_truncated"] is True
+    assert public["stderr_truncated"] is True
 
 
 def _spew_spec(*, timeout_seconds: float) -> LocalCliRunSpec:

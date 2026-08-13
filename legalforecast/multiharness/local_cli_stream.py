@@ -8,6 +8,7 @@ silent truncation is a defect.
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import IO
@@ -83,11 +84,26 @@ def join_pipe_drains(
     threads: Sequence[threading.Thread],
     *,
     timeout_seconds: float,
-) -> None:
-    """Wait for drain threads after the child has exited or been killed."""
+) -> bool:
+    """Wait for drain threads after the child has exited or been killed.
 
+    Return True only if every thread finished. A timed-out join means unread
+    pipe bytes may remain, so the caller must record truncation rather than
+    treat a short capture as complete.
+    """
+
+    deadline = time.monotonic() + max(0.0, timeout_seconds)
+    finished = True
     for thread in threads:
-        thread.join(timeout=timeout_seconds)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            if thread.is_alive():
+                finished = False
+            continue
+        thread.join(timeout=remaining)
+        if thread.is_alive():
+            finished = False
+    return finished
 
 
 def _drain_pipe(pipe: IO[bytes], drain: StreamDrain) -> None:

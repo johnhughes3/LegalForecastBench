@@ -796,10 +796,13 @@ def _run_contained_cli(
                     and evidence.cleanup_requested
                 ):
                     status = "process_group_cleanup_requested"
-            join_pipe_drains(
+            drains_complete = join_pipe_drains(
                 drain_threads,
                 timeout_seconds=max(termination_grace_seconds, _DRAIN_JOIN_SECONDS),
             )
+            if not drains_complete:
+                stdout_drain.truncated = True
+                stderr_drain.truncated = True
             cost_usd = _optional_cost_usd(stdout_drain.tail_bytes_copy())
             stdout, stdout_truncated = stdout_drain.finish()
             stderr, stderr_truncated = stderr_drain.finish()
