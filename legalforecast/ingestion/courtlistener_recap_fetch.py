@@ -634,6 +634,13 @@ class CourtListenerRecapFetchClient:
             attempts=tuple(attempts),
         )
 
+    def execute_one_document(
+        self, candidate_id: str, document_id: str
+    ) -> CaseDevPacerPurchaseAttempt:
+        """Purchase one already-planned journal document through RECAP Fetch."""
+
+        return self._execute_one(candidate_id, document_id)
+
     def _execute_one(
         self, candidate_id: str, document_id: str
     ) -> CaseDevPacerPurchaseAttempt:

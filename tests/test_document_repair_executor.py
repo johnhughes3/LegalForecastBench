@@ -221,6 +221,29 @@ def test_execution_resolves_exact_recap_id_and_builds_three_dollar_budget() -> N
     assert execution.purchase_budget.dry_run is False
 
 
+def test_execution_accepts_live_v4_null_sealed_public_filepath() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    live_shaped = json.loads(snapshots["a"])
+    live_shaped["entries"][0]["recap_documents"][0]["is_sealed"] = None
+    snapshots["a"] = _canonical_bytes(live_shaped)
+
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    assert execution.operations[0].route == "courtlistener_free"
+    assert execution.operations[0].source_url == (
+        "https://storage.courtlistener.com/recap/example/9001.pdf"
+    )
+
+
 def test_execution_rejects_tampered_full_plan_and_pilot_objects() -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()

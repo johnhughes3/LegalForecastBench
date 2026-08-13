@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from typing import cast
 
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
@@ -66,6 +70,7 @@ def build_document_repair_pilot(
     full_plan: MissingDocumentAcquisitionPlan,
     candidate_ids: tuple[str, ...],
     pilot_maximum_usd: Decimal | str,
+    approved_manifest_bytes: bytes | None = None,
 ) -> DocumentRepairPilot:
     """Project five candidate IDs without changing the approved manifest."""
 
@@ -80,7 +85,11 @@ def build_document_repair_pilot(
     plan_candidates = {item.candidate_id for item in full_plan.items}
     outside = set(candidate_ids) - plan_candidates
     if outside:
-        raise DocumentRepairPilotError("pilot candidate is outside the full plan")
+        keep_ids = _keep_candidate_ids(
+            approved_manifest_bytes, full_plan.manifest_sha256
+        )
+        if not outside <= keep_ids:
+            raise DocumentRepairPilotError("pilot candidate is outside the full plan")
     selected = set(candidate_ids)
     items = tuple(item for item in full_plan.items if item.candidate_id in selected)
     projected = sum((item.projected_cost_usd for item in items), Decimal("0.00"))
@@ -106,6 +115,44 @@ def build_document_repair_pilot(
             ).digest
         ),
     )
+
+
+def _keep_candidate_ids(
+    manifest_bytes: bytes | None, expected_manifest_sha256: str
+) -> frozenset[str]:
+    """Admit keep rows from the exact approved sidecar, not a subset manifest."""
+
+    if manifest_bytes is None:
+        return frozenset()
+    digest = hashlib.sha256(manifest_bytes).hexdigest()
+    if digest != expected_manifest_sha256:
+        raise DocumentRepairPilotError(
+            "approved manifest digest differs from the full plan"
+        )
+    keep: set[str] = set()
+    for line in manifest_bytes.splitlines():
+        if not line.strip():
+            continue
+        try:
+            parsed = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise DocumentRepairPilotError(
+                "approved manifest is invalid JSONL"
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise DocumentRepairPilotError("approved manifest row is invalid")
+        record = cast(Mapping[str, object], parsed)
+        candidate_id = record.get("candidate_id")
+        if not isinstance(candidate_id, str) or not candidate_id.strip():
+            raise DocumentRepairPilotError("approved manifest candidate ID is invalid")
+        if record.get("recommendation") != "keep":
+            continue
+        missing = record.get("missing_docs")
+        if missing in (None, []):
+            keep.add(candidate_id)
+            continue
+        raise DocumentRepairPilotError("keep row contains repair obligations")
+    return frozenset(keep)
 
 
 def _require_untampered_full_plan(plan: MissingDocumentAcquisitionPlan) -> None:
