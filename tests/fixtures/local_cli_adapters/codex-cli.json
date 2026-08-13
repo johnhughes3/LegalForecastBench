@@ -1,0 +1,124 @@
+{
+  "adapter_kind": "local_cli",
+  "auth_environment_variables": [
+    {
+      "names": [],
+      "profile": "contributor-subscription"
+    },
+    {
+      "names": [],
+      "profile": "fixture-none"
+    },
+    {
+      "names": [
+        "OPENAI_API_KEY"
+      ],
+      "profile": "published-api-key"
+    }
+  ],
+  "auth_profile_name": "fixture-none",
+  "capabilities": [
+    "headless_print",
+    "json_schema_enforcement",
+    "model_selection",
+    "no_session_persistence",
+    "stream_json_output",
+    "working_directory_isolation"
+  ],
+  "capability_digest": "sha256:0b81590639c9eb40769549bcb02b8e5da9b953ed48c0ef4d6330ad89cf38255e",
+  "containment": {
+    "host_process_containment": "posix_process_group.v1",
+    "isolated_host_environment": true,
+    "network_policy": "provider_egress_host_only",
+    "session_persistence": "ephemeral",
+    "setting_sources": [],
+    "strict_mcp_config": false
+  },
+  "display_name": "Codex CLI clean-native local CLI",
+  "executable": {
+    "basename": "codex",
+    "distribution_kind": "homebrew-cask",
+    "sha256": "2e863156ed35ecc5253b1e2f907a9143077b9f7cb51942070c61996471ff6e04",
+    "version": "codex-cli 0.146.0"
+  },
+  "harness_binding": {
+    "adapter_id": "codex-cli-clean-native",
+    "adapter_version": "1.0.0",
+    "harness_adapter_contract": "legalforecast.multiharness.adapters.HarnessAdapter",
+    "harness_solver_contract": "legalforecast.evals.inspect_task.HarnessSolver",
+    "implements_harness_adapter": true,
+    "implements_harness_solver": true,
+    "solver_kind": "inspect_ai",
+    "solver_response_contract": "legalforecast.evals.inspect_task.SolverResponse",
+    "supported_families": [
+      "legalforecast_mtd"
+    ],
+    "supported_scoring_modes": [
+      "lfb_brier"
+    ],
+    "tool_protocol_version": null
+  },
+  "invocation": {
+    "argv_template": [
+      "exec",
+      "--json",
+      "--ephemeral",
+      "--model",
+      "{model}",
+      "--cd",
+      "{workspace}",
+      "--sandbox",
+      "read-only",
+      "--strict-config",
+      "--ignore-user-config",
+      "--ignore-rules",
+      "--output-schema",
+      "{output_schema_path}",
+      "{prompt}"
+    ],
+    "headless_mode": "exec_subcommand",
+    "model_flag": "--model",
+    "output_format": "stream_json",
+    "prompt_delivery": "argv_placeholder",
+    "schema_enforcement": "output_schema_file",
+    "working_directory_flag": "--cd"
+  },
+  "manifest_id": "codex-cli-clean-native",
+  "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "supported_auth_profiles": [
+    "contributor-subscription",
+    "fixture-none",
+    "published-api-key"
+  ],
+  "task_projection": {
+    "deliverable_relative_path": null,
+    "deliverable_source": "structured_stdout",
+    "prompt_source": "solver_input_prompt"
+  },
+  "timeout_retry": {
+    "max_attempts": 1,
+    "retry_backoff_seconds": 2,
+    "retryable_exit_codes": [],
+    "timeout_seconds": 120
+  },
+  "transcript_capture": {
+    "points": [
+      "private_execution_log",
+      "stderr",
+      "stdout"
+    ],
+    "public_raw_transcript": false
+  },
+  "usage_reporting": {
+    "cache_read_tokens_field": null,
+    "cache_write_tokens_field": null,
+    "cost_basis": "unknown",
+    "cost_usd_field": null,
+    "input_tokens_field": "usage.input_tokens",
+    "output_tokens_field": "usage.output_tokens",
+    "solver_response_fields": [
+      "input_tokens",
+      "output_tokens"
+    ]
+  }
+}

@@ -60,6 +60,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [provider-baselines.md](adapters/provider-baselines.md): provider/runtime reference points and the publication terms they rest on.
 - [harvey-lab-pinned-evaluator-seam.md](adapters/harvey-lab-pinned-evaluator-seam.md): the pinned upstream evaluator boundary the deliverable, evaluation, and score contracts rely on.
 - [codex-cli-characterization.md](adapters/codex-cli-characterization.md): pinned offline interface characterization of the installed Codex CLI; not activated for benchmark execution.
+- [claude-code-cli-characterization.md](adapters/claude-code-cli-characterization.md): pinned offline interface characterization of the installed standalone Claude Code CLI; not activated for benchmark execution.
 - [codex-native-containment.md](adapters/codex-native-containment.md): why the pinned Codex CLI does not qualify as clean-native containment on this host.
 - [claude-code-native-containment.md](adapters/claude-code-native-containment.md): pending zero-provider-spend containment characterization; no successful capture or fixture is claimed.
 
@@ -163,6 +164,10 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 **Evaluation policy**
 
 - [evaluation-policy-artifacts-v1.md](schemas/evaluation-policy-artifacts-v1.md): how decisions made before labeling or acquisition are separated from facts observed later.
+
+**Multi-harness**
+
+- [local-cli-adapter-manifest-v1.md](schemas/local-cli-adapter-manifest-v1.md): closed generic description of a local agentic CLI (Claude Code, Codex CLI, or a future peer) for the existing `HarnessAdapter` / `HarnessSolver` surface.
 
 ## Committed Policy Data
 
