@@ -15,7 +15,7 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Any, Self, cast
 
 from legalforecast.evals.inspect_task import SolverKind
 from legalforecast.multiharness.sandbox import NETWORK_NONE, PROVIDER_EGRESS_HOST_ONLY
@@ -47,9 +47,16 @@ LOCAL_CLI_ADAPTER_KIND = "local_cli"
 # semantics or credential projection here.
 AUTH_PROFILE_NAMES = frozenset(
     {
-        "explicit_api_key",
-        "fixture_none",
-        "local_cli_subscription",
+        "contributor-subscription",
+        "fixture-none",
+        "published-api-key",
+    }
+)
+LOCAL_CLI_AUTH_ENV_VARS = frozenset(
+    {
+        "ANTHROPIC_API_KEY",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "OPENAI_API_KEY",
     }
 )
 LOCAL_CLI_CAPABILITIES = frozenset(
@@ -147,6 +154,8 @@ _MANIFEST_FIELDS = frozenset(
         "capability_digest",
         "invocation",
         "auth_profile_name",
+        "supported_auth_profiles",
+        "auth_environment_variables",
         "containment",
         "timeout_retry",
         "transcript_capture",
@@ -788,6 +797,8 @@ class LocalCliAdapterManifest:
     capability_digest: str
     invocation: LocalCliInvocation
     auth_profile_name: str
+    supported_auth_profiles: tuple[str, ...]
+    auth_environment_variables: tuple[tuple[str, tuple[str, ...]], ...]
     containment: LocalCliContainment
     timeout_retry: LocalCliTimeoutRetry
     transcript_capture: LocalCliTranscriptCapture
@@ -795,6 +806,7 @@ class LocalCliAdapterManifest:
     task_projection: LocalCliTaskProjection
     harness_binding: LocalCliHarnessBinding
     adapter_kind: str = LOCAL_CLI_ADAPTER_KIND
+    schema_version: str = LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         _require_non_empty(self.manifest_id, "manifest_id")
@@ -802,6 +814,10 @@ class LocalCliAdapterManifest:
         if self.adapter_kind != LOCAL_CLI_ADAPTER_KIND:
             raise LocalCliAdapterManifestError(
                 f"adapter_kind must be {LOCAL_CLI_ADAPTER_KIND}"
+            )
+        if self.schema_version != LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION:
+            raise LocalCliAdapterManifestError(
+                f"schema_version must be {LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION}"
             )
         if not self.capabilities:
             raise LocalCliAdapterManifestError("capabilities must not be empty")
@@ -815,6 +831,44 @@ class LocalCliAdapterManifest:
                 f"capabilities contains unknown token(s): {formatted}"
             )
         _require_member(self.auth_profile_name, AUTH_PROFILE_NAMES, "auth_profile_name")
+        if not self.supported_auth_profiles:
+            raise LocalCliAdapterManifestError(
+                "supported_auth_profiles must not be empty"
+            )
+        validate_unique_ids(self.supported_auth_profiles, "supported_auth_profiles")
+        unknown_profiles = [
+            name
+            for name in self.supported_auth_profiles
+            if name not in AUTH_PROFILE_NAMES
+        ]
+        if unknown_profiles:
+            formatted = ", ".join(sorted(unknown_profiles))
+            raise LocalCliAdapterManifestError(
+                f"supported_auth_profiles contains unknown token(s): {formatted}"
+            )
+        if self.auth_profile_name not in self.supported_auth_profiles:
+            raise LocalCliAdapterManifestError(
+                "auth_profile_name must be listed in supported_auth_profiles"
+            )
+        env_profiles = {profile for profile, _names in self.auth_environment_variables}
+        if env_profiles != set(self.supported_auth_profiles):
+            raise LocalCliAdapterManifestError(
+                "auth_environment_variables profiles must equal supported_auth_profiles"
+            )
+        for profile, names in self.auth_environment_variables:
+            unknown_vars = [
+                name for name in names if name not in LOCAL_CLI_AUTH_ENV_VARS
+            ]
+            if unknown_vars:
+                formatted = ", ".join(sorted(unknown_vars))
+                raise LocalCliAdapterManifestError(
+                    f"auth_environment_variables.{profile} contains unknown "
+                    f"env var(s): {formatted}"
+                )
+            if profile == "fixture-none" and names:
+                raise LocalCliAdapterManifestError(
+                    "fixture-none must not project environment variables"
+                )
         validate_sha256(self.capability_digest, "capability_digest")
         expected = capability_digest_for(self.to_record())
         if self.capability_digest != expected:
@@ -829,7 +883,7 @@ class LocalCliAdapterManifest:
 
     def to_record(self) -> dict[str, Any]:
         return {
-            "schema_version": LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION,
+            "schema_version": self.schema_version,
             "manifest_id": self.manifest_id,
             "display_name": self.display_name,
             "adapter_kind": self.adapter_kind,
@@ -838,6 +892,11 @@ class LocalCliAdapterManifest:
             "capability_digest": self.capability_digest,
             "invocation": self.invocation.to_record(),
             "auth_profile_name": self.auth_profile_name,
+            "supported_auth_profiles": list(self.supported_auth_profiles),
+            "auth_environment_variables": [
+                {"names": list(names), "profile": profile}
+                for profile, names in self.auth_environment_variables
+            ],
             "containment": self.containment.to_record(),
             "timeout_retry": self.timeout_retry.to_record(),
             "transcript_capture": self.transcript_capture.to_record(),
@@ -851,6 +910,7 @@ class LocalCliAdapterManifest:
         _require_exact_fields(record, _MANIFEST_FIELDS, "local_cli_adapter_manifest")
         require_schema_version(record, LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION)
         return cls(
+            schema_version=require_str(record, "schema_version"),
             manifest_id=require_str(record, "manifest_id"),
             display_name=require_str(record, "display_name"),
             adapter_kind=require_str(record, "adapter_kind"),
@@ -865,6 +925,13 @@ class LocalCliAdapterManifest:
                 require_mapping(record, "invocation")
             ),
             auth_profile_name=require_str(record, "auth_profile_name"),
+            supported_auth_profiles=_str_tuple(
+                require_sequence(record, "supported_auth_profiles"),
+                "supported_auth_profiles",
+            ),
+            auth_environment_variables=_auth_environment_variables_from_record(
+                require_sequence(record, "auth_environment_variables"),
+            ),
             containment=LocalCliContainment.from_record(
                 require_mapping(record, "containment")
             ),
@@ -905,11 +972,13 @@ def capability_digest_for(record: Mapping[str, Any]) -> str:
     """Hash the capability payload, excluding executable identity."""
 
     payload = {
+        "auth_environment_variables": record["auth_environment_variables"],
         "auth_profile_name": record["auth_profile_name"],
         "capabilities": record["capabilities"],
         "containment": record["containment"],
         "harness_binding": record["harness_binding"],
         "invocation": record["invocation"],
+        "supported_auth_profiles": record["supported_auth_profiles"],
         "task_projection": record["task_projection"],
         "timeout_retry": record["timeout_retry"],
         "transcript_capture": record["transcript_capture"],
@@ -1041,3 +1110,33 @@ def _int_tuple(records: Sequence[Any], field_name: str) -> tuple[int, ...]:
             )
         values.append(value)
     return tuple(values)
+
+
+def _auth_environment_variables_from_record(
+    records: Sequence[Any],
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    parsed: list[tuple[str, tuple[str, ...]]] = []
+    seen: set[str] = set()
+    for index, item in enumerate(records):
+        if not isinstance(item, Mapping):
+            raise LocalCliAdapterManifestError(
+                f"auth_environment_variables[{index}] must be an object"
+            )
+        entry = cast(Mapping[str, Any], item)
+        _require_exact_fields(
+            entry,
+            frozenset({"names", "profile"}),
+            f"auth_environment_variables[{index}]",
+        )
+        profile = require_str(entry, "profile")
+        if profile in seen:
+            raise LocalCliAdapterManifestError(
+                f"auth_environment_variables contains duplicate profile {profile}"
+            )
+        seen.add(profile)
+        names = _str_tuple_allow_empty(
+            require_sequence(entry, "names"),
+            f"auth_environment_variables[{index}].names",
+        )
+        parsed.append((profile, names))
+    return tuple(sorted(parsed, key=lambda entry: entry[0]))

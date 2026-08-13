@@ -10,74 +10,142 @@ The schema is closed. Unknown fields, unknown capability tokens, unknown auth-pr
 
 ## Exact artifact
 
+The fenced example is the committed Claude Code instance (`tests/fixtures/local_cli_adapters/claude-code.json`). Tests parse every `json` fence in this document through the typed model and require re-serialization equality.
+
 ```json
 {
-  "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
-  "manifest_id": "claude-code-clean-native",
-  "display_name": "Claude Code clean-native local CLI",
   "adapter_kind": "local_cli",
-  "executable": {
-    "basename": "claude",
-    "version": "2.1.229 (Claude Code)",
-    "sha256": "<64-char lowercase hex>",
-    "distribution_kind": "standalone-cli"
-  },
-  "capabilities": ["headless_print", "json_output"],
-  "capability_digest": "sha256:<64-char lowercase hex>",
-  "invocation": {
-    "headless_mode": "print_flag",
-    "argv_template": ["-p", "{prompt}", "--output-format", "json", "--model", "{model}"],
-    "output_format": "json",
-    "schema_enforcement": "json_schema_flag",
-    "prompt_delivery": "argv_placeholder",
-    "working_directory_flag": "--add-dir",
-    "model_flag": "--model"
-  },
-  "auth_profile_name": "fixture_none",
+  "auth_environment_variables": [
+    {
+      "names": [
+        "CLAUDE_CODE_OAUTH_TOKEN"
+      ],
+      "profile": "contributor-subscription"
+    },
+    {
+      "names": [],
+      "profile": "fixture-none"
+    },
+    {
+      "names": [
+        "ANTHROPIC_API_KEY"
+      ],
+      "profile": "published-api-key"
+    }
+  ],
+  "auth_profile_name": "fixture-none",
+  "capabilities": [
+    "empty_tools",
+    "headless_print",
+    "isolated_setting_sources",
+    "json_output",
+    "json_schema_enforcement",
+    "max_budget_usd",
+    "model_selection",
+    "no_session_persistence",
+    "permission_mode",
+    "strict_mcp_config",
+    "tool_allowlist",
+    "working_directory_isolation"
+  ],
+  "capability_digest": "sha256:28742e9091ce21abcadcd28e3ff2042d95271422d87b2b1dbd50a4fdc8ab8cf9",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
-    "network_policy": "provider_egress_host_only",
     "isolated_host_environment": true,
+    "network_policy": "provider_egress_host_only",
     "session_persistence": "forbidden",
     "setting_sources": [],
     "strict_mcp_config": true
   },
-  "timeout_retry": {
-    "timeout_seconds": 120,
-    "max_attempts": 1,
-    "retry_backoff_seconds": 2,
-    "retryable_exit_codes": []
-  },
-  "transcript_capture": {
-    "points": ["stdout", "stderr", "private_execution_log"],
-    "public_raw_transcript": false
-  },
-  "usage_reporting": {
-    "input_tokens_field": "usage.input_tokens",
-    "output_tokens_field": "usage.output_tokens",
-    "cache_read_tokens_field": "usage.cache_read_input_tokens",
-    "cache_write_tokens_field": "usage.cache_creation_input_tokens",
-    "cost_usd_field": "total_cost_usd",
-    "cost_basis": "provider_reported",
-    "solver_response_fields": ["input_tokens", "output_tokens", "estimated_cost", "request_count"]
-  },
-  "task_projection": {
-    "prompt_source": "solver_input_prompt",
-    "deliverable_source": "structured_stdout",
-    "deliverable_relative_path": null
+  "display_name": "Claude Code clean-native local CLI",
+  "executable": {
+    "basename": "claude",
+    "distribution_kind": "standalone-cli",
+    "sha256": "47a01daebf794f6c86c13d1875ad6e5be0627029ad8600731161f24018ecde5b",
+    "version": "2.1.231 (Claude Code)"
   },
   "harness_binding": {
     "adapter_id": "claude-code-clean-native",
     "adapter_version": "1.0.0",
-    "supported_families": ["legalforecast_mtd"],
-    "supported_scoring_modes": ["lfb_brier"],
-    "tool_protocol_version": null,
-    "implements_harness_adapter": true,
-    "implements_harness_solver": true,
     "harness_adapter_contract": "legalforecast.multiharness.adapters.HarnessAdapter",
     "harness_solver_contract": "legalforecast.evals.inspect_task.HarnessSolver",
+    "implements_harness_adapter": true,
+    "implements_harness_solver": true,
+    "solver_kind": "inspect_ai",
     "solver_response_contract": "legalforecast.evals.inspect_task.SolverResponse",
-    "solver_kind": "inspect_ai"
+    "supported_families": [
+      "legalforecast_mtd"
+    ],
+    "supported_scoring_modes": [
+      "lfb_brier"
+    ],
+    "tool_protocol_version": null
+  },
+  "invocation": {
+    "argv_template": [
+      "-p",
+      "{prompt}",
+      "--output-format",
+      "json",
+      "--json-schema",
+      "{output_schema_path}",
+      "--tools",
+      "",
+      "--strict-mcp-config",
+      "--no-session-persistence",
+      "--setting-sources",
+      "",
+      "--model",
+      "{model}",
+      "--add-dir",
+      "{workspace}"
+    ],
+    "headless_mode": "print_flag",
+    "model_flag": "--model",
+    "output_format": "json",
+    "prompt_delivery": "argv_placeholder",
+    "schema_enforcement": "json_schema_flag",
+    "working_directory_flag": "--add-dir"
+  },
+  "manifest_id": "claude-code-clean-native",
+  "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "supported_auth_profiles": [
+    "contributor-subscription",
+    "fixture-none",
+    "published-api-key"
+  ],
+  "task_projection": {
+    "deliverable_relative_path": null,
+    "deliverable_source": "structured_stdout",
+    "prompt_source": "solver_input_prompt"
+  },
+  "timeout_retry": {
+    "max_attempts": 1,
+    "retry_backoff_seconds": 2,
+    "retryable_exit_codes": [],
+    "timeout_seconds": 120
+  },
+  "transcript_capture": {
+    "points": [
+      "private_execution_log",
+      "stderr",
+      "stdout"
+    ],
+    "public_raw_transcript": false
+  },
+  "usage_reporting": {
+    "cache_read_tokens_field": "usage.cache_read_input_tokens",
+    "cache_write_tokens_field": "usage.cache_creation_input_tokens",
+    "cost_basis": "provider_reported",
+    "cost_usd_field": "total_cost_usd",
+    "input_tokens_field": "usage.input_tokens",
+    "output_tokens_field": "usage.output_tokens",
+    "solver_response_fields": [
+      "estimated_cost",
+      "input_tokens",
+      "output_tokens",
+      "request_count"
+    ]
   }
 }
 ```
@@ -111,9 +179,11 @@ Closed tokens: `headless_print`, `json_output`, `stream_json_output`, `json_sche
 
 `auth_profile_name` is a name reference only. Profile semantics, credential projection, and no-fallback policy belong to `LegalForecastBench-dm0g.4.2.5`. The vocabulary this schema accepts is:
 
-- `fixture_none`
-- `explicit_api_key`
-- `local_cli_subscription`
+- `fixture-none`
+- `published-api-key`
+- `contributor-subscription`
+
+`supported_auth_profiles` lists the subset this adapter instance may use. `auth_profile_name` must be one of those names and is the profile the fixture itself is bound to. `auth_environment_variables` is an array of `{profile, names}` objects mapping each supported profile to the public environment-variable *names* B3 may project; values and Infisical paths stay with `LegalForecastBench-dm0g.4.2.5`. `fixture-none` must map to an empty list. Profile IDs are record values, not object keys, so `published-api-key` does not trip the public-record secret-key scanner.
 
 Do not store account identifiers, token paths, or secret field names on this record.
 
@@ -133,9 +203,119 @@ Do not store account identifiers, token paths, or secret field names on this rec
 - `harness_binding` names the existing `HarnessAdapter`, `HarnessSolver`, and `SolverResponse` contracts. `solver_kind` must be one of the existing `SolverKind` values (`offline_mock`, `configured_model_stub`, `inspect_ai`). This schema does not add a parallel solver kind.
 - `to_adapter_manifest()` / `to_adapter_capabilities()` emit the frozen v1 records so `CommandAdapter.prepare` can keep using them. The wrapper `command` is the executable basename; B3 supplies the Python entry point that reads this manifest and renders `argv_template`.
 
+## Closed field inventory
+
+The following tables are the anti-drift inventory. Tests parse the `field` column of each `###` heading and require set equality with the typed model's dataclass fields. Adding or renaming a field without updating both sides fails closed.
+
+### local_cli_adapter_manifest
+
+| field |
+| --- |
+| adapter_kind |
+| auth_environment_variables |
+| auth_profile_name |
+| capabilities |
+| capability_digest |
+| containment |
+| display_name |
+| executable |
+| harness_binding |
+| invocation |
+| manifest_id |
+| schema_version |
+| supported_auth_profiles |
+| task_projection |
+| timeout_retry |
+| transcript_capture |
+| usage_reporting |
+
+### executable
+
+| field |
+| --- |
+| basename |
+| distribution_kind |
+| sha256 |
+| version |
+
+### invocation
+
+| field |
+| --- |
+| argv_template |
+| headless_mode |
+| model_flag |
+| output_format |
+| prompt_delivery |
+| schema_enforcement |
+| working_directory_flag |
+
+### containment
+
+| field |
+| --- |
+| host_process_containment |
+| isolated_host_environment |
+| network_policy |
+| session_persistence |
+| setting_sources |
+| strict_mcp_config |
+
+### timeout_retry
+
+| field |
+| --- |
+| max_attempts |
+| retry_backoff_seconds |
+| retryable_exit_codes |
+| timeout_seconds |
+
+### transcript_capture
+
+| field |
+| --- |
+| points |
+| public_raw_transcript |
+
+### usage_reporting
+
+| field |
+| --- |
+| cache_read_tokens_field |
+| cache_write_tokens_field |
+| cost_basis |
+| cost_usd_field |
+| input_tokens_field |
+| output_tokens_field |
+| solver_response_fields |
+
+### task_projection
+
+| field |
+| --- |
+| deliverable_relative_path |
+| deliverable_source |
+| prompt_source |
+
+### harness_binding
+
+| field |
+| --- |
+| adapter_id |
+| adapter_version |
+| harness_adapter_contract |
+| harness_solver_contract |
+| implements_harness_adapter |
+| implements_harness_solver |
+| solver_kind |
+| solver_response_contract |
+| supported_families |
+| supported_scoring_modes |
+| tool_protocol_version |
+
 ## Fixtures
 
-- `tests/fixtures/local_cli_adapters/claude-code.json` — first real instance, dogfooding the Claude Code 2.1.229 characterization.
+- `tests/fixtures/local_cli_adapters/claude-code.json` — first real instance, dogfooding the Claude Code 2.1.231 characterization.
 - `tests/fixtures/local_cli_adapters/codex-cli.json` — Codex CLI 0.146.0 interface pin, same schema, no Claude-specific fields.
 
 Validate with:

@@ -1,6 +1,24 @@
 {
   "adapter_kind": "local_cli",
-  "auth_profile_name": "fixture_none",
+  "auth_environment_variables": [
+    {
+      "names": [
+        "CLAUDE_CODE_OAUTH_TOKEN"
+      ],
+      "profile": "contributor-subscription"
+    },
+    {
+      "names": [],
+      "profile": "fixture-none"
+    },
+    {
+      "names": [
+        "ANTHROPIC_API_KEY"
+      ],
+      "profile": "published-api-key"
+    }
+  ],
+  "auth_profile_name": "fixture-none",
   "capabilities": [
     "empty_tools",
     "headless_print",
@@ -15,7 +33,7 @@
     "tool_allowlist",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:157039af81e1219b71baa86983a8e8d6a10f93c200375ffd1d92ac65f89d3c3a",
+  "capability_digest": "sha256:28742e9091ce21abcadcd28e3ff2042d95271422d87b2b1dbd50a4fdc8ab8cf9",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -28,8 +46,8 @@
   "executable": {
     "basename": "claude",
     "distribution_kind": "standalone-cli",
-    "sha256": "200338139a3df04a9ad22233837d1fb53fb6dffa21cd82e47559bfaa115acc1b",
-    "version": "2.1.229 (Claude Code)"
+    "sha256": "47a01daebf794f6c86c13d1875ad6e5be0627029ad8600731161f24018ecde5b",
+    "version": "2.1.231 (Claude Code)"
   },
   "harness_binding": {
     "adapter_id": "claude-code-clean-native",
@@ -76,6 +94,11 @@
   },
   "manifest_id": "claude-code-clean-native",
   "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "supported_auth_profiles": [
+    "contributor-subscription",
+    "fixture-none",
+    "published-api-key"
+  ],
   "task_projection": {
     "deliverable_relative_path": null,
     "deliverable_source": "structured_stdout",

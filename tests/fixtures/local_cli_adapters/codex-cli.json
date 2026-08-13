@@ -1,6 +1,22 @@
 {
   "adapter_kind": "local_cli",
-  "auth_profile_name": "fixture_none",
+  "auth_environment_variables": [
+    {
+      "names": [],
+      "profile": "contributor-subscription"
+    },
+    {
+      "names": [],
+      "profile": "fixture-none"
+    },
+    {
+      "names": [
+        "OPENAI_API_KEY"
+      ],
+      "profile": "published-api-key"
+    }
+  ],
+  "auth_profile_name": "fixture-none",
   "capabilities": [
     "headless_print",
     "json_output",
@@ -9,7 +25,7 @@
     "no_session_persistence",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:102135664d2425c4ac0ddc7e1f94a8485e443b0e1fb036d4e9b2e54a4dd315f0",
+  "capability_digest": "sha256:b93d46d7c15974a1b301f2faeab154464b26e2599d92f5a534dd4f8dcfe07a03",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -69,6 +85,11 @@
   },
   "manifest_id": "codex-cli-clean-native",
   "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "supported_auth_profiles": [
+    "contributor-subscription",
+    "fixture-none",
+    "published-api-key"
+  ],
   "task_projection": {
     "deliverable_relative_path": null,
     "deliverable_source": "structured_stdout",

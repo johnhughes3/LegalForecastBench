@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import json
+import re
+from dataclasses import fields
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,14 @@ from legalforecast.multiharness.local_cli_manifest import (
     SOLVER_RESPONSE_CONTRACT,
     LocalCliAdapterManifest,
     LocalCliAdapterManifestError,
+    LocalCliContainment,
+    LocalCliExecutableIdentity,
+    LocalCliHarnessBinding,
+    LocalCliInvocation,
+    LocalCliTaskProjection,
+    LocalCliTimeoutRetry,
+    LocalCliTranscriptCapture,
+    LocalCliUsageReporting,
     capability_digest_for,
 )
 from legalforecast.multiharness.spec import POSIX_PROCESS_GROUP_CONTAINMENT
@@ -26,7 +36,7 @@ FIXTURE_DIR = ROOT / "tests" / "fixtures" / "local_cli_adapters"
 CLAUDE_FIXTURE = FIXTURE_DIR / "claude-code.json"
 CODEX_FIXTURE = FIXTURE_DIR / "codex-cli.json"
 SCHEMA_DOC = ROOT / "docs" / "schemas" / "local-cli-adapter-manifest-v1.md"
-CLAUDE_SHA256 = "200338139a3df04a9ad22233837d1fb53fb6dffa21cd82e47559bfaa115acc1b"
+CLAUDE_SHA256 = "47a01daebf794f6c86c13d1875ad6e5be0627029ad8600731161f24018ecde5b"
 CODEX_SHA256 = "2e863156ed35ecc5253b1e2f907a9143077b9f7cb51942070c61996471ff6e04"
 
 
@@ -58,7 +68,7 @@ def _claude_record() -> dict[str, Any]:
         "adapter_kind": LOCAL_CLI_ADAPTER_KIND,
         "executable": {
             "basename": "claude",
-            "version": "2.1.229 (Claude Code)",
+            "version": "2.1.231 (Claude Code)",
             "sha256": CLAUDE_SHA256,
             "distribution_kind": "standalone-cli",
         },
@@ -103,7 +113,20 @@ def _claude_record() -> dict[str, Any]:
             "working_directory_flag": "--add-dir",
             "model_flag": "--model",
         },
-        "auth_profile_name": "fixture_none",
+        "auth_profile_name": "fixture-none",
+        "supported_auth_profiles": [
+            "contributor-subscription",
+            "fixture-none",
+            "published-api-key",
+        ],
+        "auth_environment_variables": [
+            {
+                "names": ["CLAUDE_CODE_OAUTH_TOKEN"],
+                "profile": "contributor-subscription",
+            },
+            {"names": [], "profile": "fixture-none"},
+            {"names": ["ANTHROPIC_API_KEY"], "profile": "published-api-key"},
+        ],
         "containment": {
             "host_process_containment": POSIX_PROCESS_GROUP_CONTAINMENT,
             "network_policy": "provider_egress_host_only",
@@ -193,7 +216,17 @@ def _codex_record() -> dict[str, Any]:
             "working_directory_flag": "--cd",
             "model_flag": "--model",
         },
-        "auth_profile_name": "fixture_none",
+        "auth_profile_name": "fixture-none",
+        "supported_auth_profiles": [
+            "contributor-subscription",
+            "fixture-none",
+            "published-api-key",
+        ],
+        "auth_environment_variables": [
+            {"names": [], "profile": "contributor-subscription"},
+            {"names": [], "profile": "fixture-none"},
+            {"names": ["OPENAI_API_KEY"], "profile": "published-api-key"},
+        ],
         "containment": {
             "host_process_containment": POSIX_PROCESS_GROUP_CONTAINMENT,
             "network_policy": "provider_egress_host_only",
@@ -249,7 +282,7 @@ def test_committed_fixtures_validate_claude_and_codex() -> None:
     )
 
     assert claude.executable.basename == "claude"
-    assert claude.auth_profile_name == "fixture_none"
+    assert claude.auth_profile_name == "fixture-none"
     assert claude.invocation.headless_mode == "print_flag"
     assert "--no-session-persistence" in claude.invocation.argv_template
     assert claude.timeout_retry.max_attempts == 1
@@ -266,6 +299,14 @@ def test_committed_fixtures_validate_claude_and_codex() -> None:
     assert set(codex.capabilities).issubset(LOCAL_CLI_CAPABILITIES)
     assert claude.auth_profile_name in AUTH_PROFILE_NAMES
     assert "claude" not in json.dumps(codex.to_record())
+
+
+def test_missing_executable_digest_is_rejected() -> None:
+    record = _claude_record()
+    del record["executable"]["sha256"]
+
+    with pytest.raises(LocalCliAdapterManifestError, match="sha256"):
+        LocalCliAdapterManifest.from_record(record)
 
 
 def test_unknown_capability_is_rejected() -> None:
@@ -288,6 +329,15 @@ def test_unknown_field_is_rejected() -> None:
 def test_unknown_auth_profile_is_rejected() -> None:
     record = _claude_record()
     record["auth_profile_name"] = "claude-subscription-local"
+    record["capability_digest"] = capability_digest_for(record)
+
+    with pytest.raises(LocalCliAdapterManifestError, match="auth_profile_name"):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_legacy_auth_profile_aliases_fail_closed() -> None:
+    record = _claude_record()
+    record["auth_profile_name"] = "fixture_none"
     record["capability_digest"] = capability_digest_for(record)
 
     with pytest.raises(LocalCliAdapterManifestError, match="auth_profile_name"):
@@ -363,9 +413,9 @@ def test_schema_doc_states_existing_solver_contracts() -> None:
     assert "adapter_manifest.v1" in documentation
     assert HARNESS_ADAPTER_CONTRACT in documentation
     assert "HarnessSolver" in documentation
-    assert "fixture_none" in documentation
-    assert "explicit_api_key" in documentation
-    assert "local_cli_subscription" in documentation
+    assert "fixture-none" in documentation
+    assert "published-api-key" in documentation
+    assert "contributor-subscription" in documentation
     assert "legalforecast/cli.py" in documentation
 
 
@@ -376,3 +426,114 @@ def test_committed_fixtures_match_builders() -> None:
     assert claude == _claude_record()
     assert codex == _codex_record()
     assert copy.deepcopy(claude)["executable"]["sha256"] == CLAUDE_SHA256
+
+
+def test_schema_doc_examples_round_trip_through_the_typed_model() -> None:
+    documentation = SCHEMA_DOC.read_text(encoding="utf-8")
+    examples = [
+        json.loads(block)
+        for block in re.findall(r"```json\n(.*?)```", documentation, flags=re.DOTALL)
+    ]
+
+    assert examples
+    for example in examples:
+        manifest = LocalCliAdapterManifest.from_record(example)
+        assert manifest.to_record() == example
+
+
+_NESTED_RECORD_MODELS = {
+    "containment": LocalCliContainment,
+    "executable": LocalCliExecutableIdentity,
+    "harness_binding": LocalCliHarnessBinding,
+    "invocation": LocalCliInvocation,
+    "task_projection": LocalCliTaskProjection,
+    "timeout_retry": LocalCliTimeoutRetry,
+    "transcript_capture": LocalCliTranscriptCapture,
+    "usage_reporting": LocalCliUsageReporting,
+}
+
+
+def _required_field_paths() -> tuple[tuple[str, ...], ...]:
+    paths: list[tuple[str, ...]] = []
+    for field in fields(LocalCliAdapterManifest):
+        paths.append((field.name,))
+        nested = _NESTED_RECORD_MODELS.get(field.name)
+        if nested is None:
+            continue
+        for inner in fields(nested):
+            paths.append((field.name, inner.name))
+    return tuple(paths)
+
+
+@pytest.mark.parametrize(
+    "path",
+    _required_field_paths(),
+    ids=lambda path: ".".join(path),
+)
+def test_missing_required_field_names_the_field(path: tuple[str, ...]) -> None:
+    record = _claude_record()
+    if len(path) == 1:
+        del record[path[0]]
+    else:
+        del record[path[0]][path[1]]
+
+    with pytest.raises(LocalCliAdapterManifestError, match=re.escape(path[-1])):
+        LocalCliAdapterManifest.from_record(record)
+
+
+_FIELD_TABLE_MODELS = {
+    "containment": LocalCliContainment,
+    "executable": LocalCliExecutableIdentity,
+    "harness_binding": LocalCliHarnessBinding,
+    "invocation": LocalCliInvocation,
+    "local_cli_adapter_manifest": LocalCliAdapterManifest,
+    "task_projection": LocalCliTaskProjection,
+    "timeout_retry": LocalCliTimeoutRetry,
+    "transcript_capture": LocalCliTranscriptCapture,
+    "usage_reporting": LocalCliUsageReporting,
+}
+
+
+def _field_tables_from_schema_doc(markdown: str) -> dict[str, frozenset[str]]:
+    start = markdown.index("## Closed field inventory")
+    tables: dict[str, frozenset[str]] = {}
+    current: str | None = None
+    collected: list[str] = []
+    in_table = False
+    heading_re = re.compile(r"^### ([a-z_]+)\s*$")
+    for line in markdown[start:].splitlines():
+        heading = heading_re.match(line)
+        if heading is not None:
+            if current is not None:
+                tables[current] = frozenset(collected)
+            current = heading.group(1)
+            collected = []
+            in_table = False
+            continue
+        if current is None:
+            continue
+        if re.match(r"^\|\s*field\s*\|", line, flags=re.IGNORECASE):
+            in_table = True
+            continue
+        if in_table and re.match(r"^\|\s*-+", line):
+            continue
+        if in_table and line.startswith("|"):
+            field_name = line.strip().strip("|").strip()
+            if field_name:
+                collected.append(field_name)
+            continue
+        if in_table and line.startswith("##"):
+            tables[current] = frozenset(collected)
+            current = None
+            in_table = False
+    if current is not None:
+        tables[current] = frozenset(collected)
+    return tables
+
+
+def test_schema_doc_field_tables_match_typed_model() -> None:
+    tables = _field_tables_from_schema_doc(SCHEMA_DOC.read_text(encoding="utf-8"))
+
+    assert set(tables) == set(_FIELD_TABLE_MODELS)
+    for heading, model in _FIELD_TABLE_MODELS.items():
+        assert tables[heading] == {field.name for field in fields(model)}

@@ -15,12 +15,12 @@
     "distribution": {
       "kind": "standalone-cli",
       "package": "claude",
-      "version": "2.1.229 (Claude Code)"
+      "version": "2.1.231 (Claude Code)"
     },
     "executable": "claude",
     "mode": "0755",
-    "sha256": "200338139a3df04a9ad22233837d1fb53fb6dffa21cd82e47559bfaa115acc1b",
-    "version": "2.1.229 (Claude Code)"
+    "sha256": "47a01daebf794f6c86c13d1875ad6e5be0627029ad8600731161f24018ecde5b",
+    "version": "2.1.231 (Claude Code)"
   },
   "identity": {
     "adapter_profile": "claude-code-clean-native",
