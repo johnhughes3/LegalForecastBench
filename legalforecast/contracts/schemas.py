@@ -155,6 +155,9 @@ EXACT100_MISSING_DOCUMENT_SUCCESSOR_V2 = SchemaIdentifier(
 EXACT100_DOCUMENT_REPAIR_PILOT_V1 = SchemaIdentifier(
     "legalforecast.exact100_document_repair_pilot.v1"
 )
+EXACT100_DOCUMENT_REPAIR_PILOT_V2 = SchemaIdentifier(
+    "legalforecast.exact100_document_repair_pilot.v2"
+)
 EXACT100_DOCUMENT_REPAIR_EXECUTION_V1 = SchemaIdentifier(
     "legalforecast.exact100_document_repair_execution.v1"
 )

@@ -11,13 +11,14 @@ from pathlib import Path
 import pytest
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
-    EXACT100_DOCUMENT_REPAIR_PILOT_V1,
+    EXACT100_DOCUMENT_REPAIR_PILOT_V2,
 )
 from legalforecast.ingestion.case_dev_purchase import generate_case_dev_purchase_policy
 from legalforecast.ingestion.document_repair_executor import (
     AcquiredRepairDocument,
     DocumentRepairExecution,
     DocumentRepairExecutorError,
+    DocumentRepairPurchaseAuthority,
     RepairOperationOutcome,
     build_document_repair_purchase_authority,
     record_document_repair_outcomes,
@@ -221,7 +222,7 @@ def test_execution_requires_exact_ordered_pilot_projection() -> None:
         "pilot_sha256",
         str(
             ARTIFACT_RAW_SHA256_V1.commit(
-                pilot.content_record(), domain=EXACT100_DOCUMENT_REPAIR_PILOT_V1
+                pilot.content_record(), domain=EXACT100_DOCUMENT_REPAIR_PILOT_V2
             ).digest
         ),
     )
@@ -626,6 +627,39 @@ def test_purchase_authority_rejects_existing_ledger_path(tmp_path: Path) -> None
                 "includes_pacer_fees": True,
                 "includes_rounding": True,
             },
+        )
+
+
+def test_paid_runner_rejects_forged_purchase_authority() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    valid = _purchase_authority(execution)
+    forged = object.__new__(DocumentRepairPurchaseAuthority)
+    for name in (
+        "execution_sha256",
+        "scope",
+        "scope_sha256",
+        "purchase_policy",
+        "authority_sha256",
+    ):
+        object.__setattr__(forged, name, getattr(valid, name))
+    object.__setattr__(forged, "_mint", object())
+
+    with pytest.raises(DocumentRepairExecutorError, match="purchase authority"):
+        run_document_repair_execution(
+            execution=execution,
+            purchase_authority=forged,
+            acquire=lambda _operation: pytest.fail("must not invoke acquisition"),
+            monotonic=lambda: 0.0,
         )
 
 
