@@ -408,6 +408,7 @@ def run_offline_protocol_fixture(request: RunRequest, workspace: Path) -> RunRes
         returncode=0,
         offline_protocol_fixture=True,
         deliverable_manifest_sha256=None,
+        tool_call_count=0,
     )
     return RunResult(
         result_id=f"{request.request_id}:codex-cli:offline-fixture",
@@ -456,8 +457,7 @@ class CodexCliAdapter:
         prompt = _prompt_for(workspace, request)
         plan = build_codex_invocation_plan(request, workspace, prompt=prompt)
         private_logs = workspace / "private-logs"
-        private_logs.mkdir(mode=0o700, parents=True, exist_ok=True)
-        private_logs.chmod(0o700)
+        _ensure_real_directory(private_logs, label="private-logs")
         _clear_prior_last_message(plan.last_message_path)
         outcome = self.execution_service.execute(
             CodexCliExecutionRequest(
@@ -535,11 +535,9 @@ def _reasoning_effort(request: RunRequest) -> str:
 
 def _prompt_for(workspace: Path, request: RunRequest) -> str:
     prompt_path = workspace / SOLVER_INPUT_ENTRY_PATH
-    _reject_auth_path(prompt_path)
-    if prompt_path.is_file():
-        text = prompt_path.read_text(encoding="utf-8")
-        if text.strip():
-            return text
+    text = _optional_existing_text(prompt_path)
+    if text is not None and text.strip():
+        return text
     metadata_prompt = request.task.metadata.get("prompt")
     if isinstance(metadata_prompt, str) and metadata_prompt.strip():
         return metadata_prompt
@@ -790,9 +788,9 @@ def _optional_existing_text(path: Path) -> str | None:
     except FileNotFoundError:
         return None
     if stat.S_ISLNK(info.st_mode):
-        raise CodexCliAdapterError("Codex last-message path must not be a symlink")
+        raise CodexCliAdapterError("workspace path must not be a symlink")
     if not stat.S_ISREG(info.st_mode):
-        raise CodexCliAdapterError("Codex last-message path must be a regular file")
+        raise CodexCliAdapterError("workspace path must be a regular file")
     flags = os.O_RDONLY
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
@@ -811,12 +809,12 @@ def _write_private_text(path: Path, payload: str) -> None:
     try:
         info = path.lstat()
     except FileNotFoundError:
-        info = None
+        pass
     else:
         if stat.S_ISLNK(info.st_mode):
-            raise CodexCliAdapterError("private log path must not be a symlink")
+            raise CodexCliAdapterError("workspace path must not be a symlink")
         if not stat.S_ISREG(info.st_mode):
-            raise CodexCliAdapterError("private log path must be a regular file")
+            raise CodexCliAdapterError("workspace path must be a regular file")
         path.unlink()
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
@@ -840,6 +838,31 @@ def _require_real_directory(path: Path, *, label: str) -> None:
         raise CodexCliAdapterError(f"{label} must exist") from exc
     if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
         raise CodexCliAdapterError(f"{label} must be a real directory")
+
+
+def _ensure_real_directory(path: Path, *, label: str, mode: int = 0o700) -> None:
+    if path.is_symlink():
+        raise CodexCliAdapterError(f"{label} must be a real directory")
+    path.mkdir(mode=mode, parents=True, exist_ok=True)
+    _require_real_directory(path, label=label)
+    path.chmod(mode)
+
+
+def _command_execution_count(events: Sequence[Mapping[str, Any]]) -> int:
+    completed: set[str] = set()
+    anonymous = 0
+    for event in events:
+        if event.get("type") != "item.completed":
+            continue
+        item = _as_mapping(event.get("item"))
+        if item is None or item.get("type") != "command_execution":
+            continue
+        item_id = item.get("id")
+        if isinstance(item_id, str) and item_id:
+            completed.add(item_id)
+            continue
+        anonymous += 1
+    return len(completed) + anonymous
 
 
 def _clear_prior_last_message(path: Path) -> None:
@@ -884,6 +907,7 @@ def _public_summary(
     returncode: int,
     offline_protocol_fixture: bool,
     deliverable_manifest_sha256: str | None,
+    tool_call_count: int,
 ) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "adapter_id": CODEX_CLI_ADAPTER_ID,
@@ -897,14 +921,13 @@ def _public_summary(
         "offline_protocol_fixture": offline_protocol_fixture,
         "output_tokens": output_tokens,
         "provider": "openai",
-        "provider_request_count": 0,
         "requested_model": requested_model,
         "returncode": returncode,
         "sandbox_mode": CODEX_SANDBOX_MODE,
         "sandbox_policy_id": request.sandbox_policy.policy_id,
         "subscription_login_claimed": False,
         "task_id": request.task.task_id,
-        "tool_call_count": 0,
+        "tool_call_count": tool_call_count,
         "total_tokens": input_tokens + output_tokens,
     }
     if served_model is not None:
@@ -937,6 +960,7 @@ def _failed_result(
         returncode=returncode,
         offline_protocol_fixture=False,
         deliverable_manifest_sha256=None,
+        tool_call_count=_command_execution_count(envelope.events),
     )
     return RunResult(
         result_id=f"{request.request_id}:codex-cli",
@@ -956,14 +980,14 @@ def _successful_result(
     returncode: int,
 ) -> RunResult:
     source_root = workspace / "codex-output"
-    source_root.mkdir(parents=True, exist_ok=True)
+    _ensure_real_directory(source_root, label="codex-output")
     submission = source_root / "submission.md"
     payload = (
         envelope.last_message
         if envelope.last_message.endswith("\n")
         else (f"{envelope.last_message}\n")
     )
-    submission.write_text(payload, encoding="utf-8")
+    _write_private_text(submission, payload)
     sealed_root = workspace / "sealed-deliverable"
     _remove_prior_sealed_root(sealed_root)
     manifest = seal_deliverable(
@@ -983,12 +1007,12 @@ def _successful_result(
         ),
     )
     manifest_path = workspace / "private-logs" / "codex-deliverable-manifest.json"
-    encoded = (
+    encoded_text = (
         json.dumps(manifest.to_record(), indent=2, sort_keys=True, allow_nan=False)
         + "\n"
-    ).encode("utf-8")
-    manifest_path.write_bytes(encoded)
-    manifest_path.chmod(0o600)
+    )
+    _write_private_text(manifest_path, encoded_text)
+    encoded = encoded_text.encode("utf-8")
     artifact_digest = hashlib.sha256()
     artifact_digest.update(encoded)
     summary = _public_summary(
@@ -1002,6 +1026,7 @@ def _successful_result(
         returncode=returncode,
         offline_protocol_fixture=False,
         deliverable_manifest_sha256=manifest.manifest_sha256,
+        tool_call_count=_command_execution_count(envelope.events),
     )
     commitment = {
         "deliverable_manifest_sha256": manifest.manifest_sha256,

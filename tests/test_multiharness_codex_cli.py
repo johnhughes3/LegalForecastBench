@@ -583,7 +583,119 @@ def test_last_message_symlink_is_rejected(tmp_path: Path) -> None:
     assert outside.read_text(encoding="utf-8") == "HOST_SECRET\n"
 
 
-def test_item_updated_events_are_not_schema_violations() -> None:
+def test_prompt_symlink_is_rejected(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    outside = tmp_path / "host-secret.txt"
+    outside.write_text("HOST_SECRET\n", encoding="utf-8")
+    (workspace / "prompt.txt").symlink_to(outside)
+    adapter = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(_success_outcome())
+    )
+
+    with pytest.raises(CodexCliAdapterError, match="symlink"):
+        adapter.run(_request(), workspace)
+    assert outside.read_text(encoding="utf-8") == "HOST_SECRET\n"
+
+
+def test_private_logs_directory_symlink_is_rejected(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    outside = tmp_path / "host-dir"
+    outside.mkdir()
+    (workspace / "private-logs").symlink_to(outside)
+    adapter = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(_success_outcome())
+    )
+
+    with pytest.raises(CodexCliAdapterError, match="real directory"):
+        adapter.run(_request(), workspace)
+
+
+def test_submission_symlink_is_rejected(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    outside = tmp_path / "host-secret.txt"
+    outside.write_text("HOST_SECRET\n", encoding="utf-8")
+    adapter = CodexCliAdapter(
+        execution_service=_SymlinkDuringExecute(
+            _success_outcome(),
+            target=outside,
+            relative="codex-output/submission.md",
+        )
+    )
+
+    with pytest.raises(CodexCliAdapterError, match="symlink"):
+        adapter.run(_request(), workspace)
+    assert outside.read_text(encoding="utf-8") == "HOST_SECRET\n"
+
+
+def test_deliverable_manifest_symlink_is_rejected(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    outside = tmp_path / "host-secret.txt"
+    outside.write_text("HOST_SECRET\n", encoding="utf-8")
+    adapter = CodexCliAdapter(
+        execution_service=_SymlinkDuringExecute(
+            _success_outcome(),
+            target=outside,
+            relative="private-logs/codex-deliverable-manifest.json",
+        )
+    )
+
+    with pytest.raises(CodexCliAdapterError, match="symlink"):
+        adapter.run(_request(), workspace)
+    assert outside.read_text(encoding="utf-8") == "HOST_SECRET\n"
+
+
+def test_command_execution_events_are_counted(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    stdout = _jsonl(
+        {"type": "thread.started", "thread_id": THREAD_ID},
+        {"type": "turn.started"},
+        {
+            "type": "item.updated",
+            "item": {
+                "id": "item_cmd",
+                "type": "command_execution",
+                "status": "running",
+            },
+        },
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item_cmd",
+                "type": "command_execution",
+                "status": "completed",
+            },
+        },
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item_0",
+                "text": "LEGALFORECAST_FAKE_CODEX_RESULT",
+                "type": "agent_message",
+            },
+        },
+        {
+            "type": "turn.completed",
+            "usage": {"input_tokens": 3, "output_tokens": 4},
+        },
+    )
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            CodexCliExecutionOutcome(returncode=0, stdout=stdout, stderr="")
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "succeeded"
+    assert result.public_summary["tool_call_count"] == 1
+    assert "provider_request_count" not in result.public_summary
     stdout = _jsonl(
         {"type": "thread.started", "thread_id": THREAD_ID},
         {"type": "turn.started"},
