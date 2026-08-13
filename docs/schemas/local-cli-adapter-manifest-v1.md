@@ -48,7 +48,7 @@ The fenced example is the committed Claude Code instance (`tests/fixtures/local_
     "tool_allowlist",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:d8bedaf7f196d1046c4ba5d5821997c013eed8be98b94efac7978dfb09813dc4",
+  "capability_digest": "sha256:589dcb30806b1f204f3f6c7e7a9d071a7f7400e9ac91eec07220843b0516ba2a",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -115,6 +115,9 @@ The fenced example is the committed Claude Code instance (`tests/fixtures/local_
     "published-api-key"
   ],
   "task_projection": {
+    "deliverable_event_type": null,
+    "deliverable_field": "result",
+    "deliverable_item_type": null,
     "deliverable_relative_path": null,
     "deliverable_source": "structured_stdout",
     "prompt_source": "solver_input_prompt"
@@ -172,8 +175,9 @@ Closed tokens: `headless_print`, `json_output`, `stream_json_output`, `json_sche
 
 - `headless_mode`: `print_flag` (Claude Code `-p`) or `exec_subcommand` (Codex `exec`).
 - `output_format`: `json` (one JSON document on stdout), `stream_json` (JSONL), or `text`. `json` requires the `json_output` capability; `stream_json` requires `stream_json_output`. For `stream_json`, `usage_reporting` dotted paths are evaluated against the terminal JSON object in that stream, not against concatenated stdout.
-- `schema_enforcement`: `none`, `json_schema_flag`, or `output_schema_file`. `json_schema_flag` requires `{output_schema}` (inline JSON, as Claude Code `--json-schema` takes a schema value). `output_schema_file` requires `{output_schema_path}` (Codex `--output-schema` takes a file). The two placeholders are mutually exclusive.
-- `prompt_delivery`: `argv_placeholder` or `stdin`. The placeholder mode requires `{prompt}`.
+- `schema_enforcement`: `none`, `json_schema_flag`, or `output_schema_file`. `json_schema_flag` requires `{output_schema}` (inline JSON, as Claude Code `--json-schema` takes a schema value). `output_schema_file` requires `{output_schema_path}` (Codex `--output-schema` takes a file). The two placeholders are mutually exclusive. `none` rejects both `{output_schema}` and `{output_schema_path}` so `render_argv` cannot demand schema material the mode says to omit.
+- `prompt_delivery`: `argv_placeholder` or `stdin`. The placeholder mode requires `{prompt}`. `stdin` forbids `{prompt}` so the prompt is not duplicated onto argv.
+- A non-null `working_directory_flag` or `model_flag` must appear as an exact token in `argv_template` (in addition to requiring `{workspace}` / `{model}`).
 
 ### Authentication
 
@@ -200,6 +204,8 @@ Do not store account identifiers, token paths, or secret field names on this rec
 
 - `task_projection.prompt_source` is fixed to `solver_input_prompt` (the private `prompt.txt` from `legalforecast.multiharness.solver_inputs`).
 - `deliverable_source` is `structured_stdout` or `workspace_relative_file` (the latter requires a safe relative path).
+- `structured_stdout` requires `deliverable_field`, a dotted path into the JSON object that holds the answer. For `output_format: stream_json` it also requires `deliverable_event_type` (and may set `deliverable_item_type` to distinguish events that share a type, such as Codex `item.completed` / `agent_message`). For `output_format: json` the event selectors must be null. `workspace_relative_file` forbids the event/field selectors.
+- `project_structured_stdout_deliverable()` is the generic projector: wrappers must not hard-code Codex event names.
 - `harness_binding` names the existing `HarnessAdapter`, `HarnessSolver`, and `SolverResponse` contracts. `solver_kind` must be one of the existing `SolverKind` values (`offline_mock`, `configured_model_stub`, `inspect_ai`). This schema does not add a parallel solver kind.
 - `to_adapter_manifest(command=...)` emits frozen `adapter_manifest.v1` for the **B3 in-process wrapper**, never for `CommandAdapter.prepare` against `claude` or `codex`. `command` is the wrapper identity (a Python entry point). The helper rejects the target CLI basename so the existing command-adapter protocol (`capabilities --output ...`) is not aimed at the vendor binary. `to_adapter_capabilities()` emits the v1 capability advertisement keyed by this schema's `capability_digest`. B3 implements `HarnessAdapter` / `HarnessSolver` by reading this manifest and rendering `argv_template`.
 
@@ -293,6 +299,9 @@ The following tables are the anti-drift inventory. Tests parse the `field` colum
 
 | field |
 | --- |
+| deliverable_event_type |
+| deliverable_field |
+| deliverable_item_type |
 | deliverable_relative_path |
 | deliverable_source |
 | prompt_source |

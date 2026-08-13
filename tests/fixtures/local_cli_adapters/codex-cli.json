@@ -19,13 +19,13 @@
   "auth_profile_name": "fixture-none",
   "capabilities": [
     "headless_print",
-    "json_schema_enforcement",
     "model_selection",
     "no_session_persistence",
+    "permission_mode",
     "stream_json_output",
     "working_directory_isolation"
   ],
-  "capability_digest": "sha256:0b81590639c9eb40769549bcb02b8e5da9b953ed48c0ef4d6330ad89cf38255e",
+  "capability_digest": "sha256:fc50b7240c82764db831a26f656c028231d4e5359e87da6e02a2468e257e1812",
   "containment": {
     "host_process_containment": "posix_process_group.v1",
     "isolated_host_environment": true,
@@ -62,25 +62,28 @@
     "argv_template": [
       "exec",
       "--json",
+      "--color",
+      "never",
       "--ephemeral",
-      "--model",
-      "{model}",
-      "--cd",
-      "{workspace}",
-      "--sandbox",
-      "read-only",
+      "--skip-git-repo-check",
       "--strict-config",
       "--ignore-user-config",
       "--ignore-rules",
-      "--output-schema",
-      "{output_schema_path}",
-      "{prompt}"
+      "--sandbox",
+      "workspace-write",
+      "--cd",
+      "{workspace}",
+      "--model",
+      "{model}",
+      "-c",
+      "approval_policy=\"never\"",
+      "-"
     ],
     "headless_mode": "exec_subcommand",
     "model_flag": "--model",
     "output_format": "stream_json",
-    "prompt_delivery": "argv_placeholder",
-    "schema_enforcement": "output_schema_file",
+    "prompt_delivery": "stdin",
+    "schema_enforcement": "none",
     "working_directory_flag": "--cd"
   },
   "manifest_id": "codex-cli-clean-native",
@@ -91,6 +94,9 @@
     "published-api-key"
   ],
   "task_projection": {
+    "deliverable_event_type": "item.completed",
+    "deliverable_field": "item.text",
+    "deliverable_item_type": "agent_message",
     "deliverable_relative_path": null,
     "deliverable_source": "structured_stdout",
     "prompt_source": "solver_input_prompt"
