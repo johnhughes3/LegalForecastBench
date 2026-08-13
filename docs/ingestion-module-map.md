@@ -134,6 +134,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`missing_document_successor.py`](../legalforecast/ingestion/missing_document_successor.py) | Approved-manifest-bound, free-first projection with byte-role validation and complete repair ledgers. |
 | [`supporting_document_successor.py`](../legalforecast/ingestion/supporting_document_successor.py) | Pure projection transformer for the closed ECF 14 exact-100 supporting-document successor. |
 | [`supporting_document_successor_cli.py`](../legalforecast/ingestion/supporting_document_successor_cli.py) | Authenticated download, immutable publication, replay, and materializer adapter for the supporting-document successor. |
+| [`candidate_scoped_stage_a_replay.py`](../legalforecast/ingestion/candidate_scoped_stage_a_replay.py) | Authenticated reuse of unchanged Stage A results with unitizer/reviewer execution only for changed successor packets. |
 | [`successor_rerun_impact.py`](../legalforecast/ingestion/successor_rerun_impact.py) | Read-only impact planner for authenticated successor reruns and reusable provider work. |
 | [`successor_rerun_proposal.py`](../legalforecast/ingestion/successor_rerun_proposal.py) | Exact-byte proposal envelope and evidence binding for advisory successor rerun planning. |
 | [`exact310_rest_rebind.py`](../legalforecast/ingestion/exact310_rest_rebind.py) | Policy layer for the exact terminal REST rebind. |
