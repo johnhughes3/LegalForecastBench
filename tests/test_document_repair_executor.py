@@ -400,15 +400,14 @@ def _approved_purchase_policy(
     reservation: str = "3.00",
     hard_cap: str = "33.00",
 ) -> dict[str, object]:
-    paid_operations = tuple(
-        operation
-        for operation in execution.operations
-        if operation.route == "pacer_purchase"
-    )
     candidate_ids = [
         case_plan.candidate_id for case_plan in execution.purchase_budget.case_plans
     ]
-    document_ids = [operation.recap_document_id for operation in paid_operations]
+    document_ids = [
+        document_id
+        for case_plan in execution.purchase_budget.case_plans
+        for document_id in case_plan.purchase_document_ids
+    ]
     projected_cost = f"{len(document_ids) * float(reservation):.2f}"
     remaining_headroom = f"{float(hard_cap) - float(projected_cost):.2f}"
     fee_schedule = {
@@ -1172,6 +1171,49 @@ def test_paid_runner_requires_exact_generated_purchase_authority(
     assert authority.purchase_policy.per_document_reservation_usd == 3
     assert authority.purchase_policy.hard_cap_usd == 33
     assert authority.authority_sha256
+
+
+def test_paid_runner_accepts_ledger_initialized_after_authority_mint(
+    tmp_path: Path,
+) -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    authority = _purchase_authority(execution, tmp_path)
+    authority.purchase_policy.canonical_ledger_path.touch()
+    invoked: list[str] = []
+    ticks = iter(float(value) for value in range(11))
+
+    result = run_document_repair_execution(
+        execution=execution,
+        purchase_authority=authority,
+        acquire=lambda operation: (
+            invoked.append(operation.recap_document_id)
+            or AcquiredRepairDocument(
+                disposition="included",
+                source_document_id=operation.recap_document_id,
+                document_bytes=operation.document_role.encode(),
+                committed_cost_usd=(
+                    "0.00" if operation.route == "courtlistener_free" else "3.00"
+                ),
+                retry_count=0,
+            )
+        ),
+        monotonic=lambda: next(ticks),
+    )
+
+    assert invoked == [
+        operation.recap_document_id for operation in execution.operations
+    ]
+    assert result.receipt.committed_cost_usd == "12.00"
 
 
 def test_full_execution_covers_every_plan_item_under_full_approval() -> None:

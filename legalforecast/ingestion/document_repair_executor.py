@@ -639,6 +639,21 @@ def verify_purchase_policy_compatibility(
 ) -> CaseDevPurchasePolicy:
     """Require an existing typed purchase policy to fit this exact execution."""
 
+    return _verify_purchase_policy_binding(
+        execution=execution,
+        purchase_policy_artifact=purchase_policy_artifact,
+        require_fresh_ledger=True,
+    )
+
+
+def _verify_purchase_policy_binding(
+    *,
+    execution: DocumentRepairExecution,
+    purchase_policy_artifact: Mapping[str, object],
+    require_fresh_ledger: bool,
+) -> CaseDevPurchasePolicy:
+    """Bind approved policy content, optionally checking issuance-time freshness."""
+
     _require_replay_minted_execution(execution)
     try:
         policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
@@ -654,19 +669,18 @@ def verify_purchase_policy_compatibility(
         raise DocumentRepairExecutorError(
             "purchase-policy cohort lineage differs from repair execution"
         )
-    if policy.canonical_ledger_path.exists():
+    if require_fresh_ledger and policy.canonical_ledger_path.exists():
         raise DocumentRepairExecutorError(
             "purchase authority requires a fresh canonical ledger"
         )
     approval = policy.approval
     assert approval is not None
-    paid_operations = tuple(
-        operation
-        for operation in execution.operations
-        if operation.route == "pacer_purchase"
+    document_ids = tuple(
+        document_id
+        for plan in budget.case_plans
+        for document_id in plan.purchase_document_ids
     )
     candidate_ids = tuple(plan.candidate_id for plan in budget.case_plans)
-    document_ids = tuple(operation.recap_document_id for operation in paid_operations)
     if (
         approval.get("selected_candidate_ids_sha256")
         != hashlib.sha256(
@@ -1158,9 +1172,10 @@ def _require_purchase_authority(
         != authority.authority_sha256
     ):
         raise DocumentRepairExecutorError("purchase authority binding is invalid")
-    verified = verify_purchase_policy_compatibility(
+    verified = _verify_purchase_policy_binding(
         execution=execution,
         purchase_policy_artifact=authority.purchase_policy.artifact,
+        require_fresh_ledger=False,
     )
     if verified.policy_sha256 != authority.purchase_policy.policy_sha256:
         raise DocumentRepairExecutorError("purchase authority policy changed")
