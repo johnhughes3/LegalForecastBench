@@ -23,6 +23,7 @@ def test_architecture_baseline_is_current() -> None:
 def test_architecture_baseline_records_the_known_migration_edges() -> None:
     snapshot = load_baseline(ROOT / BASELINE_PATH)
     assert snapshot.upward_cli_dependencies == (
+        "legalforecast/cli_commands/score.py",
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
         "legalforecast/ingestion/resolved_post_recovery.py",

@@ -1,12 +1,12 @@
 {
   "cli_metrics": {
-    "command_handler_count": 167,
-    "command_handler_lines": 27064,
-    "line_count": 76043,
-    "nonblank_line_count": 73335,
-    "parser_line_count": 1794,
+    "command_handler_count": 166,
+    "command_handler_lines": 27011,
+    "line_count": 75983,
+    "nonblank_line_count": 73278,
+    "parser_line_count": 1784,
     "top_level_class_count": 24,
-    "top_level_definition_count": 998,
+    "top_level_definition_count": 997,
     "verifier_family_count": 160,
     "verifier_family_lines": 14893
   },
@@ -2428,6 +2428,7 @@
   },
   "schema_version": 1,
   "upward_cli_dependencies": [
+    "legalforecast/cli_commands/score.py",
     "legalforecast/ingestion/purchase_approval.py",
     "legalforecast/ingestion/recovered_public_replay.py",
     "legalforecast/ingestion/resolved_post_recovery.py"

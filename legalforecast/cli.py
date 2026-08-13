@@ -46,8 +46,8 @@ from legalforecast import __version__
 from legalforecast.acquisition_completion_summary_cli import (
     add_acquisition_completion_summary_parser,
 )
-from legalforecast.cli import score as _score_cmd
-from legalforecast.cli.score import (
+from legalforecast.cli_commands import score as _score_cmd
+from legalforecast.cli_commands.score import (
     run as _cmd_score,  # noqa: F401  # pyright: ignore[reportUnusedImport]
 )
 from legalforecast.contracts import (

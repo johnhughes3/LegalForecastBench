@@ -18,9 +18,14 @@ from pathlib import Path
 from typing import Final, cast
 
 BASELINE_PATH: Final[Path] = Path("legalforecast/testing/architecture_baseline.json")
-CLI_PATH: Final[str] = "legalforecast/cli/__init__.py"
+CLI_PATH: Final[str] = "legalforecast/cli.py"
 UPWARD_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
     {
+        # Temporary compatibility bridge for extracted adapters.  The adapter
+        # late-binds facade helpers so existing monkeypatch targets keep
+        # working; this exception must disappear once those helpers are
+        # injected through a cycle-neutral command context.
+        "legalforecast/cli_commands/score.py",
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
         "legalforecast/ingestion/resolved_post_recovery.py",
@@ -410,10 +415,7 @@ def _imports_cli(path: Path, *, include_console: bool = True) -> bool:
     """Return whether a production module imports a CLI adapter module."""
 
     path_text = path.as_posix()
-    if (
-        path_text.endswith("legalforecast/cli/__init__.py")
-        or "/legalforecast/cli/" in path_text
-    ):
+    if path_text.endswith("legalforecast/cli.py"):
         return False
 
     try:
