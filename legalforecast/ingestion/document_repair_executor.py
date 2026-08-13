@@ -21,7 +21,7 @@ from typing import cast
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     EXACT100_DOCUMENT_REPAIR_EXECUTION_V1,
-    EXACT100_DOCUMENT_REPAIR_PILOT_V1,
+    EXACT100_DOCUMENT_REPAIR_PILOT_V2,
     EXACT100_DOCUMENT_REPAIR_PURCHASE_AUTHORITY_V1,
     EXACT100_DOCUMENT_REPAIR_RECEIPT_V1,
     EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
@@ -57,6 +57,7 @@ class DocumentRepairExecutorError(ValueError):
 
 _SNAPSHOT_AUTHORITY = object()
 _EXECUTION_AUTHORITY = object()
+_PURCHASE_AUTHORITY = object()
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -225,7 +226,7 @@ class DocumentRepairRunResult:
     exclusions: tuple[Mapping[str, object], ...]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class DocumentRepairPurchaseAuthority:
     """Execution-bound legacy purchase policy for one fresh repair ledger."""
 
@@ -234,6 +235,15 @@ class DocumentRepairPurchaseAuthority:
     scope_sha256: str
     purchase_policy: CaseDevPurchasePolicy
     authority_sha256: str
+    _mint: object
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise DocumentRepairExecutorError(
+            "purchase authority can be created only by authenticated replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._mint is _PURCHASE_AUTHORITY
 
     def content_record(self) -> dict[str, object]:
         return {
@@ -627,14 +637,14 @@ def build_document_repair_purchase_authority(
     policy = verify_purchase_policy_compatibility(
         execution=execution, purchase_policy_artifact=policy_artifact
     )
-    provisional = DocumentRepairPurchaseAuthority(
+    provisional = _mint_purchase_authority(
         execution_sha256=execution.execution_sha256,
         scope=execution.scope,
         scope_sha256=execution.scope_sha256,
         purchase_policy=policy,
         authority_sha256="",
     )
-    return DocumentRepairPurchaseAuthority(
+    return _mint_purchase_authority(
         execution_sha256=provisional.execution_sha256,
         scope=provisional.scope,
         scope_sha256=provisional.scope_sha256,
@@ -784,7 +794,7 @@ def _require_scope_binding(
     _require_valid_full_plan(full_plan)
     verified_pilot_sha256 = str(
         ARTIFACT_RAW_SHA256_V1.commit(
-            pilot.content_record(), domain=EXACT100_DOCUMENT_REPAIR_PILOT_V1
+            pilot.content_record(), domain=EXACT100_DOCUMENT_REPAIR_PILOT_V2
         ).digest
     )
     if verified_pilot_sha256 != pilot.pilot_sha256:
@@ -1132,7 +1142,9 @@ def _require_purchase_authority(
             "paid execution requires exact generated purchase authority"
         )
     if (
-        authority.execution_sha256 != execution.execution_sha256
+        type(authority) is not DocumentRepairPurchaseAuthority
+        or not authority.is_replay_minted()
+        or authority.execution_sha256 != execution.execution_sha256
         or authority.scope != execution.scope
         or authority.scope_sha256 != execution.scope_sha256
         or _commit_purchase_authority(authority.content_record())
@@ -1260,6 +1272,13 @@ def _mint_execution(**fields: object) -> DocumentRepairExecution:
     for name, value in (*fields.items(), ("_mint", _EXECUTION_AUTHORITY)):
         object.__setattr__(execution, name, value)
     return execution
+
+
+def _mint_purchase_authority(**fields: object) -> DocumentRepairPurchaseAuthority:
+    authority = object.__new__(DocumentRepairPurchaseAuthority)
+    for name, value in (*fields.items(), ("_mint", _PURCHASE_AUTHORITY)):
+        object.__setattr__(authority, name, value)
+    return authority
 
 
 def _commit_receipt(record: Mapping[str, object]) -> str:

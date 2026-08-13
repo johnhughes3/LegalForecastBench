@@ -113,6 +113,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [exact100-missing-document-successor-v1.md](schemas/exact100-missing-document-successor-v1.md): historical exact-100 repair contract keyed only by candidate and docket entry, retained for artifact verification.
 - [exact100-missing-document-successor-v2.md](schemas/exact100-missing-document-successor-v2.md): selector-bearing successor that distinguishes same-entry main documents and attachments without redefining the historical v1 bytes.
 - [exact100-document-repair-pilot-v1.md](schemas/exact100-document-repair-pilot-v1.md): exact ordered five-candidate projection of the authenticated full repair plan without minting independent authority.
+- [exact100-document-repair-pilot-v2.md](schemas/exact100-document-repair-pilot-v2.md): selector-bearing five-candidate projection of the authenticated v2 repair plan.
 - [exact100-document-repair-executor-v1.md](schemas/exact100-document-repair-executor-v1.md): provider-neutral free and paid execution contract preserving document selectors through resolution, acquisition, receipts, and successor evidence.
 
 **Spend authority and purchase**
