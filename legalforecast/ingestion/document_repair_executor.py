@@ -1,0 +1,561 @@
+"""Authenticated identity and execution bridge for exact-100 document repairs.
+
+This module remains provider-neutral: it resolves authenticated CourtListener
+snapshots into the existing free-download and paid-budget types, then records
+the outcomes returned by those established executors. It never performs a
+network request or submits a purchase itself.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
+from typing import cast
+
+from legalforecast.contracts import (
+    ARTIFACT_RAW_SHA256_V1,
+    EXACT100_DOCUMENT_REPAIR_EXECUTION_V1,
+    EXACT100_DOCUMENT_REPAIR_PILOT_V1,
+    EXACT100_DOCUMENT_REPAIR_RECEIPT_V1,
+    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+)
+from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchasePolicy,
+    CaseDevPurchasePolicyError,
+    verify_case_dev_purchase_policy,
+)
+from legalforecast.ingestion.document_repair_pilot import DocumentRepairPilot
+from legalforecast.ingestion.missing_core_budget import (
+    CaseMissingCorePurchasePlan,
+    MissingCoreBudgetPlan,
+)
+from legalforecast.ingestion.missing_document_successor import (
+    MissingDocumentAcquisitionItem,
+    MissingDocumentAcquisitionPlan,
+)
+from legalforecast.ingestion.recap_api_discovery import public_recap_download_url
+
+SCHEMA_VERSION = str(EXACT100_DOCUMENT_REPAIR_EXECUTION_V1)
+RECEIPT_SCHEMA_VERSION = str(EXACT100_DOCUMENT_REPAIR_RECEIPT_V1)
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+class DocumentRepairExecutorError(ValueError):
+    """Raised when repair execution is not exactly authorized and replayable."""
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedRepairOperation:
+    """One manifest obligation resolved to one exact RECAP document."""
+
+    candidate_id: str
+    docket_entry_number: int
+    document_role: str
+    route: str
+    recap_document_id: str
+    docket_entry_id: str
+    source_url: str | None
+    projected_cost_usd: Decimal
+    docket_snapshot_sha256: str
+
+    @property
+    def key(self) -> tuple[str, int]:
+        return self.candidate_id, self.docket_entry_number
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "candidate_id": self.candidate_id,
+            "docket_entry_number": self.docket_entry_number,
+            "document_role": self.document_role,
+            "route": self.route,
+            "recap_document_id": self.recap_document_id,
+            "docket_entry_id": self.docket_entry_id,
+            "source_url": self.source_url,
+            "projected_cost_usd": _money(self.projected_cost_usd),
+            "docket_snapshot_sha256": self.docket_snapshot_sha256,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentRepairExecution:
+    """Exact provider inputs derived from an approved plan and pilot scope."""
+
+    full_plan_sha256: str
+    manifest_sha256: str
+    pilot_sha256: str
+    operations: tuple[ResolvedRepairOperation, ...]
+    purchase_budget: MissingCoreBudgetPlan
+    execution_sha256: str
+
+    def content_record(self) -> dict[str, object]:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "full_plan_sha256": self.full_plan_sha256,
+            "manifest_sha256": self.manifest_sha256,
+            "pilot_sha256": self.pilot_sha256,
+            "operations": [operation.to_record() for operation in self.operations],
+            "purchase_budget": self.purchase_budget.to_record(),
+        }
+
+    def to_record(self) -> dict[str, object]:
+        return {**self.content_record(), "execution_sha256": self.execution_sha256}
+
+
+@dataclass(frozen=True, slots=True)
+class RepairOperationOutcome:
+    """Measured terminal result from one established acquisition executor."""
+
+    candidate_id: str
+    docket_entry_number: int
+    disposition: str
+    retry_count: int
+    duration_seconds: str
+    committed_cost_usd: str
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentRepairReceipt:
+    """Immutable ordered outcome ledger for one repair execution."""
+
+    execution_sha256: str
+    full_plan_sha256: str
+    pilot_sha256: str
+    operation_ledger: tuple[Mapping[str, object], ...]
+    receipt_sha256: str
+
+    @property
+    def committed_cost_usd(self) -> str:
+        total = sum(
+            (Decimal(str(row["committed_cost_usd"])) for row in self.operation_ledger),
+            Decimal("0.00"),
+        )
+        return _money(total)
+
+    def content_record(self) -> dict[str, object]:
+        return {
+            "schema_version": RECEIPT_SCHEMA_VERSION,
+            "execution_sha256": self.execution_sha256,
+            "full_plan_sha256": self.full_plan_sha256,
+            "pilot_sha256": self.pilot_sha256,
+            "committed_cost_usd": self.committed_cost_usd,
+            "operation_ledger": [dict(row) for row in self.operation_ledger],
+        }
+
+    def to_record(self) -> dict[str, object]:
+        return {**self.content_record(), "receipt_sha256": self.receipt_sha256}
+
+
+def build_document_repair_execution(
+    *,
+    full_plan: MissingDocumentAcquisitionPlan,
+    pilot: DocumentRepairPilot,
+    docket_snapshot_bytes: Mapping[str, bytes],
+    docket_snapshot_sha256: Mapping[str, str],
+) -> DocumentRepairExecution:
+    """Resolve the exact pilot obligations from authenticated docket snapshots."""
+
+    _require_scope_binding(full_plan, pilot)
+    expected_candidates = set(pilot.candidate_ids)
+    if (
+        set(docket_snapshot_bytes) != expected_candidates
+        or set(docket_snapshot_sha256) != expected_candidates
+    ):
+        raise DocumentRepairExecutorError(
+            "docket snapshots must exactly cover the pilot candidates"
+        )
+    snapshots: dict[str, Mapping[str, object]] = {}
+    verified_digests: dict[str, str] = {}
+    for candidate_id in pilot.candidate_ids:
+        payload = docket_snapshot_bytes[candidate_id]
+        expected_digest = _digest(
+            docket_snapshot_sha256[candidate_id], "docket snapshot digest"
+        )
+        if hashlib.sha256(payload).hexdigest() != expected_digest:
+            raise DocumentRepairExecutorError(
+                f"docket snapshot digest mismatch: {candidate_id}"
+            )
+        snapshots[candidate_id] = _snapshot(payload, candidate_id)
+        verified_digests[candidate_id] = expected_digest
+
+    operations = tuple(
+        _resolve_operation(
+            item,
+            snapshot=snapshots[item.candidate_id],
+            snapshot_sha256=verified_digests[item.candidate_id],
+        )
+        for item in pilot.items
+    )
+    purchase_budget = _purchase_budget(operations, pilot)
+    provisional = DocumentRepairExecution(
+        full_plan_sha256=full_plan.plan_sha256,
+        manifest_sha256=full_plan.manifest_sha256,
+        pilot_sha256=pilot.pilot_sha256,
+        operations=operations,
+        purchase_budget=purchase_budget,
+        execution_sha256="",
+    )
+    return DocumentRepairExecution(
+        full_plan_sha256=provisional.full_plan_sha256,
+        manifest_sha256=provisional.manifest_sha256,
+        pilot_sha256=provisional.pilot_sha256,
+        operations=provisional.operations,
+        purchase_budget=provisional.purchase_budget,
+        execution_sha256=_commit_execution(provisional.content_record()),
+    )
+
+
+def record_document_repair_outcomes(
+    *,
+    execution: DocumentRepairExecution,
+    outcomes: tuple[RepairOperationOutcome, ...],
+) -> DocumentRepairReceipt:
+    """Record an exact ordered result prefix, stopping permanently on unknown."""
+
+    if _commit_execution(execution.content_record()) != execution.execution_sha256:
+        raise DocumentRepairExecutorError("execution changed after resolution")
+    if len(outcomes) > len(execution.operations):
+        raise DocumentRepairExecutorError("outcomes exceed planned operations")
+    ledger: list[Mapping[str, object]] = []
+    unknown_index: int | None = None
+    for index, outcome in enumerate(outcomes):
+        operation = execution.operations[index]
+        if (outcome.candidate_id, outcome.docket_entry_number) != operation.key:
+            raise DocumentRepairExecutorError("outcome operation order is invalid")
+        if unknown_index is not None:
+            raise DocumentRepairExecutorError(
+                "an unknown paid outcome is already terminal for this execution"
+            )
+        ledger.append(_outcome_record(operation, outcome))
+        if outcome.disposition == "unknown":
+            unknown_index = index
+    if unknown_index is None and len(outcomes) != len(execution.operations):
+        raise DocumentRepairExecutorError(
+            "complete outcomes are required unless an unknown paid outcome stops work"
+        )
+    if unknown_index is not None:
+        for operation in execution.operations[unknown_index + 1 :]:
+            ledger.append(
+                {
+                    **operation.to_record(),
+                    "disposition": "not_attempted_after_unknown",
+                    "retry_count": 0,
+                    "duration_seconds": "0.000000",
+                    "committed_cost_usd": "0.00",
+                    "retry_permitted": False,
+                }
+            )
+    provisional = DocumentRepairReceipt(
+        execution_sha256=execution.execution_sha256,
+        full_plan_sha256=execution.full_plan_sha256,
+        pilot_sha256=execution.pilot_sha256,
+        operation_ledger=tuple(ledger),
+        receipt_sha256="",
+    )
+    if (
+        Decimal(provisional.committed_cost_usd)
+        > execution.purchase_budget.max_projected_budget
+    ):
+        raise DocumentRepairExecutorError(
+            "committed cost exceeds approved pilot maximum"
+        )
+    return DocumentRepairReceipt(
+        execution_sha256=provisional.execution_sha256,
+        full_plan_sha256=provisional.full_plan_sha256,
+        pilot_sha256=provisional.pilot_sha256,
+        operation_ledger=provisional.operation_ledger,
+        receipt_sha256=_commit_receipt(provisional.content_record()),
+    )
+
+
+def verify_purchase_policy_compatibility(
+    *,
+    execution: DocumentRepairExecution,
+    purchase_policy_artifact: Mapping[str, object],
+) -> CaseDevPurchasePolicy:
+    """Require an existing typed purchase policy to fit this exact execution."""
+
+    if _commit_execution(execution.content_record()) != execution.execution_sha256:
+        raise DocumentRepairExecutorError("execution changed after resolution")
+    try:
+        policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+    except CaseDevPurchasePolicyError as exc:
+        raise DocumentRepairExecutorError(f"purchase policy is invalid: {exc}") from exc
+    budget = execution.purchase_budget
+    if policy.per_document_reservation_usd != budget.cost_per_document:
+        raise DocumentRepairExecutorError(
+            "purchase-policy per-document reservation differs from repair approval"
+        )
+    global_headroom = policy.hard_cap_usd - policy.opening_committed_spend_usd
+    if global_headroom < budget.total_estimated_cost:
+        raise DocumentRepairExecutorError(
+            "purchase-policy global headroom is below the repair budget"
+        )
+    for case_plan in budget.case_plans:
+        opening = policy.opening_case_committed_spend_usd.get(
+            case_plan.candidate_id, Decimal("0.00")
+        )
+        if policy.max_per_case_usd - opening < case_plan.estimated_cost:
+            raise DocumentRepairExecutorError(
+                "purchase-policy per-case headroom is below the repair budget: "
+                f"{case_plan.candidate_id}"
+            )
+    return policy
+
+
+def _require_scope_binding(
+    full_plan: MissingDocumentAcquisitionPlan, pilot: DocumentRepairPilot
+) -> None:
+    verified_full_plan_sha256 = str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            full_plan.content_record(),
+            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+        ).digest
+    )
+    if verified_full_plan_sha256 != full_plan.plan_sha256:
+        raise DocumentRepairExecutorError("full plan changed after approval")
+    verified_pilot_sha256 = str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            pilot.content_record(), domain=EXACT100_DOCUMENT_REPAIR_PILOT_V1
+        ).digest
+    )
+    if verified_pilot_sha256 != pilot.pilot_sha256:
+        raise DocumentRepairExecutorError("pilot changed after projection")
+    if pilot.full_plan_sha256 != full_plan.plan_sha256:
+        raise DocumentRepairExecutorError("pilot is not bound to the full plan")
+    if pilot.manifest_sha256 != full_plan.manifest_sha256:
+        raise DocumentRepairExecutorError("pilot manifest binding is invalid")
+    planned = {item.key: item.to_record() for item in full_plan.items}
+    if any(planned.get(item.key) != item.to_record() for item in pilot.items):
+        raise DocumentRepairExecutorError("pilot contains altered plan items")
+
+
+def _snapshot(payload: bytes, candidate_id: str) -> Mapping[str, object]:
+    try:
+        value = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise DocumentRepairExecutorError("docket snapshot is invalid JSON") from exc
+    if not isinstance(value, Mapping):
+        raise DocumentRepairExecutorError("docket snapshot must be an object")
+    record = cast(Mapping[str, object], value)
+    if record.get("candidate_id") != candidate_id:
+        raise DocumentRepairExecutorError(
+            "docket snapshot candidate binding is invalid"
+        )
+    if not isinstance(record.get("docket_id"), int) or isinstance(
+        record.get("docket_id"), bool
+    ):
+        raise DocumentRepairExecutorError("docket snapshot docket identity is invalid")
+    return record
+
+
+def _resolve_operation(
+    item: MissingDocumentAcquisitionItem,
+    *,
+    snapshot: Mapping[str, object],
+    snapshot_sha256: str,
+) -> ResolvedRepairOperation:
+    entries = _mapping_list(snapshot.get("entries"), "docket snapshot entries")
+    matches = [
+        entry
+        for entry in entries
+        if _positive_int(entry.get("entry_number"), allow_invalid=True)
+        == item.docket_entry_number
+    ]
+    if len(matches) != 1:
+        raise DocumentRepairExecutorError(
+            "docket entry resolution is not exact: "
+            f"{item.candidate_id}/{item.docket_entry_number}"
+        )
+    entry = matches[0]
+    if str(entry.get("docket")) != str(snapshot["docket_id"]):
+        raise DocumentRepairExecutorError("docket entry belongs to a different docket")
+    documents = _mapping_list(entry.get("recap_documents"), "RECAP documents")
+    main_documents = [
+        document
+        for document in documents
+        if document.get("attachment_number") in {None, "", 0}
+        and document.get("document_number") in {None, "", "0", 0}
+    ]
+    if len(main_documents) != 1:
+        raise DocumentRepairExecutorError(
+            f"ambiguous main document: {item.candidate_id}/{item.docket_entry_number}"
+        )
+    document = main_documents[0]
+    document_id = _positive_identifier(document.get("id"), "RECAP document id")
+    docket_entry_id = _positive_identifier(entry.get("id"), "docket entry id")
+    linked_entry_id = document.get("docket_entry_id")
+    if linked_entry_id is not None and str(linked_entry_id) != docket_entry_id:
+        raise DocumentRepairExecutorError("RECAP document belongs to another entry")
+    free_url = None
+    filepath = document.get("filepath_local")
+    if (
+        document.get("is_available") is True
+        and document.get("is_sealed") is False
+        and isinstance(filepath, str)
+    ):
+        free_url = public_recap_download_url(filepath)
+    if item.acquisition_method == "courtlistener_free" and free_url is None:
+        raise DocumentRepairExecutorError(
+            "approved free route is unavailable: "
+            f"{item.candidate_id}/{item.docket_entry_number}"
+        )
+    if item.acquisition_method == "pacer_purchase" and free_url is not None:
+        raise DocumentRepairExecutorError(
+            "approved paid route has become free and requires a new plan: "
+            f"{item.candidate_id}/{item.docket_entry_number}"
+        )
+    return ResolvedRepairOperation(
+        candidate_id=item.candidate_id,
+        docket_entry_number=item.docket_entry_number,
+        document_role=item.document_role,
+        route=item.acquisition_method,
+        recap_document_id=document_id,
+        docket_entry_id=docket_entry_id,
+        source_url=free_url,
+        projected_cost_usd=item.projected_cost_usd,
+        docket_snapshot_sha256=snapshot_sha256,
+    )
+
+
+def _purchase_budget(
+    operations: tuple[ResolvedRepairOperation, ...], pilot: DocumentRepairPilot
+) -> MissingCoreBudgetPlan:
+    paid_by_candidate: dict[str, list[ResolvedRepairOperation]] = {}
+    for operation in operations:
+        if operation.route == "pacer_purchase":
+            paid_by_candidate.setdefault(operation.candidate_id, []).append(operation)
+    case_plans = tuple(
+        CaseMissingCorePurchasePlan(
+            candidate_id=candidate_id,
+            purchase_document_ids=tuple(
+                operation.recap_document_id for operation in candidate_operations
+            ),
+            missing_core_document_count=len(candidate_operations),
+            estimated_cost=Decimal("3.00") * len(candidate_operations),
+            audit_only_document_count=0,
+            dry_run=False,
+            missing_core_roles=tuple(
+                operation.document_role for operation in candidate_operations
+            ),
+        )
+        for candidate_id in pilot.candidate_ids
+        if (candidate_operations := paid_by_candidate.get(candidate_id))
+    )
+    return MissingCoreBudgetPlan(
+        case_plans=case_plans,
+        cost_per_document=Decimal("3.00"),
+        max_projected_budget=pilot.pilot_maximum_usd,
+        max_missing_core_documents_per_case=max(
+            (len(plan.purchase_document_ids) for plan in case_plans), default=1
+        ),
+        dry_run=False,
+        target_case_count=None,
+    )
+
+
+def _outcome_record(
+    operation: ResolvedRepairOperation, outcome: RepairOperationOutcome
+) -> Mapping[str, object]:
+    allowed = {"included", "excluded", "provider_error", "unknown"}
+    if outcome.disposition not in allowed:
+        raise DocumentRepairExecutorError("unsupported operation disposition")
+    if outcome.disposition == "unknown" and operation.route != "pacer_purchase":
+        raise DocumentRepairExecutorError("only a paid operation may be unknown")
+    if isinstance(outcome.retry_count, bool) or outcome.retry_count < 0:
+        raise DocumentRepairExecutorError("retry count is invalid")
+    duration = _decimal(outcome.duration_seconds, "duration")
+    if duration < 0:
+        raise DocumentRepairExecutorError("duration must be nonnegative")
+    cost = _money_value(outcome.committed_cost_usd, "committed cost")
+    maximum = operation.projected_cost_usd
+    if cost > maximum:
+        raise DocumentRepairExecutorError("operation cost exceeds approved amount")
+    if operation.route == "courtlistener_free" and cost != 0:
+        raise DocumentRepairExecutorError("free operation recorded paid cost")
+    return {
+        **operation.to_record(),
+        "disposition": outcome.disposition,
+        "retry_count": outcome.retry_count,
+        "duration_seconds": f"{duration:.6f}",
+        "committed_cost_usd": _money(cost),
+        "retry_permitted": outcome.disposition not in {"unknown", "included"},
+    }
+
+
+def _mapping_list(value: object, label: str) -> list[Mapping[str, object]]:
+    if not isinstance(value, list):
+        raise DocumentRepairExecutorError(f"{label} must be an object array")
+    raw_items = cast(list[object], value)
+    if any(not isinstance(item, Mapping) for item in raw_items):
+        raise DocumentRepairExecutorError(f"{label} must be an object array")
+    return [cast(Mapping[str, object], item) for item in raw_items]
+
+
+def _positive_int(value: object, *, allow_invalid: bool = False) -> int | None:
+    if isinstance(value, bool):
+        return None if allow_invalid else _raise("positive integer is required")
+    try:
+        result = int(str(value))
+    except ValueError:
+        return None if allow_invalid else _raise("positive integer is required")
+    if result <= 0:
+        return None if allow_invalid else _raise("positive integer is required")
+    return result
+
+
+def _positive_identifier(value: object, label: str) -> str:
+    result = _positive_int(value)
+    if result is None:
+        raise DocumentRepairExecutorError(f"{label} is invalid")
+    return str(result)
+
+
+def _raise(message: str) -> None:
+    raise DocumentRepairExecutorError(message)
+
+
+def _digest(value: str, label: str) -> str:
+    if _SHA256.fullmatch(value) is None:
+        raise DocumentRepairExecutorError(f"{label} is invalid")
+    return value
+
+
+def _decimal(value: object, label: str) -> Decimal:
+    try:
+        result = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise DocumentRepairExecutorError(f"{label} is invalid") from exc
+    if not result.is_finite():
+        raise DocumentRepairExecutorError(f"{label} is invalid")
+    return result
+
+
+def _money_value(value: object, label: str) -> Decimal:
+    result = _decimal(value, label)
+    if result < 0 or result != result.quantize(Decimal("0.01")):
+        raise DocumentRepairExecutorError(f"{label} is invalid")
+    return result
+
+
+def _money(value: Decimal) -> str:
+    return f"{value:.2f}"
+
+
+def _commit_execution(record: Mapping[str, object]) -> str:
+    return str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            record, domain=EXACT100_DOCUMENT_REPAIR_EXECUTION_V1
+        ).digest
+    )
+
+
+def _commit_receipt(record: Mapping[str, object]) -> str:
+    return str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            record, domain=EXACT100_DOCUMENT_REPAIR_RECEIPT_V1
+        ).digest
+    )

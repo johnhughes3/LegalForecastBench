@@ -1,0 +1,358 @@
+"""Authenticated execution bridge tests for exact-100 document repair."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from collections.abc import Mapping
+
+import pytest
+from legalforecast.ingestion.case_dev_purchase import generate_case_dev_purchase_policy
+from legalforecast.ingestion.document_repair_executor import (
+    DocumentRepairExecution,
+    DocumentRepairExecutorError,
+    RepairOperationOutcome,
+    build_document_repair_execution,
+    record_document_repair_outcomes,
+    verify_purchase_policy_compatibility,
+)
+from legalforecast.ingestion.document_repair_pilot import build_document_repair_pilot
+from legalforecast.ingestion.missing_document_successor import (
+    build_missing_document_acquisition_plan,
+)
+
+
+def _canonical_bytes(value: object) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+
+
+def _manifest_bytes(*records: Mapping[str, object]) -> bytes:
+    return b"".join(_canonical_bytes(record) for record in records)
+
+
+def _row(candidate_id: str, entry: int, *, free: bool) -> dict[str, object]:
+    cost = 0.0 if free else 3.0
+    return {
+        "candidate_id": candidate_id,
+        "recommendation": "repair",
+        "cost_usd": cost,
+        "missing_docs": [
+            {
+                "entry": entry,
+                "role": "reply",
+                "cost_usd": cost,
+                "free_document_count": int(free),
+                "pacer_only_document_count": int(not free),
+                "evidence": "synthetic executor fixture",
+                "source": "pass1",
+                "opinion_derived": False,
+            }
+        ],
+        "byte_mismatches": [],
+        "current_selection": [],
+        "required_entries": [],
+        "extra_selected": [],
+    }
+
+
+def _scope() -> tuple[object, object]:
+    manifest = _manifest_bytes(
+        _row("a", 1, free=True),
+        _row("b", 2, free=False),
+        _row("c", 3, free=False),
+        _row("d", 4, free=False),
+        _row("e", 5, free=False),
+    )
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+        max_per_document_usd="3.00",
+    )
+    pilot = build_document_repair_pilot(
+        full_plan=plan,
+        candidate_ids=("a", "b", "c", "d", "e"),
+        pilot_maximum_usd="33.00",
+    )
+    return plan, pilot
+
+
+def _snapshot(candidate_id: str, entry: int, document_id: int, *, free: bool) -> bytes:
+    return _canonical_bytes(
+        {
+            "candidate_id": candidate_id,
+            "docket_id": int(candidate_id, 36) + 100,
+            "entries": [
+                {
+                    "id": entry + 1000,
+                    "docket": int(candidate_id, 36) + 100,
+                    "entry_number": entry,
+                    "recap_documents": [
+                        {
+                            "id": document_id,
+                            "docket_entry_id": entry + 1000,
+                            "document_number": None,
+                            "attachment_number": None,
+                            "is_available": free,
+                            "is_sealed": False,
+                            "filepath_local": (
+                                f"recap/example/{document_id}.pdf" if free else None
+                            ),
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+
+def _snapshots() -> dict[str, bytes]:
+    return {
+        candidate: _snapshot(candidate, index, 9000 + index, free=index == 1)
+        for index, candidate in enumerate("abcde", start=1)
+    }
+
+
+def test_execution_resolves_exact_recap_id_and_builds_three_dollar_budget() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    assert execution.full_plan_sha256 == plan.plan_sha256
+    assert execution.pilot_sha256 == pilot.pilot_sha256
+    assert execution.operations[0].route == "courtlistener_free"
+    assert execution.operations[0].recap_document_id == "9001"
+    assert execution.operations[0].source_url == (
+        "https://storage.courtlistener.com/recap/example/9001.pdf"
+    )
+    assert execution.operations[1].route == "pacer_purchase"
+    assert execution.operations[1].recap_document_id == "9002"
+    assert execution.purchase_budget.cost_per_document_usd == "3.00"
+    assert execution.purchase_budget.max_projected_budget_usd == "33.00"
+    assert execution.purchase_budget.total_estimated_cost_usd == "12.00"
+    assert execution.purchase_budget.dry_run is False
+
+
+def test_execution_rejects_tampered_full_plan_and_pilot_objects() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    object.__setattr__(plan, "plan_sha256", "0" * 64)
+    object.__setattr__(pilot, "full_plan_sha256", "0" * 64)
+
+    with pytest.raises(DocumentRepairExecutorError, match="full plan"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(payload).hexdigest()
+                for candidate, payload in snapshots.items()
+            },
+        )
+
+
+def test_execution_rejects_tampered_or_ambiguous_resolution() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    digests = {
+        candidate: hashlib.sha256(payload).hexdigest()
+        for candidate, payload in snapshots.items()
+    }
+    digests["a"] = "0" * 64
+    with pytest.raises(DocumentRepairExecutorError, match="snapshot digest"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256=digests,
+        )
+
+    ambiguous = json.loads(snapshots["a"])
+    ambiguous["entries"][0]["recap_documents"].append(
+        {
+            "id": 9999,
+            "docket_entry_id": 1001,
+            "document_number": None,
+            "attachment_number": None,
+            "is_available": True,
+            "is_sealed": False,
+            "filepath_local": "recap/example/9999.pdf",
+        }
+    )
+    snapshots["a"] = _canonical_bytes(ambiguous)
+    with pytest.raises(DocumentRepairExecutorError, match="ambiguous main document"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(payload).hexdigest()
+                for candidate, payload in snapshots.items()
+            },
+        )
+
+
+def test_execution_rejects_free_paid_route_substitution() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    unavailable = json.loads(snapshots["a"])
+    unavailable["entries"][0]["recap_documents"][0]["is_available"] = False
+    unavailable["entries"][0]["recap_documents"][0]["filepath_local"] = None
+    snapshots["a"] = _canonical_bytes(unavailable)
+
+    with pytest.raises(DocumentRepairExecutorError, match="approved free route"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(payload).hexdigest()
+                for candidate, payload in snapshots.items()
+            },
+        )
+
+
+def _purchase_policy(*, reservation: str, hard_cap: str) -> dict[str, object]:
+    return generate_case_dev_purchase_policy(
+        {
+            "cycle_id": "cycle-1-document-repair",
+            "cohort_policy_sha256": "1" * 64,
+            "canonical_ledger_path": "/controlled/purchase-ledger.sqlite3",
+            "hard_cap_usd": hard_cap,
+            "opening_committed_spend_usd": "0.00",
+            "opening_case_committed_spend_usd": {},
+            "max_per_case_usd": hard_cap,
+            "per_document_reservation_usd": reservation,
+            "fee_schedule": {
+                "source_citation": "https://example.test/public-fee-schedule",
+                "verified_at_utc": "2026-08-13T00:00:00Z",
+                "includes_service_fees": True,
+                "includes_pacer_fees": True,
+                "includes_rounding": True,
+            },
+        }
+    )
+
+
+def test_purchase_policy_must_fit_exact_repair_ceiling() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    policy = verify_purchase_policy_compatibility(
+        execution=execution,
+        purchase_policy_artifact=_purchase_policy(reservation="3.00", hard_cap="33.00"),
+    )
+    assert (
+        policy.per_document_reservation_usd
+        == execution.purchase_budget.cost_per_document
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="per-document"):
+        verify_purchase_policy_compatibility(
+            execution=execution,
+            purchase_policy_artifact=_purchase_policy(
+                reservation="3.05", hard_cap="33.00"
+            ),
+        )
+    with pytest.raises(DocumentRepairExecutorError, match="global headroom"):
+        verify_purchase_policy_compatibility(
+            execution=execution,
+            purchase_policy_artifact=_purchase_policy(
+                reservation="3.00", hard_cap="10.00"
+            ),
+        )
+
+
+def test_unknown_paid_outcome_stops_later_operations_and_is_not_retryable() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=(
+            RepairOperationOutcome("a", 1, "included", 0, "0.20", "0.00"),
+            RepairOperationOutcome("b", 2, "unknown", 0, "1.50", "3.00"),
+        ),
+    )
+
+    assert [row["disposition"] for row in receipt.operation_ledger] == [
+        "included",
+        "unknown",
+        "not_attempted_after_unknown",
+        "not_attempted_after_unknown",
+        "not_attempted_after_unknown",
+    ]
+    assert receipt.operation_ledger[1]["retry_permitted"] is False
+    assert receipt.committed_cost_usd == "3.00"
+    with pytest.raises(DocumentRepairExecutorError, match="already terminal"):
+        record_document_repair_outcomes(
+            execution=execution,
+            outcomes=(
+                RepairOperationOutcome("a", 1, "included", 0, "0.20", "0.00"),
+                RepairOperationOutcome("b", 2, "unknown", 0, "1.50", "3.00"),
+                RepairOperationOutcome("c", 3, "included", 0, "1.00", "3.00"),
+            ),
+        )
+
+
+def test_receipt_requires_monotonic_duration_and_exact_operation_prefix() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="duration"):
+        record_document_repair_outcomes(
+            execution=execution,
+            outcomes=(RepairOperationOutcome("a", 1, "included", 0, "-0.01", "0.00"),),
+        )
+    with pytest.raises(DocumentRepairExecutorError, match="operation order"):
+        record_document_repair_outcomes(
+            execution=execution,
+            outcomes=(RepairOperationOutcome("b", 2, "included", 0, "0.10", "3.00"),),
+        )
+
+    tampered = DocumentRepairExecution(
+        full_plan_sha256=execution.full_plan_sha256,
+        manifest_sha256=execution.manifest_sha256,
+        pilot_sha256=execution.pilot_sha256,
+        operations=execution.operations,
+        purchase_budget=execution.purchase_budget,
+        execution_sha256="0" * 64,
+    )
+    with pytest.raises(DocumentRepairExecutorError, match="changed"):
+        record_document_repair_outcomes(execution=tampered, outcomes=())
