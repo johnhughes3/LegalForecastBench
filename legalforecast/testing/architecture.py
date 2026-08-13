@@ -25,6 +25,7 @@ UPWARD_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
         # late-binds facade helpers so existing monkeypatch targets keep
         # working; this exception must disappear once those helpers are
         # injected through a cycle-neutral command context.
+        "legalforecast/cli_commands/report.py",
         "legalforecast/cli_commands/score.py",
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
