@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -101,13 +102,24 @@ _ALLOWED_EVENT_TYPES = frozenset(
         "error",
         "item.completed",
         "item.started",
+        "item.updated",
         "thread.started",
         "turn.completed",
         "turn.failed",
         "turn.started",
     }
 )
-_REFUSAL_MARKERS = ("refus", "i cannot help", "i must decline", "i won't help")
+_REFUSAL_MARKERS = (
+    "i cannot help",
+    "i can't help",
+    "i must decline",
+    "i must refuse",
+    "i refuse",
+    "i will not help",
+    "i won't help",
+    "i'm not able to help",
+    "i am unable to help",
+)
 _SANDBOX_MARKERS = ("sandbox denied", "sandbox denial", "landlock", "seccomp")
 _AUTH_BASENAMES = frozenset({"auth.json", "auth.json.age"})
 CODEX_LOCAL_CLI_MANIFEST_PATH = (
@@ -326,8 +338,6 @@ def parse_codex_jsonl(
     joined_text = _event_text(events)
     if _is_sandbox_denial(joined_text):
         return _failed_envelope("sandbox_denial", events)
-    if _is_refusal(joined_text):
-        return _failed_envelope("refusal", events)
 
     types = tuple(str(event.get("type", "")) for event in events)
     if any(event_type not in _ALLOWED_EVENT_TYPES for event_type in types):
@@ -357,13 +367,15 @@ def parse_codex_jsonl(
         return _failed_envelope("schema_violation", events)
 
     usage = _usage(events)
+    if usage is None:
+        return _failed_envelope("schema_violation", events)
     return CodexCliParsedEnvelope(
         failure_class=None,
         last_message=last_message,
         events=events,
         input_tokens=usage[0],
         output_tokens=usage[1],
-        served_model=served_model or requested_model_name,
+        served_model=served_model,
         thread_id=_optional_str(started, "thread_id"),
     )
 
@@ -442,6 +454,7 @@ class CodexCliAdapter:
         private_logs = workspace / "private-logs"
         private_logs.mkdir(mode=0o700, parents=True, exist_ok=True)
         private_logs.chmod(0o700)
+        _clear_prior_last_message(plan.last_message_path)
         outcome = self.execution_service.execute(
             CodexCliExecutionRequest(
                 argv=plan.argv,
@@ -469,6 +482,7 @@ class CodexCliAdapter:
         )
 
 
+# contract-ratchet: allow non-persisted adapter-bundle identity for capabilities
 def adapter_bundle_sha256() -> str:
     """Commit to the executable adapter, manifest, and locked dependency state."""
 
@@ -690,21 +704,23 @@ def _agent_message(events: Sequence[Mapping[str, Any]]) -> str:
     return messages[-1] if messages else ""
 
 
-def _usage(events: Sequence[Mapping[str, Any]]) -> tuple[int, int]:
+def _usage(events: Sequence[Mapping[str, Any]]) -> tuple[int, int] | None:
     for event in reversed(events):
         if event.get("type") != "turn.completed":
             continue
         usage = _as_mapping(event.get("usage"))
         if usage is None:
-            return 0, 0
-        input_tokens = usage.get("input_tokens", 0)
-        output_tokens = usage.get("output_tokens", 0)
+            return None
+        if "input_tokens" not in usage or "output_tokens" not in usage:
+            return None
+        input_tokens = usage.get("input_tokens")
+        output_tokens = usage.get("output_tokens")
         if type(input_tokens) is not int or type(output_tokens) is not int:
-            return 0, 0
+            return None
         if input_tokens < 0 or output_tokens < 0:
-            return 0, 0
+            return None
         return input_tokens, output_tokens
-    return 0, 0
+    return None
 
 
 def _is_refusal(text: str) -> bool:
@@ -767,6 +783,36 @@ def _write_private_text(path: Path, payload: str) -> None:
     _reject_auth_path(path)
     path.write_text(payload, encoding="utf-8")
     path.chmod(0o600)
+
+
+def _clear_prior_last_message(path: Path) -> None:
+    _reject_auth_path(path)
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+        return
+    if path.exists():
+        raise CodexCliAdapterError("Codex last-message path must be a regular file")
+
+
+def _remove_prior_sealed_root(path: Path) -> None:
+    """Remove a previous sealed tree so ``seal_deliverable`` can create a fresh root.
+
+    Sealed directories are 0o555, so write bits must be restored on each directory
+    before children can be unlinked. Do not follow symlinks out of the workspace.
+    """
+
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+        return
+    if not path.is_dir():
+        return
+    directories = [path]
+    for child in path.rglob("*"):
+        if child.is_dir() and not child.is_symlink():
+            directories.append(child)
+    for directory in directories:
+        directory.chmod(0o700)
+    shutil.rmtree(path)
 
 
 def _public_summary(
@@ -862,6 +908,7 @@ def _successful_result(
     )
     submission.write_text(payload, encoding="utf-8")
     sealed_root = workspace / "sealed-deliverable"
+    _remove_prior_sealed_root(sealed_root)
     manifest = seal_deliverable(
         source_root=source_root,
         sealed_root=sealed_root,

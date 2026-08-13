@@ -449,6 +449,132 @@ def test_sandbox_denial_is_distinct_from_crash(tmp_path: Path) -> None:
     )
 
 
+def test_legal_refused_language_is_not_classified_as_refusal(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    text = "The district court refused relief on the remaining counts."
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            _message_outcome(text, complete=True)
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "succeeded"
+    assert "failure_class" not in result.public_summary
+    assert "served_model" not in result.public_summary
+
+
+def test_first_person_refusal_is_still_classified(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            _message_outcome("I must decline this request.", complete=True)
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "refusal"
+
+
+def test_item_updated_events_are_not_schema_violations() -> None:
+    stdout = _jsonl(
+        {"type": "thread.started", "thread_id": THREAD_ID},
+        {"type": "turn.started"},
+        {
+            "type": "item.updated",
+            "item": {
+                "id": "item_cmd",
+                "type": "command_execution",
+                "status": "running",
+            },
+        },
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item_0",
+                "text": "LEGALFORECAST_FAKE_CODEX_RESULT",
+                "type": "agent_message",
+            },
+        },
+        {
+            "type": "turn.completed",
+            "usage": {"input_tokens": 3, "output_tokens": 4},
+        },
+    )
+    envelope = parse_codex_jsonl(
+        stdout,
+        requested_model_name="gpt-5.1",
+        returncode=0,
+        timed_out=False,
+        crashed=False,
+    )
+
+    assert envelope.failure_class is None
+    assert envelope.served_model is None
+    assert envelope.input_tokens == 3
+
+
+def test_malformed_usage_is_schema_violation_not_zero_tokens() -> None:
+    stdout = _jsonl(
+        {"type": "thread.started", "thread_id": THREAD_ID},
+        {"type": "turn.started"},
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item_0",
+                "text": "LEGALFORECAST_FAKE_CODEX_RESULT",
+                "type": "agent_message",
+            },
+        },
+        {"type": "turn.completed", "usage": {"input_tokens": "3", "output_tokens": 4}},
+    )
+    envelope = parse_codex_jsonl(
+        stdout,
+        requested_model_name="gpt-5.1",
+        returncode=0,
+        timed_out=False,
+        crashed=False,
+    )
+
+    assert envelope.failure_class == "schema_violation"
+
+
+def test_stale_last_message_file_is_cleared_before_execute(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    stale = workspace / "private-logs"
+    stale.mkdir(mode=0o700)
+    (stale / "codex-last-message.txt").write_text("STALE_ANSWER\n", encoding="utf-8")
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(_success_outcome())
+    ).run(_request(), workspace)
+
+    assert result.status == "succeeded"
+    answer = (
+        workspace / "sealed-deliverable" / "work-product" / "answer.md"
+    ).read_text(encoding="utf-8")
+    assert answer == "LEGALFORECAST_FAKE_CODEX_RESULT\n"
+    assert "STALE_ANSWER" not in answer
+
+
+def test_workspace_can_be_reused_after_a_successful_seal(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    adapter = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(_success_outcome())
+    )
+    first = adapter.run(_request(), workspace)
+    second = adapter.run(_request(), workspace)
+
+    assert first.status == "succeeded"
+    assert second.status == "succeeded"
+
+
 def test_secret_canary_is_confined_to_private_workspace_bytes(tmp_path: Path) -> None:
     workspace = tmp_path / "row"
     workspace.mkdir()
