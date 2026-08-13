@@ -458,7 +458,11 @@ def _imports_cli(path: Path, *, include_console: bool = True) -> bool:
         ):
             return True
         if module == "legalforecast":
-            adapter_names = {"cli", "console"} if include_console else {"cli"}
+            adapter_names = (
+                {"cli", "cli_commands", "console"}
+                if include_console
+                else {"cli", "cli_commands"}
+            )
             if any(alias.name in adapter_names for alias in node.names):
                 return True
     return False

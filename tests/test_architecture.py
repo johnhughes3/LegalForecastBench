@@ -194,6 +194,7 @@ def test_console_adapter_scan_rejects_facade_cycles_but_allows_composition(
         "from legalforecast.console.commands import app",
         "import legalforecast.console",
         "import legalforecast.console.commands",
+        "from legalforecast import cli_commands",
         "import legalforecast.cli_commands.score",
         'import importlib\nimportlib.import_module("legalforecast.cli")',
         (
