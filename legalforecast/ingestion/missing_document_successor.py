@@ -1372,7 +1372,7 @@ def _document_key(record: Mapping[str, object]) -> DocumentKey:
 
 def _document_selector(value: object) -> str:
     if isinstance(value, Mapping):
-        value = value.get("document_selector")
+        value = cast(Mapping[str, object], value).get("document_selector")
     if value is None:
         return "main_document"
     if value in {"main", "main_document"}:
