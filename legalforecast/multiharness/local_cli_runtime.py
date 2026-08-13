@@ -385,15 +385,24 @@ class LocalCliExecutionService:
             infisical_env=self.infisical_env,
             stdin_bytes=spec.stdin_bytes,
         )
-        result = execute_local_cli(
-            runtime_spec,
-            spec.working_directory,
-            credential_source=self.credential_source,
-            scheduler=self.scheduler,
-            parent_env=self.parent_env,
-            termination_grace_seconds=self.termination_grace_seconds,
-            max_capture_bytes=self.max_capture_bytes,
-        )
+        try:
+            result = execute_local_cli(
+                runtime_spec,
+                spec.working_directory,
+                credential_source=self.credential_source,
+                scheduler=self.scheduler,
+                parent_env=self.parent_env,
+                termination_grace_seconds=self.termination_grace_seconds,
+                max_capture_bytes=self.max_capture_bytes,
+            )
+        except LocalCliRuntimeError as exc:
+            return ExecutionReceipt.from_transcript(
+                spec,
+                stdout="",
+                stderr=str(exc),
+                returncode=None,
+                status="failed",
+            )
         return execution_receipt_from_runtime(spec, result)
 
 
