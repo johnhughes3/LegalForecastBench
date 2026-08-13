@@ -561,6 +561,19 @@ def _purchase_runtime(
     )
 
 
+class _BoundAcquirer:
+    def __init__(self, runtime: DocumentRepairPurchaseRuntime, callback):  # type: ignore[no-untyped-def]
+        self.journal = runtime.journal
+        self._callback = callback
+
+    def __call__(self, operation):  # type: ignore[no-untyped-def]
+        return self._callback(operation)
+
+
+def _bound(runtime: DocumentRepairPurchaseRuntime, callback):  # type: ignore[no-untyped-def]
+    return _BoundAcquirer(runtime, callback)
+
+
 def test_purchase_policy_must_fit_exact_repair_ceiling(tmp_path: Path) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
@@ -1133,10 +1146,11 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome(
             reason="purchase_outcome_unknown",
         )
 
+    runtime = _purchase_runtime(execution, tmp_path)
     result = run_document_repair_execution(
         execution=execution,
-        purchase_runtime=_purchase_runtime(execution, tmp_path),
-        acquire=acquire,
+        purchase_runtime=runtime,
+        acquire=_bound(runtime, acquire),
         monotonic=lambda: next(ticks),
     )
 
@@ -1176,17 +1190,21 @@ def test_runner_materializes_complete_evidence_for_successor_seal(
     )
     tick = iter(float(value) for value in range(11))
 
+    runtime = _purchase_runtime(execution, tmp_path)
     result = run_document_repair_execution(
         execution=execution,
-        purchase_runtime=_purchase_runtime(execution, tmp_path),
-        acquire=lambda operation: AcquiredRepairDocument(
-            disposition="included",
-            source_document_id=operation.recap_document_id,
-            document_bytes=f"{operation.document_role} bytes".encode(),
-            committed_cost_usd=(
-                "0.00" if operation.route == "courtlistener_free" else "3.00"
+        purchase_runtime=runtime,
+        acquire=_bound(
+            runtime,
+            lambda operation: AcquiredRepairDocument(
+                disposition="included",
+                source_document_id=operation.recap_document_id,
+                document_bytes=f"{operation.document_role} bytes".encode(),
+                committed_cost_usd=(
+                    "0.00" if operation.route == "courtlistener_free" else "3.00"
+                ),
+                retry_count=0,
             ),
-            retry_count=0,
         ),
         monotonic=lambda: next(tick),
     )
@@ -1252,17 +1270,20 @@ def test_paid_runner_accepts_ledger_initialized_after_authority_mint(
     result = run_document_repair_execution(
         execution=execution,
         purchase_runtime=runtime,
-        acquire=lambda operation: (
-            invoked.append(operation.recap_document_id)
-            or AcquiredRepairDocument(
-                disposition="included",
-                source_document_id=operation.recap_document_id,
-                document_bytes=operation.document_role.encode(),
-                committed_cost_usd=(
-                    "0.00" if operation.route == "courtlistener_free" else "3.00"
-                ),
-                retry_count=0,
-            )
+        acquire=_bound(
+            runtime,
+            lambda operation: (
+                invoked.append(operation.recap_document_id)
+                or AcquiredRepairDocument(
+                    disposition="included",
+                    source_document_id=operation.recap_document_id,
+                    document_bytes=operation.document_role.encode(),
+                    committed_cost_usd=(
+                        "0.00" if operation.route == "courtlistener_free" else "3.00"
+                    ),
+                    retry_count=0,
+                )
+            ),
         ),
         monotonic=lambda: next(ticks),
     )
@@ -1515,16 +1536,20 @@ def test_execution_resolves_same_entry_attachment_selector(tmp_path: Path) -> No
     ]
 
     ticks = iter((1.0, 1.2, 2.0, 2.3))
+    runtime = _purchase_runtime(execution, tmp_path)
     result = run_document_repair_execution(
         execution=execution,
-        purchase_runtime=_purchase_runtime(execution, tmp_path),
-        acquire=lambda resolved: AcquiredRepairDocument(
-            disposition="included",
-            source_document_id=resolved.recap_document_id,
-            document_bytes=resolved.document_role.encode(),
-            committed_cost_usd="3.00",
-            retry_count=0,
-            document_selector=resolved.document_selector,
+        purchase_runtime=runtime,
+        acquire=_bound(
+            runtime,
+            lambda resolved: AcquiredRepairDocument(
+                disposition="included",
+                source_document_id=resolved.recap_document_id,
+                document_bytes=resolved.document_role.encode(),
+                committed_cost_usd="3.00",
+                retry_count=0,
+                document_selector=resolved.document_selector,
+            ),
         ),
         monotonic=lambda: next(ticks),
     )

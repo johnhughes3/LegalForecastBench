@@ -572,7 +572,7 @@ def run_document_repair_execution(
     """Run exact operations in free-first order with measured terminal stopping."""
 
     _require_replay_minted_execution(execution)
-    _require_purchase_runtime(execution, purchase_runtime)
+    _require_purchase_runtime(execution, purchase_runtime, acquire=acquire)
     outcomes: list[RepairOperationOutcome] = []
     acquired_documents: list[Mapping[str, object]] = []
     exclusions: list[Mapping[str, object]] = []
@@ -1298,6 +1298,8 @@ def _require_purchase_authority(
 def _require_purchase_runtime(
     execution: DocumentRepairExecution,
     runtime: DocumentRepairPurchaseRuntime | None,
+    *,
+    acquire: Callable[[ResolvedRepairOperation], AcquiredRepairDocument],
 ) -> None:
     has_paid_operations = any(
         operation.route == "pacer_purchase" for operation in execution.operations
@@ -1315,6 +1317,7 @@ def _require_purchase_runtime(
         or not runtime.authority_sha256
         or not runtime.initialization_id
         or runtime.is_consumed()
+        or getattr(acquire, "journal", None) is not runtime.journal
     ):
         raise DocumentRepairExecutorError(
             "paid execution requires verified purchase authority runtime"
