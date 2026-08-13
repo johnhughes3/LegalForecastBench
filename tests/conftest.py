@@ -12,6 +12,7 @@ import pytest
 from legalforecast.ingestion.case_dev_config import case_dev_live_skip_reason
 
 COURTLISTENER_LIVE_ENV = "LFB_COURTLISTENER_LIVE"
+LFB_LIVE_SMOKE_ENV = "LFB_LIVE_SMOKE"
 _MATERIALIZATION_SCHEMA = "legalforecast.cohort_document_materialization.v1"
 
 
@@ -308,6 +309,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "courtlistener_live: marks tests that call the live CourtListener REST API",
     )
+    config.addinivalue_line(
+        "markers",
+        "lfb_live_smoke: marks the env-gated live local-CLI smoke (excluded from CI)",
+    )
 
 
 def courtlistener_live_skip_reason() -> str | None:
@@ -327,11 +332,30 @@ def courtlistener_live_skip_reason() -> str | None:
     return f"set {COURTLISTENER_LIVE_ENV}=1 to run live CourtListener smoke tests"
 
 
+def lfb_live_smoke_skip_reason() -> str | None:
+    """Return a skip reason unless the live local-CLI smoke is opted in.
+
+    CI never sets ``LFB_LIVE_SMOKE``. The one real ``claude`` invocation is
+    operator-gated so it cannot spend against a provider from the default suite.
+    """
+
+    if os.environ.get(LFB_LIVE_SMOKE_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return None
+    return f"set {LFB_LIVE_SMOKE_ENV}=1 to run the live local CLI smoke"
+
+
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     case_dev_reason = case_dev_live_skip_reason()
     courtlistener_reason = courtlistener_live_skip_reason()
+    live_smoke_reason = lfb_live_smoke_skip_reason()
     for item in items:
         if case_dev_reason is not None and "case_dev_live" in item.keywords:
             item.add_marker(pytest.mark.skip(reason=case_dev_reason))
         if courtlistener_reason is not None and "courtlistener_live" in item.keywords:
             item.add_marker(pytest.mark.skip(reason=courtlistener_reason))
+        if live_smoke_reason is not None and "lfb_live_smoke" in item.keywords:
+            item.add_marker(pytest.mark.skip(reason=live_smoke_reason))
