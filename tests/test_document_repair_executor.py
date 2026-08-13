@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -915,8 +916,17 @@ def test_runtime_rejects_forged_purchase_authority(tmp_path: Path) -> None:
         )
 
 
-def test_runtime_closes_journal_when_budget_planning_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "planning_error",
+    (
+        CaseDevPurchaseLedgerError("planning failed"),
+        sqlite3.OperationalError("disk I/O error"),
+    ),
+)
+def test_runtime_closes_journal_for_every_budget_planning_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    planning_error: BaseException,
 ) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
@@ -943,7 +953,7 @@ def test_runtime_closes_journal_when_budget_planning_fails(
     original_close = CaseDevPurchaseJournal.close
 
     def fail_plan(self: CaseDevPurchaseJournal, _plan: object) -> None:
-        raise CaseDevPurchaseLedgerError("planning failed")
+        raise planning_error
 
     def record_close(self: CaseDevPurchaseJournal) -> None:
         original_close(self)
@@ -952,7 +962,12 @@ def test_runtime_closes_journal_when_budget_planning_fails(
     monkeypatch.setattr(CaseDevPurchaseJournal, "plan", fail_plan)
     monkeypatch.setattr(CaseDevPurchaseJournal, "close", record_close)
 
-    with pytest.raises(DocumentRepairExecutorError, match="planning failed"):
+    expected_error = (
+        DocumentRepairExecutorError
+        if isinstance(planning_error, CaseDevPurchaseLedgerError)
+        else type(planning_error)
+    )
+    with pytest.raises(expected_error, match=str(planning_error)):
         verify_document_repair_purchase_runtime(
             execution=execution,
             purchase_authority=authority,

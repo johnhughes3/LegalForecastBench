@@ -728,12 +728,17 @@ def verify_document_repair_purchase_runtime(
             initialization_receipt_path=initialization_receipt_path,
         )
         journal.plan(execution.purchase_budget)
-    except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+    except BaseException as exc:
         if journal is not None:
-            journal.close()
-        raise DocumentRepairExecutorError(
-            f"purchase journal runtime is invalid: {exc}"
-        ) from exc
+            try:
+                journal.close()
+            except BaseException as cleanup_error:
+                exc.add_note(f"purchase journal cleanup also failed: {cleanup_error}")
+        if isinstance(exc, (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError)):
+            raise DocumentRepairExecutorError(
+                f"purchase journal runtime is invalid: {exc}"
+            ) from exc
+        raise
     return _mint_purchase_runtime(
         execution_sha256=execution.execution_sha256,
         authority_sha256=purchase_authority.authority_sha256,
