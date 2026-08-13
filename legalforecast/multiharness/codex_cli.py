@@ -2,10 +2,12 @@
 
 Invocation plans are rendered from B1's closed
 ``legalforecast.multiharness.local_cli_adapter_manifest.v1`` instance shipped
-with this adapter. Shared execution-service types belong to B2
-(``LegalForecastBench-dm0g.4.2.7``) and must not be duplicated here; the
-Codex-prefixed Protocol below is the consumer seam until that service lands.
-Do not copy sibling ``local_cli_contracts`` drafts onto this branch.
+with this adapter. Shared execution types live in
+``legalforecast.multiharness.local_cli_contracts``
+(``LegalForecastBench-dm0g.4.4.26``). The Codex-prefixed Protocol below is
+the consumer seam until ``LegalForecastBench-dm0g.4.4.30`` rebinds this
+adapter to the contained B2 service. Do not copy a parallel contracts
+module onto this branch.
 """
 
 from __future__ import annotations
@@ -24,6 +26,12 @@ from legalforecast.multiharness.adapters import AdapterError, AdapterPreparation
 from legalforecast.multiharness.deliverables import (
     DeliverableArtifactProjection,
     seal_deliverable,
+)
+from legalforecast.multiharness.local_cli_contracts import (
+    LocalCliFailureClass,
+    coerce_local_cli_failure_class,
+    declared_local_cli_failure_classes,
+    is_local_cli_sandbox_denial,
 )
 from legalforecast.multiharness.local_cli_manifest import LocalCliAdapterManifest
 from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
@@ -45,13 +53,7 @@ CODEX_DEFAULT_REASONING_EFFORT = "medium"
 CODEX_REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 CODEX_SANDBOX_MODE = "workspace-write"
 CODEX_APPROVAL_POLICY = "never"
-CODEX_FAILURE_CLASSES = (
-    "timeout",
-    "refusal",
-    "schema_violation",
-    "crash",
-    "sandbox_denial",
-)
+CODEX_FAILURE_CLASSES = declared_local_cli_failure_classes()
 _ALLOWED_SUBCOMMANDS = frozenset({"exec"})
 _ALLOWED_BARE_FLAGS = frozenset(
     {
@@ -123,7 +125,6 @@ _REFUSAL_MARKERS = (
     "i'm not able to help",
     "i am unable to help",
 )
-_SANDBOX_MARKERS = ("sandbox denied", "sandbox denial", "landlock", "seccomp")
 _AUTH_BASENAMES = frozenset({"auth.json", "auth.json.age"})
 CODEX_LOCAL_CLI_MANIFEST_PATH = (
     Path(__file__).resolve().parents[2]
@@ -315,7 +316,7 @@ def build_codex_invocation_plan(
 def declared_failure_classes() -> tuple[str, ...]:
     """Return the closed fail-closed taxonomy, including sandbox_denial."""
 
-    return CODEX_FAILURE_CLASSES
+    return declared_local_cli_failure_classes()
 
 
 def parse_codex_jsonl(
@@ -754,8 +755,7 @@ def _is_refusal(text: str) -> bool:
 
 
 def _is_sandbox_denial(text: str) -> bool:
-    folded = text.casefold()
-    return any(marker in folded for marker in _SANDBOX_MARKERS)
+    return is_local_cli_sandbox_denial(text)
 
 
 def _failure_from_errors(
@@ -765,10 +765,10 @@ def _failure_from_errors(
     del returncode
     text = _error_event_text(events)
     if _is_sandbox_denial(text):
-        return "sandbox_denial"
+        return LocalCliFailureClass.SANDBOX_DENIAL.value
     if _is_refusal(text):
-        return "refusal"
-    return "crash"
+        return LocalCliFailureClass.REFUSAL.value
+    return LocalCliFailureClass.CRASH.value
 
 
 def _error_event_text(events: Sequence[Mapping[str, Any]]) -> str:
@@ -786,7 +786,7 @@ def _failed_envelope(
     output_tokens: int = 0,
 ) -> CodexCliParsedEnvelope:
     if failure_class not in CODEX_FAILURE_CLASSES:
-        failure_class = "schema_violation"
+        failure_class = coerce_local_cli_failure_class(failure_class).value
     return CodexCliParsedEnvelope(
         failure_class=failure_class,
         last_message=last_message,

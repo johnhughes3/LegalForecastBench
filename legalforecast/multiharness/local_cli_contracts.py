@@ -1,14 +1,16 @@
-"""Draft RunSpec / ExecutionReceipt surface until 4.1.4 and 4.2.7 freeze.
+"""Shared local-CLI execution types for Claude and Codex adapters.
 
-Bead ``LegalForecastBench-dm0g.4.4.1`` owns
-``legalforecast.multiharness.local_cli_adapter_manifest.v1``. Bead
-``LegalForecastBench-dm0g.4.1.4`` owns frozen ``RunSpec`` /
-``ExecutionReceipt`` identity. Bead ``LegalForecastBench-dm0g.4.2.7`` owns
-the execution service that turns a ``RunSpec`` into an ``ExecutionReceipt``.
+Bead ``LegalForecastBench-dm0g.4.4.26`` owns this module as the single
+source for ``RunSpec``, ``ExecutionReceipt``, ``LocalCliFailureClass``
+(including ``sandbox_denial``), fixture transcripts, and the in-process
+fake service. Bead ``LegalForecastBench-dm0g.4.1.4`` still owns the durable
+schema freeze; do not treat these dataclasses as authenticated byte
+contracts. Bead ``LegalForecastBench-dm0g.4.2.7`` owns the contained
+runtime that adapters rebind to.
 
-This module is the shared import surface for those still-open records. Do
-not treat it as the durable schema authority. Adapter cores must not spawn
-processes; they call ``LocalCliExecutionService.execute``.
+Adapter cores must not spawn processes. They call
+``LocalCliExecutionService.execute``. Neither adapter may land a parallel
+contracts module or a private failure-class tuple.
 """
 
 from __future__ import annotations
@@ -49,12 +51,52 @@ CREDENTIAL_ENV_VAR_NAMES = frozenset(
 
 
 class LocalCliFailureClass(StrEnum):
-    """Fail-closed classification for one local CLI execution."""
+    """Fail-closed classification for one local CLI execution.
+
+    Unknown class names coerce to ``schema_violation``. Both adapters must
+    import this enum; do not keep a parallel string tuple.
+    """
 
     TIMEOUT = "timeout"
     REFUSAL = "refusal"
     SCHEMA_VIOLATION = "schema_violation"
     CRASH = "crash"
+    SANDBOX_DENIAL = "sandbox_denial"
+
+
+LOCAL_CLI_FAILURE_CLASSES = tuple(item.value for item in LocalCliFailureClass)
+LOCAL_CLI_SANDBOX_DENIAL_MARKERS = (
+    "sandbox denied",
+    "sandbox denial",
+    "landlock",
+    "seccomp",
+)
+
+
+def declared_local_cli_failure_classes() -> tuple[str, ...]:
+    """Return the closed failure taxonomy both adapters must classify."""
+
+    return LOCAL_CLI_FAILURE_CLASSES
+
+
+def coerce_local_cli_failure_class(value: str) -> LocalCliFailureClass:
+    """Map an unknown class to schema_violation instead of succeeding."""
+
+    try:
+        return LocalCliFailureClass(value)
+    except ValueError:
+        return LocalCliFailureClass.SCHEMA_VIOLATION
+
+
+def is_local_cli_sandbox_denial(text: str) -> bool:
+    """Return whether error text names a sandbox denial.
+
+    Callers must pass error-path text only. Successful payloads that mention
+    landlocked parcels or seccomp-style discovery stay successes.
+    """
+
+    folded = text.casefold()
+    return any(marker in folded for marker in LOCAL_CLI_SANDBOX_DENIAL_MARKERS)
 
 
 class LocalCliContractError(ValueError):
@@ -73,6 +115,7 @@ class RunSpec:
     output_format: str = LOCAL_CLI_OUTPUT_FORMAT_JSON
     json_schema: Mapping[str, object] | None = None
     max_budget_usd: float | None = None
+    stdin_bytes: bytes = b""
     spec_sha256: str = ""
     schema_version: str = LOCAL_CLI_RUN_SPEC_SCHEMA_VERSION
 
@@ -89,6 +132,8 @@ class RunSpec:
             raise LocalCliContractError("RunSpec output_format must be json")
         if self.max_budget_usd is not None and self.max_budget_usd < 0:
             raise LocalCliContractError("max_budget_usd must be non-negative")
+        if type(self.stdin_bytes) is not bytes:
+            raise LocalCliContractError("stdin_bytes must be bytes")
         env_names = tuple(self.environment)
         validate_env_var_names(env_names, "environment")
         forbidden = CREDENTIAL_ENV_VAR_NAMES.intersection(env_names)
@@ -127,6 +172,8 @@ class RunSpec:
             payload["json_schema"] = dict(self.json_schema)
         if self.max_budget_usd is not None:
             payload["max_budget_usd"] = self.max_budget_usd
+        if self.stdin_bytes:
+            payload["stdin_sha256"] = _sha256_bytes(self.stdin_bytes)
         return payload
 
     def to_record(self) -> dict[str, object]:
@@ -173,10 +220,10 @@ class ExecutionReceipt:
         if self.cost_usd is not None and self.cost_usd < 0:
             raise LocalCliContractError("cost_usd must be non-negative")
         if self.failure_class is not None:
-            _require_member(
-                self.failure_class,
-                {item.value for item in LocalCliFailureClass},
+            object.__setattr__(
+                self,
                 "failure_class",
+                coerce_local_cli_failure_class(self.failure_class).value,
             )
         if self.status == "succeeded" and self.failure_class is not None:
             raise LocalCliContractError("successful receipts cannot set failure_class")
@@ -274,7 +321,11 @@ class ExecutionReceipt:
 
 
 class LocalCliExecutionService(Protocol):
-    """B2 (4.2.7) draft: execute one RunSpec without adapter-side spawning."""
+    """B2 execute seam. Concrete type lives in ``local_cli_runtime``.
+
+    Tests inject ``FakeLocalCliExecutionService``. Production rebind is
+    ``LegalForecastBench-dm0g.4.4.19`` / ``.4.4.30``.
+    """
 
     def execute(self, spec: RunSpec) -> ExecutionReceipt:
         """Run one local CLI spec and return a bound execution receipt."""
@@ -333,15 +384,14 @@ def _require_executable_name(value: str) -> None:
         )
 
 
-def _require_member(value: str, allowed: set[str], field_name: str) -> None:
-    if value not in allowed:
-        raise LocalCliContractError(f"{field_name} is not a recognized value")
+# contract-ratchet: allow non-persisted local-cli stdin digest
+def _sha256_bytes(payload: bytes) -> str:
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
 # contract-ratchet: allow non-persisted local-cli stdout digest
 def _sha256_text(value: str) -> str:
-    encoded = value.encode("utf-8")
-    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+    return _sha256_bytes(value.encode("utf-8"))
 
 
 # contract-ratchet: allow non-persisted local-cli spec digest

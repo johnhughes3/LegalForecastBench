@@ -186,6 +186,7 @@ def test_fixture_transcripts_declare_synthetic_provenance() -> None:
         "refusal": True,
         "schema_violation": True,
         "crash": True,
+        "sandbox_denial": True,
         "malformed": True,
         "auth_closed": False,
     }
@@ -276,6 +277,7 @@ def test_fake_success_binds_spec_receipt_and_deliverable(
         ("refusal", LocalCliFailureClass.REFUSAL),
         ("schema_violation", LocalCliFailureClass.SCHEMA_VIOLATION),
         ("crash", LocalCliFailureClass.CRASH),
+        ("sandbox_denial", LocalCliFailureClass.SANDBOX_DENIAL),
         ("malformed", LocalCliFailureClass.CRASH),
     ),
 )
@@ -332,9 +334,48 @@ def test_declared_failure_classes_match_fixtures() -> None:
         "refusal",
         "schema_violation",
         "crash",
+        "sandbox_denial",
     )
     for name in declared_failure_classes():
         assert (TRANSCRIPTS / f"{name}.json").is_file()
+
+
+def test_sandbox_denial_is_distinct_from_crash(tmp_path: Path) -> None:
+    denied = _adapter("sandbox_denial").run(_run_request(), tmp_path / "denied")
+    crashed = _adapter("crash").run(_run_request(), tmp_path / "crash")
+
+    assert denied.public_summary["failure_class"] == (
+        LocalCliFailureClass.SANDBOX_DENIAL.value
+    )
+    assert crashed.public_summary["failure_class"] == LocalCliFailureClass.CRASH.value
+    assert (
+        denied.public_summary["failure_class"]
+        != crashed.public_summary["failure_class"]
+    )
+
+
+def test_landlocked_legal_language_is_not_classified_as_sandbox_denial(
+    tmp_path: Path,
+) -> None:
+    def mutate(envelope: dict[str, object]) -> None:
+        envelope["result"] = {
+            "case_assessment": (
+                "The plaintiff is a landlocked state seeking "
+                "seccomp-style discovery limits."
+            ),
+            "predictions": [
+                {
+                    "unit_id": "count_i",
+                    "probability_fully_dismissed": 0.7,
+                    "rationale": "Fixture rationale.",
+                }
+            ],
+        }
+
+    result = _adapter_from_mutated_success(tmp_path, mutate_envelope=mutate)
+    assert result.status == "succeeded"
+    assert "failure_class" not in result.public_summary
+    _make_writable(tmp_path / "workspace" / "deliverable-sealed")
 
 
 def test_offline_adapter_rejects_provider_environment_grants(tmp_path: Path) -> None:
