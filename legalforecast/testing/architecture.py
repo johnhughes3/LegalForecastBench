@@ -11,6 +11,7 @@ import argparse
 import ast
 import json
 import sys
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -47,9 +48,12 @@ class CompatibilityInventory:
     """Reviewed test coupling that must shrink, never grow accidentally."""
 
     cli_import_files: tuple[str, ...]
+    cli_import_occurrences: tuple[str, ...]
     private_cli_files: tuple[str, ...]
     private_cli_targets: tuple[str, ...]
+    private_cli_occurrences: tuple[str, ...]
     monkeypatch_targets: tuple[str, ...]
+    monkeypatch_occurrences: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +173,16 @@ def check_baseline(root: Path, baseline_path: Path = BASELINE_PATH) -> tuple[str
         additions = sorted(observed - allowed)
         if additions:
             violations.append(f"new compatibility.{field}: {', '.join(additions)}")
+    for field in (
+        "cli_import_occurrences",
+        "private_cli_occurrences",
+        "monkeypatch_occurrences",
+    ):
+        observed = Counter(cast(tuple[str, ...], getattr(current_compat, field)))
+        allowed = Counter(cast(tuple[str, ...], getattr(baseline_compat, field)))
+        additions = sorted((observed - allowed).elements())
+        if additions:
+            violations.append(f"new compatibility.{field}: {', '.join(additions)}")
     return tuple(violations)
 
 
@@ -238,9 +252,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
     cli_import_files: set[str] = set()
+    cli_import_occurrences: list[str] = []
     private_files: set[str] = set()
     private_targets: set[str] = set()
+    private_occurrences: list[str] = []
     monkeypatch_targets: set[str] = set()
+    monkeypatch_occurrences: list[str] = []
     for path in sorted((root / "tests").rglob("*.py")):
         relative = path.relative_to(root).as_posix()
         try:
@@ -258,19 +275,24 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                         else:
                             direct_aliases.add(alias.asname)
                         cli_import_files.add(relative)
+                        cli_import_occurrences.append(relative)
             elif (
                 isinstance(node, ast.ImportFrom) and node.module == "legalforecast.cli"
             ):
                 cli_import_files.add(relative)
+                cli_import_occurrences.append(relative)
                 for alias in node.names:
                     if alias.name.startswith("_") and not _is_dunder(alias.name):
                         private_files.add(relative)
-                        private_targets.add(f"legalforecast.cli.{alias.name}")
+                        target = f"legalforecast.cli.{alias.name}"
+                        private_targets.add(target)
+                        private_occurrences.append(f"{relative}::{target}")
             elif isinstance(node, ast.ImportFrom) and node.module == "legalforecast":
                 for alias in node.names:
                     if alias.name == "cli":
                         direct_aliases.add(alias.asname or "cli")
                         cli_import_files.add(relative)
+                        cli_import_occurrences.append(relative)
             if isinstance(node, ast.Attribute):
                 target = _cli_attribute_target(
                     node,
@@ -280,6 +302,7 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                 if target is not None and _is_private_target(target):
                     private_files.add(relative)
                     private_targets.add(target)
+                    private_occurrences.append(f"{relative}::{target}")
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 if node.func.attr != "setattr" or len(node.args) < 2:
                     continue
@@ -290,6 +313,7 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                     and string_target.value.startswith("legalforecast.cli.")
                 ):
                     monkeypatch_targets.add(string_target.value)
+                    monkeypatch_occurrences.append(f"{relative}::{string_target.value}")
                 target = node.args[1]
                 if isinstance(target, ast.Constant) and isinstance(target.value, str):
                     object_target = _cli_object_target(
@@ -298,16 +322,24 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                         package_aliases=package_aliases,
                     )
                     if object_target is not None:
-                        monkeypatch_targets.add(f"{object_target}.{target.value}")
+                        qualified_target = f"{object_target}.{target.value}"
+                        monkeypatch_targets.add(qualified_target)
+                        monkeypatch_occurrences.append(
+                            f"{relative}::{qualified_target}"
+                        )
                     elif target.value.startswith("legalforecast.cli."):
                         monkeypatch_targets.add(target.value)
+                        monkeypatch_occurrences.append(f"{relative}::{target.value}")
         if relative in private_files:
             cli_import_files.add(relative)
     return CompatibilityInventory(
         cli_import_files=tuple(sorted(cli_import_files)),
+        cli_import_occurrences=tuple(sorted(cli_import_occurrences)),
         private_cli_files=tuple(sorted(private_files)),
         private_cli_targets=tuple(sorted(private_targets)),
+        private_cli_occurrences=tuple(sorted(private_occurrences)),
         monkeypatch_targets=tuple(sorted(monkeypatch_targets)),
+        monkeypatch_occurrences=tuple(sorted(monkeypatch_occurrences)),
     )
 
 

@@ -54,6 +54,10 @@ def test_architecture_scanner_finds_private_cli_test_coupling() -> None:
     )
     assert "legalforecast.cli.os.link" in snapshot.compatibility.monkeypatch_targets
     assert "legalforecast.cli.sys.stdin" in (snapshot.compatibility.monkeypatch_targets)
+    assert (
+        "tests/test_disclosure_review_bundle_cli.py::legalforecast.cli.sys.stdin"
+        in snapshot.compatibility.monkeypatch_occurrences
+    )
 
 
 def test_architecture_scanner_distinguishes_cli_members_from_nested_modules(
@@ -77,6 +81,16 @@ monkeypatch.setattr(cli_module.os, "link", replacement)
 
     assert inventory.private_cli_targets == ("legalforecast.cli._private",)
     assert inventory.monkeypatch_targets == ("legalforecast.cli.os.link",)
+    assert inventory.cli_import_occurrences == (
+        "tests/test_probe.py",
+        "tests/test_probe.py",
+    )
+    assert inventory.private_cli_occurrences == (
+        "tests/test_probe.py::legalforecast.cli._private",
+    )
+    assert inventory.monkeypatch_occurrences == (
+        "tests/test_probe.py::legalforecast.cli.os.link",
+    )
 
 
 @pytest.mark.parametrize(
@@ -115,6 +129,34 @@ def test_architecture_baseline_reports_tightened_limits(tmp_path: Path) -> None:
     assert any(
         violation.startswith("cli_metrics.line_count:")
         and violation.endswith("> reviewed 1")
+        for violation in violations
+    )
+
+
+def test_architecture_baseline_rejects_an_extra_known_patch_occurrence(
+    tmp_path: Path,
+) -> None:
+    baseline = load_baseline(ROOT / BASELINE_PATH)
+    occurrence = baseline.compatibility.monkeypatch_occurrences[0]
+    payload = {
+        "schema_version": 1,
+        "cli_metrics": asdict(baseline.cli_metrics),
+        "upward_cli_dependencies": list(baseline.upward_cli_dependencies),
+        "compatibility": {
+            **asdict(baseline.compatibility),
+            "monkeypatch_occurrences": [
+                *baseline.compatibility.monkeypatch_occurrences[1:],
+            ],
+        },
+    }
+    path = tmp_path / "architecture.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    violations = check_baseline(ROOT, path)
+
+    assert any(
+        violation.startswith("new compatibility.monkeypatch_occurrences:")
+        and occurrence in violation
         for violation in violations
     )
 
