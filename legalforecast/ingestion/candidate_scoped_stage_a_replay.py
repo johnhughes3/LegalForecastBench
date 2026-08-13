@@ -53,6 +53,16 @@ _TERMINAL_STATUSES = frozenset(
     {"settled", "reconstruction_failed", "terminal_escalation"}
 )
 _OUTCOME_STATUSES = _TERMINAL_STATUSES | {"unknown"}
+_UNITIZER_AUDIT_STATUSES = _OUTCOME_STATUSES | {
+    "succeeded",
+    "adjudication_pending",
+}
+_REVIEWER_AUDIT_STATUSES = _OUTCOME_STATUSES | {
+    "passed",
+    "flags_pending",
+    "not_attempted_after_unitizer_terminal",
+    "not_attempted_after_unknown",
+}
 _PREDECESSOR_AUTHORITY = object()
 _PLAN_AUTHORITY = object()
 _REQUEST_AUTHORITY = object()
@@ -1220,6 +1230,18 @@ def _require_nested_candidate(
         )
 
 
+def _require_audit_vocabulary(
+    record: Mapping[str, object], allowed: frozenset[str], *, label: str
+) -> None:
+    nested = dict(record).get("status")
+    if not isinstance(nested, str) or not nested:
+        raise CandidateScopedStageAReplayError(f"{label} lacks status")
+    if nested not in allowed:
+        raise CandidateScopedStageAReplayError(
+            f"{label} status is not in the stage-specific vocabulary"
+        )
+
+
 def _require_nested_status(
     record: Mapping[str, object], status: str, *, label: str
 ) -> None:
@@ -1271,9 +1293,9 @@ def _require_predecessor_candidates(
         _require_nested_candidate(
             prior.unitize_audit, candidate_id, label="predecessor unitize audit"
         )
-        _require_nested_status(
+        _require_audit_vocabulary(
             prior.unitize_audit,
-            prior.unitizer_status,
+            _UNITIZER_AUDIT_STATUSES,
             label="predecessor unitize audit",
         )
         for flag in prior.review_flags:
@@ -1283,9 +1305,9 @@ def _require_predecessor_candidates(
         _require_nested_candidate(
             prior.review_audit, candidate_id, label="predecessor review audit"
         )
-        _require_nested_status(
+        _require_audit_vocabulary(
             prior.review_audit,
-            prior.reviewer_status,
+            _REVIEWER_AUDIT_STATUSES,
             label="predecessor review audit",
         )
         ordered.append(_freeze_predecessor_candidate(prior))

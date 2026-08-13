@@ -597,6 +597,44 @@ def test_terminal_unitizer_rerun_can_rebind_as_predecessor(tmp_path: Path) -> No
     assert rebound.candidates[1].review_audit["status"] == "terminal_escalation"
 
 
+def test_live_stage_a_audit_statuses_can_bind(tmp_path: Path) -> None:
+    packet = _packet("cand-a", digest=_DIGEST_A)
+    lineage = bind_predecessor_stage_a_lineage(
+        candidates=(
+            PredecessorCandidateStageA(
+                packet=packet,
+                unitize_record={
+                    "candidate_id": "cand-a",
+                    "prediction_units": ["unit-a"],
+                },
+                unitize_audit={
+                    "candidate_id": "cand-a",
+                    "stage": "llm-unitize",
+                    "status": "succeeded",
+                },
+                review_flags=({"candidate_id": "cand-a", "flag": "prior"},),
+                review_audit={
+                    "candidate_id": "cand-a",
+                    "stage": "llm-review-stage-a",
+                    "status": "passed",
+                },
+                unitizer_status="settled",
+                reviewer_status="settled",
+            ),
+        ),
+        unitizer_namespace=UNITIZER_NAMESPACE,
+        reviewer_namespace=REVIEWER_NAMESPACE,
+        provider_caps_sha256=_CAPS,
+        provider_journal_path=tmp_path / "provider.sqlite3",
+        selection_sha256=_SELECTION,
+        materialization_sha256=_MATERIALIZATION,
+        parser_sha256=_PARSER,
+    )
+    assert lineage.candidates[0].unitize_audit["status"] == "succeeded"
+    assert lineage.candidates[0].review_audit["status"] == "passed"
+    assert lineage.candidates[0].unitizer_status == "settled"
+
+
 def test_concurrent_runs_cannot_double_claim_a_plan(tmp_path: Path) -> None:
     predecessor = _lineage(tmp_path)
     successor = _packets()
