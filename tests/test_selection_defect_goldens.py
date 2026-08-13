@@ -88,11 +88,16 @@ def _model_visible_entry_numbers(
     *,
     target: int,
     decision: int,
+    pleading_bodies: dict[int, str] | None = None,
 ) -> set[int]:
     """Compose the public selection hooks the later fix PRs will repair."""
 
     selected: set[int] = set()
-    pleading = select_operative_complaint_entry(entries, before_entry=target)
+    pleading = select_operative_complaint_entry(
+        entries,
+        before_entry=target,
+        body_text_by_entry=pleading_bodies,
+    )
     if pleading is not None and pleading.entry.entry_number is not None:
         selected.add(int(pleading.entry.entry_number))
     for entry in entries:
@@ -318,7 +323,6 @@ def test_70754103_selects_complaint_motion_opposition_and_reply() -> None:
             4,
             "4 Jul 18, 2025 Main Document Amended Complaint Buy on PACER",
             description="Amended Complaint",
-            narrative_text=_AO440_SUMMONS_EXCERPT,
         ),
         _entry(
             10,
@@ -359,7 +363,15 @@ def test_70754103_selects_complaint_motion_opposition_and_reply() -> None:
         ),
     )
 
-    assert _model_visible_entry_numbers(entries, target=10, decision=64) == {
+    assert _model_visible_entry_numbers(
+        entries,
+        target=10,
+        decision=64,
+        pleading_bodies={
+            1: "COMPLAINT FOR DECLARATORY AND INJUNCTIVE RELIEF",
+            4: _AO440_SUMMONS_EXCERPT,
+        },
+    ) == {
         1,
         10,
         12,
@@ -379,12 +391,15 @@ def test_70754103_rejects_summons_bytes_labeled_amended_complaint() -> None:
         4,
         "4 AMENDED COMPLAINT against Defendant filed by Plaintiff.",
         description="Amended Complaint",
-        narrative_text=_AO440_SUMMONS_EXCERPT,
     )
 
     selected = select_operative_complaint_entry(
         (complaint, labeled_summons),
         before_entry=10,
+        body_text_by_entry={
+            1: "COMPLAINT FOR DAMAGES",
+            4: _AO440_SUMMONS_EXCERPT,
+        },
     )
 
     assert selected is not None

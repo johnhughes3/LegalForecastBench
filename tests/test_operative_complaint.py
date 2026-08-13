@@ -62,6 +62,31 @@ def test_select_operative_complaint_entry_accepts_strict_pleading_variants(
     assert selected.kind is OperativeComplaintKind(kind)
 
 
+def test_explicit_body_evidence_is_required_for_every_labeled_candidate() -> None:
+    entry = _entry(
+        1,
+        text="1 COMPLAINT against Defendant filed by Plaintiff.",
+        description="Complaint",
+    )
+
+    assert (
+        select_operative_complaint_entry(
+            (entry,),
+            before_entry=5,
+            body_text_by_entry={},
+        )
+        is None
+    )
+    assert (
+        select_operative_complaint_entry(
+            (entry,),
+            before_entry=5,
+            body_text_by_entry={1: "COMPLAINT FOR DAMAGES"},
+        )
+        is not None
+    )
+
+
 @pytest.mark.parametrize(
     "text",
     (

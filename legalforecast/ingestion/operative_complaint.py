@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -36,8 +36,14 @@ def select_operative_complaint_entry(
     entries: Iterable[CourtListenerWebDocketEntry],
     *,
     before_entry: int,
+    body_text_by_entry: Mapping[int, str] | None = None,
 ) -> OperativeComplaintSelection | None:
-    """Return the latest affirmative pleading filing before the target motion."""
+    """Return the latest affirmative pleading before the target motion.
+
+    When authenticated extracted body text is supplied, every docket-label
+    candidate must have matching body evidence. Docket ``narrative_text`` is
+    intentionally not used because it is row metadata, not document content.
+    """
 
     candidates: list[
         tuple[int, CourtListenerWebDocketEntry, OperativeComplaintKind]
@@ -47,11 +53,13 @@ def select_operative_complaint_entry(
         if number is None or number >= before_entry:
             continue
         kind = _complaint_entry_kind(entry)
-        if kind is not None and (
-            entry.narrative_text is None
-            or pleading_body_matches_kind(entry.narrative_text, kind)
-        ):
-            candidates.append((number, entry, kind))
+        if kind is None:
+            continue
+        if body_text_by_entry is not None:
+            body = body_text_by_entry.get(number)
+            if body is None or not pleading_body_matches_kind(body, kind):
+                continue
+        candidates.append((number, entry, kind))
     if not candidates:
         return None
     _, entry, kind = max(candidates, key=lambda item: item[0])
