@@ -179,7 +179,7 @@ def check_baseline(root: Path, baseline_path: Path = BASELINE_PATH) -> tuple[str
     )
     if unexpected_allowlist:
         violations.append(
-            "upward CLI dependency outside the three migration exceptions: "
+            "upward CLI dependency outside the upward-import allowlist: "
             + ", ".join(unexpected_allowlist)
         )
 
