@@ -385,43 +385,120 @@ def test_execution_rejects_namespaced_candidate_bound_to_another_docket() -> Non
         )
 
 
-def _purchase_policy(*, reservation: str, hard_cap: str) -> dict[str, object]:
-    return generate_case_dev_purchase_policy(
-        {
-            "cycle_id": "cycle-1-document-repair",
-            "cohort_policy_sha256": "1" * 64,
-            "canonical_ledger_path": "/controlled/purchase-ledger.sqlite3",
-            "hard_cap_usd": hard_cap,
-            "opening_committed_spend_usd": "0.00",
-            "opening_case_committed_spend_usd": {},
-            "max_per_case_usd": hard_cap,
-            "per_document_reservation_usd": reservation,
-            "fee_schedule": {
-                "source_citation": "https://example.test/public-fee-schedule",
-                "verified_at_utc": "2026-08-13T00:00:00Z",
-                "includes_service_fees": True,
-                "includes_pacer_fees": True,
-                "includes_rounding": True,
-            },
-        }
+def _canonical_value_sha256(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+        ).encode()
+    ).hexdigest()
+
+
+def _approved_purchase_policy(
+    execution: DocumentRepairExecution,
+    *,
+    ledger_path: Path,
+    reservation: str = "3.00",
+    hard_cap: str = "33.00",
+) -> dict[str, object]:
+    paid_operations = tuple(
+        operation
+        for operation in execution.operations
+        if operation.route == "pacer_purchase"
     )
+    candidate_ids = [
+        case_plan.candidate_id for case_plan in execution.purchase_budget.case_plans
+    ]
+    document_ids = [operation.recap_document_id for operation in paid_operations]
+    projected_cost = f"{len(document_ids) * float(reservation):.2f}"
+    remaining_headroom = f"{float(hard_cap) - float(projected_cost):.2f}"
+    fee_schedule = {
+        "source_citation": "https://example.test/public-fee-schedule",
+        "verified_at_utc": "2026-08-13T00:00:00Z",
+        "includes_service_fees": True,
+        "includes_pacer_fees": True,
+        "includes_rounding": True,
+    }
+    approval = {
+        "schema_version": "legalforecast.purchase_approval.v1",
+        "decision": "approve",
+        "reviewer_id": "John Hughes",
+        "recorded_at_utc": "2026-08-13T00:01:00Z",
+        "typed_confirmation_sha256": "2" * 64,
+        "private_checkpoint_sha256": "3" * 64,
+        "private_run_card_sha256": "4" * 64,
+        "cycle_id": "cycle-1-document-repair",
+        "cohort_policy_sha256": execution.cohort_policy_sha256,
+        "cohort_policy_file_sha256": "5" * 64,
+        "fee_schedule_file_sha256": "6" * 64,
+        "fee_schedule": fee_schedule,
+        "canonical_ledger_path": str(ledger_path.resolve()),
+        "ledger_initial_state": "absent_fresh_initialization_required",
+        "target_cohort_root": str(ledger_path.parent.resolve()),
+        "target_cohort_run_card_sha256": "7" * 64,
+        "projection_sha256": "8" * 64,
+        "selection_sha256": "9" * 64,
+        "budget_plan_sha256": "a" * 64,
+        "target_case_count": len(candidate_ids),
+        "selected_case_count": len(candidate_ids),
+        "purchase_document_count": len(document_ids),
+        "projected_cost_usd": projected_cost,
+        "hard_cap_usd": hard_cap,
+        "max_per_case_usd": hard_cap,
+        "per_document_reservation_usd": reservation,
+        "opening_committed_spend_usd": "0.00",
+        "opening_case_committed_spend_usd": {},
+        "remaining_headroom_usd": remaining_headroom,
+        "rule": "buy_exact_approved_document_repairs",
+        "session_scope": "exact_initial_selection_one_global_session",
+        "fallback": "free_only",
+        "selected_candidate_ids_sha256": _canonical_value_sha256(candidate_ids),
+        "purchase_document_ids_sha256": _canonical_value_sha256(document_ids),
+        "output_commitments": {"repair_execution": "sha256:" + "b" * 64},
+    }
+    policy = {
+        "cycle_id": approval["cycle_id"],
+        "cohort_policy_sha256": approval["cohort_policy_sha256"],
+        "canonical_ledger_path": approval["canonical_ledger_path"],
+        "hard_cap_usd": hard_cap,
+        "opening_committed_spend_usd": "0.00",
+        "opening_case_committed_spend_usd": {},
+        "max_per_case_usd": hard_cap,
+        "per_document_reservation_usd": reservation,
+        "fee_schedule": fee_schedule,
+        "approval": approval,
+    }
+    return {
+        "schema_version": "legalforecast.case_dev_purchase_policy.v2",
+        "policy": policy,
+        "policy_sha256": _canonical_value_sha256(policy),
+    }
 
 
-def _purchase_authority(execution):  # type: ignore[no-untyped-def]
+def _replace_approval_commitment(
+    artifact: Mapping[str, object], *, field: str, value: object
+) -> dict[str, object]:
+    changed = dict(artifact)
+    policy = dict(changed["policy"])  # type: ignore[arg-type]
+    approval = dict(policy["approval"])  # type: ignore[arg-type]
+    approval[field] = value
+    policy["approval"] = approval
+    changed["policy"] = policy
+    changed["policy_sha256"] = _canonical_value_sha256(policy)
+    return changed
+
+
+def _purchase_authority(
+    execution: DocumentRepairExecution, tmp_path: Path
+) -> DocumentRepairPurchaseAuthority:
     return build_document_repair_purchase_authority(
         execution=execution,
-        canonical_ledger_path="/controlled/document-repair-ledger.sqlite3",
-        fee_schedule={
-            "source_citation": "https://example.test/public-fee-schedule",
-            "verified_at_utc": "2026-08-13T00:00:00Z",
-            "includes_service_fees": True,
-            "includes_pacer_fees": True,
-            "includes_rounding": True,
-        },
+        approved_purchase_policy_artifact=_approved_purchase_policy(
+            execution, ledger_path=tmp_path / "document-repair-ledger.sqlite3"
+        ),
     )
 
 
-def test_purchase_policy_must_fit_exact_repair_ceiling() -> None:
+def test_purchase_policy_must_fit_exact_repair_ceiling(tmp_path: Path) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
     execution = build_document_repair_execution(
@@ -436,7 +513,10 @@ def test_purchase_policy_must_fit_exact_repair_ceiling() -> None:
 
     policy = verify_purchase_policy_compatibility(
         execution=execution,
-        purchase_policy_artifact=_purchase_policy(reservation="3.00", hard_cap="33.00"),
+        purchase_policy_artifact=_approved_purchase_policy(
+            execution,
+            ledger_path=tmp_path / "valid-ledger.sqlite3",
+        ),
     )
     assert (
         policy.per_document_reservation_usd
@@ -446,15 +526,83 @@ def test_purchase_policy_must_fit_exact_repair_ceiling() -> None:
     with pytest.raises(DocumentRepairExecutorError, match="per-document"):
         verify_purchase_policy_compatibility(
             execution=execution,
-            purchase_policy_artifact=_purchase_policy(
-                reservation="3.05", hard_cap="33.00"
+            purchase_policy_artifact=_approved_purchase_policy(
+                execution,
+                ledger_path=tmp_path / "wrong-reservation-ledger.sqlite3",
+                reservation="3.05",
             ),
         )
-    with pytest.raises(DocumentRepairExecutorError, match="global headroom"):
+
+
+def test_purchase_policy_rejects_legacy_v1_before_acquisition(tmp_path: Path) -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    legacy = generate_case_dev_purchase_policy(
+        {
+            "cycle_id": "cycle-1-document-repair",
+            "cohort_policy_sha256": execution.cohort_policy_sha256,
+            "canonical_ledger_path": str((tmp_path / "legacy.sqlite3").resolve()),
+            "hard_cap_usd": "33.00",
+            "opening_committed_spend_usd": "0.00",
+            "opening_case_committed_spend_usd": {},
+            "max_per_case_usd": "33.00",
+            "per_document_reservation_usd": "3.00",
+            "fee_schedule": {
+                "source_citation": "https://example.test/public-fee-schedule",
+                "verified_at_utc": "2026-08-13T00:00:00Z",
+                "includes_service_fees": True,
+                "includes_pacer_fees": True,
+                "includes_rounding": True,
+            },
+        }
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="approved v2"):
         verify_purchase_policy_compatibility(
             execution=execution,
-            purchase_policy_artifact=_purchase_policy(
-                reservation="3.00", hard_cap="10.00"
+            purchase_policy_artifact=legacy,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("selected_candidate_ids_sha256", "c" * 64),
+        ("purchase_document_ids_sha256", "d" * 64),
+    ),
+)
+def test_purchase_policy_rejects_execution_commitment_mismatch(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    policy = _approved_purchase_policy(
+        execution, ledger_path=tmp_path / f"{field}.sqlite3"
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="differs from the repair"):
+        verify_purchase_policy_compatibility(
+            execution=execution,
+            purchase_policy_artifact=_replace_approval_commitment(
+                policy, field=field, value=value
             ),
         )
 
@@ -551,7 +699,7 @@ def test_receipt_requires_monotonic_duration_and_exact_operation_prefix() -> Non
         record_document_repair_outcomes(execution=tampered, outcomes=())
 
 
-def test_purchase_authority_rejects_forged_execution_capability() -> None:
+def test_purchase_authority_rejects_forged_execution_capability(tmp_path: Path) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
     execution = build_document_repair_execution(
@@ -582,14 +730,9 @@ def test_purchase_authority_rejects_forged_execution_capability() -> None:
     with pytest.raises(DocumentRepairExecutorError, match="replay-minted"):
         build_document_repair_purchase_authority(
             execution=forged,
-            canonical_ledger_path="/controlled/document-repair-ledger.sqlite3",
-            fee_schedule={
-                "source_citation": "https://example.test/public-fee-schedule",
-                "verified_at_utc": "2026-08-13T00:00:00Z",
-                "includes_service_fees": True,
-                "includes_pacer_fees": True,
-                "includes_rounding": True,
-            },
+            approved_purchase_policy_artifact=_approved_purchase_policy(
+                execution, ledger_path=tmp_path / "forged-execution-ledger.sqlite3"
+            ),
         )
 
     with pytest.raises(DocumentRepairExecutorError, match="replay-minted"):
@@ -619,18 +762,13 @@ def test_purchase_authority_rejects_existing_ledger_path(tmp_path: Path) -> None
     with pytest.raises(DocumentRepairExecutorError, match="fresh canonical ledger"):
         build_document_repair_purchase_authority(
             execution=execution,
-            canonical_ledger_path=str(ledger_path),
-            fee_schedule={
-                "source_citation": "https://example.test/public-fee-schedule",
-                "verified_at_utc": "2026-08-13T00:00:00Z",
-                "includes_service_fees": True,
-                "includes_pacer_fees": True,
-                "includes_rounding": True,
-            },
+            approved_purchase_policy_artifact=_approved_purchase_policy(
+                execution, ledger_path=ledger_path
+            ),
         )
 
 
-def test_paid_runner_rejects_forged_purchase_authority() -> None:
+def test_paid_runner_rejects_forged_purchase_authority(tmp_path: Path) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
     execution = build_document_repair_execution(
@@ -642,7 +780,7 @@ def test_paid_runner_rejects_forged_purchase_authority() -> None:
             for candidate, payload in snapshots.items()
         },
     )
-    valid = _purchase_authority(execution)
+    valid = _purchase_authority(execution, tmp_path)
     forged = object.__new__(DocumentRepairPurchaseAuthority)
     for name in (
         "execution_sha256",
@@ -899,7 +1037,9 @@ def test_terminal_exclusion_is_not_retryable() -> None:
     assert receipt.operation_ledger[0]["retry_permitted"] is False
 
 
-def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome() -> None:
+def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome(
+    tmp_path: Path,
+) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
     execution = build_document_repair_execution(
@@ -935,7 +1075,7 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome() -> Non
 
     result = run_document_repair_execution(
         execution=execution,
-        purchase_authority=_purchase_authority(execution),
+        purchase_authority=_purchase_authority(execution, tmp_path),
         acquire=acquire,
         monotonic=lambda: next(ticks),
     )
@@ -952,7 +1092,9 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome() -> Non
     )
 
 
-def test_runner_materializes_complete_evidence_for_successor_seal() -> None:
+def test_runner_materializes_complete_evidence_for_successor_seal(
+    tmp_path: Path,
+) -> None:
     manifest = _manifest_bytes(
         *(
             _row(candidate, index, free=index == 1)
@@ -977,7 +1119,7 @@ def test_runner_materializes_complete_evidence_for_successor_seal() -> None:
 
     result = run_document_repair_execution(
         execution=execution,
-        purchase_authority=_purchase_authority(execution),
+        purchase_authority=_purchase_authority(execution, tmp_path),
         acquire=lambda operation: AcquiredRepairDocument(
             disposition="included",
             source_document_id=operation.recap_document_id,
@@ -1002,7 +1144,9 @@ def test_runner_materializes_complete_evidence_for_successor_seal() -> None:
     assert result.receipt.committed_cost_usd == "12.00"
 
 
-def test_paid_runner_requires_exact_generated_purchase_authority() -> None:
+def test_paid_runner_requires_exact_generated_purchase_authority(
+    tmp_path: Path,
+) -> None:
     plan, pilot = _scope()
     snapshots = _snapshots()
     execution = build_document_repair_execution(
@@ -1023,7 +1167,7 @@ def test_paid_runner_requires_exact_generated_purchase_authority() -> None:
             monotonic=lambda: 0.0,
         )
 
-    authority = _purchase_authority(execution)
+    authority = _purchase_authority(execution, tmp_path)
     assert authority.execution_sha256 == execution.execution_sha256
     assert authority.purchase_policy.per_document_reservation_usd == 3
     assert authority.purchase_policy.hard_cap_usd == 33
@@ -1217,7 +1361,7 @@ def test_execution_treats_string_zero_attachment_as_main_document() -> None:
     assert execution.operations[0].document_selector == "main_document"
 
 
-def test_execution_resolves_same_entry_attachment_selector() -> None:
+def test_execution_resolves_same_entry_attachment_selector(tmp_path: Path) -> None:
     row = _row("73569789", 5, free=False)
     missing = row["missing_docs"]
     assert isinstance(missing, list)
@@ -1270,7 +1414,7 @@ def test_execution_resolves_same_entry_attachment_selector() -> None:
     ticks = iter((1.0, 1.2, 2.0, 2.3))
     result = run_document_repair_execution(
         execution=execution,
-        purchase_authority=_purchase_authority(execution),
+        purchase_authority=_purchase_authority(execution, tmp_path),
         acquire=lambda resolved: AcquiredRepairDocument(
             disposition="included",
             source_document_id=resolved.recap_document_id,
