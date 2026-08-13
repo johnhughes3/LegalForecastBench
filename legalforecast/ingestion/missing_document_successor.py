@@ -30,7 +30,7 @@ from legalforecast.ingestion.operative_complaint import (
 )
 
 JsonRecord = dict[str, Any]
-SlotKey = tuple[str, int, str]
+SlotKey = tuple[str, int, str, str]
 
 STATE_SCHEMA_VERSION = str(MISSING_DOCUMENT_SUCCESSOR_STATE_V1)
 INCLUSION_SCHEMA_VERSION = str(MISSING_DOCUMENT_INCLUSION_V1)
@@ -45,6 +45,7 @@ _ROLE_ALIASES = {
     "response": "opposition",
     "supplemental": "supplemental_brief",
     "target_motion": "motion_to_dismiss_memorandum",
+    "motion_memorandum": "motion_to_dismiss_memorandum",
 }
 _PLEADING_KINDS = {
     "complaint": OperativeComplaintKind.COMPLAINT,
@@ -147,6 +148,7 @@ class AcquisitionObservation:
 
     candidate_id: str
     docket_entry_number: int
+    document_selector: str
     requested_role: str
     source_document_id: str
     source_kind: str
@@ -162,6 +164,10 @@ class AcquisitionObservation:
         if not self.candidate_id.strip() or not self.source_document_id.strip():
             raise MissingDocumentSuccessorError(
                 "acquisition document identity must be nonempty"
+            )
+        if not self.document_selector.strip():
+            raise MissingDocumentSuccessorError(
+                "acquisition document selector must be nonempty"
             )
         if self.docket_entry_number <= 0:
             raise MissingDocumentSuccessorError(
@@ -254,13 +260,19 @@ class MissingDocumentSuccessor:
 class _RepairSlot:
     candidate_id: str
     entry: int
+    document_selector: str
     requested_role: str
     free_document_count: int
     approved_cost_usd: Decimal
 
     @property
     def key(self) -> SlotKey:
-        return (self.candidate_id, self.entry, self.requested_role)
+        return (
+            self.candidate_id,
+            self.entry,
+            self.document_selector,
+            self.requested_role,
+        )
 
 
 def project_missing_document_successor(
@@ -283,6 +295,11 @@ def project_missing_document_successor(
         )
     manifest = _parse_manifest(manifest_bytes)
     slots, mismatch_rows = _repair_work(manifest)
+    replacement_candidate_ids = frozenset(
+        _text(row.get("candidate_id"), "candidate_id")
+        for row in manifest
+        if row.get("recommendation") == "replace"
+    )
     slot_by_key = {slot.key: slot for slot in slots}
     attempts: dict[SlotKey, list[AcquisitionObservation]] = {
         key: [] for key in slot_by_key
@@ -299,6 +316,7 @@ def project_missing_document_successor(
         key = (
             observation.candidate_id,
             observation.docket_entry_number,
+            observation.document_selector,
             observation.requested_role,
         )
         if key not in slot_by_key:
@@ -315,8 +333,12 @@ def project_missing_document_successor(
     predecessor_selection_bytes = _jsonl_bytes(
         tuple(dict(record) for record in base_selection)
     )
+    selection, replacement_exclusions = _apply_replacement_recommendations(
+        base_selection,
+        replacement_candidate_ids,
+    )
     selection, mismatch_exclusions = _remove_mismatched_selections(
-        base_selection, mismatch_rows
+        selection, mismatch_rows
     )
     selection_candidate_ids = {
         cast(str, record["candidate_id"]) for record in selection
@@ -350,7 +372,11 @@ def project_missing_document_successor(
 
     successor_selection = _add_inclusions(selection, additions)
     inclusion_records = tuple(inclusions)
-    exclusion_records = (*mismatch_exclusions, *slot_exclusions)
+    exclusion_records = (
+        *replacement_exclusions,
+        *mismatch_exclusions,
+        *slot_exclusions,
+    )
     selection_bytes = _jsonl_bytes(successor_selection)
     inclusion_bytes = _jsonl_bytes(inclusion_records)
     exclusion_bytes = _jsonl_bytes(exclusion_records)
@@ -369,6 +395,7 @@ def project_missing_document_successor(
         "excluded_slot_count": len(slot_exclusions),
         "terminal_slot_count": len(inclusion_records) + len(slot_exclusions),
         "removed_mismatch_count": len(mismatch_exclusions),
+        "replacement_candidate_count": len(replacement_candidate_ids),
         "output_sha256s": {
             "exclusion-ledger.jsonl": hashlib.sha256(exclusion_bytes).hexdigest(),
             "inclusion-ledger.jsonl": hashlib.sha256(inclusion_bytes).hexdigest(),
@@ -420,10 +447,6 @@ def _repair_work(
             raise MissingDocumentSuccessorError(
                 "repair manifest recommendation is unsupported"
             )
-        if recommendation == "replace":
-            raise MissingDocumentSuccessorError(
-                "replacement recommendation is outside this successor"
-            )
         if candidate_id in candidate_ids:
             raise MissingDocumentSuccessorError(
                 "repair manifest candidate identity is duplicated"
@@ -435,10 +458,15 @@ def _repair_work(
             raise MissingDocumentSuccessorError(
                 "keep recommendation contains repair work"
             )
+        if recommendation == "replace" and (raw_slots or raw_mismatches):
+            raise MissingDocumentSuccessorError(
+                "replacement recommendation contains document repair work"
+            )
         for raw_slot in raw_slots:
             entry = _positive_int(raw_slot.get("entry"), "missing document entry")
             role = _text(raw_slot.get("role"), "missing document role")
-            key = (candidate_id, entry, role)
+            document_selector = _document_selector(raw_slot)
+            key = (candidate_id, entry, document_selector, role)
             if key in slot_keys:
                 raise MissingDocumentSuccessorError(
                     "repair manifest slot is duplicated"
@@ -448,6 +476,7 @@ def _repair_work(
                 _RepairSlot(
                     candidate_id=candidate_id,
                     entry=entry,
+                    document_selector=document_selector,
                     requested_role=role,
                     free_document_count=_nonnegative_int(
                         raw_slot.get("free_document_count"),
@@ -465,6 +494,7 @@ def _repair_work(
                     "entry": _positive_int(
                         raw_mismatch.get("entry"), "byte mismatch entry"
                     ),
+                    "document_selector": _document_selector(raw_mismatch),
                     "selected_role": _text(
                         raw_mismatch.get("selected_role"),
                         "byte mismatch selected role",
@@ -473,7 +503,10 @@ def _repair_work(
                         raw_mismatch.get("observed_role"),
                         "byte mismatch observed role",
                     ),
-                    "basis": _text(raw_mismatch.get("basis"), "byte mismatch basis"),
+                    "basis": _text(
+                        raw_mismatch.get("basis", raw_mismatch.get("evidence")),
+                        "byte mismatch basis",
+                    ),
                 }
             )
     return tuple(slots), tuple(mismatches)
@@ -541,6 +574,44 @@ def _resolve_slot(
     return None, None, paid_cost
 
 
+def _apply_replacement_recommendations(
+    base_selection: Sequence[Mapping[str, object]],
+    replacement_candidate_ids: frozenset[str],
+) -> tuple[tuple[JsonRecord, ...], tuple[JsonRecord, ...]]:
+    output: list[JsonRecord] = []
+    exclusions: list[JsonRecord] = []
+    remaining = set(replacement_candidate_ids)
+    for raw_record in base_selection:
+        record = dict(raw_record)
+        candidate_id = _text(record.get("candidate_id"), "selection candidate_id")
+        if candidate_id not in remaining:
+            output.append(record)
+            continue
+        remaining.remove(candidate_id)
+        record["selected"] = False
+        record["documents"] = []
+        output.append(record)
+        exclusions.append(
+            {
+                "schema_version": EXCLUSION_SCHEMA_VERSION,
+                "candidate_id": candidate_id,
+                "docket_entry_number": None,
+                "document_selector": None,
+                "requested_role": "candidate",
+                "source_document_id": None,
+                "source_kind": "inherited",
+                "reason": "manifest_replacement_recommendation",
+                "observed_role": None,
+                "basis": "approved manifest requires reserve replacement",
+            }
+        )
+    if remaining:
+        raise MissingDocumentSuccessorError(
+            "replacement candidate is absent from base selection"
+        )
+    return tuple(output), tuple(exclusions)
+
+
 def _remove_mismatched_selections(
     base_selection: Sequence[Mapping[str, object]],
     mismatches: Sequence[Mapping[str, object]],
@@ -571,7 +642,10 @@ def _remove_mismatched_selections(
                 (
                     mismatch
                     for mismatch in pending
-                    if mismatch["entry"] == entry and mismatch["selected_role"] == role
+                    if mismatch["entry"] == entry
+                    and mismatch["document_selector"]
+                    == document.get("document_selector", "main")
+                    and mismatch["selected_role"] == role
                 ),
                 None,
             )
@@ -584,6 +658,7 @@ def _remove_mismatched_selections(
                     "schema_version": EXCLUSION_SCHEMA_VERSION,
                     "candidate_id": candidate_id,
                     "docket_entry_number": matched["entry"],
+                    "document_selector": matched["document_selector"],
                     "requested_role": matched["selected_role"],
                     "source_document_id": document.get("source_document_id"),
                     "source_kind": "inherited",
@@ -671,6 +746,7 @@ def _inclusion(slot: _RepairSlot, observation: AcquisitionObservation) -> JsonRe
         "schema_version": INCLUSION_SCHEMA_VERSION,
         "candidate_id": slot.candidate_id,
         "docket_entry_number": slot.entry,
+        "document_selector": slot.document_selector,
         "requested_role": slot.requested_role,
         "admitted_role": _ROLE_ALIASES.get(slot.requested_role, slot.requested_role),
         "source_document_id": observation.source_document_id,
@@ -696,6 +772,7 @@ def _slot_exclusion(
         "schema_version": EXCLUSION_SCHEMA_VERSION,
         "candidate_id": slot.candidate_id,
         "docket_entry_number": slot.entry,
+        "document_selector": slot.document_selector,
         "requested_role": slot.requested_role,
         "source_document_id": observation.source_document_id,
         "source_kind": observation.source_kind,
@@ -711,6 +788,7 @@ def _selection_document(inclusion: Mapping[str, object]) -> JsonRecord:
         "candidate_id": inclusion["candidate_id"],
         "contains_target_outcome": False,
         "docket_entry_number": inclusion["docket_entry_number"],
+        "document_selector": inclusion["document_selector"],
         "document_role": inclusion["admitted_role"],
         "is_available": True,
         "is_predecision_material": True,
@@ -744,6 +822,10 @@ def _text(value: object, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise MissingDocumentSuccessorError(f"{field} must be nonempty text")
     return value
+
+
+def _document_selector(record: Mapping[str, object]) -> str:
+    return _text(record.get("document_selector", "main"), "document selector")
 
 
 def _positive_int(value: object, field: str) -> int:

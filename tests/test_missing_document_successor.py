@@ -64,6 +64,9 @@ def _approval(manifest: bytes, *, maximum: str = "3.00") -> RepairApproval:
 
 def _observation(
     *,
+    entry: int = 12,
+    document_selector: str = "main",
+    requested_role: str = "opposition",
     source_kind: str = "free",
     status: str = "acquired",
     cost: str = "0.00",
@@ -72,9 +75,10 @@ def _observation(
     payload = b"opposition-pdf"
     return AcquisitionObservation(
         candidate_id="case-1",
-        docket_entry_number=12,
-        requested_role="opposition",
-        source_document_id=f"case-1-entry-12-{source_kind}",
+        docket_entry_number=entry,
+        document_selector=document_selector,
+        requested_role=requested_role,
+        source_document_id=(f"case-1-entry-{entry}-{document_selector}-{source_kind}"),
         source_kind=source_kind,
         status=status,
         cost_usd=Decimal(cost),
@@ -221,3 +225,107 @@ def test_every_approved_slot_requires_a_terminal_observation() -> None:
             approval=_approval(manifest),
             acquisitions=(),
         )
+
+
+def test_same_entry_documents_are_distinct_by_selector_and_role() -> None:
+    missing_docs = [
+        {
+            "entry": 5,
+            "document_selector": selector,
+            "role": "motion_memorandum",
+            "cost_usd": 3.0,
+            "free_document_count": 0,
+        }
+        for selector in ("main", "attachment_1")
+    ]
+    manifest = (
+        json.dumps(
+            {
+                "candidate_id": "case-1",
+                "recommendation": "repair",
+                "missing_docs": missing_docs,
+                "byte_mismatches": [],
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    approval = verify_repair_approval(
+        manifest,
+        {
+            "schema_version": "legalforecast.repair_manifest_approval.v1",
+            "decision": "approve",
+            "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "maximum_cost_usd": "6.00",
+            "candidate_count": 1,
+            "repair_count": 1,
+            "keep_count": 0,
+            "replace_count": 0,
+            "missing_slot_count": 2,
+        },
+    )
+
+    result = project_missing_document_successor(
+        base_selection=({"candidate_id": "case-1", "selected": True, "documents": []},),
+        manifest_bytes=manifest,
+        approval=approval,
+        acquisitions=tuple(
+            _observation(
+                entry=5,
+                document_selector=selector,
+                requested_role="motion_memorandum",
+                source_kind="pacer",
+                cost="3.00",
+                markdown="Memorandum in Support of Motion to Dismiss",
+            )
+            for selector in ("main", "attachment_1")
+        ),
+    )
+
+    assert [
+        document["document_selector"]
+        for document in result.selection_records[0]["documents"]
+    ] == ["main", "attachment_1"]
+
+
+def test_replacement_recommendation_is_terminally_excluded() -> None:
+    manifest = (
+        json.dumps(
+            {
+                "candidate_id": "case-1",
+                "recommendation": "replace",
+                "missing_docs": [],
+                "byte_mismatches": [],
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    approval = verify_repair_approval(
+        manifest,
+        {
+            "schema_version": "legalforecast.repair_manifest_approval.v1",
+            "decision": "approve",
+            "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "maximum_cost_usd": "0.00",
+            "candidate_count": 1,
+            "repair_count": 0,
+            "keep_count": 0,
+            "replace_count": 1,
+            "missing_slot_count": 0,
+        },
+    )
+
+    result = project_missing_document_successor(
+        base_selection=_base_selection(),
+        manifest_bytes=manifest,
+        approval=approval,
+        acquisitions=(),
+    )
+
+    assert result.selection_records[0]["selected"] is False
+    assert result.selection_records[0]["documents"] == []
+    assert result.exclusion_ledger[0]["reason"] == (
+        "manifest_replacement_recommendation"
+    )
+    assert result.state["replacement_candidate_count"] == 1

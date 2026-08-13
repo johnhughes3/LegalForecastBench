@@ -24,14 +24,17 @@ opaque approval capability used by the projector.
 ## Inclusion and exclusion ledgers
 
 `legalforecast.missing_document_inclusion.v1` records one admitted
-`(candidate_id, docket_entry_number, requested_role)` obligation. It binds the
-material `source_document_id`, acquisition source and cost, byte hash and count,
-markdown hash, admitted role, and validator version
-(`legalforecast.document_body_role_validator.v1`).
+`(candidate_id, docket_entry_number, document_selector, requested_role)`
+obligation. The selector distinguishes a main document from same-entry
+attachments. The record binds the material `source_document_id`, acquisition
+source and cost, byte hash and count, markdown hash, admitted role, and validator
+version (`legalforecast.document_body_role_validator.v1`).
 
 `legalforecast.missing_document_exclusion.v1` records either a removed inherited
 document whose bytes mismatch its selected role or the terminal reason an
-approved missing-document obligation was not admitted.
+approved missing-document obligation was not admitted. A candidate-level
+exclusion records an approved `replace` recommendation and clears that
+candidate's inherited documents pending reserve replacement.
 
 Each approved obligation appears in exactly one of the inclusion or terminal
 slot-exclusion ledgers.
