@@ -39,6 +39,7 @@ from legalforecast.multiharness.validation import (
 )
 
 LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION = (
+    # contract-ratchet: allow adapter description schema
     "legalforecast.multiharness.local_cli_adapter_manifest.v1"
 )
 LOCAL_CLI_ADAPTER_KIND = "local_cli"

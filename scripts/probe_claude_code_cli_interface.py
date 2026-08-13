@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, cast
 
+# contract-ratchet: allow observational CLI interface pin
 SCHEMA_VERSION = "legalforecast.claude_code_cli_interface_characterization.v1"
 REQUIRED_PRINT_FLAGS = {
     "--json-schema",
@@ -326,6 +327,7 @@ def run_allowlisted_interface_command(
     return completed.stdout
 
 
+# contract-ratchet: allow non-persisted executable digest for the interface pin
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -334,6 +336,7 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+# contract-ratchet: allow non-persisted help-text digest for the interface pin
 def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
