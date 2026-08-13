@@ -27,6 +27,7 @@ UPWARD_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
         # injected through a cycle-neutral command context.
         "legalforecast/cli_commands/report.py",
         "legalforecast/cli_commands/score.py",
+        "legalforecast/ingestion/packet_build_replay.py",
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
         "legalforecast/ingestion/resolved_post_recovery.py",
@@ -58,6 +59,9 @@ class CompatibilityInventory:
     private_cli_files: tuple[str, ...]
     private_cli_targets: tuple[str, ...]
     private_cli_occurrences: tuple[str, ...]
+    public_cli_files: tuple[str, ...]
+    public_cli_targets: tuple[str, ...]
+    public_cli_occurrences: tuple[str, ...]
     monkeypatch_targets: tuple[str, ...]
     monkeypatch_occurrences: tuple[str, ...]
 
@@ -186,6 +190,8 @@ def check_baseline(root: Path, baseline_path: Path = BASELINE_PATH) -> tuple[str
         "cli_import_files",
         "private_cli_files",
         "private_cli_targets",
+        "public_cli_files",
+        "public_cli_targets",
         "monkeypatch_targets",
     ):
         observed = set(getattr(current_compat, field))
@@ -201,6 +207,7 @@ def check_baseline(root: Path, baseline_path: Path = BASELINE_PATH) -> tuple[str
     for field in (
         "cli_import_occurrences",
         "private_cli_occurrences",
+        "public_cli_occurrences",
         "monkeypatch_occurrences",
     ):
         observed = Counter(cast(tuple[str, ...], getattr(current_compat, field)))
@@ -286,6 +293,9 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
     private_files: set[str] = set()
     private_targets: set[str] = set()
     private_occurrences: list[str] = []
+    public_files: set[str] = set()
+    public_targets: set[str] = set()
+    public_occurrences: list[str] = []
     monkeypatch_targets: set[str] = set()
     monkeypatch_occurrences: list[str] = []
     for path in sorted((root / "tests").rglob("*.py")):
@@ -349,57 +359,92 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                 cli_import_files.add(relative)
                 cli_import_occurrences.append(relative)
                 for alias in node.names:
-                    if alias.name.startswith("_") and not _is_dunder(alias.name):
-                        private_files.add(relative)
-                        target = f"legalforecast.cli.{alias.name}"
-                        private_targets.add(target)
-                        private_occurrences.append(f"{relative}::{target}")
+                    if alias.name == "*":
+                        continue
+                    _record_cli_member(
+                        f"legalforecast.cli.{alias.name}",
+                        relative=relative,
+                        private_files=private_files,
+                        private_targets=private_targets,
+                        private_occurrences=private_occurrences,
+                        public_files=public_files,
+                        public_targets=public_targets,
+                        public_occurrences=public_occurrences,
+                    )
             elif isinstance(node, ast.ImportFrom) and node.module == "legalforecast":
                 for alias in node.names:
                     if alias.name == "cli":
                         direct_aliases.add(alias.asname or "cli")
                         cli_import_files.add(relative)
                         cli_import_occurrences.append(relative)
+        wrappers = _cli_patch_wrappers(
+            tree,
+            direct_aliases=direct_aliases,
+            package_aliases=package_aliases,
+        )
+        for node in ast.walk(tree):
             if isinstance(node, ast.Attribute):
                 target = _cli_attribute_target(
                     node,
                     direct_aliases=direct_aliases,
                     package_aliases=package_aliases,
                 )
-                if target is not None and _is_private_target(target):
-                    private_files.add(relative)
-                    private_targets.add(target)
-                    private_occurrences.append(f"{relative}::{target}")
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                if node.func.attr != "setattr":
-                    continue
-                target_arg = _call_argument(node, 0, "target")
-                if target_arg is None:
-                    continue
-                for string_target in _static_string_values(target_arg, parents=parents):
-                    if string_target.startswith("legalforecast.cli."):
-                        monkeypatch_targets.add(string_target)
-                        monkeypatch_occurrences.append(f"{relative}::{string_target}")
-                name_arg = _call_argument(node, 1, "name")
+                if target is not None:
+                    _record_cli_member(
+                        target,
+                        relative=relative,
+                        private_files=private_files,
+                        private_targets=private_targets,
+                        private_occurrences=private_occurrences,
+                        public_files=public_files,
+                        public_targets=public_targets,
+                        public_occurrences=public_occurrences,
+                    )
+            if not isinstance(node, ast.Call):
+                continue
+            if isinstance(node.func, ast.Name) and node.func.id in wrappers:
+                position, keyword = wrappers[node.func.id]
+                name_arg = _call_argument(
+                    node, position if position is not None else -1, keyword
+                )
                 if name_arg is None:
                     continue
-                target_names = _static_string_values(name_arg, parents=parents)
-                for target_name in target_names:
-                    object_target = _cli_object_target(
-                        target_arg,
-                        direct_aliases=direct_aliases,
-                        package_aliases=package_aliases,
+                for target_name in _static_string_values(name_arg, parents=parents):
+                    qualified_target = (
+                        target_name
+                        if target_name.startswith("legalforecast.cli.")
+                        else f"legalforecast.cli.{target_name}"
                     )
-                    if object_target is not None:
-                        qualified_target = f"{object_target}.{target_name}"
-                        monkeypatch_targets.add(qualified_target)
-                        monkeypatch_occurrences.append(
-                            f"{relative}::{qualified_target}"
-                        )
-                    elif target_name.startswith("legalforecast.cli."):
-                        monkeypatch_targets.add(target_name)
-                        monkeypatch_occurrences.append(f"{relative}::{target_name}")
-        if relative in private_files:
+                    monkeypatch_targets.add(qualified_target)
+                    monkeypatch_occurrences.append(f"{relative}::{qualified_target}")
+                continue
+            if not isinstance(node.func, ast.Attribute) or node.func.attr != "setattr":
+                continue
+            target_arg = _call_argument(node, 0, "target")
+            if target_arg is None:
+                continue
+            for string_target in _static_string_values(target_arg, parents=parents):
+                if string_target.startswith("legalforecast.cli."):
+                    monkeypatch_targets.add(string_target)
+                    monkeypatch_occurrences.append(f"{relative}::{string_target}")
+            name_arg = _call_argument(node, 1, "name")
+            if name_arg is None:
+                continue
+            target_names = _static_string_values(name_arg, parents=parents)
+            for target_name in target_names:
+                object_target = _cli_object_target(
+                    target_arg,
+                    direct_aliases=direct_aliases,
+                    package_aliases=package_aliases,
+                )
+                if object_target is not None:
+                    qualified_target = f"{object_target}.{target_name}"
+                    monkeypatch_targets.add(qualified_target)
+                    monkeypatch_occurrences.append(f"{relative}::{qualified_target}")
+                elif target_name.startswith("legalforecast.cli."):
+                    monkeypatch_targets.add(target_name)
+                    monkeypatch_occurrences.append(f"{relative}::{target_name}")
+        if relative in private_files or relative in public_files:
             cli_import_files.add(relative)
     return CompatibilityInventory(
         cli_import_files=tuple(sorted(cli_import_files)),
@@ -407,6 +452,9 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
         private_cli_files=tuple(sorted(private_files)),
         private_cli_targets=tuple(sorted(private_targets)),
         private_cli_occurrences=tuple(sorted(private_occurrences)),
+        public_cli_files=tuple(sorted(public_files)),
+        public_cli_targets=tuple(sorted(public_targets)),
+        public_cli_occurrences=tuple(sorted(public_occurrences)),
         monkeypatch_targets=tuple(sorted(monkeypatch_targets)),
         monkeypatch_occurrences=tuple(sorted(monkeypatch_occurrences)),
     )
@@ -557,7 +605,7 @@ def _static_string_values(
 
 
 def _call_argument(node: ast.Call, position: int, keyword: str) -> ast.AST | None:
-    if len(node.args) > position:
+    if position >= 0 and len(node.args) > position:
         return node.args[position]
     return next(
         (item.value for item in node.keywords if item.arg == keyword),
@@ -670,6 +718,92 @@ def _cli_attribute_target(
 def _is_private_target(target: str) -> bool:
     cli_member = target.removeprefix("legalforecast.cli.").split(".", 1)[0]
     return cli_member.startswith("_") and not _is_dunder(cli_member)
+
+
+def _is_public_target(target: str) -> bool:
+    if not target.startswith("legalforecast.cli."):
+        return False
+    cli_member = target.removeprefix("legalforecast.cli.").split(".", 1)[0]
+    return bool(cli_member) and not cli_member.startswith("_")
+
+
+def _record_cli_member(
+    target: str,
+    *,
+    relative: str,
+    private_files: set[str],
+    private_targets: set[str],
+    private_occurrences: list[str],
+    public_files: set[str],
+    public_targets: set[str],
+    public_occurrences: list[str],
+) -> None:
+    occurrence = f"{relative}::{target}"
+    if _is_private_target(target):
+        private_files.add(relative)
+        private_targets.add(target)
+        private_occurrences.append(occurrence)
+    elif _is_public_target(target):
+        public_files.add(relative)
+        public_targets.add(target)
+        public_occurrences.append(occurrence)
+
+
+def _cli_patch_wrappers(
+    tree: ast.AST,
+    *,
+    direct_aliases: set[str],
+    package_aliases: set[str],
+) -> dict[str, tuple[int | None, str]]:
+    """Map helper names that setattr CLI members via a parameter to that parameter."""
+
+    wrappers: dict[str, tuple[int | None, str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        resolved = _cli_patch_wrapper_name_parameter(
+            node,
+            direct_aliases=direct_aliases,
+            package_aliases=package_aliases,
+        )
+        if resolved is not None:
+            wrappers[node.name] = resolved
+    return wrappers
+
+
+def _cli_patch_wrapper_name_parameter(
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+    *,
+    direct_aliases: set[str],
+    package_aliases: set[str],
+) -> tuple[int | None, str] | None:
+    positional = [arg.arg for arg in (*func.args.posonlyargs, *func.args.args)]
+    for node in ast.walk(func):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Attribute) or node.func.attr != "setattr":
+            continue
+        target_arg = _call_argument(node, 0, "target")
+        name_arg = _call_argument(node, 1, "name")
+        if target_arg is None or name_arg is None:
+            continue
+        if (
+            _cli_object_target(
+                target_arg,
+                direct_aliases=direct_aliases,
+                package_aliases=package_aliases,
+            )
+            is None
+        ):
+            continue
+        if not isinstance(name_arg, ast.Name):
+            continue
+        parameter = name_arg.id
+        if parameter in positional:
+            return positional.index(parameter), parameter
+        if any(arg.arg == parameter for arg in func.args.kwonlyargs):
+            return None, parameter
+    return None
 
 
 def _string_tuple(payload: Mapping[str, object], field: str) -> tuple[str, ...]:

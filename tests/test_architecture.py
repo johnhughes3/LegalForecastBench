@@ -60,6 +60,17 @@ def test_architecture_scanner_finds_private_cli_test_coupling() -> None:
         "tests/test_disclosure_review_bundle_cli.py::legalforecast.cli.sys.stdin"
         in snapshot.compatibility.monkeypatch_occurrences
     )
+    assert "legalforecast.cli.main" in snapshot.compatibility.public_cli_targets
+    assert "legalforecast.cli.CommandError" in snapshot.compatibility.public_cli_targets
+    assert (
+        "tests/test_replacement_recovery_source_producer.py::"
+        "legalforecast.cli.CaseDevPurchaseJournal"
+        in snapshot.compatibility.monkeypatch_occurrences
+    )
+    assert (
+        "legalforecast.cli._issue_terminal_disposition_capability"
+        in snapshot.compatibility.monkeypatch_targets
+    )
 
 
 def test_architecture_scanner_distinguishes_cli_members_from_nested_modules(
@@ -412,3 +423,72 @@ def test_load_baseline_normalizes_json_arrays_to_tuples() -> None:
     assert isinstance(snapshot.upward_cli_dependencies, tuple)
     assert isinstance(snapshot.compatibility.cli_import_files, tuple)
     assert isinstance(snapshot.compatibility.private_cli_targets, tuple)
+    assert isinstance(snapshot.compatibility.public_cli_targets, tuple)
+
+
+def test_architecture_scanner_detects_patch_cli_mediated_private_targets(
+    tmp_path: Path,
+) -> None:
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_probe.py").write_text(
+        """\
+from legalforecast import cli as cli_module
+
+def _patch_cli(monkeypatch, name, value):
+    monkeypatch.setattr(cli_module, name, value)
+    monkeypatch.setattr(other_module, name, value)
+
+_patch_cli(monkeypatch, "_private_helper", replacement)
+_patch_cli(monkeypatch, name="main", value=replacement)
+""",
+        encoding="utf-8",
+    )
+
+    inventory = architecture_module._scan_test_compatibility(tmp_path)
+
+    assert inventory.monkeypatch_targets == (
+        "legalforecast.cli._private_helper",
+        "legalforecast.cli.main",
+    )
+    assert inventory.monkeypatch_occurrences == (
+        "tests/test_probe.py::legalforecast.cli._private_helper",
+        "tests/test_probe.py::legalforecast.cli.main",
+    )
+
+
+def test_architecture_scanner_records_public_cli_member_dependencies(
+    tmp_path: Path,
+) -> None:
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_probe.py").write_text(
+        """\
+import legalforecast.cli
+from legalforecast.cli import CommandError, main
+from legalforecast import cli as cli_module
+
+parser = cli_module.build_parser
+policy = legalforecast.cli.verify_cohort_policy
+_private = cli_module._private
+""",
+        encoding="utf-8",
+    )
+
+    inventory = architecture_module._scan_test_compatibility(tmp_path)
+
+    assert inventory.public_cli_targets == (
+        "legalforecast.cli.CommandError",
+        "legalforecast.cli.build_parser",
+        "legalforecast.cli.main",
+        "legalforecast.cli.verify_cohort_policy",
+    )
+    assert inventory.public_cli_files == ("tests/test_probe.py",)
+    assert "tests/test_probe.py::legalforecast.cli.main" in (
+        inventory.public_cli_occurrences
+    )
+    assert "tests/test_probe.py::legalforecast.cli.verify_cohort_policy" in (
+        inventory.public_cli_occurrences
+    )
+    assert inventory.private_cli_targets == ("legalforecast.cli._private",)
+    assert "legalforecast.cli.main" not in inventory.private_cli_targets
