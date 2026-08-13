@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
+import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -97,6 +99,7 @@ _REQUIRED_NONINTERACTIVE = (
     ("--sandbox", CODEX_SANDBOX_MODE),
 )
 _REQUIRED_EVENTS = ("thread.started", "turn.started")
+_ERROR_EVENT_TYPES = frozenset({"error", "turn.failed"})
 _ALLOWED_EVENT_TYPES = frozenset(
     {
         "error",
@@ -335,17 +338,18 @@ def parse_codex_jsonl(
     if parse_failure is not None:
         return _failed_envelope(parse_failure, events)
 
-    joined_text = _event_text(events)
-    if _is_sandbox_denial(joined_text):
-        return _failed_envelope("sandbox_denial", events)
-
     types = tuple(str(event.get("type", "")) for event in events)
     if any(event_type not in _ALLOWED_EVENT_TYPES for event_type in types):
         return _failed_envelope("schema_violation", events)
     if any(required not in types for required in _REQUIRED_EVENTS):
         return _failed_envelope("schema_violation", events)
+    started_events = tuple(
+        event for event in events if event.get("type") == "thread.started"
+    )
+    if events[0].get("type") != "thread.started" or len(started_events) != 1:
+        return _failed_envelope("schema_violation", events)
 
-    started: Mapping[str, Any] = events[0] if events else {}
+    started: Mapping[str, Any] = started_events[0]
     served_model = _optional_str(started, "actual_model")
     requested_observed = _optional_str(started, "requested_model")
     if requested_observed is not None and requested_observed != requested_model_name:
@@ -464,6 +468,7 @@ class CodexCliAdapter:
                 environment={},
             )
         )
+        _require_real_directory(private_logs, label="private-logs")
         _write_private_text(private_logs / "codex-stdout.jsonl", outcome.stdout)
         _write_private_text(private_logs / "codex-stderr.log", outcome.stderr)
         last_message_file = _optional_existing_text(plan.last_message_path)
@@ -738,12 +743,18 @@ def _failure_from_errors(
     returncode: int,
 ) -> str:
     del returncode
-    text = _event_text(events)
+    text = _error_event_text(events)
     if _is_sandbox_denial(text):
         return "sandbox_denial"
     if _is_refusal(text):
         return "refusal"
     return "crash"
+
+
+def _error_event_text(events: Sequence[Mapping[str, Any]]) -> str:
+    return _event_text(
+        tuple(event for event in events if event.get("type") in _ERROR_EVENT_TYPES)
+    )
 
 
 def _failed_envelope(
@@ -774,15 +785,61 @@ def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
 
 def _optional_existing_text(path: Path) -> str | None:
     _reject_auth_path(path)
-    if not path.is_file():
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
         return None
-    return path.read_text(encoding="utf-8")
+    if stat.S_ISLNK(info.st_mode):
+        raise CodexCliAdapterError("Codex last-message path must not be a symlink")
+    if not stat.S_ISREG(info.st_mode):
+        raise CodexCliAdapterError("Codex last-message path must be a regular file")
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    file_descriptor = os.open(path, flags)
+    try:
+        with os.fdopen(file_descriptor, encoding="utf-8") as handle:
+            file_descriptor = -1
+            return handle.read()
+    finally:
+        if file_descriptor >= 0:
+            os.close(file_descriptor)
 
 
 def _write_private_text(path: Path, payload: str) -> None:
     _reject_auth_path(path)
-    path.write_text(payload, encoding="utf-8")
-    path.chmod(0o600)
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        info = None
+    else:
+        if stat.S_ISLNK(info.st_mode):
+            raise CodexCliAdapterError("private log path must not be a symlink")
+        if not stat.S_ISREG(info.st_mode):
+            raise CodexCliAdapterError("private log path must be a regular file")
+        path.unlink()
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    file_descriptor = os.open(path, flags, 0o600)
+    try:
+        os.fchmod(file_descriptor, 0o600)
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as handle:
+            file_descriptor = -1
+            handle.write(payload)
+            handle.flush()
+    finally:
+        if file_descriptor >= 0:
+            os.close(file_descriptor)
+
+
+def _require_real_directory(path: Path, *, label: str) -> None:
+    try:
+        info = path.lstat()
+    except OSError as exc:
+        raise CodexCliAdapterError(f"{label} must exist") from exc
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise CodexCliAdapterError(f"{label} must be a real directory")
 
 
 def _clear_prior_last_message(path: Path) -> None:

@@ -479,6 +479,110 @@ def test_first_person_refusal_is_still_classified(tmp_path: Path) -> None:
     assert result.public_summary["failure_class"] == "refusal"
 
 
+def test_landlocked_legal_language_is_not_classified_as_sandbox_denial(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    text = "The plaintiff is a landlocked state seeking seccomp-style discovery limits."
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            _message_outcome(text, complete=True)
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "succeeded"
+    assert "failure_class" not in result.public_summary
+
+
+def test_thread_started_must_be_the_unique_first_event() -> None:
+    stdout = _jsonl(
+        {"type": "turn.started"},
+        {"type": "thread.started", "thread_id": THREAD_ID},
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item_0",
+                "text": "LEGALFORECAST_FAKE_CODEX_RESULT",
+                "type": "agent_message",
+            },
+        },
+        {
+            "type": "turn.completed",
+            "usage": {"input_tokens": 3, "output_tokens": 4},
+        },
+    )
+    envelope = parse_codex_jsonl(
+        stdout,
+        requested_model_name="gpt-5.1",
+        returncode=0,
+        timed_out=False,
+        crashed=False,
+    )
+
+    assert envelope.failure_class == "schema_violation"
+
+
+class _SymlinkDuringExecute(RecordingFakeExecutionService):
+    def __init__(
+        self,
+        outcome: CodexCliExecutionOutcome,
+        *,
+        target: Path,
+        relative: str,
+    ) -> None:
+        super().__init__(outcome)
+        self.target = target
+        self.relative = relative
+
+    def execute(self, request: CodexCliExecutionRequest) -> CodexCliExecutionOutcome:
+        destination = request.cwd / self.relative
+        destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if destination.exists() or destination.is_symlink():
+            destination.unlink()
+        destination.symlink_to(self.target)
+        return super().execute(request)
+
+
+def test_private_stdout_symlink_is_rejected(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    outside = tmp_path / "host-secret.txt"
+    outside.write_text("HOST_SECRET\n", encoding="utf-8")
+    adapter = CodexCliAdapter(
+        execution_service=_SymlinkDuringExecute(
+            _success_outcome(),
+            target=outside,
+            relative="private-logs/codex-stdout.jsonl",
+        )
+    )
+
+    with pytest.raises(CodexCliAdapterError, match="symlink"):
+        adapter.run(_request(), workspace)
+    assert outside.read_text(encoding="utf-8") == "HOST_SECRET\n"
+
+
+def test_last_message_symlink_is_rejected(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    outside = tmp_path / "host-secret.txt"
+    outside.write_text("HOST_SECRET\n", encoding="utf-8")
+    adapter = CodexCliAdapter(
+        execution_service=_SymlinkDuringExecute(
+            _success_outcome(),
+            target=outside,
+            relative="private-logs/codex-last-message.txt",
+        )
+    )
+
+    with pytest.raises(CodexCliAdapterError, match="symlink"):
+        adapter.run(_request(), workspace)
+    assert outside.read_text(encoding="utf-8") == "HOST_SECRET\n"
+
+
 def test_item_updated_events_are_not_schema_violations() -> None:
     stdout = _jsonl(
         {"type": "thread.started", "thread_id": THREAD_ID},
