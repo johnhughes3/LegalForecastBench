@@ -92,7 +92,7 @@ def test_case_number_does_not_target_same_numbered_motion() -> None:
 
         assert explicit_motion_reference_numbers(entry) == frozenset()
         assert brief_targets_motion(entry, (leading_number, 42)) is False
-        assert brief_targets_motion(entry, (leading_number,)) is True
+        assert brief_targets_motion(entry, (leading_number,)) is False
 
 
 def test_duplicated_metadata_prefix_does_not_let_proposed_order_mask_mtd() -> None:
