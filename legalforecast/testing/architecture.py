@@ -84,7 +84,9 @@ def scan_repository(root: Path) -> ArchitectureSnapshot:
         for node in functions
         if node.name.startswith(("_verify_", "_validate_", "_require_", "_guard_"))
     ]
-    parser = next(node for node in functions if node.name == "build_parser")
+    parser = next((node for node in functions if node.name == "build_parser"), None)
+    if parser is None:
+        raise ValueError(f"{CLI_PATH} defines no top-level build_parser")
     metrics = CliMetrics(
         line_count=len(source.splitlines()),
         nonblank_line_count=sum(bool(line.strip()) for line in source.splitlines()),
@@ -216,9 +218,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = args.root.resolve()
     baseline = args.baseline if args.baseline.is_absolute() else root / args.baseline
-    snapshot = scan_repository(root)
     if args.write_baseline:
-        write_baseline(baseline, snapshot)
+        write_baseline(baseline, scan_repository(root))
         print(f"wrote architecture baseline to {baseline}")
         return 0
     violations = check_baseline(root, baseline)
@@ -227,7 +228,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         for violation in violations:
             print(f"- {violation}", file=sys.stderr)
         return 1
-    print(f"architecture ratchet passed: {baseline.relative_to(root)}")
+    try:
+        reported_baseline = baseline.relative_to(root)
+    except ValueError:
+        reported_baseline = baseline
+    print(f"architecture ratchet passed: {reported_baseline}")
     return 0
 
 
@@ -247,23 +252,36 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "legalforecast.cli":
-                        aliases.add(alias.asname or "cli")
+                        aliases.add(alias.asname or "legalforecast")
                         cli_import_files.add(relative)
             elif (
                 isinstance(node, ast.ImportFrom) and node.module == "legalforecast.cli"
             ):
                 cli_import_files.add(relative)
                 for alias in node.names:
-                    if alias.name.startswith("_"):
+                    if alias.name.startswith("_") and not _is_dunder(alias.name):
                         private_files.add(relative)
                         private_targets.add(f"legalforecast.cli.{alias.name}")
-            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
-                if node.value.id in aliases and node.attr.startswith("_"):
+            elif isinstance(node, ast.ImportFrom) and node.module == "legalforecast":
+                for alias in node.names:
+                    if alias.name == "cli":
+                        aliases.add(alias.asname or "cli")
+                        cli_import_files.add(relative)
+            if isinstance(node, ast.Attribute):
+                target = _cli_attribute_target(node, aliases)
+                if target is not None and _is_private_target(target):
                     private_files.add(relative)
-                    private_targets.add(f"legalforecast.cli.{node.attr}")
+                    private_targets.add(target)
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 if node.func.attr != "setattr" or len(node.args) < 2:
                     continue
+                string_target = node.args[0]
+                if (
+                    isinstance(string_target, ast.Constant)
+                    and isinstance(string_target.value, str)
+                    and string_target.value.startswith("legalforecast.cli.")
+                ):
+                    monkeypatch_targets.add(string_target.value)
                 target = node.args[1]
                 if isinstance(target, ast.Constant) and isinstance(target.value, str):
                     if (
@@ -273,7 +291,7 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                         monkeypatch_targets.add(f"legalforecast.cli.{target.value}")
                     elif target.value.startswith("legalforecast.cli."):
                         monkeypatch_targets.add(target.value)
-        if private_files.intersection({relative}):
+        if relative in private_files:
             cli_import_files.add(relative)
     return CompatibilityInventory(
         cli_import_files=tuple(sorted(cli_import_files)),
@@ -323,7 +341,46 @@ def _dataclass_from_mapping[T](
     raw = payload.get(field)
     if not isinstance(raw, dict):
         raise ValueError(f"architecture baseline field {field} must be an object")
-    return cls(**cast(dict[str, object], raw))
+    normalized = cast(dict[str, object], raw).copy()
+    for name, value in tuple(normalized.items()):
+        if isinstance(value, list):
+            values = cast(list[object], value)
+            if not all(isinstance(item, str) for item in values):
+                raise ValueError(
+                    f"architecture baseline field {field}.{name} must be a string list"
+                )
+            normalized[name] = tuple(cast(list[str], values))
+    try:
+        return cls(**normalized)
+    except TypeError as exc:
+        raise ValueError(f"invalid architecture baseline field {field}") from exc
+
+
+def _is_dunder(name: str) -> bool:
+    return len(name) >= 4 and name.startswith("__") and name.endswith("__")
+
+
+def _cli_attribute_target(node: ast.Attribute, aliases: set[str]) -> str | None:
+    parts: list[str] = []
+    current: ast.AST = node
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if not isinstance(current, ast.Name):
+        return None
+    parts.append(current.id)
+    dotted = ".".join(reversed(parts))
+    if dotted.startswith("legalforecast.cli."):
+        return dotted
+    if parts[-1] in aliases:
+        return "legalforecast.cli." + ".".join(reversed(parts[:-1]))
+    return None
+
+
+def _is_private_target(target: str) -> bool:
+    return target.rsplit(".", 1)[-1].startswith("_") and not _is_dunder(
+        target.rsplit(".", 1)[-1]
+    )
 
 
 def _string_tuple(payload: Mapping[str, object], field: str) -> tuple[str, ...]:

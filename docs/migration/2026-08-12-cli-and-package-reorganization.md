@@ -249,7 +249,7 @@ For every family:
 
 ### Phase 5: move command families atomically
 
-Create `legalforecast.console` in command-family slices. Each slice moves its parser registration, thin console adapter, remaining domain body, tests, monkeypatch targets, and static-check ownership together. `legalforecast.console` must never import handlers from the facade; otherwise `cli -> console -> cli` recreates the dependency cycle.
+Create `legalforecast.console` in command-family slices. Each slice moves its parser registration, thin console adapter, remaining domain body, tests, monkeypatch targets, and static-check ownership together. `legalforecast.console` must never import handlers from the facade; otherwise `cli -> console -> cli` recreates the dependency cycle. A temporary late-bound facade-helper bridge is allowed only for names already present in the reviewed monkeypatch inventory: an adapter may resolve those helpers through the facade namespace while the facade imports the adapter, but must not import or invoke facade handlers. Every bridge use must have a removal issue, remain visible as an explicit upward-dependency exception, and disappear when that slice's tests are retargeted or dependencies are injected through a cycle-neutral command context.
 
 Migrate in this order:
 
@@ -425,4 +425,4 @@ After approval, tracker repair, and closure of `LegalForecastBench-5qd6.41`, use
 2. Land the versioned authenticated implementation-source decoupling without changing command or verifier semantics.
 3. Extract the purchase-approval target-projection verifier, remove its reverse dependency, and decrement the baselines. It has a clear ownership defect and establishes the domain/CLI exception boundary for later families.
 
-Defer general command manifests, help snapshots, and differential cases that the first seam does not exercise until the parser/command migration needs them.
+The first two units above are non-parser seams, so they may defer command manifests, help snapshots, and differential cases only while they do not move or change parser registration, handlers, aliases, options, defaults, or help output. The reviewed command manifest, representative help snapshots, and applicable curated differential cases are mandatory before the first parser or command-family move and for every such move thereafter.
