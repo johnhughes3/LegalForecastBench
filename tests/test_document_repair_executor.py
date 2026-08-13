@@ -248,7 +248,9 @@ def test_execution_rejects_tampered_or_ambiguous_resolution() -> None:
         }
     )
     snapshots["a"] = _canonical_bytes(ambiguous)
-    with pytest.raises(DocumentRepairExecutorError, match="ambiguous main document"):
+    with pytest.raises(
+        DocumentRepairExecutorError, match="ambiguous selected document"
+    ):
         build_document_repair_execution(
             full_plan=plan,
             pilot=pilot,
@@ -901,3 +903,60 @@ def test_execution_accepts_v4_docket_resource_url() -> None:
     )
 
     assert execution.operations[0].docket_entry_id == "1001"
+
+
+def test_execution_resolves_same_entry_attachment_selector() -> None:
+    row = _row("73569789", 5, free=False)
+    missing = row["missing_docs"]
+    assert isinstance(missing, list)
+    missing[0]["role"] = "supporting_memorandum"
+    missing[0]["document_selector"] = "attachment_1"
+    manifest = _manifest_bytes(row)
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
+        approved_maximum_usd="453.00",
+    )
+    snapshot = json.loads(_snapshot("73569789", 5, 9005, free=False))
+    snapshot["entries"][0]["recap_documents"].append(
+        {
+            "id": 9105,
+            "docket_entry_id": 1005,
+            "document_number": "5-1",
+            "attachment_number": 1,
+            "is_available": False,
+            "is_sealed": False,
+            "filepath_local": None,
+        }
+    )
+    snapshots = {"73569789": _canonical_bytes(snapshot)}
+
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            "73569789": hashlib.sha256(snapshots["73569789"]).hexdigest()
+        },
+    )
+
+    operation = execution.operations[0]
+    assert operation.document_selector == "attachment_1"
+    assert operation.recap_document_id == "9105"
+
+    ticks = iter((1.0, 1.2))
+    result = run_document_repair_execution(
+        execution=execution,
+        purchase_authority=_purchase_authority(execution),
+        acquire=lambda resolved: AcquiredRepairDocument(
+            disposition="included",
+            source_document_id=resolved.recap_document_id,
+            document_bytes=b"supporting memorandum",
+            committed_cost_usd="3.00",
+            retry_count=0,
+            document_selector="attachment_1",
+        ),
+        monotonic=lambda: next(ticks),
+    )
+
+    assert result.receipt.operation_ledger[0]["document_selector"] == "attachment_1"
+    assert result.acquired_documents[0]["document_selector"] == "attachment_1"
