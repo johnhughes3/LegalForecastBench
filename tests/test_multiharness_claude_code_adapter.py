@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -29,6 +30,7 @@ from legalforecast.multiharness.claude_code import (
     claude_code_local_manifest,
     claude_code_manifest,
     declared_failure_classes,
+    encode_forecast_output_schema,
     load_claude_code_local_manifest,
 )
 from legalforecast.multiharness.local_cli_contracts import (
@@ -47,6 +49,7 @@ from legalforecast.multiharness.spec import (
     AdapterManifest,
     CanonicalTask,
     RunRequest,
+    RunResult,
     SandboxPolicy,
 )
 from legalforecast.unitization.schemas import (
@@ -69,6 +72,7 @@ PLAN_WORKSPACE = Path("workspace")
 PLAN_SCHEMA = PLAN_WORKSPACE / "output-schema.json"
 PLAN_MODEL = "claude-sonnet-4-6"
 SOLVER_MODEL_KEY = f"anthropic:{PLAN_MODEL}"
+PLAN_SCHEMA_JSON = encode_forecast_output_schema(("count_i",))
 CANONICAL_ARGV = (
     "claude",
     "-p",
@@ -76,7 +80,7 @@ CANONICAL_ARGV = (
     "--output-format",
     "json",
     "--json-schema",
-    PLAN_SCHEMA.as_posix(),
+    PLAN_SCHEMA_JSON,
     "--tools",
     "",
     "--strict-mcp-config",
@@ -107,7 +111,7 @@ def test_adapter_consumes_b1_frozen_manifest() -> None:
     assert DEFAULT_CLAUDE_CODE_MANIFEST_PATH.is_file()
     assert b1.manifest_id == CLAUDE_CODE_ADAPTER_ID
     assert b1.harness_binding.solver_kind == SolverKind.INSPECT_AI.value
-    assert b1.auth_profile_name == "fixture_none"
+    assert b1.auth_profile_name == "fixture-none"
     assert "--bare" not in b1.invocation.argv_template
 
 
@@ -129,6 +133,12 @@ def test_invocation_plan_snapshot_is_exact_and_order_sensitive() -> None:
 
     assert first.argv == CANONICAL_ARGV
     assert first.argv == second.argv
+    assert (
+        json.loads(first.argv[first.argv.index("--json-schema") + 1])[
+            "additionalProperties"
+        ]
+        is False
+    )
     assert "--bare" not in first.argv
     assert "sh" not in first.argv
     assert "-c" not in first.argv
@@ -376,6 +386,54 @@ def test_solver_raises_typed_failure_for_refusal() -> None:
     assert exc_info.value.failure_class is LocalCliFailureClass.REFUSAL
 
 
+def test_solver_refuses_controlled_docket_tool_samples() -> None:
+    solver = ClaudeCodeCliSolver(
+        execution_service=_service("success"),
+        model_key=SOLVER_MODEL_KEY,
+    )
+    with pytest.raises(ClaudeCodeCliAdapterError, match="docket-tool"):
+        solver.solve(_harness_request(use_docket_tool=True))
+
+
+def test_receipt_served_model_drift_fails_closed_when_envelope_omits_model(
+    tmp_path: Path,
+) -> None:
+    def mutate(envelope: dict[str, Any]) -> None:
+        envelope.pop("model", None)
+
+    result = _adapter_from_mutated_success(
+        tmp_path,
+        mutate_envelope=mutate,
+        served_model="claude-haiku-4-5",
+    )
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == LocalCliFailureClass.CRASH.value
+
+
+def test_extra_forecast_property_is_schema_violation(tmp_path: Path) -> None:
+    def mutate(envelope: dict[str, Any]) -> None:
+        envelope["result"]["unexpected"] = "field"
+
+    result = _adapter_from_mutated_success(tmp_path, mutate_envelope=mutate)
+    assert result.status == "failed"
+    assert (
+        result.public_summary["failure_class"]
+        == LocalCliFailureClass.SCHEMA_VIOLATION.value
+    )
+
+
+def test_non_string_rationale_is_schema_violation(tmp_path: Path) -> None:
+    def mutate(envelope: dict[str, Any]) -> None:
+        envelope["result"]["predictions"][0]["rationale"] = 12
+
+    result = _adapter_from_mutated_success(tmp_path, mutate_envelope=mutate)
+    assert result.status == "failed"
+    assert (
+        result.public_summary["failure_class"]
+        == LocalCliFailureClass.SCHEMA_VIOLATION.value
+    )
+
+
 def test_local_cli_manifest_round_trip() -> None:
     manifest = load_claude_code_local_manifest(B1_MANIFEST)
     assert LocalCliAdapterManifest.from_record(manifest.to_record()) == manifest
@@ -409,6 +467,32 @@ def test_task_profile_tools_reach_the_run_spec(tmp_path: Path) -> None:
 
 def _adapter(fixture_name: str) -> ClaudeCodeCliAdapter:
     return ClaudeCodeCliAdapter(execution_service=_service(fixture_name))
+
+
+def _adapter_from_mutated_success(
+    tmp_path: Path,
+    *,
+    mutate_envelope: Callable[[dict[str, Any]], None],
+    served_model: str | None = "claude-sonnet-4-6",
+) -> RunResult:
+    _comments, record = _load_transcript_file(TRANSCRIPTS / "success.json")
+    envelope = cast(dict[str, Any], json.loads(json.dumps(record["envelope"])))
+    mutate_envelope(envelope)
+    transcript = FixtureTranscript(
+        stdout=json.dumps(envelope, sort_keys=True, separators=(",", ":")),
+        stderr="",
+        returncode=0,
+        status="succeeded",
+        duration_ms=int(record.get("duration_ms") or 0),
+        served_model=served_model,
+        executable_version=record.get("executable_version"),
+        cost_usd=record.get("cost_usd"),
+        usage=_usage(envelope),
+    )
+    adapter = ClaudeCodeCliAdapter(
+        execution_service=FakeLocalCliExecutionService(transcript)
+    )
+    return adapter.run(_run_request(), tmp_path / "workspace")
 
 
 def _service(fixture_name: str) -> FakeLocalCliExecutionService:
@@ -488,7 +572,7 @@ def _run_request(
     )
 
 
-def _harness_request() -> HarnessRequest:
+def _harness_request(*, use_docket_tool: bool = False) -> HarnessRequest:
     packet = build_model_packet(
         case_packet=CasePacketSchema(
             candidate_id="cand-1",
@@ -535,7 +619,7 @@ def _harness_request() -> HarnessRequest:
         packet=packet,
         prompt=PROMPT,
         allowed_entry_numbers=(1,),
-        use_docket_tool=False,
+        use_docket_tool=use_docket_tool,
     )
     return HarnessRequest(sample=sample, docket_tool=sample.build_docket_tool())
 

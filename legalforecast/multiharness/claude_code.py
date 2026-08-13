@@ -54,12 +54,21 @@ from legalforecast.multiharness.validation import validate_public_record
 CLAUDE_CODE_ADAPTER_ID = "claude-code-clean-native"
 CLAUDE_CODE_ADAPTER_VERSION = "1.0.0"
 CLAUDE_CODE_EXECUTABLE_NAME = "claude"
-CLAUDE_CODE_OUTPUT_CONTRACT_VERSION = "legalforecast.claude_code.output.v1"
-CLAUDE_CODE_PROMPT_VERSION = "legalforecast.claude_code.prompt.v1"
+CLAUDE_CODE_OUTPUT_CONTRACT_VERSION = (
+    # contract-ratchet: allow adapter-local observational schema
+    "legalforecast.claude_code.output.v1"
+)
+CLAUDE_CODE_PROMPT_VERSION = (
+    # contract-ratchet: allow adapter-local observational schema
+    "legalforecast.claude_code.prompt.v1"
+)
 CLAUDE_CODE_OUTPUT_SCHEMA_NAME = "output-schema.json"
 CLAUDE_FORECAST_SOURCE_PATH = "forecast.json"
 CLAUDE_FORECAST_SEALED_PATH = "forecast.json"
-_OFFLINE_AUTH_PROFILE = "fixture_none"
+_OFFLINE_AUTH_PROFILE = "fixture-none"
+_FORECAST_OBJECT_KEYS = frozenset({"case_assessment", "predictions"})
+_PREDICTION_REQUIRED_KEYS = frozenset({"unit_id", "probability_fully_dismissed"})
+_PREDICTION_ALLOWED_KEYS = _PREDICTION_REQUIRED_KEYS | frozenset({"rationale"})
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CLAUDE_CODE_MANIFEST_PATH = (
     _REPO_ROOT
@@ -142,6 +151,7 @@ class ClaudeInvocationPlan:
         _require_flag_value(self.argv, "--output-format", "json")
         if "--json-schema" not in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must enforce JSON schema")
+        _require_inline_json_schema(self.argv)
         if "--no-session-persistence" not in self.argv:
             raise ClaudeCodeCliAdapterError(
                 "invocation must disable session persistence"
@@ -229,15 +239,25 @@ def forecast_output_schema(required_unit_ids: Sequence[str]) -> dict[str, Any]:
     }
 
 
+def encode_forecast_output_schema(required_unit_ids: Sequence[str]) -> str:
+    """Return compact JSON for Claude Code's ``--json-schema`` argv token."""
+
+    schema = forecast_output_schema(required_unit_ids)
+    return json.dumps(schema, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
 def write_forecast_output_schema(
     path: Path,
     required_unit_ids: Sequence[str],
 ) -> dict[str, Any]:
-    """Write the forecast JSON schema to a workspace file for ``--json-schema``."""
+    """Write an audit copy of the forecast schema; argv still uses inline JSON."""
 
     schema = forecast_output_schema(required_unit_ids)
-    encoded = json.dumps(schema, sort_keys=True, separators=(",", ":"), allow_nan=False)
-    path.write_text(encoded + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(schema, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        + "\n",
+        encoding="utf-8",
+    )
     return schema
 
 
@@ -259,12 +279,13 @@ def build_claude_invocation_plan(
         raise ClaudeCodeCliAdapterError("model must be a non-empty basename")
     local_manifest = manifest or claude_code_local_manifest()
     schema = forecast_output_schema(required_unit_ids)
+    schema_token = encode_forecast_output_schema(required_unit_ids)
     tools = _validated_tools(allowed_tools)
     rendered = local_manifest.invocation.render_argv(
         prompt=prompt,
         model=model,
         workspace=workspace.as_posix(),
-        output_schema_path=output_schema_path.as_posix(),
+        output_schema_path=schema_token,
     )
     argv = _apply_allowed_tools(
         (local_manifest.executable.basename, *rendered),
@@ -347,12 +368,7 @@ def classify_execution(
             spec=spec,
             receipt=receipt,
         )
-    served_model = envelope.get("model")
-    if (
-        isinstance(served_model, str)
-        and served_model
-        and served_model != requested_model
-    ):
+    if _served_model_drifted(envelope, receipt, requested_model):
         return _classified(
             LocalCliFailureClass.CRASH,
             raw_output=_result_text(envelope) or "model drift",
@@ -383,7 +399,10 @@ def classify_execution(
             receipt=receipt,
         )
     structured = json.loads(raw_output)
-    if not isinstance(structured, dict):
+    if not isinstance(structured, dict) or not _forecast_matches_declared_schema(
+        cast(Mapping[str, Any], structured),
+        required_unit_ids,
+    ):
         return _classified(
             LocalCliFailureClass.SCHEMA_VIOLATION,
             raw_output=raw_output,
@@ -527,6 +546,11 @@ class ClaudeCodeCliSolver:
         adapter = self.adapter
         if adapter is None:
             raise ClaudeCodeCliAdapterError("Claude Code solver adapter is missing")
+        if request.sample.use_docket_tool:
+            raise ClaudeCodeCliAdapterError(
+                "Claude Code CLI solver does not implement controlled "
+                "docket-tool samples"
+            )
         if self.workspace is None:
             with TemporaryDirectory() as tmp:
                 return self._solve_in(adapter, request, Path(tmp))
@@ -1019,7 +1043,7 @@ def _require_offline_claude_manifest(manifest: LocalCliAdapterManifest) -> None:
         raise ClaudeCodeCliAdapterError("local CLI executable basename must be claude")
     if manifest.auth_profile_name != _OFFLINE_AUTH_PROFILE:
         raise ClaudeCodeCliAdapterError(
-            "offline Claude Code adapter requires auth_profile_name fixture_none"
+            "offline Claude Code adapter requires auth_profile_name fixture-none"
         )
     if manifest.harness_binding.solver_kind != SolverKind.INSPECT_AI.value:
         raise ClaudeCodeCliAdapterError("solver_kind must be inspect_ai")
@@ -1031,6 +1055,82 @@ def _require_offline_claude_manifest(manifest: LocalCliAdapterManifest) -> None:
         raise ClaudeCodeCliAdapterError("invocation must enforce JSON schema")
 
 
+def _require_inline_json_schema(argv: Sequence[str]) -> None:
+    try:
+        index = argv.index("--json-schema")
+    except ValueError as exc:
+        raise ClaudeCodeCliAdapterError("invocation must enforce JSON schema") from exc
+    if index + 1 >= len(argv):
+        raise ClaudeCodeCliAdapterError("flag --json-schema is missing a value")
+    token = argv[index + 1]
+    try:
+        decoded = json.loads(token)
+    except json.JSONDecodeError as exc:
+        raise ClaudeCodeCliAdapterError(
+            "--json-schema must be inline JSON, not a filesystem path"
+        ) from exc
+    if not isinstance(decoded, dict):
+        raise ClaudeCodeCliAdapterError("--json-schema must be a JSON object")
+
+
+def _served_model_drifted(
+    envelope: Mapping[str, Any],
+    receipt: ExecutionReceipt,
+    requested_model: str,
+) -> bool:
+    reported: list[str] = []
+    envelope_model = envelope.get("model")
+    if isinstance(envelope_model, str) and envelope_model.strip():
+        reported.append(envelope_model)
+    if isinstance(receipt.served_model, str) and receipt.served_model.strip():
+        reported.append(receipt.served_model)
+    return any(model != requested_model for model in reported)
+
+
+def _forecast_matches_declared_schema(
+    payload: Mapping[str, Any],
+    required_unit_ids: Sequence[str],
+) -> bool:
+    if frozenset(payload) != _FORECAST_OBJECT_KEYS:
+        return False
+    assessment = payload.get("case_assessment")
+    if not isinstance(assessment, str) or not assessment.strip():
+        return False
+    predictions = payload.get("predictions")
+    if not isinstance(predictions, list):
+        return False
+    prediction_items = cast(list[object], predictions)
+    if len(prediction_items) != len(required_unit_ids):
+        return False
+    observed: list[str] = []
+    allowed_units = set(required_unit_ids)
+    for item in prediction_items:
+        if not isinstance(item, dict):
+            return False
+        prediction = cast(dict[str, Any], item)
+        keys = set(prediction)
+        if not _PREDICTION_REQUIRED_KEYS.issubset(keys):
+            return False
+        if not keys.issubset(_PREDICTION_ALLOWED_KEYS):
+            return False
+        unit_id = prediction["unit_id"]
+        probability = prediction["probability_fully_dismissed"]
+        if not isinstance(unit_id, str) or unit_id not in allowed_units:
+            return False
+        if (
+            not isinstance(probability, int | float)
+            or isinstance(probability, bool)
+            or not math.isfinite(float(probability))
+            or not 0 <= float(probability) <= 1
+        ):
+            return False
+        if "rationale" in prediction and not isinstance(prediction["rationale"], str):
+            return False
+        observed.append(unit_id)
+    return len(observed) == len(set(observed)) and set(observed) == allowed_units
+
+
+# contract-ratchet: allow non-persisted local-cli result digest
 def _record_sha256(record: Mapping[str, Any]) -> str:
     encoded = json.dumps(
         record,

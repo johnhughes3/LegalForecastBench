@@ -18,6 +18,7 @@ import pytest
 from legalforecast.multiharness.claude_code import (
     build_claude_invocation_plan,
     classify_execution,
+    write_forecast_output_schema,
 )
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
@@ -41,20 +42,7 @@ def test_live_haiku_envelope_parses_and_is_compared_to_success_fixture(
     tmp_path: Path,
 ) -> None:
     schema_path = tmp_path / "output-schema.json"
-    schema_path.write_text(
-        json.dumps(
-            {
-                "type": "object",
-                "properties": {"haiku": {"type": "string"}},
-                "required": ["haiku"],
-                "additionalProperties": False,
-            },
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    write_forecast_output_schema(schema_path, ("count_i",))
     plan = build_claude_invocation_plan(
         prompt=SMOKE_PROMPT,
         model=SMOKE_MODEL,
@@ -62,6 +50,8 @@ def test_live_haiku_envelope_parses_and_is_compared_to_success_fixture(
         workspace=tmp_path,
         output_schema_path=schema_path,
     )
+    schema_token = plan.argv[plan.argv.index("--json-schema") + 1]
+    json.loads(schema_token)
     isolated_home = tmp_path / "home"
     isolated_home.mkdir()
     env = {

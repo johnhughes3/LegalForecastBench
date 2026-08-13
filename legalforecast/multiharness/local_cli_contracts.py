@@ -27,8 +27,12 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-LOCAL_CLI_RUN_SPEC_SCHEMA_VERSION = "legalforecast.multiharness.local_cli_run_spec.v1"
+LOCAL_CLI_RUN_SPEC_SCHEMA_VERSION = (
+    # contract-ratchet: allow draft local-cli run spec until 4.1.4
+    "legalforecast.multiharness.local_cli_run_spec.v1"
+)
 LOCAL_CLI_EXECUTION_RECEIPT_SCHEMA_VERSION = (
+    # contract-ratchet: allow draft local-cli receipt until 4.1.4
     "legalforecast.multiharness.local_cli_execution_receipt.v1"
 )
 LOCAL_CLI_OUTPUT_FORMAT_JSON = "json"
@@ -334,11 +338,13 @@ def _require_member(value: str, allowed: set[str], field_name: str) -> None:
         raise LocalCliContractError(f"{field_name} is not a recognized value")
 
 
+# contract-ratchet: allow non-persisted local-cli stdout digest
 def _sha256_text(value: str) -> str:
     encoded = value.encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
+# contract-ratchet: allow non-persisted local-cli spec digest
 def _record_sha256(record: Mapping[str, object]) -> str:
     encoded = json.dumps(
         record,
