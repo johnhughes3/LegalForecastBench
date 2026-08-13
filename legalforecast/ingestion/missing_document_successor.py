@@ -1,8 +1,9 @@
 """Project approved missing-document repairs into a sealed successor.
 
 The repair manifest is observational evidence, not authority. Authority comes
-from an approval bound to the manifest's exact bytes; admission additionally
-requires an acquired document whose body matches the requested role.
+from an approval bound to the manifest's exact bytes. Planning performs no
+network or provider operation; admission requires an acquired document whose
+body matches the requested role.
 """
 
 from __future__ import annotations
@@ -10,18 +11,23 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from types import MappingProxyType
 from typing import Any, cast
 
 from legalforecast.contracts import (
+    ARTIFACT_RAW_SHA256_V1,
     DOCUMENT_BODY_ROLE_VALIDATOR_V1,
+    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+    EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1,
     MISSING_DOCUMENT_EXCLUSION_V1,
     MISSING_DOCUMENT_INCLUSION_V1,
     MISSING_DOCUMENT_SUCCESSOR_STATE_V1,
     RAW_BYTES_RAW_SHA256_V1,
     REPAIR_MANIFEST_APPROVAL_V1,
+    SchemaIdentifier,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.operative_complaint import (
@@ -58,7 +64,7 @@ _PLEADING_KINDS = {
 
 
 class MissingDocumentSuccessorError(ValueError):
-    """Raised when an approved repair cannot be projected fail-closed."""
+    """Raised when an approved repair cannot be planned or sealed fail-closed."""
 
 
 _APPROVAL_MINT = object()
@@ -868,3 +874,541 @@ def _canonical_bytes(value: object) -> bytes:
         error_type=MissingDocumentSuccessorError,
         error_message="successor artifact is not canonical JSON",
     )
+
+
+DocumentKey = tuple[str, int]
+PLAN_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1)
+SUCCESSOR_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1)
+_ALLOWED_METHODS = frozenset({"courtlistener_free", "pacer_purchase"})
+_ALLOWED_RECOMMENDATIONS = frozenset({"keep", "repair", "replace"})
+_SEAL = object()
+
+
+@dataclass(frozen=True, slots=True)
+class MissingDocumentAcquisitionItem:
+    """One deterministic, manifest-bound acquisition obligation."""
+
+    candidate_id: str
+    docket_entry_number: int
+    document_role: str
+    acquisition_method: str
+    projected_cost_usd: Decimal
+    evidence: str
+    opinion_derived: bool
+
+    @property
+    def key(self) -> DocumentKey:
+        return self.candidate_id, self.docket_entry_number
+
+    def to_record(self) -> JsonRecord:
+        return {
+            "candidate_id": self.candidate_id,
+            "docket_entry_number": self.docket_entry_number,
+            "document_role": self.document_role,
+            "acquisition_method": self.acquisition_method,
+            "projected_cost_usd": _money(self.projected_cost_usd),
+            "evidence": self.evidence,
+            "opinion_derived": self.opinion_derived,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class MissingDocumentAcquisitionPlan:
+    """A deterministic free-first plan bound to one approved sidecar."""
+
+    manifest_sha256: str
+    approved_maximum_usd: Decimal
+    max_per_document_usd: Decimal
+    items: tuple[MissingDocumentAcquisitionItem, ...]
+    existing_document_ledger: tuple[Mapping[str, object], ...]
+    manifest_candidate_count: int
+    manifest_repair_count: int
+    plan_sha256: str
+
+    @property
+    def projected_paid_cost_usd(self) -> Decimal:
+        return sum((item.projected_cost_usd for item in self.items), Decimal("0.00"))
+
+    def content_record(self) -> JsonRecord:
+        return {
+            "schema_version": PLAN_SCHEMA_VERSION,
+            "manifest_sha256": self.manifest_sha256,
+            "approved_maximum_usd": _money(self.approved_maximum_usd),
+            "max_per_document_usd": _money(self.max_per_document_usd),
+            "projected_paid_cost_usd": _money(self.projected_paid_cost_usd),
+            "manifest_candidate_count": self.manifest_candidate_count,
+            "manifest_repair_count": self.manifest_repair_count,
+            "items": [item.to_record() for item in self.items],
+            "existing_document_ledger": [
+                dict(record) for record in self.existing_document_ledger
+            ],
+        }
+
+    def to_record(self) -> JsonRecord:
+        return {**self.content_record(), "plan_sha256": self.plan_sha256}
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class SealedMissingDocumentSuccessor:
+    """Immutable complete disposition ledger for an approved repair plan."""
+
+    status: str
+    plan_sha256: str
+    manifest_sha256: str
+    ledger: tuple[Mapping[str, object], ...]
+    included_document_keys: frozenset[DocumentKey]
+    successor_sha256: str
+    _seal: object
+
+    def _content_record(self) -> JsonRecord:
+        return {
+            "schema_version": SUCCESSOR_SCHEMA_VERSION,
+            "status": self.status,
+            "plan_sha256": self.plan_sha256,
+            "manifest_sha256": self.manifest_sha256,
+            "ledger": [dict(record) for record in self.ledger],
+        }
+
+    def to_record(self) -> JsonRecord:
+        return {**self._content_record(), "successor_sha256": self.successor_sha256}
+
+    @property
+    def successor_bytes(self) -> bytes:
+        return canonical_json_bytes(
+            self.to_record(),
+            error_type=MissingDocumentSuccessorError,
+            error_message="missing-document successor is not canonicalizable",
+        )
+
+
+def build_missing_document_acquisition_plan(
+    *,
+    manifest_bytes: bytes,
+    approved_manifest_sha256: str,
+    approved_maximum_usd: Decimal | str,
+    max_per_document_usd: Decimal | str = "3.00",
+) -> MissingDocumentAcquisitionPlan:
+    """Authenticate an observational repair sidecar and derive its work plan."""
+
+    approved_digest = _raw_sha256(approved_manifest_sha256, "approved digest")
+    actual_digest = hashlib.sha256(manifest_bytes).hexdigest()
+    if actual_digest != approved_digest:
+        raise MissingDocumentSuccessorError(
+            "repair manifest differs from the approved digest"
+        )
+    maximum = _positive_money(approved_maximum_usd, "approved maximum")
+    per_document = _positive_money(max_per_document_usd, "per-document cap")
+    records = _read_manifest(manifest_bytes)
+    seen_candidates: set[str] = set()
+    seen_items: set[DocumentKey] = set()
+    items: list[MissingDocumentAcquisitionItem] = []
+    existing_ledger: list[Mapping[str, object]] = []
+    repair_count = 0
+    for record in records:
+        candidate_id = _required_text(record, "candidate_id")
+        if candidate_id in seen_candidates:
+            raise MissingDocumentSuccessorError(
+                f"duplicate repair-manifest candidate: {candidate_id}"
+            )
+        seen_candidates.add(candidate_id)
+        recommendation = _required_text(record, "recommendation")
+        if recommendation not in _ALLOWED_RECOMMENDATIONS:
+            raise MissingDocumentSuccessorError("unsupported repair recommendation")
+        missing = _record_list(record, "missing_docs")
+        byte_mismatches = _record_list(record, "byte_mismatches")
+        current = _record_list(record, "current_selection", required=False)
+        required = _record_list(record, "required_entries", required=False)
+        extras = _record_list(record, "extra_selected", required=False)
+        if recommendation == "keep" and (missing or byte_mismatches):
+            raise MissingDocumentSuccessorError("keep row contains repair obligations")
+        if recommendation != "keep":
+            repair_count += 1
+        row_cost = Decimal("0.00")
+        for missing_record in missing:
+            entry = _positive_int(missing_record.get("entry"), "missing entry")
+            key = candidate_id, entry
+            if key in seen_items:
+                raise MissingDocumentSuccessorError(
+                    f"duplicate repair-manifest document: {candidate_id}/{entry}"
+                )
+            seen_items.add(key)
+            free_count = _nonnegative_int(
+                missing_record.get("free_document_count"), "free document count"
+            )
+            paid_count = _nonnegative_int(
+                missing_record.get("pacer_only_document_count"),
+                "PACER-only document count",
+            )
+            if free_count == 0 and paid_count == 0:
+                raise MissingDocumentSuccessorError(
+                    f"repair document has no acquisition path: {candidate_id}/{entry}"
+                )
+            cost = _money_value(missing_record.get("cost_usd"), "document cost")
+            method = "courtlistener_free" if free_count else "pacer_purchase"
+            expected_cost = Decimal("0.00") if free_count else per_document
+            if cost != expected_cost:
+                if cost > per_document:
+                    raise MissingDocumentSuccessorError(
+                        f"document exceeds per-document cap: {candidate_id}/{entry}"
+                    )
+                raise MissingDocumentSuccessorError(
+                    "document cost differs from acquisition method: "
+                    f"{candidate_id}/{entry}"
+                )
+            row_cost += cost
+            items.append(
+                MissingDocumentAcquisitionItem(
+                    candidate_id=candidate_id,
+                    docket_entry_number=entry,
+                    document_role=_required_text(missing_record, "role"),
+                    acquisition_method=method,
+                    projected_cost_usd=cost,
+                    evidence=_required_text(missing_record, "evidence"),
+                    opinion_derived=_required_bool(missing_record, "opinion_derived"),
+                )
+            )
+        if row_cost != _money_value(record.get("cost_usd"), "candidate cost"):
+            raise MissingDocumentSuccessorError(
+                f"candidate cost does not reconcile: {candidate_id}"
+            )
+        mismatch_by_entry = {
+            _positive_int(row.get("entry"), "mismatch entry"): row
+            for row in byte_mismatches
+        }
+        extra_keys = {
+            (
+                _positive_int(row.get("entry"), "extra entry"),
+                _required_text(row, "role"),
+            )
+            for row in extras
+        }
+        missing_keys = {
+            (
+                _positive_int(row.get("entry"), "missing entry"),
+                _required_text(row, "role"),
+            )
+            for row in missing
+        }
+        current_keys = {
+            (
+                _positive_int(row.get("entry"), "selected entry"),
+                _required_text(row, "role"),
+            )
+            for row in current
+        }
+        current_entries = {entry for entry, _role in current_keys}
+        relevant = current_keys | {
+            (
+                _positive_int(row.get("entry"), "required entry"),
+                _required_text(row, "role"),
+            )
+            for row in required
+            if _positive_int(row.get("entry"), "required entry") not in current_entries
+        }
+        for entry, role in sorted(relevant):
+            if (entry, role) in missing_keys:
+                continue
+            mismatch = mismatch_by_entry.get(entry)
+            if mismatch is not None:
+                existing_ledger.append(_validated_mismatch(candidate_id, mismatch))
+            elif (entry, role) in extra_keys:
+                existing_ledger.append(
+                    MappingProxyType(
+                        {
+                            "candidate_id": candidate_id,
+                            "docket_entry_number": entry,
+                            "document_role": role,
+                            "disposition": "excluded_extra",
+                            "reason": "not_required_by_repair_manifest",
+                        }
+                    )
+                )
+            else:
+                existing_ledger.append(
+                    MappingProxyType(
+                        {
+                            "candidate_id": candidate_id,
+                            "docket_entry_number": entry,
+                            "document_role": role,
+                            "disposition": "retained",
+                        }
+                    )
+                )
+
+    items.sort(
+        key=lambda item: (
+            item.acquisition_method != "courtlistener_free",
+            item.candidate_id,
+            item.docket_entry_number,
+            item.document_role,
+        )
+    )
+    projected = sum((item.projected_cost_usd for item in items), Decimal("0.00"))
+    if projected > maximum:
+        raise MissingDocumentSuccessorError(
+            "projected paid cost exceeds approved maximum"
+        )
+    existing_rows = tuple(
+        MappingProxyType(dict(record))
+        for record in sorted(
+            existing_ledger,
+            key=lambda row: (
+                cast(str, row["candidate_id"]),
+                cast(int, row["docket_entry_number"]),
+            ),
+        )
+    )
+    provisional = MissingDocumentAcquisitionPlan(
+        manifest_sha256=actual_digest,
+        approved_maximum_usd=maximum,
+        max_per_document_usd=per_document,
+        items=tuple(items),
+        existing_document_ledger=existing_rows,
+        manifest_candidate_count=len(records),
+        manifest_repair_count=repair_count,
+        plan_sha256="",
+    )
+    return MissingDocumentAcquisitionPlan(
+        manifest_sha256=provisional.manifest_sha256,
+        approved_maximum_usd=provisional.approved_maximum_usd,
+        max_per_document_usd=provisional.max_per_document_usd,
+        items=provisional.items,
+        existing_document_ledger=provisional.existing_document_ledger,
+        manifest_candidate_count=provisional.manifest_candidate_count,
+        manifest_repair_count=provisional.manifest_repair_count,
+        plan_sha256=_commit_record(
+            provisional.content_record(),
+            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+        ),
+    )
+
+
+def seal_missing_document_successor(
+    *,
+    plan: MissingDocumentAcquisitionPlan,
+    acquired_documents: Sequence[Mapping[str, object]],
+    exclusions: Sequence[Mapping[str, object]],
+    role_bytes_match: Callable[[str, bytes], bool],
+) -> SealedMissingDocumentSuccessor:
+    """Seal a successor only after byte validation and complete accounting."""
+
+    _require_valid_plan(plan)
+    planned = {item.key: item for item in plan.items}
+    dispositions: dict[DocumentKey, Mapping[str, object]] = {}
+    for evidence in acquired_documents:
+        key = _document_key(evidence)
+        item = planned.get(key)
+        if item is None:
+            raise MissingDocumentSuccessorError("acquired document is outside the plan")
+        if key in dispositions:
+            raise MissingDocumentSuccessorError("duplicate document disposition")
+        role = _required_text(evidence, "document_role")
+        if role != item.document_role:
+            raise MissingDocumentSuccessorError(
+                "acquired document role differs from plan"
+            )
+        source = _required_text(evidence, "source")
+        if source != item.acquisition_method:
+            raise MissingDocumentSuccessorError(
+                "acquired document differs from planned method"
+            )
+        body = evidence.get("document_bytes")
+        if not isinstance(body, bytes):
+            raise MissingDocumentSuccessorError("acquired document bytes are missing")
+        digest = _raw_sha256(evidence.get("sha256"), "document SHA-256")
+        if hashlib.sha256(body).hexdigest() != digest:
+            raise MissingDocumentSuccessorError("document SHA-256 differs from bytes")
+        if evidence.get("byte_count") != len(body):
+            raise MissingDocumentSuccessorError(
+                "document byte count differs from bytes"
+            )
+        if not role_bytes_match(role, body):
+            raise MissingDocumentSuccessorError(
+                f"role-byte mismatch: {key[0]}/{key[1]} as {role}"
+            )
+        dispositions[key] = MappingProxyType(
+            {
+                "candidate_id": key[0],
+                "docket_entry_number": key[1],
+                "document_role": role,
+                "disposition": "included",
+                "acquisition_method": source,
+                "source_document_id": _required_text(evidence, "source_document_id"),
+                "sha256": digest,
+                "byte_count": len(body),
+            }
+        )
+    for exclusion in exclusions:
+        key = _document_key(exclusion)
+        item = planned.get(key)
+        if item is None:
+            raise MissingDocumentSuccessorError("exclusion is outside the plan")
+        if key in dispositions:
+            raise MissingDocumentSuccessorError("duplicate document disposition")
+        role = _required_text(exclusion, "document_role")
+        if role != item.document_role:
+            raise MissingDocumentSuccessorError("exclusion role differs from plan")
+        dispositions[key] = MappingProxyType(
+            {
+                "candidate_id": key[0],
+                "docket_entry_number": key[1],
+                "document_role": role,
+                "disposition": "excluded",
+                "reason": _required_text(exclusion, "reason"),
+            }
+        )
+    if set(dispositions) != set(planned):
+        raise MissingDocumentSuccessorError(
+            "complete ledger required; every planned document must be included "
+            "or excluded"
+        )
+    ledger = tuple(dispositions[item.key] for item in plan.items) + tuple(
+        plan.existing_document_ledger
+    )
+    content = {
+        "schema_version": SUCCESSOR_SCHEMA_VERSION,
+        "status": "sealed",
+        "plan_sha256": plan.plan_sha256,
+        "manifest_sha256": plan.manifest_sha256,
+        "ledger": [dict(record) for record in ledger],
+    }
+    result = object.__new__(SealedMissingDocumentSuccessor)
+    for name, value in (
+        ("status", "sealed"),
+        ("plan_sha256", plan.plan_sha256),
+        ("manifest_sha256", plan.manifest_sha256),
+        ("ledger", ledger),
+        (
+            "included_document_keys",
+            frozenset(
+                key
+                for key, record in dispositions.items()
+                if record["disposition"] == "included"
+            ),
+        ),
+        (
+            "successor_sha256",
+            _commit_record(content, domain=EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1),
+        ),
+        ("_seal", _SEAL),
+    ):
+        object.__setattr__(result, name, value)
+    return result
+
+
+def _require_valid_plan(plan: MissingDocumentAcquisitionPlan) -> None:
+    if type(plan) is not MissingDocumentAcquisitionPlan:
+        raise MissingDocumentSuccessorError("invalid acquisition plan")
+    if plan.plan_sha256 != _commit_record(
+        plan.content_record(),
+        domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+    ):
+        raise MissingDocumentSuccessorError("acquisition plan changed after approval")
+    if plan.projected_paid_cost_usd > plan.approved_maximum_usd:
+        raise MissingDocumentSuccessorError("acquisition plan exceeds approved maximum")
+
+
+def _read_manifest(payload: bytes) -> tuple[JsonRecord, ...]:
+    records: list[JsonRecord] = []
+    try:
+        for line in payload.splitlines():
+            if not line.strip():
+                continue
+            value = json.loads(line)
+            if not isinstance(value, dict):
+                raise MissingDocumentSuccessorError(
+                    "repair manifest row must be an object"
+                )
+            records.append(cast(JsonRecord, value))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise MissingDocumentSuccessorError("repair manifest is invalid JSONL") from exc
+    if not records:
+        raise MissingDocumentSuccessorError("repair manifest is empty")
+    return tuple(records)
+
+
+def _validated_mismatch(
+    candidate_id: str, record: Mapping[str, object]
+) -> Mapping[str, object]:
+    verdict = _required_text(record, "verdict")
+    if verdict not in {"mismatch", "unverifiable"}:
+        raise MissingDocumentSuccessorError("unsupported byte-role verdict")
+    return {
+        "candidate_id": candidate_id,
+        "docket_entry_number": _positive_int(record.get("entry"), "mismatch entry"),
+        "document_role": _required_text(record, "selected_role"),
+        "disposition": "rejected_byte_role",
+        "reason": f"byte_role_{verdict}",
+        "observed_role": _required_text(record, "observed_role"),
+        "evidence": _required_text(record, "evidence"),
+    }
+
+
+def _record_list(
+    record: Mapping[str, object], field: str, *, required: bool = True
+) -> tuple[JsonRecord, ...]:
+    value = record.get(field)
+    if value is None and not required:
+        return ()
+    if not isinstance(value, list):
+        raise MissingDocumentSuccessorError(f"repair manifest {field} is invalid")
+    values = cast(list[object], value)
+    if any(not isinstance(item, dict) for item in values):
+        raise MissingDocumentSuccessorError(f"repair manifest {field} is invalid")
+    return tuple(cast(JsonRecord, item) for item in values)
+
+
+def _document_key(record: Mapping[str, object]) -> DocumentKey:
+    return (
+        _required_text(record, "candidate_id"),
+        _positive_int(record.get("docket_entry_number"), "docket entry number"),
+    )
+
+
+def _required_text(record: Mapping[str, object], field: str) -> str:
+    value = record.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise MissingDocumentSuccessorError(f"{field} must be nonempty text")
+    return value
+
+
+def _required_bool(record: Mapping[str, object], field: str) -> bool:
+    value = record.get(field)
+    if not isinstance(value, bool):
+        raise MissingDocumentSuccessorError(f"{field} must be boolean")
+    return value
+
+
+def _money_value(value: object, label: str) -> Decimal:
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise MissingDocumentSuccessorError(f"{label} is invalid") from exc
+    if (
+        not amount.is_finite()
+        or amount < 0
+        or amount != amount.quantize(Decimal("0.01"))
+    ):
+        raise MissingDocumentSuccessorError(f"{label} is invalid")
+    return amount
+
+
+def _positive_money(value: object, label: str) -> Decimal:
+    amount = _money_value(value, label)
+    if amount <= 0:
+        raise MissingDocumentSuccessorError(f"{label} must be positive")
+    return amount
+
+
+def _raw_sha256(value: object, label: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise MissingDocumentSuccessorError(f"{label} must be lowercase SHA-256")
+    return value
+
+
+def _commit_record(record: Mapping[str, object], *, domain: SchemaIdentifier) -> str:
+    return str(ARTIFACT_RAW_SHA256_V1.commit(dict(record), domain=domain).digest)

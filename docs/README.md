@@ -106,6 +106,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [exact100-successor-semantic-repair-v1.md](schemas/exact100-successor-semantic-repair-v1.md): byte-bound recognition of embedded operative complaints and combined motion-to-dismiss memoranda.
 - [exact100-supporting-document-successor-v1.md](schemas/exact100-supporting-document-successor-v1.md): closed, zero-cost exact-100 successor that adds the authenticated ECF 14 supporting memorandum without changing the materializer v1 card.
 - [missing-document-successor-v1.md](schemas/missing-document-successor-v1.md): approved-manifest-bound free-first repair projection with selector-aware document identity, byte-role admission, and complete terminal ledgers.
+- [exact100-missing-document-successor-v1.md](schemas/exact100-missing-document-successor-v1.md): provider-free exact-100 plan bound to an approved repair-manifest digest and spend ceiling, with sealed admission only after byte-role validation and a complete ledger.
 - [free-support-memorandum-recovery-plan-v1.md](schemas/free-support-memorandum-recovery-plan-v1.md): the non-executable, authenticated plan for recovering the one known free supporting memorandum omitted from the selected packet inputs.
 
 **Spend authority and purchase**
