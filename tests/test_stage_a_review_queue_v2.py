@@ -518,6 +518,19 @@ def test_coverage_verifier_rejects_a_dropped_unit() -> None:
         verify_review_queue_v2_coverage(v1_records, (thinned,))
 
 
+def test_coverage_verifier_rejects_an_unknown_review_subject() -> None:
+    """A malformed v2 subject is a ReviewQueueError, not a bare ValueError."""
+
+    v1_records = (_construction_row("unit-1"),)
+    (item,) = review_queue_v2_records(v1_records)
+    malformed = {**item, "review_subject": "not-a-subject"}
+    with pytest.raises(
+        ReviewQueueError, match="unknown review_subject: not-a-subject"
+    ) as caught:
+        verify_review_queue_v2_coverage(v1_records, (malformed,))
+    assert isinstance(caught.value.__cause__, ValueError)
+
+
 def test_coverage_verifier_rejects_the_wrong_queue_schema() -> None:
     """Passing a v1 row as a v2 item, or the reverse, fails closed."""
 

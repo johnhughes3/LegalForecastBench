@@ -1401,11 +1401,23 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     )
     # Positive control first: the v1 queue is recorded in exactly the form the
     # negative assertion below tests for, so a future change to how output paths
-    # are serialized fails here instead of making the exclusion vacuously true.
+    # or commitments are serialized fails here instead of making the exclusion
+    # vacuously true.
     assert str(reviewed_queue_path) in structural_card_payload["output_paths"]
     assert str(sidecar_path) not in structural_card_payload["output_paths"]
-    assert "review_queue" in structural_card_payload["output_commitments"]
-    assert "review_queue_v2" not in structural_card_payload["output_commitments"]
+    output_commitments = structural_card_payload["output_commitments"]
+    review_queue_digest = (
+        f"sha256:{hashlib.sha256(reviewed_queue_path.read_bytes()).hexdigest()}"
+    )
+    assert output_commitments["review_queue"] == {
+        "path": str(reviewed_queue_path.resolve()),
+        "sha256": review_queue_digest,
+    }
+    assert "review_queue_v2" not in output_commitments
+    sidecar_digest = f"sha256:{hashlib.sha256(sidecar_path.read_bytes()).hexdigest()}"
+    assert sidecar_digest not in {
+        commitment["sha256"] for commitment in output_commitments.values()
+    }
 
     provider_calls_before_bad_journal = provider_calls
     bad_journal_args = list(review_args)
