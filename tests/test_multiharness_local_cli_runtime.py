@@ -22,6 +22,7 @@ from legalforecast.multiharness.local_cli_runtime import (
     LocalCliRuntimeError,
     NullScheduler,
     execute_local_cli,
+    execution_receipt_from_runtime,
 )
 from legalforecast.multiharness.spec import LINUX_SYSTEMD_SCOPE_CONTAINMENT
 
@@ -425,6 +426,78 @@ def test_run_spec_service_preserves_empty_argv_tokens(tmp_path: Path) -> None:
         "",
         "--print",
     ]
+
+
+def test_execution_receipt_maps_signal_exit_and_timed_out_status(
+    tmp_path: Path,
+) -> None:
+    spec = RunSpec(
+        spec_id="map-1",
+        argv=("claude",),
+        working_directory=tmp_path,
+        timeout_seconds=5,
+    )
+    signaled = execution_receipt_from_runtime(
+        spec,
+        _execution_result(exit_code=-9, status="nonzero"),
+    )
+    assert signaled.status == "failed"
+    assert signaled.returncode is None
+    assert signaled.spec_sha256 == spec.spec_sha256
+
+    timed_out = execution_receipt_from_runtime(
+        spec,
+        _execution_result(exit_code=None, status="timed_out", timed_out=False),
+    )
+    assert timed_out.status == "timeout"
+    assert timed_out.returncode is None
+
+
+def test_run_spec_service_maps_missing_executable_to_failed_receipt(
+    tmp_path: Path,
+) -> None:
+    empty = tmp_path / "empty-bin"
+    empty.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    parent = dict(_CANARY_ENV)
+    parent["PATH"] = str(empty)
+    spec = RunSpec(
+        spec_id="missing",
+        argv=("definitely-not-installed-cli",),
+        working_directory=workspace,
+        timeout_seconds=5,
+    )
+    receipt = LocalCliExecutionService(parent_env=parent).execute(spec)
+    assert receipt.status == "failed"
+    assert receipt.returncode is None
+    assert receipt.spec_sha256 == spec.spec_sha256
+    assert "could not be launched" in receipt.stderr
+    assert receipt.failure_class is None
+
+
+def _execution_result(
+    *,
+    exit_code: int | None,
+    status: str,
+    timed_out: bool = False,
+) -> LocalCliExecutionResult:
+    return LocalCliExecutionResult(
+        spec_id="map-1",
+        spec_sha256="sha256:" + "a" * 64,
+        auth_profile=FIXTURE_NONE,
+        status=status,
+        exit_code=exit_code,
+        stdout=b"",
+        stderr=b"",
+        stdout_truncated=False,
+        stderr_truncated=False,
+        timed_out=timed_out,
+        cwd="scratch",
+        duration_ms=1,
+        cost_usd=None,
+        containment_establishment="established",
+    )
 
 
 def _write_script(tmp_path: Path, body: str, *, name: str = "cli.py") -> Path:
