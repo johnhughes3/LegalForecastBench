@@ -10,6 +10,7 @@ from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
 from legalforecast.multiharness.local_cli_identity import (
     LOCAL_CLI_IDENTITY_PROBE_SCHEMA_VERSION,
     ExecutableIdentityPin,
+    bind_executable_identity,
     executable_pin_for,
     sha256_file,
 )
@@ -231,6 +232,84 @@ def test_matching_pin_runs_and_receipt_binds_identity(tmp_path: Path) -> None:
     public = result.to_public_record()
     assert public["executable_sha256"] == pin.sha256
     assert public["executable_version"] == "0.1.0"
+
+
+def test_symlink_shim_keeps_pin_basename_and_hashes_target_bytes(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "cli.js"
+    target.write_bytes(_FAKE_CLI.read_bytes())
+    target.chmod(0o755)
+    shim = tmp_path / "claude"
+    shim.symlink_to(target)
+    pin = executable_pin_for(shim, version="0.1.0")
+    assert pin.basename == "claude"
+    assert pin.sha256 == sha256_file(target)
+    observed = bind_executable_identity(
+        pin,
+        (str(shim), "--mode", "succeed-json"),
+        probe=False,
+        parent_env=_CANARY_ENV,
+    )
+    assert observed.resolved_argv[0] == str(shim)
+    assert Path(observed.resolved_argv[0]).name == "claude"
+    assert observed.sha256 == pin.sha256
+
+    result = execute_local_cli(
+        LocalCliRunSpec(
+            spec_id="shim",
+            manifest=LocalCliAdapterManifest(
+                adapter_id="fixture-cli",
+                display_name="Fixture CLI",
+                adapter_version="0.1.0",
+                command=(sys.executable, str(shim)),
+                executable=pin,
+                supported_auth_profiles=(FIXTURE_NONE,),
+            ),
+            auth_profile=FIXTURE_NONE,
+            extra_args=("--mode", "succeed-json"),
+        ),
+        tmp_path / "scratch",
+        parent_env=_CANARY_ENV,
+    )
+    assert result.status == "completed"
+    assert result.executable_sha256 == pin.sha256
+
+    located = bind_executable_identity(
+        pin,
+        ("claude",),
+        probe=False,
+        parent_env={"PATH": str(shim.parent)},
+    )
+    assert located.resolved_argv[0] == str(shim)
+    assert located.sha256 == pin.sha256
+
+
+def test_extra_arg_sharing_cli_basename_does_not_refuse(tmp_path: Path) -> None:
+    path = _FAKE_CLI.resolve()
+    pin = executable_pin_for(path, version="0.1.0")
+    extra_file = str(tmp_path / path.name)
+    observed = bind_executable_identity(
+        pin,
+        (sys.executable, str(path), "--output", path.name, extra_file),
+        probe=False,
+        parent_env=_CANARY_ENV,
+    )
+    assert observed.resolved_argv[1] == str(path)
+    assert observed.resolved_argv[3] == path.name
+    assert observed.resolved_argv[4] == extra_file
+
+    result = execute_local_cli(
+        LocalCliRunSpec(
+            spec_id="extra-basename",
+            manifest=_fake_manifest(),
+            auth_profile=FIXTURE_NONE,
+            extra_args=("--mode", "succeed-json", "--pid-file", path.name),
+        ),
+        tmp_path / "scratch",
+        parent_env=_CANARY_ENV,
+    )
+    assert result.status == "completed"
 
 
 def test_relative_executable_path_is_refused(tmp_path: Path) -> None:

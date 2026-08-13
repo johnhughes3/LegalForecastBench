@@ -2,8 +2,10 @@
 
 The service binds each launch to the exact bytes named by the manifest pin
 (basename + digest + version). A swapped or drifted binary is a refusal, never
-a silent run. Host paths stay off public receipts; error text carries basename
-and digests only.
+a silent run. The launch path keeps the pin basename, including Homebrew or
+npm shims; hashing follows that path so the digest is the bytes ``exec`` runs.
+Host paths stay off public receipts; error text carries basename and digests
+only.
 """
 
 from __future__ import annotations
@@ -247,23 +249,22 @@ def _argv_with_identity(
     basename: str,
     identity_path: Path,
 ) -> tuple[str, ...]:
-    """Replace the pinned basename token with the hashed absolute path."""
+    """Replace the identity token with the hashed launch path.
 
-    rewritten: list[str] = []
-    replaced = 0
+    Only the first argv token whose basename matches the pin is the
+    executable. Later tokens with the same name are extra args.
+    """
+
+    rewritten = list(argv)
     identity = str(identity_path)
-    for token in argv:
+    for index, token in enumerate(rewritten):
         if Path(token).name == basename:
-            rewritten.append(identity)
-            replaced += 1
-        else:
-            rewritten.append(token)
-    if replaced != 1:
-        raise LocalCliIdentityError(
-            "executable basename mismatch",
-            failure_class="basename_mismatch",
-        )
-    return tuple(rewritten)
+            rewritten[index] = identity
+            return tuple(rewritten)
+    raise LocalCliIdentityError(
+        "executable basename mismatch",
+        failure_class="basename_mismatch",
+    )
 
 
 def _launch_prefix(argv: Sequence[str], basename: str) -> tuple[str, ...]:
@@ -282,36 +283,41 @@ def _resolve_identity_path(
     *,
     search_path: str,
 ) -> Path:
-    matches: list[Path] = []
+    """Return the named launch path without following a final symlink.
+
+    Homebrew and npm shims keep the pin basename (``claude``) while the
+    hashed bytes live at a different target name (``cli.js``). ``open``
+    follows the symlink when hashing, so the digest still binds the
+    bytes that ``exec`` will run.
+    """
+
     for token in argv:
         candidate = Path(token)
         if candidate.name != basename:
             continue
         if candidate.is_absolute():
-            resolved = candidate.resolve()
-            if resolved.is_file():
-                matches.append(resolved)
-            continue
+            if candidate.is_file():
+                return candidate
+            raise LocalCliIdentityError(
+                "executable basename mismatch",
+                failure_class="basename_mismatch",
+            )
         if "/" in token or "\\" in token:
             raise LocalCliIdentityError(
                 "executable path must be absolute",
                 failure_class="basename_mismatch",
             )
         located = _which(token, search_path)
-        if located is not None:
-            matches.append(located)
-    if len(matches) != 1:
-        raise LocalCliIdentityError(
-            "executable basename mismatch",
-            failure_class="basename_mismatch",
-        )
-    resolved = matches[0]
-    if not resolved.is_file() or not resolved.is_absolute():
-        raise LocalCliIdentityError(
-            "executable basename mismatch",
-            failure_class="basename_mismatch",
-        )
-    return resolved
+        if located is None or not located.is_file():
+            raise LocalCliIdentityError(
+                "executable basename mismatch",
+                failure_class="basename_mismatch",
+            )
+        return located
+    raise LocalCliIdentityError(
+        "executable basename mismatch",
+        failure_class="basename_mismatch",
+    )
 
 
 def _which(name: str, search_path: str) -> Path | None:
@@ -319,8 +325,10 @@ def _which(name: str, search_path: str) -> Path | None:
         if not directory:
             continue
         candidate = Path(directory) / name
+        if not candidate.is_absolute():
+            candidate = candidate.absolute()
         if candidate.is_file() and os.access(candidate, os.X_OK):
-            return candidate.resolve()
+            return candidate
     return None
 
 
