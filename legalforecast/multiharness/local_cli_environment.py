@@ -246,6 +246,21 @@ def build_local_cli_environment(
     return environment
 
 
+def expected_child_environment_names(
+    *,
+    parent_env: Mapping[str, str],
+    projected_names: Sequence[str] = (),
+    extra_allowlist: Sequence[str] = (),
+) -> frozenset[str]:
+    """Return the exact child env names the builder is allowed to emit."""
+
+    names = set(_MANAGED_RUNTIME_ENV_DIRS)
+    names.update(name for name in _PASSTHROUGH_RUNTIME_ENV_VARS if parent_env.get(name))
+    names.update(projected_names)
+    names.update(extra_allowlist)
+    return frozenset(names)
+
+
 def _validated_extra_allowlist(extra_allowlist: Sequence[str]) -> frozenset[str]:
     names = validate_env_var_names(extra_allowlist, "extra_allowlist")
     reserved = sorted(set(names).intersection(_RESERVED_RUNTIME_ENV_VARS))

@@ -20,6 +20,7 @@ from legalforecast.multiharness.local_cli_environment import (
     InfisicalSandboxCredentialSource,
     StaticCredentialSource,
     build_local_cli_environment,
+    expected_child_environment_names,
     project_profile_credentials,
 )
 
@@ -56,20 +57,7 @@ def test_fixture_none_environment_excludes_ambient_secrets(tmp_path: Path) -> No
     assert environment["HOME"] == str(scratch / "adapter-home")
     assert environment["HOME"] != _CANARY_ENV["HOME"]
     assert not (Path(environment["HOME"]) / ".provider-token").exists()
-    assert set(environment).issubset(
-        {
-            "PATH",
-            "LC_CTYPE",
-            "HOME",
-            "XDG_CACHE_HOME",
-            "XDG_CONFIG_HOME",
-            "XDG_DATA_HOME",
-            "XDG_STATE_HOME",
-            "TMPDIR",
-            "CLAUDE_CONFIG_DIR",
-            "CODEX_HOME",
-        }
-    )
+    assert set(environment) == expected_child_environment_names(parent_env=_CANARY_ENV)
 
 
 def test_published_api_key_projects_only_declared_credentials(tmp_path: Path) -> None:
@@ -229,3 +217,130 @@ def test_infisical_extractor_omits_broker_identity() -> None:
     }
     with pytest.raises(ExtractError, match="broker identity"):
         projected_env_payload(("INFISICAL_TOKEN",), source)
+
+
+def _polluted_parent_env() -> dict[str, str]:
+    parent = dict(_CANARY_ENV)
+    parent["CANARY_AWS_KEY"] = "canary-aws-key-value"
+    parent["ANTHROPIC_API_KEY"] = "canary"
+    parent["OP_SERVICE_ACCOUNT_TOKEN"] = "canary-op-token-value"
+    for index in range(20):
+        parent[f"CANARY_RAND_{index:02d}"] = f"random-canary-{index:02d}"
+    return parent
+
+
+def test_child_env_equals_allowlist_union_projected_against_polluted_parent(
+    tmp_path: Path,
+) -> None:
+    parent = _polluted_parent_env()
+    profile = resolve_auth_profile(
+        PUBLISHED_API_KEY,
+        supported_profiles=(PUBLISHED_API_KEY,),
+        projected_env_vars=("OPENAI_API_KEY",),
+    )
+    projected = {"OPENAI_API_KEY": "projected-openai-key"}
+    environment = build_local_cli_environment(
+        profile,
+        tmp_path / "scratch",
+        projected_credentials=projected,
+        parent_env=parent,
+    )
+    allowed = expected_child_environment_names(
+        parent_env=parent,
+        projected_names=("OPENAI_API_KEY",),
+    )
+    assert set(environment) == allowed
+    assert environment["OPENAI_API_KEY"] == "projected-openai-key"
+    assert environment["OPENAI_API_KEY"] != parent["OPENAI_API_KEY"]
+    for name, value in parent.items():
+        if name in allowed:
+            continue
+        assert name not in environment
+        assert value not in environment.values()
+
+
+def test_empty_or_partial_infisical_projection_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    profile = resolve_auth_profile(
+        PUBLISHED_API_KEY,
+        supported_profiles=(PUBLISHED_API_KEY,),
+        projected_env_vars=("OPENAI_API_KEY", "ANTHROPIC_API_KEY"),
+    )
+    wrapper = tmp_path / "infisical-agent-sandbox"
+    wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    wrapper.chmod(0o700)
+    source = InfisicalSandboxCredentialSource(
+        wrapper_path=wrapper,
+        parent_env=_CANARY_ENV,
+    )
+
+    def _empty(
+        argv: tuple[str, ...], **_kwargs: object
+    ) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(argv, 0, stdout=b"{}\n", stderr=b"")
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.local_cli_environment.subprocess.run",
+        _empty,
+    )
+    with pytest.raises(AuthProfileError, match="unavailable") as empty_exc:
+        source.fetch_projected_env(profile)
+    _assert_no_canaries(str(empty_exc.value))
+
+    def _partial(
+        argv: tuple[str, ...], **_kwargs: object
+    ) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(
+            argv,
+            0,
+            stdout=b'{"OPENAI_API_KEY":"only-one"}\n',
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.local_cli_environment.subprocess.run",
+        _partial,
+    )
+    with pytest.raises(AuthProfileError, match="unavailable") as partial_exc:
+        source.fetch_projected_env(profile)
+    _assert_no_canaries(str(partial_exc.value))
+    with pytest.raises(AuthProfileError):
+        project_profile_credentials(
+            profile,
+            credential_source=StaticCredentialSource({"OPENAI_API_KEY": "only-one"}),
+            parent_env=_CANARY_ENV,
+        )
+
+
+def test_errors_do_not_echo_canary_values() -> None:
+    profile = resolve_auth_profile(
+        PUBLISHED_API_KEY,
+        supported_profiles=(PUBLISHED_API_KEY,),
+        projected_env_vars=("OPENAI_API_KEY",),
+    )
+    with pytest.raises(AuthProfileError) as exc:
+        project_profile_credentials(
+            profile,
+            credential_source=StaticCredentialSource(
+                {"OPENAI_API_KEY": _CANARY_ENV["OPENAI_API_KEY"]}
+            ),
+            parent_env=_polluted_parent_env(),
+        )
+    _assert_no_canaries(str(exc.value))
+    with pytest.raises(AuthProfileError) as missing:
+        resolve_auth_profile(
+            "does-not-exist",
+            supported_profiles=(PUBLISHED_API_KEY,),
+            projected_env_vars=("OPENAI_API_KEY",),
+        )
+    _assert_no_canaries(str(missing.value))
+
+
+def _assert_no_canaries(text: str) -> None:
+    parent = _polluted_parent_env()
+    for value in parent.values():
+        if value in {"/usr/bin", "C.UTF-8"}:
+            continue
+        assert value not in text

@@ -14,10 +14,11 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Protocol
+from typing import BinaryIO, Protocol, cast
 
 from legalforecast.multiharness.auth_profiles import (
     AuthProfileError,
@@ -187,6 +188,8 @@ class LocalCliExecutionResult:
     stderr_truncated: bool
     timed_out: bool
     cwd: str
+    duration_ms: int
+    cost_usd: float | None
     containment_establishment: str
 
     def to_public_record(self) -> dict[str, object]:
@@ -202,6 +205,8 @@ class LocalCliExecutionResult:
             "stdout_truncated": self.stdout_truncated,
             "stderr_truncated": self.stderr_truncated,
             "timed_out": self.timed_out,
+            "duration_ms": self.duration_ms,
+            "cost_usd": self.cost_usd,
             "containment_establishment": self.containment_establishment,
         }
         validate_public_record(record, "local CLI execution receipt")
@@ -309,6 +314,8 @@ def execute_local_cli(
                 stderr_truncated=False,
                 timed_out=False,
                 cwd=str(scratch_root),
+                duration_ms=0,
+                cost_usd=None,
                 containment_establishment="not_started",
             ),
         )
@@ -338,6 +345,7 @@ def _run_contained_cli(
     establishment = "failed"
     process: subprocess.Popen[bytes] | None = None
     handle: ProcessContainmentHandle | None = None
+    started = time.monotonic()
     try:
         prepared = prepare_contained_command(
             requested,
@@ -423,6 +431,8 @@ def _run_contained_cli(
         stderr_truncated=stderr_truncated,
         timed_out=timed_out,
         cwd=str(scratch_root.resolve()),
+        duration_ms=max(0, int((time.monotonic() - started) * 1000)),
+        cost_usd=_optional_cost_usd(stdout),
         containment_establishment=establishment,
     )
     validate_no_secret_values(
@@ -445,6 +455,27 @@ def _bounded_capture(handle: BinaryIO, max_bytes: int) -> tuple[bytes, bool]:
         marker = _TRUNCATION_MARKER[:max_bytes]
         raw = raw[: max(0, max_bytes - len(marker))] + marker
     return raw, truncated
+
+
+def _optional_cost_usd(stdout: bytes) -> float | None:
+    for line in reversed(stdout.splitlines()):
+        stripped = line.strip()
+        if not stripped.startswith(b"{"):
+            continue
+        try:
+            decoded = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(decoded, dict):
+            continue
+        payload = cast(dict[object, object], decoded)
+        value = payload.get("total_cost_usd")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        if value < 0:
+            continue
+        return float(value)
+    return None
 
 
 def _sha256_bytes(payload: bytes) -> str:
