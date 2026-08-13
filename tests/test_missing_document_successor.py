@@ -440,7 +440,7 @@ def test_plan_orders_free_recovery_before_paid_and_is_deterministic() -> None:
 
 
 def test_plan_distinguishes_same_entry_main_document_and_attachment() -> None:
-    manifest = _manifest_bytes(
+    manifest = _plan_manifest_bytes(
         _repair(
             "73569789",
             missing=[
