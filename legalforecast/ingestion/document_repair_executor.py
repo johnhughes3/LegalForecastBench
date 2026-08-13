@@ -14,11 +14,11 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from pathlib import Path
 from types import MappingProxyType
 from typing import cast
 
 from legalforecast.contracts import (
+    ARTIFACT_JSON_VALUE_V1,
     ARTIFACT_RAW_SHA256_V1,
     EXACT100_DOCUMENT_REPAIR_EXECUTION_V1,
     EXACT100_DOCUMENT_REPAIR_PILOT_V2,
@@ -29,7 +29,7 @@ from legalforecast.contracts import (
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
-    generate_case_dev_purchase_policy,
+    require_approved_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.document_repair_pilot import DocumentRepairPilot
@@ -228,7 +228,7 @@ class DocumentRepairRunResult:
 
 @dataclass(frozen=True, slots=True, init=False)
 class DocumentRepairPurchaseAuthority:
-    """Execution-bound legacy purchase policy for one fresh repair ledger."""
+    """Execution-bound approved-v2 policy for one fresh repair ledger."""
 
     execution_sha256: str
     scope: str
@@ -602,10 +602,9 @@ def run_document_repair_execution(
 def build_document_repair_purchase_authority(
     *,
     execution: DocumentRepairExecution,
-    canonical_ledger_path: str,
-    fee_schedule: Mapping[str, object],
+    approved_purchase_policy_artifact: Mapping[str, object],
 ) -> DocumentRepairPurchaseAuthority:
-    """Derive the narrow legacy purchase policy from one exact execution."""
+    """Bind independently approved v2 purchase authority to one execution."""
 
     _require_replay_minted_execution(execution)
     budget = execution.purchase_budget
@@ -613,29 +612,9 @@ def build_document_repair_purchase_authority(
         raise DocumentRepairExecutorError(
             "purchase authority requires at least one paid operation"
         )
-    ledger_path = Path(canonical_ledger_path)
-    if ledger_path.exists():
-        raise DocumentRepairExecutorError(
-            "purchase authority requires a fresh canonical ledger"
-        )
-    per_case_maximum = max(
-        (plan.estimated_cost for plan in budget.case_plans), default=Decimal("0.00")
-    )
-    policy_artifact = generate_case_dev_purchase_policy(
-        {
-            "cycle_id": f"exact100-document-repair-{execution.scope}",
-            "cohort_policy_sha256": execution.cohort_policy_sha256,
-            "canonical_ledger_path": canonical_ledger_path,
-            "hard_cap_usd": _money(budget.max_projected_budget),
-            "opening_committed_spend_usd": "0.00",
-            "opening_case_committed_spend_usd": {},
-            "max_per_case_usd": _money(per_case_maximum),
-            "per_document_reservation_usd": _money(budget.cost_per_document),
-            "fee_schedule": dict(fee_schedule),
-        }
-    )
     policy = verify_purchase_policy_compatibility(
-        execution=execution, purchase_policy_artifact=policy_artifact
+        execution=execution,
+        purchase_policy_artifact=approved_purchase_policy_artifact,
     )
     provisional = _mint_purchase_authority(
         execution_sha256=execution.execution_sha256,
@@ -663,6 +642,7 @@ def verify_purchase_policy_compatibility(
     _require_replay_minted_execution(execution)
     try:
         policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        require_approved_case_dev_purchase_policy(policy)
     except CaseDevPurchasePolicyError as exc:
         raise DocumentRepairExecutorError(f"purchase policy is invalid: {exc}") from exc
     budget = execution.purchase_budget
@@ -673,6 +653,33 @@ def verify_purchase_policy_compatibility(
     if policy.cohort_policy_sha256 != execution.cohort_policy_sha256:
         raise DocumentRepairExecutorError(
             "purchase-policy cohort lineage differs from repair execution"
+        )
+    if policy.canonical_ledger_path.exists():
+        raise DocumentRepairExecutorError(
+            "purchase authority requires a fresh canonical ledger"
+        )
+    approval = policy.approval
+    assert approval is not None
+    paid_operations = tuple(
+        operation
+        for operation in execution.operations
+        if operation.route == "pacer_purchase"
+    )
+    candidate_ids = tuple(plan.candidate_id for plan in budget.case_plans)
+    document_ids = tuple(operation.recap_document_id for operation in paid_operations)
+    if (
+        approval.get("selected_candidate_ids_sha256")
+        != hashlib.sha256(
+            ARTIFACT_JSON_VALUE_V1.encode(list(candidate_ids))
+        ).hexdigest()
+        or approval.get("purchase_document_ids_sha256")
+        != hashlib.sha256(ARTIFACT_JSON_VALUE_V1.encode(list(document_ids))).hexdigest()
+        or approval.get("selected_case_count") != len(candidate_ids)
+        or approval.get("purchase_document_count") != len(document_ids)
+        or approval.get("projected_cost_usd") != _money(budget.total_estimated_cost)
+    ):
+        raise DocumentRepairExecutorError(
+            "purchase-policy approval differs from the repair execution"
         )
     global_headroom = policy.hard_cap_usd - policy.opening_committed_spend_usd
     if global_headroom < budget.total_estimated_cost:
