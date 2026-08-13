@@ -20,8 +20,8 @@ from typing import Any, cast
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     DOCUMENT_BODY_ROLE_VALIDATOR_V1,
-    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
-    EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1,
+    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
+    EXACT100_MISSING_DOCUMENT_SUCCESSOR_V2,
     MISSING_DOCUMENT_EXCLUSION_V1,
     MISSING_DOCUMENT_INCLUSION_V1,
     MISSING_DOCUMENT_SUCCESSOR_STATE_V1,
@@ -878,8 +878,8 @@ def _canonical_bytes(value: object) -> bytes:
 
 
 DocumentKey = tuple[str, int, str]
-PLAN_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1)
-SUCCESSOR_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1)
+PLAN_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2)
+SUCCESSOR_SCHEMA_VERSION = str(EXACT100_MISSING_DOCUMENT_SUCCESSOR_V2)
 _ALLOWED_METHODS = frozenset({"courtlistener_free", "pacer_purchase"})
 _ALLOWED_RECOMMENDATIONS = frozenset({"keep", "repair", "replace"})
 _SEAL = object()
@@ -1184,7 +1184,7 @@ def build_missing_document_acquisition_plan(
         manifest_repair_count=provisional.manifest_repair_count,
         plan_sha256=_commit_record(
             provisional.content_record(),
-            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
         ),
     )
 
@@ -1296,7 +1296,7 @@ def seal_missing_document_successor(
         ),
         (
             "successor_sha256",
-            _commit_record(content, domain=EXACT100_MISSING_DOCUMENT_SUCCESSOR_V1),
+            _commit_record(content, domain=EXACT100_MISSING_DOCUMENT_SUCCESSOR_V2),
         ),
         ("_seal", _SEAL),
     ):
@@ -1309,7 +1309,7 @@ def _require_valid_plan(plan: MissingDocumentAcquisitionPlan) -> None:
         raise MissingDocumentSuccessorError("invalid acquisition plan")
     if plan.plan_sha256 != _commit_record(
         plan.content_record(),
-        domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+        domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
     ):
         raise MissingDocumentSuccessorError("acquisition plan changed after approval")
     if plan.projected_paid_cost_usd > plan.approved_maximum_usd:

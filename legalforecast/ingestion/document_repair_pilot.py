@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     EXACT100_DOCUMENT_REPAIR_PILOT_V1,
-    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+    EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
 )
 from legalforecast.ingestion.missing_document_successor import (
     MissingDocumentAcquisitionItem,
@@ -114,7 +114,7 @@ def _require_untampered_full_plan(plan: MissingDocumentAcquisitionPlan) -> None:
     digest = str(
         ARTIFACT_RAW_SHA256_V1.commit(
             plan.content_record(),
-            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
         ).digest
     )
     if digest != plan.plan_sha256:

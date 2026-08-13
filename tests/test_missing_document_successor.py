@@ -444,7 +444,7 @@ def test_plan_distinguishes_same_entry_main_document_and_attachment() -> None:
         _repair(
             "73569789",
             missing=[
-                _missing(5, "motion", free=1, paid=0),
+                _missing(5, "motion", free=0, paid=1),
                 _missing(
                     5,
                     "supporting_memorandum",
@@ -461,8 +461,8 @@ def test_plan_distinguishes_same_entry_main_document_and_attachment() -> None:
     assert [
         (item.docket_entry_number, item.document_selector) for item in plan.items
     ] == [
-        (5, "main_document"),
         (5, "attachment_1"),
+        (5, "main_document"),
     ]
 
 
