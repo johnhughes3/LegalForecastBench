@@ -12,6 +12,7 @@ import os
 import stat
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import cast
 
 from legalforecast.multiharness.local_cli_environment import (
     ensure_private_scratch_directory,
@@ -97,10 +98,48 @@ def redact_json_record(
     record: Mapping[str, object],
     secret_values: Sequence[str],
 ) -> dict[str, object]:
-    """Dump-and-reload a record so nested secret strings are rewritten."""
+    """Rewrite nested string values before JSON encoding.
 
-    encoded = json.dumps(dict(record), ensure_ascii=False, sort_keys=True)
-    return dict(json.loads(redact_text(encoded, secret_values)))
+    Dump-then-replace misses secrets that ``json.dumps`` escapes
+    (quotes, backslashes, control characters) and can yield invalid JSON.
+    """
+
+    return _redact_json_object(dict(record), secret_values)
+
+
+def _redact_json_object(
+    record: Mapping[str, object],
+    secret_values: Sequence[str],
+) -> dict[str, object]:
+    redacted: dict[str, object] = {}
+    for key, item in record.items():
+        redacted[redact_text(key, secret_values)] = _redact_json_value(
+            item, secret_values
+        )
+    return redacted
+
+
+def _redact_json_value(value: object, secret_values: Sequence[str]) -> object:
+    if isinstance(value, str):
+        return redact_text(value, secret_values)
+    if isinstance(value, dict):
+        typed: dict[str, object] = {}
+        for key, item in cast(dict[str, object], value).items():
+            typed[redact_text(key, secret_values)] = _redact_json_value(
+                item, secret_values
+            )
+        return typed
+    if isinstance(value, list):
+        return [
+            _redact_json_value(item, secret_values)
+            for item in cast(list[object], value)
+        ]
+    if isinstance(value, tuple):
+        return [
+            _redact_json_value(item, secret_values)
+            for item in cast(tuple[object, ...], value)
+        ]
+    return value
 
 
 def persist_execution_artifacts(

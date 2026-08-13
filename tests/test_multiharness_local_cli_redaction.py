@@ -16,7 +16,9 @@ from legalforecast.multiharness.local_cli_redaction import (
     PRIVATE_EXECUTION_DIR,
     REDACTED,
     artifact_dir_contains_secret,
+    persist_execution_artifacts,
     redact_bytes,
+    redact_json_record,
     redact_text,
     redaction_secret_values,
 )
@@ -154,6 +156,46 @@ def test_combined_flag_assignment_is_redacted_from_artifacts(tmp_path: Path) -> 
     )
     assert _ARG_SECRET not in events
     assert REDACTED in events
+
+
+def test_json_redaction_rewrites_escaped_secret_characters(tmp_path: Path) -> None:
+    secret = 'planted-"quote"-\\slash-\nctl-H2b16'
+    record: dict[str, object] = {
+        "argv": ["--token", secret],
+        "nested": {"note": f"pre {secret} post"},
+    }
+    redacted = redact_json_record(record, (secret,))
+    dumped = json.dumps(redacted, sort_keys=True)
+    assert secret not in dumped
+    assert json.dumps(secret)[1:-1] not in dumped
+    argv = redacted["argv"]
+    assert isinstance(argv, list)
+    assert argv[1] == REDACTED
+    nested = redacted["nested"]
+    assert isinstance(nested, dict)
+    assert nested["note"] == f"pre {REDACTED} post"
+
+    scratch = tmp_path / "scratch"
+    scratch.mkdir(mode=0o700)
+    persist_execution_artifacts(
+        scratch,
+        receipt=record,
+        argv=["--token", secret],
+        stdout=b"",
+        stderr=b"",
+        secret_values=(secret,),
+    )
+    assert not artifact_dir_contains_secret(scratch, secret)
+    events = (scratch / PRIVATE_EXECUTION_DIR / "events.jsonl").read_text(
+        encoding="utf-8"
+    )
+    receipt_text = (scratch / PRIVATE_EXECUTION_DIR / "receipt.json").read_text(
+        encoding="utf-8"
+    )
+    assert secret not in events
+    assert secret not in receipt_text
+    assert REDACTED in events
+    assert REDACTED in receipt_text
 
 
 def test_planted_artifact_symlink_is_refused(tmp_path: Path) -> None:

@@ -736,6 +736,15 @@ def _run_contained_cli(
                 start_new_session=True,
                 bufsize=0,
             )
+            handle = ProcessContainmentHandle(
+                requested=requested,
+                unit_name=prepared.unit_name,
+                process_group_id=(
+                    process.pid
+                    if requested == POSIX_PROCESS_GROUP_CONTAINMENT
+                    else None
+                ),
+            )
             stdout_pipe = process.stdout
             stderr_pipe = process.stderr
             if stdout_pipe is None or stderr_pipe is None:
@@ -744,10 +753,6 @@ def _run_contained_cli(
                 start_pipe_drain(stdout_pipe, stdout_drain),
                 start_pipe_drain(stderr_pipe, stderr_drain),
             ]
-            handle = ProcessContainmentHandle(
-                requested=requested,
-                unit_name=prepared.unit_name,
-            )
             handle = establish_process_containment(prepared, process, handle)
             establishment = "established"
             exit_code, timed_out, disk_capped = _wait_for_contained_process(
@@ -765,7 +770,18 @@ def _run_contained_cli(
         finally:
             if stdin_file is not None:
                 stdin_file.close()
-            if handle is not None and process is not None:
+            if process is not None:
+                if handle is None:
+                    handle = ProcessContainmentHandle(
+                        requested=requested,
+                        unit_name=prepared.unit_name,
+                        process_group_id=process.pid,
+                    )
+                elif (
+                    handle.requested == POSIX_PROCESS_GROUP_CONTAINMENT
+                    and handle.process_group_id is None
+                ):
+                    handle.process_group_id = process.pid
                 evidence = cleanup_process_containment(
                     handle,
                     process,
