@@ -996,7 +996,6 @@ class MissingDocumentAcquisitionPlan:
     """A deterministic free-first plan bound to one approved sidecar."""
 
     manifest_sha256: str
-    approval_sha256: str
     approved_maximum_usd: Decimal
     max_per_document_usd: Decimal
     items: tuple[MissingDocumentAcquisitionItem, ...]
@@ -1013,7 +1012,6 @@ class MissingDocumentAcquisitionPlan:
         return {
             "schema_version": PLAN_SCHEMA_VERSION,
             "manifest_sha256": self.manifest_sha256,
-            "approval_sha256": self.approval_sha256,
             "approved_maximum_usd": _money(self.approved_maximum_usd),
             "max_per_document_usd": _money(self.max_per_document_usd),
             "projected_paid_cost_usd": _money(self.projected_paid_cost_usd),
@@ -1255,7 +1253,6 @@ def build_missing_document_acquisition_plan(
     )
     provisional = MissingDocumentAcquisitionPlan(
         manifest_sha256=actual_digest,
-        approval_sha256=approval.approval_sha256,
         approved_maximum_usd=maximum,
         max_per_document_usd=per_document,
         items=tuple(items),
@@ -1266,7 +1263,6 @@ def build_missing_document_acquisition_plan(
     )
     return MissingDocumentAcquisitionPlan(
         manifest_sha256=provisional.manifest_sha256,
-        approval_sha256=provisional.approval_sha256,
         approved_maximum_usd=provisional.approved_maximum_usd,
         max_per_document_usd=provisional.max_per_document_usd,
         items=provisional.items,
