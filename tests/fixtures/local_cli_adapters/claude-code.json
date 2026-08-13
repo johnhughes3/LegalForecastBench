@@ -1,0 +1,112 @@
+{
+  "adapter_kind": "local_cli",
+  "auth_profile_name": "fixture_none",
+  "capabilities": [
+    "empty_tools",
+    "headless_print",
+    "isolated_setting_sources",
+    "json_output",
+    "json_schema_enforcement",
+    "max_budget_usd",
+    "model_selection",
+    "no_session_persistence",
+    "permission_mode",
+    "strict_mcp_config",
+    "tool_allowlist",
+    "working_directory_isolation"
+  ],
+  "capability_digest": "sha256:157039af81e1219b71baa86983a8e8d6a10f93c200375ffd1d92ac65f89d3c3a",
+  "containment": {
+    "host_process_containment": "posix_process_group.v1",
+    "isolated_host_environment": true,
+    "network_policy": "provider_egress_host_only",
+    "session_persistence": "forbidden",
+    "setting_sources": [],
+    "strict_mcp_config": true
+  },
+  "display_name": "Claude Code clean-native local CLI",
+  "executable": {
+    "basename": "claude",
+    "distribution_kind": "standalone-cli",
+    "sha256": "200338139a3df04a9ad22233837d1fb53fb6dffa21cd82e47559bfaa115acc1b",
+    "version": "2.1.229 (Claude Code)"
+  },
+  "harness_binding": {
+    "adapter_id": "claude-code-clean-native",
+    "adapter_version": "1.0.0",
+    "harness_adapter_contract": "legalforecast.multiharness.adapters.HarnessAdapter",
+    "harness_solver_contract": "legalforecast.evals.inspect_task.HarnessSolver",
+    "implements_harness_adapter": true,
+    "implements_harness_solver": true,
+    "solver_kind": "inspect_ai",
+    "solver_response_contract": "legalforecast.evals.inspect_task.SolverResponse",
+    "supported_families": [
+      "legalforecast_mtd"
+    ],
+    "supported_scoring_modes": [
+      "lfb_brier"
+    ],
+    "tool_protocol_version": null
+  },
+  "invocation": {
+    "argv_template": [
+      "-p",
+      "{prompt}",
+      "--output-format",
+      "json",
+      "--json-schema",
+      "{output_schema_path}",
+      "--tools",
+      "",
+      "--strict-mcp-config",
+      "--no-session-persistence",
+      "--setting-sources",
+      "",
+      "--model",
+      "{model}",
+      "--add-dir",
+      "{workspace}"
+    ],
+    "headless_mode": "print_flag",
+    "model_flag": "--model",
+    "output_format": "json",
+    "prompt_delivery": "argv_placeholder",
+    "schema_enforcement": "json_schema_flag",
+    "working_directory_flag": "--add-dir"
+  },
+  "manifest_id": "claude-code-clean-native",
+  "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "task_projection": {
+    "deliverable_relative_path": null,
+    "deliverable_source": "structured_stdout",
+    "prompt_source": "solver_input_prompt"
+  },
+  "timeout_retry": {
+    "max_attempts": 1,
+    "retry_backoff_seconds": 2,
+    "retryable_exit_codes": [],
+    "timeout_seconds": 120
+  },
+  "transcript_capture": {
+    "points": [
+      "private_execution_log",
+      "stderr",
+      "stdout"
+    ],
+    "public_raw_transcript": false
+  },
+  "usage_reporting": {
+    "cache_read_tokens_field": "usage.cache_read_input_tokens",
+    "cache_write_tokens_field": "usage.cache_creation_input_tokens",
+    "cost_basis": "provider_reported",
+    "cost_usd_field": "total_cost_usd",
+    "input_tokens_field": "usage.input_tokens",
+    "output_tokens_field": "usage.output_tokens",
+    "solver_response_fields": [
+      "estimated_cost",
+      "input_tokens",
+      "output_tokens",
+      "request_count"
+    ]
+  }
+}
