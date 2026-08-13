@@ -27,7 +27,6 @@ UPWARD_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
         # injected through a cycle-neutral command context.
         "legalforecast/cli_commands/report.py",
         "legalforecast/cli_commands/score.py",
-        "legalforecast/ingestion/packet_build_replay.py",
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
         "legalforecast/ingestion/resolved_post_recovery.py",
