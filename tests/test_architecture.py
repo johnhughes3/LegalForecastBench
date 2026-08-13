@@ -77,6 +77,7 @@ for name in ("first", "second"):
     monkeypatch.setattr(cli_module, name, replacement)
 for name in ("third", "fourth"):
     monkeypatch.setattr(f"legalforecast.cli.{name}", replacement)
+monkeypatch.setattr(target=cli_module, name="fifth", value=replacement)
 """,
         encoding="utf-8",
     )
@@ -85,6 +86,7 @@ for name in ("third", "fourth"):
 
     assert inventory.private_cli_targets == ("legalforecast.cli._private",)
     assert inventory.monkeypatch_targets == (
+        "legalforecast.cli.fifth",
         "legalforecast.cli.first",
         "legalforecast.cli.fourth",
         "legalforecast.cli.os.link",
@@ -99,6 +101,7 @@ for name in ("third", "fourth"):
         "tests/test_probe.py::legalforecast.cli._private",
     )
     assert inventory.monkeypatch_occurrences == (
+        "tests/test_probe.py::legalforecast.cli.fifth",
         "tests/test_probe.py::legalforecast.cli.first",
         "tests/test_probe.py::legalforecast.cli.fourth",
         "tests/test_probe.py::legalforecast.cli.os.link",
@@ -196,6 +199,36 @@ def test_architecture_baseline_rejects_an_extra_known_patch_occurrence(
         and occurrence in violation
         for violation in violations
     )
+
+
+def test_architecture_baseline_requires_removed_upward_edges_to_shrink(
+    tmp_path: Path,
+) -> None:
+    baseline = load_baseline(ROOT / BASELINE_PATH)
+    removed = baseline.upward_cli_dependencies[0]
+    payload = {
+        "schema_version": 1,
+        "cli_metrics": asdict(baseline.cli_metrics),
+        "upward_cli_dependencies": [
+            *baseline.upward_cli_dependencies,
+            "legalforecast/obsolete_cli_import.py",
+        ],
+        "compatibility": asdict(baseline.compatibility),
+    }
+    path = tmp_path / "architecture.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    violations = check_baseline(ROOT, path)
+
+    assert any(
+        violation
+        == (
+            "stale upward CLI dependencies must be removed: "
+            "legalforecast/obsolete_cli_import.py"
+        )
+        for violation in violations
+    )
+    assert removed not in "\n".join(violations)
 
 
 @pytest.mark.parametrize("payload", [{"schema_version": 2}, []])

@@ -151,6 +151,13 @@ def check_baseline(root: Path, baseline_path: Path = BASELINE_PATH) -> tuple[str
         violations.append(
             "new upward CLI dependencies: " + ", ".join(unexpected_upward)
         )
+    stale_upward = sorted(
+        set(baseline.upward_cli_dependencies) - set(current.upward_cli_dependencies)
+    )
+    if stale_upward:
+        violations.append(
+            "stale upward CLI dependencies must be removed: " + ", ".join(stale_upward)
+        )
     unexpected_allowlist = sorted(
         set(current.upward_cli_dependencies) - UPWARD_IMPORT_ALLOWLIST
     )
@@ -309,18 +316,22 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                     private_targets.add(target)
                     private_occurrences.append(f"{relative}::{target}")
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                if node.func.attr != "setattr" or len(node.args) < 2:
+                if node.func.attr != "setattr":
                     continue
-                for string_target in _static_string_values(
-                    node.args[0], parents=parents
-                ):
+                target_arg = _call_argument(node, 0, "target")
+                if target_arg is None:
+                    continue
+                for string_target in _static_string_values(target_arg, parents=parents):
                     if string_target.startswith("legalforecast.cli."):
                         monkeypatch_targets.add(string_target)
                         monkeypatch_occurrences.append(f"{relative}::{string_target}")
-                target_names = _static_string_values(node.args[1], parents=parents)
+                name_arg = _call_argument(node, 1, "name")
+                if name_arg is None:
+                    continue
+                target_names = _static_string_values(name_arg, parents=parents)
                 for target_name in target_names:
                     object_target = _cli_object_target(
-                        node.args[0],
+                        target_arg,
                         direct_aliases=direct_aliases,
                         package_aliases=package_aliases,
                     )
@@ -466,6 +477,15 @@ def _static_string_values(
         )
         return values if len(values) == len(current.iter.elts) else ()
     return ()
+
+
+def _call_argument(node: ast.Call, position: int, keyword: str) -> ast.AST | None:
+    if len(node.args) > position:
+        return node.args[position]
+    return next(
+        (item.value for item in node.keywords if item.arg == keyword),
+        None,
+    )
 
 
 def _python_paths(package_root: Path) -> Iterable[str]:
