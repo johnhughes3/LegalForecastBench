@@ -46,6 +46,10 @@ from legalforecast import __version__
 from legalforecast.acquisition_completion_summary_cli import (
     add_acquisition_completion_summary_parser,
 )
+from legalforecast.cli import score as _score_cmd
+from legalforecast.cli.score import (
+    run as _cmd_score,  # noqa: F401  # pyright: ignore[reportUnusedImport]
+)
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     DISCLOSURE_CLEARANCE_V1,
@@ -362,6 +366,9 @@ from legalforecast.ingestion.cycle_preflight_manifest import (
     CyclePreflightManifestError,
     _active_head_chain,  # pyright: ignore[reportPrivateUsage]
 )
+from legalforecast.ingestion.decision_first_terms import (
+    DECISION_FIRST_RECAP_SEARCH_TERMS,
+)
 from legalforecast.ingestion.decision_text_artifact import (
     CYCLE_1_ELIGIBILITY_ANCHOR,
     DecisionTextArtifactError,
@@ -525,7 +532,6 @@ from legalforecast.ingestion.firecrawl_recap_decision_discovery import (
     DECISION_FIRST_RECAP_MAX_AUTHORIZED_CREDITS,
     DECISION_FIRST_RECAP_MAX_PAGES_PER_TERM,
     DECISION_FIRST_RECAP_QUERY_PLAN_VERSION,
-    DECISION_FIRST_RECAP_SEARCH_TERMS,
     FROZEN_COMBINED_FIRECRAWL_CREDIT_CEILING,
     FROZEN_EXISTING_FIRECRAWL_COMMITMENT_CREDITS,
     FROZEN_OTHER_RESCUE_COMMITMENT_CREDITS,
@@ -1022,7 +1028,6 @@ from legalforecast.ingestion.zero_cost_successor import (
     project_zero_cost_successor,
 )
 from legalforecast.labeling import (
-    outcome_label_from_record,
     stage_b_decision_text_from_record,
     stage_b_labeling_input_from_record,
 )
@@ -1396,17 +1401,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_eval_run_case_arguments(eval_run_case)
 
-    score = subparsers.add_parser(
-        "score",
-        help="Parse model outputs and score them against locked labels.",
-    )
-    score.add_argument("--runs", type=Path, required=True)
-    score.add_argument("--labels", type=Path, required=True)
-    score.add_argument("--output", type=Path, required=True)
-    score.add_argument("--unit-scores-output", type=Path)
-    score.add_argument("--base-rate", type=float)
-    score.add_argument("--dry-run", action="store_true")
-    score.set_defaults(handler=_cmd_score)
+    _score_cmd.register(subparsers)
 
     report = subparsers.add_parser(
         "report",
@@ -11756,61 +11751,6 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
         len(artifacts.local_paths),
     )
     print(json.dumps(artifacts.to_record(), sort_keys=True))
-    return 0
-
-
-def _cmd_score(args: argparse.Namespace) -> int:
-    runs_path = cast(Path, args.runs)
-    labels_path = cast(Path, args.labels)
-    output_path = cast(Path, args.output)
-    unit_scores_output = cast(Path | None, args.unit_scores_output)
-    run_records = _read_records(runs_path)
-    label_records = _read_records(labels_path)
-    if cast(bool, args.dry_run):
-        output_paths = (
-            (output_path,)
-            if unit_scores_output is None
-            else (
-                output_path,
-                unit_scores_output,
-            )
-        )
-        return _write_dry_run_plan(
-            "score",
-            output_path,
-            input_path=runs_path,
-            output_paths=output_paths,
-            record_count=len(run_records),
-            log_record_count=len(run_records),
-            label_count=len(label_records),
-        )
-
-    summaries = score_run_records(
-        run_records,
-        tuple(outcome_label_from_record(record) for record in label_records),
-        base_rate=cast(float | None, args.base_rate),
-    )
-    _write_json(
-        output_path,
-        {
-            "generated_at": _iso_datetime(datetime.now(UTC)),
-            "summaries": [summary.to_record() for summary in summaries],
-        },
-    )
-    _log_event("score", "artifact_written", output_path, len(summaries))
-    if unit_scores_output is not None:
-        unit_score_records = [
-            unit_score.to_record()
-            for summary in summaries
-            for unit_score in summary.unit_scores
-        ]
-        _write_jsonl(unit_scores_output, unit_score_records)
-        _log_event(
-            "score",
-            "artifact_written",
-            unit_scores_output,
-            len(unit_score_records),
-        )
     return 0
 
 

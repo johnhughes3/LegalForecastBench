@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Final, cast
 
 BASELINE_PATH: Final[Path] = Path("legalforecast/testing/architecture_baseline.json")
-CLI_PATH: Final[str] = "legalforecast/cli.py"
+CLI_PATH: Final[str] = "legalforecast/cli/__init__.py"
 UPWARD_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
     {
         "legalforecast/ingestion/purchase_approval.py",
@@ -408,6 +408,13 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
 
 def _imports_cli(path: Path, *, include_console: bool = True) -> bool:
     """Return whether a production module imports a CLI adapter module."""
+
+    path_text = path.as_posix()
+    if (
+        path_text.endswith("legalforecast/cli/__init__.py")
+        or "/legalforecast/cli/" in path_text
+    ):
+        return False
 
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
