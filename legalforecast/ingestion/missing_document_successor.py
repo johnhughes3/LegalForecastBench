@@ -1013,6 +1013,10 @@ def build_missing_document_acquisition_plan(
         recommendation = _required_text(record, "recommendation")
         if recommendation not in _ALLOWED_RECOMMENDATIONS:
             raise MissingDocumentSuccessorError("unsupported repair recommendation")
+        if recommendation == "replace":
+            raise MissingDocumentSuccessorError(
+                "replacement recommendation belongs to the successor-replacement path"
+            )
         missing = _record_list(record, "missing_docs")
         byte_mismatches = _record_list(record, "byte_mismatches")
         current = _record_list(record, "current_selection", required=False)
@@ -1045,6 +1049,8 @@ def build_missing_document_acquisition_plan(
                 )
             cost = _money_value(missing_record.get("cost_usd"), "document cost")
             method = "courtlistener_free" if free_count else "pacer_purchase"
+            if method not in _ALLOWED_METHODS:
+                raise MissingDocumentSuccessorError("unsupported acquisition method")
             expected_cost = Decimal("0.00") if free_count else per_document
             if cost != expected_cost:
                 if cost > per_document:
@@ -1072,10 +1078,19 @@ def build_missing_document_acquisition_plan(
             raise MissingDocumentSuccessorError(
                 f"candidate cost does not reconcile: {candidate_id}"
             )
-        mismatch_by_entry = {
-            _positive_int(row.get("entry"), "mismatch entry"): row
-            for row in byte_mismatches
-        }
+        mismatch_keys: set[tuple[int, str]] = set()
+        mismatch_roles: set[tuple[int, str]] = set()
+        for mismatch in byte_mismatches:
+            entry = _positive_int(mismatch.get("entry"), "mismatch entry")
+            selector = _document_selector(mismatch.get("document_selector"))
+            key = (entry, selector)
+            if key in mismatch_keys:
+                raise MissingDocumentSuccessorError(
+                    f"duplicate byte-role mismatch: {candidate_id}/{entry}"
+                )
+            mismatch_keys.add(key)
+            mismatch_roles.add((entry, _required_text(mismatch, "selected_role")))
+            existing_ledger.append(_validated_mismatch(candidate_id, mismatch))
         extra_keys = {
             (
                 _positive_int(row.get("entry"), "extra entry"),
@@ -1107,12 +1122,9 @@ def build_missing_document_acquisition_plan(
             if _positive_int(row.get("entry"), "required entry") not in current_entries
         }
         for entry, role in sorted(relevant):
-            if (entry, role) in missing_keys:
+            if (entry, role) in missing_keys or (entry, role) in mismatch_roles:
                 continue
-            mismatch = mismatch_by_entry.get(entry)
-            if mismatch is not None:
-                existing_ledger.append(_validated_mismatch(candidate_id, mismatch))
-            elif (entry, role) in extra_keys:
+            if (entry, role) in extra_keys:
                 existing_ledger.append(
                     MappingProxyType(
                         {
@@ -1157,6 +1169,8 @@ def build_missing_document_acquisition_plan(
             key=lambda row: (
                 cast(str, row["candidate_id"]),
                 cast(int, row["docket_entry_number"]),
+                cast(str, row.get("document_selector") or ""),
+                cast(str, row["document_role"]),
             ),
         )
     )
@@ -1197,6 +1211,7 @@ def seal_missing_document_successor(
     _require_valid_plan(plan)
     planned = {item.key: item for item in plan.items}
     dispositions: dict[DocumentKey, Mapping[str, object]] = {}
+    seen_source_ids: set[str] = set()
     for evidence in acquired_documents:
         key = _document_key(evidence)
         item = planned.get(key)
@@ -1228,6 +1243,12 @@ def seal_missing_document_successor(
             raise MissingDocumentSuccessorError(
                 f"role-byte mismatch: {key[0]}/{key[1]} as {role}"
             )
+        source_document_id = _required_text(evidence, "source_document_id")
+        if source_document_id in seen_source_ids:
+            raise MissingDocumentSuccessorError(
+                "acquired documents reuse a source document identity"
+            )
+        seen_source_ids.add(source_document_id)
         dispositions[key] = MappingProxyType(
             {
                 "candidate_id": key[0],
@@ -1236,7 +1257,7 @@ def seal_missing_document_successor(
                 "document_role": role,
                 "disposition": "included",
                 "acquisition_method": source,
-                "source_document_id": _required_text(evidence, "source_document_id"),
+                "source_document_id": source_document_id,
                 "sha256": digest,
                 "byte_count": len(body),
             }
@@ -1313,22 +1334,10 @@ def _require_valid_plan(plan: MissingDocumentAcquisitionPlan) -> None:
 
 
 def _read_manifest(payload: bytes) -> tuple[JsonRecord, ...]:
-    records: list[JsonRecord] = []
-    try:
-        for line in payload.splitlines():
-            if not line.strip():
-                continue
-            value = json.loads(line)
-            if not isinstance(value, dict):
-                raise MissingDocumentSuccessorError(
-                    "repair manifest row must be an object"
-                )
-            records.append(cast(JsonRecord, value))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise MissingDocumentSuccessorError("repair manifest is invalid JSONL") from exc
+    records = _parse_manifest(payload)
     if not records:
         raise MissingDocumentSuccessorError("repair manifest is empty")
-    return tuple(records)
+    return records
 
 
 def _validated_mismatch(
@@ -1340,6 +1349,7 @@ def _validated_mismatch(
     return {
         "candidate_id": candidate_id,
         "docket_entry_number": _positive_int(record.get("entry"), "mismatch entry"),
+        "document_selector": _document_selector(record.get("document_selector")),
         "document_role": _required_text(record, "selected_role"),
         "disposition": "rejected_byte_role",
         "reason": f"byte_role_{verdict}",
