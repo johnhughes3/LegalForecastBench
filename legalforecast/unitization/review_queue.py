@@ -662,7 +662,13 @@ def verify_review_queue_v2_coverage(
         if record.get("schema_version") != SCHEMA_VERSION:
             raise ReviewQueueError("review queue v2 record has the wrong schema")
         candidate_id = required_str(record, "candidate_id")
-        subject = ReviewSubject(required_str(record, "review_subject"))
+        raw_subject = required_str(record, "review_subject")
+        try:
+            subject = ReviewSubject(raw_subject)
+        except ValueError as error:
+            raise ReviewQueueError(
+                f"review queue v2 record has an unknown review_subject: {raw_subject}"
+            ) from error
         if subject is ReviewSubject.UNIT:
             v2_units.add((candidate_id, required_str(record, "unit_id")))
         else:
