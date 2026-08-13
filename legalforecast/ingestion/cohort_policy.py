@@ -14,6 +14,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts.schemas import COHORT_POLICY_V1, COHORT_POLICY_V2
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     PublishedSnapshot,
@@ -21,8 +22,8 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     verify_snapshot,
 )
 
-COHORT_POLICY_SCHEMA_VERSION = "legalforecast.cohort_policy.v1"
-COHORT_POLICY_SCHEMA_VERSION_V2 = "legalforecast.cohort_policy.v2"
+COHORT_POLICY_SCHEMA_VERSION = str(COHORT_POLICY_V1)
+COHORT_POLICY_SCHEMA_VERSION_V2 = str(COHORT_POLICY_V2)
 OBSERVATION_SCHEMA_VERSION = "legalforecast.cohort_observation_manifest.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _REQUIRED_BRIEFING_ROLES = (

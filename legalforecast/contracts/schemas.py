@@ -27,6 +27,8 @@ class SchemaIdentifier:
 
 
 ACQUISITION_RUN_CARD_V1 = SchemaIdentifier("legalforecast.acquisition_run_card.v1")
+COHORT_POLICY_V1 = SchemaIdentifier("legalforecast.cohort_policy.v1")
+COHORT_POLICY_V2 = SchemaIdentifier("legalforecast.cohort_policy.v2")
 CORPUS_COMPLETION_SUMMARY_V1 = SchemaIdentifier(
     "legalforecast.corpus_completion_summary.v1"
 )
