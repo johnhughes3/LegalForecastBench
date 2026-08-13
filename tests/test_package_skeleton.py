@@ -49,6 +49,7 @@ MODULES = [
     "legalforecast.evals.bootstrap",
     "legalforecast.evals.human_baseline",
     "legalforecast.reporting.leaderboard",
+    "legalforecast.reporting.contamination_tiers",
     "legalforecast.reporting.calibration",
     "legalforecast.reporting.pareto",
     "legalforecast.reporting.fallback_pilot",

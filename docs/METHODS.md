@@ -12,6 +12,8 @@ Each run uses a cycle ID, run-input manifest, locked labels, model registry, mod
 
 Model-visible docket and filing text is screened for target-outcome leakage before packet construction. Exclusions and redactions are recorded in acquisition and audit artifacts. Packets exclude the target written disposition.
 
+Published scores carry a contamination tier computed from the model's recorded training cutoff and the cohort's `eligibility_anchor`. Contamination-resistant scores are the default claim: the cutoff predates every scored decision. Preliminary (non-contamination-resistant) scores are allowed on a frozen cohort when a later-released model's cutoff overlaps that window; they are marked with an asterisk and a standard caveat. When a later resistant refresh covers the same model, the paired micro-Brier delta is published as drift. See [contamination-tier-reporting.md](contamination-tier-reporting.md). The overlay does not change authenticated aggregate bytes.
+
 ## Model Execution And Recovery
 
 Provider calls run as isolated case, ablation, model, and repeat cells. Complete results are published to the durable results store with identity metadata that includes the packet hash and solver/registry contract. Resume mode reuses only complete matching results. Failed cells retain logs but do not become score records.

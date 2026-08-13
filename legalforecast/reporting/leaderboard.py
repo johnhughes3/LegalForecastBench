@@ -49,6 +49,11 @@ from legalforecast.evals.bootstrap import (
 )
 from legalforecast.evals.scorers import ScoreSummary
 from legalforecast.reporting.calibration import calibration_records, calibration_svg
+from legalforecast.reporting.contamination_tiers import (
+    ContaminationTier,
+    preliminary_caveat_if_needed,
+    reported_model_label,
+)
 from legalforecast.reporting.pareto import pareto_frontier_records
 
 OBSERVED_RANK_TIER_METHOD = "observed_micro_brier_order"
@@ -357,7 +362,11 @@ class BenchmarkLeaderboardReport:
             writer.writerow(row.to_record())
         return output.getvalue()
 
-    def to_markdown(self) -> str:
+    def to_markdown(
+        self,
+        *,
+        contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    ) -> str:
         headers = (
             "Rank",
             "Tier",
@@ -402,7 +411,7 @@ class BenchmarkLeaderboardReport:
                 "| "
                 f"{row.rank} | "
                 f"{row.rank_tier if row.rank_tier is not None else ''} | "
-                f"{row.model_id} | "
+                f"{reported_model_label(row.model_id, contamination_tiers)} | "
                 f"{row.row_type} | "
                 f"{row.micro_brier:.4f} | "
                 f"{row.brier_skill_score:.4f} | "
@@ -423,7 +432,8 @@ class BenchmarkLeaderboardReport:
             for delta in self.pairwise_deltas:
                 lines.append(
                     "- "
-                    f"{delta.model_a} - {delta.model_b}: "
+                    f"{reported_model_label(delta.model_a, contamination_tiers)} - "
+                    f"{reported_model_label(delta.model_b, contamination_tiers)}: "
                     f"{delta.observed_delta:.4f} "
                     f"[{delta.ci_low:.4f}, {delta.ci_high:.4f}]"
                 )
@@ -432,18 +442,28 @@ class BenchmarkLeaderboardReport:
             for point in self.pareto_accuracy_cost:
                 lines.append(
                     "- "
-                    f"{point['model_id']}: micro-Brier "
+                    + reported_model_label(str(point["model_id"]), contamination_tiers)
+                    + ": micro-Brier "
                     f"{float(point['micro_brier']):.4f}, cost/case "
                     f"{_fmt_optional(_optional_number(point, 'cost_per_case'))}"
                 )
+        caveat = preliminary_caveat_if_needed(contamination_tiers)
+        if caveat is not None:
+            lines.extend(["", caveat])
         return "\n".join(lines)
 
-    def to_html(self) -> str:
+    def to_html(
+        self,
+        *,
+        contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    ) -> str:
         rows = "\n".join(
             "<tr>"
             f"<td>{row.rank}</td>"
             f"<td>{row.rank_tier if row.rank_tier is not None else ''}</td>"
-            f"<td>{html.escape(row.model_id)}</td>"
+            "<td>"
+            + html.escape(reported_model_label(row.model_id, contamination_tiers))
+            + "</td>"
             f"<td>{row.row_type}</td>"
             f"<td>{row.micro_brier:.4f}</td>"
             f"<td>{row.brier_skill_score:.4f}</td>"
@@ -459,7 +479,11 @@ class BenchmarkLeaderboardReport:
         )
         pareto_rows = "\n".join(
             "<tr>"
-            f"<td>{html.escape(str(point['model_id']))}</td>"
+            "<td>"
+            + html.escape(
+                reported_model_label(str(point["model_id"]), contamination_tiers)
+            )
+            + "</td>"
             f"<td>{float(point['micro_brier']):.4f}</td>"
             f"<td>{_fmt_optional(_optional_number(point, 'cost_per_case'))}</td>"
             "</tr>"
@@ -471,6 +495,18 @@ class BenchmarkLeaderboardReport:
             if self.small_cluster_warning is not None
             else ""
         )
+        caveat = preliminary_caveat_if_needed(contamination_tiers)
+        caveat_html = (
+            f"<p>{html.escape(caveat, quote=False)}</p>" if caveat is not None else ""
+        )
+        calibration_svg_markup = self.calibration_plot_svg
+        if contamination_tiers is not None:
+            for model_id in sorted(contamination_tiers, key=len, reverse=True):
+                marked = reported_model_label(model_id, contamination_tiers)
+                if marked != model_id:
+                    calibration_svg_markup = calibration_svg_markup.replace(
+                        model_id, marked
+                    )
         return (
             "<!doctype html><html><body>"
             f"<h1>{html.escape(self.title)}</h1>"
@@ -486,9 +522,9 @@ class BenchmarkLeaderboardReport:
             "</table>"
             "<p><strong>Rank tier note:</strong> "
             f"{html.escape(self.rank_tier_caveat)}</p>"
-            f"{warning_html}"
+            f"{warning_html}{caveat_html}"
             "<h2>Calibration</h2>"
-            f"{self.calibration_plot_svg}"
+            f"{calibration_svg_markup}"
             "<h2>Pareto Frontier</h2>"
             "<table><thead><tr><th>Model</th><th>Micro-Brier</th>"
             "<th>Cost/case</th></tr></thead>"

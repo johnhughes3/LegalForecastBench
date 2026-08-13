@@ -19,6 +19,10 @@ from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
     enforce_publication_guardrails,
 )
+from legalforecast.reporting.contamination_tiers import (
+    artifact_sha256_digest,
+    load_contamination_tier_sidecar,
+)
 
 OFFICIAL_RESULTS_SITE_SCHEMA_VERSION = "legalforecast.official_results_site.v1"
 COMMUNITY_RESULTS_SITE_SCHEMA_VERSION = "legalforecast.community_results_site.v1"
@@ -210,6 +214,7 @@ def render_official_results_site(
     *,
     official_artifacts_dir: Path,
     output_dir: Path,
+    contamination_sidecar_path: Path | None = None,
 ) -> StaticSiteResult:
     """Render an official-only static site from official aggregate artifacts."""
 
@@ -220,10 +225,24 @@ def render_official_results_site(
         href_base=output_dir,
         allowed_paths=bundle.artifact_paths,
     )
+    sidecar_path = contamination_sidecar_path or (
+        official_artifacts_dir / "contamination-tier-sidecar.json"
+    )
+    contamination_tiers = None
+    if sidecar_path.is_file():
+        leaderboard_bytes = (
+            official_artifacts_dir / "report" / "leaderboard.json"
+        ).read_bytes()
+        sidecar = load_contamination_tier_sidecar(
+            sidecar_path,
+            expected_digest=artifact_sha256_digest(leaderboard_bytes),
+        )
+        contamination_tiers = sidecar.tier_by_model_id()
     page = build_official_report_page(
         official_artifacts_dir=official_artifacts_dir,
         artifact_links=artifact_links,
         bundle=bundle,
+        contamination_tiers=contamination_tiers,
     )
     _write_site(
         output_dir,
