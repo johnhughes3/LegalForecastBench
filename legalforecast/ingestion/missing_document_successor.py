@@ -27,6 +27,7 @@ from legalforecast.contracts import (
     MISSING_DOCUMENT_SUCCESSOR_STATE_V1,
     RAW_BYTES_RAW_SHA256_V1,
     REPAIR_MANIFEST_APPROVAL_V1,
+    REPAIR_MANIFEST_APPROVAL_V2,
     SchemaIdentifier,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
@@ -86,6 +87,83 @@ class RepairApproval:
 
     def is_replay_minted(self) -> bool:
         return self._mint_token is _APPROVAL_MINT
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class RepairPlanApproval:
+    manifest_sha256: str
+    maximum_cost_usd: Decimal
+    max_per_document_usd: Decimal
+    approval_sha256: str
+    _mint_token: object
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise MissingDocumentSuccessorError(
+            "RepairPlanApproval requires evidence replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._mint_token is _APPROVAL_MINT
+
+
+def verify_repair_plan_approval(
+    manifest_bytes: bytes, record: Mapping[str, object]
+) -> RepairPlanApproval:
+    keys = {
+        "schema_version",
+        "decision",
+        "manifest_sha256",
+        "maximum_cost_usd",
+        "max_per_document_usd",
+        "candidate_count",
+        "repair_count",
+        "keep_count",
+        "replace_count",
+        "missing_slot_count",
+    }
+    if (
+        set(record) != keys
+        or record.get("schema_version") != str(REPAIR_MANIFEST_APPROVAL_V2)
+        or record.get("decision") != "approve"
+    ):
+        raise MissingDocumentSuccessorError("repair plan approval is invalid")
+    digest = hashlib.sha256(manifest_bytes).hexdigest()
+    if record.get("manifest_sha256") != digest:
+        raise MissingDocumentSuccessorError(
+            "approval manifest digest differs from repair manifest"
+        )
+    manifest = _parse_manifest(manifest_bytes)
+    recommendations = [
+        _text(row.get("recommendation"), "repair recommendation") for row in manifest
+    ]
+    slots, _ = _repair_work(manifest)
+    counts = {
+        "candidate_count": len(manifest),
+        "repair_count": recommendations.count("repair"),
+        "keep_count": recommendations.count("keep"),
+        "replace_count": recommendations.count("replace"),
+        "missing_slot_count": len(slots),
+    }
+    if any(record.get(key) != value for key, value in counts.items()):
+        raise MissingDocumentSuccessorError(
+            "repair plan approval counts differ from manifest"
+        )
+    approval = object.__new__(RepairPlanApproval)
+    for name, value in (
+        ("manifest_sha256", digest),
+        (
+            "maximum_cost_usd",
+            _decimal(record.get("maximum_cost_usd"), "approved cost ceiling"),
+        ),
+        (
+            "max_per_document_usd",
+            _decimal(record.get("max_per_document_usd"), "per-document cap"),
+        ),
+        ("approval_sha256", hashlib.sha256(_canonical_bytes(record)).hexdigest()),
+        ("_mint_token", _APPROVAL_MINT),
+    ):
+        object.__setattr__(approval, name, value)
+    return approval
 
 
 def verify_repair_approval(
@@ -918,6 +996,7 @@ class MissingDocumentAcquisitionPlan:
     """A deterministic free-first plan bound to one approved sidecar."""
 
     manifest_sha256: str
+    approval_sha256: str
     approved_maximum_usd: Decimal
     max_per_document_usd: Decimal
     items: tuple[MissingDocumentAcquisitionItem, ...]
@@ -934,6 +1013,7 @@ class MissingDocumentAcquisitionPlan:
         return {
             "schema_version": PLAN_SCHEMA_VERSION,
             "manifest_sha256": self.manifest_sha256,
+            "approval_sha256": self.approval_sha256,
             "approved_maximum_usd": _money(self.approved_maximum_usd),
             "max_per_document_usd": _money(self.max_per_document_usd),
             "projected_paid_cost_usd": _money(self.projected_paid_cost_usd),
@@ -985,20 +1065,21 @@ class SealedMissingDocumentSuccessor:
 def build_missing_document_acquisition_plan(
     *,
     manifest_bytes: bytes,
-    approved_manifest_sha256: str,
-    approved_maximum_usd: Decimal | str,
-    max_per_document_usd: Decimal | str = "3.00",
+    approval: RepairPlanApproval,
 ) -> MissingDocumentAcquisitionPlan:
     """Authenticate an observational repair sidecar and derive its work plan."""
 
-    approved_digest = _raw_sha256(approved_manifest_sha256, "approved digest")
     actual_digest = hashlib.sha256(manifest_bytes).hexdigest()
-    if actual_digest != approved_digest:
+    if (
+        type(approval) is not RepairPlanApproval
+        or not approval.is_replay_minted()
+        or approval.manifest_sha256 != actual_digest
+    ):
         raise MissingDocumentSuccessorError(
-            "repair manifest differs from the approved digest"
+            "repair manifest lacks replay-verified approval"
         )
-    maximum = _positive_money(approved_maximum_usd, "approved maximum")
-    per_document = _positive_money(max_per_document_usd, "per-document cap")
+    maximum = _positive_money(approval.maximum_cost_usd, "approved maximum")
+    per_document = _positive_money(approval.max_per_document_usd, "per-document cap")
     records = _read_manifest(manifest_bytes)
     seen_candidates: set[str] = set()
     seen_items: set[DocumentKey] = set()
@@ -1015,10 +1096,6 @@ def build_missing_document_acquisition_plan(
         recommendation = _required_text(record, "recommendation")
         if recommendation not in _ALLOWED_RECOMMENDATIONS:
             raise MissingDocumentSuccessorError("unsupported repair recommendation")
-        if recommendation == "replace":
-            raise MissingDocumentSuccessorError(
-                "replacement recommendation belongs to the successor-replacement path"
-            )
         missing = _record_list(record, "missing_docs")
         byte_mismatches = _record_list(record, "byte_mismatches")
         current = _record_list(record, "current_selection", required=False)
@@ -1026,7 +1103,7 @@ def build_missing_document_acquisition_plan(
         extras = _record_list(record, "extra_selected", required=False)
         if recommendation == "keep" and (missing or byte_mismatches):
             raise MissingDocumentSuccessorError("keep row contains repair obligations")
-        if recommendation != "keep":
+        if recommendation == "repair":
             repair_count += 1
         row_cost = Decimal("0.00")
         for missing_record in missing:
@@ -1178,6 +1255,7 @@ def build_missing_document_acquisition_plan(
     )
     provisional = MissingDocumentAcquisitionPlan(
         manifest_sha256=actual_digest,
+        approval_sha256=approval.approval_sha256,
         approved_maximum_usd=maximum,
         max_per_document_usd=per_document,
         items=tuple(items),
@@ -1188,6 +1266,7 @@ def build_missing_document_acquisition_plan(
     )
     return MissingDocumentAcquisitionPlan(
         manifest_sha256=provisional.manifest_sha256,
+        approval_sha256=provisional.approval_sha256,
         approved_maximum_usd=provisional.approved_maximum_usd,
         max_per_document_usd=provisional.max_per_document_usd,
         items=provisional.items,

@@ -41,6 +41,7 @@ from legalforecast.ingestion.document_repair_executor import (
 from legalforecast.ingestion.document_repair_pilot import build_document_repair_pilot
 from legalforecast.ingestion.missing_document_successor import (
     build_missing_document_acquisition_plan,
+    verify_repair_plan_approval,
 )
 
 
@@ -50,6 +51,25 @@ def _canonical_bytes(value: object) -> bytes:
 
 def _manifest_bytes(*records: Mapping[str, object]) -> bytes:
     return b"".join(_canonical_bytes(record) for record in records)
+
+
+def _plan_approval(manifest: bytes, *, per_document: str = "3.00"):  # type: ignore[no-untyped-def]
+    rows = [json.loads(line) for line in manifest.splitlines()]
+    return verify_repair_plan_approval(
+        manifest,
+        {
+            "schema_version": "legalforecast.repair_manifest_approval.v2",
+            "decision": "approve",
+            "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "maximum_cost_usd": "453.00",
+            "max_per_document_usd": per_document,
+            "candidate_count": len(rows),
+            "repair_count": sum(row["recommendation"] == "repair" for row in rows),
+            "keep_count": sum(row["recommendation"] == "keep" for row in rows),
+            "replace_count": sum(row["recommendation"] == "replace" for row in rows),
+            "missing_slot_count": sum(len(row["missing_docs"]) for row in rows),
+        },
+    )
 
 
 def _row(candidate_id: str, entry: int, *, free: bool) -> dict[str, object]:
@@ -87,9 +107,7 @@ def _scope() -> tuple[object, object]:
     )
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
-        max_per_document_usd="3.00",
+        approval=_plan_approval(manifest),
     )
     pilot = build_document_repair_pilot(
         full_plan=plan,
@@ -366,8 +384,7 @@ def test_execution_rejects_snapshot_docket_id_from_another_candidate() -> None:
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshot = json.loads(_snapshot("70754103", 1, 9001, free=True))
     snapshot["docket_id"] = 71212565
@@ -390,8 +407,7 @@ def test_execution_rejects_namespaced_candidate_bound_to_another_docket() -> Non
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshot = json.loads(_snapshot("70754103", 1, 9001, free=True))
     snapshot["candidate_id"] = candidate
@@ -476,7 +492,9 @@ def _approved_purchase_policy(
         "fallback": "free_only",
         "selected_candidate_ids_sha256": _canonical_value_sha256(candidate_ids),
         "purchase_document_ids_sha256": _canonical_value_sha256(document_ids),
-        "output_commitments": {"repair_execution": "sha256:" + "b" * 64},
+        "output_commitments": {
+            "repair_execution": "sha256:" + execution.execution_sha256
+        },
     }
     policy = {
         "cycle_id": approval["cycle_id"],
@@ -858,8 +876,7 @@ def test_execution_seals_complete_successor_only_from_exact_resolved_documents()
     )
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = _snapshots()
     execution = build_full_document_repair_execution(
@@ -977,8 +994,7 @@ def test_retryable_provider_error_cannot_seal_successor() -> None:
     manifest = _manifest_bytes(_row("a", 1, free=False))
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
     execution = build_full_document_repair_execution(
@@ -1013,8 +1029,7 @@ def test_retry_permitted_terminal_receipt_cannot_seal_successor() -> None:
     manifest = _manifest_bytes(_row("a", 1, free=False))
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
     execution = build_full_document_repair_execution(
@@ -1065,8 +1080,7 @@ def test_terminal_exclusion_is_not_retryable() -> None:
     manifest = _manifest_bytes(_row("a", 1, free=False))
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
     execution = build_full_document_repair_execution(
@@ -1149,8 +1163,7 @@ def test_runner_materializes_complete_evidence_for_successor_seal(
     )
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = _snapshots()
     execution = build_full_document_repair_execution(
@@ -1281,9 +1294,7 @@ def test_full_execution_covers_every_plan_item_under_full_approval() -> None:
     )
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
-        max_per_document_usd="3.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {
         candidate: _snapshot(candidate, index, 9000 + index, free=index == 1)
@@ -1311,8 +1322,7 @@ def test_full_execution_requires_exact_snapshot_candidate_set() -> None:
     manifest = _manifest_bytes(_row("a", 1, free=True), _row("b", 2, free=False))
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=True)}
 
@@ -1333,9 +1343,7 @@ def test_execution_rejects_nonapproved_per_document_price() -> None:
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
-        max_per_document_usd="4.00",
+        approval=_plan_approval(manifest, per_document="4.00"),
     )
     snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
 
@@ -1359,9 +1367,7 @@ def test_pilot_execution_rejects_nonapproved_per_document_price() -> None:
     manifest = _manifest_bytes(*rows)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
-        max_per_document_usd="4.00",
+        approval=_plan_approval(manifest, per_document="4.00"),
     )
     pilot = build_document_repair_pilot(
         full_plan=plan,
@@ -1475,8 +1481,7 @@ def test_execution_resolves_same_entry_attachment_selector(tmp_path: Path) -> No
     manifest = _manifest_bytes(row)
     plan = build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd="453.00",
+        approval=_plan_approval(manifest),
     )
     snapshot = json.loads(_snapshot("73569789", 5, 9005, free=False))
     snapshot["entries"][0]["recap_documents"].append(

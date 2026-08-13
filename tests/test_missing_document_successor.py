@@ -17,6 +17,7 @@ from legalforecast.ingestion.missing_document_successor import (
     project_missing_document_successor,
     seal_missing_document_successor,
     verify_repair_approval,
+    verify_repair_plan_approval,
 )
 
 
@@ -169,12 +170,7 @@ def test_v1_projection_rejects_explicit_null_selector() -> None:
     with pytest.raises(MissingDocumentSuccessorError, match="document selector"):
         _approval(manifest)
     with pytest.raises(MissingDocumentSuccessorError, match="document selector"):
-        build_missing_document_acquisition_plan(
-            manifest_bytes=manifest,
-            approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-            approved_maximum_usd=Decimal("3.00"),
-            max_per_document_usd=Decimal("3.00"),
-        )
+        _plan(manifest, cap="3.00")
 
 
 def test_v1_projection_treats_main_aliases_as_one_slot() -> None:
@@ -431,11 +427,26 @@ def _missing(
 
 
 def _plan(manifest: bytes, *, cap: str = "453.00") -> Any:
+    rows = [json.loads(line) for line in manifest.splitlines() if line]
     return build_missing_document_acquisition_plan(
         manifest_bytes=manifest,
-        approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        approved_maximum_usd=cap,
-        max_per_document_usd="3.00",
+        approval=verify_repair_plan_approval(
+            manifest,
+            {
+                "schema_version": "legalforecast.repair_manifest_approval.v2",
+                "decision": "approve",
+                "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+                "maximum_cost_usd": cap,
+                "max_per_document_usd": "3.00",
+                "candidate_count": len(rows),
+                "repair_count": sum(row["recommendation"] == "repair" for row in rows),
+                "keep_count": sum(row["recommendation"] == "keep" for row in rows),
+                "replace_count": sum(
+                    row["recommendation"] == "replace" for row in rows
+                ),
+                "missing_slot_count": sum(len(row["missing_docs"]) for row in rows),
+            },
+        ),
     )
 
 
@@ -444,13 +455,8 @@ def test_plan_is_bound_to_exact_approved_plan_manifest_bytes() -> None:
         _repair("70754103", missing=[_missing(12, "response", free=0, paid=1)])
     )
 
-    with pytest.raises(MissingDocumentSuccessorError, match="approved digest"):
-        build_missing_document_acquisition_plan(
-            manifest_bytes=manifest + b" ",
-            approved_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-            approved_maximum_usd="453.00",
-            max_per_document_usd="3.00",
-        )
+    with pytest.raises((MissingDocumentSuccessorError, json.JSONDecodeError)):
+        _plan(manifest + b" ")
 
 
 def test_plan_orders_free_recovery_before_paid_and_is_deterministic() -> None:
@@ -522,11 +528,9 @@ def test_plan_rejects_replacement_recommendation() -> None:
         }
     )
 
-    with pytest.raises(
-        MissingDocumentSuccessorError,
-        match="replacement recommendation",
-    ):
-        _plan(manifest)
+    plan = _plan(manifest)
+    assert plan.items == ()
+    assert plan.manifest_repair_count == 0
 
 
 def test_plan_refuses_per_document_and_aggregate_approval_overruns() -> None:

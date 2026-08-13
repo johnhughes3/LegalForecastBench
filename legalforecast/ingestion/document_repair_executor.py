@@ -747,6 +747,15 @@ def _verify_purchase_policy_binding(
         )
     approval = policy.approval
     assert approval is not None
+    output_commitments = approval.get("output_commitments")
+    if (
+        not isinstance(output_commitments, Mapping)
+        or output_commitments.get("repair_execution")
+        != "sha256:" + execution.execution_sha256
+    ):
+        raise DocumentRepairExecutorError(
+            "purchase-policy output commitment differs from repair execution"
+        )
     document_ids = tuple(
         document_id
         for plan in budget.case_plans
@@ -1085,10 +1094,6 @@ def _resolve_operation(
     if (
         document.get("is_available") is True
         and document.get("is_sealed") is False
-        and not restricted_material_markers(
-            records=(document,),
-            text_fields=(str(document.get("description") or ""),),
-        )
         and isinstance(filepath, str)
     ):
         free_url = public_recap_download_url(filepath)

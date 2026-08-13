@@ -101,6 +101,9 @@ MISSING_DOCUMENT_SUCCESSOR_STATE_V1 = SchemaIdentifier(
 REPAIR_MANIFEST_APPROVAL_V1 = SchemaIdentifier(
     "legalforecast.repair_manifest_approval.v1"
 )
+REPAIR_MANIFEST_APPROVAL_V2 = SchemaIdentifier(
+    "legalforecast.repair_manifest_approval.v2"
+)
 EXACT100_ZERO_COST_RECOVERY_PLAN_V1 = SchemaIdentifier(
     "legalforecast.exact100_zero_cost_recovery_plan.v1"
 )
