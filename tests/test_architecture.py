@@ -5,6 +5,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 import pytest
+from legalforecast.testing import architecture as architecture_module
 from legalforecast.testing.architecture import (
     BASELINE_PATH,
     check_baseline,
@@ -48,6 +49,53 @@ def test_architecture_scanner_finds_private_cli_test_coupling() -> None:
         target.endswith(".__file__")
         for target in snapshot.compatibility.private_cli_targets
     )
+    assert "legalforecast.cli.argparse._SubParsersAction" not in (
+        snapshot.compatibility.private_cli_targets
+    )
+    assert "legalforecast.cli.os.link" in snapshot.compatibility.monkeypatch_targets
+    assert "legalforecast.cli.sys.stdin" in (snapshot.compatibility.monkeypatch_targets)
+
+
+def test_architecture_scanner_distinguishes_cli_members_from_nested_modules(
+    tmp_path: Path,
+) -> None:
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_probe.py").write_text(
+        """\
+import legalforecast.cli
+from legalforecast import cli as cli_module
+
+_private = legalforecast.cli._private
+stdlib_private = cli_module.argparse._SubParsersAction
+monkeypatch.setattr(cli_module.os, "link", replacement)
+""",
+        encoding="utf-8",
+    )
+
+    inventory = architecture_module._scan_test_compatibility(tmp_path)
+
+    assert inventory.private_cli_targets == ("legalforecast.cli._private",)
+    assert inventory.monkeypatch_targets == ("legalforecast.cli.os.link",)
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "from .. import cli",
+        "from ..cli import main",
+        "from legalforecast import cli",
+        "from legalforecast.cli import main",
+    ],
+)
+def test_upward_dependency_scanner_resolves_cli_import_forms(
+    tmp_path: Path, statement: str
+) -> None:
+    module = tmp_path / "legalforecast" / "ingestion" / "probe.py"
+    module.parent.mkdir(parents=True)
+    module.write_text(statement + "\n", encoding="utf-8")
+
+    assert architecture_module._imports_cli(module)
 
 
 def test_architecture_baseline_reports_tightened_limits(tmp_path: Path) -> None:

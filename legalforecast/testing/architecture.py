@@ -247,12 +247,16 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=relative)
         except SyntaxError:
             continue
-        aliases: set[str] = set()
+        direct_aliases: set[str] = set()
+        package_aliases: set[str] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "legalforecast.cli":
-                        aliases.add(alias.asname or "legalforecast")
+                        if alias.asname is None:
+                            package_aliases.add("legalforecast")
+                        else:
+                            direct_aliases.add(alias.asname)
                         cli_import_files.add(relative)
             elif (
                 isinstance(node, ast.ImportFrom) and node.module == "legalforecast.cli"
@@ -265,10 +269,14 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
             elif isinstance(node, ast.ImportFrom) and node.module == "legalforecast":
                 for alias in node.names:
                     if alias.name == "cli":
-                        aliases.add(alias.asname or "cli")
+                        direct_aliases.add(alias.asname or "cli")
                         cli_import_files.add(relative)
             if isinstance(node, ast.Attribute):
-                target = _cli_attribute_target(node, aliases)
+                target = _cli_attribute_target(
+                    node,
+                    direct_aliases=direct_aliases,
+                    package_aliases=package_aliases,
+                )
                 if target is not None and _is_private_target(target):
                     private_files.add(relative)
                     private_targets.add(target)
@@ -284,11 +292,13 @@ def _scan_test_compatibility(root: Path) -> CompatibilityInventory:
                     monkeypatch_targets.add(string_target.value)
                 target = node.args[1]
                 if isinstance(target, ast.Constant) and isinstance(target.value, str):
-                    if (
-                        isinstance(node.args[0], ast.Name)
-                        and node.args[0].id in aliases
-                    ):
-                        monkeypatch_targets.add(f"legalforecast.cli.{target.value}")
+                    object_target = _cli_object_target(
+                        node.args[0],
+                        direct_aliases=direct_aliases,
+                        package_aliases=package_aliases,
+                    )
+                    if object_target is not None:
+                        monkeypatch_targets.add(f"{object_target}.{target.value}")
                     elif target.value.startswith("legalforecast.cli."):
                         monkeypatch_targets.add(target.value)
         if relative in private_files:
@@ -313,9 +323,12 @@ def _imports_cli(path: Path) -> bool:
             alias.name == "legalforecast.cli" for alias in node.names
         ):
             return True
-        if isinstance(node, ast.ImportFrom) and node.module == "legalforecast.cli":
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        module = _absolute_import_from_module(path, node)
+        if module == "legalforecast.cli":
             return True
-        if isinstance(node, ast.ImportFrom) and node.module == "legalforecast":
+        if module == "legalforecast":
             if any(alias.name == "cli" for alias in node.names):
                 return True
     return False
@@ -360,7 +373,53 @@ def _is_dunder(name: str) -> bool:
     return len(name) >= 4 and name.startswith("__") and name.endswith("__")
 
 
-def _cli_attribute_target(node: ast.Attribute, aliases: set[str]) -> str | None:
+def _absolute_import_from_module(path: Path, node: ast.ImportFrom) -> str | None:
+    """Resolve an import-from module within the ``legalforecast`` package."""
+
+    if node.level == 0:
+        return node.module
+    try:
+        package_index = max(
+            index
+            for index, part in enumerate(path.parent.parts)
+            if part == "legalforecast"
+        )
+    except ValueError:
+        return None
+    package = list(path.parent.parts[package_index:])
+    parents = node.level - 1
+    if parents >= len(package):
+        return None
+    if parents:
+        del package[-parents:]
+    if node.module:
+        package.extend(node.module.split("."))
+    return ".".join(package)
+
+
+def _cli_object_target(
+    node: ast.AST,
+    *,
+    direct_aliases: set[str],
+    package_aliases: set[str],
+) -> str | None:
+    if isinstance(node, ast.Name) and node.id in direct_aliases:
+        return "legalforecast.cli"
+    if isinstance(node, ast.Attribute):
+        return _cli_attribute_target(
+            node,
+            direct_aliases=direct_aliases,
+            package_aliases=package_aliases,
+        )
+    return None
+
+
+def _cli_attribute_target(
+    node: ast.Attribute,
+    *,
+    direct_aliases: set[str],
+    package_aliases: set[str],
+) -> str | None:
     parts: list[str] = []
     current: ast.AST = node
     while isinstance(current, ast.Attribute):
@@ -369,18 +428,17 @@ def _cli_attribute_target(node: ast.Attribute, aliases: set[str]) -> str | None:
     if not isinstance(current, ast.Name):
         return None
     parts.append(current.id)
-    dotted = ".".join(reversed(parts))
-    if dotted.startswith("legalforecast.cli."):
-        return dotted
-    if parts[-1] in aliases:
-        return "legalforecast.cli." + ".".join(reversed(parts[:-1]))
+    ordered = list(reversed(parts))
+    if ordered[0] in direct_aliases:
+        return ".".join(("legalforecast", "cli", *ordered[1:]))
+    if ordered[0] in package_aliases and len(ordered) >= 2 and ordered[1] == "cli":
+        return ".".join(("legalforecast", "cli", *ordered[2:]))
     return None
 
 
 def _is_private_target(target: str) -> bool:
-    return target.rsplit(".", 1)[-1].startswith("_") and not _is_dunder(
-        target.rsplit(".", 1)[-1]
-    )
+    cli_member = target.removeprefix("legalforecast.cli.").split(".", 1)[0]
+    return cli_member.startswith("_") and not _is_dunder(cli_member)
 
 
 def _string_tuple(payload: Mapping[str, object], field: str) -> tuple[str, ...]:
