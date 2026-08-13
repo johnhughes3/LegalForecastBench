@@ -221,7 +221,9 @@ def verify_materialized_downstream_lineage(
     )
     card = _projection_json_object(run_card_bytes, source=run_card_path)
     if (
-        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        card.get("schema_version")
+        # contract-ratchet: allow moved CLI replay still matches the frozen run-card id.
+        != "legalforecast.acquisition_run_card.v1"
         or card.get("stage") != "materialize-cohort-documents"
         or card.get("status") != "completed"
         or card.get("dry_run") is not False

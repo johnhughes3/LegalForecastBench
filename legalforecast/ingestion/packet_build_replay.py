@@ -534,7 +534,9 @@ def validate_packet_build_run_card(
     )
     card = _projection_json_object(card_payload, source=run_card_path)
     if (
-        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        card.get("schema_version")
+        # contract-ratchet: allow moved CLI replay still matches the frozen run-card id.
+        != "legalforecast.acquisition_run_card.v1"
         or card.get("stage") != "build-packets"
         or card.get("status") != "completed"
         or card.get("dry_run") is not False
