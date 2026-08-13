@@ -139,6 +139,11 @@ def test_console_modules_are_adapter_sources_not_domain_edge_candidates() -> Non
         ),
         'from importlib import import_module\nimport_module("legalforecast.console")',
         'from importlib import import_module as load\nload("legalforecast.cli")',
+        'import importlib\nimportlib.import_module(name="legalforecast.cli")',
+        (
+            "from importlib import import_module as load\n"
+            'load(name="legalforecast.console.commands")'
+        ),
         '__import__("legalforecast.cli")',
     ],
 )
@@ -150,6 +155,37 @@ def test_upward_dependency_scanner_resolves_cli_import_forms(
     module.write_text(statement + "\n", encoding="utf-8")
 
     assert architecture_module._imports_cli(module)
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "import legalforecast.console_utils",
+        'import importlib\nimportlib.import_module("legalforecast.console_utils")',
+    ],
+)
+def test_upward_dependency_scanner_respects_adapter_package_boundaries(
+    tmp_path: Path, statement: str
+) -> None:
+    module = tmp_path / "legalforecast" / "ingestion" / "probe.py"
+    module.parent.mkdir(parents=True)
+    module.write_text(statement + "\n", encoding="utf-8")
+
+    assert not architecture_module._imports_cli(module)
+
+
+def test_architecture_scanner_allows_build_parser_to_move_from_facade(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "legalforecast"
+    package.mkdir()
+    (package / "cli.py").write_text(
+        "from legalforecast.console import build_parser\n", encoding="utf-8"
+    )
+
+    snapshot = scan_repository(tmp_path)
+
+    assert snapshot.cli_metrics.parser_line_count == 0
 
 
 def test_architecture_baseline_reports_tightened_limits(tmp_path: Path) -> None:
@@ -229,6 +265,44 @@ def test_architecture_baseline_requires_removed_upward_edges_to_shrink(
         for violation in violations
     )
     assert removed not in "\n".join(violations)
+
+
+def test_architecture_baseline_requires_removed_compatibility_to_shrink(
+    tmp_path: Path,
+) -> None:
+    baseline = load_baseline(ROOT / BASELINE_PATH)
+    stale_target = "legalforecast.cli._obsolete"
+    stale_occurrence = f"tests/test_obsolete.py::{stale_target}"
+    payload = {
+        "schema_version": 1,
+        "cli_metrics": asdict(baseline.cli_metrics),
+        "upward_cli_dependencies": list(baseline.upward_cli_dependencies),
+        "compatibility": {
+            **asdict(baseline.compatibility),
+            "private_cli_targets": [
+                *baseline.compatibility.private_cli_targets,
+                stale_target,
+            ],
+            "private_cli_occurrences": [
+                *baseline.compatibility.private_cli_occurrences,
+                stale_occurrence,
+            ],
+        },
+    }
+    path = tmp_path / "architecture.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    violations = check_baseline(ROOT, path)
+
+    assert (
+        "stale compatibility.private_cli_targets must be removed: " + stale_target
+        in violations
+    )
+    assert (
+        "stale compatibility.private_cli_occurrences must be removed: "
+        + stale_occurrence
+        in violations
+    )
 
 
 @pytest.mark.parametrize("payload", [{"schema_version": 2}, []])

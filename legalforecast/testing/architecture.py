@@ -89,8 +89,6 @@ def scan_repository(root: Path) -> ArchitectureSnapshot:
         if node.name.startswith(("_verify_", "_validate_", "_require_", "_guard_"))
     ]
     parser = next((node for node in functions if node.name == "build_parser"), None)
-    if parser is None:
-        raise ValueError(f"{CLI_PATH} defines no top-level build_parser")
     metrics = CliMetrics(
         line_count=len(source.splitlines()),
         nonblank_line_count=sum(bool(line.strip()) for line in source.splitlines()),
@@ -98,7 +96,7 @@ def scan_repository(root: Path) -> ArchitectureSnapshot:
         top_level_class_count=sum(
             isinstance(node, ast.ClassDef) for node in definitions
         ),
-        parser_line_count=_line_count(parser),
+        parser_line_count=_line_count(parser) if parser is not None else 0,
         command_handler_count=len(command_handlers),
         command_handler_lines=sum(_line_count(node) for node in command_handlers),
         verifier_family_count=len(verifier_family),
@@ -180,6 +178,11 @@ def check_baseline(root: Path, baseline_path: Path = BASELINE_PATH) -> tuple[str
         additions = sorted(observed - allowed)
         if additions:
             violations.append(f"new compatibility.{field}: {', '.join(additions)}")
+        removals = sorted(allowed - observed)
+        if removals:
+            violations.append(
+                f"stale compatibility.{field} must be removed: {', '.join(removals)}"
+            )
     for field in (
         "cli_import_occurrences",
         "private_cli_occurrences",
@@ -190,6 +193,11 @@ def check_baseline(root: Path, baseline_path: Path = BASELINE_PATH) -> tuple[str
         additions = sorted((observed - allowed).elements())
         if additions:
             violations.append(f"new compatibility.{field}: {', '.join(additions)}")
+        removals = sorted((allowed - observed).elements())
+        if removals:
+            violations.append(
+                f"stale compatibility.{field} must be removed: {', '.join(removals)}"
+            )
     return tuple(violations)
 
 
@@ -406,7 +414,10 @@ def _is_cli_adapter_source(path: str) -> bool:
 
 
 def _is_cli_adapter_module(module: str) -> bool:
-    return module == "legalforecast.cli" or module.startswith("legalforecast.console")
+    return module in {
+        "legalforecast.cli",
+        "legalforecast.console",
+    } or module.startswith(("legalforecast.cli.", "legalforecast.console."))
 
 
 def _dynamic_cli_adapter_import(
@@ -415,9 +426,9 @@ def _dynamic_cli_adapter_import(
     importlib_module_aliases: set[str],
     import_module_aliases: set[str],
 ) -> bool:
-    if not node.args:
+    module = _call_argument(node, 0, "name")
+    if module is None:
         return False
-    module = node.args[0]
     if (
         not isinstance(module, ast.Constant)
         or not isinstance(module.value, str)
