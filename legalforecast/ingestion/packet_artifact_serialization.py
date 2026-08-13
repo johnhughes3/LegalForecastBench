@@ -2,13 +2,25 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
+import shutil
 import tempfile
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+_HARDLINK_UNSUPPORTED_ERRNOS = frozenset(
+    {
+        errno.EXDEV,
+        errno.EPERM,
+        errno.ENOTSUP,
+        errno.EOPNOTSUPP,
+        errno.EMLINK,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,7 +115,11 @@ def write_packet_artifacts_incrementally[Record](
 def _snapshot_destinations(
     destinations: tuple[Path, ...],
 ) -> dict[Path, Path | None]:
-    """Retain cheap same-filesystem snapshots for publication rollback."""
+    """Retain cheap same-filesystem snapshots for publication rollback.
+
+    Hardlinks are preferred.  When the filesystem cannot create them, a
+    byte-for-byte copy preserves the same rollback and cleanup contract.
+    """
 
     backups: dict[Path, Path | None] = {}
     try:
@@ -119,12 +135,27 @@ def _snapshot_destinations(
             os.close(descriptor)
             backup = Path(backup_name)
             backup.unlink()
-            os.link(destination, backup)
+            try:
+                os.link(destination, backup)
+            except OSError as exc:
+                if not _hardlink_snapshot_unsupported(exc):
+                    raise
+                try:
+                    shutil.copyfile(destination, backup, follow_symlinks=False)
+                except OSError:
+                    backup.unlink(missing_ok=True)
+                    raise
             backups[destination] = backup
     except OSError:
         _remove_backups(backups)
         raise
     return backups
+
+
+def _hardlink_snapshot_unsupported(exc: OSError) -> bool:
+    """Return True when creating a rollback hardlink is not possible."""
+
+    return exc.errno in _HARDLINK_UNSUPPORTED_ERRNOS
 
 
 def _restore_destinations(

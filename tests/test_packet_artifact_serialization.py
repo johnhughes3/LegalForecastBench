@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 import weakref
 from collections.abc import Iterable, Iterator, Mapping
@@ -159,6 +160,124 @@ def test_incremental_packet_artifacts_preserve_backup_when_rollback_fails(
     backups = list(tmp_path.glob(".*.backup"))
     assert len(backups) == 1
     assert backups[0].read_bytes() == b"old packets.jsonl\n"
+
+
+@pytest.mark.parametrize(
+    "unsupported_errno",
+    (
+        errno.ENOTSUP,
+        errno.EXDEV,
+        errno.EPERM,
+        errno.EMLINK,
+    ),
+)
+def test_incremental_packet_artifacts_copy_when_hardlinks_unsupported(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    unsupported_errno: int,
+) -> None:
+    paths = _paths(tmp_path)
+    original = (b"old packets\n", b"old case packets\n", b"old audit\n")
+    destinations = (paths.packets, paths.case_packets, paths.audit)
+    for path, payload in zip(destinations, original, strict=True):
+        path.write_bytes(payload)
+
+    def reject_hardlinks(source: str | Path, destination: str | Path) -> None:
+        del source, destination
+        raise OSError(unsupported_errno, "hardlinks unsupported")
+
+    monkeypatch.setattr(packet_artifact_serialization.os, "link", reject_hardlinks)
+
+    write_packet_artifacts_incrementally(
+        paths=paths,
+        source_records=(1,),
+        build_artifacts=lambda row: PacketArtifactRecords(
+            packet={"row": row}, case_packet={"row": row}, audit={"row": row}
+        ),
+    )
+
+    expected = _canonical_jsonl(({"row": 1},))
+    assert tuple(path.read_bytes() for path in destinations) == (
+        expected,
+        expected,
+        expected,
+    )
+    assert not list(tmp_path.glob(".*.tmp"))
+    assert not list(tmp_path.glob(".*.backup"))
+
+
+def test_incremental_packet_artifacts_restore_copied_snapshots_when_publish_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = _paths(tmp_path)
+    original = (b"old packets\n", b"old case packets\n", b"old audit\n")
+    destinations = (paths.packets, paths.case_packets, paths.audit)
+    for path, payload in zip(destinations, original, strict=True):
+        path.write_bytes(payload)
+
+    def reject_hardlinks(source: str | Path, destination: str | Path) -> None:
+        del source, destination
+        raise OSError(errno.ENOTSUP, "hardlinks unsupported")
+
+    real_replace = packet_artifact_serialization.os.replace
+    publication_replacements = 0
+
+    def fail_second_publication(source: str | Path, destination: str | Path) -> None:
+        nonlocal publication_replacements
+        if Path(source).suffix == ".tmp":
+            publication_replacements += 1
+            if publication_replacements == 2:
+                raise OSError("simulated second publication failure")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(packet_artifact_serialization.os, "link", reject_hardlinks)
+    monkeypatch.setattr(
+        packet_artifact_serialization.os, "replace", fail_second_publication
+    )
+
+    with pytest.raises(OSError, match="simulated second publication failure"):
+        write_packet_artifacts_incrementally(
+            paths=paths,
+            source_records=(1,),
+            build_artifacts=lambda row: PacketArtifactRecords(
+                packet={"row": row}, case_packet={"row": row}, audit={"row": row}
+            ),
+        )
+
+    assert tuple(path.read_bytes() for path in destinations) == original
+    assert not list(tmp_path.glob(".*.tmp"))
+    assert not list(tmp_path.glob(".*.backup"))
+
+
+def test_incremental_packet_artifacts_leave_prior_outputs_when_snapshot_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = _paths(tmp_path)
+    original = (b"old packets\n", b"old case packets\n", b"old audit\n")
+    destinations = (paths.packets, paths.case_packets, paths.audit)
+    for path, payload in zip(destinations, original, strict=True):
+        path.write_bytes(payload)
+
+    def fail_hardlinks(source: str | Path, destination: str | Path) -> None:
+        del source, destination
+        raise OSError(errno.EIO, "simulated snapshot I/O error")
+
+    monkeypatch.setattr(packet_artifact_serialization.os, "link", fail_hardlinks)
+
+    with pytest.raises(OSError, match="simulated snapshot I/O error"):
+        write_packet_artifacts_incrementally(
+            paths=paths,
+            source_records=(1,),
+            build_artifacts=lambda row: PacketArtifactRecords(
+                packet={"row": row}, case_packet={"row": row}, audit={"row": row}
+            ),
+        )
+
+    assert tuple(path.read_bytes() for path in destinations) == original
+    assert not list(tmp_path.glob(".*.tmp"))
+    assert not list(tmp_path.glob(".*.backup"))
 
 
 def test_incremental_packet_artifacts_retain_only_the_current_case(

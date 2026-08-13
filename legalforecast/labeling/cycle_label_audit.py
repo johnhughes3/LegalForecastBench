@@ -536,6 +536,11 @@ def render_case_grouped_label_audit_packet(
     cases: list[JsonRecord] = []
     for case_id in sorted(grouped):
         rows = sorted(grouped[case_id], key=lambda row: _required_str(row, "review_id"))
+        review_ids = [_required_str(row, "review_id") for row in rows]
+        if len(set(review_ids)) != len(review_ids):
+            raise CycleLabelAuditError(
+                f"case-grouped packet requires unique review ids: {case_id}"
+            )
         candidate_ids = {_required_str(row, "candidate_id") for row in rows}
         if len(candidate_ids) != 1:
             raise CycleLabelAuditError(
