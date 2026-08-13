@@ -323,7 +323,7 @@ def project_missing_document_successor(
         key = (
             observation.candidate_id,
             observation.docket_entry_number,
-            observation.document_selector,
+            _document_selector(observation.document_selector),
             observation.requested_role,
         )
         if key not in slot_by_key:
@@ -472,7 +472,7 @@ def _repair_work(
         for raw_slot in raw_slots:
             entry = _positive_int(raw_slot.get("entry"), "missing document entry")
             role = _text(raw_slot.get("role"), "missing document role")
-            document_selector = _legacy_document_selector(raw_slot)
+            document_selector = _selector_from_record(raw_slot)
             key = (candidate_id, entry, document_selector, role)
             if key in slot_keys:
                 raise MissingDocumentSuccessorError(
@@ -501,7 +501,7 @@ def _repair_work(
                     "entry": _positive_int(
                         raw_mismatch.get("entry"), "byte mismatch entry"
                     ),
-                    "document_selector": _legacy_document_selector(raw_mismatch),
+                    "document_selector": _selector_from_record(raw_mismatch),
                     "selected_role": _text(
                         raw_mismatch.get("selected_role"),
                         "byte mismatch selected role",
@@ -650,8 +650,8 @@ def _remove_mismatched_selections(
                     mismatch
                     for mismatch in pending
                     if mismatch["entry"] == entry
-                    and _legacy_document_selector(mismatch["document_selector"])
-                    == _legacy_document_selector(document.get("document_selector"))
+                    and _document_selector(mismatch["document_selector"])
+                    == _document_selector(document.get("document_selector"))
                     and mismatch["selected_role"] == role
                 ),
                 None,
@@ -665,7 +665,9 @@ def _remove_mismatched_selections(
                     "schema_version": EXCLUSION_SCHEMA_VERSION,
                     "candidate_id": candidate_id,
                     "docket_entry_number": matched["entry"],
-                    "document_selector": matched["document_selector"],
+                    "document_selector": _v1_selector_spelling(
+                        _document_selector(matched["document_selector"])
+                    ),
                     "requested_role": matched["selected_role"],
                     "source_document_id": document.get("source_document_id"),
                     "source_kind": "inherited",
@@ -753,7 +755,7 @@ def _inclusion(slot: _RepairSlot, observation: AcquisitionObservation) -> JsonRe
         "schema_version": INCLUSION_SCHEMA_VERSION,
         "candidate_id": slot.candidate_id,
         "docket_entry_number": slot.entry,
-        "document_selector": slot.document_selector,
+        "document_selector": _v1_selector_spelling(slot.document_selector),
         "requested_role": slot.requested_role,
         "admitted_role": _ROLE_ALIASES.get(slot.requested_role, slot.requested_role),
         "source_document_id": observation.source_document_id,
@@ -779,7 +781,7 @@ def _slot_exclusion(
         "schema_version": EXCLUSION_SCHEMA_VERSION,
         "candidate_id": slot.candidate_id,
         "docket_entry_number": slot.entry,
-        "document_selector": slot.document_selector,
+        "document_selector": _v1_selector_spelling(slot.document_selector),
         "requested_role": slot.requested_role,
         "source_document_id": observation.source_document_id,
         "source_kind": observation.source_kind,
@@ -1029,7 +1031,7 @@ def build_missing_document_acquisition_plan(
         row_cost = Decimal("0.00")
         for missing_record in missing:
             entry = _positive_int(missing_record.get("entry"), "missing entry")
-            selector = _document_selector(missing_record.get("document_selector"))
+            selector = _selector_from_record(missing_record)
             key = candidate_id, entry, selector
             if key in seen_items:
                 raise MissingDocumentSuccessorError(
@@ -1082,7 +1084,7 @@ def build_missing_document_acquisition_plan(
         mismatch_roles: set[tuple[int, str]] = set()
         for mismatch in byte_mismatches:
             entry = _positive_int(mismatch.get("entry"), "mismatch entry")
-            selector = _document_selector(mismatch.get("document_selector"))
+            selector = _selector_from_record(mismatch)
             key = (entry, selector)
             if key in mismatch_keys:
                 raise MissingDocumentSuccessorError(
@@ -1349,7 +1351,7 @@ def _validated_mismatch(
     return {
         "candidate_id": candidate_id,
         "docket_entry_number": _positive_int(record.get("entry"), "mismatch entry"),
-        "document_selector": _document_selector(record.get("document_selector")),
+        "document_selector": _selector_from_record(record),
         "document_role": _required_text(record, "selected_role"),
         "disposition": "rejected_byte_role",
         "reason": f"byte_role_{verdict}",
@@ -1376,7 +1378,7 @@ def _document_key(record: Mapping[str, object]) -> DocumentKey:
     return (
         _required_text(record, "candidate_id"),
         _positive_int(record.get("docket_entry_number"), "docket entry number"),
-        _document_selector(record.get("document_selector")),
+        _selector_from_record(record),
     )
 
 
@@ -1392,14 +1394,17 @@ def _document_selector(value: object) -> str:
     raise MissingDocumentSuccessorError("document selector is invalid")
 
 
-def _legacy_document_selector(value: object) -> str:
-    """Preserve the frozen v1 selector spelling without v2 normalization."""
-
-    if isinstance(value, Mapping):
-        value = cast(Mapping[str, object], value).get("document_selector", "main")
+def _selector_from_record(record: Mapping[str, object]) -> str:
+    if "document_selector" not in record:
+        return _document_selector(None)
+    value = record.get("document_selector")
     if value is None:
-        value = "main"
-    return _text(value, "document selector")
+        raise MissingDocumentSuccessorError("document selector is invalid")
+    return _document_selector(value)
+
+
+def _v1_selector_spelling(canonical: str) -> str:
+    return "main" if canonical == "main_document" else canonical
 
 
 def _required_text(record: Mapping[str, object], field: str) -> str:
