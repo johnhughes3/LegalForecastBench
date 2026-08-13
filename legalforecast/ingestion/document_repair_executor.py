@@ -20,12 +20,14 @@ from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     EXACT100_DOCUMENT_REPAIR_EXECUTION_V1,
     EXACT100_DOCUMENT_REPAIR_PILOT_V1,
+    EXACT100_DOCUMENT_REPAIR_PURCHASE_AUTHORITY_V1,
     EXACT100_DOCUMENT_REPAIR_RECEIPT_V1,
     EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
 )
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
+    generate_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.document_repair_pilot import DocumentRepairPilot
@@ -88,7 +90,9 @@ class DocumentRepairExecution:
 
     full_plan_sha256: str
     manifest_sha256: str
-    pilot_sha256: str
+    scope: str
+    scope_sha256: str
+    pilot_sha256: str | None
     operations: tuple[ResolvedRepairOperation, ...]
     purchase_budget: MissingCoreBudgetPlan
     execution_sha256: str
@@ -98,6 +102,8 @@ class DocumentRepairExecution:
             "schema_version": SCHEMA_VERSION,
             "full_plan_sha256": self.full_plan_sha256,
             "manifest_sha256": self.manifest_sha256,
+            "scope": self.scope,
+            "scope_sha256": self.scope_sha256,
             "pilot_sha256": self.pilot_sha256,
             "operations": [operation.to_record() for operation in self.operations],
             "purchase_budget": self.purchase_budget.to_record(),
@@ -125,7 +131,9 @@ class DocumentRepairReceipt:
 
     execution_sha256: str
     full_plan_sha256: str
-    pilot_sha256: str
+    scope: str
+    scope_sha256: str
+    pilot_sha256: str | None
     operation_ledger: tuple[Mapping[str, object], ...]
     receipt_sha256: str
 
@@ -142,6 +150,8 @@ class DocumentRepairReceipt:
             "schema_version": RECEIPT_SCHEMA_VERSION,
             "execution_sha256": self.execution_sha256,
             "full_plan_sha256": self.full_plan_sha256,
+            "scope": self.scope,
+            "scope_sha256": self.scope_sha256,
             "pilot_sha256": self.pilot_sha256,
             "committed_cost_usd": self.committed_cost_usd,
             "operation_ledger": [dict(row) for row in self.operation_ledger],
@@ -170,6 +180,29 @@ class DocumentRepairRunResult:
     receipt: DocumentRepairReceipt
     acquired_documents: tuple[Mapping[str, object], ...]
     exclusions: tuple[Mapping[str, object], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentRepairPurchaseAuthority:
+    """Execution-bound legacy purchase policy for one fresh repair ledger."""
+
+    execution_sha256: str
+    scope: str
+    scope_sha256: str
+    purchase_policy: CaseDevPurchasePolicy
+    authority_sha256: str
+
+    def content_record(self) -> dict[str, object]:
+        return {
+            "schema_version": str(EXACT100_DOCUMENT_REPAIR_PURCHASE_AUTHORITY_V1),
+            "execution_sha256": self.execution_sha256,
+            "scope": self.scope,
+            "scope_sha256": self.scope_sha256,
+            "purchase_policy": dict(self.purchase_policy.artifact),
+        }
+
+    def to_record(self) -> dict[str, object]:
+        return {**self.content_record(), "authority_sha256": self.authority_sha256}
 
 
 def build_document_repair_execution(
@@ -216,6 +249,8 @@ def build_document_repair_execution(
     provisional = DocumentRepairExecution(
         full_plan_sha256=full_plan.plan_sha256,
         manifest_sha256=full_plan.manifest_sha256,
+        scope="pilot",
+        scope_sha256=pilot.pilot_sha256,
         pilot_sha256=pilot.pilot_sha256,
         operations=operations,
         purchase_budget=purchase_budget,
@@ -224,7 +259,75 @@ def build_document_repair_execution(
     return DocumentRepairExecution(
         full_plan_sha256=provisional.full_plan_sha256,
         manifest_sha256=provisional.manifest_sha256,
+        scope=provisional.scope,
+        scope_sha256=provisional.scope_sha256,
         pilot_sha256=provisional.pilot_sha256,
+        operations=provisional.operations,
+        purchase_budget=provisional.purchase_budget,
+        execution_sha256=_commit_execution(provisional.content_record()),
+    )
+
+
+def build_full_document_repair_execution(
+    *,
+    full_plan: MissingDocumentAcquisitionPlan,
+    docket_snapshot_bytes: Mapping[str, bytes],
+    docket_snapshot_sha256: Mapping[str, str],
+) -> DocumentRepairExecution:
+    """Resolve every approved full-plan obligation without a pilot sub-scope."""
+
+    _require_valid_full_plan(full_plan)
+    candidate_ids = tuple(dict.fromkeys(item.candidate_id for item in full_plan.items))
+    expected_candidates = set(candidate_ids)
+    if (
+        set(docket_snapshot_bytes) != expected_candidates
+        or set(docket_snapshot_sha256) != expected_candidates
+    ):
+        raise DocumentRepairExecutorError(
+            "docket snapshots must exactly cover the full-plan candidates"
+        )
+    snapshots: dict[str, Mapping[str, object]] = {}
+    verified_digests: dict[str, str] = {}
+    for candidate_id in candidate_ids:
+        payload = docket_snapshot_bytes[candidate_id]
+        expected_digest = _digest(
+            docket_snapshot_sha256[candidate_id], "docket snapshot digest"
+        )
+        if hashlib.sha256(payload).hexdigest() != expected_digest:
+            raise DocumentRepairExecutorError(
+                f"docket snapshot digest mismatch: {candidate_id}"
+            )
+        snapshots[candidate_id] = _snapshot(payload, candidate_id)
+        verified_digests[candidate_id] = expected_digest
+    operations = tuple(
+        _resolve_operation(
+            item,
+            snapshot=snapshots[item.candidate_id],
+            snapshot_sha256=verified_digests[item.candidate_id],
+        )
+        for item in full_plan.items
+    )
+    purchase_budget = _purchase_budget_for_scope(
+        operations,
+        candidate_ids=candidate_ids,
+        maximum=full_plan.approved_maximum_usd,
+    )
+    provisional = DocumentRepairExecution(
+        full_plan_sha256=full_plan.plan_sha256,
+        manifest_sha256=full_plan.manifest_sha256,
+        scope="full_plan",
+        scope_sha256=full_plan.plan_sha256,
+        pilot_sha256=None,
+        operations=operations,
+        purchase_budget=purchase_budget,
+        execution_sha256="",
+    )
+    return DocumentRepairExecution(
+        full_plan_sha256=provisional.full_plan_sha256,
+        manifest_sha256=provisional.manifest_sha256,
+        scope=provisional.scope,
+        scope_sha256=provisional.scope_sha256,
+        pilot_sha256=None,
         operations=provisional.operations,
         purchase_budget=provisional.purchase_budget,
         execution_sha256=_commit_execution(provisional.content_record()),
@@ -274,6 +377,8 @@ def record_document_repair_outcomes(
     provisional = DocumentRepairReceipt(
         execution_sha256=execution.execution_sha256,
         full_plan_sha256=execution.full_plan_sha256,
+        scope=execution.scope,
+        scope_sha256=execution.scope_sha256,
         pilot_sha256=execution.pilot_sha256,
         operation_ledger=tuple(ledger),
         receipt_sha256="",
@@ -288,6 +393,8 @@ def record_document_repair_outcomes(
     return DocumentRepairReceipt(
         execution_sha256=provisional.execution_sha256,
         full_plan_sha256=provisional.full_plan_sha256,
+        scope=provisional.scope,
+        scope_sha256=provisional.scope_sha256,
         pilot_sha256=provisional.pilot_sha256,
         operation_ledger=provisional.operation_ledger,
         receipt_sha256=_commit_receipt(provisional.content_record()),
@@ -297,6 +404,7 @@ def record_document_repair_outcomes(
 def run_document_repair_execution(
     *,
     execution: DocumentRepairExecution,
+    purchase_authority: DocumentRepairPurchaseAuthority | None,
     acquire: Callable[[ResolvedRepairOperation], AcquiredRepairDocument],
     monotonic: Callable[[], float],
 ) -> DocumentRepairRunResult:
@@ -304,6 +412,7 @@ def run_document_repair_execution(
 
     if _commit_execution(execution.content_record()) != execution.execution_sha256:
         raise DocumentRepairExecutorError("execution changed after resolution")
+    _require_purchase_authority(execution, purchase_authority)
     outcomes: list[RepairOperationOutcome] = []
     acquired_documents: list[Mapping[str, object]] = []
     exclusions: list[Mapping[str, object]] = []
@@ -359,6 +468,59 @@ def run_document_repair_execution(
     )
 
 
+def build_document_repair_purchase_authority(
+    *,
+    execution: DocumentRepairExecution,
+    cohort_policy_sha256: str,
+    canonical_ledger_path: str,
+    fee_schedule: Mapping[str, object],
+) -> DocumentRepairPurchaseAuthority:
+    """Derive the narrow legacy purchase policy from one exact execution."""
+
+    if _commit_execution(execution.content_record()) != execution.execution_sha256:
+        raise DocumentRepairExecutorError("execution changed after resolution")
+    budget = execution.purchase_budget
+    if not budget.case_plans:
+        raise DocumentRepairExecutorError(
+            "purchase authority requires at least one paid operation"
+        )
+    per_case_maximum = max(
+        (plan.estimated_cost for plan in budget.case_plans), default=Decimal("0.00")
+    )
+    policy_artifact = generate_case_dev_purchase_policy(
+        {
+            "cycle_id": f"exact100-document-repair-{execution.scope}",
+            "cohort_policy_sha256": _digest(
+                cohort_policy_sha256, "cohort policy digest"
+            ),
+            "canonical_ledger_path": canonical_ledger_path,
+            "hard_cap_usd": _money(budget.max_projected_budget),
+            "opening_committed_spend_usd": "0.00",
+            "opening_case_committed_spend_usd": {},
+            "max_per_case_usd": _money(per_case_maximum),
+            "per_document_reservation_usd": _money(budget.cost_per_document),
+            "fee_schedule": dict(fee_schedule),
+        }
+    )
+    policy = verify_purchase_policy_compatibility(
+        execution=execution, purchase_policy_artifact=policy_artifact
+    )
+    provisional = DocumentRepairPurchaseAuthority(
+        execution_sha256=execution.execution_sha256,
+        scope=execution.scope,
+        scope_sha256=execution.scope_sha256,
+        purchase_policy=policy,
+        authority_sha256="",
+    )
+    return DocumentRepairPurchaseAuthority(
+        execution_sha256=provisional.execution_sha256,
+        scope=provisional.scope,
+        scope_sha256=provisional.scope_sha256,
+        purchase_policy=provisional.purchase_policy,
+        authority_sha256=_commit_purchase_authority(provisional.content_record()),
+    )
+
+
 def verify_purchase_policy_compatibility(
     *,
     execution: DocumentRepairExecution,
@@ -411,6 +573,8 @@ def seal_document_repair_execution(
     if (
         receipt.execution_sha256 != execution.execution_sha256
         or receipt.full_plan_sha256 != full_plan.plan_sha256
+        or receipt.scope != execution.scope
+        or receipt.scope_sha256 != execution.scope_sha256
         or receipt.pilot_sha256 != execution.pilot_sha256
     ):
         raise DocumentRepairExecutorError("repair receipt binding is invalid")
@@ -475,6 +639,17 @@ def _require_scope_binding(
         raise DocumentRepairExecutorError("pilot contains altered plan items")
 
 
+def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
+    verified = str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            full_plan.content_record(),
+            domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V1,
+        ).digest
+    )
+    if verified != full_plan.plan_sha256:
+        raise DocumentRepairExecutorError("full plan changed after approval")
+
+
 def _require_scope_binding_from_execution(
     full_plan: MissingDocumentAcquisitionPlan, execution: DocumentRepairExecution
 ) -> None:
@@ -488,6 +663,17 @@ def _require_scope_binding_from_execution(
         raise DocumentRepairExecutorError("full plan changed after approval")
     if execution.full_plan_sha256 != full_plan.plan_sha256:
         raise DocumentRepairExecutorError("execution is not bound to the full plan")
+    if execution.scope == "pilot":
+        if execution.scope_sha256 != execution.pilot_sha256:
+            raise DocumentRepairExecutorError("execution pilot scope is invalid")
+    elif execution.scope == "full_plan":
+        if (
+            execution.scope_sha256 != full_plan.plan_sha256
+            or execution.pilot_sha256 is not None
+        ):
+            raise DocumentRepairExecutorError("execution full-plan scope is invalid")
+    else:
+        raise DocumentRepairExecutorError("execution scope is invalid")
     if _commit_execution(execution.content_record()) != execution.execution_sha256:
         raise DocumentRepairExecutorError("execution changed after resolution")
     planned = {item.key: item.to_record() for item in full_plan.items}
@@ -607,6 +793,19 @@ def _resolve_operation(
 def _purchase_budget(
     operations: tuple[ResolvedRepairOperation, ...], pilot: DocumentRepairPilot
 ) -> MissingCoreBudgetPlan:
+    return _purchase_budget_for_scope(
+        operations,
+        candidate_ids=pilot.candidate_ids,
+        maximum=pilot.pilot_maximum_usd,
+    )
+
+
+def _purchase_budget_for_scope(
+    operations: tuple[ResolvedRepairOperation, ...],
+    *,
+    candidate_ids: tuple[str, ...],
+    maximum: Decimal,
+) -> MissingCoreBudgetPlan:
     paid_by_candidate: dict[str, list[ResolvedRepairOperation]] = {}
     for operation in operations:
         if operation.route == "pacer_purchase":
@@ -625,13 +824,13 @@ def _purchase_budget(
                 operation.document_role for operation in candidate_operations
             ),
         )
-        for candidate_id in pilot.candidate_ids
+        for candidate_id in candidate_ids
         if (candidate_operations := paid_by_candidate.get(candidate_id))
     )
     return MissingCoreBudgetPlan(
         case_plans=case_plans,
         cost_per_document=Decimal("3.00"),
-        max_projected_budget=pilot.pilot_maximum_usd,
+        max_projected_budget=maximum,
         max_missing_core_documents_per_case=max(
             (len(plan.purchase_document_ids) for plan in case_plans), default=1
         ),
@@ -695,6 +894,39 @@ def _validate_acquired_result(
         raise DocumentRepairExecutorError(
             "non-included acquisition requires a specific reason"
         )
+
+
+def _require_purchase_authority(
+    execution: DocumentRepairExecution,
+    authority: DocumentRepairPurchaseAuthority | None,
+) -> None:
+    has_paid_operations = any(
+        operation.route == "pacer_purchase" for operation in execution.operations
+    )
+    if not has_paid_operations:
+        if authority is not None:
+            raise DocumentRepairExecutorError(
+                "purchase authority was supplied for a free-only execution"
+            )
+        return
+    if authority is None:
+        raise DocumentRepairExecutorError(
+            "paid execution requires exact generated purchase authority"
+        )
+    if (
+        authority.execution_sha256 != execution.execution_sha256
+        or authority.scope != execution.scope
+        or authority.scope_sha256 != execution.scope_sha256
+        or _commit_purchase_authority(authority.content_record())
+        != authority.authority_sha256
+    ):
+        raise DocumentRepairExecutorError("purchase authority binding is invalid")
+    verified = verify_purchase_policy_compatibility(
+        execution=execution,
+        purchase_policy_artifact=authority.purchase_policy.artifact,
+    )
+    if verified.policy_sha256 != authority.purchase_policy.policy_sha256:
+        raise DocumentRepairExecutorError("purchase authority policy changed")
 
 
 def _mapping_list(value: object, label: str) -> list[Mapping[str, object]]:
@@ -768,5 +1000,13 @@ def _commit_receipt(record: Mapping[str, object]) -> str:
     return str(
         ARTIFACT_RAW_SHA256_V1.commit(
             record, domain=EXACT100_DOCUMENT_REPAIR_RECEIPT_V1
+        ).digest
+    )
+
+
+def _commit_purchase_authority(record: Mapping[str, object]) -> str:
+    return str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            record, domain=EXACT100_DOCUMENT_REPAIR_PURCHASE_AUTHORITY_V1
         ).digest
     )
