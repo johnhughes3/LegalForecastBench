@@ -525,11 +525,15 @@ def test_plan_rejects_replacement_recommendation() -> None:
             "cost_usd": 0.0,
             "missing_docs": [],
             "byte_mismatches": [],
+            "current_selection": [{"entry": 12, "role": "complaint"}],
+            "required_entries": [{"entry": 12, "role": "complaint"}],
+            "extra_selected": [{"entry": 12, "role": "complaint"}],
         }
     )
 
     plan = _plan(manifest)
     assert plan.items == ()
+    assert plan.existing_document_ledger == ()
     assert plan.manifest_repair_count == 0
 
 
