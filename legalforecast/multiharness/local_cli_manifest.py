@@ -221,6 +221,9 @@ _TASK_PROJECTION_FIELDS = frozenset(
         "prompt_source",
         "deliverable_source",
         "deliverable_relative_path",
+        "deliverable_event_type",
+        "deliverable_item_type",
+        "deliverable_field",
     }
 )
 _HARNESS_BINDING_FIELDS = frozenset(
@@ -332,6 +335,10 @@ class LocalCliInvocation:
             raise LocalCliAdapterManifestError(
                 "argv_placeholder prompt delivery requires {prompt}"
             )
+        if self.prompt_delivery == "stdin" and "prompt" in placeholders:
+            raise LocalCliAdapterManifestError(
+                "stdin prompt delivery must not use {prompt}"
+            )
         if self.schema_enforcement == "json_schema_flag":
             if "output_schema" not in placeholders:
                 raise LocalCliAdapterManifestError(
@@ -350,16 +357,30 @@ class LocalCliInvocation:
                 raise LocalCliAdapterManifestError(
                     "output_schema_file must not use {output_schema}"
                 )
+        elif self.schema_enforcement == "none":
+            if "output_schema" in placeholders or "output_schema_path" in placeholders:
+                raise LocalCliAdapterManifestError(
+                    "schema_enforcement none must not use {output_schema} or "
+                    "{output_schema_path}"
+                )
         if self.working_directory_flag is not None:
             _require_flag_name(self.working_directory_flag, "working_directory_flag")
             if "workspace" not in placeholders:
                 raise LocalCliAdapterManifestError(
                     "working_directory_flag requires {workspace}"
                 )
+            if self.working_directory_flag not in self.argv_template:
+                raise LocalCliAdapterManifestError(
+                    "working_directory_flag must appear in argv_template"
+                )
         if self.model_flag is not None:
             _require_flag_name(self.model_flag, "model_flag")
             if "model" not in placeholders:
                 raise LocalCliAdapterManifestError("model_flag requires {model}")
+            if self.model_flag not in self.argv_template:
+                raise LocalCliAdapterManifestError(
+                    "model_flag must appear in argv_template"
+                )
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -650,6 +671,9 @@ class LocalCliTaskProjection:
     prompt_source: str
     deliverable_source: str
     deliverable_relative_path: str | None
+    deliverable_event_type: str | None
+    deliverable_item_type: str | None
+    deliverable_field: str | None
 
     def __post_init__(self) -> None:
         _require_member(self.prompt_source, LOCAL_CLI_PROMPT_SOURCES, "prompt_source")
@@ -658,6 +682,12 @@ class LocalCliTaskProjection:
             LOCAL_CLI_DELIVERABLE_SOURCES,
             "deliverable_source",
         )
+        if self.deliverable_event_type is not None:
+            _require_dotted_path(self.deliverable_event_type, "deliverable_event_type")
+        if self.deliverable_item_type is not None:
+            _require_dotted_path(self.deliverable_item_type, "deliverable_item_type")
+        if self.deliverable_field is not None:
+            _require_dotted_path(self.deliverable_field, "deliverable_field")
         if self.deliverable_source == "workspace_relative_file":
             if self.deliverable_relative_path is None:
                 raise LocalCliAdapterManifestError(
@@ -667,16 +697,32 @@ class LocalCliTaskProjection:
                 self.deliverable_relative_path,
                 "deliverable_relative_path",
             )
-        elif self.deliverable_relative_path is not None:
-            raise LocalCliAdapterManifestError(
-                "structured_stdout forbids deliverable_relative_path"
-            )
+            if (
+                self.deliverable_event_type is not None
+                or self.deliverable_item_type is not None
+                or self.deliverable_field is not None
+            ):
+                raise LocalCliAdapterManifestError(
+                    "workspace_relative_file forbids deliverable event/field projection"
+                )
+        else:
+            if self.deliverable_relative_path is not None:
+                raise LocalCliAdapterManifestError(
+                    "structured_stdout forbids deliverable_relative_path"
+                )
+            if self.deliverable_field is None:
+                raise LocalCliAdapterManifestError(
+                    "structured_stdout requires deliverable_field"
+                )
 
     def to_record(self) -> dict[str, Any]:
         return {
             "prompt_source": self.prompt_source,
             "deliverable_source": self.deliverable_source,
             "deliverable_relative_path": self.deliverable_relative_path,
+            "deliverable_event_type": self.deliverable_event_type,
+            "deliverable_item_type": self.deliverable_item_type,
+            "deliverable_field": self.deliverable_field,
         }
 
     @classmethod
@@ -688,6 +734,9 @@ class LocalCliTaskProjection:
             deliverable_relative_path=_optional_str(
                 record, "deliverable_relative_path"
             ),
+            deliverable_event_type=_optional_str(record, "deliverable_event_type"),
+            deliverable_item_type=_optional_str(record, "deliverable_item_type"),
+            deliverable_field=_optional_str(record, "deliverable_field"),
         )
 
 
@@ -925,6 +974,21 @@ class LocalCliAdapterManifest:
             raise LocalCliAdapterManifestError(
                 "output_format stream_json requires the stream_json_output capability"
             )
+        if self.task_projection.deliverable_source == "structured_stdout":
+            if self.invocation.output_format == "stream_json":
+                if self.task_projection.deliverable_event_type is None:
+                    raise LocalCliAdapterManifestError(
+                        "stream_json structured_stdout requires deliverable_event_type"
+                    )
+            elif self.invocation.output_format == "json":
+                if (
+                    self.task_projection.deliverable_event_type is not None
+                    or self.task_projection.deliverable_item_type is not None
+                ):
+                    raise LocalCliAdapterManifestError(
+                        "json structured_stdout must not set deliverable_event_type "
+                        "or deliverable_item_type"
+                    )
         validate_public_record(self.to_record(), "local_cli_adapter_manifest")
 
     def to_record(self) -> dict[str, Any]:
@@ -1051,11 +1115,146 @@ def capability_digest_for(record: Mapping[str, Any]) -> str:
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
+def project_structured_stdout_deliverable(
+    stdout: str,
+    *,
+    output_format: str,
+    projection: LocalCliTaskProjection,
+) -> str:
+    """Extract the deliverable text from JSON or JSONL stdout using the manifest.
+
+    Wrappers must not hard-code provider event names. Codex JSONL uses
+    ``item.completed`` / ``agent_message`` / ``item.text`` because the fixture
+    says so, not because this helper knows about Codex.
+    """
+
+    if projection.deliverable_source != "structured_stdout":
+        raise LocalCliAdapterManifestError(
+            "deliverable_source must be structured_stdout"
+        )
+    field_path = projection.deliverable_field
+    if field_path is None:
+        raise LocalCliAdapterManifestError("deliverable_field is required")
+    if output_format == "json":
+        record = _parse_json_object(stdout)
+        return _require_deliverable_text(
+            _dotted_lookup(record, field_path),
+            field_path,
+        )
+    if output_format == "stream_json":
+        event_type = projection.deliverable_event_type
+        if event_type is None:
+            raise LocalCliAdapterManifestError(
+                "stream_json structured_stdout requires deliverable_event_type"
+            )
+        matches: list[Mapping[str, Any]] = []
+        for event in _parse_jsonl_objects(stdout):
+            if event.get("type") != event_type:
+                continue
+            if projection.deliverable_item_type is not None:
+                item = event.get("item")
+                if not isinstance(item, dict):
+                    continue
+                item_record = cast(dict[str, Any], item)
+                if item_record.get("type") != projection.deliverable_item_type:
+                    continue
+            matches.append(event)
+        if not matches:
+            raise LocalCliAdapterManifestError(
+                "structured_stdout stream has no matching deliverable event"
+            )
+        return _require_deliverable_text(
+            _dotted_lookup(matches[-1], field_path),
+            field_path,
+        )
+    raise LocalCliAdapterManifestError(
+        f"output_format {output_format} cannot project structured_stdout"
+    )
+
+
 def _placeholders_in(tokens: Sequence[str]) -> set[str]:
     names: set[str] = set()
     for token in tokens:
         names.update(_PLACEHOLDER_RE.findall(token))
     return names
+
+
+def _parse_json_object(stdout: str) -> Mapping[str, Any]:
+    text = stdout.strip()
+    if not text:
+        raise LocalCliAdapterManifestError("structured_stdout JSON is empty")
+    try:
+        decoded = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise LocalCliAdapterManifestError(
+            "structured_stdout JSON is malformed"
+        ) from exc
+    if not isinstance(decoded, dict):
+        raise LocalCliAdapterManifestError("structured_stdout JSON must be an object")
+    return cast(Mapping[str, Any], decoded)
+
+
+def _parse_jsonl_objects(stdout: str) -> tuple[Mapping[str, Any], ...]:
+    events: list[Mapping[str, Any]] = []
+    for line in stdout.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//") or stripped.startswith("#"):
+            continue
+        try:
+            decoded = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            raise LocalCliAdapterManifestError(
+                "structured_stdout JSONL is malformed"
+            ) from exc
+        if not isinstance(decoded, dict):
+            raise LocalCliAdapterManifestError(
+                "structured_stdout JSONL events must be objects"
+            )
+        events.append(cast(Mapping[str, Any], decoded))
+    return tuple(events)
+
+
+def _dotted_lookup(record: Mapping[str, Any], path: str) -> object:
+    current: Mapping[str, Any] = record
+    parts = path.split(".")
+    for index, part in enumerate(parts):
+        if part not in current:
+            return None
+        value: object = current[part]
+        if index == len(parts) - 1:
+            return value
+        if not isinstance(value, dict):
+            return None
+        current = cast(dict[str, Any], value)
+    return None
+
+
+def _require_deliverable_text(value: object, field_path: str) -> str:
+    if isinstance(value, str):
+        if not value.strip():
+            raise LocalCliAdapterManifestError(
+                f"deliverable_field {field_path} must be a non-empty string"
+            )
+        return value
+    if isinstance(value, Mapping):
+        record = cast(Mapping[str, Any], value)
+        try:
+            return (
+                json.dumps(
+                    dict(record),
+                    indent=2,
+                    sort_keys=True,
+                    allow_nan=False,
+                )
+                + "\n"
+            )
+        except (TypeError, ValueError) as exc:
+            raise LocalCliAdapterManifestError(
+                f"deliverable_field {field_path} must be JSON-serializable"
+            ) from exc
+    raise LocalCliAdapterManifestError(
+        f"deliverable_field {field_path} must be a non-empty string or object"
+    )
 
 
 def _require_exact_fields(

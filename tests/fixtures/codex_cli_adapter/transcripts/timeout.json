@@ -5,7 +5,7 @@
   "crashed": false,
   "duration_ms": 30000,
   "envelope": [],
-  "returncode": -1,
+  "returncode": null,
   "status": "timeout",
   "stderr": "",
   "stdout_text": "",

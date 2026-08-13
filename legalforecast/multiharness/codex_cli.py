@@ -4,10 +4,10 @@ Invocation plans are rendered from B1's closed
 ``legalforecast.multiharness.local_cli_adapter_manifest.v1`` instance shipped
 with this adapter. Shared execution types live in
 ``legalforecast.multiharness.local_cli_contracts``
-(``LegalForecastBench-dm0g.4.4.26``). The Codex-prefixed Protocol below is
-the consumer seam until ``LegalForecastBench-dm0g.4.4.30`` rebinds this
-adapter to the contained B2 service. Do not copy a parallel contracts
-module onto this branch.
+(``LegalForecastBench-dm0g.4.4.26``). This adapter calls
+``LocalCliExecutionService.execute(RunSpec)`` and never spawns ``codex``.
+Tests inject ``FakeLocalCliExecutionService``; production injects B2's
+contained runtime. Do not copy a parallel contracts module onto this branch.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 from legalforecast.multiharness.adapters import AdapterError, AdapterPreparation
 from legalforecast.multiharness.deliverables import (
@@ -28,7 +28,10 @@ from legalforecast.multiharness.deliverables import (
     seal_deliverable,
 )
 from legalforecast.multiharness.local_cli_contracts import (
+    ExecutionReceipt,
+    LocalCliExecutionService,
     LocalCliFailureClass,
+    RunSpec,
     coerce_local_cli_failure_class,
     declared_local_cli_failure_classes,
     is_local_cli_sandbox_denial,
@@ -142,37 +145,6 @@ class CodexCliAdapterError(AdapterError):
 
 
 @dataclass(frozen=True, slots=True)
-class CodexCliExecutionRequest:
-    """One argv-array invocation for the shared local CLI execution service."""
-
-    argv: tuple[str, ...]
-    cwd: Path
-    stdin: str
-    timeout_seconds: float
-    environment: Mapping[str, str] = field(default_factory=lambda: {})
-
-
-@dataclass(frozen=True, slots=True)
-class CodexCliExecutionOutcome:
-    """Raw bytes-and-status returned by one fake or real CLI execution."""
-
-    returncode: int
-    stdout: str
-    stderr: str
-    timed_out: bool = False
-    crashed: bool = False
-
-
-class CodexCliExecutionService(Protocol):
-    """B2 execution seam. Tests inject a fake; this adapter never spawns."""
-
-    def execute(self, request: CodexCliExecutionRequest) -> CodexCliExecutionOutcome:
-        """Run one planned argv without the adapter importing subprocess."""
-
-        raise NotImplementedError
-
-
-@dataclass(frozen=True, slots=True)
 class CodexCliInvocationPlan:
     """Deterministic, shell-free `codex exec` argv and stdin."""
 
@@ -202,6 +174,57 @@ class CodexCliInvocationPlan:
             "strict_config": "true",
             "subcommand": "exec",
         }
+
+
+def build_codex_run_spec(
+    request: RunRequest,
+    plan: CodexCliInvocationPlan,
+    workspace: Path,
+) -> RunSpec:
+    """Bind a planned exec invocation to a credential-free RunSpec."""
+
+    if request.sandbox_policy.allowed_provider_env_vars:
+        raise CodexCliAdapterError(
+            "offline Codex CLI adapter must not receive provider environment grants"
+        )
+    return RunSpec(
+        spec_id=request.request_id,
+        argv=plan.argv,
+        working_directory=workspace,
+        environment={},
+        timeout_seconds=plan.timeout_seconds,
+        output_format="json",
+        stdin_bytes=plan.stdin.encode("utf-8"),
+    )
+
+
+def _parser_execution_flags(receipt: ExecutionReceipt) -> tuple[int, bool, bool]:
+    """Map a B2 receipt onto the JSONL parser's returncode/timeout/crash flags."""
+
+    timed_out = receipt.status == "timeout"
+    crashed = receipt.status == "failed" and not receipt.stdout.strip()
+    if receipt.returncode is not None:
+        returncode = receipt.returncode
+    elif receipt.status != "succeeded":
+        returncode = 1
+    else:
+        returncode = 0
+    return returncode, timed_out, crashed
+
+
+def _bind_envelope_to_receipt(
+    receipt: ExecutionReceipt,
+    envelope: CodexCliParsedEnvelope,
+) -> CodexCliParsedEnvelope:
+    """Honor B2 receipt status even when JSONL looks complete."""
+
+    if envelope.failure_class is not None:
+        return envelope
+    if receipt.status == "timeout":
+        return _failed_envelope(LocalCliFailureClass.TIMEOUT.value, envelope.events)
+    if receipt.status == "failed":
+        return _failed_envelope(LocalCliFailureClass.CRASH.value, envelope.events)
+    return envelope
 
 
 @dataclass(frozen=True, slots=True)
@@ -446,7 +469,7 @@ def run_offline_protocol_fixture(request: RunRequest, workspace: Path) -> RunRes
 class CodexCliAdapter:
     """In-process Codex CLI adapter that never spawns a process."""
 
-    execution_service: CodexCliExecutionService
+    execution_service: LocalCliExecutionService
     manifest: AdapterManifest = field(default_factory=codex_cli_manifest)
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
@@ -482,31 +505,28 @@ class CodexCliAdapter:
         private_logs = workspace / "private-logs"
         _ensure_real_directory(private_logs, label="private-logs")
         _clear_prior_last_message(plan.last_message_path)
-        outcome = self.execution_service.execute(
-            CodexCliExecutionRequest(
-                argv=plan.argv,
-                cwd=workspace,
-                stdin=plan.stdin,
-                timeout_seconds=plan.timeout_seconds,
-                environment={},
-            )
-        )
+        spec = build_codex_run_spec(request, plan, workspace)
+        receipt = self.execution_service.execute(spec)
+        if receipt.spec_sha256 != spec.spec_sha256:
+            raise CodexCliAdapterError("execution receipt does not bind the RunSpec")
         _require_real_directory(private_logs, label="private-logs")
-        _write_private_text(private_logs / "codex-stdout.jsonl", outcome.stdout)
-        _write_private_text(private_logs / "codex-stderr.log", outcome.stderr)
+        _write_private_text(private_logs / "codex-stdout.jsonl", receipt.stdout)
+        _write_private_text(private_logs / "codex-stderr.log", receipt.stderr)
         last_message_file = _optional_existing_text(plan.last_message_path)
+        returncode, timed_out, crashed = _parser_execution_flags(receipt)
         envelope = parse_codex_jsonl(
-            outcome.stdout,
+            receipt.stdout,
             requested_model_name=plan.requested_model,
-            returncode=outcome.returncode,
-            timed_out=outcome.timed_out,
-            crashed=outcome.crashed,
+            returncode=returncode,
+            timed_out=timed_out,
+            crashed=crashed,
             last_message_file=last_message_file,
         )
+        envelope = _bind_envelope_to_receipt(receipt, envelope)
         if envelope.failure_class is not None:
-            return _failed_result(request, envelope, returncode=outcome.returncode)
+            return _failed_result(request, envelope, returncode=returncode)
         return _successful_result(
-            request, workspace, plan, envelope, returncode=outcome.returncode
+            request, workspace, plan, envelope, returncode=returncode
         )
 
 

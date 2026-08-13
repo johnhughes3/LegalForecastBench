@@ -14,8 +14,6 @@ from legalforecast.multiharness.codex_cli import (
     CODEX_LOCAL_CLI_MANIFEST_PATH,
     CodexCliAdapter,
     CodexCliAdapterError,
-    CodexCliExecutionOutcome,
-    CodexCliExecutionRequest,
     adapter_bundle_sha256,
     build_capabilities,
     build_codex_invocation_plan,
@@ -26,6 +24,12 @@ from legalforecast.multiharness.codex_cli import (
 )
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.conformance import run_adapter_conformance
+from legalforecast.multiharness.local_cli_contracts import (
+    ExecutionReceipt,
+    FakeLocalCliExecutionService,
+    FixtureTranscript,
+    RunSpec,
+)
 from legalforecast.multiharness.local_cli_manifest import (
     LocalCliAdapterManifest,
     capability_digest_for,
@@ -89,13 +93,13 @@ def _canonical_argv(
 class RecordingFakeExecutionService:
     """In-process B2 stand-in that never spawns a process."""
 
-    def __init__(self, outcome: CodexCliExecutionOutcome) -> None:
-        self.outcome = outcome
-        self.requests: list[CodexCliExecutionRequest] = []
+    def __init__(self, transcript: FixtureTranscript) -> None:
+        self.transcript = transcript
+        self.specs: list[RunSpec] = []
 
-    def execute(self, request: CodexCliExecutionRequest) -> CodexCliExecutionOutcome:
-        self.requests.append(request)
-        return self.outcome
+    def execute(self, spec: RunSpec) -> ExecutionReceipt:
+        self.specs.append(spec)
+        return FakeLocalCliExecutionService(self.transcript).execute(spec)
 
 
 def _jsonl(*events: Mapping[str, Any]) -> str:
@@ -105,7 +109,7 @@ def _jsonl(*events: Mapping[str, Any]) -> str:
     )
 
 
-def _message_outcome(text: str, *, complete: bool = False) -> CodexCliExecutionOutcome:
+def _message_transcript(text: str, *, complete: bool = False) -> FixtureTranscript:
     events: list[dict[str, Any]] = [
         {"type": "thread.started", "thread_id": THREAD_ID},
         {"type": "turn.started"},
@@ -125,7 +129,12 @@ def _message_outcome(text: str, *, complete: bool = False) -> CodexCliExecutionO
                 },
             }
         )
-    return CodexCliExecutionOutcome(returncode=0, stdout=_jsonl(*events), stderr="")
+    return FixtureTranscript(
+        stdout=_jsonl(*events),
+        stderr="",
+        returncode=0,
+        status="succeeded",
+    )
 
 
 def test_adapter_module_does_not_import_or_spawn_processes() -> None:
@@ -183,20 +192,28 @@ def test_offline_local_cli_manifest_drives_non_interactive_exec() -> None:
     assert manifest.harness_binding.implements_harness_solver is False
 
 
-def test_clean_native_fixture_is_not_the_offline_invocation() -> None:
+def test_clean_native_fixture_matches_characterized_exec() -> None:
     offline = load_codex_local_cli_manifest()
     shipped = LocalCliAdapterManifest.from_record(
         json.loads(CLEAN_NATIVE_FIXTURE.read_text(encoding="utf-8"))
     )
 
     assert shipped.manifest_id == "codex-cli-clean-native"
-    assert shipped.invocation.prompt_delivery == "argv_placeholder"
-    assert shipped.invocation.schema_enforcement == "output_schema_file"
-    assert "read-only" in shipped.invocation.argv_template
-    assert shipped.invocation.prompt_delivery != offline.invocation.prompt_delivery
-    assert (
-        shipped.invocation.schema_enforcement != offline.invocation.schema_enforcement
-    )
+    assert shipped.manifest_id != offline.manifest_id
+    assert shipped.invocation.prompt_delivery == "stdin"
+    assert shipped.invocation.schema_enforcement == "none"
+    assert shipped.invocation.argv_template[-1] == "-"
+    assert "workspace-write" in shipped.invocation.argv_template
+    assert 'approval_policy="never"' in shipped.invocation.argv_template
+    assert "--approve-for-me" not in shipped.invocation.argv_template
+    assert "--ask-for-approval" not in shipped.invocation.argv_template
+    assert "--json" in shipped.invocation.argv_template
+    assert shipped.task_projection.deliverable_source == "structured_stdout"
+    assert shipped.task_projection.deliverable_event_type == "item.completed"
+    assert shipped.task_projection.deliverable_item_type == "agent_message"
+    assert shipped.task_projection.deliverable_field == "item.text"
+    assert offline.invocation.prompt_delivery == "stdin"
+    assert offline.task_projection.deliverable_source == "workspace_relative_file"
 
 
 def test_invocation_plan_snapshot_is_exact_and_non_interactive(tmp_path: Path) -> None:
@@ -345,7 +362,7 @@ def test_success_fixture_binds_run_result_and_deliverable(tmp_path: Path) -> Non
     workspace = tmp_path / "row"
     workspace.mkdir()
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
-    service = RecordingFakeExecutionService(_outcome_from_fixture("success"))
+    service = RecordingFakeExecutionService(_transcript_from_fixture("success"))
     adapter = CodexCliAdapter(execution_service=service)
     request = _request()
 
@@ -365,10 +382,12 @@ def test_success_fixture_binds_run_result_and_deliverable(tmp_path: Path) -> Non
     assert result.public_summary["input_tokens"] == 3
     assert result.public_summary["output_tokens"] == 4
     validate_public_record(result.to_record(), "run_result")
-    assert len(service.requests) == 1
-    executed = service.requests[0]
+    assert len(service.specs) == 1
+    executed = service.specs[0]
     assert executed.environment == {}
-    assert executed.stdin == "solve fixture\n"
+    assert executed.stdin_bytes == b"solve fixture\n"
+    assert executed.working_directory == workspace
+    assert executed.spec_id == request.request_id
     assert executed.argv == _canonical_argv(workspace)
     assert (workspace / "sealed-deliverable" / "work-product" / "answer.md").read_text(
         encoding="utf-8"
@@ -397,7 +416,7 @@ def test_declared_failure_fixtures_are_classified_fail_closed(
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
     adapter = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(
-            _outcome_from_fixture(fixture_name)
+            _transcript_from_fixture(fixture_name)
         )
     )
     request = _request()
@@ -420,7 +439,7 @@ def test_unparseable_envelope_is_error_not_empty_success(tmp_path: Path) -> None
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
     result = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(
-            _outcome_from_fixture("malformed")
+            _transcript_from_fixture("malformed")
         )
     ).run(_request(), workspace)
 
@@ -436,11 +455,13 @@ def test_sandbox_denial_is_distinct_from_crash(tmp_path: Path) -> None:
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
     denied = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(
-            _outcome_from_fixture("sandbox_denial")
+            _transcript_from_fixture("sandbox_denial")
         )
     ).run(_request(), workspace)
     crashed = CodexCliAdapter(
-        execution_service=RecordingFakeExecutionService(_outcome_from_fixture("crash"))
+        execution_service=RecordingFakeExecutionService(
+            _transcript_from_fixture("crash")
+        )
     ).run(_request(), workspace)
 
     assert denied.public_summary["failure_class"] == "sandbox_denial"
@@ -451,6 +472,66 @@ def test_sandbox_denial_is_distinct_from_crash(tmp_path: Path) -> None:
     )
 
 
+def test_failed_receipt_with_empty_stdout_is_crash_without_returncode(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            FixtureTranscript(stdout="", stderr="", returncode=None, status="failed")
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "crash"
+    assert result.public_summary["returncode"] == 1
+
+
+def test_failed_receipt_cannot_succeed_from_complete_jsonl(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    success = _success_transcript()
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            FixtureTranscript(
+                stdout=success.stdout,
+                stderr=success.stderr,
+                returncode=0,
+                status="failed",
+            )
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "crash"
+    assert "deliverable_manifest_sha256" not in result.public_summary
+
+
+def test_failed_receipt_still_classifies_sandbox_denial_from_jsonl(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    denied = _transcript_from_fixture("sandbox_denial")
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            FixtureTranscript(
+                stdout=denied.stdout,
+                stderr=denied.stderr,
+                returncode=None,
+                status="failed",
+            )
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "sandbox_denial"
+
+
 def test_legal_refused_language_is_not_classified_as_refusal(tmp_path: Path) -> None:
     workspace = tmp_path / "row"
     workspace.mkdir()
@@ -458,7 +539,7 @@ def test_legal_refused_language_is_not_classified_as_refusal(tmp_path: Path) -> 
     text = "The district court refused relief on the remaining counts."
     result = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(
-            _message_outcome(text, complete=True)
+            _message_transcript(text, complete=True)
         )
     ).run(_request(), workspace)
 
@@ -473,7 +554,7 @@ def test_first_person_refusal_is_still_classified(tmp_path: Path) -> None:
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
     result = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(
-            _message_outcome("I must decline this request.", complete=True)
+            _message_transcript("I must decline this request.", complete=True)
         )
     ).run(_request(), workspace)
 
@@ -492,7 +573,7 @@ def test_landlocked_legal_language_is_not_classified_as_sandbox_denial(
     text = "The plaintiff is a landlocked state seeking seccomp-style discovery limits."
     result = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(
-            _message_outcome(text, complete=True)
+            _message_transcript(text, complete=True)
         )
     ).run(_request(), workspace)
 
@@ -559,22 +640,22 @@ def test_turn_completed_before_turn_started_is_schema_violation() -> None:
 class _SymlinkDuringExecute(RecordingFakeExecutionService):
     def __init__(
         self,
-        outcome: CodexCliExecutionOutcome,
+        transcript: FixtureTranscript,
         *,
         target: Path,
         relative: str,
     ) -> None:
-        super().__init__(outcome)
+        super().__init__(transcript)
         self.target = target
         self.relative = relative
 
-    def execute(self, request: CodexCliExecutionRequest) -> CodexCliExecutionOutcome:
-        destination = request.cwd / self.relative
+    def execute(self, spec: RunSpec) -> ExecutionReceipt:
+        destination = spec.working_directory / self.relative
         destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if destination.exists() or destination.is_symlink():
             destination.unlink()
         destination.symlink_to(self.target)
-        return super().execute(request)
+        return super().execute(spec)
 
 
 def test_private_stdout_symlink_is_rejected(tmp_path: Path) -> None:
@@ -585,7 +666,7 @@ def test_private_stdout_symlink_is_rejected(tmp_path: Path) -> None:
     outside.write_text("HOST_SECRET\n", encoding="utf-8")
     adapter = CodexCliAdapter(
         execution_service=_SymlinkDuringExecute(
-            _success_outcome(),
+            _success_transcript(),
             target=outside,
             relative="private-logs/codex-stdout.jsonl",
         )
@@ -604,7 +685,7 @@ def test_last_message_symlink_is_rejected(tmp_path: Path) -> None:
     outside.write_text("HOST_SECRET\n", encoding="utf-8")
     adapter = CodexCliAdapter(
         execution_service=_SymlinkDuringExecute(
-            _success_outcome(),
+            _success_transcript(),
             target=outside,
             relative="codex-last-message.txt",
         )
@@ -622,7 +703,7 @@ def test_prompt_symlink_is_rejected(tmp_path: Path) -> None:
     outside.write_text("HOST_SECRET\n", encoding="utf-8")
     (workspace / "prompt.txt").symlink_to(outside)
     adapter = CodexCliAdapter(
-        execution_service=RecordingFakeExecutionService(_success_outcome())
+        execution_service=RecordingFakeExecutionService(_success_transcript())
     )
 
     with pytest.raises(CodexCliAdapterError, match="symlink"):
@@ -638,7 +719,7 @@ def test_private_logs_directory_symlink_is_rejected(tmp_path: Path) -> None:
     outside.mkdir()
     (workspace / "private-logs").symlink_to(outside)
     adapter = CodexCliAdapter(
-        execution_service=RecordingFakeExecutionService(_success_outcome())
+        execution_service=RecordingFakeExecutionService(_success_transcript())
     )
 
     with pytest.raises(CodexCliAdapterError, match="real directory"):
@@ -653,7 +734,7 @@ def test_submission_symlink_is_rejected(tmp_path: Path) -> None:
     outside.write_text("HOST_SECRET\n", encoding="utf-8")
     adapter = CodexCliAdapter(
         execution_service=_SymlinkDuringExecute(
-            _success_outcome(),
+            _success_transcript(),
             target=outside,
             relative="codex-output/submission.md",
         )
@@ -672,7 +753,7 @@ def test_deliverable_manifest_symlink_is_rejected(tmp_path: Path) -> None:
     outside.write_text("HOST_SECRET\n", encoding="utf-8")
     adapter = CodexCliAdapter(
         execution_service=_SymlinkDuringExecute(
-            _success_outcome(),
+            _success_transcript(),
             target=outside,
             relative="private-logs/codex-deliverable-manifest.json",
         )
@@ -721,7 +802,9 @@ def test_command_execution_events_are_counted(tmp_path: Path) -> None:
     )
     result = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(
-            CodexCliExecutionOutcome(returncode=0, stdout=stdout, stderr="")
+            FixtureTranscript(
+                stdout=stdout, stderr="", returncode=0, status="succeeded"
+            )
         )
     ).run(_request(), workspace)
 
@@ -748,11 +831,11 @@ def test_timeout_preserves_partial_command_execution_count(tmp_path: Path) -> No
     )
     result = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(
-            CodexCliExecutionOutcome(
-                returncode=-1,
+            FixtureTranscript(
                 stdout=stdout,
                 stderr="",
-                timed_out=True,
+                returncode=None,
+                status="timeout",
             )
         )
     ).run(_request(), workspace)
@@ -833,7 +916,7 @@ def test_stale_last_message_file_is_cleared_before_execute(tmp_path: Path) -> No
         "STALE_ANSWER\n", encoding="utf-8"
     )
     result = CodexCliAdapter(
-        execution_service=RecordingFakeExecutionService(_success_outcome())
+        execution_service=RecordingFakeExecutionService(_success_transcript())
     ).run(_request(), workspace)
 
     assert result.status == "succeeded"
@@ -849,7 +932,7 @@ def test_workspace_can_be_reused_after_a_successful_seal(tmp_path: Path) -> None
     workspace.mkdir()
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
     adapter = CodexCliAdapter(
-        execution_service=RecordingFakeExecutionService(_success_outcome())
+        execution_service=RecordingFakeExecutionService(_success_transcript())
     )
     first = adapter.run(_request(), workspace)
     second = adapter.run(_request(), workspace)
@@ -864,7 +947,7 @@ def test_secret_canary_is_confined_to_private_workspace_bytes(tmp_path: Path) ->
     (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
     adapter = CodexCliAdapter(
         execution_service=RecordingFakeExecutionService(
-            _message_outcome(SECRET_CANARY, complete=True)
+            _message_transcript(SECRET_CANARY, complete=True)
         )
     )
 
@@ -881,7 +964,7 @@ def test_secret_canary_is_confined_to_private_workspace_bytes(tmp_path: Path) ->
 
 def test_provider_environment_grants_are_rejected(tmp_path: Path) -> None:
     adapter = CodexCliAdapter(
-        execution_service=RecordingFakeExecutionService(_success_outcome())
+        execution_service=RecordingFakeExecutionService(_success_transcript())
     )
     request = _request(allowed_provider_env_vars=("OPENAI_API_KEY",))
     workspace = tmp_path / "row"
@@ -972,20 +1055,23 @@ def _load_transcript_file(path: Path) -> tuple[list[str], dict[str, Any]]:
     return comments, decoded
 
 
-def _outcome_from_fixture(name: str) -> CodexCliExecutionOutcome:
+def _transcript_from_fixture(name: str) -> FixtureTranscript:
     _comments, record = _load_transcript_file(TRANSCRIPTS / f"{name}.json")
     stdout = record.get("stdout_text")
     if not isinstance(stdout, str):
         stdout = ""
     returncode = record.get("returncode", 0)
-    if type(returncode) is not int:
-        returncode = 0
-    return CodexCliExecutionOutcome(
-        returncode=returncode,
+    if type(returncode) is not int or returncode < 0:
+        returncode = None
+    status = record.get("status")
+    if status not in {"succeeded", "failed", "timeout"}:
+        status = "timeout" if record.get("timed_out") else "succeeded"
+    return FixtureTranscript(
         stdout=stdout,
         stderr=str(record.get("stderr") or ""),
-        timed_out=bool(record.get("timed_out")),
-        crashed=bool(record.get("crashed")),
+        returncode=returncode,
+        status=str(status),
+        duration_ms=int(record.get("duration_ms") or 0),
     )
 
 
@@ -1008,8 +1094,8 @@ def _mutated_manifest(
     return LocalCliAdapterManifest.from_record(record)
 
 
-def _success_outcome() -> CodexCliExecutionOutcome:
-    return _outcome_from_fixture("success")
+def _success_transcript() -> FixtureTranscript:
+    return _transcript_from_fixture("success")
 
 
 def _manifest() -> AdapterManifest:

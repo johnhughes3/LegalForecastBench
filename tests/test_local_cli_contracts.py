@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from legalforecast.multiharness.claude_code import (
     declared_failure_classes as claude_failure_classes,
 )
@@ -10,6 +11,7 @@ from legalforecast.multiharness.codex_cli import (
 )
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
+    LocalCliContractError,
     LocalCliFailureClass,
     RunSpec,
     coerce_local_cli_failure_class,
@@ -64,6 +66,37 @@ def test_sandbox_denial_markers_are_error_path_substrings() -> None:
     assert is_local_cli_sandbox_denial("seccomp filter refused the syscall")
     assert not is_local_cli_sandbox_denial("I cannot provide a forecast")
     assert is_local_cli_sandbox_denial("landlocked")
+
+
+def test_run_spec_allows_codex_config_dash_c() -> None:
+    spec = RunSpec(
+        spec_id="spec-1",
+        argv=(
+            "codex",
+            "exec",
+            "-c",
+            'approval_policy="never"',
+        ),
+        working_directory=Path("workspace"),
+        stdin_bytes=b"solve fixture",
+    )
+    assert spec.argv[2] == "-c"
+    assert spec.stdin_bytes == b"solve fixture"
+
+
+def test_run_spec_rejects_shell_invocation() -> None:
+    with pytest.raises(LocalCliContractError, match="shell"):
+        RunSpec(
+            spec_id="spec-1",
+            argv=("sh", "-c", "codex exec"),
+            working_directory=Path("workspace"),
+        )
+    with pytest.raises(LocalCliContractError, match="shell"):
+        RunSpec(
+            spec_id="spec-1",
+            argv=("codex", "bash"),
+            working_directory=Path("workspace"),
+        )
 
 
 def test_stdin_bytes_change_spec_identity_without_leaking_payload() -> None:
