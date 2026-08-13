@@ -329,12 +329,11 @@ def parse_codex_jsonl(
 ) -> CodexCliParsedEnvelope:
     """Parse a Codex JSONL envelope and classify failures fail-closed."""
 
-    if timed_out:
-        return _failed_envelope("timeout", ())
-    if crashed:
-        return _failed_envelope("crash", ())
-
     events, parse_failure = _load_events(stdout)
+    if timed_out:
+        return _failed_envelope("timeout", events)
+    if crashed:
+        return _failed_envelope("crash", events)
     if parse_failure is not None:
         return _failed_envelope(parse_failure, events)
 

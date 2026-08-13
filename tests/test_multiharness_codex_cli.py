@@ -169,6 +169,8 @@ def test_offline_local_cli_manifest_drives_non_interactive_exec() -> None:
     assert manifest.invocation.headless_mode == "exec_subcommand"
     assert manifest.invocation.prompt_delivery == "stdin"
     assert manifest.invocation.schema_enforcement == "none"
+    assert manifest.invocation.output_format == "stream_json"
+    assert "stream_json_output" in manifest.capabilities
     assert "--json" in manifest.invocation.argv_template
     assert "--ephemeral" in manifest.invocation.argv_template
     assert "workspace-write" in manifest.invocation.argv_template
@@ -696,6 +698,41 @@ def test_command_execution_events_are_counted(tmp_path: Path) -> None:
     assert result.status == "succeeded"
     assert result.public_summary["tool_call_count"] == 1
     assert "provider_request_count" not in result.public_summary
+
+
+def test_timeout_preserves_partial_command_execution_count(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    stdout = _jsonl(
+        {"type": "thread.started", "thread_id": THREAD_ID},
+        {"type": "turn.started"},
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item_cmd",
+                "type": "command_execution",
+                "status": "completed",
+            },
+        },
+    )
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            CodexCliExecutionOutcome(
+                returncode=-1,
+                stdout=stdout,
+                stderr="",
+                timed_out=True,
+            )
+        )
+    ).run(_request(), workspace)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "timeout"
+    assert result.public_summary["tool_call_count"] == 1
+
+
+def test_item_updated_events_are_not_schema_violations() -> None:
     stdout = _jsonl(
         {"type": "thread.started", "thread_id": THREAD_ID},
         {"type": "turn.started"},
