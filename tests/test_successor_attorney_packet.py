@@ -176,6 +176,15 @@ def _terminal_v2(review_id: str, candidate_id: str = "candidate-1") -> JsonRecor
     }
 
 
+_SAFE_TERMINAL_SUGGESTION: JsonRecord = {
+    "authoritative": False,
+    "action": "DROP",
+    "affected_unit_ids": ["unit-1"],
+    "rationale": "Visible only as a safe parsed flag.",
+    "source": "rejected_structural_review_response",
+}
+
+
 def test_packet_commits_exact_bytes_and_keeps_v1_authoritative() -> None:
     bundle_payload = _jsonl([_bundle("review-1"), _bundle("review-2", terminal=True)])
     queue_payload = _jsonl([_unit_v2("review-1"), _terminal_v2("review-2")])
@@ -434,7 +443,7 @@ def test_packet_rejects_missing_or_duplicate_v1_coverage() -> None:
         )
 
 
-def test_packet_rejects_candidate_actions_and_duplicate_terminal_items() -> None:
+def test_packet_rejects_candidate_actions() -> None:
     bundle_payload = _jsonl([_bundle("review-1"), _bundle("review-2")])
     terminal = _terminal_v2("review-1")
     terminal["allowed_actions"] = ["EXCLUDE-CANDIDATE"]
@@ -456,10 +465,9 @@ def test_packet_rejects_duplicate_json_keys_and_byte_tampering() -> None:
 
     bundle = _jsonl([_bundle("review-1")])
     packet = build_successor_attorney_packet(bundle, _jsonl([_unit_v2("review-1")]))
-    assert (
-        packet.manifest["authoritative_v1_bundle"]["sha256"]
-        != hashlib.sha256(bundle + b" ").hexdigest()
-    )
+    commitment = packet.manifest["authoritative_v1_bundle"]
+    assert commitment["sha256"] == hashlib.sha256(bundle).hexdigest()
+    assert commitment["byte_count"] == len(bundle)
 
     with pytest.raises(AttorneyPacketError, match="not JSON"):
         build_successor_attorney_packet(b"{not-json}\n", _jsonl([_unit_v2("review-1")]))
@@ -468,6 +476,43 @@ def test_packet_rejects_duplicate_json_keys_and_byte_tampering() -> None:
     wrong_schema["schema_version"] = "legalforecast.invented.v1"
     with pytest.raises(AttorneyPacketError, match="unsupported schema"):
         build_successor_attorney_packet(bundle, _jsonl([wrong_schema]))
+
+
+def test_packet_rejects_inconsistent_v1_case_id_for_one_candidate() -> None:
+    first = _bundle("review-1")
+    second = _bundle("review-2")
+    second["case_id"] = "case-2"
+    with pytest.raises(AttorneyPacketError, match="inconsistent case_id"):
+        build_successor_attorney_packet(
+            _jsonl([first, second]),
+            _jsonl([_unit_v2("review-1"), _unit_v2("review-2")]),
+        )
+
+
+def test_packet_rejects_non_lf_jsonl_record_boundaries() -> None:
+    first = json.dumps(
+        _bundle("review-1"), sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    second = json.dumps(
+        _bundle("review-2"), sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    with pytest.raises(AttorneyPacketError, match="not JSON"):
+        build_successor_attorney_packet(
+            first + b"\v" + second + b"\n",
+            _jsonl([_unit_v2("review-1"), _unit_v2("review-2")]),
+        )
+
+
+def test_packet_view_isolates_returned_nested_records() -> None:
+    bundle = _jsonl([_bundle("review-1")])
+    packet = build_successor_attorney_packet(bundle, _jsonl([_unit_v2("review-1")]))
+    digest = packet.manifest["authoritative_v1_bundle"]["sha256"]
+    candidate = packet.attorney_view["candidates"][0]
+    candidate["authoritative_v1"]["bundle_records"][0]["review_id"] = "mutated"
+    candidate["observational_v2"]["unit_items"][0]["unit_id"] = "mutated"
+    assert candidate["authoritative_v1"]["review_ids"] == ["review-1"]
+    assert packet.manifest["authoritative_v1_bundle"]["sha256"] == digest
+    assert digest == hashlib.sha256(bundle).hexdigest()
 
 
 def test_packet_rejects_cross_candidate_and_unit_lineage_swaps() -> None:
@@ -598,43 +643,53 @@ def test_terminal_evidence_rederives_exact_units_and_accepts_safe_suggestions() 
 
 
 def test_terminal_evidence_accepts_standalone_and_coalesced_v1_bundle_rows() -> None:
-    coalesced = _jsonl([_bundle("review-1")])
-    assert build_successor_attorney_packet(
-        coalesced, _jsonl([_terminal_v2("review-1")])
+    expected_terminal = _terminal_v2("review-1")
+    coalesced_packet = build_successor_attorney_packet(
+        _jsonl([_bundle("review-1")]), _jsonl([expected_terminal])
     )
-
-    standalone = _jsonl([_bundle("review-1", terminal=True)])
-    assert build_successor_attorney_packet(
-        standalone, _jsonl([_terminal_v2("review-1")])
+    standalone_packet = build_successor_attorney_packet(
+        _jsonl([_bundle("review-1", terminal=True)]), _jsonl([expected_terminal])
     )
+    for packet in (coalesced_packet, standalone_packet):
+        observational = packet.attorney_view["candidates"][0]["observational_v2"]
+        assert observational["terminal_technical_item"] == expected_terminal
+        assert observational["unit_items"] == []
 
 
-def test_terminal_suggestions_reject_nonproducer_shape() -> None:
-    bundle = _jsonl([_bundle("review-1")])
-    terminal = _terminal_v2("review-1")
-    suggestion = {
-        "authoritative": False,
-        "action": "DROP",
-        "affected_unit_ids": ["unit-1"],
-        "rationale": "Visible only as a safe parsed flag.",
-        "source": "rejected_structural_review_response",
-    }
-    terminal["suggested_actions"] = [suggestion]
-
-    for field, value, error in (
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
         ("action", "INVENTED", "action is unsupported"),
         ("source", "invented", "source is unsupported"),
         ("affected_unit_ids", ["invented"], "out-of-cohort"),
         ("affected_unit_ids", ["unit-1", "unit-1"], "lacks affected units"),
-    ):
-        malformed = _terminal_v2("review-1")
-        malformed_suggestion = dict(suggestion)
-        malformed_suggestion[field] = value
-        malformed["suggested_actions"] = [malformed_suggestion]
-        with pytest.raises(AttorneyPacketError, match=error):
-            build_successor_attorney_packet(bundle, _jsonl([malformed]))
-
+    ],
+    ids=(
+        "unsupported-action",
+        "unsupported-source",
+        "out-of-cohort-unit",
+        "duplicate-affected-units",
+    ),
+)
+def test_terminal_suggestions_reject_nonproducer_shape(
+    field: str, value: object, error: str
+) -> None:
     malformed = _terminal_v2("review-1")
-    malformed["suggested_actions"] = [{**suggestion, "extra": "not producer output"}]
+    malformed_suggestion: JsonRecord = dict(_SAFE_TERMINAL_SUGGESTION)
+    malformed_suggestion[field] = value
+    malformed["suggested_actions"] = [malformed_suggestion]
+    with pytest.raises(AttorneyPacketError, match=error):
+        build_successor_attorney_packet(
+            _jsonl([_bundle("review-1")]), _jsonl([malformed])
+        )
+
+
+def test_terminal_suggestions_reject_extra_nonproducer_fields() -> None:
+    malformed = _terminal_v2("review-1")
+    malformed["suggested_actions"] = [
+        {**_SAFE_TERMINAL_SUGGESTION, "extra": "not producer output"}
+    ]
     with pytest.raises(AttorneyPacketError, match="field set"):
-        build_successor_attorney_packet(bundle, _jsonl([malformed]))
+        build_successor_attorney_packet(
+            _jsonl([_bundle("review-1")]), _jsonl([malformed])
+        )
