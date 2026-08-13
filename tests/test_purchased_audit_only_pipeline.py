@@ -2057,6 +2057,190 @@ def test_structural_review_recovery_reuses_failed_response_without_provider(
         ).fetchone() == ("settled", pytest.approx(0.02))
 
 
+def test_structural_review_recovery_rejects_missing_stage_a_units(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    monkeypatch.setattr(llm_pipeline, "_predecision_documents", lambda *a, **k: ())
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="no Stage A units"):
+        llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
+            selection_record=_selection(),
+            parser_records=(),
+            prediction_unit_records=({**_prediction_units(), "prediction_units": []},),
+            markdown_root=tmp_path / "markdown",
+            markdown_bytes=None,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_account="default",
+            provider_attempt_namespace="claim-ontology-v2",
+        )
+    assert not (tmp_path / "provider-attempts.sqlite3").exists()
+
+
+def test_structural_review_recovery_requires_a_journal(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    monkeypatch.setattr(llm_pipeline, "_predecision_documents", lambda *a, **k: ())
+    monkeypatch.setattr(
+        llm_pipeline, "_stage_a_structural_review_prompt", lambda *a, **k: "prompt"
+    )
+    monkeypatch.setattr(
+        llm_pipeline, "_provider_attempt_journal", lambda **kwargs: None
+    )
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="requires a journal"):
+        llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
+            selection_record=_selection(),
+            parser_records=(),
+            prediction_unit_records=(_prediction_units(),),
+            markdown_root=tmp_path / "markdown",
+            markdown_bytes=None,
+            registry_entry=registry_entry,
+            model_registry_sha256="b" * 64,
+            provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="cycle-1",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_account="default",
+            provider_attempt_namespace="claim-ontology-v2",
+        )
+
+
+def test_structural_review_recovery_rejects_absent_failed_reconstruction(
+    tmp_path: Path,
+) -> None:
+    markdown_root, journal_path, parser_records, registry_entry = (
+        _seed_failed_structural_review_journal(tmp_path, record_failure=False)
+    )
+    with pytest.raises(
+        ProviderJournalError,
+        match="no failed reconstruction to recover",
+    ):
+        llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
+            **_structural_review_recovery_kwargs(
+                markdown_root=markdown_root,
+                journal_path=journal_path,
+                parser_records=parser_records,
+                registry_entry=registry_entry,
+            )
+        )
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT status FROM provider_attempts WHERE attempt_ordinal = 1"
+        ).fetchone() == ("validated_response",)
+
+
+@pytest.mark.parametrize(
+    ("normalized_response_json", "match"),
+    (
+        ("not-json", "journaled normalized provider response is invalid"),
+        ("[1]", "journaled normalized provider response must be an object"),
+        (
+            '{"input_tokens": 1}',
+            "journaled normalized provider response lacks raw_output",
+        ),
+        (
+            '{"raw_output": 12}',
+            "journaled normalized provider response lacks raw_output",
+        ),
+    ),
+)
+def test_structural_review_recovery_rejects_invalid_journaled_normalized_response(
+    tmp_path: Path,
+    normalized_response_json: str,
+    match: str,
+) -> None:
+    markdown_root, journal_path, parser_records, registry_entry = (
+        _seed_failed_structural_review_journal(tmp_path)
+    )
+    with sqlite3.connect(journal_path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET normalized_response_json = ? "
+            "WHERE attempt_ordinal = 1",
+            (normalized_response_json,),
+        )
+        connection.commit()
+    with pytest.raises(llm_pipeline.LlmPipelineError, match=match):
+        llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
+            **_structural_review_recovery_kwargs(
+                markdown_root=markdown_root,
+                journal_path=journal_path,
+                parser_records=parser_records,
+                registry_entry=registry_entry,
+            )
+        )
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT status, actual_cost_usd FROM provider_attempts "
+            "WHERE attempt_ordinal = 1"
+        ).fetchone() == ("reconstruction_failed", pytest.approx(0.01))
+
+
+def test_structural_review_recovery_rejects_non_json_raw_output(tmp_path: Path) -> None:
+    markdown_root, journal_path, parser_records, registry_entry = (
+        _seed_failed_structural_review_journal(tmp_path, raw_output="not a json object")
+    )
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="LLM response did not contain a JSON object",
+    ):
+        llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
+            **_structural_review_recovery_kwargs(
+                markdown_root=markdown_root,
+                journal_path=journal_path,
+                parser_records=parser_records,
+                registry_entry=registry_entry,
+            )
+        )
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT status FROM provider_attempts WHERE attempt_ordinal = 1"
+        ).fetchone() == ("reconstruction_failed",)
+
+
+def test_structural_review_recovery_rejects_still_invalid_structural_flags(
+    tmp_path: Path,
+) -> None:
+    raw_output = json.dumps(
+        {
+            "structural_flags": [
+                {
+                    "flag_type": "omitted",
+                    "affected_unit_ids": ["unit-1"],
+                    "source_document_ids": ["mtd"],
+                    "explanation": "A separately challenged theory is absent.",
+                    "citation_excerpt": "this excerpt is not in any cited document",
+                }
+            ]
+        }
+    )
+    markdown_root, journal_path, parser_records, registry_entry = (
+        _seed_failed_structural_review_journal(tmp_path, raw_output=raw_output)
+    )
+    with pytest.raises(
+        llm_pipeline.LlmResponseValidationError, match="does not appear"
+    ):
+        llm_pipeline.recover_llm_stage_a_structural_review_reconstruction(
+            **_structural_review_recovery_kwargs(
+                markdown_root=markdown_root,
+                journal_path=journal_path,
+                parser_records=parser_records,
+                registry_entry=registry_entry,
+            )
+        )
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT status, actual_cost_usd FROM provider_attempts "
+            "WHERE attempt_ordinal = 1"
+        ).fetchone() == ("reconstruction_failed", pytest.approx(0.01))
+
+
 def test_structural_review_terminal_escalation_routes_every_frozen_unit_without_call(
     tmp_path: Path,
     monkeypatch: Any,
@@ -3512,6 +3696,92 @@ def _registry_record() -> JsonRecord:
         "input_token_price": 1.0,
         "output_token_price": 2.0,
         "known_cutoff_publicity_caveats": [],
+    }
+
+
+def _seed_failed_structural_review_journal(
+    tmp_path: Path,
+    *,
+    raw_output: str = "fixture-invalid",
+    record_failure: bool = True,
+) -> tuple[Path, Path, list[JsonRecord], llm_pipeline.ModelRegistryEntry]:
+    markdown_root = tmp_path / "markdown"
+    parser_records: list[JsonRecord] = []
+    for document_id, text in (
+        ("complaint", "Count I alleges a Section 10(b) claim."),
+        ("mtd", "Defendant moves to dismiss Count I."),
+    ):
+        path = markdown_root / "cand-1" / f"{document_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        parser_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "status": "succeeded",
+                "markdown_path": f"cand-1/{document_id}.md",
+            }
+        )
+    registry_entry = llm_pipeline.ModelRegistryEntry.from_record(_registry_record())
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    prompt_record = llm_pipeline.stage_a_structural_review_prompt_records(
+        selection_records=(_selection(),),
+        parser_records=parser_records,
+        prediction_unit_records=(_prediction_units(),),
+        markdown_root=markdown_root,
+        provider_attempt_namespace="claim-ontology-v2",
+    )[0]
+    journal = llm_pipeline._provider_attempt_journal(
+        path=journal_path,
+        stage="llm-review-stage-a",
+        candidate_id="cand-1",
+        prompt=prompt_record["prompt"],
+        registry_entry=registry_entry,
+        account="default",
+        model_registry_sha256="b" * 64,
+        cycle_cap_usd=100.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:" + "c" * 64,
+        provider_attempt_namespace="claim-ontology-v2",
+    )
+    assert journal is not None
+    with journal:
+        journal.run_attempt(1, lambda: {"output": raw_output})
+        journal.settle_attempt(
+            journal.durable_attempt_ordinal(1),
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output=raw_output,
+        )
+        if record_failure:
+            journal.record_reconstruction_failure(
+                ValueError("fixture reconstruction failure")
+            )
+    return markdown_root, journal_path, parser_records, registry_entry
+
+
+def _structural_review_recovery_kwargs(
+    *,
+    markdown_root: Path,
+    journal_path: Path,
+    parser_records: list[JsonRecord],
+    registry_entry: llm_pipeline.ModelRegistryEntry,
+) -> dict[str, Any]:
+    return {
+        "selection_record": _selection(),
+        "parser_records": parser_records,
+        "prediction_unit_records": (_prediction_units(),),
+        "markdown_root": markdown_root,
+        "markdown_bytes": None,
+        "registry_entry": registry_entry,
+        "model_registry_sha256": "b" * 64,
+        "provider_journal_path": journal_path,
+        "provider_cycle_cap_usd": 100.0,
+        "provider_cycle_id": "cycle-1",
+        "provider_cycle_caps_sha256": "sha256:" + "c" * 64,
+        "provider_account": "default",
+        "provider_attempt_namespace": "claim-ontology-v2",
     }
 
 
