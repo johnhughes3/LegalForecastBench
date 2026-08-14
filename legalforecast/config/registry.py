@@ -50,10 +50,10 @@ def require_activated(config: CycleConfig) -> CycleConfig:
             f"{kind} cycle {config.cycle_id!r} is not activated ({blocker}). "
             "No live acquisition or selection path may use it as authority."
         )
-    if config.spend.hard_cap_usd is None or config.spend.max_per_case_usd is None:
+    if config.spend.hard_cap_usd is None:
         raise CycleConfigNotActivatedError(
             f"cycle {config.cycle_id!r} cannot be activated with unresolved "
-            "spend ceilings. Draft None is only valid while activated=false."
+            "spend.hard_cap_usd. Draft None is only valid while activated=false."
         )
     return config
 

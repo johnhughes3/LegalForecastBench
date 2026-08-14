@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
-from legalforecast.config import SpendCeiling, StratificationPolicy, usd
+from legalforecast.config import (
+    EvaluationRegistryPin,
+    SpendCeiling,
+    StratificationPolicy,
+    usd,
+)
 from legalforecast.document_need.artifact import (
     DocumentNeedArtifactError,
     build_selection_artifact,
@@ -29,6 +36,7 @@ from legalforecast.document_need.types import (
 )
 from tests.document_need_fixtures import (
     HAIKU,
+    ROOT,
     activated_haiku_config,
     inert_cycle_2,
     luna_on_cycle1_registry,
@@ -520,3 +528,63 @@ def test_stratification_cap_uses_final_admitted_size() -> None:
         len(admitted)
     )
     assert share <= Decimal("0.10")
+
+
+def test_failed_completeness_is_refused_at_artifact_boundary() -> None:
+    chronology, merged = _case("case-a", required_pages=5)
+    tainted = replace(merged, completeness_ok=False)
+    with pytest.raises(DocumentNeedArtifactError, match="completeness"):
+        build_selection_artifact(
+            config=activated_haiku_config(),
+            chronologies=(chronology,),
+            merged=(tainted,),
+            cohort_target_n=1,
+        )
+
+
+def test_duplicate_merged_entry_verdicts_are_refused() -> None:
+    chronology, merged = _case("case-a", required_pages=5)
+    tainted = replace(merged, entries=(*merged.entries, merged.entries[0]))
+    with pytest.raises(DocumentNeedArtifactError, match="duplicate entry"):
+        build_selection_artifact(
+            config=activated_haiku_config(),
+            chronologies=(chronology,),
+            merged=(tainted,),
+            cohort_target_n=1,
+        )
+
+
+def test_selection_digest_binds_evaluation_registry_bytes(tmp_path: Path) -> None:
+    chronology, merged = _case("case-a", required_pages=5)
+    registry = tmp_path / "eval.json"
+    pin = EvaluationRegistryPin(path=str(registry))
+    _write_disjoint_registry(registry, "other-a")
+    first = build_selection_artifact(
+        config=activated_haiku_config(evaluation_registry=pin),
+        chronologies=(chronology,),
+        merged=(merged,),
+        cohort_target_n=1,
+    )
+    _write_disjoint_registry(registry, "other-b")
+    second = build_selection_artifact(
+        config=activated_haiku_config(evaluation_registry=pin),
+        chronologies=(chronology,),
+        merged=(merged,),
+        cohort_target_n=1,
+    )
+    assert first.sha256 != second.sha256
+
+
+def _write_disjoint_registry(path: Path, model_id: str) -> Path:
+    source = json.loads(
+        (ROOT / "model_registries" / "cycle-1-2026-06-30.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    record = dict(source[0])
+    record["provider"] = "openai"
+    record["model_id"] = model_id
+    record["model_version_or_snapshot"] = model_id
+    record["display_name"] = model_id
+    path.write_text(json.dumps([record]), encoding="utf-8")
+    return path

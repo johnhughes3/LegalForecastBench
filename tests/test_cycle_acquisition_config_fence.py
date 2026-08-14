@@ -124,6 +124,48 @@ def test_repository_fence_baseline_does_not_grow_from_main() -> None:
     assert find_baseline_growth(current, ancestor) == ()
 
 
+def test_fence_scans_modules_outside_the_config_package(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "legalforecast" / "configuration.py",
+        """
+        SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
+        """,
+    )
+    _write(
+        tmp_path / "legalforecast" / "config" / "home.py",
+        """
+        SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
+        """,
+    )
+
+    findings = scan_repository(tmp_path)
+
+    assert {(finding.path, finding.subject) for finding in findings} == {
+        ("legalforecast/configuration.py", "SELECTOR_MODEL_PRIMARY"),
+    }
+
+
+def test_fence_scans_configuration_sibling_of_config_package(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "legalforecast" / "configuration.py",
+        """
+        SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
+        """,
+    )
+    _write(
+        tmp_path / "legalforecast" / "config" / "home.py",
+        """
+        SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
+        """,
+    )
+
+    findings = scan_repository(tmp_path)
+    scanned = {(finding.path, finding.subject) for finding in findings}
+
+    assert ("legalforecast/configuration.py", "SELECTOR_MODEL_PRIMARY") in scanned
+    assert ("legalforecast/config/home.py", "SELECTOR_MODEL_PRIMARY") not in scanned
+
+
 def test_fence_fails_closed_when_base_ref_is_unavailable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

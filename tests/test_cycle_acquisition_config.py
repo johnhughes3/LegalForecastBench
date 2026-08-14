@@ -211,7 +211,7 @@ def test_require_activated_accepts_explicit_fixture(tmp_path: Path) -> None:
             ),
             alternates=(),
         ),
-        spend=SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=usd("500.00")),
+        spend=SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=None),
     )
 
     assert require_activated(config) is config

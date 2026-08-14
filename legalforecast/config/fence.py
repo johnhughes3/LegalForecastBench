@@ -345,7 +345,9 @@ def _iter_python_paths(root: Path) -> Iterable[str]:
             relative = path.relative_to(root).as_posix()
             if any(part in EXCLUDED_DIR_PARTS for part in Path(relative).parts):
                 continue
-            if "legalforecast/config" in relative:
+            if relative == "legalforecast/config" or relative.startswith(
+                "legalforecast/config/"
+            ):
                 continue
             yield relative
 

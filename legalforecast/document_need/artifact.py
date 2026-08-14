@@ -11,9 +11,13 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
+from pathlib import Path
 from typing import cast
 
+from legalforecast.config.registry import repository_root
 from legalforecast.config.types import CycleConfig
+from legalforecast.contracts import RAW_BYTES_RAW_SHA256_V1
+from legalforecast.contracts.schemas import RAW_BYTES_RAW_SHA256_COMMITMENT_V1
 from legalforecast.document_need.costs import CaseCosts, price_case
 from legalforecast.document_need.cycle_config import (
     DocumentNeedCycleView,
@@ -129,6 +133,15 @@ def build_selection_artifact(
         raise DocumentNeedArtifactError("duplicate candidate_id in selection inputs")
     allowed_identities = view.selector_model_policy.allowed_identities()
     for verdicts in merged:
+        if verdicts.completeness_ok is False:
+            raise DocumentNeedArtifactError(
+                f"candidate {verdicts.candidate_id!r} failed pass-2 completeness"
+            )
+        entry_ids = [row.entry for row in verdicts.entries]
+        if len(entry_ids) != len(set(entry_ids)):
+            raise DocumentNeedArtifactError(
+                f"candidate {verdicts.candidate_id!r} has duplicate entry verdicts"
+            )
         checks = (
             (
                 "pass1",
@@ -170,7 +183,13 @@ def build_selection_artifact(
         max_per_case=view.max_per_case_usd,
         stratification=view.case_mix_stratification,
     )
-    return _seal(view, decisions, by_id, cohort_target_n=cohort_target_n)
+    return _seal(
+        view,
+        decisions,
+        by_id,
+        cohort_target_n=cohort_target_n,
+        evaluation_registry_sha256=_evaluation_registry_digest(config),
+    )
 
 
 def replay_selection_artifact(
@@ -209,6 +228,7 @@ def _seal(
     merged: Mapping[str, MergedCaseBuckets],
     *,
     cohort_target_n: int,
+    evaluation_registry_sha256: str,
 ) -> SelectionArtifact:
     admitted = tuple(decision for decision in decisions if decision.admitted)
     ceiling = sum((row.ranked.max_cost for row in admitted), _ZERO)
@@ -221,6 +241,10 @@ def _seal(
         "schema_version": SELECTION_SCHEMA,
         "cycle_id": view.cycle_id,
         "cohort_target_n": cohort_target_n,
+        "evaluation_registry": {
+            "path": view.evaluation_registry_pin,
+            "sha256": evaluation_registry_sha256,
+        },
         "selector_model_policy": {
             "primary": view.selector_model_policy.primary,
             "alternates": list(view.selector_model_policy.alternates),
@@ -296,3 +320,23 @@ def _case_record(
         for row in merged.promotions
     ]
     return record
+
+
+def _evaluation_registry_digest(config: CycleConfig) -> str:
+    raw = Path(config.evaluation_registry.path)
+    path = raw if raw.is_absolute() else repository_root() / raw
+    try:
+        if not path.exists() or path.is_symlink() or not path.is_file():
+            raise DocumentNeedArtifactError(
+                "evaluation registry pin is not a readable regular file"
+            )
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise DocumentNeedArtifactError(
+            "evaluation registry pin could not be read"
+        ) from exc
+    return str(
+        RAW_BYTES_RAW_SHA256_V1.commit(
+            payload, domain=RAW_BYTES_RAW_SHA256_COMMITMENT_V1
+        ).digest
+    )

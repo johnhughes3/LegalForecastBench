@@ -10,6 +10,7 @@ from legalforecast.document_need.blindness import (
     Pass1Process,
     assert_pass1_cannot_read_decision,
 )
+from legalforecast.document_need.cycle_config import DocumentNeedConfigError
 from legalforecast.document_need.prep import parse_page_count, prepare_audit_bundles
 from legalforecast.document_need.protocol import (
     DocumentNeedProtocolError,
@@ -33,6 +34,7 @@ from legalforecast.document_need.types import (
     Pass2Verdict,
 )
 from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
+from tests.document_need_fixtures import activated_haiku_config, luna_on_cycle1_registry
 
 _DECISION = "UNIQUE_DECISION_BYTES_THE_PASS1_PROCESS_MUST_NOT_SEE"
 _BUCKETS = {
@@ -212,6 +214,7 @@ def test_two_pass_promotes_conditional_opposition() -> None:
         eyes=eyes,
         classifier=classifier,
         bucket_definitions=_BUCKETS,
+        config=activated_haiku_config(),
     )
     assert merged.by_entry()[12].bucket is NeedBucket.CLEARLY_REQUIRED
     assert merged.pass1_model_id == "fixture:document-need-v1"
@@ -298,6 +301,7 @@ def test_pass2_rejects_decision_from_another_candidate() -> None:
             eyes=eyes,
             classifier=classifier,
             bucket_definitions=_BUCKETS,
+            config=activated_haiku_config(),
         )
 
 
@@ -380,6 +384,7 @@ def test_pass1_rejects_verdict_for_another_candidate_without_eyes() -> None:
             eyes=None,
             classifier=_WrongCandidate(),
             bucket_definitions=_BUCKETS,
+            config=activated_haiku_config(),
         )
 
 
@@ -418,3 +423,24 @@ def test_pass2_prompt_includes_selected_docs() -> None:
     )
     assert "SELECTED_DOCS_JSON" in prompt
     assert "UNIQUE_SELECTED_DOC_EXCERPT" in prompt
+
+
+def test_run_two_pass_preflights_before_classifier() -> None:
+    class _Boom:
+        def classify_pass1(self, prompt: str, *, candidate_id: str) -> Pass1Verdict:
+            raise AssertionError("classifier must not run before selector preflight")
+
+        def classify_pass2(self, prompt: str, *, candidate_id: str) -> Pass2Verdict:
+            raise AssertionError("classifier must not run before selector preflight")
+
+    with pytest.raises(DocumentNeedConfigError, match=r"gpt-5\.6-luna"):
+        run_two_pass(
+            blind=BlindBundle(
+                chronology=_chronology(),
+                motion_markdown={10: "Motion memorandum."},
+            ),
+            eyes=None,
+            classifier=_Boom(),
+            bucket_definitions=_BUCKETS,
+            config=luna_on_cycle1_registry(),
+        )

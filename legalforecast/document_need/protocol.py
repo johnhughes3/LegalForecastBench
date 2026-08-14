@@ -5,13 +5,19 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol, cast
 
+from legalforecast.config.types import CycleConfig
 from legalforecast.document_need.blindness import (
     Pass1Process,
     assert_pass1_cannot_read_decision,
 )
-from legalforecast.document_need.cycle_config import BUCKET_IDS
+from legalforecast.document_need.cycle_config import (
+    BUCKET_IDS,
+    preflight_selector_models,
+    require_activated_cycle,
+)
 from legalforecast.document_need.types import (
     BlindBundle,
     Chronology,
@@ -159,9 +165,13 @@ def run_two_pass(
     eyes: EyesBundle | None,
     classifier: PassClassifier,
     bucket_definitions: Mapping[str, str],
+    config: CycleConfig,
+    repository_root_path: Path | None = None,
 ) -> MergedCaseBuckets:
     """Run pass 1 (blind) then optional pass 2 (promote only)."""
 
+    require_activated_cycle(config)
+    preflight_selector_models(config, repository_root_path=repository_root_path)
     process = Pass1Process(blind)
     prompt1 = build_pass1_prompt(process.bundle, bucket_definitions=bucket_definitions)
     if eyes is not None:
