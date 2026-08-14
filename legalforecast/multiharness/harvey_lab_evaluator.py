@@ -46,8 +46,14 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-EVALUATION_INPUT_SCHEMA_VERSION = "legalforecast.harvey_lab_evaluation_input.v1"
-EVALUATION_OUTPUT_SCHEMA_VERSION = "legalforecast.harvey_lab_evaluation_output.v1"
+EVALUATION_INPUT_SCHEMA_VERSION = (
+    # contract-ratchet: allow LAB1 evaluation-input schema until contracts registry
+    "legalforecast.harvey_lab_evaluation_input.v1"
+)
+EVALUATION_OUTPUT_SCHEMA_VERSION = (
+    # contract-ratchet: allow LAB1 evaluation-output schema until contracts registry
+    "legalforecast.harvey_lab_evaluation_output.v1"
+)
 FIXTURE_JUDGE_IDENTITY = "fixture/stub@local"
 EVALUATOR_COMMAND_NAME = "harvey-lab-eval"
 _OVERLAY_DELIVERABLE = "output"

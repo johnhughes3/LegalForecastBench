@@ -42,8 +42,14 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-PROJECTION_SCHEMA_VERSION = "legalforecast.harvey_lab_projection.v1"
-TASK_PROJECTION_SCHEMA_VERSION = "legalforecast.harvey_lab_task_projection.v1"
+PROJECTION_SCHEMA_VERSION = (
+    # contract-ratchet: allow LAB1 projection schema until contracts registry
+    "legalforecast.harvey_lab_projection.v1"
+)
+TASK_PROJECTION_SCHEMA_VERSION = (
+    # contract-ratchet: allow LAB1 task-projection schema until contracts registry
+    "legalforecast.harvey_lab_task_projection.v1"
+)
 SOLVER_VISIBLE_LAYOUT_ID = "harvey-lab-solver-visible.v1"
 NATIVE_LAYOUT_ID = "harvey-lab-native.v1"
 ROOT_MANIFEST_NAME = "harvey-lab-projection.v1.json"
@@ -1039,6 +1045,7 @@ def _canonical_json(record: Mapping[str, object]) -> bytes:
     ).encode("utf-8")
 
 
+# contract-ratchet: allow non-persisted projection content hash
 def _record_sha256(record: object) -> str:
     encoded = json.dumps(
         record,
