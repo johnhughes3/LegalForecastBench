@@ -244,4 +244,5 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`packet_build_replay.py`](../legalforecast/ingestion/packet_build_replay.py) | Importable packet-build and packet-planner run-card replay helpers. |
 | [`recovered_public_replay.py`](../legalforecast/ingestion/recovered_public_replay.py) | Importable recovered-public and successor-history replay helpers. |
 | [`replacement_purchase_approval.py`](../legalforecast/ingestion/replacement_purchase_approval.py) | Approval for a clearance-replacement tranche. |
+| [`stage_a_lineage_verification.py`](../legalforecast/ingestion/stage_a_lineage_verification.py) | Importable Stage A unitization, parse, review, and packet-authority lineage helpers. |
 | [`terminal_purchase_failure.py`](../legalforecast/ingestion/terminal_purchase_failure.py) | Verifier for cap-counted terminal purchase failures. |

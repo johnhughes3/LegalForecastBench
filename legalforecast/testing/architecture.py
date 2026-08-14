@@ -32,6 +32,7 @@ UPWARD_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
         "legalforecast/ingestion/resolved_post_recovery.py",
+        "legalforecast/ingestion/stage_a_lineage_verification.py",
     }
 )
 

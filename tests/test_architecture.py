@@ -30,6 +30,7 @@ def test_architecture_baseline_records_the_known_migration_edges() -> None:
         "legalforecast/ingestion/purchase_approval.py",
         "legalforecast/ingestion/recovered_public_replay.py",
         "legalforecast/ingestion/resolved_post_recovery.py",
+        "legalforecast/ingestion/stage_a_lineage_verification.py",
     )
     current = scan_repository(ROOT)
     assert current.cli_metrics.line_count <= snapshot.cli_metrics.line_count

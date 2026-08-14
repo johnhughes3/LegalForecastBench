@@ -1233,7 +1233,10 @@ def _crosscheck_git_semantic_witnesses(
 def _git_bytes(repository_root: Path, *arguments: str) -> bytes:
     try:
         result = subprocess.run(
-            ("git", *arguments),
+            # Git 2.43+ defaults to 8-character abbreviations. The packaged
+            # Cycle 1 semantic witnesses were minted with 7-character `index`
+            # lines, so pin that width for every git invocation here.
+            ("git", "-c", "core.abbrev=7", *arguments),
             cwd=repository_root,
             check=True,
             capture_output=True,
