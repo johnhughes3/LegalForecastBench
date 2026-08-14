@@ -20,7 +20,7 @@ from legalforecast.evals.inspect_task import HarnessSolver
 from legalforecast.evals.packet_builder import ModelPacket
 from legalforecast.multiharness.adapters import HarnessAdapter, LiveToolAdapter
 from legalforecast.multiharness.artifacts import AdapterRunResult
-from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
+from legalforecast.multiharness.auth_profiles import PUBLISHED_API_KEY
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.container_runtime import (
     ContainerRuntimeError,
@@ -448,12 +448,17 @@ class _MultiHarnessRunner:
                 ):
                     self._validate_native_lfb_inputs(adapter, task, model)
                     compatible_count += 1
+                    declared_profile = getattr(adapter, "auth_profile", None)
                     row_id = _row_id(
                         task=task,
                         adapter=adapter.manifest,
                         model=model,
                         selection_sha256=selection.selection_sha256,
-                        auth_profile=getattr(adapter, "auth_profile", None),
+                        auth_profile=(
+                            PUBLISHED_API_KEY
+                            if declared_profile == PUBLISHED_API_KEY
+                            else None
+                        ),
                     )
                     request = _run_request(
                         row_id=row_id,
@@ -880,8 +885,9 @@ def _row_id(
         "model_key": model.model_key,
         "selection_sha256": selection_sha256,
     }
-    if isinstance(auth_profile, str) and auth_profile not in {"", FIXTURE_NONE}:
-        payload["auth_profile"] = auth_profile
+    if auth_profile == PUBLISHED_API_KEY:
+        # Hash the canonical profile ID, not caller-supplied credential text.
+        payload["auth_profile"] = PUBLISHED_API_KEY
     digest = _record_sha256(
         payload,
         prefixed=False,
