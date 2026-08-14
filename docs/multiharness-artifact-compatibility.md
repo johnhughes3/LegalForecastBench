@@ -10,6 +10,7 @@ The executable fixtures live in `tests/fixtures/multiharness-artifact-characteri
 | --- | --- | --- | --- |
 | Canonical task | `legalforecast.multiharness.task.v1` | `CanonicalTask.from_record` | `to_record()` reproduces the fixture exactly. |
 | Public run summary | `legalforecast.multiharness.community_run_summary.v1` | `CommunityRunSummary.from_record` | `to_record()` reproduces the fixture exactly. |
+| Public run summary v2 | `legalforecast.multiharness.community_run_summary.v2` | `CommunityRunSummary.from_record` / `from_v2_record` | Explicit v2 reader. Bindings, coverage_kind, and claim_kind are required. v1 rewrite stays exact. |
 | Submission shard | `legalforecast.multiharness.community_shard.v1` | `CommunitySubmissionShard.from_record` | `to_record()` reproduces the fixture exactly. |
 | Current submission package | `legalforecast.multiharness.community_submission_manifest.v1` | `CommunitySubmissionManifest.from_record` and `validate_submission_file` | Nested run summaries and shards retain their own version checks, rewrite exactly, and pass file-and-hash validation. |
 | Legacy submission envelope | `legalforecast.multiharness.community_submission.v1` | `CommunitySubmission.from_record` | The reader remains available for migration and rewrites the legacy shape exactly. |

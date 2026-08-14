@@ -7,6 +7,31 @@
       "reason": "The repository-level CLI remains the compatibility composition root until the community CLI is extracted."
     },
     {
+      "imported": "legalforecast.multiharness.evaluation",
+      "importer": "legalforecast.publication.accounting",
+      "reason": "Published efficiency observations bind to EvaluationReceipt token, cost, and timing fields."
+    },
+    {
+      "imported": "legalforecast.multiharness.local_cli_contracts",
+      "importer": "legalforecast.publication.accounting",
+      "reason": "Published efficiency observations bind to ExecutionReceipt usage, cost, and duration without a second receipt family."
+    },
+    {
+      "imported": "legalforecast.multiharness.validation",
+      "importer": "legalforecast.publication.accounting",
+      "reason": "Published efficiency observations validate community records with the shared multiharness codec."
+    },
+    {
+      "imported": "legalforecast.multiharness.run_progress",
+      "importer": "legalforecast.publication.claim_policy",
+      "reason": "Claim policy consumes the scoped and partial coverage vocabulary rather than restating it."
+    },
+    {
+      "imported": "legalforecast.multiharness.validation",
+      "importer": "legalforecast.publication.claim_policy",
+      "reason": "Claim-policy artifacts validate community records with the shared multiharness codec."
+    },
+    {
       "imported": "legalforecast.multiharness.community",
       "importer": "legalforecast.publication.community_aggregate",
       "reason": "The existing community publication adapter consumes the community submission contract."
@@ -17,6 +42,16 @@
       "reason": "The existing community publication adapter consumes the community report renderer."
     },
     {
+      "imported": "legalforecast.multiharness.run_progress",
+      "importer": "legalforecast.publication.community_aggregate",
+      "reason": "Community aggregate applies scoped and partial coverage labels at publication time."
+    },
+    {
+      "imported": "legalforecast.multiharness.scoring",
+      "importer": "legalforecast.publication.community_aggregate",
+      "reason": "Community aggregate reconstructs displayed scores from ScoreArtifact records."
+    },
+    {
       "imported": "legalforecast.multiharness.spec",
       "importer": "legalforecast.publication.community_aggregate",
       "reason": "The existing community publication adapter consumes community schema types."
@@ -25,6 +60,16 @@
       "imported": "legalforecast.multiharness.validation",
       "importer": "legalforecast.publication.community_aggregate",
       "reason": "The existing community publication adapter validates community records."
+    },
+    {
+      "imported": "legalforecast.multiharness.scoring",
+      "importer": "legalforecast.publication.metric_propagation",
+      "reason": "Metric traces reconstruct displayed figures from hashed ScoreArtifact records."
+    },
+    {
+      "imported": "legalforecast.multiharness.validation",
+      "importer": "legalforecast.publication.metric_propagation",
+      "reason": "Metric traces validate community records with the shared multiharness codec."
     },
     {
       "imported": "legalforecast.multiharness.spec",

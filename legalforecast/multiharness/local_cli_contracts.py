@@ -386,6 +386,11 @@ class ExecutionReceipt:
             )
         validate_public_record(self.to_public_record(), "execution_receipt")
 
+    def public_sha256(self) -> str:
+        """Hash the credential-free public receipt with the RunSpec codec."""
+
+        return _record_sha256(self.to_public_record())
+
     def to_public_record(self) -> dict[str, object]:
         """Return the credential-free, transcript-free public receipt."""
 

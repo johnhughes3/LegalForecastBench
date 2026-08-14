@@ -369,6 +369,9 @@ def _self_reported_conformance_status(status: str) -> str:
 
 
 def _community_sections(rows: Sequence[Mapping[str, Any]]) -> str:
+    include_metrics = any(
+        isinstance(row.get("published_metrics"), Mapping) for row in rows
+    )
     sections: list[str] = []
     for family, scoring_mode in sorted(
         {
@@ -401,21 +404,71 @@ def _community_sections(rows: Sequence[Mapping[str, Any]]) -> str:
                 f"<td>{html.escape(_first_str(row, ('adapter_id',)))}</td>"
                 f"<td>{html.escape(str(row.get('task_count', '')))}</td>"
                 f"<td>{html.escape(str(row.get('coverage_percentage', '')))}%</td>"
+                f"{_metric_cells(row) if include_metrics else ''}"
                 f"<td>{html.escape(conformance_status)}</td>"
                 "</tr>"
             )
+        metric_headers = (
+            "<th>Score</th><th>Cost</th><th>Tokens</th><th>Time</th>"
+            "<th>Attempts</th><th>Failures</th>"
+            if include_metrics
+            else ""
+        )
         sections.append(
             "<section>"
             f"<h2>{html.escape(title)} ({html.escape(scoring_mode)})</h2>"
             "<p>Coverage matrices and shard/composite views are grouped within "
-            "this compatible family and scoring mode.</p>"
+            "this compatible family and scoring mode."
+            + (
+                " Displayed figures reconstruct from hashed artifacts."
+                if include_metrics
+                else ""
+            )
+            + "</p>"
             "<table><thead><tr><th>Row</th><th>Type</th><th>Model</th>"
             "<th>Adapter</th><th>Tasks</th><th>Coverage</th>"
+            f"{metric_headers}"
             f"<th>{html.escape(CONFORMANCE_SELF_REPORTED_LABEL)}</th></tr></thead>"
             f"<tbody>{''.join(section_rows)}</tbody></table>"
             "</section>"
         )
     return "\n".join(sections)
+
+
+def _metric_cells(row: Mapping[str, Any]) -> str:
+    raw_metrics = row.get("published_metrics")
+    if not isinstance(raw_metrics, Mapping):
+        return "".join("<td></td>" for _ in range(6))
+    metrics = cast(Mapping[str, Any], raw_metrics)
+    traces = metrics.get("traces")
+    trace_rows = _mapping_rows(traces)
+    cells: list[str] = []
+    for field_name in (
+        "score_value",
+        "cost_usd",
+        "token_total",
+        "wall_elapsed_ms",
+        "attempt_count",
+        "failure_count",
+    ):
+        value: object = metrics.get(field_name, "")
+        digest = ""
+        for trace in trace_rows:
+            if trace.get("field_name") == field_name:
+                hashes = trace.get("source_artifact_sha256s")
+                if (
+                    isinstance(hashes, Sequence)
+                    and hashes
+                    and not isinstance(hashes, str | bytes)
+                ):
+                    digest = str(cast(Sequence[object], hashes)[0])
+                break
+        displayed = html.escape("" if value is None else str(value))
+        if digest:
+            cells.append(f"<td data-artifact='{html.escape(digest)}'>{displayed}</td>")
+        else:
+            cells.append(f"<td>{displayed}</td>")
+    return "".join(cells)
 
 
 def _rows(summary: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:

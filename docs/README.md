@@ -49,6 +49,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [community-contributor-guide.md](community-contributor-guide.md): install, probe, select, run, interrupt, resume, validate, and package from a dedicated environment.
 - [multiharness-adapter-spec.md](multiharness-adapter-spec.md): the community adapter contract.
 - [community-submissions.md](community-submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
+- [harness-efficiency-observations.md](harness-efficiency-observations.md): receipt-backed duration, cost, and token accounting published as peer columns.
 - [multiharness-deliverable-contract.md](multiharness-deliverable-contract.md): the harness-independent sealed boundary between a solver run and later evaluation.
 - [multiharness-evaluation-contract.md](multiharness-evaluation-contract.md): `EvaluationSpec` precommitments for deliverables, evaluator identity, judge settings, and runtime policy.
 - [multiharness-score-contract.md](multiharness-score-contract.md): the pinned score contract — deliberately a strict Harvey LAB specialization, not generic metric arithmetic.

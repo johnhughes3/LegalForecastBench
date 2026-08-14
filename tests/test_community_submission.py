@@ -125,6 +125,56 @@ def test_community_package_cli_writes_pr_ready_submission(tmp_path: Path) -> Non
     assert "private-logs" not in json.dumps(packaged_runs, sort_keys=True)
 
 
+def test_package_emits_v2_summary_when_score_artifacts_exist(tmp_path: Path) -> None:
+    import hashlib
+
+    from legalforecast.multiharness.community import (
+        COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2,
+        CommunityRunSummary,
+    )
+    from legalforecast.multiharness.scoring import (
+        SCORE_ARTIFACT_SCHEMA_VERSION,
+        ScoreArtifact,
+    )
+
+    run_dir = _write_run_dir(tmp_path)
+    content = {
+        "schema_version": SCORE_ARTIFACT_SCHEMA_VERSION,
+        "evaluation_receipt_sha256": SHA1,
+        "evaluation_spec_sha256": SHA2,
+        "raw_result_sha256": SHA3,
+        "metric_definition_sha256": SHA4,
+        "score_value": 1,
+        "unit": "binary",
+        "n_passed": 23,
+        "n_criteria": 23,
+    }
+    encoded = json.dumps(
+        content,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode()
+    score = ScoreArtifact(
+        **content,
+        score_sha256="sha256:" + hashlib.sha256(encoded).hexdigest(),
+    )
+    _write_jsonl(run_dir / "score-artifacts.jsonl", [score.to_record()])
+    output_dir = tmp_path / "v2-package"
+    result = package_community_submission(_package_config(run_dir, output_dir))
+    summary = result.manifest.run_summary
+    assert summary.schema_version == COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2
+    assert summary.artifact_bindings is not None
+    assert summary.artifact_bindings.score_artifact_sha256 == score.score_sha256
+    assert summary.coverage_kind == "full"
+    assert summary.claim_kind == "full"
+    restored = CommunityRunSummary.from_v2_record(summary.to_record())
+    assert restored.artifact_bindings is not None
+    assert restored.artifact_bindings.score_artifact_sha256 == score.score_sha256
+    assert (output_dir / "score-artifacts.jsonl").is_file()
+
+
 def test_missing_run_selection_manifest_fails_closed_on_package(
     tmp_path: Path,
 ) -> None:

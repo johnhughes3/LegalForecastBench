@@ -13,6 +13,9 @@ from legalforecast.multiharness.community import (
     ATTEST_NOT_OFFICIAL,
     ATTEST_PROVIDER_TERMS,
     ATTEST_RIGHT_TO_SUBMIT,
+    COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION,
+    COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2,
+    CanonicalArtifactBindings,
     CommunityArtifactReference,
     CommunityRunSummary,
     CommunitySubmissionManifest,
@@ -711,6 +714,153 @@ def test_community_aggregate_does_not_use_official_aggregate() -> None:
     assert "official_aggregate" not in source
 
 
+def test_v2_run_summary_requires_artifact_bindings() -> None:
+    with pytest.raises(Exception, match="artifact bindings"):
+        CommunityRunSummary(
+            run_id="run-1",
+            run_manifest_sha256=SHA1,
+            selection_sha256=SHA2,
+            selection_label="fixture-selection",
+            run_config_sha256=SHA3,
+            row_count=1,
+            result_status_counts={"succeeded": 1},
+            families=("harvey_lab",),
+            scoring_modes=("lab_native",),
+            adapter_ids=("fixture-cli",),
+            model_keys=("fixture-model",),
+            schema_version=COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2,
+            coverage_kind="full",
+            claim_kind="full",
+        )
+
+
+def test_v2_run_summary_round_trips_through_explicit_reader() -> None:
+    summary = CommunityRunSummary(
+        run_id="run-1",
+        run_manifest_sha256=SHA1,
+        selection_sha256=SHA2,
+        selection_label="scoped:fixture-slice",
+        run_config_sha256=SHA3,
+        row_count=1,
+        result_status_counts={"succeeded": 1},
+        families=("harvey_lab",),
+        scoring_modes=("lab_native",),
+        adapter_ids=("fixture-cli",),
+        model_keys=("fixture-model",),
+        schema_version=COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2,
+        artifact_bindings=CanonicalArtifactBindings(execution_receipt_sha256=SHA4),
+        coverage_kind="scoped",
+        claim_kind="scoped",
+    )
+    restored = CommunityRunSummary.from_v2_record(summary.to_record())
+    assert restored == summary
+    assert restored.artifact_bindings is not None
+    assert restored.artifact_bindings.execution_receipt_sha256 == SHA4
+
+
+def test_published_metrics_flow_to_site_with_artifact_traces(tmp_path: Path) -> None:
+    from legalforecast.publication.accounting import observation_sha256
+    from legalforecast.publication.claim_policy import ClaimPolicyError
+    from legalforecast.publication.metric_propagation import (
+        MetricReconstructionError,
+        PublishedMetrics,
+    )
+
+    submissions_dir = tmp_path / "submissions"
+    root = _write_submission(
+        submissions_dir,
+        submission_id="fixture-metrics",
+        task_ids=("task-1",),
+    )
+    observation, score = _write_metric_artifacts(root)
+    output_dir = tmp_path / "aggregate"
+    result = build_community_aggregate(
+        CommunityAggregateConfig(
+            submissions_dir=submissions_dir,
+            output_dir=output_dir,
+        )
+    )
+    row = next(item for item in result.rows if item.row_type == "single-shard")
+    assert row.published_metrics is not None
+    assert row.published_metrics.score_value == 1.0
+    obs_hash = observation_sha256(observation)
+    site = (output_dir / "site" / "index.html").read_text(encoding="utf-8")
+    report = (output_dir / "reports" / "community-comparison.html").read_text(
+        encoding="utf-8"
+    )
+    assert f"data-artifact='{obs_hash}'" in site
+    assert f"data-artifact='{score.score_sha256}'" in site
+    assert f"data-artifact='{obs_hash}'" in report
+    payload = _read_json(output_dir / "reports" / "community-comparison.json")
+    metrics_record = payload["rows"][0]["published_metrics"]
+    metrics_record["score_value"] = 0.42
+    with pytest.raises(
+        MetricReconstructionError,
+        match="does not match its reconstruction trace",
+    ):
+        PublishedMetrics.from_record(metrics_record)
+
+    scoped_dir = tmp_path / "scoped-submissions"
+    _write_submission(
+        scoped_dir,
+        submission_id="scoped-overclaim",
+        task_ids=("task-1",),
+        selection_label="scoped:fixture-slice",
+        coverage_kind="scoped",
+        claim_kind="full",
+        artifact_bindings=CanonicalArtifactBindings(execution_receipt_sha256=SHA4),
+    )
+    with pytest.raises(ClaimPolicyError, match="full-suite"):
+        build_community_aggregate(
+            CommunityAggregateConfig(
+                submissions_dir=scoped_dir,
+                output_dir=tmp_path / "scoped-aggregate",
+            )
+        )
+
+
+def test_preliminary_sidecar_without_asterisk_is_refused_by_claim_policy() -> None:
+    from legalforecast.multiharness.run_progress import CLAIM_FULL, COVERAGE_FULL
+    from legalforecast.publication.claim_policy import (
+        MATCHING_KEY_SYSTEM_BUNDLE,
+        PRIMARY_ESTIMAND_OBSERVED_DIFFERENCE,
+        ClaimPolicyError,
+        ComparisonAnalysisArtifact,
+        ExperimentSpec,
+        enforce_publication_claims,
+    )
+    from legalforecast.reporting.contamination_tiers import ContaminationTier
+
+    spec = ExperimentSpec(
+        spec_id="community-tier0-observed-difference",
+        primary_estimand=PRIMARY_ESTIMAND_OBSERVED_DIFFERENCE,
+        matching_key=MATCHING_KEY_SYSTEM_BUNDLE,
+        coverage_claim=CLAIM_FULL,
+        missingness_rule="visible_under_policy",
+    )
+    analysis = ComparisonAnalysisArtifact(
+        experiment_spec_sha256=SHA1,
+        claimed_estimand=PRIMARY_ESTIMAND_OBSERVED_DIFFERENCE,
+        claimed_coverage=CLAIM_FULL,
+        claimed_contamination_tier=ContaminationTier.PRELIMINARY.value,
+        claims_ranking=False,
+        claims_matched_harness=False,
+        repeat_count=1,
+        served_model_resolved=False,
+    )
+    with pytest.raises(ClaimPolicyError, match="asterisk"):
+        enforce_publication_claims(
+            spec=spec,
+            analysis=analysis,
+            selection_label="fixture-selection",
+            coverage_kind=COVERAGE_FULL,
+            interrupted=False,
+            contamination_tier=ContaminationTier.PRELIMINARY,
+            rendered_text="fixture-model scored 1.0 without a marker",
+            model_key="fixture-model",
+        )
+
+
 def _write_submission(
     submissions_dir: Path,
     *,
@@ -723,6 +873,10 @@ def _write_submission(
     run_config_hash: str = SHA3,
     run_compatibility_id: str | None = "default",
     result_statuses: tuple[str, ...] | None = None,
+    selection_label: str = "fixture-selection",
+    coverage_kind: str | None = None,
+    claim_kind: str | None = None,
+    artifact_bindings: CanonicalArtifactBindings | None = None,
 ) -> Path:
     root = submissions_dir / "2026" / submission_id
     root.mkdir(parents=True)
@@ -818,7 +972,7 @@ def _write_submission(
         run_id=f"{submission_id}-run",
         run_manifest_sha256=_record_sha256(run_manifest.to_record()),
         selection_sha256=selection_sha256,
-        selection_label="fixture-selection",
+        selection_label=selection_label,
         run_config_sha256=run_config_hash,
         row_count=len(task_ids),
         result_status_counts=dict(sorted(Counter(statuses).items())),
@@ -826,12 +980,20 @@ def _write_submission(
         scoring_modes=(scoring_mode,),
         adapter_ids=("fixture-cli",),
         model_keys=("fixture-model",),
+        schema_version=(
+            COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2
+            if artifact_bindings is not None
+            else COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION
+        ),
+        artifact_bindings=artifact_bindings,
+        coverage_kind=coverage_kind,
+        claim_kind=claim_kind,
     )
     shard = CommunitySubmissionShard(
         shard_id="shard-001",
         compatible_shard_group_id=(f"{family}:{scoring_mode}:{family}-fixture"),
         selection_sha256=selection_sha256,
-        selection_label="fixture-selection",
+        selection_label=selection_label,
         source_suite=family,
         suite_version=f"{family}-fixture",
         task_selectors={"task_ids": list(task_ids)},
@@ -979,6 +1141,76 @@ def _rebind_run_compatibility(
         artifact["sha256"] = _file_sha256(path)
         artifact["size_bytes"] = path.stat().st_size
     _write_json(root / "submission.json", submission)
+
+
+def _write_metric_artifacts(root: Path):
+    import hashlib
+
+    from legalforecast.multiharness.evaluation import CostMeasurement, TokenCount
+    from legalforecast.multiharness.scoring import (
+        SCORE_ARTIFACT_SCHEMA_VERSION,
+        ScoreArtifact,
+    )
+    from legalforecast.publication.accounting import HarnessEfficiencyObservation
+
+    observation = HarnessEfficiencyObservation(
+        run_identity_key=SHA1,
+        execution_receipt_sha256=SHA2,
+        solve_tokens=TokenCount(value=100, unknown_reason=None),
+        eval_tokens=TokenCount(value=60, unknown_reason=None),
+        total_tokens=TokenCount(value=160, unknown_reason=None),
+        solve_cost=CostMeasurement(
+            amount_microusd=125_000,
+            currency="USD",
+            basis="provider_reported",
+            pricing_snapshot_sha256=None,
+            unknown_reason=None,
+        ),
+        eval_cost=CostMeasurement(
+            amount_microusd=25_000,
+            currency="USD",
+            basis="provider_reported",
+            pricing_snapshot_sha256=None,
+            unknown_reason=None,
+        ),
+        combined_cost=CostMeasurement(
+            amount_microusd=150_000,
+            currency="USD",
+            basis="provider_reported",
+            pricing_snapshot_sha256=None,
+            unknown_reason=None,
+        ),
+        wall_elapsed_ms=40,
+        summed_call_elapsed_ms=1500,
+        attempt_count=1,
+        retry_count=0,
+        failure_count=0,
+    )
+    _write_json(root / "efficiency-observation.json", observation.to_record())
+    content: JsonRecord = {
+        "schema_version": SCORE_ARTIFACT_SCHEMA_VERSION,
+        "evaluation_receipt_sha256": SHA1,
+        "evaluation_spec_sha256": SHA2,
+        "raw_result_sha256": SHA3,
+        "metric_definition_sha256": SHA4,
+        "score_value": 1,
+        "unit": "binary",
+        "n_passed": 23,
+        "n_criteria": 23,
+    }
+    encoded = json.dumps(
+        content,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode()
+    score = ScoreArtifact(
+        **content,
+        score_sha256="sha256:" + hashlib.sha256(encoded).hexdigest(),
+    )
+    _write_jsonl(root / "score-artifacts.jsonl", [score.to_record()])
+    return observation, score
 
 
 def _contributors() -> tuple[ContributorCredit, ...]:

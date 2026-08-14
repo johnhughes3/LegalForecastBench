@@ -20,11 +20,17 @@ from legalforecast._json_io import (
     write_jsonl_objects,
 )
 from legalforecast.multiharness.container_runtime import validate_container_resume
+from legalforecast.multiharness.local_cli_contracts import (
+    ExecutionReceipt,
+    LocalCliContractError,
+)
 from legalforecast.multiharness.materialization import (
     TASK_MATERIALIZATION_SCHEMA_VERSION,
 )
 from legalforecast.multiharness.run_progress import (
+    CLAIM_FULL,
     CLAIM_PARTIAL,
+    CLAIM_SCOPED,
     COVERAGE_FULL,
     COVERAGE_SCOPED,
     is_scoped_label,
@@ -56,6 +62,7 @@ from legalforecast.multiharness.validation import (
     optional_non_negative_int,
     optional_sequence,
     optional_str,
+    require_known_fields,
     require_mapping,
     require_schema_version,
     require_sequence,
@@ -64,6 +71,10 @@ from legalforecast.multiharness.validation import (
     validate_safe_relative_path,
     validate_sha256,
     validate_unique_ids,
+)
+from legalforecast.publication.accounting import (
+    AccountingError,
+    observation_from_receipts,
 )
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
@@ -75,6 +86,10 @@ COMMUNITY_SUBMISSION_MANIFEST_SCHEMA_VERSION = (
 )
 COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION = (
     "legalforecast.multiharness.community_run_summary.v1"
+)
+COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2 = (
+    # contract-ratchet: allow community run-summary v2 artifact bindings
+    "legalforecast.multiharness.community_run_summary.v2"
 )
 COMMUNITY_SHARD_SCHEMA_VERSION = "legalforecast.multiharness.community_shard.v1"
 COMMUNITY_ARTIFACT_MANIFEST_SCHEMA_VERSION = (
@@ -178,6 +193,154 @@ class CommunityArtifactReference:
         )
 
 
+_V2_SUMMARY_REQUIRED = frozenset(
+    {
+        "schema_version",
+        "run_id",
+        "run_manifest_sha256",
+        "selection_sha256",
+        "selection_label",
+        "run_config_sha256",
+        "row_count",
+        "result_status_counts",
+        "families",
+        "scoring_modes",
+        "adapter_ids",
+        "model_keys",
+        "artifact_bindings",
+        "coverage_kind",
+        "claim_kind",
+    }
+)
+_V2_SUMMARY_OPTIONAL = frozenset({"identity_bindings"})
+_BINDING_OPTIONAL = frozenset(
+    {
+        "run_spec_sha256",
+        "execution_receipt_sha256",
+        "deliverable_manifest_sha256",
+        "evaluation_receipt_sha256",
+        "score_artifact_sha256",
+    }
+)
+_IDENTITY_REQUIRED = frozenset(
+    {
+        "task_identity_key",
+        "solver_identity_key",
+        "run_identity_key",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalArtifactBindings:
+    """Canonical hashes for the artifacts that back a v2 run summary."""
+
+    run_spec_sha256: str | None = None
+    execution_receipt_sha256: str | None = None
+    deliverable_manifest_sha256: str | None = None
+    evaluation_receipt_sha256: str | None = None
+    score_artifact_sha256: str | None = None
+
+    def __post_init__(self) -> None:
+        present = tuple(
+            digest
+            for digest in (
+                self.run_spec_sha256,
+                self.execution_receipt_sha256,
+                self.deliverable_manifest_sha256,
+                self.evaluation_receipt_sha256,
+                self.score_artifact_sha256,
+            )
+            if digest is not None
+        )
+        if not present:
+            raise MultiHarnessValidationError(
+                "v2 summaries cannot omit applicable artifact bindings"
+            )
+        for field_name, digest in (
+            ("run_spec_sha256", self.run_spec_sha256),
+            ("execution_receipt_sha256", self.execution_receipt_sha256),
+            ("deliverable_manifest_sha256", self.deliverable_manifest_sha256),
+            ("evaluation_receipt_sha256", self.evaluation_receipt_sha256),
+            ("score_artifact_sha256", self.score_artifact_sha256),
+        ):
+            if digest is not None:
+                validate_sha256(digest, field_name)
+
+    def to_record(self) -> dict[str, Any]:
+        record: dict[str, Any] = {}
+        for field_name in (
+            "run_spec_sha256",
+            "execution_receipt_sha256",
+            "deliverable_manifest_sha256",
+            "evaluation_receipt_sha256",
+            "score_artifact_sha256",
+        ):
+            digest = getattr(self, field_name)
+            if digest is not None:
+                record[field_name] = digest
+        return record
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> Self:
+        require_known_fields(
+            record,
+            required=frozenset(),
+            optional=_BINDING_OPTIONAL,
+            field_name="artifact_bindings",
+        )
+        return cls(
+            run_spec_sha256=optional_str(record, "run_spec_sha256"),
+            execution_receipt_sha256=optional_str(record, "execution_receipt_sha256"),
+            deliverable_manifest_sha256=optional_str(
+                record,
+                "deliverable_manifest_sha256",
+            ),
+            evaluation_receipt_sha256=optional_str(
+                record,
+                "evaluation_receipt_sha256",
+            ),
+            score_artifact_sha256=optional_str(record, "score_artifact_sha256"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class BoundIdentityKeys:
+    """Identity keys that are authoritative only when bound to artifact hashes."""
+
+    task_identity_key: str
+    solver_identity_key: str
+    run_identity_key: str
+
+    def __post_init__(self) -> None:
+        for field_name, value in (
+            ("task_identity_key", self.task_identity_key),
+            ("solver_identity_key", self.solver_identity_key),
+            ("run_identity_key", self.run_identity_key),
+        ):
+            validate_sha256(value, field_name)
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "task_identity_key": self.task_identity_key,
+            "solver_identity_key": self.solver_identity_key,
+            "run_identity_key": self.run_identity_key,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> Self:
+        require_known_fields(
+            record,
+            required=_IDENTITY_REQUIRED,
+            field_name="identity_bindings",
+        )
+        return cls(
+            task_identity_key=require_str(record, "task_identity_key"),
+            solver_identity_key=require_str(record, "solver_identity_key"),
+            run_identity_key=require_str(record, "run_identity_key"),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class CommunityRunSummary:
     """Public summary for one submitted multi-harness run."""
@@ -193,6 +356,11 @@ class CommunityRunSummary:
     scoring_modes: tuple[str, ...]
     adapter_ids: tuple[str, ...]
     model_keys: tuple[str, ...]
+    schema_version: str = COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION
+    artifact_bindings: CanonicalArtifactBindings | None = None
+    identity_bindings: BoundIdentityKeys | None = None
+    coverage_kind: str | None = None
+    claim_kind: str | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.run_id, "run_id")
@@ -211,11 +379,48 @@ class CommunityRunSummary:
             _require_non_empty_tuple(values, field_name)
         for value in self.scoring_modes:
             _require_non_empty(value, "scoring_modes")
+        if self.schema_version == COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION:
+            if (
+                self.artifact_bindings is not None
+                or self.identity_bindings is not None
+                or self.coverage_kind is not None
+                or self.claim_kind is not None
+            ):
+                raise MultiHarnessValidationError(
+                    "v1 community run summaries cannot carry v2 artifact bindings"
+                )
+        elif self.schema_version == COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2:
+            if self.artifact_bindings is None:
+                raise MultiHarnessValidationError(
+                    "v2 summaries cannot omit applicable artifact bindings"
+                )
+            if self.coverage_kind is None or self.claim_kind is None:
+                raise MultiHarnessValidationError(
+                    "v2 summaries require coverage_kind and claim_kind"
+                )
+            require_coverage_kind(self.coverage_kind)
+            if self.claim_kind not in {CLAIM_FULL, CLAIM_SCOPED, CLAIM_PARTIAL}:
+                raise MultiHarnessValidationError(
+                    "claim_kind must be full, scoped, or partial"
+                )
+            if self.identity_bindings is not None:
+                if self.artifact_bindings.execution_receipt_sha256 is None:
+                    raise MultiHarnessValidationError(
+                        "identity keys are authoritative only when bound to "
+                        "canonical execution-receipt hashes"
+                    )
+        else:
+            raise MultiHarnessValidationError(
+                "schema_version must be "
+                f"{COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION!r} or "
+                f"{COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2!r}, got "
+                f"{self.schema_version!r}"
+            )
         validate_public_record(self.to_record(), "community_run_summary")
 
     def to_record(self) -> dict[str, Any]:
-        return {
-            "schema_version": COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION,
+        record: dict[str, Any] = {
+            "schema_version": self.schema_version,
             "run_id": self.run_id,
             "run_manifest_sha256": self.run_manifest_sha256,
             "selection_sha256": self.selection_sha256,
@@ -228,9 +433,35 @@ class CommunityRunSummary:
             "adapter_ids": list(self.adapter_ids),
             "model_keys": list(self.model_keys),
         }
+        if self.schema_version == COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2:
+            assert self.artifact_bindings is not None
+            record["artifact_bindings"] = self.artifact_bindings.to_record()
+            record["coverage_kind"] = self.coverage_kind
+            record["claim_kind"] = self.claim_kind
+            if self.identity_bindings is not None:
+                record["identity_bindings"] = self.identity_bindings.to_record()
+        return record
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
+        version = require_str(record, "schema_version")
+        if version == COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION:
+            return cls._from_v1(record)
+        if version == COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2:
+            return cls._from_v2(record)
+        raise MultiHarnessValidationError(
+            f"schema_version must be {COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION!r} "
+            f"or {COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2!r}, got {version!r}"
+        )
+
+    @classmethod
+    def from_v2_record(cls, record: Mapping[str, Any]) -> Self:
+        """Explicit v2 reader. v1 from_record rewrite stays characterization-exact."""
+
+        return cls._from_v2(record)
+
+    @classmethod
+    def _from_v1(cls, record: Mapping[str, Any]) -> Self:
         require_schema_version(record, COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION)
         row_count = optional_non_negative_int(record, "row_count")
         if row_count is None:
@@ -256,6 +487,53 @@ class CommunityRunSummary:
                 "adapter_ids",
             ),
             model_keys=_str_tuple(require_sequence(record, "model_keys"), "model_keys"),
+        )
+
+    @classmethod
+    def _from_v2(cls, record: Mapping[str, Any]) -> Self:
+        require_known_fields(
+            record,
+            required=_V2_SUMMARY_REQUIRED,
+            optional=_V2_SUMMARY_OPTIONAL,
+            field_name="community_run_summary",
+        )
+        require_schema_version(record, COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2)
+        row_count = optional_non_negative_int(record, "row_count")
+        if row_count is None:
+            raise MultiHarnessValidationError("row_count is required")
+        identity_record = optional_mapping(record, "identity_bindings")
+        return cls(
+            run_id=require_str(record, "run_id"),
+            run_manifest_sha256=require_str(record, "run_manifest_sha256"),
+            selection_sha256=require_str(record, "selection_sha256"),
+            selection_label=require_str(record, "selection_label"),
+            run_config_sha256=require_str(record, "run_config_sha256"),
+            row_count=row_count,
+            result_status_counts=_int_mapping(
+                require_mapping(record, "result_status_counts"),
+                "result_status_counts",
+            ),
+            families=_str_tuple(require_sequence(record, "families"), "families"),
+            scoring_modes=_str_tuple(
+                optional_sequence(record, "scoring_modes") or (),
+                "scoring_modes",
+            ),
+            adapter_ids=_str_tuple(
+                require_sequence(record, "adapter_ids"),
+                "adapter_ids",
+            ),
+            model_keys=_str_tuple(require_sequence(record, "model_keys"), "model_keys"),
+            schema_version=COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2,
+            artifact_bindings=CanonicalArtifactBindings.from_record(
+                require_mapping(record, "artifact_bindings"),
+            ),
+            identity_bindings=(
+                None
+                if identity_record is None
+                else BoundIdentityKeys.from_record(identity_record)
+            ),
+            coverage_kind=require_str(record, "coverage_kind"),
+            claim_kind=require_str(record, "claim_kind"),
         )
 
 
@@ -510,6 +788,12 @@ def package_community_submission(
     )
 
     copied_paths = _copy_run_public_artifacts(config.run_dir, config.output_dir)
+    observation_path = _write_efficiency_observation_if_possible(
+        config.run_dir,
+        config.output_dir,
+    )
+    if observation_path is not None:
+        copied_paths.append(observation_path)
     conformance_path = config.output_dir / "conformance-report.json"
     shutil.copy2(conformance_source, conformance_path)
     copied_paths.append(conformance_path)
@@ -803,6 +1087,7 @@ def validate_submission_manifest(
             public_paths.append(artifact_path)
     _validate_local_run_provenance(manifest, root)
     _validate_coverage_claim(manifest, root)
+    _validate_v2_artifact_bindings(manifest, root)
     if public_paths:
         enforce_publication_guardrails(PublicationGuardrailConfig(public_paths=(root,)))
 
@@ -1137,6 +1422,10 @@ def _copy_run_public_artifacts(run_dir: Path, output_dir: Path) -> list[Path]:
         "canonical-runs.jsonl",
         "lab/task-results.jsonl",
         "lfb/runs.jsonl",
+        "efficiency-observation.json",
+        "score-artifacts.jsonl",
+        "execution-receipts.jsonl",
+        "evaluation-receipt.json",
     ):
         source = run_dir / relative
         if not source.is_file():
@@ -1149,10 +1438,234 @@ def _copy_run_public_artifacts(run_dir: Path, output_dir: Path) -> list[Path]:
             _copy_public_canonical_runs(source, destination)
         elif relative == "lfb/runs.jsonl":
             _copy_scrubbed_jsonl(source, destination, forbidden_fields={"raw_output"})
+        elif relative == "execution-receipts.jsonl":
+            _copy_public_execution_receipts(source, destination)
         else:
             shutil.copy2(source, destination)
         copied.append(destination)
     return copied
+
+
+def _copy_public_execution_receipts(source: Path, destination: Path) -> None:
+    records = _read_jsonl(source, "execution receipts")
+    public_records: list[dict[str, Any]] = []
+    for record in records:
+        try:
+            public_records.append(
+                dict(ExecutionReceipt.from_record(record).to_public_record())
+            )
+        except (
+            LocalCliContractError,
+            MultiHarnessValidationError,
+            TypeError,
+            ValueError,
+        ):
+            public_records.append(
+                _scrub_public_json_record(
+                    record,
+                    forbidden_fields={"stdout", "stderr", "stdin", "environment"},
+                )
+            )
+    write_jsonl_objects(destination, public_records)
+
+
+def _write_efficiency_observation_if_possible(
+    run_dir: Path,
+    output_dir: Path,
+) -> Path | None:
+    destination = output_dir / "efficiency-observation.json"
+    if destination.is_file():
+        return None
+    receipts = _load_full_execution_receipts(run_dir / "execution-receipts.jsonl")
+    if not receipts:
+        return None
+    try:
+        observation = observation_from_receipts(receipts)
+    except AccountingError:
+        return None
+    write_json_object(destination, observation.to_record())
+    return destination
+
+
+def _load_full_execution_receipts(path: Path) -> tuple[ExecutionReceipt, ...]:
+    if not path.is_file():
+        return ()
+    loaded: list[ExecutionReceipt] = []
+    for record in _read_jsonl(path, "execution receipts"):
+        try:
+            loaded.append(ExecutionReceipt.from_record(record))
+        except (
+            LocalCliContractError,
+            MultiHarnessValidationError,
+            TypeError,
+            ValueError,
+        ):
+            continue
+    return tuple(loaded)
+
+
+def _v2_summary_fields(
+    run_dir: Path,
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    bindings, identity = _canonical_bindings_from_run(run_dir)
+    if bindings is None:
+        return {}
+    run_selection = _run_selection_record(run_dir)
+    coverage_kind = _coverage_kind_from_run(run_selection, rows)
+    claim_kind = str(run_selection.get("claim_kind") or coverage_kind)
+    fields: dict[str, Any] = {
+        "schema_version": COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2,
+        "artifact_bindings": bindings,
+        "coverage_kind": coverage_kind,
+        "claim_kind": claim_kind,
+    }
+    if identity is not None and bindings.execution_receipt_sha256 is not None:
+        fields["identity_bindings"] = identity
+    return fields
+
+
+def _canonical_bindings_from_run(
+    run_dir: Path,
+) -> tuple[CanonicalArtifactBindings | None, BoundIdentityKeys | None]:
+    receipt_sha256, identity, spec_sha256, deliverable_sha256 = (
+        _execution_receipt_binding(run_dir / "execution-receipts.jsonl")
+    )
+    score_sha256, evaluation_sha256 = _score_artifact_binding(
+        run_dir / "score-artifacts.jsonl"
+    )
+    if evaluation_sha256 is None:
+        evaluation_sha256 = _optional_digest_field(
+            run_dir / "evaluation-receipt.json",
+            "receipt_sha256",
+        )
+    observation_path = run_dir / "efficiency-observation.json"
+    if observation_path.is_file():
+        observation = _read_json(observation_path, "efficiency observation")
+        if receipt_sha256 is None:
+            candidate = observation.get("execution_receipt_sha256")
+            receipt_sha256 = candidate if isinstance(candidate, str) else None
+        if evaluation_sha256 is None:
+            candidate = observation.get("evaluation_receipt_sha256")
+            evaluation_sha256 = candidate if isinstance(candidate, str) else None
+        if deliverable_sha256 is None:
+            candidate = observation.get("deliverable_manifest_sha256")
+            deliverable_sha256 = candidate if isinstance(candidate, str) else None
+    if not any(
+        (
+            spec_sha256,
+            receipt_sha256,
+            deliverable_sha256,
+            evaluation_sha256,
+            score_sha256,
+        )
+    ):
+        return None, None
+    return (
+        CanonicalArtifactBindings(
+            run_spec_sha256=spec_sha256,
+            execution_receipt_sha256=receipt_sha256,
+            deliverable_manifest_sha256=deliverable_sha256,
+            evaluation_receipt_sha256=evaluation_sha256,
+            score_artifact_sha256=score_sha256,
+        ),
+        identity,
+    )
+
+
+def _execution_receipt_binding(
+    path: Path,
+) -> tuple[str | None, BoundIdentityKeys | None, str | None, str | None]:
+    if not path.is_file():
+        return None, None, None, None
+    records = _read_jsonl(path, "execution receipts")
+    if not records:
+        return None, None, None, None
+    record = records[0]
+    try:
+        receipt = ExecutionReceipt.from_record(record)
+        identity = _identity_from_keys(
+            receipt.task_identity_key,
+            receipt.solver_identity_key,
+            receipt.run_identity_key,
+        )
+        return (
+            receipt.public_sha256(),
+            identity,
+            receipt.spec_sha256,
+            receipt.deliverable_manifest_sha256,
+        )
+    except (LocalCliContractError, MultiHarnessValidationError, TypeError, ValueError):
+        identity = _identity_from_keys(
+            record.get("task_identity_key"),
+            record.get("solver_identity_key"),
+            record.get("run_identity_key"),
+        )
+        spec_sha256 = record.get("spec_sha256")
+        deliverable = record.get("deliverable_manifest_sha256")
+        public = _scrub_public_json_record(
+            record,
+            forbidden_fields={"stdout", "stderr", "stdin", "environment"},
+        )
+        return (
+            _cli_record_sha256(public),
+            identity,
+            spec_sha256 if isinstance(spec_sha256, str) else None,
+            deliverable if isinstance(deliverable, str) else None,
+        )
+
+
+def _score_artifact_binding(path: Path) -> tuple[str | None, str | None]:
+    if not path.is_file():
+        return None, None
+    records = _read_jsonl(path, "score artifacts")
+    if not records:
+        return None, None
+    record = records[0]
+    score_sha256 = record.get("score_sha256")
+    evaluation_sha256 = record.get("evaluation_receipt_sha256")
+    return (
+        score_sha256 if isinstance(score_sha256, str) else None,
+        evaluation_sha256 if isinstance(evaluation_sha256, str) else None,
+    )
+
+
+def _optional_digest_field(path: Path, field_name: str) -> str | None:
+    if not path.is_file():
+        return None
+    record = _read_json(path, field_name)
+    value = record.get(field_name)
+    return value if isinstance(value, str) else None
+
+
+def _identity_from_keys(
+    task_key: object,
+    solver_key: object,
+    run_key: object,
+) -> BoundIdentityKeys | None:
+    if not isinstance(task_key, str) or not isinstance(solver_key, str):
+        return None
+    if not isinstance(run_key, str):
+        return None
+    try:
+        return BoundIdentityKeys(
+            task_identity_key=task_key,
+            solver_identity_key=solver_key,
+            run_identity_key=run_key,
+        )
+    except MultiHarnessValidationError:
+        return None
+
+
+# contract-ratchet: allow non-persisted public execution-receipt digest
+def _cli_record_sha256(record: Mapping[str, Any]) -> str:
+    encoded = json.dumps(
+        record,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _copy_scrubbed_jsonl(
@@ -1254,6 +1767,7 @@ def _public_summary_record(
             _required_row_str(row, "adapter_id") for row in rows
         ),
         model_keys=_sorted_unique(_required_row_str(row, "model_key") for row in rows),
+        **_v2_summary_fields(run_dir, rows),
     )
     return {
         "schema_version": COMMUNITY_PUBLIC_SUMMARY_SCHEMA_VERSION,
@@ -1739,6 +2253,65 @@ def _validate_coverage_claim(
         )
     except ValueError as exc:
         raise MultiHarnessValidationError(str(exc)) from exc
+
+
+def _validate_v2_artifact_bindings(
+    manifest: CommunitySubmissionManifest,
+    root: Path,
+) -> None:
+    summary = manifest.run_summary
+    if summary.schema_version != COMMUNITY_RUN_SUMMARY_SCHEMA_VERSION_V2:
+        return
+    bindings = summary.artifact_bindings
+    if bindings is None:
+        raise ValueError("v2 summaries cannot omit applicable artifact bindings")
+    applicable = {
+        "execution_receipt_sha256": (
+            (root / "execution-receipts.jsonl").is_file()
+            or (root / "efficiency-observation.json").is_file()
+        ),
+        "evaluation_receipt_sha256": (root / "evaluation-receipt.json").is_file(),
+        "score_artifact_sha256": (root / "score-artifacts.jsonl").is_file(),
+        "run_spec_sha256": (root / "run-spec.json").is_file(),
+        "deliverable_manifest_sha256": (root / "deliverable-manifest.json").is_file(),
+    }
+    missing = [
+        field_name
+        for field_name, required in applicable.items()
+        if required and getattr(bindings, field_name) is None
+    ]
+    if missing:
+        raise ValueError(
+            "v2 summaries cannot omit applicable artifact bindings: "
+            + ", ".join(missing)
+        )
+    if (
+        bindings.score_artifact_sha256 is not None
+        and (root / "score-artifacts.jsonl").is_file()
+    ):
+        hashes = {
+            record.get("score_sha256")
+            for record in _read_jsonl(root / "score-artifacts.jsonl", "score artifacts")
+        }
+        if bindings.score_artifact_sha256 not in hashes:
+            raise ValueError(
+                "score_artifact_sha256 does not match score-artifacts.jsonl"
+            )
+    if (
+        bindings.execution_receipt_sha256 is not None
+        and (root / "execution-receipts.jsonl").is_file()
+    ):
+        hashes = {
+            _cli_record_sha256(record)
+            for record in _read_jsonl(
+                root / "execution-receipts.jsonl",
+                "execution receipts",
+            )
+        }
+        if bindings.execution_receipt_sha256 not in hashes:
+            raise ValueError(
+                "execution_receipt_sha256 does not match execution-receipts.jsonl"
+            )
 
 
 def _sorted_unique(values: Iterable[str]) -> tuple[str, ...]:
