@@ -134,6 +134,9 @@ def test_empty_selection_fails_unless_allowed() -> None:
     with pytest.raises(ValueError, match="matched no tasks"):
         TaskSelection(case_ids=("missing",)).select(index)
 
+    with pytest.raises(ValueError, match="this index has no Harvey LAB modules"):
+        TaskSelection(modules=("corporate",)).select(index)
+
     result = TaskSelection(case_ids=("missing",), allow_empty=True).select(index)
 
     assert result.tasks == ()

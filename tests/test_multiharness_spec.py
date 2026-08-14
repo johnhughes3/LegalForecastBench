@@ -235,11 +235,27 @@ def test_secret_like_public_fields_are_rejected() -> None:
     with pytest.raises(MultiHarnessValidationError, match="secret field"):
         validate_public_record({"OPENAI_API_KEY": "sk-fixture"}, "public")
 
+    with pytest.raises(MultiHarnessValidationError, match="secret field"):
+        validate_public_record({"client_secret": "fixture"}, "public")
+
     with pytest.raises(MultiHarnessValidationError, match="secret-like value"):
         validate_public_record(
             {"message": "Authorization: Bearer secret-token-12345"},
             "public",
         )
+
+
+def test_document_filename_keys_are_not_secret_fields() -> None:
+    validate_public_record(
+        {
+            "document_hashes": {
+                "guarantor-secretary-certificate.docx": "a" * 64,
+                "guarantor-authorizations.docx": "b" * 64,
+                "delaney-to-byrne-authorization-reply.eml": "c" * 64,
+            }
+        },
+        "public",
+    )
 
 
 def test_legacy_public_classification_fields_and_values_are_rejected() -> None:

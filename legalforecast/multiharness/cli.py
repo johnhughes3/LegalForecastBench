@@ -220,8 +220,9 @@ def add_multiharness_parser(subparsers: Any) -> None:
         choices=tuple(sorted(HOST_PROCESS_CONTAINMENT_MODES)),
         default=POSIX_PROCESS_GROUP_CONTAINMENT,
         help=(
-            "Required containment for the host command adapter. The systemd "
-            "scope/cgroup-v2 mode fails closed when unavailable."
+            "Containment mode for the host command adapter. Default is posix "
+            "process-group. The systemd scope/cgroup-v2 mode fails closed when "
+            "unavailable."
         ),
     )
     run.add_argument(
@@ -376,6 +377,7 @@ def _cmd_tasks_index(args: argparse.Namespace) -> int:
 
     task_index = _task_index_from_args(args)
     write_json_object(output, task_index.to_record())
+    _cli_note(f"Wrote {output} ({len(task_index.tasks)} task(s)).")
     return 0
 
 
@@ -395,6 +397,7 @@ def _cmd_tasks_select(args: argparse.Namespace) -> int:
             dry_run=cast(bool, args.dry_run),
         ),
     )
+    _cli_note(f"Wrote {output}.")
     return 0
 
 
@@ -441,6 +444,7 @@ def _cmd_adapters_inspect(args: argparse.Namespace) -> int:
         output_dir / "adapter-capabilities.json",
         capabilities.to_record(),
     )
+    _cli_note(f"Wrote {output_dir / 'adapter-capabilities.json'}.")
     return 0
 
 
@@ -468,6 +472,7 @@ def _cmd_conformance(args: argparse.Namespace) -> int:
         resume=cast(bool, args.resume),
         timeout_seconds=cast(float, args.timeout_seconds),
     )
+    _cli_note(f"Wrote {output_dir / 'conformance-report.json'}.")
     return 0
 
 
@@ -550,6 +555,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 130
+    succeeded = sum(1 for row in run.rows if row.result.status == "succeeded")
+    _cli_note(
+        f"Run completed ({succeeded}/{len(run.rows)} succeeded). "
+        f"Wrote {output_dir / 'run-progress.json'}."
+    )
     return 0
 
 
@@ -614,6 +624,7 @@ def _cmd_community_package(args: argparse.Namespace) -> int:
         )
         return 0
     package_community_submission(_community_package_config_from_args(args))
+    _cli_note(f"Wrote {output_dir / 'submission.json'}.")
     return 0
 
 
@@ -632,6 +643,7 @@ def _cmd_community_validate_submission(args: argparse.Namespace) -> int:
     )
     if not cast(bool, args.dry_run):
         validate_submission_file(submission)
+    _cli_note(f"Wrote {cast(Path, args.output)}.")
     return 0
 
 
@@ -992,6 +1004,12 @@ def _path_tuple_arg(args: argparse.Namespace, name: str) -> tuple[Path, ...]:
             raise ValueError(f"{name} must contain paths")
         paths.append(item)
     return tuple(paths)
+
+
+def _cli_note(message: str) -> None:
+    """Print a one-line success path so silent commands are not a mystery."""
+
+    print(message, file=sys.stderr)
 
 
 def _str_tuple_arg(args: argparse.Namespace, name: str) -> tuple[str, ...]:

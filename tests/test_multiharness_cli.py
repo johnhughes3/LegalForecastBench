@@ -208,6 +208,7 @@ def test_multiharness_task_folder_selects_projected_layout(tmp_path: Path) -> No
 
 def test_multiharness_adapter_inspect_and_conformance_fixture(
     tmp_path: Path,
+    capsys: CaptureFixture[str],
 ) -> None:
     manifest = _fixture_adapter_manifest(tmp_path)
     inspect_dir = tmp_path / "inspect"
@@ -249,6 +250,9 @@ def test_multiharness_adapter_inspect_and_conformance_fixture(
     report = _read_json(conformance_dir / "conformance-report.json")
     assert report["status"] == "passed"
     assert report["checks"]["lfb_fixture_run"].startswith("passed:")
+    captured = capsys.readouterr()
+    assert "adapter-capabilities.json" in captured.err
+    assert "conformance-report.json" in captured.err
 
 
 def test_multiharness_run_dry_run_does_not_invoke_adapter(tmp_path: Path) -> None:

@@ -14,7 +14,11 @@ cd LegalForecastBench
 uv sync --frozen
 ```
 
-The current package version is `0.1.0a3` (`v0.1.0-alpha.3`). Use the revision that contains this guide — a later tag once one is cut, otherwise the `main` commit you cloned. Example adapter manifests live under `examples/adapters/`; they are not inside the published wheel. A source checkout is the supported install.
+This file must exist after clone (`docs/community-contributor-guide.md`). If it is missing, you are on an older `main`: check out the pull request that added the guide, then retry `uv sync --frozen`.
+
+The current package version is `0.1.0a3` (`v0.1.0-alpha.3`). Use the revision that contains this guide — a later tag once one is cut, otherwise that pull request or `main` after it merges. Example adapter manifests live under `examples/adapters/`; they are not inside the published wheel. A source checkout is the supported install.
+
+`uv` may warn that it could not hardlink across filesystems. That warning is harmless.
 
 Confirm the CLI:
 
@@ -37,7 +41,7 @@ uv run legalforecast multiharness conformance \
   --output-dir tmp/multiharness/conformance
 ```
 
-`adapters inspect` writes the public manifest and capabilities. `conformance` is the no-provider suite. If either command asks for an API key, stop: you are not on `fixture-none`.
+Successful commands print one `Wrote …` line on stderr. `adapters inspect` writes `adapter-capabilities.json`. `conformance` writes `conformance-report.json` with `"status": "passed"`. If either command asks for an API key, stop: you are not on `fixture-none`.
 
 Other fixture manifests are listed in [docs/multiharness-adapter-spec.md](multiharness-adapter-spec.md).
 
@@ -59,6 +63,8 @@ Index tasks, then select a slice. A scoped run is labeled scoped. It is not a fu
 
 ### LegalForecastBench fixture packets (zero credentials)
 
+This is the walkthrough that works today with no extra checkout and no credentials. `fixture e2e` writes one packet.
+
 ```bash
 uv run legalforecast fixture e2e --output-dir tmp/fixture-run
 
@@ -68,9 +74,15 @@ uv run legalforecast multiharness tasks index \
   --output tmp/multiharness/lfb-index.json
 ```
 
+`--category` is a Harvey LAB module selector. It matches nothing on this LFB index. Do not pass `--category corporate` here.
+
 ### Harvey LAB category
 
-`--category` is the community name for a Harvey LAB module (`--module` is the same selector). You need a LAB checkout or a projected task folder. Harvey LAB is a separate Harvey AI corpus; keep its credit and license language if you publish anything that uses it.
+`--category` is the community name for a Harvey LAB module (`--module` is the same selector). Harvey LAB is a separate Harvey AI corpus; keep its credit and license language if you publish anything that uses it.
+
+A raw Harvey LAB git clone is **not** a contributor input. Upstream `task.json` files include evaluator `criteria`. Point the harness at a **projected** layout with `projection-manifest.json` instead (folder mode below). `--lab-root` against an unprojected checkout is a maintainer path and currently fail-closes.
+
+Until a projected layout is published with this repository, skip the LAB category commands and continue on the LFB fixture index.
 
 ```bash
 uv run legalforecast multiharness tasks index \
@@ -119,7 +131,11 @@ uv run legalforecast multiharness run \
   --run-id fixture-walkthrough
 ```
 
-Category-scoped LAB run, once you have an index:
+Stderr reports `Run completed (1/1 succeeded)` and the path of `run-progress.json`. Host process-group containment is the default; you do not pass `--host-process-containment` for this fixture.
+
+The LFB fixture index is **one task** and usually finishes in about a second. Ctrl-C often cannot catch it. That is expected. Interrupt and remainder-only resume are for longer selections (a LAB category once a projected layout exists). After this one-task run finishes, `--resume` is a no-op.
+
+Category-scoped LAB run, once you have a projected index:
 
 ```bash
 uv run legalforecast multiharness run \
@@ -131,7 +147,7 @@ uv run legalforecast multiharness run \
   --run-id corporate-walkthrough
 ```
 
-Leave it running, then interrupt it with Ctrl-C (SIGINT) or SIGTERM. The in-flight task gets a terminal `interrupted` receipt, not a crash. Child processes are torn down. The command exits `130` and prints a resume hint. The run is a **partial** claim.
+On a long run, interrupt with Ctrl-C (SIGINT) or SIGTERM. The in-flight task gets a terminal `interrupted` receipt, not a crash. Child processes are torn down. The command exits `130` and prints a resume hint. The run is a **partial** claim.
 
 Resume with the same command plus `--resume`:
 
@@ -148,6 +164,8 @@ uv run legalforecast multiharness run \
 Completed tasks are skipped. Running `--resume` again after a finished run is a no-op. Resume **refuses** if the solver, config, runtime policy, or selection changed, or if `run-progress.json` is corrupt. The error names the drift. Do not delete the journal to “force” a continue.
 
 ## 6. Validate and package
+
+Replace the placeholder names with yours before you open a pull request.
 
 ```bash
 uv run legalforecast multiharness community package \
@@ -169,6 +187,8 @@ uv run legalforecast multiharness community validate-submission \
   --output tmp/community-validation.json
 ```
 
+Stderr reports each `Wrote …` path. `tmp/community-validation.json` has `"status": "passed"`.
+
 Open a pull request that adds only that submission directory. Details, attestations, and credits: [docs/community-submissions.md](community-submissions.md). Adapter contract: [docs/multiharness-adapter-spec.md](multiharness-adapter-spec.md).
 
 ## 7. Costs
@@ -185,6 +205,7 @@ Keep private:
 - Hostnames, home directories, and absolute local paths
 - Solver-visible source documents, transcripts, and `private-logs/`
 - Sealed or non-public court files
+- Harvey LAB evaluator `criteria` and gold answers
 
 Public JSON is scanned for secrets and path leakage. If a command’s output contains a key or a home path, you have a bug: stop and do not commit it.
 
@@ -192,11 +213,15 @@ Public JSON is scanned for secrets and path leakage. If a command’s output con
 
 | Symptom | What to do |
 | --- | --- |
+| This guide is missing after `git clone` | You cloned an older `main`. Check out the pull request that added the guide. |
 | Conformance or inspect asks for a key | You left `fixture-none`. Check the adapter’s `auth_profile_name`. |
 | `fixture_none` / `published_api_key` rejected | Use hyphens: `fixture-none`, `published-api-key`. |
+| `--category` says this index has no Harvey LAB modules | You pointed `--category` at the LFB fixture index. Use that index without `--category`, or a projected LAB index. |
+| `--lab-root` fails on a raw Harvey LAB clone | Expected until a projected layout exists. Do not use evaluator `criteria` as solver input. Use folder mode. |
+| Folder mode refuses unrecognized or tampered bytes | Restore `projection-manifest.json` and the listed files. Extra `task.json` files are not ignored. |
+| Ctrl-C does nothing on the fixture walkthrough | The one-task fixture finishes in about a second. That is expected. |
 | Resume says solver, config, policy, or selection identity drifted | Re-run with the original adapter, model key, sandbox flags, and selectors. |
 | Resume says the progress journal is corrupt | Do not hand-edit `run-progress.json`. Start a new `--output-dir`. |
-| Folder mode refuses unrecognized or tampered bytes | Restore `projection-manifest.json` and the listed files. Extra `task.json` files are not ignored. |
 | Exit `130` after Ctrl-C | Expected. Resume with the same command plus `--resume`. |
 | Interrupted run labeled `full` | It is a partial claim. Do not delete the scoped or `partial` selection label. |
 | Live profile path missing | Record that and stop. Do not fall back to keys already in your environment. |

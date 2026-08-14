@@ -25,7 +25,9 @@ LEGACY_PUBLIC_CLASSIFICATION_VALUES = frozenset(
     }
 )
 SECRET_FIELD_PATTERN = re.compile(
-    r"(?:api[_-]?key|secret|access[_-]?token|authorization|password|credential)",
+    r"(?:api[_-]?key|(?<![a-z0-9])secrets?(?![a-z])|access[_-]?token|"
+    r"(?<![a-z0-9])authorization(?![a-z])|(?<![a-z0-9])passwords?(?![a-z])|"
+    r"(?<![a-z0-9])credentials?(?![a-z]))",
     re.IGNORECASE,
 )
 SECRET_VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -288,6 +290,13 @@ def _scan_public_value(value: Any, path: str) -> None:
         _validate_public_string(value, path)
 
 
+def _is_document_filename_key(key: str) -> bool:
+    """Filename keys in document_hashes are not credential field names."""
+
+    suffix = PurePosixPath(key).suffix
+    return bool(suffix) and suffix.startswith(".") and "/" not in suffix
+
+
 def _validate_public_key(key: str, path: str) -> None:
     normalized = key.strip().lower().replace("_", "-")
     if key.lower() in LEGACY_PUBLIC_CLASSIFICATION_FIELDS:
@@ -298,9 +307,13 @@ def _validate_public_key(key: str, path: str) -> None:
         raise MultiHarnessValidationError(
             f"{path} uses prohibited legacy public classification value {key!r}"
         )
-    if SECRET_FIELD_PATTERN.search(key) is not None:
+    if SECRET_FIELD_PATTERN.search(key) is not None and not _is_document_filename_key(
+        key
+    ):
         raise MultiHarnessValidationError(f"{path} looks like a secret field")
-    if PROVIDER_ACCOUNT_FIELD_PATTERN.search(key) is not None:
+    if PROVIDER_ACCOUNT_FIELD_PATTERN.search(
+        key
+    ) is not None and not _is_document_filename_key(key):
         raise MultiHarnessValidationError(f"{path} looks like a provider account field")
 
 

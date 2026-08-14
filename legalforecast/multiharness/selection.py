@@ -131,7 +131,7 @@ class TaskSelection:
         selected = tuple(task for task in task_index.tasks if selection._matches(task))
         selected = _stable_sample(selected, seed=selection.seed, limit=selection.limit)
         if not selected and not selection.allow_empty:
-            raise ValueError("task selection matched no tasks")
+            raise ValueError(_empty_selection_message(selection, task_index))
         selection_sha256 = _selection_sha256(selected)
         coverage_kind = _coverage_kind(selection)
         label = selection.label or _default_label(selection)
@@ -234,6 +234,47 @@ def _selection_sha256(tasks: tuple[CanonicalTask, ...]) -> str:
 def _record_sha256(record: Any) -> str:
     encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _empty_selection_message(
+    selection: TaskSelection, task_index: TaskIndex
+) -> str:
+    """Name the selectors and the index shape so an empty match is actionable."""
+
+    parts = ["task selection matched no tasks"]
+    named: list[str] = []
+    if selection.modules:
+        named.append(
+            "--category/--module "
+            + ", ".join(selection.modules)
+            + " (Harvey LAB task.metadata.module)"
+        )
+    if selection.task_ids:
+        named.append("--task-id " + ", ".join(selection.task_ids))
+    if selection.families:
+        named.append("--family " + ", ".join(selection.families))
+    if selection.case_ids:
+        named.append("--case-id " + ", ".join(selection.case_ids))
+    if named:
+        parts.append("selectors: " + "; ".join(named))
+    parts.append(f"index has {len(task_index.tasks)} task(s)")
+    families = sorted({task.family for task in task_index.tasks})
+    if families:
+        parts.append("families: " + ", ".join(families))
+    modules = sorted(
+        {
+            module
+            for task in task_index.tasks
+            if (module := _metadata_str(task.metadata, "module")) is not None
+        }
+    )
+    if modules:
+        shown = ", ".join(modules[:12])
+        extra = "" if len(modules) <= 12 else f" (+{len(modules) - 12} more)"
+        parts.append(f"modules: {shown}{extra}")
+    elif selection.modules:
+        parts.append("this index has no Harvey LAB modules")
+    return "; ".join(parts)
 
 
 def _coverage_kind(selection: TaskSelection) -> str:
