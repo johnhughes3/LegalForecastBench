@@ -60,6 +60,7 @@ def _case(
     conditional_pages: int | None = None,
     notice_pages: int = 1,
     restricted_motion: bool = False,
+    restricted_conditional: bool = False,
 ) -> tuple[Chronology, MergedCaseBuckets]:
     entries = (
         ChronologyEntry(
@@ -90,6 +91,7 @@ def _case(
                     paid=True,
                     pages=5 if conditional_pages is None else conditional_pages,
                     description="opp",
+                    restricted=restricted_conditional,
                 ),
             ),
         ),
@@ -356,6 +358,22 @@ def test_max_per_case_ceiling_rejects_over_limit_case() -> None:
 
 def test_restricted_required_document_is_not_admitted() -> None:
     sealed_c, sealed_m = _case("seal", required_pages=1, restricted_motion=True)
+    open_c, open_m = _case("open", required_pages=20, conditional_pages=20)
+    artifact = build_selection_artifact(
+        config=activated_haiku_config(),
+        chronologies=(sealed_c, open_c),
+        merged=(sealed_m, open_m),
+        cohort_target_n=1,
+    )
+    by_id = {row.ranked.candidate_id: row for row in artifact.cases}
+    assert by_id["seal"].ranked.restricted_required is True
+    assert by_id["seal"].admitted is False
+    assert by_id["seal"].reject_reason == "restricted_required_document"
+    assert by_id["open"].admitted is True
+
+
+def test_restricted_conditional_document_is_not_admitted() -> None:
+    sealed_c, sealed_m = _case("seal", required_pages=5, restricted_conditional=True)
     open_c, open_m = _case("open", required_pages=20, conditional_pages=20)
     artifact = build_selection_artifact(
         config=activated_haiku_config(),

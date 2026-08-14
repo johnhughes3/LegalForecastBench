@@ -11,6 +11,7 @@ from legalforecast.document_need.blindness import (
     Pass1Process,
     assert_pass1_cannot_read_decision,
 )
+from legalforecast.document_need.cycle_config import BUCKET_IDS
 from legalforecast.document_need.types import (
     BlindBundle,
     Chronology,
@@ -59,8 +60,10 @@ class MergedCaseBuckets:
         return {row.entry: row for row in self.entries}
 
 
-def build_pass1_prompt(bundle: BlindBundle) -> str:
-    """Render the pass-1 prompt from chronology and motion markdown only."""
+def build_pass1_prompt(
+    bundle: BlindBundle, *, bucket_definitions: Mapping[str, str]
+) -> str:
+    """Render the pass-1 prompt from chronology, motion markdown, and buckets."""
 
     chronology = {
         "candidate_id": bundle.chronology.candidate_id,
@@ -93,11 +96,15 @@ def build_pass1_prompt(bundle: BlindBundle) -> str:
     motions = {
         str(entry): body for entry, body in sorted(bundle.motion_markdown.items())
     }
+    buckets = _require_bucket_definitions(bucket_definitions)
     return (
         "Classify every predecision docket entry into clearly_required, "
         "conditional, or clearly_not_required for MTD packet completeness. "
-        "Use only this chronology and target-motion text. Do not use a "
+        "Apply the cycle-configured bucket definitions below. Use only this "
+        "chronology, target-motion text, and those definitions. Do not use a "
         "decision or outcome.\n\n"
+        "BUCKET_DEFINITIONS_JSON:\n"
+        f"{json.dumps(buckets, indent=2, sort_keys=True)}\n\n"
         f"CHRONOLOGY_JSON:\n{json.dumps(chronology, indent=2, sort_keys=True)}\n\n"
         f"MOTION_MARKDOWN_JSON:\n{json.dumps(motions, indent=2, sort_keys=True)}\n"
     )
@@ -140,11 +147,12 @@ def run_two_pass(
     blind: BlindBundle,
     eyes: EyesBundle | None,
     classifier: PassClassifier,
+    bucket_definitions: Mapping[str, str],
 ) -> MergedCaseBuckets:
     """Run pass 1 (blind) then optional pass 2 (promote only)."""
 
     process = Pass1Process(blind)
-    prompt1 = build_pass1_prompt(process.bundle)
+    prompt1 = build_pass1_prompt(process.bundle, bucket_definitions=bucket_definitions)
     if eyes is not None:
         assert_pass1_cannot_read_decision(prompt1, eyes.decision)
     pass1 = classifier.classify_pass1(
@@ -264,6 +272,14 @@ def parse_pass2_verdict(
         promotions=promotions,
         completeness_ok=completeness,
     )
+
+
+def _require_bucket_definitions(buckets: Mapping[str, str]) -> dict[str, str]:
+    if set(buckets) != set(BUCKET_IDS):
+        raise DocumentNeedProtocolError(
+            "bucket_definitions must define exactly " + ", ".join(BUCKET_IDS)
+        )
+    return {key: _text(buckets[key], f"bucket_definitions.{key}") for key in BUCKET_IDS}
 
 
 def _require_pass1_coverage(chronology: Chronology, pass1: Pass1Verdict) -> None:

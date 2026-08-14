@@ -13,6 +13,9 @@ import json
 import os
 
 import pytest
+from legalforecast.document_need.cycle_config import (
+    document_need_view_from_cycle_config,
+)
 from legalforecast.document_need.protocol import (
     PASS1_SCHEMA,
     build_pass1_prompt,
@@ -27,6 +30,7 @@ from legalforecast.document_need.types import (
     ChronologyEntry,
     DocketDocument,
 )
+from tests.document_need_fixtures import activated_haiku_config
 
 pytestmark = pytest.mark.skipif(
     not live_smoke_enabled(),
@@ -88,7 +92,10 @@ def test_live_haiku_classifies_synthetic_chronology() -> None:
         BlindBundle(
             chronology=chronology,
             motion_markdown={10: "Defendant moves to dismiss the complaint."},
-        )
+        ),
+        bucket_definitions=document_need_view_from_cycle_config(
+            activated_haiku_config()
+        ).document_need_buckets,
     )
     schema_hint = (
         prompt

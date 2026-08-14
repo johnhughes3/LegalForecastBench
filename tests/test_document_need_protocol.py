@@ -34,6 +34,16 @@ from legalforecast.document_need.types import (
 from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
 
 _DECISION = "UNIQUE_DECISION_BYTES_THE_PASS1_PROCESS_MUST_NOT_SEE"
+_BUCKETS = {
+    "clearly_required": (
+        "Required: the target motion, memorandum, operative pleading, and "
+        "filed oppositions/replies when those entries exist."
+    ),
+    "conditional": (
+        "Might be required depending on what the clearly-required documents contain."
+    ),
+    "clearly_not_required": "Not required for packet completeness.",
+}
 _HTML = (
     Path(__file__).resolve().parent
     / "fixtures/courtlistener/docket-structural-single-page-2026-07-28.html"
@@ -129,7 +139,9 @@ def test_prep_puts_decision_only_in_eyes_bundle() -> None:
         decision_text=_DECISION,
         motion_markdown={4: "Motion to dismiss memorandum text."},
     )
-    assert _DECISION not in build_pass1_prompt(bundles.blind)
+    assert _DECISION not in build_pass1_prompt(
+        bundles.blind, bucket_definitions=_BUCKETS
+    )
     assert bundles.eyes.decision.text == _DECISION
     assert bundles.blind.chronology.entries[0].entry == 4
 
@@ -149,7 +161,7 @@ def test_pass1_prompt_checker_fails_when_decision_leaks_into_motion_markdown() -
         chronology=_chronology(),
         motion_markdown={10: _DECISION},
     )
-    prompt = build_pass1_prompt(tainted)
+    prompt = build_pass1_prompt(tainted, bucket_definitions=_BUCKETS)
     decision = DecisionText(
         candidate_id="case-a",
         text=_DECISION,
@@ -190,7 +202,12 @@ def test_two_pass_promotes_conditional_opposition() -> None:
             )
         },
     )
-    merged = run_two_pass(blind=blind, eyes=eyes, classifier=classifier)
+    merged = run_two_pass(
+        blind=blind,
+        eyes=eyes,
+        classifier=classifier,
+        bucket_definitions=_BUCKETS,
+    )
     assert merged.by_entry()[12].bucket is NeedBucket.CLEARLY_REQUIRED
     assert merged.pass1_model_id == "fixture:document-need-v1"
     assert merged.pass2_model_id == "fixture:document-need-v1"
@@ -265,7 +282,12 @@ def test_pass2_rejects_decision_from_another_candidate() -> None:
         pass2={},
     )
     with pytest.raises(DocumentNeedProtocolError, match="does not match"):
-        run_two_pass(blind=blind, eyes=eyes, classifier=classifier)
+        run_two_pass(
+            blind=blind,
+            eyes=eyes,
+            classifier=classifier,
+            bucket_definitions=_BUCKETS,
+        )
 
 
 def test_pass2_incomplete_check_is_rejected() -> None:
@@ -309,7 +331,7 @@ def test_pass1_prompt_checker_detects_json_escaped_decision_text() -> None:
         chronology=_chronology(),
         motion_markdown={10: leaked},
     )
-    prompt = build_pass1_prompt(tainted)
+    prompt = build_pass1_prompt(tainted, bucket_definitions=_BUCKETS)
     decision = DecisionText(
         candidate_id="case-a",
         text=leaked,
@@ -342,4 +364,25 @@ def test_pass1_rejects_verdict_for_another_candidate_without_eyes() -> None:
             ),
             eyes=None,
             classifier=_WrongCandidate(),
+            bucket_definitions=_BUCKETS,
+        )
+
+
+def test_pass1_prompt_includes_configured_bucket_definitions() -> None:
+    prompt = build_pass1_prompt(
+        BlindBundle(
+            chronology=_chronology(),
+            motion_markdown={10: "Motion memorandum."},
+        ),
+        bucket_definitions=_BUCKETS,
+    )
+    assert "BUCKET_DEFINITIONS_JSON" in prompt
+    assert "filed oppositions/replies" in prompt
+    with pytest.raises(DocumentNeedProtocolError, match="bucket_definitions"):
+        build_pass1_prompt(
+            BlindBundle(
+                chronology=_chronology(),
+                motion_markdown={10: "Motion memorandum."},
+            ),
+            bucket_definitions={"clearly_required": "only one"},
         )

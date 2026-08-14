@@ -87,3 +87,15 @@ def test_descending_ranking_direction_is_refused() -> None:
     bad = replace(config, ranking=replace(config.ranking, keys=keys))
     with pytest.raises(DocumentNeedConfigError, match="ascending"):
         document_need_view_from_cycle_config(bad)
+
+
+def test_view_requires_approve_among_typed_confirmation_decisions() -> None:
+    config = activated_haiku_config()
+    bad = replace(
+        config,
+        typed_confirmation=replace(
+            config.typed_confirmation, decisions=("reject", "free_only")
+        ),
+    )
+    with pytest.raises(DocumentNeedConfigError, match="approve"):
+        document_need_view_from_cycle_config(bad)

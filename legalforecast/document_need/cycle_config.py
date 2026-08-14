@@ -163,10 +163,27 @@ class CaseMixStratification:
 class TypedConfirmationParameters:
     """D1 typed-confirmation phrase for the single admitted-set ceiling."""
 
+    decisions: tuple[str, ...]
     phrase_template: str
     session_scope_token: str
 
     def __post_init__(self) -> None:
+        if not self.decisions:
+            raise DocumentNeedConfigError(
+                "typed_confirmation.decisions must not be empty"
+            )
+        seen: set[str] = set()
+        for decision in self.decisions:
+            token = _require_text(decision, "typed_confirmation.decision")
+            if token != token.lower() or token in seen:
+                raise DocumentNeedConfigError(
+                    "typed_confirmation.decisions must be unique lowercase tokens"
+                )
+            seen.add(token)
+        if "approve" not in seen:
+            raise DocumentNeedConfigError(
+                "typed_confirmation.decisions must include 'approve'"
+            )
         template = _require_text(
             self.phrase_template, "typed_confirmation.phrase_template"
         )
@@ -323,6 +340,7 @@ def document_need_view_from_cycle_record(
         spend_ceiling_usd=hard_cap,
         max_per_case_usd=max_per_case,
         typed_confirmation=TypedConfirmationParameters(
+            decisions=_confirmation_decisions(confirmation.get("decisions")),
             phrase_template=_require_text(
                 confirmation.get("phrase_template"),
                 "typed_confirmation.phrase_template",
@@ -375,6 +393,15 @@ def _mapping(value: object, label: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise DocumentNeedConfigError(f"{label} must be an object")
     return cast(Mapping[str, object], value)
+
+
+def _confirmation_decisions(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list) or isinstance(value, str):
+        raise DocumentNeedConfigError("typed_confirmation.decisions must be a list")
+    return tuple(
+        _require_text(item, f"typed_confirmation.decisions[{index}]")
+        for index, item in enumerate(cast(list[object], value))
+    )
 
 
 def _selector_model_id(value: object, label: str) -> str:

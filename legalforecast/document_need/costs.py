@@ -122,7 +122,8 @@ def price_case(
 
     min_cost is the sum of paid clearly-required entries (free-first).
     max_cost is min_cost plus every conditional entry. clearly_not_required
-    entries do not contribute.
+    entries do not contribute. Restricted documents on required or conditional
+    entries mark the case ineligible (``restricted_required``).
     """
 
     expected = chronology.entry_numbers()
@@ -168,6 +169,8 @@ def price_case(
                 restricted_required = True
         elif verdict.bucket is NeedBucket.CONDITIONAL:
             conditional += cost
+            if _entry_is_restricted(row):
+                restricted_required = True
     return CaseCosts(
         candidate_id=chronology.candidate_id,
         min_cost=min_cost,
