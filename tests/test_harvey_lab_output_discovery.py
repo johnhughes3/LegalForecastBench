@@ -15,10 +15,12 @@ from legalforecast.multiharness.harvey_lab_output_discovery import (
     HarveyLabOutputDiscoveryError,
     HarveyLabOutputErrorCode,
     HarveyLabOutputLimits,
+    _copy_regular_file,
     _reject_path_name,
     discover_harvey_lab_outputs,
 )
 from legalforecast.multiharness.harvey_lab_projection import (
+    HarveyLabPin,
     HarveyLabProjectedFile,
     HarveyLabProjectedTask,
     load_harvey_lab_projection_manifest,
@@ -34,6 +36,11 @@ BASENAME = "issue-identification-memo.docx"
 TASK_SHA256 = "sha256:" + "1" * 64
 RUN_SHA256 = "sha256:" + "2" * 64
 CONFIG_SHA256 = "sha256:" + "3" * 64
+FIXTURE_PIN = HarveyLabPin(
+    repository="https://example.com/legalforecast-lab-fixture",
+    commit="a" * 40,
+    tree="b" * 40,
+)
 
 
 def _docx_bytes() -> bytes:
@@ -310,6 +317,7 @@ def test_lab1_projection_and_fake_solver_stay_material_separated(
         source_root=_issue_196_source(tmp_path / "lab"),
         solver_root=tmp_path / "solver",
         evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
     )
     manifest = load_harvey_lab_projection_manifest(projected.solver_root)
     task = manifest.tasks[0]
@@ -357,3 +365,61 @@ def test_lab1_projection_and_fake_solver_stay_material_separated(
     )
     assert private_gold.is_file()
     assert "GOLD_ANSWER_PRIVATE" in private_gold.read_text(encoding="utf-8")
+
+
+def test_total_output_bytes_are_typed(tmp_path: Path) -> None:
+    payload = _docx_bytes()
+    limits = HarveyLabOutputLimits(
+        max_file_bytes=len(payload) + 50,
+        max_total_bytes=len(payload) + 30,
+    )
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        _discover(
+            tmp_path,
+            extra_files={"a.txt": b"x" * 20, "b.txt": b"y" * 20},
+            limits=limits,
+        )
+    assert caught.value.code == HarveyLabOutputErrorCode.OVERSIZED
+
+
+def test_deep_empty_directories_are_typed(tmp_path: Path) -> None:
+    sandbox = tmp_path / "sandbox"
+    output = sandbox / "output"
+    nested = output / "a" / "b" / "c"
+    nested.mkdir(parents=True)
+    (output / BASENAME).write_bytes(_docx_bytes())
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        discover_harvey_lab_outputs(
+            sandbox_root=sandbox,
+            output_root=output,
+            quarantine_root=tmp_path / "quarantine",
+            sealed_root=tmp_path / "sealed",
+            task=_task(),
+            task_sha256=TASK_SHA256,
+            run_sha256=RUN_SHA256,
+            config_sha256=CONFIG_SHA256,
+            limits=HarveyLabOutputLimits(max_depth=2),
+        )
+    assert caught.value.code == HarveyLabOutputErrorCode.OVERSIZED
+
+
+def test_quarantine_parent_symlink_is_typed(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    source_root.mkdir()
+    (source_root / "scratch.txt").write_bytes(b"x")
+    dest_root = tmp_path / "dest"
+    dest_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (dest_root / "notes").symlink_to(outside)
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        _copy_regular_file(
+            source_root,
+            "scratch.txt",
+            destination_root=dest_root,
+            destination_relative="notes/scratch.txt",
+            expected_stat=(source_root / "scratch.txt").stat(),
+            max_bytes=100,
+        )
+    assert caught.value.code == HarveyLabOutputErrorCode.SYMLINK
+    assert not (outside / "scratch.txt").exists()

@@ -7,6 +7,7 @@ finding, not a score.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import os
 import shutil
@@ -77,12 +78,16 @@ class HarveyLabOutputLimits:
     max_files: int = 32
     max_file_bytes: int = 10 * 1024 * 1024
     max_total_bytes: int = 20 * 1024 * 1024
+    max_directories: int = 32
+    max_depth: int = 8
 
     def __post_init__(self) -> None:
         for field_name, value in (
             ("max_files", self.max_files),
             ("max_file_bytes", self.max_file_bytes),
             ("max_total_bytes", self.max_total_bytes),
+            ("max_directories", self.max_directories),
+            ("max_depth", self.max_depth),
         ):
             if type(value) is not int or value <= 0:
                 raise ValueError(f"{field_name} must be a positive integer")
@@ -291,23 +296,30 @@ class _OutputEntry:
     kind: str
 
 
+@dataclass
+class _WalkState:
+    entries: list[_OutputEntry]
+    total_bytes: int = 0
+    directory_count: int = 0
+
+
 def _walk_output(
     output_root: Path,
     *,
     limits: HarveyLabOutputLimits,
 ) -> list[_OutputEntry]:
     root_fd = _open_directory(output_root, "output_root")
-    entries: list[_OutputEntry] = []
+    state = _WalkState(entries=[])
     try:
         _scan_output(
             root_fd,
             prefix="",
             limits=limits,
-            entries=entries,
+            state=state,
         )
     finally:
         os.close(root_fd)
-    return entries
+    return state.entries
 
 
 def _scan_output(
@@ -315,7 +327,7 @@ def _scan_output(
     *,
     prefix: str,
     limits: HarveyLabOutputLimits,
-    entries: list[_OutputEntry],
+    state: _WalkState,
 ) -> None:
     try:
         iterator = os.scandir(directory_fd)
@@ -341,13 +353,25 @@ def _scan_output(
                     code=HarveyLabOutputErrorCode.SYMLINK,
                 )
             if stat.S_ISDIR(entry_stat.st_mode):
+                depth = relative.count("/") + 1
+                if depth > limits.max_depth:
+                    raise HarveyLabOutputDiscoveryError(
+                        "solver output exceeds the directory-depth limit",
+                        code=HarveyLabOutputErrorCode.OVERSIZED,
+                    )
+                state.directory_count += 1
+                if state.directory_count > limits.max_directories:
+                    raise HarveyLabOutputDiscoveryError(
+                        "solver output exceeds the directory-count limit",
+                        code=HarveyLabOutputErrorCode.OVERSIZED,
+                    )
                 child_fd = _open_child_directory(directory_fd, entry.name)
                 try:
                     _scan_output(
                         child_fd,
                         prefix=relative,
                         limits=limits,
-                        entries=entries,
+                        state=state,
                     )
                 finally:
                     os.close(child_fd)
@@ -357,13 +381,25 @@ def _scan_output(
                     f"solver output contains a non-file: {relative}",
                     code=HarveyLabOutputErrorCode.UNEXPECTED_TYPE,
                 )
-            if len(entries) >= limits.max_files:
+            if len(state.entries) >= limits.max_files:
                 raise HarveyLabOutputDiscoveryError(
                     "solver output exceeds the file-count limit",
                     code=HarveyLabOutputErrorCode.OVERSIZED,
                 )
+            if entry_stat.st_size > limits.max_file_bytes:
+                raise HarveyLabOutputDiscoveryError(
+                    f"solver output exceeds the byte limit: {relative}",
+                    code=HarveyLabOutputErrorCode.OVERSIZED,
+                )
+            next_total = state.total_bytes + entry_stat.st_size
+            if next_total > limits.max_total_bytes:
+                raise HarveyLabOutputDiscoveryError(
+                    "solver output exceeds the total byte limit",
+                    code=HarveyLabOutputErrorCode.OVERSIZED,
+                )
+            state.total_bytes = next_total
             kind = _classify_regular(relative, entry_stat)
-            entries.append(_OutputEntry(relative, entry_stat, kind))
+            state.entries.append(_OutputEntry(relative, entry_stat, kind))
 
 
 def _classify_regular(relative: str, file_stat: os.stat_result) -> str:
@@ -484,32 +520,32 @@ def _copy_regular_file(
                 f"output exceeds the byte limit: {source_relative}",
                 code=HarveyLabOutputErrorCode.OVERSIZED,
             )
-        destination = destination_root / destination_relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        if destination.exists() or destination.is_symlink():
-            raise HarveyLabOutputDiscoveryError(
-                f"quarantine destination already exists: {destination_relative}",
-                code=HarveyLabOutputErrorCode.LAYOUT,
-            )
+        destination_fd = _create_relative_file(destination_root, destination_relative)
         digest = hashlib.sha256()
         size_bytes = 0
-        with os.fdopen(os.dup(source_fd), "rb") as source_handle:
-            with destination.open("xb") as destination_handle:
-                while True:
-                    chunk = source_handle.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    size_bytes += len(chunk)
-                    if size_bytes > max_bytes:
-                        destination_handle.close()
-                        destination.unlink(missing_ok=True)
-                        raise HarveyLabOutputDiscoveryError(
-                            f"output exceeds the byte limit: {source_relative}",
-                            code=HarveyLabOutputErrorCode.OVERSIZED,
-                        )
-                    digest.update(chunk)
-                    destination_handle.write(chunk)
-        return "sha256:" + digest.hexdigest(), size_bytes
+        try:
+            with os.fdopen(os.dup(source_fd), "rb") as source_handle:
+                with os.fdopen(
+                    destination_fd, "wb", closefd=False
+                ) as destination_handle:
+                    while True:
+                        chunk = source_handle.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        size_bytes += len(chunk)
+                        if size_bytes > max_bytes:
+                            raise HarveyLabOutputDiscoveryError(
+                                f"output exceeds the byte limit: {source_relative}",
+                                code=HarveyLabOutputErrorCode.OVERSIZED,
+                            )
+                        digest.update(chunk)
+                        destination_handle.write(chunk)
+            return "sha256:" + digest.hexdigest(), size_bytes
+        except HarveyLabOutputDiscoveryError:
+            _unlink_relative(destination_root, destination_relative)
+            raise
+        finally:
+            os.close(destination_fd)
     finally:
         os.close(source_fd)
 
@@ -611,12 +647,22 @@ def _real_directory(path: Path, field_name: str) -> Path:
 
 
 def _reset_directory(path: Path) -> None:
-    if path.exists() or path.is_symlink():
-        if path.is_symlink() or path.is_file():
-            path.unlink()
-        else:
-            shutil.rmtree(path)
-    path.mkdir(parents=True, exist_ok=False)
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.exists():
+        shutil.rmtree(path)
+    parent = path.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    parent_fd = _open_directory(parent, "destination parent")
+    try:
+        os.mkdir(path.name, 0o700, dir_fd=parent_fd)
+    except OSError as exc:
+        raise HarveyLabOutputDiscoveryError(
+            "could not create destination directory",
+            code=_destination_error_code(exc),
+        ) from exc
+    finally:
+        os.close(parent_fd)
 
 
 def _directory_flags() -> int:
@@ -633,6 +679,21 @@ def _file_flags() -> int:
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     return flags
+
+
+def _destination_file_flags() -> int:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
+
+
+def _destination_error_code(exc: OSError) -> HarveyLabOutputErrorCode:
+    if exc.errno in {errno.ELOOP, errno.ENOTDIR}:
+        return HarveyLabOutputErrorCode.SYMLINK
+    return HarveyLabOutputErrorCode.LAYOUT
 
 
 def _open_directory(path: Path, field_name: str) -> int:
@@ -673,6 +734,67 @@ def _open_relative_file(root: Path, relative: str) -> int:
     finally:
         if current_fd >= 0:
             os.close(current_fd)
+
+
+def _create_relative_file(root: Path, relative: str) -> int:
+    root_fd = _open_directory(root, "destination_root")
+    current_fd = root_fd
+    try:
+        parts = PurePosixPath(relative).parts
+        if not parts:
+            raise HarveyLabOutputDiscoveryError(
+                f"destination path is unsafe: {relative}",
+                code=HarveyLabOutputErrorCode.PATH_TRAVERSAL,
+            )
+        for part in parts[:-1]:
+            _reject_path_name(part, relative)
+            try:
+                os.mkdir(part, 0o700, dir_fd=current_fd)
+            except FileExistsError:
+                pass
+            next_fd = _open_child_directory(current_fd, part)
+            os.close(current_fd)
+            current_fd = next_fd
+        _reject_path_name(parts[-1], relative)
+        try:
+            return os.open(
+                parts[-1],
+                _destination_file_flags(),
+                0o600,
+                dir_fd=current_fd,
+            )
+        except OSError as exc:
+            raise HarveyLabOutputDiscoveryError(
+                f"could not create destination file: {relative}",
+                code=_destination_error_code(exc),
+            ) from exc
+    except HarveyLabOutputDiscoveryError:
+        raise
+    except OSError as exc:
+        raise HarveyLabOutputDiscoveryError(
+            f"could not create destination file: {relative}",
+            code=_destination_error_code(exc),
+        ) from exc
+    finally:
+        os.close(current_fd)
+
+
+def _unlink_relative(root: Path, relative: str) -> None:
+    root_fd = _open_directory(root, "destination_root")
+    current_fd = root_fd
+    try:
+        parts = PurePosixPath(relative).parts
+        if not parts:
+            return
+        for part in parts[:-1]:
+            next_fd = _open_child_directory(current_fd, part)
+            os.close(current_fd)
+            current_fd = next_fd
+        os.unlink(parts[-1], dir_fd=current_fd)
+    except OSError:
+        return
+    finally:
+        os.close(current_fd)
 
 
 def _code_for_kind(kind: str) -> HarveyLabOutputErrorCode:

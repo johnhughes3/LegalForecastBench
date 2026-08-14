@@ -115,13 +115,16 @@ def harvey_lab_issuer_policy_sha256() -> str:
 def canonical_score_artifact_bytes(score: ScoreArtifact) -> bytes:
     """Return the exact canonical UTF-8 JSON bytes of one score artifact."""
 
-    return json.dumps(
-        score.to_record(),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    return (
+        json.dumps(
+            score.to_record(),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+        + b"\n"
+    )
 
 
 def verify_authorized_harvey_lab_receipt(

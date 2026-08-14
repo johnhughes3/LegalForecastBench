@@ -173,8 +173,9 @@ def test_authorized_any_failure_is_zero() -> None:
 def test_golden_all_pass_bytes_are_stable() -> None:
     score = _score(("pass",) * 23)
     actual = canonical_score_artifact_bytes(score)
-    expected = GOLDEN_ALL_PASS.read_bytes().removesuffix(b"\n")
+    expected = GOLDEN_ALL_PASS.read_bytes()
     assert actual == expected
+    assert actual.endswith(b"\n")
     again = canonical_score_artifact_bytes(_score(("pass",) * 23))
     assert again == actual
 
@@ -182,8 +183,9 @@ def test_golden_all_pass_bytes_are_stable() -> None:
 def test_golden_one_fail_bytes_are_stable() -> None:
     score = _score(("pass",) * 22 + ("fail",))
     actual = canonical_score_artifact_bytes(score)
-    expected = GOLDEN_ONE_FAIL.read_bytes().removesuffix(b"\n")
+    expected = GOLDEN_ONE_FAIL.read_bytes()
     assert actual == expected
+    assert actual.endswith(b"\n")
 
 
 def test_dropped_deliverable_binding_is_named() -> None:
