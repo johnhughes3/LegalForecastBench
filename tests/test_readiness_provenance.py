@@ -151,7 +151,7 @@ def test_stage_a_readiness_accepts_mixed_terminal_branch_without_filtering() -> 
             }
         )
 
-    with pytest.raises(ReadinessProvenanceError):
+    with pytest.raises(ReadinessProvenanceError, match="terminal coverage"):
         verify_stage_a_readiness_provenance(
             **{
                 **fixture,

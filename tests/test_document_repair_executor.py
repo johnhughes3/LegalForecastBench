@@ -6,7 +6,6 @@ import hashlib
 import json
 import sqlite3
 from collections.abc import Mapping
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -26,6 +25,7 @@ from legalforecast.ingestion.document_repair_executor import (
     DocumentRepairExecutorError,
     DocumentRepairPurchaseAuthority,
     DocumentRepairPurchaseRuntime,
+    DocumentRepairReceipt,
     RepairOperationOutcome,
     build_document_repair_purchase_authority,
     record_document_repair_outcomes,
@@ -1131,6 +1131,12 @@ def test_execution_seals_complete_successor_only_from_exact_resolved_documents()
                 "sha256": hashlib.sha256(body).hexdigest(),
                 "byte_count": len(body),
                 "document_bytes": body,
+                "clearance_status": "cleared",
+                "is_private": False,
+                "is_sealed": False,
+                "cost_usd": (
+                    "0.00" if operation.route == "courtlistener_free" else "3.00"
+                ),
             }
         )
 
@@ -1259,10 +1265,23 @@ def test_retry_permitted_terminal_receipt_cannot_seal_successor() -> None:
         outcomes=(RepairOperationOutcome("a", 1, "included", 0, "0.10", "3.00"),),
     )
     row = {**receipt.operation_ledger[0], "retry_permitted": True}
-    tampered = replace(receipt, operation_ledger=(row,), receipt_sha256="")
-    tampered = replace(
+    tampered = object.__new__(DocumentRepairReceipt)
+    for name in (
+        "execution_sha256",
+        "full_plan_sha256",
+        "scope",
+        "scope_sha256",
+        "pilot_sha256",
+        "operation_ledger",
+        "receipt_sha256",
+        "_mint",
+    ):
+        object.__setattr__(tampered, name, getattr(receipt, name))
+    object.__setattr__(tampered, "operation_ledger", (row,))
+    object.__setattr__(
         tampered,
-        receipt_sha256=str(
+        "receipt_sha256",
+        str(
             ARTIFACT_RAW_SHA256_V1.commit(
                 tampered.content_record(),
                 domain="legalforecast.exact100_document_repair_receipt.v1",
@@ -1880,4 +1899,200 @@ def test_execution_rejects_repeated_recap_document_identity() -> None:
             docket_snapshot_sha256={
                 "73569789": hashlib.sha256(snapshots["73569789"]).hexdigest()
             },
+        )
+
+
+def test_snapshot_authority_extra_or_wrong_digest_names_candidate_sha256() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    authority = _snapshot_authority({k: snapshots[k] for k in "bcde"})
+
+    with pytest.raises(DocumentRepairExecutorError, match="candidate_sha256"):
+        _build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                candidate: hashlib.sha256(payload).hexdigest()
+                for candidate, payload in snapshots.items()
+            },
+            snapshot_authority=authority,
+        )
+
+    with pytest.raises(DocumentRepairExecutorError, match="candidate_sha256"):
+        build_document_repair_execution(
+            full_plan=plan,
+            pilot=pilot,
+            docket_snapshot_bytes=snapshots,
+            docket_snapshot_sha256={
+                **{
+                    candidate: hashlib.sha256(payload).hexdigest()
+                    for candidate, payload in snapshots.items()
+                },
+                "a": "0" * 64,
+            },
+        )
+
+
+def test_execution_accepts_snapshot_level_v4_docket_url() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    snapshot = json.loads(snapshots["a"])
+    docket_id = snapshot["docket_id"]
+    snapshot["docket_id"] = (
+        f"https://www.courtlistener.com/api/rest/v4/dockets/{docket_id}/"
+    )
+    snapshots["a"] = _canonical_bytes(snapshot)
+
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+
+    assert execution.operations[0].docket_entry_id == "1001"
+
+
+def test_reconstructed_receipt_cannot_seal_without_replay_mint() -> None:
+    manifest = _manifest_bytes(
+        *(
+            _row(candidate, index, free=index == 1)
+            for index, candidate in enumerate("abcde", start=1)
+        )
+    )
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approval=_plan_approval(manifest),
+    )
+    snapshots = _snapshots()
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=tuple(
+            RepairOperationOutcome(
+                operation.candidate_id,
+                operation.docket_entry_number,
+                "included",
+                0,
+                "0.10",
+                "0.00" if operation.route == "courtlistener_free" else "3.00",
+            )
+            for operation in execution.operations
+        ),
+    )
+    with pytest.raises(DocumentRepairExecutorError, match="authenticated replay"):
+        DocumentRepairReceipt(
+            execution_sha256=receipt.execution_sha256,
+            full_plan_sha256=receipt.full_plan_sha256,
+            scope=receipt.scope,
+            scope_sha256=receipt.scope_sha256,
+            pilot_sha256=receipt.pilot_sha256,
+            operation_ledger=receipt.operation_ledger,
+            receipt_sha256=receipt.receipt_sha256,
+        )
+    reconstructed = object.__new__(DocumentRepairReceipt)
+    for name in (
+        "execution_sha256",
+        "full_plan_sha256",
+        "scope",
+        "scope_sha256",
+        "pilot_sha256",
+        "operation_ledger",
+        "receipt_sha256",
+    ):
+        object.__setattr__(reconstructed, name, getattr(receipt, name))
+    object.__setattr__(reconstructed, "_mint", None)
+    body = b"reply"
+    acquired = tuple(
+        {
+            "candidate_id": operation.candidate_id,
+            "docket_entry_number": operation.docket_entry_number,
+            "document_role": operation.document_role,
+            "source_document_id": operation.recap_document_id,
+            "source": operation.route,
+            "sha256": hashlib.sha256(body).hexdigest(),
+            "byte_count": len(body),
+            "document_bytes": body,
+        }
+        for operation in execution.operations
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="receipt_sha256"):
+        seal_document_repair_execution(
+            full_plan=plan,
+            execution=execution,
+            receipt=reconstructed,
+            acquired_documents=acquired,
+            exclusions=(),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_seal_refuses_acquired_documents_without_clearance_evidence() -> None:
+    manifest = _manifest_bytes(
+        *(
+            _row(candidate, index, free=index == 1)
+            for index, candidate in enumerate("abcde", start=1)
+        )
+    )
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approval=_plan_approval(manifest),
+    )
+    snapshots = _snapshots()
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=tuple(
+            RepairOperationOutcome(
+                operation.candidate_id,
+                operation.docket_entry_number,
+                "included",
+                0,
+                "0.10",
+                "0.00" if operation.route == "courtlistener_free" else "3.00",
+            )
+            for operation in execution.operations
+        ),
+    )
+    acquired = tuple(
+        {
+            "candidate_id": operation.candidate_id,
+            "docket_entry_number": operation.docket_entry_number,
+            "document_role": operation.document_role,
+            "source_document_id": operation.recap_document_id,
+            "source": operation.route,
+            "sha256": hashlib.sha256(b"reply").hexdigest(),
+            "byte_count": 5,
+            "document_bytes": b"reply",
+        }
+        for operation in execution.operations
+    )
+
+    with pytest.raises(DocumentRepairExecutorError, match="clearance_status"):
+        seal_document_repair_execution(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=acquired,
+            exclusions=(),
+            role_bytes_match=lambda _role, _body: True,
         )

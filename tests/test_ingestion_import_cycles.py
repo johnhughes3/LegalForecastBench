@@ -22,3 +22,24 @@ def test_console_import_order_does_not_create_ingestion_selection_cycle() -> Non
     )
 
     assert completed.returncode == 0, completed.stderr
+
+
+def test_document_repair_executor_does_not_import_cli() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "import legalforecast.ingestion.document_repair_executor; "
+                "assert 'legalforecast.cli' not in sys.modules, "
+                "sorted(sys.modules)"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0, completed.stderr

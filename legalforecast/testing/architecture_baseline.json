@@ -2,8 +2,8 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 26960,
-    "line_count": 72455,
-    "nonblank_line_count": 69768,
+    "line_count": 72456,
+    "nonblank_line_count": 69769,
     "parser_line_count": 1773,
     "top_level_class_count": 19,
     "top_level_definition_count": 992,
@@ -255,7 +255,6 @@
       "tests/test_unitization_review.py",
       "tests/test_unitization_review.py",
       "tests/test_unitization_review_bundle_cli.py",
-      "tests/test_unitizer_terminal_apply_cli.py",
       "tests/test_unitizer_terminal_apply_cli.py",
       "tests/test_zero_cost_successor.py"
     ],
@@ -3417,6 +3416,9 @@
       "tests/test_unitization_review_bundle_cli.py::legalforecast.cli.main",
       "tests/test_unitizer_terminal_apply_cli.py::legalforecast.cli.CommandError",
       "tests/test_unitizer_terminal_apply_cli.py::legalforecast.cli.CommandError",
+      "tests/test_unitizer_terminal_apply_cli.py::legalforecast.cli.main",
+      "tests/test_unitizer_terminal_apply_cli.py::legalforecast.cli.main",
+      "tests/test_unitizer_terminal_apply_cli.py::legalforecast.cli.main",
       "tests/test_unitizer_terminal_apply_cli.py::legalforecast.cli.main",
       "tests/test_zero_cost_successor.py::legalforecast.cli.CommandError",
       "tests/test_zero_cost_successor.py::legalforecast.cli.CommandError",

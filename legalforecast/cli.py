@@ -1221,6 +1221,7 @@ from legalforecast.unitization.unitizer_terminal_review import (
     UnitizerTerminalReviewError,
     build_unitizer_terminal_review_bundle,
     build_unitizer_terminal_review_queue_record,
+    read_terminal_jsonl,
 )
 
 JsonRecord = dict[str, Any]
@@ -65052,24 +65053,24 @@ def _cmd_acquisition_apply_unitizer_terminal_review(
         expected_review_queue_path=ordinary_review_queue_path,
     )
     try:
-        selection = _read_jsonl_payload(captured[selection_path], label="selection")
-        raw = _read_jsonl_payload(captured[raw_path], label="raw prediction units")
-        escalations = _read_jsonl_payload(
+        selection = read_terminal_jsonl(captured[selection_path], label="selection")
+        raw = read_terminal_jsonl(captured[raw_path], label="raw prediction units")
+        escalations = read_terminal_jsonl(
             captured[escalations_path], label="unitizer terminal escalations"
         )
-        terminal_reviews = _read_jsonl_payload(
+        terminal_reviews = read_terminal_jsonl(
             captured[terminal_review_queue_path],
             label="unitizer terminal review queue",
         )
-        terminal_adjudications = _read_jsonl_payload(
+        terminal_adjudications = read_terminal_jsonl(
             captured[terminal_adjudications_path],
             label="unitizer terminal adjudications",
         )
-        ordinary_reviews = _read_jsonl_payload(
+        ordinary_reviews = read_terminal_jsonl(
             captured[ordinary_review_queue_path],
             label="ordinary unitization review queue",
         )
-        ordinary_adjudications = _read_jsonl_payload(
+        ordinary_adjudications = read_terminal_jsonl(
             captured[ordinary_adjudications_path],
             label="ordinary unitization adjudications",
         )

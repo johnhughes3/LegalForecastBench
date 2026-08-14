@@ -69,6 +69,7 @@ class MissingDocumentSuccessorError(ValueError):
 
 
 _APPROVAL_MINT = object()
+_PLAN_MINT = object()
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -612,7 +613,10 @@ def _resolve_slot(
                     "PACER acquisition preceded free-source exhaustion"
                 )
             paid_cost += attempt.cost_usd
-            if attempt.cost_usd > slot.approved_cost_usd:
+            if (
+                attempt.cost_usd > slot.approved_cost_usd
+                or paid_cost > slot.approved_cost_usd
+            ):
                 raise MissingDocumentSuccessorError(
                     "PACER acquisition exceeds approved cost ceiling"
                 )
@@ -807,10 +811,13 @@ def _body_matches_role(markdown: str, requested_role: str) -> bool:
     if pleading_kind is not None:
         return pleading_body_matches_kind(markdown, pleading_kind)
     text = " ".join(markdown.lower().split())
+    briefing_support = bool(re.search(r"\b(?:memorandum|brief|motion)\b", text))
     if normalized_role == "opposition":
-        return bool(re.search(r"\b(?:opposition|response)\b", text))
+        return (
+            bool(re.search(r"\b(?:opposition|response)\b", text)) and briefing_support
+        )
     if normalized_role == "reply":
-        return bool(re.search(r"\breply\b", text))
+        return bool(re.search(r"\breply\b", text)) and briefing_support
     if normalized_role == "surreply":
         return bool(re.search(r"\bsur-?reply\b", text))
     if normalized_role == "supplemental_brief":
@@ -1003,6 +1010,11 @@ class MissingDocumentAcquisitionPlan:
     manifest_candidate_count: int
     manifest_repair_count: int
     plan_sha256: str
+    approval_sha256: str = ""
+    _mint: object = None
+
+    def is_replay_minted(self) -> bool:
+        return self._mint is _PLAN_MINT
 
     @property
     def projected_paid_cost_usd(self) -> Decimal:
@@ -1076,7 +1088,7 @@ def build_missing_document_acquisition_plan(
         raise MissingDocumentSuccessorError(
             "repair manifest lacks replay-verified approval"
         )
-    maximum = _positive_money(approval.maximum_cost_usd, "approved maximum")
+    maximum = _money_value(approval.maximum_cost_usd, "approved maximum")
     per_document = _positive_money(approval.max_per_document_usd, "per-document cap")
     records = _read_manifest(manifest_bytes)
     seen_candidates: set[str] = set()
@@ -1132,9 +1144,10 @@ def build_missing_document_acquisition_plan(
                 missing_record.get("pacer_only_document_count"),
                 "PACER-only document count",
             )
-            if free_count == 0 and paid_count == 0:
+            if free_count + paid_count != 1:
                 raise MissingDocumentSuccessorError(
-                    f"repair document has no acquisition path: {candidate_id}/{entry}"
+                    f"repair document collapses multiple acquisition paths: "
+                    f"{candidate_id}/{entry}"
                 )
             cost = _money_value(missing_record.get("cost_usd"), "document cost")
             method = "courtlistener_free" if free_count else "pacer_purchase"
@@ -1285,6 +1298,8 @@ def build_missing_document_acquisition_plan(
             provisional.content_record(),
             domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
         ),
+        approval_sha256=approval.approval_sha256,
+        _mint=_PLAN_MINT,
     )
 
 
@@ -1301,6 +1316,7 @@ def seal_missing_document_successor(
     planned = {item.key: item for item in plan.items}
     dispositions: dict[DocumentKey, Mapping[str, object]] = {}
     seen_source_ids: set[str] = set()
+    paid_cost = Decimal("0.00")
     for evidence in acquired_documents:
         key = _document_key(evidence)
         item = planned.get(key)
@@ -1327,6 +1343,12 @@ def seal_missing_document_successor(
         if evidence.get("byte_count") != len(body):
             raise MissingDocumentSuccessorError(
                 "document byte count differs from bytes"
+            )
+        _require_public_clearance(evidence)
+        paid_cost += _require_reconciled_cost(evidence, item)
+        if paid_cost > plan.approved_maximum_usd:
+            raise MissingDocumentSuccessorError(
+                "PACER cost_usd exceeds approved_maximum_usd"
             )
         if not role_bytes_match(role, body):
             raise MissingDocumentSuccessorError(
@@ -1411,8 +1433,14 @@ def seal_missing_document_successor(
 
 
 def _require_valid_plan(plan: MissingDocumentAcquisitionPlan) -> None:
-    if type(plan) is not MissingDocumentAcquisitionPlan:
-        raise MissingDocumentSuccessorError("invalid acquisition plan")
+    if (
+        type(plan) is not MissingDocumentAcquisitionPlan
+        or not plan.is_replay_minted()
+        or not plan.approval_sha256
+    ):
+        raise MissingDocumentSuccessorError(
+            "acquisition plan lacks replay-minted approval_sha256"
+        )
     if plan.plan_sha256 != _commit_record(
         plan.content_record(),
         domain=EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
@@ -1420,6 +1448,36 @@ def _require_valid_plan(plan: MissingDocumentAcquisitionPlan) -> None:
         raise MissingDocumentSuccessorError("acquisition plan changed after approval")
     if plan.projected_paid_cost_usd > plan.approved_maximum_usd:
         raise MissingDocumentSuccessorError("acquisition plan exceeds approved maximum")
+
+
+def _require_public_clearance(evidence: Mapping[str, object]) -> None:
+    if evidence.get("clearance_status") != "cleared":
+        raise MissingDocumentSuccessorError(
+            "acquired document clearance_status is not cleared"
+        )
+    if evidence.get("is_private") is not False:
+        raise MissingDocumentSuccessorError(
+            "acquired document is_private must be false"
+        )
+    if evidence.get("is_sealed") is not False:
+        raise MissingDocumentSuccessorError("acquired document is_sealed must be false")
+
+
+def _require_reconciled_cost(
+    evidence: Mapping[str, object], item: MissingDocumentAcquisitionItem
+) -> Decimal:
+    actual = _money_value(evidence.get("cost_usd"), "cost_usd")
+    if item.acquisition_method == "courtlistener_free":
+        if actual != Decimal("0.00"):
+            raise MissingDocumentSuccessorError(
+                "free acquired document cost_usd must be 0.00"
+            )
+        return actual
+    if actual != item.projected_cost_usd:
+        raise MissingDocumentSuccessorError(
+            "PACER cost_usd differs from the planned projection"
+        )
+    return actual
 
 
 def _read_manifest(payload: bytes) -> tuple[JsonRecord, ...]:

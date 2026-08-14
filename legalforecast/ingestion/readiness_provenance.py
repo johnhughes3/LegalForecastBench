@@ -83,6 +83,13 @@ def verify_stage_a_readiness_provenance(
         for candidate_id, record in raw_units.items()
         if candidate_id not in terminal_ids
     }
+    if any(
+        record.get("prediction_units") == [] for record in ordinary_raw_units.values()
+    ):
+        raise ReadinessProvenanceError(
+            "ordinary Stage A raw envelope with zero accepted units requires "
+            "terminal coverage"
+        )
     finalized_records = tuple(
         dict(record) for record in finalized_prediction_unit_records
     )

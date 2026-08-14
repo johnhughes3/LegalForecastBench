@@ -63,6 +63,7 @@ _SNAPSHOT_AUTHORITY = object()
 _EXECUTION_AUTHORITY = object()
 _PURCHASE_AUTHORITY = object()
 _PURCHASE_RUNTIME_AUTHORITY = object()
+_RECEIPT_AUTHORITY = object()
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -173,7 +174,7 @@ class RepairOperationOutcome:
     document_selector: str = "main_document"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class DocumentRepairReceipt:
     """Immutable ordered outcome ledger for one repair execution."""
 
@@ -184,6 +185,15 @@ class DocumentRepairReceipt:
     pilot_sha256: str | None
     operation_ledger: tuple[Mapping[str, object], ...]
     receipt_sha256: str
+    _mint: object
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise DocumentRepairExecutorError(
+            "repair receipt can be created only by authenticated replay"
+        )
+
+    def is_replay_minted(self) -> bool:
+        return self._mint is _RECEIPT_AUTHORITY
 
     @property
     def committed_cost_usd(self) -> str:
@@ -301,7 +311,9 @@ def build_document_repair_execution(
     """Resolve the exact pilot obligations from authenticated docket snapshots."""
 
     _require_scope_binding(full_plan, pilot)
-    _require_snapshot_authority(snapshot_authority, docket_snapshot_sha256)
+    frozen_digests = _require_snapshot_authority(
+        snapshot_authority, docket_snapshot_sha256
+    )
     expected_candidates = set(pilot.candidate_ids)
     if (
         set(docket_snapshot_bytes) != expected_candidates
@@ -314,9 +326,15 @@ def build_document_repair_execution(
     verified_digests: dict[str, str] = {}
     for candidate_id in pilot.candidate_ids:
         payload = docket_snapshot_bytes[candidate_id]
-        expected_digest = _digest(
+        expected_digest = _authority_digest(frozen_digests, candidate_id)
+        caller_digest = _digest(
             docket_snapshot_sha256[candidate_id], "docket snapshot digest"
         )
+        if caller_digest != expected_digest:
+            raise DocumentRepairExecutorError(
+                "docket snapshot digest candidate_sha256 differs from committed "
+                "authority"
+            )
         if hashlib.sha256(payload).hexdigest() != expected_digest:
             raise DocumentRepairExecutorError(
                 f"docket snapshot digest mismatch: {candidate_id}"
@@ -370,7 +388,9 @@ def build_full_document_repair_execution(
     """Resolve every approved full-plan obligation without a pilot sub-scope."""
 
     _require_valid_full_plan(full_plan)
-    _require_snapshot_authority(snapshot_authority, docket_snapshot_sha256)
+    frozen_digests = _require_snapshot_authority(
+        snapshot_authority, docket_snapshot_sha256
+    )
     candidate_ids = tuple(dict.fromkeys(item.candidate_id for item in full_plan.items))
     expected_candidates = set(candidate_ids)
     if (
@@ -384,9 +404,15 @@ def build_full_document_repair_execution(
     verified_digests: dict[str, str] = {}
     for candidate_id in candidate_ids:
         payload = docket_snapshot_bytes[candidate_id]
-        expected_digest = _digest(
+        expected_digest = _authority_digest(frozen_digests, candidate_id)
+        caller_digest = _digest(
             docket_snapshot_sha256[candidate_id], "docket snapshot digest"
         )
+        if caller_digest != expected_digest:
+            raise DocumentRepairExecutorError(
+                "docket snapshot digest candidate_sha256 differs from committed "
+                "authority"
+            )
         if hashlib.sha256(payload).hexdigest() != expected_digest:
             raise DocumentRepairExecutorError(
                 f"docket snapshot digest mismatch: {candidate_id}"
@@ -535,7 +561,7 @@ def record_document_repair_outcomes(
                     "retry_permitted": False,
                 }
             )
-    provisional = DocumentRepairReceipt(
+    provisional = _mint_receipt(
         execution_sha256=execution.execution_sha256,
         full_plan_sha256=execution.full_plan_sha256,
         scope=execution.scope,
@@ -551,7 +577,7 @@ def record_document_repair_outcomes(
         raise DocumentRepairExecutorError(
             "committed cost exceeds approved pilot maximum"
         )
-    return DocumentRepairReceipt(
+    return _mint_receipt(
         execution_sha256=provisional.execution_sha256,
         full_plan_sha256=provisional.full_plan_sha256,
         scope=provisional.scope,
@@ -639,6 +665,10 @@ def _run_document_repair_execution(
                     "sha256": hashlib.sha256(result.document_bytes).hexdigest(),
                     "byte_count": len(result.document_bytes),
                     "document_bytes": result.document_bytes,
+                    "clearance_status": "cleared",
+                    "is_private": False,
+                    "is_sealed": False,
+                    "cost_usd": result.committed_cost_usd,
                 }
             )
         elif result.disposition in {"excluded", "provider_error"}:
@@ -860,16 +890,9 @@ def seal_document_repair_execution(
         raise DocumentRepairExecutorError(
             "only a complete full-plan execution may seal the exact-100 successor"
         )
-    if _commit_receipt(receipt.content_record()) != receipt.receipt_sha256:
-        raise DocumentRepairExecutorError("repair receipt changed after execution")
-    if (
-        receipt.execution_sha256 != execution.execution_sha256
-        or receipt.full_plan_sha256 != full_plan.plan_sha256
-        or receipt.scope != execution.scope
-        or receipt.scope_sha256 != execution.scope_sha256
-        or receipt.pilot_sha256 != execution.pilot_sha256
-    ):
-        raise DocumentRepairExecutorError("repair receipt binding is invalid")
+    _require_authenticated_receipt(
+        full_plan=full_plan, execution=execution, receipt=receipt
+    )
     if len(receipt.operation_ledger) != len(execution.operations):
         raise DocumentRepairExecutorError("repair receipt ledger is incomplete")
     dispositions = [str(row.get("disposition")) for row in receipt.operation_ledger]
@@ -923,7 +946,7 @@ def seal_document_repair_execution(
         )
         if row.get("retry_permitted") != canonical_outcome["retry_permitted"]:
             raise DocumentRepairExecutorError(
-                "repair receipt retry permission differs from outcome"
+                "repair receipt retry permission differs from outcome: retry_permitted"
             )
         expected = "included" if row.get("disposition") == "included" else "excluded"
         if evidence_dispositions.get(operation.key) != expected:
@@ -933,7 +956,9 @@ def seal_document_repair_execution(
     try:
         return seal_missing_document_successor(
             plan=full_plan,
-            acquired_documents=acquired_documents,
+            acquired_documents=_successor_acquired_documents(
+                acquired_documents, receipt
+            ),
             exclusions=exclusions,
             role_bytes_match=role_bytes_match,
         )
@@ -967,6 +992,10 @@ def _require_scope_binding(
 
 
 def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
+    if type(full_plan) is not MissingDocumentAcquisitionPlan or not (
+        full_plan.is_replay_minted()
+    ):
+        raise DocumentRepairExecutorError("full plan lacks replay-minted approval")
     verified = str(
         ARTIFACT_RAW_SHA256_V1.commit(
             full_plan.content_record(),
@@ -987,28 +1016,106 @@ def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
 def _require_snapshot_authority(
     authority: DocketSnapshotAuthority,
     supplied_digests: Mapping[str, str],
-) -> None:
+) -> Mapping[str, str]:
     if (
         type(authority) is not DocketSnapshotAuthority
         or not authority.is_replay_minted()
     ):
         raise DocumentRepairExecutorError("docket snapshots lack replayed authority")
-    normalized = {
-        candidate_id: _digest(digest, "docket snapshot digest")
-        for candidate_id, digest in supplied_digests.items()
-    }
-    if any(
-        authority.candidate_sha256.get(candidate_id) != digest
-        for candidate_id, digest in normalized.items()
-    ):
+    frozen = dict(authority.candidate_sha256)
+    for candidate_id, digest in supplied_digests.items():
+        normalized = _digest(digest, "docket snapshot digest")
+        committed = frozen.get(candidate_id)
+        if committed is None or committed != normalized:
+            raise DocumentRepairExecutorError(
+                "docket snapshot digest candidate_sha256 differs from committed "
+                "authority"
+            )
+    return frozen
+
+
+def _authority_digest(frozen_digests: Mapping[str, str], candidate_id: str) -> str:
+    digest = frozen_digests.get(candidate_id)
+    if digest is None:
         raise DocumentRepairExecutorError(
-            "docket snapshot digests differ from committed authority"
+            f"docket snapshot candidate_sha256 lacks {candidate_id}"
         )
+    return digest
+
+
+def _require_authenticated_receipt(
+    *,
+    full_plan: MissingDocumentAcquisitionPlan,
+    execution: DocumentRepairExecution,
+    receipt: DocumentRepairReceipt,
+) -> None:
+    if type(receipt) is not DocumentRepairReceipt or not receipt.is_replay_minted():
+        raise DocumentRepairExecutorError(
+            "repair receipt_sha256 lacks replay-minted authority"
+        )
+    if _commit_receipt(receipt.content_record()) != receipt.receipt_sha256:
+        raise DocumentRepairExecutorError(
+            "repair receipt_sha256 changed after execution"
+        )
+    if (
+        receipt.execution_sha256 != execution.execution_sha256
+        or receipt.full_plan_sha256 != full_plan.plan_sha256
+        or receipt.scope != execution.scope
+        or receipt.scope_sha256 != execution.scope_sha256
+        or receipt.pilot_sha256 != execution.pilot_sha256
+    ):
+        raise DocumentRepairExecutorError("repair receipt binding is invalid")
+
+
+def _successor_acquired_documents(
+    acquired_documents: Sequence[Mapping[str, object]],
+    receipt: DocumentRepairReceipt,
+) -> tuple[Mapping[str, object], ...]:
+    cost_by_key: dict[tuple[str, int, str], object] = {}
+    for row in receipt.operation_ledger:
+        selector = row.get("document_selector", "main_document")
+        candidate_id = row.get("candidate_id")
+        entry = row.get("docket_entry_number")
+        if (
+            isinstance(candidate_id, str)
+            and isinstance(entry, int)
+            and not isinstance(entry, bool)
+            and isinstance(selector, str)
+        ):
+            cost_by_key[(candidate_id, entry, selector)] = row.get("committed_cost_usd")
+    stamped: list[Mapping[str, object]] = []
+    for document in acquired_documents:
+        record = dict(document)
+        if record.get("clearance_status") != "cleared":
+            raise DocumentRepairExecutorError(
+                "acquired document clearance_status is not cleared"
+            )
+        if record.get("is_private") is not False:
+            raise DocumentRepairExecutorError(
+                "acquired document is_private must be false"
+            )
+        if record.get("is_sealed") is not False:
+            raise DocumentRepairExecutorError(
+                "acquired document is_sealed must be false"
+            )
+        if "cost_usd" not in record:
+            cost = cost_by_key.get(_evidence_key(record))
+            if not isinstance(cost, str) or not cost:
+                raise DocumentRepairExecutorError(
+                    "acquired document cost_usd is missing"
+                )
+            record["cost_usd"] = cost
+        stamped.append(record)
+    return tuple(stamped)
 
 
 def _require_scope_binding_from_execution(
     full_plan: MissingDocumentAcquisitionPlan, execution: DocumentRepairExecution
 ) -> None:
+    if type(full_plan) is not MissingDocumentAcquisitionPlan or not (
+        full_plan.is_replay_minted()
+    ):
+        raise DocumentRepairExecutorError("full plan lacks replay-minted approval")
     _require_replay_minted_execution(execution)
     verified_full_plan_sha256 = str(
         ARTIFACT_RAW_SHA256_V1.commit(
@@ -1074,15 +1181,11 @@ def _snapshot(payload: bytes, candidate_id: str) -> Mapping[str, object]:
         raise DocumentRepairExecutorError(
             "docket snapshot candidate binding is invalid"
         )
-    if not isinstance(record.get("docket_id"), int) or isinstance(
-        record.get("docket_id"), bool
-    ):
+    snapshot_docket = _docket_identifier(record.get("docket_id"))
+    if snapshot_docket is None:
         raise DocumentRepairExecutorError("docket snapshot docket identity is invalid")
     expected_docket_id = _candidate_docket_id(candidate_id)
-    if (
-        expected_docket_id is not None
-        and str(record["docket_id"]) != expected_docket_id
-    ):
+    if expected_docket_id is not None and snapshot_docket != expected_docket_id:
         raise DocumentRepairExecutorError(
             "docket snapshot docket identity differs from candidate"
         )
@@ -1108,7 +1211,9 @@ def _resolve_operation(
             f"{item.candidate_id}/{item.docket_entry_number}"
         )
     entry = matches[0]
-    if _docket_identifier(entry.get("docket")) != str(snapshot["docket_id"]):
+    if _docket_identifier(entry.get("docket")) != _docket_identifier(
+        snapshot.get("docket_id")
+    ):
         raise DocumentRepairExecutorError("docket entry belongs to a different docket")
     documents = _mapping_list(entry.get("recap_documents"), "RECAP documents")
     selected_documents = [
@@ -1257,7 +1362,8 @@ def _outcome_record(
         raise DocumentRepairExecutorError("free operation recorded paid cost")
     if outcome.disposition == "unknown" and cost != maximum:
         raise DocumentRepairExecutorError(
-            "unknown paid outcome must retain its full approved reservation"
+            "unknown paid outcome committed_cost_usd must retain its full "
+            "approved reservation"
         )
     return {
         **operation.to_record(),
@@ -1535,6 +1641,13 @@ def _mint_execution(**fields: object) -> DocumentRepairExecution:
     return execution
 
 
+def _mint_receipt(**fields: object) -> DocumentRepairReceipt:
+    receipt = object.__new__(DocumentRepairReceipt)
+    for name, value in (*fields.items(), ("_mint", _RECEIPT_AUTHORITY)):
+        object.__setattr__(receipt, name, value)
+    return receipt
+
+
 def _mint_purchase_authority(**fields: object) -> DocumentRepairPurchaseAuthority:
     authority = object.__new__(DocumentRepairPurchaseAuthority)
     for name, value in (*fields.items(), ("_mint", _PURCHASE_AUTHORITY)):
@@ -1563,3 +1676,8 @@ def _commit_purchase_authority(record: Mapping[str, object]) -> str:
             record, domain=EXACT100_DOCUMENT_REPAIR_PURCHASE_AUTHORITY_V1
         ).digest
     )
+
+
+require_authenticated_repair_receipt = _require_authenticated_receipt
+require_repair_execution_binding = _require_scope_binding_from_execution
+stamp_successor_acquired_documents = _successor_acquired_documents
