@@ -7,6 +7,7 @@ parsers can read provider envelopes; disk bytes do not.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import stat
@@ -160,6 +161,8 @@ def persist_execution_artifacts(
         json.dumps(redact_json_record(receipt, secret_values), sort_keys=True) + "\n"
     ).encode("utf-8")
     _write_private_bytes(artifact_dir / "receipt.json", receipt_bytes)
+    digest = hashlib.sha256(receipt_bytes).hexdigest()
+    _write_private_bytes(artifact_dir / "receipt.sha256", f"{digest}\n".encode("ascii"))
     event = redact_json_record(
         {
             "event": "launch",
@@ -188,6 +191,20 @@ def persist_execution_artifacts(
     return artifact_dir
 
 
+def verify_execution_artifacts(scratch_root: Path) -> None:
+    """Refuse a private receipt whose bytes no longer match the sealed digest."""
+
+    artifact_dir = scratch_root / PRIVATE_EXECUTION_DIR
+    if artifact_dir.is_symlink() or not artifact_dir.is_dir():
+        raise LocalCliRedactionError("private execution directory is invalid")
+    receipt_bytes = _read_private_regular_file(artifact_dir / "receipt.json")
+    recorded = _read_private_regular_file(artifact_dir / "receipt.sha256")
+    digest = recorded.decode("ascii").strip()
+    actual = hashlib.sha256(receipt_bytes).hexdigest()
+    if digest != actual:
+        raise LocalCliRedactionError("private execution receipt digest mismatch")
+
+
 def artifact_dir_contains_secret(root: Path, secret: str) -> bool:
     """Return whether any file under ``root`` contains the exact secret bytes."""
 
@@ -211,6 +228,18 @@ def _ensure_private_artifact_dir(scratch_root: Path) -> Path:
         raise LocalCliRedactionError("CLI scratch paths must be directories")
     artifact_dir.chmod(0o700)
     return artifact_dir
+
+
+def _read_private_regular_file(path: Path) -> bytes:
+    try:
+        info = path.lstat()
+    except OSError as exc:
+        raise LocalCliRedactionError("private execution path is missing") from exc
+    if stat.S_ISLNK(info.st_mode):
+        raise LocalCliRedactionError("private execution paths must not be symlinks")
+    if not stat.S_ISREG(info.st_mode):
+        raise LocalCliRedactionError("private execution paths must be regular files")
+    return path.read_bytes()
 
 
 def _write_private_bytes(path: Path, payload: bytes) -> None:

@@ -4,9 +4,14 @@ A run declares exactly one profile. Missing, ambiguous, or unknown values fail
 before credential fetch or process spawn. Profiles never substitute for each
 other, and ``fixture-none`` never reads credentials.
 
-Infisical is the sandbox source (canonical ``dev``). Production variables and
-secrets are GitHub Environment values; this module refuses Infisical
-``--env prod`` instead of reading them.
+Infisical is the sandbox source (canonical ``dev``) for ``published-api-key``.
+Production variables and secrets are GitHub Environment values; this module
+refuses Infisical ``--env prod`` instead of reading them.
+
+``contributor-subscription`` is the contributor's own local CLI login. It
+never reads operator-hosted credentials, never copies durable auth files, and
+cannot be selected for official runs. The nonsecret provenance category is
+``local_cli_subscription``. Underscore aliases remain refused.
 
 Canonical IDs are consumed by B1 adapter manifests (``dm0g.4.4.1``). Do not add
 provider-specific aliases.
@@ -16,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Protocol
 
 from legalforecast.multiharness.validation import (
     MultiHarnessValidationError,
@@ -27,9 +32,19 @@ from legalforecast.multiharness.validation import (
 FIXTURE_NONE: Final = "fixture-none"
 PUBLISHED_API_KEY: Final = "published-api-key"
 CONTRIBUTOR_SUBSCRIPTION: Final = "contributor-subscription"
+LOCAL_CLI_SUBSCRIPTION_CATEGORY: Final = "local_cli_subscription"
 
 AUTH_PROFILE_IDS: Final[frozenset[str]] = frozenset(
     {FIXTURE_NONE, PUBLISHED_API_KEY, CONTRIBUTOR_SUBSCRIPTION}
+)
+RUN_CLASS_OFFICIAL: Final = "official"
+RUN_CLASS_COMMUNITY: Final = "community"
+RUN_CLASSES: Final[frozenset[str]] = frozenset(
+    {RUN_CLASS_OFFICIAL, RUN_CLASS_COMMUNITY}
+)
+OFFICIAL_AUTH_PROFILES: Final[frozenset[str]] = frozenset({PUBLISHED_API_KEY})
+_UNCREDENTIALED_PROFILES: Final[frozenset[str]] = frozenset(
+    {FIXTURE_NONE, CONTRIBUTOR_SUBSCRIPTION}
 )
 
 LEGALFORECASTBENCH_SANDBOX_ROOT: Final = "/agents/sandbox/legalforecastbench"
@@ -40,13 +55,13 @@ HARNESS_RUNTIME_INFISICAL_ROOT: Final = (
 
 # published-api-key reuses the existing labeling stage view rather than a
 # duplicate harness-runtime folder. The labeling inventory also has
-# GEMINI_API_KEY; adapters never project it. contributor-subscription stays
-# on its own harness-runtime folder and is not bound yet.
+# GEMINI_API_KEY; adapters never project it. contributor-subscription never
+# reads Infisical; the reserved leaf is documentation only.
+CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH: Final = (
+    f"{HARNESS_RUNTIME_INFISICAL_ROOT}/contributor-subscription"
+)
 _PROFILE_INFISICAL_PATH: Final[Mapping[str, str]] = {
     PUBLISHED_API_KEY: LABELING_INFISICAL_PATH,
-    CONTRIBUTOR_SUBSCRIPTION: (
-        f"{HARNESS_RUNTIME_INFISICAL_ROOT}/contributor-subscription"
-    ),
 }
 
 # Infisical secret names this profile may project. Each adapter takes a
@@ -99,8 +114,26 @@ class ResolvedAuthProfile:
         """Return the only profile fields allowed in public records."""
 
         record = {"auth_profile": self.profile_id}
+        if self.profile_id == CONTRIBUTOR_SUBSCRIPTION:
+            record["auth_category"] = LOCAL_CLI_SUBSCRIPTION_CATEGORY
         validate_public_record(record, "auth profile provenance")
         return record
+
+
+class SubscriptionPresence(Protocol):
+    """Prove a local CLI subscription without copying durable auth state."""
+
+    def prove(self, parent_env: Mapping[str, str]) -> None:
+        """Accept the host login or fail closed."""
+
+        ...
+
+
+class FixtureSubscriptionPresence:
+    """Test double that never reads host subscription files or tokens."""
+
+    def prove(self, parent_env: Mapping[str, str]) -> None:
+        del parent_env
 
 
 def require_auth_profile_id(value: object, field_name: str = "auth_profile") -> str:
@@ -166,9 +199,45 @@ def infisical_path_for_profile(profile_id: str) -> str:
     canonical = require_auth_profile_id(profile_id)
     if canonical == FIXTURE_NONE:
         raise AuthProfileError("fixture-none never reads credentials")
+    if canonical == CONTRIBUTOR_SUBSCRIPTION:
+        raise AuthProfileError(
+            "contributor-subscription never reads operator-hosted credentials"
+        )
     path = _PROFILE_INFISICAL_PATH[canonical]
     _require_declared_profile_infisical_path(path)
     return path
+
+
+def require_auth_profile_for_run_class(profile_id: str, run_class: str) -> str:
+    """Refuse any profile that official runs may not select."""
+
+    canonical = require_auth_profile_id(profile_id)
+    if run_class not in RUN_CLASSES:
+        raise AuthProfileError("run_class must be official or community")
+    if run_class == RUN_CLASS_OFFICIAL and canonical not in OFFICIAL_AUTH_PROFILES:
+        raise AuthProfileError(f"{canonical} cannot be selected for official runs")
+    return canonical
+
+
+def require_local_subscription_presence(
+    *,
+    parent_env: Mapping[str, str],
+    presence: SubscriptionPresence | None = None,
+) -> None:
+    """Refuse CI, noninteractive, and absent local-subscription proofs."""
+
+    if presence is not None:
+        presence.prove(parent_env)
+        return
+    for name in ("CI", "GITHUB_ACTIONS"):
+        value = str(parent_env.get(name, "")).strip().lower()
+        if value in {"1", "true", "yes"}:
+            raise AuthProfileError(
+                "contributor-subscription is unsupported in CI/noninteractive"
+            )
+    raise AuthProfileError(
+        "contributor-subscription local login is absent; no fallback"
+    )
 
 
 def require_infisical_environment(value: str) -> str:
@@ -209,7 +278,9 @@ def resolve_auth_profile(
     stage = require_infisical_environment(infisical_env)
     env_names = _validated_projected_env_vars(profile_id, projected_env_vars)
     path = (
-        None if profile_id == FIXTURE_NONE else infisical_path_for_profile(profile_id)
+        None
+        if profile_id in _UNCREDENTIALED_PROFILES
+        else infisical_path_for_profile(profile_id)
     )
     return ResolvedAuthProfile(
         profile_id=profile_id,
@@ -224,11 +295,13 @@ def _validated_projected_env_vars(
     projected_env_vars: Sequence[str] | None,
 ) -> tuple[str, ...]:
     names = tuple(projected_env_vars or ())
-    if profile_id == FIXTURE_NONE:
+    if profile_id in _UNCREDENTIALED_PROFILES:
         if names:
             raise AuthProfileError(
                 "fixture-none never reads credentials and must not declare "
                 "projected credential environment names"
+                if profile_id == FIXTURE_NONE
+                else "contributor-subscription never exports credentials"
             )
         return ()
     if not names:

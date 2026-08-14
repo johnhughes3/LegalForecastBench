@@ -9,6 +9,7 @@ import pytest
 from legalforecast.multiharness.auth_binding import (
     ADAPTER_BOUND_AUTH_PROFILES,
     bind_adapter_auth_profile,
+    bind_official_run_auth_profile,
     contained_execution_service,
     expected_bound_child_environment_names,
     project_bound_child_environment,
@@ -19,8 +20,10 @@ from legalforecast.multiharness.auth_profiles import (
     FIXTURE_NONE,
     INFISICAL_WRAPPER_NAME,
     LABELING_INFISICAL_PATH,
+    LOCAL_CLI_SUBSCRIPTION_CATEGORY,
     PUBLISHED_API_KEY,
     AuthProfileError,
+    FixtureSubscriptionPresence,
     published_api_key_layout,
 )
 from legalforecast.multiharness.claude_code import (
@@ -36,6 +39,7 @@ from legalforecast.multiharness.codex_cli import (
     build_codex_invocation_plan,
     load_codex_local_cli_manifest,
 )
+from legalforecast.multiharness.contributor_boundary import LINUX_LANDLOCK_FS_SCOPE
 from legalforecast.multiharness.local_cli_contracts import (
     FakeLocalCliExecutionService,
     FixtureTranscript,
@@ -141,7 +145,9 @@ def test_fixture_none_binds_with_zero_credentials(tmp_path: Path) -> None:
     assert set(environment) == allowed
     assert "ANTHROPIC_API_KEY" not in environment
     assert "OPENAI_API_KEY" not in environment
-    assert ADAPTER_BOUND_AUTH_PROFILES == frozenset({FIXTURE_NONE, PUBLISHED_API_KEY})
+    assert ADAPTER_BOUND_AUTH_PROFILES == frozenset(
+        {FIXTURE_NONE, PUBLISHED_API_KEY, CONTRIBUTOR_SUBSCRIPTION}
+    )
 
 
 @pytest.mark.parametrize(
@@ -185,7 +191,6 @@ def test_published_api_key_child_env_equals_allowlist_union_projected(
         "explicit_api_key",
         "published_api_key",
         "not-a-profile",
-        CONTRIBUTOR_SUBSCRIPTION,
     ),
 )
 def test_forbidden_and_unknown_profiles_refuse_at_plan_time(requested: object) -> None:
@@ -207,6 +212,54 @@ def test_forbidden_and_unknown_profiles_refuse_at_plan_time(requested: object) -
             prompt="solve fixture",
             auth_profile=requested,
         )
+
+
+def test_contributor_subscription_binds_community_and_refuses_official(
+    tmp_path: Path,
+) -> None:
+    bound = bind_adapter_auth_profile(
+        claude_code_local_manifest(), CONTRIBUTOR_SUBSCRIPTION
+    )
+    assert bound.profile_id == CONTRIBUTOR_SUBSCRIPTION
+    assert bound.profile.projected_env_vars == ()
+    assert bound.profile.infisical_path is None
+    assert bound.public_provenance() == {
+        "auth_profile": CONTRIBUTOR_SUBSCRIPTION,
+        "auth_category": LOCAL_CLI_SUBSCRIPTION_CATEGORY,
+    }
+    environment = project_bound_child_environment(
+        bound,
+        tmp_path / "scratch",
+        credential_source=None,
+        parent_env=_polluted_parent_env(),
+    )
+    assert "ANTHROPIC_API_KEY" not in environment
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in environment
+    with pytest.raises(AuthProfileError, match="official"):
+        bind_official_run_auth_profile(
+            claude_code_local_manifest(), CONTRIBUTOR_SUBSCRIPTION
+        )
+    with pytest.raises(AuthProfileError, match="never reads credentials"):
+        contained_execution_service(
+            bound,
+            credential_source=StaticCredentialSource({"ANTHROPIC_API_KEY": "x"}),
+        )
+    service = contained_execution_service(
+        bound,
+        subscription_presence=FixtureSubscriptionPresence(),
+    )
+    assert service.auth_profile == CONTRIBUTOR_SUBSCRIPTION
+    assert service.filesystem_scope == LINUX_LANDLOCK_FS_SCOPE
+    assert service.credential_source is None
+    plan = build_claude_invocation_plan(
+        prompt="prompt",
+        model="claude-sonnet-4-6",
+        required_unit_ids=("count_i",),
+        workspace=Path("workspace"),
+        output_schema_path=Path("workspace") / "output-schema.json",
+        auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+    )
+    assert plan.auth_profile == CONTRIBUTOR_SUBSCRIPTION
 
 
 def test_claude_and_codex_plans_record_bound_profile() -> None:

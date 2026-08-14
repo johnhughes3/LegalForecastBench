@@ -15,12 +15,14 @@ from legalforecast.multiharness.local_cli_identity import executable_pin_for
 from legalforecast.multiharness.local_cli_redaction import (
     PRIVATE_EXECUTION_DIR,
     REDACTED,
+    LocalCliRedactionError,
     artifact_dir_contains_secret,
     persist_execution_artifacts,
     redact_bytes,
     redact_json_record,
     redact_text,
     redaction_secret_values,
+    verify_execution_artifacts,
 )
 from legalforecast.multiharness.local_cli_runtime import (
     LocalCliAdapterManifest,
@@ -196,6 +198,14 @@ def test_json_redaction_rewrites_escaped_secret_characters(tmp_path: Path) -> No
     assert secret not in receipt_text
     assert REDACTED in events
     assert REDACTED in receipt_text
+    verify_execution_artifacts(scratch)
+    receipt_path = scratch / PRIVATE_EXECUTION_DIR / "receipt.json"
+    receipt_path.write_text(
+        receipt_path.read_text(encoding="utf-8").replace(REDACTED, "tampered"),
+        encoding="utf-8",
+    )
+    with pytest.raises(LocalCliRedactionError, match="digest mismatch"):
+        verify_execution_artifacts(scratch)
 
 
 def test_planted_artifact_symlink_is_refused(tmp_path: Path) -> None:
