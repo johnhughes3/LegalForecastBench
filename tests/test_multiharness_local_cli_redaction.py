@@ -231,6 +231,52 @@ def test_planted_artifact_symlink_is_refused(tmp_path: Path) -> None:
     assert list(leaked.iterdir()) == []
 
 
+def test_partial_persist_failure_does_not_wipe_written_transcripts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import legalforecast.multiharness.local_cli_redaction as redaction
+
+    real_write = redaction._write_private_bytes
+
+    def _fail_after_stdout(path: Path, payload: bytes) -> None:
+        real_write(path, payload)
+        if path.name == "stderr.transcript":
+            raise redaction.LocalCliRedactionError("planted persist failure")
+
+    monkeypatch.setattr(redaction, "_write_private_bytes", _fail_after_stdout)
+    scratch = tmp_path / "scratch"
+    with pytest.raises(LocalCliRuntimeError, match="planted persist failure"):
+        execute_local_cli(
+            LocalCliRunSpec(
+                spec_id="partial-persist",
+                manifest=LocalCliAdapterManifest(
+                    adapter_id="fixture-cli",
+                    display_name="Fixture CLI",
+                    adapter_version="0.1.0",
+                    command=(sys.executable, str(_FAKE_CLI.resolve())),
+                    executable=executable_pin_for(_FAKE_CLI, version="0.1.0"),
+                    supported_auth_profiles=(PUBLISHED_API_KEY,),
+                    profile_env_vars=((PUBLISHED_API_KEY, ("OPENAI_API_KEY",)),),
+                    version_probe_args=("--mode", "version"),
+                ),
+                auth_profile=PUBLISHED_API_KEY,
+                extra_args=("--mode", "succeed-json"),
+            ),
+            scratch,
+            credential_source=StaticCredentialSource({"OPENAI_API_KEY": _ENV_SECRET}),
+            parent_env={
+                "PATH": os.environ.get("PATH", "/usr/bin"),
+                "LC_CTYPE": "C.UTF-8",
+            },
+        )
+    artifact_dir = scratch / PRIVATE_EXECUTION_DIR
+    stdout_path = artifact_dir / "stdout.transcript"
+    receipt = json.loads((artifact_dir / "receipt.json").read_text(encoding="utf-8"))
+    assert stdout_path.is_file()
+    assert stdout_path.stat().st_size > 0
+    assert receipt.get("status") != "error"
+
+
 def _canary_spec() -> LocalCliRunSpec:
     path = _FAKE_CLI.resolve()
     return LocalCliRunSpec(

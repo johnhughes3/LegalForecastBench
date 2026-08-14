@@ -52,6 +52,7 @@ from legalforecast.multiharness.local_cli_identity import (
     executable_pin_for,
 )
 from legalforecast.multiharness.local_cli_redaction import (
+    PRIVATE_EXECUTION_DIR,
     LocalCliRedactionError,
     persist_execution_artifacts,
     redact_text,
@@ -356,21 +357,24 @@ def execute_local_cli(
         )
     except LocalCliRuntimeError as exc:
         message = redact_text(str(exc), secret_values)
-        try:
-            persist_execution_artifacts(
-                scratch_root,
-                receipt={
-                    "schema_version": LOCAL_CLI_EXECUTION_SCHEMA_VERSION,
-                    "status": "error",
-                },
-                argv=spec.argv(),
-                stdout=b"",
-                stderr=b"",
-                secret_values=secret_values,
-                error_message=message,
-            )
-        except (LocalCliRedactionError, OSError, AuthProfileError):
-            pass
+        if not _private_receipt_already_written(scratch_root):
+            try:
+                persist_execution_artifacts(
+                    scratch_root,
+                    receipt={
+                        "schema_version": LOCAL_CLI_EXECUTION_SCHEMA_VERSION,
+                        "status": "error",
+                    },
+                    argv=spec.argv(),
+                    stdout=b"",
+                    stderr=b"",
+                    secret_values=secret_values,
+                    error_message=message,
+                )
+            except (LocalCliRedactionError, OSError, AuthProfileError):
+                # Best-effort error receipt only. The redacted exception still
+                # propagates; do not mask a persist failure as success.
+                pass
         raise LocalCliRuntimeError(message) from exc
 
 
@@ -563,6 +567,13 @@ class LocalCliExecutionService:
                 status="failed",
             )
         return execution_receipt_from_runtime(spec, result)
+
+
+def _private_receipt_already_written(scratch_root: Path) -> bool:
+    """Return whether a regular success receipt is already on disk."""
+
+    receipt = scratch_root / PRIVATE_EXECUTION_DIR / "receipt.json"
+    return receipt.is_file() and not receipt.is_symlink()
 
 
 def _contained_scratch_root(working_directory: Path) -> Path:
