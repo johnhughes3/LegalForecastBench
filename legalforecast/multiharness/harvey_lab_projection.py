@@ -1131,9 +1131,16 @@ def _walk_projection_entries(root: Path) -> list[Path]:
                 raise HarveyLabProjectionError(
                     f"symlink in solver projection: {relative}"
                 )
-            entries.append(child)
             if child.is_dir():
+                entries.append(child)
                 stack.append(child)
+            elif child.is_file():
+                entries.append(child)
+            else:
+                relative = child.relative_to(root).as_posix()
+                raise HarveyLabProjectionError(
+                    f"unsupported entry in solver projection: {relative}"
+                )
     return sorted(entries)
 
 

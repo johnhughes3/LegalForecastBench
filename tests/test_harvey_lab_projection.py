@@ -281,6 +281,24 @@ def test_symlink_in_projection_fails_verification(tmp_path: Path) -> None:
         scan_projection_for_private_markers(result.solver_root)
 
 
+def test_fifo_in_projection_fails_verification(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    result = project_harvey_lab_suite(
+        source_root=source,
+        solver_root=tmp_path / "solver",
+        evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
+    )
+    planted = result.solver_root / "tasks" / ISSUE_196_LAB_TASK_ID / "pipe"
+    _make_tree_writable(result.solver_root)
+    os.mkfifo(planted)
+    with pytest.raises(
+        HarveyLabProjectionError,
+        match="unsupported entry in solver projection",
+    ):
+        verify_harvey_lab_projection(result.solver_root)
+
+
 def test_preexisting_staging_directory_is_not_deleted(tmp_path: Path) -> None:
     source = _issue_196_source(tmp_path / "lab")
     leftover = tmp_path / (

@@ -184,10 +184,10 @@ def invoke_isolated_harvey_lab_evaluator(
         evaluator_command=evaluator_command,
         timeout_seconds=timeout_seconds,
     )
-    started_monotonic = time.monotonic_ns()
+    started_monotonic = _monotonic_ns()
     started_at = datetime.now(UTC)
     execution = execution_service.execute(spec)
-    ended_monotonic = time.monotonic_ns()
+    ended_monotonic = _monotonic_ns()
     ended_at = datetime.now(UTC)
     if execution.status != "succeeded" or execution.returncode not in {0, None}:
         raise HarveyLabEvaluationError(
@@ -203,7 +203,7 @@ def invoke_isolated_harvey_lab_evaluator(
     evaluation_spec = _evaluation_spec(
         sealed_manifest=sealed_manifest,
         identity=identity,
-        hosts=hosts,
+        private_material_sha256=str(stdin_record["private_material_sha256"]),
         raw_result=raw_result,
     )
     receipt = build_evaluation_receipt(
@@ -397,13 +397,12 @@ def _evaluation_spec(
     *,
     sealed_manifest: DeliverableManifest,
     identity: HarveyLabEvaluationIdentity,
-    hosts: HarveyLabEvaluationHosts,
+    private_material_sha256: str,
     raw_result: bytes,
 ) -> EvaluationSpec:
     pin = identity.pin
-    private_digest = _directory_digest(
-        _private_task_root(hosts.evaluator_private_root, identity.lab_task_id),
-        "private_material_sha256",
+    private_digest = _require_prefixed(
+        private_material_sha256, "private_material_sha256"
     )
     policy = _prefixed_json(
         {
@@ -718,6 +717,13 @@ def _fixture_cost() -> CostMeasurement:
         pricing_snapshot_sha256=None,
         unknown_reason="not_applicable",
     )
+
+
+def _monotonic_ns() -> int:
+    clock = getattr(time, "CLOCK_MONOTONIC_RAW", None)
+    if clock is None:
+        return time.monotonic_ns()
+    return time.clock_gettime_ns(clock)
 
 
 def _timing(
