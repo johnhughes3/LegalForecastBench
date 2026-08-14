@@ -55,7 +55,6 @@ from legalforecast.multiharness.local_cli_contracts import (
     RunSpec,
     is_local_cli_sandbox_denial,
 )
-from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.scoring import (
     ScoreArtifact,
     build_harvey_lab_metric_definition,
@@ -112,10 +111,6 @@ def run_claude_code_clean_native_harvey_lab(
     """Project a LAB task, run contained Claude Code, discover, and score."""
 
     service = adapter.execution_service
-    if not isinstance(service, LocalCliExecutionService):
-        raise ClaudeCodeCliAdapterError(
-            "clean-native Harvey LAB runs require the contained execution service"
-        )
     tools = tuple(
         CLAUDE_CODE_CLEAN_NATIVE_TOOLS if allowed_tools is None else allowed_tools
     )
