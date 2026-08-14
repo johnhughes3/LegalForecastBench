@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Protocol, Self, cast
 
 from legalforecast.multiharness.identity import (
+    IdentityError,
     RunIdentity,
     SolverIdentity,
     TaskIdentity,
@@ -33,6 +34,7 @@ from legalforecast.multiharness.identity import (
 from legalforecast.multiharness.validation import (
     MultiHarnessValidationError,
     optional_mapping,
+    optional_non_negative_int,
     optional_str,
     require_known_fields,
     require_schema_version,
@@ -90,6 +92,10 @@ _PUBLIC_RECEIPT_OPTIONAL_FIELDS = frozenset(
         "task_identity_key",
         "solver_identity_key",
         "run_identity_key",
+        "config_sha256",
+        "temporal_block",
+        "order",
+        "repeat_index",
     }
 )
 _FULL_RECEIPT_REQUIRED_FIELDS = _PUBLIC_RECEIPT_REQUIRED_FIELDS | frozenset(
@@ -316,6 +322,10 @@ class ExecutionReceipt:
     task_identity_key: str | None = None
     solver_identity_key: str | None = None
     run_identity_key: str | None = None
+    config_sha256: str | None = None
+    temporal_block: str | None = None
+    order: int | None = None
+    repeat_index: int | None = None
     schema_version: str = LOCAL_CLI_EXECUTION_RECEIPT_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -355,14 +365,20 @@ class ExecutionReceipt:
         for field_name in (
             "runtime_policy_sha256",
             "deliverable_manifest_sha256",
+            "config_sha256",
         ):
             digest = getattr(self, field_name)
             if digest is not None:
                 validate_sha256(digest, field_name)
-        _require_identity_keys(
-            self.task_identity_key,
-            self.solver_identity_key,
-            self.run_identity_key,
+        _require_bound_run_identity(
+            task_identity_key=self.task_identity_key,
+            solver_identity_key=self.solver_identity_key,
+            run_identity_key=self.run_identity_key,
+            runtime_policy_sha256=self.runtime_policy_sha256,
+            config_sha256=self.config_sha256,
+            temporal_block=self.temporal_block,
+            order=self.order,
+            repeat_index=self.repeat_index,
         )
         if self.schema_version != LOCAL_CLI_EXECUTION_RECEIPT_SCHEMA_VERSION:
             raise LocalCliContractError(
@@ -403,6 +419,14 @@ class ExecutionReceipt:
             record["solver_identity_key"] = self.solver_identity_key
         if self.run_identity_key is not None:
             record["run_identity_key"] = self.run_identity_key
+        if self.config_sha256 is not None:
+            record["config_sha256"] = self.config_sha256
+        if self.temporal_block is not None:
+            record["temporal_block"] = self.temporal_block
+        if self.order is not None:
+            record["order"] = self.order
+        if self.repeat_index is not None:
+            record["repeat_index"] = self.repeat_index
         return record
 
     def to_record(self) -> dict[str, object]:
@@ -431,6 +455,11 @@ class ExecutionReceipt:
             task_identity_key=task.key,
             solver_identity_key=solver.key,
             run_identity_key=run.key,
+            runtime_policy_sha256=run.runtime_policy_sha256,
+            config_sha256=run.config_sha256,
+            temporal_block=run.temporal_block,
+            order=run.order,
+            repeat_index=run.repeat_index,
         )
 
     @classmethod
@@ -477,6 +506,10 @@ class ExecutionReceipt:
                 task_identity_key=optional_str(record, "task_identity_key"),
                 solver_identity_key=optional_str(record, "solver_identity_key"),
                 run_identity_key=optional_str(record, "run_identity_key"),
+                config_sha256=optional_str(record, "config_sha256"),
+                temporal_block=optional_str(record, "temporal_block"),
+                order=optional_non_negative_int(record, "order"),
+                repeat_index=optional_non_negative_int(record, "repeat_index"),
                 schema_version=require_str(record, "schema_version"),
             )
         except MultiHarnessValidationError as exc:
@@ -589,37 +622,108 @@ def validate_public_execution_receipt(record: Mapping[str, Any]) -> None:
         require_str(record, "executable_name")
         require_str(record, "stdout_sha256")
         require_str(record, "stderr_sha256")
-        _require_identity_keys(
-            record.get("task_identity_key"),
-            record.get("solver_identity_key"),
-            record.get("run_identity_key"),
+        _require_bound_run_identity(
+            task_identity_key=record.get("task_identity_key"),
+            solver_identity_key=record.get("solver_identity_key"),
+            run_identity_key=record.get("run_identity_key"),
+            runtime_policy_sha256=record.get("runtime_policy_sha256"),
+            config_sha256=record.get("config_sha256"),
+            temporal_block=record.get("temporal_block"),
+            order=record.get("order"),
+            repeat_index=record.get("repeat_index"),
         )
         validate_public_record(record, "execution_receipt")
     except MultiHarnessValidationError as exc:
         raise LocalCliContractError(str(exc)) from exc
 
 
+def _require_bound_run_identity(
+    *,
+    task_identity_key: object,
+    solver_identity_key: object,
+    run_identity_key: object,
+    runtime_policy_sha256: object,
+    config_sha256: object,
+    temporal_block: object,
+    order: object,
+    repeat_index: object,
+) -> None:
+    keys = _require_identity_keys(
+        task_identity_key, solver_identity_key, run_identity_key
+    )
+    if keys is None:
+        return
+    missing: list[str] = []
+    policy = _identity_slot_str(runtime_policy_sha256, "runtime_policy_sha256", missing)
+    config = _identity_slot_str(config_sha256, "config_sha256", missing)
+    block = _identity_slot_str(
+        temporal_block, "temporal_block", missing, require_stripped=True
+    )
+    slot_order = _identity_slot_int(order, "order", missing)
+    slot_repeat = _identity_slot_int(repeat_index, "repeat_index", missing)
+    if missing:
+        raise LocalCliContractError("identity keys require " + ", ".join(missing))
+    try:
+        RunIdentity(
+            task_identity_key=keys[0],
+            solver_identity_key=keys[1],
+            runtime_policy_sha256=policy,
+            config_sha256=config,
+            temporal_block=block,
+            order=slot_order,
+            repeat_index=slot_repeat,
+            key=keys[2],
+        )
+    except IdentityError as exc:
+        raise LocalCliContractError(
+            "run identity does not bind the supplied task and solver keys"
+        ) from exc
+
+
+def _identity_slot_str(
+    value: object,
+    field_name: str,
+    missing: list[str],
+    *,
+    require_stripped: bool = False,
+) -> str:
+    if isinstance(value, str) and (value.strip() if require_stripped else value):
+        return value
+    missing.append(field_name)
+    return ""
+
+
+def _identity_slot_int(value: object, field_name: str, missing: list[str]) -> int:
+    if type(value) is int:
+        return value
+    missing.append(field_name)
+    return 0
+
+
 def _require_identity_keys(
     task_identity_key: object,
     solver_identity_key: object,
     run_identity_key: object,
-) -> None:
+) -> tuple[str, str, str] | None:
     keys = (task_identity_key, solver_identity_key, run_identity_key)
-    if any(key is None for key in keys) and any(key is not None for key in keys):
+    if all(key is None for key in keys):
+        return None
+    if any(key is None for key in keys):
         raise LocalCliContractError(
             "task_identity_key, solver_identity_key, and run_identity_key "
             "must be set together"
         )
+    typed: list[str] = []
     for field_name, value in zip(
         ("task_identity_key", "solver_identity_key", "run_identity_key"),
         keys,
         strict=True,
     ):
-        if value is None:
-            continue
         if not isinstance(value, str):
             raise LocalCliContractError(f"{field_name} must be a string")
         _require_prefixed_digest(value, field_name)
+        typed.append(value)
+    return typed[0], typed[1], typed[2]
 
 
 def _require_prefixed_digest(value: str, field_name: str) -> None:
