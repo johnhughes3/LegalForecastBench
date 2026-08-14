@@ -15,8 +15,10 @@ from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from legalforecast.multiharness.adapter_registry import CODEX_CLI_REGISTRY_NAME
 from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
 from legalforecast.multiharness.codex_cli import (
+    CODEX_CLI_ADAPTER_ID,
     CodexCliAdapter,
     CodexCliAdapterError,
 )
@@ -45,6 +47,11 @@ FAKE_EVALUATOR = (
 )
 LAB_BASENAME = "issue-identification-memo.docx"
 KEY = Ed25519PrivateKey.from_private_bytes(b"L" * 32)
+
+
+def test_codex_lab_keeps_offline_registry_identity() -> None:
+    assert CODEX_CLI_REGISTRY_NAME == CODEX_CLI_ADAPTER_ID
+    assert CODEX_CLI_ADAPTER_ID == "codex-cli-offline"
 
 
 def test_fake_cli_lab_pipeline_binds_projection_receipt_discovery_and_score(

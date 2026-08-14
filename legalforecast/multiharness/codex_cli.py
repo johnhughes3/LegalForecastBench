@@ -695,6 +695,7 @@ def adapter_bundle_sha256() -> str:
     relative_paths = (
         "legalforecast/multiharness/codex_cli.py",
         "legalforecast/multiharness/codex_cli_cli.py",
+        "legalforecast/multiharness/codex_cli_harvey_lab.py",
         "examples/adapters/codex-cli/adapter-manifest.json",
         "examples/adapters/codex-cli/local-cli-manifest.json",
         "pyproject.toml",

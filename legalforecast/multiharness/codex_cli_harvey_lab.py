@@ -17,6 +17,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from legalforecast.multiharness.codex_cli import (
+    CODEX_CLI_EXECUTABLE,
     CODEX_DEFAULT_REASONING_EFFORT,
     CodexCliAdapter,
     CodexCliAdapterError,
@@ -120,6 +121,7 @@ def run_codex_cli_clean_native_harvey_lab(
     sandbox_root.mkdir(parents=True, exist_ok=True)
     _stage_solver_visible_task(task_dir, sandbox_root)
     resolved_output = output_root or (sandbox_root / "output")
+    _require_lab_hosts(sandbox_root, resolved_output)
     resolved_output.mkdir(parents=True, exist_ok=True)
     local_cli_manifest = adapter.local_cli_manifest
     declared_timeout = float(local_cli_manifest.timeout_retry.timeout_seconds)
@@ -141,6 +143,12 @@ def run_codex_cli_clean_native_harvey_lab(
         raise CodexCliAdapterError(
             "clean-native Codex Harvey LAB invocation must stay non-interactive"
         )
+    _require_on_path(
+        CODEX_CLI_EXECUTABLE,
+        service.parent_env,
+        label="clean-native Codex CLI executable",
+        missing="local CLI executable could not be launched",
+    )
     spec = RunSpec(
         spec_id=task.task_id,
         argv=plan.argv,
@@ -337,16 +345,48 @@ def _path_resolved_wrapper_sha256(
     command: str,
     parent_env: Mapping[str, str] | None,
 ) -> str:
+    located = _require_on_path(
+        command,
+        parent_env,
+        label="evaluator command",
+        missing="evaluator command is not on PATH",
+    )
+    payload = Path(located).read_bytes()
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _require_on_path(
+    command: str,
+    parent_env: Mapping[str, str] | None,
+    *,
+    label: str,
+    missing: str | None = None,
+) -> str:
     if "/" in command or "\\" in command or command in {".", ".."}:
-        raise CodexCliAdapterError("evaluator command must be a basename")
+        raise CodexCliAdapterError(f"{label} must be a basename on PATH")
     search_path = (
         "/usr/bin" if parent_env is None else parent_env.get("PATH", "/usr/bin")
     )
     located = shutil.which(command, path=search_path)
     if located is None:
-        raise CodexCliAdapterError("evaluator command is not on PATH")
-    payload = Path(located).read_bytes()
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
+        raise CodexCliAdapterError(missing or f"{label} is not on PATH")
+    return located
+
+
+def _require_lab_hosts(sandbox_root: Path, output_root: Path) -> None:
+    try:
+        sandbox = sandbox_root.resolve()
+        output = output_root.resolve()
+    except OSError as extra:
+        raise CodexCliAdapterError(
+            "Harvey LAB hosts must be real directories"
+        ) from extra
+    try:
+        output.relative_to(sandbox)
+    except ValueError as extra:
+        raise CodexCliAdapterError("output_root must be inside sandbox_root") from extra
+    if output == sandbox:
+        raise CodexCliAdapterError("output_root must not be sandbox_root")
 
 
 def _prefixed_digest_text(value: str) -> str:
