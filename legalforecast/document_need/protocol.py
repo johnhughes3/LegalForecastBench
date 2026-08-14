@@ -131,6 +131,12 @@ def build_pass2_prompt(
             for row in pass1.entries
         ],
     }
+    try:
+        selected_json = json.dumps(list(eyes.selected_docs), indent=2, sort_keys=True)
+    except TypeError as exc:
+        raise DocumentNeedProtocolError(
+            "EyesBundle.selected_docs must be JSON-serializable"
+        ) from exc
     return (
         "You may PROMOTE predecision entries (clearly_not_required -> "
         "conditional or clearly_required; conditional -> clearly_required) "
@@ -138,6 +144,7 @@ def build_pass2_prompt(
         "its predecision entry number. Inclusion stays outcome-neutral.\n\n"
         f"PASS1_JSON:\n{json.dumps(pass1_json, indent=2, sort_keys=True)}\n\n"
         f"DECISION_TEXT:\n{eyes.decision.text}\n\n"
+        f"SELECTED_DOCS_JSON:\n{selected_json}\n\n"
         f"PREDECISION_ENTRY_NUMBERS:\n{sorted(chronology.entry_numbers())}\n"
     )
 

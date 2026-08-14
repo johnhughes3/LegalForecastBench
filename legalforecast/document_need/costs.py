@@ -75,6 +75,8 @@ def price_document(
 
     if document.restricted:
         return _ZERO
+    if not document.freely_available and not document.pacer_only:
+        return _ZERO
     if (free_first and document.freely_available) or (
         document.freely_available and not document.pacer_only
     ):
@@ -122,7 +124,8 @@ def price_case(
 
     min_cost is the sum of paid clearly-required entries (free-first).
     max_cost is min_cost plus every conditional entry. clearly_not_required
-    entries do not contribute. Restricted documents on required or conditional
+    entries do not contribute. Restricted documents, and documents that are
+    neither freely available nor PACER-buyable, on required or conditional
     entries mark the case ineligible (``restricted_required``).
     """
 
@@ -165,11 +168,11 @@ def price_case(
         )
         if verdict.bucket is NeedBucket.CLEARLY_REQUIRED:
             min_cost += cost
-            if _entry_is_restricted(row):
+            if _entry_is_unacquirable(row):
                 restricted_required = True
         elif verdict.bucket is NeedBucket.CONDITIONAL:
             conditional += cost
-            if _entry_is_restricted(row):
+            if _entry_is_unacquirable(row):
                 restricted_required = True
     return CaseCosts(
         candidate_id=chronology.candidate_id,
@@ -180,5 +183,11 @@ def price_case(
     )
 
 
-def _entry_is_restricted(entry: ChronologyEntry) -> bool:
-    return entry.restricted or any(document.restricted for document in entry.documents)
+def _entry_is_unacquirable(entry: ChronologyEntry) -> bool:
+    if entry.restricted:
+        return True
+    return any(
+        document.restricted
+        or (not document.freely_available and not document.pacer_only)
+        for document in entry.documents
+    )

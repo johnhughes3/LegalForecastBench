@@ -15,6 +15,7 @@ from legalforecast.document_need.protocol import (
     DocumentNeedProtocolError,
     apply_pass2_promotions,
     build_pass1_prompt,
+    build_pass2_prompt,
     run_two_pass,
 )
 from legalforecast.document_need.selector import FixtureClassifier
@@ -386,3 +387,20 @@ def test_pass1_prompt_includes_configured_bucket_definitions() -> None:
             ),
             bucket_definitions={"clearly_required": "only one"},
         )
+
+
+def test_pass2_prompt_includes_selected_docs() -> None:
+    prompt = build_pass2_prompt(
+        pass1=_pass1(),
+        eyes=EyesBundle(
+            decision=DecisionText(
+                candidate_id="case-a",
+                text=_DECISION,
+                sha256="e" * 64,
+            ),
+            selected_docs=({"entry": 12, "excerpt": "UNIQUE_SELECTED_DOC_EXCERPT"},),
+        ),
+        chronology=_chronology(),
+    )
+    assert "SELECTED_DOCS_JSON" in prompt
+    assert "UNIQUE_SELECTED_DOC_EXCERPT" in prompt

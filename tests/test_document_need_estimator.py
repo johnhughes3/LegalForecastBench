@@ -42,12 +42,13 @@ def _doc(
     selector: str = "main_document",
     description: str = "doc",
     restricted: bool = False,
+    unavailable: bool = False,
 ) -> DocketDocument:
     return DocketDocument(
         selector=selector,
         description=description,
-        freely_available=not paid,
-        pacer_only=paid,
+        freely_available=False if unavailable else not paid,
+        pacer_only=False if unavailable else paid,
         page_count=pages,
         restricted=restricted,
     )
@@ -61,6 +62,7 @@ def _case(
     notice_pages: int = 1,
     restricted_motion: bool = False,
     restricted_conditional: bool = False,
+    unavailable_motion: bool = False,
 ) -> tuple[Chronology, MergedCaseBuckets]:
     entries = (
         ChronologyEntry(
@@ -79,6 +81,7 @@ def _case(
                     pages=required_pages,
                     description="mtd",
                     restricted=restricted_motion,
+                    unavailable=unavailable_motion,
                 ),
             ),
         ),
@@ -385,6 +388,22 @@ def test_restricted_conditional_document_is_not_admitted() -> None:
     assert by_id["seal"].ranked.restricted_required is True
     assert by_id["seal"].admitted is False
     assert by_id["seal"].reject_reason == "restricted_required_document"
+    assert by_id["open"].admitted is True
+
+
+def test_unavailable_required_document_is_not_admitted() -> None:
+    ghost_c, ghost_m = _case("ghost", required_pages=5, unavailable_motion=True)
+    open_c, open_m = _case("open", required_pages=20, conditional_pages=20)
+    artifact = build_selection_artifact(
+        config=activated_haiku_config(),
+        chronologies=(ghost_c, open_c),
+        merged=(ghost_m, open_m),
+        cohort_target_n=1,
+    )
+    by_id = {row.ranked.candidate_id: row for row in artifact.cases}
+    assert by_id["ghost"].ranked.restricted_required is True
+    assert by_id["ghost"].admitted is False
+    assert by_id["ghost"].reject_reason == "restricted_required_document"
     assert by_id["open"].admitted is True
 
 
