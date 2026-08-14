@@ -1,0 +1,3 @@
+# synthetic: true
+# command: python -c 'from legalforecast.multiharness.claude_code import encode_claude_code_tools_argv_token; print(encode_claude_code_tools_argv_token(("Read", "Glob")), end="")'
+Read,Glob

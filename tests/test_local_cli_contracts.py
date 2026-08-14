@@ -34,6 +34,8 @@ def test_failure_taxonomy_is_identical_for_claude_and_codex() -> None:
         "schema_violation",
         "crash",
         "sandbox_denial",
+        "cancelled",
+        "identity_drift",
     )
     assert declared_local_cli_failure_classes() == expected
     assert claude_failure_classes() == expected

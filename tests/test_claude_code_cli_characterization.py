@@ -141,6 +141,46 @@ def test_json_schema_flag_takes_inline_json_not_a_path() -> None:
     assert not token.endswith(".json")
 
 
+def test_non_empty_tools_argv_is_one_comma_joined_token() -> None:
+    from legalforecast.multiharness.claude_code import (
+        CLAUDE_CODE_CLEAN_NATIVE_TOOLS,
+        CLAUDE_CODE_TOOLS_ARGV_ENCODING,
+        CLAUDE_CODE_TOOLS_ARGV_EXAMPLE,
+        encode_claude_code_tools_argv_token,
+    )
+
+    documentation = DOC.read_text(encoding="utf-8")
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    template = manifest["invocation"]["argv_template"]
+    golden = (
+        ROOT / "tests" / "fixtures" / "claude_code" / "tools-argv-encoding.golden.txt"
+    )
+    golden_token = next(
+        line
+        for line in golden.read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#")
+    )
+
+    assert "--tools <tools...>" in documentation
+    assert "comma-joined" in documentation
+    assert CLAUDE_CODE_TOOLS_ARGV_EXAMPLE in documentation
+    assert "Read,Glob" in documentation
+    assert CLAUDE_CODE_TOOLS_ARGV_ENCODING == "comma-joined-single-token"
+    assert template[template.index("--tools") + 1] == ""
+    assert template[template.index("--tools") + 2] == "--strict-mcp-config"
+    probe = build_safe_parser_probe(
+        executable=Path("claude"),
+        expected_model=EXPECTED_MODEL,
+    )
+    assert probe[probe.index("--tools") + 1] == ""
+    assert encode_claude_code_tools_argv_token(("Read", "Glob")) == "Read,Glob"
+    assert encode_claude_code_tools_argv_token(("Read", "Glob")) == golden_token
+    native = encode_claude_code_tools_argv_token(CLAUDE_CODE_CLEAN_NATIVE_TOOLS)
+    assert native == ",".join(CLAUDE_CODE_CLEAN_NATIVE_TOOLS)
+    assert native.count(",") == len(CLAUDE_CODE_CLEAN_NATIVE_TOOLS) - 1
+    assert encode_claude_code_tools_argv_token(()) == ""
+
+
 def test_help_parsers_extract_only_public_interface_data() -> None:
     help_text = """Options:
   -p, --print
