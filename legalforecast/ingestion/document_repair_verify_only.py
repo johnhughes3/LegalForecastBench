@@ -162,6 +162,10 @@ def _verify_pilot_operation_bytes(
                     f"{operation.docket_entry_number} as "
                     f"{operation.document_role}"
                 )
+            if operation.public_clearance != ("cleared", False, False):
+                raise DocumentRepairVerifyOnlyError(
+                    "snapshot does not establish public clearance"
+                )
             if document.get("clearance_status") != "cleared":
                 raise DocumentRepairVerifyOnlyError(
                     "acquired document clearance_status is not cleared"

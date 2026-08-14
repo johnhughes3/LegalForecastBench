@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 
 import pytest
 from legalforecast.ingestion.document_repair_executor import (
@@ -20,10 +21,12 @@ from legalforecast.ingestion.missing_document_successor import (
     build_missing_document_acquisition_plan,
 )
 from tests.test_document_repair_executor import (
+    _canonical_bytes,
     _manifest_bytes,
     _plan_approval,
     _row,
     _scope,
+    _snapshot,
     _snapshots,
     build_document_repair_execution,
     build_full_document_repair_execution,
@@ -246,6 +249,37 @@ def test_verify_only_refuses_pilot_cost_that_differs_from_receipt() -> None:
             execution=execution,
             receipt=receipt,
             acquired_documents=acquired,
+            exclusions=(),
+            role_bytes_match=lambda role, body: role.encode() in body,
+        )
+
+
+def test_verify_only_refuses_included_bytes_without_snapshot_clearance() -> None:
+    snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
+    payload = json.loads(snapshots["a"])
+    del payload["entries"][0]["recap_documents"][0]["is_private"]
+    snapshots["a"] = _canonical_bytes(payload)
+    manifest = _manifest_bytes(_row("a", 1, free=False))
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approval=_plan_approval(manifest),
+    )
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution, outcomes=_included_outcomes(execution)
+    )
+
+    assert execution.operations[0].public_clearance is None
+    with pytest.raises(DocumentRepairVerifyOnlyError, match="public clearance"):
+        verify_document_repair_pilot_bytes(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=_included_documents(execution),
             exclusions=(),
             role_bytes_match=lambda role, body: role.encode() in body,
         )
