@@ -206,6 +206,26 @@ def test_mismatched_task_digest_is_rejected(tmp_path: Path) -> None:
     assert not (tmp_path / "sealed").exists()
 
 
+def test_sandbox_root_cannot_be_the_output_directory(tmp_path: Path) -> None:
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    (sandbox / BASENAME).write_bytes(_docx_bytes())
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        discover_harvey_lab_outputs(
+            sandbox_root=sandbox,
+            output_root=sandbox,
+            quarantine_root=tmp_path / "quarantine",
+            sealed_root=tmp_path / "sealed",
+            task=_task(),
+            task_sha256=TASK_SHA256,
+            run_sha256=RUN_SHA256,
+            config_sha256=CONFIG_SHA256,
+        )
+    assert caught.value.code == HarveyLabOutputErrorCode.LAYOUT
+    assert "output_root must be inside sandbox_root" in str(caught.value)
+    assert not (tmp_path / "sealed").exists()
+
+
 def test_hard_linked_output_is_rejected(tmp_path: Path) -> None:
     sandbox = tmp_path / "sandbox"
     output = sandbox / "output"

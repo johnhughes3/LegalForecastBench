@@ -453,10 +453,25 @@ def test_wrapper_pin_directories_are_unique_per_call(tmp_path: Path) -> None:
     )
     assert first_digest == second_digest
     assert first_dir != second_dir
+    assert first_dir.is_absolute()
+    assert second_dir.is_absolute()
     assert first_dir.is_dir()
     assert second_dir.is_dir()
     assert (first_dir / EVALUATOR_COMMAND_NAME).is_file()
     assert (second_dir / EVALUATOR_COMMAND_NAME).is_file()
+
+
+def test_wrapper_pin_from_relative_workdir_is_absolute(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _install_evaluator(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    _digest, wrapper_dir = _pin_wrapper_executable(
+        EVALUATOR_COMMAND_NAME, env, Path("work")
+    )
+    assert wrapper_dir.is_absolute()
+    assert (wrapper_dir / EVALUATOR_COMMAND_NAME).is_file()
+    assert wrapper_dir.parent == (tmp_path / "work").resolve()
 
 
 def test_wrapper_hash_mismatch_is_refused(tmp_path: Path) -> None:

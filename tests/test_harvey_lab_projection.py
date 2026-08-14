@@ -461,6 +461,43 @@ def test_archive_exports_pin_tree_after_head_advances(tmp_path: Path) -> None:
         shutil.rmtree(snapshot, ignore_errors=True)
 
 
+def test_archive_ignores_inherited_tar_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    _init_git_repo(source)
+    commit = (
+        subprocess.check_output(
+            ["git", "-C", str(source), "rev-parse", "HEAD"],
+            text=True,
+        )
+        .strip()
+        .casefold()
+    )
+    tree = (
+        subprocess.check_output(
+            ["git", "-C", str(source), "rev-parse", "HEAD^{tree}"],
+            text=True,
+        )
+        .strip()
+        .casefold()
+    )
+    monkeypatch.setenv("TAR_OPTIONS", "--transform=s,tasks,moved,")
+    snapshot = _archive_pinned_source(
+        source,
+        HarveyLabPin(
+            repository="https://example.com/legalforecast-lab-fixture",
+            commit=commit,
+            tree=tree,
+        ),
+    )
+    try:
+        assert (snapshot / "tasks" / ISSUE_196_LAB_TASK_ID / "task.json").is_file()
+        assert not (snapshot / "moved").exists()
+    finally:
+        shutil.rmtree(snapshot, ignore_errors=True)
+
+
 def test_official_pin_requires_authenticated_checkout(tmp_path: Path) -> None:
     source = _issue_196_source(tmp_path / "lab")
     with pytest.raises(
