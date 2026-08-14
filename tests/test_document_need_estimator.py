@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -27,6 +28,7 @@ from legalforecast.document_need.types import (
     NeedBucket,
 )
 from tests.document_need_fixtures import (
+    HAIKU,
     activated_haiku_config,
     inert_cycle_2,
     luna_on_cycle1_registry,
@@ -109,8 +111,8 @@ def _case(
     )
     merged = MergedCaseBuckets(
         candidate_id=candidate_id,
-        pass1_model_id="fixture:document-need-v1",
-        pass2_model_id="fixture:document-need-v1",
+        pass1_model_id=HAIKU.model_id,
+        pass2_model_id=HAIKU.model_id,
         entries=(
             EntryVerdict(1, NeedBucket.CLEARLY_REQUIRED, "complaint", "pleading"),
             EntryVerdict(10, NeedBucket.CLEARLY_REQUIRED, "mtd_memorandum", "motion"),
@@ -365,3 +367,44 @@ def test_inert_cycle_never_emits_artifact() -> None:
             merged=(merged,),
             cohort_target_n=1,
         )
+
+
+def test_verdict_model_must_match_selector_policy() -> None:
+    chronology, merged = _case("case-a", required_pages=5)
+    tainted = replace(merged, pass1_model_id="gpt-5.6-luna")
+    with pytest.raises(DocumentNeedArtifactError, match="pass1_model_id"):
+        build_selection_artifact(
+            config=activated_haiku_config(),
+            chronologies=(chronology,),
+            merged=(tainted,),
+            cohort_target_n=1,
+        )
+
+
+def test_stratification_cap_uses_final_admitted_size() -> None:
+    config = activated_haiku_config(
+        spend=SpendCeiling(hard_cap_usd=usd("6.00"), max_per_case_usd=None),
+        stratification=StratificationPolicy(
+            enabled=True, bottom_decile_share_cap=usd("0.10")
+        ),
+    )
+    pairs = [
+        _case(f"c{index:02d}", required_pages=5 + index, conditional_pages=5)
+        for index in range(10)
+    ]
+    artifact = build_selection_artifact(
+        config=config,
+        chronologies=tuple(pair[0] for pair in pairs),
+        merged=tuple(pair[1] for pair in pairs),
+        cohort_target_n=10,
+    )
+    admitted = [row for row in artifact.cases if row.admitted]
+    cheapest = next(row for row in artifact.cases if row.ranked.cost_rank == 1)
+    assert cheapest.ranked.bottom_decile is True
+    assert cheapest.admitted is False
+    assert cheapest.reject_reason == "stratification_bottom_decile_cap"
+    assert all(not row.ranked.bottom_decile for row in admitted)
+    share = Decimal(sum(1 for row in admitted if row.ranked.bottom_decile)) / Decimal(
+        len(admitted)
+    )
+    assert share <= Decimal("0.10")

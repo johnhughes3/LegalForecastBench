@@ -388,7 +388,18 @@ def _ranking_attribute(value: object, index: int) -> str:
     if not isinstance(value, Mapping):
         raise DocumentNeedConfigError(f"ranking.keys[{index}] must be an object")
     record = cast(Mapping[str, object], value)
-    return _require_text(record.get("attribute"), f"ranking.keys[{index}].attribute")
+    attribute = _require_text(
+        record.get("attribute"), f"ranking.keys[{index}].attribute"
+    )
+    direction = _require_text(
+        record.get("direction"), f"ranking.keys[{index}].direction"
+    )
+    if direction != "ascending":
+        raise DocumentNeedConfigError(
+            f"ranking.keys[{index}].direction must be 'ascending' for "
+            "document-need cheapest-first ranking"
+        )
+    return attribute
 
 
 def _parse_share(value: object, label: str) -> Decimal:

@@ -13,6 +13,7 @@ from legalforecast.config import (
     load_activated_cycle,
     load_cycle,
 )
+from legalforecast.config.types import RankingSortKey, SortDirection
 from legalforecast.document_need.cycle_config import (
     DocumentNeedConfigError,
     document_need_view_from_cycle_config,
@@ -75,3 +76,14 @@ def test_preflight_refuses_side_channel_registry_path(tmp_path: Path) -> None:
     )
     with pytest.raises(DocumentNeedConfigError, match="does-not-exist"):
         preflight_selector_models(config, repository_root_path=ROOT)
+
+
+def test_descending_ranking_direction_is_refused() -> None:
+    config = activated_haiku_config()
+    keys = tuple(
+        RankingSortKey(key.attribute, SortDirection.DESCENDING) if index == 0 else key
+        for index, key in enumerate(config.ranking.keys)
+    )
+    bad = replace(config, ranking=replace(config.ranking, keys=keys))
+    with pytest.raises(DocumentNeedConfigError, match="ascending"):
+        document_need_view_from_cycle_config(bad)

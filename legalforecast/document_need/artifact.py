@@ -127,6 +127,18 @@ def build_selection_artifact(
         )
     if len(by_id) != len(merged) or len(chrono_by_id) != len(chronologies):
         raise DocumentNeedArtifactError("duplicate candidate_id in selection inputs")
+    allowed_models = set(view.selector_model_policy.all_model_ids())
+    for verdicts in merged:
+        for label, model_id in (
+            ("pass1_model_id", verdicts.pass1_model_id),
+            ("pass2_model_id", verdicts.pass2_model_id),
+        ):
+            if model_id is None:
+                continue
+            if model_id not in allowed_models:
+                raise DocumentNeedArtifactError(
+                    f"{label} {model_id!r} is not in the cycle selector-model policy"
+                )
     priced: list[CaseCosts] = []
     for candidate_id in sorted(by_id):
         verdicts = by_id[candidate_id]

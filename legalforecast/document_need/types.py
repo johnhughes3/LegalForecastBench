@@ -131,6 +131,11 @@ class Chronology:
                     f"chronology entry {entry.entry} is at or after the decision cut"
                 )
             seen.add(entry.entry)
+        for motion_entry in self.target_motion_entries:
+            if motion_entry not in seen:
+                raise ValueError(
+                    f"target motion entry {motion_entry} is not in the chronology"
+                )
 
     def entry_numbers(self) -> frozenset[int]:
         return frozenset(entry.entry for entry in self.entries)
@@ -165,12 +170,12 @@ class BlindBundle:
         object.__setattr__(self, "motion_markdown", MappingProxyType(markdown))
         if not markdown:
             raise ValueError("blind bundle requires target-motion markdown")
-        allowed = self.chronology.entry_numbers()
-        for entry_number, body in markdown.items():
-            if type(entry_number) is not int or entry_number not in allowed:
-                raise ValueError(
-                    f"motion markdown entry {entry_number} is not in the chronology"
-                )
+        expected = set(self.chronology.target_motion_entries)
+        if set(markdown) != expected:
+            raise ValueError(
+                "motion markdown keys must equal chronology.target_motion_entries"
+            )
+        for _entry_number, body in markdown.items():
             if type(body) is not str or not body.strip():
                 raise ValueError("motion markdown must be nonempty")
 

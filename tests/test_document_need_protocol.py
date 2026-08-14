@@ -280,3 +280,24 @@ def test_pass2_incomplete_check_is_rejected() -> None:
                 completeness_ok=False,
             ),
         )
+
+
+def test_blind_bundle_markdown_must_match_target_motion_entries() -> None:
+    with pytest.raises(ValueError, match="must equal"):
+        BlindBundle(
+            chronology=_chronology(),
+            motion_markdown={12: "Wrong filing text."},
+        )
+
+
+def test_chronology_requires_target_motion_in_entries() -> None:
+    with pytest.raises(ValueError, match="not in the chronology"):
+        Chronology(
+            candidate_id="case-a",
+            case_name="A v. B",
+            court="nysd",
+            docket_number="1:26-cv-1",
+            target_motion_entries=(9,),
+            decision_cut_entry=20,
+            entries=_chronology().entries,
+        )

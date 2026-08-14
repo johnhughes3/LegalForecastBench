@@ -93,10 +93,10 @@ def admit_cheapest(
 ) -> tuple[AdmissionDecision, ...]:
     """Admit cheapest cases up to the cohort target and spend ceilings.
 
-    Stratification, when enabled, uses a quota of
-    ``floor(target_n * bottom_decile_share_cap)`` bottom-decile seats in the
-    intended cohort so cheapest-first does not treat the first cheap case as
-    100% of a one-case set.
+    When stratification is enabled, bottom-decile share is measured against the
+    *admitted* cohort: extra cheapest bottom-decile cases are dropped until
+    ``floor(len(admitted) * cap)`` is respected, then non-bottom cases may
+    backfill remaining target/spend room.
     """
 
     if type(target_n) is not int or target_n <= 0:
@@ -105,47 +105,124 @@ def admit_cheapest(
         raise ValueError("spend_ceiling_usd must be nonnegative")
     if max_per_case is not None and max_per_case < _ZERO:
         raise ValueError("max_per_case_usd must be nonnegative")
-    bottom_quota = (
-        _bottom_decile_quota(target_n, stratification.bottom_decile_share_cap)
-        if stratification.enabled
-        else 0
-    )
-    decisions: list[AdmissionDecision] = []
-    admitted_ids: set[str] = set()
+    reasons: dict[str, str | None] = {}
+    admitted: list[RankedCase] = []
     spent = _ZERO
-    admitted_bottom = 0
     for case in ranked:
-        reason: str | None = None
-        if len(admitted_ids) >= target_n:
-            reason = "cohort_target_reached"
-        elif case.restricted_required:
-            reason = "restricted_required_document"
-        elif max_per_case is not None and case.max_cost > max_per_case:
-            reason = "max_per_case"
-        elif spend_ceiling is not None and spent + case.max_cost > spend_ceiling:
-            reason = "spend_ceiling"
-        elif (
-            stratification.enabled
-            and case.bottom_decile
-            and admitted_bottom >= bottom_quota
-        ):
-            reason = "stratification_bottom_decile_cap"
-        admitted = reason is None
-        if admitted:
-            admitted_ids.add(case.candidate_id)
-            spent += case.max_cost
-            if case.bottom_decile:
-                admitted_bottom += 1
-        decisions.append(
-            AdmissionDecision(ranked=case, admitted=admitted, reject_reason=reason)
+        if len(admitted) >= target_n:
+            reasons[case.candidate_id] = "cohort_target_reached"
+            continue
+        reason = _hard_reject(
+            case,
+            spent=spent,
+            spend_ceiling=spend_ceiling,
+            max_per_case=max_per_case,
         )
-    return tuple(decisions)
+        if reason is not None:
+            reasons[case.candidate_id] = reason
+            continue
+        admitted.append(case)
+        spent += case.max_cost
+        reasons[case.candidate_id] = None
+    if stratification.enabled:
+        admitted, spent, reasons = _apply_bottom_decile_cap(
+            ranked,
+            admitted,
+            spent=spent,
+            reasons=reasons,
+            target_n=target_n,
+            spend_ceiling=spend_ceiling,
+            max_per_case=max_per_case,
+            cap=stratification.bottom_decile_share_cap,
+        )
+    admitted_ids = {case.candidate_id for case in admitted}
+    return tuple(
+        AdmissionDecision(
+            ranked=case,
+            admitted=case.candidate_id in admitted_ids,
+            reject_reason=reasons.get(case.candidate_id),
+        )
+        for case in ranked
+    )
 
 
-def _bottom_decile_quota(target_n: int, cap: Decimal) -> int:
+def _hard_reject(
+    case: RankedCase,
+    *,
+    spent: Decimal,
+    spend_ceiling: Decimal | None,
+    max_per_case: Decimal | None,
+) -> str | None:
+    if case.restricted_required:
+        return "restricted_required_document"
+    if max_per_case is not None and case.max_cost > max_per_case:
+        return "max_per_case"
+    if spend_ceiling is not None and spent + case.max_cost > spend_ceiling:
+        return "spend_ceiling"
+    return None
+
+
+def _apply_bottom_decile_cap(
+    ranked: Sequence[RankedCase],
+    admitted: list[RankedCase],
+    *,
+    spent: Decimal,
+    reasons: dict[str, str | None],
+    target_n: int,
+    spend_ceiling: Decimal | None,
+    max_per_case: Decimal | None,
+    cap: Decimal,
+) -> tuple[list[RankedCase], Decimal, dict[str, str | None]]:
+    while admitted:
+        quota = _bottom_decile_quota(len(admitted), cap)
+        bottoms = [case for case in admitted if case.bottom_decile]
+        if len(bottoms) <= quota:
+            break
+        dropped = bottoms[quota]
+        admitted = [
+            case for case in admitted if case.candidate_id != dropped.candidate_id
+        ]
+        spent -= dropped.max_cost
+        reasons[dropped.candidate_id] = "stratification_bottom_decile_cap"
+    admitted_ids = {case.candidate_id for case in admitted}
+    for case in ranked:
+        if len(admitted) >= target_n:
+            if (
+                case.candidate_id not in admitted_ids
+                and reasons.get(case.candidate_id) is None
+            ):
+                reasons[case.candidate_id] = "cohort_target_reached"
+            continue
+        if case.candidate_id in admitted_ids:
+            continue
+        if reasons.get(case.candidate_id) in {
+            "restricted_required_document",
+            "max_per_case",
+        }:
+            continue
+        if case.bottom_decile:
+            quota = _bottom_decile_quota(len(admitted) + 1, cap)
+            bottoms = sum(1 for row in admitted if row.bottom_decile)
+            if bottoms + 1 > quota:
+                reasons[case.candidate_id] = "stratification_bottom_decile_cap"
+                continue
+        reason = _hard_reject(
+            case, spent=spent, spend_ceiling=spend_ceiling, max_per_case=max_per_case
+        )
+        if reason is not None:
+            reasons[case.candidate_id] = reason
+            continue
+        admitted.append(case)
+        admitted_ids.add(case.candidate_id)
+        spent += case.max_cost
+        reasons[case.candidate_id] = None
+    return admitted, spent, reasons
+
+
+def _bottom_decile_quota(cohort_n: int, cap: Decimal) -> int:
     if cap <= 0:
         return 0
-    return int(Decimal(target_n) * cap)
+    return int(Decimal(cohort_n) * cap)
 
 
 def provenance_record(decisions: Sequence[AdmissionDecision]) -> dict[str, object]:

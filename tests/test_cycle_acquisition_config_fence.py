@@ -5,7 +5,6 @@ import textwrap
 from pathlib import Path
 
 import pytest
-
 from legalforecast.config.fence import (
     BASELINE_PATH,
     BaselineEntry,
