@@ -132,6 +132,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`document_repair_acquire.py`](../legalforecast/ingestion/document_repair_acquire.py) | Injected free-download and one-document RECAP Fetch callback for one resolved repair operation. |
 | [`document_repair_executor.py`](../legalforecast/ingestion/document_repair_executor.py) | Provider-neutral execution of authenticated exact-100 repair plans with selector-preserving resolution, accounting, and evidence. |
 | [`document_repair_pilot.py`](../legalforecast/ingestion/document_repair_pilot.py) | Exact ordered pilot projection from an authenticated full repair plan. |
+| [`document_repair_verify_only.py`](../legalforecast/ingestion/document_repair_verify_only.py) | Provider-free revalidation of already-acquired repair bytes without purchasing. |
 | [`missing_document_successor.py`](../legalforecast/ingestion/missing_document_successor.py) | Approved-manifest-bound, free-first projection with byte-role validation and complete repair ledgers. |
 | [`supporting_document_successor.py`](../legalforecast/ingestion/supporting_document_successor.py) | Pure projection transformer for the closed ECF 14 exact-100 supporting-document successor. |
 | [`supporting_document_successor_cli.py`](../legalforecast/ingestion/supporting_document_successor_cli.py) | Authenticated download, immutable publication, replay, and materializer adapter for the supporting-document successor. |
