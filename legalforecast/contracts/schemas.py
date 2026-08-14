@@ -323,6 +323,21 @@ TARGET_DOCUMENT_ELIGIBILITY_AUDIT_V1 = SchemaIdentifier(
 ZERO_COST_SUCCESSOR_CONFIG_V1 = SchemaIdentifier(
     "legalforecast.zero_cost_successor_config.v1"
 )
+MULTIHARNESS_TASK_IDENTITY_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.task_identity.v1"
+)
+MULTIHARNESS_SOLVER_IDENTITY_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.solver_identity.v1"
+)
+MULTIHARNESS_RUN_IDENTITY_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.run_identity.v1"
+)
+MULTIHARNESS_MATCHED_HARNESS_IDENTITY_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.matched_harness_identity.v1"
+)
+MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.system_bundle_label.v1"
+)
 
 # This registry names the current recovery vertical slice without changing any
 # producer's local constant.  Migration to these imports is post-Cycle 1 work.
