@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import textwrap
 from pathlib import Path
 
@@ -25,6 +24,9 @@ def test_fence_flags_out_of_home_constant_and_type_construction(tmp_path: Path) 
 
         SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
         DEFAULT_PURCHASE_COST_USD = "3.05"
+        PACER_PAGE_USD = "0.10"
+        MAX_PER_CASE_USD = "73.20"
+        COHORT_POLICY_VERSION = "legalforecast.cohort_policy.v3"
 
         def build() -> object:
             return SelectorModel(
@@ -40,6 +42,9 @@ def test_fence_flags_out_of_home_constant_and_type_construction(tmp_path: Path) 
     assert {(finding.rule, finding.subject) for finding in findings} >= {
         ("acquisition_selection_constant", "SELECTOR_MODEL_PRIMARY"),
         ("acquisition_selection_constant", "DEFAULT_PURCHASE_COST_USD"),
+        ("acquisition_selection_constant", "PACER_PAGE_USD"),
+        ("acquisition_selection_constant", "MAX_PER_CASE_USD"),
+        ("acquisition_selection_constant", "COHORT_POLICY_VERSION"),
         ("cycle_config_type_construction", "SelectorModel"),
     }
 
@@ -119,16 +124,16 @@ def test_repository_fence_baseline_does_not_grow_from_main() -> None:
     assert find_baseline_growth(current, ancestor) == ()
 
 
-def test_fence_fails_closed_when_merge_base_is_unavailable(
+def test_fence_fails_closed_when_base_ref_is_unavailable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from legalforecast.config import fence as fence_mod
 
-    def _fail(*_args: object, **_kwargs: object) -> str:
-        raise subprocess.CalledProcessError(1, "git")
+    def _missing(*_args: object, **_kwargs: object) -> tuple[None, str]:
+        return None, "missing_ref"
 
-    monkeypatch.setattr(fence_mod.subprocess, "check_output", _fail)
-    with pytest.raises(ValueError, match="cannot compute merge-base"):
+    monkeypatch.setattr(fence_mod, "_git_show_path", _missing)
+    with pytest.raises(ValueError, match="cannot load fence_baseline"):
         load_ancestor_baseline(tmp_path, tmp_path / "fence_baseline.json")
 
 

@@ -51,7 +51,11 @@ class MergedCaseBuckets:
 
     candidate_id: str
     pass1_model_id: str
+    pass1_provider: str
+    pass1_version: str
     pass2_model_id: str | None
+    pass2_provider: str | None
+    pass2_version: str | None
     entries: tuple[EntryVerdict, ...]
     promotions: tuple[Pass2Promotion, ...]
     completeness_ok: bool | None = None
@@ -172,7 +176,11 @@ def run_two_pass(
         return MergedCaseBuckets(
             candidate_id=blind.chronology.candidate_id,
             pass1_model_id=pass1.model_id,
+            pass1_provider=pass1.provider,
+            pass1_version=pass1.model_version_or_snapshot,
             pass2_model_id=None,
+            pass2_provider=None,
+            pass2_version=None,
             entries=pass1.entries,
             promotions=(),
             completeness_ok=None,
@@ -230,7 +238,11 @@ def apply_pass2_promotions(
     return MergedCaseBuckets(
         candidate_id=chronology.candidate_id,
         pass1_model_id=pass1.model_id,
+        pass1_provider=pass1.provider,
+        pass1_version=pass1.model_version_or_snapshot,
         pass2_model_id=pass2.model_id,
+        pass2_provider=pass2.provider,
+        pass2_version=pass2.model_version_or_snapshot,
         entries=ordered,
         promotions=tuple(applied),
         completeness_ok=True,
@@ -238,7 +250,11 @@ def apply_pass2_promotions(
 
 
 def parse_pass1_verdict(
-    payload: Mapping[str, object], *, model_id: str
+    payload: Mapping[str, object],
+    *,
+    model_id: str,
+    provider: str,
+    model_version_or_snapshot: str,
 ) -> Pass1Verdict:
     """Parse a strict pass-1 JSON object."""
 
@@ -253,12 +269,18 @@ def parse_pass1_verdict(
     return Pass1Verdict(
         candidate_id=_text(payload.get("candidate_id"), "pass-1 candidate_id"),
         model_id=model_id,
+        provider=provider,
+        model_version_or_snapshot=model_version_or_snapshot,
         entries=entries,
     )
 
 
 def parse_pass2_verdict(
-    payload: Mapping[str, object], *, model_id: str
+    payload: Mapping[str, object],
+    *,
+    model_id: str,
+    provider: str,
+    model_version_or_snapshot: str,
 ) -> Pass2Verdict:
     """Parse a strict pass-2 JSON object."""
 
@@ -276,6 +298,8 @@ def parse_pass2_verdict(
     return Pass2Verdict(
         candidate_id=_text(payload.get("candidate_id"), "pass-2 candidate_id"),
         model_id=model_id,
+        provider=provider,
+        model_version_or_snapshot=model_version_or_snapshot,
         promotions=promotions,
         completeness_ok=completeness,
     )

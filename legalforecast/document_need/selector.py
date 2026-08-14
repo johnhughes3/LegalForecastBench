@@ -75,19 +75,41 @@ def parse_json_object(raw_output: str) -> dict[str, object]:
     return cast(dict[str, object], parsed)
 
 
-def verdict_from_pass1_output(raw_output: str, *, model_id: str) -> Pass1Verdict:
+def verdict_from_pass1_output(
+    raw_output: str,
+    *,
+    model_id: str,
+    provider: str,
+    model_version_or_snapshot: str,
+) -> Pass1Verdict:
     """Parse pass-1 JSON from a fixture or live model."""
 
     try:
-        return parse_pass1_verdict(parse_json_object(raw_output), model_id=model_id)
+        return parse_pass1_verdict(
+            parse_json_object(raw_output),
+            model_id=model_id,
+            provider=provider,
+            model_version_or_snapshot=model_version_or_snapshot,
+        )
     except DocumentNeedProtocolError as exc:
         raise DocumentNeedSelectorError(str(exc)) from exc
 
 
-def verdict_from_pass2_output(raw_output: str, *, model_id: str) -> Pass2Verdict:
+def verdict_from_pass2_output(
+    raw_output: str,
+    *,
+    model_id: str,
+    provider: str,
+    model_version_or_snapshot: str,
+) -> Pass2Verdict:
     """Parse pass-2 JSON from a fixture or live model."""
 
     try:
-        return parse_pass2_verdict(parse_json_object(raw_output), model_id=model_id)
+        return parse_pass2_verdict(
+            parse_json_object(raw_output),
+            model_id=model_id,
+            provider=provider,
+            model_version_or_snapshot=model_version_or_snapshot,
+        )
     except DocumentNeedProtocolError as exc:
         raise DocumentNeedSelectorError(str(exc)) from exc

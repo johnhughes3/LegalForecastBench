@@ -53,7 +53,7 @@ def activated_haiku_config(
         or SelectorModelPolicy(primary=HAIKU, alternates=()),
         spend=spend
         if spend is not None
-        else SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=None),
+        else SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=usd("500.00")),
         stratification=stratification
         if stratification is not None
         else base.stratification,
@@ -68,7 +68,7 @@ def luna_on_cycle1_registry() -> CycleConfig:
         activated=True,
         activation_blocker=None,
         evaluation_registry=EvaluationRegistryPin(path=CYCLE_1_REGISTRY),
-        spend=SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=None),
+        spend=SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=usd("500.00")),
     )
 
 

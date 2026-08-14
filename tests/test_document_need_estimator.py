@@ -117,7 +117,11 @@ def _case(
     merged = MergedCaseBuckets(
         candidate_id=candidate_id,
         pass1_model_id=HAIKU.model_id,
+        pass1_provider=HAIKU.provider,
+        pass1_version=HAIKU.model_version_or_snapshot,
         pass2_model_id=HAIKU.model_id,
+        pass2_provider=HAIKU.provider,
+        pass2_version=HAIKU.model_version_or_snapshot,
         entries=(
             EntryVerdict(1, NeedBucket.CLEARLY_REQUIRED, "complaint", "pleading"),
             EntryVerdict(10, NeedBucket.CLEARLY_REQUIRED, "mtd_memorandum", "motion"),
@@ -138,23 +142,26 @@ def test_free_first_zeroes_freely_available_document() -> None:
         free_first=view.free_first,
         per_page=view.pacer_per_page_usd,
         cap=view.per_document_price_cap_usd,
+        reservation=view.reservation_usd,
     ) == Decimal("0.00")
     assert price_document(
         paid,
         free_first=view.free_first,
         per_page=view.pacer_per_page_usd,
         cap=view.per_document_price_cap_usd,
-    ) == Decimal("3.00")
+        reservation=view.reservation_usd,
+    ) == Decimal("3.05")
 
 
-def test_unknown_page_count_uses_per_document_cap() -> None:
+def test_unknown_page_count_uses_reservation() -> None:
     view = document_need_view_from_cycle_config(activated_haiku_config())
     assert price_document(
         _doc(paid=True, pages=None),
         free_first=True,
         per_page=view.pacer_per_page_usd,
         cap=view.per_document_price_cap_usd,
-    ) == Decimal("3.00")
+        reservation=view.reservation_usd,
+    ) == Decimal("3.05")
 
 
 def test_min_max_from_required_and_conditional() -> None:
@@ -241,7 +248,7 @@ def test_registry_selector_refused_end_to_end() -> None:
 
 def test_stratification_cap_changes_admission_set() -> None:
     view_off_config = activated_haiku_config(
-        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=None)
+        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=usd("999.00"))
     )
     pairs = [
         _case(f"c{index:02d}", required_pages=5 + index, conditional_pages=5)
@@ -257,7 +264,7 @@ def test_stratification_cap_changes_admission_set() -> None:
     )
     off_admitted = [row.ranked.candidate_id for row in off.cases if row.admitted]
     view_on = activated_haiku_config(
-        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=None),
+        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=usd("999.00")),
         stratification=StratificationPolicy(
             enabled=True, bottom_decile_share_cap=usd("0.00")
         ),
@@ -288,7 +295,7 @@ def test_stratification_cap_changes_admission_set() -> None:
 
 def test_default_stratification_cap_admits_one_bottom_decile_in_ten() -> None:
     config = activated_haiku_config(
-        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=None),
+        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=usd("999.00")),
         stratification=StratificationPolicy(
             enabled=True, bottom_decile_share_cap=usd("0.10")
         ),
@@ -315,7 +322,7 @@ def test_stratification_quota_is_frozen_against_pass1_admitted_size() -> None:
     """Drop extras in one shot. Do not recompute quota as n shrinks (10→9→0)."""
 
     config = activated_haiku_config(
-        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=None),
+        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=usd("999.00")),
         stratification=StratificationPolicy(
             enabled=True, bottom_decile_share_cap=usd("0.10")
         ),
@@ -439,7 +446,7 @@ def test_inert_cycle_never_emits_artifact() -> None:
 def test_verdict_model_must_match_selector_policy() -> None:
     chronology, merged = _case("case-a", required_pages=5)
     tainted = replace(merged, pass1_model_id="gpt-5.6-luna")
-    with pytest.raises(DocumentNeedArtifactError, match="pass1_model_id"):
+    with pytest.raises(DocumentNeedArtifactError, match="pass1 selector"):
         build_selection_artifact(
             config=activated_haiku_config(),
             chronologies=(chronology,),
@@ -448,9 +455,47 @@ def test_verdict_model_must_match_selector_policy() -> None:
         )
 
 
+def test_verdict_must_bind_provider_not_just_model_id() -> None:
+    chronology, merged = _case("case-a", required_pages=5)
+    tainted = replace(merged, pass1_provider="openai")
+    with pytest.raises(DocumentNeedArtifactError, match="pass1 selector"):
+        build_selection_artifact(
+            config=activated_haiku_config(),
+            chronologies=(chronology,),
+            merged=(tainted,),
+            cohort_target_n=1,
+        )
+
+
+def test_required_entry_with_no_documents_is_not_admitted() -> None:
+    ghost_c, ghost_m = _case("ghost", required_pages=5)
+    empty_motion = replace(ghost_c.entries[1], documents=())
+    ghost_c = replace(
+        ghost_c,
+        entries=(
+            ghost_c.entries[0],
+            empty_motion,
+            ghost_c.entries[2],
+            ghost_c.entries[3],
+        ),
+    )
+    open_c, open_m = _case("open", required_pages=20, conditional_pages=20)
+    artifact = build_selection_artifact(
+        config=activated_haiku_config(),
+        chronologies=(ghost_c, open_c),
+        merged=(ghost_m, open_m),
+        cohort_target_n=1,
+    )
+    by_id = {row.ranked.candidate_id: row for row in artifact.cases}
+    assert by_id["ghost"].ranked.restricted_required is True
+    assert by_id["ghost"].admitted is False
+    assert by_id["ghost"].reject_reason == "restricted_required_document"
+    assert by_id["open"].admitted is True
+
+
 def test_stratification_cap_uses_final_admitted_size() -> None:
     config = activated_haiku_config(
-        spend=SpendCeiling(hard_cap_usd=usd("6.00"), max_per_case_usd=None),
+        spend=SpendCeiling(hard_cap_usd=usd("6.00"), max_per_case_usd=usd("6.00")),
         stratification=StratificationPolicy(
             enabled=True, bottom_decile_share_cap=usd("0.10")
         ),

@@ -127,17 +127,35 @@ def build_selection_artifact(
         )
     if len(by_id) != len(merged) or len(chrono_by_id) != len(chronologies):
         raise DocumentNeedArtifactError("duplicate candidate_id in selection inputs")
-    allowed_models = set(view.selector_model_policy.all_model_ids())
+    allowed_identities = view.selector_model_policy.allowed_identities()
     for verdicts in merged:
-        for label, model_id in (
-            ("pass1_model_id", verdicts.pass1_model_id),
-            ("pass2_model_id", verdicts.pass2_model_id),
-        ):
+        checks = (
+            (
+                "pass1",
+                verdicts.pass1_model_id,
+                verdicts.pass1_provider,
+                verdicts.pass1_version,
+            ),
+            (
+                "pass2",
+                verdicts.pass2_model_id,
+                verdicts.pass2_provider,
+                verdicts.pass2_version,
+            ),
+        )
+        for label, model_id, provider, version in checks:
             if model_id is None:
                 continue
-            if model_id not in allowed_models:
+            if provider is None or version is None:
                 raise DocumentNeedArtifactError(
-                    f"{label} {model_id!r} is not in the cycle selector-model policy"
+                    f"{label} selector identity is incomplete"
+                )
+            identity = (provider, model_id, version)
+            if identity not in allowed_identities:
+                raise DocumentNeedArtifactError(
+                    f"{label} selector {provider}:{model_id} "
+                    f"(version={version!r}) is not in the cycle "
+                    "selector-model policy"
                 )
     priced: list[CaseCosts] = []
     for candidate_id in sorted(by_id):
@@ -206,6 +224,14 @@ def _seal(
         "selector_model_policy": {
             "primary": view.selector_model_policy.primary,
             "alternates": list(view.selector_model_policy.alternates),
+            "identities": [
+                {
+                    "provider": item.provider,
+                    "model_id": item.model_id,
+                    "model_version_or_snapshot": item.model_version_or_snapshot,
+                }
+                for item in view.selector_model_policy.identities
+            ],
         },
         "cases": case_records,
         "provenance": provenance_record(decisions),
@@ -253,7 +279,11 @@ def _case_record(
 ) -> dict[str, object]:
     record = decision.to_record()
     record["pass1_model_id"] = merged.pass1_model_id
+    record["pass1_provider"] = merged.pass1_provider
+    record["pass1_version"] = merged.pass1_version
     record["pass2_model_id"] = merged.pass2_model_id
+    record["pass2_provider"] = merged.pass2_provider
+    record["pass2_version"] = merged.pass2_version
     record["completeness_ok"] = merged.completeness_ok
     record["promotions"] = [
         {

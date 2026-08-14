@@ -90,11 +90,31 @@ def format_usd(amount: Decimal) -> str:
 
 
 @dataclass(frozen=True, slots=True)
+class NeedSelectorIdentity:
+    """Exact callable identity: provider, model ID, and pinned snapshot."""
+
+    provider: str
+    model_id: str
+    model_version_or_snapshot: str
+
+    def __post_init__(self) -> None:
+        _require_text(self.provider, "selector provider")
+        _require_text(self.model_id, "selector model_id")
+        _require_text(
+            self.model_version_or_snapshot, "selector model_version_or_snapshot"
+        )
+
+    def as_tuple(self) -> tuple[str, str, str]:
+        return (self.provider, self.model_id, self.model_version_or_snapshot)
+
+
+@dataclass(frozen=True, slots=True)
 class NeedSelectorIds:
     """Exact selector IDs for one cycle. Primary first, then ordered alternates."""
 
     primary: str
     alternates: tuple[str, ...]
+    identities: tuple[NeedSelectorIdentity, ...]
 
     def __post_init__(self) -> None:
         _require_text(self.primary, "selector_model_policy.primary")
@@ -107,9 +127,18 @@ class NeedSelectorIds:
                     f"duplicate selector model ID: {model_id}"
                 )
             seen.add(model_id)
+        expected = (self.primary, *self.alternates)
+        got = tuple(item.model_id for item in self.identities)
+        if got != expected:
+            raise DocumentNeedConfigError(
+                "selector identities must match primary and alternates in order"
+            )
 
     def all_model_ids(self) -> tuple[str, ...]:
         return (self.primary, *self.alternates)
+
+    def allowed_identities(self) -> set[tuple[str, str, str]]:
+        return {item.as_tuple() for item in self.identities}
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +236,7 @@ class DocumentNeedCycleView:
     selector_model_policy: NeedSelectorIds
     per_document_price_cap_usd: Decimal
     pacer_per_page_usd: Decimal
+    reservation_usd: Decimal
     free_first: bool
     cohort_policy_version_pin: str
     document_need_buckets: Mapping[str, str]
@@ -226,6 +256,12 @@ class DocumentNeedCycleView:
             raise DocumentNeedConfigError("per_document_price_cap_usd must be positive")
         if self.pacer_per_page_usd <= 0:
             raise DocumentNeedConfigError("pacer_per_page_usd must be positive")
+        if self.reservation_usd <= 0:
+            raise DocumentNeedConfigError("reservation_usd must be positive")
+        if self.per_document_price_cap_usd > self.reservation_usd:
+            raise DocumentNeedConfigError(
+                "per_document_price_cap_usd must not exceed reservation_usd"
+            )
         if self.spend_ceiling_usd is not None and self.spend_ceiling_usd < 0:
             raise DocumentNeedConfigError("spend_ceiling_usd must be nonnegative")
         if self.max_per_case_usd is not None and self.max_per_case_usd < 0:
@@ -305,6 +341,13 @@ def document_need_view_from_cycle_record(
         key: _require_text(buckets.get(key), f"document_need_buckets.{key}")
         for key in BUCKET_IDS
     }
+    identities = (
+        _selector_identity(policy.get("primary"), "primary"),
+        *(
+            _selector_identity(item, f"selector_model_policy.alternates[{index}]")
+            for index, item in enumerate(cast(list[object], raw_alternates))
+        ),
+    )
     return DocumentNeedCycleView(
         cycle_id=_require_text(record.get("cycle_id"), "cycle_id"),
         activated=_require_bool(record.get("activated"), "activated"),
@@ -312,11 +355,9 @@ def document_need_view_from_cycle_record(
             registry.get("path"), "evaluation_registry.path"
         ),
         selector_model_policy=NeedSelectorIds(
-            primary=_selector_model_id(policy.get("primary"), "primary"),
-            alternates=tuple(
-                _selector_model_id(item, f"selector_model_policy.alternates[{index}]")
-                for index, item in enumerate(cast(list[object], raw_alternates))
-            ),
+            primary=identities[0].model_id,
+            alternates=tuple(item.model_id for item in identities[1:]),
+            identities=identities,
         ),
         per_document_price_cap_usd=parse_usd(
             price.get("pacer_document_cap_usd"),
@@ -324,6 +365,9 @@ def document_need_view_from_cycle_record(
         ),
         pacer_per_page_usd=parse_usd(
             price.get("pacer_page_usd"), "per_document_price_cap.pacer_page_usd"
+        ),
+        reservation_usd=parse_usd(
+            price.get("reservation_usd"), "per_document_price_cap.reservation_usd"
         ),
         free_first=_require_bool(free_first.get("required"), "free_first.required"),
         cohort_policy_version_pin=_require_text(
@@ -404,11 +448,18 @@ def _confirmation_decisions(value: object) -> tuple[str, ...]:
     )
 
 
-def _selector_model_id(value: object, label: str) -> str:
-    if isinstance(value, Mapping):
-        record = cast(Mapping[str, object], value)
-        return _require_text(record.get("model_id"), f"{label}.model_id")
-    raise DocumentNeedConfigError(f"{label} must be a selector-model object")
+def _selector_identity(value: object, label: str) -> NeedSelectorIdentity:
+    if not isinstance(value, Mapping):
+        raise DocumentNeedConfigError(f"{label} must be a selector-model object")
+    record = cast(Mapping[str, object], value)
+    return NeedSelectorIdentity(
+        provider=_require_text(record.get("provider"), f"{label}.provider"),
+        model_id=_require_text(record.get("model_id"), f"{label}.model_id"),
+        model_version_or_snapshot=_require_text(
+            record.get("model_version_or_snapshot"),
+            f"{label}.model_version_or_snapshot",
+        ),
+    )
 
 
 def _ranking_attribute(value: object, index: int) -> str:

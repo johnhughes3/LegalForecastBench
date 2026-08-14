@@ -218,11 +218,15 @@ class Pass1Verdict:
 
     candidate_id: str
     model_id: str
+    provider: str
+    model_version_or_snapshot: str
     entries: tuple[EntryVerdict, ...]
 
     def __post_init__(self) -> None:
         _require_text(self.candidate_id, "candidate_id")
         _require_text(self.model_id, "model_id")
+        _require_text(self.provider, "provider")
+        _require_text(self.model_version_or_snapshot, "model_version_or_snapshot")
         seen: set[int] = set()
         for row in self.entries:
             if row.entry in seen:
@@ -259,12 +263,16 @@ class Pass2Verdict:
 
     candidate_id: str
     model_id: str
+    provider: str
+    model_version_or_snapshot: str
     promotions: tuple[Pass2Promotion, ...]
     completeness_ok: bool
 
     def __post_init__(self) -> None:
         _require_text(self.candidate_id, "candidate_id")
         _require_text(self.model_id, "model_id")
+        _require_text(self.provider, "provider")
+        _require_text(self.model_version_or_snapshot, "model_version_or_snapshot")
         if type(self.completeness_ok) is not bool:
             raise ValueError("completeness_ok must be boolean")
         seen: set[int] = set()

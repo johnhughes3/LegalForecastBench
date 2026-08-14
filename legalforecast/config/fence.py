@@ -29,13 +29,17 @@ KNOB_ASSIGNMENT: Final[re.Pattern[str]] = re.compile(
     r"(?i)("
     r"PURCHASE_COST|"
     r"MAX_PROJECTED_BUDGET|"
+    r"MAX_PER_CASE|"
     r"PER_DOCUMENT|"
     r"PRICE_CAP|"
+    r"PACER_PAGE|"
+    r"RESERVATION_USD|"
     r"SPEND_CEILING|"
     r"HARD_CAP|"
     r"SELECTOR_MODEL|"
     r"FREE_FIRST|"
     r"DOCUMENT_NEED|"
+    r"COHORT_POLICY_VERSION|"
     r"RANKING_POLICY|"
     r"RANKING_TIEBREAK|"
     r"TYPED_CONFIRMATION|"
@@ -166,28 +170,32 @@ def find_baseline_growth(
 def load_ancestor_baseline(
     root: Path, baseline_path: Path
 ) -> tuple[BaselineEntry, ...] | None:
-    """Load ``fence_baseline.json`` from the merge-base with ``origin/main``.
+    """Load ``fence_baseline.json`` from the PR base tip.
 
-    Returns ``None`` only when the baseline does not yet exist on that ancestor
-    (first introduction). A missing base ref is a hard error so CI cannot skip
-    the shrink-only check.
+    Uses ``git show <ref>:path``, not ``merge-base``. Shallow PR checkouts have
+    ``origin/main`` after the CI fetch step but no shared history, so merge-base
+    cannot run. Returns ``None`` only when the file is absent on that tip
+    (first introduction). A missing base ref fails closed.
     """
 
     relative = _baseline_git_path(root, baseline_path)
-    merge_base = _merge_base_with_main(root)
-    try:
-        payload = subprocess.check_output(
-            ["git", "-C", str(root), "show", f"{merge_base}:{relative}"],
-            stderr=subprocess.DEVNULL,
-        )
-    except subprocess.CalledProcessError:
-        return None
-    try:
-        return parse_baseline(json.loads(payload.decode("utf-8")))
-    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        raise ValueError(
-            f"ancestor fence baseline at {merge_base}:{relative} is invalid"
-        ) from exc
+    tried: list[str] = []
+    for ref in _base_refs():
+        tried.append(ref)
+        payload, status = _git_show_path(root, ref, relative)
+        if status == "ok" and payload is not None:
+            try:
+                return parse_baseline(json.loads(payload.decode("utf-8")))
+            except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+                raise ValueError(
+                    f"ancestor fence baseline at {ref}:{relative} is invalid"
+                ) from exc
+        if status == "missing_path":
+            return None
+    raise ValueError(
+        "cannot load fence_baseline.json from the PR base ref; "
+        f"fetch origin/main (tried: {', '.join(tried)})"
+    )
 
 
 def _base_refs() -> tuple[str, ...]:
@@ -210,24 +218,21 @@ def _base_refs() -> tuple[str, ...]:
     return tuple(ordered)
 
 
-def _merge_base_with_main(root: Path) -> str:
-    tried: list[str] = []
-    for ref in _base_refs():
-        tried.append(ref)
-        try:
-            merge_base = subprocess.check_output(
-                ["git", "-C", str(root), "merge-base", "HEAD", ref],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-        except (OSError, subprocess.CalledProcessError):
-            continue
-        if merge_base:
-            return merge_base
-    raise ValueError(
-        "cannot compute merge-base with origin/main; fetch the base ref "
-        f"(tried: {', '.join(tried)})"
-    )
+def _git_show_path(root: Path, ref: str, relative: str) -> tuple[bytes | None, str]:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), "show", f"{ref}:{relative}"],
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return None, "missing_ref"
+    if completed.returncode == 0:
+        return completed.stdout, "ok"
+    err = completed.stderr.decode("utf-8", errors="replace").lower()
+    if "does not exist" in err or "exists on disk" in err:
+        return None, "missing_path"
+    return None, "missing_ref"
 
 
 def _baseline_git_path(root: Path, baseline_path: Path) -> str:

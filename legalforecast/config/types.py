@@ -422,6 +422,13 @@ class CycleConfig:
             raise CycleConfigError(
                 f"{self.cycle_id} is inert and must name an activation_blocker"
             )
+        if self.activated and (
+            self.spend.hard_cap_usd is None or self.spend.max_per_case_usd is None
+        ):
+            raise CycleConfigError(
+                f"{self.cycle_id} cannot be activated until spend.hard_cap_usd "
+                "and spend.max_per_case_usd are committed"
+            )
         if self.eligibility_anchor is not None:
             _require_token(self.eligibility_anchor, "eligibility_anchor")
         if self.acquisition_cycle_id is not None:

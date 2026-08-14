@@ -108,6 +108,8 @@ def _pass1() -> Pass1Verdict:
     return Pass1Verdict(
         candidate_id="case-a",
         model_id="fixture:document-need-v1",
+        provider="fixture",
+        model_version_or_snapshot="fixture:document-need-v1",
         entries=(
             EntryVerdict(
                 1, NeedBucket.CLEARLY_REQUIRED, "complaint", "operative pleading"
@@ -190,6 +192,8 @@ def test_two_pass_promotes_conditional_opposition() -> None:
             "case-a": Pass2Verdict(
                 candidate_id="case-a",
                 model_id="fixture:document-need-v1",
+                provider="fixture",
+                model_version_or_snapshot="fixture:document-need-v1",
                 promotions=(
                     Pass2Promotion(
                         entry=12,
@@ -233,6 +237,8 @@ def test_pass2_rejects_non_predecision_promotion() -> None:
             Pass2Verdict(
                 candidate_id="case-a",
                 model_id="fixture:document-need-v1",
+                provider="fixture",
+                model_version_or_snapshot="fixture:document-need-v1",
                 promotions=(
                     Pass2Promotion(
                         entry=20,
@@ -251,6 +257,8 @@ def test_pass1_must_cover_every_chronology_entry() -> None:
     incomplete = Pass1Verdict(
         candidate_id="case-a",
         model_id="fixture:document-need-v1",
+        provider="fixture",
+        model_version_or_snapshot="fixture:document-need-v1",
         entries=_pass1().entries[:2],
     )
     with pytest.raises(DocumentNeedProtocolError, match="exactly once"):
@@ -260,6 +268,8 @@ def test_pass1_must_cover_every_chronology_entry() -> None:
             Pass2Verdict(
                 candidate_id="case-a",
                 model_id="fixture:document-need-v1",
+                provider="fixture",
+                model_version_or_snapshot="fixture:document-need-v1",
                 promotions=(),
                 completeness_ok=True,
             ),
@@ -299,6 +309,8 @@ def test_pass2_incomplete_check_is_rejected() -> None:
             Pass2Verdict(
                 candidate_id="case-a",
                 model_id="fixture:document-need-v1",
+                provider="fixture",
+                model_version_or_snapshot="fixture:document-need-v1",
                 promotions=(),
                 completeness_ok=False,
             ),
@@ -351,6 +363,8 @@ def test_pass1_rejects_verdict_for_another_candidate_without_eyes() -> None:
             return Pass1Verdict(
                 candidate_id="case-b",
                 model_id=source.model_id,
+                provider=source.provider,
+                model_version_or_snapshot=source.model_version_or_snapshot,
                 entries=source.entries,
             )
 

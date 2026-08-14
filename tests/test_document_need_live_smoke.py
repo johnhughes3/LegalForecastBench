@@ -137,7 +137,10 @@ def test_live_haiku_classifies_synthetic_chronology() -> None:
     )
     response = complete_live_prompt(entry, schema_hint)
     verdict = verdict_from_pass1_output(
-        response.raw_output, model_id=CLEARED_LIVE_MODEL
+        response.raw_output,
+        model_id=CLEARED_LIVE_MODEL,
+        provider="anthropic",
+        model_version_or_snapshot=CLEARED_LIVE_MODEL,
     )
     assert verdict.candidate_id == "smoke-1"
     assert {row.entry for row in verdict.entries} == {1, 10}

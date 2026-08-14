@@ -70,6 +70,7 @@ def price_document(
     free_first: bool,
     per_page: Decimal,
     cap: Decimal,
+    reservation: Decimal,
 ) -> Decimal:
     """Return the estimated PACER cost of one document."""
 
@@ -84,8 +85,11 @@ def price_document(
     if not document.pacer_only:
         return _ZERO
     if document.page_count is None:
-        return cap
-    return min(per_page * document.page_count, cap)
+        return reservation
+    pacer_fee = per_page * document.page_count
+    if pacer_fee >= cap:
+        return reservation
+    return pacer_fee
 
 
 def price_entry(
@@ -94,6 +98,7 @@ def price_entry(
     free_first: bool,
     per_page: Decimal,
     cap: Decimal,
+    reservation: Decimal,
 ) -> tuple[Decimal, bool, int, bool]:
     """Return (cost, free_first_applied, paid_document_count, unknown_page_count)."""
 
@@ -103,7 +108,11 @@ def price_entry(
     free_applied = False
     for document in entry.documents:
         item_cost = price_document(
-            document, free_first=free_first, per_page=per_page, cap=cap
+            document,
+            free_first=free_first,
+            per_page=per_page,
+            cap=cap,
+            reservation=reservation,
         )
         if document.freely_available and free_first:
             free_applied = True
@@ -153,6 +162,7 @@ def price_case(
             free_first=view.free_first,
             per_page=view.pacer_per_page_usd,
             cap=view.per_document_price_cap_usd,
+            reservation=view.reservation_usd,
         )
         priced.append(
             PricedEntry(
@@ -185,6 +195,8 @@ def price_case(
 
 def _entry_is_unacquirable(entry: ChronologyEntry) -> bool:
     if entry.restricted:
+        return True
+    if not entry.documents:
         return True
     return any(
         document.restricted

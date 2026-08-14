@@ -211,33 +211,20 @@ def test_require_activated_accepts_explicit_fixture(tmp_path: Path) -> None:
             ),
             alternates=(),
         ),
-        spend=SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=None),
+        spend=SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=usd("500.00")),
     )
 
     assert require_activated(config) is config
     preflight_selector_models(config, repository_root_path=ROOT)
 
 
-def test_require_activated_refuses_unresolved_spend_ceiling(tmp_path: Path) -> None:
-    registry_path = tmp_path / "eval-registry.json"
-    registry_path.write_bytes(_registry_bytes("other-model"))
-    config = replace(
-        load_cycle(CYCLE_2_ID),
-        activated=True,
-        activation_blocker=None,
-        evaluation_registry=EvaluationRegistryPin(path=str(registry_path)),
-        selector_model_policy=SelectorModelPolicy(
-            primary=SelectorModel(
-                provider="anthropic",
-                model_id="claude-haiku-4-5-20251001",
-                model_version_or_snapshot="claude-haiku-4-5-20251001",
-            ),
-            alternates=(),
-        ),
-    )
-
-    with pytest.raises(CycleConfigNotActivatedError, match="hard_cap_usd"):
-        require_activated(config)
+def test_require_activated_refuses_unresolved_spend_ceiling() -> None:
+    with pytest.raises(CycleConfigError, match="spend"):
+        replace(
+            load_cycle(CYCLE_2_ID),
+            activated=True,
+            activation_blocker=None,
+        )
 
 
 def test_duplicate_selector_keys_fail_at_construction() -> None:
