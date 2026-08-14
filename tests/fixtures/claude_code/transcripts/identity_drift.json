@@ -2,7 +2,7 @@
 // generated_at: 2026-08-14T19:00:00Z
 // synthetic: true
 {
-  "status": "failed",
+  "status": "succeeded",
   "returncode": 0,
   "stderr": "",
   "duration_ms": 20,

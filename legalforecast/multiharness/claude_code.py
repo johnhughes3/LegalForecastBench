@@ -86,6 +86,20 @@ CLAUDE_FORECAST_SEALED_PATH = "forecast.json"
 CLAUDE_CODE_WRAPPER_COMMAND = (
     "legalforecast.multiharness.claude_code:ClaudeCodeCliAdapter",
 )
+# Pinned Claude Code 2.1.231: ``--tools`` takes exactly one argv value token.
+# The frozen template fills that slot with ``""``. Clean-native replaces the
+# same slot with a comma-joined allowlist (``Read,Glob``), not a shell string
+# and not repeated argv words. See ``encode_claude_code_tools_argv_token``.
+CLAUDE_CODE_TOOLS_ARGV_ENCODING = "comma-joined-single-token"
+CLAUDE_CODE_TOOLS_ARGV_EXAMPLE = "Read,Glob"
+CLAUDE_CODE_CLEAN_NATIVE_TOOLS = (
+    "Read",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Write",
+    "Edit",
+)
 _FORECAST_OBJECT_KEYS = frozenset({"case_assessment", "predictions"})
 _PREDICTION_REQUIRED_KEYS = frozenset({"unit_id", "probability_fully_dismissed"})
 _PREDICTION_ALLOWED_KEYS = _PREDICTION_REQUIRED_KEYS | frozenset({"rationale"})
@@ -196,6 +210,7 @@ class ClassifiedClaudeResult:
     receipt: ExecutionReceipt
     spec: RunSpec
     deliverable_manifest: DeliverableManifest | None = None
+    failure_slot: str | None = None
 
 
 def load_claude_code_local_manifest(
@@ -284,6 +299,18 @@ def write_forecast_output_schema(
     return schema
 
 
+def encode_claude_code_tools_argv_token(allowed_tools: Sequence[str]) -> str:
+    """Return the single ``--tools`` argv token for pinned Claude Code 2.1.231.
+
+    The frozen ``argv_template`` reserves one value slot after ``--tools``.
+    Offline cores leave that slot as the empty string. Clean-native fills the
+    same slot with a comma-joined allowlist such as ``Read,Glob``. The token
+    is never a shell string and never expanded into repeated argv words.
+    """
+
+    return ",".join(_validated_tools(allowed_tools))
+
+
 def build_claude_invocation_plan(
     *,
     prompt: str,
@@ -294,6 +321,8 @@ def build_claude_invocation_plan(
     allowed_tools: Sequence[str] = (),
     manifest: LocalCliAdapterManifest | None = None,
     auth_profile: object = FIXTURE_NONE,
+    json_schema: Mapping[str, Any] | None = None,
+    extra_add_dirs: Sequence[Path] = (),
 ) -> ClaudeInvocationPlan:
     """Translate one task into a shell-safe argv from the frozen template."""
 
@@ -306,8 +335,17 @@ def build_claude_invocation_plan(
         bound = bind_adapter_auth_profile(local_manifest, auth_profile)
     except AuthProfileError as exc:
         raise ClaudeCodeCliAdapterError(str(exc)) from exc
-    schema = forecast_output_schema(required_unit_ids)
-    schema_token = encode_forecast_output_schema(required_unit_ids)
+    if json_schema is None:
+        schema = forecast_output_schema(required_unit_ids)
+        schema_token = encode_forecast_output_schema(required_unit_ids)
+    else:
+        schema = dict(json_schema)
+        schema_token = json.dumps(
+            schema,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
     tools = _validated_tools(allowed_tools)
     rendered = local_manifest.invocation.render_argv(
         prompt=prompt,
@@ -319,6 +357,11 @@ def build_claude_invocation_plan(
         (local_manifest.executable.basename, *rendered),
         tools,
     )
+    extra_dirs: list[str] = []
+    for extra in extra_add_dirs:
+        extra_dirs.extend(["--add-dir", extra.as_posix()])
+    if extra_dirs:
+        argv = (*argv, *extra_dirs)
     return ClaudeInvocationPlan(
         argv=argv,
         prompt=prompt,
@@ -395,6 +438,13 @@ def classify_execution(
                 spec=spec,
                 receipt=receipt,
             )
+        if envelope.get("subtype") == "cancelled":
+            return _classified(
+                LocalCliFailureClass.CANCELLED,
+                raw_output=_result_text(envelope) or "cancelled",
+                spec=spec,
+                receipt=receipt,
+            )
         if is_local_cli_sandbox_denial(_failure_text(receipt, envelope)):
             return _classified(
                 LocalCliFailureClass.SANDBOX_DENIAL,
@@ -410,10 +460,11 @@ def classify_execution(
         )
     if _served_model_drifted(envelope, receipt, requested_model):
         return _classified(
-            LocalCliFailureClass.CRASH,
+            LocalCliFailureClass.IDENTITY_DRIFT,
             raw_output=_result_text(envelope) or "model drift",
             spec=spec,
             receipt=receipt,
+            failure_slot="served_model",
         )
     raw_output = _encoded_result_payload(envelope)
     if raw_output is None:
@@ -846,6 +897,12 @@ def _public_summary(
         )
     if classified.failure_class is not None:
         summary["failure_class"] = classified.failure_class.value
+        slot = f" {classified.failure_slot}" if classified.failure_slot else ""
+        summary["failure_detail"] = (
+            f"{classified.failure_class.value}{slot} "
+            f"task_id={request.task.task_id} "
+            f"returncode={classified.receipt.returncode}"
+        )
     summary["returncode"] = classified.receipt.returncode
     return summary
 
@@ -856,6 +913,7 @@ def _classified(
     raw_output: str,
     spec: RunSpec,
     receipt: ExecutionReceipt,
+    failure_slot: str | None = None,
 ) -> ClassifiedClaudeResult:
     bound = ExecutionReceipt(
         receipt_id=receipt.receipt_id,
@@ -882,6 +940,7 @@ def _classified(
         structured_output=None,
         spec=spec,
         receipt=bound,
+        failure_slot=failure_slot,
     )
 
 
@@ -1115,7 +1174,7 @@ def _apply_allowed_tools(
     if index + 1 >= len(argv):
         raise ClaudeCodeCliAdapterError("manifest --tools flag is missing a value")
     mutable = list(argv)
-    mutable[index + 1] = ",".join(allowed_tools)
+    mutable[index + 1] = encode_claude_code_tools_argv_token(allowed_tools)
     return tuple(mutable)
 
 

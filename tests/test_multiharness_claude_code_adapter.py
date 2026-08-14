@@ -25,6 +25,9 @@ from legalforecast.multiharness.auth_profiles import FIXTURE_NONE, PUBLISHED_API
 from legalforecast.multiharness.claude_code import (
     CLAUDE_CODE_ADAPTER_ID,
     CLAUDE_CODE_ADAPTER_VERSION,
+    CLAUDE_CODE_CLEAN_NATIVE_TOOLS,
+    CLAUDE_CODE_TOOLS_ARGV_ENCODING,
+    CLAUDE_CODE_TOOLS_ARGV_EXAMPLE,
     CLAUDE_CODE_WRAPPER_COMMAND,
     DEFAULT_CLAUDE_CODE_MANIFEST_PATH,
     ClaudeCodeCliAdapter,
@@ -34,6 +37,7 @@ from legalforecast.multiharness.claude_code import (
     claude_code_local_manifest,
     claude_code_manifest,
     declared_failure_classes,
+    encode_claude_code_tools_argv_token,
     encode_forecast_output_schema,
     load_claude_code_local_manifest,
 )
@@ -213,6 +217,35 @@ def test_invocation_plan_enables_tools_only_when_the_task_profile_lists_them() -
     )
 
     assert plan.argv[plan.argv.index("--tools") + 1] == "Read,Glob"
+    assert plan.argv.count("--tools") == 1
+    assert plan.argv[plan.argv.index("--tools") + 2] == "--strict-mcp-config"
+    assert encode_claude_code_tools_argv_token(("Read", "Glob")) == (
+        CLAUDE_CODE_TOOLS_ARGV_EXAMPLE
+    )
+    native = encode_claude_code_tools_argv_token(CLAUDE_CODE_CLEAN_NATIVE_TOOLS)
+    assert native == ",".join(CLAUDE_CODE_CLEAN_NATIVE_TOOLS)
+    assert " " not in native
+    assert "WebFetch" not in native
+    assert encode_claude_code_tools_argv_token(()) == ""
+    assert CLAUDE_CODE_TOOLS_ARGV_ENCODING == "comma-joined-single-token"
+
+
+def test_invocation_plan_appends_extra_add_dirs_without_forking_tools_slot() -> None:
+    extra = Path("projected-task")
+    plan = build_claude_invocation_plan(
+        prompt="prompt",
+        model=PLAN_MODEL,
+        required_unit_ids=("count_i",),
+        workspace=PLAN_WORKSPACE,
+        output_schema_path=PLAN_SCHEMA,
+        allowed_tools=("Read", "Glob"),
+        extra_add_dirs=(extra,),
+    )
+
+    assert plan.argv[plan.argv.index("--tools") + 1] == "Read,Glob"
+    assert plan.argv.count("--tools") == 1
+    assert plan.argv[-2:] == ("--add-dir", extra.as_posix())
+    assert plan.argv.count("--add-dir") == 2
 
 
 def test_run_spec_allows_empty_tools_token_and_rejects_credentials() -> None:
@@ -299,6 +332,8 @@ def test_fake_success_binds_spec_receipt_and_deliverable(
         ("schema_violation", LocalCliFailureClass.SCHEMA_VIOLATION),
         ("crash", LocalCliFailureClass.CRASH),
         ("sandbox_denial", LocalCliFailureClass.SANDBOX_DENIAL),
+        ("cancelled", LocalCliFailureClass.CANCELLED),
+        ("identity_drift", LocalCliFailureClass.IDENTITY_DRIFT),
         ("malformed", LocalCliFailureClass.CRASH),
     ),
 )
@@ -375,6 +410,17 @@ def test_sandbox_denial_is_distinct_from_crash(tmp_path: Path) -> None:
         denied.public_summary["failure_class"]
         != crashed.public_summary["failure_class"]
     )
+
+
+def test_identity_drift_failure_detail_names_served_model(tmp_path: Path) -> None:
+    result = _adapter("identity_drift").run(_run_request(), tmp_path / "workspace")
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == (
+        LocalCliFailureClass.IDENTITY_DRIFT.value
+    )
+    assert "served_model" in result.public_summary["failure_detail"]
+    assert result.public_summary["served_model"] == "claude-haiku-4-5"
 
 
 def test_landlocked_legal_language_is_not_classified_as_sandbox_denial(
@@ -526,7 +572,10 @@ def test_receipt_served_model_drift_fails_closed_when_envelope_omits_model(
         served_model="claude-haiku-4-5",
     )
     assert result.status == "failed"
-    assert result.public_summary["failure_class"] == LocalCliFailureClass.CRASH.value
+    assert result.public_summary["failure_class"] == (
+        LocalCliFailureClass.IDENTITY_DRIFT.value
+    )
+    assert "served_model" in result.public_summary["failure_detail"]
 
 
 def test_extra_forecast_property_is_schema_violation(tmp_path: Path) -> None:
