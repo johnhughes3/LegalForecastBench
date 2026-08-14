@@ -57,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
         # Opaque read only; never import, exec, or follow embedded paths.
         deliverable.read_bytes()
         return _write_scores(payload, allowed, n_criteria=23)
+    if mode == "authorized":
+        return _write_authorized_scores(payload, allowed, n_criteria=23)
     return _write_scores(payload, allowed, n_criteria=23)
 
 
@@ -103,6 +105,45 @@ def _write_scores(
         )
         + "\n",
         encoding="utf-8",
+    )
+    return 0
+
+
+def _write_authorized_scores(
+    record: Mapping[str, Any],
+    allowed: set[Path],
+    *,
+    n_criteria: int,
+) -> int:
+    deliverable = Path(str(record["deliverable_path"])).resolve()
+    private = Path(str(record["private_task_json_path"])).resolve()
+    scores = Path(str(record["scores_output_path"])).resolve()
+    if deliverable not in allowed or private not in allowed or scores not in allowed:
+        print("refusing path outside the evaluation input manifest", file=sys.stderr)
+        return 2
+    if not deliverable.is_file() or not private.is_file():
+        print("listed evaluation inputs are missing", file=sys.stderr)
+        return 2
+    deliverable.read_bytes()
+    private.read_bytes()
+    scores.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "n_criteria": n_criteria,
+        "n_passed": n_criteria,
+        "schema_version": "legalforecast.multiharness.harvey_lab_verdicts.v1",
+        "score": 1,
+        "verdicts": [
+            {"ordinal": index, "verdict": "pass"} for index in range(1, n_criteria + 1)
+        ],
+    }
+    scores.write_bytes(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
     )
     return 0
 

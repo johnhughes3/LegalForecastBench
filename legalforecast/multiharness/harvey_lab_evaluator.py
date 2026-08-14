@@ -162,6 +162,7 @@ def invoke_isolated_harvey_lab_evaluator(
     measurement_id: str | None = None,
     evaluation_attempt_id: str | None = None,
     attempt_nonce: str | None = None,
+    mode: str = "succeed",
 ) -> HarveyLabIsolatedEvaluation:
     """Run the common LAB evaluator in a contained boundary and bind a receipt."""
 
@@ -191,6 +192,7 @@ def invoke_isolated_harvey_lab_evaluator(
             identity=identity,
             evaluator_command=wrapper_name,
             timeout_seconds=timeout_seconds,
+            mode=mode,
         )
         pinned_env = dict(
             os.environ

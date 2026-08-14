@@ -13,11 +13,13 @@ tests can prove process-group cleanup without forking inside pytest
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import signal
 import sys
 import time
+import zipfile
 from pathlib import Path
 
 
@@ -260,7 +262,39 @@ def _write_codex_last_message(argv: list[str], text: str) -> None:
     path.write_text(text if text.endswith("\n") else f"{text}\n", encoding="utf-8")
 
 
-def _run_claude_outcome(outcome: str, argv: list[str]) -> int:
+def _write_lab_deliverable(output_dir: str, basename: str, argv: list[str]) -> None:
+    if not output_dir or not basename:
+        return
+    relative = Path(output_dir)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise SystemExit("lab output directory must be a relative sandbox path")
+    if Path(basename).name != basename or "/" in basename or "\\" in basename:
+        raise SystemExit("lab basename must be a single filename")
+    add_dir = _flag_value(argv, "--add-dir")
+    base = Path(add_dir) if add_dir else Path.cwd()
+    destination_dir = base / relative
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination = destination_dir / basename
+    if destination.exists() or destination.is_symlink():
+        raise SystemExit(f"refusing to overwrite {basename}")
+    destination.write_bytes(_docx_bytes())
+
+
+def _docx_bytes() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types></Types>")
+        archive.writestr("word/document.xml", "<w:document></w:document>")
+    return buffer.getvalue()
+
+
+def _run_claude_outcome(
+    outcome: str,
+    argv: list[str],
+    *,
+    lab_output: str = "",
+    lab_basename: str = "",
+) -> int:
     if outcome == "timeout":
         time.sleep(30)
         return 0
@@ -299,6 +333,28 @@ def _run_claude_outcome(outcome: str, argv: list[str]) -> int:
                     "output_tokens": 4,
                 },
                 "result": "I cannot provide a forecast for this case.",
+            }
+        )
+        return 0
+    if lab_output and lab_basename:
+        _write_lab_deliverable(lab_output, lab_basename, argv)
+        _print_json(
+            {
+                "type": "result",
+                "subtype": "success",
+                "is_error": False,
+                "model": _claude_model(argv),
+                "total_cost_usd": 0.0,
+                "usage": {
+                    "cache_creation_input_tokens": 0,
+                    "cache_read_input_tokens": 0,
+                    "input_tokens": 11,
+                    "output_tokens": 7,
+                },
+                "result": {
+                    "deliverable": lab_basename,
+                    "status": "completed",
+                },
             }
         )
         return 0
@@ -389,6 +445,16 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help="optional canary echoed to stderr",
     )
+    parser.add_argument(
+        "--lab-output",
+        default="",
+        help="optional sandbox-relative directory for a Harvey LAB deliverable",
+    )
+    parser.add_argument(
+        "--lab-basename",
+        default="",
+        help="optional .docx basename written under --lab-output",
+    )
     args, remainder = parser.parse_known_args(argv)
     pid_path = Path(args.pid_file)
     if args.mode == "succeed-json":
@@ -415,7 +481,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.adapter is None or args.outcome is None:
         parser.error("either --mode or both --adapter and --outcome are required")
     if args.adapter == "claude":
-        return _run_claude_outcome(args.outcome, remainder)
+        return _run_claude_outcome(
+            args.outcome,
+            remainder,
+            lab_output=args.lab_output,
+            lab_basename=args.lab_basename,
+        )
     return _run_codex_outcome(args.outcome, remainder)
 
 

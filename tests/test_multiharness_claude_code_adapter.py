@@ -25,6 +25,9 @@ from legalforecast.multiharness.auth_profiles import FIXTURE_NONE, PUBLISHED_API
 from legalforecast.multiharness.claude_code import (
     CLAUDE_CODE_ADAPTER_ID,
     CLAUDE_CODE_ADAPTER_VERSION,
+    CLAUDE_CODE_CLEAN_NATIVE_TOOLS,
+    CLAUDE_CODE_TOOLS_ARGV_ENCODING,
+    CLAUDE_CODE_TOOLS_ARGV_EXAMPLE,
     CLAUDE_CODE_WRAPPER_COMMAND,
     DEFAULT_CLAUDE_CODE_MANIFEST_PATH,
     ClaudeCodeCliAdapter,
@@ -34,6 +37,7 @@ from legalforecast.multiharness.claude_code import (
     claude_code_local_manifest,
     claude_code_manifest,
     declared_failure_classes,
+    encode_claude_code_tools_argv_token,
     encode_forecast_output_schema,
     load_claude_code_local_manifest,
 )
@@ -211,6 +215,17 @@ def test_invocation_plan_enables_tools_only_when_the_task_profile_lists_them() -
     )
 
     assert plan.argv[plan.argv.index("--tools") + 1] == "Read,Glob"
+    assert plan.argv.count("--tools") == 1
+    assert plan.argv[plan.argv.index("--tools") + 2] == "--strict-mcp-config"
+    assert encode_claude_code_tools_argv_token(("Read", "Glob")) == (
+        CLAUDE_CODE_TOOLS_ARGV_EXAMPLE
+    )
+    native = encode_claude_code_tools_argv_token(CLAUDE_CODE_CLEAN_NATIVE_TOOLS)
+    assert native == ",".join(CLAUDE_CODE_CLEAN_NATIVE_TOOLS)
+    assert " " not in native
+    assert "WebFetch" not in native
+    assert encode_claude_code_tools_argv_token(()) == ""
+    assert CLAUDE_CODE_TOOLS_ARGV_ENCODING == "comma-joined-single-token"
 
 
 def test_run_spec_allows_empty_tools_token_and_rejects_credentials() -> None:

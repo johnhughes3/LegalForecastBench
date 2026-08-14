@@ -90,3 +90,19 @@ uv run python scripts/probe_claude_code_cli_interface.py \
 Help text on this binary is `--json-schema <schema>` — a JSON Schema value, not a file path. The safe parser probe therefore passes inline JSON (`{"type":"object"}`). The frozen local-CLI argv_template uses `{output_schema}` (inline) and must not use `{output_schema_path}`.
 
 A credential-free print that supplied a filesystem path as the flag value was rejected as invalid JSON. The auth-closed envelope fixture records that observation. Do not switch the freeze to a path token without a new characterization of this exact 2.1.231 binary.
+
+## `--tools` argv encoding
+
+Help text on this binary is `--tools <tools...>`. The frozen local-CLI `argv_template` reserves **exactly one argv value slot** after `--tools`. The offline core fills that slot with the empty string (`--tools ""`).
+
+Clean-native does not keep the empty-string pin when tools are enabled. It fills the **same single slot** with a comma-joined allowlist token, not a shell string and not repeated argv words:
+
+| Encoding | Argv after `--tools` | Status |
+| --- | --- | --- |
+| Offline core (empty) | `""` (one token) | frozen template default |
+| Clean-native (enabled) | `Read,Glob` (one token) | required non-empty encoding |
+| Rejected | `Read` `Glob` (two words) | would consume the next flag |
+| Rejected | `'Read,Glob'` as a shell string | argv is never a shell |
+
+The exact example token is `Read,Glob`. The clean-native Harvey LAB allowlist on this pin is `Read,Glob,Grep,Bash,Write,Edit` — still one comma-joined token. Web tools are not in that allowlist. Adapter helper: `encode_claude_code_tools_argv_token`. Do not change the frozen template into `{tools}` interpolation; the capability digest is bound to the empty-slot template.
+

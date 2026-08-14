@@ -173,6 +173,8 @@ Closed tokens: `headless_print`, `json_output`, `stream_json_output`, `json_sche
 
 `argv_template` is an argv array, not a shell string. The only placeholders are `{prompt}`, `{model}`, `{workspace}`, `{output_schema}`, and `{output_schema_path}`. Empty strings are allowed so a CLI can pass `--tools ""`. Literal tokens must not contain `/`, `\`, or `~`.
 
+Claude Code 2.1.231 `--tools` uses that one value slot. The offline core leaves it empty. Clean-native fills the same slot with a comma-joined token such as `Read,Glob` (`legalforecast.multiharness.claude_code.encode_claude_code_tools_argv_token`). Do not expand the allowlist into repeated argv words.
+
 - `headless_mode`: `print_flag` (Claude Code `-p`) or `exec_subcommand` (Codex `exec`).
 - `output_format`: `json` (one JSON document on stdout), `stream_json` (JSONL), or `text`. `json` requires the `json_output` capability; `stream_json` requires `stream_json_output`. For `stream_json`, `usage_reporting` dotted paths are evaluated against the terminal JSON object in that stream, not against concatenated stdout.
 - `schema_enforcement`: `none`, `json_schema_flag`, or `output_schema_file`. `json_schema_flag` requires `{output_schema}` (inline JSON, as Claude Code `--json-schema` takes a schema value). `output_schema_file` requires `{output_schema_path}` (Codex `--output-schema` takes a file). The two placeholders are mutually exclusive. `none` rejects both `{output_schema}` and `{output_schema_path}` so `render_argv` cannot demand schema material the mode says to omit.
