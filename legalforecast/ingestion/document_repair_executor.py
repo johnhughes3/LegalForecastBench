@@ -99,6 +99,7 @@ class ResolvedRepairOperation:
     source_url: str | None
     projected_cost_usd: Decimal
     docket_snapshot_sha256: str
+    public_clearance: tuple[str, bool, bool] | None
 
     @property
     def key(self) -> tuple[str, int, str]:
@@ -654,6 +655,11 @@ def _run_document_repair_execution(
         outcomes.append(outcome)
         if result.disposition == "included":
             assert result.document_bytes is not None
+            if operation.public_clearance is None:
+                raise DocumentRepairExecutorError(
+                    "snapshot does not establish public clearance"
+                )
+            clearance_status, is_private, is_sealed = operation.public_clearance
             acquired_documents.append(
                 {
                     "candidate_id": operation.candidate_id,
@@ -665,9 +671,9 @@ def _run_document_repair_execution(
                     "sha256": hashlib.sha256(result.document_bytes).hexdigest(),
                     "byte_count": len(result.document_bytes),
                     "document_bytes": result.document_bytes,
-                    "clearance_status": "cleared",
-                    "is_private": False,
-                    "is_sealed": False,
+                    "clearance_status": clearance_status,
+                    "is_private": is_private,
+                    "is_sealed": is_sealed,
                     "cost_usd": result.committed_cost_usd,
                 }
             )
@@ -1279,7 +1285,25 @@ def _resolve_operation(
         source_url=free_url,
         projected_cost_usd=item.projected_cost_usd,
         docket_snapshot_sha256=snapshot_sha256,
+        public_clearance=_public_clearance(document, free_url=free_url),
     )
+
+
+def _public_clearance(
+    document: Mapping[str, object], *, free_url: str | None
+) -> tuple[str, bool, bool] | None:
+    is_private = document.get("is_private") if "is_private" in document else None
+    is_sealed = document.get("is_sealed") if "is_sealed" in document else None
+    if is_private is False and is_sealed is False:
+        return ("cleared", False, False)
+    if (
+        is_private is not True
+        and "is_sealed" in document
+        and is_sealed is not True
+        and free_url is not None
+    ):
+        return ("cleared", False, False)
+    return None
 
 
 def _require_distinct_recap_documents(

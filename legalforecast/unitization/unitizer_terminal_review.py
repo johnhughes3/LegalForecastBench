@@ -322,11 +322,13 @@ def read_terminal_jsonl(payload: bytes, *, label: str) -> list[JsonRecord]:
     """Parse terminal-apply JSONL, refusing duplicate object keys."""
 
     records: list[JsonRecord] = []
+    if b"\r" in payload:
+        raise UnitizerTerminalReviewError(f"{label} must use LF record separators")
     try:
         text = payload.decode("utf-8")
     except UnicodeError as error:
         raise UnitizerTerminalReviewError(f"{label} must be UTF-8 JSONL") from error
-    for line_number, line in enumerate(text.splitlines(), start=1):
+    for line_number, line in enumerate(text.split("\n"), start=1):
         if not line.strip():
             continue
         try:

@@ -152,3 +152,118 @@ def test_verify_only_full_plan_revalidates_without_purchasing() -> None:
         exclusions=(),
         role_bytes_match=lambda role, body: role.encode() in body,
     )
+
+
+def test_verify_only_binds_included_bytes_to_resolved_operation() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution, outcomes=_included_outcomes(execution)
+    )
+    acquired = _included_documents(execution)
+    acquired[0] = {**acquired[0], "document_role": "complaint"}
+
+    with pytest.raises(DocumentRepairVerifyOnlyError, match="document_role"):
+        verify_document_repair_pilot_bytes(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=acquired,
+            exclusions=(),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+    acquired = _included_documents(execution)
+    acquired[0] = {**acquired[0], "source_document_id": "9999"}
+    with pytest.raises(DocumentRepairVerifyOnlyError, match="source_document_id"):
+        verify_document_repair_pilot_bytes(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=acquired,
+            exclusions=(),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+    extra = [
+        *_included_documents(execution),
+        {
+            **_included_documents(execution)[0],
+            "candidate_id": "zzz",
+            "docket_entry_number": 99,
+        },
+    ]
+    with pytest.raises(DocumentRepairVerifyOnlyError, match="unapproved"):
+        verify_document_repair_pilot_bytes(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=extra,
+            exclusions=(),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_verify_only_requires_exclusion_evidence_for_excluded_operations() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    outcomes = list(_included_outcomes(execution))
+    last = execution.operations[-1]
+    outcomes[-1] = RepairOperationOutcome(
+        last.candidate_id,
+        last.docket_entry_number,
+        "excluded",
+        0,
+        "0.10",
+        "0.00",
+        last.document_selector,
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution, outcomes=tuple(outcomes)
+    )
+    acquired = _included_documents(execution)[:-1]
+
+    with pytest.raises(DocumentRepairVerifyOnlyError, match="exclusion evidence"):
+        verify_document_repair_pilot_bytes(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=acquired,
+            exclusions=(),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+    verify_document_repair_pilot_bytes(
+        full_plan=plan,
+        execution=execution,
+        receipt=receipt,
+        acquired_documents=acquired,
+        exclusions=(
+            {
+                "candidate_id": last.candidate_id,
+                "docket_entry_number": last.docket_entry_number,
+                "document_selector": last.document_selector,
+                "document_role": last.document_role,
+                "reason": "terminal exclusion",
+            },
+        ),
+        role_bytes_match=lambda role, body: role.encode() in body,
+    )

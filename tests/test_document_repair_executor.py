@@ -27,6 +27,7 @@ from legalforecast.ingestion.document_repair_executor import (
     DocumentRepairPurchaseRuntime,
     DocumentRepairReceipt,
     RepairOperationOutcome,
+    ResolvedRepairOperation,
     build_document_repair_purchase_authority,
     record_document_repair_outcomes,
     replay_docket_snapshot_authority,
@@ -140,6 +141,7 @@ def _snapshot(candidate_id: str, entry: int, document_id: int, *, free: bool) ->
                             "document_number": str(entry),
                             "attachment_number": None,
                             "is_available": free,
+                            "is_private": False,
                             "is_sealed": False,
                             "filepath_local": (
                                 f"recap/example/{document_id}.pdf" if free else None
@@ -1791,6 +1793,7 @@ def test_execution_resolves_same_entry_attachment_selector(tmp_path: Path) -> No
             "document_number": "5-1",
             "attachment_number": 1,
             "is_available": False,
+            "is_private": False,
             "is_sealed": False,
             "filepath_local": None,
         }
@@ -1884,6 +1887,7 @@ def test_execution_rejects_repeated_recap_document_identity() -> None:
             "document_number": "5-1",
             "attachment_number": 1,
             "is_available": False,
+            "is_private": False,
             "is_sealed": False,
             "filepath_local": None,
         }
@@ -2095,4 +2099,44 @@ def test_seal_refuses_acquired_documents_without_clearance_evidence() -> None:
             acquired_documents=acquired,
             exclusions=(),
             role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_included_acquisition_fails_closed_without_snapshot_clearance(
+    tmp_path: Path,
+) -> None:
+    snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
+    payload = json.loads(snapshots["a"])
+    del payload["entries"][0]["recap_documents"][0]["is_private"]
+    snapshots["a"] = _canonical_bytes(payload)
+    manifest = _manifest_bytes(_row("a", 1, free=False))
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approval=_plan_approval(manifest),
+    )
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={"a": hashlib.sha256(snapshots["a"]).hexdigest()},
+    )
+
+    assert execution.operations[0].public_clearance is None
+
+    def acquire(operation: ResolvedRepairOperation) -> AcquiredRepairDocument:
+        return AcquiredRepairDocument(
+            disposition="included",
+            source_document_id=operation.recap_document_id,
+            document_bytes=b"reply bytes",
+            committed_cost_usd="3.00",
+            retry_count=0,
+        )
+
+    runtime = _purchase_runtime(execution, tmp_path)
+    ticks = iter((1.0, 1.2))
+    with pytest.raises(DocumentRepairExecutorError, match="public clearance"):
+        run_document_repair_execution(
+            execution=execution,
+            purchase_runtime=runtime,
+            acquire=_BoundAcquirer(runtime, acquire),
+            monotonic=lambda: next(ticks),
         )

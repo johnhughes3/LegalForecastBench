@@ -241,6 +241,11 @@ def test_read_terminal_jsonl_rejects_duplicate_object_keys() -> None:
         )
 
 
+def test_read_terminal_jsonl_rejects_cr_record_separators() -> None:
+    with pytest.raises(UnitizerTerminalReviewError, match="LF record separators"):
+        read_terminal_jsonl(b'{"candidate_id": "a"}\r\n', label="selection")
+
+
 def test_v4_citation_helper_rejects_unsupplied_and_inexact_excerpt() -> None:
     finalized = {
         "candidate_id": "cand",

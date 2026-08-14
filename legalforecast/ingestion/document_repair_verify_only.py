@@ -92,22 +92,31 @@ def _verify_pilot_operation_bytes(
     exclusions: Sequence[Mapping[str, object]],
     role_bytes_match: Callable[[str, bytes], bool],
 ) -> None:
-    included = {
-        (
+    included: dict[tuple[object, object, object], Mapping[str, object]] = {}
+    for document in acquired_documents:
+        key = (
             document.get("candidate_id"),
             document.get("docket_entry_number"),
             document.get("document_selector", "main_document"),
-        ): document
-        for document in acquired_documents
-    }
-    excluded = {
-        (
+        )
+        if key in included:
+            raise DocumentRepairVerifyOnlyError("duplicate acquired document key")
+        included[key] = document
+    excluded: set[tuple[object, object, object]] = set()
+    for record in exclusions:
+        key = (
             record.get("candidate_id"),
             record.get("docket_entry_number"),
             record.get("document_selector", "main_document"),
         )
-        for record in exclusions
-    }
+        if key in excluded:
+            raise DocumentRepairVerifyOnlyError("duplicate exclusion key")
+        excluded.add(key)
+    expected = {operation.key for operation in execution.operations}
+    if set(included) - expected:
+        raise DocumentRepairVerifyOnlyError(
+            "verify-only acquired documents include unapproved operations"
+        )
     if len(receipt.operation_ledger) != len(execution.operations):
         raise DocumentRepairVerifyOnlyError("repair receipt ledger is incomplete")
     for operation, row in zip(
@@ -122,17 +131,26 @@ def _verify_pilot_operation_bytes(
                     "verify-only refuses missing document_bytes; a purchase "
                     "would be required"
                 )
-            role = document.get("document_role")
+            if document.get("document_role") != operation.document_role:
+                raise DocumentRepairVerifyOnlyError(
+                    "acquired document_role differs from the resolved operation"
+                )
+            if document.get("source_document_id") != operation.recap_document_id:
+                raise DocumentRepairVerifyOnlyError(
+                    "acquired source_document_id differs from the resolved "
+                    "RECAP identity"
+                )
             body = document.get("document_bytes")
-            if not isinstance(role, str) or not isinstance(body, bytes):
+            if not isinstance(body, bytes) or not body:
                 raise DocumentRepairVerifyOnlyError(
                     "verify-only refuses missing document_bytes; a purchase "
                     "would be required"
                 )
-            if not role_bytes_match(role, body):
+            if not role_bytes_match(operation.document_role, body):
                 raise DocumentRepairVerifyOnlyError(
                     f"role-byte mismatch: {operation.candidate_id}/"
-                    f"{operation.docket_entry_number} as {role}"
+                    f"{operation.docket_entry_number} as "
+                    f"{operation.document_role}"
                 )
             if document.get("clearance_status") != "cleared":
                 raise DocumentRepairVerifyOnlyError(
@@ -146,16 +164,16 @@ def _verify_pilot_operation_bytes(
                 raise DocumentRepairVerifyOnlyError(
                     "acquired document is_sealed must be false"
                 )
-        elif disposition in {"excluded", "provider_error", "unknown"}:
-            if key not in excluded and key in included:
+        elif disposition == "excluded":
+            if key in included or key not in excluded:
                 raise DocumentRepairVerifyOnlyError(
-                    "sealing evidence contradicts repair receipt disposition"
+                    "excluded repair operation lacks matching exclusion evidence"
                 )
-            if disposition != "excluded":
-                raise DocumentRepairVerifyOnlyError(
-                    "repair execution has nonterminal outcomes and cannot "
-                    "verify-only seal"
-                )
+        elif disposition in {"provider_error", "unknown"}:
+            raise DocumentRepairVerifyOnlyError(
+                "repair execution has nonterminal outcomes and cannot "
+                "verify-only seal"
+            )
         else:
             raise DocumentRepairVerifyOnlyError(
                 "verify-only refuses missing document_bytes; a purchase would "

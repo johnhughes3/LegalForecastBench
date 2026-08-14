@@ -1473,9 +1473,9 @@ def _require_reconciled_cost(
                 "free acquired document cost_usd must be 0.00"
             )
         return actual
-    if actual != item.projected_cost_usd:
+    if actual <= 0 or actual > item.projected_cost_usd:
         raise MissingDocumentSuccessorError(
-            "PACER cost_usd differs from the planned projection"
+            "PACER cost_usd must be within the planned reservation"
         )
     return actual
 

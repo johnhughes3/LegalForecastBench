@@ -927,10 +927,17 @@ def test_seal_refuses_uncleared_or_over_ceiling_paid_cost() -> None:
             role_bytes_match=lambda _role, _body: True,
         )
 
-    with pytest.raises(MissingDocumentSuccessorError, match="cost_usd"):
+    seal_missing_document_successor(
+        plan=plan,
+        acquired_documents=[{**evidence, "cost_usd": "2.99"}],
+        exclusions=[],
+        role_bytes_match=lambda _role, _body: True,
+    )
+
+    with pytest.raises(MissingDocumentSuccessorError, match="planned reservation"):
         seal_missing_document_successor(
             plan=plan,
-            acquired_documents=[{**evidence, "cost_usd": "2.99"}],
+            acquired_documents=[{**evidence, "cost_usd": "3.01"}],
             exclusions=[],
             role_bytes_match=lambda _role, _body: True,
         )
