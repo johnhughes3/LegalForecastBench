@@ -16,6 +16,7 @@ from legalforecast._json_io import (
     write_json_object,
     write_jsonl_objects,
 )
+from legalforecast.contracts import ARTIFACT_PREFIXED_SHA256_V1, SchemaIdentifier
 from legalforecast.multiharness.community import (
     CommunitySubmissionManifest,
     validate_submission_file,
@@ -27,13 +28,45 @@ from legalforecast.multiharness.reporting import (
     render_community_comparison_json,
     render_community_comparison_markdown,
 )
+from legalforecast.multiharness.run_progress import (
+    CLAIM_FULL,
+    CLAIM_PARTIAL,
+    CLAIM_SCOPED,
+    COVERAGE_FULL,
+    COVERAGE_SCOPED,
+    is_partial_label,
+    is_scoped_label,
+    require_coverage_kind,
+)
+from legalforecast.multiharness.scoring import ScoreArtifact
 from legalforecast.multiharness.spec import RUN_RESULT_STATUSES, ArtifactRecord
 from legalforecast.multiharness.validation import validate_public_record
+from legalforecast.publication.accounting import (
+    HarnessEfficiencyObservation,
+    observation_sha256,
+)
+from legalforecast.publication.claim_policy import (
+    MATCHING_KEY_SYSTEM_BUNDLE,
+    PRIMARY_ESTIMAND_OBSERVED_DIFFERENCE,
+    ComparisonAnalysisArtifact,
+    ExperimentSpec,
+    enforce_publication_claims,
+)
+from legalforecast.publication.metric_propagation import (
+    MetricReconstructionError,
+    PublishedMetrics,
+    metrics_from_artifacts,
+    verify_metric_traces,
+)
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
     enforce_publication_guardrails,
 )
 from legalforecast.publication.static_sites import render_community_results_site
+from legalforecast.reporting.contamination_tiers import (
+    ContaminationTier,
+    ContaminationTierSidecar,
+)
 
 COMMUNITY_AGGREGATE_BUNDLE_SCHEMA_VERSION = (
     "legalforecast.multiharness.community_aggregate_bundle.v1"
@@ -46,6 +79,7 @@ class CommunityAggregateConfig:
 
     submissions_dir: Path
     output_dir: Path
+    contamination_sidecar_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +125,7 @@ def build_community_aggregate(
     public_submissions_dir.mkdir(parents=True, exist_ok=True)
 
     group_task_ids = _group_task_ids(submissions)
+    contamination_tiers = _contamination_tiers(config.contamination_sidecar_path)
     rows = _comparison_rows(submissions, group_task_ids)
     registry_records = [_normalized_submission_record(item) for item in submissions]
     coverage_records = _coverage_records(rows)
@@ -113,7 +148,13 @@ def build_community_aggregate(
             _normalized_submission_record(item),
         )
 
-    _write_reports(reports_dir, rows)
+    _write_reports(reports_dir, rows, contamination_tiers=contamination_tiers)
+    _enforce_publication_claims(
+        submissions,
+        rows,
+        reports_dir=reports_dir,
+        contamination_tiers=contamination_tiers,
+    )
     render_community_results_site(
         community_aggregate_dir=config.output_dir,
         output_dir=config.output_dir / "site",
@@ -177,6 +218,13 @@ def _comparison_rows(
             family, scoring_mode = _family_and_scoring(shard.compatible_shard_group_id)
             group_size = len(group_task_ids[shard.compatible_shard_group_id])
             coverage = 100 * len(shard.task_ids) / group_size
+            published_metrics = _published_metrics_for_shard(
+                item,
+                shard_task_ids=shard.task_ids,
+                status_counts=status_counts,
+                group_size=group_size,
+                coverage_percentage=coverage,
+            )
             rows.append(
                 CommunityComparisonRow(
                     row_id=f"{item.manifest.submission_id}:{shard.shard_id}",
@@ -201,6 +249,7 @@ def _comparison_rows(
                     artifact_ids=tuple(
                         artifact.artifact_id for artifact in item.manifest.artifacts
                     ),
+                    published_metrics=published_metrics,
                 )
             )
             strict_groups.setdefault(
@@ -474,7 +523,12 @@ def _site_summary(
     }
 
 
-def _write_reports(output_dir: Path, rows: Sequence[CommunityComparisonRow]) -> None:
+def _write_reports(
+    output_dir: Path,
+    rows: Sequence[CommunityComparisonRow],
+    *,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+) -> None:
     (output_dir / "community-comparison.json").write_text(
         render_community_comparison_json(rows) + "\n",
         encoding="utf-8",
@@ -484,11 +538,17 @@ def _write_reports(output_dir: Path, rows: Sequence[CommunityComparisonRow]) -> 
         encoding="utf-8",
     )
     (output_dir / "community-comparison.md").write_text(
-        render_community_comparison_markdown(rows),
+        render_community_comparison_markdown(
+            rows,
+            contamination_tiers=contamination_tiers,
+        ),
         encoding="utf-8",
     )
     (output_dir / "community-comparison.html").write_text(
-        render_community_comparison_html(rows),
+        render_community_comparison_html(
+            rows,
+            contamination_tiers=contamination_tiers,
+        ),
         encoding="utf-8",
     )
 
@@ -780,3 +840,220 @@ def _media_type(path: Path) -> str:
     if suffix == ".html":
         return "text/html"
     return "application/octet-stream"
+
+
+def _published_metrics_for_shard(
+    item: CommunitySubmissionInput,
+    *,
+    shard_task_ids: Sequence[str],
+    status_counts: Mapping[str, int],
+    group_size: int,
+    coverage_percentage: float,
+) -> PublishedMetrics | None:
+    observation_path = item.root / "efficiency-observation.json"
+    if not observation_path.is_file():
+        return None
+    observation = HarnessEfficiencyObservation.from_record(
+        read_json_object(
+            observation_path,
+            error_factory=ValueError,
+            missing_message=lambda path: f"efficiency observation missing: {path}",
+            non_object_message=lambda path: (
+                f"efficiency observation must be an object: {path}"
+            ),
+        )
+    )
+    scores, score_hashes = _load_score_artifacts(item.root)
+    metrics = metrics_from_artifacts(
+        scores=scores,
+        observation=observation,
+        selected_count=len(shard_task_ids),
+        solved_count=int(status_counts.get("succeeded", 0)),
+        evaluated_count=len(scores)
+        if scores
+        else int(status_counts.get("succeeded", 0)),
+        group_size=group_size,
+        score_artifact_sha256s=score_hashes,
+        observation_sha256=observation_sha256(observation),
+    )
+    if abs(metrics.coverage_percentage - coverage_percentage) > 1e-12:
+        raise MetricReconstructionError(
+            "coverage_percentage does not reconstruct from selected tasks"
+        )
+    return metrics
+
+
+def _load_score_artifacts(
+    root: Path,
+) -> tuple[tuple[ScoreArtifact, ...], tuple[str, ...]]:
+    path = root / "score-artifacts.jsonl"
+    if not path.is_file():
+        return (), ()
+    records = read_jsonl_objects(
+        path,
+        error_factory=ValueError,
+        missing_message=lambda item: f"score artifacts missing: {item}",
+        non_object_message=lambda item, line: (
+            f"score artifacts line {line} must be an object: {item}"
+        ),
+    )
+    scores = tuple(ScoreArtifact.from_record(record) for record in records)
+    return scores, tuple(score.score_sha256 for score in scores)
+
+
+def _contamination_tiers(
+    path: Path | None,
+) -> dict[str, ContaminationTier] | None:
+    if path is None:
+        return None
+    record = read_json_object(
+        path,
+        error_factory=ValueError,
+        missing_message=lambda item: f"contamination sidecar missing: {item}",
+        non_object_message=lambda item: (
+            f"contamination sidecar must be an object: {item}"
+        ),
+    )
+    sidecar = ContaminationTierSidecar.from_record(record)
+    return {row.model_id: row.contamination_tier for row in sidecar.rows}
+
+
+def _enforce_publication_claims(
+    submissions: Sequence[CommunitySubmissionInput],
+    rows: Sequence[CommunityComparisonRow],
+    *,
+    reports_dir: Path,
+    contamination_tiers: Mapping[str, ContaminationTier] | None,
+) -> None:
+    rendered = (reports_dir / "community-comparison.md").read_text(encoding="utf-8")
+    rendered += (reports_dir / "community-comparison.html").read_text(encoding="utf-8")
+    submissions_by_id = {item.manifest.submission_id: item for item in submissions}
+    for row in rows:
+        item = submissions_by_id.get(row.submission_ids[0])
+        if item is None:
+            continue
+        coverage_kind, interrupted = _row_coverage(item)
+        spec = ExperimentSpec(
+            spec_id="community-tier0-observed-difference",
+            primary_estimand=PRIMARY_ESTIMAND_OBSERVED_DIFFERENCE,
+            matching_key=MATCHING_KEY_SYSTEM_BUNDLE,
+            missingness_rule="visible_under_policy",
+            coverage_claim=_row_claimed_coverage(item, coverage_kind, interrupted),
+        )
+        analysis = ComparisonAnalysisArtifact(
+            experiment_spec_sha256=_experiment_spec_sha256(spec),
+            claimed_estimand=PRIMARY_ESTIMAND_OBSERVED_DIFFERENCE,
+            claimed_coverage=spec.coverage_claim,
+            claimed_contamination_tier=_claimed_tier(
+                row.model_key,
+                contamination_tiers,
+            ),
+            claims_ranking=False,
+            claims_matched_harness=False,
+            repeat_count=1,
+            served_model_resolved=False,
+        )
+        tier = ContaminationTier(analysis.claimed_contamination_tier)
+        if contamination_tiers is not None:
+            tier = contamination_tiers.get(row.model_key, tier)
+        enforce_publication_claims(
+            spec=spec,
+            analysis=analysis,
+            selection_label=row.selection_label,
+            coverage_kind=coverage_kind,
+            interrupted=interrupted,
+            contamination_tier=tier,
+            rendered_text=rendered,
+            model_key=row.model_key,
+        )
+        if row.published_metrics is not None:
+            _verify_row_traces(item.root, row)
+
+
+def _verify_row_traces(root: Path, row: CommunityComparisonRow) -> None:
+    metrics = row.published_metrics
+    if metrics is None:
+        return
+    observation_path = root / "efficiency-observation.json"
+    observation = HarnessEfficiencyObservation.from_record(
+        read_json_object(
+            observation_path,
+            error_factory=ValueError,
+            missing_message=lambda path: f"efficiency observation missing: {path}",
+            non_object_message=lambda path: (
+                f"efficiency observation must be an object: {path}"
+            ),
+        )
+    )
+    scores, score_hashes = _load_score_artifacts(root)
+    artifacts = {
+        observation_sha256(observation): {
+            **observation.to_record(),
+            "selected_count": metrics.selected_count,
+            "coverage_percentage": metrics.coverage_percentage,
+            "cost_usd": (
+                None
+                if observation.combined_cost.amount_microusd is None
+                else observation.combined_cost.amount_microusd / 1_000_000
+            ),
+            "score_value": None,
+        }
+    }
+    for digest, score in zip(score_hashes, scores, strict=True):
+        artifacts[digest] = score.to_record()
+    verify_metric_traces(metrics.traces, artifacts_by_hash=artifacts)
+
+
+def _row_coverage(item: CommunitySubmissionInput) -> tuple[str, bool]:
+    summary = item.manifest.run_summary
+    coverage_kind = summary.coverage_kind
+    if coverage_kind is None:
+        coverage_kind = (
+            COVERAGE_SCOPED
+            if is_scoped_label(summary.selection_label)
+            else COVERAGE_FULL
+        )
+    else:
+        coverage_kind = require_coverage_kind(coverage_kind)
+    interrupted = bool(summary.result_status_counts.get("interrupted"))
+    if summary.claim_kind == CLAIM_PARTIAL or is_partial_label(summary.selection_label):
+        interrupted = True
+    return coverage_kind, interrupted
+
+
+def _row_claimed_coverage(
+    item: CommunitySubmissionInput,
+    coverage_kind: str,
+    interrupted: bool,
+) -> str:
+    claimed = item.manifest.run_summary.claim_kind
+    if claimed is not None:
+        return claimed
+    return _coverage_claim(coverage_kind, interrupted)
+
+
+def _coverage_claim(coverage_kind: str, interrupted: bool) -> str:
+    if interrupted:
+        return CLAIM_PARTIAL
+    if coverage_kind == COVERAGE_SCOPED:
+        return CLAIM_SCOPED
+    return CLAIM_FULL
+
+
+def _claimed_tier(
+    model_key: str,
+    contamination_tiers: Mapping[str, ContaminationTier] | None,
+) -> str:
+    if contamination_tiers is None:
+        return ContaminationTier.RESISTANT.value
+    return contamination_tiers.get(
+        model_key,
+        ContaminationTier.RESISTANT,
+    ).value
+
+
+def _experiment_spec_sha256(spec: ExperimentSpec) -> str:
+    domain = SchemaIdentifier(spec.schema_version)
+    return str(
+        ARTIFACT_PREFIXED_SHA256_V1.commit(spec.to_record(), domain=domain).digest
+    )

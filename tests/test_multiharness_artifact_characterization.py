@@ -38,6 +38,9 @@ VERSIONED_READERS = {
     "legalforecast.multiharness.community.CommunityRunSummary.from_record": (
         "community-run-summary.v1.json"
     ),
+    "legalforecast.multiharness.community.CommunityRunSummary.from_record.v2": (
+        "community-run-summary.v2.json"
+    ),
     "legalforecast.multiharness.community.CommunitySubmissionShard.from_record": (
         "community-submission-shard.v1.json"
     ),
@@ -151,7 +154,7 @@ def test_current_site_summary_renders_and_refuses_unknown_versions(
 def _read_and_rewrite(reader_name: str, record: Mapping[str, Any]) -> JsonRecord:
     if reader_name.endswith("CanonicalTask.from_record"):
         return CanonicalTask.from_record(record).to_record()
-    if reader_name.endswith("CommunityRunSummary.from_record"):
+    if "CommunityRunSummary.from_record" in reader_name:
         return CommunityRunSummary.from_record(record).to_record()
     if reader_name.endswith("CommunitySubmissionShard.from_record"):
         return CommunitySubmissionShard.from_record(record).to_record()

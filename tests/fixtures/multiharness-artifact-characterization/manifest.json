@@ -12,6 +12,11 @@
       "writer": "legalforecast.multiharness.community.CommunityRunSummary.to_record"
     },
     {
+      "fixture": "community-run-summary.v2.json",
+      "reader": "legalforecast.multiharness.community.CommunityRunSummary.from_record.v2",
+      "writer": "legalforecast.multiharness.community.CommunityRunSummary.to_record"
+    },
+    {
       "fixture": "community-submission-shard.v1.json",
       "reader": "legalforecast.multiharness.community.CommunitySubmissionShard.from_record",
       "writer": "legalforecast.multiharness.community.CommunitySubmissionShard.to_record"

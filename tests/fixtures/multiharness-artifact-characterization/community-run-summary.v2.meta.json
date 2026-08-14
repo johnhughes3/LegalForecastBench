@@ -1,0 +1,8 @@
+{
+  "synthetic": true,
+  "generated_by": "hand-authored for CommunityRunSummary v2 characterization",
+  "command": "uv run pytest tests/test_community_run_summary_v2.py tests/test_multiharness_artifact_characterization.py -q",
+  "files": [
+    "community-run-summary.v2.json"
+  ]
+}

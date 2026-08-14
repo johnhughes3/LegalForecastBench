@@ -21,7 +21,15 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Self
 
-from legalforecast.contracts import ARTIFACT_PREFIXED_SHA256_V1, SchemaIdentifier
+from legalforecast.contracts import (
+    ARTIFACT_PREFIXED_SHA256_V1,
+    MULTIHARNESS_MATCHED_HARNESS_IDENTITY_V1,
+    MULTIHARNESS_RUN_IDENTITY_V1,
+    MULTIHARNESS_SOLVER_IDENTITY_V1,
+    MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1,
+    MULTIHARNESS_TASK_IDENTITY_V1,
+    SchemaIdentifier,
+)
 from legalforecast.multiharness.spec import SCORING_MODES, TASK_FAMILIES
 from legalforecast.multiharness.validation import (
     MultiHarnessValidationError,
@@ -32,26 +40,11 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-TASK_IDENTITY_SCHEMA_VERSION = (
-    # contract-ratchet: allow identity-key schema until contracts registry
-    "legalforecast.multiharness.task_identity.v1"
-)
-SOLVER_IDENTITY_SCHEMA_VERSION = (
-    # contract-ratchet: allow identity-key schema until contracts registry
-    "legalforecast.multiharness.solver_identity.v1"
-)
-RUN_IDENTITY_SCHEMA_VERSION = (
-    # contract-ratchet: allow identity-key schema until contracts registry
-    "legalforecast.multiharness.run_identity.v1"
-)
-MATCHED_HARNESS_IDENTITY_SCHEMA_VERSION = (
-    # contract-ratchet: allow identity-key schema until contracts registry
-    "legalforecast.multiharness.matched_harness_identity.v1"
-)
-SYSTEM_BUNDLE_LABEL_SCHEMA_VERSION = (
-    # contract-ratchet: allow identity-key schema until contracts registry
-    "legalforecast.multiharness.system_bundle_label.v1"
-)
+TASK_IDENTITY_SCHEMA_VERSION = str(MULTIHARNESS_TASK_IDENTITY_V1)
+SOLVER_IDENTITY_SCHEMA_VERSION = str(MULTIHARNESS_SOLVER_IDENTITY_V1)
+RUN_IDENTITY_SCHEMA_VERSION = str(MULTIHARNESS_RUN_IDENTITY_V1)
+MATCHED_HARNESS_IDENTITY_SCHEMA_VERSION = str(MULTIHARNESS_MATCHED_HARNESS_IDENTITY_V1)
+SYSTEM_BUNDLE_LABEL_SCHEMA_VERSION = str(MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1)
 
 OUTER_ENVELOPES = frozenset({"clean-native", "mcp-mediated"})
 UNRESOLVED_SERVED_MODEL_SENTINELS = frozenset(
@@ -741,13 +734,8 @@ def _require_record_int(record: Mapping[str, Any], field_name: str) -> int:
     return value
 
 
-# contract-ratchet: allow identity-key schema until contracts registry
-_TASK_DOMAIN = SchemaIdentifier(TASK_IDENTITY_SCHEMA_VERSION)
-# contract-ratchet: allow identity-key schema until contracts registry
-_SOLVER_DOMAIN = SchemaIdentifier(SOLVER_IDENTITY_SCHEMA_VERSION)
-# contract-ratchet: allow identity-key schema until contracts registry
-_RUN_DOMAIN = SchemaIdentifier(RUN_IDENTITY_SCHEMA_VERSION)
-# contract-ratchet: allow identity-key schema until contracts registry
-_MATCHED_DOMAIN = SchemaIdentifier(MATCHED_HARNESS_IDENTITY_SCHEMA_VERSION)
-# contract-ratchet: allow identity-key schema until contracts registry
-_BUNDLE_DOMAIN = SchemaIdentifier(SYSTEM_BUNDLE_LABEL_SCHEMA_VERSION)
+_TASK_DOMAIN = MULTIHARNESS_TASK_IDENTITY_V1
+_SOLVER_DOMAIN = MULTIHARNESS_SOLVER_IDENTITY_V1
+_RUN_DOMAIN = MULTIHARNESS_RUN_IDENTITY_V1
+_MATCHED_DOMAIN = MULTIHARNESS_MATCHED_HARNESS_IDENTITY_V1
+_BUNDLE_DOMAIN = MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1
