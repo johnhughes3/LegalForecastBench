@@ -628,6 +628,28 @@ def test_selection_digest_binds_approval_policy() -> None:
     assert "PIN" in phrase_artifact.purchase_ceiling.confirmation_phrase
 
 
+def test_selection_digest_binds_admission_limits() -> None:
+    chronology, merged = _case("case-a", required_pages=5)
+    baseline = build_selection_artifact(
+        config=activated_haiku_config(),
+        chronologies=(chronology,),
+        merged=(merged,),
+        cohort_target_n=1,
+    )
+    tighter = build_selection_artifact(
+        config=activated_haiku_config(
+            spend=SpendCeiling(
+                hard_cap_usd=usd("400.00"), max_per_case_usd=usd("400.00")
+            )
+        ),
+        chronologies=(chronology,),
+        merged=(merged,),
+        cohort_target_n=1,
+    )
+    assert tighter.sha256 != baseline.sha256
+    assert tighter.cases[0].admitted is True
+
+
 def test_promotions_must_match_final_entry_verdicts() -> None:
     chronology, merged = _case("case-a", required_pages=5)
     mismatched = replace(

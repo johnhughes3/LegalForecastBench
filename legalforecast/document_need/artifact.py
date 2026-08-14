@@ -190,6 +190,7 @@ def build_selection_artifact(
         by_id,
         cohort_target_n=cohort_target_n,
         evaluation_registry_sha256=_evaluation_registry_digest(config),
+        cycle_record=dict(config.as_public_record()),
     )
 
 
@@ -230,6 +231,7 @@ def _seal(
     *,
     cohort_target_n: int,
     evaluation_registry_sha256: str,
+    cycle_record: Mapping[str, object],
 ) -> SelectionArtifact:
     admitted = tuple(decision for decision in decisions if decision.admitted)
     ceiling = sum((row.ranked.max_cost for row in admitted), _ZERO)
@@ -246,6 +248,7 @@ def _seal(
             "path": view.evaluation_registry_pin,
             "sha256": evaluation_registry_sha256,
         },
+        "cycle_config": dict(cycle_record),
         "selector_model_policy": {
             "primary": view.selector_model_policy.primary,
             "alternates": list(view.selector_model_policy.alternates),
@@ -257,16 +260,6 @@ def _seal(
                 }
                 for item in view.selector_model_policy.identities
             ],
-        },
-        "ranking_policy": {
-            "primary": view.ranking_policy.primary,
-            "tiebreak": list(view.ranking_policy.tiebreak),
-            "purchase_rule": view.ranking_policy.purchase_rule,
-        },
-        "typed_confirmation": {
-            "decisions": list(view.typed_confirmation.decisions),
-            "phrase_template": view.typed_confirmation.phrase_template,
-            "session_scope_token": view.typed_confirmation.session_scope_token,
         },
         "cases": case_records,
         "provenance": provenance_record(decisions),

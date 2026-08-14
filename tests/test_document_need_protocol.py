@@ -10,7 +10,10 @@ from legalforecast.document_need.blindness import (
     Pass1Process,
     assert_pass1_cannot_read_decision,
 )
-from legalforecast.document_need.cycle_config import DocumentNeedConfigError
+from legalforecast.document_need.cycle_config import (
+    DocumentNeedConfigError,
+    NeedSelectorIdentity,
+)
 from legalforecast.document_need.prep import parse_page_count, prepare_audit_bundles
 from legalforecast.document_need.protocol import (
     DocumentNeedProtocolError,
@@ -34,7 +37,11 @@ from legalforecast.document_need.types import (
     Pass2Verdict,
 )
 from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
-from tests.document_need_fixtures import activated_haiku_config, luna_on_cycle1_registry
+from tests.document_need_fixtures import (
+    HAIKU,
+    activated_haiku_config,
+    luna_on_cycle1_registry,
+)
 
 _DECISION = "UNIQUE_DECISION_BYTES_THE_PASS1_PROCESS_MUST_NOT_SEE"
 _BUCKETS = {
@@ -109,9 +116,9 @@ def _chronology() -> Chronology:
 def _pass1() -> Pass1Verdict:
     return Pass1Verdict(
         candidate_id="case-a",
-        model_id="fixture:document-need-v1",
-        provider="fixture",
-        model_version_or_snapshot="fixture:document-need-v1",
+        model_id=HAIKU.model_id,
+        provider=HAIKU.provider,
+        model_version_or_snapshot=HAIKU.model_version_or_snapshot,
         entries=(
             EntryVerdict(
                 1, NeedBucket.CLEARLY_REQUIRED, "complaint", "operative pleading"
@@ -193,9 +200,9 @@ def test_two_pass_promotes_conditional_opposition() -> None:
         pass2={
             "case-a": Pass2Verdict(
                 candidate_id="case-a",
-                model_id="fixture:document-need-v1",
-                provider="fixture",
-                model_version_or_snapshot="fixture:document-need-v1",
+                model_id=HAIKU.model_id,
+                provider=HAIKU.provider,
+                model_version_or_snapshot=HAIKU.model_version_or_snapshot,
                 promotions=(
                     Pass2Promotion(
                         entry=12,
@@ -208,17 +215,19 @@ def test_two_pass_promotes_conditional_opposition() -> None:
                 completeness_ok=True,
             )
         },
+        provider=HAIKU.provider,
+        model_id=HAIKU.model_id,
+        model_version_or_snapshot=HAIKU.model_version_or_snapshot,
     )
     merged = run_two_pass(
         blind=blind,
         eyes=eyes,
         classifier=classifier,
-        bucket_definitions=_BUCKETS,
         config=activated_haiku_config(),
     )
     assert merged.by_entry()[12].bucket is NeedBucket.CLEARLY_REQUIRED
-    assert merged.pass1_model_id == "fixture:document-need-v1"
-    assert merged.pass2_model_id == "fixture:document-need-v1"
+    assert merged.pass1_model_id == HAIKU.model_id
+    assert merged.pass2_model_id == HAIKU.model_id
 
 
 def test_pass2_cannot_demote() -> None:
@@ -294,13 +303,15 @@ def test_pass2_rejects_decision_from_another_candidate() -> None:
     classifier = FixtureClassifier(
         pass1={"case-a": _pass1()},
         pass2={},
+        provider=HAIKU.provider,
+        model_id=HAIKU.model_id,
+        model_version_or_snapshot=HAIKU.model_version_or_snapshot,
     )
     with pytest.raises(DocumentNeedProtocolError, match="does not match"):
         run_two_pass(
             blind=blind,
             eyes=eyes,
             classifier=classifier,
-            bucket_definitions=_BUCKETS,
             config=activated_haiku_config(),
         )
 
@@ -361,6 +372,13 @@ def test_pass1_prompt_checker_detects_json_escaped_decision_text() -> None:
 
 def test_pass1_rejects_verdict_for_another_candidate_without_eyes() -> None:
     class _WrongCandidate:
+        def selector_identity(self) -> NeedSelectorIdentity:
+            return NeedSelectorIdentity(
+                provider=HAIKU.provider,
+                model_id=HAIKU.model_id,
+                model_version_or_snapshot=HAIKU.model_version_or_snapshot,
+            )
+
         def classify_pass1(self, prompt: str, *, candidate_id: str) -> Pass1Verdict:
             del prompt, candidate_id
             source = _pass1()
@@ -383,7 +401,6 @@ def test_pass1_rejects_verdict_for_another_candidate_without_eyes() -> None:
             ),
             eyes=None,
             classifier=_WrongCandidate(),
-            bucket_definitions=_BUCKETS,
             config=activated_haiku_config(),
         )
 
@@ -441,6 +458,51 @@ def test_run_two_pass_preflights_before_classifier() -> None:
             ),
             eyes=None,
             classifier=_Boom(),
-            bucket_definitions=_BUCKETS,
             config=luna_on_cycle1_registry(),
+        )
+
+
+def test_run_two_pass_uses_cycle_bucket_definitions() -> None:
+    captured: list[str] = []
+
+    class _Capture:
+        def selector_identity(self) -> NeedSelectorIdentity:
+            return NeedSelectorIdentity(
+                provider=HAIKU.provider,
+                model_id=HAIKU.model_id,
+                model_version_or_snapshot=HAIKU.model_version_or_snapshot,
+            )
+
+        def classify_pass1(self, prompt: str, *, candidate_id: str) -> Pass1Verdict:
+            captured.append(prompt)
+            return _pass1()
+
+        def classify_pass2(self, prompt: str, *, candidate_id: str) -> Pass2Verdict:
+            raise AssertionError("pass 2 should not run")
+
+    run_two_pass(
+        blind=BlindBundle(
+            chronology=_chronology(),
+            motion_markdown={10: "Motion memorandum."},
+        ),
+        eyes=None,
+        classifier=_Capture(),
+        config=activated_haiku_config(),
+    )
+    assert captured
+    assert "pinned cohort policy" in captured[0]
+    assert "filed oppositions/replies when those entries exist" not in captured[0]
+
+
+def test_run_two_pass_rejects_unapproved_classifier_identity() -> None:
+    classifier = FixtureClassifier(pass1={"case-a": _pass1()}, pass2={})
+    with pytest.raises(DocumentNeedProtocolError, match="selector-model policy"):
+        run_two_pass(
+            blind=BlindBundle(
+                chronology=_chronology(),
+                motion_markdown={10: "Motion memorandum."},
+            ),
+            eyes=None,
+            classifier=classifier,
+            config=activated_haiku_config(),
         )

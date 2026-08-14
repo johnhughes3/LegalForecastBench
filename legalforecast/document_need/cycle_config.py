@@ -118,21 +118,22 @@ class NeedSelectorIds:
 
     def __post_init__(self) -> None:
         _require_text(self.primary, "selector_model_policy.primary")
-        seen = {self.primary}
         for index, model_id in enumerate(self.alternates):
-            label = f"selector_model_policy.alternates[{index}]"
-            _require_text(model_id, label)
-            if model_id in seen:
-                raise DocumentNeedConfigError(
-                    f"duplicate selector model ID: {model_id}"
-                )
-            seen.add(model_id)
+            _require_text(model_id, f"selector_model_policy.alternates[{index}]")
         expected = (self.primary, *self.alternates)
         got = tuple(item.model_id for item in self.identities)
         if got != expected:
             raise DocumentNeedConfigError(
                 "selector identities must match primary and alternates in order"
             )
+        seen: set[tuple[str, str]] = set()
+        for item in self.identities:
+            key = (item.provider, item.model_id)
+            if key in seen:
+                raise DocumentNeedConfigError(
+                    f"duplicate selector identity: {item.provider}:{item.model_id}"
+                )
+            seen.add(key)
 
     def all_model_ids(self) -> tuple[str, ...]:
         return (self.primary, *self.alternates)

@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
+from legalforecast.document_need.cycle_config import NeedSelectorIdentity
 from legalforecast.document_need.protocol import (
     DocumentNeedProtocolError,
     parse_pass1_verdict,
@@ -31,7 +32,9 @@ class FixtureClassifier:
 
     pass1: Mapping[str, Pass1Verdict]
     pass2: Mapping[str, Pass2Verdict]
+    provider: str = "fixture"
     model_id: str = "fixture:document-need-v1"
+    model_version_or_snapshot: str = "fixture:document-need-v1"
 
     def classify_pass1(self, prompt: str, *, candidate_id: str) -> Pass1Verdict:
         del prompt
@@ -50,6 +53,13 @@ class FixtureClassifier:
             raise DocumentNeedSelectorError(
                 f"fixture has no pass-2 verdict for {candidate_id}"
             ) from exc
+
+    def selector_identity(self) -> NeedSelectorIdentity:
+        return NeedSelectorIdentity(
+            provider=self.provider,
+            model_id=self.model_id,
+            model_version_or_snapshot=self.model_version_or_snapshot,
+        )
 
 
 def live_smoke_enabled(environ: Mapping[str, str] | None = None) -> bool:

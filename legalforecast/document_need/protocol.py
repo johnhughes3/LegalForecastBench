@@ -15,6 +15,9 @@ from legalforecast.document_need.blindness import (
 )
 from legalforecast.document_need.cycle_config import (
     BUCKET_IDS,
+    DocumentNeedCycleView,
+    NeedSelectorIdentity,
+    document_need_view_from_cycle_config,
     preflight_selector_models,
     require_activated_cycle,
 )
@@ -45,6 +48,8 @@ class DocumentNeedProtocolError(ValueError):
 
 class PassClassifier(Protocol):
     """Fixture or live classifier. Prompts are already blindness-checked."""
+
+    def selector_identity(self) -> NeedSelectorIdentity: ...
 
     def classify_pass1(self, prompt: str, *, candidate_id: str) -> Pass1Verdict: ...
 
@@ -164,7 +169,6 @@ def run_two_pass(
     blind: BlindBundle,
     eyes: EyesBundle | None,
     classifier: PassClassifier,
-    bucket_definitions: Mapping[str, str],
     config: CycleConfig,
     repository_root_path: Path | None = None,
 ) -> MergedCaseBuckets:
@@ -172,8 +176,12 @@ def run_two_pass(
 
     require_activated_cycle(config)
     preflight_selector_models(config, repository_root_path=repository_root_path)
+    view = document_need_view_from_cycle_config(config)
+    _require_classifier_identity(classifier, view)
     process = Pass1Process(blind)
-    prompt1 = build_pass1_prompt(process.bundle, bucket_definitions=bucket_definitions)
+    prompt1 = build_pass1_prompt(
+        process.bundle, bucket_definitions=view.document_need_buckets
+    )
     if eyes is not None:
         assert_pass1_cannot_read_decision(prompt1, eyes.decision)
     pass1 = classifier.classify_pass1(
@@ -313,6 +321,18 @@ def parse_pass2_verdict(
         promotions=promotions,
         completeness_ok=completeness,
     )
+
+
+def _require_classifier_identity(
+    classifier: PassClassifier, view: DocumentNeedCycleView
+) -> None:
+    identity = classifier.selector_identity()
+    if identity.as_tuple() not in view.selector_model_policy.allowed_identities():
+        raise DocumentNeedProtocolError(
+            f"classifier {identity.provider}:{identity.model_id} "
+            f"(version={identity.model_version_or_snapshot!r}) is not in "
+            "the cycle selector-model policy"
+        )
 
 
 def _require_bucket_definitions(buckets: Mapping[str, str]) -> dict[str, str]:

@@ -10,6 +10,8 @@ from legalforecast.config import (
     CYCLE_2_ID,
     CycleConfigNotActivatedError,
     EvaluationRegistryPin,
+    SelectorModel,
+    SelectorModelPolicy,
     load_activated_cycle,
     load_cycle,
 )
@@ -21,6 +23,7 @@ from legalforecast.document_need.cycle_config import (
     require_activated_cycle,
 )
 from tests.document_need_fixtures import (
+    HAIKU,
     ROOT,
     activated_haiku_config,
     cycle_1,
@@ -99,3 +102,23 @@ def test_view_requires_approve_among_typed_confirmation_decisions() -> None:
     )
     with pytest.raises(DocumentNeedConfigError, match="approve"):
         document_need_view_from_cycle_config(bad)
+
+
+def test_view_allows_same_model_id_on_different_providers() -> None:
+    view = document_need_view_from_cycle_config(
+        activated_haiku_config(
+            selector_model_policy=SelectorModelPolicy(
+                primary=HAIKU,
+                alternates=(
+                    SelectorModel(
+                        provider="openai",
+                        model_id=HAIKU.model_id,
+                        model_version_or_snapshot="openai-haiku-mirror",
+                    ),
+                ),
+            )
+        )
+    )
+    assert len(view.selector_model_policy.identities) == 2
+    assert view.selector_model_policy.primary == HAIKU.model_id
+    assert view.selector_model_policy.alternates == (HAIKU.model_id,)
