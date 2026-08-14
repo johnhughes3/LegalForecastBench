@@ -16,7 +16,6 @@ from legalforecast.multiharness.harvey_lab_output_discovery import (
     HarveyLabOutputDiscoveryError,
     HarveyLabOutputErrorCode,
     HarveyLabOutputLimits,
-    _copy_regular_file,
     _copy_regular_file_from_fd,
     _reject_path_name,
     discover_harvey_lab_outputs,
@@ -43,6 +42,15 @@ FIXTURE_PIN = HarveyLabPin(
     commit="a" * 40,
     tree="b" * 40,
 )
+
+
+def _directory_fd(path: Path) -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return os.open(path, flags)
 
 
 def _docx_bytes() -> bytes:
@@ -369,16 +377,20 @@ def test_copy_rejects_source_mutated_after_stat(tmp_path: Path) -> None:
     source.write_bytes(b"xy")
     dest_root = tmp_path / "dest"
     dest_root.mkdir()
-    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
-        _copy_regular_file(
-            source_root,
-            "scratch.txt",
-            destination_root=dest_root,
-            destination_relative="scratch.txt",
-            expected_stat=snapshot,
-            expected_digest=hashlib.sha256(b"x").digest(),
-            max_bytes=100,
-        )
+    source_fd = _directory_fd(source_root)
+    try:
+        with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+            _copy_regular_file_from_fd(
+                source_fd,
+                "scratch.txt",
+                destination_root=dest_root,
+                destination_relative="scratch.txt",
+                expected_stat=snapshot,
+                expected_digest=hashlib.sha256(b"x").digest(),
+                max_bytes=100,
+            )
+    finally:
+        os.close(source_fd)
     assert caught.value.code == HarveyLabOutputErrorCode.LAYOUT
     assert not (dest_root / "scratch.txt").exists()
 
@@ -392,16 +404,20 @@ def test_copy_rejects_same_size_content_replacement(tmp_path: Path) -> None:
     source.write_bytes(b"efgh")
     dest_root = tmp_path / "dest"
     dest_root.mkdir()
-    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
-        _copy_regular_file(
-            source_root,
-            "scratch.txt",
-            destination_root=dest_root,
-            destination_relative="scratch.txt",
-            expected_stat=snapshot,
-            expected_digest=hashlib.sha256(b"abcd").digest(),
-            max_bytes=100,
-        )
+    source_fd = _directory_fd(source_root)
+    try:
+        with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+            _copy_regular_file_from_fd(
+                source_fd,
+                "scratch.txt",
+                destination_root=dest_root,
+                destination_relative="scratch.txt",
+                expected_stat=snapshot,
+                expected_digest=hashlib.sha256(b"abcd").digest(),
+                max_bytes=100,
+            )
+    finally:
+        os.close(source_fd)
     assert caught.value.code == HarveyLabOutputErrorCode.LAYOUT
     assert not (dest_root / "scratch.txt").exists()
 
@@ -591,15 +607,19 @@ def test_quarantine_parent_symlink_is_typed(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
     (dest_root / "notes").symlink_to(outside)
-    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
-        _copy_regular_file(
-            source_root,
-            "scratch.txt",
-            destination_root=dest_root,
-            destination_relative="notes/scratch.txt",
-            expected_stat=(source_root / "scratch.txt").stat(),
-            expected_digest=hashlib.sha256(b"x").digest(),
-            max_bytes=100,
-        )
+    source_fd = _directory_fd(source_root)
+    try:
+        with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+            _copy_regular_file_from_fd(
+                source_fd,
+                "scratch.txt",
+                destination_root=dest_root,
+                destination_relative="notes/scratch.txt",
+                expected_stat=(source_root / "scratch.txt").stat(),
+                expected_digest=hashlib.sha256(b"x").digest(),
+                max_bytes=100,
+            )
+    finally:
+        os.close(source_fd)
     assert caught.value.code == HarveyLabOutputErrorCode.SYMLINK
     assert not (outside / "scratch.txt").exists()

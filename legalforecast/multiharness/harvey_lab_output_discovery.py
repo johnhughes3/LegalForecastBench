@@ -576,31 +576,6 @@ def _quarantine_extras(
     return quarantined
 
 
-def _copy_regular_file(
-    source_root: Path,
-    source_relative: str,
-    *,
-    destination_root: Path,
-    destination_relative: str,
-    expected_stat: os.stat_result,
-    expected_digest: bytes,
-    max_bytes: int,
-) -> tuple[str, int]:
-    root_fd = _open_directory(source_root, "output_root")
-    try:
-        return _copy_regular_file_from_fd(
-            root_fd,
-            source_relative,
-            destination_root=destination_root,
-            destination_relative=destination_relative,
-            expected_stat=expected_stat,
-            expected_digest=expected_digest,
-            max_bytes=max_bytes,
-        )
-    finally:
-        os.close(root_fd)
-
-
 def _copy_regular_file_from_fd(
     source_root_fd: int,
     source_relative: str,
@@ -824,6 +799,7 @@ def _canonical_digest(value: str, field_name: str) -> str:
     return canonical
 
 
+# contract-ratchet: allow non-persisted live-file copy digest
 def _sha256_fd(file_fd: int) -> bytes:
     os.lseek(file_fd, 0, os.SEEK_SET)
     digest = hashlib.sha256()
