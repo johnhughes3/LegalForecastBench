@@ -356,3 +356,39 @@ def test_identity_from_record_wraps_typed_field_errors() -> None:
     record["task_id"] = ""
     with pytest.raises(IdentityError, match="task_id"):
         TaskIdentity.from_record(record)
+
+
+def test_receipt_rejects_inconsistent_identity_triple(tmp_path: Path) -> None:
+    cheap = _solver(requested_model="claude-haiku-4")
+    expensive = _solver()
+    run = _run(solver=cheap)
+    bound = ExecutionReceipt.from_transcript(
+        _run_spec(tmp_path), stdout="ok"
+    ).with_identity_keys(task=_task(), solver=cheap, run=run)
+    record = bound.to_record()
+    record["solver_identity_key"] = expensive.key
+    with pytest.raises(LocalCliContractError, match="does not bind"):
+        ExecutionReceipt.from_record(record)
+    fixture = bound.to_public_record()
+    fixture["solver_identity_key"] = expensive.key
+    with pytest.raises(LocalCliContractError, match="does not bind"):
+        validate_public_execution_receipt(fixture)
+
+
+def test_identity_keys_require_run_slot_fields(tmp_path: Path) -> None:
+    receipt = ExecutionReceipt.from_transcript(_run_spec(tmp_path), stdout="ok")
+    with pytest.raises(LocalCliContractError, match="runtime_policy_sha256"):
+        ExecutionReceipt(
+            receipt_id=receipt.receipt_id,
+            spec_sha256=receipt.spec_sha256,
+            status=receipt.status,
+            returncode=receipt.returncode,
+            executable_name=receipt.executable_name,
+            stdout=receipt.stdout,
+            stderr=receipt.stderr,
+            stdout_sha256=receipt.stdout_sha256,
+            stderr_sha256=receipt.stderr_sha256,
+            task_identity_key=_task().key,
+            solver_identity_key=_solver().key,
+            run_identity_key=_run().key,
+        )

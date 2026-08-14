@@ -28,4 +28,4 @@ Unresolved served-model sentinels (`unknown`, `unresolved`, `*`, empty, `none`) 
 
 ## Execution receipts
 
-`ExecutionReceipt.to_public_record()` may carry `task_identity_key`, `solver_identity_key`, and `run_identity_key` together, or omit all three. Partial sets are rejected. `validate_public_execution_receipt` names any missing required public field on a receipt fixture.
+`ExecutionReceipt.to_public_record()` may carry `task_identity_key`, `solver_identity_key`, and `run_identity_key` together, or omit all three. Partial sets are rejected. When the three keys are present, the receipt must also carry the run-slot fields (`runtime_policy_sha256`, `config_sha256`, `temporal_block`, `order`, `repeat_index`) so `RunIdentity` can be reconstructed and the run key is proven to bind those task and solver keys. `validate_public_execution_receipt` names any missing required public field on a receipt fixture.
