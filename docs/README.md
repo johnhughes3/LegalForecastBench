@@ -10,7 +10,7 @@ The technical documentation in this folder is drafted and maintained with substa
 | Reproduce or audit a published result | [reproduce-or-audit.md](reproduce-or-audit.md) |
 | Know what may and may not be claimed publicly | [publication-governance.md](publication-governance.md) |
 | Operate a protected official cycle | [official-run-runbook.md](official-run-runbook.md) |
-| Submit a community harness comparison | [multiharness-adapter-spec.md](multiharness-adapter-spec.md), then [community-submissions.md](community-submissions.md) |
+| Submit a community harness comparison | [community-contributor-guide.md](community-contributor-guide.md), then [multiharness-adapter-spec.md](multiharness-adapter-spec.md) and [community-submissions.md](community-submissions.md) |
 
 ## Official Benchmark
 
@@ -46,6 +46,7 @@ The technical documentation in this folder is drafted and maintained with substa
 
 The multi-harness layer is a separate, non-official track. Its results never rank alongside official results.
 
+- [community-contributor-guide.md](community-contributor-guide.md): install, probe, select, run, interrupt, resume, validate, and package from a dedicated environment.
 - [multiharness-adapter-spec.md](multiharness-adapter-spec.md): the community adapter contract.
 - [community-submissions.md](community-submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
 - [multiharness-deliverable-contract.md](multiharness-deliverable-contract.md): the harness-independent sealed boundary between a solver run and later evaluation.

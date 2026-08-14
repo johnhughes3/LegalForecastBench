@@ -14,7 +14,15 @@ cd LegalForecastBench
 uv sync --frozen
 ```
 
-This file must exist after clone (`docs/community-contributor-guide.md`). If it is missing, you are on an older `main`: check out the pull request that added the guide, then retry `uv sync --frozen`.
+This file must exist after clone (`docs/community-contributor-guide.md`). If it is missing, you are on an older `main`. Check out the branch that added the guide, then retry `uv sync --frozen`:
+
+```bash
+git fetch origin feat/community-quickstart
+git checkout feat/community-quickstart
+uv sync --frozen
+```
+
+Or, with GitHub CLI: `gh pr checkout 730`. After this lands on `main`, the default clone is enough.
 
 The current package version is `0.1.0a3` (`v0.1.0-alpha.3`). Use the revision that contains this guide — a later tag once one is cut, otherwise that pull request or `main` after it merges. Example adapter manifests live under `examples/adapters/`; they are not inside the published wheel. A source checkout is the supported install.
 
