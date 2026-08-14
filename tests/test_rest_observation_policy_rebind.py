@@ -17,6 +17,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 from legalforecast.ingestion.rest_observation_policy_rebind import (
     RestObservationPolicyRebindError,
     RestObservationRebindContract,
+    _git_bytes,
     _read_regular_file,
     load_official_rest_observation_rebind_contract,
     rebind_terminal_rest_observations,
@@ -661,6 +662,29 @@ def test_official_semantic_proof_does_not_depend_on_current_checkout(
     proof = verify_official_rest_observation_rebind_semantics()
 
     assert proof["target_code_commit"] == ("e0d71779324ce8a0b8cdf09a6f2416fe97135d38")
+
+
+def test_official_git_crosscheck_pins_seven_character_index_abbrev() -> None:
+    repository_root = Path(__file__).resolve().parents[1]
+    source_path = "legalforecast/ingestion/courtlistener_acquisition.py"
+    payload = _git_bytes(
+        repository_root,
+        "diff",
+        "126a18b5849f83c0ba2d87f3fd424ca99e7faf14",
+        "e0d71779324ce8a0b8cdf09a6f2416fe97135d38",
+        "--",
+        source_path,
+    )
+
+    assert b"index b59c992..41cf46a 100644\n" in payload
+    assert b"index b59c9927..41cf46a3 100644\n" not in payload
+    assert (
+        payload
+        == (
+            repository_root
+            / "legalforecast/data/rest_observation_policy_rebind_old_to_current_v1.diff"
+        ).read_bytes()
+    )
 
 
 def test_official_semantic_proof_rejects_tampered_packaged_witness(
