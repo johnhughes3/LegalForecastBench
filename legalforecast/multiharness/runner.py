@@ -455,6 +455,7 @@ class _MultiHarnessRunner:
                         selection_sha256=selection.selection_sha256,
                         live=getattr(adapter, "auth_profile", None)
                         == PUBLISHED_API_KEY,
+                        stage=_resume_stage(adapter),
                     )
                     request = _run_request(
                         row_id=row_id,
@@ -865,6 +866,16 @@ def _run_request(
     )
 
 
+def _resume_stage(adapter: object) -> str | None:
+    service = getattr(adapter, "execution_service", None)
+    raw = getattr(service, "infisical_env", None) if service is not None else None
+    if raw == "staging":
+        return "staging"
+    if raw == "sandbox":
+        return "sandbox"
+    return None
+
+
 def _row_id(
     *,
     task: CanonicalTask,
@@ -872,6 +883,7 @@ def _row_id(
     model: ModelConfig,
     selection_sha256: str,
     live: bool = False,
+    stage: str | None = None,
 ) -> str:
     payload: dict[str, Any] = {
         "family": task.family,
@@ -883,6 +895,10 @@ def _row_id(
     }
     if live:
         payload["live"] = "1"
+        if stage == "staging":
+            payload["stage"] = "staging"
+        elif stage == "sandbox":
+            payload["stage"] = "sandbox"
     digest = _record_sha256(
         payload,
         prefixed=False,

@@ -350,8 +350,27 @@ def test_published_api_key_changes_resume_row_identity() -> None:
         selection_sha256="sha256:" + "2" * 64,
         live=True,
     )
+    staging_row = _row_id(
+        task=task,
+        adapter=adapter,
+        model=model,
+        selection_sha256="sha256:" + "2" * 64,
+        live=True,
+        stage="staging",
+    )
+    sandbox_row = _row_id(
+        task=task,
+        adapter=adapter,
+        model=model,
+        selection_sha256="sha256:" + "2" * 64,
+        live=True,
+        stage="sandbox",
+    )
     assert fixture_row == omitted_row
     assert live_row != fixture_row
+    assert staging_row != live_row
+    assert sandbox_row != live_row
+    assert sandbox_row != staging_row
 
 
 def test_contained_service_defaults_to_infisical_wrapper_for_published_api_key() -> (
