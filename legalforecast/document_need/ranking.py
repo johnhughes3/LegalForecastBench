@@ -152,6 +152,7 @@ def provenance_record(decisions: Sequence[AdmissionDecision]) -> dict[str, objec
     """Cohort provenance sidecar: cost-rank is recorded for mix analysis."""
 
     return {
+        # contract-ratchet: allow observational post-Cycle-1 document-need sidecar
         "schema_version": "legalforecast.document_need_cohort_provenance.v1",
         "cases": [
             {

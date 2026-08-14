@@ -32,8 +32,14 @@ from legalforecast.document_need.ranking import (
 from legalforecast.document_need.types import Chronology
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 
-SELECTION_SCHEMA = "legalforecast.document_need_selection.v1"
-PURCHASE_CEILING_SCHEMA = "legalforecast.document_need_purchase_ceiling.v1"
+SELECTION_SCHEMA = (
+    # contract-ratchet: allow observational post-Cycle-1 document-need sidecar
+    "legalforecast.document_need_selection.v1"
+)
+PURCHASE_CEILING_SCHEMA = (
+    # contract-ratchet: allow observational post-Cycle-1 document-need sidecar
+    "legalforecast.document_need_purchase_ceiling.v1"
+)
 _ZERO = Decimal("0.00")
 
 
@@ -192,6 +198,7 @@ def _seal(
         "cases": case_records,
         "provenance": provenance_record(decisions),
     }
+    # contract-ratchet: allow observational document-need selection digest
     digest = hashlib.sha256(
         canonical_json_bytes(
             content,

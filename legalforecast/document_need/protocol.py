@@ -22,8 +22,14 @@ from legalforecast.document_need.types import (
     Pass2Verdict,
 )
 
-PASS1_SCHEMA = "legalforecast.document_need_pass1.v1"
-PASS2_SCHEMA = "legalforecast.document_need_pass2.v1"
+PASS1_SCHEMA = (
+    # contract-ratchet: allow observational post-Cycle-1 document-need sidecar
+    "legalforecast.document_need_pass1.v1"
+)
+PASS2_SCHEMA = (
+    # contract-ratchet: allow observational post-Cycle-1 document-need sidecar
+    "legalforecast.document_need_pass2.v1"
+)
 
 
 class DocumentNeedProtocolError(ValueError):
