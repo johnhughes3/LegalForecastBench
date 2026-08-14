@@ -16,8 +16,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import stat
 import subprocess
+import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -488,84 +490,96 @@ def project_harvey_lab_suite(
     """Project solver-visible LAB bytes into a self-describing folder tree."""
 
     source = _existing_directory(source_root, "LAB source root")
-    tasks_root = source / "tasks"
-    if not tasks_root.is_dir():
-        raise HarveyLabProjectionError(f"LAB root is missing tasks/: {tasks_root}")
-    selected = _selected_lab_task_ids(lab_task_ids)
-    task_dirs = _discover_task_directories(tasks_root)
-    if selected is not None:
-        discovered = {_relative_posix(path, tasks_root) for path in task_dirs}
-        missing = sorted(selected - discovered)
-        if missing:
-            joined = ", ".join(missing)
-            raise HarveyLabProjectionError(
-                f"Harvey LAB task id(s) were not found: {joined}"
-            )
-        task_dirs = [
-            path for path in task_dirs if _relative_posix(path, tasks_root) in selected
-        ]
-    if not task_dirs:
-        raise HarveyLabProjectionError("no Harvey LAB tasks matched the projection")
     applied_pin = pin or issue_196_pin()
-    _verify_source_pin(source, applied_pin)
-    solver = _fresh_root(solver_root, "solver projection root")
-    private = _fresh_root(evaluator_private_root, "evaluator-private root")
-    _require_disjoint(solver, private)
-    projected_tasks: list[HarveyLabTaskProjection] = []
-    for task_dir in task_dirs:
-        lab_task_id = _relative_posix(task_dir, tasks_root)
-        staging = solver.parent / f".harvey-lab-staging-{uuid4().hex}"
-        try:
-            classified = classify_harvey_lab_task(
-                task_dir,
-                lab_root=source,
-                staging_root=staging,
+    snapshot_root: Path | None = None
+    if applied_pin == issue_196_pin():
+        _verify_source_pin(source, applied_pin)
+        snapshot_root = _archive_pinned_source(source)
+        source = snapshot_root
+    try:
+        tasks_root = source / "tasks"
+        if not tasks_root.is_dir():
+            raise HarveyLabProjectionError(f"LAB root is missing tasks/: {tasks_root}")
+        selected = _selected_lab_task_ids(lab_task_ids)
+        task_dirs = _discover_task_directories(tasks_root)
+        if selected is not None:
+            discovered = {_relative_posix(path, tasks_root) for path in task_dirs}
+            missing = sorted(selected - discovered)
+            if missing:
+                joined = ", ".join(missing)
+                raise HarveyLabProjectionError(
+                    f"Harvey LAB task id(s) were not found: {joined}"
+                )
+            task_dirs = [
+                path
+                for path in task_dirs
+                if _relative_posix(path, tasks_root) in selected
+            ]
+        if not task_dirs:
+            raise HarveyLabProjectionError(
+                "no Harvey LAB tasks matched the projection"
             )
-            solver_dest = solver / "tasks" / lab_task_id
-            private_dest = private / "tasks" / lab_task_id
-            _ensure_parent_directory(solver_dest)
-            _ensure_parent_directory(private_dest)
+        solver = _fresh_root(solver_root, "solver projection root")
+        private = _fresh_root(evaluator_private_root, "evaluator-private root")
+        _require_disjoint(solver, private)
+        projected_tasks: list[HarveyLabTaskProjection] = []
+        for task_dir in task_dirs:
+            lab_task_id = _relative_posix(task_dir, tasks_root)
+            staging = solver.parent / f".harvey-lab-staging-{uuid4().hex}"
             try:
-                materialization = materialize_separated_task(
-                    classified.task,
-                    source_root=classified.staging_root,
-                    solver_root=solver_dest,
-                    evaluator_private_root=private_dest,
-                    layout=solver_visible_layout(classified),
-                    limits=limits,
+                classified = classify_harvey_lab_task(
+                    task_dir,
+                    lab_root=source,
+                    staging_root=staging,
                 )
-            except (MaterialSeparationError, TaskMaterializationError) as exc:
-                raise HarveyLabProjectionError(str(exc)) from exc
-            record = HarveyLabProjectedTask(
-                task_id=classified.task.task_id,
-                lab_task_id=classified.lab_task_id,
-                category=classified.category,
-                relative_path=f"tasks/{classified.lab_task_id}",
-                task_sha256=classified.task.task_sha256,
-                expected_deliverable=classified.expected_deliverable,
-                files=classified.projected_files,
-            )
-            projected_tasks.append(
-                HarveyLabTaskProjection(
-                    record=record,
-                    materialization=materialization,
+                solver_dest = solver / "tasks" / lab_task_id
+                private_dest = private / "tasks" / lab_task_id
+                _ensure_parent_directory(solver_dest)
+                _ensure_parent_directory(private_dest)
+                try:
+                    materialization = materialize_separated_task(
+                        classified.task,
+                        source_root=classified.staging_root,
+                        solver_root=solver_dest,
+                        evaluator_private_root=private_dest,
+                        layout=solver_visible_layout(classified),
+                        limits=limits,
+                    )
+                except (MaterialSeparationError, TaskMaterializationError) as exc:
+                    raise HarveyLabProjectionError(str(exc)) from exc
+                record = HarveyLabProjectedTask(
+                    task_id=classified.task.task_id,
+                    lab_task_id=classified.lab_task_id,
+                    category=classified.category,
+                    relative_path=f"tasks/{classified.lab_task_id}",
+                    task_sha256=classified.task.task_sha256,
+                    expected_deliverable=classified.expected_deliverable,
+                    files=classified.projected_files,
                 )
-            )
-        finally:
-            _remove_tree(staging)
-    manifest = _write_root_manifest(
-        solver,
-        pin=applied_pin,
-        tasks=tuple(item.record for item in projected_tasks),
-    )
-    scan_projection_for_private_markers(solver)
-    _require_disjoint(solver, private)
-    return HarveyLabProjectionResult(
-        solver_root=solver,
-        evaluator_private_root=private,
-        manifest=manifest,
-        tasks=tuple(projected_tasks),
-    )
+                projected_tasks.append(
+                    HarveyLabTaskProjection(
+                        record=record,
+                        materialization=materialization,
+                    )
+                )
+            finally:
+                _remove_tree(staging)
+        manifest = _write_root_manifest(
+            solver,
+            pin=applied_pin,
+            tasks=tuple(item.record for item in projected_tasks),
+        )
+        scan_projection_for_private_markers(solver)
+        _require_disjoint(solver, private)
+        return HarveyLabProjectionResult(
+            solver_root=solver,
+            evaluator_private_root=private,
+            manifest=manifest,
+            tasks=tuple(projected_tasks),
+        )
+    finally:
+        if snapshot_root is not None:
+            _remove_tree(snapshot_root)
 
 
 def load_harvey_lab_projection_manifest(
@@ -891,8 +905,13 @@ def _regular_files(root: Path) -> tuple[Path, ...]:
             raise HarveyLabProjectionError(
                 f"Harvey LAB documents/ must not contain symlinks: {path.name}"
             )
-        if path.is_file():
-            files.append(path)
+        if path.is_dir():
+            continue
+        if not path.is_file():
+            raise HarveyLabProjectionError(
+                f"Harvey LAB documents/ contains an unsupported entry: {path.name}"
+            )
+        files.append(path)
     return tuple(files)
 
 
@@ -1001,6 +1020,48 @@ def verify_harvey_lab_source_pin(source_root: Path, pin: HarveyLabPin) -> None:
     """Authenticate a LAB checkout against the recorded pin when it is official."""
 
     _verify_source_pin(_existing_directory(source_root, "LAB source root"), pin)
+
+
+def _archive_pinned_source(source: Path) -> Path:
+    git_root = Path(
+        _git_output(source, "rev-parse", "--show-toplevel").strip()
+    ).resolve(strict=True)
+    lab_root = source.resolve(strict=True)
+    try:
+        lab_relative = lab_root.relative_to(git_root)
+    except ValueError as exc:
+        raise HarveyLabProjectionError(
+            "LAB source is not contained by its Git worktree"
+        ) from exc
+    treeish = "HEAD" if not lab_relative.parts else f"HEAD:{lab_relative.as_posix()}"
+    destination = Path(tempfile.mkdtemp(prefix="lfb-lab-pin-"))
+    try:
+        archived = subprocess.run(
+            ["git", "-C", str(git_root), "archive", "--format=tar", treeish],
+            capture_output=True,
+            timeout=30,
+            check=False,
+            env=_git_subprocess_environment(),
+        )
+        if archived.returncode != 0:
+            raise HarveyLabProjectionError(
+                "could not export the pinned LAB Git tree"
+            )
+        extracted = subprocess.run(
+            ["tar", "-x", "-C", str(destination)],
+            input=archived.stdout,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        if extracted.returncode != 0:
+            raise HarveyLabProjectionError(
+                "could not export the pinned LAB Git tree"
+            )
+        return destination
+    except (OSError, subprocess.TimeoutExpired, HarveyLabProjectionError):
+        _remove_tree(destination)
+        raise
 
 
 def _verify_source_pin(source: Path, pin: HarveyLabPin) -> None:

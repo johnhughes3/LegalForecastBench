@@ -17,7 +17,7 @@ import shutil
 import stat
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -169,8 +169,10 @@ def invoke_isolated_harvey_lab_evaluator(
     _require_evaluator_source_pin(hosts, identity)
     _require_projected_identity(hosts, identity)
     _require_sealed_identity(sealed_manifest, identity)
-    observed_wrapper = _resolved_wrapper_digest(
-        evaluator_command, execution_service.parent_env
+    observed_wrapper, wrapper_dir = _pin_wrapper_executable(
+        evaluator_command,
+        execution_service.parent_env,
+        hosts.working_directory,
     )
     expected_wrapper = _require_prefixed(identity.wrapper_sha256, "wrapper_sha256")
     if observed_wrapper != expected_wrapper:
@@ -184,9 +186,21 @@ def invoke_isolated_harvey_lab_evaluator(
         evaluator_command=evaluator_command,
         timeout_seconds=timeout_seconds,
     )
+    pinned_env = dict(
+        os.environ
+        if execution_service.parent_env is None
+        else execution_service.parent_env
+    )
+    pinned_env["PATH"] = (
+        f"{wrapper_dir}{os.pathsep}{pinned_env.get('PATH') or '/usr/bin'}"
+    )
+    try:
+        pinned_service = replace(execution_service, parent_env=pinned_env)
+    except TypeError:
+        pinned_service = execution_service
     started_monotonic = _monotonic_ns()
     started_at = datetime.now(UTC)
-    execution = execution_service.execute(spec)
+    execution = pinned_service.execute(spec)
     ended_monotonic = _monotonic_ns()
     ended_at = datetime.now(UTC)
     if execution.status != "succeeded" or execution.returncode not in {0, None}:
@@ -204,6 +218,7 @@ def invoke_isolated_harvey_lab_evaluator(
         sealed_manifest=sealed_manifest,
         identity=identity,
         private_material_sha256=str(stdin_record["private_material_sha256"]),
+        wrapper_sha256=observed_wrapper,
         raw_result=raw_result,
     )
     receipt = build_evaluation_receipt(
@@ -398,12 +413,14 @@ def _evaluation_spec(
     sealed_manifest: DeliverableManifest,
     identity: HarveyLabEvaluationIdentity,
     private_material_sha256: str,
+    wrapper_sha256: str,
     raw_result: bytes,
 ) -> EvaluationSpec:
     pin = identity.pin
     private_digest = _require_prefixed(
         private_material_sha256, "private_material_sha256"
     )
+    launched_wrapper = _require_prefixed(wrapper_sha256, "wrapper_sha256")
     policy = _prefixed_json(
         {
             "containment": "posix_process_group.v1",
@@ -424,10 +441,10 @@ def _evaluation_spec(
         evaluator_commit=pin.commit,
         evaluator_tree=pin.tree,
         evaluator_file_manifest_sha256=_prefixed_json(
-            {"pin": pin.to_record(), "wrapper_sha256": identity.wrapper_sha256}
+            {"pin": pin.to_record(), "wrapper_sha256": launched_wrapper}
         ),
         evaluator_image_digest=_prefixed_json({"kind": "fixture-cli"}),
-        wrapper_sha256=_require_prefixed(identity.wrapper_sha256, "wrapper_sha256"),
+        wrapper_sha256=launched_wrapper,
         private_material_sha256=private_digest,
         rubric_sha256=private_digest,
         criteria_sha256=private_digest,
@@ -626,6 +643,29 @@ def _require_sealed_identity(
             raise HarveyLabEvaluationError(
                 f"sealed deliverable {field_name} does not match evaluation identity"
             )
+
+
+def _pin_wrapper_executable(
+    command: str,
+    parent_env: Mapping[str, str] | None,
+    working_directory: Path,
+) -> tuple[str, Path]:
+    env = dict(os.environ if parent_env is None else parent_env)
+    search_path = env.get("PATH") or "/usr/bin"
+    located = shutil.which(command, path=search_path)
+    if located is None:
+        raise HarveyLabEvaluationError("evaluator command is not on PATH")
+    payload = _read_regular_file(Path(located))
+    working_directory.mkdir(parents=True, exist_ok=True)
+    wrapper_dir = working_directory / ".harvey-lab-wrapper"
+    if wrapper_dir.exists() or wrapper_dir.is_symlink():
+        raise HarveyLabEvaluationError("wrapper pin directory must be absent")
+    wrapper_dir.mkdir()
+    destination = wrapper_dir / command
+    destination.write_bytes(payload)
+    mode = destination.stat().st_mode
+    destination.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return _prefixed_digest(payload), wrapper_dir
 
 
 def _resolved_wrapper_digest(command: str, parent_env: Mapping[str, str] | None) -> str:

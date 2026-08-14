@@ -281,6 +281,21 @@ def test_symlink_in_projection_fails_verification(tmp_path: Path) -> None:
         scan_projection_for_private_markers(result.solver_root)
 
 
+def test_fifo_in_source_documents_is_rejected(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    os.mkfifo(source / "tasks" / ISSUE_196_LAB_TASK_ID / "documents" / "pipe")
+    with pytest.raises(
+        HarveyLabProjectionError,
+        match="unsupported entry",
+    ):
+        project_harvey_lab_suite(
+            source_root=source,
+            solver_root=tmp_path / "solver",
+            evaluator_private_root=tmp_path / "private",
+            pin=FIXTURE_PIN,
+        )
+
+
 def test_fifo_in_projection_fails_verification(tmp_path: Path) -> None:
     source = _issue_196_source(tmp_path / "lab")
     result = project_harvey_lab_suite(
