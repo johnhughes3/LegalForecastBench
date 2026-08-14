@@ -25,7 +25,10 @@ from legalforecast.multiharness.validation import (
 )
 
 PROJECTED_LAYOUT_MANIFEST_NAME = "projection-manifest.json"
-PROJECTED_LAYOUT_SCHEMA_VERSION = "legalforecast.multiharness.projected_task_layout.v1"
+PROJECTED_LAYOUT_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative projected-layout sidecar
+    "legalforecast.multiharness.projected_task_layout.v1"
+)
 _TASK_FILE_NAMES = frozenset({"task.json", "task.md", "prompt.txt"})
 
 

@@ -24,7 +24,10 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-PROGRESS_JOURNAL_SCHEMA_VERSION = "legalforecast.multiharness.run_progress_journal.v1"
+PROGRESS_JOURNAL_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative progress-journal sidecar
+    "legalforecast.multiharness.run_progress_journal.v1"
+)
 JOURNAL_FILENAME = "run-progress.json"
 COVERAGE_FULL = "full"
 COVERAGE_SCOPED = "scoped"
@@ -354,6 +357,7 @@ def _journal_sha256(payload: Mapping[str, Any]) -> str:
     return _prefixed_sha256(dict(payload))
 
 
+# contract-ratchet: allow non-persisted sidecar journal digest
 def _prefixed_sha256(record: Mapping[str, Any]) -> str:
     encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"

@@ -1249,7 +1249,10 @@ def _selection_manifest_record(
     if claim_kind == CLAIM_PARTIAL and CLAIM_PARTIAL not in selection_label:
         selection_label = f"{CLAIM_PARTIAL}+{selection_label}"
     return {
-        "schema_version": "legalforecast.multiharness.selection_manifest.v1",
+        "schema_version": (
+            # contract-ratchet: allow non-authoritative selection-manifest sidecar
+            "legalforecast.multiharness.selection_manifest.v1"
+        ),
         "selection_sha256": selection.selection_sha256,
         "selection_label": selection_label,
         "coverage_kind": selection.coverage_kind,
