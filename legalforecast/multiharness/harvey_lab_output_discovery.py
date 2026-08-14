@@ -458,6 +458,7 @@ def _quarantine_extras(
 ) -> list[HarveyLabQuarantinedFile]:
     quarantined: list[HarveyLabQuarantinedFile] = []
     if not extras:
+        _clear_directory(quarantine_root)
         return quarantined
     _reset_directory(quarantine_root)
     for extra in extras:
@@ -540,6 +541,23 @@ def _copy_regular_file(
                             )
                         digest.update(chunk)
                         destination_handle.write(chunk)
+            final = os.fstat(source_fd)
+            if (
+                final.st_ino != expected_stat.st_ino
+                or final.st_dev != expected_stat.st_dev
+                or final.st_size != expected_stat.st_size
+                or final.st_size != size_bytes
+            ):
+                raise HarveyLabOutputDiscoveryError(
+                    f"output changed while copying: {source_relative}",
+                    code=HarveyLabOutputErrorCode.LAYOUT,
+                )
+            destination_stat = os.fstat(destination_fd)
+            if destination_stat.st_size != size_bytes:
+                raise HarveyLabOutputDiscoveryError(
+                    f"output changed while copying: {source_relative}",
+                    code=HarveyLabOutputErrorCode.LAYOUT,
+                )
             return "sha256:" + digest.hexdigest(), size_bytes
         except HarveyLabOutputDiscoveryError:
             _unlink_relative(destination_root, destination_relative)
@@ -585,24 +603,34 @@ def _reject_escape_watch(
 ) -> None:
     for raw in watch_roots:
         watch = raw if raw.is_absolute() else Path.cwd() / raw
-        resolved = watch.resolve(strict=False)
+        if watch.is_symlink():
+            raise HarveyLabOutputDiscoveryError(
+                "escape watch root must not be a symlink",
+                code=HarveyLabOutputErrorCode.SYMLINK,
+            )
+        if not watch.exists():
+            continue
+        if not watch.is_dir():
+            raise HarveyLabOutputDiscoveryError(
+                "escape watch root must be a real directory",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            )
+        resolved = watch.resolve(strict=True)
         if _is_inside(resolved, sandbox) or _is_inside(sandbox, resolved):
             raise HarveyLabOutputDiscoveryError(
                 "escape watch root must be disjoint from the sandbox",
                 code=HarveyLabOutputErrorCode.LAYOUT,
             )
-        if not resolved.exists():
-            continue
-        if resolved.is_symlink():
-            raise HarveyLabOutputDiscoveryError(
-                "escape watch root must not be a symlink",
-                code=HarveyLabOutputErrorCode.SYMLINK,
-            )
-        if any(resolved.iterdir()):
-            raise HarveyLabOutputDiscoveryError(
-                "solver wrote outside its sandbox",
-                code=HarveyLabOutputErrorCode.SANDBOX_ESCAPE,
-            )
+        watch_fd = _open_directory(watch, "escape watch root")
+        try:
+            with os.scandir(watch_fd) as iterator:
+                if any(True for _ in iterator):
+                    raise HarveyLabOutputDiscoveryError(
+                        "solver wrote outside its sandbox",
+                        code=HarveyLabOutputErrorCode.SANDBOX_ESCAPE,
+                    )
+        finally:
+            os.close(watch_fd)
 
 
 def _require_disjoint(roots: Sequence[Path]) -> None:
@@ -646,11 +674,16 @@ def _real_directory(path: Path, field_name: str) -> Path:
     return path.resolve(strict=True)
 
 
-def _reset_directory(path: Path) -> None:
+def _clear_directory(path: Path) -> None:
     if path.is_symlink() or path.is_file():
         path.unlink()
-    elif path.exists():
+        return
+    if path.exists():
         shutil.rmtree(path)
+
+
+def _reset_directory(path: Path) -> None:
+    _clear_directory(path)
     parent = path.parent
     parent.mkdir(parents=True, exist_ok=True)
     parent_fd = _open_directory(parent, "destination parent")

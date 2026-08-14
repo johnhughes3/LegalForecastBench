@@ -262,6 +262,49 @@ def test_sandbox_escape_watch_is_a_finding_not_a_score(tmp_path: Path) -> None:
     assert not (tmp_path / "sealed").exists()
 
 
+def test_escape_watch_symlink_root_is_typed(tmp_path: Path) -> None:
+    real = tmp_path / "real-watch"
+    real.mkdir()
+    (real / "escaped.txt").write_text("solver escaped", encoding="utf-8")
+    link = tmp_path / "watch-link"
+    link.symlink_to(real)
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        _discover(tmp_path, escape_watch=link)
+    assert caught.value.code == HarveyLabOutputErrorCode.SYMLINK
+    assert not (tmp_path / "sealed").exists()
+
+
+def test_leftover_quarantine_is_cleared_when_no_extras(tmp_path: Path) -> None:
+    leftover = tmp_path / "quarantine"
+    leftover.mkdir()
+    (leftover / "old.txt").write_bytes(b"stale")
+    result = _discover(tmp_path)
+    assert result.quarantined == ()
+    assert not leftover.exists()
+
+
+def test_copy_rejects_source_mutated_after_stat(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    source_root.mkdir()
+    source = source_root / "scratch.txt"
+    source.write_bytes(b"x")
+    snapshot = source.stat()
+    source.write_bytes(b"xy")
+    dest_root = tmp_path / "dest"
+    dest_root.mkdir()
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        _copy_regular_file(
+            source_root,
+            "scratch.txt",
+            destination_root=dest_root,
+            destination_relative="scratch.txt",
+            expected_stat=snapshot,
+            max_bytes=100,
+        )
+    assert caught.value.code == HarveyLabOutputErrorCode.LAYOUT
+    assert not (dest_root / "scratch.txt").exists()
+
+
 def test_solver_and_evaluator_roots_must_not_overlap(tmp_path: Path) -> None:
     sandbox = tmp_path / "sandbox"
     output = sandbox / "output"
