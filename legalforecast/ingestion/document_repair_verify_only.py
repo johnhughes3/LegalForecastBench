@@ -171,8 +171,7 @@ def _verify_pilot_operation_bytes(
                 )
         elif disposition in {"provider_error", "unknown"}:
             raise DocumentRepairVerifyOnlyError(
-                "repair execution has nonterminal outcomes and cannot "
-                "verify-only seal"
+                "repair execution has nonterminal outcomes and cannot verify-only seal"
             )
         else:
             raise DocumentRepairVerifyOnlyError(
