@@ -1,4 +1,16 @@
-"""Harvey LAB CLI bridge adapter."""
+"""Harvey LAB CLI bridge adapter.
+
+This module is the *old* fixture-oriented command bridge. It assumes
+``--lab-root`` / ``--output-dir`` and materializes mixed-boundary ``task.json``
+into the solver workspace. GitHub #48 and the pinned evaluator-seam
+characterization showed that the current upstream CLI does not expose those
+flags and that run vs evaluate are separate commands.
+
+Live-bridge code lives in ``harvey_lab_projection`` (solver-visible
+projection) and ``harvey_lab_evaluator`` (isolated evaluate_run overlay).
+Keep this adapter only as the fixture-CLI compatibility shim used by existing
+runner tests; do not promote it as the pinned LAB invocation contract.
+"""
 
 from __future__ import annotations
 
