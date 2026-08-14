@@ -75,6 +75,7 @@ def test_published_api_key_layout_names_wrapper_path_and_keys() -> None:
     assert layout["wrapper"] == INFISICAL_WRAPPER_NAME
     assert layout["infisical_path"] == LABELING_INFISICAL_PATH
     assert layout["canonical_environment"] == "dev"
+    assert layout["production_source"] == "github-environment"
     assert layout["fail_closed_when_empty"] is True
     assert layout["host_environment_fallback"] is False
     keys = {(item["executable"], item["name"]) for item in layout["infisical_keys"]}
@@ -93,6 +94,7 @@ def test_published_api_key_layout_names_wrapper_path_and_keys() -> None:
     assert "ANTHROPIC_API_KEY" in docs
     assert "OPENAI_API_KEY" in docs
     assert "`dev`" in docs
+    assert "GitHub Environment" in docs
     docs = (
         Path(__file__).resolve().parents[1]
         / "docs"

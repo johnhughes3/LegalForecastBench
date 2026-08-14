@@ -4,6 +4,10 @@ A run declares exactly one profile. Missing, ambiguous, or unknown values fail
 before credential fetch or process spawn. Profiles never substitute for each
 other, and ``fixture-none`` never reads credentials.
 
+Infisical is the sandbox source (canonical ``dev``). Production variables and
+secrets are GitHub Environment values; this module refuses Infisical
+``--env prod`` instead of reading them.
+
 Canonical IDs are consumed by B1 adapter manifests (``dm0g.4.4.1``). Do not add
 provider-specific aliases.
 """
@@ -137,6 +141,7 @@ def published_api_key_layout() -> dict[str, object]:
         "wrapper": INFISICAL_WRAPPER_NAME,
         "infisical_path": infisical_path_for_profile(PUBLISHED_API_KEY),
         "canonical_environment": "dev",
+        "production_source": "github-environment",
         "allowed_environments": list(sorted(ALLOWED_INFISICAL_ENVIRONMENTS)),
         "infisical_keys": [
             {"executable": basename, "name": name}
@@ -167,10 +172,17 @@ def infisical_path_for_profile(profile_id: str) -> str:
 
 
 def require_infisical_environment(value: str) -> str:
-    """Return a non-production Infisical environment name."""
+    """Return a non-production Infisical environment name.
+
+    Infisical is the sandbox source only. Production variables and secrets
+    live on protected GitHub Environments, not Infisical ``--env prod``.
+    """
 
     if value == "prod":
-        raise AuthProfileError("Infisical production environment is refused")
+        raise AuthProfileError(
+            "Infisical --env prod is refused; production variables and "
+            "secrets are GitHub Environment values, not Infisical"
+        )
     if value not in ALLOWED_INFISICAL_ENVIRONMENTS:
         raise AuthProfileError("Infisical environment is not an allowed sandbox stage")
     return value

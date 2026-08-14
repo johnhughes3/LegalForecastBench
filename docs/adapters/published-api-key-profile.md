@@ -12,7 +12,7 @@ This is the portable provider-billed local-CLI profile (`LegalForecastBench-dm0g
 | Path | `/agents/sandbox/legalforecastbench/labeling` |
 | Canonical `--env` | `dev` |
 | Also allowed `--env` | `staging`, `sandbox` |
-| Refused `--env` | `prod` |
+| Refused `--env` | `prod` — production variables and secrets are GitHub Environments, not Infisical |
 | Projected secret names | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` |
 
 This profile **reuses the existing labeling stage view**. It does not use, and must not duplicate keys into, `/agents/sandbox/legalforecastbench/harness-runtime/published-api-key`.
@@ -38,10 +38,15 @@ Agents must not write secret values. The keys already live on the labeling path.
 
 Do not copy those values into a second Infisical folder, the host environment, `auth.json`, or the repo.
 
+## Production is GitHub Environments, not Infisical
+
+Official production variables and secrets are stored on protected GitHub Environments. The closed inventories are `infra/official-labeling/github-environments.json` and `infra/official-eval/github-environments.json`. This local-CLI profile never reads those environments and never passes `--env prod` to `infisical-agent-sandbox`. Infisical is the sandbox source only (`dev`, or `staging`/`sandbox` if explicitly selected).
+
 ## Fail-closed behavior
 
 - Missing, empty, or 404 path: no spawn, no spend, no host-environment fallback.
 - Wrapper identity other than `infisical-agent-sandbox`: refused.
+- Infisical `--env prod`: refused. Production is GitHub Environments.
 - Projected value equal to the same name in the parent shell: refused (no ambient fallback).
 - Extra names returned by the wrapper: refused.
 - Public receipts, task bytes, and packages record only `auth_profile: published-api-key`. They never record the Infisical path, account, or key material.

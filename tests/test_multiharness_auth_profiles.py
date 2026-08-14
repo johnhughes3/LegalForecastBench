@@ -77,6 +77,7 @@ def test_credentialed_profiles_use_declared_infisical_paths() -> None:
     layout = published_api_key_layout()
     assert layout["infisical_path"] == LABELING_INFISICAL_PATH
     assert layout["canonical_environment"] == "dev"
+    assert layout["production_source"] == "github-environment"
     assert "GEMINI_API_KEY" not in str(layout)
 
 
@@ -101,9 +102,9 @@ def test_profiles_cannot_silently_substitute() -> None:
 
 
 def test_production_infisical_environment_is_refused() -> None:
-    with pytest.raises(AuthProfileError, match="production"):
+    with pytest.raises(AuthProfileError, match="GitHub Environment"):
         require_infisical_environment("prod")
-    with pytest.raises(AuthProfileError):
+    with pytest.raises(AuthProfileError, match="GitHub Environment"):
         resolve_auth_profile(
             PUBLISHED_API_KEY,
             supported_profiles=(PUBLISHED_API_KEY,),
