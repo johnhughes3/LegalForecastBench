@@ -20,13 +20,15 @@ from legalforecast.document_need.artifact import (
     project_purchase_ceiling,
     replay_selection_artifact,
 )
-from legalforecast.document_need.costs import price_case, price_document
+from legalforecast.document_need.costs import CaseCosts, price_case, price_document
 from legalforecast.document_need.cycle_config import (
+    CaseMixStratification,
     DocumentNeedConfigError,
     document_need_view_from_cycle_config,
+    format_usd,
 )
 from legalforecast.document_need.protocol import MergedCaseBuckets
-from legalforecast.document_need.ranking import rank_cases
+from legalforecast.document_need.ranking import RankedCase, admit_cheapest, rank_cases
 from legalforecast.document_need.types import (
     Chronology,
     ChronologyEntry,
@@ -355,6 +357,106 @@ def test_stratification_quota_is_frozen_against_pass1_admitted_size() -> None:
     assert ranked[0].admitted is True
     assert ranked[1].admitted is False
     assert ranked[1].reject_reason == "stratification_bottom_decile_cap"
+
+
+def test_bottom_decile_share_is_revalidated_when_backfill_cannot_restore_n() -> None:
+    """When extras drop 10→9 and backfill misses, final share must still be <= cap.
+
+    Pass-1 quota stays frozen so a successful backfill can keep one bottom in
+    ten. After backfill, revalidate against the final admitted size without
+    repeating that 10→9→0 cascade during the first drop.
+    """
+
+    pairs = [
+        _case(f"c{index:02d}", required_pages=5 + index, conditional_pages=5)
+        for index in range(20)
+    ]
+    chronologies = tuple(pair[0] for pair in pairs)
+    merged = tuple(pair[1] for pair in pairs)
+    measured = build_selection_artifact(
+        config=activated_haiku_config(
+            spend=SpendCeiling(
+                hard_cap_usd=usd("999.00"), max_per_case_usd=usd("999.00")
+            )
+        ),
+        chronologies=chronologies,
+        merged=merged,
+        cohort_target_n=10,
+    )
+    first_ten = [row for row in measured.cases if row.admitted]
+    assert len(first_ten) == 10
+    ceiling = sum((row.ranked.max_cost for row in first_ten), Decimal("0.00"))
+    ceiling_text = format_usd(ceiling)
+    artifact = build_selection_artifact(
+        config=activated_haiku_config(
+            spend=SpendCeiling(
+                hard_cap_usd=usd(ceiling_text), max_per_case_usd=usd(ceiling_text)
+            ),
+            stratification=StratificationPolicy(
+                enabled=True, bottom_decile_share_cap=usd("0.10")
+            ),
+        ),
+        chronologies=chronologies,
+        merged=merged,
+        cohort_target_n=10,
+    )
+    admitted = [row for row in artifact.cases if row.admitted]
+    ranked_bottoms = [row for row in artifact.cases if row.ranked.bottom_decile]
+    eleventh = next(row for row in measured.cases if row.ranked.cost_rank == 11)
+    expected = {
+        row.ranked.candidate_id for row in first_ten if not row.ranked.bottom_decile
+    }
+    expected.add(eleventh.ranked.candidate_id)
+    assert {row.ranked.candidate_id for row in admitted} == expected
+    assert len(ranked_bottoms) == 2
+    assert all(row.admitted is False for row in ranked_bottoms)
+    assert all(
+        row.reject_reason == "stratification_bottom_decile_cap"
+        for row in ranked_bottoms
+    )
+    share = Decimal(sum(1 for row in admitted if row.ranked.bottom_decile)) / Decimal(
+        len(admitted)
+    )
+    assert share <= Decimal("0.10")
+
+
+def test_bottom_decile_share_is_revalidated_until_stable() -> None:
+    """A second failed backfill must not leave 1/9 over a 10% cap.
+
+    Codex P1 on PR 741: 191 candidates costing 1..191, target 20, cap 0.10,
+    spend 210. One revalidation pass still left rank 1 among nine admissions.
+    """
+
+    ranked = tuple(
+        RankedCase(
+            costs=CaseCosts(
+                candidate_id=f"r{rank:03d}",
+                min_cost=Decimal(rank),
+                max_cost=Decimal(rank),
+                entries=(),
+                restricted_required=False,
+            ),
+            cost_rank=rank,
+            bottom_decile=rank <= 20,
+        )
+        for rank in range(1, 192)
+    )
+    decisions = admit_cheapest(
+        ranked,
+        target_n=20,
+        spend_ceiling=Decimal("210"),
+        max_per_case=Decimal("210"),
+        stratification=CaseMixStratification(
+            enabled=True, bottom_decile_share_cap=Decimal("0.10")
+        ),
+    )
+    admitted = [row for row in decisions if row.admitted]
+    assert admitted
+    share = Decimal(sum(1 for row in admitted if row.ranked.bottom_decile)) / Decimal(
+        len(admitted)
+    )
+    assert share <= Decimal("0.10")
+    assert all(not row.ranked.bottom_decile for row in admitted)
 
 
 def test_max_per_case_ceiling_rejects_over_limit_case() -> None:

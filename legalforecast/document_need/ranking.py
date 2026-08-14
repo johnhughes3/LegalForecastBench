@@ -93,10 +93,11 @@ def admit_cheapest(
 ) -> tuple[AdmissionDecision, ...]:
     """Admit cheapest cases up to the cohort target and spend ceilings.
 
-    When stratification is enabled, bottom-decile share is measured against the
-    *admitted* cohort: extra cheapest bottom-decile cases are dropped until
-    ``floor(len(admitted) * cap)`` is respected, then non-bottom cases may
-    backfill remaining target/spend room.
+    When stratification is enabled, extra bottom-decile cases are dropped in
+    one shot against the *pass-1* admitted size so shrinking 10→9 cannot
+    cascade the quota to 0 before backfill. After each drop+backfill, the
+    share is revalidated against the new admitted size until it is within
+    the cap or the admitted set stops changing.
     """
 
     if type(target_n) is not int or target_n <= 0:
@@ -173,16 +174,86 @@ def _apply_bottom_decile_cap(
     max_per_case: Decimal | None,
     cap: Decimal,
 ) -> tuple[list[RankedCase], Decimal, dict[str, str | None]]:
-    original_n = len(admitted)
-    quota = _bottom_decile_quota(original_n, cap)
+    quota = _bottom_decile_quota(len(admitted), cap)
+    while admitted:
+        before = tuple(case.candidate_id for case in admitted)
+        admitted, spent, reasons = _enforce_bottom_decile_quota(
+            ranked,
+            admitted,
+            spent=spent,
+            reasons=reasons,
+            target_n=target_n,
+            spend_ceiling=spend_ceiling,
+            max_per_case=max_per_case,
+            quota=quota,
+        )
+        # Freeze quota for this drop+backfill pair so 10→9 cannot cascade to 0
+        # before backfill. Recompute only after backfill, from the new N.
+        if _bottom_decile_share(admitted) <= cap:
+            break
+        after = tuple(case.candidate_id for case in admitted)
+        if after == before:
+            break
+        quota = _bottom_decile_quota(len(admitted), cap)
+    return admitted, spent, reasons
+
+
+def _enforce_bottom_decile_quota(
+    ranked: Sequence[RankedCase],
+    admitted: list[RankedCase],
+    *,
+    spent: Decimal,
+    reasons: dict[str, str | None],
+    target_n: int,
+    spend_ceiling: Decimal | None,
+    max_per_case: Decimal | None,
+    quota: int,
+) -> tuple[list[RankedCase], Decimal, dict[str, str | None]]:
+    admitted, spent, reasons = _drop_extra_bottoms(
+        admitted, spent=spent, reasons=reasons, quota=quota
+    )
+    return _backfill_admitted(
+        ranked,
+        admitted,
+        spent=spent,
+        reasons=reasons,
+        target_n=target_n,
+        spend_ceiling=spend_ceiling,
+        max_per_case=max_per_case,
+        quota=quota,
+    )
+
+
+def _drop_extra_bottoms(
+    admitted: list[RankedCase],
+    *,
+    spent: Decimal,
+    reasons: dict[str, str | None],
+    quota: int,
+) -> tuple[list[RankedCase], Decimal, dict[str, str | None]]:
     bottoms = [case for case in admitted if case.bottom_decile]
     extra = bottoms[quota:]
     drop_ids = {case.candidate_id for case in extra}
-    if drop_ids:
-        admitted = [case for case in admitted if case.candidate_id not in drop_ids]
-        spent = sum((case.max_cost for case in admitted), _ZERO)
-        for case in extra:
-            reasons[case.candidate_id] = "stratification_bottom_decile_cap"
+    if not drop_ids:
+        return admitted, spent, reasons
+    remaining = [case for case in admitted if case.candidate_id not in drop_ids]
+    spent = sum((case.max_cost for case in remaining), _ZERO)
+    for case in extra:
+        reasons[case.candidate_id] = "stratification_bottom_decile_cap"
+    return remaining, spent, reasons
+
+
+def _backfill_admitted(
+    ranked: Sequence[RankedCase],
+    admitted: list[RankedCase],
+    *,
+    spent: Decimal,
+    reasons: dict[str, str | None],
+    target_n: int,
+    spend_ceiling: Decimal | None,
+    max_per_case: Decimal | None,
+    quota: int,
+) -> tuple[list[RankedCase], Decimal, dict[str, str | None]]:
     admitted_ids = {case.candidate_id for case in admitted}
     for case in ranked:
         if len(admitted) >= target_n:
@@ -221,6 +292,13 @@ def _bottom_decile_quota(cohort_n: int, cap: Decimal) -> int:
     if cap <= 0:
         return 0
     return int(Decimal(cohort_n) * cap)
+
+
+def _bottom_decile_share(admitted: Sequence[RankedCase]) -> Decimal:
+    if not admitted:
+        return _ZERO
+    bottoms = sum(1 for case in admitted if case.bottom_decile)
+    return Decimal(bottoms) / Decimal(len(admitted))
 
 
 def provenance_record(decisions: Sequence[AdmissionDecision]) -> dict[str, object]:
