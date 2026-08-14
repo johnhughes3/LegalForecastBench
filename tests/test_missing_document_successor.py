@@ -76,6 +76,7 @@ def _observation(
     status: str = "acquired",
     cost: str = "0.00",
     markdown: str | None = "PLAINTIFF'S RESPONSE IN OPPOSITION TO MOTION",
+    source_document_id: str | None = None,
 ) -> AcquisitionObservation:
     payload = b"opposition-pdf"
     return AcquisitionObservation(
@@ -83,7 +84,8 @@ def _observation(
         docket_entry_number=entry,
         document_selector=document_selector,
         requested_role=requested_role,
-        source_document_id=(f"case-1-entry-{entry}-{document_selector}-{source_kind}"),
+        source_document_id=source_document_id
+        or (f"case-1-entry-{entry}-{document_selector}-{source_kind}"),
         source_kind=source_kind,
         status=status,
         cost_usd=Decimal(cost),
@@ -426,6 +428,18 @@ def _missing(
     }
 
 
+def _public_acquired(
+    evidence: dict[str, object], *, cost: str = "0.00"
+) -> dict[str, object]:
+    return {
+        **evidence,
+        "clearance_status": "cleared",
+        "is_private": False,
+        "is_sealed": False,
+        "cost_usd": cost,
+    }
+
+
 def _plan(manifest: bytes, *, cap: str = "453.00") -> Any:
     rows = [json.loads(line) for line in manifest.splitlines() if line]
     return build_missing_document_acquisition_plan(
@@ -586,16 +600,19 @@ def test_seal_requires_role_matching_bytes_before_inclusion() -> None:
         )
     )
     plan = _plan(manifest)
-    evidence = {
-        "candidate_id": "70754103",
-        "docket_entry_number": 1,
-        "document_role": "complaint",
-        "source_document_id": "70754103-entry-1",
-        "source": "pacer_purchase",
-        "sha256": hashlib.sha256(b"AO 440 summons").hexdigest(),
-        "byte_count": len(b"AO 440 summons"),
-        "document_bytes": b"AO 440 summons",
-    }
+    evidence = _public_acquired(
+        {
+            "candidate_id": "70754103",
+            "docket_entry_number": 1,
+            "document_role": "complaint",
+            "source_document_id": "70754103-entry-1",
+            "source": "pacer_purchase",
+            "sha256": hashlib.sha256(b"AO 440 summons").hexdigest(),
+            "byte_count": len(b"AO 440 summons"),
+            "document_bytes": b"AO 440 summons",
+        },
+        cost="3.00",
+    )
 
     with pytest.raises(MissingDocumentSuccessorError, match="role-byte mismatch"):
         seal_missing_document_successor(
@@ -620,16 +637,18 @@ def test_sealed_successor_has_complete_inclusion_exclusion_ledger() -> None:
     )
     plan = _plan(manifest)
     reply_bytes = b"reply to response"
-    evidence = {
-        "candidate_id": "70754103",
-        "docket_entry_number": 13,
-        "document_role": "reply",
-        "source_document_id": "70754103-entry-13",
-        "source": "courtlistener_free",
-        "sha256": hashlib.sha256(reply_bytes).hexdigest(),
-        "byte_count": len(reply_bytes),
-        "document_bytes": reply_bytes,
-    }
+    evidence = _public_acquired(
+        {
+            "candidate_id": "70754103",
+            "docket_entry_number": 13,
+            "document_role": "reply",
+            "source_document_id": "70754103-entry-13",
+            "source": "courtlistener_free",
+            "sha256": hashlib.sha256(reply_bytes).hexdigest(),
+            "byte_count": len(reply_bytes),
+            "document_bytes": reply_bytes,
+        }
+    )
 
     sealed = seal_missing_document_successor(
         plan=plan,
@@ -832,16 +851,18 @@ def test_seal_rejects_reused_source_document_id() -> None:
     reply = b"reply"
 
     def _evidence(entry: int, role: str, body: bytes) -> dict[str, object]:
-        return {
-            "candidate_id": "70754103",
-            "docket_entry_number": entry,
-            "document_role": role,
-            "source_document_id": "reused-id",
-            "source": "courtlistener_free",
-            "sha256": hashlib.sha256(body).hexdigest(),
-            "byte_count": len(body),
-            "document_bytes": body,
-        }
+        return _public_acquired(
+            {
+                "candidate_id": "70754103",
+                "docket_entry_number": entry,
+                "document_role": role,
+                "source_document_id": "reused-id",
+                "source": "courtlistener_free",
+                "sha256": hashlib.sha256(body).hexdigest(),
+                "byte_count": len(body),
+                "document_bytes": body,
+            }
+        )
 
     with pytest.raises(MissingDocumentSuccessorError, match="source document"):
         seal_missing_document_successor(
@@ -852,4 +873,97 @@ def test_seal_rejects_reused_source_document_id() -> None:
             ],
             exclusions=[],
             role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_plan_allows_zero_aggregate_ceiling_for_free_only_work() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair("70754103", missing=[_missing(13, "reply", free=1, paid=0)])
+    )
+
+    plan = _plan(manifest, cap="0.00")
+
+    assert plan.approved_maximum_usd == Decimal("0.00")
+    assert plan.projected_paid_cost_usd == Decimal("0.00")
+
+
+def test_plan_rejects_collapsed_multi_document_acquisition_rows() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair(
+            "70754103",
+            missing=[_missing(13, "reply", free=2, paid=0)],
+        )
+    )
+
+    with pytest.raises(MissingDocumentSuccessorError, match="multiple acquisition"):
+        _plan(manifest)
+
+
+def test_seal_refuses_uncleared_or_over_ceiling_paid_cost() -> None:
+    manifest = _plan_manifest_bytes(
+        _repair("70754103", missing=[_missing(12, "response", free=0, paid=1)])
+    )
+    plan = _plan(manifest)
+    body = b"opposition"
+    evidence = _public_acquired(
+        {
+            "candidate_id": "70754103",
+            "docket_entry_number": 12,
+            "document_role": "response",
+            "source_document_id": "70754103-entry-12",
+            "source": "pacer_purchase",
+            "sha256": hashlib.sha256(body).hexdigest(),
+            "byte_count": len(body),
+            "document_bytes": body,
+        },
+        cost="3.00",
+    )
+
+    with pytest.raises(MissingDocumentSuccessorError, match="clearance_status"):
+        seal_missing_document_successor(
+            plan=plan,
+            acquired_documents=[{**evidence, "clearance_status": "held"}],
+            exclusions=[],
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+    seal_missing_document_successor(
+        plan=plan,
+        acquired_documents=[{**evidence, "cost_usd": "2.99"}],
+        exclusions=[],
+        role_bytes_match=lambda _role, _body: True,
+    )
+
+    with pytest.raises(MissingDocumentSuccessorError, match="planned reservation"):
+        seal_missing_document_successor(
+            plan=plan,
+            acquired_documents=[{**evidence, "cost_usd": "3.01"}],
+            exclusions=[],
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_projector_refuses_accumulated_pacer_spend_over_slot_ceiling() -> None:
+    manifest = _manifest_bytes(free_count=0, cost=3.0)
+
+    with pytest.raises(MissingDocumentSuccessorError, match="approved cost ceiling"):
+        project_missing_document_successor(
+            base_selection=_base_selection(),
+            manifest_bytes=manifest,
+            approval=_approval(manifest),
+            acquisitions=(
+                _observation(source_kind="free", status="unavailable"),
+                _observation(
+                    source_kind="pacer",
+                    cost="2.00",
+                    status="unavailable",
+                    markdown=None,
+                    source_document_id="case-1-pacer-attempt-1",
+                ),
+                _observation(
+                    source_kind="pacer",
+                    cost="2.00",
+                    source_document_id="case-1-pacer-attempt-2",
+                ),
+            ),
         )

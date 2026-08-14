@@ -9,7 +9,6 @@ from typing import Any
 
 import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import main
 from legalforecast.unitization.review import (
     canonical_sha256,
     require_finalized_envelopes,
@@ -26,7 +25,7 @@ def test_apply_unitizer_terminal_review_replays_raw_partitions_and_exact_text(
     _stub_authenticated_lineage(monkeypatch, fixture)
     journal_before = fixture["journal"].read_bytes()
 
-    assert main(_argv(fixture, tmp_path / "applied")) == 0
+    assert cli.main(_argv(fixture, tmp_path / "applied")) == 0
 
     finalized_path = tmp_path / "applied/finalized-prediction-units.jsonl"
     finalized = _read_jsonl(finalized_path)
@@ -90,7 +89,7 @@ def test_terminal_successor_rejects_citation_drift_and_candidate_exclusion(
         "A different claim."
     )
     _write_jsonl(fixture["terminal_adjudications"], adjudications)
-    assert main(_argv(fixture, tmp_path / "bad-citation")) == 2
+    assert cli.main(_argv(fixture, tmp_path / "bad-citation")) == 2
 
     fixture = _fixture(tmp_path / "exclude")
     _stub_authenticated_lineage(monkeypatch, fixture)
@@ -99,7 +98,7 @@ def test_terminal_successor_rejects_citation_drift_and_candidate_exclusion(
     exclusion["finalized_units"] = []
     exclusion["exclusion_reason"] = "settled case requires replacement"
     _write_jsonl(fixture["terminal_adjudications"], [exclusion])
-    assert main(_argv(fixture, tmp_path / "excluded")) == 2
+    assert cli.main(_argv(fixture, tmp_path / "excluded")) == 2
     assert not (tmp_path / "excluded/finalized-prediction-units.jsonl").exists()
 
 
@@ -116,7 +115,7 @@ def test_terminal_successor_rejects_receipt_or_queue_drift(
         records[0]["reason"]["summary"] = "tampered"
     _write_jsonl(fixture[artifact], records)
 
-    assert main(_argv(fixture, tmp_path / "rejected")) == 2
+    assert cli.main(_argv(fixture, tmp_path / "rejected")) == 2
     assert not (tmp_path / "rejected/finalized-prediction-units.jsonl").exists()
 
 

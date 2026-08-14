@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -696,6 +697,33 @@ def _decisions(cycle_hash: str) -> dict[str, object]:
             "below_minimum_action": "pilot_only_no_official_cycle",
         },
     }
+
+
+def test_policy_rejects_non_string_schema_version() -> None:
+    artifact = generate_cohort_policy(_decisions("a" * 64))
+    artifact["schema_version"] = ["legalforecast.cohort_policy.v1"]
+
+    with pytest.raises(CohortPolicyError, match="schema version"):
+        verify_cohort_policy(artifact)
+
+
+def test_policy_v2_refuses_padded_roles_with_unnormalized_hash() -> None:
+    artifact = generate_cohort_policy(_decisions_v2("a" * 64))
+    padded = json.loads(json.dumps(artifact))
+    padded["policy"]["packet_completeness"]["required_briefing_roles_if_docketed"] = [
+        " opposition",
+        "reply",
+        "surreply",
+        "court_ordered_supplemental_brief",
+    ]
+    padded["policy_sha256"] = hashlib.sha256(
+        json.dumps(
+            padded["policy"], sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode()
+    ).hexdigest()
+
+    with pytest.raises(CohortPolicyError, match="hash does not match"):
+        verify_cohort_policy(padded)
 
 
 def _decisions_v2(cycle_hash: str) -> dict[str, object]:

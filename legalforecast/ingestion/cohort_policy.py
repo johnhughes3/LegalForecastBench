@@ -112,7 +112,7 @@ def verify_cohort_policy(
         "cohort policy artifact",
     )
     schema_version = artifact.get("schema_version")
-    if schema_version not in {
+    if not isinstance(schema_version, str) or schema_version not in {
         COHORT_POLICY_SCHEMA_VERSION,
         COHORT_POLICY_SCHEMA_VERSION_V2,
         COHORT_POLICY_SCHEMA_VERSION_V3,
@@ -123,7 +123,7 @@ def verify_cohort_policy(
         raise CohortPolicyError("cohort policy must be an object")
     policy = _validated_policy(
         cast(Mapping[str, Any], policy_value),
-        schema_version=cast(str, schema_version),
+        schema_version=schema_version,
     )
     actual = _hash(policy)
     committed = _sha(artifact.get("policy_sha256"), "policy_sha256")
@@ -429,7 +429,8 @@ def _validated_policy(raw: Mapping[str, Any], *, schema_version: str) -> dict[st
     )
     _true(semantics.get("latest_wins_equal_rank"), "latest_wins_equal_rank")
 
-    packet = _object(policy.get("packet_completeness"), "packet_completeness")
+    packet = dict(_object(policy.get("packet_completeness"), "packet_completeness"))
+    policy["packet_completeness"] = packet
     if schema_version == COHORT_POLICY_SCHEMA_VERSION_V3:
         _validate_packet_completeness_v3(packet)
     elif schema_version == COHORT_POLICY_SCHEMA_VERSION_V2:
@@ -536,7 +537,7 @@ def _validate_packet_completeness_v1(packet: Mapping[str, Any]) -> None:
         raise CohortPolicyError("reply_required must be false")
 
 
-def _validate_packet_completeness_v2(packet: Mapping[str, Any]) -> None:
+def _validate_packet_completeness_v2(packet: dict[str, Any]) -> None:
     _exact_keys(
         packet,
         {
@@ -556,6 +557,7 @@ def _validate_packet_completeness_v2(packet: Mapping[str, Any]) -> None:
         packet.get("required_briefing_roles_if_docketed"),
         "required_briefing_roles_if_docketed",
     )
+    packet["required_briefing_roles_if_docketed"] = list(briefing_roles)
     if briefing_roles != _REQUIRED_BRIEFING_ROLES:
         raise CohortPolicyError(
             "required briefing roles must exactly include opposition, reply, "
@@ -569,6 +571,7 @@ def _validate_packet_completeness_v2(packet: Mapping[str, Any]) -> None:
         packet.get("required_claim_bearing_pleading_roles"),
         "required_claim_bearing_pleading_roles",
     )
+    packet["required_claim_bearing_pleading_roles"] = list(pleading_roles)
     if pleading_roles != _REQUIRED_CLAIM_BEARING_PLEADING_ROLES:
         raise CohortPolicyError(
             "claim-bearing pleading roles must exactly include complaint, amended "
@@ -581,7 +584,7 @@ def _validate_packet_completeness_v2(packet: Mapping[str, Any]) -> None:
     )
 
 
-def _validate_packet_completeness_v3(packet: Mapping[str, Any]) -> None:
+def _validate_packet_completeness_v3(packet: dict[str, Any]) -> None:
     _exact_keys(
         packet,
         {
@@ -603,6 +606,7 @@ def _validate_packet_completeness_v3(packet: Mapping[str, Any]) -> None:
         packet.get("required_briefing_roles_if_filed"),
         "required_briefing_roles_if_filed",
     )
+    packet["required_briefing_roles_if_filed"] = list(briefing_roles)
     if briefing_roles != _REQUIRED_BRIEFING_ROLES_V3:
         raise CohortPolicyError(
             "required briefing roles must exactly include opposition, response, "
@@ -616,6 +620,7 @@ def _validate_packet_completeness_v3(packet: Mapping[str, Any]) -> None:
         packet.get("required_claim_bearing_pleading_roles"),
         "required_claim_bearing_pleading_roles",
     )
+    packet["required_claim_bearing_pleading_roles"] = list(pleading_roles)
     if pleading_roles != _REQUIRED_CLAIM_BEARING_PLEADING_ROLES_V3:
         raise CohortPolicyError(
             "claim-bearing pleading roles must exactly include complaint, amended "

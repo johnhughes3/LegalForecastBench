@@ -50,6 +50,7 @@ def _free_operation() -> ResolvedRepairOperation:
         source_url="https://storage.courtlistener.com/recap/example/1001.pdf",
         projected_cost_usd=Decimal("0.00"),
         docket_snapshot_sha256="a" * 64,
+        public_clearance=("cleared", False, False),
     )
 
 
@@ -65,6 +66,7 @@ def _paid_operation() -> ResolvedRepairOperation:
         source_url=None,
         projected_cost_usd=Decimal("3.00"),
         docket_snapshot_sha256="b" * 64,
+        public_clearance=("cleared", False, False),
     )
 
 
@@ -97,6 +99,7 @@ def test_free_operation_without_url_fails_closed() -> None:
         source_url=None,
         projected_cost_usd=Decimal("0.00"),
         docket_snapshot_sha256="a" * 64,
+        public_clearance=("cleared", False, False),
     )
     acquirer = DocumentRepairAcquirer(
         journal=None, free_source=FixtureFreeDocumentSource({})

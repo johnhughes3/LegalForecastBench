@@ -28,8 +28,10 @@ LEGACY_FINALIZED_SCHEMA_VERSION = "legalforecast.finalized_prediction_units.v1"
 FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V2)
 STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V3)
 TERMINAL_UNITIZER_FINALIZED_SCHEMA_VERSION = str(FINALIZED_PREDICTION_UNITS_V4)
-# Downstream Stage B authentication accepts v1, v2, structural-ADD v3, and
-# terminal v4 after each envelope passes the shared Stage A verifier.
+# Stage A admits v1, v2, structural-ADD v3, and terminal v4. Downstream Stage B
+# authentication currently admits the same set after the shared Stage A
+# verifier; structural-ADD v3 is ordinary Stage A output, not a Stage B-only
+# envelope, and is not rejected at Stage B.
 SUPPORTED_FINALIZED_SCHEMA_VERSIONS = frozenset(
     {
         LEGACY_FINALIZED_SCHEMA_VERSION,

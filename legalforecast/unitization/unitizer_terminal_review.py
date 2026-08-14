@@ -8,6 +8,7 @@ would invent both a unit and its legal conclusion.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
@@ -73,7 +74,7 @@ class UnitizerTerminalReviewError(ValueError):
 
 
 def build_unitizer_terminal_review_queue_record(
-    receipt: Mapping[str, object],
+    receipt: object,
 ) -> JsonRecord:
     """Project one authenticated terminal receipt into a candidate review item."""
 
@@ -134,12 +135,16 @@ def build_unitizer_terminal_review_queue_record(
 
 def build_unitizer_terminal_review_bundle(
     *,
-    receipt: Mapping[str, object],
+    receipt: object,
     queue_record: Mapping[str, object],
-    predecision_sources: Sequence[Mapping[str, object]],
+    predecision_sources: object,
 ) -> JsonRecord:
     """Bind the candidate item to exact, blinded predecision Markdown."""
 
+    if not isinstance(predecision_sources, Sequence) or isinstance(
+        predecision_sources, (str, bytes)
+    ):
+        raise UnitizerTerminalReviewError("predecision sources must be a sequence")
     terminal = _validated_receipt(receipt)
     expected_queue = build_unitizer_terminal_review_queue_record(terminal)
     if dict(queue_record) != expected_queue:
@@ -154,17 +159,20 @@ def build_unitizer_terminal_review_bundle(
         for item in commitments
     }
     supplied_by_id: dict[str, Mapping[str, object]] = {}
-    for source in predecision_sources:
-        if set(source) != _SOURCE_FIELDS:
+    for source in cast(Sequence[object], predecision_sources):
+        if not isinstance(source, Mapping):
+            raise UnitizerTerminalReviewError("predecision source must be an object")
+        record = cast(Mapping[str, object], source)
+        if set(record) != _SOURCE_FIELDS:
             raise UnitizerTerminalReviewError(
                 "predecision source has unsupported fields"
             )
-        source_id = _required_str(source, "source_document_id", "predecision source")
+        source_id = _required_str(record, "source_document_id", "predecision source")
         if source_id in supplied_by_id:
             raise UnitizerTerminalReviewError(
                 f"duplicate predecision source_document_id: {source_id}"
             )
-        supplied_by_id[source_id] = source
+        supplied_by_id[source_id] = record
     if set(supplied_by_id) != set(commitment_by_id):
         raise UnitizerTerminalReviewError(
             "terminal review bundle source coverage differs from receipt"
@@ -204,8 +212,10 @@ def build_unitizer_terminal_review_bundle(
     }
 
 
-def _validated_receipt(receipt: Mapping[str, object]) -> JsonRecord:
-    terminal = dict(receipt)
+def _validated_receipt(receipt: object) -> JsonRecord:
+    if not isinstance(receipt, Mapping):
+        raise UnitizerTerminalReviewError("terminal receipt must be an object")
+    terminal = dict(cast(Mapping[str, object], receipt))
     if set(terminal) != _RECEIPT_FIELDS:
         raise UnitizerTerminalReviewError("terminal receipt field set is invalid")
     if terminal.get("schema_version") != str(
@@ -308,6 +318,58 @@ def _mapping_sequence(
     return mappings
 
 
+def read_terminal_jsonl(payload: bytes, *, label: str) -> list[JsonRecord]:
+    """Parse terminal-apply JSONL, refusing duplicate object keys."""
+
+    records: list[JsonRecord] = []
+    if b"\r" in payload:
+        raise UnitizerTerminalReviewError(f"{label} must use LF record separators")
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeError as error:
+        raise UnitizerTerminalReviewError(f"{label} must be UTF-8 JSONL") from error
+    for line_number, line in enumerate(text.split("\n"), start=1):
+        if not line.strip():
+            continue
+        try:
+            loaded = json.loads(
+                line,
+                object_pairs_hook=_reject_duplicate_json_keys,
+                parse_constant=_unsupported_json_constant,
+            )
+        except UnitizerTerminalReviewError:
+            raise
+        except json.JSONDecodeError as error:
+            raise UnitizerTerminalReviewError(
+                f"{label}:{line_number} is invalid JSON: {error.msg}"
+            ) from error
+        except ValueError as error:
+            raise UnitizerTerminalReviewError(
+                f"{label}:{line_number} {error}"
+            ) from error
+        if not isinstance(loaded, Mapping):
+            raise UnitizerTerminalReviewError(
+                f"{label}:{line_number} must contain a JSON object"
+            )
+        records.append(dict(cast(Mapping[str, object], loaded)))
+    return records
+
+
+def _unsupported_json_constant(value: str) -> object:
+    raise UnitizerTerminalReviewError(f"JSON numeric constant {value} is not supported")
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    record: dict[str, object] = {}
+    for key, value in pairs:
+        if key in record:
+            raise UnitizerTerminalReviewError(
+                f"JSON object contains duplicate key {key!r}"
+            )
+        record[key] = value
+    return record
+
+
 def _required_str(record: Mapping[str, object], field: str, label: str) -> str:
     value = record.get(field)
     if not isinstance(value, str) or not value.strip():
@@ -319,4 +381,5 @@ __all__ = [
     "UnitizerTerminalReviewError",
     "build_unitizer_terminal_review_bundle",
     "build_unitizer_terminal_review_queue_record",
+    "read_terminal_jsonl",
 ]

@@ -3,14 +3,21 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Any
 
 import pytest
-from legalforecast.unitization.review import canonical_sha256
+from legalforecast.unitization.review import (
+    UnitizationReviewError,
+    V4FinalizedCitationDocument,
+    canonical_sha256,
+    validate_v4_finalized_unit_citations,
+)
 from legalforecast.unitization.unitizer_terminal_review import (
     UnitizerTerminalReviewError,
     build_unitizer_terminal_review_bundle,
     build_unitizer_terminal_review_queue_record,
+    read_terminal_jsonl,
 )
 
 JsonRecord = dict[str, Any]
@@ -217,4 +224,103 @@ def test_terminal_bundle_rejects_nonallowlisted_material_even_if_committed(
             receipt=receipt,
             queue_record=queue_item,
             predecision_sources=sources,
+        )
+
+
+def test_terminal_review_rejects_non_object_receipt_with_named_diagnostic() -> None:
+    with pytest.raises(
+        UnitizerTerminalReviewError, match="terminal receipt must be an object"
+    ):
+        build_unitizer_terminal_review_queue_record(["not-an-object"])
+
+
+def test_read_terminal_jsonl_rejects_duplicate_object_keys() -> None:
+    with pytest.raises(UnitizerTerminalReviewError, match="duplicate key"):
+        read_terminal_jsonl(
+            b'{"candidate_id": "a", "candidate_id": "b"}\n', label="selection"
+        )
+
+
+def test_read_terminal_jsonl_rejects_cr_record_separators() -> None:
+    with pytest.raises(UnitizerTerminalReviewError, match="LF record separators"):
+        read_terminal_jsonl(b'{"candidate_id": "a"}\r\n', label="selection")
+
+
+def test_v4_citation_helper_rejects_unsupplied_and_inexact_excerpt() -> None:
+    finalized = {
+        "candidate_id": "cand",
+        "prediction_units": [
+            {
+                "unit_id": "unit-1",
+                "count": "I",
+                "claim_name": "Claim unit-1",
+                "defendant_group": "Defendant",
+                "challenged_by_motion": True,
+                "challenge_scope": "entire_claim",
+                "unit_confidence": 0.9,
+                "source_citations": [
+                    {
+                        "document_id": "complaint",
+                        "docket_entry_number": 1,
+                        "page": 1,
+                        "paragraph": None,
+                        "excerpt": "Count I pleads breach of contract.",
+                    },
+                    {
+                        "document_id": "motion",
+                        "docket_entry_number": 5,
+                        "page": 2,
+                        "paragraph": None,
+                        "excerpt": "Defendant moves to dismiss Count I.",
+                    },
+                ],
+                "grouping": "individual",
+                "grouping_rationale": None,
+                "separable_subclaim": None,
+                "uncertainty_notes": None,
+                "should_score": True,
+                "source_unit_sha256s": ["a" * 64],
+                "adjudication_id": "automatic:" + "a" * 64,
+                "adjudication_sha256": None,
+                "disposition": "ACCEPT",
+            }
+        ],
+    }
+    documents = (
+        V4FinalizedCitationDocument(
+            document_id="complaint",
+            document_role="complaint",
+            markdown="Page 1\nHeading\nCount I pleads breach of contract.\nPrayer",
+            is_predecision_material=True,
+            contains_target_outcome=False,
+            docket_entry_number=1,
+        ),
+        V4FinalizedCitationDocument(
+            document_id="motion",
+            document_role="motion_to_dismiss_memorandum",
+            markdown=(
+                "Page 2\nIntroduction\nDefendant moves to dismiss Count I.\nArgument"
+            ),
+            is_predecision_material=True,
+            contains_target_outcome=False,
+            docket_entry_number=5,
+        ),
+    )
+
+    validate_v4_finalized_unit_citations(
+        [finalized], source_documents_by_candidate={"cand": documents}
+    )
+
+    with pytest.raises(UnitizationReviewError, match="unsupplied candidate document"):
+        validate_v4_finalized_unit_citations(
+            [finalized], source_documents_by_candidate={"other": documents}
+        )
+
+    broken = json.loads(json.dumps(finalized))
+    broken["prediction_units"][0]["source_citations"][0]["excerpt"] = (
+        "not in the source"
+    )
+    with pytest.raises(UnitizationReviewError, match="exact substring"):
+        validate_v4_finalized_unit_citations(
+            [broken], source_documents_by_candidate={"cand": documents}
         )

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -295,3 +296,16 @@ def test_pilot_rejects_tampered_full_plan() -> None:
             candidate_ids=tuple("abcde"),
             pilot_maximum_usd="15.00",
         )
+
+
+def test_pilot_activity_flags_cannot_be_set_true() -> None:
+    manifest = _manifest_bytes(*(_row(value, (3,)) for value in "abcde"))
+    plan = _plan(manifest)
+    pilot = build_document_repair_pilot(
+        full_plan=plan,
+        candidate_ids=tuple("abcde"),
+        pilot_maximum_usd="15.00",
+    )
+
+    with pytest.raises(DocumentRepairPilotError, match="activity flags"):
+        replace(pilot, provider_activity_requested=True)

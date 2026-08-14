@@ -42,6 +42,15 @@ class DocumentRepairPilot:
     paid_activity_requested: bool = False
     paid_activity_executed: bool = False
 
+    def __post_init__(self) -> None:
+        if (
+            self.provider_activity_requested
+            or self.provider_activity_executed
+            or self.paid_activity_requested
+            or self.paid_activity_executed
+        ):
+            raise DocumentRepairPilotError("pilot activity flags must remain false")
+
     @property
     def projected_paid_cost_usd(self) -> Decimal:
         return sum((item.projected_cost_usd for item in self.items), Decimal("0.00"))
@@ -158,7 +167,7 @@ def _keep_candidate_ids(
 
 
 def _require_untampered_full_plan(plan: MissingDocumentAcquisitionPlan) -> None:
-    if type(plan) is not MissingDocumentAcquisitionPlan:
+    if type(plan) is not MissingDocumentAcquisitionPlan or not plan.is_replay_minted():
         raise DocumentRepairPilotError("full plan is not verified")
     digest = str(
         ARTIFACT_RAW_SHA256_V1.commit(
