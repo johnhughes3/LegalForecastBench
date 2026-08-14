@@ -8,7 +8,6 @@ failure-class family.
 
 from __future__ import annotations
 
-import hashlib
 import shutil
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -16,6 +15,8 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from legalforecast.contracts import RAW_BYTES_RAW_SHA256_V1
+from legalforecast.contracts.schemas import RAW_BYTES_RAW_SHA256_COMMITMENT_V1
 from legalforecast.multiharness.codex_cli import (
     CODEX_DEFAULT_REASONING_EFFORT,
     CodexCliAdapter,
@@ -346,7 +347,13 @@ def _path_resolved_wrapper_sha256(
     if located is None:
         raise CodexCliAdapterError("evaluator command is not on PATH")
     payload = Path(located).read_bytes()
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
+    digest = str(
+        RAW_BYTES_RAW_SHA256_V1.commit(
+            payload,
+            domain=RAW_BYTES_RAW_SHA256_COMMITMENT_V1,
+        ).digest
+    )
+    return f"sha256:{digest}"
 
 
 def _prefixed_digest_text(value: str) -> str:

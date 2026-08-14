@@ -7,7 +7,6 @@ Does not invent a second RunSpec, ExecutionReceipt, or failure-class family.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
 from collections.abc import Callable, Mapping, Sequence
@@ -17,6 +16,8 @@ from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from legalforecast.contracts import RAW_BYTES_RAW_SHA256_V1
+from legalforecast.contracts.schemas import RAW_BYTES_RAW_SHA256_COMMITMENT_V1
 from legalforecast.multiharness.claude_code import (
     CLAUDE_CODE_CLEAN_NATIVE_TOOLS,
     CLAUDE_CODE_OUTPUT_SCHEMA_NAME,
@@ -315,7 +316,13 @@ def _path_resolved_wrapper_sha256(
     if located is None:
         raise ClaudeCodeCliAdapterError("evaluator command is not on PATH")
     payload = Path(located).read_bytes()
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
+    digest = str(
+        RAW_BYTES_RAW_SHA256_V1.commit(
+            payload,
+            domain=RAW_BYTES_RAW_SHA256_COMMITMENT_V1,
+        ).digest
+    )
+    return f"sha256:{digest}"
 
 
 def _prefixed_digest_text(value: str) -> str:
