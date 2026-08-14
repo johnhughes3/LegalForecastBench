@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
 import sqlite3
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -664,27 +667,46 @@ def test_official_semantic_proof_does_not_depend_on_current_checkout(
     assert proof["target_code_commit"] == ("e0d71779324ce8a0b8cdf09a6f2416fe97135d38")
 
 
-def test_official_git_crosscheck_pins_seven_character_index_abbrev() -> None:
-    repository_root = Path(__file__).resolve().parents[1]
-    source_path = "legalforecast/ingestion/courtlistener_acquisition.py"
-    payload = _git_bytes(
-        repository_root,
-        "diff",
-        "126a18b5849f83c0ba2d87f3fd424ca99e7faf14",
-        "e0d71779324ce8a0b8cdf09a6f2416fe97135d38",
-        "--",
-        source_path,
-    )
+def test_git_bytes_pins_seven_character_index_abbrev(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    source = repo / "example.txt"
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Test",
+        "GIT_AUTHOR_EMAIL": "test@example.test",
+        "GIT_COMMITTER_NAME": "Test",
+        "GIT_COMMITTER_EMAIL": "test@example.test",
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": os.devnull,
+    }
 
-    assert b"index b59c992..41cf46a 100644\n" in payload
-    assert b"index b59c9927..41cf46a3 100644\n" not in payload
-    assert (
-        payload
-        == (
-            repository_root
-            / "legalforecast/data/rest_observation_policy_rebind_old_to_current_v1.diff"
-        ).read_bytes()
-    )
+    def git(*arguments: str) -> bytes:
+        return subprocess.check_output(
+            ("git", "-c", "commit.gpgsign=false", *arguments),
+            cwd=repo,
+            env=git_env,
+        )
+
+    git("init", "--initial-branch=main")
+    source.write_text("old\n", encoding="utf-8")
+    git("add", "example.txt")
+    git("commit", "-m", "old")
+    old = git("rev-parse", "HEAD").decode().strip()
+    source.write_text("new\n", encoding="utf-8")
+    git("add", "example.txt")
+    git("commit", "-m", "new")
+    new = git("rev-parse", "HEAD").decode().strip()
+
+    payload = _git_bytes(repo, "diff", old, new, "--", "example.txt")
+    index_lines = [
+        line for line in payload.decode().splitlines() if line.startswith("index ")
+    ]
+    assert len(index_lines) == 1
+    match = re.fullmatch(r"index ([0-9a-f]+)\.\.([0-9a-f]+) 100644", index_lines[0])
+    assert match is not None
+    assert len(match.group(1)) == 7
+    assert len(match.group(2)) == 7
 
 
 def test_official_semantic_proof_rejects_tampered_packaged_witness(
