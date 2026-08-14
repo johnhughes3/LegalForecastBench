@@ -23,6 +23,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchClient,
     CourtListenerRecapFetchConfig,
     CourtListenerRecapFetchError,
+    CourtListenerRecapFetchOutcomeUnknown,
     DirectCourtListenerRecapFetchConfig,
     DirectCourtListenerRecapFetchPurchaseBroker,
     FixtureRecapFetchTransport,
@@ -894,6 +895,11 @@ def test_direct_queue_detail_404_preserves_queue_continues_and_resumes(
                 [
                     _response("GET", "/recap-documents/123/", {"id": 123}),
                     RecordedRecapFetchResponse("GET", "/recap-fetch/77/", {}, 404, {}),
+                    _response(
+                        "GET",
+                        "/recap-documents/123/",
+                        {"id": 123, "is_available": False},
+                    ),
                     _response("GET", "/recap-documents/124/", {"id": 124}),
                     _response("GET", "/recap-fetch/78/", {"status": 2}),
                     _response(
@@ -912,6 +918,8 @@ def test_direct_queue_detail_404_preserves_queue_continues_and_resumes(
             purchase_broker=DirectCourtListenerRecapFetchPurchaseBroker(
                 _direct_config(), transport=first_paid
             ),
+            poll_attempts=1,
+            poll_backoff_seconds=0.0,
         ).execute_purchase_plan(
             plan,
             public_documents=public_documents,
@@ -961,6 +969,245 @@ def test_direct_queue_detail_404_preserves_queue_continues_and_resumes(
     assert len(first_paid.calls) == 2
     assert second_paid.calls == []
     assert second.executed_purchase_count == 2
+
+
+def test_direct_queue_detail_404_mismatched_public_document_continues(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    paid = _RecordingPaidTransport(
+        [
+            RecapFetchHTTPResponse(status_code=201, payload={"id": 77}),
+            RecapFetchHTTPResponse(status_code=201, payload={"id": 78}),
+        ]
+    )
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        result = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [
+                    _response("GET", "/recap-documents/123/", {"id": 123}),
+                    RecordedRecapFetchResponse("GET", "/recap-fetch/77/", {}, 404, {}),
+                    _response(
+                        "GET",
+                        "/recap-documents/123/",
+                        {"id": 999, "is_available": True},
+                    ),
+                    _response("GET", "/recap-documents/124/", {"id": 124}),
+                    _response("GET", "/recap-fetch/78/", {"status": 2}),
+                    _response(
+                        "GET",
+                        "/recap-documents/124/",
+                        {
+                            "id": 124,
+                            "is_available": True,
+                            "filepath_local": (
+                                "https://storage.courtlistener.com/124.pdf"
+                            ),
+                        },
+                    ),
+                ]
+            ),
+            purchase_broker=DirectCourtListenerRecapFetchPurchaseBroker(
+                _direct_config(), transport=paid
+            ),
+            poll_attempts=1,
+        ).execute_purchase_plan(
+            _plan(("123", "124")),
+            public_documents=_public_documents(("123", "124")),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+        assert journal.statuses() == {"123": "queued", "124": "confirmed"}
+
+    assert [attempt.status.value for attempt in result.attempts] == [
+        "not_attempted",
+        "purchased",
+    ]
+    assert len(paid.calls) == 2
+
+
+def test_direct_queue_404_retries_until_queue_succeeds(tmp_path: Path) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    paid = _RecordingPaidTransport(
+        [RecapFetchHTTPResponse(status_code=201, payload={"id": 77})]
+    )
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        result = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [
+                    _response("GET", "/recap-documents/123/", {"id": 123}),
+                    RecordedRecapFetchResponse("GET", "/recap-fetch/77/", {}, 404, {}),
+                    _response(
+                        "GET",
+                        "/recap-documents/123/",
+                        {"id": 123, "is_available": False},
+                    ),
+                    _response("GET", "/recap-fetch/77/", {"status": 2}),
+                    _available_document_response("123"),
+                ]
+            ),
+            purchase_broker=DirectCourtListenerRecapFetchPurchaseBroker(
+                _direct_config(), transport=paid
+            ),
+            poll_attempts=2,
+            poll_backoff_seconds=0.0,
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents=_public_documents(),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+        assert journal.statuses() == {"123": "confirmed"}
+        assert result.attempts[0].status.value == "purchased"
+
+    assert len(paid.calls) == 1
+
+
+def test_direct_queue_404_confirms_when_document_becomes_available(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    paid = _RecordingPaidTransport(
+        [RecapFetchHTTPResponse(status_code=201, payload={"id": 77})]
+    )
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        result = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [
+                    _response("GET", "/recap-documents/123/", {"id": 123}),
+                    RecordedRecapFetchResponse("GET", "/recap-fetch/77/", {}, 404, {}),
+                    _available_document_response("123"),
+                ]
+            ),
+            purchase_broker=DirectCourtListenerRecapFetchPurchaseBroker(
+                _direct_config(), transport=paid
+            ),
+            poll_attempts=3,
+            poll_backoff_seconds=0.0,
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents=_public_documents(),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+        assert journal.statuses() == {"123": "confirmed"}
+        assert result.attempts[0].status.value == "purchased"
+
+    assert len(paid.calls) == 1
+
+
+def test_direct_queue_502_confirms_when_document_becomes_available(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    paid = _RecordingPaidTransport(
+        [RecapFetchHTTPResponse(status_code=201, payload={"id": 77})]
+    )
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        result = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [
+                    _response("GET", "/recap-documents/123/", {"id": 123}),
+                    RecordedRecapFetchResponse("GET", "/recap-fetch/77/", {}, 502, {}),
+                    _available_document_response("123"),
+                ]
+            ),
+            purchase_broker=DirectCourtListenerRecapFetchPurchaseBroker(
+                _direct_config(), transport=paid
+            ),
+            poll_attempts=3,
+            poll_backoff_seconds=0.0,
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents=_public_documents(),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+        assert journal.statuses() == {"123": "confirmed"}
+        assert result.attempts[0].status.value == "purchased"
+
+    assert len(paid.calls) == 1
+
+
+class _ExplodingPaidBroker:
+    paid_dispatch_count = 0
+
+    def prepare_submission(self) -> object:
+        raise AssertionError("queued recovery must not prepare a paid POST")
+
+    def receipt(self, operation_key: str) -> Mapping[str, object]:
+        del operation_key
+        raise CourtListenerRecapFetchOutcomeUnknown(
+            "no billing receipt during recovery"
+        )
+
+
+def test_queued_resume_without_paid_broker_confirms_public_document(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123") is True
+        journal.queue(
+            "123",
+            response={
+                "queue_id": "77",
+                "reservation_id": "direct:queued",
+                "reservation_usd": "3.05",
+                "source_provider": "courtlistener.recap-fetch+pacer",
+            },
+        )
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        attempt = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [
+                    RecordedRecapFetchResponse("GET", "/recap-fetch/77/", {}, 502, {}),
+                    _available_document_response("123"),
+                ]
+            ),
+            purchase_broker=_ExplodingPaidBroker(),  # type: ignore[arg-type]
+            poll_attempts=3,
+            poll_backoff_seconds=0.0,
+        ).execute_one_document("case-1", "123")
+        assert attempt.status.value == "purchased"
+        assert journal.statuses() == {"123": "confirmed"}
+
+
+def test_planned_document_without_paid_broker_never_posts(tmp_path: Path) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        with pytest.raises(CourtListenerRecapFetchError, match="credential broker"):
+            CourtListenerRecapFetchClient(
+                _public_config(),
+                journal=journal,
+                transport=FixtureRecapFetchTransport(
+                    [_response("GET", "/recap-documents/123/", {"id": 123})]
+                ),
+                purchase_broker=None,
+            ).execute_one_document("case-1", "123")
+        assert journal.statuses() == {"123": "planned"}
 
 
 def test_direct_recap_document_preflight_404_remains_fatal(tmp_path: Path) -> None:
@@ -1235,6 +1482,20 @@ def _response(
     method: str, path: str, payload: dict[str, object]
 ) -> RecordedRecapFetchResponse:
     return RecordedRecapFetchResponse(method, path, {}, 200, payload)
+
+
+def _available_document_response(document_id: str) -> RecordedRecapFetchResponse:
+    return _response(
+        "GET",
+        f"/recap-documents/{document_id}/",
+        {
+            "id": int(document_id),
+            "is_available": True,
+            "is_sealed": None,
+            "is_private": None,
+            "filepath_local": f"https://storage.courtlistener.com/{document_id}.pdf",
+        },
+    )
 
 
 def _direct_config() -> DirectCourtListenerRecapFetchConfig:

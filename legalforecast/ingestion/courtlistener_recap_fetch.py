@@ -700,14 +700,19 @@ class CourtListenerRecapFetchClient:
             "GET", f"/recap-documents/{_identifier(document_id)}/", {}, paid=False
         )
         _verify_recap_document(verification, document_id)
+        planned = self.journal.operation_evidence(document_id)
+        if planned is None:
+            raise CaseDevPurchaseLedgerError("planned purchase disappeared")
+        if str(planned["status"]) != "planned":
+            raise CourtListenerRecapFetchError(
+                "refusing a second paid RECAP Fetch dispatch: "
+                f"document {document_id} is {planned['status']}"
+            )
         if self.purchase_broker is None:
             raise CourtListenerRecapFetchError(
                 "live RECAP Fetch is disabled until a budget-enforcing PACER "
                 "credential broker is configured"
             )
-        planned = self.journal.operation_evidence(document_id)
-        if planned is None:
-            raise CaseDevPurchaseLedgerError("planned purchase disappeared")
         submission_context = {
             "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
             "reservation_usd": str(planned["reservation_usd"]),
@@ -1065,6 +1070,19 @@ class CourtListenerRecapFetchClient:
                     queue_detail=True,
                 )
             except _CourtListenerRecapFetchQueueNotVisible:
+                completed = self._complete_queued_if_publicly_available(
+                    candidate_id,
+                    document_id,
+                    queued,
+                    queue_id=queue_id,
+                    queue_payload=None,
+                )
+                if completed is not None:
+                    return completed
+                if index + 1 < self.poll_attempts:
+                    if self.poll_backoff_seconds:
+                        time.sleep(self.poll_backoff_seconds)
+                    continue
                 return _attempt(
                     candidate_id,
                     document_id,
@@ -1080,37 +1098,14 @@ class CourtListenerRecapFetchClient:
                     paid=False,
                     retry=True,
                 )
-                verified = _verified_download(document, document_id)
-                operation = self.journal.operation_evidence(document_id)
-                if operation is None:
-                    raise CaseDevPurchaseLedgerError(
-                        "queued purchase disappeared during polling"
-                    )
-                if operation.get("material_authority") == "unknown_status_attempt":
-                    self.journal.mark_material_available_for_quarantine(
-                        document_id,
-                        provider_detail_sha256=_sha256_json(document),
-                        queue_response_sha256=_sha256_json(payload),
-                        download_url_sha256=hashlib.sha256(
-                            verified.encode("utf-8")
-                        ).hexdigest(),
-                    )
-                    return _attempt(
-                        candidate_id,
-                        document_id,
-                        CaseDevPacerPurchaseStatus.QUARANTINED,
-                        "unknown_status_material_available_only_in_quarantine",
-                    )
-                confirmed = {
-                    **dict(queued),
-                    "queue_id": queue_id,
-                    "queue_response": dict(payload),
-                    "download_url": verified,
-                    "reservation_usd": str(operation["reservation_usd"]),
-                    "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
-                }
-                self.journal.confirm_reserved(document_id, response=confirmed)
-                return _purchased_attempt(candidate_id, document_id, confirmed)
+                return self._confirm_queued_purchase(
+                    candidate_id,
+                    document_id,
+                    queued,
+                    queue_id=queue_id,
+                    queue_payload=payload,
+                    document=document,
+                )
             if last_status in _TERMINAL_FAILURES:
                 error = CourtListenerRecapFetchError(
                     f"RECAP Fetch terminal queue status {last_status}"
@@ -1140,6 +1135,94 @@ class CourtListenerRecapFetchClient:
             CaseDevPacerPurchaseStatus.NOT_ATTEMPTED,
             f"recap_fetch_queued_status_{last_status}",
         )
+
+    def _complete_queued_if_publicly_available(
+        self,
+        candidate_id: str,
+        document_id: str,
+        queued: Mapping[str, Any],
+        *,
+        queue_id: str,
+        queue_payload: Mapping[str, Any] | None,
+    ) -> CaseDevPacerPurchaseAttempt | None:
+        """Confirm a queued buy if CourtListener already published the PDF."""
+
+        operation = self.journal.operation_evidence(document_id)
+        if (
+            operation is not None
+            and operation.get("material_authority") == "unknown_status_attempt"
+            and queue_payload is None
+        ):
+            return None
+        try:
+            document = self._request(
+                "GET",
+                f"/recap-documents/{_identifier(document_id)}/",
+                {},
+                paid=False,
+                retry=True,
+            )
+            _verify_recap_document(document, document_id)
+            if document.get("is_available") is not True:
+                return None
+            _verified_download(document, document_id)
+        except CourtListenerRecapFetchError:
+            return None
+        return self._confirm_queued_purchase(
+            candidate_id,
+            document_id,
+            queued,
+            queue_id=queue_id,
+            queue_payload=queue_payload,
+            document=document,
+        )
+
+    def _confirm_queued_purchase(
+        self,
+        candidate_id: str,
+        document_id: str,
+        queued: Mapping[str, Any],
+        *,
+        queue_id: str,
+        queue_payload: Mapping[str, Any] | None,
+        document: Mapping[str, Any],
+    ) -> CaseDevPacerPurchaseAttempt:
+        verified = _verified_download(document, document_id)
+        operation = self.journal.operation_evidence(document_id)
+        if operation is None:
+            raise CaseDevPurchaseLedgerError(
+                "queued purchase disappeared during polling"
+            )
+        if operation.get("material_authority") == "unknown_status_attempt":
+            if queue_payload is None:
+                raise CourtListenerRecapFetchError(
+                    "unknown-status material cannot confirm without a queue receipt"
+                )
+            self.journal.mark_material_available_for_quarantine(
+                document_id,
+                provider_detail_sha256=_sha256_json(document),
+                queue_response_sha256=_sha256_json(queue_payload),
+                download_url_sha256=hashlib.sha256(
+                    verified.encode("utf-8")
+                ).hexdigest(),
+            )
+            return _attempt(
+                candidate_id,
+                document_id,
+                CaseDevPacerPurchaseStatus.QUARANTINED,
+                "unknown_status_material_available_only_in_quarantine",
+            )
+        confirmed = {
+            **dict(queued),
+            "queue_id": queue_id,
+            "download_url": verified,
+            "reservation_usd": str(operation["reservation_usd"]),
+            "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+        }
+        if queue_payload is not None:
+            confirmed["queue_response"] = dict(queue_payload)
+        self.journal.confirm_reserved(document_id, response=confirmed)
+        return _purchased_attempt(candidate_id, document_id, confirmed)
 
     def _request(
         self,
@@ -1174,7 +1257,9 @@ class CourtListenerRecapFetchClient:
                 raise
             if 200 <= response.status_code < 300:
                 return response.payload
-            if queue_detail and response.status_code == 404:
+            if queue_detail and (
+                response.status_code == 404 or response.status_code in _RETRYABLE
+            ):
                 raise _CourtListenerRecapFetchQueueNotVisible(
                     "durably queued RECAP Fetch operation is not yet visible"
                 )

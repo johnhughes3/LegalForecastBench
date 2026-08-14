@@ -1372,8 +1372,12 @@ def test_runner_invokes_free_first_and_stops_after_unknown_paid_outcome(
 
 
 @pytest.mark.parametrize(
-    ("has_response", "callback_disposition", "expected_cost"),
-    ((True, "unknown", "3.00"), (False, "provider_error", "0.00")),
+    ("has_response", "callback_disposition", "expected_cost", "retry_permitted"),
+    (
+        (True, "unknown", "3.00", False),
+        (True, "provider_error", "3.00", True),
+        (False, "provider_error", "0.00", True),
+    ),
 )
 def test_failed_paid_outcome_uses_durable_response_to_retain_reservation(
     tmp_path: Path,
@@ -1381,6 +1385,7 @@ def test_failed_paid_outcome_uses_durable_response_to_retain_reservation(
     has_response: bool,
     callback_disposition: str,
     expected_cost: str,
+    retry_permitted: bool,
 ) -> None:
     manifest = _manifest_bytes(_row("a", 1, free=False))
     plan = build_missing_document_acquisition_plan(
@@ -1417,7 +1422,7 @@ def test_failed_paid_outcome_uses_durable_response_to_retain_reservation(
     row = result.receipt.operation_ledger[0]
     assert row["disposition"] == callback_disposition
     assert row["committed_cost_usd"] == expected_cost
-    assert row["retry_permitted"] is (not has_response)
+    assert row["retry_permitted"] is retry_permitted
     assert runtime.journal._closed is True
 
 
