@@ -102,29 +102,40 @@ def _verify_pilot_operation_bytes(
         if key in included:
             raise DocumentRepairVerifyOnlyError("duplicate acquired document key")
         included[key] = document
-    excluded: set[tuple[object, object, object]] = set()
+    excluded_records: dict[tuple[object, object, object], Mapping[str, object]] = {}
     for record in exclusions:
         key = (
             record.get("candidate_id"),
             record.get("docket_entry_number"),
             record.get("document_selector", "main_document"),
         )
-        if key in excluded:
+        if key in excluded_records:
             raise DocumentRepairVerifyOnlyError("duplicate exclusion key")
-        excluded.add(key)
+        role = record.get("document_role")
+        reason = record.get("reason")
+        if not isinstance(role, str) or not role.strip():
+            raise DocumentRepairVerifyOnlyError(
+                "exclusion evidence document_role is missing"
+            )
+        if not isinstance(reason, str) or not reason.strip():
+            raise DocumentRepairVerifyOnlyError("exclusion evidence reason is missing")
+        excluded_records[key] = record
     expected = {operation.key for operation in execution.operations}
-    if set(included) - expected:
+    if set(included) - expected or set(excluded_records) - expected:
         raise DocumentRepairVerifyOnlyError(
-            "verify-only acquired documents include unapproved operations"
+            "verify-only evidence includes unapproved operations"
         )
     if len(receipt.operation_ledger) != len(execution.operations):
         raise DocumentRepairVerifyOnlyError("repair receipt ledger is incomplete")
+    receipt_included: set[tuple[str, int, str]] = set()
+    receipt_excluded: set[tuple[str, int, str]] = set()
     for operation, row in zip(
         execution.operations, receipt.operation_ledger, strict=True
     ):
         key = operation.key
         disposition = row.get("disposition")
         if disposition == "included":
+            receipt_included.add(key)
             document = included.get(key)
             if document is None:
                 raise DocumentRepairVerifyOnlyError(
@@ -165,9 +176,15 @@ def _verify_pilot_operation_bytes(
                     "acquired document is_sealed must be false"
                 )
         elif disposition == "excluded":
-            if key in included or key not in excluded:
+            receipt_excluded.add(key)
+            record = excluded_records.get(key)
+            if key in included or record is None:
                 raise DocumentRepairVerifyOnlyError(
                     "excluded repair operation lacks matching exclusion evidence"
+                )
+            if record.get("document_role") != operation.document_role:
+                raise DocumentRepairVerifyOnlyError(
+                    "exclusion document_role differs from the resolved operation"
                 )
         elif disposition in {"provider_error", "unknown"}:
             raise DocumentRepairVerifyOnlyError(
@@ -178,3 +195,7 @@ def _verify_pilot_operation_bytes(
                 "verify-only refuses missing document_bytes; a purchase would "
                 "be required"
             )
+    if set(included) != receipt_included or set(excluded_records) != receipt_excluded:
+        raise DocumentRepairVerifyOnlyError(
+            "verify-only evidence does not match the repair receipt dispositions"
+        )

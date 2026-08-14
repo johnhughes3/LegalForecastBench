@@ -267,3 +267,45 @@ def test_verify_only_requires_exclusion_evidence_for_excluded_operations() -> No
         ),
         role_bytes_match=lambda role, body: role.encode() in body,
     )
+
+    with pytest.raises(DocumentRepairVerifyOnlyError, match="unapproved"):
+        verify_document_repair_pilot_bytes(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=acquired,
+            exclusions=(
+                {
+                    "candidate_id": last.candidate_id,
+                    "docket_entry_number": last.docket_entry_number,
+                    "document_selector": last.document_selector,
+                    "document_role": last.document_role,
+                    "reason": "terminal exclusion",
+                },
+                {
+                    "candidate_id": "zzz",
+                    "docket_entry_number": 99,
+                    "document_selector": "main_document",
+                    "document_role": "reply",
+                    "reason": "extra exclusion",
+                },
+            ),
+            role_bytes_match=lambda _role, _body: True,
+        )
+
+    with pytest.raises(DocumentRepairVerifyOnlyError, match="reason"):
+        verify_document_repair_pilot_bytes(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=acquired,
+            exclusions=(
+                {
+                    "candidate_id": last.candidate_id,
+                    "docket_entry_number": last.docket_entry_number,
+                    "document_selector": last.document_selector,
+                    "document_role": last.document_role,
+                },
+            ),
+            role_bytes_match=lambda _role, _body: True,
+        )

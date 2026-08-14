@@ -99,6 +99,8 @@ class ResolvedRepairOperation:
     source_url: str | None
     projected_cost_usd: Decimal
     docket_snapshot_sha256: str
+    # Mint-only snapshot derivation; omitted from to_record() so v1 execution
+    # bytes stay frozen. Include still requires a replay-minted execution.
     public_clearance: tuple[str, bool, bool] | None
 
     @property
