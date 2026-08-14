@@ -449,6 +449,34 @@ def test_lab_task_id_path_escape_is_refused(tmp_path: Path) -> None:
     del env
 
 
+def test_mutated_projection_bytes_fail_identity_bind(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    instructions = (
+        projected.solver_root / "tasks" / ISSUE_196_LAB_TASK_ID / "instructions.txt"
+    )
+    instructions.chmod(instructions.stat().st_mode | stat.S_IWUSR)
+    instructions.write_text("mutated after projection", encoding="utf-8")
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    with pytest.raises(
+        HarveyLabEvaluationError,
+        match="could not be bound to the solver projection",
+    ):
+        build_contained_evaluator_run_spec(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=_identity(projected, tmp_path),
+        )
+    del env
+
+
 def test_official_pin_requires_evaluator_source_root(tmp_path: Path) -> None:
     env = _install_evaluator(tmp_path)
     projected = _project(tmp_path)

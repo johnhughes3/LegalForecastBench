@@ -41,7 +41,7 @@ from legalforecast.multiharness.harvey_lab_projection import (
     HarveyLabPin,
     HarveyLabProjectionError,
     issue_196_pin,
-    load_harvey_lab_projection_manifest,
+    verify_harvey_lab_projection,
     verify_harvey_lab_source_pin,
 )
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
@@ -553,7 +553,7 @@ def _require_projected_identity(
             "solver projection root is required to bind evaluation identity"
         )
     try:
-        manifest = load_harvey_lab_projection_manifest(hosts.solver_projection_root)
+        manifest = verify_harvey_lab_projection(hosts.solver_projection_root)
     except (HarveyLabProjectionError, OSError, ValueError) as exc:
         raise HarveyLabEvaluationError(
             "evaluation identity could not be bound to the solver projection"
