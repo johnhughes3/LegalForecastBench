@@ -143,6 +143,15 @@ _REFUSAL_MARKERS = (
     "i'm not able to help",
     "i am unable to help",
 )
+_CANCELLED_MARKERS = (
+    "execution cancelled",
+    "was cancelled",
+)
+_IDENTITY_DRIFT_MARKERS = (
+    "resume identity mismatch",
+    "identity drift",
+    "version mismatch",
+)
 _AUTH_BASENAMES = frozenset({"auth.json", "auth.json.age"})
 CODEX_LOCAL_CLI_MANIFEST_PATH = (
     Path(__file__).resolve().parents[2]
@@ -157,6 +166,15 @@ _REASONING_EFFORT_PREFIX = "model_reasoning_effort="
 
 class CodexCliAdapterError(AdapterError):
     """Raised when the offline Codex CLI adapter cannot run safely."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        failure_class: LocalCliFailureClass | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.failure_class = failure_class
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,6 +262,26 @@ def _bind_envelope_to_receipt(
     return envelope
 
 
+def classify_codex_execution(
+    receipt: ExecutionReceipt,
+    *,
+    requested_model_name: str,
+    last_message_file: str | None = None,
+) -> CodexCliParsedEnvelope:
+    """Classify one contained Codex receipt onto the shared failure taxonomy."""
+
+    returncode, timed_out, crashed = _parser_execution_flags(receipt)
+    envelope = parse_codex_jsonl(
+        receipt.stdout,
+        requested_model_name=requested_model_name,
+        returncode=returncode,
+        timed_out=timed_out,
+        crashed=crashed,
+        last_message_file=last_message_file,
+    )
+    return _bind_envelope_to_receipt(receipt, envelope)
+
+
 @dataclass(frozen=True, slots=True)
 class CodexCliParsedEnvelope:
     """Fail-closed classification of one Codex JSONL stream."""
@@ -255,6 +293,7 @@ class CodexCliParsedEnvelope:
     output_tokens: int
     served_model: str | None
     thread_id: str | None
+    failure_slot: str | None = None
 
 
 def codex_cli_manifest() -> AdapterManifest:
@@ -315,6 +354,69 @@ def requested_model(model_key: str) -> str:
     return model_key[len(CODEX_MODEL_KEY_PREFIX) :]
 
 
+def plan_contained_codex_exec(
+    *,
+    prompt: str,
+    model: str,
+    workspace: Path,
+    timeout_seconds: float,
+    reasoning_effort: str = CODEX_DEFAULT_REASONING_EFFORT,
+    executable: str = CODEX_CLI_EXECUTABLE,
+    local_cli_manifest: LocalCliAdapterManifest | None = None,
+    auth_profile: object = FIXTURE_NONE,
+) -> CodexCliInvocationPlan:
+    """Build a deterministic ``codex exec`` plan without an MTD RunRequest.
+
+    Clean-native Harvey LAB composition uses this seam so the LAB path does
+    not invent a second argv family. ``build_codex_invocation_plan`` stays
+    the MTD adapter entry and delegates here.
+    """
+
+    if not prompt.strip():
+        raise CodexCliAdapterError("prompt must be non-empty")
+    if not model.strip() or "/" in model or "\\" in model:
+        raise CodexCliAdapterError("model must be a non-empty basename")
+    if reasoning_effort not in CODEX_REASONING_EFFORTS:
+        raise CodexCliAdapterError("reasoning_effort must be low, medium, or high")
+    if timeout_seconds <= 0:
+        raise CodexCliAdapterError("timeout_seconds must be positive")
+    _reject_forbidden_executable(executable)
+    manifest = local_cli_manifest or load_codex_local_cli_manifest()
+    if manifest.executable.basename != executable:
+        raise CodexCliAdapterError(
+            "Codex CLI executable must match the local CLI manifest basename"
+        )
+    try:
+        bound = bind_adapter_auth_profile(manifest, auth_profile)
+    except AuthProfileError as exc:
+        raise CodexCliAdapterError(str(exc)) from exc
+    if manifest.invocation.headless_mode != "exec_subcommand":
+        raise CodexCliAdapterError("offline Codex CLI adapter requires exec_subcommand")
+    prompt_for_argv = (
+        prompt if manifest.invocation.prompt_delivery == "argv_placeholder" else ""
+    )
+    rendered = manifest.invocation.render_argv(
+        prompt=prompt_for_argv,
+        model=model,
+        workspace=str(workspace),
+        output_schema_path="",
+    )
+    argv = _apply_reasoning_effort((executable, *rendered), reasoning_effort)
+    _reject_unallowlisted_argv(argv)
+    _require_noninteractive_argv(argv)
+    stdin = prompt if manifest.invocation.prompt_delivery == "stdin" else ""
+    return CodexCliInvocationPlan(
+        argv=argv,
+        stdin=stdin,
+        working_directory=workspace,
+        last_message_path=workspace / _LAST_MESSAGE_RELATIVE_PATH,
+        requested_model=model,
+        reasoning_effort=reasoning_effort,
+        timeout_seconds=timeout_seconds,
+        auth_profile=bound.profile_id,
+    )
+
+
 def build_codex_invocation_plan(
     request: RunRequest,
     workspace: Path,
@@ -328,42 +430,15 @@ def build_codex_invocation_plan(
 
     if not prompt.strip():
         raise CodexCliAdapterError("prompt must be non-empty")
-    _reject_forbidden_executable(executable)
-    manifest = local_cli_manifest or load_codex_local_cli_manifest()
-    if manifest.executable.basename != executable:
-        raise CodexCliAdapterError(
-            "Codex CLI executable must match the local CLI manifest basename"
-        )
-    try:
-        bound = bind_adapter_auth_profile(manifest, auth_profile)
-    except AuthProfileError as exc:
-        raise CodexCliAdapterError(str(exc)) from exc
-    if manifest.invocation.headless_mode != "exec_subcommand":
-        raise CodexCliAdapterError("offline Codex CLI adapter requires exec_subcommand")
-    model = requested_model(request.model_key)
-    effort = _reasoning_effort(request)
-    prompt_for_argv = (
-        prompt if manifest.invocation.prompt_delivery == "argv_placeholder" else ""
-    )
-    rendered = manifest.invocation.render_argv(
-        prompt=prompt_for_argv,
-        model=model,
-        workspace=str(workspace),
-        output_schema_path="",
-    )
-    argv = _apply_reasoning_effort((executable, *rendered), effort)
-    _reject_unallowlisted_argv(argv)
-    _require_noninteractive_argv(argv)
-    stdin = prompt if manifest.invocation.prompt_delivery == "stdin" else ""
-    return CodexCliInvocationPlan(
-        argv=argv,
-        stdin=stdin,
-        working_directory=workspace,
-        last_message_path=workspace / _LAST_MESSAGE_RELATIVE_PATH,
-        requested_model=model,
-        reasoning_effort=effort,
+    return plan_contained_codex_exec(
+        prompt=prompt,
+        model=requested_model(request.model_key),
+        workspace=workspace,
         timeout_seconds=float(request.sandbox_policy.timeout_seconds),
-        auth_profile=bound.profile_id,
+        reasoning_effort=_reasoning_effort(request),
+        executable=executable,
+        local_cli_manifest=local_cli_manifest,
+        auth_profile=auth_profile,
     )
 
 
@@ -407,9 +482,19 @@ def parse_codex_jsonl(
     served_model = _optional_str(started, "actual_model")
     requested_observed = _optional_str(started, "requested_model")
     if requested_observed is not None and requested_observed != requested_model_name:
-        return _failed_envelope("schema_violation", events)
+        return _failed_envelope(
+            LocalCliFailureClass.IDENTITY_DRIFT.value,
+            events,
+            served_model=served_model,
+            failure_slot="requested_model",
+        )
     if served_model is not None and served_model != requested_model_name:
-        return _failed_envelope("schema_violation", events)
+        return _failed_envelope(
+            LocalCliFailureClass.IDENTITY_DRIFT.value,
+            events,
+            served_model=served_model,
+            failure_slot="served_model",
+        )
 
     turn_started_indexes = tuple(
         index for index, event_type in enumerate(types) if event_type == "turn.started"
@@ -441,7 +526,16 @@ def parse_codex_jsonl(
         )
 
     if "turn.failed" in types or "error" in types:
-        return _failed_envelope(_failure_from_errors(events, returncode), events)
+        failure_class, failure_slot = _failure_from_errors(events, returncode)
+        return _failed_envelope(
+            failure_class,
+            events,
+            last_message=last_message,
+            input_tokens=usage_tokens[0],
+            output_tokens=usage_tokens[1],
+            served_model=served_model,
+            failure_slot=failure_slot,
+        )
     if returncode != 0:
         return _failed_envelope("crash", events)
     if "turn.completed" not in types or not last_message.strip():
@@ -575,16 +669,12 @@ class CodexCliAdapter:
         _write_private_text(private_logs / "codex-stdout.jsonl", receipt.stdout)
         _write_private_text(private_logs / "codex-stderr.log", receipt.stderr)
         last_message_file = _optional_existing_text(plan.last_message_path)
-        returncode, timed_out, crashed = _parser_execution_flags(receipt)
-        envelope = parse_codex_jsonl(
-            receipt.stdout,
+        returncode, _timed_out, _crashed = _parser_execution_flags(receipt)
+        envelope = classify_codex_execution(
+            receipt,
             requested_model_name=plan.requested_model,
-            returncode=returncode,
-            timed_out=timed_out,
-            crashed=crashed,
             last_message_file=last_message_file,
         )
-        envelope = _bind_envelope_to_receipt(receipt, envelope)
         if envelope.failure_class is not None:
             return _failed_result(
                 request,
@@ -845,17 +935,43 @@ def _is_sandbox_denial(text: str) -> bool:
     return is_local_cli_sandbox_denial(text)
 
 
+def _is_cancelled(text: str) -> bool:
+    folded = text.casefold()
+    return any(marker in folded for marker in _CANCELLED_MARKERS)
+
+
+def _is_identity_drift(text: str) -> bool:
+    folded = text.casefold()
+    return any(marker in folded for marker in _IDENTITY_DRIFT_MARKERS)
+
+
+def _identity_drift_slot(text: str) -> str | None:
+    folded = text.casefold()
+    if "resume identity" in folded:
+        return "resume_identity"
+    if "version mismatch" in folded:
+        return "executable_version"
+    if _is_identity_drift(text):
+        return "identity"
+    return None
+
+
 def _failure_from_errors(
     events: Sequence[Mapping[str, Any]],
     returncode: int,
-) -> str:
+) -> tuple[str, str | None]:
     del returncode
     text = _error_event_text(events)
     if _is_sandbox_denial(text):
-        return LocalCliFailureClass.SANDBOX_DENIAL.value
+        return LocalCliFailureClass.SANDBOX_DENIAL.value, None
+    if _is_cancelled(text):
+        return LocalCliFailureClass.CANCELLED.value, None
+    slot = _identity_drift_slot(text)
+    if slot is not None:
+        return LocalCliFailureClass.IDENTITY_DRIFT.value, slot
     if _is_refusal(text):
-        return LocalCliFailureClass.REFUSAL.value
-    return LocalCliFailureClass.CRASH.value
+        return LocalCliFailureClass.REFUSAL.value, None
+    return LocalCliFailureClass.CRASH.value, None
 
 
 def _error_event_text(events: Sequence[Mapping[str, Any]]) -> str:
@@ -871,6 +987,8 @@ def _failed_envelope(
     last_message: str = "",
     input_tokens: int = 0,
     output_tokens: int = 0,
+    served_model: str | None = None,
+    failure_slot: str | None = None,
 ) -> CodexCliParsedEnvelope:
     if failure_class not in CODEX_FAILURE_CLASSES:
         failure_class = coerce_local_cli_failure_class(failure_class).value
@@ -880,8 +998,9 @@ def _failed_envelope(
         events=tuple(events),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        served_model=None,
+        served_model=served_model,
         thread_id=None,
+        failure_slot=failure_slot,
     )
 
 
@@ -1020,6 +1139,7 @@ def _public_summary(
     offline_protocol_fixture: bool,
     deliverable_manifest_sha256: str | None,
     tool_call_count: int,
+    failure_slot: str | None = None,
 ) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "adapter_id": CODEX_CLI_ADAPTER_ID,
@@ -1047,8 +1167,10 @@ def _public_summary(
         summary["served_model"] = served_model
     if failure_class is not None:
         summary["failure_class"] = failure_class
+        slot = f" {failure_slot}" if failure_slot else ""
         summary["failure_detail"] = (
-            f"{failure_class} task_id={request.task.task_id} returncode={returncode}"
+            f"{failure_class}{slot} task_id={request.task.task_id} "
+            f"returncode={returncode}"
         )
     if deliverable_manifest_sha256 is not None:
         summary["deliverable_manifest_sha256"] = deliverable_manifest_sha256
@@ -1071,6 +1193,7 @@ def _failed_result(
         requested_model=requested_model(request.model_key),
         served_model=envelope.served_model,
         failure_class=envelope.failure_class,
+        failure_slot=envelope.failure_slot,
         input_tokens=envelope.input_tokens,
         output_tokens=envelope.output_tokens,
         returncode=returncode,

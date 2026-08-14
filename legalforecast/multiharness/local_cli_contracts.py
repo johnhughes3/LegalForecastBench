@@ -117,6 +117,12 @@ class LocalCliFailureClass(StrEnum):
 
     Unknown class names coerce to ``schema_violation``. Both adapters must
     import this enum; do not keep a parallel string tuple.
+
+    ``cancelled`` is a lifecycle abort, distinct from ``timeout``.
+    ``identity_drift`` covers served-model, executable-version, and resume
+    identity-key mismatches as one class; ``failure_detail`` names the slot.
+    Keep ``crash`` for unstructured death. ``sandbox_denial`` stays
+    error-path-only.
     """
 
     TIMEOUT = "timeout"
@@ -124,6 +130,8 @@ class LocalCliFailureClass(StrEnum):
     SCHEMA_VIOLATION = "schema_violation"
     CRASH = "crash"
     SANDBOX_DENIAL = "sandbox_denial"
+    CANCELLED = "cancelled"
+    IDENTITY_DRIFT = "identity_drift"
 
 
 LOCAL_CLI_FAILURE_CLASSES = tuple(item.value for item in LocalCliFailureClass)

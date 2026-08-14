@@ -20,6 +20,7 @@ from legalforecast.multiharness.codex_cli import (
     declared_failure_classes,
     load_codex_local_cli_manifest,
     parse_codex_jsonl,
+    plan_contained_codex_exec,
     run_offline_protocol_fixture,
 )
 from legalforecast.multiharness.command_adapter import CommandAdapter
@@ -220,10 +221,18 @@ def test_invocation_plan_snapshot_is_exact_and_non_interactive(tmp_path: Path) -
     request = _request()
     first = build_codex_invocation_plan(request, tmp_path, prompt=PLAN_PROMPT)
     second = build_codex_invocation_plan(request, tmp_path, prompt=PLAN_PROMPT)
+    lab = plan_contained_codex_exec(
+        prompt=PLAN_PROMPT,
+        model=PLAN_MODEL,
+        workspace=tmp_path,
+        timeout_seconds=float(request.sandbox_policy.timeout_seconds),
+    )
 
     assert first.argv == _canonical_argv(tmp_path)
     assert first.argv == second.argv
+    assert first.argv == lab.argv
     assert first.stdin == PLAN_PROMPT
+    assert lab.stdin == PLAN_PROMPT
     assert "--ask-for-approval" not in first.argv
     assert "--approve-for-me" not in first.argv
     assert not any(char in token for token in first.argv for char in ";|&`$")
@@ -282,6 +291,8 @@ def test_fixture_transcripts_declare_synthetic_provenance() -> None:
         "schema_violation": True,
         "crash": True,
         "sandbox_denial": True,
+        "cancelled": True,
+        "identity_drift": True,
         "malformed": True,
     }
     for name, synthetic in inventory.items():
@@ -401,6 +412,8 @@ def test_success_fixture_binds_run_result_and_deliverable(tmp_path: Path) -> Non
         ("timeout", "timeout"),
         ("crash", "crash"),
         ("sandbox_denial", "sandbox_denial"),
+        ("cancelled", "cancelled"),
+        ("identity_drift", "identity_drift"),
         ("refusal", "refusal"),
         ("schema_violation", "schema_violation"),
         ("malformed", "schema_violation"),
@@ -432,6 +445,21 @@ def test_declared_failure_fixtures_are_classified_fail_closed(
     assert "returncode=" in result.public_summary["failure_detail"]
     assert "deliverable_manifest_sha256" not in result.public_summary
     validate_public_record(result.to_record(), "failed_run_result")
+
+
+def test_identity_drift_failure_detail_names_served_model(tmp_path: Path) -> None:
+    workspace = tmp_path / "row"
+    workspace.mkdir()
+    (workspace / "prompt.txt").write_text("solve fixture\n", encoding="utf-8")
+    result = CodexCliAdapter(
+        execution_service=RecordingFakeExecutionService(
+            _transcript_from_fixture("identity_drift")
+        )
+    ).run(_request(), workspace)
+
+    assert result.public_summary["failure_class"] == "identity_drift"
+    assert "served_model" in result.public_summary["failure_detail"]
+    assert result.public_summary["served_model"] == "unexpected-model"
 
 
 def test_unparseable_envelope_is_error_not_empty_success(tmp_path: Path) -> None:
@@ -1040,6 +1068,78 @@ def test_parser_rejects_unknown_event_types() -> None:
     )
 
     assert envelope.failure_class == "schema_violation"
+
+
+def test_actual_model_mismatch_is_identity_drift_not_schema_violation() -> None:
+    stdout = _jsonl(
+        {
+            "type": "thread.started",
+            "thread_id": THREAD_ID,
+            "requested_model": "gpt-5.1",
+            "actual_model": "unexpected-model",
+        },
+        {"type": "turn.started"},
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item_0",
+                "text": "LEGALFORECAST_FAKE_CODEX_RESULT",
+                "type": "agent_message",
+            },
+        },
+        {
+            "type": "turn.completed",
+            "usage": {"input_tokens": 3, "output_tokens": 4},
+        },
+    )
+    envelope = parse_codex_jsonl(
+        stdout,
+        requested_model_name="gpt-5.1",
+        returncode=0,
+        timed_out=False,
+        crashed=False,
+    )
+
+    assert envelope.failure_class == "identity_drift"
+    assert envelope.served_model == "unexpected-model"
+    assert envelope.failure_slot == "served_model"
+
+
+def test_execution_cancelled_is_cancelled_not_crash() -> None:
+    stdout = _jsonl(
+        {"type": "thread.started", "thread_id": THREAD_ID},
+        {"type": "turn.started"},
+        {"type": "error", "message": "execution cancelled"},
+        {"type": "turn.failed", "error": {"message": "execution cancelled"}},
+    )
+    envelope = parse_codex_jsonl(
+        stdout,
+        requested_model_name="gpt-5.1",
+        returncode=130,
+        timed_out=False,
+        crashed=False,
+    )
+
+    assert envelope.failure_class == "cancelled"
+
+
+def test_resume_identity_mismatch_is_identity_drift() -> None:
+    stdout = _jsonl(
+        {"type": "thread.started", "thread_id": THREAD_ID},
+        {"type": "turn.started"},
+        {"type": "error", "message": "resume identity mismatch"},
+        {"type": "turn.failed", "error": {"message": "resume identity mismatch"}},
+    )
+    envelope = parse_codex_jsonl(
+        stdout,
+        requested_model_name="gpt-5.1",
+        returncode=18,
+        timed_out=False,
+        crashed=False,
+    )
+
+    assert envelope.failure_class == "identity_drift"
+    assert envelope.failure_slot == "resume_identity"
 
 
 def _load_transcript_file(path: Path) -> tuple[list[str], dict[str, Any]]:

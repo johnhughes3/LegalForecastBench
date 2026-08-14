@@ -190,6 +190,8 @@ def test_fixture_transcripts_declare_synthetic_provenance() -> None:
         "schema_violation": True,
         "crash": True,
         "sandbox_denial": True,
+        "cancelled": True,
+        "identity_drift": True,
         "malformed": True,
         "auth_closed": False,
     }
@@ -354,6 +356,8 @@ def test_declared_failure_classes_match_fixtures() -> None:
         "schema_violation",
         "crash",
         "sandbox_denial",
+        "cancelled",
+        "identity_drift",
     )
     for name in declared_failure_classes():
         assert (TRANSCRIPTS / f"{name}.json").is_file()
