@@ -290,11 +290,19 @@ def _scan_public_value(value: Any, path: str) -> None:
         _validate_public_string(value, path)
 
 
-def _is_document_filename_key(key: str) -> bool:
+def _is_document_filename_key(key: str, path: str) -> bool:
     """Filename keys in document_hashes are not credential field names."""
 
+    parent = path[: -len(key) - 1] if path.endswith(f".{key}") else path
+    if not parent.endswith("document_hashes"):
+        return False
     suffix = PurePosixPath(key).suffix
     return bool(suffix) and suffix.startswith(".") and "/" not in suffix
+
+
+def _secret_scan_key(key: str) -> str:
+    stepped = re.sub(r"(?<=[a-z])([A-Z])", r"_\1", key)
+    return re.sub(r"(?<=[A-Z])([A-Z][a-z])", r"_\1", stepped)
 
 
 def _validate_public_key(key: str, path: str) -> None:
@@ -307,13 +315,13 @@ def _validate_public_key(key: str, path: str) -> None:
         raise MultiHarnessValidationError(
             f"{path} uses prohibited legacy public classification value {key!r}"
         )
-    if SECRET_FIELD_PATTERN.search(key) is not None and not _is_document_filename_key(
-        key
+    if SECRET_FIELD_PATTERN.search(_secret_scan_key(key)) is not None and (
+        not _is_document_filename_key(key, path)
     ):
         raise MultiHarnessValidationError(f"{path} looks like a secret field")
     if PROVIDER_ACCOUNT_FIELD_PATTERN.search(
         key
-    ) is not None and not _is_document_filename_key(key):
+    ) is not None and not _is_document_filename_key(key, path):
         raise MultiHarnessValidationError(f"{path} looks like a provider account field")
 
 

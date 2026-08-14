@@ -334,6 +334,19 @@ def is_scoped_label(label: str) -> bool:
     )
 
 
+def is_partial_label(label: str) -> bool:
+    return any(
+        part == CLAIM_PARTIAL or part.startswith(f"{CLAIM_PARTIAL}:")
+        for part in label.strip().split("+")
+    )
+
+
+def require_coverage_kind(value: object) -> str:
+    if not isinstance(value, str) or value not in {COVERAGE_FULL, COVERAGE_SCOPED}:
+        raise ValueError("coverage_kind must be 'full' or 'scoped'")
+    return value
+
+
 def require_honest_coverage_claim(
     *,
     selection_label: str,
@@ -342,7 +355,8 @@ def require_honest_coverage_claim(
 ) -> None:
     """Fail closed when a scoped or interrupted run is labeled as a full suite."""
 
-    if interrupted and CLAIM_PARTIAL not in selection_label:
+    require_coverage_kind(coverage_kind)
+    if interrupted and not is_partial_label(selection_label):
         raise ValueError(
             "interrupted run must be labeled partial; it is not a full-suite claim"
         )

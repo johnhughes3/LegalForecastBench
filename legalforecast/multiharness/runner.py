@@ -50,8 +50,10 @@ from legalforecast.multiharness.process_containment import (
 from legalforecast.multiharness.run_progress import (
     CLAIM_PARTIAL,
     IdentityBinding,
+    ResumeRefusedError,
     RunProgressJournal,
     bind_run_identity,
+    is_partial_label,
     load_progress_journal,
     refuse_resume_identity_drift,
     write_progress_journal,
@@ -337,6 +339,8 @@ class _MultiHarnessRunner:
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         build_container_plan(self.config.sandbox_policy)
         selection = self.config.selection.select(self.config.task_index)
+        identity = _identity_binding_for(self.config, selection.selection_sha256)
+        journal = self._prepare_journal(selection=selection, identity=identity)
         capabilities = self._load_capabilities(adapters)
         row_plans = self._build_row_plans(selection, adapters, capabilities)
         run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
@@ -368,8 +372,6 @@ class _MultiHarnessRunner:
             self.config.output_dir / "run-manifest.json",
             initial_manifest.to_record(),
         )
-        identity = _identity_binding_for(self.config, selection.selection_sha256)
-        journal = self._prepare_journal(selection=selection, identity=identity)
         write_json_object(
             self.config.output_dir / "selection-manifest.json",
             _selection_manifest_record(selection, journal),
@@ -378,24 +380,28 @@ class _MultiHarnessRunner:
         rows: list[MultiHarnessRunRow] = []
         interrupted = False
         with _run_stop_flag() as stop_requested:
-            for plan in row_plans:
-                if stop_requested() or interrupted:
-                    interrupted = True
-                    break
-                row = self._execute_row(
-                    plan,
-                    selection_label=selection.selection_label,
-                    coverage_kind=selection.coverage_kind,
-                )
-                rows.append(row)
-                if row.result.status == "succeeded":
-                    journal = journal.with_completed_row(plan.row_id)
-                elif row.result.status == "interrupted":
-                    journal = journal.with_interrupted_row(plan.row_id)
-                    interrupted = True
-                write_progress_journal(self.config.output_dir, journal)
-                if interrupted:
-                    break
+            try:
+                for plan in row_plans:
+                    if stop_requested() or interrupted:
+                        interrupted = True
+                        break
+                    row = self._execute_row(
+                        plan,
+                        selection_label=selection.selection_label,
+                        coverage_kind=selection.coverage_kind,
+                        journal=journal,
+                    )
+                    rows.append(row)
+                    if row.result.status == "succeeded":
+                        journal = journal.with_completed_row(plan.row_id)
+                    elif row.result.status == "interrupted":
+                        journal = journal.with_interrupted_row(plan.row_id)
+                        interrupted = True
+                    write_progress_journal(self.config.output_dir, journal)
+                    if interrupted:
+                        break
+            except KeyboardInterrupt:
+                interrupted = True
 
         if interrupted or len(rows) < len(row_plans):
             interrupted = True
@@ -434,7 +440,9 @@ class _MultiHarnessRunner:
         identity: IdentityBinding,
     ) -> RunProgressJournal:
         existing = load_progress_journal(self.config.output_dir)
-        if self.config.resume and existing is not None:
+        if self.config.resume:
+            if existing is None:
+                raise ResumeRefusedError("resume refused: no progress journal")
             refuse_resume_identity_drift(prior=existing.identity, requested=identity)
             return existing
         journal = RunProgressJournal(
@@ -584,6 +592,7 @@ class _MultiHarnessRunner:
         *,
         selection_label: str,
         coverage_kind: str,
+        journal: RunProgressJournal,
     ) -> MultiHarnessRunRow:
         plan.workspace.mkdir(parents=True, exist_ok=True)
         private_logs = plan.workspace / "private-logs"
@@ -629,6 +638,7 @@ class _MultiHarnessRunner:
             resumed_result = self._resume_result(
                 plan,
                 solver_input_tree_sha256=solver_input_tree_sha256,
+                journal=journal,
             )
             write_json_object(plan.workspace / "request.json", plan.request.to_record())
             write_json_object(
@@ -657,6 +667,8 @@ class _MultiHarnessRunner:
                 tuple(provider_values.values()),
                 "run result",
             )
+        except ResumeRefusedError:
+            raise
         except (CommandAdapterCancelled, KeyboardInterrupt) as exc:
             container_receipt_sha256 = None
             result = _interrupted_result(plan, exc)
@@ -698,11 +710,17 @@ class _MultiHarnessRunner:
         plan: _RowPlan,
         *,
         solver_input_tree_sha256: str | None,
+        journal: RunProgressJournal,
     ) -> tuple[RunResult, Mapping[str, Any] | None, str | None] | None:
         if not self.config.resume:
             return None
         request_path = plan.workspace / "request.json"
         result_path = plan.workspace / "result.json"
+        completed = plan.row_id in journal.completed_row_ids
+        if completed and (not request_path.is_file() or not result_path.is_file()):
+            raise ResumeRefusedError(
+                "resume refused: completed row is missing durable artifacts"
+            )
         if not request_path.is_file() or not result_path.is_file():
             return None
         try:
@@ -710,6 +728,13 @@ class _MultiHarnessRunner:
                 _read_json(request_path, "request")
             )
             result = RunResult.from_record(_read_json(result_path, "result"))
+        except (OSError, ValueError) as exc:
+            if completed:
+                raise ResumeRefusedError(
+                    "resume refused: completed row is missing durable artifacts"
+                ) from exc
+            return None
+        try:
             provider_values = require_provider_environment_values(
                 plan.request.sandbox_policy.allowed_provider_env_vars
             )
@@ -1224,13 +1249,17 @@ def _identity_binding_for(
 ) -> IdentityBinding:
     adapters = _ordered_adapters(config.adapters)
     models = _ordered_model_configs(config.model_configs)
+    config_record = dict(config.to_record())
+    adapter_timeouts = _adapter_timeout_records(adapters)
+    if adapter_timeouts:
+        config_record["adapter_timeout_seconds"] = adapter_timeouts
     return bind_run_identity(
         adapter_ids=tuple(adapter.manifest.adapter_id for adapter in adapters),
         adapter_versions=tuple(
             adapter.manifest.adapter_version for adapter in adapters
         ),
         model_keys=tuple(model.model_key for model in models),
-        config_record=config.to_record(),
+        config_record=config_record,
         policy_record=config.sandbox_policy.to_record(),
         policy_sha256=_record_sha256(
             config.sandbox_policy.to_record(),
@@ -1240,13 +1269,29 @@ def _identity_binding_for(
     )
 
 
+def _adapter_timeout_records(
+    adapters: Sequence[HarnessAdapter],
+) -> list[dict[str, str | float]]:
+    records: list[dict[str, str | float]] = []
+    for adapter in adapters:
+        timeout = getattr(adapter, "timeout_seconds", None)
+        if isinstance(timeout, int | float) and not isinstance(timeout, bool):
+            records.append(
+                {
+                    "adapter_id": adapter.manifest.adapter_id,
+                    "timeout_seconds": float(timeout),
+                }
+            )
+    return records
+
+
 def _selection_manifest_record(
     selection: SelectionResult,
     journal: RunProgressJournal,
 ) -> dict[str, Any]:
     claim_kind = journal.claim_kind()
     selection_label = selection.selection_label
-    if claim_kind == CLAIM_PARTIAL and CLAIM_PARTIAL not in selection_label:
+    if claim_kind == CLAIM_PARTIAL and not is_partial_label(selection_label):
         selection_label = f"{CLAIM_PARTIAL}+{selection_label}"
     return {
         "schema_version": (
@@ -1278,6 +1323,7 @@ def _run_stop_flag() -> Generator[Callable[[], bool]]:
     def mark_stop(requested_signal: int, frame: object) -> None:
         del requested_signal, frame
         requested["value"] = True
+        raise KeyboardInterrupt
 
     for requested_signal in watched:
         signal.signal(requested_signal, mark_stop)

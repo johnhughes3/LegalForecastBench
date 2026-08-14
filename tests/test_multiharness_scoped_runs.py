@@ -98,6 +98,24 @@ def test_honest_coverage_claim_rejects_unlabeled_interrupt() -> None:
         )
 
 
+def test_honest_coverage_claim_rejects_unknown_coverage_kind() -> None:
+    with pytest.raises(ValueError, match="coverage_kind"):
+        require_honest_coverage_claim(
+            selection_label="full",
+            coverage_kind="scope",
+            interrupted=False,
+        )
+
+
+def test_impartial_label_is_not_a_partial_claim() -> None:
+    with pytest.raises(ValueError, match="labeled partial"):
+        require_honest_coverage_claim(
+            selection_label="impartial-analysis",
+            coverage_kind="full",
+            interrupted=True,
+        )
+
+
 def _projected_folder(tmp_path: Path) -> tuple[Path, TaskIndex, CanonicalTask]:
     folder = tmp_path / "projected-layout"
     relative_path = "corporate/merger/task.json"

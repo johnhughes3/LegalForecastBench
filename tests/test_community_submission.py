@@ -125,6 +125,59 @@ def test_community_package_cli_writes_pr_ready_submission(tmp_path: Path) -> Non
     assert "private-logs" not in json.dumps(packaged_runs, sort_keys=True)
 
 
+def test_missing_run_selection_manifest_fails_closed_on_package(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    (run_dir / "selection-manifest.json").unlink(missing_ok=True)
+
+    with pytest.raises(MultiHarnessValidationError, match="selection-manifest"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "missing-selection")
+        )
+
+
+def test_unknown_coverage_kind_fails_closed_on_package(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _write_json(
+        run_dir / "selection-manifest.json",
+        {
+            "schema_version": "legalforecast.multiharness.selection_manifest.v1",
+            "selection_sha256": SHA1,
+            "selection_label": "full",
+            "coverage_kind": "scope",
+            "claim_kind": "full",
+            "task_ids": ["harvey_lab:corporate/merger"],
+        },
+    )
+
+    with pytest.raises(MultiHarnessValidationError, match="coverage_kind"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "unknown-coverage")
+        )
+
+
+def test_row_scoped_coverage_cannot_be_packaged_as_full(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _write_json(
+        run_dir / "selection-manifest.json",
+        {
+            "schema_version": "legalforecast.multiharness.selection_manifest.v1",
+            "selection_sha256": SHA1,
+            "selection_label": "full",
+            "coverage_kind": "full",
+            "claim_kind": "full",
+            "task_ids": ["harvey_lab:corporate/merger"],
+        },
+    )
+    rows = _read_jsonl(run_dir / "row-results.jsonl")
+    rows[0]["coverage_kind"] = "scoped"
+    _write_jsonl(run_dir / "row-results.jsonl", rows)
+
+    with pytest.raises(MultiHarnessValidationError, match="scoped"):
+        package_community_submission(_package_config(run_dir, tmp_path / "row-scoped"))
+
+
 def test_deleting_scoped_selection_label_fails_claim_validation(tmp_path: Path) -> None:
     run_dir = _write_run_dir(tmp_path)
     _write_json(
@@ -900,6 +953,17 @@ def _write_run_dir(tmp_path: Path) -> Path:
             "status": "passed",
             "checks": {"fixture": "passed: ok"},
             "artifacts": [],
+        },
+    )
+    _write_json(
+        run_dir / "selection-manifest.json",
+        {
+            "schema_version": "legalforecast.multiharness.selection_manifest.v1",
+            "selection_sha256": SHA1,
+            "selection_label": "fixture-selection",
+            "coverage_kind": "full",
+            "claim_kind": "full",
+            "task_ids": ["harvey_lab:corporate/merger"],
         },
     )
     return run_dir

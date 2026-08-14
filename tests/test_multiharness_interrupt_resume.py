@@ -6,11 +6,13 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from legalforecast.multiharness.adapters import AdapterPreparation
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.run_progress import (
     JOURNAL_FILENAME,
@@ -24,9 +26,12 @@ from legalforecast.multiharness.runner import (
 )
 from legalforecast.multiharness.sandbox import sandbox_policy
 from legalforecast.multiharness.spec import (
+    AdapterCapabilities,
     AdapterManifest,
     CanonicalTask,
     ContributorCredit,
+    RunRequest,
+    RunResult,
     TaskIndex,
 )
 
@@ -162,6 +167,8 @@ def test_solver_identity_drift_on_resume_names_the_drift(tmp_path: Path) -> None
     adapter = _fast_adapter(tmp_path)
     output_dir = tmp_path / "run"
     run_multi_harness(_run_config(output_dir=output_dir, adapter=adapter))
+    original_compatibility = (output_dir / "run-compatibility.json").read_text()
+    original_manifest = (output_dir / "run-manifest.json").read_text()
     drifted = replace(
         _run_config(output_dir=output_dir, adapter=adapter, resume=True),
         model_configs=(
@@ -174,6 +181,89 @@ def test_solver_identity_drift_on_resume_names_the_drift(tmp_path: Path) -> None
 
     with pytest.raises(ResumeRefusedError, match="solver identity drifted"):
         run_multi_harness(drifted)
+
+    assert (output_dir / "run-compatibility.json").read_text() == original_compatibility
+    assert (output_dir / "run-manifest.json").read_text() == original_manifest
+
+
+def test_resume_without_journal_is_refused(tmp_path: Path) -> None:
+    adapter = _fast_adapter(tmp_path)
+    output_dir = tmp_path / "run"
+    run_multi_harness(_run_config(output_dir=output_dir, adapter=adapter))
+    (output_dir / JOURNAL_FILENAME).unlink()
+
+    with pytest.raises(ResumeRefusedError, match="no progress journal"):
+        run_multi_harness(
+            _run_config(output_dir=output_dir, adapter=adapter, resume=True)
+        )
+
+
+def test_resume_refuses_completed_row_missing_result_artifacts(
+    tmp_path: Path,
+) -> None:
+    adapter = _fast_adapter(tmp_path)
+    output_dir = tmp_path / "run"
+    run_multi_harness(_run_config(output_dir=output_dir, adapter=adapter))
+    result_path = next((output_dir / "rows").glob("*/result.json"))
+    result_path.unlink()
+
+    with pytest.raises(ResumeRefusedError, match="missing durable artifacts"):
+        run_multi_harness(
+            _run_config(output_dir=output_dir, adapter=adapter, resume=True)
+        )
+
+
+def test_resume_refuses_command_timeout_drift(tmp_path: Path) -> None:
+    adapter = _fast_adapter(tmp_path)
+    output_dir = tmp_path / "run"
+    run_multi_harness(_run_config(output_dir=output_dir, adapter=adapter))
+    drifted = replace(adapter, timeout_seconds=12)
+
+    with pytest.raises(ResumeRefusedError, match="config identity drifted"):
+        run_multi_harness(
+            _run_config(output_dir=output_dir, adapter=drifted, resume=True)
+        )
+
+
+def test_in_process_adapter_interrupt_writes_interrupted_receipt(
+    tmp_path: Path,
+) -> None:
+    adapter = _BlockingInProcessAdapter()
+    output_dir = tmp_path / "run"
+
+    def _interrupt() -> None:
+        time.sleep(0.2)
+        os.kill(os.getpid(), signal.SIGINT)
+
+    threading.Thread(target=_interrupt, daemon=True).start()
+    run = run_multi_harness(
+        MultiHarnessRunConfig(
+            task_index=TaskIndex(
+                index_id="fixture-index",
+                selection_namespace="fixture",
+                tasks=(_task(FAST_TASK_ID),),
+                index_sha256=SHA256,
+            ),
+            adapters=(adapter,),
+            model_configs=(
+                ModelConfig(
+                    adapter_id=adapter.manifest.adapter_id,
+                    model_key="fixture-model",
+                ),
+            ),
+            sandbox_policy=sandbox_policy(
+                policy_id="fixture",
+                backend="docker",
+                image="python:3.12-slim",
+                mounts=(),
+                timeout_seconds=30,
+            ),
+            output_dir=output_dir,
+        )
+    )
+
+    assert run.interrupted is True
+    assert run.rows[0].result.status == "interrupted"
 
 
 def test_double_resume_after_completion_is_a_noop(tmp_path: Path) -> None:
@@ -193,6 +283,40 @@ def test_double_resume_after_completion_is_a_noop(tmp_path: Path) -> None:
     assert (first.rows[0].workspace / "run-count.txt").read_text() == "1"
     assert (second.rows[0].workspace / "run-count.txt").read_text() == "1"
     assert (third.rows[0].workspace / "run-count.txt").read_text() == "1"
+
+
+class _BlockingInProcessAdapter:
+    def __init__(self) -> None:
+        self.manifest = AdapterManifest(
+            adapter_id="in-process-fixture",
+            display_name="In Process Fixture",
+            adapter_version="0.1.0",
+            command=("in-process-fixture",),
+        )
+
+    def capabilities(self, workspace: Path) -> AdapterCapabilities:
+        del workspace
+        return AdapterCapabilities(
+            adapter_id=self.manifest.adapter_id,
+            adapter_version=self.manifest.adapter_version,
+            supported_families=("legalforecast_mtd",),
+            supported_scoring_modes=("lfb_brier",),
+            capabilities_sha256=SHA256,
+        )
+
+    def prepare(self, request: RunRequest, workspace: Path) -> AdapterPreparation:
+        return AdapterPreparation(
+            manifest=self.manifest,
+            capabilities=self.capabilities(workspace),
+            workspace=workspace,
+        )
+
+    def run(self, request: RunRequest, workspace: Path) -> RunResult:
+        del request, workspace
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            time.sleep(0.05)
+        raise AssertionError("in-process adapter was not interrupted")
 
 
 def _run_config(
