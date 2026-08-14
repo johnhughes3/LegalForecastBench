@@ -61,7 +61,9 @@ SCHEMA_VERSIONS: Mapping[str, str] = {
 
 TASK_FAMILIES = frozenset({"legalforecast_mtd", "harvey_lab", "contract_only"})
 SCORING_MODES = frozenset({"lfb_brier", "lab_native", "contract_only"})
-RUN_RESULT_STATUSES = frozenset({"succeeded", "failed", "skipped"})
+# Community sidecar statuses. This schema id is not in docs/schemas/ and is
+# not a Cycle 1 authenticated byte contract.
+RUN_RESULT_STATUSES = frozenset({"succeeded", "failed", "skipped", "interrupted"})
 CONFORMANCE_STATUSES = frozenset({"passed", "failed", "warning"})
 POSIX_PROCESS_GROUP_CONTAINMENT = "posix_process_group.v1"
 LINUX_SYSTEMD_SCOPE_CONTAINMENT = "linux_systemd_scope_cgroup_v2.v1"

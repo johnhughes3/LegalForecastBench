@@ -2,6 +2,8 @@
 
 Community submissions are reviewed metadata packages under `community/submissions/<year>/<submission_id>/`. They are not official LegalForecastBench results. The official benchmark, official publication artifacts, and official protected workflows remain separate.
 
+Walk through install, fixture-none, interrupt/resume, and packaging in [docs/community-contributor-guide.md](community-contributor-guide.md) before you open a PR.
+
 ## Package A Run
 
 Start from a completed multi-harness run directory and a conformance report:

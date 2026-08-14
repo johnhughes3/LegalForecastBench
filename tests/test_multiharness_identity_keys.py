@@ -226,6 +226,13 @@ def test_resume_cannot_cross_task_config_or_policy() -> None:
         )
 
 
+def test_resume_cannot_cross_solver_identity() -> None:
+    prior = _run()
+    other_solver = _solver(requested_model="claude-sonnet-4")
+    with pytest.raises(IdentityError, match="solver identity"):
+        validate_resume_binding(requested=_run(solver=other_solver), prior=prior)
+
+
 def _run_spec(tmp_path: Path) -> RunSpec:
     return RunSpec(
         spec_id="fixture-spec",

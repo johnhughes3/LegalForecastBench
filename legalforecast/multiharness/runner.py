@@ -5,8 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import signal
 import tempfile
-from collections.abc import Mapping, Sequence
+import threading
+from collections.abc import Callable, Generator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -25,7 +28,10 @@ from legalforecast.multiharness.auth_profiles import (
     AuthProfileError,
     require_infisical_environment,
 )
-from legalforecast.multiharness.command_adapter import CommandAdapter
+from legalforecast.multiharness.command_adapter import (
+    CommandAdapter,
+    CommandAdapterCancelled,
+)
 from legalforecast.multiharness.container_runtime import (
     ContainerRuntimeError,
     ContainerToolSession,
@@ -40,6 +46,17 @@ from legalforecast.multiharness.host_environment import (
 from legalforecast.multiharness.lfb_native import LfbNativeAdapter
 from legalforecast.multiharness.process_containment import (
     preflight_process_containment,
+)
+from legalforecast.multiharness.run_progress import (
+    CLAIM_PARTIAL,
+    IdentityBinding,
+    ResumeRefusedError,
+    RunProgressJournal,
+    bind_run_identity,
+    is_partial_label,
+    load_progress_journal,
+    refuse_resume_identity_drift,
+    write_progress_journal,
 )
 from legalforecast.multiharness.sandbox import (
     PROVIDER_EGRESS_HOST_ONLY,
@@ -202,6 +219,8 @@ class MultiHarnessRunRow:
     lfb_record: Mapping[str, Any] | None = None
     container_execution: str = "plan_only"
     container_receipt_sha256: str | None = None
+    selection_label: str = "full"
+    coverage_kind: str = "full"
 
     def to_record(self) -> dict[str, Any]:
         container_record: dict[str, Any] = {
@@ -232,6 +251,8 @@ class MultiHarnessRunRow:
             "status": self.result.status,
             "workspace": self.workspace.as_posix(),
             "resumed": self.resumed,
+            "selection_label": self.selection_label,
+            "coverage_kind": self.coverage_kind,
             "container_execution": container_record,
         }
 
@@ -244,6 +265,7 @@ class MultiHarnessRun:
     selection: SelectionResult
     rows: tuple[MultiHarnessRunRow, ...]
     output_dir: Path
+    interrupted: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -317,6 +339,8 @@ class _MultiHarnessRunner:
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         build_container_plan(self.config.sandbox_policy)
         selection = self.config.selection.select(self.config.task_index)
+        identity = _identity_binding_for(self.config, selection.selection_sha256)
+        journal = self._prepare_journal(selection=selection, identity=identity)
         capabilities = self._load_capabilities(adapters)
         row_plans = self._build_row_plans(selection, adapters, capabilities)
         run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
@@ -348,10 +372,49 @@ class _MultiHarnessRunner:
             self.config.output_dir / "run-manifest.json",
             initial_manifest.to_record(),
         )
+        write_json_object(
+            self.config.output_dir / "selection-manifest.json",
+            _selection_manifest_record(selection, journal),
+        )
 
         rows: list[MultiHarnessRunRow] = []
-        for plan in row_plans:
-            rows.append(self._execute_row(plan))
+        interrupted = False
+        with _run_stop_flag() as stop_requested:
+            try:
+                for plan in row_plans:
+                    if stop_requested() or interrupted:
+                        interrupted = True
+                        break
+                    row = self._execute_row(
+                        plan,
+                        selection_label=selection.selection_label,
+                        coverage_kind=selection.coverage_kind,
+                        journal=journal,
+                    )
+                    rows.append(row)
+                    if row.result.status == "succeeded":
+                        journal = journal.with_completed_row(plan.row_id)
+                    elif row.result.status == "interrupted":
+                        journal = journal.with_interrupted_row(plan.row_id)
+                        interrupted = True
+                    write_progress_journal(self.config.output_dir, journal)
+                    if interrupted:
+                        break
+            except KeyboardInterrupt:
+                interrupted = True
+
+        if interrupted or len(rows) < len(row_plans):
+            interrupted = True
+            if journal.status != "interrupted":
+                journal = journal.mark_stopped()
+                write_progress_journal(self.config.output_dir, journal)
+        else:
+            journal = journal.mark_completed()
+            write_progress_journal(self.config.output_dir, journal)
+        write_json_object(
+            self.config.output_dir / "selection-manifest.json",
+            _selection_manifest_record(selection, journal),
+        )
 
         final_manifest = RunManifest(
             run_id=self.config.run_id,
@@ -367,7 +430,31 @@ class _MultiHarnessRunner:
             selection=selection,
             rows=tuple(rows),
             output_dir=self.config.output_dir,
+            interrupted=interrupted,
         )
+
+    def _prepare_journal(
+        self,
+        *,
+        selection: SelectionResult,
+        identity: IdentityBinding,
+    ) -> RunProgressJournal:
+        existing = load_progress_journal(self.config.output_dir)
+        if self.config.resume:
+            if existing is None:
+                raise ResumeRefusedError("resume refused: no progress journal")
+            refuse_resume_identity_drift(prior=existing.identity, requested=identity)
+            return existing
+        journal = RunProgressJournal(
+            run_id=self.config.run_id,
+            identity=identity,
+            coverage_kind=selection.coverage_kind,
+            selection_label=selection.selection_label,
+            completed_row_ids=(),
+            status="in_progress",
+        )
+        write_progress_journal(self.config.output_dir, journal)
+        return journal
 
     def _load_capabilities(
         self,
@@ -499,7 +586,14 @@ class _MultiHarnessRunner:
         if model.lfb_packet is None or model.lfb_solver is None:
             raise ValueError("LfbNativeAdapter rows require lfb_packet and lfb_solver")
 
-    def _execute_row(self, plan: _RowPlan) -> MultiHarnessRunRow:
+    def _execute_row(
+        self,
+        plan: _RowPlan,
+        *,
+        selection_label: str,
+        coverage_kind: str,
+        journal: RunProgressJournal,
+    ) -> MultiHarnessRunRow:
         plan.workspace.mkdir(parents=True, exist_ok=True)
         private_logs = plan.workspace / "private-logs"
         private_logs.mkdir(parents=True, exist_ok=True)
@@ -544,6 +638,7 @@ class _MultiHarnessRunner:
             resumed_result = self._resume_result(
                 plan,
                 solver_input_tree_sha256=solver_input_tree_sha256,
+                journal=journal,
             )
             write_json_object(plan.workspace / "request.json", plan.request.to_record())
             write_json_object(
@@ -572,6 +667,12 @@ class _MultiHarnessRunner:
                 tuple(provider_values.values()),
                 "run result",
             )
+        except ResumeRefusedError:
+            raise
+        except (CommandAdapterCancelled, KeyboardInterrupt) as exc:
+            container_receipt_sha256 = None
+            result = _interrupted_result(plan, exc)
+            write_json_object(plan.workspace / "result.json", result.to_record())
         except Exception as exc:
             container_receipt_sha256 = None
             if self.config.incomplete_run_policy == "fail_fast":
@@ -600,6 +701,8 @@ class _MultiHarnessRunner:
             lfb_record=lfb_record,
             container_execution=self.config.container_execution,
             container_receipt_sha256=container_receipt_sha256,
+            selection_label=selection_label,
+            coverage_kind=coverage_kind,
         )
 
     def _resume_result(
@@ -607,11 +710,17 @@ class _MultiHarnessRunner:
         plan: _RowPlan,
         *,
         solver_input_tree_sha256: str | None,
+        journal: RunProgressJournal,
     ) -> tuple[RunResult, Mapping[str, Any] | None, str | None] | None:
         if not self.config.resume:
             return None
         request_path = plan.workspace / "request.json"
         result_path = plan.workspace / "result.json"
+        completed = plan.row_id in journal.completed_row_ids
+        if completed and (not request_path.is_file() or not result_path.is_file()):
+            raise ResumeRefusedError(
+                "resume refused: completed row is missing durable artifacts"
+            )
         if not request_path.is_file() or not result_path.is_file():
             return None
         try:
@@ -619,6 +728,13 @@ class _MultiHarnessRunner:
                 _read_json(request_path, "request")
             )
             result = RunResult.from_record(_read_json(result_path, "result"))
+        except (OSError, ValueError) as exc:
+            if completed:
+                raise ResumeRefusedError(
+                    "resume refused: completed row is missing durable artifacts"
+                ) from exc
+            return None
+        try:
             provider_values = require_provider_environment_values(
                 plan.request.sandbox_policy.allowed_provider_env_vars
             )
@@ -956,6 +1072,31 @@ def _failure_result(plan: _RowPlan, exc: Exception) -> RunResult:
     )
 
 
+def _interrupted_result(plan: _RowPlan, exc: BaseException) -> RunResult:
+    summary = {
+        "task_id": plan.task.task_id,
+        "adapter_id": plan.adapter.manifest.adapter_id,
+        "model_key": plan.model_config.model_key,
+        "interrupt_class": "interrupted",
+        "error_type": exc.__class__.__name__,
+        "error_message": _plain_error(exc),
+    }
+    try:
+        validate_public_record(summary, "interrupt.public_summary")
+    except ValueError:
+        summary = {
+            "interrupt_class": "interrupted",
+            "error_message": "run was interrupted",
+        }
+    return RunResult(
+        result_id=f"{plan.row_id}:result",
+        request_id=plan.request.request_id,
+        status="interrupted",
+        result_sha256=_record_sha256(summary, prefixed=True),
+        public_summary=summary,
+    )
+
+
 def _lab_result_record(row: MultiHarnessRunRow) -> dict[str, Any]:
     return {
         "row_id": row.row_id,
@@ -1033,7 +1174,7 @@ def _media_type(path: Path) -> str:
     return "application/octet-stream"
 
 
-def _plain_error(exc: Exception) -> str:
+def _plain_error(exc: BaseException) -> str:
     text = str(exc).strip()
     if not text:
         text = exc.__class__.__name__
@@ -1100,3 +1241,94 @@ def _run_compatibility_record(
 def _require_non_empty(value: str, field_name: str) -> None:
     if not value.strip():
         raise ValueError(f"{field_name} must be non-empty")
+
+
+def _identity_binding_for(
+    config: MultiHarnessRunConfig,
+    selection_sha256: str,
+) -> IdentityBinding:
+    adapters = _ordered_adapters(config.adapters)
+    models = _ordered_model_configs(config.model_configs)
+    config_record = dict(config.to_record())
+    adapter_timeouts = _adapter_timeout_records(adapters)
+    if adapter_timeouts:
+        config_record["adapter_timeout_seconds"] = adapter_timeouts
+    return bind_run_identity(
+        adapter_ids=tuple(adapter.manifest.adapter_id for adapter in adapters),
+        adapter_versions=tuple(
+            adapter.manifest.adapter_version for adapter in adapters
+        ),
+        model_keys=tuple(model.model_key for model in models),
+        config_record=config_record,
+        policy_record=config.sandbox_policy.to_record(),
+        policy_sha256=_record_sha256(
+            config.sandbox_policy.to_record(),
+            prefixed=True,
+        ),
+        selection_sha256=selection_sha256,
+    )
+
+
+def _adapter_timeout_records(
+    adapters: Sequence[HarnessAdapter],
+) -> list[dict[str, str | float]]:
+    records: list[dict[str, str | float]] = []
+    for adapter in adapters:
+        timeout = getattr(adapter, "timeout_seconds", None)
+        if isinstance(timeout, int | float) and not isinstance(timeout, bool):
+            records.append(
+                {
+                    "adapter_id": adapter.manifest.adapter_id,
+                    "timeout_seconds": float(timeout),
+                }
+            )
+    return records
+
+
+def _selection_manifest_record(
+    selection: SelectionResult,
+    journal: RunProgressJournal,
+) -> dict[str, Any]:
+    claim_kind = journal.claim_kind()
+    selection_label = selection.selection_label
+    if claim_kind == CLAIM_PARTIAL and not is_partial_label(selection_label):
+        selection_label = f"{CLAIM_PARTIAL}+{selection_label}"
+    return {
+        "schema_version": (
+            # contract-ratchet: allow non-authoritative selection-manifest sidecar
+            "legalforecast.multiharness.selection_manifest.v1"
+        ),
+        "selection_sha256": selection.selection_sha256,
+        "selection_label": selection_label,
+        "coverage_kind": selection.coverage_kind,
+        "claim_kind": claim_kind,
+        "task_ids": [task.task_id for task in selection.tasks],
+        "run_status": journal.status,
+    }
+
+
+@contextmanager
+def _run_stop_flag() -> Generator[Callable[[], bool]]:
+    requested = {"value": False}
+    if threading.current_thread() is not threading.main_thread():
+        yield lambda: requested["value"]
+        return
+
+    watched = (signal.SIGINT, signal.SIGTERM)
+    previous = {
+        requested_signal: signal.getsignal(requested_signal)
+        for requested_signal in watched
+    }
+
+    def mark_stop(requested_signal: int, frame: object) -> None:
+        del requested_signal, frame
+        requested["value"] = True
+        raise KeyboardInterrupt
+
+    for requested_signal in watched:
+        signal.signal(requested_signal, mark_stop)
+    try:
+        yield lambda: requested["value"]
+    finally:
+        for requested_signal, previous_handler in previous.items():
+            signal.signal(requested_signal, previous_handler)

@@ -37,6 +37,7 @@ from legalforecast.multiharness.process_containment import (
     ProcessContainmentError,
     preflight_process_containment,
 )
+from legalforecast.multiharness.run_progress import ResumeRefusedError
 from legalforecast.multiharness.runner import (
     ModelConfig,
     MultiHarnessRunConfig,
@@ -501,6 +502,7 @@ def test_runner_does_not_resume_after_provider_environment_policy_changes(
         ),
     )
     first = run_multi_harness(first_config)
+    assert first.rows[0].result.status == "succeeded"
 
     monkeypatch.setenv("SECOND_PROVIDER_KEY", "second-provider-value")
     second_config = replace(
@@ -511,13 +513,8 @@ def test_runner_does_not_resume_after_provider_environment_policy_changes(
             allowed_provider_env_vars=("SECOND_PROVIDER_KEY",),
         ),
     )
-    second = run_multi_harness(second_config)
-
-    assert second.rows[0].resumed is False
-    assert first.rows[0].request.request_sha256 != second.rows[0].request.request_sha256
-    assert (second.rows[0].workspace / "run-count.txt").read_text(
-        encoding="utf-8"
-    ) == "2"
+    with pytest.raises(ResumeRefusedError, match="runtime policy identity drifted"):
+        run_multi_harness(second_config)
 
 
 def test_runner_does_not_resume_failed_result(tmp_path: Path) -> None:

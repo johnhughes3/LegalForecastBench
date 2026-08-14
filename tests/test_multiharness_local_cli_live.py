@@ -30,7 +30,7 @@ from legalforecast.multiharness.local_cli_runtime import (
 
 _WRAPPER_NAME = "infisical-agent-sandbox"
 _NAMESPACE_ROOT = "/agents/sandbox/legalforecastbench"
-_SIBLING_PATH = "/agents/sandbox/legalforecastbench/harness-runtime/undeclared-sibling"
+_SIBLING_PATH = "/agents/sandbox/legalforecastbench/harness-runtime/published-api-key"
 _BOOLEAN_PROBE = (
     "import json, os, sys;"
     "names = [item for item in sys.argv[1].split(',') if item];"

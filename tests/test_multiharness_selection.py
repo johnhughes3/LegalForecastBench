@@ -76,6 +76,8 @@ def test_selection_filters_lab_module_practice_area_and_tags() -> None:
     assert [task.task_id for task in result.tasks] == ["harvey_lab:corporate/merger"]
     assert result.comparison_groups[0].family == "harvey_lab"
     assert result.comparison_groups[0].scoring_mode == "lab_native"
+    assert result.coverage_kind == "scoped"
+    assert result.selection_label.startswith("scoped:")
 
 
 def test_duplicate_selectors_do_not_duplicate_tasks() -> None:
@@ -132,6 +134,9 @@ def test_empty_selection_fails_unless_allowed() -> None:
     with pytest.raises(ValueError, match="matched no tasks"):
         TaskSelection(case_ids=("missing",)).select(index)
 
+    with pytest.raises(ValueError, match="this index has no Harvey LAB modules"):
+        TaskSelection(modules=("corporate",)).select(index)
+
     result = TaskSelection(case_ids=("missing",), allow_empty=True).select(index)
 
     assert result.tasks == ()
@@ -156,6 +161,8 @@ def test_selection_result_groups_by_family_scoring_mode_and_selection_hash() -> 
 
     result = TaskSelection.full().select(index)
 
+    assert result.coverage_kind == "full"
+    assert result.selection_label == "full"
     assert {group.family for group in result.comparison_groups} == {
         "legalforecast_mtd",
         "harvey_lab",
