@@ -153,6 +153,26 @@ def test_verify_only_full_plan_revalidates_without_purchasing() -> None:
         role_bytes_match=lambda role, body: role.encode() in body,
     )
 
+    exclusions = tuple(
+        {
+            "candidate_id": operation.candidate_id,
+            "docket_entry_number": operation.docket_entry_number,
+            "document_selector": operation.document_selector,
+            "document_role": operation.document_role,
+            "reason": "missing stored bytes",
+        }
+        for operation in execution.operations
+    )
+    with pytest.raises(DocumentRepairVerifyOnlyError, match="purchase"):
+        verify_document_repair_pilot_bytes(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=(),
+            exclusions=exclusions,
+            role_bytes_match=lambda _role, _body: True,
+        )
+
 
 def test_verify_only_binds_included_bytes_to_resolved_operation() -> None:
     plan, pilot = _scope()

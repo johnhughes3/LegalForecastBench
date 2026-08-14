@@ -811,13 +811,10 @@ def _body_matches_role(markdown: str, requested_role: str) -> bool:
     if pleading_kind is not None:
         return pleading_body_matches_kind(markdown, pleading_kind)
     text = " ".join(markdown.lower().split())
-    briefing_support = bool(re.search(r"\b(?:memorandum|brief|motion)\b", text))
     if normalized_role == "opposition":
-        return (
-            bool(re.search(r"\b(?:opposition|response)\b", text)) and briefing_support
-        )
+        return bool(re.search(r"\b(?:opposition|response)\b", text))
     if normalized_role == "reply":
-        return bool(re.search(r"\breply\b", text)) and briefing_support
+        return bool(re.search(r"\breply\b", text))
     if normalized_role == "surreply":
         return bool(re.search(r"\bsur-?reply\b", text))
     if normalized_role == "supplemental_brief":

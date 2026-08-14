@@ -63,6 +63,13 @@ def verify_document_repair_pilot_bytes(
         if not isinstance(digest, str) or hashlib.sha256(body).hexdigest() != digest:
             raise DocumentRepairVerifyOnlyError("document sha256 differs from bytes")
     try:
+        _verify_pilot_operation_bytes(
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=acquired_documents,
+            exclusions=exclusions,
+            role_bytes_match=role_bytes_match,
+        )
         if execution.scope == "full_plan":
             seal_missing_document_successor(
                 plan=full_plan,
@@ -72,14 +79,6 @@ def verify_document_repair_pilot_bytes(
                 exclusions=exclusions,
                 role_bytes_match=role_bytes_match,
             )
-            return
-        _verify_pilot_operation_bytes(
-            execution=execution,
-            receipt=receipt,
-            acquired_documents=acquired_documents,
-            exclusions=exclusions,
-            role_bytes_match=role_bytes_match,
-        )
     except (DocumentRepairExecutorError, MissingDocumentSuccessorError) as exc:
         raise DocumentRepairVerifyOnlyError(str(exc)) from exc
 

@@ -967,20 +967,3 @@ def test_projector_refuses_accumulated_pacer_spend_over_slot_ceiling() -> None:
                 ),
             ),
         )
-
-
-def test_projector_requires_briefing_support_token_for_opposition() -> None:
-    manifest = _manifest_bytes()
-
-    result = project_missing_document_successor(
-        base_selection=_base_selection(),
-        manifest_bytes=manifest,
-        approval=_approval(manifest),
-        acquisitions=(_observation(markdown="PLAINTIFF'S OPPOSITION"),),
-    )
-
-    assert [
-        row["reason"]
-        for row in result.exclusion_ledger
-        if str(row["reason"]).startswith("acquired")
-    ] == ["acquired_bytes_mismatch_requested_role"]
