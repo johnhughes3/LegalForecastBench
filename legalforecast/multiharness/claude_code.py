@@ -32,6 +32,7 @@ from legalforecast.multiharness.adapters import AdapterError, AdapterPreparation
 from legalforecast.multiharness.auth_binding import (
     bind_adapter_auth_profile,
     public_auth_mode,
+    require_credentialed_network_policy,
     require_execution_service_profile,
 )
 from legalforecast.multiharness.auth_profiles import (
@@ -509,7 +510,14 @@ class ClaudeCodeCliAdapter:
         _requested_model(request.model_key)
         try:
             bound = bind_adapter_auth_profile(self.local_manifest, self.auth_profile)
-            require_execution_service_profile(self.execution_service, bound.profile_id)
+            require_execution_service_profile(
+                self.execution_service,
+                bound.profile_id,
+                projected_env_vars=bound.profile.projected_env_vars,
+            )
+            require_credentialed_network_policy(
+                bound.profile_id, request.sandbox_policy.network_policy
+            )
         except AuthProfileError as exc:
             raise ClaudeCodeCliAdapterError(str(exc)) from exc
         if request.sandbox_policy.allowed_provider_env_vars:
@@ -580,10 +588,18 @@ class ClaudeCodeCliSolver:
     def __post_init__(self) -> None:
         _requested_model(self.model_key)
         if self.adapter is None:
+            service_profile = getattr(
+                self.execution_service, "auth_profile", FIXTURE_NONE
+            )
+            if not isinstance(service_profile, str) or not service_profile:
+                service_profile = FIXTURE_NONE
             object.__setattr__(
                 self,
                 "adapter",
-                ClaudeCodeCliAdapter(execution_service=self.execution_service),
+                ClaudeCodeCliAdapter(
+                    execution_service=self.execution_service,
+                    auth_profile=service_profile,
+                ),
             )
 
     @property
@@ -620,7 +636,9 @@ class ClaudeCodeCliSolver:
                 adapter.local_manifest, adapter.auth_profile
             )
             require_execution_service_profile(
-                adapter.execution_service, bound.profile_id
+                adapter.execution_service,
+                bound.profile_id,
+                projected_env_vars=bound.profile.projected_env_vars,
             )
         except AuthProfileError as exc:
             raise ClaudeCodeCliAdapterError(str(exc)) from exc
@@ -671,6 +689,7 @@ class ClaudeCodeCliSolver:
             estimated_cost=usage["estimated_cost"],
             metadata={
                 "adapter_id": CLAUDE_CODE_ADAPTER_ID,
+                "auth_profile": bound.profile_id,
                 "spec_sha256": classified.spec.spec_sha256,
                 "receipt_id": classified.receipt.receipt_id,
             },

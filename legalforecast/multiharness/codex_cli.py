@@ -29,6 +29,7 @@ from legalforecast.multiharness.adapters import AdapterError, AdapterPreparation
 from legalforecast.multiharness.auth_binding import (
     bind_adapter_auth_profile,
     public_auth_mode,
+    require_credentialed_network_policy,
     require_execution_service_profile,
 )
 from legalforecast.multiharness.auth_profiles import (
@@ -515,7 +516,7 @@ class CodexCliAdapter:
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
         workspace.mkdir(parents=True, exist_ok=True)
-        return build_capabilities()
+        return self.local_cli_manifest.to_adapter_capabilities()
 
     def prepare(self, request: RunRequest, workspace: Path) -> AdapterPreparation:
         workspace.mkdir(parents=True, exist_ok=True)
@@ -545,7 +546,14 @@ class CodexCliAdapter:
             bound = bind_adapter_auth_profile(
                 self.local_cli_manifest, self.auth_profile
             )
-            require_execution_service_profile(self.execution_service, bound.profile_id)
+            require_execution_service_profile(
+                self.execution_service,
+                bound.profile_id,
+                projected_env_vars=bound.profile.projected_env_vars,
+            )
+            require_credentialed_network_policy(
+                bound.profile_id, request.sandbox_policy.network_policy
+            )
         except AuthProfileError as exc:
             raise CodexCliAdapterError(str(exc)) from exc
         prompt = _prompt_for(workspace, request)

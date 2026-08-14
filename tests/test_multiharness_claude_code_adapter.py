@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -20,6 +21,7 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
+from legalforecast.multiharness.auth_profiles import FIXTURE_NONE, PUBLISHED_API_KEY
 from legalforecast.multiharness.claude_code import (
     CLAUDE_CODE_ADAPTER_ID,
     CLAUDE_CODE_ADAPTER_VERSION,
@@ -465,6 +467,24 @@ def test_solver_returns_structured_output_from_fixture_transcript(
     assert response.output_tokens == 7
     assert response.metadata is not None
     assert response.metadata["adapter_id"] == CLAUDE_CODE_ADAPTER_ID
+    assert response.metadata["auth_profile"] == FIXTURE_NONE
+
+
+def test_solver_metadata_records_published_api_key_profile(tmp_path: Path) -> None:
+    service = _ProfiledFakeService(
+        _transcript("success"),
+        auth_profile=PUBLISHED_API_KEY,
+        projected_env_vars=("ANTHROPIC_API_KEY",),
+    )
+    solver = ClaudeCodeCliSolver(
+        execution_service=service,
+        model_key=SOLVER_MODEL_KEY,
+        workspace=tmp_path / "solver-workspace",
+    )
+    response = solver.solve(_harness_request())
+
+    assert response.metadata is not None
+    assert response.metadata["auth_profile"] == PUBLISHED_API_KEY
 
 
 def test_solver_raises_typed_failure_for_refusal() -> None:
@@ -593,6 +613,17 @@ def _adapter_from_mutated_success(
 
 def _service(fixture_name: str) -> FakeLocalCliExecutionService:
     return FakeLocalCliExecutionService(_transcript(fixture_name))
+
+
+@dataclass(frozen=True, slots=True)
+class _ProfiledFakeService(FakeLocalCliExecutionService):
+    auth_profile: str = FIXTURE_NONE
+    projected_env_vars: tuple[str, ...] = ()
+
+    def env_vars_for_profile(self, profile_id: str) -> tuple[str, ...]:
+        if profile_id == self.auth_profile:
+            return self.projected_env_vars
+        return ()
 
 
 def _transcript(fixture_name: str) -> FixtureTranscript:

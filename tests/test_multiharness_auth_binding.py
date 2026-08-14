@@ -26,6 +26,7 @@ from legalforecast.multiharness.auth_profiles import (
 from legalforecast.multiharness.claude_code import (
     ClaudeCodeCliAdapter,
     ClaudeCodeCliAdapterError,
+    ClaudeCodeCliSolver,
     build_claude_invocation_plan,
     claude_code_local_manifest,
 )
@@ -41,6 +42,8 @@ from legalforecast.multiharness.local_cli_contracts import (
 )
 from legalforecast.multiharness.local_cli_environment import StaticCredentialSource
 from legalforecast.multiharness.local_cli_manifest import LocalCliAdapterManifest
+from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
+from legalforecast.multiharness.runner import ModelConfig, _row_id
 from legalforecast.multiharness.spec import (
     AdapterManifest,
     CanonicalTask,
@@ -250,6 +253,91 @@ def test_fake_service_cannot_claim_published_api_key(tmp_path: Path) -> None:
             execution_service=fake,
             auth_profile=PUBLISHED_API_KEY,
         ).run(_codex_request(), tmp_path / "codex-workspace")
+
+
+def test_execution_service_projected_names_must_match_bound_profile() -> None:
+    bound = bind_adapter_auth_profile(claude_code_local_manifest(), PUBLISHED_API_KEY)
+    mismatched = LocalCliExecutionService(
+        auth_profile=PUBLISHED_API_KEY,
+        supported_auth_profiles=bound.supported_profiles,
+        profile_env_vars=((PUBLISHED_API_KEY, ("OPENAI_API_KEY",)),),
+    )
+    with pytest.raises(AuthProfileError, match="projected names"):
+        require_execution_service_profile(
+            mismatched,
+            bound.profile_id,
+            projected_env_vars=bound.profile.projected_env_vars,
+        )
+
+
+def test_published_api_key_requires_provider_egress(tmp_path: Path) -> None:
+    bound = bind_adapter_auth_profile(claude_code_local_manifest(), PUBLISHED_API_KEY)
+    service = contained_execution_service(
+        bound,
+        credential_source=StaticCredentialSource({"ANTHROPIC_API_KEY": "test-key"}),
+    )
+    with pytest.raises(ClaudeCodeCliAdapterError, match="provider_egress"):
+        ClaudeCodeCliAdapter(
+            execution_service=service,
+            auth_profile=PUBLISHED_API_KEY,
+        ).prepare(_claude_request(), tmp_path / "claude-workspace")
+
+
+def test_solver_default_adapter_inherits_service_auth_profile() -> None:
+    bound = bind_adapter_auth_profile(claude_code_local_manifest(), PUBLISHED_API_KEY)
+    service = contained_execution_service(
+        bound,
+        credential_source=StaticCredentialSource({"ANTHROPIC_API_KEY": "test-key"}),
+    )
+    solver = ClaudeCodeCliSolver(
+        execution_service=service,
+        model_key="anthropic:claude-sonnet-4-6",
+    )
+    assert solver.adapter is not None
+    assert solver.adapter.auth_profile == PUBLISHED_API_KEY
+
+
+def test_published_api_key_changes_resume_row_identity() -> None:
+    task = CanonicalTask(
+        task_id="lfb:case-1:full_packet",
+        family="legalforecast_mtd",
+        scoring_mode="lfb_brier",
+        suite_version="fixture",
+        source_id="case-1",
+        task_sha256="sha256:" + "1" * 64,
+    )
+    adapter = AdapterManifest(
+        adapter_id="claude-code-clean-native",
+        display_name="Claude Code",
+        adapter_version="1.0.0",
+        command=("legalforecast.multiharness.claude_code:ClaudeCodeCliAdapter",),
+    )
+    model = ModelConfig(
+        model_key="anthropic:claude-sonnet-4-6",
+        adapter_id="claude-code-clean-native",
+    )
+    fixture_row = _row_id(
+        task=task,
+        adapter=adapter,
+        model=model,
+        selection_sha256="sha256:" + "2" * 64,
+        auth_profile=FIXTURE_NONE,
+    )
+    omitted_row = _row_id(
+        task=task,
+        adapter=adapter,
+        model=model,
+        selection_sha256="sha256:" + "2" * 64,
+    )
+    live_row = _row_id(
+        task=task,
+        adapter=adapter,
+        model=model,
+        selection_sha256="sha256:" + "2" * 64,
+        auth_profile=PUBLISHED_API_KEY,
+    )
+    assert fixture_row == omitted_row
+    assert live_row != fixture_row
 
 
 def test_contained_service_defaults_to_infisical_wrapper_for_published_api_key() -> (

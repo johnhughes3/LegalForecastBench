@@ -20,6 +20,7 @@ from legalforecast.evals.inspect_task import HarnessSolver
 from legalforecast.evals.packet_builder import ModelPacket
 from legalforecast.multiharness.adapters import HarnessAdapter, LiveToolAdapter
 from legalforecast.multiharness.artifacts import AdapterRunResult
+from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.container_runtime import (
     ContainerRuntimeError,
@@ -452,6 +453,7 @@ class _MultiHarnessRunner:
                         adapter=adapter.manifest,
                         model=model,
                         selection_sha256=selection.selection_sha256,
+                        auth_profile=getattr(adapter, "auth_profile", None),
                     )
                     request = _run_request(
                         row_id=row_id,
@@ -868,16 +870,20 @@ def _row_id(
     adapter: AdapterManifest,
     model: ModelConfig,
     selection_sha256: str,
+    auth_profile: object = None,
 ) -> str:
+    payload: dict[str, Any] = {
+        "family": task.family,
+        "task_id": task.task_id,
+        "adapter_id": adapter.adapter_id,
+        "adapter_version": adapter.adapter_version,
+        "model_key": model.model_key,
+        "selection_sha256": selection_sha256,
+    }
+    if isinstance(auth_profile, str) and auth_profile not in {"", FIXTURE_NONE}:
+        payload["auth_profile"] = auth_profile
     digest = _record_sha256(
-        {
-            "family": task.family,
-            "task_id": task.task_id,
-            "adapter_id": adapter.adapter_id,
-            "adapter_version": adapter.adapter_version,
-            "model_key": model.model_key,
-            "selection_sha256": selection_sha256,
-        },
+        payload,
         prefixed=False,
     )[:16]
     return f"row-{digest}"
