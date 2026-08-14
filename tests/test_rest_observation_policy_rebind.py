@@ -667,6 +667,16 @@ def test_official_semantic_proof_does_not_depend_on_current_checkout(
     assert proof["target_code_commit"] == ("e0d71779324ce8a0b8cdf09a6f2416fe97135d38")
 
 
+def _index_abbrev_widths(payload: bytes) -> tuple[int, int]:
+    index_lines = [
+        line for line in payload.decode().splitlines() if line.startswith("index ")
+    ]
+    assert len(index_lines) == 1
+    match = re.fullmatch(r"index ([0-9a-f]+)\.\.([0-9a-f]+) 100644", index_lines[0])
+    assert match is not None
+    return len(match.group(1)), len(match.group(2))
+
+
 def test_git_bytes_pins_seven_character_index_abbrev(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -689,6 +699,7 @@ def test_git_bytes_pins_seven_character_index_abbrev(tmp_path: Path) -> None:
         )
 
     git("init", "--initial-branch=main")
+    git("config", "core.abbrev", "8")
     source.write_text("old\n", encoding="utf-8")
     git("add", "example.txt")
     git("commit", "-m", "old")
@@ -698,15 +709,11 @@ def test_git_bytes_pins_seven_character_index_abbrev(tmp_path: Path) -> None:
     git("commit", "-m", "new")
     new = git("rev-parse", "HEAD").decode().strip()
 
+    unpinned = git("diff", old, new, "--", "example.txt")
+    assert _index_abbrev_widths(unpinned) == (8, 8)
+
     payload = _git_bytes(repo, "diff", old, new, "--", "example.txt")
-    index_lines = [
-        line for line in payload.decode().splitlines() if line.startswith("index ")
-    ]
-    assert len(index_lines) == 1
-    match = re.fullmatch(r"index ([0-9a-f]+)\.\.([0-9a-f]+) 100644", index_lines[0])
-    assert match is not None
-    assert len(match.group(1)) == 7
-    assert len(match.group(2)) == 7
+    assert _index_abbrev_widths(payload) == (7, 7)
 
 
 def test_official_semantic_proof_rejects_tampered_packaged_witness(
