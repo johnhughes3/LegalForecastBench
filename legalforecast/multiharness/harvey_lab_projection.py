@@ -22,6 +22,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
+from uuid import uuid4
 
 from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.material_separation import (
@@ -362,7 +363,7 @@ def classify_harvey_lab_task(
     instructions = _required_instructions(task_record)
     expected_deliverable = _required_expected_deliverable(task_record)
     category = lab_task_id.split("/", 1)[0]
-    _reset_directory(staging_root)
+    staging_root = _fresh_root(staging_root, "staging root")
     document_files = _regular_files(documents_dir)
     if not document_files:
         raise HarveyLabProjectionError(
@@ -490,9 +491,6 @@ def project_harvey_lab_suite(
     tasks_root = source / "tasks"
     if not tasks_root.is_dir():
         raise HarveyLabProjectionError(f"LAB root is missing tasks/: {tasks_root}")
-    solver = _fresh_root(solver_root, "solver projection root")
-    private = _fresh_root(evaluator_private_root, "evaluator-private root")
-    _require_disjoint(solver, private)
     selected = _selected_lab_task_ids(lab_task_ids)
     task_dirs = _discover_task_directories(tasks_root)
     if selected is not None:
@@ -510,10 +508,13 @@ def project_harvey_lab_suite(
         raise HarveyLabProjectionError("no Harvey LAB tasks matched the projection")
     applied_pin = pin or issue_196_pin()
     _verify_source_pin(source, applied_pin)
+    solver = _fresh_root(solver_root, "solver projection root")
+    private = _fresh_root(evaluator_private_root, "evaluator-private root")
+    _require_disjoint(solver, private)
     projected_tasks: list[HarveyLabTaskProjection] = []
     for task_dir in task_dirs:
         lab_task_id = _relative_posix(task_dir, tasks_root)
-        staging = solver.parent / f".harvey-lab-staging-{_safe_token(lab_task_id)}"
+        staging = solver.parent / f".harvey-lab-staging-{uuid4().hex}"
         try:
             classified = classify_harvey_lab_task(
                 task_dir,
@@ -964,11 +965,6 @@ def _ensure_parent_directory(path: Path) -> None:
         )
 
 
-def _reset_directory(path: Path) -> None:
-    _remove_tree(path)
-    path.mkdir(parents=True)
-
-
 def _remove_tree(path: Path) -> None:
     if path.is_symlink() or path.is_file():
         path.unlink()
@@ -1001,17 +997,22 @@ def _selected_lab_task_ids(lab_task_ids: Sequence[str] | None) -> frozenset[str]
     return frozenset(selected)
 
 
+def verify_harvey_lab_source_pin(source_root: Path, pin: HarveyLabPin) -> None:
+    """Authenticate a LAB checkout against the recorded pin when it is official."""
+
+    _verify_source_pin(_existing_directory(source_root, "LAB source root"), pin)
+
+
 def _verify_source_pin(source: Path, pin: HarveyLabPin) -> None:
     if pin != issue_196_pin():
         return
-    probe = subprocess.run(
-        ["git", "-C", str(source), "rev-parse", "--is-inside-work-tree"],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
-    )
-    if probe.returncode != 0 or probe.stdout.strip() != "true":
+    try:
+        inside = _git_output(source, "rev-parse", "--is-inside-work-tree").strip()
+    except HarveyLabProjectionError as exc:
+        raise HarveyLabProjectionError(
+            "LAB source is not a Git checkout of the recorded pin"
+        ) from exc
+    if inside != "true":
         raise HarveyLabProjectionError(
             "LAB source is not a Git checkout of the recorded pin"
         )
@@ -1039,38 +1040,68 @@ def _verify_source_pin(source: Path, pin: HarveyLabPin) -> None:
             "LAB source tree does not match the recorded pin tree"
         )
     scope = lab_relative.as_posix() if lab_relative.parts else "."
-    dirty = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(git_root),
-            "status",
-            "--porcelain",
-            "--untracked-files=normal",
-            "--",
-            scope,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
+    dirty = _git_output(
+        git_root,
+        "status",
+        "--porcelain",
+        "--untracked-files=normal",
+        "--",
+        scope,
     )
-    if dirty.returncode != 0:
-        raise HarveyLabProjectionError("LAB source pin cannot be verified")
-    if dirty.stdout.strip():
+    if dirty.strip():
         raise HarveyLabProjectionError(
             "LAB source is dirty relative to the recorded pin"
         )
+    ignored = _git_output(
+        git_root,
+        "ls-files",
+        "-o",
+        "-i",
+        "--exclude-standard",
+        "-z",
+        "--",
+        scope,
+    )
+    if any(part for part in ignored.split("\0") if part):
+        raise HarveyLabProjectionError(
+            "LAB source contains ignored files not present in the recorded pin"
+        )
+
+
+def _git_subprocess_environment() -> dict[str, str]:
+    kept = (
+        "PATH",
+        "HOME",
+        "USER",
+        "LOGNAME",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "TZ",
+        "TMPDIR",
+    )
+    env = {key: os.environ[key] for key in kept if key in os.environ}
+    env.setdefault("PATH", "/usr/bin")
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env.setdefault("LC_ALL", "C")
+    return env
 
 
 def _git_output(cwd: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(cwd), *args],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(cwd), *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+            env=_git_subprocess_environment(),
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise HarveyLabProjectionError(
+            "could not inspect the LAB Git checkout"
+        ) from exc
     if result.returncode != 0:
         raise HarveyLabProjectionError(
             "LAB source is not a readable Git checkout of the recorded pin"
@@ -1079,15 +1110,8 @@ def _git_output(cwd: Path, *args: str) -> str:
 
 
 def _git_sha(source: Path, spec: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(source), "rev-parse", spec],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
-    )
-    value = result.stdout.strip().casefold()
-    if result.returncode != 0 or len(value) != _GIT_SHA_LENGTH:
+    value = _git_output(source, "rev-parse", spec).strip().casefold()
+    if len(value) != _GIT_SHA_LENGTH:
         raise HarveyLabProjectionError("LAB source pin cannot be verified")
     return value
 
@@ -1190,10 +1214,6 @@ def _required_str(record: Mapping[str, object], field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise HarveyLabProjectionError(f"{field_name} must be a non-empty string")
     return value
-
-
-def _safe_token(value: str) -> str:
-    return value.replace("/", "-")
 
 
 def _canonical_json(record: Mapping[str, object]) -> bytes:

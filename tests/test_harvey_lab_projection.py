@@ -160,6 +160,20 @@ def test_native_and_external_layouts_have_equal_semantic_bytes(
     assert native_docs == external_docs
 
 
+def test_existing_staging_root_is_refused(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    (staging / "keep.txt").write_text("user data", encoding="utf-8")
+    with pytest.raises(HarveyLabProjectionError, match="must be a fresh, absent path"):
+        classify_harvey_lab_task(
+            source / "tasks" / ISSUE_196_LAB_TASK_ID,
+            lab_root=source,
+            staging_root=staging,
+        )
+    assert (staging / "keep.txt").read_text(encoding="utf-8") == "user data"
+
+
 def test_planting_gold_in_projection_fails_the_absence_scan(tmp_path: Path) -> None:
     source = _issue_196_source(tmp_path / "lab")
     result = project_harvey_lab_suite(
@@ -231,17 +245,21 @@ def test_unlisted_file_in_projection_fails_verification(tmp_path: Path) -> None:
 
 def test_unknown_lab_task_id_fails_closed(tmp_path: Path) -> None:
     source = _issue_196_source(tmp_path / "lab")
+    solver = tmp_path / "solver"
+    private = tmp_path / "private"
     with pytest.raises(
         HarveyLabProjectionError,
         match="were not found: missing-task",
     ):
         project_harvey_lab_suite(
             source_root=source,
-            solver_root=tmp_path / "solver",
-            evaluator_private_root=tmp_path / "private",
+            solver_root=solver,
+            evaluator_private_root=private,
             pin=FIXTURE_PIN,
             lab_task_ids=(ISSUE_196_LAB_TASK_ID, "missing-task"),
         )
+    assert not solver.exists()
+    assert not private.exists()
 
 
 def test_symlink_in_projection_fails_verification(tmp_path: Path) -> None:
@@ -261,6 +279,91 @@ def test_symlink_in_projection_fails_verification(tmp_path: Path) -> None:
         verify_harvey_lab_projection(result.solver_root)
     with pytest.raises(HarveyLabProjectionError, match="symlink in solver projection"):
         scan_projection_for_private_markers(result.solver_root)
+
+
+def test_preexisting_staging_directory_is_not_deleted(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    leftover = tmp_path / (
+        ".harvey-lab-staging-employment-labor-"
+        "identify-issues-in-counterparty-motion-brief"
+    )
+    leftover.mkdir()
+    canary = leftover / "keep.txt"
+    canary.write_text("keep", encoding="utf-8")
+    project_harvey_lab_suite(
+        source_root=source,
+        solver_root=tmp_path / "solver",
+        evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
+    )
+    assert canary.read_text(encoding="utf-8") == "keep"
+
+
+def test_ignored_worktree_files_fail_official_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    _init_git_repo(source)
+    (source / ".gitignore").write_text("ignored.bin\n", encoding="utf-8")
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "lab-fixture",
+        "GIT_AUTHOR_EMAIL": "lab-fixture@example.com",
+        "GIT_COMMITTER_NAME": "lab-fixture",
+        "GIT_COMMITTER_EMAIL": "lab-fixture@example.com",
+    }
+    subprocess.run(["git", "add", ".gitignore"], cwd=source, check=True, env=env)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=lab-fixture",
+            "-c",
+            "user.email=lab-fixture@example.com",
+            "commit",
+            "-qm",
+            "ignore",
+        ],
+        cwd=source,
+        check=True,
+        env=env,
+    )
+    (source / "ignored.bin").write_bytes(b"secret")
+    commit = (
+        subprocess.check_output(
+            ["git", "-C", str(source), "rev-parse", "HEAD"],
+            text=True,
+        )
+        .strip()
+        .casefold()
+    )
+    tree = (
+        subprocess.check_output(
+            ["git", "-C", str(source), "rev-parse", "HEAD^{tree}"],
+            text=True,
+        )
+        .strip()
+        .casefold()
+    )
+    pin = HarveyLabPin(
+        repository="https://github.com/harveyai/harvey-labs",
+        commit=commit,
+        tree=tree,
+    )
+    monkeypatch.setattr(
+        "legalforecast.multiharness.harvey_lab_projection.issue_196_pin",
+        lambda: pin,
+    )
+    with pytest.raises(
+        HarveyLabProjectionError,
+        match="ignored files not present in the recorded pin",
+    ):
+        project_harvey_lab_suite(
+            source_root=source,
+            solver_root=tmp_path / "solver",
+            evaluator_private_root=tmp_path / "private",
+            pin=pin,
+        )
 
 
 def test_official_pin_requires_authenticated_checkout(tmp_path: Path) -> None:

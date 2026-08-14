@@ -39,7 +39,10 @@ from legalforecast.multiharness.evaluation import (
 )
 from legalforecast.multiharness.harvey_lab_projection import (
     HarveyLabPin,
+    HarveyLabProjectionError,
     issue_196_pin,
+    load_harvey_lab_projection_manifest,
+    verify_harvey_lab_source_pin,
 )
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
@@ -163,6 +166,8 @@ def invoke_isolated_harvey_lab_evaluator(
     """Run the common LAB evaluator in a contained boundary and bind a receipt."""
 
     _reject_checkout_env(hosts.evaluator_source_root)
+    _require_evaluator_source_pin(hosts, identity)
+    _require_projected_identity(hosts, identity)
     _require_sealed_identity(sealed_manifest, identity)
     observed_wrapper = _resolved_wrapper_digest(
         evaluator_command, execution_service.parent_env
@@ -290,8 +295,10 @@ def _prepare_evaluation_overlay(
     sealed_manifest: DeliverableManifest,
     identity: HarveyLabEvaluationIdentity,
 ) -> dict[str, Path]:
-    overlay = _fresh_root(hosts.overlay_root, "evaluation overlay")
+    _require_evaluator_source_pin(hosts, identity)
+    _require_projected_identity(hosts, identity)
     _require_sealed_identity(sealed_manifest, identity)
+    overlay = _fresh_root(hosts.overlay_root, "evaluation overlay")
     working = hosts.working_directory
     working.mkdir(parents=True, exist_ok=True)
     if working.is_symlink() or not working.is_dir():
@@ -533,6 +540,74 @@ def _write_regular_file(path: Path, payload: bytes) -> None:
         os.close(fd)
 
 
+def _require_projected_identity(
+    hosts: HarveyLabEvaluationHosts,
+    identity: HarveyLabEvaluationIdentity,
+) -> None:
+    try:
+        validate_safe_relative_path(identity.lab_task_id, "lab_task_id")
+    except MultiHarnessValidationError as exc:
+        raise HarveyLabEvaluationError(str(exc)) from exc
+    if hosts.solver_projection_root is None:
+        raise HarveyLabEvaluationError(
+            "solver projection root is required to bind evaluation identity"
+        )
+    try:
+        manifest = load_harvey_lab_projection_manifest(hosts.solver_projection_root)
+    except (HarveyLabProjectionError, OSError, ValueError) as exc:
+        raise HarveyLabEvaluationError(
+            "evaluation identity could not be bound to the solver projection"
+        ) from exc
+    expected_manifest = _require_prefixed(
+        identity.projection_manifest_sha256, "projection_manifest_sha256"
+    )
+    actual_manifest = _require_prefixed(
+        manifest.manifest_sha256, "projection_manifest_sha256"
+    )
+    if expected_manifest != actual_manifest:
+        raise HarveyLabEvaluationError(
+            "projection_manifest_sha256 does not match the solver projection"
+        )
+    if identity.pin != manifest.pin:
+        raise HarveyLabEvaluationError(
+            "evaluation pin does not match the solver projection"
+        )
+    matches = [
+        task for task in manifest.tasks if task.lab_task_id == identity.lab_task_id
+    ]
+    if len(matches) != 1:
+        raise HarveyLabEvaluationError(
+            "lab_task_id is not present in the solver projection"
+        )
+    task = matches[0]
+    if _require_prefixed(identity.task_sha256, "task_sha256") != _require_prefixed(
+        task.task_sha256, "task_sha256"
+    ):
+        raise HarveyLabEvaluationError(
+            "task_sha256 does not match the selected projected task"
+        )
+    if identity.expected_deliverable_basename != task.expected_deliverable:
+        raise HarveyLabEvaluationError(
+            "expected_deliverable_basename does not match the selected projected task"
+        )
+
+
+def _require_evaluator_source_pin(
+    hosts: HarveyLabEvaluationHosts,
+    identity: HarveyLabEvaluationIdentity,
+) -> None:
+    if identity.pin != issue_196_pin():
+        return
+    if hosts.evaluator_source_root is None:
+        raise HarveyLabEvaluationError(
+            "evaluator source root is required when signing the official pin"
+        )
+    try:
+        verify_harvey_lab_source_pin(hosts.evaluator_source_root, identity.pin)
+    except HarveyLabProjectionError as exc:
+        raise HarveyLabEvaluationError(str(exc)) from exc
+
+
 def _require_sealed_identity(
     sealed_manifest: DeliverableManifest,
     identity: HarveyLabEvaluationIdentity,
@@ -556,7 +631,8 @@ def _require_sealed_identity(
 
 def _resolved_wrapper_digest(command: str, parent_env: Mapping[str, str] | None) -> str:
     env = dict(os.environ if parent_env is None else parent_env)
-    located = shutil.which(command, path=env.get("PATH"))
+    search_path = env.get("PATH") or "/usr/bin"
+    located = shutil.which(command, path=search_path)
     if located is None:
         raise HarveyLabEvaluationError("evaluator command is not on PATH")
     digest = hashlib.sha256(_read_regular_file(Path(located))).hexdigest()

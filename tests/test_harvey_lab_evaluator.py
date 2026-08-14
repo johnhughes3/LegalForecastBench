@@ -26,6 +26,7 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
 from legalforecast.multiharness.harvey_lab_projection import (
     ISSUE_196_LAB_TASK_ID,
     HarveyLabProjectionResult,
+    issue_196_pin,
     project_harvey_lab_suite,
 )
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
@@ -446,6 +447,69 @@ def test_lab_task_id_path_escape_is_refused(tmp_path: Path) -> None:
             identity=identity,
         )
     del env
+
+
+def test_official_pin_requires_evaluator_source_root(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    identity = replace(_identity(projected, tmp_path), pin=issue_196_pin())
+    with pytest.raises(
+        HarveyLabEvaluationError,
+        match="evaluator source root is required",
+    ):
+        invoke_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=identity,
+            execution_service=LocalCliExecutionService(
+                auth_profile=FIXTURE_NONE,
+                parent_env=env,
+            ),
+            signer=PRIVATE_KEY.sign,
+            issuer_key_id="evaluation-key-fixture",
+            issuer_policy_sha256=ISSUER_POLICY,
+        )
+
+
+def test_projected_task_identity_mismatch_is_refused(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    identity = replace(
+        _identity(projected, tmp_path),
+        expected_deliverable_basename="other-memo.docx",
+    )
+    with pytest.raises(
+        HarveyLabEvaluationError,
+        match="expected_deliverable_basename does not match",
+    ):
+        invoke_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=identity,
+            execution_service=LocalCliExecutionService(
+                auth_profile=FIXTURE_NONE,
+                parent_env=env,
+            ),
+            signer=PRIVATE_KEY.sign,
+            issuer_key_id="evaluation-key-fixture",
+            issuer_policy_sha256=ISSUER_POLICY,
+        )
 
 
 def _project(tmp_path: Path) -> HarveyLabProjectionResult:
