@@ -13,6 +13,7 @@ from legalforecast._json_io import (
     read_jsonl_objects,
     write_json_object,
 )
+from legalforecast.multiharness.adapter_registry import builtin_adapter_registry
 from legalforecast.multiharness.adapters import HarnessAdapter
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.community import (
@@ -22,8 +23,6 @@ from legalforecast.multiharness.community import (
     validate_submission_file,
 )
 from legalforecast.multiharness.conformance import run_adapter_conformance
-from legalforecast.multiharness.harvey_lab_adapter import HarveyLabCliAdapter
-from legalforecast.multiharness.lfb_native import LfbNativeAdapter
 from legalforecast.multiharness.runner import (
     INCOMPLETE_RUN_POLICIES,
     ModelConfig,
@@ -128,6 +127,14 @@ def add_multiharness_parser(subparsers: Any) -> None:
         dest="adapters_command",
         metavar="COMMAND",
     )
+    listed = adapter_commands.add_parser(
+        "list",
+        help="List built-in adapter names from the generic registry.",
+    )
+    listed.add_argument("--output", type=Path, required=True)
+    listed.add_argument("--dry-run", action="store_true")
+    listed.set_defaults(handler=_cmd_adapters_list)
+
     inspect = adapter_commands.add_parser(
         "inspect",
         help="Inspect a built-in or command-manifest adapter.",
@@ -135,8 +142,7 @@ def add_multiharness_parser(subparsers: Any) -> None:
     adapter_source = inspect.add_mutually_exclusive_group(required=True)
     adapter_source.add_argument(
         "--adapter",
-        choices=("lfb-native", "harvey-lab"),
-        help="Built-in adapter to inspect.",
+        help="Built-in adapter name from the generic registry.",
     )
     adapter_source.add_argument(
         "--adapter-manifest",
@@ -361,7 +367,25 @@ def _cmd_tasks_select(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_adapters_list(args: argparse.Namespace) -> int:
+    output = cast(Path, args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    write_json_object(
+        output,
+        {
+            "schema_version": _CLI_PLAN_SCHEMA_VERSION,
+            "command": "adapters list",
+            "dry_run": cast(bool, args.dry_run),
+            "adapters": list(builtin_adapter_registry().known_names()),
+        },
+    )
+    return 0
+
+
 def _cmd_adapters_inspect(args: argparse.Namespace) -> int:
+    adapter_name = cast(str | None, args.adapter)
+    if adapter_name is not None:
+        builtin_adapter_registry().require_known(adapter_name)
     output_dir = cast(Path, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     if cast(bool, args.dry_run):
@@ -780,18 +804,12 @@ def _load_adapter(args: argparse.Namespace) -> HarnessAdapter:
             timeout_seconds=cast(float, args.timeout_seconds),
         )
     adapter_name = _required_str_arg(args, "adapter")
-    if adapter_name == "lfb-native":
-        return LfbNativeAdapter()
-    if adapter_name == "harvey-lab":
-        lab_command = _str_tuple_arg(args, "lab_command")
-        if not lab_command:
-            raise ValueError("--lab-command is required for --adapter harvey-lab")
-        return HarveyLabCliAdapter(
-            lab_command=lab_command,
-            lab_root=cast(Path | None, args.lab_root),
-            timeout_seconds=cast(float, args.timeout_seconds),
-        )
-    raise ValueError(f"unsupported adapter: {adapter_name}")
+    return builtin_adapter_registry().get(
+        adapter_name,
+        lab_command=_str_tuple_arg(args, "lab_command"),
+        lab_root=cast(Path | None, args.lab_root),
+        timeout_seconds=cast(float, args.timeout_seconds),
+    )
 
 
 def _adapter_source_record(args: argparse.Namespace) -> dict[str, Any]:
