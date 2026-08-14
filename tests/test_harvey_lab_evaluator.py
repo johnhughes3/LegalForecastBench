@@ -29,7 +29,11 @@ from legalforecast.multiharness.harvey_lab_projection import (
     project_harvey_lab_suite,
 )
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
-from tests.test_harvey_lab_projection import GOLD_MARKER, _issue_196_source
+from tests.test_harvey_lab_projection import (
+    FIXTURE_PIN,
+    GOLD_MARKER,
+    _issue_196_source,
+)
 
 FAKE_EVALUATOR = (
     Path(__file__).resolve().parent / "fixtures" / "harvey_lab" / "fake_evaluator.py"
@@ -450,6 +454,7 @@ def _project(tmp_path: Path) -> HarveyLabProjectionResult:
         source_root=source,
         solver_root=tmp_path / "solver",
         evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
     )
 
 

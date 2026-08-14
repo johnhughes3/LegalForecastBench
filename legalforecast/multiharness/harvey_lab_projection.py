@@ -1002,6 +1002,8 @@ def _selected_lab_task_ids(lab_task_ids: Sequence[str] | None) -> frozenset[str]
 
 
 def _verify_source_pin(source: Path, pin: HarveyLabPin) -> None:
+    if pin != issue_196_pin():
+        return
     probe = subprocess.run(
         ["git", "-C", str(source), "rev-parse", "--is-inside-work-tree"],
         capture_output=True,
@@ -1010,9 +1012,24 @@ def _verify_source_pin(source: Path, pin: HarveyLabPin) -> None:
         check=False,
     )
     if probe.returncode != 0 or probe.stdout.strip() != "true":
-        return
-    commit = _git_sha(source, "HEAD")
-    tree = _git_sha(source, "HEAD^{tree}")
+        raise HarveyLabProjectionError(
+            "LAB source is not a Git checkout of the recorded pin"
+        )
+    git_root = Path(
+        _git_output(source, "rev-parse", "--show-toplevel").strip()
+    ).resolve(strict=True)
+    lab_root = source.resolve(strict=True)
+    try:
+        lab_relative = lab_root.relative_to(git_root)
+    except ValueError as exc:
+        raise HarveyLabProjectionError(
+            "LAB source is not contained by its Git worktree"
+        ) from exc
+    commit = _git_sha(git_root, "HEAD")
+    tree_spec = (
+        "HEAD^{tree}" if not lab_relative.parts else f"HEAD:{lab_relative.as_posix()}"
+    )
+    tree = _git_sha(git_root, tree_spec)
     if commit != pin.commit:
         raise HarveyLabProjectionError(
             "LAB source HEAD does not match the recorded pin commit"
@@ -1021,16 +1038,17 @@ def _verify_source_pin(source: Path, pin: HarveyLabPin) -> None:
         raise HarveyLabProjectionError(
             "LAB source tree does not match the recorded pin tree"
         )
+    scope = lab_relative.as_posix() if lab_relative.parts else "."
     dirty = subprocess.run(
         [
             "git",
             "-C",
-            str(source),
+            str(git_root),
             "status",
             "--porcelain",
             "--untracked-files=normal",
             "--",
-            ".",
+            scope,
         ],
         capture_output=True,
         text=True,
@@ -1043,6 +1061,21 @@ def _verify_source_pin(source: Path, pin: HarveyLabPin) -> None:
         raise HarveyLabProjectionError(
             "LAB source is dirty relative to the recorded pin"
         )
+
+
+def _git_output(cwd: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(cwd), *args],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise HarveyLabProjectionError(
+            "LAB source is not a readable Git checkout of the recorded pin"
+        )
+    return result.stdout
 
 
 def _git_sha(source: Path, spec: str) -> str:

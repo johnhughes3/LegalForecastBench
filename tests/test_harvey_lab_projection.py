@@ -12,6 +12,7 @@ from legalforecast.multiharness.harvey_lab_projection import (
     NATIVE_LAYOUT_ID,
     ROOT_MANIFEST_NAME,
     SOLVER_VISIBLE_LAYOUT_ID,
+    HarveyLabPin,
     HarveyLabProjectionError,
     classify_harvey_lab_task,
     harvey_lab_layout_map,
@@ -32,6 +33,11 @@ PIN_FIXTURE = (
 )
 GOLD_MARKER = "GOLD_ANSWER_PRIVATE"
 PRIVATE_CANARY = "EVALUATOR_PRIVATE_CANARY"
+FIXTURE_PIN = HarveyLabPin(
+    repository="https://example.com/legalforecast-lab-fixture",
+    commit="a" * 40,
+    tree="b" * 40,
+)
 
 
 def test_issue_196_projection_is_deterministic_and_omits_private_material(
@@ -42,16 +48,18 @@ def test_issue_196_projection_is_deterministic_and_omits_private_material(
         source_root=source,
         solver_root=tmp_path / "solver-a",
         evaluator_private_root=tmp_path / "private-a",
+        pin=FIXTURE_PIN,
     )
     second = project_harvey_lab_suite(
         source_root=source,
         solver_root=tmp_path / "solver-b",
         evaluator_private_root=tmp_path / "private-b",
+        pin=FIXTURE_PIN,
     )
 
     assert first.manifest.to_record() == second.manifest.to_record()
     assert first.manifest.layout_id == SOLVER_VISIBLE_LAYOUT_ID
-    assert first.manifest.pin == issue_196_pin()
+    assert first.manifest.pin == FIXTURE_PIN
     assert first.manifest.layout_map == harvey_lab_layout_map()
     assert len(first.manifest.tasks) == 1
     task = first.manifest.tasks[0]
@@ -158,6 +166,7 @@ def test_planting_gold_in_projection_fails_the_absence_scan(tmp_path: Path) -> N
         source_root=source,
         solver_root=tmp_path / "solver",
         evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
     )
     planted = result.solver_root / "tasks" / ISSUE_196_LAB_TASK_ID / "gold-answers.json"
     _make_tree_writable(result.solver_root)
@@ -175,6 +184,7 @@ def test_tampered_projected_byte_fails_hash_verification(tmp_path: Path) -> None
         source_root=source,
         solver_root=tmp_path / "solver",
         evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
     )
     target = result.solver_root / "tasks" / ISSUE_196_LAB_TASK_ID / "instructions.txt"
     _make_tree_writable(result.solver_root)
@@ -193,6 +203,7 @@ def test_missing_manifest_field_is_named(tmp_path: Path) -> None:
         source_root=source,
         solver_root=tmp_path / "solver",
         evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
     )
     path = result.solver_root / ROOT_MANIFEST_NAME
     _make_tree_writable(result.solver_root)
@@ -209,6 +220,7 @@ def test_unlisted_file_in_projection_fails_verification(tmp_path: Path) -> None:
         source_root=source,
         solver_root=tmp_path / "solver",
         evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
     )
     extra = result.solver_root / "tasks" / ISSUE_196_LAB_TASK_ID / "notes.txt"
     _make_tree_writable(result.solver_root)
@@ -227,6 +239,7 @@ def test_unknown_lab_task_id_fails_closed(tmp_path: Path) -> None:
             source_root=source,
             solver_root=tmp_path / "solver",
             evaluator_private_root=tmp_path / "private",
+            pin=FIXTURE_PIN,
             lab_task_ids=(ISSUE_196_LAB_TASK_ID, "missing-task"),
         )
 
@@ -237,6 +250,7 @@ def test_symlink_in_projection_fails_verification(tmp_path: Path) -> None:
         source_root=source,
         solver_root=tmp_path / "solver",
         evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
     )
     secret = tmp_path / "gold-answers.json"
     secret.write_text("GOLD_ANSWER_PRIVATE hidden", encoding="utf-8")
@@ -247,6 +261,20 @@ def test_symlink_in_projection_fails_verification(tmp_path: Path) -> None:
         verify_harvey_lab_projection(result.solver_root)
     with pytest.raises(HarveyLabProjectionError, match="symlink in solver projection"):
         scan_projection_for_private_markers(result.solver_root)
+
+
+def test_official_pin_requires_authenticated_checkout(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    with pytest.raises(
+        HarveyLabProjectionError,
+        match="not a Git checkout of the recorded pin",
+    ):
+        project_harvey_lab_suite(
+            source_root=source,
+            solver_root=tmp_path / "solver",
+            evaluator_private_root=tmp_path / "private",
+            pin=issue_196_pin(),
+        )
 
 
 def test_git_checkout_pin_mismatch_fails_closed(tmp_path: Path) -> None:
@@ -272,6 +300,7 @@ def test_unclassified_source_file_fails_closed(tmp_path: Path) -> None:
             source_root=source,
             solver_root=tmp_path / "solver",
             evaluator_private_root=tmp_path / "private",
+            pin=FIXTURE_PIN,
         )
 
 
