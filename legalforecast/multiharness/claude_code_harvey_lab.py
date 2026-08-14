@@ -332,6 +332,7 @@ def _require_on_path(
     return located
 
 
+# contract-ratchet: allow non-persisted PATH wrapper digest
 def _path_resolved_wrapper_sha256(
     command: str,
     parent_env: Mapping[str, str] | None,
