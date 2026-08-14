@@ -1,11 +1,15 @@
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
 import json
 import os
 import stat
 import sys
+import time
 from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -20,6 +24,7 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabEvaluationError,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
+    _directory_digest,
     build_contained_evaluator_run_spec,
     invoke_isolated_harvey_lab_evaluator,
 )
@@ -29,6 +34,7 @@ from legalforecast.multiharness.harvey_lab_projection import (
     issue_196_pin,
     project_harvey_lab_suite,
 )
+from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from tests.test_harvey_lab_projection import (
     FIXTURE_PIN,
@@ -87,6 +93,68 @@ def test_isolated_evaluator_binds_receipt_without_solver_or_network(
     stdin = json.dumps(dict(result.input_manifest), sort_keys=True)
     assert str(projected.solver_root.resolve()) not in stdin
     assert "harness.run" not in stdin
+    if hasattr(time, "CLOCK_MONOTONIC_RAW"):
+        assert result.receipt.timing.clock_id == "linux-clock-monotonic-raw"
+
+
+def test_receipt_binds_to_copied_private_inputs_not_live_source(
+    tmp_path: Path,
+) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    identity = _identity(projected, tmp_path)
+    private_json = (
+        projected.evaluator_private_root / "tasks" / ISSUE_196_LAB_TASK_ID / "task.json"
+    )
+    original = private_json.read_bytes()
+    service = LocalCliExecutionService(
+        auth_profile=FIXTURE_NONE,
+        parent_env=env,
+    )
+
+    class MutatingService:
+        parent_env = service.parent_env
+
+        def execute(self, spec: RunSpec) -> ExecutionReceipt:
+            os.chmod(private_json, stat.S_IWUSR | stat.S_IRUSR)
+            private_json.write_bytes(original + b"\nMUTATED_AFTER_COPY\n")
+            return service.execute(spec)
+
+    result = invoke_isolated_harvey_lab_evaluator(
+        hosts=hosts,
+        sealed_manifest=sealed,
+        identity=identity,
+        execution_service=cast(LocalCliExecutionService, MutatingService()),
+        signer=PRIVATE_KEY.sign,
+        issuer_key_id="evaluation-key-fixture",
+        issuer_policy_sha256=ISSUER_POLICY,
+        measurement_id="measurement-overlay-private",
+        evaluation_attempt_id="eval-attempt-overlay-private",
+        attempt_nonce="nonce-overlay-private",
+    )
+    overlay_private = Path(str(result.input_manifest["private_task_json_path"]))
+    assert overlay_private.read_bytes() == original
+    assert private_json.read_bytes() != original
+    assert (
+        result.spec.private_material_sha256
+        == result.input_manifest["private_material_sha256"]
+    )
+    assert result.spec.private_material_sha256 == _directory_digest(
+        overlay_private.parent,
+        "private_material_sha256",
+    )
+    assert result.spec.private_material_sha256 != _directory_digest(
+        private_json.parent,
+        "private_material_sha256",
+    )
 
 
 def test_evaluator_env_has_no_ambient_credentials_or_solver_path(

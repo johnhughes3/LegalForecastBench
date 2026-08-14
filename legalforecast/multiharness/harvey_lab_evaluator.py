@@ -267,7 +267,7 @@ def evaluation_input_record(
         "task_sha256": _require_prefixed(identity.task_sha256, "task_sha256"),
         "projection_manifest_sha256": identity.projection_manifest_sha256,
         "private_material_sha256": _directory_digest(
-            _private_task_root(hosts.evaluator_private_root, identity.lab_task_id),
+            overlay["private_task_json"].parent,
             "private_material_sha256",
         ),
         "deliverable_path": str(overlay["deliverable"]),
