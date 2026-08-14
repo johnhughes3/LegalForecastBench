@@ -9,7 +9,6 @@ import sys
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import cast
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -98,7 +97,7 @@ def test_isolated_evaluator_binds_receipt_without_solver_or_network(
 
 
 def test_receipt_binds_to_copied_private_inputs_not_live_source(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     env = _install_evaluator(tmp_path)
     projected = _project(tmp_path)
@@ -120,19 +119,21 @@ def test_receipt_binds_to_copied_private_inputs_not_live_source(
         parent_env=env,
     )
 
-    class MutatingService:
-        parent_env = service.parent_env
+    original_execute = LocalCliExecutionService.execute
 
-        def execute(self, spec: RunSpec) -> ExecutionReceipt:
-            os.chmod(private_json, stat.S_IWUSR | stat.S_IRUSR)
-            private_json.write_bytes(original + b"\nMUTATED_AFTER_COPY\n")
-            return service.execute(spec)
+    def mutate_then_execute(
+        self: LocalCliExecutionService, spec: RunSpec
+    ) -> ExecutionReceipt:
+        os.chmod(private_json, stat.S_IWUSR | stat.S_IRUSR)
+        private_json.write_bytes(original + b"\nMUTATED_AFTER_COPY\n")
+        return original_execute(self, spec)
 
+    monkeypatch.setattr(LocalCliExecutionService, "execute", mutate_then_execute)
     result = invoke_isolated_harvey_lab_evaluator(
         hosts=hosts,
         sealed_manifest=sealed,
         identity=identity,
-        execution_service=cast(LocalCliExecutionService, MutatingService()),
+        execution_service=service,
         signer=PRIVATE_KEY.sign,
         issuer_key_id="evaluation-key-fixture",
         issuer_policy_sha256=ISSUER_POLICY,

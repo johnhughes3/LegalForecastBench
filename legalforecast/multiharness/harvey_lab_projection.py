@@ -493,7 +493,7 @@ def project_harvey_lab_suite(
     snapshot_root: Path | None = None
     if applied_pin == issue_196_pin():
         _verify_source_pin(source, applied_pin)
-        snapshot_root = _archive_pinned_source(source)
+        snapshot_root = _archive_pinned_source(source, applied_pin)
         source = snapshot_root
     try:
         tasks_root = source / "tasks"
@@ -1019,7 +1019,7 @@ def verify_harvey_lab_source_pin(source_root: Path, pin: HarveyLabPin) -> None:
     _verify_source_pin(_existing_directory(source_root, "LAB source root"), pin)
 
 
-def _archive_pinned_source(source: Path) -> Path:
+def _archive_pinned_source(source: Path, pin: HarveyLabPin) -> Path:
     git_root = Path(
         _git_output(source, "rev-parse", "--show-toplevel").strip()
     ).resolve(strict=True)
@@ -1030,7 +1030,11 @@ def _archive_pinned_source(source: Path) -> Path:
         raise HarveyLabProjectionError(
             "LAB source is not contained by its Git worktree"
         ) from exc
-    treeish = "HEAD" if not lab_relative.parts else f"HEAD:{lab_relative.as_posix()}"
+    treeish = (
+        pin.tree
+        if not lab_relative.parts
+        else f"{pin.commit}:{lab_relative.as_posix()}"
+    )
     destination = Path(tempfile.mkdtemp(prefix="lfb-lab-pin-"))
     try:
         archived = subprocess.run(

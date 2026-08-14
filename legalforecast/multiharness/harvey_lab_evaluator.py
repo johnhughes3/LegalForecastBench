@@ -169,8 +169,13 @@ def invoke_isolated_harvey_lab_evaluator(
     _require_evaluator_source_pin(hosts, identity)
     _require_projected_identity(hosts, identity)
     _require_sealed_identity(sealed_manifest, identity)
+    if "/" in evaluator_command or "\\" in evaluator_command:
+        raise HarveyLabEvaluationError("evaluator command must be a basename")
+    wrapper_name = Path(evaluator_command).name
+    if wrapper_name != evaluator_command or wrapper_name in {".", ".."}:
+        raise HarveyLabEvaluationError("evaluator command must be a basename")
     observed_wrapper, wrapper_dir = _pin_wrapper_executable(
-        evaluator_command,
+        wrapper_name,
         execution_service.parent_env,
         hosts.working_directory,
     )
@@ -183,7 +188,7 @@ def invoke_isolated_harvey_lab_evaluator(
         hosts=hosts,
         sealed_manifest=sealed_manifest,
         identity=identity,
-        evaluator_command=evaluator_command,
+        evaluator_command=wrapper_name,
         timeout_seconds=timeout_seconds,
     )
     pinned_env = dict(
@@ -196,69 +201,74 @@ def invoke_isolated_harvey_lab_evaluator(
     )
     try:
         pinned_service = replace(execution_service, parent_env=pinned_env)
-    except TypeError:
-        pinned_service = execution_service
-    started_monotonic = _monotonic_ns()
-    started_at = datetime.now(UTC)
-    execution = pinned_service.execute(spec)
-    ended_monotonic = _monotonic_ns()
-    ended_at = datetime.now(UTC)
-    if execution.status != "succeeded" or execution.returncode not in {0, None}:
+    except TypeError as exc:
         raise HarveyLabEvaluationError(
-            "contained LAB evaluator failed; evaluation never reruns the solver"
-        )
-    scores_path = Path(str(stdin_record["scores_output_path"]))
-    try:
-        raw_result = _read_regular_file(scores_path)
-    except HarveyLabEvaluationError as exc:
-        raise HarveyLabEvaluationError(
-            "evaluator did not write the scores path listed in the input manifest"
+            "execution service cannot pin the evaluator PATH"
         ) from exc
-    evaluation_spec = _evaluation_spec(
-        sealed_manifest=sealed_manifest,
-        identity=identity,
-        private_material_sha256=str(stdin_record["private_material_sha256"]),
-        wrapper_sha256=observed_wrapper,
-        raw_result=raw_result,
-    )
-    receipt = build_evaluation_receipt(
-        spec=evaluation_spec,
-        signer=signer,
-        measurement_id=measurement_id or f"measurement-{uuid4().hex[:12]}",
-        evaluation_attempt_id=evaluation_attempt_id
-        or f"eval-attempt-{uuid4().hex[:12]}",
-        attempt_nonce=attempt_nonce or f"nonce-{uuid4().hex[:12]}",
-        repeat_index=1,
-        judge_resolved_identity=FIXTURE_JUDGE_IDENTITY,
-        raw_result_sha256=_prefixed_digest(raw_result),
-        raw_result_size_bytes=len(raw_result),
-        raw_result_media_type="application/json",
-        status="succeeded",
-        token_usage=_fixture_token_usage(),
-        cost=_fixture_cost(),
-        timing=_timing(started_at, ended_at, started_monotonic, ended_monotonic),
-        issuer_policy_sha256=_require_prefixed(
-            issuer_policy_sha256, "issuer_policy_sha256"
-        ),
-        issuer_key_id=issuer_key_id,
-    )
-    write_json_object(
-        hosts.overlay_root / "evaluation-output.json",
-        {
-            "schema_version": EVALUATION_OUTPUT_SCHEMA_VERSION,
-            "evaluation_spec_sha256": evaluation_spec.spec_sha256,
-            "receipt_sha256": receipt.receipt_sha256,
-            "raw_result_sha256": _prefixed_digest(raw_result),
-        },
-    )
-    return HarveyLabIsolatedEvaluation(
-        spec=evaluation_spec,
-        receipt=receipt,
-        execution=execution,
-        raw_result=raw_result,
-        overlay_root=hosts.overlay_root.resolve(),
-        input_manifest=stdin_record,
-    )
+    try:
+        started_monotonic = _monotonic_ns()
+        started_at = datetime.now(UTC)
+        execution = pinned_service.execute(spec)
+        ended_monotonic = _monotonic_ns()
+        ended_at = datetime.now(UTC)
+        if execution.status != "succeeded" or execution.returncode not in {0, None}:
+            raise HarveyLabEvaluationError(
+                "contained LAB evaluator failed; evaluation never reruns the solver"
+            )
+        scores_path = Path(str(stdin_record["scores_output_path"]))
+        try:
+            raw_result = _read_regular_file(scores_path)
+        except HarveyLabEvaluationError as exc:
+            raise HarveyLabEvaluationError(
+                "evaluator did not write the scores path listed in the input manifest"
+            ) from exc
+        evaluation_spec = _evaluation_spec(
+            sealed_manifest=sealed_manifest,
+            identity=identity,
+            private_material_sha256=str(stdin_record["private_material_sha256"]),
+            wrapper_sha256=observed_wrapper,
+            raw_result=raw_result,
+        )
+        receipt = build_evaluation_receipt(
+            spec=evaluation_spec,
+            signer=signer,
+            measurement_id=measurement_id or f"measurement-{uuid4().hex[:12]}",
+            evaluation_attempt_id=evaluation_attempt_id
+            or f"eval-attempt-{uuid4().hex[:12]}",
+            attempt_nonce=attempt_nonce or f"nonce-{uuid4().hex[:12]}",
+            repeat_index=1,
+            judge_resolved_identity=FIXTURE_JUDGE_IDENTITY,
+            raw_result_sha256=_prefixed_digest(raw_result),
+            raw_result_size_bytes=len(raw_result),
+            raw_result_media_type="application/json",
+            status="succeeded",
+            token_usage=_fixture_token_usage(),
+            cost=_fixture_cost(),
+            timing=_timing(started_at, ended_at, started_monotonic, ended_monotonic),
+            issuer_policy_sha256=_require_prefixed(
+                issuer_policy_sha256, "issuer_policy_sha256"
+            ),
+            issuer_key_id=issuer_key_id,
+        )
+        write_json_object(
+            hosts.overlay_root / "evaluation-output.json",
+            {
+                "schema_version": EVALUATION_OUTPUT_SCHEMA_VERSION,
+                "evaluation_spec_sha256": evaluation_spec.spec_sha256,
+                "receipt_sha256": receipt.receipt_sha256,
+                "raw_result_sha256": _prefixed_digest(raw_result),
+            },
+        )
+        return HarveyLabIsolatedEvaluation(
+            spec=evaluation_spec,
+            receipt=receipt,
+            execution=execution,
+            raw_result=raw_result,
+            overlay_root=hosts.overlay_root.resolve(),
+            input_manifest=stdin_record,
+        )
+    finally:
+        shutil.rmtree(wrapper_dir, ignore_errors=True)
 
 
 def evaluation_input_record(
@@ -656,16 +666,36 @@ def _pin_wrapper_executable(
     if located is None:
         raise HarveyLabEvaluationError("evaluator command is not on PATH")
     payload = _read_regular_file(Path(located))
+    if working_directory.is_symlink():
+        raise HarveyLabEvaluationError("working directory must be a real directory")
     working_directory.mkdir(parents=True, exist_ok=True)
-    wrapper_dir = working_directory / ".harvey-lab-wrapper"
-    if wrapper_dir.exists() or wrapper_dir.is_symlink():
-        raise HarveyLabEvaluationError("wrapper pin directory must be absent")
+    wrapper_dir = working_directory / f".harvey-lab-wrapper-{uuid4().hex}"
     wrapper_dir.mkdir()
-    destination = wrapper_dir / command
-    destination.write_bytes(payload)
-    mode = destination.stat().st_mode
-    destination.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    _write_contained_wrapper(wrapper_dir, command, payload)
     return _prefixed_digest(payload), wrapper_dir
+
+
+def _write_contained_wrapper(wrapper_dir: Path, name: str, payload: bytes) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    dir_flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        dir_flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        dir_flags |= os.O_NOFOLLOW
+    dir_fd = os.open(wrapper_dir, dir_flags)
+    try:
+        file_fd = os.open(name, flags, 0o700, dir_fd=dir_fd)
+        try:
+            os.write(file_fd, payload)
+            os.fchmod(file_fd, 0o755)
+        finally:
+            os.close(file_fd)
+    finally:
+        os.close(dir_fd)
 
 
 def _record_reaches_root(record: Mapping[str, object], root: Path) -> bool:

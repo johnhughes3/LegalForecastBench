@@ -167,47 +167,58 @@ def discover_harvey_lab_outputs(
             "task_sha256 does not match the selected projected task",
             code=HarveyLabOutputErrorCode.LAYOUT,
         )
-    sandbox = _real_directory(sandbox_root, "sandbox_root")
-    output = _real_directory(output_root, "output_root")
-    if not _is_inside(output, sandbox):
+    sandbox_path = (
+        sandbox_root if sandbox_root.is_absolute() else Path.cwd() / sandbox_root
+    )
+    output_path = output_root if output_root.is_absolute() else Path.cwd() / output_root
+    if sandbox_path.is_symlink() or output_path.is_symlink():
         raise HarveyLabOutputDiscoveryError(
-            "output_root must be inside sandbox_root",
-            code=HarveyLabOutputErrorCode.LAYOUT,
+            "sandbox_root and output_root must not be symlinks",
+            code=HarveyLabOutputErrorCode.SYMLINK,
         )
-    disjoint_roots = [sandbox, quarantine_root, sealed_root]
-    if evaluator_private_root is not None:
-        private = (
-            evaluator_private_root
-            if evaluator_private_root.is_absolute()
-            else (Path.cwd() / evaluator_private_root)
-        )
-        disjoint_roots.append(private.resolve(strict=False))
-        if _is_inside(output, disjoint_roots[-1]):
-            raise HarveyLabOutputDiscoveryError(
-                "solver output must not share a directory with "
-                "evaluator-private material",
-                code=HarveyLabOutputErrorCode.MATERIAL_OVERLAP,
-            )
-    if projection_root is not None:
-        projection = (
-            projection_root
-            if projection_root.is_absolute()
-            else (Path.cwd() / projection_root)
-        )
-        disjoint_roots.append(projection.resolve(strict=False))
-    _require_disjoint(disjoint_roots)
-    _reject_escape_watch(escape_watch_roots, sandbox)
-
-    if "/" in task.expected_deliverable or task.expected_deliverable in {".", ""}:
-        raise HarveyLabOutputDiscoveryError(
-            "expected_deliverable must be a basename inside output/",
-            code=HarveyLabOutputErrorCode.LAYOUT,
-        )
-
-    sandbox_fd = _open_directory(sandbox, "sandbox_root")
+    sandbox_fd = _open_directory(sandbox_path, "sandbox_root")
     try:
-        output_relative = output.relative_to(sandbox).as_posix()
-        output_fd = _open_nested_directory_from_fd(sandbox_fd, output_relative)
+        sandbox = Path(os.readlink(f"/proc/self/fd/{sandbox_fd}"))
+        try:
+            output_relative = output_path.resolve(strict=True).relative_to(sandbox)
+        except (OSError, ValueError) as exc:
+            raise HarveyLabOutputDiscoveryError(
+                "output_root must be inside sandbox_root",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            ) from exc
+        disjoint_roots = [sandbox, quarantine_root, sealed_root]
+        if evaluator_private_root is not None:
+            private = (
+                evaluator_private_root
+                if evaluator_private_root.is_absolute()
+                else (Path.cwd() / evaluator_private_root)
+            )
+            disjoint_roots.append(private.resolve(strict=False))
+            if _is_inside(sandbox / output_relative, disjoint_roots[-1]):
+                raise HarveyLabOutputDiscoveryError(
+                    "solver output must not share a directory with "
+                    "evaluator-private material",
+                    code=HarveyLabOutputErrorCode.MATERIAL_OVERLAP,
+                )
+        if projection_root is not None:
+            projection = (
+                projection_root
+                if projection_root.is_absolute()
+                else (Path.cwd() / projection_root)
+            )
+            disjoint_roots.append(projection.resolve(strict=False))
+        _require_disjoint(disjoint_roots)
+        _reject_escape_watch(escape_watch_roots, sandbox)
+
+        if "/" in task.expected_deliverable or task.expected_deliverable in {".", ""}:
+            raise HarveyLabOutputDiscoveryError(
+                "expected_deliverable must be a basename inside output/",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            )
+
+        output_fd = _open_nested_directory_from_fd(
+            sandbox_fd, output_relative.as_posix()
+        )
         try:
             return _discover_from_output_fd(
                 output_fd,
@@ -467,7 +478,13 @@ def _scan_output(
                         f"output changed during discovery: {relative}",
                         code=HarveyLabOutputErrorCode.LAYOUT,
                     )
-                content_sha256 = _sha256_fd(file_fd)
+                content_sha256 = _sha256_fd(file_fd, max_bytes=entry_stat.st_size)
+                hashed_after = os.fstat(file_fd)
+                if _file_identity_changed(entry_stat, hashed_after):
+                    raise HarveyLabOutputDiscoveryError(
+                        f"output changed during discovery: {relative}",
+                        code=HarveyLabOutputErrorCode.LAYOUT,
+                    )
             finally:
                 os.close(file_fd)
             state.entries.append(
@@ -634,7 +651,10 @@ def _copy_regular_file_from_fd(
                     code=HarveyLabOutputErrorCode.LAYOUT,
                 )
             copied = digest.digest()
-            if copied != expected_digest or _sha256_fd(source_fd) != copied:
+            if (
+                copied != expected_digest
+                or _sha256_fd(source_fd, max_bytes=size_bytes) != copied
+            ):
                 raise HarveyLabOutputDiscoveryError(
                     f"output changed while copying: {source_relative}",
                     code=HarveyLabOutputErrorCode.LAYOUT,
@@ -741,20 +761,6 @@ def _is_inside(inner: Path, outer: Path) -> bool:
     return True
 
 
-def _real_directory(path: Path, field_name: str) -> Path:
-    if path.is_symlink():
-        raise HarveyLabOutputDiscoveryError(
-            f"{field_name} must not be a symlink",
-            code=HarveyLabOutputErrorCode.SYMLINK,
-        )
-    if not path.is_dir():
-        raise HarveyLabOutputDiscoveryError(
-            f"{field_name} must be a real directory",
-            code=HarveyLabOutputErrorCode.LAYOUT,
-        )
-    return path.resolve(strict=True)
-
-
 def _ensure_directory(path: Path, field_name: str) -> None:
     try:
         path.mkdir(parents=True, exist_ok=True)
@@ -800,13 +806,20 @@ def _canonical_digest(value: str, field_name: str) -> str:
 
 
 # contract-ratchet: allow non-persisted live-file copy digest
-def _sha256_fd(file_fd: int) -> bytes:
+def _sha256_fd(file_fd: int, *, max_bytes: int) -> bytes:
     os.lseek(file_fd, 0, os.SEEK_SET)
     digest = hashlib.sha256()
+    seen = 0
     while True:
         chunk = os.read(file_fd, 1024 * 1024)
         if not chunk:
             break
+        seen += len(chunk)
+        if seen > max_bytes:
+            raise HarveyLabOutputDiscoveryError(
+                "solver output exceeds the byte limit while hashing",
+                code=HarveyLabOutputErrorCode.OVERSIZED,
+            )
         digest.update(chunk)
     return digest.digest()
 
@@ -997,7 +1010,7 @@ def _unlink_relative(root: Path, relative: str) -> None:
             current_fd = next_fd
         os.unlink(parts[-1], dir_fd=current_fd)
     except OSError:
-        return
+        return  # best-effort cleanup after a failed destination copy
     finally:
         os.close(current_fd)
 
