@@ -53,6 +53,19 @@ from legalforecast.ingestion.restricted_material import restricted_material_mark
 SCHEMA_VERSION = str(EXACT100_DOCUMENT_REPAIR_EXECUTION_V1)
 RECEIPT_SCHEMA_VERSION = str(EXACT100_DOCUMENT_REPAIR_RECEIPT_V1)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_RECEIPT_RECORD_KEYS = frozenset(
+    {
+        "schema_version",
+        "execution_sha256",
+        "full_plan_sha256",
+        "scope",
+        "scope_sha256",
+        "pilot_sha256",
+        "committed_cost_usd",
+        "operation_ledger",
+        "receipt_sha256",
+    }
+)
 
 
 class DocumentRepairExecutorError(ValueError):
@@ -591,6 +604,60 @@ def record_document_repair_outcomes(
     )
 
 
+def replay_document_repair_receipt(
+    *,
+    full_plan: MissingDocumentAcquisitionPlan,
+    execution: DocumentRepairExecution,
+    receipt_record: Mapping[str, object],
+) -> DocumentRepairReceipt:
+    """Authenticate persisted receipt bytes and restore replay-minted authority."""
+
+    if frozenset(receipt_record) != _RECEIPT_RECORD_KEYS:
+        raise DocumentRepairExecutorError("repair receipt record keys are invalid")
+    digest = receipt_record.get("receipt_sha256")
+    if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
+        raise DocumentRepairExecutorError("repair receipt_sha256 is invalid")
+    ledger_value = receipt_record.get("operation_ledger")
+    if not isinstance(ledger_value, Sequence) or isinstance(ledger_value, (str, bytes)):
+        raise DocumentRepairExecutorError("repair receipt ledger is invalid")
+    ledger: list[Mapping[str, object]] = []
+    for raw_row in cast(Sequence[object], ledger_value):
+        if not isinstance(raw_row, Mapping):
+            raise DocumentRepairExecutorError("repair receipt ledger is invalid")
+        ledger.append(dict(cast(Mapping[str, object], raw_row)))
+    execution_sha256 = receipt_record.get("execution_sha256")
+    full_plan_sha256 = receipt_record.get("full_plan_sha256")
+    scope = receipt_record.get("scope")
+    scope_sha256 = receipt_record.get("scope_sha256")
+    if (
+        not isinstance(execution_sha256, str)
+        or not isinstance(full_plan_sha256, str)
+        or not isinstance(scope, str)
+        or not isinstance(scope_sha256, str)
+    ):
+        raise DocumentRepairExecutorError("repair receipt binding is invalid")
+    pilot_sha256 = receipt_record.get("pilot_sha256")
+    if pilot_sha256 is not None and not isinstance(pilot_sha256, str):
+        raise DocumentRepairExecutorError("repair receipt binding is invalid")
+    if receipt_record.get("schema_version") != RECEIPT_SCHEMA_VERSION:
+        raise DocumentRepairExecutorError("repair receipt schema is unsupported")
+    receipt = _mint_receipt(
+        execution_sha256=execution_sha256,
+        full_plan_sha256=full_plan_sha256,
+        scope=scope,
+        scope_sha256=scope_sha256,
+        pilot_sha256=pilot_sha256,
+        operation_ledger=tuple(ledger),
+        receipt_sha256=digest,
+    )
+    if receipt_record.get("committed_cost_usd") != receipt.committed_cost_usd:
+        raise DocumentRepairExecutorError("repair receipt committed cost changed")
+    _require_authenticated_receipt(
+        full_plan=full_plan, execution=execution, receipt=receipt
+    )
+    return receipt
+
+
 def run_document_repair_execution(
     *,
     execution: DocumentRepairExecution,
@@ -630,6 +697,11 @@ def _run_document_repair_execution(
     acquired_documents: list[Mapping[str, object]] = []
     exclusions: list[Mapping[str, object]] = []
     for operation in execution.operations:
+        public_clearance = operation.public_clearance
+        if public_clearance is None:
+            raise DocumentRepairExecutorError(
+                "snapshot does not establish public clearance"
+            )
         started = monotonic()
         result = acquire(operation)
         finished = monotonic()
@@ -657,11 +729,7 @@ def _run_document_repair_execution(
         outcomes.append(outcome)
         if result.disposition == "included":
             assert result.document_bytes is not None
-            if operation.public_clearance is None:
-                raise DocumentRepairExecutorError(
-                    "snapshot does not establish public clearance"
-                )
-            clearance_status, is_private, is_sealed = operation.public_clearance
+            clearance_status, is_private, is_sealed = public_clearance
             acquired_documents.append(
                 {
                     "candidate_id": operation.candidate_id,
@@ -1106,13 +1174,17 @@ def _successor_acquired_documents(
             raise DocumentRepairExecutorError(
                 "acquired document is_sealed must be false"
             )
+        ledger_cost = cost_by_key.get(_evidence_key(record))
         if "cost_usd" not in record:
-            cost = cost_by_key.get(_evidence_key(record))
-            if not isinstance(cost, str) or not cost:
+            if not isinstance(ledger_cost, str) or not ledger_cost:
                 raise DocumentRepairExecutorError(
                     "acquired document cost_usd is missing"
                 )
-            record["cost_usd"] = cost
+            record["cost_usd"] = ledger_cost
+        elif record.get("cost_usd") != ledger_cost:
+            raise DocumentRepairExecutorError(
+                "acquired document cost_usd differs from the repair receipt"
+            )
         stamped.append(record)
     return tuple(stamped)
 

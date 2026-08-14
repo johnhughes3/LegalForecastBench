@@ -31,6 +31,7 @@ from legalforecast.ingestion.document_repair_executor import (
     build_document_repair_purchase_authority,
     record_document_repair_outcomes,
     replay_docket_snapshot_authority,
+    replay_document_repair_receipt,
     run_document_repair_execution,
     seal_document_repair_execution,
     verify_document_repair_purchase_runtime,
@@ -2043,6 +2044,160 @@ def test_reconstructed_receipt_cannot_seal_without_replay_mint() -> None:
         )
 
 
+def test_replay_persisted_receipt_can_seal_and_refuses_tampered_digest() -> None:
+    manifest = _manifest_bytes(
+        *(
+            _row(candidate, index, free=index == 1)
+            for index, candidate in enumerate("abcde", start=1)
+        )
+    )
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approval=_plan_approval(manifest),
+    )
+    snapshots = _snapshots()
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=tuple(
+            RepairOperationOutcome(
+                operation.candidate_id,
+                operation.docket_entry_number,
+                "included",
+                0,
+                "0.10",
+                "0.00" if operation.route == "courtlistener_free" else "3.00",
+            )
+            for operation in execution.operations
+        ),
+    )
+    replayed = replay_document_repair_receipt(
+        full_plan=plan,
+        execution=execution,
+        receipt_record=receipt.to_record(),
+    )
+    acquired = []
+    for operation in execution.operations:
+        body = f"{operation.document_role} bytes {operation.recap_document_id}".encode()
+        acquired.append(
+            {
+                "candidate_id": operation.candidate_id,
+                "docket_entry_number": operation.docket_entry_number,
+                "document_role": operation.document_role,
+                "source_document_id": operation.recap_document_id,
+                "source": operation.route,
+                "sha256": hashlib.sha256(body).hexdigest(),
+                "byte_count": len(body),
+                "document_bytes": body,
+                "clearance_status": "cleared",
+                "is_private": False,
+                "is_sealed": False,
+                "cost_usd": (
+                    "0.00" if operation.route == "courtlistener_free" else "3.00"
+                ),
+            }
+        )
+
+    successor = seal_document_repair_execution(
+        full_plan=plan,
+        execution=execution,
+        receipt=replayed,
+        acquired_documents=acquired,
+        exclusions=(),
+        role_bytes_match=lambda role, body: role.encode() in body,
+    )
+
+    assert replayed.is_replay_minted()
+    assert replayed.receipt_sha256 == receipt.receipt_sha256
+    assert successor.status == "sealed"
+
+    tampered = {**receipt.to_record(), "receipt_sha256": "0" * 64}
+    with pytest.raises(DocumentRepairExecutorError, match="receipt_sha256"):
+        replay_document_repair_receipt(
+            full_plan=plan, execution=execution, receipt_record=tampered
+        )
+
+
+def test_stamp_refuses_acquired_cost_that_differs_from_receipt() -> None:
+    manifest = _manifest_bytes(
+        *(
+            _row(candidate, index, free=index == 1)
+            for index, candidate in enumerate("abcde", start=1)
+        )
+    )
+    plan = build_missing_document_acquisition_plan(
+        manifest_bytes=manifest,
+        approval=_plan_approval(manifest),
+    )
+    snapshots = _snapshots()
+    execution = build_full_document_repair_execution(
+        full_plan=plan,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution,
+        outcomes=tuple(
+            RepairOperationOutcome(
+                operation.candidate_id,
+                operation.docket_entry_number,
+                "included",
+                0,
+                "0.10",
+                "0.00" if operation.route == "courtlistener_free" else "3.00",
+            )
+            for operation in execution.operations
+        ),
+    )
+    acquired = []
+    for operation in execution.operations:
+        body = f"{operation.document_role} bytes {operation.recap_document_id}".encode()
+        acquired.append(
+            {
+                "candidate_id": operation.candidate_id,
+                "docket_entry_number": operation.docket_entry_number,
+                "document_role": operation.document_role,
+                "source_document_id": operation.recap_document_id,
+                "source": operation.route,
+                "sha256": hashlib.sha256(body).hexdigest(),
+                "byte_count": len(body),
+                "document_bytes": body,
+                "clearance_status": "cleared",
+                "is_private": False,
+                "is_sealed": False,
+                "cost_usd": (
+                    "0.00" if operation.route == "courtlistener_free" else "3.00"
+                ),
+            }
+        )
+    paid = next(
+        index
+        for index, operation in enumerate(execution.operations)
+        if operation.route == "pacer_purchase"
+    )
+    acquired[paid]["cost_usd"] = "2.99"
+
+    with pytest.raises(DocumentRepairExecutorError, match="cost_usd differs"):
+        seal_document_repair_execution(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=tuple(acquired),
+            exclusions=(),
+            role_bytes_match=lambda role, body: role.encode() in body,
+        )
+
+
 def test_seal_refuses_acquired_documents_without_clearance_evidence() -> None:
     manifest = _manifest_bytes(
         *(
@@ -2122,7 +2277,10 @@ def test_included_acquisition_fails_closed_without_snapshot_clearance(
 
     assert execution.operations[0].public_clearance is None
 
+    acquired = {"called": False}
+
     def acquire(operation: ResolvedRepairOperation) -> AcquiredRepairDocument:
+        acquired["called"] = True
         return AcquiredRepairDocument(
             disposition="included",
             source_document_id=operation.recap_document_id,
@@ -2140,3 +2298,5 @@ def test_included_acquisition_fails_closed_without_snapshot_clearance(
             acquire=_BoundAcquirer(runtime, acquire),
             monotonic=lambda: next(ticks),
         )
+
+    assert acquired["called"] is False

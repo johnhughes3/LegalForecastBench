@@ -7,8 +7,10 @@ import hashlib
 import pytest
 from legalforecast.ingestion.document_repair_executor import (
     DocumentRepairExecution,
+    DocumentRepairExecutorError,
     RepairOperationOutcome,
     record_document_repair_outcomes,
+    replay_document_repair_receipt,
 )
 from legalforecast.ingestion.document_repair_verify_only import (
     DocumentRepairVerifyOnlyError,
@@ -171,6 +173,43 @@ def test_verify_only_full_plan_revalidates_without_purchasing() -> None:
             acquired_documents=(),
             exclusions=exclusions,
             role_bytes_match=lambda _role, _body: True,
+        )
+
+
+def test_verify_only_accepts_replayed_persisted_receipt() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution, outcomes=_included_outcomes(execution)
+    )
+    replayed = replay_document_repair_receipt(
+        full_plan=plan,
+        execution=execution,
+        receipt_record=receipt.to_record(),
+    )
+
+    verify_document_repair_pilot_bytes(
+        full_plan=plan,
+        execution=execution,
+        receipt=replayed,
+        acquired_documents=_included_documents(execution),
+        exclusions=(),
+        role_bytes_match=lambda role, body: role.encode() in body,
+    )
+
+    tampered = {**receipt.to_record(), "receipt_sha256": "0" * 64}
+    with pytest.raises(DocumentRepairExecutorError, match="receipt_sha256"):
+        replay_document_repair_receipt(
+            full_plan=plan, execution=execution, receipt_record=tampered
         )
 
 
