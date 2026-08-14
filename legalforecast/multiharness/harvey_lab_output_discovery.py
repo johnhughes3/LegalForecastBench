@@ -1,0 +1,683 @@
+"""Safe Harvey LAB solver-output discovery.
+
+Walk only the declared sandbox output directory. Never follow links, never
+execute content, never score extras. A solver write outside the sandbox is a
+finding, not a score.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import shutil
+import stat
+import tempfile
+from collections.abc import Sequence
+from dataclasses import dataclass
+from enum import StrEnum
+from pathlib import Path, PurePosixPath
+from typing import Literal
+
+from legalforecast.multiharness.deliverables import (
+    DeliverableArtifactProjection,
+    DeliverableLimits,
+    DeliverableManifest,
+    DeliverableValidationError,
+    seal_deliverable,
+)
+from legalforecast.multiharness.harvey_lab_projection import HarveyLabProjectedTask
+from legalforecast.multiharness.validation import validate_sha256
+
+HARVEY_LAB_OUTPUT_DISCOVERY_SCHEMA_VERSION = (
+    # contract-ratchet: allow LAB output-discovery schema until contracts registry
+    "legalforecast.harvey_lab_output_discovery.v1"
+)
+HARVEY_LAB_DOCX_MEDIA_TYPE = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+)
+_ARCHIVE_SUFFIXES = (
+    ".7z",
+    ".gz",
+    ".rar",
+    ".tar",
+    ".tar.gz",
+    ".tgz",
+    ".zip",
+)
+_ZIP_MAGIC = b"PK\x03\x04"
+
+
+class HarveyLabOutputErrorCode(StrEnum):
+    """Typed bounded failures for one discovery attempt."""
+
+    MISSING_DELIVERABLE = "missing_deliverable"
+    DUPLICATE_BASENAME = "duplicate_basename"
+    OVERSIZED = "oversized"
+    PATH_TRAVERSAL = "path_traversal"
+    SYMLINK = "symlink"
+    ARCHIVE = "archive"
+    UNEXPECTED_TYPE = "unexpected_type"
+    SANDBOX_ESCAPE = "sandbox_escape"
+    MATERIAL_OVERLAP = "material_overlap"
+    LAYOUT = "layout"
+
+
+class HarveyLabOutputDiscoveryError(ValueError):
+    """Solver output could not be discovered without scoring unsafe bytes."""
+
+    def __init__(self, message: str, *, code: HarveyLabOutputErrorCode) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class HarveyLabOutputLimits:
+    """Bounds applied while walking the solver output directory."""
+
+    max_files: int = 32
+    max_file_bytes: int = 10 * 1024 * 1024
+    max_total_bytes: int = 20 * 1024 * 1024
+
+    def __post_init__(self) -> None:
+        for field_name, value in (
+            ("max_files", self.max_files),
+            ("max_file_bytes", self.max_file_bytes),
+            ("max_total_bytes", self.max_total_bytes),
+        ):
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"{field_name} must be a positive integer")
+
+
+@dataclass(frozen=True, slots=True)
+class HarveyLabQuarantinedFile:
+    """An unrecognized extra that was copied out of the scored set."""
+
+    source_relative: str
+    quarantine_relative: str
+    sha256: str
+    size_bytes: int
+
+    def to_record(self) -> dict[str, str | int]:
+        return {
+            "source_relative": self.source_relative,
+            "quarantine_relative": self.quarantine_relative,
+            "sha256": self.sha256,
+            "size_bytes": self.size_bytes,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class HarveyLabOutputDiscoveryResult:
+    """Sealed expected deliverable plus unscored quarantined extras."""
+
+    task_id: str
+    layout: str
+    expected_deliverable: str
+    sealed: DeliverableManifest
+    quarantined: tuple[HarveyLabQuarantinedFile, ...]
+    schema_version: str = HARVEY_LAB_OUTPUT_DISCOVERY_SCHEMA_VERSION
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "task_id": self.task_id,
+            "layout": self.layout,
+            "expected_deliverable": self.expected_deliverable,
+            "sealed": self.sealed.to_record(),
+            "quarantined": [item.to_record() for item in self.quarantined],
+        }
+
+
+def discover_harvey_lab_outputs(
+    *,
+    sandbox_root: Path,
+    output_root: Path,
+    quarantine_root: Path,
+    sealed_root: Path,
+    task: HarveyLabProjectedTask,
+    task_sha256: str,
+    run_sha256: str,
+    config_sha256: str,
+    layout: Literal["native", "external"] = "native",
+    limits: HarveyLabOutputLimits | None = None,
+    escape_watch_roots: Sequence[Path] = (),
+    evaluator_private_root: Path | None = None,
+    projection_root: Path | None = None,
+) -> HarveyLabOutputDiscoveryResult:
+    """Find the expected deliverable and quarantine unrecognized extras.
+
+    ``output_root`` must sit inside ``sandbox_root``. Quarantine and sealed
+    trees must be disjoint from the sandbox, the projection, and evaluator-
+    private material. Extra files are copied to ``quarantine_root`` and are
+    never passed to the sealer. Writes observed outside the sandbox are a
+    sandbox-escape finding, not a score.
+    """
+
+    applied = limits or HarveyLabOutputLimits()
+    validate_sha256(task_sha256, "task_sha256")
+    validate_sha256(run_sha256, "run_sha256")
+    validate_sha256(config_sha256, "config_sha256")
+    sandbox = _real_directory(sandbox_root, "sandbox_root")
+    output = _real_directory(output_root, "output_root")
+    if not _is_inside(output, sandbox):
+        raise HarveyLabOutputDiscoveryError(
+            "output_root must be inside sandbox_root",
+            code=HarveyLabOutputErrorCode.LAYOUT,
+        )
+    disjoint_roots = [sandbox, quarantine_root, sealed_root]
+    if evaluator_private_root is not None:
+        private = (
+            evaluator_private_root
+            if evaluator_private_root.is_absolute()
+            else (Path.cwd() / evaluator_private_root)
+        )
+        disjoint_roots.append(private.resolve(strict=False))
+        if _is_inside(output, disjoint_roots[-1]):
+            raise HarveyLabOutputDiscoveryError(
+                "solver output must not share a directory with "
+                "evaluator-private material",
+                code=HarveyLabOutputErrorCode.MATERIAL_OVERLAP,
+            )
+    if projection_root is not None:
+        projection = (
+            projection_root
+            if projection_root.is_absolute()
+            else (Path.cwd() / projection_root)
+        )
+        disjoint_roots.append(projection.resolve(strict=False))
+    _require_disjoint(disjoint_roots)
+    _reject_escape_watch(escape_watch_roots, sandbox)
+
+    if "/" in task.expected_deliverable or task.expected_deliverable in {".", ""}:
+        raise HarveyLabOutputDiscoveryError(
+            "expected_deliverable must be a basename inside output/",
+            code=HarveyLabOutputErrorCode.LAYOUT,
+        )
+
+    expected_under_output = task.expected_deliverable
+    entries = _walk_output(output, limits=applied)
+    _reject_duplicate_basename(entries, task.expected_deliverable)
+    expected_hits = [item for item in entries if item.relative == expected_under_output]
+    if not expected_hits:
+        basename_hits = [
+            item
+            for item in entries
+            if PurePosixPath(item.relative).name == task.expected_deliverable
+        ]
+        if basename_hits:
+            raise HarveyLabOutputDiscoveryError(
+                "expected deliverable basename appeared at an undeclared path",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            )
+        raise HarveyLabOutputDiscoveryError(
+            f"missing required deliverable: {task.expected_deliverable}",
+            code=HarveyLabOutputErrorCode.MISSING_DELIVERABLE,
+        )
+    expected = expected_hits[0]
+    _require_expected_docx(expected, limits=applied)
+    _require_zip_magic(output, expected)
+
+    extras = [item for item in entries if item.relative != expected.relative]
+    quarantined = _quarantine_extras(
+        extras,
+        output_root=output,
+        quarantine_root=quarantine_root,
+        limits=applied,
+    )
+
+    staging_root = Path(
+        tempfile.mkdtemp(
+            prefix="lfb-lab-discovery-staging-",
+            dir=str(quarantine_root.parent),
+        )
+    )
+    try:
+        if _is_inside(staging_root, sandbox):
+            raise HarveyLabOutputDiscoveryError(
+                "discovery staging must not share a directory with the sandbox",
+                code=HarveyLabOutputErrorCode.MATERIAL_OVERLAP,
+            )
+        _copy_regular_file(
+            output,
+            expected.relative,
+            destination_root=staging_root,
+            destination_relative=task.expected_deliverable,
+            expected_stat=expected.file_stat,
+            max_bytes=applied.max_file_bytes,
+        )
+        try:
+            sealed = seal_deliverable(
+                source_root=staging_root,
+                sealed_root=sealed_root,
+                task_sha256=task_sha256,
+                run_sha256=run_sha256,
+                config_sha256=config_sha256,
+                artifacts=(
+                    DeliverableArtifactProjection(
+                        artifact_id="lab-deliverable",
+                        source_path=task.expected_deliverable,
+                        path=task.expected_deliverable,
+                        media_type=HARVEY_LAB_DOCX_MEDIA_TYPE,
+                        max_size_bytes=applied.max_file_bytes,
+                    ),
+                ),
+                limits=DeliverableLimits(
+                    max_files=1,
+                    max_file_bytes=applied.max_file_bytes,
+                    max_total_bytes=applied.max_file_bytes,
+                ),
+            )
+        except DeliverableValidationError as exc:
+            raise HarveyLabOutputDiscoveryError(
+                str(exc),
+                code=HarveyLabOutputErrorCode.UNEXPECTED_TYPE,
+            ) from exc
+    finally:
+        shutil.rmtree(staging_root, ignore_errors=True)
+
+    return HarveyLabOutputDiscoveryResult(
+        task_id=task.task_id,
+        layout=layout,
+        expected_deliverable=task.expected_deliverable,
+        sealed=sealed,
+        quarantined=tuple(quarantined),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _OutputEntry:
+    relative: str
+    file_stat: os.stat_result
+    kind: str
+
+
+def _walk_output(
+    output_root: Path,
+    *,
+    limits: HarveyLabOutputLimits,
+) -> list[_OutputEntry]:
+    root_fd = _open_directory(output_root, "output_root")
+    entries: list[_OutputEntry] = []
+    try:
+        _scan_output(
+            root_fd,
+            prefix="",
+            limits=limits,
+            entries=entries,
+        )
+    finally:
+        os.close(root_fd)
+    return entries
+
+
+def _scan_output(
+    directory_fd: int,
+    *,
+    prefix: str,
+    limits: HarveyLabOutputLimits,
+    entries: list[_OutputEntry],
+) -> None:
+    try:
+        iterator = os.scandir(directory_fd)
+    except OSError as exc:
+        raise HarveyLabOutputDiscoveryError(
+            "could not enumerate solver output",
+            code=HarveyLabOutputErrorCode.LAYOUT,
+        ) from exc
+    with iterator:
+        for entry in iterator:
+            relative = f"{prefix}/{entry.name}" if prefix else entry.name
+            _reject_path_name(entry.name, relative)
+            try:
+                entry_stat = entry.stat(follow_symlinks=False)
+            except OSError as exc:
+                raise HarveyLabOutputDiscoveryError(
+                    f"output changed during discovery: {relative}",
+                    code=HarveyLabOutputErrorCode.LAYOUT,
+                ) from exc
+            if stat.S_ISLNK(entry_stat.st_mode):
+                raise HarveyLabOutputDiscoveryError(
+                    f"solver output contains a symlink: {relative}",
+                    code=HarveyLabOutputErrorCode.SYMLINK,
+                )
+            if stat.S_ISDIR(entry_stat.st_mode):
+                child_fd = _open_child_directory(directory_fd, entry.name)
+                try:
+                    _scan_output(
+                        child_fd,
+                        prefix=relative,
+                        limits=limits,
+                        entries=entries,
+                    )
+                finally:
+                    os.close(child_fd)
+                continue
+            if not stat.S_ISREG(entry_stat.st_mode):
+                raise HarveyLabOutputDiscoveryError(
+                    f"solver output contains a non-file: {relative}",
+                    code=HarveyLabOutputErrorCode.UNEXPECTED_TYPE,
+                )
+            if len(entries) >= limits.max_files:
+                raise HarveyLabOutputDiscoveryError(
+                    "solver output exceeds the file-count limit",
+                    code=HarveyLabOutputErrorCode.OVERSIZED,
+                )
+            kind = _classify_regular(relative, entry_stat)
+            entries.append(_OutputEntry(relative, entry_stat, kind))
+
+
+def _classify_regular(relative: str, file_stat: os.stat_result) -> str:
+    name = PurePosixPath(relative).name
+    lowered = name.casefold()
+    if any(lowered.endswith(suffix) for suffix in _ARCHIVE_SUFFIXES) and not (
+        lowered.endswith(".docx")
+    ):
+        return "archive"
+    if file_stat.st_mode & 0o111:
+        return "unexpected_type"
+    return "regular"
+
+
+def _require_expected_docx(
+    entry: _OutputEntry,
+    *,
+    limits: HarveyLabOutputLimits,
+) -> None:
+    if entry.kind != "regular":
+        raise HarveyLabOutputDiscoveryError(
+            f"expected deliverable has type {entry.kind}",
+            code=_code_for_kind(entry.kind),
+        )
+    if entry.file_stat.st_size > limits.max_file_bytes:
+        raise HarveyLabOutputDiscoveryError(
+            "expected deliverable exceeds the byte limit",
+            code=HarveyLabOutputErrorCode.OVERSIZED,
+        )
+    if not PurePosixPath(entry.relative).name.endswith(".docx"):
+        raise HarveyLabOutputDiscoveryError(
+            "expected deliverable must be a .docx file",
+            code=HarveyLabOutputErrorCode.UNEXPECTED_TYPE,
+        )
+
+
+def _require_zip_magic(output_root: Path, entry: _OutputEntry) -> None:
+    file_fd = _open_relative_file(output_root, entry.relative)
+    try:
+        header = os.read(file_fd, 4)
+    finally:
+        os.close(file_fd)
+    if header != _ZIP_MAGIC:
+        raise HarveyLabOutputDiscoveryError(
+            "expected deliverable is not a DOCX/ZIP container",
+            code=HarveyLabOutputErrorCode.UNEXPECTED_TYPE,
+        )
+
+
+def _quarantine_extras(
+    extras: Sequence[_OutputEntry],
+    *,
+    output_root: Path,
+    quarantine_root: Path,
+    limits: HarveyLabOutputLimits,
+) -> list[HarveyLabQuarantinedFile]:
+    quarantined: list[HarveyLabQuarantinedFile] = []
+    if not extras:
+        return quarantined
+    _reset_directory(quarantine_root)
+    for extra in extras:
+        if extra.kind == "archive":
+            raise HarveyLabOutputDiscoveryError(
+                f"solver output contains an archive: {extra.relative}",
+                code=HarveyLabOutputErrorCode.ARCHIVE,
+            )
+        if extra.kind != "regular":
+            raise HarveyLabOutputDiscoveryError(
+                f"solver output contains an unexpected type: {extra.relative}",
+                code=_code_for_kind(extra.kind),
+            )
+        if extra.file_stat.st_size > limits.max_file_bytes:
+            raise HarveyLabOutputDiscoveryError(
+                f"extra output exceeds the byte limit: {extra.relative}",
+                code=HarveyLabOutputErrorCode.OVERSIZED,
+            )
+        digest, size_bytes = _copy_regular_file(
+            output_root,
+            extra.relative,
+            destination_root=quarantine_root,
+            destination_relative=extra.relative,
+            expected_stat=extra.file_stat,
+            max_bytes=limits.max_file_bytes,
+        )
+        quarantined.append(
+            HarveyLabQuarantinedFile(
+                source_relative=extra.relative,
+                quarantine_relative=extra.relative,
+                sha256=digest,
+                size_bytes=size_bytes,
+            )
+        )
+    return quarantined
+
+
+def _copy_regular_file(
+    source_root: Path,
+    source_relative: str,
+    *,
+    destination_root: Path,
+    destination_relative: str,
+    expected_stat: os.stat_result,
+    max_bytes: int,
+) -> tuple[str, int]:
+    source_fd = _open_relative_file(source_root, source_relative)
+    try:
+        opened = os.fstat(source_fd)
+        if (
+            opened.st_ino != expected_stat.st_ino
+            or opened.st_dev != expected_stat.st_dev
+        ):
+            raise HarveyLabOutputDiscoveryError(
+                f"output changed while copying: {source_relative}",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            )
+        if opened.st_size > max_bytes:
+            raise HarveyLabOutputDiscoveryError(
+                f"output exceeds the byte limit: {source_relative}",
+                code=HarveyLabOutputErrorCode.OVERSIZED,
+            )
+        destination = destination_root / destination_relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists() or destination.is_symlink():
+            raise HarveyLabOutputDiscoveryError(
+                f"quarantine destination already exists: {destination_relative}",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            )
+        digest = hashlib.sha256()
+        size_bytes = 0
+        with os.fdopen(os.dup(source_fd), "rb") as source_handle:
+            with destination.open("xb") as destination_handle:
+                while True:
+                    chunk = source_handle.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    size_bytes += len(chunk)
+                    if size_bytes > max_bytes:
+                        destination_handle.close()
+                        destination.unlink(missing_ok=True)
+                        raise HarveyLabOutputDiscoveryError(
+                            f"output exceeds the byte limit: {source_relative}",
+                            code=HarveyLabOutputErrorCode.OVERSIZED,
+                        )
+                    digest.update(chunk)
+                    destination_handle.write(chunk)
+        return "sha256:" + digest.hexdigest(), size_bytes
+    finally:
+        os.close(source_fd)
+
+
+def _reject_duplicate_basename(
+    entries: Sequence[_OutputEntry],
+    basename: str,
+) -> None:
+    hits = [
+        item.relative
+        for item in entries
+        if PurePosixPath(item.relative).name == basename
+    ]
+    if len(hits) > 1:
+        raise HarveyLabOutputDiscoveryError(
+            f"duplicate deliverable basename: {', '.join(hits)}",
+            code=HarveyLabOutputErrorCode.DUPLICATE_BASENAME,
+        )
+
+
+def _reject_path_name(name: str, relative: str) -> None:
+    if name in {".", ".."} or "\x00" in name:
+        raise HarveyLabOutputDiscoveryError(
+            f"solver output path is unsafe: {relative}",
+            code=HarveyLabOutputErrorCode.PATH_TRAVERSAL,
+        )
+    if name.startswith("."):
+        raise HarveyLabOutputDiscoveryError(
+            f"solver output contains a hidden path: {relative}",
+            code=HarveyLabOutputErrorCode.UNEXPECTED_TYPE,
+        )
+
+
+def _reject_escape_watch(
+    watch_roots: Sequence[Path],
+    sandbox: Path,
+) -> None:
+    for raw in watch_roots:
+        watch = raw if raw.is_absolute() else Path.cwd() / raw
+        resolved = watch.resolve(strict=False)
+        if _is_inside(resolved, sandbox) or _is_inside(sandbox, resolved):
+            raise HarveyLabOutputDiscoveryError(
+                "escape watch root must be disjoint from the sandbox",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            )
+        if not resolved.exists():
+            continue
+        if resolved.is_symlink():
+            raise HarveyLabOutputDiscoveryError(
+                "escape watch root must not be a symlink",
+                code=HarveyLabOutputErrorCode.SYMLINK,
+            )
+        if any(resolved.iterdir()):
+            raise HarveyLabOutputDiscoveryError(
+                "solver wrote outside its sandbox",
+                code=HarveyLabOutputErrorCode.SANDBOX_ESCAPE,
+            )
+
+
+def _require_disjoint(roots: Sequence[Path]) -> None:
+    normalized = tuple(
+        (root if root.is_absolute() else Path.cwd() / root).resolve(strict=False)
+        for root in roots
+    )
+    for index, first in enumerate(normalized):
+        for second in normalized[index + 1 :]:
+            if (
+                first == second
+                or first.is_relative_to(second)
+                or second.is_relative_to(first)
+            ):
+                raise HarveyLabOutputDiscoveryError(
+                    "solver-visible, sealed, quarantine, and private roots "
+                    "must be disjoint",
+                    code=HarveyLabOutputErrorCode.MATERIAL_OVERLAP,
+                )
+
+
+def _is_inside(inner: Path, outer: Path) -> bool:
+    try:
+        inner.resolve(strict=False).relative_to(outer.resolve(strict=False))
+    except ValueError:
+        return False
+    return True
+
+
+def _real_directory(path: Path, field_name: str) -> Path:
+    if path.is_symlink():
+        raise HarveyLabOutputDiscoveryError(
+            f"{field_name} must not be a symlink",
+            code=HarveyLabOutputErrorCode.SYMLINK,
+        )
+    if not path.is_dir():
+        raise HarveyLabOutputDiscoveryError(
+            f"{field_name} must be a real directory",
+            code=HarveyLabOutputErrorCode.LAYOUT,
+        )
+    return path.resolve(strict=True)
+
+
+def _reset_directory(path: Path) -> None:
+    if path.exists() or path.is_symlink():
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        else:
+            shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=False)
+
+
+def _directory_flags() -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
+
+
+def _file_flags() -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
+
+
+def _open_directory(path: Path, field_name: str) -> int:
+    try:
+        return os.open(path, _directory_flags())
+    except OSError as exc:
+        raise HarveyLabOutputDiscoveryError(
+            f"{field_name} must be a real directory",
+            code=HarveyLabOutputErrorCode.LAYOUT,
+        ) from exc
+
+
+def _open_child_directory(parent_fd: int, name: str) -> int:
+    try:
+        return os.open(name, _directory_flags(), dir_fd=parent_fd)
+    except OSError as exc:
+        raise HarveyLabOutputDiscoveryError(
+            "solver output directory changed or is a symlink",
+            code=HarveyLabOutputErrorCode.SYMLINK,
+        ) from exc
+
+
+def _open_relative_file(root: Path, relative: str) -> int:
+    root_fd = _open_directory(root, "output_root")
+    current_fd = root_fd
+    try:
+        parts = PurePosixPath(relative).parts
+        for part in parts[:-1]:
+            next_fd = _open_child_directory(current_fd, part)
+            os.close(current_fd)
+            current_fd = next_fd
+        return os.open(parts[-1], _file_flags(), dir_fd=current_fd)
+    except OSError as exc:
+        raise HarveyLabOutputDiscoveryError(
+            f"could not open output file: {relative}",
+            code=HarveyLabOutputErrorCode.LAYOUT,
+        ) from exc
+    finally:
+        if current_fd >= 0:
+            os.close(current_fd)
+
+
+def _code_for_kind(kind: str) -> HarveyLabOutputErrorCode:
+    if kind == "archive":
+        return HarveyLabOutputErrorCode.ARCHIVE
+    if kind == "symlink":
+        return HarveyLabOutputErrorCode.SYMLINK
+    return HarveyLabOutputErrorCode.UNEXPECTED_TYPE
