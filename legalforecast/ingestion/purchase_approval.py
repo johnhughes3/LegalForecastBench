@@ -187,7 +187,10 @@ class PurchaseApprovalRequest:
         return _canonical_sha256(self.to_record())
 
     def required_confirmation(self, decision: str) -> str:
-        """Return the exact typed phrase for a decision over this request."""
+        """Return the exact typed phrase for a decision over this request.
+
+        Cycle 1 live phrase. Post-Cycle-1 knobs live in legalforecast.config.
+        """
 
         normalized = _decision(decision)
         return (

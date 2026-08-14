@@ -77,6 +77,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 **Cycle configuration**
 
+- [cycle-acquisition-config.md](cycle-acquisition-config.md): per-cycle acquisition/selection knobs (`legalforecast.config`). Cycle 1 is documentary and not activated; Cycle 2 is an inert draft. Not the frozen orchestrator plan below.
 - [acquisition-cycle-config-v1.md](schemas/acquisition-cycle-config-v1.md): the immutable operator plan consumed by `acquisition run-cycle`.
 - [acquisition-cycle-template-v1.md](schemas/acquisition-cycle-template-v1.md): how `acquisition render-cycle-config` turns a path-parameterized template into that immutable config.
 - [cycle-lineage-index-v1.md](schemas/cycle-lineage-index-v1.md): rebuildable, machine-local discovery of the uniquely current receipt-backed cycle lineage and human-decision state.

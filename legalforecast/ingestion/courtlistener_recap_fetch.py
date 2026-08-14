@@ -520,7 +520,7 @@ class CourtListenerRecapFetchClient:
         transport: RecapFetchTransport | None = None,
         purchase_broker: RecapFetchPurchaseBroker | None = None,
         before_request: Callable[[str, str], None] | None = None,
-        poll_attempts: int = 3,
+        poll_attempts: int = 3,  # Cycle 1 live default; see legalforecast.config
         poll_backoff_seconds: float = 0.0,
     ) -> None:
         self.config = config

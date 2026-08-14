@@ -981,7 +981,7 @@ def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
     ):
         raise DocumentRepairExecutorError(
             "repair execution requires the approved $3.00 per-document price"
-        )
+        )  # Cycle 1 PACER cap; see legalforecast.config
 
 
 def _require_snapshot_authority(

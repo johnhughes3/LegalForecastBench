@@ -1,0 +1,32 @@
+[
+  {
+    "path": "legalforecast/ingestion/case_dev_recap_enrichment.py",
+    "reason": "Cycle 1 live constant; leave in place until post-Cycle-1 supersession",
+    "rule": "acquisition_selection_constant",
+    "subject": "CASE_DEV_RANKING_POLICY_VERSION"
+  },
+  {
+    "path": "legalforecast/ingestion/missing_core_budget.py",
+    "reason": "Cycle 1 live constant; leave in place until post-Cycle-1 supersession",
+    "rule": "acquisition_selection_constant",
+    "subject": "DEFAULT_PURCHASE_COST_USD"
+  },
+  {
+    "path": "legalforecast/ingestion/missing_core_budget.py",
+    "reason": "Cycle 1 live constant; leave in place until post-Cycle-1 supersession",
+    "rule": "acquisition_selection_constant",
+    "subject": "DEFAULT_MAX_PROJECTED_BUDGET_USD"
+  },
+  {
+    "path": "legalforecast/ingestion/recap_api_discovery.py",
+    "reason": "Name matches HARD_CAP; this is a REST pagination limit, not a spend knob",
+    "rule": "acquisition_selection_constant",
+    "subject": "REST_DOCKET_PAGE_HARD_CAP"
+  },
+  {
+    "path": "legalforecast/ingestion/target_cohort_projection.py",
+    "reason": "Cycle 1 live constant; leave in place until post-Cycle-1 supersession",
+    "rule": "acquisition_selection_constant",
+    "subject": "_RANKING_POLICY"
+  }
+]

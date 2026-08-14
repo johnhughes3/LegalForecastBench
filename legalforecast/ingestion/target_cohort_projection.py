@@ -33,6 +33,7 @@ from legalforecast.selection.exclusion_ledger import (
 JsonRecord = dict[str, Any]
 _PUBLIC_RESTRICTION_STATUSES = frozenset({"public", "redacted"})
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
+# Cycle 1 live ranking. Post-Cycle-1 knobs live in legalforecast.config.
 _RANKING_POLICY: JsonRecord = {
     "attributes": [
         "missing_core_document_count",

@@ -60,6 +60,7 @@ _REQUIRED_ENTRY_ROLES = frozenset(
         DocumentRole.DECISION,
     }
 )
+# Cycle 1 live discovery ranking. Cost ranking knobs: legalforecast.config.
 CASE_DEV_RANKING_POLICY_VERSION = "eligibility-aware-v2"
 
 

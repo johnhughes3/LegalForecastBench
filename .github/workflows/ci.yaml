@@ -42,6 +42,9 @@ jobs:
       - name: Contract ratchet
         run: uv run python -m legalforecast.contracts.ratchet
 
+      - name: Acquisition config fence
+        run: uv run python -m legalforecast.config.fence
+
       - name: Type-check
         run: uv run pyright
 
