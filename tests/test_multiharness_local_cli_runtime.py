@@ -25,9 +25,11 @@ from legalforecast.multiharness.local_cli_runtime import (
     execution_receipt_from_runtime,
 )
 from legalforecast.multiharness.local_cli_scheduler import (
+    ORDERING_SERIAL,
     NullScheduler,
     ScheduledSpec,
     SchedulingEvidence,
+    unevaluated_scheduling,
 )
 from legalforecast.multiharness.spec import LINUX_SYSTEMD_SCOPE_CONTAINMENT
 
@@ -556,6 +558,12 @@ def _execution_result(
         duration_ms=1,
         cost_usd=None,
         containment_establishment="established",
+        executable_sha256="b" * 64,
+        executable_version="0.1.0",
+        scheduling=unevaluated_scheduling(
+            requested_max_concurrency=1,
+            requested_ordering=ORDERING_SERIAL,
+        ),
     )
 
 

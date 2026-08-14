@@ -15,6 +15,7 @@ import hashlib
 import json
 import math
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -45,6 +46,7 @@ from legalforecast.multiharness.local_cli_identity import (
     LocalCliIdentityError,
     ObservedExecutableIdentity,
     bind_executable_identity,
+    executable_pin_for,
 )
 from legalforecast.multiharness.local_cli_scheduler import (
     ORDERING_SERIAL,
@@ -422,6 +424,30 @@ class LocalCliExecutionService:
         """Run one adapter ``RunSpec`` under process-group containment."""
 
         profiles = self.supported_auth_profiles or (self.auth_profile,)
+        try:
+            scratch_root = _contained_scratch_root(spec.working_directory)
+            ensure_private_scratch_directory(scratch_root)
+        except (AuthProfileError, LocalCliRuntimeError) as exc:
+            return ExecutionReceipt.from_transcript(
+                spec,
+                stdout="",
+                stderr=str(exc),
+                returncode=None,
+                status="failed",
+            )
+        pin = _pin_run_spec_executable(
+            spec.argv[0],
+            version=self.adapter_version,
+            parent_env=self.parent_env,
+        )
+        if pin is None:
+            return ExecutionReceipt.from_transcript(
+                spec,
+                stdout="",
+                stderr="local CLI executable could not be launched",
+                returncode=None,
+                status="failed",
+            )
         runtime_spec = LocalCliRunSpec(
             spec_id=spec.spec_id,
             manifest=LocalCliAdapterManifest(
@@ -429,6 +455,7 @@ class LocalCliExecutionService:
                 display_name=self.display_name,
                 adapter_version=self.adapter_version,
                 command=(spec.argv[0],),
+                executable=pin,
                 supported_auth_profiles=profiles,
                 profile_env_vars=self.profile_env_vars,
             ),
@@ -441,7 +468,7 @@ class LocalCliExecutionService:
         try:
             result = execute_local_cli(
                 runtime_spec,
-                _contained_scratch_root(spec.working_directory),
+                scratch_root,
                 credential_source=self.credential_source,
                 scheduler=self.scheduler,
                 parent_env=self.parent_env,
@@ -498,6 +525,29 @@ def _require_real_directory(path: Path) -> None:
             "working directory must be a real directory"
         ) from exc
     os.close(descriptor)
+
+
+def _pin_run_spec_executable(
+    argv0: str,
+    *,
+    version: str,
+    parent_env: Mapping[str, str] | None,
+) -> ExecutableIdentityPin | None:
+    """Hash the PATH-resolved argv0, or return None if it is not a file."""
+
+    search_path = (parent_env or os.environ).get("PATH", "/usr/bin")
+    if "/" in argv0 or "\\" in argv0:
+        candidate = Path(argv0)
+        if not candidate.is_absolute() or not candidate.is_file():
+            return None
+        return executable_pin_for(candidate, version=version)
+    located = shutil.which(argv0, path=search_path)
+    if located is None:
+        return None
+    path = Path(located)
+    if not path.is_file():
+        return None
+    return executable_pin_for(path, version=version)
 
 
 def execution_receipt_from_runtime(
