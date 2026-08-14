@@ -43,14 +43,19 @@ def load_cycle(cycle_id: str) -> CycleConfig:
 def require_activated(config: CycleConfig) -> CycleConfig:
     """Refuse a config that is not activated for live acquisition/selection."""
 
-    if config.activated:
-        return config
-    blocker = config.activation_blocker or "activated=false"
-    kind = "legacy-pinned" if config.legacy_pinned else "draft"
-    raise CycleConfigNotActivatedError(
-        f"{kind} cycle {config.cycle_id!r} is not activated ({blocker}). "
-        "No live acquisition or selection path may use it as authority."
-    )
+    if not config.activated:
+        blocker = config.activation_blocker or "activated=false"
+        kind = "legacy-pinned" if config.legacy_pinned else "draft"
+        raise CycleConfigNotActivatedError(
+            f"{kind} cycle {config.cycle_id!r} is not activated ({blocker}). "
+            "No live acquisition or selection path may use it as authority."
+        )
+    if config.spend.hard_cap_usd is None:
+        raise CycleConfigNotActivatedError(
+            f"cycle {config.cycle_id!r} cannot be activated with unresolved "
+            "spend.hard_cap_usd. Draft None is only valid while activated=false."
+        )
+    return config
 
 
 def load_activated_cycle(cycle_id: str) -> CycleConfig:

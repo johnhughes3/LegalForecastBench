@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import textwrap
 from pathlib import Path
 
@@ -116,6 +117,19 @@ def test_repository_fence_baseline_does_not_grow_from_main() -> None:
     if ancestor is None:
         pytest.skip("fence_baseline.json is not on origin/main yet")
     assert find_baseline_growth(current, ancestor) == ()
+
+
+def test_fence_fails_closed_when_merge_base_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from legalforecast.config import fence as fence_mod
+
+    def _fail(*_args: object, **_kwargs: object) -> str:
+        raise subprocess.CalledProcessError(1, "git")
+
+    monkeypatch.setattr(fence_mod.subprocess, "check_output", _fail)
+    with pytest.raises(ValueError, match="cannot compute merge-base"):
+        load_ancestor_baseline(tmp_path, tmp_path / "fence_baseline.json")
 
 
 def _write(path: Path, source: str) -> None:

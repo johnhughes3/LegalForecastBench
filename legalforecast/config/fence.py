@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import subprocess
 import sys
@@ -167,23 +168,13 @@ def load_ancestor_baseline(
 ) -> tuple[BaselineEntry, ...] | None:
     """Load ``fence_baseline.json`` from the merge-base with ``origin/main``.
 
-    Returns ``None`` when git is unavailable, ``origin/main`` has no merge-base,
-    or the baseline file does not yet exist on that ancestor. First introduction
-    of the fence is therefore allowed; later PRs cannot grow the committed
-    allowlist.
+    Returns ``None`` only when the baseline does not yet exist on that ancestor
+    (first introduction). A missing base ref is a hard error so CI cannot skip
+    the shrink-only check.
     """
 
     relative = _baseline_git_path(root, baseline_path)
-    try:
-        merge_base = subprocess.check_output(
-            ["git", "-C", str(root), "merge-base", "HEAD", "origin/main"],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        ).strip()
-    except (OSError, subprocess.CalledProcessError):
-        return None
-    if not merge_base:
-        return None
+    merge_base = _merge_base_with_main(root)
     try:
         payload = subprocess.check_output(
             ["git", "-C", str(root), "show", f"{merge_base}:{relative}"],
@@ -197,6 +188,46 @@ def load_ancestor_baseline(
         raise ValueError(
             f"ancestor fence baseline at {merge_base}:{relative} is invalid"
         ) from exc
+
+
+def _base_refs() -> tuple[str, ...]:
+    refs: list[str] = []
+    base_sha = os.environ.get("GITHUB_BASE_SHA", "").strip()
+    if base_sha:
+        refs.append(base_sha)
+    base_ref = os.environ.get("GITHUB_BASE_REF", "").strip()
+    if base_ref:
+        refs.append(
+            base_ref if base_ref.startswith("origin/") else f"origin/{base_ref}"
+        )
+    refs.extend(("origin/main", "main"))
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for ref in refs:
+        if ref not in seen:
+            seen.add(ref)
+            ordered.append(ref)
+    return tuple(ordered)
+
+
+def _merge_base_with_main(root: Path) -> str:
+    tried: list[str] = []
+    for ref in _base_refs():
+        tried.append(ref)
+        try:
+            merge_base = subprocess.check_output(
+                ["git", "-C", str(root), "merge-base", "HEAD", ref],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+        except (OSError, subprocess.CalledProcessError):
+            continue
+        if merge_base:
+            return merge_base
+    raise ValueError(
+        "cannot compute merge-base with origin/main; fetch the base ref "
+        f"(tried: {', '.join(tried)})"
+    )
 
 
 def _baseline_git_path(root: Path, baseline_path: Path) -> str:
@@ -265,7 +296,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     baseline = load_baseline(baseline_path) if baseline_path.is_file() else ()
     violations = find_new_violations(findings, baseline)
-    ancestor = load_ancestor_baseline(root, baseline_path)
+    try:
+        ancestor = load_ancestor_baseline(root, baseline_path)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     growth = find_baseline_growth(baseline, ancestor) if ancestor is not None else ()
     if not violations and not growth:
         return 0

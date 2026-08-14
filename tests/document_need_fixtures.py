@@ -68,6 +68,7 @@ def luna_on_cycle1_registry() -> CycleConfig:
         activated=True,
         activation_blocker=None,
         evaluation_registry=EvaluationRegistryPin(path=CYCLE_1_REGISTRY),
+        spend=SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=None),
     )
 
 
