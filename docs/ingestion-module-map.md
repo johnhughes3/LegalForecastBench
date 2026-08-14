@@ -144,7 +144,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`pacer_gap_append_rebase.py`](../legalforecast/ingestion/pacer_gap_append_rebase.py) | Append-only snapshot growth authentication. |
 | [`post_selection_terminal_exclusion.py`](../legalforecast/ingestion/post_selection_terminal_exclusion.py) | Replay-minted terminal-exclusion evidence for a selected exact-100 cohort. |
 | [`ranked_reserve_replacement.py`](../legalforecast/ingestion/ranked_reserve_replacement.py) | Continuation through a frozen ranked reserve. |
-| [`rest_observation_policy_rebind.py`](../legalforecast/ingestion/rest_observation_policy_rebind.py) | Rebind of authenticated terminal REST observations. |
+| [`rest_observation_policy_rebind.py`](../legalforecast/ingestion/rest_observation_policy_rebind.py) | Rebind of authenticated terminal REST observations. Historical `new_sha256` is reconstruct-and-verify of packaged witnesses, not a runtime freeze of live `courtlistener_acquisition.py` (PR #398 / GitHub #399). |
 | [`rest_priority_subset_promotion.py`](../legalforecast/ingestion/rest_priority_subset_promotion.py) | Promotion of a terminal REST priority tranche. |
 | [`retained_cohort_extension.py`](../legalforecast/ingestion/retained_cohort_extension.py) | Provider-free extension of a frozen cohort. |
 | [`screening_snapshot_union.py`](../legalforecast/ingestion/screening_snapshot_union.py) | Union of complete saturated screening snapshots. |
