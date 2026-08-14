@@ -991,6 +991,16 @@ class LocalCliAdapterManifest:
                     )
         validate_public_record(self.to_record(), "local_cli_adapter_manifest")
 
+    def env_vars_for_profile(self, profile_id: str) -> tuple[str, ...]:
+        """Return projected environment names declared for one profile."""
+
+        for profile, names in self.auth_environment_variables:
+            if profile == profile_id:
+                return names
+        raise LocalCliAdapterManifestError(
+            f"auth_environment_variables has no entry for {profile_id}"
+        )
+
     def to_record(self) -> dict[str, Any]:
         return {
             "schema_version": self.schema_version,

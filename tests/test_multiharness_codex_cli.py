@@ -377,6 +377,7 @@ def test_success_fixture_binds_run_result_and_deliverable(tmp_path: Path) -> Non
     )
     assert "failure_class" not in result.public_summary
     assert result.public_summary["auth_mode"] == "none-offline-cli-adapter"
+    assert result.public_summary["auth_profile"] == "fixture-none"
     assert result.public_summary["subscription_login_claimed"] is False
     assert result.public_summary["deliverable_manifest_sha256"].startswith("sha256:")
     assert result.public_summary["input_tokens"] == 3

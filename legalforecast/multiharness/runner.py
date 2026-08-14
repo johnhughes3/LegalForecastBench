@@ -20,6 +20,11 @@ from legalforecast.evals.inspect_task import HarnessSolver
 from legalforecast.evals.packet_builder import ModelPacket
 from legalforecast.multiharness.adapters import HarnessAdapter, LiveToolAdapter
 from legalforecast.multiharness.artifacts import AdapterRunResult
+from legalforecast.multiharness.auth_profiles import (
+    PUBLISHED_API_KEY,
+    AuthProfileError,
+    require_infisical_environment,
+)
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.container_runtime import (
     ContainerRuntimeError,
@@ -452,6 +457,9 @@ class _MultiHarnessRunner:
                         adapter=adapter.manifest,
                         model=model,
                         selection_sha256=selection.selection_sha256,
+                        live=getattr(adapter, "auth_profile", None)
+                        == PUBLISHED_API_KEY,
+                        stage=_resume_stage(adapter),
                     )
                     request = _run_request(
                         row_id=row_id,
@@ -862,22 +870,46 @@ def _run_request(
     )
 
 
+def _resume_stage(adapter: object) -> str | None:
+    service = getattr(adapter, "execution_service", None)
+    raw = getattr(service, "infisical_env", None) if service is not None else None
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise AuthProfileError("Infisical environment is not an allowed sandbox stage")
+    stage = require_infisical_environment(raw)
+    if stage == "staging":
+        return "staging"
+    if stage == "sandbox":
+        return "sandbox"
+    return None
+
+
 def _row_id(
     *,
     task: CanonicalTask,
     adapter: AdapterManifest,
     model: ModelConfig,
     selection_sha256: str,
+    live: bool = False,
+    stage: str | None = None,
 ) -> str:
+    payload: dict[str, Any] = {
+        "family": task.family,
+        "task_id": task.task_id,
+        "adapter_id": adapter.adapter_id,
+        "adapter_version": adapter.adapter_version,
+        "model_key": model.model_key,
+        "selection_sha256": selection_sha256,
+    }
+    if live:
+        payload["live"] = "1"
+        if stage == "staging":
+            payload["stage"] = "staging"
+        elif stage == "sandbox":
+            payload["stage"] = "sandbox"
     digest = _record_sha256(
-        {
-            "family": task.family,
-            "task_id": task.task_id,
-            "adapter_id": adapter.adapter_id,
-            "adapter_version": adapter.adapter_version,
-            "model_key": model.model_key,
-            "selection_sha256": selection_sha256,
-        },
+        payload,
         prefixed=False,
     )[:16]
     return f"row-{digest}"

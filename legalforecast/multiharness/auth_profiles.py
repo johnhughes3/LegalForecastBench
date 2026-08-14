@@ -4,6 +4,10 @@ A run declares exactly one profile. Missing, ambiguous, or unknown values fail
 before credential fetch or process spawn. Profiles never substitute for each
 other, and ``fixture-none`` never reads credentials.
 
+Infisical is the sandbox source (canonical ``dev``). Production variables and
+secrets are GitHub Environment values; this module refuses Infisical
+``--env prod`` instead of reading them.
+
 Canonical IDs are consumed by B1 adapter manifests (``dm0g.4.4.1``). Do not add
 provider-specific aliases.
 """
@@ -29,13 +33,36 @@ AUTH_PROFILE_IDS: Final[frozenset[str]] = frozenset(
 )
 
 LEGALFORECASTBENCH_SANDBOX_ROOT: Final = "/agents/sandbox/legalforecastbench"
+LABELING_INFISICAL_PATH: Final = f"{LEGALFORECASTBENCH_SANDBOX_ROOT}/labeling"
 HARNESS_RUNTIME_INFISICAL_ROOT: Final = (
     f"{LEGALFORECASTBENCH_SANDBOX_ROOT}/harness-runtime"
 )
 
-_PROFILE_INFISICAL_LEAF: Final[Mapping[str, str]] = {
-    PUBLISHED_API_KEY: "published-api-key",
-    CONTRIBUTOR_SUBSCRIPTION: "contributor-subscription",
+# published-api-key reuses the existing labeling stage view rather than a
+# duplicate harness-runtime folder. The labeling inventory also has
+# GEMINI_API_KEY; adapters never project it. contributor-subscription stays
+# on its own harness-runtime folder and is not bound yet.
+_PROFILE_INFISICAL_PATH: Final[Mapping[str, str]] = {
+    PUBLISHED_API_KEY: LABELING_INFISICAL_PATH,
+    CONTRIBUTOR_SUBSCRIPTION: (
+        f"{HARNESS_RUNTIME_INFISICAL_ROOT}/contributor-subscription"
+    ),
+}
+
+# Infisical secret names this profile may project. Each adapter takes a
+# subset. See docs/adapters/published-api-key-profile.md.
+PUBLISHED_API_KEY_SECRET_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+    }
+)
+
+INFISICAL_WRAPPER_NAME: Final = "infisical-agent-sandbox"
+
+PUBLISHED_API_KEY_ENV_BY_EXECUTABLE: Final[Mapping[str, tuple[str, ...]]] = {
+    "claude": ("ANTHROPIC_API_KEY",),
+    "codex": ("OPENAI_API_KEY",),
 }
 
 _REFUSED_ALIASES: Final[frozenset[str]] = frozenset(
@@ -96,23 +123,66 @@ def require_auth_profile_id(value: object, field_name: str = "auth_profile") -> 
     return value
 
 
+def published_api_key_env_vars_for_executable(basename: str) -> tuple[str, ...]:
+    """Return the Infisical key names this executable may project."""
+
+    names = PUBLISHED_API_KEY_ENV_BY_EXECUTABLE.get(basename)
+    if names is None:
+        raise AuthProfileError(
+            "published-api-key has no Infisical layout for this executable"
+        )
+    return names
+
+
+def published_api_key_layout() -> dict[str, object]:
+    """Return the operator Infisical layout. Never includes secret values."""
+
+    record: dict[str, object] = {
+        "wrapper": INFISICAL_WRAPPER_NAME,
+        "infisical_path": infisical_path_for_profile(PUBLISHED_API_KEY),
+        "canonical_environment": "dev",
+        "production_source": "github-environment",
+        "allowed_environments": list(sorted(ALLOWED_INFISICAL_ENVIRONMENTS)),
+        "infisical_keys": [
+            {"executable": basename, "name": name}
+            for basename, names in PUBLISHED_API_KEY_ENV_BY_EXECUTABLE.items()
+            for name in names
+        ],
+        "fail_closed_when_empty": True,
+        "host_environment_fallback": False,
+    }
+    validate_public_record(record, "published-api-key Infisical layout")
+    listed = frozenset(
+        name for names in PUBLISHED_API_KEY_ENV_BY_EXECUTABLE.values() for name in names
+    )
+    if listed != PUBLISHED_API_KEY_SECRET_KEYS:
+        raise AuthProfileError("published-api-key layout keys drifted")
+    return record
+
+
 def infisical_path_for_profile(profile_id: str) -> str:
     """Return the Infisical sandbox path for a credentialed profile."""
 
     canonical = require_auth_profile_id(profile_id)
     if canonical == FIXTURE_NONE:
         raise AuthProfileError("fixture-none never reads credentials")
-    leaf = _PROFILE_INFISICAL_LEAF[canonical]
-    path = f"{HARNESS_RUNTIME_INFISICAL_ROOT}/{leaf}"
-    _require_legalforecastbench_sandbox_path(path)
+    path = _PROFILE_INFISICAL_PATH[canonical]
+    _require_declared_profile_infisical_path(path)
     return path
 
 
 def require_infisical_environment(value: str) -> str:
-    """Return a non-production Infisical environment name."""
+    """Return a non-production Infisical environment name.
+
+    Infisical is the sandbox source only. Production variables and secrets
+    live on protected GitHub Environments, not Infisical ``--env prod``.
+    """
 
     if value == "prod":
-        raise AuthProfileError("Infisical production environment is refused")
+        raise AuthProfileError(
+            "Infisical --env prod is refused; production variables and "
+            "secrets are GitHub Environment values, not Infisical"
+        )
     if value not in ALLOWED_INFISICAL_ENVIRONMENTS:
         raise AuthProfileError("Infisical environment is not an allowed sandbox stage")
     return value
@@ -174,7 +244,7 @@ def _validated_projected_env_vars(
     return validated
 
 
-def _require_legalforecastbench_sandbox_path(path: str) -> None:
+def _require_declared_profile_infisical_path(path: str) -> None:
     if ".." in path or path.endswith("/") or "//" in path:
         raise AuthProfileError("Infisical path is invalid")
     prefix = f"{LEGALFORECASTBENCH_SANDBOX_ROOT}/"
@@ -182,7 +252,7 @@ def _require_legalforecastbench_sandbox_path(path: str) -> None:
         raise AuthProfileError(
             "Infisical path must be a legalforecastbench sandbox subdirectory"
         )
-    if not path.startswith(f"{HARNESS_RUNTIME_INFISICAL_ROOT}/"):
+    if path not in _PROFILE_INFISICAL_PATH.values():
         raise AuthProfileError(
-            "CLI auth credentials must use the harness-runtime Infisical subdirectory"
+            "CLI auth credentials must use a declared profile Infisical path"
         )

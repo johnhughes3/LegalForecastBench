@@ -187,7 +187,7 @@ Closed tokens: `headless_print`, `json_output`, `stream_json_output`, `json_sche
 - `published-api-key`
 - `contributor-subscription`
 
-`supported_auth_profiles` lists the subset this adapter instance may use. `auth_profile_name` must be one of those names and is the profile the fixture itself is bound to. `auth_environment_variables` is an array of `{profile, names}` objects mapping each supported profile to the public environment-variable *names* B3 may project; values and Infisical paths stay with `LegalForecastBench-dm0g.4.2.5`. `fixture-none` must map to an empty list. Profile IDs are record values, not object keys, so `published-api-key` does not trip the public-record secret-key scanner.
+`supported_auth_profiles` lists the subset this adapter instance may use. `auth_profile_name` must be one of those names and is the profile the fixture itself is bound to. `auth_environment_variables` is an array of `{profile, names}` objects mapping each supported profile to the public environment-variable *names* B3 may project; values and Infisical paths stay with `LegalForecastBench-dm0g.4.2.5` / `LegalForecastBench-dm0g.4.2.13`. The published-api-key Infisical layout is documented in `docs/adapters/published-api-key-profile.md`. `fixture-none` must map to an empty list. Profile IDs are record values, not object keys, so `published-api-key` does not trip the public-record secret-key scanner.
 
 Do not store account identifiers, token paths, or secret field names on this record.
 

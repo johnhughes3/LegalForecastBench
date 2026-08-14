@@ -7,7 +7,10 @@ with this adapter. Shared execution types live in
 (``LegalForecastBench-dm0g.4.4.26``). This adapter calls
 ``LocalCliExecutionService.execute(RunSpec)`` and never spawns ``codex``.
 Tests inject ``FakeLocalCliExecutionService``; production injects B2's
-contained runtime. Do not copy a parallel contracts module onto this branch.
+contained runtime. Auth binding (``LegalForecastBench-dm0g.4.4.10``)
+resolves ``fixture-none`` or ``published-api-key`` at plan time; credential
+values stay with the contained execution service. Do not copy a parallel
+contracts module onto this branch.
 """
 
 from __future__ import annotations
@@ -23,6 +26,18 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.multiharness.adapters import AdapterError, AdapterPreparation
+from legalforecast.multiharness.auth_binding import (
+    bind_adapter_auth_profile,
+    public_auth_mode,
+    require_credentialed_network_policy,
+    require_execution_service_profile,
+)
+from legalforecast.multiharness.auth_profiles import (
+    FIXTURE_NONE,
+    PUBLISHED_API_KEY,
+    AuthProfileError,
+    require_auth_profile_id,
+)
 from legalforecast.multiharness.deliverables import (
     DeliverableArtifactProjection,
     seal_deliverable,
@@ -155,12 +170,14 @@ class CodexCliInvocationPlan:
     requested_model: str
     reasoning_effort: str
     timeout_seconds: float
+    auth_profile: str = FIXTURE_NONE
 
     def public_config(self) -> dict[str, str]:
         """Path-independent invocation identity for deliverable binding."""
 
         return {
             "approval_policy": CODEX_APPROVAL_POLICY,
+            "auth_profile": self.auth_profile,
             "color": "never",
             "ephemeral": "true",
             "executable": CODEX_CLI_EXECUTABLE,
@@ -271,6 +288,14 @@ def load_codex_local_cli_manifest(
         raise CodexCliAdapterError("local CLI manifest_id does not match adapter id")
     if manifest.executable.basename != CODEX_CLI_EXECUTABLE:
         raise CodexCliAdapterError("local CLI executable basename must be 'codex'")
+    if manifest.auth_profile_name != FIXTURE_NONE:
+        raise CodexCliAdapterError(
+            "offline Codex CLI adapter requires auth_profile_name fixture-none"
+        )
+    if FIXTURE_NONE not in manifest.supported_auth_profiles:
+        raise CodexCliAdapterError("Codex CLI adapter must support fixture-none")
+    if PUBLISHED_API_KEY not in manifest.supported_auth_profiles:
+        raise CodexCliAdapterError("Codex CLI adapter must support published-api-key")
     return manifest
 
 
@@ -297,6 +322,7 @@ def build_codex_invocation_plan(
     prompt: str,
     executable: str = CODEX_CLI_EXECUTABLE,
     local_cli_manifest: LocalCliAdapterManifest | None = None,
+    auth_profile: object = FIXTURE_NONE,
 ) -> CodexCliInvocationPlan:
     """Build a deterministic argv array from the local CLI manifest."""
 
@@ -308,6 +334,10 @@ def build_codex_invocation_plan(
         raise CodexCliAdapterError(
             "Codex CLI executable must match the local CLI manifest basename"
         )
+    try:
+        bound = bind_adapter_auth_profile(manifest, auth_profile)
+    except AuthProfileError as exc:
+        raise CodexCliAdapterError(str(exc)) from exc
     if manifest.invocation.headless_mode != "exec_subcommand":
         raise CodexCliAdapterError("offline Codex CLI adapter requires exec_subcommand")
     model = requested_model(request.model_key)
@@ -333,6 +363,7 @@ def build_codex_invocation_plan(
         requested_model=model,
         reasoning_effort=effort,
         timeout_seconds=float(request.sandbox_policy.timeout_seconds),
+        auth_profile=bound.profile_id,
     )
 
 
@@ -446,6 +477,7 @@ def run_offline_protocol_fixture(request: RunRequest, workspace: Path) -> RunRes
     summary = _public_summary(
         request,
         auth_mode="none-offline-protocol-fixture",
+        auth_profile=FIXTURE_NONE,
         requested_model=request.model_key,
         served_model=None,
         failure_class=None,
@@ -471,10 +503,20 @@ class CodexCliAdapter:
 
     execution_service: LocalCliExecutionService
     manifest: AdapterManifest = field(default_factory=codex_cli_manifest)
+    local_cli_manifest: LocalCliAdapterManifest = field(
+        default_factory=load_codex_local_cli_manifest
+    )
+    auth_profile: str = FIXTURE_NONE
+
+    def __post_init__(self) -> None:
+        try:
+            bind_adapter_auth_profile(self.local_cli_manifest, self.auth_profile)
+        except AuthProfileError as exc:
+            raise CodexCliAdapterError(str(exc)) from exc
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
         workspace.mkdir(parents=True, exist_ok=True)
-        return build_capabilities()
+        return self.local_cli_manifest.to_adapter_capabilities()
 
     def prepare(self, request: RunRequest, workspace: Path) -> AdapterPreparation:
         workspace.mkdir(parents=True, exist_ok=True)
@@ -500,10 +542,30 @@ class CodexCliAdapter:
             raise CodexCliAdapterError(
                 "offline Codex CLI adapter must not receive provider environment grants"
             )
+        try:
+            bound = bind_adapter_auth_profile(
+                self.local_cli_manifest, self.auth_profile
+            )
+            require_execution_service_profile(
+                self.execution_service,
+                bound.profile_id,
+                projected_env_vars=bound.profile.projected_env_vars,
+            )
+            require_credentialed_network_policy(
+                bound.profile_id, request.sandbox_policy.network_policy
+            )
+        except AuthProfileError as exc:
+            raise CodexCliAdapterError(str(exc)) from exc
         prompt = _prompt_for(workspace, request)
-        plan = build_codex_invocation_plan(request, workspace, prompt=prompt)
         private_logs = workspace / "private-logs"
         _ensure_real_directory(private_logs, label="private-logs")
+        plan = build_codex_invocation_plan(
+            request,
+            workspace,
+            prompt=prompt,
+            local_cli_manifest=self.local_cli_manifest,
+            auth_profile=bound.profile_id,
+        )
         _clear_prior_last_message(plan.last_message_path)
         spec = build_codex_run_spec(request, plan, workspace)
         receipt = self.execution_service.execute(spec)
@@ -524,7 +586,12 @@ class CodexCliAdapter:
         )
         envelope = _bind_envelope_to_receipt(receipt, envelope)
         if envelope.failure_class is not None:
-            return _failed_result(request, envelope, returncode=returncode)
+            return _failed_result(
+                request,
+                envelope,
+                returncode=returncode,
+                auth_profile=plan.auth_profile,
+            )
         return _successful_result(
             request, workspace, plan, envelope, returncode=returncode
         )
@@ -943,6 +1010,7 @@ def _public_summary(
     request: RunRequest,
     *,
     auth_mode: str,
+    auth_profile: str,
     requested_model: str,
     served_model: str | None,
     failure_class: str | None,
@@ -959,6 +1027,7 @@ def _public_summary(
         "adapter_version": CODEX_CLI_ADAPTER_VERSION,
         "approval_policy": CODEX_APPROVAL_POLICY,
         "auth_mode": auth_mode,
+        "auth_profile": require_auth_profile_id(auth_profile),
         "executable": CODEX_CLI_EXECUTABLE,
         "input_tokens": input_tokens,
         "model_key": request.model_key,
@@ -992,10 +1061,13 @@ def _failed_result(
     envelope: CodexCliParsedEnvelope,
     *,
     returncode: int,
+    auth_profile: str,
 ) -> RunResult:
+    profile_id = require_auth_profile_id(auth_profile)
     summary = _public_summary(
         request,
-        auth_mode="none-offline-cli-adapter",
+        auth_mode=public_auth_mode(profile_id, fixture_mode="none-offline-cli-adapter"),
+        auth_profile=profile_id,
         requested_model=requested_model(request.model_key),
         served_model=envelope.served_model,
         failure_class=envelope.failure_class,
@@ -1061,7 +1133,10 @@ def _successful_result(
     artifact_digest.update(encoded)
     summary = _public_summary(
         request,
-        auth_mode="none-offline-cli-adapter",
+        auth_mode=public_auth_mode(
+            plan.auth_profile, fixture_mode="none-offline-cli-adapter"
+        ),
+        auth_profile=plan.auth_profile,
         requested_model=plan.requested_model,
         served_model=envelope.served_model,
         failure_class=None,

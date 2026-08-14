@@ -5,9 +5,11 @@ from legalforecast.multiharness.auth_profiles import (
     CONTRIBUTOR_SUBSCRIPTION,
     FIXTURE_NONE,
     HARNESS_RUNTIME_INFISICAL_ROOT,
+    LABELING_INFISICAL_PATH,
     PUBLISHED_API_KEY,
     AuthProfileError,
     infisical_path_for_profile,
+    published_api_key_layout,
     require_auth_profile_id,
     require_infisical_environment,
     resolve_auth_profile,
@@ -50,7 +52,7 @@ def test_fixture_none_never_has_an_infisical_path() -> None:
         infisical_path_for_profile(FIXTURE_NONE)
 
 
-def test_credentialed_profiles_use_harness_runtime_infisical_paths() -> None:
+def test_credentialed_profiles_use_declared_infisical_paths() -> None:
     api_key = resolve_auth_profile(
         PUBLISHED_API_KEY,
         supported_profiles=(PUBLISHED_API_KEY, CONTRIBUTOR_SUBSCRIPTION),
@@ -61,7 +63,8 @@ def test_credentialed_profiles_use_harness_runtime_infisical_paths() -> None:
         supported_profiles=(PUBLISHED_API_KEY, CONTRIBUTOR_SUBSCRIPTION),
         projected_env_vars=("CLAUDE_CODE_OAUTH_TOKEN",),
     )
-    assert api_key.infisical_path == (
+    assert api_key.infisical_path == LABELING_INFISICAL_PATH
+    assert api_key.infisical_path != (
         f"{HARNESS_RUNTIME_INFISICAL_ROOT}/published-api-key"
     )
     assert subscription.infisical_path == (
@@ -70,6 +73,12 @@ def test_credentialed_profiles_use_harness_runtime_infisical_paths() -> None:
     assert api_key.infisical_path != subscription.infisical_path
     assert "account" not in api_key.public_provenance()
     assert api_key.public_provenance()["auth_profile"] == PUBLISHED_API_KEY
+    assert api_key.infisical_env == "dev"
+    layout = published_api_key_layout()
+    assert layout["infisical_path"] == LABELING_INFISICAL_PATH
+    assert layout["canonical_environment"] == "dev"
+    assert layout["production_source"] == "github-environment"
+    assert "GEMINI_API_KEY" not in str(layout)
 
 
 def test_profiles_cannot_silently_substitute() -> None:
@@ -93,9 +102,9 @@ def test_profiles_cannot_silently_substitute() -> None:
 
 
 def test_production_infisical_environment_is_refused() -> None:
-    with pytest.raises(AuthProfileError, match="production"):
+    with pytest.raises(AuthProfileError, match="GitHub Environment"):
         require_infisical_environment("prod")
-    with pytest.raises(AuthProfileError):
+    with pytest.raises(AuthProfileError, match="GitHub Environment"):
         resolve_auth_profile(
             PUBLISHED_API_KEY,
             supported_profiles=(PUBLISHED_API_KEY,),
