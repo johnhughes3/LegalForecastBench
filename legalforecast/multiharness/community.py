@@ -23,6 +23,7 @@ from legalforecast.multiharness.container_runtime import validate_container_resu
 from legalforecast.multiharness.materialization import (
     TASK_MATERIALIZATION_SCHEMA_VERSION,
 )
+from legalforecast.multiharness.run_progress import require_honest_coverage_claim
 from legalforecast.multiharness.solver_inputs import (
     SOLVER_INPUT_ENTRY_PATH,
     SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION,
@@ -513,6 +514,7 @@ def package_community_submission(
         requests=request_records,
         conformance=conformance,
         submission_id=config.submission_id,
+        run_dir=config.run_dir,
     )
     public_summary_path = config.output_dir / "public-summary.json"
     write_json_object(public_summary_path, public_summary)
@@ -521,6 +523,7 @@ def package_community_submission(
         run_manifest=run_manifest,
         rows=rows,
         requests=request_records,
+        run_dir=config.run_dir,
     )
     selection_manifest_path = config.output_dir / "selection-manifest.json"
     write_json_object(selection_manifest_path, selection_manifest)
@@ -564,6 +567,7 @@ def package_community_submission(
             rows=rows,
             requests=request_records,
             contributors=config.contributors,
+            run_dir=config.run_dir,
         ),
     )
     submission_path = config.output_dir / "submission.json"
@@ -791,6 +795,7 @@ def validate_submission_manifest(
         if artifact.public:
             public_paths.append(artifact_path)
     _validate_local_run_provenance(manifest, root)
+    _validate_coverage_claim(manifest, root)
     if public_paths:
         enforce_publication_guardrails(PublicationGuardrailConfig(public_paths=(root,)))
 
@@ -1221,12 +1226,13 @@ def _public_summary_record(
     requests: Mapping[str, Mapping[str, Any]],
     conformance: ConformanceReport,
     submission_id: str,
+    run_dir: Path,
 ) -> dict[str, Any]:
     summary = CommunityRunSummary(
         run_id=run_manifest.run_id,
         run_manifest_sha256=_file_sha256_from_record(run_manifest.to_record()),
         selection_sha256=run_manifest.selection_sha256,
-        selection_label=_selection_label(requests),
+        selection_label=_selection_label(requests, run_dir=run_dir),
         run_config_sha256=run_manifest.run_config_sha256,
         row_count=len(rows),
         result_status_counts=_counter_record(
@@ -1260,15 +1266,22 @@ def _selection_manifest_record(
     run_manifest: RunManifest,
     rows: Sequence[Mapping[str, Any]],
     requests: Mapping[str, Mapping[str, Any]],
+    run_dir: Path,
 ) -> dict[str, Any]:
     task_ids = tuple(_required_row_str(row, "task_id") for row in rows)
+    run_selection = _run_selection_record(run_dir)
+    coverage_kind = str(run_selection.get("coverage_kind") or "full")
+    claim_kind = str(run_selection.get("claim_kind") or coverage_kind)
+    selection_label = _selection_label(requests, run_dir=run_dir)
     return {
         "schema_version": COMMUNITY_SELECTION_MANIFEST_SCHEMA_VERSION,
         "run_id": run_manifest.run_id,
         "selection_sha256": run_manifest.selection_sha256,
-        "selection_label": _selection_label(requests),
+        "selection_label": selection_label,
+        "coverage_kind": coverage_kind,
+        "claim_kind": claim_kind,
         "task_ids": list(task_ids),
-        "task_selectors": {"task_ids": list(task_ids)},
+        "task_selectors": {"task_ids": list(task_ids), "coverage_kind": coverage_kind},
         "families": list(
             _sorted_unique(_required_row_str(row, "family") for row in rows)
         ),
@@ -1287,6 +1300,7 @@ def _submission_shards(
     rows: Sequence[Mapping[str, Any]],
     requests: Mapping[str, Mapping[str, Any]],
     contributors: tuple[ContributorCredit, ...],
+    run_dir: Path,
 ) -> tuple[CommunitySubmissionShard, ...]:
     groups: dict[tuple[str, str, str, str, str, str], list[Mapping[str, Any]]] = {}
     for row in rows:
@@ -1338,7 +1352,7 @@ def _submission_shards(
                     suite_version=suite_version,
                 ),
                 selection_sha256=run_manifest.selection_sha256,
-                selection_label=_selection_label(requests),
+                selection_label=_selection_label(requests, run_dir=run_dir),
                 source_suite=family,
                 suite_version=suite_version,
                 task_selectors={"task_ids": list(task_ids)},
@@ -1630,7 +1644,16 @@ def _sandbox_policy_hash_for_row(
     )
 
 
-def _selection_label(requests: Mapping[str, Mapping[str, Any]]) -> str:
+def _selection_label(
+    requests: Mapping[str, Mapping[str, Any]],
+    *,
+    run_dir: Path | None = None,
+) -> str:
+    if run_dir is not None:
+        record = _run_selection_record(run_dir)
+        value = record.get("selection_label")
+        if isinstance(value, str) and value.strip():
+            return value
     for request in requests.values():
         task = require_mapping(request, "task")
         metadata = optional_mapping(task, "metadata") or {}
@@ -1638,6 +1661,44 @@ def _selection_label(requests: Mapping[str, Mapping[str, Any]]) -> str:
         if isinstance(value, str) and value.strip():
             return value
     return "submitted-run"
+
+
+def _run_selection_record(run_dir: Path) -> dict[str, Any]:
+    path = run_dir / "selection-manifest.json"
+    if not path.is_file():
+        return {}
+    try:
+        return dict(_read_json(path, "run selection manifest"))
+    except ValueError:
+        return {}
+
+
+def _validate_coverage_claim(
+    manifest: CommunitySubmissionManifest,
+    root: Path,
+) -> None:
+    selection_path = root / "selection-manifest.json"
+    coverage_kind = "full"
+    interrupted = any(
+        status == "interrupted" and count
+        for status, count in manifest.run_summary.result_status_counts.items()
+    )
+    if selection_path.is_file():
+        record = _read_json(selection_path, "selection manifest")
+        raw_coverage = record.get("coverage_kind")
+        if isinstance(raw_coverage, str) and raw_coverage.strip():
+            coverage_kind = raw_coverage
+        claim_kind = record.get("claim_kind")
+        if claim_kind == "partial":
+            interrupted = True
+    try:
+        require_honest_coverage_claim(
+            selection_label=manifest.run_summary.selection_label,
+            coverage_kind=coverage_kind,
+            interrupted=interrupted,
+        )
+    except ValueError as exc:
+        raise MultiHarnessValidationError(str(exc)) from exc
 
 
 def _sorted_unique(values: Iterable[str]) -> tuple[str, ...]:

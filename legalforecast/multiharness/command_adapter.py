@@ -67,6 +67,10 @@ class CommandAdapterError(AdapterError):
     """Raised when a command adapter fails or returns invalid data."""
 
 
+class CommandAdapterCancelled(CommandAdapterError):
+    """First SIGINT/SIGTERM stopped the in-flight adapter process."""
+
+
 _MAX_TOOL_EXCHANGES = 256
 
 
@@ -900,7 +904,7 @@ def _raise_for_execution(
             f"{timeout_seconds}s{cleanup_detail}"
         )
     if execution.status == "cancelled":
-        raise CommandAdapterError(
+        raise CommandAdapterCancelled(
             f"command adapter {phase} was cancelled{cleanup_detail}"
         ) from pending_error
     if cleanup_detail:

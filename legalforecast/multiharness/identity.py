@@ -630,10 +630,12 @@ def derive_system_bundle_label(
 
 
 def validate_resume_binding(*, requested: RunIdentity, prior: RunIdentity) -> None:
-    """Refuse resume that would cross task bytes, config, or runtime policy."""
+    """Refuse resume that would cross task, solver, config, or runtime policy."""
 
     if requested.task_identity_key != prior.task_identity_key:
         raise IdentityError("resume cannot cross task identity")
+    if requested.solver_identity_key != prior.solver_identity_key:
+        raise IdentityError("resume cannot cross solver identity")
     if requested.config_sha256 != prior.config_sha256:
         raise IdentityError("resume cannot cross config_sha256")
     if requested.runtime_policy_sha256 != prior.runtime_policy_sha256:

@@ -24,7 +24,7 @@ Unresolved served-model sentinels (`unknown`, `unresolved`, `*`, empty, `none`) 
 
 ## Resume
 
-`validate_resume_binding` refuses a resume whose task identity, `config_sha256`, or `runtime_policy_sha256` differs from the prior run. Slot fields (`order`, `repeat_index`) may change; crossing task bytes, config, or runtime policy may not.
+`validate_resume_binding` refuses a resume whose task identity, solver identity, `config_sha256`, or `runtime_policy_sha256` differs from the prior run. Slot fields (`order`, `repeat_index`) may change; crossing task bytes, solver, config, or runtime policy may not.
 
 ## Execution receipts
 

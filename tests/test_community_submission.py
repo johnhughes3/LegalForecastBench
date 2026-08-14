@@ -125,6 +125,32 @@ def test_community_package_cli_writes_pr_ready_submission(tmp_path: Path) -> Non
     assert "private-logs" not in json.dumps(packaged_runs, sort_keys=True)
 
 
+def test_deleting_scoped_selection_label_fails_claim_validation(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _write_json(
+        run_dir / "selection-manifest.json",
+        {
+            "schema_version": "legalforecast.multiharness.selection_manifest.v1",
+            "selection_sha256": SHA1,
+            "selection_label": "scoped:task_ids",
+            "coverage_kind": "scoped",
+            "claim_kind": "scoped",
+            "task_ids": ["harvey_lab:corporate/merger"],
+        },
+    )
+    output_dir = tmp_path / "scoped-submission"
+    package_community_submission(_package_config(run_dir, output_dir))
+    validate_submission_file(output_dir / "submission.json")
+
+    submission_path = output_dir / "submission.json"
+    record = _read_json(submission_path)
+    record["run_summary"]["selection_label"] = "full"
+    _write_json(submission_path, record)
+
+    with pytest.raises(MultiHarnessValidationError, match="scoped selection_label"):
+        validate_submission_file(submission_path)
+
+
 def test_missing_required_attestation_is_rejected(tmp_path: Path) -> None:
     record = _valid_submission_record(tmp_path)
     record["attestations"] = [

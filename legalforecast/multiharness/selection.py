@@ -8,6 +8,11 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
+from legalforecast.multiharness.run_progress import (
+    COVERAGE_FULL,
+    COVERAGE_SCOPED,
+    scoped_selection_label,
+)
 from legalforecast.multiharness.spec import CanonicalTask, TaskIndex
 
 
@@ -34,6 +39,7 @@ class SelectionResult:
     tasks: tuple[CanonicalTask, ...]
     selection_sha256: str
     selection_label: str
+    coverage_kind: str = COVERAGE_FULL
 
     @property
     def comparison_groups(self) -> tuple[ComparisonGroup, ...]:
@@ -54,6 +60,7 @@ class SelectionResult:
         return {
             "selection_sha256": self.selection_sha256,
             "selection_label": self.selection_label,
+            "coverage_kind": self.coverage_kind,
             "task_ids": [task.task_id for task in self.tasks],
             "comparison_groups": [
                 group.to_record() for group in self.comparison_groups
@@ -126,10 +133,15 @@ class TaskSelection:
         if not selected and not selection.allow_empty:
             raise ValueError("task selection matched no tasks")
         selection_sha256 = _selection_sha256(selected)
+        coverage_kind = _coverage_kind(selection)
+        label = selection.label or _default_label(selection)
+        if coverage_kind == COVERAGE_SCOPED:
+            label = scoped_selection_label(label)
         return SelectionResult(
             tasks=selected,
             selection_sha256=selection_sha256,
-            selection_label=selection.label or _default_label(selection),
+            selection_label=label,
+            coverage_kind=coverage_kind,
         )
 
     def to_record(self) -> dict[str, Any]:
@@ -222,6 +234,18 @@ def _selection_sha256(tasks: tuple[CanonicalTask, ...]) -> str:
 def _record_sha256(record: Any) -> str:
     encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _coverage_kind(selection: TaskSelection) -> str:
+    record = selection.to_record()
+    active = [
+        field_name
+        for field_name, value in record.items()
+        if field_name not in {"allow_empty", "label"} and value not in (None, [], ())
+    ]
+    if not active:
+        return COVERAGE_FULL
+    return COVERAGE_SCOPED
 
 
 def _default_label(selection: TaskSelection) -> str:

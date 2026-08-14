@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -23,6 +25,10 @@ from legalforecast.multiharness.community import (
     validate_submission_file,
 )
 from legalforecast.multiharness.conformance import run_adapter_conformance
+from legalforecast.multiharness.folder_selection import (
+    FolderSelectionError,
+    select_tasks_from_folder,
+)
 from legalforecast.multiharness.runner import (
     INCOMPLETE_RUN_POLICIES,
     ModelConfig,
@@ -238,7 +244,14 @@ def add_multiharness_parser(subparsers: Any) -> None:
         action="store_true",
         help="Record provider API egress as allowed for host adapter processes.",
     )
-    run.add_argument("--resume", action="store_true")
+    run.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "Continue a previous run in this output directory. Completed tasks "
+            "are skipped; a changed solver, config, or policy is refused."
+        ),
+    )
     run.add_argument(
         "--incomplete-run-policy",
         choices=tuple(sorted(INCOMPLETE_RUN_POLICIES)),
@@ -314,12 +327,26 @@ def add_multiharness_parser(subparsers: Any) -> None:
 def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--family", action="append", default=[])
     parser.add_argument("--task-id", action="append", default=[])
+    parser.add_argument(
+        "--category",
+        action="append",
+        default=[],
+        help="Harvey LAB category (same selector as --module).",
+    )
     parser.add_argument("--case-id", action="append", default=[])
     parser.add_argument("--candidate-id", action="append", default=[])
     parser.add_argument("--ablation", action="append", default=[])
     parser.add_argument("--module", action="append", default=[])
     parser.add_argument("--practice-area", action="append", default=[])
     parser.add_argument("--tag", action="append", default=[])
+    parser.add_argument(
+        "--task-folder",
+        type=Path,
+        help=(
+            "Projected task folder with projection-manifest.json. "
+            "Unrecognized or tampered bytes are refused."
+        ),
+    )
     parser.add_argument("--limit", type=int)
     parser.add_argument("--seed")
     parser.add_argument("--allow-empty", action="store_true")
@@ -354,7 +381,11 @@ def _cmd_tasks_index(args: argparse.Namespace) -> int:
 
 def _cmd_tasks_select(args: argparse.Namespace) -> int:
     task_index = _load_task_index(cast(Path, args.index))
-    selection = _selection_from_args(args)
+    selection = _apply_folder_selection(
+        _selection_from_args(args),
+        task_index,
+        cast(Path | None, args.task_folder),
+    )
     output = cast(Path, args.output)
     write_json_object(
         output,
@@ -449,6 +480,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
         else None
     )
     selection = _selection_from_run_args(args)
+    selection = _apply_folder_selection(
+        selection,
+        task_index,
+        cast(Path | None, args.task_folder),
+    )
     output_dir = cast(Path, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     manifests = _adapter_manifests_from_paths(_path_tuple_arg(args, "adapter_manifest"))
@@ -485,7 +521,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         )
         for path in _path_tuple_arg(args, "adapter_manifest")
     )
-    run_multi_harness(
+    run = run_multi_harness(
         MultiHarnessRunConfig(
             task_index=task_index,
             adapters=adapters,
@@ -505,6 +541,15 @@ def _cmd_run(args: argparse.Namespace) -> int:
             solver_inputs=solver_inputs,
         )
     )
+    if run.interrupted:
+        completed = sum(1 for row in run.rows if row.result.status == "succeeded")
+        print(
+            f"Interrupted after {completed} completed task(s). "
+            "This is a partial run, not a crash. Resume with the same command "
+            "plus --resume.",
+            file=sys.stderr,
+        )
+        return 130
     return 0
 
 
@@ -780,19 +825,43 @@ def _selection_from_run_args(args: argparse.Namespace) -> TaskSelection:
 
 
 def _selection_from_args(args: argparse.Namespace) -> TaskSelection:
+    modules = _str_tuple_arg(args, "module") + _str_tuple_arg(args, "category")
     return TaskSelection(
         families=_str_tuple_arg(args, "family"),
         task_ids=_str_tuple_arg(args, "task_id"),
         case_ids=_str_tuple_arg(args, "case_id"),
         candidate_ids=_str_tuple_arg(args, "candidate_id"),
         ablations=_str_tuple_arg(args, "ablation"),
-        modules=_str_tuple_arg(args, "module"),
+        modules=modules,
         practice_areas=_str_tuple_arg(args, "practice_area"),
         tags=_str_tuple_arg(args, "tag"),
         limit=cast(int | None, args.limit),
         seed=cast(str | None, args.seed),
         allow_empty=cast(bool, args.allow_empty),
         label=cast(str | None, args.label),
+    )
+
+
+def _apply_folder_selection(
+    selection: TaskSelection,
+    task_index: TaskIndex,
+    folder: Path | None,
+) -> TaskSelection:
+    if folder is None:
+        return selection
+    resolved = select_tasks_from_folder(folder, task_index)
+    task_ids = resolved.task_ids
+    if selection.task_ids:
+        allowed = set(selection.task_ids)
+        task_ids = tuple(task_id for task_id in task_ids if task_id in allowed)
+    if not task_ids:
+        raise FolderSelectionError(
+            "folder mode matched no tasks after applying --task-id filters"
+        )
+    return replace(
+        selection,
+        task_ids=task_ids,
+        label=selection.label or "folder",
     )
 
 

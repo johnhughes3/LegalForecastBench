@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from legalforecast._json_io import write_json_object
 from legalforecast.cli import main
 from legalforecast.multiharness.adapter_registry import (
     CLAUDE_CODE_REGISTRY_NAME,
@@ -13,6 +15,11 @@ from legalforecast.multiharness.adapter_registry import (
     HARVEY_LAB_REGISTRY_NAME,
     LFB_NATIVE_REGISTRY_NAME,
 )
+from legalforecast.multiharness.folder_selection import (
+    PROJECTED_LAYOUT_MANIFEST_NAME,
+    PROJECTED_LAYOUT_SCHEMA_VERSION,
+)
+from legalforecast.multiharness.spec import CanonicalTask, TaskIndex
 from pytest import CaptureFixture
 
 JsonRecord = dict[str, Any]
@@ -82,6 +89,121 @@ def test_multiharness_tasks_index_and_select_harvey_lab_fixture(
         "harvey_lab:corporate/merger"
     ]
     assert selection_record["tasks"][0]["metadata"]["module"] == "corporate"
+
+
+def test_multiharness_category_alias_selects_lab_module(tmp_path: Path) -> None:
+    lab_root = _lab_root(tmp_path)
+    task_index = tmp_path / "task-index.json"
+    selection = tmp_path / "selection.json"
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "harvey-lab",
+                "--lab-root",
+                str(lab_root),
+                "--output",
+                str(task_index),
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "select",
+                "--index",
+                str(task_index),
+                "--category",
+                "corporate",
+                "--output",
+                str(selection),
+            ]
+        )
+        == 0
+    )
+    selection_record = _read_json(selection)
+    assert selection_record["selection_result"]["task_ids"] == [
+        "harvey_lab:corporate/merger"
+    ]
+    assert selection_record["selection_result"]["coverage_kind"] == "scoped"
+    assert selection_record["selection_result"]["selection_label"].startswith("scoped:")
+
+
+def test_multiharness_task_folder_selects_projected_layout(tmp_path: Path) -> None:
+    folder = tmp_path / "projected-layout"
+    relative_path = "corporate/merger/task.json"
+    task_path = folder / relative_path
+    task_path.parent.mkdir(parents=True)
+    encoded = json.dumps(
+        {"id": "merger-review", "prompt": "fixture task"},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    task_path.write_bytes(encoded)
+    digest = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+    task = CanonicalTask(
+        task_id="harvey_lab:corporate/merger",
+        family="harvey_lab",
+        scoring_mode="lab_native",
+        suite_version="fixture-suite",
+        source_id="merger-review",
+        task_sha256=digest,
+        metadata={"module": "corporate"},
+    )
+    write_json_object(
+        folder / PROJECTED_LAYOUT_MANIFEST_NAME,
+        {
+            "schema_version": PROJECTED_LAYOUT_SCHEMA_VERSION,
+            "tasks": [
+                {
+                    "task_id": task.task_id,
+                    "relative_path": relative_path,
+                    "task_sha256": digest,
+                    "family": task.family,
+                    "scoring_mode": task.scoring_mode,
+                    "category": "corporate",
+                }
+            ],
+        },
+    )
+    index_path = tmp_path / "index.json"
+    write_json_object(
+        index_path,
+        TaskIndex(
+            index_id="fixture-index",
+            selection_namespace="fixture",
+            tasks=(task,),
+            index_sha256="sha256:" + "a" * 64,
+        ).to_record(),
+    )
+    selection = tmp_path / "selection.json"
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "select",
+                "--index",
+                str(index_path),
+                "--task-folder",
+                str(folder),
+                "--output",
+                str(selection),
+            ]
+        )
+        == 0
+    )
+    record = _read_json(selection)
+    assert record["selection_result"]["task_ids"] == [task.task_id]
+    assert record["selection_result"]["coverage_kind"] == "scoped"
+    assert str(folder.resolve()) not in json.dumps(record)
 
 
 def test_multiharness_adapter_inspect_and_conformance_fixture(

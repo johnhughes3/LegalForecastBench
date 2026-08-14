@@ -144,6 +144,7 @@ def test_contributor_path_remains_discoverable_after_reader_first_sections() -> 
 
     assert start_here < contributor_path < quickstart
     assert "[Multi-Harness Adapter Spec](docs/multiharness-adapter-spec.md)" in readme
+    assert "docs/community-contributor-guide.md" in readme
     assert "[Community Submissions](docs/community-submissions.md)" in readme
     assert "uv run legalforecast multiharness --help" in readme
 

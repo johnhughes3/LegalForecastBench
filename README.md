@@ -50,7 +50,7 @@ Current pilot model anchors are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEAS
 
 ## Reproducible Community Comparisons
 
-**No row is accepted yet.** Its reserved label is **Reproducible community result — contributor-grade, non-official**. Contributor path: [adapter spec](docs/multiharness-adapter-spec.md) · [submission guide](docs/community-submissions.md).
+**No row is accepted yet.** Its reserved label is **Reproducible community result — contributor-grade, non-official**. Contributor path: [adapter spec](docs/multiharness-adapter-spec.md) · [contributor guide](docs/community-contributor-guide.md) · [submission guide](docs/community-submissions.md).
 
 LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work.
 
@@ -109,6 +109,7 @@ uv run legalforecast multiharness --help
 
 Contributor docs:
 
+- [Community Contributor Guide](docs/community-contributor-guide.md)
 - [Multi-Harness Adapter Spec](docs/multiharness-adapter-spec.md)
 - [Community Submissions](docs/community-submissions.md)
 
