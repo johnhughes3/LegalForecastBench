@@ -179,33 +179,33 @@ def invoke_isolated_harvey_lab_evaluator(
         execution_service.parent_env,
         hosts.working_directory,
     )
-    expected_wrapper = _require_prefixed(identity.wrapper_sha256, "wrapper_sha256")
-    if observed_wrapper != expected_wrapper:
-        raise HarveyLabEvaluationError(
-            "wrapper_sha256 does not match the resolved evaluator executable"
+    try:
+        expected_wrapper = _require_prefixed(identity.wrapper_sha256, "wrapper_sha256")
+        if observed_wrapper != expected_wrapper:
+            raise HarveyLabEvaluationError(
+                "wrapper_sha256 does not match the resolved evaluator executable"
+            )
+        spec, stdin_record = build_contained_evaluator_run_spec(
+            hosts=hosts,
+            sealed_manifest=sealed_manifest,
+            identity=identity,
+            evaluator_command=wrapper_name,
+            timeout_seconds=timeout_seconds,
         )
-    spec, stdin_record = build_contained_evaluator_run_spec(
-        hosts=hosts,
-        sealed_manifest=sealed_manifest,
-        identity=identity,
-        evaluator_command=wrapper_name,
-        timeout_seconds=timeout_seconds,
-    )
-    pinned_env = dict(
-        os.environ
-        if execution_service.parent_env is None
-        else execution_service.parent_env
-    )
-    pinned_env["PATH"] = (
-        f"{wrapper_dir}{os.pathsep}{pinned_env.get('PATH') or '/usr/bin'}"
-    )
-    try:
-        pinned_service = replace(execution_service, parent_env=pinned_env)
-    except TypeError as exc:
-        raise HarveyLabEvaluationError(
-            "execution service cannot pin the evaluator PATH"
-        ) from exc
-    try:
+        pinned_env = dict(
+            os.environ
+            if execution_service.parent_env is None
+            else execution_service.parent_env
+        )
+        pinned_env["PATH"] = (
+            f"{wrapper_dir}{os.pathsep}{pinned_env.get('PATH') or '/usr/bin'}"
+        )
+        try:
+            pinned_service = replace(execution_service, parent_env=pinned_env)
+        except TypeError as exc:
+            raise HarveyLabEvaluationError(
+                "execution service cannot pin the evaluator PATH"
+            ) from exc
         started_monotonic = _monotonic_ns()
         started_at = datetime.now(UTC)
         execution = pinned_service.execute(spec)
@@ -666,36 +666,66 @@ def _pin_wrapper_executable(
     if located is None:
         raise HarveyLabEvaluationError("evaluator command is not on PATH")
     payload = _read_regular_file(Path(located))
-    if working_directory.is_symlink():
-        raise HarveyLabEvaluationError("working directory must be a real directory")
-    working_directory.mkdir(parents=True, exist_ok=True)
-    wrapper_dir = working_directory / f".harvey-lab-wrapper-{uuid4().hex}"
-    wrapper_dir.mkdir()
-    _write_contained_wrapper(wrapper_dir, command, payload)
-    return _prefixed_digest(payload), wrapper_dir
+    try:
+        working_directory.mkdir(parents=True, exist_ok=True)
+        work_fd = os.open(working_directory, _nofollow_directory_flags())
+    except OSError as exc:
+        raise HarveyLabEvaluationError(
+            "working directory must be a real directory"
+        ) from exc
+    wrapper_name = f".harvey-lab-wrapper-{uuid4().hex}"
+    try:
+        try:
+            os.mkdir(wrapper_name, 0o700, dir_fd=work_fd)
+        except OSError as exc:
+            raise HarveyLabEvaluationError(
+                "could not create wrapper pin directory"
+            ) from exc
+        wrapper_dir = working_directory / wrapper_name
+        try:
+            _write_contained_wrapper(wrapper_dir, command, payload)
+        except BaseException:
+            shutil.rmtree(wrapper_dir, ignore_errors=True)
+            raise
+        return _prefixed_digest(payload), wrapper_dir
+    finally:
+        os.close(work_fd)
+
+
+def _nofollow_directory_flags() -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    return flags
 
 
 def _write_contained_wrapper(wrapper_dir: Path, name: str, payload: bytes) -> None:
+    if "/" in name or "\\" in name or name in {".", ".."}:
+        raise HarveyLabEvaluationError("evaluator command must be a basename")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     if hasattr(os, "O_CLOEXEC"):
         flags |= os.O_CLOEXEC
-    dir_flags = os.O_RDONLY
-    if hasattr(os, "O_DIRECTORY"):
-        dir_flags |= os.O_DIRECTORY
-    if hasattr(os, "O_NOFOLLOW"):
-        dir_flags |= os.O_NOFOLLOW
-    dir_fd = os.open(wrapper_dir, dir_flags)
     try:
-        file_fd = os.open(name, flags, 0o700, dir_fd=dir_fd)
+        dir_fd = os.open(wrapper_dir, _nofollow_directory_flags())
         try:
-            os.write(file_fd, payload)
-            os.fchmod(file_fd, 0o755)
+            file_fd = os.open(name, flags, 0o700, dir_fd=dir_fd)
+            try:
+                view = payload
+                while view:
+                    view = view[os.write(file_fd, view) :]
+                os.fchmod(file_fd, 0o755)
+            finally:
+                os.close(file_fd)
         finally:
-            os.close(file_fd)
-    finally:
-        os.close(dir_fd)
+            os.close(dir_fd)
+    except OSError as exc:
+        raise HarveyLabEvaluationError("could not pin the evaluator wrapper") from exc
 
 
 def _record_reaches_root(record: Mapping[str, object], root: Path) -> bool:

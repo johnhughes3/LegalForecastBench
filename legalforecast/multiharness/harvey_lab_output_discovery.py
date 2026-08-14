@@ -178,7 +178,13 @@ def discover_harvey_lab_outputs(
         )
     sandbox_fd = _open_directory(sandbox_path, "sandbox_root")
     try:
-        sandbox = Path(os.readlink(f"/proc/self/fd/{sandbox_fd}"))
+        try:
+            sandbox = Path(os.readlink(f"/proc/self/fd/{sandbox_fd}"))
+        except OSError as exc:
+            raise HarveyLabOutputDiscoveryError(
+                "sandbox_root must be a real directory",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            ) from exc
         try:
             output_relative = output_path.resolve(strict=True).relative_to(sandbox)
         except (OSError, ValueError) as exc:
@@ -1010,7 +1016,8 @@ def _unlink_relative(root: Path, relative: str) -> None:
             current_fd = next_fd
         os.unlink(parts[-1], dir_fd=current_fd)
     except OSError:
-        return  # best-effort cleanup after a failed destination copy
+        # Best-effort cleanup after a failed destination copy.
+        return
     finally:
         os.close(current_fd)
 
