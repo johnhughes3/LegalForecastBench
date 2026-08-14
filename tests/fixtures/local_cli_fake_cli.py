@@ -2,12 +2,14 @@
 """Versioned fake local CLI for contained-runtime and adapter E2E tests.
 
 Invoked as a real subprocess. Attack modes: succeed-json, hang, crash, spew,
-spew-then-cost, fork-child, fork-and-exit, dump-env, version. Spew size is
-controlled by ``--bytes`` (default 100 MiB). Optional ``--token`` is echoed
-to stderr for redaction canaries. Adapter envelope modes:
-``--adapter {claude,codex} --outcome {...}``. Writes pid records under cwd so
-tests can prove process-group cleanup without forking inside pytest
-(xdist-unsafe).
+spew-then-cost, fork-child, fork-and-exit, dump-env, write-probe, read-probe,
+write-escape, read-escape, mcp-jsonl, version. Spew size is controlled by
+``--bytes`` (default 100 MiB). Optional ``--token`` is echoed to stderr for
+redaction canaries. Adapter envelope modes: ``--adapter {claude,codex}
+--outcome {...}``. Writes pid records under cwd so tests can prove
+process-group cleanup without forking inside pytest (xdist-unsafe).
+
+synthetic: true
 """
 
 from __future__ import annotations
@@ -92,14 +94,6 @@ def _fork_and_exit(pid_path: Path) -> int:
         os._exit(0)
     _write_pids(pid_path, extra={"child_pid": child_pid})
     return 0
-    child_pid = os.fork()
-    if child_pid == 0:
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        time.sleep(30)
-        os._exit(0)
-    _write_pids(pid_path, extra={"child_pid": child_pid})
-    time.sleep(30)
-    return 0
 
 
 def _dump_env(token: str) -> int:
@@ -108,6 +102,114 @@ def _dump_env(token: str) -> int:
         sys.stderr.buffer.flush()
     json.dump(dict(os.environ), sys.stdout, sort_keys=True)
     return 0
+
+
+def _probe_error(path: Path, exc: OSError) -> dict[str, object]:
+    return {
+        "ok": False,
+        "path": str(path),
+        "errno": exc.errno,
+        "error": os.strerror(exc.errno) if exc.errno else str(exc),
+    }
+
+
+def _attempt_write(path: Path, payload: str) -> tuple[int, dict[str, object]]:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(payload, encoding="utf-8")
+    except OSError as exc:
+        return 1, _probe_error(path, exc)
+    return 0, {"ok": True, "path": str(path)}
+
+
+def _attempt_read(path: Path) -> tuple[int, dict[str, object]]:
+    try:
+        payload = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return 1, _probe_error(path, exc)
+    return 0, {"ok": True, "path": str(path), "payload": payload}
+
+
+def _write_probe(path: Path, payload: str) -> int:
+    code, record = _attempt_write(path, payload)
+    print(json.dumps(record, sort_keys=True))
+    return code
+
+
+def _read_probe(path: Path) -> int:
+    code, record = _attempt_read(path)
+    print(json.dumps(record, sort_keys=True))
+    return code
+
+
+_TOOL_RESPONSE_SCHEMA = "legalforecast.multiharness.tool_response.v1"
+
+
+def _mcp_jsonl() -> int:
+    line = sys.stdin.buffer.readline()
+    if not line:
+        return 2
+    try:
+        request = json.loads(line.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return 2
+    if not isinstance(request, dict):
+        return 2
+    request_id = str(request.get("request_id") or "tool-1")
+    operation = str(request.get("operation") or "")
+    arguments = request.get("arguments") or {}
+    if not isinstance(arguments, dict):
+        arguments = {}
+    if operation == "write_probe":
+        path = Path(str(arguments.get("path") or "probe.txt"))
+        payload = str(arguments.get("payload") or "probe")
+        code, detail = _attempt_write(path, payload)
+    elif operation == "read_probe":
+        path = Path(str(arguments.get("path") or "probe.txt"))
+        code, detail = _attempt_read(path)
+    elif operation == "dump_env":
+        code, detail = 0, {"ok": True, "environ": dict(os.environ)}
+    elif operation == "fork_orphan":
+        code, detail = _fork_and_exit(Path("pids.json")), {"ok": True}
+    else:
+        print(
+            json.dumps(
+                {
+                    "schema_version": _TOOL_RESPONSE_SCHEMA,
+                    "request_id": request_id,
+                    "status": "failed",
+                    "error_code": "unknown_operation",
+                    "output": {},
+                },
+                sort_keys=True,
+            )
+        )
+        return 1
+    status = "succeeded" if code == 0 else "failed"
+    record: dict[str, object] = {
+        "schema_version": _TOOL_RESPONSE_SCHEMA,
+        "request_id": request_id,
+        "status": status,
+        "output": detail,
+    }
+    if status == "failed":
+        record["error_code"] = "denied"
+    print(json.dumps(record, sort_keys=True))
+    return code
+
+
+def _write_escape(path: str) -> int:
+    if not path:
+        print(json.dumps({"wrote": False, "error": "missing-path"}))
+        return 2
+    return _write_probe(Path(path), "escaped\n")
+
+
+def _read_escape(path: str) -> int:
+    if not path:
+        print(json.dumps({"read": False, "error": "missing-path"}))
+        return 2
+    return _read_probe(Path(path))
 
 
 def _version() -> int:
@@ -372,6 +474,11 @@ def main(argv: list[str] | None = None) -> int:
             "fork-child",
             "fork-and-exit",
             "dump-env",
+            "write-probe",
+            "read-probe",
+            "write-escape",
+            "read-escape",
+            "mcp-jsonl",
             "version",
         ),
     )
@@ -388,6 +495,16 @@ def main(argv: list[str] | None = None) -> int:
         "--token",
         default="",
         help="optional canary echoed to stderr",
+    )
+    parser.add_argument(
+        "--path",
+        default="",
+        help="target path for write/read probes",
+    )
+    parser.add_argument(
+        "--payload",
+        default="probe",
+        help="bytes written by write-probe",
     )
     args, remainder = parser.parse_known_args(argv)
     pid_path = Path(args.pid_file)
@@ -412,6 +529,20 @@ def main(argv: list[str] | None = None) -> int:
         return _version()
     if args.mode == "dump-env":
         return _dump_env(args.token)
+    if args.mode == "write-probe":
+        if not args.path:
+            parser.error("write-probe requires --path")
+        return _write_probe(Path(args.path), args.payload)
+    if args.mode == "read-probe":
+        if not args.path:
+            parser.error("read-probe requires --path")
+        return _read_probe(Path(args.path))
+    if args.mode == "write-escape":
+        return _write_escape(args.path)
+    if args.mode == "read-escape":
+        return _read_escape(args.path)
+    if args.mode == "mcp-jsonl":
+        return _mcp_jsonl()
     if args.adapter is None or args.outcome is None:
         parser.error("either --mode or both --adapter and --outcome are required")
     if args.adapter == "claude":

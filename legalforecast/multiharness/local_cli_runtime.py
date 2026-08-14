@@ -28,10 +28,14 @@ from threading import Thread
 from typing import IO, Protocol, cast
 
 from legalforecast.multiharness.auth_profiles import (
+    CONTRIBUTOR_SUBSCRIPTION,
     FIXTURE_NONE,
+    LOCAL_CLI_SUBSCRIPTION_CATEGORY,
     AuthProfileError,
     ResolvedAuthProfile,
+    SubscriptionPresence,
     require_auth_profile_id,
+    require_local_subscription_presence,
     resolve_auth_profile,
 )
 from legalforecast.multiharness.local_cli_contracts import (
@@ -57,6 +61,7 @@ from legalforecast.multiharness.local_cli_redaction import (
     persist_execution_artifacts,
     redact_text,
     redaction_secret_values,
+    verify_execution_artifacts,
 )
 from legalforecast.multiharness.local_cli_scheduler import (
     ORDERING_SERIAL,
@@ -209,6 +214,7 @@ class LocalCliRunSpec:
     stdin_bytes: bytes = b""
     resume_of_spec_sha256: str | None = None
     host_process_containment: str = POSIX_PROCESS_GROUP_CONTAINMENT
+    filesystem_scope: str | None = None
     max_concurrency: int = 1
     ordering: str = ORDERING_SERIAL
     requested_model: str | None = None
@@ -230,7 +236,7 @@ class LocalCliRunSpec:
         return resolve_auth_profile(
             self.auth_profile,
             supported_profiles=self.manifest.supported_auth_profiles,
-            projected_env_vars=self.manifest.env_vars_for_profile(self.auth_profile),
+            projected_env_vars=_projected_env_vars_for_spec(self),
             infisical_env=self.infisical_env,
         )
 
@@ -246,6 +252,7 @@ class LocalCliRunSpec:
             "infisical_env": self.infisical_env,
             "stdin_sha256": _sha256_bytes(self.stdin_bytes),
             "host_process_containment": self.host_process_containment,
+            "filesystem_scope": self.filesystem_scope,
             "max_concurrency": self.max_concurrency,
             "ordering": self.ordering,
             "requested_model": self.requested_model,
@@ -274,6 +281,7 @@ class LocalCliExecutionResult:
     executable_sha256: str
     executable_version: str
     scheduling: SchedulingEvidence
+    boundary_identity: Mapping[str, object] | None = None
 
     def to_public_record(self) -> dict[str, object]:
         """Return the secret-free public receipt."""
@@ -295,6 +303,10 @@ class LocalCliExecutionResult:
             "executable_version": self.executable_version,
             "scheduling": self.scheduling.to_public_record(),
         }
+        if self.auth_profile == CONTRIBUTOR_SUBSCRIPTION:
+            record["auth_category"] = LOCAL_CLI_SUBSCRIPTION_CATEGORY
+        if self.boundary_identity is not None:
+            record["boundary_identity"] = dict(self.boundary_identity)
         validate_public_record(record, "local CLI execution receipt")
         return record
 
@@ -324,6 +336,7 @@ def execute_local_cli(
     parent_env: Mapping[str, str] | None = None,
     termination_grace_seconds: float = _DEFAULT_GRACE_SECONDS,
     max_capture_bytes: int = _MAX_CAPTURE_BYTES,
+    subscription_presence: SubscriptionPresence | None = None,
 ) -> LocalCliExecutionResult:
     """Run one CLI under the declared profile's sanitized environment."""
 
@@ -354,6 +367,7 @@ def execute_local_cli(
             secret_values=secret_values,
             termination_grace_seconds=termination_grace_seconds,
             max_capture_bytes=max_capture_bytes,
+            subscription_presence=subscription_presence,
         )
     except LocalCliRuntimeError as exc:
         message = redact_text(str(exc), secret_values)
@@ -388,6 +402,7 @@ def _execute_local_cli_bound(
     secret_values: list[str],
     termination_grace_seconds: float,
     max_capture_bytes: int,
+    subscription_presence: SubscriptionPresence | None,
 ) -> LocalCliExecutionResult:
     try:
         spec_sha256 = spec.spec_sha256()
@@ -399,6 +414,23 @@ def _execute_local_cli_bound(
         profile = spec.resolved_profile()
     except AuthProfileError as exc:
         raise LocalCliRuntimeError(str(exc)) from exc
+    if profile.profile_id == CONTRIBUTOR_SUBSCRIPTION:
+        try:
+            require_local_subscription_presence(
+                parent_env=parent,
+                presence=subscription_presence,
+            )
+        except AuthProfileError as exc:
+            raise LocalCliRuntimeError(str(exc)) from exc
+        from legalforecast.multiharness.contributor_boundary import (
+            ContributorBoundaryError,
+            require_filesystem_scope,
+        )
+
+        try:
+            require_filesystem_scope(spec.filesystem_scope)
+        except ContributorBoundaryError as exc:
+            raise LocalCliRuntimeError(str(exc)) from exc
     try:
         observed = bind_executable_identity(
             spec.manifest.executable,
@@ -475,6 +507,7 @@ def _execute_local_cli_bound(
             stderr=result.stderr,
             secret_values=secret_values,
         )
+        verify_execution_artifacts(scratch_root)
     except (LocalCliRedactionError, OSError, AuthProfileError) as exc:
         raise LocalCliRuntimeError(str(exc)) from exc
     return result
@@ -502,6 +535,19 @@ class LocalCliExecutionService:
     scheduler: ExecutionScheduler | None = None
     termination_grace_seconds: float = _DEFAULT_GRACE_SECONDS
     max_capture_bytes: int = _MAX_CAPTURE_BYTES
+    filesystem_scope: str | None = None
+    subscription_presence: SubscriptionPresence | None = None
+
+    def env_vars_for_profile(self, profile_id: str) -> tuple[str, ...]:
+        """Return projected names this service will export for one profile."""
+
+        canonical = require_auth_profile_id(profile_id)
+        if canonical == CONTRIBUTOR_SUBSCRIPTION:
+            return ()
+        for declared_id, env_names in self.profile_env_vars:
+            if declared_id == canonical:
+                return env_names
+        return ()
 
     def execute(self, spec: RunSpec) -> ExecutionReceipt:
         """Run one adapter ``RunSpec`` under process-group containment."""
@@ -547,6 +593,7 @@ class LocalCliExecutionService:
             timeout_seconds=spec.timeout_seconds,
             infisical_env=self.infisical_env,
             stdin_bytes=spec.stdin_bytes,
+            filesystem_scope=self.filesystem_scope,
         )
         try:
             result = execute_local_cli(
@@ -557,6 +604,7 @@ class LocalCliExecutionService:
                 parent_env=self.parent_env,
                 termination_grace_seconds=self.termination_grace_seconds,
                 max_capture_bytes=self.max_capture_bytes,
+                subscription_presence=self.subscription_presence,
             )
         except LocalCliRuntimeError as exc:
             return ExecutionReceipt.from_transcript(
@@ -688,6 +736,22 @@ def _run_contained_cli(
     ensure_private_scratch_directory(scratch_root)
     argv = observed.resolved_argv
     requested = spec.host_process_containment
+    boundary_identity: Mapping[str, object] | None = None
+    if spec.filesystem_scope is not None:
+        from legalforecast.multiharness.contributor_boundary import (
+            ContributorBoundaryError,
+            require_filesystem_scope,
+            wrap_argv_for_contributor_boundary,
+        )
+
+        try:
+            require_filesystem_scope(spec.filesystem_scope)
+            argv, boundary_identity = wrap_argv_for_contributor_boundary(
+                argv,
+                scratch_root=scratch_root,
+            )
+        except ContributorBoundaryError as exc:
+            raise LocalCliRuntimeError(str(exc)) from exc
     status = "launch_failed"
     exit_code: int | None = None
     timed_out = False
@@ -740,13 +804,16 @@ def _run_contained_cli(
                 )
             except LocalCliIdentityError as exc:
                 raise LocalCliRuntimeError(str(exc)) from exc
+            child_env = dict(environment)
+            if spec.filesystem_scope is not None:
+                child_env["PYTHONDONTWRITEBYTECODE"] = "1"
             process = subprocess.Popen(
                 prepared.argv,
                 stdin=stdin_handle,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 cwd=scratch_root,
-                env=dict(environment),
+                env=child_env,
                 start_new_session=True,
                 bufsize=0,
             )
@@ -854,6 +921,7 @@ def _run_contained_cli(
             requested_max_concurrency=spec.max_concurrency,
             requested_ordering=spec.ordering,
         ),
+        boundary_identity=boundary_identity,
     )
     validate_no_secret_values(
         result.to_public_record(),
@@ -940,6 +1008,13 @@ def _optional_cost_usd(stdout: bytes) -> float | None:
             continue
         return float(value)
     return None
+
+
+def _projected_env_vars_for_spec(spec: LocalCliRunSpec) -> tuple[str, ...]:
+    profile_id = require_auth_profile_id(spec.auth_profile)
+    if profile_id == CONTRIBUTOR_SUBSCRIPTION:
+        return ()
+    return spec.manifest.env_vars_for_profile(profile_id)
 
 
 # contract-ratchet: allow non-persisted in-memory spec identity

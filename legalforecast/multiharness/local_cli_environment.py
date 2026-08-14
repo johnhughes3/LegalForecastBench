@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Protocol, cast
 
 from legalforecast.multiharness.auth_profiles import (
+    CONTRIBUTOR_SUBSCRIPTION,
     FIXTURE_NONE,
     AuthProfileError,
     ResolvedAuthProfile,
@@ -72,8 +73,12 @@ class StaticCredentialSource:
         self._values = dict(values)
 
     def fetch_projected_env(self, profile: ResolvedAuthProfile) -> Mapping[str, str]:
-        if profile.profile_id == FIXTURE_NONE:
-            raise AuthProfileError("fixture-none never reads credentials")
+        if profile.profile_id in {FIXTURE_NONE, CONTRIBUTOR_SUBSCRIPTION}:
+            raise AuthProfileError(
+                "fixture-none never reads credentials"
+                if profile.profile_id == FIXTURE_NONE
+                else "contributor-subscription never reads credentials"
+            )
         missing = [
             name
             for name in profile.projected_env_vars
@@ -106,8 +111,12 @@ class InfisicalSandboxCredentialSource:
         self._timeout_seconds = timeout_seconds
 
     def fetch_projected_env(self, profile: ResolvedAuthProfile) -> Mapping[str, str]:
-        if profile.profile_id == FIXTURE_NONE:
-            raise AuthProfileError("fixture-none never reads credentials")
+        if profile.profile_id in {FIXTURE_NONE, CONTRIBUTOR_SUBSCRIPTION}:
+            raise AuthProfileError(
+                "fixture-none never reads credentials"
+                if profile.profile_id == FIXTURE_NONE
+                else "contributor-subscription never reads credentials"
+            )
         if profile.infisical_path is None:
             raise AuthProfileError("credentialed profile is missing Infisical path")
         require_infisical_environment(profile.infisical_env)
@@ -188,9 +197,13 @@ def project_profile_credentials(
 ) -> dict[str, str]:
     """Return projected credentials for the declared profile only."""
 
-    if profile.profile_id == FIXTURE_NONE:
+    if profile.profile_id in {FIXTURE_NONE, CONTRIBUTOR_SUBSCRIPTION}:
         if credential_source is not None:
-            raise AuthProfileError("fixture-none never reads credentials")
+            raise AuthProfileError(
+                "fixture-none never reads credentials"
+                if profile.profile_id == FIXTURE_NONE
+                else "contributor-subscription never reads credentials"
+            )
         return {}
     if credential_source is None:
         raise AuthProfileError("declared auth profile credentials are unavailable")
@@ -217,9 +230,13 @@ def build_local_cli_environment(
 
     parent = os.environ if parent_env is None else parent_env
     credentials = dict(projected_credentials or ())
-    if profile.profile_id == FIXTURE_NONE:
+    if profile.profile_id in {FIXTURE_NONE, CONTRIBUTOR_SUBSCRIPTION}:
         if credentials:
-            raise AuthProfileError("fixture-none never reads credentials")
+            raise AuthProfileError(
+                "fixture-none never reads credentials"
+                if profile.profile_id == FIXTURE_NONE
+                else "contributor-subscription never exports credentials"
+            )
     elif set(credentials) != set(profile.projected_env_vars):
         raise AuthProfileError(
             "projected credentials must match the declared profile exactly"
