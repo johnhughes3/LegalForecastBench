@@ -43,7 +43,7 @@ from legalforecast.multiharness.local_cli_contracts import (
 from legalforecast.multiharness.local_cli_environment import StaticCredentialSource
 from legalforecast.multiharness.local_cli_manifest import LocalCliAdapterManifest
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
-from legalforecast.multiharness.runner import ModelConfig, _row_id
+from legalforecast.multiharness.runner import ModelConfig, _resume_stage, _row_id
 from legalforecast.multiharness.spec import (
     AdapterManifest,
     CanonicalTask,
@@ -371,6 +371,17 @@ def test_published_api_key_changes_resume_row_identity() -> None:
     assert staging_row != live_row
     assert sandbox_row != live_row
     assert sandbox_row != staging_row
+
+
+def test_resume_stage_refuses_prod_instead_of_collapsing_to_dev() -> None:
+    class _Service:
+        infisical_env = "prod"
+
+    class _Adapter:
+        execution_service = _Service()
+
+    with pytest.raises(AuthProfileError, match="prod"):
+        _resume_stage(_Adapter())
 
 
 def test_contained_service_defaults_to_infisical_wrapper_for_published_api_key() -> (

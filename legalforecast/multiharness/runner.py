@@ -20,7 +20,11 @@ from legalforecast.evals.inspect_task import HarnessSolver
 from legalforecast.evals.packet_builder import ModelPacket
 from legalforecast.multiharness.adapters import HarnessAdapter, LiveToolAdapter
 from legalforecast.multiharness.artifacts import AdapterRunResult
-from legalforecast.multiharness.auth_profiles import PUBLISHED_API_KEY
+from legalforecast.multiharness.auth_profiles import (
+    PUBLISHED_API_KEY,
+    AuthProfileError,
+    require_infisical_environment,
+)
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.container_runtime import (
     ContainerRuntimeError,
@@ -869,9 +873,14 @@ def _run_request(
 def _resume_stage(adapter: object) -> str | None:
     service = getattr(adapter, "execution_service", None)
     raw = getattr(service, "infisical_env", None) if service is not None else None
-    if raw == "staging":
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise AuthProfileError("Infisical environment is not an allowed sandbox stage")
+    stage = require_infisical_environment(raw)
+    if stage == "staging":
         return "staging"
-    if raw == "sandbox":
+    if stage == "sandbox":
         return "sandbox"
     return None
 
