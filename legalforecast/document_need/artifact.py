@@ -142,6 +142,7 @@ def build_selection_artifact(
             raise DocumentNeedArtifactError(
                 f"candidate {verdicts.candidate_id!r} has duplicate entry verdicts"
             )
+        _require_promotions_match_entries(verdicts)
         checks = (
             (
                 "pass1",
@@ -257,6 +258,16 @@ def _seal(
                 for item in view.selector_model_policy.identities
             ],
         },
+        "ranking_policy": {
+            "primary": view.ranking_policy.primary,
+            "tiebreak": list(view.ranking_policy.tiebreak),
+            "purchase_rule": view.ranking_policy.purchase_rule,
+        },
+        "typed_confirmation": {
+            "decisions": list(view.typed_confirmation.decisions),
+            "phrase_template": view.typed_confirmation.phrase_template,
+            "session_scope_token": view.typed_confirmation.session_scope_token,
+        },
         "cases": case_records,
         "provenance": provenance_record(decisions),
     }
@@ -320,6 +331,28 @@ def _case_record(
         for row in merged.promotions
     ]
     return record
+
+
+def _require_promotions_match_entries(verdicts: MergedCaseBuckets) -> None:
+    promo_ids = [row.entry for row in verdicts.promotions]
+    if len(promo_ids) != len(set(promo_ids)):
+        raise DocumentNeedArtifactError(
+            f"candidate {verdicts.candidate_id!r} has duplicate promotions"
+        )
+    by_entry = {row.entry: row for row in verdicts.entries}
+    for promotion in verdicts.promotions:
+        existing = by_entry.get(promotion.entry)
+        if existing is None:
+            raise DocumentNeedArtifactError(
+                f"candidate {verdicts.candidate_id!r} promotion cites "
+                f"absent entry {promotion.entry}"
+            )
+        if existing.bucket is not promotion.to_bucket:
+            raise DocumentNeedArtifactError(
+                f"candidate {verdicts.candidate_id!r} promotion to "
+                f"{promotion.to_bucket.value} does not match entry "
+                f"{promotion.entry}"
+            )
 
 
 def _evaluation_registry_digest(config: CycleConfig) -> str:

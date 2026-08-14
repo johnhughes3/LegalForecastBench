@@ -33,6 +33,7 @@ from legalforecast.document_need.types import (
     DocketDocument,
     EntryVerdict,
     NeedBucket,
+    Pass2Promotion,
 )
 from tests.document_need_fixtures import (
     HAIKU,
@@ -588,3 +589,63 @@ def _write_disjoint_registry(path: Path, model_id: str) -> Path:
     record["display_name"] = model_id
     path.write_text(json.dumps([record]), encoding="utf-8")
     return path
+
+
+def test_selection_digest_binds_approval_policy() -> None:
+    chronology, merged = _case("case-a", required_pages=5)
+    baseline = build_selection_artifact(
+        config=activated_haiku_config(),
+        chronologies=(chronology,),
+        merged=(merged,),
+        cohort_target_n=1,
+    )
+    config = activated_haiku_config()
+    phrase_changed = replace(
+        config,
+        typed_confirmation=replace(
+            config.typed_confirmation,
+            phrase_template=config.typed_confirmation.phrase_template + " PIN",
+        ),
+    )
+    rule_changed = replace(
+        config,
+        ranking=replace(config.ranking, purchase_rule="cheapest_first_manual_review"),
+    )
+    phrase_artifact = build_selection_artifact(
+        config=phrase_changed,
+        chronologies=(chronology,),
+        merged=(merged,),
+        cohort_target_n=1,
+    )
+    rule_artifact = build_selection_artifact(
+        config=rule_changed,
+        chronologies=(chronology,),
+        merged=(merged,),
+        cohort_target_n=1,
+    )
+    assert phrase_artifact.sha256 != baseline.sha256
+    assert rule_artifact.sha256 != baseline.sha256
+    assert "PIN" in phrase_artifact.purchase_ceiling.confirmation_phrase
+
+
+def test_promotions_must_match_final_entry_verdicts() -> None:
+    chronology, merged = _case("case-a", required_pages=5)
+    mismatched = replace(
+        merged,
+        promotions=(
+            Pass2Promotion(
+                entry=12,
+                from_bucket=NeedBucket.CONDITIONAL,
+                to_bucket=NeedBucket.CLEARLY_REQUIRED,
+                rationale="stale reconstructed promotion",
+                predecision_entry_cited=12,
+            ),
+        ),
+    )
+    with pytest.raises(DocumentNeedArtifactError, match="does not match entry"):
+        build_selection_artifact(
+            config=activated_haiku_config(),
+            chronologies=(chronology,),
+            merged=(mismatched,),
+            cohort_target_n=1,
+        )
