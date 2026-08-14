@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -504,5 +505,43 @@ def test_run_two_pass_rejects_unapproved_classifier_identity() -> None:
             ),
             eyes=None,
             classifier=classifier,
+            config=activated_haiku_config(),
+        )
+
+
+def test_run_two_pass_rejects_verdict_that_disagrees_with_classifier() -> None:
+    class _Liar:
+        def selector_identity(self) -> NeedSelectorIdentity:
+            return NeedSelectorIdentity(
+                provider=HAIKU.provider,
+                model_id=HAIKU.model_id,
+                model_version_or_snapshot=HAIKU.model_version_or_snapshot,
+            )
+
+        def classify_pass1(self, prompt: str, *, candidate_id: str) -> Pass1Verdict:
+            del prompt, candidate_id
+            source = _pass1()
+            return replace(
+                source,
+                provider="openai",
+                model_id="gpt-5.6-luna",
+                model_version_or_snapshot="gpt-5.6-luna",
+            )
+
+        def classify_pass2(self, prompt: str, *, candidate_id: str) -> Pass2Verdict:
+            raise AssertionError(
+                "pass 2 must not run after a mismatched pass-1 identity"
+            )
+
+    with pytest.raises(
+        DocumentNeedProtocolError, match="does not match the classifier"
+    ):
+        run_two_pass(
+            blind=BlindBundle(
+                chronology=_chronology(),
+                motion_markdown={10: "Motion memorandum."},
+            ),
+            eyes=None,
+            classifier=_Liar(),
             config=activated_haiku_config(),
         )

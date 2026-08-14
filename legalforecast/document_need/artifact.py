@@ -12,6 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from types import MappingProxyType
 from typing import cast
 
 from legalforecast.config.registry import repository_root
@@ -102,8 +103,8 @@ class SelectionArtifact:
                 "primary": self.selector_primary,
                 "alternates": list(self.selector_alternates),
             },
-            "cases": [dict(record) for record in self.case_records],
-            "provenance": dict(self.provenance),
+            "cases": [_thaw_mapping(record) for record in self.case_records],
+            "provenance": _thaw_mapping(self.provenance),
             "sha256": self.sha256,
             "purchase_ceiling": self.purchase_ceiling.to_record(),
         }
@@ -295,8 +296,8 @@ def _seal(
         selector_primary=view.selector_model_policy.primary,
         selector_alternates=view.selector_model_policy.alternates,
         cases=decisions,
-        case_records=tuple(case_records),
-        provenance=cast(Mapping[str, object], content["provenance"]),
+        case_records=tuple(_freeze_mapping(row) for row in case_records),
+        provenance=_freeze_mapping(cast(Mapping[str, object], content["provenance"])),
         sha256=digest,
         purchase_ceiling=purchase,
     )
@@ -366,3 +367,35 @@ def _evaluation_registry_digest(config: CycleConfig) -> str:
             payload, domain=RAW_BYTES_RAW_SHA256_COMMITMENT_V1
         ).digest
     )
+
+
+def _freeze_mapping(value: Mapping[str, object]) -> Mapping[str, object]:
+    return MappingProxyType({key: _freeze_value(item) for key, item in value.items()})
+
+
+def _freeze_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return _freeze_mapping(cast(Mapping[str, object], value))
+    if isinstance(value, list):
+        items = cast(list[object], value)
+        return tuple(_freeze_value(item) for item in items)
+    if isinstance(value, tuple):
+        items = cast(tuple[object, ...], value)
+        return tuple(_freeze_value(item) for item in items)
+    return value
+
+
+def _thaw_mapping(value: Mapping[str, object]) -> dict[str, object]:
+    return {key: _thaw_value(item) for key, item in value.items()}
+
+
+def _thaw_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return _thaw_mapping(cast(Mapping[str, object], value))
+    if isinstance(value, list):
+        items = cast(list[object], value)
+        return [_thaw_value(item) for item in items]
+    if isinstance(value, tuple):
+        items = cast(tuple[object, ...], value)
+        return [_thaw_value(item) for item in items]
+    return value
