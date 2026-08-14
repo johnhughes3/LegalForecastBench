@@ -573,7 +573,10 @@ def _private_receipt_already_written(scratch_root: Path) -> bool:
     """Return whether a regular success receipt is already on disk."""
 
     receipt = scratch_root / PRIVATE_EXECUTION_DIR / "receipt.json"
-    return receipt.is_file() and not receipt.is_symlink()
+    try:
+        return receipt.is_file() and not receipt.is_symlink()
+    except OSError:
+        return False
 
 
 def _contained_scratch_root(working_directory: Path) -> Path:

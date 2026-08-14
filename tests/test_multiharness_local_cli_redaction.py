@@ -234,8 +234,7 @@ def test_planted_artifact_symlink_is_refused(tmp_path: Path) -> None:
 def test_partial_persist_failure_does_not_wipe_written_transcripts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import legalforecast.multiharness.local_cli_redaction as redaction
-
+    redaction = sys.modules[persist_execution_artifacts.__module__]
     real_write = redaction._write_private_bytes
 
     def _fail_after_stdout(path: Path, payload: bytes) -> None:
@@ -275,6 +274,24 @@ def test_partial_persist_failure_does_not_wipe_written_transcripts(
     assert stdout_path.is_file()
     assert stdout_path.stat().st_size > 0
     assert receipt.get("status") != "error"
+
+
+def test_private_receipt_check_swallows_stat_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from legalforecast.multiharness.local_cli_runtime import (
+        _private_receipt_already_written,
+    )
+
+    artifact_dir = tmp_path / PRIVATE_EXECUTION_DIR
+    artifact_dir.mkdir()
+    (artifact_dir / "receipt.json").write_text("{}\n", encoding="utf-8")
+
+    def _boom(self: Path) -> bool:
+        raise PermissionError("planted unreadable scratch")
+
+    monkeypatch.setattr(Path, "is_file", _boom)
+    assert _private_receipt_already_written(tmp_path) is False
 
 
 def _canary_spec() -> LocalCliRunSpec:
