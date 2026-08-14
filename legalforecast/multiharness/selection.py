@@ -236,9 +236,7 @@ def _record_sha256(record: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _empty_selection_message(
-    selection: TaskSelection, task_index: TaskIndex
-) -> str:
+def _empty_selection_message(selection: TaskSelection, task_index: TaskIndex) -> str:
     """Name the selectors and the index shape so an empty match is actionable."""
 
     parts = ["task selection matched no tasks"]
