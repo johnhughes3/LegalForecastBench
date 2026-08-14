@@ -177,7 +177,7 @@ def run_two_pass(
     require_activated_cycle(config)
     preflight_selector_models(config, repository_root_path=repository_root_path)
     view = document_need_view_from_cycle_config(config)
-    _require_classifier_identity(classifier, view)
+    identity = _require_classifier_identity(classifier, view)
     process = Pass1Process(blind)
     prompt1 = build_pass1_prompt(
         process.bundle, bucket_definitions=view.document_need_buckets
@@ -187,6 +187,7 @@ def run_two_pass(
     pass1 = classifier.classify_pass1(
         prompt1, candidate_id=blind.chronology.candidate_id
     )
+    _require_verdict_matches_identity(pass1, identity, label="pass-1")
     if pass1.candidate_id != blind.chronology.candidate_id:
         raise DocumentNeedProtocolError("pass-1 candidate_id does not match chronology")
     _require_pass1_coverage(blind.chronology, pass1)
@@ -213,6 +214,7 @@ def run_two_pass(
     pass2 = classifier.classify_pass2(
         prompt2, candidate_id=blind.chronology.candidate_id
     )
+    _require_verdict_matches_identity(pass2, identity, label="pass-2")
     return apply_pass2_promotions(blind.chronology, pass1, pass2)
 
 
@@ -325,13 +327,27 @@ def parse_pass2_verdict(
 
 def _require_classifier_identity(
     classifier: PassClassifier, view: DocumentNeedCycleView
-) -> None:
+) -> NeedSelectorIdentity:
     identity = classifier.selector_identity()
     if identity.as_tuple() not in view.selector_model_policy.allowed_identities():
         raise DocumentNeedProtocolError(
             f"classifier {identity.provider}:{identity.model_id} "
             f"(version={identity.model_version_or_snapshot!r}) is not in "
             "the cycle selector-model policy"
+        )
+    return identity
+
+
+def _require_verdict_matches_identity(
+    verdict: Pass1Verdict | Pass2Verdict,
+    identity: NeedSelectorIdentity,
+    *,
+    label: str,
+) -> None:
+    actual = (verdict.provider, verdict.model_id, verdict.model_version_or_snapshot)
+    if actual != identity.as_tuple():
+        raise DocumentNeedProtocolError(
+            f"{label} selector identity does not match the classifier"
         )
 
 
