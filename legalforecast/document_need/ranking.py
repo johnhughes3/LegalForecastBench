@@ -173,17 +173,16 @@ def _apply_bottom_decile_cap(
     max_per_case: Decimal | None,
     cap: Decimal,
 ) -> tuple[list[RankedCase], Decimal, dict[str, str | None]]:
-    while admitted:
-        quota = _bottom_decile_quota(len(admitted), cap)
-        bottoms = [case for case in admitted if case.bottom_decile]
-        if len(bottoms) <= quota:
-            break
-        dropped = bottoms[quota]
-        admitted = [
-            case for case in admitted if case.candidate_id != dropped.candidate_id
-        ]
-        spent -= dropped.max_cost
-        reasons[dropped.candidate_id] = "stratification_bottom_decile_cap"
+    original_n = len(admitted)
+    quota = _bottom_decile_quota(original_n, cap)
+    bottoms = [case for case in admitted if case.bottom_decile]
+    extra = bottoms[quota:]
+    drop_ids = {case.candidate_id for case in extra}
+    if drop_ids:
+        admitted = [case for case in admitted if case.candidate_id not in drop_ids]
+        spent = sum((case.max_cost for case in admitted), _ZERO)
+        for case in extra:
+            reasons[case.candidate_id] = "stratification_bottom_decile_cap"
     admitted_ids = {case.candidate_id for case in admitted}
     for case in ranked:
         if len(admitted) >= target_n:
@@ -201,7 +200,6 @@ def _apply_bottom_decile_cap(
         }:
             continue
         if case.bottom_decile:
-            quota = _bottom_decile_quota(len(admitted) + 1, cap)
             bottoms = sum(1 for row in admitted if row.bottom_decile)
             if bottoms + 1 > quota:
                 reasons[case.candidate_id] = "stratification_bottom_decile_cap"

@@ -301,3 +301,45 @@ def test_chronology_requires_target_motion_in_entries() -> None:
             decision_cut_entry=20,
             entries=_chronology().entries,
         )
+
+
+def test_pass1_prompt_checker_detects_json_escaped_decision_text() -> None:
+    leaked = 'The court said "UNIQUE_QUOTED_HOLDING".'
+    tainted = BlindBundle(
+        chronology=_chronology(),
+        motion_markdown={10: leaked},
+    )
+    prompt = build_pass1_prompt(tainted)
+    decision = DecisionText(
+        candidate_id="case-a",
+        text=leaked,
+        sha256="d" * 64,
+    )
+    assert leaked not in prompt
+    with pytest.raises(BlindnessError, match="contains decision bytes"):
+        assert_pass1_cannot_read_decision(prompt, decision)
+
+
+def test_pass1_rejects_verdict_for_another_candidate_without_eyes() -> None:
+    class _WrongCandidate:
+        def classify_pass1(self, prompt: str, *, candidate_id: str) -> Pass1Verdict:
+            del prompt, candidate_id
+            source = _pass1()
+            return Pass1Verdict(
+                candidate_id="case-b",
+                model_id=source.model_id,
+                entries=source.entries,
+            )
+
+        def classify_pass2(self, prompt: str, *, candidate_id: str) -> Pass2Verdict:
+            raise AssertionError("pass 2 should not run")
+
+    with pytest.raises(DocumentNeedProtocolError, match="pass-1 candidate_id"):
+        run_two_pass(
+            blind=BlindBundle(
+                chronology=_chronology(),
+                motion_markdown={10: "Motion memorandum."},
+            ),
+            eyes=None,
+            classifier=_WrongCandidate(),
+        )

@@ -306,6 +306,36 @@ def test_default_stratification_cap_admits_one_bottom_decile_in_ten() -> None:
     assert len(admitted) == 10
 
 
+def test_stratification_quota_is_frozen_against_pass1_admitted_size() -> None:
+    """Drop extras in one shot. Do not recompute quota as n shrinks (10→9→0)."""
+
+    config = activated_haiku_config(
+        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=None),
+        stratification=StratificationPolicy(
+            enabled=True, bottom_decile_share_cap=usd("0.10")
+        ),
+    )
+    pairs = [
+        _case(f"c{index:02d}", required_pages=5 + index, conditional_pages=5)
+        for index in range(20)
+    ]
+    artifact = build_selection_artifact(
+        config=config,
+        chronologies=tuple(pair[0] for pair in pairs),
+        merged=tuple(pair[1] for pair in pairs),
+        cohort_target_n=10,
+    )
+    admitted = [row for row in artifact.cases if row.admitted]
+    bottoms = [row for row in admitted if row.ranked.bottom_decile]
+    ranked = [row for row in artifact.cases if row.ranked.bottom_decile]
+    assert len(ranked) == 2
+    assert len(admitted) == 10
+    assert len(bottoms) == 1
+    assert ranked[0].admitted is True
+    assert ranked[1].admitted is False
+    assert ranked[1].reject_reason == "stratification_bottom_decile_cap"
+
+
 def test_max_per_case_ceiling_rejects_over_limit_case() -> None:
     config = activated_haiku_config(
         spend=SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=usd("1.20"))

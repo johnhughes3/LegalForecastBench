@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from legalforecast.document_need.types import BlindBundle, DecisionText
 
 
@@ -34,7 +36,8 @@ def assert_pass1_cannot_read_decision(prompt: str, decision: DecisionText) -> No
 
     if type(prompt) is not str:
         raise BlindnessError("pass-1 prompt must be a string")
-    if decision.text in prompt:
+    needles = (decision.text, json.dumps(decision.text)[1:-1])
+    if any(needle and needle in prompt for needle in needles):
         raise BlindnessError(
             f"pass-1 prompt contains decision bytes for {decision.candidate_id}"
         )

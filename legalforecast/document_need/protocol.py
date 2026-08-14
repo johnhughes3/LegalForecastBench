@@ -150,6 +150,8 @@ def run_two_pass(
     pass1 = classifier.classify_pass1(
         prompt1, candidate_id=blind.chronology.candidate_id
     )
+    if pass1.candidate_id != blind.chronology.candidate_id:
+        raise DocumentNeedProtocolError("pass-1 candidate_id does not match chronology")
     _require_pass1_coverage(blind.chronology, pass1)
     if eyes is None:
         return MergedCaseBuckets(
