@@ -170,9 +170,8 @@ class CaseMixStratification:
     Off by default: cheapest-first proceeds without mixing constraints. John
     accepts or declines the cap at selection time. The cap is always present on
     D1's CycleConfig; ``enabled`` is the switch. When enabled, admission
-    freezes the quota against the pass-1 admitted size, then revalidates the
-    share once against the post-backfill size so a failed backfill cannot
-    leave 1/9 over a 10% cap.
+    freezes the quota for each drop+backfill pair, then revalidates the share
+    against the new admitted size until it is within the cap.
     """
 
     enabled: bool

@@ -20,14 +20,15 @@ from legalforecast.document_need.artifact import (
     project_purchase_ceiling,
     replay_selection_artifact,
 )
-from legalforecast.document_need.costs import price_case, price_document
+from legalforecast.document_need.costs import CaseCosts, price_case, price_document
 from legalforecast.document_need.cycle_config import (
+    CaseMixStratification,
     DocumentNeedConfigError,
     document_need_view_from_cycle_config,
     format_usd,
 )
 from legalforecast.document_need.protocol import MergedCaseBuckets
-from legalforecast.document_need.ranking import rank_cases
+from legalforecast.document_need.ranking import RankedCase, admit_cheapest, rank_cases
 from legalforecast.document_need.types import (
     Chronology,
     ChronologyEntry,
@@ -417,6 +418,45 @@ def test_bottom_decile_share_is_revalidated_when_backfill_cannot_restore_n() -> 
         len(admitted)
     )
     assert share <= Decimal("0.10")
+
+
+def test_bottom_decile_share_is_revalidated_until_stable() -> None:
+    """A second failed backfill must not leave 1/9 over a 10% cap.
+
+    Codex P1 on PR 741: 191 candidates costing 1..191, target 20, cap 0.10,
+    spend 210. One revalidation pass still left rank 1 among nine admissions.
+    """
+
+    ranked = tuple(
+        RankedCase(
+            costs=CaseCosts(
+                candidate_id=f"r{rank:03d}",
+                min_cost=Decimal(rank),
+                max_cost=Decimal(rank),
+                entries=(),
+                restricted_required=False,
+            ),
+            cost_rank=rank,
+            bottom_decile=rank <= 20,
+        )
+        for rank in range(1, 192)
+    )
+    decisions = admit_cheapest(
+        ranked,
+        target_n=20,
+        spend_ceiling=Decimal("210"),
+        max_per_case=Decimal("210"),
+        stratification=CaseMixStratification(
+            enabled=True, bottom_decile_share_cap=Decimal("0.10")
+        ),
+    )
+    admitted = [row for row in decisions if row.admitted]
+    assert admitted
+    share = Decimal(sum(1 for row in admitted if row.ranked.bottom_decile)) / Decimal(
+        len(admitted)
+    )
+    assert share <= Decimal("0.10")
+    assert all(not row.ranked.bottom_decile for row in admitted)
 
 
 def test_max_per_case_ceiling_rejects_over_limit_case() -> None:
