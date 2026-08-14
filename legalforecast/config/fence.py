@@ -12,6 +12,7 @@ import argparse
 import ast
 import json
 import re
+import subprocess
 import sys
 import tokenize
 from collections.abc import Iterable, Mapping, Sequence
@@ -99,6 +100,12 @@ def load_baseline(path: Path) -> tuple[BaselineEntry, ...]:
     """Load the reviewed allowlist."""
 
     raw_payload = json.loads(path.read_text(encoding="utf-8"))
+    return parse_baseline(raw_payload)
+
+
+def parse_baseline(raw_payload: object) -> tuple[BaselineEntry, ...]:
+    """Parse a JSON-decoded fence baseline array."""
+
     if not isinstance(raw_payload, list):
         raise ValueError("acquisition-config fence baseline must be a JSON array")
     payload = cast(list[object], raw_payload)
@@ -140,6 +147,63 @@ def find_new_violations(
         for finding in findings
         if (finding.rule, finding.path, finding.subject) not in allowed
     )
+
+
+def find_baseline_growth(
+    current: Sequence[BaselineEntry], previous: Sequence[BaselineEntry]
+) -> tuple[BaselineEntry, ...]:
+    """Return baseline rows that did not exist on the compared revision."""
+
+    allowed = {(entry.rule, entry.path, entry.subject) for entry in previous}
+    return tuple(
+        entry
+        for entry in current
+        if (entry.rule, entry.path, entry.subject) not in allowed
+    )
+
+
+def load_ancestor_baseline(
+    root: Path, baseline_path: Path
+) -> tuple[BaselineEntry, ...] | None:
+    """Load ``fence_baseline.json`` from the merge-base with ``origin/main``.
+
+    Returns ``None`` when git is unavailable, ``origin/main`` has no merge-base,
+    or the baseline file does not yet exist on that ancestor. First introduction
+    of the fence is therefore allowed; later PRs cannot grow the committed
+    allowlist.
+    """
+
+    relative = _baseline_git_path(root, baseline_path)
+    try:
+        merge_base = subprocess.check_output(
+            ["git", "-C", str(root), "merge-base", "HEAD", "origin/main"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    if not merge_base:
+        return None
+    try:
+        payload = subprocess.check_output(
+            ["git", "-C", str(root), "show", f"{merge_base}:{relative}"],
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return None
+    try:
+        return parse_baseline(json.loads(payload.decode("utf-8")))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(
+            f"ancestor fence baseline at {merge_base}:{relative} is invalid"
+        ) from exc
+
+
+def _baseline_git_path(root: Path, baseline_path: Path) -> str:
+    try:
+        return baseline_path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return BASELINE_PATH.as_posix()
 
 
 def build_baseline(findings: Sequence[Finding]) -> tuple[BaselineEntry, ...]:
@@ -201,7 +265,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     baseline = load_baseline(baseline_path) if baseline_path.is_file() else ()
     violations = find_new_violations(findings, baseline)
-    if not violations:
+    ancestor = load_ancestor_baseline(root, baseline_path)
+    growth = find_baseline_growth(baseline, ancestor) if ancestor is not None else ()
+    if not violations and not growth:
         return 0
     for finding in violations:
         print(
@@ -210,10 +276,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(f"  {finding.detail}", file=sys.stderr)
         print(f"  {finding.guidance}", file=sys.stderr)
+    for entry in growth:
+        print(
+            f"{entry.path}: fence-baseline-growth: {entry.subject}",
+            file=sys.stderr,
+        )
+        print(
+            "  committed fence_baseline.json may only shrink relative to "
+            "origin/main; migrate the constant into legalforecast.config "
+            "or keep the reviewed inline allow marker without growing "
+            "the committed allowlist.",
+            file=sys.stderr,
+        )
     print(
         "\nPut new acquisition/selection knobs in legalforecast.config. "
-        "If a finding is a reviewed Cycle 1 holdover, add a baseline entry "
-        "with a one-line reason; the allowlist may only shrink.",
+        "The committed fence_baseline.json allowlist may only shrink.",
         file=sys.stderr,
     )
     return 1

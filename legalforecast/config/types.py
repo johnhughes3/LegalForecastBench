@@ -24,6 +24,7 @@ CYCLE_2_ID = "cycle-2"
 _CYCLE_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _USD_QUANTUM = Decimal("0.01")
 _SHARE_QUANTUM = Decimal("0.0001")
+_MUTABLE_ALIAS_MARKERS = ("preview", "latest")
 
 
 class DocumentNeedBucket(StrEnum):
@@ -71,6 +72,10 @@ class SelectorModel:
         _require_token(self.provider, "provider")
         _require_token(self.model_id, "model_id")
         _require_token(self.model_version_or_snapshot, "model_version_or_snapshot")
+        _reject_mutable_alias(self.model_id, "model_id")
+        _reject_mutable_alias(
+            self.model_version_or_snapshot, "model_version_or_snapshot"
+        )
 
     @property
     def registry_key(self) -> str:
@@ -536,6 +541,15 @@ def _require_token(value: str, field_name: str) -> str:
     if not stripped:
         raise CycleConfigError(f"{field_name} must be a non-empty string")
     return stripped
+
+
+def _reject_mutable_alias(value: str, field_name: str) -> None:
+    lowered = value.lower()
+    if any(marker in lowered for marker in _MUTABLE_ALIAS_MARKERS):
+        raise CycleConfigError(
+            f"{field_name} must be a pinned callable ID, not a mutable "
+            f"preview/latest alias: {value!r}"
+        )
 
 
 def _require_positive_int(value: int, field_name: str) -> int:

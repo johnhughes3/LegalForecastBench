@@ -105,8 +105,10 @@ def _require_pin_digest(config: CycleConfig, payload: bytes, path: Path) -> None
 
 def _collisions(config: CycleConfig, registry: ModelRegistry) -> tuple[str, ...]:
     evaluated_keys = {entry.registry_key for entry in registry.entries}
-    evaluated_ids = {entry.model_id for entry in registry.entries}
-    evaluated_versions = {entry.model_version_or_snapshot for entry in registry.entries}
+    evaluated_ids = {(entry.provider, entry.model_id) for entry in registry.entries}
+    evaluated_versions = {
+        (entry.provider, entry.model_version_or_snapshot) for entry in registry.entries
+    }
     found: list[str] = []
     for index, model in enumerate(config.selector_model_policy.all_models()):
         role = "primary" if index == 0 else f"alternate[{index - 1}]"
@@ -129,18 +131,20 @@ def _match_reasons(
     model: SelectorModel,
     *,
     evaluated_keys: set[str],
-    evaluated_ids: set[str],
-    evaluated_versions: set[str],
+    evaluated_ids: set[tuple[str, str]],
+    evaluated_versions: set[tuple[str, str]],
 ) -> tuple[str, ...]:
     reasons: list[str] = []
     if model.registry_key in evaluated_keys:
         reasons.append("registry_key")
-    if model.model_id in evaluated_ids:
+    identity = (model.provider, model.model_id)
+    version = (model.provider, model.model_version_or_snapshot)
+    if identity in evaluated_ids:
         reasons.append("model_id")
     if (
-        model.model_id in evaluated_versions
-        or model.model_version_or_snapshot in evaluated_ids
-        or model.model_version_or_snapshot in evaluated_versions
+        identity in evaluated_versions
+        or version in evaluated_ids
+        or version in evaluated_versions
     ):
         reasons.append("model_version_or_snapshot")
     return tuple(reasons)

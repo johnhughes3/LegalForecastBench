@@ -979,9 +979,10 @@ def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
         item.projected_cost_usd not in {Decimal("0.00"), Decimal("3.00")}
         for item in full_plan.items
     ):
+        # Cycle 1 PACER cap; post-Cycle-1 knobs live in legalforecast.config.
         raise DocumentRepairExecutorError(
             "repair execution requires the approved $3.00 per-document price"
-        )  # Cycle 1 PACER cap; see legalforecast.config
+        )
 
 
 def _require_snapshot_authority(

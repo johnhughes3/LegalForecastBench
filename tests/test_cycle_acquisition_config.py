@@ -127,6 +127,28 @@ def test_preflight_refuses_registry_model_in_selector_policy(tmp_path: Path) -> 
         preflight_selector_models(config, repository_root_path=ROOT)
 
 
+def test_preflight_does_not_collide_on_same_model_id_from_another_provider(
+    tmp_path: Path,
+) -> None:
+    source = json.loads(CYCLE_1_REGISTRY.read_text(encoding="utf-8"))
+    record = dict(source[0])
+    record["provider"] = "google"
+    record["model_id"] = "gpt-5.6-luna"
+    record["model_version_or_snapshot"] = "gpt-5.6-luna"
+    record["display_name"] = "gpt-5.6-luna"
+    registry_path = tmp_path / "eval-registry.json"
+    registry_path.write_bytes(json.dumps([record]).encode("utf-8"))
+    config = replace(
+        load_cycle(CYCLE_2_ID),
+        evaluation_registry=EvaluationRegistryPin(path=str(registry_path)),
+        activation_blocker="test fixture",
+    )
+
+    registry = preflight_selector_models(config, repository_root_path=ROOT)
+
+    assert {entry.registry_key for entry in registry.entries} == {"google:gpt-5.6-luna"}
+
+
 def test_preflight_accepts_disjoint_fixture_registry(tmp_path: Path) -> None:
     registry_path = tmp_path / "eval-registry.json"
     registry_path.write_bytes(_registry_bytes("gpt-5.4-mini-2026-03-17"))
@@ -209,6 +231,21 @@ def test_duplicate_selector_keys_fail_at_construction() -> None:
                     model_version_or_snapshot="gpt-5.6-luna",
                 ),
             ),
+        )
+
+
+def test_selector_model_rejects_mutable_latest_or_preview_alias() -> None:
+    with pytest.raises(CycleConfigError, match="preview/latest"):
+        SelectorModel(
+            provider="google",
+            model_id="gemini-flash-latest",
+            model_version_or_snapshot="gemini-flash-latest",
+        )
+    with pytest.raises(CycleConfigError, match="preview/latest"):
+        SelectorModel(
+            provider="anthropic",
+            model_id="claude-sonnet-5",
+            model_version_or_snapshot="claude-sonnet-5-preview",
         )
 
 

@@ -4,9 +4,14 @@ import json
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from legalforecast.config.fence import (
     BASELINE_PATH,
+    BaselineEntry,
+    find_baseline_growth,
     find_new_violations,
+    load_ancestor_baseline,
     load_baseline,
     scan_repository,
 )
@@ -81,6 +86,37 @@ def test_repository_fence_has_no_unreviewed_violations() -> None:
     baseline = load_baseline(root / BASELINE_PATH)
 
     assert find_new_violations(findings, baseline) == ()
+
+
+def test_fence_baseline_may_only_shrink() -> None:
+    previous = (
+        BaselineEntry(
+            rule="acquisition_selection_constant",
+            path="legalforecast/ingestion/legacy.py",
+            subject="DEFAULT_PURCHASE_COST_USD",
+            reason="Cycle 1 live constant",
+        ),
+    )
+    extra = BaselineEntry(
+        rule="acquisition_selection_constant",
+        path="legalforecast/ingestion/extra.py",
+        subject="SELECTOR_MODEL_PRIMARY",
+        reason="should not be allowed to grow",
+    )
+    grown = (*previous, extra)
+
+    assert find_baseline_growth(grown, previous) == (extra,)
+    assert find_baseline_growth(previous, previous) == ()
+    assert find_baseline_growth((), previous) == ()
+
+
+def test_repository_fence_baseline_does_not_grow_from_main() -> None:
+    root = Path(__file__).resolve().parents[1]
+    current = load_baseline(root / BASELINE_PATH)
+    ancestor = load_ancestor_baseline(root, root / BASELINE_PATH)
+    if ancestor is None:
+        pytest.skip("fence_baseline.json is not on origin/main yet")
+    assert find_baseline_growth(current, ancestor) == ()
 
 
 def _write(path: Path, source: str) -> None:
