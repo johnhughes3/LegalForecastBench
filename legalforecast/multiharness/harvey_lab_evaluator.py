@@ -668,16 +668,6 @@ def _pin_wrapper_executable(
     return _prefixed_digest(payload), wrapper_dir
 
 
-def _resolved_wrapper_digest(command: str, parent_env: Mapping[str, str] | None) -> str:
-    env = dict(os.environ if parent_env is None else parent_env)
-    search_path = env.get("PATH") or "/usr/bin"
-    located = shutil.which(command, path=search_path)
-    if located is None:
-        raise HarveyLabEvaluationError("evaluator command is not on PATH")
-    digest = hashlib.sha256(_read_regular_file(Path(located))).hexdigest()
-    return "sha256:" + digest
-
-
 def _record_reaches_root(record: Mapping[str, object], root: Path) -> bool:
     for value in record.values():
         if not isinstance(value, str) or not value:

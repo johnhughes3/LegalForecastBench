@@ -16,7 +16,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import shutil
 import stat
 import subprocess
 import tempfile
@@ -516,9 +515,7 @@ def project_harvey_lab_suite(
                 if _relative_posix(path, tasks_root) in selected
             ]
         if not task_dirs:
-            raise HarveyLabProjectionError(
-                "no Harvey LAB tasks matched the projection"
-            )
+            raise HarveyLabProjectionError("no Harvey LAB tasks matched the projection")
         solver = _fresh_root(solver_root, "solver projection root")
         private = _fresh_root(evaluator_private_root, "evaluator-private root")
         _require_disjoint(solver, private)
@@ -1044,9 +1041,7 @@ def _archive_pinned_source(source: Path) -> Path:
             env=_git_subprocess_environment(),
         )
         if archived.returncode != 0:
-            raise HarveyLabProjectionError(
-                "could not export the pinned LAB Git tree"
-            )
+            raise HarveyLabProjectionError("could not export the pinned LAB Git tree")
         extracted = subprocess.run(
             ["tar", "-x", "-C", str(destination)],
             input=archived.stdout,
@@ -1055,9 +1050,7 @@ def _archive_pinned_source(source: Path) -> Path:
             check=False,
         )
         if extracted.returncode != 0:
-            raise HarveyLabProjectionError(
-                "could not export the pinned LAB Git tree"
-            )
+            raise HarveyLabProjectionError("could not export the pinned LAB Git tree")
         return destination
     except (OSError, subprocess.TimeoutExpired, HarveyLabProjectionError):
         _remove_tree(destination)
