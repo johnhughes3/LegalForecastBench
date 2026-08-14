@@ -37,6 +37,7 @@ def test_view_loads_from_d1_cycle_2_public_record() -> None:
     assert view.ranking_policy.tiebreak == ("min_cost", "candidate_id")
     assert view.case_mix_stratification.enabled is False
     assert view.spend_ceiling_usd is None
+    assert view.max_per_case_usd is None
 
 
 def test_cycle_1_ranking_is_not_a_document_need_view() -> None:

@@ -47,6 +47,7 @@ class MergedCaseBuckets:
     pass2_model_id: str | None
     entries: tuple[EntryVerdict, ...]
     promotions: tuple[Pass2Promotion, ...]
+    completeness_ok: bool | None = None
 
     def by_entry(self) -> dict[int, EntryVerdict]:
         return {row.entry: row for row in self.entries}
@@ -151,6 +152,13 @@ def run_two_pass(
             pass2_model_id=None,
             entries=pass1.entries,
             promotions=(),
+            completeness_ok=None,
+        )
+    if eyes.decision.candidate_id != blind.chronology.candidate_id:
+        raise DocumentNeedProtocolError(
+            "pass-2 decision candidate_id does not match the blind chronology "
+            f"({eyes.decision.candidate_id!r} vs "
+            f"{blind.chronology.candidate_id!r})"
         )
     prompt2 = build_pass2_prompt(pass1=pass1, eyes=eyes, chronology=blind.chronology)
     pass2 = classifier.classify_pass2(
@@ -170,6 +178,10 @@ def apply_pass2_promotions(
         raise DocumentNeedProtocolError("pass-1 candidate_id does not match chronology")
     if pass2.candidate_id != chronology.candidate_id:
         raise DocumentNeedProtocolError("pass-2 candidate_id does not match chronology")
+    if not pass2.completeness_ok:
+        raise DocumentNeedProtocolError(
+            "pass-2 completeness check failed; promotions are not applied"
+        )
     _require_pass1_coverage(chronology, pass1)
     current: dict[int, EntryVerdict] = {row.entry: row for row in pass1.entries}
     allowed = chronology.entry_numbers()
@@ -198,6 +210,7 @@ def apply_pass2_promotions(
         pass2_model_id=pass2.model_id,
         entries=ordered,
         promotions=tuple(applied),
+        completeness_ok=True,
     )
 
 

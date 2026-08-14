@@ -195,6 +195,7 @@ class DocumentNeedCycleView:
     document_need_buckets: Mapping[str, str]
     ranking_policy: RankingPolicy
     spend_ceiling_usd: Decimal | None
+    max_per_case_usd: Decimal | None
     typed_confirmation: TypedConfirmationParameters
     case_mix_stratification: CaseMixStratification
 
@@ -210,6 +211,16 @@ class DocumentNeedCycleView:
             raise DocumentNeedConfigError("pacer_per_page_usd must be positive")
         if self.spend_ceiling_usd is not None and self.spend_ceiling_usd < 0:
             raise DocumentNeedConfigError("spend_ceiling_usd must be nonnegative")
+        if self.max_per_case_usd is not None and self.max_per_case_usd < 0:
+            raise DocumentNeedConfigError("max_per_case_usd must be nonnegative")
+        if (
+            self.spend_ceiling_usd is not None
+            and self.max_per_case_usd is not None
+            and self.max_per_case_usd > self.spend_ceiling_usd
+        ):
+            raise DocumentNeedConfigError(
+                "max_per_case_usd must not exceed spend.hard_cap_usd"
+            )
         if set(self.document_need_buckets) != set(BUCKET_IDS):
             raise DocumentNeedConfigError(
                 "document_need_buckets must define exactly " + ", ".join(BUCKET_IDS)
@@ -267,6 +278,12 @@ def document_need_view_from_cycle_record(
     hard_cap = (
         None if hard_cap_raw is None else parse_usd(hard_cap_raw, "spend.hard_cap_usd")
     )
+    per_case_raw = spend.get("max_per_case_usd")
+    max_per_case = (
+        None
+        if per_case_raw is None
+        else parse_usd(per_case_raw, "spend.max_per_case_usd")
+    )
     bucket_text = {
         key: _require_text(buckets.get(key), f"document_need_buckets.{key}")
         for key in BUCKET_IDS
@@ -304,6 +321,7 @@ def document_need_view_from_cycle_record(
             ),
         ),
         spend_ceiling_usd=hard_cap,
+        max_per_case_usd=max_per_case,
         typed_confirmation=TypedConfirmationParameters(
             phrase_template=_require_text(
                 confirmation.get("phrase_template"),

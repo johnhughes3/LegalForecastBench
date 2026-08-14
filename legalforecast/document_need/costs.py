@@ -52,12 +52,14 @@ class CaseCosts:
     min_cost: Decimal
     max_cost: Decimal
     entries: tuple[PricedEntry, ...]
+    restricted_required: bool
 
     def to_record(self) -> dict[str, object]:
         return {
             "candidate_id": self.candidate_id,
             "min_cost_usd": format_usd(self.min_cost),
             "max_cost_usd": format_usd(self.max_cost),
+            "restricted_required": self.restricted_required,
             "entries": [entry.to_record() for entry in self.entries],
         }
 
@@ -135,13 +137,15 @@ def price_case(
     priced: list[PricedEntry] = []
     min_cost = _ZERO
     conditional = _ZERO
+    restricted_required = False
     by_number = chronology.by_number()
     for entry_number in sorted(expected):
         verdict = buckets[entry_number]
         if verdict.entry != entry_number:
             raise ValueError("verdict entry number disagrees with map key")
+        row = by_number[entry_number]
         cost, free_applied, paid, unknown_pages = price_entry(
-            by_number[entry_number],
+            row,
             free_first=view.free_first,
             per_page=view.pacer_per_page_usd,
             cap=view.per_document_price_cap_usd,
@@ -160,6 +164,8 @@ def price_case(
         )
         if verdict.bucket is NeedBucket.CLEARLY_REQUIRED:
             min_cost += cost
+            if _entry_is_restricted(row):
+                restricted_required = True
         elif verdict.bucket is NeedBucket.CONDITIONAL:
             conditional += cost
     return CaseCosts(
@@ -167,4 +173,9 @@ def price_case(
         min_cost=min_cost,
         max_cost=min_cost + conditional,
         entries=tuple(priced),
+        restricted_required=restricted_required,
     )
+
+
+def _entry_is_restricted(entry: ChronologyEntry) -> bool:
+    return entry.restricted or any(document.restricted for document in entry.documents)

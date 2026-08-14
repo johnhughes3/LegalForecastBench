@@ -36,6 +36,10 @@ class RankedCase:
     def max_cost(self) -> Decimal:
         return self.costs.max_cost
 
+    @property
+    def restricted_required(self) -> bool:
+        return self.costs.restricted_required
+
 
 @dataclass(frozen=True, slots=True)
 class AdmissionDecision:
@@ -85,17 +89,27 @@ def admit_cheapest(
     target_n: int,
     spend_ceiling: Decimal | None,
     stratification: CaseMixStratification,
+    max_per_case: Decimal | None = None,
 ) -> tuple[AdmissionDecision, ...]:
-    """Admit cheapest cases up to the cohort target and spend ceiling.
+    """Admit cheapest cases up to the cohort target and spend ceilings.
 
-    Stratification, when enabled, skips a bottom-decile case that would push
-    the admitted bottom-decile share above ``bottom_decile_share_cap``.
+    Stratification, when enabled, uses a quota of
+    ``floor(target_n * bottom_decile_share_cap)`` bottom-decile seats in the
+    intended cohort so cheapest-first does not treat the first cheap case as
+    100% of a one-case set.
     """
 
     if type(target_n) is not int or target_n <= 0:
         raise ValueError("cohort_target_n must be a positive integer")
     if spend_ceiling is not None and spend_ceiling < _ZERO:
         raise ValueError("spend_ceiling_usd must be nonnegative")
+    if max_per_case is not None and max_per_case < _ZERO:
+        raise ValueError("max_per_case_usd must be nonnegative")
+    bottom_quota = (
+        _bottom_decile_quota(target_n, stratification.bottom_decile_share_cap)
+        if stratification.enabled
+        else 0
+    )
     decisions: list[AdmissionDecision] = []
     admitted_ids: set[str] = set()
     spent = _ZERO
@@ -104,15 +118,18 @@ def admit_cheapest(
         reason: str | None = None
         if len(admitted_ids) >= target_n:
             reason = "cohort_target_reached"
+        elif case.restricted_required:
+            reason = "restricted_required_document"
+        elif max_per_case is not None and case.max_cost > max_per_case:
+            reason = "max_per_case"
         elif spend_ceiling is not None and spent + case.max_cost > spend_ceiling:
             reason = "spend_ceiling"
-        elif stratification.enabled and case.bottom_decile:
-            next_count = len(admitted_ids) + 1
-            next_bottom = admitted_bottom + 1
-            share = Decimal(next_bottom) / Decimal(next_count)
-            cap = stratification.bottom_decile_share_cap
-            if share > cap:
-                reason = "stratification_bottom_decile_cap"
+        elif (
+            stratification.enabled
+            and case.bottom_decile
+            and admitted_bottom >= bottom_quota
+        ):
+            reason = "stratification_bottom_decile_cap"
         admitted = reason is None
         if admitted:
             admitted_ids.add(case.candidate_id)
@@ -123,6 +140,12 @@ def admit_cheapest(
             AdmissionDecision(ranked=case, admitted=admitted, reject_reason=reason)
         )
     return tuple(decisions)
+
+
+def _bottom_decile_quota(target_n: int, cap: Decimal) -> int:
+    if cap <= 0:
+        return 0
+    return int(Decimal(target_n) * cap)
 
 
 def provenance_record(decisions: Sequence[AdmissionDecision]) -> dict[str, object]:

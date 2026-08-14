@@ -39,6 +39,7 @@ def _doc(
     pages: int | None,
     selector: str = "main_document",
     description: str = "doc",
+    restricted: bool = False,
 ) -> DocketDocument:
     return DocketDocument(
         selector=selector,
@@ -46,6 +47,7 @@ def _doc(
         freely_available=not paid,
         pacer_only=paid,
         page_count=pages,
+        restricted=restricted,
     )
 
 
@@ -55,6 +57,7 @@ def _case(
     required_pages: int,
     conditional_pages: int | None = None,
     notice_pages: int = 1,
+    restricted_motion: bool = False,
 ) -> tuple[Chronology, MergedCaseBuckets]:
     entries = (
         ChronologyEntry(
@@ -67,7 +70,14 @@ def _case(
             entry=10,
             filed="2026-02-01",
             text="Motion.",
-            documents=(_doc(paid=True, pages=required_pages, description="mtd"),),
+            documents=(
+                _doc(
+                    paid=True,
+                    pages=required_pages,
+                    description="mtd",
+                    restricted=restricted_motion,
+                ),
+            ),
         ),
         ChronologyEntry(
             entry=12,
@@ -267,6 +277,65 @@ def test_stratification_cap_changes_admission_set() -> None:
     assert cheapest.candidate_id in off_admitted
     assert cheapest.candidate_id not in on_admitted
     assert len(on_admitted) == 5
+
+
+def test_default_stratification_cap_admits_one_bottom_decile_in_ten() -> None:
+    config = activated_haiku_config(
+        spend=SpendCeiling(hard_cap_usd=usd("999.00"), max_per_case_usd=None),
+        stratification=StratificationPolicy(
+            enabled=True, bottom_decile_share_cap=usd("0.10")
+        ),
+    )
+    pairs = [
+        _case(f"c{index:02d}", required_pages=5 + index, conditional_pages=5)
+        for index in range(10)
+    ]
+    artifact = build_selection_artifact(
+        config=config,
+        chronologies=tuple(pair[0] for pair in pairs),
+        merged=tuple(pair[1] for pair in pairs),
+        cohort_target_n=10,
+    )
+    admitted = [row.ranked.candidate_id for row in artifact.cases if row.admitted]
+    cheapest = next(row for row in artifact.cases if row.ranked.cost_rank == 1)
+    assert cheapest.ranked.bottom_decile is True
+    assert cheapest.ranked.candidate_id in admitted
+    assert cheapest.admitted is True
+    assert len(admitted) == 10
+
+
+def test_max_per_case_ceiling_rejects_over_limit_case() -> None:
+    config = activated_haiku_config(
+        spend=SpendCeiling(hard_cap_usd=usd("500.00"), max_per_case_usd=usd("1.20"))
+    )
+    cheap_c, cheap_m = _case("aaa", required_pages=5, conditional_pages=5)
+    dear_c, dear_m = _case("bbb", required_pages=20, conditional_pages=20)
+    artifact = build_selection_artifact(
+        config=config,
+        chronologies=(cheap_c, dear_c),
+        merged=(cheap_m, dear_m),
+        cohort_target_n=2,
+    )
+    by_id = {row.ranked.candidate_id: row for row in artifact.cases}
+    assert by_id["aaa"].admitted is True
+    assert by_id["bbb"].admitted is False
+    assert by_id["bbb"].reject_reason == "max_per_case"
+
+
+def test_restricted_required_document_is_not_admitted() -> None:
+    sealed_c, sealed_m = _case("seal", required_pages=1, restricted_motion=True)
+    open_c, open_m = _case("open", required_pages=20, conditional_pages=20)
+    artifact = build_selection_artifact(
+        config=activated_haiku_config(),
+        chronologies=(sealed_c, open_c),
+        merged=(sealed_m, open_m),
+        cohort_target_n=1,
+    )
+    by_id = {row.ranked.candidate_id: row for row in artifact.cases}
+    assert by_id["seal"].ranked.restricted_required is True
+    assert by_id["seal"].admitted is False
+    assert by_id["seal"].reject_reason == "restricted_required_document"
+    assert by_id["open"].admitted is True
 
 
 def test_purchase_ceiling_is_sum_of_admitted_max_cost() -> None:

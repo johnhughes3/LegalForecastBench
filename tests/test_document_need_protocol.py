@@ -246,3 +246,37 @@ def test_pass1_must_cover_every_chronology_entry() -> None:
                 completeness_ok=True,
             ),
         )
+
+
+def test_pass2_rejects_decision_from_another_candidate() -> None:
+    blind = BlindBundle(
+        chronology=_chronology(),
+        motion_markdown={10: "Motion memorandum."},
+    )
+    eyes = EyesBundle(
+        decision=DecisionText(
+            candidate_id="case-b",
+            text=_DECISION,
+            sha256="c" * 64,
+        )
+    )
+    classifier = FixtureClassifier(
+        pass1={"case-a": _pass1()},
+        pass2={},
+    )
+    with pytest.raises(DocumentNeedProtocolError, match="does not match"):
+        run_two_pass(blind=blind, eyes=eyes, classifier=classifier)
+
+
+def test_pass2_incomplete_check_is_rejected() -> None:
+    with pytest.raises(DocumentNeedProtocolError, match="completeness check failed"):
+        apply_pass2_promotions(
+            _chronology(),
+            _pass1(),
+            Pass2Verdict(
+                candidate_id="case-a",
+                model_id="fixture:document-need-v1",
+                promotions=(),
+                completeness_ok=False,
+            ),
+        )

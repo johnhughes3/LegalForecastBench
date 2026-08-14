@@ -131,6 +131,7 @@ def build_selection_artifact(
         ranked,
         target_n=cohort_target_n,
         spend_ceiling=view.spend_ceiling_usd,
+        max_per_case=view.max_per_case_usd,
         stratification=view.case_mix_stratification,
     )
     return _seal(view, decisions, by_id, cohort_target_n=cohort_target_n)
@@ -234,6 +235,7 @@ def _case_record(
     record = decision.to_record()
     record["pass1_model_id"] = merged.pass1_model_id
     record["pass2_model_id"] = merged.pass2_model_id
+    record["completeness_ok"] = merged.completeness_ok
     record["promotions"] = [
         {
             "entry": row.entry,

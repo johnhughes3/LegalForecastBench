@@ -77,8 +77,12 @@ class CourtListenerRequestBudget:
         path: Path,
         *,
         limits: CourtListenerRequestLimits | None = None,
+<<<<<<< HEAD
         # Cycle 1 live default; post-Cycle-1 knobs live in legalforecast.config.
         max_wait_seconds: float = 120.0,
+=======
+        max_wait_seconds: float = 120.0,  # Cycle 1 default; see legalforecast.config
+>>>>>>> 612a3fa6 (fix(document-need): enforce pass-2 and admission review blockers)
         clock: Callable[[], float] = time.time,
         monotonic_clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
