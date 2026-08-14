@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -24,6 +25,11 @@ from legalforecast.multiharness.local_cli_runtime import (
     LocalCliRunSpec,
     LocalCliRuntimeError,
     execute_local_cli,
+)
+from legalforecast.multiharness.process_containment import (
+    ProcessContainmentEvidence,
+    ProcessContainmentHandle,
+    cleanup_process_containment,
 )
 
 _FAKE_CLI = Path(__file__).resolve().parent / "fixtures" / "local_cli_fake_cli.py"
@@ -154,6 +160,43 @@ def test_zero_exit_with_leftover_child_is_not_success(tmp_path: Path) -> None:
     assert result.exit_code == 0
     pids = json.loads((workdir / "pids.json").read_text(encoding="utf-8"))
     _assert_dead(pids["child_pid"])
+
+
+def test_drain_setup_failure_still_reaps_child(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[int] = []
+
+    def wrapping_cleanup(
+        handle: ProcessContainmentHandle,
+        process: subprocess.Popen[bytes],
+        grace_seconds: float,
+    ) -> ProcessContainmentEvidence:
+        captured.append(process.pid)
+        return cleanup_process_containment(handle, process, grace_seconds)
+
+    def boom(pipe: object, drain: object) -> object:
+        del pipe, drain
+        raise RuntimeError("drain-start-failed")
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.local_cli_runtime.cleanup_process_containment",
+        wrapping_cleanup,
+    )
+    monkeypatch.setattr(
+        "legalforecast.multiharness.local_cli_runtime.start_pipe_drain",
+        boom,
+    )
+    with pytest.raises(RuntimeError, match="drain-start-failed"):
+        execute_local_cli(
+            _fake_spec("hang", extra_args=("--mode", "hang")),
+            tmp_path / "hang",
+            parent_env=_polluted_parent_env(),
+            termination_grace_seconds=0.2,
+        )
+    assert captured
+    _assert_dead(captured[-1])
 
 
 def test_crash_preserves_exit_code_and_spew_records_truncation(

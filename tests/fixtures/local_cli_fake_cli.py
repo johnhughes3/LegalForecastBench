@@ -2,9 +2,10 @@
 """Versioned fake local CLI for contained-runtime attack tests.
 
 Invoked as a real subprocess. Modes: succeed-json, hang, crash, spew,
-spew-then-cost, fork-child, fork-and-exit, dump-env, version. Writes pid
-records under cwd so tests can prove process-group cleanup without forking
-inside pytest (xdist-unsafe).
+spew-then-cost, fork-child, fork-and-exit, dump-env, version. Spew size is
+controlled by ``--bytes`` (default 100 MiB). Optional ``--token`` is echoed
+to stderr for redaction canaries. Writes pid records under cwd so tests can
+prove process-group cleanup without forking inside pytest (xdist-unsafe).
 """
 
 from __future__ import annotations
@@ -50,11 +51,14 @@ def _crash() -> int:
     return 2
 
 
-def _spew() -> int:
-    chunk = b"x" * 1024 * 1024
-    for _ in range(100):
-        sys.stdout.buffer.write(chunk)
+def _spew(nbytes: int) -> int:
+    remaining = max(0, nbytes)
+    chunk = b"x" * (1024 * 1024)
+    while remaining > 0:
+        piece = chunk if remaining >= len(chunk) else chunk[:remaining]
+        sys.stdout.buffer.write(piece)
         sys.stdout.buffer.flush()
+        remaining -= len(piece)
     return 0
 
 
@@ -96,7 +100,10 @@ def _fork_and_exit(pid_path: Path) -> int:
     return 0
 
 
-def _dump_env() -> int:
+def _dump_env(token: str) -> int:
+    if token:
+        sys.stderr.buffer.write(token.encode("utf-8") + b"\n")
+        sys.stderr.buffer.flush()
     json.dump(dict(os.environ), sys.stdout, sort_keys=True)
     return 0
 
@@ -139,6 +146,17 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument("--pid-file", default="pids.json")
+    parser.add_argument(
+        "--bytes",
+        type=int,
+        default=100 * 1024 * 1024,
+        help="stdout bytes to write in spew mode",
+    )
+    parser.add_argument(
+        "--token",
+        default="",
+        help="optional canary echoed to stderr",
+    )
     args = parser.parse_args(argv)
     pid_path = Path(args.pid_file)
     if args.mode == "succeed-json":
@@ -151,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode == "crash":
         return _crash()
     if args.mode == "spew":
-        return _spew()
+        return _spew(args.bytes)
     if args.mode == "spew-then-cost":
         return _spew_then_cost()
     if args.mode == "fork-child":
@@ -160,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
         return _fork_and_exit(pid_path)
     if args.mode == "version":
         return _version()
-    return _dump_env()
+    return _dump_env(args.token)
 
 
 if __name__ == "__main__":
