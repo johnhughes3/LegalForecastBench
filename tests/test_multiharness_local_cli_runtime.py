@@ -14,15 +14,22 @@ from legalforecast.multiharness.auth_profiles import (
 )
 from legalforecast.multiharness.local_cli_contracts import RunSpec
 from legalforecast.multiharness.local_cli_environment import StaticCredentialSource
+from legalforecast.multiharness.local_cli_identity import executable_pin_for
 from legalforecast.multiharness.local_cli_runtime import (
     LocalCliAdapterManifest,
     LocalCliExecutionResult,
     LocalCliExecutionService,
     LocalCliRunSpec,
     LocalCliRuntimeError,
-    NullScheduler,
     execute_local_cli,
     execution_receipt_from_runtime,
+)
+from legalforecast.multiharness.local_cli_scheduler import (
+    ORDERING_SERIAL,
+    NullScheduler,
+    ScheduledSpec,
+    SchedulingEvidence,
+    unevaluated_scheduling,
 )
 from legalforecast.multiharness.spec import LINUX_SYSTEMD_SCOPE_CONTAINMENT
 
@@ -214,15 +221,17 @@ def test_scheduler_hooks_run_without_implementing_sequencing(tmp_path: Path) -> 
     events: list[str] = []
 
     class Recorder(NullScheduler):
-        def before_execute(self, spec: LocalCliRunSpec) -> None:
+        def before_execute(self, spec: ScheduledSpec) -> None:
             events.append(f"before:{spec.spec_id}")
 
         def after_execute(
             self,
-            spec: LocalCliRunSpec,
-            result: LocalCliExecutionResult,
-        ) -> None:
-            events.append(f"after:{spec.spec_id}:{result.status}")
+            spec: ScheduledSpec,
+            result: object,
+        ) -> SchedulingEvidence:
+            status = getattr(result, "status", "unknown")
+            events.append(f"after:{spec.spec_id}:{status}")
+            return super().after_execute(spec, result)
 
     script = _write_script(tmp_path, "print('ok')")
     result = execute_local_cli(
@@ -307,13 +316,16 @@ def _manifest(
     *,
     profile_env_vars: tuple[tuple[str, tuple[str, ...]], ...] = (),
 ) -> LocalCliAdapterManifest:
+    path = script.resolve()
     return LocalCliAdapterManifest(
         adapter_id="fixture-cli",
         display_name="Fixture CLI",
         adapter_version="0.1.0",
-        command=(sys.executable, str(script)),
+        command=(sys.executable, str(path)),
+        executable=executable_pin_for(path, version="0.1.0"),
         supported_auth_profiles=supported,
         profile_env_vars=profile_env_vars,
+        version_probe_args=_version_probe_args(path),
     )
 
 
@@ -546,7 +558,19 @@ def _execution_result(
         duration_ms=1,
         cost_usd=None,
         containment_establishment="established",
+        executable_sha256="b" * 64,
+        executable_version="0.1.0",
+        scheduling=unevaluated_scheduling(
+            requested_max_concurrency=1,
+            requested_ordering=ORDERING_SERIAL,
+        ),
     )
+
+
+def _version_probe_args(path: Path) -> tuple[str, ...]:
+    if path.name == "local_cli_fake_cli.py":
+        return ("--mode", "version")
+    return ()
 
 
 def _write_script(tmp_path: Path, body: str, *, name: str = "cli.py") -> Path:

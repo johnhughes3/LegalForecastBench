@@ -2,8 +2,9 @@
 """Versioned fake local CLI for contained-runtime attack tests.
 
 Invoked as a real subprocess. Modes: succeed-json, hang, crash, spew,
-fork-child, dump-env. Writes pid records under cwd so tests can prove
-process-group cleanup without forking inside pytest (xdist-unsafe).
+spew-then-cost, fork-child, fork-and-exit, dump-env, version. Writes pid
+records under cwd so tests can prove process-group cleanup without forking
+inside pytest (xdist-unsafe).
 """
 
 from __future__ import annotations
@@ -100,6 +101,26 @@ def _dump_env() -> int:
     return 0
 
 
+def _version() -> int:
+    print(
+        json.dumps(
+            {
+                "schema_version": (
+                    "legalforecast.multiharness.local_cli_identity_probe.v1"
+                ),
+                "basename": Path(__file__).name,
+                "version": "0.1.0",
+                "capabilities": ["json_output", "headless_print"],
+                "flags": ["--mode"],
+                "events": ["result"],
+                "models": [],
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="local_cli_fake_cli")
     parser.add_argument(
@@ -114,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
             "fork-child",
             "fork-and-exit",
             "dump-env",
+            "version",
         ),
     )
     parser.add_argument("--pid-file", default="pids.json")
@@ -136,6 +158,8 @@ def main(argv: list[str] | None = None) -> int:
         return _fork_child(pid_path)
     if args.mode == "fork-and-exit":
         return _fork_and_exit(pid_path)
+    if args.mode == "version":
+        return _version()
     return _dump_env()
 
 
