@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import stat
+import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -491,15 +493,23 @@ def project_harvey_lab_suite(
     solver = _fresh_root(solver_root, "solver projection root")
     private = _fresh_root(evaluator_private_root, "evaluator-private root")
     _require_disjoint(solver, private)
-    selected = None if lab_task_ids is None else frozenset(lab_task_ids)
+    selected = _selected_lab_task_ids(lab_task_ids)
     task_dirs = _discover_task_directories(tasks_root)
     if selected is not None:
+        discovered = {_relative_posix(path, tasks_root) for path in task_dirs}
+        missing = sorted(selected - discovered)
+        if missing:
+            joined = ", ".join(missing)
+            raise HarveyLabProjectionError(
+                f"Harvey LAB task id(s) were not found: {joined}"
+            )
         task_dirs = [
             path for path in task_dirs if _relative_posix(path, tasks_root) in selected
         ]
     if not task_dirs:
         raise HarveyLabProjectionError("no Harvey LAB tasks matched the projection")
     applied_pin = pin or issue_196_pin()
+    _verify_source_pin(source, applied_pin)
     projected_tasks: list[HarveyLabTaskProjection] = []
     for task_dir in task_dirs:
         lab_task_id = _relative_posix(task_dir, tasks_root)
@@ -570,6 +580,11 @@ def verify_harvey_lab_projection(projection_root: Path) -> HarveyLabProjectionMa
 
     manifest = _manifest_from_root(projection_root)
     root = projection_root.resolve()
+    present = {
+        path.relative_to(root).as_posix()
+        for path in _walk_projection_entries(root)
+        if path.is_file()
+    }
     listed = {ROOT_MANIFEST_NAME}
     for task in manifest.tasks:
         task_root = root / task.relative_path
@@ -577,12 +592,7 @@ def verify_harvey_lab_projection(projection_root: Path) -> HarveyLabProjectionMa
             relative = f"{task.relative_path}/{item.path}"
             listed.add(relative)
             path = task_root / item.path
-            try:
-                payload = path.read_bytes()
-            except OSError as exc:
-                raise HarveyLabProjectionError(
-                    f"projected file is missing: {relative}"
-                ) from exc
+            payload = _read_contained_regular_file(path, root, relative)
             digest = hashlib.sha256(payload).hexdigest()
             if digest != item.sha256:
                 raise HarveyLabProjectionError(
@@ -593,9 +603,12 @@ def verify_harvey_lab_projection(projection_root: Path) -> HarveyLabProjectionMa
                     f"projected file size mismatch: {relative}"
                 )
         descriptor_path = task_root / TASK_DESCRIPTOR_NAME
+        descriptor_payload = _read_contained_regular_file(
+            descriptor_path, root, f"{task.relative_path}/{TASK_DESCRIPTOR_NAME}"
+        )
         try:
-            descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+            descriptor = json.loads(descriptor_payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise HarveyLabProjectionError(
                 f"task descriptor is missing or invalid: {task.relative_path}"
             ) from exc
@@ -609,13 +622,10 @@ def verify_harvey_lab_projection(projection_root: Path) -> HarveyLabProjectionMa
                 f"task descriptor task_sha256 diverges from root manifest: "
                 f"{task.relative_path}"
             )
-    for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.is_symlink():
-            continue
-        relative = path.relative_to(root).as_posix()
-        if relative not in listed:
+    for path_name in present:
+        if path_name not in listed:
             raise HarveyLabProjectionError(
-                f"unlisted file in solver projection: {relative}"
+                f"unlisted file in solver projection: {path_name}"
             )
     scan_projection_for_private_markers(projection_root)
     return manifest
@@ -626,14 +636,14 @@ def scan_projection_for_private_markers(projection_root: Path) -> None:
 
     root = _existing_directory(projection_root, "projection root")
     hits: list[str] = []
-    for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.is_symlink():
+    for path in _walk_projection_entries(root):
+        if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
         if _is_private_filename(path.name):
             hits.append(relative)
             continue
-        payload = path.read_bytes()
+        payload = _read_contained_regular_file(path, root, relative)
         text_scan = path.suffix.casefold() in _TEXT_SUFFIXES or b"\0" not in payload
         if not text_scan:
             continue
@@ -977,6 +987,124 @@ def _require_disjoint(first: Path, second: Path) -> None:
         raise HarveyLabProjectionError(
             "solver-visible and evaluator-private roots must be disjoint"
         )
+
+
+def _selected_lab_task_ids(lab_task_ids: Sequence[str] | None) -> frozenset[str] | None:
+    if lab_task_ids is None:
+        return None
+    selected: list[str] = []
+    for item in lab_task_ids:
+        try:
+            selected.append(validate_safe_relative_path(item, "lab_task_id"))
+        except MultiHarnessValidationError as exc:
+            raise HarveyLabProjectionError(str(exc)) from exc
+    return frozenset(selected)
+
+
+def _verify_source_pin(source: Path, pin: HarveyLabPin) -> None:
+    probe = subprocess.run(
+        ["git", "-C", str(source), "rev-parse", "--is-inside-work-tree"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if probe.returncode != 0 or probe.stdout.strip() != "true":
+        return
+    commit = _git_sha(source, "HEAD")
+    tree = _git_sha(source, "HEAD^{tree}")
+    if commit != pin.commit:
+        raise HarveyLabProjectionError(
+            "LAB source HEAD does not match the recorded pin commit"
+        )
+    if tree != pin.tree:
+        raise HarveyLabProjectionError(
+            "LAB source tree does not match the recorded pin tree"
+        )
+    dirty = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(source),
+            "status",
+            "--porcelain",
+            "--untracked-files=normal",
+            "--",
+            ".",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if dirty.returncode != 0:
+        raise HarveyLabProjectionError("LAB source pin cannot be verified")
+    if dirty.stdout.strip():
+        raise HarveyLabProjectionError(
+            "LAB source is dirty relative to the recorded pin"
+        )
+
+
+def _git_sha(source: Path, spec: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(source), "rev-parse", spec],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    value = result.stdout.strip().casefold()
+    if result.returncode != 0 or len(value) != _GIT_SHA_LENGTH:
+        raise HarveyLabProjectionError("LAB source pin cannot be verified")
+    return value
+
+
+def _walk_projection_entries(root: Path) -> list[Path]:
+    entries: list[Path] = []
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        try:
+            children = sorted(current.iterdir())
+        except OSError as exc:
+            raise HarveyLabProjectionError("projection tree is unreadable") from exc
+        for child in children:
+            if child.is_symlink():
+                relative = child.relative_to(root).as_posix()
+                raise HarveyLabProjectionError(
+                    f"symlink in solver projection: {relative}"
+                )
+            entries.append(child)
+            if child.is_dir():
+                stack.append(child)
+    return sorted(entries)
+
+
+def _read_contained_regular_file(path: Path, root: Path, relative: str) -> bytes:
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        raise HarveyLabProjectionError(
+            f"projected file is missing: {relative}"
+        ) from exc
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise HarveyLabProjectionError(
+                f"projected file must be a regular file: {relative}"
+            )
+        resolved = path.resolve(strict=False)
+        try:
+            resolved.relative_to(root)
+        except ValueError as exc:
+            raise HarveyLabProjectionError(
+                f"projected file escapes the solver projection: {relative}"
+            ) from exc
+        with os.fdopen(fd, "rb", closefd=False) as handle:
+            return handle.read()
+    finally:
+        os.close(fd)
 
 
 def _relative_posix(path: Path, root: Path) -> str:

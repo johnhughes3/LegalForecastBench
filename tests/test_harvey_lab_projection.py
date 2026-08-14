@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -216,6 +217,52 @@ def test_unlisted_file_in_projection_fails_verification(tmp_path: Path) -> None:
         verify_harvey_lab_projection(result.solver_root)
 
 
+def test_unknown_lab_task_id_fails_closed(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    with pytest.raises(
+        HarveyLabProjectionError,
+        match="were not found: missing-task",
+    ):
+        project_harvey_lab_suite(
+            source_root=source,
+            solver_root=tmp_path / "solver",
+            evaluator_private_root=tmp_path / "private",
+            lab_task_ids=(ISSUE_196_LAB_TASK_ID, "missing-task"),
+        )
+
+
+def test_symlink_in_projection_fails_verification(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    result = project_harvey_lab_suite(
+        source_root=source,
+        solver_root=tmp_path / "solver",
+        evaluator_private_root=tmp_path / "private",
+    )
+    secret = tmp_path / "gold-answers.json"
+    secret.write_text("GOLD_ANSWER_PRIVATE hidden", encoding="utf-8")
+    planted = result.solver_root / "tasks" / ISSUE_196_LAB_TASK_ID / "leak.json"
+    _make_tree_writable(result.solver_root)
+    planted.symlink_to(secret)
+    with pytest.raises(HarveyLabProjectionError, match="symlink in solver projection"):
+        verify_harvey_lab_projection(result.solver_root)
+    with pytest.raises(HarveyLabProjectionError, match="symlink in solver projection"):
+        scan_projection_for_private_markers(result.solver_root)
+
+
+def test_git_checkout_pin_mismatch_fails_closed(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    _init_git_repo(source)
+    with pytest.raises(
+        HarveyLabProjectionError,
+        match="does not match the recorded pin",
+    ):
+        project_harvey_lab_suite(
+            source_root=source,
+            solver_root=tmp_path / "solver",
+            evaluator_private_root=tmp_path / "private",
+        )
+
+
 def test_unclassified_source_file_fails_closed(tmp_path: Path) -> None:
     source = _issue_196_source(tmp_path / "lab")
     notes = source / "tasks" / ISSUE_196_LAB_TASK_ID / "notes.txt"
@@ -322,3 +369,30 @@ def _make_tree_writable(root: Path) -> None:
     for path in [root, *root.rglob("*")]:
         mode = path.stat().st_mode
         path.chmod(mode | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRUSR)
+
+
+def _init_git_repo(root: Path) -> None:
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "lab-fixture",
+        "GIT_AUTHOR_EMAIL": "lab-fixture@example.com",
+        "GIT_COMMITTER_NAME": "lab-fixture",
+        "GIT_COMMITTER_EMAIL": "lab-fixture@example.com",
+    }
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True, env=env)
+    subprocess.run(["git", "add", "."], cwd=root, check=True, env=env)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=lab-fixture",
+            "-c",
+            "user.email=lab-fixture@example.com",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+        cwd=root,
+        check=True,
+        env=env,
+    )

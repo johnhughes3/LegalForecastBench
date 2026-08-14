@@ -4,6 +4,7 @@ import json
 import os
 import stat
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
 from legalforecast.multiharness.deliverables import (
     DeliverableArtifactProjection,
+    DeliverableManifest,
     seal_deliverable,
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
@@ -23,6 +25,7 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
 )
 from legalforecast.multiharness.harvey_lab_projection import (
     ISSUE_196_LAB_TASK_ID,
+    HarveyLabProjectionResult,
     project_harvey_lab_suite,
 )
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
@@ -42,7 +45,7 @@ def test_isolated_evaluator_binds_receipt_without_solver_or_network(
 ) -> None:
     env = _install_evaluator(tmp_path)
     projected = _project(tmp_path)
-    sealed_root, sealed = _seal_deliverable(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
     hosts = HarveyLabEvaluationHosts(
         sealed_deliverable_root=sealed_root,
         evaluator_private_root=projected.evaluator_private_root,
@@ -89,7 +92,7 @@ def test_evaluator_env_has_no_ambient_credentials_or_solver_path(
     env["OPENAI_API_KEY"] = "ambient-openai-canary"
     env["CANARY_SECRET"] = "must-not-leak"
     projected = _project(tmp_path)
-    sealed_root, sealed = _seal_deliverable(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
     hosts = HarveyLabEvaluationHosts(
         sealed_deliverable_root=sealed_root,
         evaluator_private_root=projected.evaluator_private_root,
@@ -120,7 +123,7 @@ def test_evaluator_env_has_no_ambient_credentials_or_solver_path(
 def test_solver_path_in_evaluation_input_is_refused(tmp_path: Path) -> None:
     env = _install_evaluator(tmp_path)
     projected = _project(tmp_path)
-    sealed_root, sealed = _seal_deliverable(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
     hosts = HarveyLabEvaluationHosts(
         sealed_deliverable_root=sealed_root,
         evaluator_private_root=projected.evaluator_private_root,
@@ -163,7 +166,7 @@ def test_solver_path_in_evaluation_input_is_refused(tmp_path: Path) -> None:
 def test_checkout_dotenv_is_rejected_before_spawn(tmp_path: Path) -> None:
     env = _install_evaluator(tmp_path)
     projected = _project(tmp_path)
-    sealed_root, sealed = _seal_deliverable(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
     source = tmp_path / "lab-checkout"
     source.mkdir()
     (source / ".env").write_text(
@@ -195,7 +198,7 @@ def test_checkout_dotenv_is_rejected_before_spawn(tmp_path: Path) -> None:
 def test_nested_solver_and_overlay_roots_fail_closed(tmp_path: Path) -> None:
     env = _install_evaluator(tmp_path)
     projected = _project(tmp_path)
-    sealed_root, sealed = _seal_deliverable(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
     hosts = HarveyLabEvaluationHosts(
         sealed_deliverable_root=sealed_root,
         evaluator_private_root=projected.evaluator_private_root,
@@ -230,7 +233,7 @@ def test_malicious_document_bytes_are_not_followed_as_paths(tmp_path: Path) -> N
     sealed = seal_deliverable(
         source_root=source_root,
         sealed_root=sealed_root,
-        task_sha256="sha256:" + "1" * 64,
+        task_sha256=_task_digest(projected),
         run_sha256=RUN_DIGEST,
         config_sha256=CONFIG_DIGEST,
         artifacts=(
@@ -266,21 +269,117 @@ def test_malicious_document_bytes_are_not_followed_as_paths(tmp_path: Path) -> N
     assert b"SOLVER_CANARY" not in scores_path.read_bytes()
 
 
-def _project(tmp_path: Path):
-    source = _issue_196_source(tmp_path / "lab")
-    return project_harvey_lab_suite(
-        source_root=source,
-        solver_root=tmp_path / "solver",
-        evaluator_private_root=tmp_path / "private",
+def test_sibling_overlay_name_is_not_treated_as_solver_path(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "solver-overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
     )
+    spec, stdin_record = build_contained_evaluator_run_spec(
+        hosts=hosts,
+        sealed_manifest=sealed,
+        identity=_identity(projected, tmp_path),
+    )
+    assert Path(str(stdin_record["deliverable_path"])).is_relative_to(
+        (tmp_path / "solver-overlay").resolve()
+    )
+    del spec
+    del env
 
 
-def _seal_deliverable(tmp_path: Path):
+def test_extra_sealed_artifact_is_refused(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    source_root = tmp_path / "deliverable-source"
+    source_root.mkdir()
+    (source_root / "issue-identification-memo.docx").write_bytes(b"PK-fake-docx")
+    (source_root / "extra.txt").write_text("nope", encoding="utf-8")
+    sealed_root = tmp_path / "sealed"
+    sealed = seal_deliverable(
+        source_root=source_root,
+        sealed_root=sealed_root,
+        task_sha256=_task_digest(projected),
+        run_sha256=RUN_DIGEST,
+        config_sha256=CONFIG_DIGEST,
+        artifacts=(
+            DeliverableArtifactProjection(
+                artifact_id="memo",
+                source_path="issue-identification-memo.docx",
+                path="issue-identification-memo.docx",
+                media_type="application/octet-stream",
+                max_size_bytes=4096,
+            ),
+            DeliverableArtifactProjection(
+                artifact_id="extra",
+                source_path="extra.txt",
+                path="extra.txt",
+                media_type="text/plain",
+                max_size_bytes=4096,
+            ),
+        ),
+    )
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    with pytest.raises(
+        HarveyLabEvaluationError,
+        match="exactly the expected basename",
+    ):
+        build_contained_evaluator_run_spec(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=_identity(projected, tmp_path),
+        )
+    del env
+
+
+def test_wrapper_hash_mismatch_is_refused(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    identity = replace(
+        _identity(projected, tmp_path),
+        wrapper_sha256="sha256:" + "c" * 64,
+    )
+    with pytest.raises(HarveyLabEvaluationError, match="wrapper_sha256 does not match"):
+        invoke_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=identity,
+            execution_service=LocalCliExecutionService(
+                auth_profile=FIXTURE_NONE,
+                parent_env=env,
+            ),
+            signer=PRIVATE_KEY.sign,
+            issuer_key_id="evaluation-key-fixture",
+            issuer_policy_sha256=ISSUER_POLICY,
+        )
+
+
+def test_sealed_identity_mismatch_is_refused(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
     source_root = tmp_path / "deliverable-source"
     source_root.mkdir()
     (source_root / "issue-identification-memo.docx").write_bytes(b"PK-fake-docx")
     sealed_root = tmp_path / "sealed"
-    manifest = seal_deliverable(
+    sealed = seal_deliverable(
         source_root=source_root,
         sealed_root=sealed_root,
         task_sha256="sha256:" + "1" * 64,
@@ -296,10 +395,100 @@ def _seal_deliverable(tmp_path: Path):
             ),
         ),
     )
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    with pytest.raises(
+        HarveyLabEvaluationError,
+        match="does not match evaluation identity",
+    ):
+        invoke_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=_identity(projected, tmp_path),
+            execution_service=LocalCliExecutionService(
+                auth_profile=FIXTURE_NONE,
+                parent_env=env,
+            ),
+            signer=PRIVATE_KEY.sign,
+            issuer_key_id="evaluation-key-fixture",
+            issuer_policy_sha256=ISSUER_POLICY,
+        )
+
+
+def test_lab_task_id_path_escape_is_refused(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    identity = replace(
+        _identity(projected, tmp_path),
+        lab_task_id="../secret-task",
+    )
+    with pytest.raises(HarveyLabEvaluationError, match="parent segments"):
+        build_contained_evaluator_run_spec(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=identity,
+        )
+    del env
+
+
+def _project(tmp_path: Path) -> HarveyLabProjectionResult:
+    source = _issue_196_source(tmp_path / "lab")
+    return project_harvey_lab_suite(
+        source_root=source,
+        solver_root=tmp_path / "solver",
+        evaluator_private_root=tmp_path / "private",
+    )
+
+
+def _seal_deliverable(
+    tmp_path: Path,
+    projected: HarveyLabProjectionResult,
+    payload: bytes = b"PK-fake-docx",
+) -> tuple[Path, DeliverableManifest]:
+    source_root = tmp_path / "deliverable-source"
+    source_root.mkdir()
+    (source_root / "issue-identification-memo.docx").write_bytes(payload)
+    sealed_root = tmp_path / "sealed"
+    manifest = seal_deliverable(
+        source_root=source_root,
+        sealed_root=sealed_root,
+        task_sha256=_task_digest(projected),
+        run_sha256=RUN_DIGEST,
+        config_sha256=CONFIG_DIGEST,
+        artifacts=(
+            DeliverableArtifactProjection(
+                artifact_id="memo",
+                source_path="issue-identification-memo.docx",
+                path="issue-identification-memo.docx",
+                media_type="application/octet-stream",
+                max_size_bytes=4096,
+            ),
+        ),
+    )
     return sealed_root, manifest
 
 
-def _identity(projected, tmp_path: Path) -> HarveyLabEvaluationIdentity:
+def _task_digest(projected: HarveyLabProjectionResult) -> str:
+    digest = projected.manifest.tasks[0].task_sha256
+    return digest if digest.startswith("sha256:") else f"sha256:{digest}"
+
+
+def _identity(
+    projected: HarveyLabProjectionResult, tmp_path: Path
+) -> HarveyLabEvaluationIdentity:
     wrapper = tmp_path / "bin" / EVALUATOR_COMMAND_NAME
     digest = (
         "sha256:" + __import__("hashlib").sha256(wrapper.read_bytes()).hexdigest()
