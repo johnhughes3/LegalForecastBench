@@ -77,6 +77,7 @@ class CourtListenerRequestBudget:
         path: Path,
         *,
         limits: CourtListenerRequestLimits | None = None,
+        # Cycle 1 live default; post-Cycle-1 knobs live in legalforecast.config.
         max_wait_seconds: float = 120.0,
         clock: Callable[[], float] = time.time,
         monotonic_clock: Callable[[], float] = time.monotonic,

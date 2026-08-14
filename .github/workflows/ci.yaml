@@ -25,6 +25,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Fetch origin/main for the acquisition-config fence
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
@@ -41,6 +44,9 @@ jobs:
 
       - name: Contract ratchet
         run: uv run python -m legalforecast.contracts.ratchet
+
+      - name: Acquisition config fence
+        run: uv run python -m legalforecast.config.fence
 
       - name: Type-check
         run: uv run pyright

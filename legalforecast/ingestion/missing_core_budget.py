@@ -12,6 +12,7 @@ from typing import Any
 from legalforecast.ingestion.core_document_filter import CoreDocumentFilterResult
 
 DEFAULT_MAX_MISSING_CORE_DOCUMENTS_PER_CASE = 24
+# Cycle 1 live values. Post-Cycle-1 knobs live in legalforecast.config.
 DEFAULT_PURCHASE_COST_USD = Decimal("3.05")
 DEFAULT_MAX_PROJECTED_BUDGET_USD = Decimal("2250.00")
 

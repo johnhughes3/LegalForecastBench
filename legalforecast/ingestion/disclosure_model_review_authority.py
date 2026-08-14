@@ -64,6 +64,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 _REVIEWER_REGISTRY = (
     _ROOT / "model_registries/cycle-1-disclosure-reviewer-2026-07-27.json"
 )
+# Cycle 1 live pin. Post-Cycle-1 knobs live in legalforecast.config.
 _EVALUATED_REGISTRY = _ROOT / "model_registries/cycle-1-2026-06-30.json"
 _PROVIDER_CYCLE_CAPS = (
     _ROOT / "model_registries/cycle-1-target-100-provider-caps-base-2026-07-28.json"

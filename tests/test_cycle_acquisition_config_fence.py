@@ -1,0 +1,184 @@
+from __future__ import annotations
+
+import json
+import textwrap
+from pathlib import Path
+
+import pytest
+from legalforecast.config.fence import (
+    BASELINE_PATH,
+    BaselineEntry,
+    find_baseline_growth,
+    find_new_violations,
+    load_ancestor_baseline,
+    load_baseline,
+    scan_repository,
+)
+
+
+def test_fence_flags_out_of_home_constant_and_type_construction(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "legalforecast" / "ingestion" / "sample.py",
+        """
+        from legalforecast.config import SelectorModel
+
+        SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
+        DEFAULT_PURCHASE_COST_USD = "3.05"
+        PACER_PAGE_USD = "0.10"
+        MAX_PER_CASE_USD = "73.20"
+        COHORT_POLICY_VERSION = "legalforecast.cohort_policy.v3"
+
+        def build() -> object:
+            return SelectorModel(
+                provider="openai",
+                model_id="gpt-5.6-luna",
+                model_version_or_snapshot="gpt-5.6-luna",
+            )
+        """,
+    )
+
+    findings = scan_repository(tmp_path)
+
+    assert {(finding.rule, finding.subject) for finding in findings} >= {
+        ("acquisition_selection_constant", "SELECTOR_MODEL_PRIMARY"),
+        ("acquisition_selection_constant", "DEFAULT_PURCHASE_COST_USD"),
+        ("acquisition_selection_constant", "PACER_PAGE_USD"),
+        ("acquisition_selection_constant", "MAX_PER_CASE_USD"),
+        ("acquisition_selection_constant", "COHORT_POLICY_VERSION"),
+        ("cycle_config_type_construction", "SelectorModel"),
+    }
+
+
+def test_fence_allows_reviewed_baseline_and_inline_exception(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "legalforecast" / "ingestion" / "legacy.py",
+        """
+        DEFAULT_PURCHASE_COST_USD = "3.05"
+        """,
+    )
+    _write(
+        tmp_path / "legalforecast" / "ingestion" / "allowed.py",
+        """
+        # acquisition-config-fence: allow local fixture price for a unit test helper
+        DEFAULT_PURCHASE_COST_USD = "0.00"
+        """,
+    )
+
+    findings = scan_repository(tmp_path)
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(
+        json.dumps(
+            [
+                {
+                    "rule": "acquisition_selection_constant",
+                    "path": "legalforecast/ingestion/legacy.py",
+                    "subject": "DEFAULT_PURCHASE_COST_USD",
+                    "reason": "Cycle 1 live constant",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    violations = find_new_violations(findings, load_baseline(baseline_path))
+
+    assert violations == ()
+
+
+def test_repository_fence_has_no_unreviewed_violations() -> None:
+    root = Path(__file__).resolve().parents[1]
+    findings = scan_repository(root)
+    baseline = load_baseline(root / BASELINE_PATH)
+
+    assert find_new_violations(findings, baseline) == ()
+
+
+def test_fence_baseline_may_only_shrink() -> None:
+    previous = (
+        BaselineEntry(
+            rule="acquisition_selection_constant",
+            path="legalforecast/ingestion/legacy.py",
+            subject="DEFAULT_PURCHASE_COST_USD",
+            reason="Cycle 1 live constant",
+        ),
+    )
+    extra = BaselineEntry(
+        rule="acquisition_selection_constant",
+        path="legalforecast/ingestion/extra.py",
+        subject="SELECTOR_MODEL_PRIMARY",
+        reason="should not be allowed to grow",
+    )
+    grown = (*previous, extra)
+
+    assert find_baseline_growth(grown, previous) == (extra,)
+    assert find_baseline_growth(previous, previous) == ()
+    assert find_baseline_growth((), previous) == ()
+
+
+def test_repository_fence_baseline_does_not_grow_from_main() -> None:
+    root = Path(__file__).resolve().parents[1]
+    current = load_baseline(root / BASELINE_PATH)
+    ancestor = load_ancestor_baseline(root, root / BASELINE_PATH)
+    if ancestor is None:
+        pytest.skip("fence_baseline.json is not on origin/main yet")
+    assert find_baseline_growth(current, ancestor) == ()
+
+
+def test_fence_scans_modules_outside_the_config_package(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "legalforecast" / "configuration.py",
+        """
+        SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
+        """,
+    )
+    _write(
+        tmp_path / "legalforecast" / "config" / "home.py",
+        """
+        SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
+        """,
+    )
+
+    findings = scan_repository(tmp_path)
+
+    assert {(finding.path, finding.subject) for finding in findings} == {
+        ("legalforecast/configuration.py", "SELECTOR_MODEL_PRIMARY"),
+    }
+
+
+def test_fence_scans_configuration_sibling_of_config_package(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "legalforecast" / "configuration.py",
+        """
+        SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
+        """,
+    )
+    _write(
+        tmp_path / "legalforecast" / "config" / "home.py",
+        """
+        SELECTOR_MODEL_PRIMARY = "openai:gpt-5.6-luna"
+        """,
+    )
+
+    findings = scan_repository(tmp_path)
+    scanned = {(finding.path, finding.subject) for finding in findings}
+
+    assert ("legalforecast/configuration.py", "SELECTOR_MODEL_PRIMARY") in scanned
+    assert ("legalforecast/config/home.py", "SELECTOR_MODEL_PRIMARY") not in scanned
+
+
+def test_fence_fails_closed_when_base_ref_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from legalforecast.config import fence as fence_mod
+
+    def _missing(*_args: object, **_kwargs: object) -> tuple[None, str]:
+        return None, "missing_ref"
+
+    monkeypatch.setattr(fence_mod, "_git_show_path", _missing)
+    with pytest.raises(ValueError, match="cannot load fence_baseline"):
+        load_ancestor_baseline(tmp_path, tmp_path / "fence_baseline.json")
+
+
+def _write(path: Path, source: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(textwrap.dedent(source).strip() + "\n", encoding="utf-8")

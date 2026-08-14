@@ -1,0 +1,69 @@
+{
+  "synthetic": true,
+  "generated_by": "hand-authored for legalforecastbench-dn9.1 unit tests; not captured from PACER or a live docket",
+  "candidate_id": "fixture-1",
+  "decision_cut_entry": 20,
+  "target_motion_entries": [10],
+  "entries": [
+    {
+      "entry": 1,
+      "filed": "2026-01-02",
+      "text": "Complaint.",
+      "documents": [
+        {
+          "selector": "main_document",
+          "description": "Complaint (12 pages)",
+          "freely_available": true,
+          "pacer_only": false,
+          "page_count": 12,
+          "restricted": false
+        }
+      ]
+    },
+    {
+      "entry": 10,
+      "filed": "2026-03-01",
+      "text": "Motion to dismiss.",
+      "documents": [
+        {
+          "selector": "main_document",
+          "description": "Motion to Dismiss (30 pages)",
+          "freely_available": false,
+          "pacer_only": true,
+          "page_count": 30,
+          "restricted": false
+        }
+      ]
+    },
+    {
+      "entry": 12,
+      "filed": "2026-03-15",
+      "text": "Response to Motion.",
+      "documents": [
+        {
+          "selector": "main_document",
+          "description": "Opposition (8 pages)",
+          "freely_available": false,
+          "pacer_only": true,
+          "page_count": 8,
+          "restricted": false
+        }
+      ]
+    },
+    {
+      "entry": 15,
+      "filed": "2026-03-22",
+      "text": "Notice of appearance.",
+      "documents": [
+        {
+          "selector": "main_document",
+          "description": "Notice (1 page)",
+          "freely_available": false,
+          "pacer_only": true,
+          "page_count": 1,
+          "restricted": false
+        }
+      ]
+    }
+  ]
+}

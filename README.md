@@ -176,7 +176,7 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `legalforecast/`: Python package for ingestion, selection, unitization, labeling, evaluation, scoring, reporting, and publication artifacts.
 - `examples/adapters/`: no-network fixture manifests for first-class community multi-harness adapter tracks.
 - `community/submissions/`: reviewed community submission examples and future accepted metadata packages.
-- `docs/`: methods, labeling protocol, official-run runbook, reproduction/audit guide, schema contracts, and community/adapter docs — start at [docs/README.md](docs/README.md).
+- `docs/`: methods, labeling protocol, official-run runbook, reproduction/audit guide, schema contracts, and community/adapter docs — start at [docs/README.md](docs/README.md). Post-Cycle-1 acquisition/selection knobs live in [`legalforecast.config`](legalforecast/config/__init__.py); see [docs/cycle-acquisition-config.md](docs/cycle-acquisition-config.md).
 - `tests/`: synthetic fixtures and regression coverage.
 - `scripts/`: release check, release bundle build, and offline adapter probes.
 - `manifests/`: acquisition-cycle templates rendered into immutable cycle configs, plus the committed RECAP fetch broker, attempt, and purchase policies under `recap-fetch-policies/`.
