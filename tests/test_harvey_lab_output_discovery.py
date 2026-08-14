@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import os
 import stat
@@ -16,6 +17,7 @@ from legalforecast.multiharness.harvey_lab_output_discovery import (
     HarveyLabOutputErrorCode,
     HarveyLabOutputLimits,
     _copy_regular_file,
+    _copy_regular_file_from_fd,
     _reject_path_name,
     discover_harvey_lab_outputs,
 )
@@ -58,7 +60,7 @@ def _task() -> HarveyLabProjectedTask:
         lab_task_id=PINNED_TASK_ID,
         category="employment-labor",
         relative_path=f"tasks/{PINNED_TASK_ID}",
-        task_sha256="a" * 64,
+        task_sha256="1" * 64,
         expected_deliverable=BASENAME,
         files=(
             HarveyLabProjectedFile(
@@ -162,6 +164,62 @@ def test_unrecognized_extra_is_quarantined_never_scored(tmp_path: Path) -> None:
     assert "scratch-notes.txt" not in sealed_names
     quarantined = tmp_path / "quarantine" / "scratch-notes.txt"
     assert quarantined.read_bytes() == b"not scored"
+
+
+def test_quarantined_extras_are_recorded_in_sorted_order(tmp_path: Path) -> None:
+    result = _discover(
+        tmp_path,
+        extra_files={"z-notes.txt": b"z", "a-notes.txt": b"a"},
+    )
+    assert [item.source_relative for item in result.quarantined] == [
+        "a-notes.txt",
+        "z-notes.txt",
+    ]
+
+
+def test_mismatched_task_digest_is_rejected(tmp_path: Path) -> None:
+    sandbox = tmp_path / "sandbox"
+    output = sandbox / "output"
+    output.mkdir(parents=True)
+    (output / BASENAME).write_bytes(_docx_bytes())
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        discover_harvey_lab_outputs(
+            sandbox_root=sandbox,
+            output_root=output,
+            quarantine_root=tmp_path / "quarantine",
+            sealed_root=tmp_path / "sealed",
+            task=_task(),
+            task_sha256="sha256:" + "9" * 64,
+            run_sha256=RUN_SHA256,
+            config_sha256=CONFIG_SHA256,
+        )
+    assert caught.value.code == HarveyLabOutputErrorCode.LAYOUT
+    assert "task_sha256 does not match" in str(caught.value)
+    assert not (tmp_path / "sealed").exists()
+
+
+def test_hard_linked_output_is_rejected(tmp_path: Path) -> None:
+    sandbox = tmp_path / "sandbox"
+    output = sandbox / "output"
+    output.mkdir(parents=True)
+    deliverable = output / BASENAME
+    deliverable.write_bytes(_docx_bytes())
+    alias = tmp_path / "alias.docx"
+    os.link(deliverable, alias)
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        discover_harvey_lab_outputs(
+            sandbox_root=sandbox,
+            output_root=output,
+            quarantine_root=tmp_path / "quarantine",
+            sealed_root=tmp_path / "sealed",
+            task=_task(),
+            task_sha256=TASK_SHA256,
+            run_sha256=RUN_SHA256,
+            config_sha256=CONFIG_SHA256,
+        )
+    assert caught.value.code == HarveyLabOutputErrorCode.UNEXPECTED_TYPE
+    assert "hard link" in str(caught.value)
+    assert not (tmp_path / "sealed").exists()
 
 
 def test_missing_deliverable_is_typed(tmp_path: Path) -> None:
@@ -283,6 +341,25 @@ def test_leftover_quarantine_is_cleared_when_no_extras(tmp_path: Path) -> None:
     assert not leftover.exists()
 
 
+def test_missing_quarantine_parent_is_created_for_clean_output(tmp_path: Path) -> None:
+    sandbox = tmp_path / "sandbox"
+    output = sandbox / "output"
+    output.mkdir(parents=True)
+    (output / BASENAME).write_bytes(_docx_bytes())
+    result = discover_harvey_lab_outputs(
+        sandbox_root=sandbox,
+        output_root=output,
+        quarantine_root=tmp_path / "missing" / "nested" / "quarantine",
+        sealed_root=tmp_path / "sealed",
+        task=_task(),
+        task_sha256=TASK_SHA256,
+        run_sha256=RUN_SHA256,
+        config_sha256=CONFIG_SHA256,
+    )
+    assert result.quarantined == ()
+    assert (tmp_path / "sealed" / BASENAME).is_file()
+
+
 def test_copy_rejects_source_mutated_after_stat(tmp_path: Path) -> None:
     source_root = tmp_path / "src"
     source_root.mkdir()
@@ -299,10 +376,69 @@ def test_copy_rejects_source_mutated_after_stat(tmp_path: Path) -> None:
             destination_root=dest_root,
             destination_relative="scratch.txt",
             expected_stat=snapshot,
+            expected_digest=hashlib.sha256(b"x").digest(),
             max_bytes=100,
         )
     assert caught.value.code == HarveyLabOutputErrorCode.LAYOUT
     assert not (dest_root / "scratch.txt").exists()
+
+
+def test_copy_rejects_same_size_content_replacement(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    source_root.mkdir()
+    source = source_root / "scratch.txt"
+    source.write_bytes(b"abcd")
+    snapshot = source.stat()
+    source.write_bytes(b"efgh")
+    dest_root = tmp_path / "dest"
+    dest_root.mkdir()
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        _copy_regular_file(
+            source_root,
+            "scratch.txt",
+            destination_root=dest_root,
+            destination_relative="scratch.txt",
+            expected_stat=snapshot,
+            expected_digest=hashlib.sha256(b"abcd").digest(),
+            max_bytes=100,
+        )
+    assert caught.value.code == HarveyLabOutputErrorCode.LAYOUT
+    assert not (dest_root / "scratch.txt").exists()
+
+
+def test_held_output_fd_does_not_follow_replaced_sandbox(tmp_path: Path) -> None:
+    sandbox = tmp_path / "sandbox"
+    output = sandbox / "output"
+    output.mkdir(parents=True)
+    payload = b"inside-bytes"
+    (output / "scratch.txt").write_bytes(payload)
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    output_fd = os.open(output, flags)
+    try:
+        outside = tmp_path / "outside"
+        (outside / "output").mkdir(parents=True)
+        (outside / "output" / "scratch.txt").write_bytes(b"escaped")
+        real = tmp_path / "sandbox-real"
+        sandbox.rename(real)
+        sandbox.symlink_to(outside)
+        dest_root = tmp_path / "dest"
+        dest_root.mkdir()
+        _copy_regular_file_from_fd(
+            output_fd,
+            "scratch.txt",
+            destination_root=dest_root,
+            destination_relative="scratch.txt",
+            expected_stat=(real / "output" / "scratch.txt").stat(),
+            expected_digest=hashlib.sha256(payload).digest(),
+            max_bytes=100,
+        )
+        assert (dest_root / "scratch.txt").read_bytes() == payload
+    finally:
+        os.close(output_fd)
 
 
 def test_solver_and_evaluator_roots_must_not_overlap(tmp_path: Path) -> None:
@@ -462,6 +598,7 @@ def test_quarantine_parent_symlink_is_typed(tmp_path: Path) -> None:
             destination_root=dest_root,
             destination_relative="notes/scratch.txt",
             expected_stat=(source_root / "scratch.txt").stat(),
+            expected_digest=hashlib.sha256(b"x").digest(),
             max_bytes=100,
         )
     assert caught.value.code == HarveyLabOutputErrorCode.SYMLINK
