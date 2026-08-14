@@ -448,17 +448,13 @@ class _MultiHarnessRunner:
                 ):
                     self._validate_native_lfb_inputs(adapter, task, model)
                     compatible_count += 1
-                    declared_profile = getattr(adapter, "auth_profile", None)
                     row_id = _row_id(
                         task=task,
                         adapter=adapter.manifest,
                         model=model,
                         selection_sha256=selection.selection_sha256,
-                        auth_profile=(
-                            PUBLISHED_API_KEY
-                            if declared_profile == PUBLISHED_API_KEY
-                            else None
-                        ),
+                        live=getattr(adapter, "auth_profile", None)
+                        == PUBLISHED_API_KEY,
                     )
                     request = _run_request(
                         row_id=row_id,
@@ -875,7 +871,7 @@ def _row_id(
     adapter: AdapterManifest,
     model: ModelConfig,
     selection_sha256: str,
-    auth_profile: object = None,
+    live: bool = False,
 ) -> str:
     payload: dict[str, Any] = {
         "family": task.family,
@@ -885,9 +881,8 @@ def _row_id(
         "model_key": model.model_key,
         "selection_sha256": selection_sha256,
     }
-    if auth_profile == PUBLISHED_API_KEY:
-        # Hash the canonical profile ID, not caller-supplied credential text.
-        payload["auth_profile"] = PUBLISHED_API_KEY
+    if live:
+        payload["live"] = "1"
     digest = _record_sha256(
         payload,
         prefixed=False,

@@ -335,7 +335,7 @@ def test_published_api_key_changes_resume_row_identity() -> None:
         adapter=adapter,
         model=model,
         selection_sha256="sha256:" + "2" * 64,
-        auth_profile=FIXTURE_NONE,
+        live=False,
     )
     omitted_row = _row_id(
         task=task,
@@ -348,7 +348,7 @@ def test_published_api_key_changes_resume_row_identity() -> None:
         adapter=adapter,
         model=model,
         selection_sha256="sha256:" + "2" * 64,
-        auth_profile=PUBLISHED_API_KEY,
+        live=True,
     )
     assert fixture_row == omitted_row
     assert live_row != fixture_row
