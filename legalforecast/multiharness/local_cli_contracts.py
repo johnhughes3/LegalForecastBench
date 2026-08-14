@@ -648,47 +648,31 @@ def _require_bound_run_identity(
     order: object,
     repeat_index: object,
 ) -> None:
-    _require_identity_keys(task_identity_key, solver_identity_key, run_identity_key)
-    if task_identity_key is None:
+    keys = _require_identity_keys(
+        task_identity_key, solver_identity_key, run_identity_key
+    )
+    if keys is None:
         return
     missing: list[str] = []
-    if not isinstance(runtime_policy_sha256, str) or not runtime_policy_sha256:
-        missing.append("runtime_policy_sha256")
-    if not isinstance(config_sha256, str) or not config_sha256:
-        missing.append("config_sha256")
-    if not isinstance(temporal_block, str) or not temporal_block.strip():
-        missing.append("temporal_block")
-    slot_order = order if type(order) is int else None
-    slot_repeat = repeat_index if type(repeat_index) is int else None
-    if slot_order is None:
-        missing.append("order")
-    if slot_repeat is None:
-        missing.append("repeat_index")
+    policy = _identity_slot_str(runtime_policy_sha256, "runtime_policy_sha256", missing)
+    config = _identity_slot_str(config_sha256, "config_sha256", missing)
+    block = _identity_slot_str(
+        temporal_block, "temporal_block", missing, require_stripped=True
+    )
+    slot_order = _identity_slot_int(order, "order", missing)
+    slot_repeat = _identity_slot_int(repeat_index, "repeat_index", missing)
     if missing:
         raise LocalCliContractError("identity keys require " + ", ".join(missing))
-    if (
-        not isinstance(task_identity_key, str)
-        or not isinstance(solver_identity_key, str)
-        or not isinstance(run_identity_key, str)
-        or not isinstance(runtime_policy_sha256, str)
-        or not isinstance(config_sha256, str)
-        or not isinstance(temporal_block, str)
-        or slot_order is None
-        or slot_repeat is None
-    ):
-        raise LocalCliContractError(
-            "run identity does not bind the supplied task and solver keys"
-        )
     try:
         RunIdentity(
-            task_identity_key=task_identity_key,
-            solver_identity_key=solver_identity_key,
-            runtime_policy_sha256=runtime_policy_sha256,
-            config_sha256=config_sha256,
-            temporal_block=temporal_block,
+            task_identity_key=keys[0],
+            solver_identity_key=keys[1],
+            runtime_policy_sha256=policy,
+            config_sha256=config,
+            temporal_block=block,
             order=slot_order,
             repeat_index=slot_repeat,
-            key=run_identity_key,
+            key=keys[2],
         )
     except IdentityError as exc:
         raise LocalCliContractError(
@@ -696,27 +680,50 @@ def _require_bound_run_identity(
         ) from exc
 
 
+def _identity_slot_str(
+    value: object,
+    field_name: str,
+    missing: list[str],
+    *,
+    require_stripped: bool = False,
+) -> str:
+    if isinstance(value, str) and (value.strip() if require_stripped else value):
+        return value
+    missing.append(field_name)
+    return ""
+
+
+def _identity_slot_int(value: object, field_name: str, missing: list[str]) -> int:
+    if type(value) is int:
+        return value
+    missing.append(field_name)
+    return 0
+
+
 def _require_identity_keys(
     task_identity_key: object,
     solver_identity_key: object,
     run_identity_key: object,
-) -> None:
+) -> tuple[str, str, str] | None:
     keys = (task_identity_key, solver_identity_key, run_identity_key)
-    if any(key is None for key in keys) and any(key is not None for key in keys):
+    if all(key is None for key in keys):
+        return None
+    if any(key is None for key in keys):
         raise LocalCliContractError(
             "task_identity_key, solver_identity_key, and run_identity_key "
             "must be set together"
         )
+    typed: list[str] = []
     for field_name, value in zip(
         ("task_identity_key", "solver_identity_key", "run_identity_key"),
         keys,
         strict=True,
     ):
-        if value is None:
-            continue
         if not isinstance(value, str):
             raise LocalCliContractError(f"{field_name} must be a string")
         _require_prefixed_digest(value, field_name)
+        typed.append(value)
+    return typed[0], typed[1], typed[2]
 
 
 def _require_prefixed_digest(value: str, field_name: str) -> None:
