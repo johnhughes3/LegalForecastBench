@@ -684,4 +684,14 @@ def test_sealed_case_records_cannot_be_mutated_after_digest() -> None:
     record = artifact.case_records[0]
     with pytest.raises(TypeError):
         record["admitted"] = False
+    exported = artifact.to_record()
+    json.dumps(exported)
+    case = exported["cases"]
+    assert type(case) is list
+    first = case[0]
+    assert type(first) is dict
+    assert type(first["promotions"]) is list
+    assert type(exported["provenance"]) is dict
+    first["admitted"] = False
+    assert artifact.case_records[0]["admitted"] is True
     assert artifact.to_record()["sha256"] == artifact.sha256

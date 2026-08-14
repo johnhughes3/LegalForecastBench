@@ -103,8 +103,8 @@ class SelectionArtifact:
                 "primary": self.selector_primary,
                 "alternates": list(self.selector_alternates),
             },
-            "cases": [dict(record) for record in self.case_records],
-            "provenance": dict(self.provenance),
+            "cases": [_thaw_mapping(record) for record in self.case_records],
+            "provenance": _thaw_mapping(self.provenance),
             "sha256": self.sha256,
             "purchase_ceiling": self.purchase_ceiling.to_record(),
         }
@@ -382,4 +382,20 @@ def _freeze_value(value: object) -> object:
     if isinstance(value, tuple):
         items = cast(tuple[object, ...], value)
         return tuple(_freeze_value(item) for item in items)
+    return value
+
+
+def _thaw_mapping(value: Mapping[str, object]) -> dict[str, object]:
+    return {key: _thaw_value(item) for key, item in value.items()}
+
+
+def _thaw_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return _thaw_mapping(cast(Mapping[str, object], value))
+    if isinstance(value, list):
+        items = cast(list[object], value)
+        return [_thaw_value(item) for item in items]
+    if isinstance(value, tuple):
+        items = cast(tuple[object, ...], value)
+        return [_thaw_value(item) for item in items]
     return value
