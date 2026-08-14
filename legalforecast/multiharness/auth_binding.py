@@ -3,7 +3,8 @@
 Adapters resolve profile identity and projected *names* here. Credential
 values stay with the contained execution service and Infisical wrapper.
 ``fixture-none`` projects nothing. ``published-api-key`` uses the 4.2.13
-layout. ``contributor-subscription`` is not yet bound.
+layout. ``contributor-subscription`` is the contributor's own local CLI
+login: no Infisical fetch, no token export, official-run refusal.
 """
 
 from __future__ import annotations
@@ -14,14 +15,20 @@ from pathlib import Path
 from typing import Final, TypeGuard
 
 from legalforecast.multiharness.auth_profiles import (
+    CONTRIBUTOR_SUBSCRIPTION,
     FIXTURE_NONE,
     PUBLISHED_API_KEY,
+    RUN_CLASS_COMMUNITY,
+    RUN_CLASS_OFFICIAL,
     AuthProfileError,
     ResolvedAuthProfile,
+    SubscriptionPresence,
     published_api_key_env_vars_for_executable,
+    require_auth_profile_for_run_class,
     require_auth_profile_id,
     resolve_auth_profile,
 )
+from legalforecast.multiharness.contributor_boundary import LINUX_LANDLOCK_FS_SCOPE
 from legalforecast.multiharness.local_cli_environment import (
     CredentialSource,
     InfisicalSandboxCredentialSource,
@@ -34,7 +41,7 @@ from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionServic
 from legalforecast.multiharness.sandbox import PROVIDER_EGRESS_HOST_ONLY
 
 ADAPTER_BOUND_AUTH_PROFILES: Final[frozenset[str]] = frozenset(
-    {FIXTURE_NONE, PUBLISHED_API_KEY}
+    {FIXTURE_NONE, PUBLISHED_API_KEY, CONTRIBUTOR_SUBSCRIPTION}
 )
 
 
@@ -63,10 +70,12 @@ def bind_adapter_auth_profile(
     requested: object,
     *,
     infisical_env: str = "dev",
+    run_class: str = RUN_CLASS_COMMUNITY,
 ) -> BoundAdapterAuth:
     """Bind one requested profile to this adapter's manifest at plan time."""
 
     profile_id = require_auth_profile_id(requested)
+    require_auth_profile_for_run_class(profile_id, run_class)
     if profile_id not in ADAPTER_BOUND_AUTH_PROFILES:
         raise AuthProfileError(
             f"{profile_id} is not yet bound for adapter invocation; "
@@ -76,7 +85,9 @@ def bind_adapter_auth_profile(
     if profile_id not in manifest.supported_auth_profiles:
         raise AuthProfileError("declared auth_profile is not supported by this adapter")
     env_names = manifest.env_vars_for_profile(profile_id)
-    if profile_id == PUBLISHED_API_KEY:
+    if profile_id == CONTRIBUTOR_SUBSCRIPTION:
+        env_names = ()
+    elif profile_id == PUBLISHED_API_KEY:
         expected = published_api_key_env_vars_for_executable(
             manifest.executable.basename
         )
@@ -97,6 +108,22 @@ def bind_adapter_auth_profile(
         profile=profile,
         supported_profiles=manifest.supported_auth_profiles,
         profile_env_vars=manifest.auth_environment_variables,
+    )
+
+
+def bind_official_run_auth_profile(
+    manifest: LocalCliAdapterManifest,
+    requested: object,
+    *,
+    infisical_env: str = "dev",
+) -> BoundAdapterAuth:
+    """Bind a profile that official runs may select (API-key/OIDC paths only)."""
+
+    return bind_adapter_auth_profile(
+        manifest,
+        requested,
+        infisical_env=infisical_env,
+        run_class=RUN_CLASS_OFFICIAL,
     )
 
 
@@ -134,7 +161,7 @@ def require_execution_service_profile(
     if declared is None:
         if canonical != FIXTURE_NONE:
             raise AuthProfileError(
-                "published-api-key requires a contained execution service "
+                f"{canonical} requires a contained execution service "
                 "configured with that profile"
             )
         return
@@ -242,25 +269,42 @@ def contained_execution_service(
     adapter_id: str = "contained-local-cli",
     display_name: str = "Contained local CLI",
     adapter_version: str = "1.0.0",
+    subscription_presence: SubscriptionPresence | None = None,
 ) -> LocalCliExecutionService:
     """Return a contained service whose auth_profile matches this binding."""
 
-    if bound.profile_id == FIXTURE_NONE:
+    if bound.profile_id in {FIXTURE_NONE, CONTRIBUTOR_SUBSCRIPTION}:
         if credential_source is not None:
-            raise AuthProfileError("fixture-none never reads credentials")
+            raise AuthProfileError(
+                "fixture-none never reads credentials"
+                if bound.profile_id == FIXTURE_NONE
+                else "contributor-subscription never reads credentials"
+            )
         source: CredentialSource | None = None
     elif credential_source is not None:
         source = credential_source
     else:
         source = InfisicalSandboxCredentialSource(parent_env=parent_env)
+    profile_env_vars = tuple(
+        (profile_id, ())
+        if profile_id == CONTRIBUTOR_SUBSCRIPTION
+        else (profile_id, names)
+        for profile_id, names in bound.profile_env_vars
+    )
     return LocalCliExecutionService(
         adapter_id=adapter_id,
         display_name=display_name,
         adapter_version=adapter_version,
         auth_profile=bound.profile_id,
         supported_auth_profiles=bound.supported_profiles,
-        profile_env_vars=bound.profile_env_vars,
+        profile_env_vars=profile_env_vars,
         credential_source=source,
         infisical_env=bound.profile.infisical_env,
         parent_env=parent_env,
+        filesystem_scope=(
+            LINUX_LANDLOCK_FS_SCOPE
+            if bound.profile_id == CONTRIBUTOR_SUBSCRIPTION
+            else None
+        ),
+        subscription_presence=subscription_presence,
     )
