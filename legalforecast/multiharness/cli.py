@@ -383,6 +383,9 @@ def _cmd_adapters_list(args: argparse.Namespace) -> int:
 
 
 def _cmd_adapters_inspect(args: argparse.Namespace) -> int:
+    adapter_name = cast(str | None, args.adapter)
+    if adapter_name is not None:
+        builtin_adapter_registry().require_known(adapter_name)
     output_dir = cast(Path, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     if cast(bool, args.dry_run):

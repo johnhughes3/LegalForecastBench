@@ -44,17 +44,21 @@ class AdapterRegistry:
 
         return tuple(sorted(self._factories))
 
-    def get(self, name: str, **kwargs: object) -> HarnessAdapter:
-        """Construct the named adapter or refuse with the known-name list."""
+    def require_known(self, name: str) -> str:
+        """Return the canonical name, or refuse with the known-name list."""
 
         canonical = _require_adapter_name(name, field_name="adapter")
-        factory = self._factories.get(canonical)
-        if factory is None:
+        if canonical not in self._factories:
             known = ", ".join(self.known_names()) or "(none)"
             raise AdapterRegistryError(
                 f"unknown adapter {canonical!r}; known adapters: {known}"
             )
-        return factory(**kwargs)
+        return canonical
+
+    def get(self, name: str, **kwargs: object) -> HarnessAdapter:
+        """Construct the named adapter or refuse with the known-name list."""
+
+        return self._factories[self.require_known(name)](**kwargs)
 
 
 def builtin_adapter_registry() -> AdapterRegistry:

@@ -48,12 +48,14 @@ def test_unknown_adapter_name_lists_known_names() -> None:
     registry.register("alpha-fixture", LfbNativeAdapter)
 
     with pytest.raises(AdapterRegistryError, match="unknown adapter 'no-such'") as exc:
-        registry.get("no-such")
+        registry.require_known("no-such")
 
     message = str(exc.value)
     assert "alpha-fixture" in message
     assert "zeta-fixture" in message
     assert message.index("alpha-fixture") < message.index("zeta-fixture")
+    with pytest.raises(AdapterRegistryError, match="unknown adapter 'no-such'"):
+        registry.get("no-such")
 
 
 def test_empty_or_blank_names_are_refused() -> None:

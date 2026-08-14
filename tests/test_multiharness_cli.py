@@ -425,6 +425,55 @@ def test_cli_unknown_adapter_fails_with_known_names(
     assert CODEX_CLI_REGISTRY_NAME in err
 
 
+def test_cli_dry_run_inspect_unknown_adapter_fails_before_writing_plan(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_dir = tmp_path / "inspect"
+    assert (
+        main(
+            [
+                "multiharness",
+                "adapters",
+                "inspect",
+                "--adapter",
+                "no-such-adapter",
+                "--output-dir",
+                str(output_dir),
+                "--dry-run",
+            ]
+        )
+        == 2
+    )
+    err = capsys.readouterr().err
+    assert "unknown adapter" in err
+    assert LFB_NATIVE_REGISTRY_NAME in err
+    assert CLAUDE_CODE_REGISTRY_NAME in err
+    assert not (output_dir / "adapter-inspect-plan.json").exists()
+
+
+def test_cli_dry_run_inspect_known_adapter_writes_plan(tmp_path: Path) -> None:
+    output_dir = tmp_path / "inspect"
+    assert (
+        main(
+            [
+                "multiharness",
+                "adapters",
+                "inspect",
+                "--adapter",
+                LFB_NATIVE_REGISTRY_NAME,
+                "--output-dir",
+                str(output_dir),
+                "--dry-run",
+            ]
+        )
+        == 0
+    )
+    plan = _read_json(output_dir / "adapter-inspect-plan.json")
+    assert plan["dry_run"] is True
+    assert plan["adapter_source"]["adapter"] == LFB_NATIVE_REGISTRY_NAME
+
+
 def _lab_root(tmp_path: Path) -> Path:
     lab_root = tmp_path / "lab"
     task_dir = lab_root / "tasks" / "corporate" / "merger"
