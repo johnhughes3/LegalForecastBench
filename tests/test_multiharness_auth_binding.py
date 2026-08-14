@@ -74,6 +74,7 @@ def test_published_api_key_layout_names_wrapper_path_and_keys() -> None:
     layout = published_api_key_layout()
     assert layout["wrapper"] == INFISICAL_WRAPPER_NAME
     assert layout["infisical_path"] == LABELING_INFISICAL_PATH
+    assert layout["canonical_environment"] == "dev"
     assert layout["fail_closed_when_empty"] is True
     assert layout["host_environment_fallback"] is False
     keys = {(item["executable"], item["name"]) for item in layout["infisical_keys"]}
@@ -91,6 +92,7 @@ def test_published_api_key_layout_names_wrapper_path_and_keys() -> None:
     assert INFISICAL_WRAPPER_NAME in docs
     assert "ANTHROPIC_API_KEY" in docs
     assert "OPENAI_API_KEY" in docs
+    assert "`dev`" in docs
     docs = (
         Path(__file__).resolve().parents[1]
         / "docs"
@@ -110,6 +112,8 @@ def test_shipped_manifests_match_published_api_key_layout() -> None:
     )
     assert claude.profile.projected_env_vars == ("ANTHROPIC_API_KEY",)
     assert codex.profile.projected_env_vars == ("OPENAI_API_KEY",)
+    assert claude.profile.infisical_env == "dev"
+    assert codex.profile.infisical_env == "dev"
     assert claude.profile.infisical_path == codex.profile.infisical_path
     assert claude.profile.public_provenance() == {"auth_profile": PUBLISHED_API_KEY}
     assert claude.profile.infisical_path not in str(claude.profile.public_provenance())

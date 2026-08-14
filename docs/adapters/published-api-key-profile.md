@@ -10,7 +10,8 @@ This is the portable provider-billed local-CLI profile (`LegalForecastBench-dm0g
 | --- | --- |
 | Wrapper | `infisical-agent-sandbox` (the bare `infisical` CLI is unlinked and must not be used) |
 | Path | `/agents/sandbox/legalforecastbench/labeling` |
-| Allowed `--env` | `dev`, `staging`, `sandbox` |
+| Canonical `--env` | `dev` |
+| Also allowed `--env` | `staging`, `sandbox` |
 | Refused `--env` | `prod` |
 | Projected secret names | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` |
 
@@ -30,7 +31,7 @@ An adapter that does not name a key never receives it. Extra names the wrapper r
 Agents must not write secret values. The keys already live on the labeling path. If a named key is empty, populate it in Infisical as the human operator:
 
 1. Path: `/agents/sandbox/legalforecastbench/labeling`
-2. Environment: `dev` unless a non-production stage is explicitly selected
+2. Environment: `dev`
 3. Keys this profile reads (names only):
    - `ANTHROPIC_API_KEY` — Claude Code live smoke / provider-billed runs
    - `OPENAI_API_KEY` — Codex CLI live smoke / provider-billed runs
@@ -47,4 +48,4 @@ Do not copy those values into a second Infisical folder, the host environment, `
 
 ## Offline vs live
 
-Offline and CI runs use `fixture-none` (zero credentials) or inject a test double. A live preflight or haiku-tier smoke is opt-in (`LFB_LIVE_SMOKE=1`) and still uses this path through the wrapper.
+Offline and CI runs use `fixture-none` (zero credentials) or inject a test double. A live preflight or haiku-tier smoke is opt-in (`LFB_LIVE_SMOKE=1`) and still uses this path through the wrapper with `--env dev`.

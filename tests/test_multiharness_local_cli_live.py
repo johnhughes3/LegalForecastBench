@@ -88,7 +88,10 @@ def test_live_claude_through_execution_service(tmp_path: Path) -> None:
         PUBLISHED_API_KEY,
         supported_profiles=(PUBLISHED_API_KEY,),
         projected_env_vars=("ANTHROPIC_API_KEY",),
+        infisical_env="dev",
     )
+    assert profile.infisical_env == "dev"
+    assert profile.infisical_path == ("/agents/sandbox/legalforecastbench/labeling")
     source = InfisicalSandboxCredentialSource(wrapper_path=Path(wrapper))
     try:
         projected = dict(source.fetch_projected_env(profile))

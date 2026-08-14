@@ -73,8 +73,10 @@ def test_credentialed_profiles_use_declared_infisical_paths() -> None:
     assert api_key.infisical_path != subscription.infisical_path
     assert "account" not in api_key.public_provenance()
     assert api_key.public_provenance()["auth_profile"] == PUBLISHED_API_KEY
+    assert api_key.infisical_env == "dev"
     layout = published_api_key_layout()
     assert layout["infisical_path"] == LABELING_INFISICAL_PATH
+    assert layout["canonical_environment"] == "dev"
     assert "GEMINI_API_KEY" not in str(layout)
 
 

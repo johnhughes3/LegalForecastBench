@@ -136,6 +136,7 @@ def published_api_key_layout() -> dict[str, object]:
     record: dict[str, object] = {
         "wrapper": INFISICAL_WRAPPER_NAME,
         "infisical_path": infisical_path_for_profile(PUBLISHED_API_KEY),
+        "canonical_environment": "dev",
         "allowed_environments": list(sorted(ALLOWED_INFISICAL_ENVIRONMENTS)),
         "infisical_keys": [
             {"executable": basename, "name": name}
