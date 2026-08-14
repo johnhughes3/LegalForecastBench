@@ -68,6 +68,9 @@ def test_live_infisical_wrapper_reads_declared_path_not_sibling() -> None:
             "OPENAI_API_KEY",
             "CLAUDE_CODE_OAUTH_TOKEN",
         }
+        assert declared_present.get("ANTHROPIC_API_KEY") is True
+        assert declared_present.get("OPENAI_API_KEY") is True
+        assert declared_present.get("CLAUDE_CODE_OAUTH_TOKEN") is False
     else:
         assert declared_present is None
 

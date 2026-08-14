@@ -182,9 +182,7 @@ def test_infisical_source_uses_wrapper_and_refuses_host_fallback(
     assert "op" not in argv
     assert "--path" in argv
     path_index = argv.index("--path")
-    assert str(argv[path_index + 1]).startswith(
-        "/agents/sandbox/legalforecastbench/harness-runtime/"
-    )
+    assert argv[path_index + 1] == "/agents/sandbox/legalforecastbench/labeling"
     env = captured["env"]
     assert isinstance(env, dict)
     assert "OPENAI_API_KEY" not in env

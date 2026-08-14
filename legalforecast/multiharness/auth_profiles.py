@@ -29,18 +29,24 @@ AUTH_PROFILE_IDS: Final[frozenset[str]] = frozenset(
 )
 
 LEGALFORECASTBENCH_SANDBOX_ROOT: Final = "/agents/sandbox/legalforecastbench"
+LABELING_INFISICAL_PATH: Final = f"{LEGALFORECASTBENCH_SANDBOX_ROOT}/labeling"
 HARNESS_RUNTIME_INFISICAL_ROOT: Final = (
     f"{LEGALFORECASTBENCH_SANDBOX_ROOT}/harness-runtime"
 )
 
-_PROFILE_INFISICAL_LEAF: Final[Mapping[str, str]] = {
-    PUBLISHED_API_KEY: "published-api-key",
-    CONTRIBUTOR_SUBSCRIPTION: "contributor-subscription",
+# published-api-key reuses the existing labeling stage view rather than a
+# duplicate harness-runtime folder. The labeling inventory also has
+# GEMINI_API_KEY; adapters never project it. contributor-subscription stays
+# on its own harness-runtime folder and is not bound yet.
+_PROFILE_INFISICAL_PATH: Final[Mapping[str, str]] = {
+    PUBLISHED_API_KEY: LABELING_INFISICAL_PATH,
+    CONTRIBUTOR_SUBSCRIPTION: (
+        f"{HARNESS_RUNTIME_INFISICAL_ROOT}/contributor-subscription"
+    ),
 }
 
-# Infisical secret names in the published-api-key folder equal these env vars.
-# Each adapter projects a subset; the folder may contain both. See
-# docs/adapters/published-api-key-profile.md. Do not add account IDs or paths.
+# Infisical secret names this profile may project. Each adapter takes a
+# subset. See docs/adapters/published-api-key-profile.md.
 PUBLISHED_API_KEY_SECRET_KEYS: Final[frozenset[str]] = frozenset(
     {
         "ANTHROPIC_API_KEY",
@@ -154,9 +160,8 @@ def infisical_path_for_profile(profile_id: str) -> str:
     canonical = require_auth_profile_id(profile_id)
     if canonical == FIXTURE_NONE:
         raise AuthProfileError("fixture-none never reads credentials")
-    leaf = _PROFILE_INFISICAL_LEAF[canonical]
-    path = f"{HARNESS_RUNTIME_INFISICAL_ROOT}/{leaf}"
-    _require_legalforecastbench_sandbox_path(path)
+    path = _PROFILE_INFISICAL_PATH[canonical]
+    _require_declared_profile_infisical_path(path)
     return path
 
 
@@ -226,7 +231,7 @@ def _validated_projected_env_vars(
     return validated
 
 
-def _require_legalforecastbench_sandbox_path(path: str) -> None:
+def _require_declared_profile_infisical_path(path: str) -> None:
     if ".." in path or path.endswith("/") or "//" in path:
         raise AuthProfileError("Infisical path is invalid")
     prefix = f"{LEGALFORECASTBENCH_SANDBOX_ROOT}/"
@@ -234,7 +239,7 @@ def _require_legalforecastbench_sandbox_path(path: str) -> None:
         raise AuthProfileError(
             "Infisical path must be a legalforecastbench sandbox subdirectory"
         )
-    if not path.startswith(f"{HARNESS_RUNTIME_INFISICAL_ROOT}/"):
+    if path not in _PROFILE_INFISICAL_PATH.values():
         raise AuthProfileError(
-            "CLI auth credentials must use the harness-runtime Infisical subdirectory"
+            "CLI auth credentials must use a declared profile Infisical path"
         )

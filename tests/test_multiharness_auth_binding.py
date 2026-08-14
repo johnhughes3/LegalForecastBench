@@ -17,8 +17,8 @@ from legalforecast.multiharness.auth_binding import (
 from legalforecast.multiharness.auth_profiles import (
     CONTRIBUTOR_SUBSCRIPTION,
     FIXTURE_NONE,
-    HARNESS_RUNTIME_INFISICAL_ROOT,
     INFISICAL_WRAPPER_NAME,
+    LABELING_INFISICAL_PATH,
     PUBLISHED_API_KEY,
     AuthProfileError,
     published_api_key_layout,
@@ -73,13 +73,13 @@ def _polluted_parent_env() -> dict[str, str]:
 def test_published_api_key_layout_names_wrapper_path_and_keys() -> None:
     layout = published_api_key_layout()
     assert layout["wrapper"] == INFISICAL_WRAPPER_NAME
-    assert layout["infisical_path"] == (
-        f"{HARNESS_RUNTIME_INFISICAL_ROOT}/published-api-key"
-    )
+    assert layout["infisical_path"] == LABELING_INFISICAL_PATH
     assert layout["fail_closed_when_empty"] is True
     assert layout["host_environment_fallback"] is False
     keys = {(item["executable"], item["name"]) for item in layout["infisical_keys"]}
     assert keys == {("claude", "ANTHROPIC_API_KEY"), ("codex", "OPENAI_API_KEY")}
+    assert "GEMINI_API_KEY" not in str(layout)
+    assert "harness-runtime/published-api-key" not in str(layout)
     assert "prod" not in layout["allowed_environments"]
     docs = (
         Path(__file__).resolve().parents[1]
