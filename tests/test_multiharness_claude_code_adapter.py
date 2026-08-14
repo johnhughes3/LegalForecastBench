@@ -480,6 +480,7 @@ def test_solver_metadata_records_published_api_key_profile(tmp_path: Path) -> No
         execution_service=service,
         model_key=SOLVER_MODEL_KEY,
         workspace=tmp_path / "solver-workspace",
+        network_policy="provider_egress_host_only",
     )
     response = solver.solve(_harness_request())
 

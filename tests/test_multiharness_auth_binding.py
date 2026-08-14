@@ -292,9 +292,23 @@ def test_solver_default_adapter_inherits_service_auth_profile() -> None:
     solver = ClaudeCodeCliSolver(
         execution_service=service,
         model_key="anthropic:claude-sonnet-4-6",
+        network_policy="provider_egress_host_only",
     )
     assert solver.adapter is not None
     assert solver.adapter.auth_profile == PUBLISHED_API_KEY
+
+
+def test_solver_refuses_published_api_key_without_egress_opt_in() -> None:
+    bound = bind_adapter_auth_profile(claude_code_local_manifest(), PUBLISHED_API_KEY)
+    service = contained_execution_service(
+        bound,
+        credential_source=StaticCredentialSource({"ANTHROPIC_API_KEY": "test-key"}),
+    )
+    with pytest.raises(ClaudeCodeCliAdapterError, match="provider_egress"):
+        ClaudeCodeCliSolver(
+            execution_service=service,
+            model_key="anthropic:claude-sonnet-4-6",
+        )
 
 
 def test_published_api_key_changes_resume_row_identity() -> None:

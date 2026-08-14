@@ -58,6 +58,7 @@ from legalforecast.multiharness.local_cli_manifest import (
     LocalCliUsageReporting,
 )
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
+from legalforecast.multiharness.sandbox import NETWORK_NONE
 from legalforecast.multiharness.spec import (
     AdapterCapabilities,
     AdapterManifest,
@@ -584,6 +585,7 @@ class ClaudeCodeCliSolver:
     model_key: str
     workspace: Path | None = None
     adapter: ClaudeCodeCliAdapter | None = None
+    network_policy: str = NETWORK_NONE
 
     def __post_init__(self) -> None:
         _requested_model(self.model_key)
@@ -601,6 +603,15 @@ class ClaudeCodeCliSolver:
                     auth_profile=service_profile,
                 ),
             )
+        adapter = self.adapter
+        if adapter is None:
+            return
+        try:
+            require_credentialed_network_policy(
+                adapter.auth_profile, self.network_policy
+            )
+        except AuthProfileError as exc:
+            raise ClaudeCodeCliAdapterError(str(exc)) from exc
 
     @property
     def solver_id(self) -> str:
@@ -640,6 +651,7 @@ class ClaudeCodeCliSolver:
                 bound.profile_id,
                 projected_env_vars=bound.profile.projected_env_vars,
             )
+            require_credentialed_network_policy(bound.profile_id, self.network_policy)
         except AuthProfileError as exc:
             raise ClaudeCodeCliAdapterError(str(exc)) from exc
         required_unit_ids = request.sample.required_unit_ids
