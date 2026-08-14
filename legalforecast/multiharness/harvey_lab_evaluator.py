@@ -17,7 +17,7 @@ import shutil
 import stat
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -169,81 +169,106 @@ def invoke_isolated_harvey_lab_evaluator(
     _require_evaluator_source_pin(hosts, identity)
     _require_projected_identity(hosts, identity)
     _require_sealed_identity(sealed_manifest, identity)
-    observed_wrapper = _resolved_wrapper_digest(
-        evaluator_command, execution_service.parent_env
+    if "/" in evaluator_command or "\\" in evaluator_command:
+        raise HarveyLabEvaluationError("evaluator command must be a basename")
+    wrapper_name = Path(evaluator_command).name
+    if wrapper_name != evaluator_command or wrapper_name in {".", ".."}:
+        raise HarveyLabEvaluationError("evaluator command must be a basename")
+    observed_wrapper, wrapper_dir = _pin_wrapper_executable(
+        wrapper_name,
+        execution_service.parent_env,
+        hosts.working_directory,
     )
-    expected_wrapper = _require_prefixed(identity.wrapper_sha256, "wrapper_sha256")
-    if observed_wrapper != expected_wrapper:
-        raise HarveyLabEvaluationError(
-            "wrapper_sha256 does not match the resolved evaluator executable"
-        )
-    spec, stdin_record = build_contained_evaluator_run_spec(
-        hosts=hosts,
-        sealed_manifest=sealed_manifest,
-        identity=identity,
-        evaluator_command=evaluator_command,
-        timeout_seconds=timeout_seconds,
-    )
-    started_monotonic = _monotonic_ns()
-    started_at = datetime.now(UTC)
-    execution = execution_service.execute(spec)
-    ended_monotonic = _monotonic_ns()
-    ended_at = datetime.now(UTC)
-    if execution.status != "succeeded" or execution.returncode not in {0, None}:
-        raise HarveyLabEvaluationError(
-            "contained LAB evaluator failed; evaluation never reruns the solver"
-        )
-    scores_path = Path(str(stdin_record["scores_output_path"]))
     try:
-        raw_result = _read_regular_file(scores_path)
-    except HarveyLabEvaluationError as exc:
-        raise HarveyLabEvaluationError(
-            "evaluator did not write the scores path listed in the input manifest"
-        ) from exc
-    evaluation_spec = _evaluation_spec(
-        sealed_manifest=sealed_manifest,
-        identity=identity,
-        private_material_sha256=str(stdin_record["private_material_sha256"]),
-        raw_result=raw_result,
-    )
-    receipt = build_evaluation_receipt(
-        spec=evaluation_spec,
-        signer=signer,
-        measurement_id=measurement_id or f"measurement-{uuid4().hex[:12]}",
-        evaluation_attempt_id=evaluation_attempt_id
-        or f"eval-attempt-{uuid4().hex[:12]}",
-        attempt_nonce=attempt_nonce or f"nonce-{uuid4().hex[:12]}",
-        repeat_index=1,
-        judge_resolved_identity=FIXTURE_JUDGE_IDENTITY,
-        raw_result_sha256=_prefixed_digest(raw_result),
-        raw_result_size_bytes=len(raw_result),
-        raw_result_media_type="application/json",
-        status="succeeded",
-        token_usage=_fixture_token_usage(),
-        cost=_fixture_cost(),
-        timing=_timing(started_at, ended_at, started_monotonic, ended_monotonic),
-        issuer_policy_sha256=_require_prefixed(
-            issuer_policy_sha256, "issuer_policy_sha256"
-        ),
-        issuer_key_id=issuer_key_id,
-    )
-    write_json_object(
-        hosts.overlay_root / "evaluation-output.json",
-        {
-            "schema_version": EVALUATION_OUTPUT_SCHEMA_VERSION,
-            "evaluation_spec_sha256": evaluation_spec.spec_sha256,
-            "receipt_sha256": receipt.receipt_sha256,
-            "raw_result_sha256": _prefixed_digest(raw_result),
-        },
-    )
-    return HarveyLabIsolatedEvaluation(
-        spec=evaluation_spec,
-        receipt=receipt,
-        execution=execution,
-        raw_result=raw_result,
-        overlay_root=hosts.overlay_root.resolve(),
-        input_manifest=stdin_record,
-    )
+        expected_wrapper = _require_prefixed(identity.wrapper_sha256, "wrapper_sha256")
+        if observed_wrapper != expected_wrapper:
+            raise HarveyLabEvaluationError(
+                "wrapper_sha256 does not match the resolved evaluator executable"
+            )
+        spec, stdin_record = build_contained_evaluator_run_spec(
+            hosts=hosts,
+            sealed_manifest=sealed_manifest,
+            identity=identity,
+            evaluator_command=wrapper_name,
+            timeout_seconds=timeout_seconds,
+        )
+        pinned_env = dict(
+            os.environ
+            if execution_service.parent_env is None
+            else execution_service.parent_env
+        )
+        pinned_env["PATH"] = (
+            f"{wrapper_dir}{os.pathsep}{pinned_env.get('PATH') or '/usr/bin'}"
+        )
+        try:
+            pinned_service = replace(execution_service, parent_env=pinned_env)
+        except TypeError as exc:
+            raise HarveyLabEvaluationError(
+                "execution service cannot pin the evaluator PATH"
+            ) from exc
+        started_monotonic = _monotonic_ns()
+        started_at = datetime.now(UTC)
+        execution = pinned_service.execute(spec)
+        ended_monotonic = _monotonic_ns()
+        ended_at = datetime.now(UTC)
+        if execution.status != "succeeded" or execution.returncode not in {0, None}:
+            raise HarveyLabEvaluationError(
+                "contained LAB evaluator failed; evaluation never reruns the solver"
+            )
+        scores_path = Path(str(stdin_record["scores_output_path"]))
+        try:
+            raw_result = _read_regular_file(scores_path)
+        except HarveyLabEvaluationError as exc:
+            raise HarveyLabEvaluationError(
+                "evaluator did not write the scores path listed in the input manifest"
+            ) from exc
+        evaluation_spec = _evaluation_spec(
+            sealed_manifest=sealed_manifest,
+            identity=identity,
+            private_material_sha256=str(stdin_record["private_material_sha256"]),
+            wrapper_sha256=observed_wrapper,
+            raw_result=raw_result,
+        )
+        receipt = build_evaluation_receipt(
+            spec=evaluation_spec,
+            signer=signer,
+            measurement_id=measurement_id or f"measurement-{uuid4().hex[:12]}",
+            evaluation_attempt_id=evaluation_attempt_id
+            or f"eval-attempt-{uuid4().hex[:12]}",
+            attempt_nonce=attempt_nonce or f"nonce-{uuid4().hex[:12]}",
+            repeat_index=1,
+            judge_resolved_identity=FIXTURE_JUDGE_IDENTITY,
+            raw_result_sha256=_prefixed_digest(raw_result),
+            raw_result_size_bytes=len(raw_result),
+            raw_result_media_type="application/json",
+            status="succeeded",
+            token_usage=_fixture_token_usage(),
+            cost=_fixture_cost(),
+            timing=_timing(started_at, ended_at, started_monotonic, ended_monotonic),
+            issuer_policy_sha256=_require_prefixed(
+                issuer_policy_sha256, "issuer_policy_sha256"
+            ),
+            issuer_key_id=issuer_key_id,
+        )
+        write_json_object(
+            hosts.overlay_root / "evaluation-output.json",
+            {
+                "schema_version": EVALUATION_OUTPUT_SCHEMA_VERSION,
+                "evaluation_spec_sha256": evaluation_spec.spec_sha256,
+                "receipt_sha256": receipt.receipt_sha256,
+                "raw_result_sha256": _prefixed_digest(raw_result),
+            },
+        )
+        return HarveyLabIsolatedEvaluation(
+            spec=evaluation_spec,
+            receipt=receipt,
+            execution=execution,
+            raw_result=raw_result,
+            overlay_root=hosts.overlay_root.resolve(),
+            input_manifest=stdin_record,
+        )
+    finally:
+        shutil.rmtree(wrapper_dir, ignore_errors=True)
 
 
 def evaluation_input_record(
@@ -398,12 +423,14 @@ def _evaluation_spec(
     sealed_manifest: DeliverableManifest,
     identity: HarveyLabEvaluationIdentity,
     private_material_sha256: str,
+    wrapper_sha256: str,
     raw_result: bytes,
 ) -> EvaluationSpec:
     pin = identity.pin
     private_digest = _require_prefixed(
         private_material_sha256, "private_material_sha256"
     )
+    launched_wrapper = _require_prefixed(wrapper_sha256, "wrapper_sha256")
     policy = _prefixed_json(
         {
             "containment": "posix_process_group.v1",
@@ -424,10 +451,10 @@ def _evaluation_spec(
         evaluator_commit=pin.commit,
         evaluator_tree=pin.tree,
         evaluator_file_manifest_sha256=_prefixed_json(
-            {"pin": pin.to_record(), "wrapper_sha256": identity.wrapper_sha256}
+            {"pin": pin.to_record(), "wrapper_sha256": launched_wrapper}
         ),
         evaluator_image_digest=_prefixed_json({"kind": "fixture-cli"}),
-        wrapper_sha256=_require_prefixed(identity.wrapper_sha256, "wrapper_sha256"),
+        wrapper_sha256=launched_wrapper,
         private_material_sha256=private_digest,
         rubric_sha256=private_digest,
         criteria_sha256=private_digest,
@@ -628,14 +655,77 @@ def _require_sealed_identity(
             )
 
 
-def _resolved_wrapper_digest(command: str, parent_env: Mapping[str, str] | None) -> str:
+def _pin_wrapper_executable(
+    command: str,
+    parent_env: Mapping[str, str] | None,
+    working_directory: Path,
+) -> tuple[str, Path]:
     env = dict(os.environ if parent_env is None else parent_env)
     search_path = env.get("PATH") or "/usr/bin"
     located = shutil.which(command, path=search_path)
     if located is None:
         raise HarveyLabEvaluationError("evaluator command is not on PATH")
-    digest = hashlib.sha256(_read_regular_file(Path(located))).hexdigest()
-    return "sha256:" + digest
+    payload = _read_regular_file(Path(located))
+    try:
+        working_directory.mkdir(parents=True, exist_ok=True)
+        work_fd = os.open(working_directory, _nofollow_directory_flags())
+    except OSError as exc:
+        raise HarveyLabEvaluationError(
+            "working directory must be a real directory"
+        ) from exc
+    wrapper_name = f".harvey-lab-wrapper-{uuid4().hex}"
+    try:
+        try:
+            os.mkdir(wrapper_name, 0o700, dir_fd=work_fd)
+        except OSError as exc:
+            raise HarveyLabEvaluationError(
+                "could not create wrapper pin directory"
+            ) from exc
+        wrapper_dir = working_directory / wrapper_name
+        try:
+            _write_contained_wrapper(wrapper_dir, command, payload)
+        except BaseException:
+            shutil.rmtree(wrapper_dir, ignore_errors=True)
+            raise
+        return _prefixed_digest(payload), wrapper_dir
+    finally:
+        os.close(work_fd)
+
+
+def _nofollow_directory_flags() -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    return flags
+
+
+def _write_contained_wrapper(wrapper_dir: Path, name: str, payload: bytes) -> None:
+    if "/" in name or "\\" in name or name in {".", ".."}:
+        raise HarveyLabEvaluationError("evaluator command must be a basename")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    try:
+        dir_fd = os.open(wrapper_dir, _nofollow_directory_flags())
+        try:
+            file_fd = os.open(name, flags, 0o700, dir_fd=dir_fd)
+            try:
+                view = payload
+                while view:
+                    view = view[os.write(file_fd, view) :]
+                os.fchmod(file_fd, 0o755)
+            finally:
+                os.close(file_fd)
+        finally:
+            os.close(dir_fd)
+    except OSError as exc:
+        raise HarveyLabEvaluationError("could not pin the evaluator wrapper") from exc
 
 
 def _record_reaches_root(record: Mapping[str, object], root: Path) -> bool:

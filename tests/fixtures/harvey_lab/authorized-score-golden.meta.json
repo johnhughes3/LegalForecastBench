@@ -1,0 +1,9 @@
+{
+  "synthetic": true,
+  "generated_by": "tests/test_harvey_lab_authorized_scoring.py::_score with Ed25519PrivateKey.from_private_bytes(b'L' * 32)",
+  "command": "uv run pytest tests/test_harvey_lab_authorized_scoring.py -q",
+  "files": [
+    "authorized-score-all-pass.golden.json",
+    "authorized-score-one-fail.golden.json"
+  ]
+}

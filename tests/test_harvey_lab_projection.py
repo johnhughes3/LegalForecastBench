@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
 import subprocess
 from pathlib import Path
@@ -14,6 +15,7 @@ from legalforecast.multiharness.harvey_lab_projection import (
     SOLVER_VISIBLE_LAYOUT_ID,
     HarveyLabPin,
     HarveyLabProjectionError,
+    _archive_pinned_source,
     classify_harvey_lab_task,
     harvey_lab_layout_map,
     issue_196_pin,
@@ -281,6 +283,21 @@ def test_symlink_in_projection_fails_verification(tmp_path: Path) -> None:
         scan_projection_for_private_markers(result.solver_root)
 
 
+def test_fifo_in_source_documents_is_rejected(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    os.mkfifo(source / "tasks" / ISSUE_196_LAB_TASK_ID / "documents" / "pipe")
+    with pytest.raises(
+        HarveyLabProjectionError,
+        match="unsupported entry",
+    ):
+        project_harvey_lab_suite(
+            source_root=source,
+            solver_root=tmp_path / "solver",
+            evaluator_private_root=tmp_path / "private",
+            pin=FIXTURE_PIN,
+        )
+
+
 def test_fifo_in_projection_fails_verification(tmp_path: Path) -> None:
     source = _issue_196_source(tmp_path / "lab")
     result = project_harvey_lab_suite(
@@ -382,6 +399,66 @@ def test_ignored_worktree_files_fail_official_pin(
             evaluator_private_root=tmp_path / "private",
             pin=pin,
         )
+
+
+def test_archive_exports_pin_tree_after_head_advances(tmp_path: Path) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    _init_git_repo(source)
+    first_commit = (
+        subprocess.check_output(
+            ["git", "-C", str(source), "rev-parse", "HEAD"],
+            text=True,
+        )
+        .strip()
+        .casefold()
+    )
+    first_tree = (
+        subprocess.check_output(
+            ["git", "-C", str(source), "rev-parse", "HEAD^{tree}"],
+            text=True,
+        )
+        .strip()
+        .casefold()
+    )
+    marker = source / "tasks" / ISSUE_196_LAB_TASK_ID / "task.json"
+    original = marker.read_bytes()
+    marker.write_bytes(original + b"\nMUTATED_HEAD\n")
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "lab-fixture",
+        "GIT_AUTHOR_EMAIL": "lab-fixture@example.com",
+        "GIT_COMMITTER_NAME": "lab-fixture",
+        "GIT_COMMITTER_EMAIL": "lab-fixture@example.com",
+    }
+    subprocess.run(["git", "add", "."], cwd=source, check=True, env=env)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=lab-fixture",
+            "-c",
+            "user.email=lab-fixture@example.com",
+            "commit",
+            "-qm",
+            "advance-head",
+        ],
+        cwd=source,
+        check=True,
+        env=env,
+    )
+    snapshot = _archive_pinned_source(
+        source,
+        HarveyLabPin(
+            repository="https://example.com/legalforecast-lab-fixture",
+            commit=first_commit,
+            tree=first_tree,
+        ),
+    )
+    try:
+        archived = snapshot / "tasks" / ISSUE_196_LAB_TASK_ID / "task.json"
+        assert archived.read_bytes() == original
+    finally:
+        shutil.rmtree(snapshot, ignore_errors=True)
 
 
 def test_official_pin_requires_authenticated_checkout(tmp_path: Path) -> None:

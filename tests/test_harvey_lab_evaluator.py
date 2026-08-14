@@ -9,7 +9,6 @@ import sys
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import cast
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -25,6 +24,7 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
     _directory_digest,
+    _pin_wrapper_executable,
     build_contained_evaluator_run_spec,
     invoke_isolated_harvey_lab_evaluator,
 )
@@ -98,7 +98,7 @@ def test_isolated_evaluator_binds_receipt_without_solver_or_network(
 
 
 def test_receipt_binds_to_copied_private_inputs_not_live_source(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     env = _install_evaluator(tmp_path)
     projected = _project(tmp_path)
@@ -120,19 +120,21 @@ def test_receipt_binds_to_copied_private_inputs_not_live_source(
         parent_env=env,
     )
 
-    class MutatingService:
-        parent_env = service.parent_env
+    original_execute = LocalCliExecutionService.execute
 
-        def execute(self, spec: RunSpec) -> ExecutionReceipt:
-            os.chmod(private_json, stat.S_IWUSR | stat.S_IRUSR)
-            private_json.write_bytes(original + b"\nMUTATED_AFTER_COPY\n")
-            return service.execute(spec)
+    def mutate_then_execute(
+        self: LocalCliExecutionService, spec: RunSpec
+    ) -> ExecutionReceipt:
+        os.chmod(private_json, stat.S_IWUSR | stat.S_IRUSR)
+        private_json.write_bytes(original + b"\nMUTATED_AFTER_COPY\n")
+        return original_execute(self, spec)
 
+    monkeypatch.setattr(LocalCliExecutionService, "execute", mutate_then_execute)
     result = invoke_isolated_harvey_lab_evaluator(
         hosts=hosts,
         sealed_manifest=sealed,
         identity=identity,
-        execution_service=cast(LocalCliExecutionService, MutatingService()),
+        execution_service=service,
         signer=PRIVATE_KEY.sign,
         issuer_key_id="evaluation-key-fixture",
         issuer_policy_sha256=ISSUER_POLICY,
@@ -413,6 +415,48 @@ def test_extra_sealed_artifact_is_refused(tmp_path: Path) -> None:
             identity=_identity(projected, tmp_path),
         )
     del env
+
+
+def test_absolute_evaluator_command_is_refused(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    with pytest.raises(HarveyLabEvaluationError, match="must be a basename"):
+        invoke_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=_identity(projected, tmp_path),
+            execution_service=LocalCliExecutionService(
+                auth_profile=FIXTURE_NONE,
+                parent_env=env,
+            ),
+            signer=PRIVATE_KEY.sign,
+            issuer_key_id="evaluation-key-fixture",
+            issuer_policy_sha256=ISSUER_POLICY,
+            evaluator_command=str(tmp_path / "bin" / EVALUATOR_COMMAND_NAME),
+        )
+
+
+def test_wrapper_pin_directories_are_unique_per_call(tmp_path: Path) -> None:
+    env = _install_evaluator(tmp_path)
+    work = tmp_path / "work"
+    first_digest, first_dir = _pin_wrapper_executable(EVALUATOR_COMMAND_NAME, env, work)
+    second_digest, second_dir = _pin_wrapper_executable(
+        EVALUATOR_COMMAND_NAME, env, work
+    )
+    assert first_digest == second_digest
+    assert first_dir != second_dir
+    assert first_dir.is_dir()
+    assert second_dir.is_dir()
+    assert (first_dir / EVALUATOR_COMMAND_NAME).is_file()
+    assert (second_dir / EVALUATOR_COMMAND_NAME).is_file()
 
 
 def test_wrapper_hash_mismatch_is_refused(tmp_path: Path) -> None:
