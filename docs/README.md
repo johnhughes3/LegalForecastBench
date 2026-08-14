@@ -65,6 +65,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [claude-code-cli-characterization.md](adapters/claude-code-cli-characterization.md): pinned offline interface characterization of the installed standalone Claude Code CLI; not activated for benchmark execution.
 - [codex-native-containment.md](adapters/codex-native-containment.md): why the pinned Codex CLI does not qualify as clean-native containment on this host.
 - [claude-code-native-containment.md](adapters/claude-code-native-containment.md): pending zero-provider-spend containment characterization; no successful capture or fixture is claimed.
+- [published-api-key-profile.md](adapters/published-api-key-profile.md): Infisical layout for the portable `published-api-key` local-CLI profile (wrapper path, key names, fail-closed empty path).
 
 ## Preprint
 
