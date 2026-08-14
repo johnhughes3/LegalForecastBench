@@ -7,7 +7,6 @@ Does not invent a second RunSpec, ExecutionReceipt, or failure-class family.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
 from collections.abc import Callable, Mapping, Sequence
@@ -19,6 +18,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from legalforecast.multiharness.claude_code import (
     CLAUDE_CODE_CLEAN_NATIVE_TOOLS,
+    CLAUDE_CODE_EXECUTABLE_NAME,
     CLAUDE_CODE_OUTPUT_SCHEMA_NAME,
     ClaudeCodeCliAdapter,
     ClaudeCodeCliAdapterError,
@@ -54,6 +54,7 @@ from legalforecast.multiharness.local_cli_contracts import (
     RunSpec,
     is_local_cli_sandbox_denial,
 )
+from legalforecast.multiharness.local_cli_identity import sha256_file
 from legalforecast.multiharness.scoring import (
     ScoreArtifact,
     build_harvey_lab_metric_definition,
@@ -170,6 +171,12 @@ def run_claude_code_clean_native_harvey_lab(
         raise ClaudeCodeCliAdapterError(
             "clean-native --tools argv token drifted from the frozen encoding"
         )
+    _require_on_path(
+        CLAUDE_CODE_EXECUTABLE_NAME,
+        service.parent_env,
+        label="clean-native Claude Code executable",
+        missing="local CLI executable could not be launched",
+    )
     spec = RunSpec(
         spec_id=task.task_id,
         argv=plan.argv,
@@ -197,9 +204,18 @@ def run_claude_code_clean_native_harvey_lab(
         evaluator_private_root=evaluator_private_root,
         projection_root=projection.solver_root,
     )
-    wrapper_sha256 = _path_resolved_wrapper_sha256(
-        evaluator_command,
-        service.parent_env,
+    if discovery.quarantined:
+        raise ClaudeCodeCliAdapterError(
+            "discovered outputs include quarantined files; scoring refused"
+        )
+    wrapper_sha256 = "sha256:" + sha256_file(
+        Path(
+            _require_on_path(
+                evaluator_command,
+                service.parent_env,
+                label="evaluator wrapper",
+            )
+        )
     )
     hosts = HarveyLabEvaluationHosts(
         sealed_deliverable_root=sealed_root,
@@ -302,20 +318,22 @@ def _require_solver_success(spec: RunSpec, execution: ExecutionReceipt) -> None:
         )
 
 
-def _path_resolved_wrapper_sha256(
+def _require_on_path(
     command: str,
     parent_env: Mapping[str, str] | None,
+    *,
+    label: str,
+    missing: str | None = None,
 ) -> str:
     if "/" in command or "\\" in command or command in {".", ".."}:
-        raise ClaudeCodeCliAdapterError("evaluator command must be a basename")
+        raise ClaudeCodeCliAdapterError(f"{label} must be a basename on PATH")
     search_path = (
         "/usr/bin" if parent_env is None else parent_env.get("PATH", "/usr/bin")
     )
     located = shutil.which(command, path=search_path)
     if located is None:
-        raise ClaudeCodeCliAdapterError("evaluator command is not on PATH")
-    payload = Path(located).read_bytes()
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
+        raise ClaudeCodeCliAdapterError(missing or f"{label} is not on PATH")
+    return located
 
 
 def _prefixed_digest_text(value: str) -> str:

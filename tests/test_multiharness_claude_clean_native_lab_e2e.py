@@ -154,6 +154,32 @@ def test_out_of_sandbox_output_file_is_not_scored(tmp_path: Path) -> None:
     assert not (tmp_path / "sealed").exists()
 
 
+def test_quarantined_extra_is_not_scored(tmp_path: Path) -> None:
+    env = _install_binaries(tmp_path)
+    hosts = _hosts(tmp_path)
+    extra = tmp_path / "sandbox" / "output"
+    extra.mkdir(parents=True, exist_ok=True)
+    (extra / "scratch-notes.txt").write_text("not scored", encoding="utf-8")
+    try:
+        with pytest.raises(
+            ClaudeCodeCliAdapterError,
+            match="discovered outputs include quarantined files; scoring refused",
+        ):
+            run_claude_code_clean_native_harvey_lab(
+                adapter=_adapter(env),
+                pin=FIXTURE_PIN,
+                signer=KEY.sign,
+                issuer_public_key=KEY.public_key(),
+                **hosts,
+            )
+    finally:
+        _make_writable(tmp_path)
+    assert (tmp_path / "quarantine" / "scratch-notes.txt").read_text(
+        encoding="utf-8"
+    ) == "not scored"
+    assert not (tmp_path / "score.json").exists()
+
+
 def test_swapped_scoring_input_digest_is_named(tmp_path: Path) -> None:
     env = _install_binaries(tmp_path)
     hosts = _hosts(tmp_path)
