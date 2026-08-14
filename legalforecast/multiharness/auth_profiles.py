@@ -38,6 +38,23 @@ _PROFILE_INFISICAL_LEAF: Final[Mapping[str, str]] = {
     CONTRIBUTOR_SUBSCRIPTION: "contributor-subscription",
 }
 
+# Infisical secret names in the published-api-key folder equal these env vars.
+# Each adapter projects a subset; the folder may contain both. See
+# docs/adapters/published-api-key-profile.md. Do not add account IDs or paths.
+PUBLISHED_API_KEY_SECRET_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+    }
+)
+
+INFISICAL_WRAPPER_NAME: Final = "infisical-agent-sandbox"
+
+PUBLISHED_API_KEY_ENV_BY_EXECUTABLE: Final[Mapping[str, tuple[str, ...]]] = {
+    "claude": ("ANTHROPIC_API_KEY",),
+    "codex": ("OPENAI_API_KEY",),
+}
+
 _REFUSED_ALIASES: Final[frozenset[str]] = frozenset(
     {
         "fixture_none",
@@ -94,6 +111,41 @@ def require_auth_profile_id(value: object, field_name: str = "auth_profile") -> 
             f"{', '.join(sorted(AUTH_PROFILE_IDS))}"
         )
     return value
+
+
+def published_api_key_env_vars_for_executable(basename: str) -> tuple[str, ...]:
+    """Return the Infisical key names this executable may project."""
+
+    names = PUBLISHED_API_KEY_ENV_BY_EXECUTABLE.get(basename)
+    if names is None:
+        raise AuthProfileError(
+            "published-api-key has no Infisical layout for this executable"
+        )
+    return names
+
+
+def published_api_key_layout() -> dict[str, object]:
+    """Return the operator Infisical layout. Never includes secret values."""
+
+    record: dict[str, object] = {
+        "wrapper": INFISICAL_WRAPPER_NAME,
+        "infisical_path": infisical_path_for_profile(PUBLISHED_API_KEY),
+        "allowed_environments": list(sorted(ALLOWED_INFISICAL_ENVIRONMENTS)),
+        "infisical_keys": [
+            {"executable": basename, "name": name}
+            for basename, names in PUBLISHED_API_KEY_ENV_BY_EXECUTABLE.items()
+            for name in names
+        ],
+        "fail_closed_when_empty": True,
+        "host_environment_fallback": False,
+    }
+    validate_public_record(record, "published-api-key Infisical layout")
+    listed = frozenset(
+        name for names in PUBLISHED_API_KEY_ENV_BY_EXECUTABLE.values() for name in names
+    )
+    if listed != PUBLISHED_API_KEY_SECRET_KEYS:
+        raise AuthProfileError("published-api-key layout keys drifted")
+    return record
 
 
 def infisical_path_for_profile(profile_id: str) -> str:

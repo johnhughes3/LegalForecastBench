@@ -270,6 +270,7 @@ def test_fake_success_binds_spec_receipt_and_deliverable(
     assert result.status == "succeeded"
     assert result.public_summary["adapter_id"] == CLAUDE_CODE_ADAPTER_ID
     assert result.public_summary["auth_mode"] == "none-offline"
+    assert result.public_summary["auth_profile"] == "fixture-none"
     assert result.public_summary["sandbox_policy_id"] == "offline-cli"
     assert result.public_summary["spec_sha256"].startswith("sha256:")
     assert result.public_summary["deliverable_manifest_sha256"].startswith("sha256:")

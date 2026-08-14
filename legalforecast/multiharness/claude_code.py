@@ -4,10 +4,11 @@ This adapter loads B1's frozen local CLI manifest, translates a benchmark
 task into a deterministic ``claude -p`` argv via ``LocalCliInvocation.render_argv``,
 asks B2's ``LocalCliExecutionService.execute(RunSpec)`` to run it, and parses
 the JSON envelope into existing solver/result types. It never starts a
-process and never reads credentials. Live auth binding is
-``LegalForecastBench-dm0g.4.4.9``. Tests inject
-the in-process fake service; production injects the contained runtime
-service.
+process and never reads credentials. Auth binding
+(``LegalForecastBench-dm0g.4.4.9``) resolves ``fixture-none`` or
+``published-api-key`` at plan time; credential values stay with the
+contained execution service. Tests inject the in-process fake service;
+production injects the contained runtime service.
 """
 
 from __future__ import annotations
@@ -28,6 +29,17 @@ from legalforecast.evals.inspect_task import (
 )
 from legalforecast.evals.output_parser import ParserStatus, parse_model_output
 from legalforecast.multiharness.adapters import AdapterError, AdapterPreparation
+from legalforecast.multiharness.auth_binding import (
+    bind_adapter_auth_profile,
+    public_auth_mode,
+    require_execution_service_profile,
+)
+from legalforecast.multiharness.auth_profiles import (
+    FIXTURE_NONE,
+    PUBLISHED_API_KEY,
+    AuthProfileError,
+    require_auth_profile_id,
+)
 from legalforecast.multiharness.deliverables import (
     DeliverableArtifactProjection,
     DeliverableManifest,
@@ -72,7 +84,6 @@ CLAUDE_FORECAST_SEALED_PATH = "forecast.json"
 CLAUDE_CODE_WRAPPER_COMMAND = (
     "legalforecast.multiharness.claude_code:ClaudeCodeCliAdapter",
 )
-_OFFLINE_AUTH_PROFILE = "fixture-none"
 _FORECAST_OBJECT_KEYS = frozenset({"case_assessment", "predictions"})
 _PREDICTION_REQUIRED_KEYS = frozenset({"unit_id", "probability_fully_dismissed"})
 _PREDICTION_ALLOWED_KEYS = _PREDICTION_REQUIRED_KEYS | frozenset({"rationale"})
@@ -139,9 +150,11 @@ class ClaudeInvocationPlan:
     json_schema: Mapping[str, Any]
     output_schema_path: str
     allowed_tools: tuple[str, ...]
+    auth_profile: str
     output_format: str = "json"
 
     def __post_init__(self) -> None:
+        require_auth_profile_id(self.auth_profile)
         if not self.argv:
             raise ClaudeCodeCliAdapterError("invocation argv must not be empty")
         if self.argv[0] != CLAUDE_CODE_EXECUTABLE_NAME:
@@ -278,6 +291,7 @@ def build_claude_invocation_plan(
     output_schema_path: Path,
     allowed_tools: Sequence[str] = (),
     manifest: LocalCliAdapterManifest | None = None,
+    auth_profile: object = FIXTURE_NONE,
 ) -> ClaudeInvocationPlan:
     """Translate one task into a shell-safe argv from the frozen template."""
 
@@ -286,6 +300,10 @@ def build_claude_invocation_plan(
     if not model.strip() or "/" in model or "\\" in model:
         raise ClaudeCodeCliAdapterError("model must be a non-empty basename")
     local_manifest = manifest or claude_code_local_manifest()
+    try:
+        bound = bind_adapter_auth_profile(local_manifest, auth_profile)
+    except AuthProfileError as exc:
+        raise ClaudeCodeCliAdapterError(str(exc)) from exc
     schema = forecast_output_schema(required_unit_ids)
     schema_token = encode_forecast_output_schema(required_unit_ids)
     tools = _validated_tools(allowed_tools)
@@ -306,6 +324,7 @@ def build_claude_invocation_plan(
         json_schema=schema,
         output_schema_path=output_schema_path.as_posix(),
         allowed_tools=tools,
+        auth_profile=bound.profile_id,
     )
 
 
@@ -451,9 +470,14 @@ class ClaudeCodeCliAdapter:
     local_manifest: LocalCliAdapterManifest = field(
         default_factory=claude_code_local_manifest
     )
+    auth_profile: str = FIXTURE_NONE
 
     def __post_init__(self) -> None:
         _require_offline_claude_manifest(self.local_manifest)
+        try:
+            bind_adapter_auth_profile(self.local_manifest, self.auth_profile)
+        except AuthProfileError as exc:
+            raise ClaudeCodeCliAdapterError(str(exc)) from exc
 
     @property
     def manifest(self) -> AdapterManifest:
@@ -483,6 +507,11 @@ class ClaudeCodeCliAdapter:
         _required_unit_ids(request.task)
         _solver_prompt(request.task)
         _requested_model(request.model_key)
+        try:
+            bound = bind_adapter_auth_profile(self.local_manifest, self.auth_profile)
+            require_execution_service_profile(self.execution_service, bound.profile_id)
+        except AuthProfileError as exc:
+            raise ClaudeCodeCliAdapterError(str(exc)) from exc
         if request.sandbox_policy.allowed_provider_env_vars:
             raise ClaudeCodeCliAdapterError(
                 "offline Claude Code adapter must not receive provider "
@@ -503,6 +532,7 @@ class ClaudeCodeCliAdapter:
             request,
             classified,
             usage_reporting=self.local_manifest.usage_reporting,
+            auth_profile=self.auth_profile,
         )
 
     def _execute_request(
@@ -521,6 +551,7 @@ class ClaudeCodeCliAdapter:
             output_schema_path=schema_path,
             allowed_tools=_allowed_tools(request.task),
             manifest=self.local_manifest,
+            auth_profile=self.auth_profile,
         )
         spec = build_run_spec(
             request,
@@ -584,6 +615,15 @@ class ClaudeCodeCliSolver:
         workspace: Path,
     ) -> SolverResponse:
         workspace.mkdir(parents=True, exist_ok=True)
+        try:
+            bound = bind_adapter_auth_profile(
+                adapter.local_manifest, adapter.auth_profile
+            )
+            require_execution_service_profile(
+                adapter.execution_service, bound.profile_id
+            )
+        except AuthProfileError as exc:
+            raise ClaudeCodeCliAdapterError(str(exc)) from exc
         required_unit_ids = request.sample.required_unit_ids
         schema_path = workspace / CLAUDE_CODE_OUTPUT_SCHEMA_NAME
         write_forecast_output_schema(schema_path, required_unit_ids)
@@ -594,6 +634,7 @@ class ClaudeCodeCliSolver:
             workspace=workspace,
             output_schema_path=schema_path,
             manifest=adapter.local_manifest,
+            auth_profile=adapter.auth_profile,
         )
         spec = RunSpec(
             spec_id=request.sample.sample_id,
@@ -700,6 +741,7 @@ def _run_result(
     classified: ClassifiedClaudeResult,
     *,
     usage_reporting: LocalCliUsageReporting,
+    auth_profile: str,
 ) -> RunResult:
     artifacts: tuple[ArtifactRecord, ...] = ()
     if classified.deliverable_manifest is not None:
@@ -718,6 +760,7 @@ def _run_result(
         request,
         classified,
         usage_reporting=usage_reporting,
+        auth_profile=auth_profile,
     )
     validate_public_record(summary, "claude_code.public_summary")
     commitment = {
@@ -742,12 +785,15 @@ def _public_summary(
     classified: ClassifiedClaudeResult,
     *,
     usage_reporting: LocalCliUsageReporting,
+    auth_profile: str,
 ) -> dict[str, Any]:
     usage = _usage_from_envelope(classified.receipt, usage_reporting)
+    profile_id = require_auth_profile_id(auth_profile)
     summary: dict[str, Any] = {
         "adapter_id": CLAUDE_CODE_ADAPTER_ID,
         "adapter_version": CLAUDE_CODE_ADAPTER_VERSION,
-        "auth_mode": "none-offline",
+        "auth_mode": public_auth_mode(profile_id, fixture_mode="none-offline"),
+        "auth_profile": profile_id,
         "model_key": request.model_key,
         "output_contract_version": CLAUDE_CODE_OUTPUT_CONTRACT_VERSION,
         "prompt_version": CLAUDE_CODE_PROMPT_VERSION,
@@ -1083,9 +1129,15 @@ def _require_offline_claude_manifest(manifest: LocalCliAdapterManifest) -> None:
         raise ClaudeCodeCliAdapterError("local CLI adapter_version must be 1.0.0")
     if manifest.executable.basename != CLAUDE_CODE_EXECUTABLE_NAME:
         raise ClaudeCodeCliAdapterError("local CLI executable basename must be claude")
-    if manifest.auth_profile_name != _OFFLINE_AUTH_PROFILE:
+    if manifest.auth_profile_name != FIXTURE_NONE:
         raise ClaudeCodeCliAdapterError(
             "offline Claude Code adapter requires auth_profile_name fixture-none"
+        )
+    if FIXTURE_NONE not in manifest.supported_auth_profiles:
+        raise ClaudeCodeCliAdapterError("Claude Code adapter must support fixture-none")
+    if PUBLISHED_API_KEY not in manifest.supported_auth_profiles:
+        raise ClaudeCodeCliAdapterError(
+            "Claude Code adapter must support published-api-key"
         )
     if manifest.harness_binding.solver_kind != SolverKind.INSPECT_AI.value:
         raise ClaudeCodeCliAdapterError("solver_kind must be inspect_ai")
