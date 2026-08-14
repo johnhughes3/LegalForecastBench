@@ -650,6 +650,14 @@ def test_official_semantic_proof_does_not_require_historical_git_objects(
 def test_official_semantic_proof_does_not_depend_on_current_checkout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Historical rebind proof must not read live courtlistener_acquisition.py.
+
+    PR #398 dropped the runtime freeze of that file against new_sha256
+    because it blocked later development and skipped the tamper path.
+    Reconstruct-and-verify of packaged witnesses is the replacement
+    invariant (GitHub #399). This test keeps that proof checkout-independent.
+    """
+
     original_read = _read_regular_file
 
     def refuse_current_checkout(path: Path, *, label: str) -> bytes:

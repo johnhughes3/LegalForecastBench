@@ -890,6 +890,16 @@ def _validate_policy_delta(contract: RestObservationRebindContract) -> None:
 
 
 def _verify_git_noop_semantics(contract: RestObservationRebindContract) -> None:
+    """Prove the authorized historical screening-source delta.
+
+    `allowed_policy_delta["new_sha256"]` is the hash of the packaged old
+    source after applying the packaged old-to-current unified diff. It is
+    not a runtime pin of the live checkout of
+    `courtlistener_acquisition.py`. That freeze blocked later legitimate
+    edits and masked tamper detection; PR #398 replaced it with
+    reconstruct-and-verify, and GitHub #399 ratified that invariant.
+    """
+
     proof = contract.semantic_noop_proof
     required = {
         "commit",
@@ -943,6 +953,12 @@ def _verify_git_noop_semantics(contract: RestObservationRebindContract) -> None:
         raise RestObservationPolicyRebindError(
             "old-to-current screening diff commitment mismatch"
         )
+    # Reconstruct the historical target from packaged witnesses. Do not
+    # hash the current on-disk screening source: live
+    # courtlistener_acquisition.py is not frozen against new_sha256.
+    # Equivalent tamper protection is old_sha256 + this diff commitment +
+    # reconstruct matching new_sha256, plus the checkout-independence
+    # regression in tests/test_rest_observation_policy_rebind.py.
     target_source = _apply_unified_diff(old_source, old_to_current)
     if (
         hashlib.sha256(target_source).hexdigest()
@@ -1056,7 +1072,13 @@ def _verify_semantic_witness_shape(
 
 
 def _apply_unified_diff(source: bytes, patch: bytes) -> bytes:
-    """Apply one packaged unified diff without consulting the current checkout."""
+    """Apply one packaged unified diff without consulting the current checkout.
+
+    This is the historical-target reconstruction used to check
+    `new_sha256`. The live screening source is allowed to move after the
+    authorized delta; only the packaged old source and this patch must
+    still produce that hash.
+    """
 
     try:
         source_lines = source.decode("utf-8").splitlines(keepends=True)
