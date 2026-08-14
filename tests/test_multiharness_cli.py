@@ -7,6 +7,12 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.multiharness.adapter_registry import (
+    CLAUDE_CODE_REGISTRY_NAME,
+    CODEX_CLI_REGISTRY_NAME,
+    HARVEY_LAB_REGISTRY_NAME,
+    LFB_NATIVE_REGISTRY_NAME,
+)
 from pytest import CaptureFixture
 
 JsonRecord = dict[str, Any]
@@ -348,6 +354,75 @@ def test_multiharness_synthetic_run_and_report(tmp_path: Path) -> None:
     assert summary["row_count"] == 1
     assert summary["status_counts"] == {"succeeded": 1}
     assert summary["family_counts"] == {"harvey_lab": 1}
+
+
+def test_cli_lists_builtin_adapters_in_sorted_order(tmp_path: Path) -> None:
+    output = tmp_path / "adapters.json"
+    assert (
+        main(
+            [
+                "multiharness",
+                "adapters",
+                "list",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    record = output.read_text(encoding="utf-8")
+    assert LFB_NATIVE_REGISTRY_NAME in record
+    assert CLAUDE_CODE_REGISTRY_NAME in record
+    assert CODEX_CLI_REGISTRY_NAME in record
+    assert HARVEY_LAB_REGISTRY_NAME in record
+    assert record.index(CLAUDE_CODE_REGISTRY_NAME) < record.index(
+        LFB_NATIVE_REGISTRY_NAME
+    )
+
+
+def test_cli_inspect_lfb_native_still_works(tmp_path: Path) -> None:
+    output_dir = tmp_path / "inspect"
+    assert (
+        main(
+            [
+                "multiharness",
+                "adapters",
+                "inspect",
+                "--adapter",
+                LFB_NATIVE_REGISTRY_NAME,
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        == 0
+    )
+    manifest = (output_dir / "adapter-manifest.json").read_text(encoding="utf-8")
+    assert LFB_NATIVE_REGISTRY_NAME in manifest
+
+
+def test_cli_unknown_adapter_fails_with_known_names(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    assert (
+        main(
+            [
+                "multiharness",
+                "adapters",
+                "inspect",
+                "--adapter",
+                "no-such-adapter",
+                "--output-dir",
+                str(tmp_path / "inspect"),
+            ]
+        )
+        == 2
+    )
+    err = capsys.readouterr().err
+    assert "unknown adapter" in err
+    assert LFB_NATIVE_REGISTRY_NAME in err
+    assert CLAUDE_CODE_REGISTRY_NAME in err
+    assert CODEX_CLI_REGISTRY_NAME in err
 
 
 def _lab_root(tmp_path: Path) -> Path:
