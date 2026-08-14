@@ -192,6 +192,11 @@ def discover_harvey_lab_outputs(
                 "output_root must be inside sandbox_root",
                 code=HarveyLabOutputErrorCode.LAYOUT,
             ) from exc
+        if not output_relative.parts:
+            raise HarveyLabOutputDiscoveryError(
+                "output_root must be inside sandbox_root",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            )
         disjoint_roots = [sandbox, quarantine_root, sealed_root]
         if evaluator_private_root is not None:
             private = (

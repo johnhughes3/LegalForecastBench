@@ -674,21 +674,27 @@ def _pin_wrapper_executable(
             "working directory must be a real directory"
         ) from exc
     wrapper_name = f".harvey-lab-wrapper-{uuid4().hex}"
+    wrapper_dir_fd = -1
     try:
         try:
             os.mkdir(wrapper_name, 0o700, dir_fd=work_fd)
+            wrapper_dir_fd = os.open(
+                wrapper_name, _nofollow_directory_flags(), dir_fd=work_fd
+            )
         except OSError as exc:
             raise HarveyLabEvaluationError(
                 "could not create wrapper pin directory"
             ) from exc
-        wrapper_dir = working_directory / wrapper_name
+        wrapper_dir = _path_from_fd(wrapper_dir_fd)
         try:
-            _write_contained_wrapper(wrapper_dir, command, payload)
+            _write_contained_wrapper_fd(wrapper_dir_fd, command, payload)
         except BaseException:
             shutil.rmtree(wrapper_dir, ignore_errors=True)
             raise
         return _prefixed_digest(payload), wrapper_dir
     finally:
+        if wrapper_dir_fd >= 0:
+            os.close(wrapper_dir_fd)
         os.close(work_fd)
 
 
@@ -703,7 +709,17 @@ def _nofollow_directory_flags() -> int:
     return flags
 
 
-def _write_contained_wrapper(wrapper_dir: Path, name: str, payload: bytes) -> None:
+def _path_from_fd(file_fd: int) -> Path:
+    try:
+        path = Path(os.readlink(f"/proc/self/fd/{file_fd}"))
+    except OSError as exc:
+        raise HarveyLabEvaluationError("could not pin the evaluator wrapper") from exc
+    if not path.is_absolute():
+        raise HarveyLabEvaluationError("could not pin the evaluator wrapper")
+    return path
+
+
+def _write_contained_wrapper_fd(dir_fd: int, name: str, payload: bytes) -> None:
     if "/" in name or "\\" in name or name in {".", ".."}:
         raise HarveyLabEvaluationError("evaluator command must be a basename")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
@@ -712,18 +728,14 @@ def _write_contained_wrapper(wrapper_dir: Path, name: str, payload: bytes) -> No
     if hasattr(os, "O_CLOEXEC"):
         flags |= os.O_CLOEXEC
     try:
-        dir_fd = os.open(wrapper_dir, _nofollow_directory_flags())
+        file_fd = os.open(name, flags, 0o700, dir_fd=dir_fd)
         try:
-            file_fd = os.open(name, flags, 0o700, dir_fd=dir_fd)
-            try:
-                view = payload
-                while view:
-                    view = view[os.write(file_fd, view) :]
-                os.fchmod(file_fd, 0o755)
-            finally:
-                os.close(file_fd)
+            view = payload
+            while view:
+                view = view[os.write(file_fd, view) :]
+            os.fchmod(file_fd, 0o755)
         finally:
-            os.close(dir_fd)
+            os.close(file_fd)
     except OSError as exc:
         raise HarveyLabEvaluationError("could not pin the evaluator wrapper") from exc
 

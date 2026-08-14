@@ -1052,6 +1052,7 @@ def _archive_pinned_source(source: Path, pin: HarveyLabPin) -> Path:
             capture_output=True,
             timeout=30,
             check=False,
+            env=_git_subprocess_environment(),
         )
         if extracted.returncode != 0:
             raise HarveyLabProjectionError("could not export the pinned LAB Git tree")
