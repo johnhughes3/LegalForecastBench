@@ -7,7 +7,6 @@ Does not invent a second RunSpec, ExecutionReceipt, or failure-class family.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
 from collections.abc import Callable, Mapping, Sequence
@@ -55,6 +54,7 @@ from legalforecast.multiharness.local_cli_contracts import (
     RunSpec,
     is_local_cli_sandbox_denial,
 )
+from legalforecast.multiharness.local_cli_identity import sha256_file
 from legalforecast.multiharness.scoring import (
     ScoreArtifact,
     build_harvey_lab_metric_definition,
@@ -208,9 +208,14 @@ def run_claude_code_clean_native_harvey_lab(
         raise ClaudeCodeCliAdapterError(
             "discovered outputs include quarantined files; scoring refused"
         )
-    wrapper_sha256 = _path_resolved_wrapper_sha256(
-        evaluator_command,
-        service.parent_env,
+    wrapper_sha256 = "sha256:" + sha256_file(
+        Path(
+            _require_on_path(
+                evaluator_command,
+                service.parent_env,
+                label="evaluator wrapper",
+            )
+        )
     )
     hosts = HarveyLabEvaluationHosts(
         sealed_deliverable_root=sealed_root,
@@ -330,20 +335,6 @@ def _require_on_path(
     if located is None:
         raise ClaudeCodeCliAdapterError(missing or f"{label} is not on PATH")
     return located
-
-
-# contract-ratchet: allow non-persisted PATH wrapper digest
-def _path_resolved_wrapper_sha256(
-    command: str,
-    parent_env: Mapping[str, str] | None,
-) -> str:
-    located = _require_on_path(
-        command,
-        parent_env,
-        label="evaluator wrapper",
-    )
-    payload = Path(located).read_bytes()
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 def _prefixed_digest_text(value: str) -> str:
