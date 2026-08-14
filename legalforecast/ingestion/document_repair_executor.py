@@ -609,14 +609,16 @@ def replay_document_repair_receipt(
     full_plan: MissingDocumentAcquisitionPlan,
     execution: DocumentRepairExecution,
     receipt_record: Mapping[str, object],
+    expected_receipt_sha256: str,
 ) -> DocumentRepairReceipt:
-    """Authenticate persisted receipt bytes and restore replay-minted authority."""
+    """Authenticate persisted receipt bytes against an independently pinned digest."""
 
+    pin = _digest(expected_receipt_sha256, "repair receipt digest")
     if frozenset(receipt_record) != _RECEIPT_RECORD_KEYS:
         raise DocumentRepairExecutorError("repair receipt record keys are invalid")
     digest = receipt_record.get("receipt_sha256")
-    if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
-        raise DocumentRepairExecutorError("repair receipt_sha256 is invalid")
+    if not isinstance(digest, str) or digest != pin:
+        raise DocumentRepairExecutorError("repair receipt differs from its pin")
     ledger_value = receipt_record.get("operation_ledger")
     if not isinstance(ledger_value, Sequence) or isinstance(ledger_value, (str, bytes)):
         raise DocumentRepairExecutorError("repair receipt ledger is invalid")

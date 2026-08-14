@@ -195,6 +195,7 @@ def test_verify_only_accepts_replayed_persisted_receipt() -> None:
         full_plan=plan,
         execution=execution,
         receipt_record=receipt.to_record(),
+        expected_receipt_sha256=receipt.receipt_sha256,
     )
 
     verify_document_repair_pilot_bytes(
@@ -207,9 +208,46 @@ def test_verify_only_accepts_replayed_persisted_receipt() -> None:
     )
 
     tampered = {**receipt.to_record(), "receipt_sha256": "0" * 64}
-    with pytest.raises(DocumentRepairExecutorError, match="receipt_sha256"):
+    with pytest.raises(DocumentRepairExecutorError, match="differs from its pin"):
         replay_document_repair_receipt(
-            full_plan=plan, execution=execution, receipt_record=tampered
+            full_plan=plan,
+            execution=execution,
+            receipt_record=tampered,
+            expected_receipt_sha256=receipt.receipt_sha256,
+        )
+
+
+def test_verify_only_refuses_pilot_cost_that_differs_from_receipt() -> None:
+    plan, pilot = _scope()
+    snapshots = _snapshots()
+    execution = build_document_repair_execution(
+        full_plan=plan,
+        pilot=pilot,
+        docket_snapshot_bytes=snapshots,
+        docket_snapshot_sha256={
+            candidate: hashlib.sha256(payload).hexdigest()
+            for candidate, payload in snapshots.items()
+        },
+    )
+    receipt = record_document_repair_outcomes(
+        execution=execution, outcomes=_included_outcomes(execution)
+    )
+    acquired = _included_documents(execution)
+    paid = next(
+        index
+        for index, operation in enumerate(execution.operations)
+        if operation.route == "pacer_purchase"
+    )
+    acquired[paid] = {**acquired[paid], "cost_usd": "0.01"}
+
+    with pytest.raises(DocumentRepairVerifyOnlyError, match="cost_usd differs"):
+        verify_document_repair_pilot_bytes(
+            full_plan=plan,
+            execution=execution,
+            receipt=receipt,
+            acquired_documents=acquired,
+            exclusions=(),
+            role_bytes_match=lambda role, body: role.encode() in body,
         )
 
 

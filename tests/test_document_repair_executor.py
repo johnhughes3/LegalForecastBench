@@ -2082,6 +2082,7 @@ def test_replay_persisted_receipt_can_seal_and_refuses_tampered_digest() -> None
         full_plan=plan,
         execution=execution,
         receipt_record=receipt.to_record(),
+        expected_receipt_sha256=receipt.receipt_sha256,
     )
     acquired = []
     for operation in execution.operations:
@@ -2119,9 +2120,30 @@ def test_replay_persisted_receipt_can_seal_and_refuses_tampered_digest() -> None
     assert successor.status == "sealed"
 
     tampered = {**receipt.to_record(), "receipt_sha256": "0" * 64}
-    with pytest.raises(DocumentRepairExecutorError, match="receipt_sha256"):
+    with pytest.raises(DocumentRepairExecutorError, match="differs from its pin"):
         replay_document_repair_receipt(
-            full_plan=plan, execution=execution, receipt_record=tampered
+            full_plan=plan,
+            execution=execution,
+            receipt_record=tampered,
+            expected_receipt_sha256=receipt.receipt_sha256,
+        )
+
+    rehashed = receipt.to_record()
+    ledger = [dict(row) for row in receipt.operation_ledger]
+    ledger[0]["disposition"] = "excluded"
+    rehashed["operation_ledger"] = ledger
+    content = {key: value for key, value in rehashed.items() if key != "receipt_sha256"}
+    rehashed["receipt_sha256"] = str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            content, domain="legalforecast.exact100_document_repair_receipt.v1"
+        ).digest
+    )
+    with pytest.raises(DocumentRepairExecutorError, match="differs from its pin"):
+        replay_document_repair_receipt(
+            full_plan=plan,
+            execution=execution,
+            receipt_record=rehashed,
+            expected_receipt_sha256=receipt.receipt_sha256,
         )
 
 

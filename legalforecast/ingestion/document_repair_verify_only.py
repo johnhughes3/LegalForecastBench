@@ -174,6 +174,10 @@ def _verify_pilot_operation_bytes(
                 raise DocumentRepairVerifyOnlyError(
                     "acquired document is_sealed must be false"
                 )
+            if document.get("cost_usd") != row.get("committed_cost_usd"):
+                raise DocumentRepairVerifyOnlyError(
+                    "acquired document cost_usd differs from the repair receipt"
+                )
         elif disposition == "excluded":
             receipt_excluded.add(key)
             record = excluded_records.get(key)
