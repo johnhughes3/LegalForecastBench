@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from legalforecast.testing.cli_corpus.paths import PINNED_COLUMNS
 
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+_CHOOSE_FROM = re.compile(r"\(choose from ([^)]*)\)")
 _PINNED_ENV = ("COLUMNS", "LINES", "NO_COLOR", "PYTHON_COLORS")
 
 
@@ -65,8 +66,8 @@ def invoke_cli(
                 raw_status = exc.code
         return CliCapture(
             exit_status=_exit_status(raw_status),
-            stdout=_strip_ansi(stdout.getvalue()),
-            stderr=_strip_ansi(stderr.getvalue()),
+            stdout=_normalize_captured_text(stdout.getvalue()),
+            stderr=_normalize_captured_text(stderr.getvalue()),
         )
     finally:
         shutil.get_terminal_size = previous_size
@@ -96,6 +97,18 @@ def _restore_env(previous: dict[str, str | None]) -> None:
 
 def _strip_ansi(text: str) -> str:
     return _ANSI_ESCAPE.sub("", text)
+
+
+def _normalize_captured_text(text: str) -> str:
+    return _normalize_argparse_choose_from(_strip_ansi(text))
+
+
+def _normalize_argparse_choose_from(text: str) -> str:
+    def _unquote(match: re.Match[str]) -> str:
+        inner = match.group(1).replace("'", "")
+        return f"(choose from {inner})"
+
+    return _CHOOSE_FROM.sub(_unquote, text)
 
 
 def _exit_status(value: object) -> int:

@@ -11,7 +11,11 @@ from legalforecast.testing.cli_corpus.differential import (
     run_case,
     validate_case_argv,
 )
-from legalforecast.testing.cli_corpus.invoke import CliCapture, invoke_cli
+from legalforecast.testing.cli_corpus.invoke import (
+    CliCapture,
+    _normalize_argparse_choose_from,
+    invoke_cli,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -108,3 +112,16 @@ def test_invoke_cli_disables_color_and_pins_width(
     assert "\x1b[" not in captured.stderr
     assert captured.stderr.startswith("usage: legalforecast")
     assert "definitely-not-a-command" in captured.stderr
+    assert "choose from discover, retrieve" in captured.stderr
+    assert "'discover'" not in captured.stderr
+
+
+def test_argparse_choose_from_quotes_are_stripped() -> None:
+    quoted = (
+        "legalforecast: error: argument COMMAND: invalid choice: "
+        "'definitely-not-a-command' (choose from 'discover', 'retrieve')\n"
+    )
+    assert _normalize_argparse_choose_from(quoted) == (
+        "legalforecast: error: argument COMMAND: invalid choice: "
+        "'definitely-not-a-command' (choose from discover, retrieve)\n"
+    )
