@@ -320,6 +320,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     UrlLibRecapFetchTransport,
     public_documents_from_selection,
 )
+from legalforecast.ingestion.courtlistener_recap_purchase import build_paid_recap as _p
 from legalforecast.ingestion.courtlistener_request_budget import (
     CourtListenerRequestBudget,
     CourtListenerRequestBudgetError,
@@ -11133,8 +11134,7 @@ def _record_disclosure_command_failure(args: argparse.Namespace, reason: str) ->
             reason=reason,
         )
     except (CommandError, OSError, UnicodeError, ValueError) as exc:
-        # A completed run card is deliberately never overwritten by a later
-        # exception (including a phase-two log fsync failure).
+        # Preserve completed run cards across later exceptions.
         print(
             f"legalforecast: unable to publish {stage} failure metadata: {exc}",
             file=sys.stderr,
@@ -49431,8 +49431,6 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     if direct_config is not None
                     else CourtListenerRecapFetchConfig.from_env()
                 )
-                # Validate the allowlisted, redirect-refusing transport before the
-                # purchase journal is opened or any paid operation can be reserved.
                 courtlistener_transport = UrlLibRecapFetchTransport(
                     courtlistener_config.base_url
                 )
@@ -49461,7 +49459,8 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     controlled_private_root=controlled_private_root,
                     initialization_receipt_path=initialization_receipt,
                 ) as journal:
-                    client = CourtListenerRecapFetchClient(
+                    client = _p(
+                        CourtListenerRecapFetchClient,
                         courtlistener_config,
                         journal=journal,
                         transport=courtlistener_transport,
@@ -49505,8 +49504,9 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     controlled_private_root=controlled_private_root,
                     initialization_receipt_path=initialization_receipt,
                 ) as journal:
-                    client = CourtListenerRecapFetchClient(
-                        CourtListenerRecapFetchConfig(api_token="offline-fixture"),
+                    client = _p(
+                        CourtListenerRecapFetchClient,
+                        CourtListenerRecapFetchConfig("offline-fixture"),
                         journal=journal,
                         transport=courtlistener_transport,
                         purchase_broker=purchase_broker,

@@ -18,6 +18,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import cast
 
+import legalforecast.ingestion.document_repair_clearance as _clearance
 from legalforecast.contracts import (
     ARTIFACT_JSON_VALUE_V1,
     ARTIFACT_RAW_SHA256_V1,
@@ -36,6 +37,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     verify_case_dev_purchase_journal_initialization,
     verify_case_dev_purchase_policy,
 )
+from legalforecast.ingestion.document_repair_errors import DocumentRepairExecutorError
 from legalforecast.ingestion.document_repair_pilot import DocumentRepairPilot
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
@@ -66,10 +68,6 @@ _RECEIPT_RECORD_KEYS = frozenset(
         "receipt_sha256",
     }
 )
-
-
-class DocumentRepairExecutorError(ValueError):
-    """Raised when repair execution is not exactly authorized and replayable."""
 
 
 _SNAPSHOT_AUTHORITY = object()
@@ -112,9 +110,8 @@ class ResolvedRepairOperation:
     source_url: str | None
     projected_cost_usd: Decimal
     docket_snapshot_sha256: str
-    # Mint-only snapshot derivation; omitted from to_record() so v1 execution
-    # bytes stay frozen. Include still requires a replay-minted execution.
     public_clearance: tuple[str, bool, bool] | None
+    paid_clearance_pending: bool = False
 
     @property
     def key(self) -> tuple[str, int, str]:
@@ -246,6 +243,8 @@ class AcquiredRepairDocument:
     retry_count: int
     reason: str | None = None
     document_selector: str = "main_document"
+    paid_clearance: tuple[str, bool, bool] | None = None
+    paid_clearance_basis: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -700,7 +699,7 @@ def _run_document_repair_execution(
     exclusions: list[Mapping[str, object]] = []
     for operation in execution.operations:
         public_clearance = operation.public_clearance
-        if public_clearance is None:
+        if public_clearance is None and not operation.paid_clearance_pending:
             raise DocumentRepairExecutorError(
                 "snapshot does not establish public clearance"
             )
@@ -725,13 +724,13 @@ def _run_document_repair_execution(
             committed_cost_usd=result.committed_cost_usd,
             document_selector=operation.document_selector,
         )
-        # Validate cost, retry, duration, and terminal semantics before any
-        # later provider callback can run.
         _outcome_record(operation, outcome)
         outcomes.append(outcome)
         if result.disposition == "included":
             assert result.document_bytes is not None
-            clearance_status, is_private, is_sealed = public_clearance
+            clearance_status, is_private, is_sealed, clearance_basis = (
+                _clearance.resolve_acquired_clearance(operation, result)
+            )
             acquired_documents.append(
                 {
                     "candidate_id": operation.candidate_id,
@@ -746,6 +745,7 @@ def _run_document_repair_execution(
                     "clearance_status": clearance_status,
                     "is_private": is_private,
                     "is_sealed": is_sealed,
+                    "clearance_basis": clearance_basis,
                     "cost_usd": result.committed_cost_usd,
                 }
             )
@@ -1086,7 +1086,6 @@ def _require_valid_full_plan(full_plan: MissingDocumentAcquisitionPlan) -> None:
         item.projected_cost_usd not in {Decimal("0.00"), Decimal("3.00")}
         for item in full_plan.items
     ):
-        # Cycle 1 PACER cap; post-Cycle-1 knobs live in legalforecast.config.
         raise DocumentRepairExecutorError(
             "repair execution requires the approved $3.00 per-document price"
         )
@@ -1330,10 +1329,6 @@ def _resolve_operation(
         raise DocumentRepairExecutorError("RECAP document belongs to another entry")
     free_url = None
     filepath = document.get("filepath_local")
-    # Nested v4 docket-entry RECAP rows send an explicit is_sealed=null while
-    # still publishing filepath_local. Require the key so an omitted seal
-    # field cannot mint a free route; treat only an affirmative sealed flag
-    # as blocking. restricted_material_markers already fail-closed on true.
     if (
         document.get("is_available") is True
         and "is_sealed" in document
@@ -1363,6 +1358,9 @@ def _resolve_operation(
         projected_cost_usd=item.projected_cost_usd,
         docket_snapshot_sha256=snapshot_sha256,
         public_clearance=_public_clearance(document, free_url=free_url),
+        paid_clearance_pending=_clearance.paid_clearance_pending(
+            document, route=item.acquisition_method
+        ),
     )
 
 
@@ -1529,9 +1527,6 @@ def _journal_authenticated_result(
         expected_dispositions = {"provider_error"}
         cost = "0.00"
     elif status == "failed":
-        # A provider can return a terminal failure after accepting a paid
-        # queue request. The outcome is retryable at the repair layer, but the
-        # durable reservation remains committed because the POST occurred.
         expected_dispositions = {"provider_error", "unknown"}
         cost = evidence.get("reservation_usd")
     else:
@@ -1550,6 +1545,8 @@ def _journal_authenticated_result(
         retry_count=result.retry_count,
         reason=result.reason,
         document_selector=result.document_selector,
+        paid_clearance=result.paid_clearance,
+        paid_clearance_basis=result.paid_clearance_basis,
     )
 
 
