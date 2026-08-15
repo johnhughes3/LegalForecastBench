@@ -16,6 +16,9 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseStatus,
     CaseDevPurchaseJournal,
 )
+from legalforecast.ingestion.document_repair_clearance import (
+    PAID_DELIVERY_CLEARANCE_BASIS,
+)
 from legalforecast.ingestion.document_repair_executor import (
     AcquiredRepairDocument,
     ResolvedRepairOperation,
@@ -154,6 +157,8 @@ class DocumentRepairAcquirer:
             committed_cost_usd=cost,
             retry_count=fetched.retry_count,
             document_selector=operation.document_selector,
+            paid_clearance=("cleared", False, False),
+            paid_clearance_basis=PAID_DELIVERY_CLEARANCE_BASIS,
         )
 
 

@@ -57,6 +57,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`courtlistener_dates.py`](../legalforecast/ingestion/courtlistener_dates.py) | Fail-closed docket-entry date parsing. |
 | [`courtlistener_live_html_source.py`](../legalforecast/ingestion/courtlistener_live_html_source.py) | Run-level bot-challenge handling for HTML retrieval. |
 | [`courtlistener_opinion_discovery.py`](../legalforecast/ingestion/courtlistener_opinion_discovery.py) | Opinion-cluster discovery for MTD leads. |
+| [`courtlistener_recap_purchase.py`](../legalforecast/ingestion/courtlistener_recap_purchase.py) | Paid RECAP Fetch construction with a queue-lag-tolerant poll window. |
 | [`courtlistener_request_budget.py`](../legalforecast/ingestion/courtlistener_request_budget.py) | Crash-durable rolling REST request budgets. |
 | [`courtlistener_snapshot_materialization.py`](../legalforecast/ingestion/courtlistener_snapshot_materialization.py) | Provider-free verification of direct discovery inputs. |
 | [`courtlistener_unrestricted_recap_discovery.py`](../legalforecast/ingestion/courtlistener_unrestricted_recap_discovery.py) | Durable discovery including unavailable RECAP documents. |
@@ -120,6 +121,8 @@ Use this page to find code, not as a second API specification. Module docstrings
 | --- | --- |
 | [`case_mix_optimizer.py`](../legalforecast/ingestion/case_mix_optimizer.py) | Exact cost selection under intersecting caps. |
 | [`cohort_policy.py`](../legalforecast/ingestion/cohort_policy.py) | Immutable precommitments and append-only observations. |
+| [`document_repair_clearance.py`](../legalforecast/ingestion/document_repair_clearance.py) | Fail-closed public-clearance resolution for free and paid repair results. |
+| [`document_repair_errors.py`](../legalforecast/ingestion/document_repair_errors.py) | Shared fail-closed document-repair execution error. |
 | [`exact100_reserve_extension.py`](../legalforecast/ingestion/exact100_reserve_extension.py) | Provider-free reserve extension for an authenticated exact-100 successor. |
 | [`exact100_successor_replacement.py`](../legalforecast/ingestion/exact100_successor_replacement.py) | Provider-free exact-100 successor projection from replay-verified terminal exclusions and frozen-rank promotions. |
 | [`exact100_successor_replacement_cli.py`](../legalforecast/ingestion/exact100_successor_replacement_cli.py) | Closed exact-100 successor command and materializer replay adapter. |

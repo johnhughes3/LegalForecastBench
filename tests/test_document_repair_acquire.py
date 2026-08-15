@@ -132,6 +132,8 @@ def test_paid_operation_uses_existing_one_document_recap_fetch() -> None:
     assert result.disposition == "included"
     assert result.document_bytes == b"%PDF-1.4 paid"
     assert result.committed_cost_usd == "3.00"
+    assert result.paid_clearance == ("cleared", False, False)
+    assert result.paid_clearance_basis == "paid_delivery"
 
 
 def test_paid_operation_requires_the_runtime_journal() -> None:

@@ -12,6 +12,9 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable, Mapping, Sequence
 
+from legalforecast.ingestion.document_repair_clearance import (
+    PAID_DELIVERY_CLEARANCE_BASIS,
+)
 from legalforecast.ingestion.document_repair_executor import (
     DocumentRepairExecution,
     DocumentRepairExecutorError,
@@ -163,9 +166,17 @@ def _verify_pilot_operation_bytes(
                     f"{operation.document_role}"
                 )
             if operation.public_clearance != ("cleared", False, False):
-                raise DocumentRepairVerifyOnlyError(
-                    "snapshot does not establish public clearance"
-                )
+                if not (
+                    operation.route == "pacer_purchase"
+                    and operation.paid_clearance_pending
+                ):
+                    raise DocumentRepairVerifyOnlyError(
+                        "snapshot does not establish public clearance"
+                    )
+                if document.get("clearance_basis") != PAID_DELIVERY_CLEARANCE_BASIS:
+                    raise DocumentRepairVerifyOnlyError(
+                        "paid acquired document lacks a paid-delivery clearance basis"
+                    )
             if document.get("clearance_status") != "cleared":
                 raise DocumentRepairVerifyOnlyError(
                     "acquired document clearance_status is not cleared"
