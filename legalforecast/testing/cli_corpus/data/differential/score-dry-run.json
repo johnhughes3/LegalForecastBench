@@ -1,0 +1,14 @@
+{
+  "artifacts": {
+    "scores.json": "{\n  \"command\": \"score\",\n  \"dry_run\": true,\n  \"input_path\": \"{workspace}/runs.jsonl\",\n  \"label_count\": 0,\n  \"output_paths\": [\n    \"{workspace}/scores.json\"\n  ],\n  \"record_count\": 0\n}\n",
+    "scores.json.sha256": "1b857e5bbe010888f4847a92e4929ade75805fa646421661b374280e7fde933f"
+  },
+  "case_id": "score-dry-run",
+  "exit_status": 0,
+  "extra_files": [],
+  "output_tree": [
+    "scores.json"
+  ],
+  "stderr": "{\"artifact_path\": \"{workspace}/scores.json\", \"event\": \"dry_run\", \"record_count\": 0, \"stage\": \"score\"}\n",
+  "stdout": ""
+}

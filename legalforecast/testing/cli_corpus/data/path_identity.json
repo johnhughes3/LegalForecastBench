@@ -1,0 +1,554 @@
+{
+  "authenticated_source_profiles": [
+    {
+      "file": "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "kind": "source-paths",
+      "name": "SCREENING_UNION_POLICY_REBIND_SOURCE_PATHS",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/ingestion/cycle_acquisition_store.py",
+        "legalforecast/ingestion/firecrawl_screening_identity.py",
+        "legalforecast/ingestion/restricted_material.py",
+        "legalforecast/ingestion/screening_snapshot_union.py",
+        "legalforecast/ingestion/screening_union_policy_rebind.py",
+        "legalforecast/ingestion/strict_screen_evidence.py"
+      ]
+    },
+    {
+      "file": "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "kind": "source-sha256",
+      "name": "COMPATIBLE_911371F_FINAL153_POLICY_REBIND_SOURCE_SHA256",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/ingestion/cycle_acquisition_store.py",
+        "legalforecast/ingestion/firecrawl_screening_identity.py",
+        "legalforecast/ingestion/restricted_material.py",
+        "legalforecast/ingestion/screening_snapshot_union.py",
+        "legalforecast/ingestion/screening_union_policy_rebind.py",
+        "legalforecast/ingestion/strict_screen_evidence.py"
+      ]
+    },
+    {
+      "file": "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "kind": "source-paths",
+      "name": "FIRECRAWL_SCREENING_SOURCE_PATHS",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/ingestion/budgeted_docket_acquisition.py",
+        "legalforecast/ingestion/case_dev_firecrawl.py",
+        "legalforecast/ingestion/courtlistener_acquisition.py",
+        "legalforecast/ingestion/courtlistener_client.py",
+        "legalforecast/ingestion/courtlistener_dates.py",
+        "legalforecast/ingestion/courtlistener_web.py",
+        "legalforecast/ingestion/cycle_acquisition_store.py",
+        "legalforecast/ingestion/docket_sync.py",
+        "legalforecast/ingestion/mtd_acquisition_screen.py",
+        "legalforecast/ingestion/operative_complaint.py",
+        "legalforecast/ingestion/provenance.py",
+        "legalforecast/ingestion/recap_api_discovery.py",
+        "legalforecast/ingestion/restricted_material.py",
+        "legalforecast/ingestion/snapshot_replay.py",
+        "legalforecast/ingestion/strict_screen_evidence.py",
+        "legalforecast/ingestion/screening_snapshot_union.py",
+        "legalforecast/selection/contamination_filters.py",
+        "legalforecast/selection/exclusion_ledger.py",
+        "legalforecast/selection/motion_linkage.py",
+        "legalforecast/ingestion/firecrawl_screening_identity.py"
+      ]
+    },
+    {
+      "file": "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "kind": "source-sha256",
+      "name": "LEGACY_32057DE_SOURCE_SHA256",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/ingestion/budgeted_docket_acquisition.py",
+        "legalforecast/ingestion/case_dev_firecrawl.py",
+        "legalforecast/ingestion/courtlistener_acquisition.py",
+        "legalforecast/ingestion/courtlistener_client.py",
+        "legalforecast/ingestion/courtlistener_dates.py",
+        "legalforecast/ingestion/courtlistener_web.py",
+        "legalforecast/ingestion/cycle_acquisition_store.py",
+        "legalforecast/ingestion/docket_sync.py",
+        "legalforecast/ingestion/mtd_acquisition_screen.py",
+        "legalforecast/ingestion/operative_complaint.py",
+        "legalforecast/ingestion/provenance.py",
+        "legalforecast/ingestion/recap_api_discovery.py",
+        "legalforecast/ingestion/restricted_material.py",
+        "legalforecast/ingestion/snapshot_replay.py",
+        "legalforecast/selection/contamination_filters.py",
+        "legalforecast/selection/exclusion_ledger.py",
+        "legalforecast/selection/motion_linkage.py"
+      ]
+    },
+    {
+      "file": "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "kind": "source-sha256",
+      "name": "COMPATIBLE_4D3BA85_SOURCE_SHA256",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/ingestion/budgeted_docket_acquisition.py",
+        "legalforecast/ingestion/case_dev_firecrawl.py",
+        "legalforecast/ingestion/courtlistener_acquisition.py",
+        "legalforecast/ingestion/courtlistener_client.py",
+        "legalforecast/ingestion/courtlistener_dates.py",
+        "legalforecast/ingestion/courtlistener_web.py",
+        "legalforecast/ingestion/cycle_acquisition_store.py",
+        "legalforecast/ingestion/docket_sync.py",
+        "legalforecast/ingestion/firecrawl_screening_identity.py",
+        "legalforecast/ingestion/mtd_acquisition_screen.py",
+        "legalforecast/ingestion/operative_complaint.py",
+        "legalforecast/ingestion/provenance.py",
+        "legalforecast/ingestion/recap_api_discovery.py",
+        "legalforecast/ingestion/restricted_material.py",
+        "legalforecast/ingestion/screening_snapshot_union.py",
+        "legalforecast/ingestion/snapshot_replay.py",
+        "legalforecast/ingestion/strict_screen_evidence.py",
+        "legalforecast/selection/contamination_filters.py",
+        "legalforecast/selection/exclusion_ledger.py",
+        "legalforecast/selection/motion_linkage.py"
+      ]
+    },
+    {
+      "file": "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "kind": "source-sha256",
+      "name": "COMPATIBLE_FINAL_V3_SOURCE_SHA256",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/ingestion/budgeted_docket_acquisition.py",
+        "legalforecast/ingestion/case_dev_firecrawl.py",
+        "legalforecast/ingestion/courtlistener_acquisition.py",
+        "legalforecast/ingestion/courtlistener_client.py",
+        "legalforecast/ingestion/courtlistener_dates.py",
+        "legalforecast/ingestion/courtlistener_web.py",
+        "legalforecast/ingestion/cycle_acquisition_store.py",
+        "legalforecast/ingestion/docket_sync.py",
+        "legalforecast/ingestion/firecrawl_screening_identity.py",
+        "legalforecast/ingestion/mtd_acquisition_screen.py",
+        "legalforecast/ingestion/operative_complaint.py",
+        "legalforecast/ingestion/provenance.py",
+        "legalforecast/ingestion/recap_api_discovery.py",
+        "legalforecast/ingestion/restricted_material.py",
+        "legalforecast/ingestion/screening_snapshot_union.py",
+        "legalforecast/ingestion/snapshot_replay.py",
+        "legalforecast/ingestion/strict_screen_evidence.py",
+        "legalforecast/selection/contamination_filters.py",
+        "legalforecast/selection/exclusion_ledger.py",
+        "legalforecast/selection/motion_linkage.py"
+      ]
+    },
+    {
+      "file": "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "kind": "source-sha256",
+      "name": "COMPATIBLE_911371F_FINAL153_SOURCE_SHA256",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/ingestion/budgeted_docket_acquisition.py",
+        "legalforecast/ingestion/case_dev_firecrawl.py",
+        "legalforecast/ingestion/courtlistener_acquisition.py",
+        "legalforecast/ingestion/courtlistener_client.py",
+        "legalforecast/ingestion/courtlistener_dates.py",
+        "legalforecast/ingestion/courtlistener_web.py",
+        "legalforecast/ingestion/cycle_acquisition_store.py",
+        "legalforecast/ingestion/docket_sync.py",
+        "legalforecast/ingestion/firecrawl_screening_identity.py",
+        "legalforecast/ingestion/mtd_acquisition_screen.py",
+        "legalforecast/ingestion/operative_complaint.py",
+        "legalforecast/ingestion/provenance.py",
+        "legalforecast/ingestion/recap_api_discovery.py",
+        "legalforecast/ingestion/restricted_material.py",
+        "legalforecast/ingestion/screening_snapshot_union.py",
+        "legalforecast/ingestion/snapshot_replay.py",
+        "legalforecast/ingestion/strict_screen_evidence.py",
+        "legalforecast/selection/contamination_filters.py",
+        "legalforecast/selection/exclusion_ledger.py",
+        "legalforecast/selection/motion_linkage.py"
+      ]
+    },
+    {
+      "file": "legalforecast/ingestion/screening_union_policy_rebind.py",
+      "kind": "source-sha256",
+      "name": "_AUDITED_IMPLEMENTATION_PREDECESSOR_SHA256",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/ingestion/cycle_acquisition_store.py",
+        "legalforecast/ingestion/firecrawl_screening_identity.py",
+        "legalforecast/ingestion/strict_screen_evidence.py"
+      ]
+    },
+    {
+      "file": "tests/ingestion/test_firecrawl_screening_identity.py",
+      "kind": "source-sha256",
+      "name": "_FINAL153_REBIND_SOURCE_SHA256",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/ingestion/cycle_acquisition_store.py",
+        "legalforecast/ingestion/firecrawl_screening_identity.py",
+        "legalforecast/ingestion/restricted_material.py",
+        "legalforecast/ingestion/screening_snapshot_union.py",
+        "legalforecast/ingestion/screening_union_policy_rebind.py",
+        "legalforecast/ingestion/strict_screen_evidence.py"
+      ]
+    }
+  ],
+  "dynamic_imports": {
+    "examples/adapters/claude-agent-sdk/adapter.py": [
+      "legalforecast.multiharness.claude_agent_sdk_cli"
+    ],
+    "examples/adapters/codex-cli/adapter.py": [
+      "legalforecast.multiharness.codex_cli_cli"
+    ],
+    "examples/adapters/openai-responses/adapter.py": [
+      "legalforecast.multiharness.openai_responses_cli"
+    ],
+    "legalforecast/evals/inspect_ai_adapter.py": [
+      "inspect_ai",
+      "inspect_ai.dataset",
+      "inspect_ai.scorer",
+      "inspect_ai.solver"
+    ],
+    "legalforecast/multiharness/claude_agent_sdk_cli.py": [
+      "claude_agent_sdk._cli_version"
+    ],
+    "tests/test_harvey_lab_evaluator.py": [
+      "hashlib"
+    ],
+    "tests/test_target_raw_docket_recovery.py": [
+      "legalforecast.ingestion.budgeted_docket_acquisition"
+    ]
+  },
+  "entry_point_names": [
+    "legalforecast",
+    "legalforecast-acquisition-systemd-run",
+    "legalforecast-provider-env-run"
+  ],
+  "file_relative_resolution": [
+    "examples/adapters/claude-agent-sdk/adapter.py",
+    "examples/adapters/codex-cli/adapter.py",
+    "examples/adapters/openai-responses/adapter.py",
+    "legalforecast/cli.py",
+    "legalforecast/config/registry.py",
+    "legalforecast/ingestion/disclosure_model_review_authority.py",
+    "legalforecast/ingestion/disclosure_review_authority.py",
+    "legalforecast/ingestion/firecrawl_screening_identity.py",
+    "legalforecast/ingestion/frozen_batch_firecrawl_observation.py",
+    "legalforecast/ingestion/rest_observation_policy_rebind.py",
+    "legalforecast/multiharness/claude_agent_sdk.py",
+    "legalforecast/multiharness/claude_code.py",
+    "legalforecast/multiharness/codex_cli.py",
+    "legalforecast/multiharness/contributor_boundary.py",
+    "legalforecast/multiharness/local_cli_runtime.py",
+    "legalforecast/multiharness/openai_responses.py",
+    "legalforecast/multiharness/process_containment.py",
+    "scripts/build_release_bundle.py",
+    "scripts/dev_check_recovery_vertical_slice.py",
+    "scripts/probe_claude_code_native_containment.py",
+    "scripts/release_check.py",
+    "scripts/render_methods_preprint.py",
+    "scripts/smoke_infisical_systemd_exit_status.py",
+    "scripts/validate_local_assume_access.py",
+    "scripts/verify_review_blockers.py",
+    "tests/document_need_fixtures.py",
+    "tests/fixtures/claude_code/fake_claude_lab_cli.py",
+    "tests/fixtures/local_cli_fake_cli.py",
+    "tests/fixtures/local_cli_identity_cli.py",
+    "tests/ingestion/test_firecrawl_screening_identity.py",
+    "tests/test_architecture.py",
+    "tests/test_architecture_inventory.py",
+    "tests/test_architecture_rules.py",
+    "tests/test_bankruptcy_adversary_role_regressions.py",
+    "tests/test_budgeted_docket_acquisition_cli.py",
+    "tests/test_candidate_scoped_stage_a_replay.py",
+    "tests/test_case_dev_firecrawl_screening_cli.py",
+    "tests/test_ci_workflow.py",
+    "tests/test_claude_code_cli_characterization.py",
+    "tests/test_claude_code_native_containment.py",
+    "tests/test_cli_corpus_differential.py",
+    "tests/test_cli_corpus_identity.py",
+    "tests/test_cli_corpus_manifest.py",
+    "tests/test_codex_cli_characterization.py",
+    "tests/test_codex_native_containment.py",
+    "tests/test_cohort_policy.py",
+    "tests/test_community_examples.py",
+    "tests/test_community_multiharness_workflow.py",
+    "tests/test_community_run_summary_v2.py",
+    "tests/test_contributor_subscription_profile.py",
+    "tests/test_corpus_readiness_cli.py",
+    "tests/test_courtlistener_bot_challenge.py",
+    "tests/test_courtlistener_client.py",
+    "tests/test_cycle1_disclosure_review_model_registry.py",
+    "tests/test_cycle1_labeling_model_registry.py",
+    "tests/test_cycle1_model_registry.py",
+    "tests/test_cycle_acquisition_config.py",
+    "tests/test_cycle_acquisition_config_fence.py",
+    "tests/test_cycle_label_audit.py",
+    "tests/test_cycle_manifest_template_cli.py",
+    "tests/test_cycle_orchestrator_cli.py",
+    "tests/test_dependabot_auto_merge_workflow.py",
+    "tests/test_dev_check_recovery_vertical_slice.py",
+    "tests/test_disclosure_model_review_authority.py",
+    "tests/test_disclosure_model_review_schema.py",
+    "tests/test_disclosure_review_bundle_cli.py",
+    "tests/test_docs_index_coverage.py",
+    "tests/test_document_need_protocol.py",
+    "tests/test_downstream_rehearsal.py",
+    "tests/test_exact100_initial_recovery_template.py",
+    "tests/test_fake_codex_cli.py",
+    "tests/test_firecrawl_recap_decision_discovery.py",
+    "tests/test_harvey_lab_authorized_scoring.py",
+    "tests/test_harvey_lab_evaluator.py",
+    "tests/test_harvey_lab_output_discovery.py",
+    "tests/test_harvey_lab_pinned_evaluator_seam.py",
+    "tests/test_harvey_lab_projection.py",
+    "tests/test_infisical_systemd_docs.py",
+    "tests/test_infisical_systemd_launcher.py",
+    "tests/test_infisical_systemd_smoke.py",
+    "tests/test_ingestion_module_map.py",
+    "tests/test_integrated_fixture_pipeline.py",
+    "tests/test_license_terms.py",
+    "tests/test_llm_label_provider_shards.py",
+    "tests/test_local_cli_adapter_manifest.py",
+    "tests/test_local_cli_contracts.py",
+    "tests/test_methods_preprint.py",
+    "tests/test_metric_propagation.py",
+    "tests/test_model_registry.py",
+    "tests/test_multiharness_adapter_registry.py",
+    "tests/test_multiharness_artifact_characterization.py",
+    "tests/test_multiharness_auth_binding.py",
+    "tests/test_multiharness_claude_agent_sdk.py",
+    "tests/test_multiharness_claude_clean_native_lab_e2e.py",
+    "tests/test_multiharness_claude_code_adapter.py",
+    "tests/test_multiharness_claude_code_live_smoke.py",
+    "tests/test_multiharness_codex_clean_native_lab_e2e.py",
+    "tests/test_multiharness_codex_cli.py",
+    "tests/test_multiharness_codex_cli_live_smoke.py",
+    "tests/test_multiharness_contributor_boundary.py",
+    "tests/test_multiharness_external_adapters.py",
+    "tests/test_multiharness_fake_claude_code.py",
+    "tests/test_multiharness_hostile_mcp_e2e.py",
+    "tests/test_multiharness_hostile_native_e2e.py",
+    "tests/test_multiharness_local_cli_fake_binary_e2e.py",
+    "tests/test_multiharness_local_cli_identity.py",
+    "tests/test_multiharness_local_cli_redaction.py",
+    "tests/test_multiharness_local_cli_runtime.py",
+    "tests/test_multiharness_local_cli_runtime_attacks.py",
+    "tests/test_multiharness_local_cli_stream.py",
+    "tests/test_official_community_import_budget.py",
+    "tests/test_official_eval_bootstrap_infra.py",
+    "tests/test_official_eval_environment_manifest.py",
+    "tests/test_official_eval_infra.py",
+    "tests/test_official_eval_matrix_workflow.py",
+    "tests/test_official_infra_contract.py",
+    "tests/test_official_paid_labeling_baton_workflow.py",
+    "tests/test_official_paid_labeling_environment_manifest.py",
+    "tests/test_official_paid_labeling_infra.py",
+    "tests/test_official_paid_labeling_job.py",
+    "tests/test_official_paid_labeling_smoke_workflow.py",
+    "tests/test_official_paid_labeling_workflow.py",
+    "tests/test_official_provider_authority_infra_workflow.py",
+    "tests/test_official_run_runbook.py",
+    "tests/test_official_s3_workflow.py",
+    "tests/test_package_skeleton.py",
+    "tests/test_packet_render_ci_workflow.py",
+    "tests/test_policy_artifacts.py",
+    "tests/test_procedural_order_regressions.py",
+    "tests/test_protocol_freeze.py",
+    "tests/test_provenance_clearance_cli.py",
+    "tests/test_provider_authority_infra.py",
+    "tests/test_provider_baselines.py",
+    "tests/test_provider_spend_control.py",
+    "tests/test_public_marker_clearance_policy.py",
+    "tests/test_publication_governance.py",
+    "tests/test_publish_package_workflow.py",
+    "tests/test_purchased_audit_only_pipeline.py",
+    "tests/test_ranked_reserve_replacement.py",
+    "tests/test_readiness_provenance.py",
+    "tests/test_readme_landing.py",
+    "tests/test_recovery_disclosure_continuation.py",
+    "tests/test_release_artifact_contract.py",
+    "tests/test_release_bundle.py",
+    "tests/test_release_check.py",
+    "tests/test_scripts_docs.py",
+    "tests/test_snapshot_replay_cli.py",
+    "tests/test_successor_rerun_impact.py",
+    "tests/test_target_raw_docket_recovery.py",
+    "tests/test_v3_quarantine_successor_template.py",
+    "tests/test_v4_ranked_reserve_template.py",
+    "tests/test_validate_local_assume_access.py",
+    "tests/test_versioning.py",
+    "tests/test_workflow_checkout_security.py"
+  ],
+  "identity_checks": [
+    "tests/test_llm_labeling_cli.py::callable-identity",
+    "tests/test_llm_labeling_cli.py::callable-identity",
+    "tests/test_llm_labeling_cli.py::callable-identity",
+    "tests/test_pacer_gap_bridge_cli.py::callable-identity",
+    "tests/test_pacer_gap_bridge_cli.py::callable-identity",
+    "tests/test_stage_a_authenticated_lineage.py::callable-identity",
+    "tests/test_target_100_acquisition.py::callable-identity",
+    "tests/test_zero_cost_successor.py::callable-identity"
+  ],
+  "literal_implementation_paths": {
+    "legalforecast/contracts/ratchet.py": [
+      "legalforecast/contracts/ratchet.py",
+      "legalforecast/contracts/schemas.py"
+    ],
+    "legalforecast/ingestion/firecrawl_screening_identity.py": [
+      "legalforecast/cli.py",
+      "legalforecast/ingestion/budgeted_docket_acquisition.py",
+      "legalforecast/ingestion/case_dev_firecrawl.py",
+      "legalforecast/ingestion/courtlistener_acquisition.py",
+      "legalforecast/ingestion/courtlistener_client.py",
+      "legalforecast/ingestion/courtlistener_dates.py",
+      "legalforecast/ingestion/courtlistener_web.py",
+      "legalforecast/ingestion/cycle_acquisition_store.py",
+      "legalforecast/ingestion/docket_sync.py",
+      "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "legalforecast/ingestion/mtd_acquisition_screen.py",
+      "legalforecast/ingestion/operative_complaint.py",
+      "legalforecast/ingestion/provenance.py",
+      "legalforecast/ingestion/recap_api_discovery.py",
+      "legalforecast/ingestion/restricted_material.py",
+      "legalforecast/ingestion/screening_snapshot_union.py",
+      "legalforecast/ingestion/screening_union_policy_rebind.py",
+      "legalforecast/ingestion/snapshot_replay.py",
+      "legalforecast/ingestion/strict_screen_evidence.py",
+      "legalforecast/selection/contamination_filters.py",
+      "legalforecast/selection/exclusion_ledger.py",
+      "legalforecast/selection/motion_linkage.py"
+    ],
+    "legalforecast/ingestion/rest_observation_policy_rebind.py": [
+      "legalforecast/ingestion/courtlistener_acquisition.py"
+    ],
+    "legalforecast/ingestion/screening_union_policy_rebind.py": [
+      "legalforecast/cli.py",
+      "legalforecast/ingestion/courtlistener_dates.py",
+      "legalforecast/ingestion/cycle_acquisition_store.py",
+      "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "legalforecast/ingestion/restricted_material.py",
+      "legalforecast/ingestion/screening_snapshot_union.py",
+      "legalforecast/ingestion/strict_screen_evidence.py"
+    ],
+    "legalforecast/multiharness/claude_agent_sdk.py": [
+      "legalforecast/multiharness/claude_agent_sdk.py",
+      "legalforecast/multiharness/claude_agent_sdk_cli.py"
+    ],
+    "legalforecast/multiharness/codex_cli.py": [
+      "legalforecast/multiharness/codex_cli.py",
+      "legalforecast/multiharness/codex_cli_cli.py"
+    ],
+    "legalforecast/multiharness/openai_responses.py": [
+      "legalforecast/multiharness/openai_responses.py",
+      "legalforecast/multiharness/openai_responses_cli.py"
+    ],
+    "legalforecast/testing/architecture_rules/cli_compatibility.py": [
+      "legalforecast/cli.py",
+      "legalforecast/cli_commands/report.py",
+      "legalforecast/cli_commands/score.py",
+      "legalforecast/ingestion/downstream_lineage_verification.py",
+      "legalforecast/ingestion/packet_build_replay.py",
+      "legalforecast/ingestion/purchase_approval.py",
+      "legalforecast/ingestion/recovered_public_replay.py",
+      "legalforecast/ingestion/resolved_post_recovery.py",
+      "legalforecast/ingestion/stage_a_lineage_verification.py"
+    ],
+    "legalforecast/testing/architecture_rules/imports.py": [
+      "legalforecast/cli.py"
+    ],
+    "legalforecast/testing/architecture_rules/inventory.py": [
+      "legalforecast/__init__.py",
+      "legalforecast/_datetime.py",
+      "legalforecast/_hashing.py",
+      "legalforecast/_json_io.py",
+      "legalforecast/_record_validation.py",
+      "legalforecast/cli.py",
+      "legalforecast/ingestion/canonical_json.py",
+      "legalforecast/ingestion/cycle_lineage_index.py",
+      "legalforecast/ingestion/cycle_preflight.py",
+      "legalforecast/ingestion/cycle_preflight_manifest.py",
+      "legalforecast/ingestion/http_config.py",
+      "legalforecast/ingestion/infisical_systemd_launcher.py",
+      "legalforecast/ingestion/provenance.py",
+      "legalforecast/logging.py",
+      "legalforecast/path_safety.py",
+      "legalforecast/protocol/manifest.py"
+    ],
+    "legalforecast/testing/cli_corpus/command_manifest.py": [
+      "legalforecast/cli.py"
+    ],
+    "legalforecast/testing/cli_corpus/path_identity.py": [
+      "legalforecast/cli.py"
+    ],
+    "scripts/verify_review_blockers.py": [
+      "legalforecast/ingestion/mtd_acquisition_screen.py",
+      "legalforecast/labeling/ensemble.py",
+      "legalforecast/selection/contamination_filters.py",
+      "legalforecast/selection/exclusion_ledger.py"
+    ],
+    "tests/ingestion/test_firecrawl_screening_identity.py": [
+      "legalforecast/cli.py",
+      "legalforecast/ingestion/cycle_acquisition_store.py",
+      "legalforecast/ingestion/firecrawl_screening_identity.py",
+      "legalforecast/ingestion/not-load-bearing.py",
+      "legalforecast/ingestion/restricted_material.py",
+      "legalforecast/ingestion/screening_snapshot_union.py",
+      "legalforecast/ingestion/screening_union_policy_rebind.py",
+      "legalforecast/ingestion/strict_screen_evidence.py"
+    ],
+    "tests/test_architecture.py": [
+      "legalforecast/cli_commands/report.py",
+      "legalforecast/cli_commands/score.py",
+      "legalforecast/console/parser.py",
+      "legalforecast/ingestion/downstream_lineage_verification.py",
+      "legalforecast/ingestion/packet_build_replay.py",
+      "legalforecast/ingestion/purchase.py",
+      "legalforecast/ingestion/purchase_approval.py",
+      "legalforecast/ingestion/recovered_public_replay.py",
+      "legalforecast/ingestion/resolved_post_recovery.py",
+      "legalforecast/ingestion/stage_a_lineage_verification.py",
+      "legalforecast/obsolete_cli_import.py"
+    ],
+    "tests/test_architecture_inventory.py": [
+      "legalforecast/cli.py",
+      "legalforecast/ingestion/canonical_json.py",
+      "legalforecast/ingestion/store.py",
+      "legalforecast/labeling/llm_pipeline.py",
+      "legalforecast/labeling/stage.py",
+      "legalforecast/labeling/unitizer_terminal.py",
+      "legalforecast/probe.py"
+    ],
+    "tests/test_architecture_rules.py": [
+      "legalforecast/cli.py",
+      "legalforecast/ingestion/cycle_orchestrator.py",
+      "legalforecast/testing/architecture.py"
+    ],
+    "tests/test_cli_corpus_identity.py": [
+      "legalforecast/cli.py",
+      "legalforecast/ingestion/firecrawl_screening_identity.py"
+    ],
+    "tests/test_community_multiharness_workflow.py": [
+      "legalforecast/publication/community_aggregate.py"
+    ],
+    "tests/test_contract_ratchet.py": [
+      "legalforecast/new_violation.py"
+    ],
+    "tests/test_cycle_acquisition_config_fence.py": [
+      "legalforecast/config/home.py",
+      "legalforecast/configuration.py",
+      "legalforecast/ingestion/extra.py",
+      "legalforecast/ingestion/legacy.py"
+    ],
+    "tests/test_local_cli_adapter_manifest.py": [
+      "legalforecast/cli.py"
+    ],
+    "tests/test_rest_observation_policy_rebind.py": [
+      "legalforecast/ingestion/courtlistener_acquisition.py"
+    ],
+    "tests/test_screening_snapshot_union.py": [
+      "legalforecast/ingestion/courtlistener_dates.py",
+      "legalforecast/ingestion/cycle_acquisition_store.py",
+      "legalforecast/ingestion/screening_union_policy_rebind.py"
+    ]
+  },
+  "schema_version": 1
+}

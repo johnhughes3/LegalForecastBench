@@ -1,0 +1,14 @@
+usage: legalforecast multiharness [-h] COMMAND ...
+
+positional arguments:
+  COMMAND
+    tasks        Task index and selection commands.
+    adapters     Adapter inspection commands.
+    conformance  Run the no-provider adapter conformance suite.
+    run          Run or dry-run a selected task matrix through command
+                 adapters.
+    report       Summarize a multi-harness run directory as public JSON.
+    community    Community submission packaging and aggregation commands.
+
+options:
+  -h, --help     show this help message and exit

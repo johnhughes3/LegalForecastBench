@@ -1,0 +1,449 @@
+usage: legalforecast acquisition [-h] COMMAND ...
+
+CourtListener REST is the only production final authority for paid document
+gaps. Legacy Case.dev paid commands are disabled for live use.
+
+positional arguments:
+  COMMAND
+    render-cycle-config
+                        Render and validate a canonical acquisition-cycle
+                        config from a path-parameterized template.
+    materialize-cycle-path-metadata
+                        Verify and publish the machine-local paths for a
+                        frozen cycle.
+    register-cycle-lineage
+                        Verify and register a rebuildable local acquisition-
+                        cycle lineage.
+    register-cycle-stage-head
+                        Verify and register a directly executed acquisition
+                        stage head.
+    locate-cycle-lineage
+                        Locate and re-authenticate the unique current
+                        acquisition lineage.
+    explain-successor-rerun
+                        Explain the minimum safe rerun for proposed successor
+                        inputs.
+    run-cycle           Advance an immutable, receipt-backed acquisition-only
+                        cycle plan until its next explicit authority boundary.
+    init-cycle          Freeze or verify the acquisition cycle identity
+                        without contacting any provider.
+    materialize-provider-cycle-caps-successor
+                        Provider-free derivation of authority-enabled provider
+                        cycle caps from exact reviewed authority-smoke
+                        evidence.
+    discover-case-dev   Materialize an exploratory Case.dev case/party
+                        metadata lead pool without purchasing documents; this
+                        is not anchored disposition discovery.
+    discover-firecrawl-recap
+                        Discover anchored MTD docket entries from
+                        CourtListener RECAP through a cycle-budgeted Firecrawl
+                        route.
+    discover-firecrawl-recap-decisions
+                        Recover frozen decision-first type=r CourtListener
+                        results through cycle-budgeted Firecrawl for free
+                        Case.dev enrichment.
+    project-firecrawl-recap-checkpoint
+                        Recover verified durable Firecrawl RECAP search pages
+                        into explicitly partial entry and potential-docket
+                        checkpoints.
+    enrich-recap-case-dev
+                        Enrich discovered CourtListener docket IDs through
+                        free Case.dev includeEntries lookups and rank verified
+                        free-document coverage.
+    acquire-ranked-firecrawl-dockets
+                        Acquire free-ranked RECAP dockets through the
+                        canonical Firecrawl ledger and complete newest-first
+                        pagination.
+    plan-target-public-gaps
+                        Freeze the exact provider-free target public-gap
+                        execution plan.
+    execute-target-public-gaps
+                        Execute one externally pinned target public-gap plan.
+    plan-target-raw-docket-recovery
+                        Freeze the selected-minus-raw Firecrawl docket
+                        recovery plan without provider activity.
+    execute-target-raw-docket-recovery
+                        Execute one pinned raw-docket recovery plan through
+                        complete Firecrawl pagination only.
+    plan-target-raw-docket-recovery-successor
+                        Freeze one direct child of a zero-success circuit-open
+                        raw docket recovery run without provider activity.
+    execute-target-raw-docket-recovery-successor
+                        Execute one pinned direct successor with all targets,
+                        budget, and scheduler settings inherited from its
+                        failed parent.
+    plan-target-raw-docket-recovery-provider-contract-retry
+                        Freeze the sole blockAds-omission retry after two
+                        zero-success circuit-open raw docket recoveries.
+    execute-target-raw-docket-recovery-provider-contract-retry
+                        Execute the sole pinned blockAds-omission raw docket
+                        retry with inherited targets and cycle budget.
+    build-target-raw-docket-auxiliary-provenance-bridge
+                        Authenticate completed recovered raw dockets and
+                        publish the provider-free bridge used by packet
+                        planning.
+    seal-ranked-firecrawl-run
+                        Seal a budget-exhausted ranked Firecrawl ledger into
+                        exact terminal and unresolved partitions without
+                        provider activity.
+    discover-courtlistener
+                        Discover live post-anchor CourtListener MTD candidates
+                        and emit screened cases.
+    materialize-courtlistener-snapshot
+                        Verify a completed direct CourtListener discovery
+                        transcript and publish a complete saturated cycle
+                        snapshot without provider access.
+    union-screening-snapshots
+                        Publish one provider-free saturated union of two or
+                        more same-cycle screening snapshots.
+    rebind-screening-union-policy
+                        Rebind one exact authenticated screening union to the
+                        current cycle without provider or paid activity.
+    funnel-report       Reconcile discovery exclusions into a versioned
+                        acquisition funnel.
+    generate-labeling-policy
+                        Generate the immutable pre-labeling policy without
+                        freezing or dispatching a cycle.
+    verify-labeling-policy
+                        Verify a pre-labeling policy without touching official
+                        freeze state.
+    generate-cohort-policy
+                        Generate a hash-bound cohort precommitment from
+                        supplied decisions.
+    verify-cohort-policy
+                        Verify a cohort precommitment and optional expected
+                        hash.
+    generate-disclosure-review-authority
+                        Generate an immutable disclosure authority from exact
+                        cohort and hardware reviewer policies.
+    verify-disclosure-review-authority
+                        Verify disclosure-authority bytes against exact cohort
+                        and hardware reviewer policies.
+    record-purchase-approval
+                        Interactively record approve, reject, or free-only for
+                        one exact completed post-clearance purchase projection
+                        without provider activity.
+    verify-purchase-approval
+                        Replay an exact private approval, full target
+                        projection, cohort policy, fee schedule, and fresh
+                        ledger boundary without providers.
+    generate-purchase-policy
+                        Generate the immutable v2 purchase policy from a
+                        replay-verified private exact-projection approval.
+    init-purchase-ledger
+                        Exclusively initialize the policy-bound purchase
+                        ledger without contacting any provider or
+                        acknowledging fees.
+    build-clearance-replacement-frontier
+                        Freeze the complete post-clearance replacement
+                        frontier, source hashes, case-mix caps, and initial
+                        selected cohort.
+    plan-clearance-replacements
+                        Append replay-safe quarantine replacement decisions
+                        and emit a narrow next-iteration plan without any
+                        provider request or purchase.
+    plan-ranked-reserve-replacements
+                        Consume explicit terminal downstream exclusions from
+                        one authenticated frozen ranked reserve without
+                        provider or paid activity.
+    project-zero-cost-successor
+                        Authenticate the exact 99-case ranked-reserve
+                        precursor and add the first fully cleared candidate
+                        from the frozen zero-cost order.
+    project-exact100-successor-replacement
+                        Replay sealed inputs and terminal evidence into an
+                        exact-100 successor.
+    project-exact100-successor-replacement-v2
+                        Replay the complete exact-100 and wider horizon into a
+                        v2 successor.
+    project-exact100-supporting-document-successor
+                        Create the one-document, versioned ECF-14 exact-100
+                        successor.
+    recover-exact100-target-document-zero-cost
+                        Run only the plan-derived noncharging CourtListener
+                        recovery.
+    accumulate-replacement-clearance
+                        Merge the prior authenticated purchased clearance with
+                        one new replacement tranche and require exact current-
+                        ledger coverage.
+    build-replacement-exclusions
+                        Publish the authenticated successor exclusion ledger
+                        that exactly reconciles the screened pool against the
+                        final replacement cohort.
+    build-replacement-recovery-source
+                        Derive one authenticated initial or successor
+                        recovery-source descriptor without provider activity.
+    build-replacement-recovery-index
+                        Canonicalize one initial-v2 recovery source followed
+                        by ordered successor recovery sources without provider
+                        activity.
+    consolidate-replacement-recovery
+                        Consolidate authenticated purchased recovery from
+                        every approved replacement tranche for the final
+                        active cohort without providers.
+    record-replacement-purchase-approval
+                        Interactively record John approval for one exact
+                        ranked clearance-replacement tranche without provider
+                        or paid activity.
+    verify-replacement-purchase-approval
+                        Replay an exact successor approval against the
+                        unchanged v2 policy, frozen frontier, and existing
+                        Cycle ledger.
+    generate-replacement-purchase-authority
+                        Publish a hash-bound successor authority sidecar for
+                        one exact approved replacement tranche.
+    generate-recap-fetch-attempt-policy
+                        Freeze bounded spend authority for exact unknown-
+                        status RECAP documents; this never grants parser or
+                        packet eligibility.
+    generate-recap-fetch-broker-policy
+                        Derive an immutable secure-gate RECAP Fetch allowlist
+                        from a verified purchase policy and executable
+                        purchase plan. CourtListener REST is the paid-gap
+                        authority; Case.dev remains noncharging
+                        search/enrichment only and is never purchase
+                        authority.
+    reconcile-purchase  Record provider billing evidence or a cap-counted
+                        write-off for an ambiguous document purchase.
+    summarize-purchase-spend
+                        Provider-free immutable accounting of actual PACER
+                        charges, cap-counted commitments, and unresolved
+                        billing.
+    export-cohort-observations
+                        Append complete cycle-store snapshots to the
+                        observation manifest.
+    verify-cohort-observations
+                        Verify the append-only cohort observation hash chain.
+    fetch-firecrawl-dockets
+                        Resolve Case.dev candidates to CourtListener URLs and
+                        fetch bounded public docket HTML through Firecrawl.
+    screen-firecrawl-dockets
+                        Apply strict MTD eligibility, linkage, contamination,
+                        and privacy gates to persisted Firecrawl docket pages.
+    replay-screening-snapshots
+                        Re-screen verified historical snapshots into one
+                        target-cycle snapshot without contacting any provider.
+    promote-terminal-firecrawl-subset
+                        Promote a hash-bound provisional Firecrawl exact
+                        subset after its complete Case.dev source becomes
+                        terminal.
+    promote-terminal-rest-priority-subset
+                        Promote an exact terminal CourtListener REST priority
+                        tranche under an approved acquisition-shaped selection
+                        policy.
+    quarantine-orphan-snapshot
+                        Verify and optionally atomically quarantine an
+                        unregistered snapshot directory without changing the
+                        cycle store.
+    bridge-pacer-gaps   Resolve paid gaps to authoritative CourtListener RECAP
+                        document IDs; Case.dev fixture support is legacy
+                        compatibility only.
+    rebase-pacer-gap-checkpoints
+                        Reindex verified PACER-gap checkpoints after provider-
+                        free route reordering.
+    filter-core-documents
+                        Build missing-core purchase inputs from setup-runner
+                        relevance JSONL.
+    plan                Plan missing-core paid recovery from core-document
+                        filter results.
+    prepare-target-cohort
+                        Prepare the full resolved pool and a provisional pre-
+                        clearance budget for an explicit target size.
+    materialize-target-cohort-frontier
+                        Build a verified full frontier from a completed
+                        preparation root without rerunning providers.
+    prepare-target-100  Prepare the full resolved pool and a provisional pre-
+                        clearance 100-case budget.
+    project-target-cohort
+                        Freeze an exact post-clearance cheapest cohort for
+                        downstream stages.
+    extend-target-cohort
+                        Retain an exact 100-case prefix and add 50 omitted
+                        candidates.
+    plan-public-downloads
+                        Plan free public CourtListener/RECAP packet-document
+                        downloads.
+    plan-opinion-docket-gaps
+                        Budget docket-history refreshes for verified opinion-
+                        backed gaps.
+    download-free       Download free public docket documents.
+    purchase-missing    DISABLED for live use: legacy Case.dev/PACER purchase
+                        compatibility fixtures only.
+    purchase-missing-recap-fetch
+                        Execute individual-document purchases through a
+                        budget-enforcing CourtListener RECAP Fetch broker.
+    recover-recap-fetch-quarantine
+                        Revalidate and download unknown-status RECAP Fetch
+                        material into a controlled, parser-ineligible
+                        quarantine.
+    plan-docket-live-fetches
+                        DEPRECATED: build a no-provider legacy Case.dev
+                        docket-fetch frontier.
+    execute-docket-live-fetches
+                        DISABLED for live use: legacy Case.dev docket-refresh
+                        fixtures only.
+    recover-purchased   Recover already-purchased case.dev documents into
+                        parser manifests.
+    merge-download-manifests
+                        Merge free and purchased document manifests for parser
+                        planning.
+    materialize-cohort-documents
+                        Copy authenticated cleared free and purchased bytes
+                        into one immutable parse root.
+    bind-acquisition-component
+                        Bind one immutable downstream artifact root into a
+                        snapshot-derived component provenance chain.
+    assemble-cycle-acquisition
+                        Assemble immutable acquisition batches into one
+                        content-addressed cycle root.
+    prepare-disclosure-review
+                        Build a deterministic private review worksheet and
+                        exact-byte inspection map.
+    plan-disclosure-provenance
+                        Route exact affirmative-public bytes automatically and
+                        all other documents to a hash-bound exception
+                        workflow.
+    preflight-disclosure-review-signer
+                        Verify the externally pinned hardware reviewer policy.
+    record-disclosure-review-decisions
+                        Interactively inspect and record every disclosure
+                        decision privately.
+    build-disclosure-review-bundle
+                        Build exact review JSONL and the detached SSHSIG
+                        signing statement.
+    seal-disclosure-review-bundle
+                        Verify the external hardware SSHSIG and emit a review
+                        receipt.
+    clear-disclosures   Scan and record hash-bound disclosure clearance per
+                        document.
+    clear-provenance-disclosures
+                        Recompute provenance routing and publish disclosure
+                        clearance after complete hash-bound exception review.
+    finalize-provenance-quarantine
+                        Finalize v3 rows under an explicit provider-free,
+                        model, or quarantine-only disposition policy.
+    review-disclosure-exceptions
+                        Review eligible v3 disclosure exceptions with frozen
+                        Gemini authority.
+    resolve-post-recovery-documents
+                        Bind unknown-origin recovered bytes to the canonical
+                        purchase journal and authenticated public-clearance
+                        lineage.
+    plan-parse-documents
+                        Plan Markdown parser requests from downloaded document
+                        manifests.
+    parse-documents     Convert acquired documents to Markdown parser
+                        artifacts.
+    rehearse-downstream
+                        Run the exact-cohort downstream chain with
+                        authenticated local fixtures; output is never
+                        official, freezeable, evaluable, or dispatchable.
+    rehearsal-build-decision-texts
+                        Run one explicit fixture-only downstream stage and
+                        emit an authenticated non-production stage card.
+    rehearsal-stage-a-unitize
+                        Run one explicit fixture-only downstream stage and
+                        emit an authenticated non-production stage card.
+    rehearsal-stage-a-review
+                        Run one explicit fixture-only downstream stage and
+                        emit an authenticated non-production stage card.
+    rehearsal-stage-a-apply
+                        Run one explicit fixture-only downstream stage and
+                        emit an authenticated non-production stage card.
+    rehearsal-stage-b-label
+                        Run one explicit fixture-only downstream stage and
+                        emit an authenticated non-production stage card.
+    rehearsal-stage-b-apply
+                        Run one explicit fixture-only downstream stage and
+                        emit an authenticated non-production stage card.
+    rehearsal-plan-packet-inputs
+                        Run one explicit fixture-only downstream stage and
+                        emit an authenticated non-production stage card.
+    rehearsal-build-packets
+                        Run one explicit fixture-only downstream stage and
+                        emit an authenticated non-production stage card.
+    finalize-rehearsal-corpus
+                        Finalize only a fixture rehearsal corpus; output
+                        cannot authorize official readiness, freeze,
+                        evaluation, or dispatch.
+    build-decision-texts
+                        Build hash-bound first-written-disposition text for
+                        Stage B labeling and audit from cleared Mistral
+                        artifacts.
+    build-paid-labeling-source
+                        Close and age-encrypt provider-free inputs for one
+                        protected paid-labeling stage.
+    assemble-paid-labeling-baton
+                        Verify encrypted source and predecessor packages, then
+                        assemble one closed encrypted provider baton.
+    open-paid-labeling-baton
+                        Verify and decrypt one exact protected-workflow baton
+                        into a private job root.
+    seal-paid-labeling-result
+                        Checkpoint and age-encrypt one provider-stage success
+                        or recovery result after credentials are cleared.
+    llm-unitize         Use a registry-backed LLM to construct frozen Stage A
+                        units.
+    audit-stage-a-target-eligibility
+                        Replay authenticated Stage A parse lineage and publish
+                        the provider-free target-document eligibility audit.
+    recover-llm-unitize-reconstruction
+                        Provider-free revalidation of one failed Stage A
+                        response from the authenticated journal.
+    terminalize-llm-unitize-reconstruction
+                        Provider-free escalation of one claim-ontology-v5
+                        unitizer call after exactly three reconstruction
+                        failures.
+    build-unitizer-terminal-review-bundle
+                        Build a provider-free candidate review queue and
+                        source bundle from authenticated unitizer terminal
+                        receipts.
+    build-successor-attorney-packet
+                        Build the provider-free successor attorney packet v2
+                        from ordinary and terminal Stage A review artifacts.
+    convert-unitization-adjudication-worksheet
+                        Compile a completed successor attorney worksheet into
+                        ordinary and terminal Stage A adjudication JSONL.
+    llm-review-stage-a  Flag structural Stage A defects without rewriting
+                        frozen units.
+    recover-llm-review-stage-a-reconstruction
+                        Provider-free revalidation of one failed Stage A
+                        structural-review response from the authenticated
+                        journal.
+    terminalize-llm-review-stage-a-reconstruction
+                        Provider-free escalation of an eligible invalid Stage
+                        A reviewer reconstruction route to the immutable John
+                        review queue.
+    build-unitization-review-bundle
+                        Build a private blinded human-review bundle from
+                        authenticated Stage A.
+    preflight-unitization-adjudication
+                        Authenticate proposed Stage A adjudications read-only
+                        and print the private grouped worklist and claim-
+                        defendant matrix.
+    apply-unitization-review
+                        Apply checked-in Stage A adjudications and finalize
+                        prediction units.
+    apply-unitizer-terminal-review
+                        Apply terminal-unitizer adjudications and merge them
+                        with ordinary finalized Stage A candidates without
+                        provider activity.
+    llm-label           Use registry-backed LLM judges to create Stage B
+                        labels.
+    plan-label-audit    Freeze one stratified cycle-level audit sample after
+                        Stage B labeling.
+    apply-lawyer-review
+                        Apply checked-in lawyer adjudications to pending Stage
+                        B labels.
+    plan-packet-inputs  Plan packet-build and private-store inputs from
+                        acquisition manifests.
+    build-packets       Build final model packets from acquisition artifacts.
+    finalize-corpus     Consolidate exclusions and verify the clean labeled
+                        packet corpus.
+    summarize-corpus    Publish the closed, hash-bound Cycle corpus completion
+                        summary.
+    merge-artifacts     Merge packet-buildable acquisition roots for a pilot
+                        cycle.
+
+options:
+  -h, --help            show this help message and exit
