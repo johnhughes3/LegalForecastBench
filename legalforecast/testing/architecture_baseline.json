@@ -3601,9 +3601,10 @@
       "legalforecast/selection": 8,
       "legalforecast/testing": 4,
       "legalforecast/testing/architecture_rules": 7,
+      "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 9,
       "scripts": 14,
-      "tests": 413,
+      "tests": 416,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -3685,7 +3686,7 @@
         "cycle_id": "legalforecast/acquisition_completion_summary_cli.py,legalforecast/cli.py,legalforecast/cli_commands/report.py,legalforecast/cli_commands/score.py,legalforecast/extraction/pdf_text.py,legalforecast/ingestion/__init__.py,legalforecast/ingestion/budgeted_docket_acquisition.py,legalforecast/ingestion/case_dev_provisional_frontier.py,legalforecast/ingestion/case_dev_purchase.py,legalforecast/ingestion/case_dev_ranked_selection.py,legalforecast/ingestion/case_dev_recap_batch.py,legalforecast/ingestion/clearance_replacement.py,legalforecast/ingestion/cohort_document_materializer.py,legalforecast/ingestion/corpus_completion_summary.py,legalforecast/ingestion/courtlistener_case_dev_bridge.py,legalforecast/ingestion/courtlistener_recap_fetch.py,legalforecast/ingestion/cycle_lineage_index.py,legalforecast/ingestion/cycle_manifest_template.py,legalforecast/ingestion/cycle_orchestrator.py,legalforecast/ingestion/cycle_path_metadata.py,legalforecast/ingestion/cycle_preflight_manifest.py,legalforecast/ingestion/decision_text_artifact.py,legalforecast/ingestion/disclosure_clearance.py,legalforecast/ingestion/disclosure_model_review.py,legalforecast/ingestion/disclosure_model_review_authority.py,legalforecast/ingestion/disclosure_review_bundle.py,legalforecast/ingestion/docket_decision_text_source.py,legalforecast/ingestion/downstream_lineage_verification.py,legalforecast/ingestion/downstream_rehearsal.py,legalforecast/ingestion/exact100_successor_replacement_v2_cli.py,legalforecast/ingestion/firecrawl_docket_recovery.py,legalforecast/ingestion/free_only_materialization.py,legalforecast/ingestion/free_support_memorandum_recovery.py,legalforecast/ingestion/packet_build_replay.py,legalforecast/ingestion/packet_input_planner.py,legalforecast/ingestion/provenance_clearance.py,legalforecast/ingestion/purchase_approval.py,legalforecast/ingestion/purchase_spend_summary.py,legalforecast/ingestion/purchased_document_recovery.py,legalforecast/ingestion/ranked_reserve_replacement.py,legalforecast/ingestion/readiness_provenance.py,legalforecast/ingestion/recap_fetch_attempt_policy.py,legalforecast/ingestion/recap_fetch_broker_policy.py,legalforecast/ingestion/recap_fetch_quarantine_recovery.py,legalforecast/ingestion/recovered_public_replay.py,legalforecast/ingestion/replacement_purchase_approval.py,legalforecast/ingestion/resolved_post_recovery.py,legalforecast/ingestion/retained_cohort_extension.py,legalforecast/ingestion/stage_a_lineage_verification.py,legalforecast/ingestion/successor_rerun_impact.py,legalforecast/ingestion/successor_rerun_proposal.py,legalforecast/ingestion/supporting_document_successor_cli.py,legalforecast/ingestion/target_cohort_projection.py,legalforecast/ingestion/target_public_gap_refresh.py,legalforecast/ingestion/target_raw_docket_auxiliary_provenance.py,legalforecast/ingestion/target_raw_docket_recovery.py,legalforecast/ingestion/terminal_purchase_failure.py,legalforecast/ingestion/terminal_subset_promotion.py,legalforecast/ingestion/zero_cost_successor.py,legalforecast/labeling/llm_pipeline.py,legalforecast/labeling/official_paid_baton.py,legalforecast/labeling/unitizer_terminal.py",
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-cwdv",
-        "fan_in": 8,
+        "fan_in": 10,
         "fan_out": 170,
         "flags": [
           "relative-path",
@@ -6667,7 +6668,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-l8qv.9",
-        "fan_in": 6,
+        "fan_in": 7,
         "fan_out": 7,
         "flags": [
           "oversized"
@@ -6803,7 +6804,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
-        "fan_in": 3,
+        "fan_in": 4,
         "fan_out": 15,
         "flags": [
           "monolith"
@@ -7068,15 +7069,15 @@
         "largest_symbol": "scan_test_compatibility",
         "largest_symbol_lines": 186,
         "layer": "test",
-        "line_count": 529,
-        "nonblank_line_count": 485,
+        "line_count": 530,
+        "nonblank_line_count": 486,
         "top_level_definition_count": 16
       },
       "legalforecast/testing/architecture_rules/imports.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",
         "disposition_owner": "testing",
-        "fan_in": 2,
+        "fan_in": 3,
         "fan_out": 1,
         "flags": [
           "relative-path"
@@ -7085,8 +7086,8 @@
         "largest_symbol": "imported_legalforecast_modules",
         "largest_symbol_lines": 59,
         "layer": "test",
-        "line_count": 422,
-        "nonblank_line_count": 367,
+        "line_count": 426,
+        "nonblank_line_count": 371,
         "top_level_definition_count": 18
       },
       "legalforecast/testing/architecture_rules/inventory.py": {
@@ -7105,6 +7106,40 @@
         "line_count": 403,
         "nonblank_line_count": 360,
         "top_level_definition_count": 13
+      },
+      "legalforecast/testing/cli_corpus/command_manifest.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "testing",
+        "fan_in": 2,
+        "fan_out": 6,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "testing",
+        "largest_symbol": "_bypass_records",
+        "largest_symbol_lines": 54,
+        "layer": "test",
+        "line_count": 254,
+        "nonblank_line_count": 226,
+        "top_level_definition_count": 9
+      },
+      "legalforecast/testing/cli_corpus/path_identity.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "testing",
+        "fan_in": 2,
+        "fan_out": 2,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "testing",
+        "largest_symbol": "_authenticated_profiles",
+        "largest_symbol_lines": 49,
+        "layer": "test",
+        "line_count": 245,
+        "nonblank_line_count": 221,
+        "top_level_definition_count": 9
       },
       "legalforecast/unitization/attorney_worksheet.py": {
         "cycle_id": "",

@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "output.jsonl": "{\n  \"command\": \"discover\",\n  \"dry_run\": true,\n  \"input_path\": \"{workspace}/input.jsonl\",\n  \"output_paths\": [\n    \"{workspace}/output.jsonl\"\n  ],\n  \"record_count\": 0,\n  \"search_terms\": [\n    \"motion to dismiss\",\n    \"motions to dismiss\",\n    \"MTD\",\n    \"Rule 12\",\n    \"Fed. R. Civ. P. 12\",\n    \"12(b)(1)\",\n    \"12(b)(2)\",\n    \"12(b)(6)\",\n    \"12(c)\",\n    \"dismiss complaint\",\n    \"dismiss amended complaint\",\n    \"dismiss the complaint\",\n    \"dismissal of complaint\",\n    \"order granting motion to dismiss\",\n    \"order denying motion to dismiss\",\n    \"order granting in part and denying in part motion to dismiss\",\n    \"memorandum opinion and order\",\n    \"opinion and order\",\n    \"decision and order\",\n    \"dismissed with leave to amend\",\n    \"dismissed without prejudice\",\n    \"dismissed with prejudice\"\n  ]\n}\n",
+    "output.jsonl.sha256": "7ca86200cab3450115ded7910b81264f049e90d517478aa84ce3cdabe1c0a585"
+  },
+  "case_id": "discover-dry-run",
+  "exit_status": 0,
+  "extra_files": [],
+  "first_exit_status": 0,
+  "first_stderr": "{\"artifact_path\": \"{workspace}/output.jsonl\", \"event\": \"dry_run\", \"record_count\": 0, \"stage\": \"discover\"}\n",
+  "first_stdout": "",
+  "output_tree": [
+    "output.jsonl"
+  ],
+  "stderr": "{\"artifact_path\": \"{workspace}/output.jsonl\", \"event\": \"dry_run\", \"record_count\": 0, \"stage\": \"discover\"}\n",
+  "stdout": ""
+}

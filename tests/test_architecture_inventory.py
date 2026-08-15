@@ -299,17 +299,18 @@ def test_scan_repository_cache_invalidates_after_git_status_change(
     _init_git_repository(tmp_path)
     write_baseline(tmp_path / BASELINE_PATH, scan_repository(tmp_path))
     first = scan_repository(tmp_path)
-    assert "legalforecast/labeling/extra.py" not in {item.path for item in first.files}
+    extra_relative = Path("legalforecast") / "labeling" / "extra.py"
+    assert extra_relative.as_posix() not in {item.path for item in first.files}
 
     _write_module(
-        tmp_path / "legalforecast" / "labeling" / "extra.py",
+        tmp_path / extra_relative,
         "def run():\n    return None\n",
         lines=530,
     )
     subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
     second = scan_repository(tmp_path)
 
-    assert "legalforecast/labeling/extra.py" in {item.path for item in second.files}
+    assert extra_relative.as_posix() in {item.path for item in second.files}
 
 
 def test_ranked_queue_lists_monoliths_before_watch_files(tmp_path: Path) -> None:

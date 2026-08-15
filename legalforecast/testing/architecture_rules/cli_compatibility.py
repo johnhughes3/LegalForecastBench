@@ -111,6 +111,7 @@ def scan_upward_cli_dependencies(root: Path) -> tuple[str, ...]:
             path
             for path in python_paths(root / "legalforecast")
             if path != CLI_PATH
+            and not path.startswith("legalforecast/testing/")
             and imports_cli(
                 root / path,
                 include_console=not is_console_adapter_source(path),

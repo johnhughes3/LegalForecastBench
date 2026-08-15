@@ -279,7 +279,11 @@ def reverse_adapter_dependencies(
     forbidden: set[str] = set()
     for relative in python_paths(root / "legalforecast"):
         if relative == "legalforecast/cli.py" or relative.startswith(
-            ("legalforecast/cli_commands/", "legalforecast/console/")
+            (
+                "legalforecast/cli_commands/",
+                "legalforecast/console/",
+                "legalforecast/testing/",
+            )
         ):
             continue
         if _imports_forbidden_adapter(
