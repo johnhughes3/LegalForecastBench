@@ -37,7 +37,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--write-identity", action="store_true")
     parser.add_argument("--write-differential", action="store_true")
     parser.add_argument("--write-timing", action="store_true")
-    parser.add_argument("--durations-file", type=Path)
+    parser.add_argument(
+        "--durations-file",
+        type=Path,
+        help=(
+            "pytest --durations=0 output used to rank the loadscope critical "
+            "path by runtime. Without it, the timing JSON records test counts "
+            "only and sets critical_path_rank to test_count."
+        ),
+    )
     parser.add_argument("--collect-only-file", type=Path)
     parser.add_argument("--write-all", action="store_true")
     args = parser.parse_args(list(argv) if argv is not None else None)

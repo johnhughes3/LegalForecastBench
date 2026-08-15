@@ -121,6 +121,12 @@ def test_xdist_timing_parser_and_critical_path() -> None:
     )
     ranked = critical_path(payload["modules"], limit=2)
     assert ranked[0] == "tests/test_cycle_acquisition_store.py"
+    assert payload["durations_recorded"] is True
+    assert payload["critical_path_rank"] == "duration"
+
+    counts_only = timing_payload(test_counts=counts)
+    assert counts_only["durations_recorded"] is False
+    assert counts_only["critical_path_rank"] == "test_count"
 
 
 def test_xdist_timing_baseline_exists_and_names_loadscope_shards() -> None:
@@ -128,6 +134,8 @@ def test_xdist_timing_baseline_exists_and_names_loadscope_shards() -> None:
     assert payload["schema_version"] == 1
     assert payload["dist"] == "loadscope"
     assert payload["workers"] == 4
+    assert payload["durations_recorded"] is False
+    assert payload["critical_path_rank"] == "test_count"
     modules = payload["modules"]
     assert "tests/test_architecture.py" in modules
     assert "tests/test_cycle_acquisition_store.py" in modules

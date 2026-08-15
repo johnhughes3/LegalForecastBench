@@ -6,6 +6,9 @@
   "case_id": "discover-dry-run",
   "exit_status": 0,
   "extra_files": [],
+  "first_exit_status": 0,
+  "first_stderr": "{\"artifact_path\": \"{workspace}/output.jsonl\", \"event\": \"dry_run\", \"record_count\": 0, \"stage\": \"discover\"}\n",
+  "first_stdout": "",
   "output_tree": [
     "output.jsonl"
   ],

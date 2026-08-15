@@ -27,7 +27,9 @@
     "tests/test_cycle_acquisition_store.py",
     "tests/test_public_packet_planner.py"
   ],
+  "critical_path_rank": "test_count",
   "dist": "loadscope",
+  "durations_recorded": false,
   "modules": {
     "tests/ingestion/test_firecrawl_screening_identity.py": {
       "duration_seconds": null,

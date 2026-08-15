@@ -6,6 +6,9 @@
   "case_id": "score-dry-run",
   "exit_status": 0,
   "extra_files": [],
+  "first_exit_status": 0,
+  "first_stderr": "{\"artifact_path\": \"{workspace}/scores.json\", \"event\": \"dry_run\", \"record_count\": 0, \"stage\": \"score\"}\n",
+  "first_stdout": "",
   "output_tree": [
     "scores.json"
   ],

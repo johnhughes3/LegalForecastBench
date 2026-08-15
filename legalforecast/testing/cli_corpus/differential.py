@@ -99,6 +99,9 @@ class DifferentialResult:
     output_tree: tuple[str, ...]
     artifacts: dict[str, str]
     extra_files: tuple[str, ...]
+    first_exit_status: int | None = None
+    first_stdout: str = ""
+    first_stderr: str = ""
 
 
 def validate_case_argv(argv: Sequence[str]) -> None:
@@ -124,11 +127,15 @@ def run_case(case: DifferentialCase, workspace: Path) -> DifferentialResult:
     captured = invoke_cli(argv)
     after_first = _relative_files(workspace)
     extra: set[str] = set()
-    if case.resume:
+    first_exit = captured.exit_status
+    first_stdout = captured.stdout
+    first_stderr = captured.stderr
+    if case.resume and captured.exit_status == case.expected_exit:
         captured = invoke_cli(argv)
         extra = _relative_files(workspace) - after_first
     created = tuple(sorted(after_first - before))
     expected_created = tuple(path for path in created if not _is_skipped_artifact(path))
+    resume = case.resume
     return DifferentialResult(
         case_id=case.case_id,
         exit_status=captured.exit_status,
@@ -137,13 +144,16 @@ def run_case(case: DifferentialCase, workspace: Path) -> DifferentialResult:
         output_tree=expected_created,
         artifacts=_artifact_payload(workspace, expected_created),
         extra_files=tuple(sorted(extra)),
+        first_exit_status=first_exit if resume else None,
+        first_stdout=_normalize_text(first_stdout, workspace) if resume else "",
+        first_stderr=_normalize_text(first_stderr, workspace) if resume else "",
     )
 
 
 def result_payload(result: DifferentialResult) -> dict[str, object]:
     """JSON object stored as the reviewed fixture for one case."""
 
-    return {
+    payload: dict[str, object] = {
         "artifacts": result.artifacts,
         "case_id": result.case_id,
         "exit_status": result.exit_status,
@@ -152,6 +162,11 @@ def result_payload(result: DifferentialResult) -> dict[str, object]:
         "stderr": result.stderr,
         "stdout": result.stdout,
     }
+    if result.first_exit_status is not None:
+        payload["first_exit_status"] = result.first_exit_status
+        payload["first_stderr"] = result.first_stderr
+        payload["first_stdout"] = result.first_stdout
+    return payload
 
 
 def write_differential_fixtures(root: Path, workspace: Path) -> None:
@@ -197,9 +212,17 @@ def compare_result(
         "output_tree",
         "artifacts",
         "extra_files",
+        "first_exit_status",
+        "first_stdout",
+        "first_stderr",
     ):
-        if payload[field] != expected.get(field):
-            violations.append(f"{observed.case_id}.{field} mismatch")
+        if field not in payload and field not in expected:
+            continue
+        if payload.get(field) != expected.get(field):
+            violations.append(
+                f"{observed.case_id}.{field} mismatch: "
+                f"observed={payload.get(field)!r} expected={expected.get(field)!r}"
+            )
     return tuple(violations)
 
 

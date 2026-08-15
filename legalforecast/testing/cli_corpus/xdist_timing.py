@@ -87,11 +87,14 @@ def timing_payload(
                 path, {"test_count": 0, "duration_seconds": round(seconds, 6)}
             )
     payload_modules = dict(sorted(modules.items()))
+    recorded = bool(durations)
     return {
         "schema_version": TIMING_SCHEMA_VERSION,
         "command": SUPPORTED_XDIST_COMMAND,
         "dist": "loadscope",
         "workers": 4,
+        "durations_recorded": recorded,
+        "critical_path_rank": "duration" if recorded else "test_count",
         "critical_path": list(critical_path(payload_modules)),
         "modules": payload_modules,
     }
