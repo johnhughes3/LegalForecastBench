@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
 from legalforecast.testing.cli_corpus.entry_points import (
     ENTRY_POINTS,
     checkout_entry_points,
@@ -141,3 +142,38 @@ def test_xdist_timing_baseline_exists_and_names_loadscope_shards() -> None:
     assert "tests/test_cycle_acquisition_store.py" in modules
     assert payload["critical_path"]
     assert all(path in modules for path in payload["critical_path"])
+
+
+def test_write_timing_requires_durations_file() -> None:
+    from legalforecast.testing.cli_corpus.reporting import main
+
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--write-timing"])
+    assert excinfo.value.code == 2
+
+
+def test_write_timing_records_durations_from_supplied_files(tmp_path: Path) -> None:
+    from legalforecast.testing.cli_corpus.reporting import main
+
+    collect = tmp_path / "collect.txt"
+    collect.write_text(_COLLECT_SAMPLE.lstrip(), encoding="utf-8")
+    durations = tmp_path / "durations.txt"
+    durations.write_text(_DURATION_SAMPLE.lstrip(), encoding="utf-8")
+    assert (
+        main(
+            [
+                "--root",
+                str(tmp_path),
+                "--write-timing",
+                "--collect-only-file",
+                str(collect),
+                "--durations-file",
+                str(durations),
+            ]
+        )
+        == 0
+    )
+    payload = load_json(tmp_path / TIMING_PATH)
+    assert payload["durations_recorded"] is True
+    assert payload["critical_path_rank"] == "duration"
+    assert payload["modules"]["tests/test_cli.py"]["duration_seconds"] == 0.5

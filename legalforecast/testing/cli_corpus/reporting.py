@@ -36,14 +36,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--write-help", action="store_true")
     parser.add_argument("--write-identity", action="store_true")
     parser.add_argument("--write-differential", action="store_true")
-    parser.add_argument("--write-timing", action="store_true")
+    parser.add_argument(
+        "--write-timing",
+        action="store_true",
+        help="Rewrite the xdist timing JSON. Requires --durations-file.",
+    )
     parser.add_argument(
         "--durations-file",
         type=Path,
         help=(
             "pytest --durations=0 output used to rank the loadscope critical "
-            "path by runtime. Without it, the timing JSON records test counts "
-            "only and sets critical_path_rank to test_count."
+            "path by runtime. Required with --write-timing; optional with "
+            "--write-all, which skips timing when this file is omitted."
         ),
     )
     parser.add_argument("--collect-only-file", type=Path)
@@ -51,6 +55,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
     root = args.root.resolve()
     write_all = bool(args.write_all)
+    if args.write_timing and args.durations_file is None:
+        parser.error("--write-timing requires --durations-file")
     if args.write_manifest or write_all:
         dump_json(root / MANIFEST_PATH, build_command_manifest())
     if args.write_help or write_all:
@@ -60,17 +66,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.write_differential or write_all:
         with TemporaryDirectory(prefix="legalforecast-cli-corpus-") as workspace:
             write_differential_fixtures(root, Path(workspace))
-    if args.write_timing or write_all:
+    write_timing = bool(args.write_timing) or (
+        write_all and args.durations_file is not None
+    )
+    if write_timing:
+        durations_file = args.durations_file
+        if durations_file is None:
+            parser.error("--write-timing requires --durations-file")
         dump_json(
             root / TIMING_PATH,
-            _timing_from_suite(root, args.durations_file, args.collect_only_file),
+            _timing_from_suite(root, durations_file, args.collect_only_file),
         )
     return 0
 
 
 def _timing_from_suite(
     root: Path,
-    durations_file: Path | None,
+    durations_file: Path,
     collect_only_file: Path | None,
 ) -> dict[str, object]:
     if collect_only_file is not None:
@@ -86,11 +98,9 @@ def _timing_from_suite(
         if collected.returncode != 0:
             raise RuntimeError(collected.stderr or collected.stdout)
         collect_text = collected.stdout
-    durations = None
-    if durations_file is not None:
-        durations, _counts = parse_duration_lines(
-            durations_file.read_text(encoding="utf-8")
-        )
+    durations, _counts = parse_duration_lines(
+        durations_file.read_text(encoding="utf-8")
+    )
     return timing_payload(
         test_counts=parse_collect_only(collect_text),
         durations=durations,
