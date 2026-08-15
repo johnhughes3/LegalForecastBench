@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 from collections import Counter
 from dataclasses import dataclass
@@ -120,16 +121,44 @@ def scan_repository(root: Path) -> RepositoryInventory:
     """Measure CLI structure, test coupling, and every tracked Python file."""
 
     resolved_root = root.resolve()
-    cache_key = str(resolved_root)
     cacheable = (resolved_root / BASELINE_PATH).is_file()
-    if cacheable:
+    cache_key = _scan_cache_key(resolved_root) if cacheable else None
+    if cache_key is not None:
         cached = _GIT_SCAN_CACHE.get(cache_key)
         if cached is not None:
             return cached
     snapshot = _scan_repository(resolved_root)
-    if cacheable:
+    if cache_key is not None:
         _GIT_SCAN_CACHE[cache_key] = snapshot
     return snapshot
+
+
+def _scan_cache_key(resolved_root: Path) -> str | None:
+    fingerprint = _repository_scan_fingerprint(resolved_root)
+    if fingerprint is None:
+        return None
+    digest = hashlib.sha256(fingerprint.encode()).hexdigest()
+    return f"{resolved_root}::{digest}"
+
+
+def _repository_scan_fingerprint(resolved_root: Path) -> str | None:
+    head = subprocess.run(
+        ["git", "-C", str(resolved_root), "rev-parse", "HEAD"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if head.returncode != 0:
+        return None
+    status = subprocess.run(
+        ["git", "-C", str(resolved_root), "status", "--porcelain=v1", "-z"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if status.returncode != 0:
+        return None
+    return f"{head.stdout}\0{status.stdout}"
 
 
 def _scan_repository(resolved_root: Path) -> RepositoryInventory:

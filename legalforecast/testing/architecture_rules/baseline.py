@@ -273,6 +273,15 @@ def _inventory_violations(
                 f"inventory {path} requires a manual disposition "
                 f"(kind={observed.disposition_kind})"
             )
+        added_flags = sorted(set(observed.flags) - set(reviewed.flags))
+        if added_flags:
+            violations.append(f"inventory {path} new flags: {', '.join(added_flags)}")
+        removed_flags = sorted(set(reviewed.flags) - set(observed.flags))
+        if removed_flags:
+            violations.append(
+                f"inventory {path} stale flags must be removed: "
+                f"{', '.join(removed_flags)}"
+            )
     for path, reviewed in sorted(baseline_by_path.items()):
         observed = current_by_path.get(path)
         if observed is None:
@@ -289,6 +298,7 @@ def _inventory_violations(
     current_directories = {
         record.path: record.python_file_count for record in current.directories
     }
+    reviewed_directories = {record.path for record in baseline.directories}
     for reviewed in baseline.directories:
         observed_count = current_directories.get(reviewed.path, 0)
         ceiling = max(DIRECTORY_REVIEW_FLOOR, reviewed.python_file_count)
@@ -297,6 +307,13 @@ def _inventory_violations(
                 f"directory {reviewed.path} python_file_count: {observed_count} > "
                 f"reviewed ceiling {ceiling}"
             )
+    for path, observed_count in sorted(current_directories.items()):
+        if path in reviewed_directories or observed_count <= DIRECTORY_REVIEW_FLOOR:
+            continue
+        violations.append(
+            f"directory {path} python_file_count: {observed_count} > "
+            f"reviewed ceiling {DIRECTORY_REVIEW_FLOOR}"
+        )
     unexpected_cycles = [
         ",".join(component)
         for component in current.cycles

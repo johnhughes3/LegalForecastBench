@@ -15,6 +15,7 @@ from legalforecast.testing.architecture_rules.imports import (
     strongly_connected_components,
 )
 from legalforecast.testing.architecture_rules.inventory import (
+    BASELINE_PATH,
     lane_owner,
     scan_repository,
 )
@@ -238,6 +239,77 @@ def test_baseline_rejects_unreviewed_directory_growth_past_twenty(
         "directory legalforecast/config python_file_count:" in violation
         for violation in violations
     )
+
+
+def test_baseline_rejects_new_directory_past_twenty(tmp_path: Path) -> None:
+    (tmp_path / "legalforecast").mkdir()
+    (tmp_path / "legalforecast" / "cli.py").write_text(_cli_source(), encoding="utf-8")
+    _init_git_repository(tmp_path)
+    baseline_path = tmp_path / "architecture.json"
+    write_baseline(baseline_path, scan_repository(tmp_path))
+    package = tmp_path / "legalforecast" / "brand_new"
+    package.mkdir()
+    for index in range(21):
+        (package / f"mod_{index}.py").write_text(f"VALUE = {index}\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+
+    violations = check_baseline(tmp_path, baseline_path)
+
+    assert any(
+        "directory legalforecast/brand_new python_file_count:" in violation
+        for violation in violations
+    )
+
+
+def test_baseline_rejects_new_reverse_edge_on_inventoried_file(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "legalforecast").mkdir()
+    (tmp_path / "legalforecast" / "cli.py").write_text(_cli_source(), encoding="utf-8")
+    module = tmp_path / "legalforecast" / "labeling" / "stage.py"
+    _write_module(module, "def run():\n    return None\n", lines=520)
+    _init_git_repository(tmp_path)
+    baseline_path = tmp_path / "architecture.json"
+    write_baseline(baseline_path, scan_repository(tmp_path))
+    _write_module(
+        module,
+        "import tests\n\ndef run():\n    return None\n",
+        lines=520,
+    )
+
+    violations = check_baseline(tmp_path, baseline_path)
+
+    assert any(
+        "inventory legalforecast/labeling/stage.py new flags:" in violation
+        and "reverse-edge" in violation
+        for violation in violations
+    )
+
+
+def test_scan_repository_cache_invalidates_after_git_status_change(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "legalforecast").mkdir()
+    (tmp_path / "legalforecast" / "cli.py").write_text(_cli_source(), encoding="utf-8")
+    _write_module(
+        tmp_path / "legalforecast" / "labeling" / "stage.py",
+        "def run():\n    return None\n",
+        lines=520,
+    )
+    _init_git_repository(tmp_path)
+    write_baseline(tmp_path / BASELINE_PATH, scan_repository(tmp_path))
+    first = scan_repository(tmp_path)
+    assert "legalforecast/labeling/extra.py" not in {item.path for item in first.files}
+
+    _write_module(
+        tmp_path / "legalforecast" / "labeling" / "extra.py",
+        "def run():\n    return None\n",
+        lines=530,
+    )
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    second = scan_repository(tmp_path)
+
+    assert "legalforecast/labeling/extra.py" in {item.path for item in second.files}
 
 
 def test_ranked_queue_lists_monoliths_before_watch_files(tmp_path: Path) -> None:
