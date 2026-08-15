@@ -3600,9 +3600,10 @@
       "legalforecast/reporting": 9,
       "legalforecast/selection": 8,
       "legalforecast/testing": 4,
+      "legalforecast/testing/architecture_rules": 7,
       "legalforecast/unitization": 9,
       "scripts": 14,
-      "tests": 411,
+      "tests": 413,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -7052,6 +7053,58 @@
         "line_count": 642,
         "nonblank_line_count": 546,
         "top_level_definition_count": 32
+      },
+      "legalforecast/testing/architecture_rules/cli_compatibility.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "testing",
+        "fan_in": 3,
+        "fan_out": 2,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "testing",
+        "largest_symbol": "scan_test_compatibility",
+        "largest_symbol_lines": 186,
+        "layer": "test",
+        "line_count": 529,
+        "nonblank_line_count": 485,
+        "top_level_definition_count": 16
+      },
+      "legalforecast/testing/architecture_rules/imports.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "testing",
+        "fan_in": 2,
+        "fan_out": 1,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "testing",
+        "largest_symbol": "imported_legalforecast_modules",
+        "largest_symbol_lines": 59,
+        "layer": "test",
+        "line_count": 422,
+        "nonblank_line_count": 367,
+        "top_level_definition_count": 18
+      },
+      "legalforecast/testing/architecture_rules/inventory.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "testing",
+        "fan_in": 3,
+        "fan_out": 3,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "testing",
+        "largest_symbol": "_record_from_metrics",
+        "largest_symbol_lines": 61,
+        "layer": "test",
+        "line_count": 403,
+        "nonblank_line_count": 360,
+        "top_level_definition_count": 13
       },
       "legalforecast/unitization/attorney_worksheet.py": {
         "cycle_id": "",
