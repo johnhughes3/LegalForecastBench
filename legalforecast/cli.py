@@ -320,7 +320,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     UrlLibRecapFetchTransport,
     public_documents_from_selection,
 )
-from legalforecast.ingestion.courtlistener_recap_purchase import build_paid_recap as _p
+from legalforecast.ingestion.courtlistener_recap_purchase import build_paid_recap
 from legalforecast.ingestion.courtlistener_request_budget import (
     CourtListenerRequestBudget,
     CourtListenerRequestBudgetError,
@@ -49459,7 +49459,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     controlled_private_root=controlled_private_root,
                     initialization_receipt_path=initialization_receipt,
                 ) as journal:
-                    client = _p(
+                    client = build_paid_recap(
                         CourtListenerRecapFetchClient,
                         courtlistener_config,
                         journal=journal,
@@ -49504,7 +49504,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     controlled_private_root=controlled_private_root,
                     initialization_receipt_path=initialization_receipt,
                 ) as journal:
-                    client = _p(
+                    client = build_paid_recap(
                         CourtListenerRecapFetchClient,
                         CourtListenerRecapFetchConfig("offline-fixture"),
                         journal=journal,
