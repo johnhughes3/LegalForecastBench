@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.ingestion.parse_quality import assess_parsed_text
 from legalforecast.ingestion.readiness_provenance import ReadinessProvenanceError
 from legalforecast.labeling.llm_pipeline import (
     STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
@@ -683,6 +684,28 @@ def verify_stage_a_parse_records(
             expected_text_sha.removeprefix("sha256:") != actual_text_sha
         ):
             raise _c.CommandError(f"parser Markdown hash differs: {key}")
+        document_role = download.get("document_role")
+        role = document_role if isinstance(document_role, str) else None
+        parser_config = parser.get("parser_config")
+        strict_quality = isinstance(parser_config, Mapping) and (
+            parser_config.get("engine") not in {"fixture", "fixture_markdown"}
+        )
+        try:
+            markdown_text = markdown_payload.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise _c.CommandError(
+                f"parser Markdown is not UTF-8: {key[0]}/{key[1]}"
+            ) from exc
+        assessment = assess_parsed_text(
+            markdown_text,
+            role,
+            enforce_role_thresholds=strict_quality,
+        )
+        if assessment.rejected:
+            raise _c.CommandError(
+                "parser Markdown failed parse-quality gate: "
+                f"{key[0]}/{key[1]} ({', '.join(assessment.rejection_reasons)})"
+            )
 
 
 def stage_a_markdown_path(record: Mapping[str, Any], *, markdown_root: Path) -> Path:

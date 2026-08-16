@@ -2993,7 +2993,13 @@ def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
     markdown_fixtures.mkdir()
     for request in parse_requests:
         (markdown_fixtures / f"{request['source_document_id']}.md").write_text(
-            f"Public filing {request['source_document_id']}",
+            (
+                f"Public filing {request['source_document_id']}\n"
+                "This synthetic fixture contains enough substantive filing text "
+                "to exercise the authenticated parser and downstream lineage gate.\n"
+                "It is provider-free test content and is not a source document.\n"
+                "The fixture keeps the replay test deterministic and self-contained."
+            ),
             encoding="utf-8",
         )
 

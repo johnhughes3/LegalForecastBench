@@ -30,6 +30,7 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     MtdDocketScreenStatus,
     screen_courtlistener_docket_for_mtd_decision,
 )
+from legalforecast.ingestion.parse_quality import assess_parsed_text
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
     DocumentRole,
@@ -640,6 +641,7 @@ def _plan_candidate(
             label="download manifest",
         )
         parser_record = parser_records.get((candidate_id, original_id))
+        metadata_outcome_reason = _outcome_bearing_document_metadata_reason(document)
         source_record = _source_document_record(
             selection=selection,
             document=document,
@@ -647,6 +649,14 @@ def _plan_candidate(
             packet_document_id=packet_document_id,
             generated_at=generated_at,
         )
+        if metadata_outcome_reason is not None:
+            exclusion_ledger_records.append(
+                _metadata_outcome_exclusion_record(
+                    selection=selection,
+                    packet_document_id=packet_document_id,
+                    reason=metadata_outcome_reason,
+                )
+            )
         is_public_document = _required_str(
             source_record,
             "redaction_or_seal_status",
@@ -670,6 +680,7 @@ def _plan_candidate(
                 parser_record,
                 markdown_root=markdown_root,
                 markdown_bytes=markdown_bytes,
+                document_role=_required_str(source_record, "document_role"),
             )
             if _required_bool(source_record, "is_mounted_for_model"):
                 document_leakage = _document_leakage_result(
@@ -864,6 +875,138 @@ def _required_indexed_record(
         ) from exc
 
 
+_OUTCOME_METADATA_FIELDS = (
+    "description",
+    "caption",
+    "title",
+    "document_type",
+    "docket_entry_text",
+    "entry_text",
+)
+_OPINION_METADATA_RE = re.compile(
+    r"\b(?:opinion|memorandum\s+opinion|report\s+and\s+recommendation|r&r|"
+    r"findings\s+and\s+recommendation)\b",
+    re.IGNORECASE,
+)
+_TARGET_MOTION_METADATA_RE = re.compile(
+    r"\b(?:motion\s+to\s+dismiss|mtd|rule\s+12(?:\(b\)(?:\(6\))?)?|"
+    r"judgment\s+on\s+the\s+pleadings)\b",
+    re.IGNORECASE,
+)
+_RESULT_METADATA_RE = re.compile(
+    r"\b(?:grant(?:s|ed|ing)?|den(?:y|ies|ied|ying)|dismiss(?:es|ed|ing)?|"
+    r"surviv(?:e|es|ed|ing)?|recommend(?:s|ed|ing)?)\b",
+    re.IGNORECASE,
+)
+_ORDER_METADATA_RE = re.compile(
+    r"\border\s+(?:on|re|resolv(?:e|es|ed|ing)?|decid(?:e|es|ed|ing)?|"
+    r"dispos(?:e|es|ed|ing|ition))\b",
+    re.IGNORECASE,
+)
+
+
+def _metadata_text(record: Mapping[str, Any]) -> str:
+    return " ".join(
+        value.strip()
+        for field_name in _OUTCOME_METADATA_FIELDS
+        if isinstance(value := record.get(field_name), str) and value.strip()
+    )
+
+
+def _outcome_bearing_document_metadata_reason(
+    document: Mapping[str, Any],
+) -> str | None:
+    """Classify outcome-bearing metadata before any text is mounted.
+
+    Explicit outcome flags and typed order/decision roles already have their
+    established handling; this guard closes the metadata-only ``other`` hole.
+    """
+
+    if document.get("contains_target_outcome") is True:
+        return None
+    role = _optional_str(document, "document_role")
+    if role in {DocumentRole.ORDER.value, DocumentRole.DECISION.value}:
+        return None
+    text = _metadata_text(document)
+    if not text:
+        return None
+    if _OPINION_METADATA_RE.search(text):
+        return "outcome_bearing_opinion_metadata"
+    if _ORDER_METADATA_RE.search(text) and _TARGET_MOTION_METADATA_RE.search(text):
+        return "outcome_bearing_order_metadata"
+    if (
+        _TARGET_MOTION_METADATA_RE.search(text)
+        # Do not treat the word ``dismiss`` inside the ordinary target-motion
+        # label (``Motion to Dismiss``) as a disposition.  Remove the target
+        # label before looking for a result verb so metadata-only rows remain
+        # fail-closed without turning every selected MTD memo into leakage.
+        and _RESULT_METADATA_RE.search(_TARGET_MOTION_METADATA_RE.sub(" ", text))
+    ):
+        return "outcome_bearing_disposition_metadata"
+    return None
+
+
+def _outcome_bearing_docket_metadata_reason(text: str) -> str | None:
+    normalized = text.strip()
+    if not normalized:
+        return None
+    if _OPINION_METADATA_RE.search(normalized):
+        return "outcome_bearing_opinion_metadata"
+    # Typed docket rows and the existing outcome-leakage detector continue to
+    # own explicit order/disposition patterns.  This metadata-only fallback is
+    # intentionally narrow: it closes the bare ``OPINION`` hole without
+    # reclassifying historical order rows that already have a typed decision
+    # anchor.
+    return None
+
+
+def _metadata_outcome_exclusion_record(
+    *,
+    selection: Mapping[str, Any],
+    packet_document_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    return ExclusionLedgerEntry(
+        candidate_id=_required_str(selection, "candidate_id"),
+        case_id=_required_str(selection, "case_id"),
+        court=_optional_str(selection, "court"),
+        decision_date=_optional_date(selection, "decision_date")
+        or _optional_date(selection, "decision_entered_date"),
+        stage=ExclusionStage.LEAKAGE,
+        reason=ExclusionReason.OUTCOME_LEAKAGE.value,
+        secondary_reasons=(reason,),
+        source_entry_ids=(),
+        source_document_ids=(packet_document_id,),
+        notes=(
+            "Document metadata identifies outcome-bearing material; excluded "
+            f"from solver-visible packets ({reason})."
+        ),
+    ).to_record()
+
+
+def _metadata_docket_exclusion_record(
+    *,
+    selection: Mapping[str, Any],
+    metadata_leakage_ids: Mapping[str, str],
+) -> dict[str, Any]:
+    return ExclusionLedgerEntry(
+        candidate_id=_required_str(selection, "candidate_id"),
+        case_id=_required_str(selection, "case_id"),
+        court=_optional_str(selection, "court"),
+        decision_date=_optional_date(selection, "decision_date")
+        or _optional_date(selection, "decision_entered_date"),
+        stage=ExclusionStage.LEAKAGE,
+        reason=ExclusionReason.OUTCOME_LEAKAGE.value,
+        secondary_reasons=tuple(sorted(set(metadata_leakage_ids.values()))),
+        source_entry_ids=tuple(sorted(metadata_leakage_ids)),
+        source_document_ids=(),
+        notes=(
+            "Docket-entry metadata identifies outcome-bearing material; excluded "
+            "from solver-visible packets regardless of entry position."
+        ),
+    ).to_record()
+
+
 def _source_document_record(
     *,
     selection: Mapping[str, Any],
@@ -875,6 +1018,10 @@ def _source_document_record(
     role = DocumentRole(_required_str(document, "document_role"))
     model_visible = _required_bool(document, "model_visible")
     contains_target_outcome = _required_bool(document, "contains_target_outcome")
+    metadata_outcome_reason = _outcome_bearing_document_metadata_reason(document)
+    contains_target_outcome = (
+        contains_target_outcome or metadata_outcome_reason is not None
+    )
     is_outcome_document = contains_target_outcome or role in {
         DocumentRole.ORDER,
         DocumentRole.DECISION,
@@ -914,6 +1061,11 @@ def _source_document_record(
                 if is_public_document
                 else "; non-public source retained as audit metadata only and "
                 "never mounted or forwarded to packet artifacts"
+            )
+            + (
+                f"; excluded as outcome-bearing metadata ({metadata_outcome_reason})"
+                if metadata_outcome_reason is not None
+                else ""
             )
         ),
     }
@@ -1374,6 +1526,7 @@ def _docket_entries(
     decision_floor = min(decision_entries) if decision_entries else None
     rendered: list[ControlledDocketMarkdownEntry] = []
     leakage_sources: list[LeakageSource] = []
+    metadata_leakage_ids: dict[str, str] = {}
     docket_entries = tuple(entries)
     for entry in docket_entries:
         entry_number = _entry_number(entry)
@@ -1390,6 +1543,9 @@ def _docket_entries(
                     observed_at=generated_at,
                 )
             )
+            metadata_reason = _outcome_bearing_docket_metadata_reason(entry.text)
+            if metadata_reason is not None:
+                metadata_leakage_ids[docket_entry_id] = metadata_reason
     leakage_result = detect_outcome_leakage(
         tuple(leakage_sources),
         evaluation_timestamp=generated_at,
@@ -1402,8 +1558,10 @@ def _docket_entries(
         )
         docket_entry_id = entry.row_id or f"entry-{entry.entry_number or 'unknown'}"
         contains_target_outcome = (
-            entry_number in decision_entries if entry_number is not None else False
-        ) or docket_entry_id in leakage_source_ids
+            (entry_number in decision_entries if entry_number is not None else False)
+            or docket_entry_id in leakage_source_ids
+            or docket_entry_id in metadata_leakage_ids
+        )
         rendered.append(
             ControlledDocketMarkdownEntry(
                 docket_entry_id=docket_entry_id,
@@ -1421,9 +1579,9 @@ def _docket_entries(
                 free_text_available=True,
             )
         )
-    ledger_records: tuple[dict[str, Any], ...] = ()
+    ledger_records_list: list[dict[str, Any]] = []
     if leakage_result.findings:
-        ledger_records = (
+        ledger_records_list.append(
             ExclusionLedgerEntry.from_outcome_leakage(
                 candidate_id=_required_str(selection, "candidate_id"),
                 case_id=_required_str(selection, "case_id"),
@@ -1431,11 +1589,18 @@ def _docket_entries(
                 decision_date=_optional_date(selection, "decision_date")
                 or _optional_date(selection, "decision_entered_date"),
                 leakage_result=leakage_result,
-            ).to_record(),
+            ).to_record()
+        )
+    if metadata_leakage_ids:
+        ledger_records_list.append(
+            _metadata_docket_exclusion_record(
+                selection=selection,
+                metadata_leakage_ids=metadata_leakage_ids,
+            )
         )
     return _DocketEntryPlan(
         entries=tuple(rendered),
-        exclusion_ledger_records=ledger_records,
+        exclusion_ledger_records=tuple(ledger_records_list),
     )
 
 
@@ -1463,6 +1628,7 @@ def _verified_parser_markdown(
     *,
     markdown_root: Path,
     markdown_bytes: Mapping[str, bytes] | None = None,
+    document_role: str | None = None,
 ) -> tuple[Path, str]:
     """Read one parser artifact through an owned, non-aliased containment path."""
 
@@ -1530,8 +1696,21 @@ def _verified_parser_markdown(
         raise PacketInputPlanningError(
             f"parser markdown is unreadable UTF-8: {lexical_path}"
         ) from exc
-    if not text.strip():
-        raise PacketInputPlanningError(f"parser markdown is empty: {lexical_path}")
+    parser_config = parser_record.get("parser_config")
+    strict_quality = isinstance(parser_config, Mapping) and (
+        _optional_str(cast(Mapping[str, Any], parser_config), "engine")
+        not in {"fixture", "fixture_markdown"}
+    )
+    assessment = assess_parsed_text(
+        text,
+        document_role,
+        enforce_role_thresholds=strict_quality,
+    )
+    if assessment.rejected:
+        raise PacketInputPlanningError(
+            f"parser markdown failed parse-quality gate: {lexical_path} "
+            f"({', '.join(assessment.rejection_reasons)})"
+        )
     extracted_text = parser_record.get("extracted_text")
     if not isinstance(extracted_text, Mapping):
         raise PacketInputPlanningError(
