@@ -16,6 +16,7 @@ from legalforecast.ingestion.cycle_orchestrator import (
     CONFIG_SCHEMA_VERSION,
     AcquisitionCycleConfig,
     CycleOrchestratorError,
+    authenticate_output_paths,
     validate_cycle_config_bytes,
 )
 from legalforecast.ingestion.disclosure_review_bundle import (
@@ -594,3 +595,138 @@ def _require_exact_published_output(
         raise CycleManifestTemplateError(
             "published cycle config is not the expected unique regular file"
         )
+
+
+_STAGE_DIRECTORY = re.compile(r"(?P<number>[0-9]+)-.+\Z")
+
+
+def verify_declared_commitments(
+    card: Mapping[str, object], raw_paths: list[object] | Mapping[str, object]
+) -> None:
+    """Re-authenticate path-addressable commitments instead of their labels."""
+
+    path_by_name: dict[str, Path] = {}
+    if isinstance(raw_paths, Mapping):
+        for name, value in raw_paths.items():
+            if isinstance(value, str) and value:
+                path_by_name[name] = Path(value)
+    else:
+        for value in raw_paths:
+            if isinstance(value, str) and value:
+                path = Path(value)
+                path_by_name[path.name] = path
+                path_by_name[str(path)] = path
+
+    for field in ("output_commitments", "source_commitments"):
+        raw_commitments = card.get(field)
+        if raw_commitments is None:
+            continue
+        if not isinstance(raw_commitments, Mapping):
+            raise ValueError(f"stage-head {field} are invalid")
+        for name, raw_commitment in cast(Mapping[str, object], raw_commitments).items():
+            if isinstance(raw_commitment, Mapping) and "path" in raw_commitment:
+                _verify_commitment_record(
+                    cast(Mapping[str, object], raw_commitment),
+                    label=f"{field}.{name}",
+                )
+                continue
+            if not isinstance(raw_commitment, str) or not raw_commitment.startswith(
+                "sha256:"
+            ):
+                continue
+            path = path_by_name.get(name)
+            if path is None and Path(name).is_absolute():
+                path = Path(name)
+            if path is None:
+                raise ValueError(
+                    f"stage-head {field} commitment lacks an authenticated path: {name}"
+                )
+            _verify_commitment_record(
+                {"path": str(path), "sha256": raw_commitment},
+                label=f"{field}.{name}",
+            )
+
+
+def authenticate_stage_output_paths(raw_paths: object) -> list[dict[str, object]]:
+    """Validate and content-authenticate paths from a standalone run card."""
+
+    if not isinstance(raw_paths, (list, Mapping)):
+        raise ValueError("stage-head run card lacks output_paths")
+    values = (
+        cast(list[object], raw_paths)
+        if isinstance(raw_paths, list)
+        else list(cast(Mapping[str, object], raw_paths).values())
+    )
+    paths = [Path(value) for value in values if isinstance(value, str) and value]
+    if len(paths) != len(values):
+        raise ValueError("stage-head output path is invalid")
+    try:
+        commitments = authenticate_output_paths(tuple(paths))
+    except CycleOrchestratorError as exc:
+        raise ValueError(str(exc)) from exc
+    return commitments
+
+
+def authenticate_stage_outputs(
+    card: Mapping[str, object], raw_paths: object
+) -> list[dict[str, object]]:
+    """Authenticate output bytes and every path-addressable card commitment."""
+
+    commitments = authenticate_stage_output_paths(raw_paths)
+    verify_declared_commitments(
+        card, cast(list[object] | Mapping[str, object], raw_paths)
+    )
+    return commitments
+
+
+def _verify_commitment_record(record: Mapping[str, object], *, label: str) -> None:
+    path_value = record.get("path")
+    if not isinstance(path_value, str) or not path_value:
+        raise ValueError(f"{label} commitment path is invalid")
+    try:
+        actual = authenticate_output_paths((Path(path_value),))[0]
+    except CycleOrchestratorError as exc:
+        raise ValueError(f"{label} commitment cannot be authenticated") from exc
+    for field in ("kind", "byte_count", "entry_count", "file_count", "tree_sha256"):
+        if field in record and record[field] != actual.get(field):
+            raise ValueError(f"{label} commitment differs from bytes on disk")
+    declared_sha = record.get("sha256")
+    if declared_sha is not None:
+        if not isinstance(declared_sha, str) or not declared_sha.startswith("sha256:"):
+            raise ValueError(f"{label} commitment digest is invalid")
+        if declared_sha.removeprefix("sha256:") != actual.get("sha256"):
+            raise ValueError(f"{label} commitment differs from bytes on disk")
+
+
+def reject_stale_stage_head(run_card_path: str) -> None:
+    """Fail closed when a numbered stage has newer sibling artifacts."""
+
+    stage_number, stage_directory = _numbered_stage_directory(Path(run_card_path))
+    if stage_number is None or stage_directory is None:
+        return
+    try:
+        siblings = tuple(stage_directory.parent.iterdir())
+    except OSError as exc:
+        raise ValueError("registered stage-head root is unavailable") from exc
+    later_numbers = {
+        int(match.group("number"))
+        for sibling in siblings
+        if (match := _STAGE_DIRECTORY.fullmatch(sibling.name)) is not None
+        and int(match.group("number")) > stage_number
+    }
+    if later_numbers:
+        numbers = ", ".join(str(number) for number in sorted(later_numbers))
+        raise ValueError(
+            "registered stage-head is stale; unregistered later stages exist: "
+            f"{numbers}"
+        )
+
+
+def _numbered_stage_directory(path: Path) -> tuple[int | None, Path | None]:
+    # A stage root can contain numbered pipeline directories (for example
+    # ``03-parse``), so select the outermost numbered component.
+    for candidate in reversed(path.parents):
+        match = _STAGE_DIRECTORY.fullmatch(candidate.name)
+        if match is not None:
+            return int(match.group("number")), candidate
+    return None, None

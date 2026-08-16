@@ -12,13 +12,16 @@ from pathlib import Path
 from typing import cast
 
 from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
+from legalforecast.ingestion.cycle_manifest_template import (
+    authenticate_stage_outputs,
+    reject_stale_stage_head,
+)
 from legalforecast.ingestion.cycle_orchestrator import (
     COMMAND_BOUNDARIES,
     COMMAND_RUN_CARD_STAGES,
     AcquisitionBoundary,
     BoundaryPermissions,
     CycleOrchestratorError,
-    authenticate_output_paths,
     load_cycle_config,
     run_acquisition_cycle,
 )
@@ -284,6 +287,10 @@ def locate_cycle_lineage(
         )
     entry = active[0]
     if "run_card_path" in entry:
+        try:
+            reject_stale_stage_head(_required_string(entry, "run_card_path"))
+        except ValueError as exc:
+            raise CycleLineageIndexError(str(exc)) from exc
         return _standalone_lineage_status(
             entry,
             config_entries=candidates,
@@ -504,16 +511,9 @@ def _authenticate_standalone_card(
             "stage-head run card is not an executed completion"
         )
     raw_paths = card_view.get("output_paths")
-    if not isinstance(raw_paths, list):
-        raise CycleLineageIndexError("stage-head run card lacks output_paths")
-    paths: list[Path] = []
-    for value in cast(list[object], raw_paths):
-        if not isinstance(value, str) or not value:
-            raise CycleLineageIndexError("stage-head output path is invalid")
-        paths.append(Path(value))
     try:
-        commitments = authenticate_output_paths(tuple(paths))
-    except CycleOrchestratorError as exc:
+        commitments = authenticate_stage_outputs(card_view, raw_paths)
+    except ValueError as exc:
         raise CycleLineageIndexError(str(exc)) from exc
     return card_view, hashlib.sha256(payload).hexdigest(), commitments
 
