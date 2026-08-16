@@ -117,7 +117,7 @@ def role_assuming_jobs(workflow_text: str) -> dict[str, str]:
 def job_environment(job_block: str) -> str:
     """Return the job-level ``environment:`` binding of one job block."""
     environments: list[str] = re.findall(
-        r"^    environment: (\S+)\s*$",
+        r"^    environment: (.+?)\s*$",
         job_block,
         flags=re.MULTILINE,
     )
