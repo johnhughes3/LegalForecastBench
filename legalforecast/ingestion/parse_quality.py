@@ -10,7 +10,9 @@ thresholds to the remaining text.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import cast
 
 PARSE_QUALITY_REJECTION_FLAG = "parse_quality_rejected"
 
@@ -54,6 +56,7 @@ _PLEADING_AND_BRIEF_ROLES = frozenset(
     }
 )
 _OUTCOME_ROLES = frozenset({"order", "decision"})
+_FIXTURE_PARSER_ENGINES = frozenset({"fixture", "fixture_markdown"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +181,22 @@ def assess_parsed_text(
     )
 
 
+def enforce_role_thresholds_for_parser_config(parser_config: object) -> bool:
+    """Return whether a parser record must satisfy role-aware thresholds.
+
+    Only the two explicitly named synthetic fixture engines may use relaxed
+    thresholds.  Missing, malformed, or unknown parser configuration is
+    treated as live/strict so a damaged provenance record cannot create a
+    quality-gate bypass.
+    """
+
+    return not (
+        isinstance(parser_config, Mapping)
+        and cast(Mapping[str, object], parser_config).get("engine")
+        in _FIXTURE_PARSER_ENGINES
+    )
+
+
 def _is_boilerplate_line(line: str) -> bool:
     if not line:
         return True
@@ -185,6 +204,7 @@ def _is_boilerplate_line(line: str) -> bool:
         _PAGE_MARKER_RE.fullmatch(line)
         or _PAGE_LABEL_RE.fullmatch(line)
         or _CASE_PAGE_HEADER_RE.fullmatch(line)
+        or _CASE_PAGE_HEADER_PENDING_RE.fullmatch(line)
     )
 
 
@@ -192,4 +212,5 @@ __all__ = [
     "PARSE_QUALITY_REJECTION_FLAG",
     "ParseQualityAssessment",
     "assess_parsed_text",
+    "enforce_role_thresholds_for_parser_config",
 ]

@@ -30,7 +30,10 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     MtdDocketScreenStatus,
     screen_courtlistener_docket_for_mtd_decision,
 )
-from legalforecast.ingestion.parse_quality import assess_parsed_text
+from legalforecast.ingestion.parse_quality import (
+    assess_parsed_text,
+    enforce_role_thresholds_for_parser_config,
+)
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
     DocumentRole,
@@ -898,6 +901,10 @@ _RESULT_METADATA_RE = re.compile(
     r"surviv(?:e|es|ed|ing)?|recommend(?:s|ed|ing)?)\b",
     re.IGNORECASE,
 )
+_NON_ENTERED_ORDER_METADATA_RE = re.compile(
+    r"\b(?:proposed|tendered|lodged|draft)\s+order\b[^.;)]*",
+    re.IGNORECASE,
+)
 _ORDER_METADATA_RE = re.compile(
     r"\border\s+(?:on|re|resolv(?:e|es|ed|ing)?|decid(?:e|es|ed|ing)?|"
     r"dispos(?:e|es|ed|ing|ition))\b",
@@ -932,15 +939,20 @@ def _outcome_bearing_document_metadata_reason(
         return None
     if _OPINION_METADATA_RE.search(text):
         return "outcome_bearing_opinion_metadata"
-    if _ORDER_METADATA_RE.search(text) and _TARGET_MOTION_METADATA_RE.search(text):
+    disposition_text = _NON_ENTERED_ORDER_METADATA_RE.sub(" ", text)
+    if _ORDER_METADATA_RE.search(
+        disposition_text
+    ) and _TARGET_MOTION_METADATA_RE.search(disposition_text):
         return "outcome_bearing_order_metadata"
     if (
-        _TARGET_MOTION_METADATA_RE.search(text)
+        _TARGET_MOTION_METADATA_RE.search(disposition_text)
         # Do not treat the word ``dismiss`` inside the ordinary target-motion
         # label (``Motion to Dismiss``) as a disposition.  Remove the target
         # label before looking for a result verb so metadata-only rows remain
         # fail-closed without turning every selected MTD memo into leakage.
-        and _RESULT_METADATA_RE.search(_TARGET_MOTION_METADATA_RE.sub(" ", text))
+        and _RESULT_METADATA_RE.search(
+            _TARGET_MOTION_METADATA_RE.sub(" ", disposition_text)
+        )
     ):
         return "outcome_bearing_disposition_metadata"
     return None
@@ -1697,14 +1709,12 @@ def _verified_parser_markdown(
             f"parser markdown is unreadable UTF-8: {lexical_path}"
         ) from exc
     parser_config = parser_record.get("parser_config")
-    strict_quality = isinstance(parser_config, Mapping) and (
-        _optional_str(cast(Mapping[str, Any], parser_config), "engine")
-        not in {"fixture", "fixture_markdown"}
-    )
     assessment = assess_parsed_text(
         text,
         document_role,
-        enforce_role_thresholds=strict_quality,
+        enforce_role_thresholds=enforce_role_thresholds_for_parser_config(
+            parser_config
+        ),
     )
     if assessment.rejected:
         raise PacketInputPlanningError(

@@ -2,13 +2,13 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 26960,
-    "line_count": 72456,
-    "nonblank_line_count": 69769,
+    "line_count": 72463,
+    "nonblank_line_count": 69776,
     "parser_line_count": 1773,
     "top_level_class_count": 19,
     "top_level_definition_count": 992,
     "verifier_family_count": 160,
-    "verifier_family_lines": 11941
+    "verifier_family_lines": 11942
   },
   "compatibility": {
     "cli_import_files": [
@@ -1304,6 +1304,7 @@
       "tests/test_acquisition_cli.py::legalforecast.cli._mint_verified_successor_selection_card_from_projection",
       "tests/test_acquisition_cli.py::legalforecast.cli._missing_core_budget_plan",
       "tests/test_acquisition_cli.py::legalforecast.cli._missing_core_budget_plan",
+      "tests/test_acquisition_cli.py::legalforecast.cli._mistral_markdown_request",
       "tests/test_acquisition_cli.py::legalforecast.cli._packet_card_committed_snapshot",
       "tests/test_acquisition_cli.py::legalforecast.cli._packet_card_committed_snapshot",
       "tests/test_acquisition_cli.py::legalforecast.cli._packet_materialization_lineage_commitments",
@@ -1970,6 +1971,7 @@
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._stage_a_markdown_tree_snapshot",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._stage_a_markdown_tree_snapshot",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._stage_a_markdown_tree_snapshot",
+      "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._stage_a_markdown_tree_snapshot",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._validate_selection_run_card_commitment",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._validate_selection_run_card_commitment",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._validate_selection_run_card_commitment",
@@ -1996,6 +1998,7 @@
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verified_shared_provider_chain",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verified_successor_selection_card_from_projection",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_llm_label_provider_shard_run_card",
+      "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_parse_records",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_parse_records",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_parse_records",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_parse_records",
@@ -2295,6 +2298,7 @@
       "legalforecast.cli._merge_verified_artifact_bytes",
       "legalforecast.cli._mint_verified_successor_selection_card_from_projection",
       "legalforecast.cli._missing_core_budget_plan",
+      "legalforecast.cli._mistral_markdown_request",
       "legalforecast.cli._normalize_bridge_checkpoint",
       "legalforecast.cli._open_disclosure_review_parent",
       "legalforecast.cli._optional_materializer_artifact",
@@ -2585,8 +2589,12 @@
       "tests/test_acquisition_cli.py::legalforecast.cli.MistralMarkdownConversionRequest",
       "tests/test_acquisition_cli.py::legalforecast.cli.MistralMarkdownConversionRequest",
       "tests/test_acquisition_cli.py::legalforecast.cli.MistralMarkdownConversionStatus",
+      "tests/test_acquisition_cli.py::legalforecast.cli.MistralMarkdownConversionStatus",
+      "tests/test_acquisition_cli.py::legalforecast.cli.MistralMarkdownConversionStatus.FAILED",
       "tests/test_acquisition_cli.py::legalforecast.cli.MistralMarkdownConversionStatus.SUCCEEDED",
+      "tests/test_acquisition_cli.py::legalforecast.cli.MistralParserConfig",
       "tests/test_acquisition_cli.py::legalforecast.cli.build_parser",
+      "tests/test_acquisition_cli.py::legalforecast.cli.convert_documents_to_markdown",
       "tests/test_acquisition_cli.py::legalforecast.cli.generate_cohort_policy",
       "tests/test_acquisition_cli.py::legalforecast.cli.load_model_registry",
       "tests/test_acquisition_cli.py::legalforecast.cli.main",
@@ -3253,6 +3261,7 @@
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.CommandError",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.CommandError",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.CommandError",
+      "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.CommandError",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.load_provider_cycle_caps",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.load_provider_cycle_caps",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.model_registry_entry_sha256",
@@ -3455,7 +3464,9 @@
       "legalforecast.cli.MistralMarkdownConversionRecord",
       "legalforecast.cli.MistralMarkdownConversionRequest",
       "legalforecast.cli.MistralMarkdownConversionStatus",
+      "legalforecast.cli.MistralMarkdownConversionStatus.FAILED",
       "legalforecast.cli.MistralMarkdownConversionStatus.SUCCEEDED",
+      "legalforecast.cli.MistralParserConfig",
       "legalforecast.cli.POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION",
       "legalforecast.cli.ProvenanceClearanceError",
       "legalforecast.cli.RecapFetchAttemptPolicyError",
@@ -3476,6 +3487,7 @@
       "legalforecast.cli.canonical_json_bytes",
       "legalforecast.cli.canonical_purchase_operation_sha256",
       "legalforecast.cli.canonical_purchase_state_sha256",
+      "legalforecast.cli.convert_documents_to_markdown",
       "legalforecast.cli.exception_review_worksheet_v3",
       "legalforecast.cli.generate_cohort_policy",
       "legalforecast.cli.load_model_registry",
@@ -3700,8 +3712,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1773,
         "layer": "entrypoint",
-        "line_count": 72456,
-        "nonblank_line_count": 69769,
+        "line_count": 72463,
+        "nonblank_line_count": 69776,
         "top_level_definition_count": 992
       },
       "legalforecast/cli_commands/report.py": {
@@ -5284,8 +5296,8 @@
         "largest_symbol": "_plan_candidate",
         "largest_symbol_lines": 273,
         "layer": "application",
-        "line_count": 1989,
-        "nonblank_line_count": 1831,
+        "line_count": 1999,
+        "nonblank_line_count": 1841,
         "top_level_definition_count": 60
       },
       "legalforecast/ingestion/packet_role_adjudication.py": {
@@ -5779,8 +5791,8 @@
         "largest_symbol": "verify_stage_a_review_run_card",
         "largest_symbol_lines": 554,
         "layer": "application",
-        "line_count": 2786,
-        "nonblank_line_count": 2695,
+        "line_count": 2788,
+        "nonblank_line_count": 2697,
         "top_level_definition_count": 28
       },
       "legalforecast/ingestion/strict_screen_evidence.py": {
@@ -7452,9 +7464,9 @@
         "largest_symbol": "test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets",
         "largest_symbol_lines": 672,
         "layer": "test",
-        "line_count": 5747,
-        "nonblank_line_count": 5420,
-        "top_level_definition_count": 87
+        "line_count": 5789,
+        "nonblank_line_count": 5457,
+        "top_level_definition_count": 88
       },
       "tests/test_batch_002_cli.py": {
         "cycle_id": "",
@@ -9231,11 +9243,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_download_restriction_overrides_conflicting_public_selection_metadata",
-        "largest_symbol_lines": 95,
+        "largest_symbol_lines": 96,
         "layer": "test",
-        "line_count": 1020,
-        "nonblank_line_count": 946,
-        "top_level_definition_count": 25
+        "line_count": 1072,
+        "nonblank_line_count": 992,
+        "top_level_definition_count": 27
       },
       "tests/test_packet_role_adjudication.py": {
         "cycle_id": "",
@@ -9940,9 +9952,9 @@
         "largest_symbol": "test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units",
         "largest_symbol_lines": 552,
         "layer": "test",
-        "line_count": 2225,
-        "nonblank_line_count": 2123,
-        "top_level_definition_count": 16
+        "line_count": 2289,
+        "nonblank_line_count": 2184,
+        "top_level_definition_count": 17
       },
       "tests/test_stage_a_prompt_ontology.py": {
         "cycle_id": "",

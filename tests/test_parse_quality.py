@@ -7,7 +7,10 @@ from legalforecast.ingestion.mistral_markdown_parser import (
     ParserProcessResult,
     convert_documents_to_markdown,
 )
-from legalforecast.ingestion.parse_quality import assess_parsed_text
+from legalforecast.ingestion.parse_quality import (
+    assess_parsed_text,
+    enforce_role_thresholds_for_parser_config,
+)
 
 
 def test_page_stamps_only_are_rejected_after_boilerplate_stripping() -> None:
@@ -28,11 +31,37 @@ def test_page_stamps_only_are_rejected_after_boilerplate_stripping() -> None:
     assert "no_substantive_text" in assessment.rejection_reasons
 
 
+def test_split_pageid_header_stamps_are_rejected_after_boilerplate_stripping() -> None:
+    assessment = assess_parsed_text(
+        "\n".join(
+            (
+                "Case 1:26-cv-1 Document 7 Filed 06/01/26 PageID",
+                "123456",
+                "Case 1:26-cv-1 Document 7 Filed 06/01/26 PageID",
+                "123457",
+            )
+        ),
+        "complaint",
+    )
+
+    assert assessment.rejected
+    assert assessment.substantive_character_count == 0
+    assert "no_substantive_text" in assessment.rejection_reasons
+
+
 def test_short_substantive_text_without_a_known_role_is_accepted() -> None:
     assessment = assess_parsed_text("The complaint alleges breach of contract.")
 
     assert assessment.accepted
     assert assessment.substantive_character_count > 0
+
+
+def test_malformed_parser_config_defaults_to_strict_quality() -> None:
+    assert enforce_role_thresholds_for_parser_config(None)
+    assert enforce_role_thresholds_for_parser_config({})
+    assert enforce_role_thresholds_for_parser_config({"engine": "unknown"})
+    assert not enforce_role_thresholds_for_parser_config({"engine": "fixture"})
+    assert not enforce_role_thresholds_for_parser_config({"engine": "fixture_markdown"})
 
 
 def test_short_substantive_text_for_a_known_role_is_rejected() -> None:
