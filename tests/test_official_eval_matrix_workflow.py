@@ -5,12 +5,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/run-benchmark.yaml").read_text(encoding="utf-8")
+PROVIDER_WORKFLOW = (ROOT / ".github/workflows/official-provider-cell.yaml").read_text(
+    encoding="utf-8"
+)
 BUILD_MATRIX_JOB = WORKFLOW[
-    WORKFLOW.index("  build-matrix:") : WORKFLOW.index("  run-case:")
+    WORKFLOW.index("  build-matrix:") : WORKFLOW.index("  run-openai:")
 ]
-RUN_CASE_JOB = WORKFLOW[
-    WORKFLOW.index("  run-case:") : WORKFLOW.index("  finalize-shard:")
-]
+RUN_CASE_JOB = PROVIDER_WORKFLOW
 FINALIZE_SHARD_JOB = WORKFLOW[
     WORKFLOW.index("  finalize-shard:") : WORKFLOW.index("  aggregate-results:")
 ]
@@ -78,7 +79,15 @@ def test_default_release_is_stable_across_workflow_reruns() -> None:
 
 
 def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
-    assert "matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}" in WORKFLOW
+    for provider in ("openai", "anthropic", "gemini"):
+        assert (
+            f"matrix: ${{{{ fromJSON(needs.build-matrix.outputs.{provider}_matrix) }}}}"
+            in WORKFLOW
+        )
+        assert (
+            f"{provider}_count: ${{{{ steps.matrix.outputs.{provider}_count }}}}"
+            in WORKFLOW
+        )
     assert (
         "max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}"
         in WORKFLOW
@@ -113,8 +122,7 @@ def test_cycle_mutation_intent_brackets_every_result_writer() -> None:
     run_evaluate = RUN_CASE_JOB.index("- name: Run isolated case evaluation")
     run_finish = RUN_CASE_JOB.index("- name: Finish per-case cycle mutation")
     assert run_begin < run_evaluate < run_finish
-    assert "STRATEGY_JOB_INDEX: ${{ strategy.job-index }}" in RUN_CASE_JOB
-    assert '"${GITHUB_RUN_ID}-case-${STRATEGY_JOB_INDEX}"' in RUN_CASE_JOB
+    assert 'writer_id="${GITHUB_RUN_ID}-case-${PROVIDER}-${CELL_INDEX}"' in RUN_CASE_JOB
     assert "legalforecast.publication.cycle_closure begin" in RUN_CASE_JOB
     assert "legalforecast.publication.cycle_closure finish" in RUN_CASE_JOB
     assert RUN_CASE_JOB.count('--run-attempt "${GITHUB_RUN_ATTEMPT}"') == 2
@@ -175,10 +183,7 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
     assert "shard_args+=(--shard-only)" in BUILD_MATRIX_JOB
     assert '"${ablation_args[@]}"' in BUILD_MATRIX_JOB
     assert '"${shard_args[@]}"' in BUILD_MATRIX_JOB
-    assert (
-        "if: ${{ !inputs.dry_run && !inputs.shard_only && "
-        "needs.run-case.result == 'success' }}" in AGGREGATE_RESULTS_JOB
-    )
+    assert "!inputs.dry_run && !inputs.shard_only && always()" in AGGREGATE_RESULTS_JOB
     assert "RELEASE_SHA: ${{ steps.validate.outputs.release_sha }}" in provenance_step
     assert 'Path("/tmp/lfb-dispatch-release.json")' in provenance_step
     assert '"schema_version": "legalforecast.dispatch_release.v2"' in provenance_step
@@ -199,17 +204,14 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
 
 
 def test_finalize_shard_requires_every_matrix_cell_and_writes_once() -> None:
-    assert "- build-matrix\n      - run-case" in FINALIZE_SHARD_JOB
-    assert (
-        "!inputs.dry_run && inputs.shard_only && "
-        "needs.build-matrix.result == 'success' && "
-        "needs.run-case.result == 'success'" in FINALIZE_SHARD_JOB
-    )
+    for provider in ("openai", "anthropic", "gemini"):
+        assert f"- run-{provider}" in FINALIZE_SHARD_JOB
+        assert f"needs.run-{provider}.result == 'success'" in FINALIZE_SHARD_JOB
     assert "environment: legalforecastbench-official-eval-fan-in" in FINALIZE_SHARD_JOB
     assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in FINALIZE_SHARD_JOB
     assert "ANTHROPIC_API_KEY" not in FINALIZE_SHARD_JOB
     assert "OPENAI_API_KEY" not in FINALIZE_SHARD_JOB
-    assert "pattern: official-eval-*" in FINALIZE_SHARD_JOB
+    assert "pattern: official-eval-completion-*" in FINALIZE_SHARD_JOB
     assert (
         "name: official-dispatch-provenance-${{ github.run_id }}-"
         "${{ needs.build-matrix.outputs.dispatch_run_attempt }}" in FINALIZE_SHARD_JOB
@@ -249,7 +251,7 @@ def test_finalize_shard_requires_every_matrix_cell_and_writes_once() -> None:
 def test_official_eval_actions_use_immutable_commit_pins() -> None:
     action_references = re.findall(
         r"^\s*uses:\s+([^@\s]+)@([^\s#]+)",
-        WORKFLOW,
+        WORKFLOW + PROVIDER_WORKFLOW,
         flags=re.MULTILINE,
     )
 
@@ -260,8 +262,6 @@ def test_official_eval_actions_use_immutable_commit_pins() -> None:
 
 
 def test_run_case_uses_transported_frozen_execution_policy() -> None:
-    stable_policy_path = "/tmp/lfb-run-case-inputs/lfb-execution-policy.json"
-
     assert "execution_policy_path: ${{ steps.dispatch.outputs" not in BUILD_MATRIX_JOB
     assert 'output.write(f"execution_policy_path=' not in BUILD_MATRIX_JOB
     freeze_open = BUILD_MATRIX_JOB.index(
@@ -289,20 +289,20 @@ def test_run_case_uses_transported_frozen_execution_policy() -> None:
     assert "if: ${{ !inputs.dry_run }}" in RUN_CASE_JOB[download:evaluate]
     assert (
         "name: official-dispatch-provenance-${{ github.run_id }}-"
-        "${{ needs.build-matrix.outputs.dispatch_run_attempt }}"
-        in RUN_CASE_JOB[download:evaluate]
+        "${{ inputs.dispatch_run_attempt }}" in RUN_CASE_JOB[download:evaluate]
     )
-    assert "path: /tmp/lfb-run-case-inputs" in RUN_CASE_JOB[download:evaluate]
-    assert f"EXECUTION_POLICY_PATH: {stable_policy_path}" in RUN_CASE_JOB
+    assert "path: /tmp/lfb-provider-cell-inputs" in RUN_CASE_JOB[download:evaluate]
+    stable_policy_path = "/tmp/lfb-provider-cell-inputs/lfb-execution-policy.json"
+    assert stable_policy_path in RUN_CASE_JOB
     assert (
-        "EXECUTION_POLICY_SHA256: "
-        "${{ needs.build-matrix.outputs.execution_policy_sha256 }}" in RUN_CASE_JOB
+        "EXPECTED_EXECUTION_POLICY_SHA256: "
+        "${{ inputs.execution_policy_sha256 }}" in RUN_CASE_JOB
     )
     assert (
-        '--expected-execution-policy-sha256 "${EXECUTION_POLICY_SHA256}"'
+        '--expected-execution-policy-sha256 "${EXPECTED_EXECUTION_POLICY_SHA256}"'
         in RUN_CASE_JOB
     )
-    assert "needs.build-matrix.outputs.execution_policy_path" not in RUN_CASE_JOB
+    assert "needs.build-matrix.outputs.execution_policy_path" not in WORKFLOW
 
 
 def test_declared_shards_have_distinct_concurrency_groups() -> None:
@@ -532,47 +532,49 @@ def test_official_eval_matrix_workflow_marks_repeat_sampling_subset() -> None:
         "              )" in WORKFLOW
     )
     assert '"repeat_count": row_repeat_count' in WORKFLOW
-    assert '--repeat-count "${REPEAT_COUNT}"' in WORKFLOW
-    assert "REPEAT_COUNT: ${{ matrix.repeat_count }}" in WORKFLOW
+    assert '--repeat-count "${REPEAT_COUNT}"' in RUN_CASE_JOB
+    assert "repeat_count: ${{ matrix.repeat_count }}" in WORKFLOW
 
 
-def test_official_eval_matrix_workflow_preflights_live_provider_credentials() -> None:
+def test_official_eval_provider_credentials_are_isolated_by_environment() -> None:
     assert "DRY_RUN_INPUT: ${{ inputs.dry_run }}" in WORKFLOW
-    assert "HAS_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY != '' }}" in WORKFLOW
-    assert "HAS_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}" in WORKFLOW
-    assert "HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}" in WORKFLOW
-    assert 'if [[ "${DRY_RUN_INPUT}" != "true" ]]; then' in WORKFLOW
-    assert "missing_provider_values=()" in WORKFLOW
-    assert 'missing_provider_values+=("OPENAI_API_KEY")' in WORKFLOW
-    assert 'missing_provider_values+=("GEMINI_API_KEY")' in WORKFLOW
-    assert 'missing_provider_values+=("ANTHROPIC_API_KEY")' in WORKFLOW
-    assert 'missing_provider_values+=("LFB_ANTHROPIC_BEDROCK_MODEL_ID")' in WORKFLOW
-    assert 'missing_provider_values+=("LFB_PROVIDER_AUTHORITY_TABLE")' in WORKFLOW
-    assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in WORKFLOW
-    assert (
-        "Non-dry-run official evaluation is missing provider credentials/settings:"
-        in WORKFLOW
-    )
+    assert "secrets." not in BUILD_MATRIX_JOB
+    assert 'if [[ "${DRY_RUN_INPUT}" != "true"' in WORKFLOW
+    assert "missing_provider_values" not in BUILD_MATRIX_JOB
+    assert "LFB_PROVIDER_AUTHORITY_TABLE" not in BUILD_MATRIX_JOB
+    assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in BUILD_MATRIX_JOB
+    assert PROVIDER_WORKFLOW.count("secrets.OPENAI_API_KEY") == 1
+    assert PROVIDER_WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 1
+    assert PROVIDER_WORKFLOW.count("secrets.GEMINI_API_KEY") == 1
+    assert "secrets: inherit" not in WORKFLOW
+    assert "secrets: inherit" not in PROVIDER_WORKFLOW
+    assert WORKFLOW.count("environment_name: legalforecastbench-official-eval") == 3
+    for secret_name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
+        assert f"secrets.{secret_name}" not in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> None:
-    assert WORKFLOW.count("id-token: write") == 4
-    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in WORKFLOW
+    assert WORKFLOW.count("id-token: write") == 6
+    assert PROVIDER_WORKFLOW.count("id-token: write") == 1
+    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in PROVIDER_WORKFLOW
     assert "secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN" not in WORKFLOW
+    assert "secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN" not in PROVIDER_WORKFLOW
     configure_aws_pins = re.findall(
         r"uses: aws-actions/configure-aws-credentials@([0-9a-f]{40})(?=\s|$)",
-        WORKFLOW,
+        WORKFLOW + PROVIDER_WORKFLOW,
     )
     assert (
         len(configure_aws_pins)
-        == WORKFLOW.count("uses: aws-actions/configure-aws-credentials@")
+        == (WORKFLOW + PROVIDER_WORKFLOW).count(
+            "uses: aws-actions/configure-aws-credentials@"
+        )
         == 4
     )
     assert len(set(configure_aws_pins)) == 1
     assert "role-session-name: lfb-official-matrix-${{ github.run_id }}" in WORKFLOW
     assert (
-        "role-session-name: lfb-official-case-${{ github.run_id }}-${{ "
-        "strategy.job-index }}" in WORKFLOW
+        "role-session-name: lfb-cell-${{ inputs.provider }}-${{ github.run_id }}-"
+        "${{ github.run_attempt }}" in PROVIDER_WORKFLOW
     )
     assert "role-session-name: lfb-official-aggregate-${{ github.run_id }}" in WORKFLOW
     assert (
@@ -582,81 +584,74 @@ def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> Non
 
 
 def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() -> None:
-    assert "uv run legalforecast eval run-case" in WORKFLOW
-    assert (
-        'run_input_manifest_for_cli="/tmp/lfb-run-case-inputs/'
-        'lfb-run-inputs-frozen.json"' in RUN_CASE_JOB
-    )
-    assert (
-        'model_registry_for_cli="/tmp/lfb-run-case-inputs/'
-        'lfb-model-registry.json"' in RUN_CASE_JOB
-    )
-    assert 'run_input_manifest_for_cli="${RUN_INPUT_MANIFEST_URI}"' not in RUN_CASE_JOB
-    assert 'model_registry_for_cli="${MODEL_REGISTRY_URI}"' not in RUN_CASE_JOB
+    assert "uv run legalforecast eval run-case" in PROVIDER_WORKFLOW
     assert "RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}" not in (
         RUN_CASE_JOB
     )
     assert "MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}" not in RUN_CASE_JOB
-    assert '--manifest "${run_input_manifest_for_cli}"' in WORKFLOW
-    assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in WORKFLOW
+    assert (
+        "--manifest /tmp/lfb-provider-cell-inputs/lfb-run-inputs-frozen.json"
+        in RUN_CASE_JOB
+    )
+    assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in RUN_CASE_JOB
     assert (
         '--results-store-root "s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}"'
-        in WORKFLOW
+        in RUN_CASE_JOB
     )
-    assert '--case-id "${CASE_ID}"' in WORKFLOW
-    assert '--ablation "${ABLATION}"' in WORKFLOW
-    assert "--backend live" in WORKFLOW
-    assert '--model-registry "${model_registry_for_cli}"' in WORKFLOW
-    assert '--model-key "${MODEL_KEY}"' in WORKFLOW
-    assert '--expected-packet-object-key "${EXPECTED_PACKET_OBJECT_KEY}"' in WORKFLOW
-    assert '--expected-packet-sha256 "${EXPECTED_PACKET_SHA256}"' in WORKFLOW
-    assert '--provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}"' in WORKFLOW
-    assert "--provider-account" not in WORKFLOW
-    assert '--provider-authority-region "${AWS_REGION}"' in WORKFLOW
-    assert "RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}" in WORKFLOW
-    assert "resume_args+=(--resume-existing)" in WORKFLOW
-    assert '"${resume_args[@]}"' in WORKFLOW
-    assert "CASE_ID: ${{ matrix.case_id }}" in WORKFLOW
-    assert "ABLATION: ${{ matrix.ablation }}" in WORKFLOW
-    assert "MODEL_KEY: ${{ matrix.model_key }}" in WORKFLOW
-    assert "MODEL_KEY_SLUG: ${{ matrix.model_key_slug }}" in WORKFLOW
-    assert "EXPECTED_PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}" in RUN_CASE_JOB
-    assert "EXPECTED_PACKET_SHA256: ${{ matrix.packet_sha256 }}" in RUN_CASE_JOB
+    assert '--case-id "${CASE_ID}"' in RUN_CASE_JOB
+    assert '--ablation "${ABLATION}"' in RUN_CASE_JOB
+    assert "--backend live" in RUN_CASE_JOB
     assert (
-        "required_env=(AWS_REGION LFB_PACKET_BUCKET LFB_RESULTS_BUCKET "
-        "LFB_PROVIDER_AUTHORITY_TABLE "
-        "MODEL_KEY EXPECTED_PACKET_OBJECT_KEY EXPECTED_PACKET_SHA256)" in RUN_CASE_JOB
+        "--model-registry /tmp/lfb-provider-cell-inputs/lfb-model-registry.json"
+        in RUN_CASE_JOB
     )
+    assert '--model-key "${MODEL_KEY}"' in RUN_CASE_JOB
+    assert (
+        '--expected-packet-object-key "${EXPECTED_PACKET_OBJECT_KEY}"' in RUN_CASE_JOB
+    )
+    assert '--expected-packet-sha256 "${EXPECTED_PACKET_SHA256}"' in RUN_CASE_JOB
+    assert (
+        '--provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}"' in RUN_CASE_JOB
+    )
+    assert '--provider-account "${LFB_PROVIDER_ACCOUNT_ALIAS}"' in RUN_CASE_JOB
+    assert '--provider-authority-region "${AWS_REGION}"' in RUN_CASE_JOB
+    assert (
+        "RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}" in RUN_CASE_JOB
+    )
+    assert "resume_args+=(--resume-existing)" in RUN_CASE_JOB
+    assert '"${resume_args[@]}"' in RUN_CASE_JOB
+    assert "case_id: ${{ matrix.case_id }}" in WORKFLOW
+    assert "ablation: ${{ matrix.ablation }}" in WORKFLOW
+    assert "model_key: ${{ matrix.model_key }}" in WORKFLOW
+    assert "model_key_slug: ${{ matrix.model_key_slug }}" in WORKFLOW
+    assert "EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}" in RUN_CASE_JOB
+    assert "EXPECTED_PACKET_SHA256: ${{ inputs.packet_sha256 }}" in RUN_CASE_JOB
     assert "LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars." in RUN_CASE_JOB
-    assert (
-        "OPENAI_API_KEY: ${{ startsWith(matrix.model_key, 'openai:') "
-        "&& secrets.OPENAI_API_KEY || '' }}" in WORKFLOW
+    assert "LFB_PROVIDER_ACCOUNT_ALIAS: ${{ vars." in RUN_CASE_JOB
+    selector = (
+        "LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && "
+        "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
+        "secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && "
+        "secrets.GEMINI_API_KEY }}"
     )
+    assert selector in RUN_CASE_JOB
     assert (
-        "ANTHROPIC_API_KEY: ${{ startsWith(matrix.model_key, 'anthropic:') "
-        '&& !contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
-        "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || '' }}" in WORKFLOW
+        "LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}" in PROVIDER_WORKFLOW
     )
-    assert (
-        "GEMINI_API_KEY: ${{ (startsWith(matrix.model_key, 'google:') || "
-        "startsWith(matrix.model_key, 'gemini:')) && secrets.GEMINI_API_KEY || '' }}"
-        in WORKFLOW
-    )
-    assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" not in RUN_CASE_JOB
-    assert "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}" not in RUN_CASE_JOB
-    assert "GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}" not in RUN_CASE_JOB
-    assert "LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}" in WORKFLOW
     assert (
         "LFB_ANTHROPIC_BEDROCK_MODEL_ID: "
-        "${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}" in WORKFLOW
+        "${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}" in PROVIDER_WORKFLOW
     )
-    assert "bedrock|aws-bedrock|aws_bedrock)" in WORKFLOW
-    assert "required_env+=(AWS_REGION)" in WORKFLOW
+    assert "bedrock|aws-bedrock|aws_bedrock)" in PROVIDER_WORKFLOW
+    assert "export OPENAI_API_KEY=" in RUN_CASE_JOB
+    assert "export ANTHROPIC_API_KEY=" in RUN_CASE_JOB
+    assert "export GEMINI_API_KEY=" in RUN_CASE_JOB
 
 
 def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None:
     assert "aggregate-results:" in WORKFLOW
-    assert "needs.run-case.result == 'success'" in WORKFLOW
+    for provider in ("openai", "anthropic", "gemini"):
+        assert f"needs.run-{provider}.result == 'success'" in WORKFLOW
     assert (
         "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c" in WORKFLOW
     )
@@ -707,17 +702,15 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
 
 
 def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> None:
-    assert "Dry run: would evaluate" in WORKFLOW
-    assert "if: ${{ inputs.dry_run }}" in WORKFLOW
-    assert "if: ${{ !inputs.dry_run }}" in WORKFLOW
+    assert "Dry run: validated the frozen provider lane" in PROVIDER_WORKFLOW
+    assert "if: ${{ inputs.dry_run }}" in PROVIDER_WORKFLOW
+    assert "if: ${{ !inputs.dry_run }}" in PROVIDER_WORKFLOW
     assert (
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in WORKFLOW
+        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+        in WORKFLOW + PROVIDER_WORKFLOW
     )
     assert "overwrite: true" not in WORKFLOW
-    assert (
-        "retention-days: ${{ "
-        "fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}" in WORKFLOW
-    )
+    assert "retention-days: ${{ inputs.artifact_retention_days }}" in PROVIDER_WORKFLOW
 
 
 def test_official_eval_matrix_workflow_rejects_private_manifest_prefixes() -> None:

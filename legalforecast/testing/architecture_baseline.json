@@ -9121,11 +9121,11 @@
           "oversized"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "_assert_exact_cell_policy",
-        "largest_symbol_lines": 96,
+        "largest_symbol": "_assert_eval_trust_refs_satisfiable",
+        "largest_symbol_lines": 134,
         "layer": "test",
-        "line_count": 1187,
-        "nonblank_line_count": 1081,
+        "line_count": 1238,
+        "nonblank_line_count": 1130,
         "top_level_definition_count": 34
       },
       "tests/test_official_eval_matrix_workflow.py": {

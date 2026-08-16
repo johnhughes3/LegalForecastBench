@@ -13,6 +13,7 @@ INFRA_WORKFLOW = (
 RUNTIME_WORKFLOWS = (
     ROOT / ".github" / "workflows" / "official-s3-access-validation.yaml",
     ROOT / ".github" / "workflows" / "run-benchmark.yaml",
+    ROOT / ".github" / "workflows" / "official-provider-cell.yaml",
     ROOT / ".github" / "workflows" / "fan-in-publish.yaml",
 )
 
@@ -40,6 +41,7 @@ CELL_VARIABLES = {
     "LFB_GITHUB_PACKET_READ_ROLE_ARN",
     "LFB_MODEL_PACKET_PREFIX",
     "LFB_PACKET_BUCKET",
+    "LFB_PROVIDER_ACCOUNT_ALIAS",
     "LFB_PROVIDER_AUTHORITY_TABLE",
     "LFB_RESULTS_BUCKET",
     "LFB_RESULTS_MANIFEST_PREFIX",
@@ -71,6 +73,10 @@ def _environments() -> dict[str, dict[str, object]]:
 
 
 def _workflow_names(text: str, context: str) -> set[str]:
+    if context == "secrets":
+        # Reusable provider cells select one secret conditionally, so the
+        # reference is not immediately after the expression opener.
+        return set(re.findall(rf"\b{context}\.([A-Za-z0-9_]+)", text))
     return set(re.findall(rf"\$\{{\{{\s*{context}\.([A-Za-z0-9_]+)", text))
 
 
