@@ -47,19 +47,20 @@ Every external action in the three official provider-smoke workflows is pinned t
 
 ### John’s workflow publication step
 
-After reviewing the exact F4 commit and confirming that `feat/code` is still its intended parent, John should publish the branch with workflow-capable authority and then create the stacked PR. The agent must not perform these workflow-bearing steps while secure-gate is down:
+After completing the protected `hckb.15` import/plan/apply, John should publish the exact F4 branch with workflow-capable authority and then create the stacked PR before starting `5qd6.119`. The agent must not perform these workflow-bearing steps while secure-gate is down:
 
 ```bash
 git fetch origin feat/code
-git show --stat --oneline <F4_COMMIT_SHA>
+F4_COMMIT_SHA="$(git rev-parse feat/code2)"
+git show --stat --oneline "$F4_COMMIT_SHA"
 git push origin feat/code2
 gh pr create --repo johnhughes3/LegalForecastBench \
   --base feat/code --head feat/code2 \
   --title "feat(eval): prepare provider-isolated official run gates" \
-  --body-file <reviewed-f4-pr-body-file>
+  --body 'F4 reviewed workflow drafts only. The F4 agent performed no infrastructure apply, protected dispatch, provider call, secret operation, or official run. The PR remains blocked until hckb.15, 5qd6.119, the live validation and smoke gates, and ue7.32 sign-off complete.'
 ```
 
-The PR body must state that the workflow files are the reviewed drafts, that no infrastructure apply or provider call occurred, and that the PR is blocked until `hckb.15`, `5qd6.119`, the live validation/smoke gates, and `ue7.32` sign-off complete. If the ordinary push rejects workflow paths, retain the exact rejection and use the approved workflow-capable publication path; do not split, weaken, or force-push the draft.
+The PR body must state that the workflow files are the reviewed drafts, that F4 itself performed no infrastructure apply or provider call, and that the PR is blocked until `hckb.15`, `5qd6.119`, the live validation/smoke gates, and `ue7.32` sign-off complete. If the ordinary push rejects workflow paths, retain the exact rejection and use the approved workflow-capable publication path; do not split, weaken, or force-push the draft.
 
 The agent attempted the ordinary push for `c57057ee` and GitHub rejected it before updating the remote ref:
 
@@ -68,7 +69,7 @@ The agent attempted the ordinary push for `c57057ee` and GitHub rejected it befo
 error: failed to push some refs to 'https://github.com/johnhughes3/LegalForecastBench'
 ```
 
-No remote branch or pull request was created by that attempt. John’s out-of-band session must run the same `git push origin feat/code2` with workflow-capable authority, verify the remote head is `c57057ee`, and then run the `gh pr create` command above; no force-push or path split is needed.
+No remote branch or pull request was created by that attempt. John’s out-of-band session must run the same `git push origin feat/code2` with workflow-capable authority, verify that the remote head equals `$F4_COMMIT_SHA`, and then run the `gh pr create` command above; no force-push or path split is needed.
 
 ## `hckb.15`: protected import, plan, and apply
 
@@ -84,7 +85,9 @@ The workflow’s identity formulas are reproduced below so request commitments c
 
 ```bash
 set -euo pipefail
-RELEASE_SHA=<exact-main-sha-after-the-workflow-draft-is-published>
+# Use the exact current-main SHA that contains PR #703's protected infra
+# workflow; F4 workflow pins are published only after this apply completes.
+RELEASE_SHA=<exact-main-sha-before-f4-workflow-publication>
 MODULE=official-eval
 STATE_KEY="${LFB_TERRAFORM_STATE_KEY_PREFIX%/}/official-eval/terraform.tfstate"
 OPERATOR_ROLE_IDENTITY_SHA256="$(jq -cn --arg role "$LFB_INFRA_OPERATOR_ROLE_ARN" '{role:$role}' | sha256sum | cut -d' ' -f1)"
@@ -305,12 +308,12 @@ The first two lines are a hard dependency, not parallel work: the official run c
 
 ## One ordered checklist for John
 
-1. Confirm Lane F2’s Stage A + Gate 3 completion, exact frozen corpus, model registry, execution policy, and release SHA.
-2. Publish this branch through the workflow-capable path, then merge the stacked workflow drafts so `main` contains the exact pinned workflows.
-3. Run all approved `hckb.15` imports; reconcile live bucket policies/lifecycle and IAM attachments; dispatch and save the protected `official-eval` plan.
-4. Review the complete saved plan and apply only that exact plan through the protected workflow; record the redacted apply receipt and outputs.
+1. Confirm Lane F2’s Stage A + Gate 3 completion, exact frozen corpus, model registry, execution policy, and the current-main release SHA.
+2. Run all approved `hckb.15` imports; reconcile live bucket policies/lifecycle and IAM attachments; dispatch and save the protected `official-eval` plan.
+3. Review the complete saved plan and apply only that exact plan through the protected workflow; record the redacted apply receipt and outputs.
+4. Publish this branch through the workflow-capable path, then merge the stacked workflow drafts so `main` contains the exact pinned workflows.
 5. Set the reviewed GitHub environment variables and secret-name inventory server-side; keep fan-in provider-free and verify the Bedrock runtime choice explicitly.
-6. Dispatch `official-s3-access-validation.yaml` and the provider-free fan-in verification from the exact `main` SHA; retain run IDs and terminal receipts.
+6. Dispatch `official-s3-access-validation.yaml` and the provider-free fan-in verification from the exact post-publication `main` SHA; retain run IDs and terminal receipts.
 7. Run the bounded provider-authority and one-provider smoke under the dedicated smoke freeze/prefix; stop on any omission-denial or identity mismatch.
 8. Execute the fixture rehearsal and staged-rollout failure drill; retain the final summary, run card, and byte-identity evidence.
 9. Review and sign `ue7.32`; only then dispatch `ur6` official shards with `dry_run=true` first, explicit projected-cost ceiling, `shard_only=true`, and `resume_existing_results=true`.
