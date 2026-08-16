@@ -623,28 +623,64 @@ def verify_declared_commitments(
             continue
         if not isinstance(raw_commitments, Mapping):
             raise ValueError(f"stage-head {field} are invalid")
-        for name, raw_commitment in cast(Mapping[str, object], raw_commitments).items():
-            if isinstance(raw_commitment, Mapping) and "path" in raw_commitment:
+        _verify_commitment_group(
+            cast(Mapping[str, object], raw_commitments),
+            field=field,
+            path_by_name=path_by_name,
+            top_level=True,
+        )
+
+
+def _verify_commitment_group(
+    commitments: Mapping[str, object],
+    *,
+    field: str,
+    path_by_name: Mapping[str, Path],
+    top_level: bool,
+) -> None:
+    """Walk nested commitment groups, authenticating every path-bearing record.
+
+    Some run cards group path commitments under a provenance namespace (for
+    example ``source_commitments.stage_a_lineage``), while projection maps such
+    as ``document_tree`` contain digest strings keyed by relative paths.  The
+    latter are not independently path-addressable here and are intentionally
+    skipped when nested; an unresolvable digest at the commitment-group root is
+    still a malformed declaration and is refused.
+    """
+
+    for name, raw_commitment in commitments.items():
+        label = f"{field}.{name}"
+        if isinstance(raw_commitment, Mapping):
+            if "path" in raw_commitment:
                 _verify_commitment_record(
-                    cast(Mapping[str, object], raw_commitment),
-                    label=f"{field}.{name}",
+                    cast(Mapping[str, object], raw_commitment), label=label
                 )
-                continue
-            if not isinstance(raw_commitment, str) or not raw_commitment.startswith(
-                "sha256:"
-            ):
-                continue
-            path = path_by_name.get(name)
-            if path is None and Path(name).is_absolute():
-                path = Path(name)
-            if path is None:
+            else:
+                _verify_commitment_group(
+                    cast(Mapping[str, object], raw_commitment),
+                    field=label,
+                    path_by_name=path_by_name,
+                    top_level=False,
+                )
+            continue
+        if not isinstance(raw_commitment, str) or not raw_commitment.startswith(
+            "sha256:"
+        ):
+            continue
+        path = path_by_name.get(name)
+        if path is None and Path(name).is_absolute():
+            path = Path(name)
+        if path is None:
+            if top_level:
                 raise ValueError(
                     f"stage-head {field} commitment lacks an authenticated path: {name}"
                 )
-            _verify_commitment_record(
-                {"path": str(path), "sha256": raw_commitment},
-                label=f"{field}.{name}",
-            )
+            # Nested projection maps (notably document_tree) use relative
+            # keys whose values are already a structured tree commitment.
+            continue
+        _verify_commitment_record(
+            {"path": str(path), "sha256": raw_commitment}, label=label
+        )
 
 
 def authenticate_stage_output_paths(raw_paths: object) -> list[dict[str, object]]:
@@ -688,7 +724,12 @@ def _verify_commitment_record(record: Mapping[str, object], *, label: str) -> No
     except CycleOrchestratorError as exc:
         raise ValueError(f"{label} commitment cannot be authenticated") from exc
     for field in ("kind", "byte_count", "entry_count", "file_count", "tree_sha256"):
-        if field in record and record[field] != actual.get(field):
+        declared = record.get(field)
+        if field == "tree_sha256" and isinstance(declared, str):
+            if not declared.startswith("sha256:"):
+                raise ValueError(f"{label} commitment tree digest is invalid")
+            declared = declared.removeprefix("sha256:")
+        if field in record and declared != actual.get(field):
             raise ValueError(f"{label} commitment differs from bytes on disk")
     declared_sha = record.get("sha256")
     if declared_sha is not None:
@@ -712,6 +753,7 @@ def reject_stale_stage_head(run_card_path: str) -> None:
         int(match.group("number"))
         for sibling in siblings
         if (match := _STAGE_DIRECTORY.fullmatch(sibling.name)) is not None
+        and sibling.is_dir()
         and int(match.group("number")) > stage_number
     }
     if later_numbers:
