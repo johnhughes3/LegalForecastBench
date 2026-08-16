@@ -22,7 +22,11 @@ from legalforecast.ingestion.free_document_downloader import (
 
 
 class _DummyJournal:
-    pass
+    def __init__(self, evidence: object = None) -> None:
+        self.evidence = evidence
+
+    def operation_evidence(self, _document_id: str) -> object:
+        return self.evidence
 
 
 class _StubRecapClient:
@@ -132,8 +136,6 @@ def test_paid_operation_uses_existing_one_document_recap_fetch() -> None:
     assert result.disposition == "included"
     assert result.document_bytes == b"%PDF-1.4 paid"
     assert result.committed_cost_usd == "3.00"
-    assert result.paid_clearance == ("cleared", False, False)
-    assert result.paid_clearance_basis == "paid_delivery"
 
 
 def test_paid_operation_requires_the_runtime_journal() -> None:
@@ -201,3 +203,87 @@ def test_paid_download_failure_excludes_confirmed_bytes() -> None:
     assert result.disposition == "excluded"
     assert result.document_bytes is None
     assert result.reason == "purchased_bytes_unavailable"
+
+
+def test_paid_null_snapshot_without_explicit_delivery_clearance_is_excluded() -> None:
+    journal = _DummyJournal()
+    attempt = CaseDevPacerPurchaseAttempt(
+        candidate_id="70754103",
+        source_document_id="1002",
+        status=CaseDevPacerPurchaseStatus.PURCHASED,
+        download_url="https://storage.courtlistener.com/recap/example/1002.pdf",
+        pacer_fees={"total_usd": "3.00"},
+    )
+    operation = ResolvedRepairOperation(
+        candidate_id="70754103",
+        docket_entry_number=1,
+        document_selector="main_document",
+        document_role="complaint",
+        route="pacer_purchase",
+        recap_document_id="1002",
+        docket_entry_id="2002",
+        source_url=None,
+        projected_cost_usd=Decimal("3.00"),
+        docket_snapshot_sha256="b" * 64,
+        public_clearance=None,
+        paid_clearance_pending=True,
+    )
+    acquirer = DocumentRepairAcquirer(
+        journal=journal,  # type: ignore[arg-type]
+        free_source=FixtureFreeDocumentSource({}),
+        recap_client=_StubRecapClient(journal, attempt),
+        fetch_purchased=lambda _url: FreeDocumentFetch(content=b"must not fetch"),
+    )
+
+    result = acquirer(operation)
+
+    assert result.disposition == "excluded"
+    assert result.document_bytes is None
+    assert result.reason == "paid_delivery_clearance_unproven"
+
+
+def test_paid_null_snapshot_uses_explicit_post_delivery_journal_evidence() -> None:
+    journal = _DummyJournal(
+        {
+            "response": {
+                "post_delivery_restrictions": {
+                    "is_private": False,
+                    "is_sealed": False,
+                }
+            }
+        }
+    )
+    attempt = CaseDevPacerPurchaseAttempt(
+        candidate_id="70754103",
+        source_document_id="1002",
+        status=CaseDevPacerPurchaseStatus.PURCHASED,
+        download_url="https://storage.courtlistener.com/recap/example/1002.pdf",
+        pacer_fees={"total_usd": "3.00"},
+    )
+    operation = ResolvedRepairOperation(
+        candidate_id="70754103",
+        docket_entry_number=1,
+        document_selector="main_document",
+        document_role="complaint",
+        route="pacer_purchase",
+        recap_document_id="1002",
+        docket_entry_id="2002",
+        source_url=None,
+        projected_cost_usd=Decimal("3.00"),
+        docket_snapshot_sha256="b" * 64,
+        public_clearance=None,
+        paid_clearance_pending=True,
+    )
+    acquirer = DocumentRepairAcquirer(
+        journal=journal,  # type: ignore[arg-type]
+        free_source=FixtureFreeDocumentSource({}),
+        recap_client=_StubRecapClient(journal, attempt),
+        fetch_purchased=lambda _url: FreeDocumentFetch(content=b"paid bytes"),
+    )
+
+    result = acquirer(operation)
+
+    assert result.disposition == "included"
+    assert result.document_bytes == b"paid bytes"
+    assert result.paid_clearance == ("cleared", False, False)
+    assert result.paid_clearance_basis == "paid_delivery"

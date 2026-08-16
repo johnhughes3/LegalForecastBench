@@ -1219,6 +1219,7 @@ class CourtListenerRecapFetchClient:
             "download_url": verified,
             "reservation_usd": str(operation["reservation_usd"]),
             "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+            "post_delivery_restrictions": document,
         }
         if queue_payload is not None:
             confirmed["queue_response"] = dict(queue_payload)

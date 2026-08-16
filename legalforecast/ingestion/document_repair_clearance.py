@@ -10,6 +10,15 @@ from legalforecast.ingestion.document_repair_errors import DocumentRepairExecuto
 PAID_DELIVERY_CLEARANCE_BASIS = "paid_delivery"
 
 
+def post_delivery_restrictions(document: Mapping[str, object]) -> dict[str, object]:
+    """Capture provider restriction fields in a non-authoritative sidecar."""
+
+    return {
+        "is_private": document.get("is_private"),
+        "is_sealed": document.get("is_sealed"),
+    }
+
+
 def paid_clearance_pending(document: Mapping[str, object], *, route: str) -> bool:
     """Recognize explicit PACER nulls that require post-delivery evidence."""
 
