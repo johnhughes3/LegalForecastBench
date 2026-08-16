@@ -61,6 +61,15 @@ gh pr create --repo johnhughes3/LegalForecastBench \
 
 The PR body must state that the workflow files are the reviewed drafts, that no infrastructure apply or provider call occurred, and that the PR is blocked until `hckb.15`, `5qd6.119`, the live validation/smoke gates, and `ue7.32` sign-off complete. If the ordinary push rejects workflow paths, retain the exact rejection and use the approved workflow-capable publication path; do not split, weaken, or force-push the draft.
 
+The agent attempted the ordinary push for `c57057ee` and GitHub rejected it before updating the remote ref:
+
+```text
+! [remote rejected] feat/code2 -> feat/code2 (refusing to allow a GitHub App to create or update workflow `.github/workflows/official-provider-cell.yaml` without `workflows` permission)
+error: failed to push some refs to 'https://github.com/johnhughes3/LegalForecastBench'
+```
+
+No remote branch or pull request was created by that attempt. John’s out-of-band session must run the same `git push origin feat/code2` with workflow-capable authority, verify the remote head is `c57057ee`, and then run the `gh pr create` command above; no force-push or path split is needed.
+
 ## `hckb.15`: protected import, plan, and apply
 
 The canonical protected workflow is `.github/workflows/official-provider-authority-infra.yaml`. It runs only from `main`, requires the pre-created and reviewer-protected infrastructure environment, uses encrypted remote state and an age-encrypted plan artifact, validates the closed address/action allowlist, and refuses stale `main` before any apply.
