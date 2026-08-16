@@ -3604,7 +3604,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 9,
       "scripts": 14,
-      "tests": 419,
+      "tests": 420,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
