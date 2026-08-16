@@ -59,6 +59,10 @@ This path accepts only coordinator-reviewed acquisition commands and executed co
 It is rechecked on every lookup and never promotes a failed card.
 Register a directly executed human-decision card before its successor stage; the locator then carries that verified decision through the explicit supersession chain.
 
+Registration also re-authenticates every path-addressable `output_commitments` and `source_commitments` record in the run card.  A digest that does not match the current bytes is refused; observing the output path alone is not a commitment verification.
+
+For numbered artifact roots, lookup has a staleness tripwire: if a registered head's root is followed by a later numbered sibling directory, lookup fails closed with the later stage numbers.  Registering a later head is therefore required before a stale cache can be used for preflight.
+
 ## Closed local schema
 
 The top-level object contains only `schema_version`, `entries`, and `stage_heads`.
