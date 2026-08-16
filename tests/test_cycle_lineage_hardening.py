@@ -131,6 +131,25 @@ def test_stage_head_registration_rejects_broken_nested_commitment(
         )
 
 
+def test_stage_head_registration_skips_nested_structured_projection_digests(
+    tmp_path: Path,
+) -> None:
+    stage_root = tmp_path / "artifacts/29-old-lineage-v1"
+    card = _write_stage_card(
+        stage_root,
+        commitments={"document_tree": {"relative/document.pdf": f"sha256:{'0' * 64}"}},
+    )
+
+    result = register_cycle_stage_head(
+        index_path=tmp_path / "lineage-index.json",
+        cycle_id="cycle-1",
+        command="parse-documents",
+        run_card_path=card,
+        code_commit=COMMIT_A,
+    )
+    assert result["root_identity_sha256"]
+
+
 def test_stage_head_registration_accepts_prefixed_directory_tree_commitment(
     tmp_path: Path,
 ) -> None:
