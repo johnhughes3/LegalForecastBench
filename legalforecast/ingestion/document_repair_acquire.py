@@ -7,9 +7,9 @@ existing one-document RECAP Fetch primitive.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseAttempt,
@@ -139,6 +139,20 @@ class DocumentRepairAcquirer:
                 disposition="excluded",
                 reason="purchased_document_omitted_download_url",
             )
+        paid_clearance = None
+        paid_clearance_basis = None
+        if operation.paid_clearance_pending:
+            assert self.journal is not None
+            paid_clearance = _paid_delivery_clearance_from_journal(
+                self.journal, operation.recap_document_id
+            )
+            if paid_clearance is None:
+                return _non_included(
+                    operation,
+                    disposition="excluded",
+                    reason="paid_delivery_clearance_unproven",
+                )
+            paid_clearance_basis = PAID_DELIVERY_CLEARANCE_BASIS
         fetcher = self.fetch_purchased or self.free_source.fetch
         try:
             fetched = fetcher(download_url)
@@ -157,9 +171,34 @@ class DocumentRepairAcquirer:
             committed_cost_usd=cost,
             retry_count=fetched.retry_count,
             document_selector=operation.document_selector,
-            paid_clearance=("cleared", False, False),
-            paid_clearance_basis=PAID_DELIVERY_CLEARANCE_BASIS,
+            paid_clearance=paid_clearance,
+            paid_clearance_basis=paid_clearance_basis,
         )
+
+
+def _paid_delivery_clearance_from_journal(
+    journal: CaseDevPurchaseJournal,
+    document_id: str,
+) -> tuple[str, bool, bool] | None:
+    """Read explicit provider restriction evidence persisted by paid delivery."""
+
+    evidence = journal.operation_evidence(document_id)
+    if evidence is None:
+        return None
+    response = evidence.get("response")
+    if not isinstance(response, Mapping):
+        return None
+    response = cast(Mapping[str, object], response)
+    restrictions = response.get("post_delivery_restrictions")
+    if not isinstance(restrictions, Mapping):
+        return None
+    restrictions = cast(Mapping[str, object], restrictions)
+    if (
+        restrictions.get("is_private") is not False
+        or restrictions.get("is_sealed") is not False
+    ):
+        return None
+    return ("cleared", False, False)
 
 
 def _non_included(
