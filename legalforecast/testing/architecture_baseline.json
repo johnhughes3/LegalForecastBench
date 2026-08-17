@@ -6361,8 +6361,8 @@
         "largest_symbol": "add_multiharness_parser",
         "largest_symbol_lines": 281,
         "layer": "application",
-        "line_count": 1151,
-        "nonblank_line_count": 1049,
+        "line_count": 1156,
+        "nonblank_line_count": 1054,
         "top_level_definition_count": 40
       },
       "legalforecast/multiharness/codex_cli.py": {
@@ -6836,14 +6836,14 @@
         "fan_out": 17,
         "flags": [
           "relative-path",
-          "oversized"
+          "monolith"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_tier0",
-        "largest_symbol_lines": 334,
+        "largest_symbol_lines": 337,
         "layer": "application",
-        "line_count": 1994,
-        "nonblank_line_count": 1844,
+        "line_count": 2023,
+        "nonblank_line_count": 1870,
         "top_level_definition_count": 49
       },
       "legalforecast/protocol/freeze.py": {
@@ -9290,9 +9290,9 @@
         "largest_symbol": "test_per_criterion_boundary_reserves_all_23_calls_and_enforces_caps",
         "largest_symbol_lines": 90,
         "layer": "test",
-        "line_count": 647,
-        "nonblank_line_count": 574,
-        "top_level_definition_count": 31
+        "line_count": 752,
+        "nonblank_line_count": 666,
+        "top_level_definition_count": 34
       },
       "tests/test_official_aggregate.py": {
         "cycle_id": "",

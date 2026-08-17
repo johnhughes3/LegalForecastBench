@@ -622,6 +622,11 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
     archive_root = run_root / "archive"
     private_root.parent.mkdir(parents=True, exist_ok=True)
     archive_root.parent.mkdir(parents=True, exist_ok=True)
+    # ``evaluator_runner`` is intentionally absent.  No production runner drives
+    # the 23 LAB criterion calls through the per-criterion spend boundary yet,
+    # and inventing one here would let paid judge requests leave the process
+    # without a reservation.  ``run_tier0`` therefore refuses any spend-carrying
+    # spec from this entry point until that runner exists; see issue #824.
     result = run_tier0(
         spec=spec,
         spec_sha256=spec_sha256,
