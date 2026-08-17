@@ -6229,8 +6229,8 @@
         "largest_symbol": "ClaudeCodeCliSolver",
         "largest_symbol_lines": 128,
         "layer": "application",
-        "line_count": 1367,
-        "nonblank_line_count": 1240,
+        "line_count": 1372,
+        "nonblank_line_count": 1245,
         "top_level_definition_count": 45
       },
       "legalforecast/multiharness/cli.py": {

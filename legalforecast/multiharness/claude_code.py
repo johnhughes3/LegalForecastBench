@@ -531,13 +531,7 @@ def classify_claude_completion_execution(
     if envelope is None:
         if is_local_cli_sandbox_denial(_failure_text(receipt, None)):
             return LocalCliFailureClass.SANDBOX_DENIAL
-        if receipt.status != "succeeded" or receipt.returncode not in {0, None}:
-            return LocalCliFailureClass.CRASH
-        return (
-            LocalCliFailureClass.IDENTITY_DRIFT
-            if _served_model_drifted({}, receipt, requested_model)
-            else None
-        )
+        return LocalCliFailureClass.CRASH
     if _is_error_like(receipt, envelope):
         if envelope.get("is_error") is True and envelope.get("subtype") == "timeout":
             return LocalCliFailureClass.TIMEOUT
@@ -546,6 +540,17 @@ def classify_claude_completion_execution(
         if is_local_cli_sandbox_denial(_failure_text(receipt, envelope)):
             return LocalCliFailureClass.SANDBOX_DENIAL
         return LocalCliFailureClass.CRASH
+    if envelope.get("subtype") != "success" or envelope.get("is_error") is not False:
+        return LocalCliFailureClass.CRASH
+    envelope_model = envelope.get("model")
+    has_envelope_model = isinstance(envelope_model, str) and bool(
+        envelope_model.strip()
+    )
+    has_receipt_model = isinstance(receipt.served_model, str) and bool(
+        receipt.served_model.strip()
+    )
+    if not has_envelope_model and not has_receipt_model:
+        return LocalCliFailureClass.IDENTITY_DRIFT
     if _served_model_drifted(envelope, receipt, requested_model):
         return LocalCliFailureClass.IDENTITY_DRIFT
     return None

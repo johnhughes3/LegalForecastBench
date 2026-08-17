@@ -239,6 +239,43 @@ def test_lab_receipt_served_model_drift_is_identity_drift(tmp_path: Path) -> Non
     assert caught.value.failure_class is LocalCliFailureClass.IDENTITY_DRIFT
 
 
+@pytest.mark.parametrize("stdout", ("", "not-json"))
+def test_lab_missing_completion_envelope_is_a_crash(
+    tmp_path: Path,
+    stdout: str,
+) -> None:
+    """A zero exit cannot substitute for the required JSON result envelope."""
+
+    spec = _lab_spec(tmp_path)
+    receipt = ExecutionReceipt.from_transcript(
+        spec,
+        stdout=stdout,
+        returncode=0,
+        status="succeeded",
+        served_model=LAB_MODEL,
+    )
+    with pytest.raises(ClaudeCodeCliAdapterError) as caught:
+        _require_solver_success(spec, receipt, requested_model=LAB_MODEL)
+    assert caught.value.failure_class is LocalCliFailureClass.CRASH
+
+
+def test_lab_success_requires_served_model_evidence(tmp_path: Path) -> None:
+    """A well-formed result without any served-model evidence fails closed."""
+
+    spec = _lab_spec(tmp_path)
+    receipt = ExecutionReceipt.from_transcript(
+        spec,
+        stdout=_envelope(
+            subtype="success",
+            is_error=False,
+            result={"deliverable": "memo.docx", "status": "done"},
+        ),
+    )
+    with pytest.raises(ClaudeCodeCliAdapterError) as caught:
+        _require_solver_success(spec, receipt, requested_model=LAB_MODEL)
+    assert caught.value.failure_class is LocalCliFailureClass.IDENTITY_DRIFT
+
+
 def test_lab_timeout_and_sandbox_denial_keep_their_classes(tmp_path: Path) -> None:
     spec = _lab_spec(tmp_path)
     timed_out = ExecutionReceipt.from_transcript(

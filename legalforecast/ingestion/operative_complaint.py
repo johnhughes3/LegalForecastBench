@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from legalforecast.ingestion.courtlistener_web import (
@@ -59,8 +59,31 @@ def motion_attacked_entry_numbers(
         number = _positive_entry_number(entry.entry_number)
         if number is None or number not in targets:
             continue
-        cited.update(explicit_motion_reference_numbers(entry))
+        # A target motion can cite several pleadings for background. Only a
+        # reference in the clause that actually requests dismissal identifies
+        # the attacked pleading; collecting every ECF/Dkt reference makes a
+        # later procedural-history citation displace the real target.
+        for clause in _dismissal_request_clauses(entry.text):
+            cited.update(explicit_motion_reference_numbers(replace(entry, text=clause)))
     return frozenset(cited)
+
+
+def _dismissal_request_clauses(text: str) -> tuple[str, ...]:
+    """Return clauses whose syntax requests dismissal of a cited filing."""
+
+    normalized = _normalized(text)
+    clauses = re.split(
+        r";|\n|[!?]|\.(?!\s*\d)|"
+        r"\b(?:because|although|whereas|while|after|before|later)\b|"
+        r",\s+(?=(?:and\s+)?(?:plaintiff|defendant|petitioner|claimant)\b)",
+        normalized,
+    )
+    request = re.compile(
+        r"\b(?:motion|moves?|moved|seeks?|sought|requests?|requested|asks?|asked)"
+        r"\b.{0,120}?\bdismiss\b|\b(?:motion|moves?|moved|seeks?|sought|"
+        r"requests?|requested|asks?|asked)\b.{0,80}?\bdismissal\s+of\b",
+    )
+    return tuple(clause for clause in clauses if request.search(clause))
 
 
 def select_operative_complaint_entry(

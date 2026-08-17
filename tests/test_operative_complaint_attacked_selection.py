@@ -90,6 +90,59 @@ def test_a_later_counterclaim_does_not_displace_the_attacked_complaint() -> None
     assert fallback.entry is counterclaim
 
 
+def test_incidental_claim_bearing_citation_is_not_an_attacked_pleading() -> None:
+    """Only the reference governed by the dismissal request is attacked."""
+
+    complaint = _entry(
+        1,
+        "1 COMPLAINT against Defendant filed by Plaintiff.",
+        description="Complaint",
+    )
+    counterclaim = _entry(
+        12,
+        "12 Answer to Complaint AND Counterclaim",
+        description="Answer to Complaint AND Counterclaim",
+    )
+    motion = _entry(
+        30,
+        (
+            "Defendant moves to dismiss the Complaint [ECF No. 1]; "
+            "Plaintiff later filed a Counterclaim [ECF No. 12]."
+        ),
+        description="Dismiss for Failure to State a Claim",
+    )
+    entries = (complaint, counterclaim, motion)
+
+    attacked = motion_attacked_entry_numbers(entries, target_entry_numbers=(30,))
+    assert attacked == frozenset({1})
+
+    selected = select_operative_complaint_entry(
+        entries,
+        before_entry=30,
+        attacked_entry_numbers=attacked,
+    )
+    assert selected is not None
+    assert selected.entry is complaint
+
+
+def test_only_direct_crossclaim_reference_is_attacked() -> None:
+    """Procedural-history references after the target sentence stay excluded."""
+
+    motion = _entry(
+        30,
+        (
+            "Cross-Defendants move to dismiss the Crossclaim [ECF No. 23]. "
+            "As framed by the Interpleader Counterclaim [ECF No. 12], the "
+            "sole issue is control of the stakeholder entity."
+        ),
+        description="Dismiss for Failure to State a Claim",
+    )
+
+    assert motion_attacked_entry_numbers(
+        (motion,), target_entry_numbers=(30,)
+    ) == frozenset({23})
+
+
 def test_attacked_preference_falls_back_when_no_candidate_is_named() -> None:
     """An unnumbered attack keeps the pre-existing latest-pleading behaviour."""
 
@@ -111,7 +164,7 @@ def test_attacked_preference_falls_back_when_no_candidate_is_named() -> None:
     entries = (complaint, counterclaim, motion)
 
     attacked = motion_attacked_entry_numbers(entries, target_entry_numbers=(30,))
-    assert attacked == frozenset({27})
+    assert attacked == frozenset()
 
     selected = select_operative_complaint_entry(
         entries,
