@@ -1003,12 +1003,19 @@ def _record_reaches_root(record: Mapping[str, object], root: Path) -> bool:
 
 
 def _directory_digest(root: Path, field_name: str) -> str:
+    digest, _ = _directory_snapshot(root, field_name)
+    return digest
+
+
+def _directory_snapshot(root: Path, field_name: str) -> tuple[str, Mapping[str, bytes]]:
     if root.is_symlink() or not root.is_dir():
         raise HarveyLabEvaluationError(f"{field_name} root must be a real directory")
     entries: list[dict[str, object]] = []
+    payloads: dict[str, bytes] = {}
     for path in _walk_regular_files(root, field_name):
         relative = path.relative_to(root).as_posix()
         payload = _read_regular_file(path)
+        payloads[relative] = payload
         entries.append(
             {
                 "path": relative,
@@ -1016,13 +1023,21 @@ def _directory_digest(root: Path, field_name: str) -> str:
                 "size_bytes": len(payload),
             }
         )
-    return _prefixed_json({"files": entries})
+    return _prefixed_json({"files": entries}), payloads
 
 
 def harvey_lab_private_material_sha256(root: Path) -> str:
     """Hash the exact evaluator-private directory supplied to the judge."""
 
     return _directory_digest(root, "private_material_sha256")
+
+
+def harvey_lab_private_material_snapshot(
+    root: Path,
+) -> tuple[str, Mapping[str, bytes]]:
+    """Return one digest and the exact private bytes used to compute it."""
+
+    return _directory_snapshot(root, "private_material_sha256")
 
 
 def _walk_regular_files(root: Path, field_name: str) -> list[Path]:

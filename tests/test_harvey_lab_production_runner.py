@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
+import legalforecast.multiharness.harvey_lab_production_runner as production_runner
 import pytest
 from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
     harvey_lab_private_material_sha256,
+    harvey_lab_private_material_snapshot,
 )
 from legalforecast.multiharness.harvey_lab_production_runner import (
     ProductionHarveyLabEvaluatorRunner,
@@ -190,6 +193,50 @@ def test_production_runner_rejects_tampered_private_criteria_before_provider(
     with pytest.raises(ValueError, match="does not match the pinned digest"):
         runner(LocalCliExecutionService(), spec, _Boundary())
     assert calls == []
+
+
+def test_production_runner_parses_the_same_bytes_used_for_private_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pricing = _pricing()
+    spec, _ = _run_spec(tmp_path)
+    input_record = json.loads(spec.stdin_bytes)
+    private_path = Path(input_record["private_task_json_path"])
+    calls: list[ProductionJudgeCall] = []
+
+    def snapshot_then_mutate(root: Path) -> tuple[str, Mapping[str, bytes]]:
+        digest, files = harvey_lab_private_material_snapshot(root)
+        private_path.write_text(
+            json.dumps(
+                {
+                    "id": "task",
+                    "criteria": [
+                        {"id": f"criterion-{ordinal}", "text": "tampered"}
+                        for ordinal in range(1, 24)
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return digest, files
+
+    monkeypatch.setattr(
+        production_runner,
+        "harvey_lab_private_material_snapshot",
+        snapshot_then_mutate,
+    )
+
+    def provider(call: ProductionJudgeCall) -> ProductionJudgeResponse:
+        calls.append(call)
+        assert call.criterion["text"] == f"rule-{call.request.ordinal}"
+        return _response(pricing)
+
+    runner = ProductionHarveyLabEvaluatorRunner(
+        provider_call=provider,
+        attempt_writer=lambda _call, _response: None,
+    )
+    runner(LocalCliExecutionService(), spec, _Boundary())
+    assert len(calls) == 23
 
 
 def test_production_runner_does_not_settle_unretained_response(

@@ -6566,9 +6566,9 @@
         "largest_symbol": "invoke_isolated_harvey_lab_evaluator",
         "largest_symbol_lines": 160,
         "layer": "application",
-        "line_count": 1128,
-        "nonblank_line_count": 1019,
-        "top_level_definition_count": 43
+        "line_count": 1143,
+        "nonblank_line_count": 1029,
+        "top_level_definition_count": 45
       },
       "legalforecast/multiharness/harvey_lab_output_discovery.py": {
         "cycle_id": "",
