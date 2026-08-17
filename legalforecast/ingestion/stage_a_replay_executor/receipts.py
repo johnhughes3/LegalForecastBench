@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import hashlib
 import fcntl
+import hashlib
 import json
 import os
 import stat
