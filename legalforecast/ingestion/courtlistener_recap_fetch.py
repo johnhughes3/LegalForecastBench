@@ -44,12 +44,11 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
     COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
 )
 from legalforecast.ingestion.recap_fetch_confirmation_provenance import (
-    PUBLIC_DOCUMENT_CONFIRMATION,
-    QUEUE_RECEIPT_CONFIRMATION,
     ConfirmationProvenance,
     attach_queue_receipt,
     confirmation_provenance_path,
-    read_confirmation_provenance,
+    provenance_from_confirmed_response,
+    reconcile_confirmation_provenance,
     record_confirmation_provenance,
 )
 
@@ -1244,69 +1243,57 @@ class CourtListenerRecapFetchClient:
     def _confirmation_provenance_path(self) -> Path:
         return confirmation_provenance_path(self.journal.path)
 
+    def _confirmation_provenance(
+        self, document_id: str, confirmed: Mapping[str, Any]
+    ) -> ConfirmationProvenance:
+        """Read the evidence a confirmed response rests on, out of its bytes."""
+
+        receipt = _mapping_or_none(confirmed.get("queue_response"))
+        return provenance_from_confirmed_response(
+            document_id,
+            confirmed,
+            confirmed_response_sha256=_sha256_json(confirmed),
+            queue_response_sha256=(None if receipt is None else _sha256_json(receipt)),
+        )
+
     def _write_confirmation_provenance(
         self, document_id: str, confirmed: Mapping[str, Any]
     ) -> None:
         """Name the evidence a confirmation rests on, outside frozen bytes."""
 
-        queue_payload = confirmed.get("queue_response")
-        queue_receipt = _mapping_or_none(queue_payload)
         policy = self.journal.policy
         record_confirmation_provenance(
             self._confirmation_provenance_path(),
             cycle_id=policy.cycle_id,
             purchase_policy_sha256=policy.policy_sha256,
-            provenance=ConfirmationProvenance(
-                source_document_id=document_id,
-                queue_id=str(confirmed.get("queue_id", "")),
-                confirmation_evidence=(
-                    QUEUE_RECEIPT_CONFIRMATION
-                    if queue_receipt is not None
-                    else PUBLIC_DOCUMENT_CONFIRMATION
-                ),
-                confirmed_response_sha256=_sha256_json(confirmed),
-                queue_response=queue_receipt,
-                queue_response_sha256=(
-                    None if queue_receipt is None else _sha256_json(queue_receipt)
-                ),
-            ),
+            provenance=self._confirmation_provenance(document_id, confirmed),
         )
 
     def _reconcile_confirmation_provenance(
         self, document_id: str, confirmed: Mapping[str, Any]
     ) -> None:
-        """Backfill missing provenance and attach a late-visible queue receipt.
+        """Repair lost provenance and attach a late-visible queue receipt.
 
-        A confirmation recorded before this sidecar existed, or one whose
-        sidecar write failed, is reconstructible from the confirmed response
-        itself, so a missing entry is repaired here rather than lost.  A
-        queue-lag confirmation additionally gets its stronger queue receipt
-        attached once CourtListener publishes the queue detail.  Both paths are
-        sidecar-only: `confirm_reserved` already ran, and nothing here reopens
-        it.
+        Both halves are sidecar-only: `confirm_reserved` already ran, and
+        nothing here reopens it or spends anything.  Reading the queue detail
+        is free, and it is attempted only for a confirmation the sidecar
+        already records as resting on the public document alone.
         """
 
         policy = self.journal.policy
         path = self._confirmation_provenance_path()
-        recorded = read_confirmation_provenance(
+        queue_id = reconcile_confirmation_provenance(
             path,
             cycle_id=policy.cycle_id,
             purchase_policy_sha256=policy.policy_sha256,
-        ).get(document_id)
-        confirmed_sha256 = _sha256_json(confirmed)
-        if recorded is None or recorded.confirmed_response_sha256 != confirmed_sha256:
-            self._write_confirmation_provenance(document_id, confirmed)
-            return
-        if (
-            recorded.confirmation_evidence != PUBLIC_DOCUMENT_CONFIRMATION
-            or recorded.queue_response is not None
-        ):
+            provenance=self._confirmation_provenance(document_id, confirmed),
+        )
+        if queue_id is None:
             return
         try:
-            queue_id = _identifier(recorded.queue_id)
             payload = self._request(
                 "GET",
-                f"/recap-fetch/{queue_id}/",
+                f"/recap-fetch/{_identifier(queue_id)}/",
                 {},
                 paid=False,
                 retry=True,
@@ -1323,7 +1310,7 @@ class CourtListenerRecapFetchClient:
             cycle_id=policy.cycle_id,
             purchase_policy_sha256=policy.policy_sha256,
             source_document_id=document_id,
-            confirmed_response_sha256=confirmed_sha256,
+            confirmed_response_sha256=_sha256_json(confirmed),
             queue_response=payload,
             queue_response_sha256=_sha256_json(payload),
         )

@@ -178,6 +178,91 @@ def record_confirmation_provenance(
     )
 
 
+def provenance_from_confirmed_response(
+    document_id: str,
+    confirmed: Mapping[str, Any],
+    *,
+    confirmed_response_sha256: str,
+    queue_response_sha256: str | None = None,
+) -> ConfirmationProvenance:
+    """Derive which evidence a confirmed response rests on.
+
+    A confirmation carries its queue receipt only when the queue detail was
+    readable, so the presence of ``queue_response`` is what separates the two
+    evidence kinds.  Deriving it here rather than at the call site is what
+    makes a lost entry reconstructible from bytes the journal already holds.
+    """
+
+    queue_response = confirmed.get("queue_response")
+    if queue_response is not None and not isinstance(queue_response, Mapping):
+        raise RecapFetchConfirmationProvenanceError(
+            f"confirmed queue response must be an object: {document_id}"
+        )
+    receipt = (
+        None
+        if queue_response is None
+        else dict(cast(Mapping[str, Any], queue_response))
+    )
+    if receipt is not None and queue_response_sha256 is None:
+        raise RecapFetchConfirmationProvenanceError(
+            f"a recorded queue receipt requires its digest: {document_id}"
+        )
+    return ConfirmationProvenance(
+        source_document_id=document_id,
+        queue_id=str(confirmed.get("queue_id", "")),
+        confirmation_evidence=(
+            QUEUE_RECEIPT_CONFIRMATION
+            if receipt is not None
+            else PUBLIC_DOCUMENT_CONFIRMATION
+        ),
+        confirmed_response_sha256=confirmed_response_sha256,
+        queue_response=receipt,
+        queue_response_sha256=None if receipt is None else queue_response_sha256,
+    )
+
+
+def reconcile_confirmation_provenance(
+    path: Path,
+    *,
+    cycle_id: str,
+    purchase_policy_sha256: str,
+    provenance: ConfirmationProvenance,
+) -> str | None:
+    """Repair one entry and report any queue receipt still worth fetching.
+
+    *provenance* is what the confirmed response says on its own.  A missing
+    entry, or one describing a response that has since moved, is replaced with
+    it: which branch confirmed a purchase is recoverable from bytes the journal
+    already holds, so a lost observation is repaired rather than mourned.
+
+    The return value is the queue id whose receipt is still missing, or
+    ``None`` when there is nothing to fetch — the confirmation already rested
+    on a queue receipt, one has since been attached, or the entry was just
+    rewritten.  Callers use it to decide whether a free queue read is worth
+    making at all.
+    """
+
+    recorded = read_confirmation_provenance(
+        path, cycle_id=cycle_id, purchase_policy_sha256=purchase_policy_sha256
+    ).get(provenance.source_document_id)
+    if recorded is None or recorded.confirmed_response_sha256 != (
+        provenance.confirmed_response_sha256
+    ):
+        record_confirmation_provenance(
+            path,
+            cycle_id=cycle_id,
+            purchase_policy_sha256=purchase_policy_sha256,
+            provenance=provenance,
+        )
+        return None
+    if (
+        recorded.confirmation_evidence != PUBLIC_DOCUMENT_CONFIRMATION
+        or recorded.queue_response is not None
+    ):
+        return None
+    return recorded.queue_id
+
+
 def attach_queue_receipt(
     path: Path,
     *,
