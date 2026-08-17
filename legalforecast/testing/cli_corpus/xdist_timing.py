@@ -1,4 +1,18 @@
-"""Parse pytest durations and xdist loadscope module critical paths."""
+"""Parse pytest durations and xdist loadscope module critical paths.
+
+Refresh the checked-in baseline at a review-stable head by capturing
+``SUPPORTED_XDIST_COMMAND`` verbatim and feeding the log to the generator::
+
+    uv run pytest -q -n 4 --dist=loadscope --durations=0 > durations.log
+    uv run python -m legalforecast.testing.cli_corpus \\
+        --write-timing --durations-file durations.log
+
+``--durations=0`` still honours pytest's 0.005s ``--durations-min``, so modules
+whose every test is faster than that keep ``duration_seconds: null`` and sort
+below the measured tail. Durations are wall-clock on the capturing host: the
+artifact is a relative critical-path ranking for loadscope sharding, not a
+runtime budget or a cross-machine performance assertion.
+"""
 
 from __future__ import annotations
 

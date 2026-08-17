@@ -135,13 +135,21 @@ def test_xdist_timing_baseline_exists_and_names_loadscope_shards() -> None:
     assert payload["schema_version"] == 1
     assert payload["dist"] == "loadscope"
     assert payload["workers"] == 4
-    assert payload["durations_recorded"] is False
-    assert payload["critical_path_rank"] == "test_count"
+    assert payload["durations_recorded"] is True
+    assert payload["critical_path_rank"] == "duration"
     modules = payload["modules"]
     assert "tests/test_architecture.py" in modules
     assert "tests/test_cycle_acquisition_store.py" in modules
     assert payload["critical_path"]
     assert all(path in modules for path in payload["critical_path"])
+    # A duration-ranked baseline must actually be ordered by runtime, and the
+    # head of the critical path must carry a measured duration rather than the
+    # nulls a --collect-only-only capture leaves behind.
+    ranked = [modules[path]["duration_seconds"] for path in payload["critical_path"]]
+    assert ranked[0] is not None
+    measured = [seconds for seconds in ranked if seconds is not None]
+    assert measured == sorted(measured, reverse=True)
+    assert len(measured) == len(ranked)
 
 
 def test_write_timing_requires_durations_file() -> None:
