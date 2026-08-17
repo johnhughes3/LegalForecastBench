@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import json
 import os
@@ -13,7 +12,6 @@ import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from http.client import HTTPMessage
-from pathlib import Path
 from typing import IO, Any, Protocol, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
@@ -44,28 +42,6 @@ from legalforecast.ingestion.recap_fetch_broker import (
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
 )
-from legalforecast.ingestion.recap_fetch_confirmation_provenance import (
-    ConfirmationProvenance,
-    RecapFetchConfirmationProvenanceError,
-    attach_queue_receipt,
-    confirmation_provenance_path,
-    provenance_from_confirmed_response,
-    reconcile_confirmation_provenance,
-    record_confirmation_provenance,
-)
-
-_PROVENANCE_WRITE_FAILURES = (OSError, RecapFetchConfirmationProvenanceError)
-"""Sidecar persistence failures that must never reach a paid caller.
-
-Every provenance write runs after the journal has already committed a charge,
-so letting one propagate would lose the caller's purchase result for a durable,
-already-paid row and would fail the same way on every retry over it.  A full
-disk, a directory that lost write permission, and a sidecar path replaced by a
-symlink are all recoverable without operator action: the observation is
-reconstructible from bytes the journal already holds, so the next run over the
-confirmed row rewrites it.  Only these two classes are absorbed, so a genuine
-defect in the sidecar module still surfaces.
-"""
 
 _DEFAULT_BASE_URL = "https://www.courtlistener.com/api/rest/v4"
 _ALLOWED_HOSTS = frozenset({"www.courtlistener.com"})
@@ -700,7 +676,6 @@ class CourtListenerRecapFetchClient:
                     "unknown_status_material_pending_clearance",
                 )
             response = _mapping(evidence.get("response"), "confirmed response")
-            self._reconcile_confirmation_provenance(document_id, response)
             return _purchased_attempt(candidate_id, document_id, response)
         if status == "failed":
             assert evidence is not None
@@ -1249,112 +1224,7 @@ class CourtListenerRecapFetchClient:
         if queue_payload is not None:
             confirmed["queue_response"] = dict(queue_payload)
         self.journal.confirm_reserved(document_id, response=confirmed)
-        # Provenance is written only after the journal has already committed
-        # the confirmation, so this observation can describe a durable billing
-        # state but can never create one.
-        self._write_confirmation_provenance(document_id, confirmed)
         return _purchased_attempt(candidate_id, document_id, confirmed)
-
-    def _confirmation_provenance_path(self) -> Path:
-        return confirmation_provenance_path(self.journal.path)
-
-    def _confirmation_provenance(
-        self, document_id: str, confirmed: Mapping[str, Any]
-    ) -> ConfirmationProvenance | None:
-        """Read the evidence a confirmed response rests on, out of its bytes."""
-
-        # A non-mapping queue receipt is rejected by the sidecar itself, so
-        # this only has to decide whether there is a receipt worth hashing.
-        receipt = confirmed.get("queue_response")
-        return provenance_from_confirmed_response(
-            document_id,
-            confirmed,
-            confirmed_response_sha256=_sha256_json(confirmed),
-            queue_response_sha256=(
-                _sha256_json(cast(Mapping[str, Any], receipt))
-                if isinstance(receipt, Mapping)
-                else None
-            ),
-        )
-
-    def _write_confirmation_provenance(
-        self, document_id: str, confirmed: Mapping[str, Any]
-    ) -> None:
-        """Name the evidence a confirmation rests on, outside frozen bytes.
-
-        The charge is already committed by the time this runs, so a sidecar
-        that cannot be persisted is absorbed rather than raised; see
-        `_PROVENANCE_WRITE_FAILURES`.
-        """
-
-        with contextlib.suppress(*_PROVENANCE_WRITE_FAILURES):
-            provenance = self._confirmation_provenance(document_id, confirmed)
-            if provenance is None:
-                return
-            policy = self.journal.policy
-            record_confirmation_provenance(
-                self._confirmation_provenance_path(),
-                cycle_id=policy.cycle_id,
-                purchase_policy_sha256=policy.policy_sha256,
-                provenance=provenance,
-            )
-
-    def _reconcile_confirmation_provenance(
-        self, document_id: str, confirmed: Mapping[str, Any]
-    ) -> None:
-        """Repair lost provenance and attach a late-visible queue receipt.
-
-        Both halves are sidecar-only: `confirm_reserved` already ran, and
-        nothing here reopens it or spends anything.  Reading the queue detail
-        is free, and it is attempted only for a confirmation the sidecar
-        already records as resting on the public document alone.
-
-        This runs on an already-paid row every time one is resumed, so a
-        sidecar that cannot be persisted is absorbed rather than raised; see
-        `_PROVENANCE_WRITE_FAILURES`.
-        """
-
-        policy = self.journal.policy
-        path = self._confirmation_provenance_path()
-        try:
-            provenance = self._confirmation_provenance(document_id, confirmed)
-            if provenance is None:
-                return
-            queue_id = reconcile_confirmation_provenance(
-                path,
-                cycle_id=policy.cycle_id,
-                purchase_policy_sha256=policy.policy_sha256,
-                provenance=provenance,
-            )
-        except _PROVENANCE_WRITE_FAILURES:
-            return
-        if queue_id is None:
-            return
-        try:
-            payload = self._request(
-                "GET",
-                f"/recap-fetch/{_identifier(queue_id)}/",
-                {},
-                paid=False,
-                retry=True,
-                queue_detail=True,
-            )
-        except CourtListenerRecapFetchError:
-            # The queue is still not readable.  The confirmation stands on the
-            # public document exactly as recorded; there is nothing to attach.
-            return
-        if _status(payload) != 2:
-            return
-        with contextlib.suppress(*_PROVENANCE_WRITE_FAILURES):
-            attach_queue_receipt(
-                path,
-                cycle_id=policy.cycle_id,
-                purchase_policy_sha256=policy.policy_sha256,
-                source_document_id=document_id,
-                confirmed_response_sha256=_sha256_json(confirmed),
-                queue_response=payload,
-                queue_response_sha256=_sha256_json(payload),
-            )
 
     def _request(
         self,
