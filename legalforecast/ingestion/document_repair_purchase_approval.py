@@ -856,5 +856,20 @@ def _money(value: Decimal) -> str:
     return f"{value:.2f}"
 
 
+# contract-ratchet: allow frozen consumers fix this exact digest form.
 def _value_sha256(value: object) -> str:
+    """Digest a value with the blessed named codec, in the frozen digest form.
+
+    Canonicalization is not re-implemented here: the bytes come from the shared
+    ``ARTIFACT_JSON_VALUE_V1`` codec. Only the digest step is local, and it
+    cannot move to a ``CommitmentProfile``, because no blessed profile pairs
+    that codec with bare raw hex -- and bare raw hex over exactly those bytes is
+    what the frozen consumers compare against:
+    ``_verify_purchase_policy_binding`` recomputes
+    ``sha256(ARTIFACT_JSON_VALUE_V1.encode(...))`` for the candidate and
+    document commitments, and the v1 checkpoint schema commits its body the
+    same way. Adding a paired profile would edit ``legalforecast/contracts/``
+    to rename two lines without changing a single byte.
+    """
+
     return hashlib.sha256(ARTIFACT_JSON_VALUE_V1.encode(value)).hexdigest()

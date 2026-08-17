@@ -407,7 +407,16 @@ def _publish(path: Path, payload: bytes) -> None:
         os.close(descriptor)
 
 
+# contract-ratchet: allow raw digest reports bytes already written to disk.
 def _file_sha256(path: Path) -> str:
+    """Report the raw digest of an artifact this command just published.
+
+    Non-persisted: the value is printed for the operator and never becomes part
+    of an authenticated artifact. ``RAW_BYTES_RAW_SHA256_V1`` is the blessed
+    profile for raw bytes, but committing requires a schema domain, and these
+    digests identify a file rather than an instance of a schema.
+    """
+
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 

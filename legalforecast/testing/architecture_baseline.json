@@ -5014,8 +5014,8 @@
         "largest_symbol": "build_document_repair_purchase_approval_request",
         "largest_symbol_lines": 229,
         "layer": "application",
-        "line_count": 860,
-        "nonblank_line_count": 768,
+        "line_count": 875,
+        "nonblank_line_count": 781,
         "top_level_definition_count": 23
       },
       "legalforecast/ingestion/document_repair_purchase_cli.py": {
@@ -5031,8 +5031,8 @@
         "largest_symbol": "add_parsers",
         "largest_symbol_lines": 86,
         "layer": "adapter",
-        "line_count": 421,
-        "nonblank_line_count": 385,
+        "line_count": 430,
+        "nonblank_line_count": 392,
         "top_level_definition_count": 10
       },
       "legalforecast/ingestion/downstream_lineage_verification.py": {
