@@ -100,24 +100,25 @@ def publish_review_queue_generation(
 
     Durability is stated in terms of directory entries, not just file bytes: a
     renamed file whose *parent directory* was never fsynced can vanish after a
-    host crash even though ``os.replace`` returned.  So every new entry on the
-    path to the commit point is persisted before it -- the member files inside
-    the generation directory, then that directory's own entry in the
-    generations root -- and the manifest's entry is persisted by the same
-    ``_atomic_write`` that renames it, which also covers the generations-root
-    entry beside it.
+    host crash even though ``os.replace`` returned.  So every directory entry
+    the committed manifest will depend on is persisted before the rename --
+    the generations root, the generation directory inside it, and the two
+    member files inside that -- walking outward-in and then inside-out.  The
+    manifest's own entry is persisted by the ``_atomic_write`` that renames it.
     """
 
     generation_id = review_queue_generation_id(v1_bytes, v2_bytes)
-    generation_root = review_queue_generation_root(queue_path) / generation_id
+    generations_root = review_queue_generation_root(queue_path)
+    generation_root = generations_root / generation_id
     generation_root.mkdir(parents=True, exist_ok=True)
+    manifest_path = review_queue_generation_manifest_path(queue_path)
+    _fsync_directory(manifest_path.parent)
     v1_member = generation_root / _V1_MEMBER_NAME
     v2_member = generation_root / _V2_MEMBER_NAME
     _write_immutable_member(v1_member, v1_bytes)
     _write_immutable_member(v2_member, v2_bytes)
     _fsync_directory(generation_root)
-    _fsync_directory(generation_root.parent)
-    manifest_path = review_queue_generation_manifest_path(queue_path)
+    _fsync_directory(generations_root)
     manifest: dict[str, object] = {
         "schema_version": str(UNITIZATION_REVIEW_QUEUE_GENERATION_V1),
         "generation_id": generation_id,

@@ -3301,6 +3301,7 @@
       "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
       "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
       "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
       "tests/test_successor_attorney_packet.py::legalforecast.cli.main",
       "tests/test_successor_rerun_impact.py::legalforecast.cli.CommandError",
       "tests/test_successor_rerun_impact.py::legalforecast.cli.load_provider_cycle_caps_bytes",
@@ -10052,9 +10053,9 @@
         "largest_symbol": "test_terminal_rows_collapse_into_one_candidate_technical_item",
         "largest_symbol_lines": 52,
         "layer": "test",
-        "line_count": 812,
-        "nonblank_line_count": 670,
-        "top_level_definition_count": 36
+        "line_count": 840,
+        "nonblank_line_count": 692,
+        "top_level_definition_count": 37
       },
       "tests/test_stage_a_structural_review.py": {
         "cycle_id": "",
