@@ -19,6 +19,8 @@ The designated operator should provision one secret only after approving the exa
 
 This lane did not read Infisical, resolve credentials, generate a production key, or provision the secret. The runtime must obtain the private value through the reviewed Infisical wrapper seam and must compare its derived public key to the committed public key before signing. Host environment fallback, a local private-key file, and an ad hoc in-process key are refused.
 
+Paid Tier-0 execution also requires the embedding runtime to install a reviewed `install_tier0_production_evaluator_factory(...)` factory. It must return a non-fixture `HarveyLabEvaluatorProvenance` record and a `ProductionHarveyLabEvaluatorRunner` (or equivalent reviewed runner) whose provider adapter performs one real request per criterion, converts provider usage into an auditable observation, settles each reservation immediately, and retains every attempt and transcript in the private archive. The aggregate LAB CLI cannot substitute for this seam because it does not prove per-criterion spend. Until the authority public key and reviewed provider adapter are provisioned, only the provider-free fixture path is executable.
+
 ## Run-start metadata
 
 `build_private_run_metadata` emits a private sidecar before execution. It records exact observed executable digests and versions, the boundary identity, and canonical hashes for all run configuration records. Its `config_sha256` is supplied to the existing `RunIdentity`, and therefore to `ExecutionReceipt.config_sha256`; `bind_execution_receipt` additionally emits a sidecar binding that checks the receipt public digest, metadata digest, spec digest, boundary digest, and binary-identity digest.

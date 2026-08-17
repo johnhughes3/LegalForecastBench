@@ -37,6 +37,7 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorRunner,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
+    HarveyLabEvaluatorProvenance,
     HarveyLabIsolatedEvaluation,
     HarveyLabJudgeRequestBoundary,
     invoke_isolated_harvey_lab_evaluator,
@@ -120,6 +121,8 @@ def run_claude_code_clean_native_harvey_lab(
     after_evaluator: Callable[[HarveyLabIsolatedEvaluation], None] | None = None,
     judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
     evaluator_runner: EvaluatorRunner | None = None,
+    evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
+    require_production_provenance: bool = False,
 ) -> ClaudeCodeHarveyLabPipelineResult:
     """Project a LAB task, run contained Claude Code, discover, and score."""
 
@@ -278,6 +281,8 @@ def run_claude_code_clean_native_harvey_lab(
         attempt_nonce=attempt_nonce,
         judge_request_boundary=judge_request_boundary,
         evaluator_runner=evaluator_runner,
+        evaluator_provenance=evaluator_provenance,
+        require_production_provenance=require_production_provenance,
     )
     if after_evaluator is not None:
         after_evaluator(evaluation)

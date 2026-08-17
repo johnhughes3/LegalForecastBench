@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
+import json
 import os
 import stat
 import sys
@@ -44,6 +46,9 @@ LAB_BASENAME = "issue-identification-memo.docx"
 
 class _FixtureAuthority:
     public_key = KEY.public_key()
+    issuer_id = "fixture-test-authority"
+    key_id = "harvey-lab-evaluator-v1"
+    issuer_policy_sha256 = harvey_lab_issuer_policy_sha256()
 
     @staticmethod
     def sign(payload: bytes) -> bytes:
@@ -63,16 +68,7 @@ def test_cli_full_paired_tier0_fake_binary_run(
     write_json_object(spec_path, spec_record)
     spec_sha256 = _file_hash(spec_path)
     approval_path = tmp_path / "detached-approval.json"
-    write_json_object(
-        approval_path,
-        {
-            "schema_version": TIER0_SPEND_APPROVAL_SCHEMA_VERSION,
-            "approval_id": "fixture-approval",
-            "spec_sha256": spec_sha256,
-            "status": "provider_free",
-            "authority": "fixture-test-authority",
-        },
-    )
+    write_json_object(approval_path, _signed_approval_record(spec_sha256))
 
     import legalforecast.multiharness.tier0_runner as runner
 
@@ -104,9 +100,25 @@ def test_cli_full_paired_tier0_fake_binary_run(
     private_root = run_root / "private"
     archive_root = run_root / "archive"
     archive = _read_json(archive_root / "archive-manifest.json")
+    summary = _read_json(archive_root / "public" / "summary.json")
     assert archive["spec_sha256"] == spec_sha256
     assert archive["matched"] is False
     assert (archive_root / "public" / "summary.json").is_file()
+    assert (
+        "Preliminary — one task pair, operator-run, not independently reproducible"
+        in summary["claim_language"]
+    )
+    assert all("adapter" not in arm and "arm_id" not in arm for arm in summary["arms"])
+    manifest_paths = {entry["path"] for entry in archive["files"]}
+    assert "private/review-mapping.json" in manifest_paths
+    assert any(path.endswith("/evaluation-raw-result.json") for path in manifest_paths)
+    assert any(
+        "/retained-artifacts/arm-opaque-01/sealed/" in path for path in manifest_paths
+    )
+    assert any(
+        "/retained-artifacts/evaluator/overlay/arm-opaque-01/" in path
+        for path in manifest_paths
+    )
     for arm_id in ("arm-opaque-01", "arm-opaque-02"):
         assert (archive_root / "private" / arm_id / "score.json").is_file()
     assert (private_root / "arm-opaque-01" / "sealed" / LAB_BASENAME).is_file()
@@ -126,21 +138,44 @@ def test_tier0_spec_hash_and_approval_are_required(
     approval_path = tmp_path / "approval.json"
     write_json_object(
         approval_path,
-        {
-            "schema_version": TIER0_SPEND_APPROVAL_SCHEMA_VERSION,
-            "approval_id": "approval",
-            "spec_sha256": "sha256:" + "0" * 64,
-            "status": "provider_free",
-            "authority": "fixture",
-        },
+        _signed_approval_record("sha256:" + "0" * 64),
     )
     try:
-        load_detached_approval(approval_path, spec_sha256=spec_sha256)
+        load_detached_approval(
+            approval_path, spec_sha256=spec_sha256, authority=_FixtureAuthority()
+        )
     except ValueError as exc:
         assert "different executable spec" in str(exc)
     else:
         raise AssertionError("mismatched detached approval unexpectedly loaded")
     assert spec.experiment_id == "tier0-fixture"
+
+
+def test_tier0_detached_approval_rejects_tampering_and_unknown_issuer(
+    tmp_path: Path,
+) -> None:
+    spec_sha256 = "sha256:" + "1" * 64
+    tampered = _signed_approval_record(spec_sha256)
+    tampered["status"] = "approved"
+    tampered_path = tmp_path / "tampered.json"
+    write_json_object(tampered_path, tampered)
+    with pytest.raises(Tier0RunnerError, match="signature is invalid"):
+        load_detached_approval(
+            tampered_path,
+            spec_sha256=spec_sha256,
+            authority=_FixtureAuthority(),
+        )
+
+    unknown = _signed_approval_record(spec_sha256)
+    unknown["authority"] = "unapproved-issuer"
+    unknown_path = tmp_path / "unknown.json"
+    write_json_object(unknown_path, unknown)
+    with pytest.raises(Tier0RunnerError, match="issuer is not approved"):
+        load_detached_approval(
+            unknown_path,
+            spec_sha256=spec_sha256,
+            authority=_FixtureAuthority(),
+        )
 
 
 def test_tier0_wrong_spec_hash_fails_before_any_spawn(
@@ -226,12 +261,7 @@ def test_tier0_mutated_loaded_spec_is_rejected_before_roots(
     write_json_object(spec_path, _spec_record(env))
     spec, spec_sha256 = load_executable_spec(spec_path, _file_hash(spec_path))
     mutated = replace(spec, experiment_id="mutated-after-load")
-    approval = Tier0SpendApproval(
-        approval_id="approval",
-        spec_sha256=spec_sha256,
-        status="provider_free",
-        authority="fixture",
-    )
+    approval = _approval_object(spec_sha256)
     with pytest.raises(Tier0RunnerError, match="mutated after loading"):
         run_tier0(
             spec=mutated,
@@ -280,8 +310,8 @@ def test_tier0_matched_identity_requires_byte_identical_projection(
         pin=FIXTURE_PIN,
         lab_task_ids=("employment-labor/identify-issues-in-counterparty-motion-brief",),
     )
-    result_one = _identity_result(first)
-    result_two = _identity_result(second)
+    result_one = _identity_result(first, "claude")
+    result_two = _identity_result(second, "native-thin")
     spec = _identity_spec()
     assert _identities_match((result_one, result_two), spec)
     document = next(
@@ -304,16 +334,7 @@ def _write_spec_and_approval(
     write_json_object(spec_path, _spec_record(env) if record is None else record)
     spec_sha256 = _file_hash(spec_path)
     approval_path = tmp_path / "detached-approval.json"
-    write_json_object(
-        approval_path,
-        {
-            "schema_version": TIER0_SPEND_APPROVAL_SCHEMA_VERSION,
-            "approval_id": "fixture-approval",
-            "spec_sha256": spec_sha256,
-            "status": "provider_free",
-            "authority": "fixture-test-authority",
-        },
-    )
+    write_json_object(approval_path, _signed_approval_record(spec_sha256))
     return spec_path, approval_path, spec_sha256
 
 
@@ -346,15 +367,33 @@ def _patch_fixture_authority(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _identity_result(projection: object) -> object:
+def _identity_result(projection: object, executable_name: str) -> object:
+    digest = "sha256:" + "0" * 64
     return SimpleNamespace(
         projection=projection,
         auth_profile="fixture-none",
-        solver_execution=SimpleNamespace(served_model="claude-sonnet-4-6"),
+        solver_execution=SimpleNamespace(
+            served_model="claude-sonnet-4-6",
+            config_sha256=digest,
+            runtime_policy_sha256=digest,
+            task_identity_key=digest,
+            solver_identity_key=digest,
+            run_identity_key=digest,
+            temporal_block="tier0",
+            order=0,
+            repeat_index=0,
+            executable_name=executable_name,
+            executable_version="fixture-v1",
+        ),
         evaluation=SimpleNamespace(
             spec=SimpleNamespace(
                 schema_version="evaluation-v1",
                 evaluation_id="harvey-lab-employment-v1",
+                deliverable_manifest_sha256=digest,
+                deliverable_tree_sha256=digest,
+                task_sha256=digest,
+                run_sha256=digest,
+                config_sha256=digest,
                 evaluator_repository="https://example.com/lab",
                 evaluator_commit="a" * 40,
                 evaluator_tree="b" * 40,
@@ -373,7 +412,7 @@ def _identity_result(projection: object) -> object:
                 resource_policy_sha256="sha256:" + "c" * 64,
                 token_accounting_policy_sha256="sha256:" + "d" * 64,
             ),
-            receipt=SimpleNamespace(judge_resolved_identity="fixture-judge"),
+            receipt=SimpleNamespace(judge_resolved_identity="judge/provider@v1"),
         ),
     )
 
@@ -481,6 +520,32 @@ def _path_hash_for_name(name: str) -> str:
 
 def _file_hash(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _approval_object(spec_sha256: str) -> Tier0SpendApproval:
+    record = _signed_approval_record(spec_sha256)
+    return Tier0SpendApproval.from_record(record)
+
+
+def _signed_approval_record(
+    spec_sha256: str, *, status: str = "provider_free"
+) -> dict[str, object]:
+    signing = {
+        "schema_version": TIER0_SPEND_APPROVAL_SCHEMA_VERSION,
+        "approval_id": "fixture-approval",
+        "spec_sha256": spec_sha256,
+        "status": status,
+        "authority": _FixtureAuthority.issuer_id,
+        "issuer_key_id": _FixtureAuthority.key_id,
+        "issuer_policy_sha256": _FixtureAuthority.issuer_policy_sha256,
+    }
+    payload = json.dumps(
+        signing, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return {
+        **signing,
+        "signature": base64.b64encode(KEY.sign(payload)).decode("ascii"),
+    }
 
 
 def _read_json(path: Path) -> dict[str, object]:
