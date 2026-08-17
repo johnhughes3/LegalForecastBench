@@ -96,12 +96,15 @@ def test_trusted_publisher_doc_matches_the_registered_claim_set() -> None:
     assert project_name is not None
     for claim in (
         f"`{project_name.group(1)}`",
-        "`johnhughes3`",
         "`LegalForecastBench`",
         f"`{WORKFLOW_PATH.name}`",
         "`pypi`",
     ):
         assert claim in doc
+    # The owner claim is described rather than named: this repository is public
+    # and AGENTS.md forbids committing account identifiers, so the doc points at
+    # GitHub's ``repository_owner`` claim instead of a maintainer literal.
+    assert "repository_owner" in doc
     assert "environment:\n      name: pypi" in WORKFLOW
     assert "startsWith(github.ref, 'refs/tags/v')" in doc
 

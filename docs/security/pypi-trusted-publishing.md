@@ -11,7 +11,7 @@ PyPI matches an incoming OIDC token against these exact values. All five must ag
 | Claim | Value |
 | --- | --- |
 | PyPI project | `legalforecast-mtd` |
-| Repository owner | `johnhughes3` |
+| Repository owner | this repository's owner account, as GitHub's `repository_owner` claim reports it |
 | Repository | `LegalForecastBench` |
 | Workflow filename | `publish-package.yaml` |
 | GitHub environment | `pypi` |
@@ -52,7 +52,7 @@ Publication rights are revoked on PyPI, not here. Deleting a workflow file or a 
 **If the repository, a maintainer account, or a release tag is compromised:**
 
 1. **Revoke first.** Remove the trusted publisher for `legalforecast-mtd` in the PyPI project's publishing settings. That stops any further OIDC exchange immediately. It does not retract a short-lived upload token a run has already obtained, so cancel any in-flight run of the publishing workflow in the same step.
-2. **Contain the release.** Yank affected versions on PyPI. Yanking leaves the files resolvable for existing pins while removing them from new resolution; deleting a release is irreversible and frees the version number for reuse, so prefer yanking unless the artifact must not be retrievable at all.
+2. **Contain the release.** Yank affected versions on PyPI. Yanking leaves the files resolvable for existing pins while removing them from new resolution; deleting a release is irreversible and does *not* free the version number — PyPI refuses to accept a filename or a version identifier that has ever been uploaded, so a corrected build has to go out under a new version. Prefer yanking unless the artifact must not be retrievable at all.
 3. **Assess the artifacts.** `package-artifact-hashes.json` from the corresponding `release-check` run records the hashes of what was built. Compare it against what is on PyPI to establish whether the published bytes are the reviewed bytes.
 4. **Recover the repository side.** Rotate the compromised account's credentials, review the environment's protection rules and reviewer list for edits, and audit the workflow file's history for an added trigger, an added secret reference, or a changed action pin.
 5. **Re-register deliberately.** Add the trusted publisher back only after the workflow file, environment settings, and action pins have been re-verified against this document. Re-registration is the last step, not the first.
