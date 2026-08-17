@@ -13,7 +13,7 @@ concurrency:
 jobs:
   release-check:
     name: Release check
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
 
     steps:

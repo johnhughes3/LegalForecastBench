@@ -15,7 +15,7 @@ jobs:
       github.repository == 'johnhughes3/LegalForecastBench' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
       contents: write
