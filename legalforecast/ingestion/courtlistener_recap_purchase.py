@@ -26,6 +26,7 @@ from legalforecast.ingestion.courtlistener_provider_identity import (
 )
 
 CONFIRMATION_PROVENANCE_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative sidecar; no canonical commitments
     "legalforecast.recap_fetch_confirmation_provenance.v1"
 )
 _CONFIRMATION_EVIDENCE_QUEUE = "recap_fetch_queue_status_2"
@@ -290,15 +291,18 @@ def _positive_decimal(value: object) -> str:
     return value
 
 
+# contract-ratchet: allow sidecar digest adapter reuses shared canonical JSON
 def _sha256_json(value: Mapping[str, object]) -> str:
     payload = canonical_json_value_bytes(
         dict(value),
         error_type=ConfirmationProvenanceError,
         error_message="confirmation provenance evidence is not canonical JSON",
     )
+    # contract-ratchet: allow observational digest excluded from commitments
     return hashlib.sha256(payload).hexdigest()
 
 
+# contract-ratchet: allow sidecar digest-key adapter reuses shared canonical JSON
 def _canonical_operation_sha256(operation: Mapping[str, object]) -> str:
     """Match the journal helper without creating an authenticated import cycle."""
 
@@ -307,6 +311,7 @@ def _canonical_operation_sha256(operation: Mapping[str, object]) -> str:
         error_type=ConfirmationProvenanceError,
         error_message="confirmation provenance operation is not canonical JSON",
     )
+    # contract-ratchet: allow sidecar digest key is excluded from canonical commitments
     return hashlib.sha256(payload).hexdigest()
 
 
