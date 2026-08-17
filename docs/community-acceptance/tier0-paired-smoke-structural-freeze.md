@@ -55,7 +55,7 @@ The mixed-boundary upstream `task.json`, all criteria and match text, gold mater
 | Requested provider/model | `anthropic:claude-sonnet-4-6` | `anthropic:claude-sonnet-4-6` |
 | Resolved provider/model rule | Exact receipt required; unresolved or different identity forbids matched language | Exact receipt required; unresolved or different identity forbids matched language |
 | Adapter/runner | Landed internal Claude LAB composition | `BLOCKED`: `dm0g.4.3.7` has not implemented the arm |
-| Executable identity | `BLOCKED`: containment targets Claude Code 2.1.220, the landed adapter manifest pins 2.1.231, and the observed installation is 2.1.233 | `BLOCKED`: executable, environment, and wrapper identities are not frozen |
+| Executable identity | `BLOCKED`: containment targets Claude Code 2.1.220 while the landed adapter manifest pins 2.1.231; the approved executable identity must be supplied through generated private run metadata | `BLOCKED`: executable, environment, and wrapper identities are not frozen |
 | Model settings | `BLOCKED`: exact settings hash and served identity are not frozen | `BLOCKED`: `--max-turns`, `--temperature`, `--shell-timeout`, `--reasoning-effort`, `--skills`, and `--sandbox-image` are not frozen |
 | Native tool policy | Candidate inventory: `Read,Glob,Grep,Bash,Write,Edit` | `BLOCKED`: upstream policy has not been converted into the matched-arm contract |
 | Outer containment | `BLOCKED`: no approved privileged whole-process receipt exists for the chosen executable | `BLOCKED`: matched outer envelope is not implemented |
