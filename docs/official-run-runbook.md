@@ -2986,6 +2986,8 @@ uv run legalforecast acquisition build-replacement-recovery-source \
   --execute --resume
 ```
 
+In the ordinal-zero (`initial_v2`) invocation above, the two resolver cards are consumed newest first. `--resolved-post-recovery-run-card` is the resolver card produced by this preparation flow and must end at the live ledger state; `--additional-resolved-post-recovery-run-card` is the older `completed-successor-resolver-run-card.json` retained from the prior successor lifecycle named by `--successor-history-recovery-root`, and must end at the primary card's before-state. Do not swap them to match argument order — a `successor` source reverses which card is newer, and the producer already accounts for that. See [the producer schema](schemas/replacement-recovery-source-producer-v1.md) for the full chronology contract.
+
 The producer authenticates the v2 recovery card, v3 purchased-clearance card, resolver card, policies, ledger, private approval root, and ledger-initialization receipt before publishing the descriptor.
 For a nonempty terminal ledger it also rereads and independently replays the complete four-file terminal-disposition bundle; it does not trust the resolver card's metadata as authority.
 

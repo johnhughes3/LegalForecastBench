@@ -29491,6 +29491,26 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             raise ReplacementRecoverySourceError(
                 "successor history is allowed only for the ordinal 0 initial recovery"
             )
+        # Resolver-card chronology: `issue()` consumes `run_card_paths`
+        # newest-first, reversing each transition beneath the one before it, so
+        # this tuple is ordered newest -> oldest and NOT oldest -> newest.
+        #
+        # For `initial_v2`, `--resolved-post-recovery-run-card` is produced by
+        # the resolver running inside the current preparation flow, so it is the
+        # freshest ledger transition, while
+        # `--additional-resolved-post-recovery-run-card` is a pre-existing
+        # `completed-successor-resolver-run-card.json` carried over from a past
+        # successor lifecycle.  The freshest card therefore comes first.  For a
+        # `successor` source the roles are reversed: the additional card is the
+        # newer one, so the tuple is flipped to keep the same newest -> oldest
+        # order.  Swapping either branch breaks the reversal composition, which
+        # peels both resolver transitions off in order before
+        # `_authenticated_pre_successor_purchase_snapshot` reverses successor
+        # purchase history beneath them.  Reviewers have misread this ordering
+        # repeatedly; the invariant is pinned by
+        # `test_initial_v2_cli_orders_resolver_cards_newest_first` and
+        # `test_resolved_transition_capability_replays_two_ordered_transitions`
+        # in `tests/test_replacement_recovery_source_producer.py`.
         transition_card_paths: tuple[Path | None, ...] = ()
         if additional_resolved_card_path is not None:
             transition_card_paths = (

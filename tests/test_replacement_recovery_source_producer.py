@@ -2816,3 +2816,108 @@ def test_source_producer_requires_complete_terminal_disposition_bundle(
 
     with pytest.raises(cli.CommandError, match="must be supplied together"):
         cli._cmd_build_replacement_recovery_source(args)
+
+
+@pytest.mark.parametrize("successor", [False, True])
+def test_cli_wires_two_resolver_cards_newest_first(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    successor: bool,
+) -> None:
+    """Pin the CLI's flag-to-position mapping for the two resolver cards.
+
+    ``test_resolved_transition_capability_replays_two_ordered_transitions``
+    proves ``issue()`` consumes ``run_card_paths`` newest-first in isolation.
+    This test closes the remaining gap -- that the CLI hands the two flags to
+    that consumer in the documented newest -> oldest order.  For ``initial_v2``
+    ``--resolved-post-recovery-run-card`` is the freshest transition because it
+    comes from the resolver running in the current preparation flow, while
+    ``--additional-resolved-post-recovery-run-card`` is a pre-existing card
+    from a prior successor lifecycle; for a ``successor`` source the roles are
+    reversed, so the tuple flips.  Swapping either branch fails here.
+    """
+
+    args, paths, _verified_calls = _fixture(tmp_path, monkeypatch, successor=successor)
+    additional_card = _write_json(
+        tmp_path / "prior-lifecycle/completed-successor-resolver-run-card.json",
+        {"prior_successor_lifecycle": True},
+    )
+    args.additional_resolved_post_recovery_run_card = additional_card
+    if not successor:
+        # An initial-source additional resolver is only accepted alongside the
+        # authenticated successor history it came from.
+        history_root = tmp_path / "successor-history"
+        history_private = tmp_path / "successor-private"
+        history_private.mkdir()
+        history_marker = _write_json(history_root / "history-marker.json", {"ok": True})
+        args.successor_history_recovery_root = history_root
+        args.successor_history_controlled_private_root = history_private
+
+        def authenticate_history(
+            **_kwargs: Any,
+        ) -> tuple[CaseDevPurchaseSnapshot, dict[str, bytes]]:
+            return (
+                CaseDevPurchaseSnapshot(
+                    operations=(
+                        {
+                            "candidate_id": "initial-case",
+                            "source_document_id": "initial-doc",
+                        },
+                    ),
+                    committed_amount_usd="3.05",
+                    purchase_state_sha256="state-1",
+                ),
+                {str(history_marker.resolve()): history_marker.read_bytes()},
+            )
+
+        monkeypatch.setattr(
+            cli, "_authenticated_pre_successor_purchase_snapshot", authenticate_history
+        )
+
+    observed_run_card_paths: list[tuple[Path, ...]] = []
+
+    def issue_transition_capability_factory(
+        **kwargs: Any,
+    ) -> Callable[[], object]:
+        observed_run_card_paths.append(
+            tuple(cast(tuple[Path, ...], kwargs["run_card_paths"]))
+        )
+        return object
+
+    _patch_cli(
+        monkeypatch,
+        "_issue_resolved_transition_capability_factory",
+        issue_transition_capability_factory,
+    )
+    prior = CaseDevPurchaseSnapshot(
+        operations=(
+            {
+                "candidate_id": "successor-case" if successor else "initial-case",
+                "source_document_id": ("successor-doc" if successor else "initial-doc"),
+            },
+        ),
+        committed_amount_usd="3.05",
+        purchase_state_sha256="state-1",
+    )
+    _patch_cli(
+        monkeypatch,
+        "_consume_live_resolved_transition_evidence",
+        lambda _capability: (
+            prior,
+            {},
+            {paths["resolved_card"].absolute(): "state-1"},
+        ),
+    )
+
+    assert cli._cmd_build_replacement_recovery_source(args) == 0
+
+    newest_first = (
+        (additional_card.absolute(), paths["resolved_card"].absolute())
+        if successor
+        else (paths["resolved_card"].absolute(), additional_card.absolute())
+    )
+    assert observed_run_card_paths
+    assert set(observed_run_card_paths) == {newest_first}
+    # Guard the assertion itself: the two orders must be distinguishable, so a
+    # flipped mapping cannot pass by accident.
+    assert newest_first != tuple(reversed(newest_first))

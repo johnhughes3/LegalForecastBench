@@ -38,6 +38,8 @@ If resolver publication changed material state after either recovery, supply the
 Cards are consumed in reverse state-transition order.
 For an initial source, the primary `--resolved-post-recovery-run-card` must end at the live state and the additional card must end at the primary card's before-state; for a successor source, the additional card must end at the live state and the primary card must end at the additional card's before-state.
 
+The `initial_v2` direction follows from where each card comes from, which is worth stating because reviewers have repeatedly read it backwards. `--resolved-post-recovery-run-card` is produced by the resolver running inside the current preparation flow, so it is the freshest ledger transition; `--additional-resolved-post-recovery-run-card` is a pre-existing `completed-successor-resolver-run-card.json` carried over from a past successor lifecycle, so it is the older one. The pair is therefore ordered newest to oldest, not oldest to newest. A `successor` source inverts the roles — there the additional card is the newer transition — which is why the producer flips the tuple for that kind rather than passing the flags through in argument order.
+
 Each reversal is limited to the resolver-bound `material_state`, `clearance_record_sha256`, and `resolved_document_sha256` fields, and the reconstructed state must reproduce both committed state digests exactly.
 
 The producer mints one opaque reusable transition capability from raw resolver cards, their resolved outputs, and every committed source input.
