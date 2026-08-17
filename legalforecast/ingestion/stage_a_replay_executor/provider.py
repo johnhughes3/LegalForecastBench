@@ -6,6 +6,7 @@ import hashlib
 import os
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
+from importlib import import_module
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -41,9 +42,9 @@ from legalforecast.labeling.provider_journal import (
     maximum_call_cost_usd,
     provider_prompt_logical_call_scope,
 )
-from legalforecast.unitization import (  # noqa: F401
-    unitizer_terminal_review as _eager_unitizer_terminal_review,
-)
+
+# Load terminal-review code before the executor captures its runtime Git identity.
+import_module("legalforecast.unitization.unitizer_terminal_review")
 
 
 class _StageABatchResult(Protocol):

@@ -94,23 +94,6 @@ def acquire_output_claims(spec: ReplaySpec) -> OutputClaimSet:
     return claims
 
 
-def output_lock_path(path: Path) -> Path:
-    """Return the sibling lock file used to claim one signed output path."""
-
-    digest = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
-    return path.parent / f".stage-a-replay-output-{digest}.lock"
-
-
-def authorized_identity_exclusions(spec: ReplaySpec) -> frozenset[Path]:
-    """Return output and lock paths the identity recheck must ignore."""
-
-    excluded: set[Path] = set()
-    for path in spec.output_paths.values():
-        excluded.add(path.resolve())
-        excluded.add(output_lock_path(path).resolve())
-    return frozenset(excluded)
-
-
 def _assert_held_lock(descriptor: int, lock_path: Path) -> None:
     """Reject a lock fd that no longer names a single live lock inode."""
 
@@ -132,4 +115,5 @@ def _assert_held_lock(descriptor: int, lock_path: Path) -> None:
 
 
 def _output_lock_path(path: Path) -> Path:
-    return output_lock_path(path)
+    digest = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
+    return path.parent / f".stage-a-replay-output-{digest}.lock"
