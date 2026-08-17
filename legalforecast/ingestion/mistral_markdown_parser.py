@@ -17,6 +17,10 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from legalforecast.ingestion.parse_quality import (
+    PARSE_QUALITY_REJECTION_FLAG,
+    assess_parsed_text,
+)
 from legalforecast.ingestion.provenance import ExtractedTextArtifact, sha256_text
 
 DEFAULT_PARSER_ROOT = Path("~/Development/tools/parser")
@@ -60,6 +64,9 @@ class MistralMarkdownConversionRequest:
     expected_sha256: str | None = None
     expected_byte_count: int | None = None
     captured_source_bytes: bytes | None = None
+    # Optional trailing field preserves positional compatibility with existing
+    # callers while allowing role-aware quality thresholds for live manifests.
+    document_role: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -377,7 +384,29 @@ def _run_verified_conversion(
         raise ValueError(
             f"parser Markdown output is unsafe: {generated_markdown_path}"
         ) from exc
-    quality_flags = () if markdown.strip() else ("empty_markdown",)
+    # Preserve the output-path safety boundary even when the quality gate
+    # rejects the payload and therefore intentionally publishes no Markdown.
+    _validate_existing_output_path(markdown_path)
+    assessment = assess_parsed_text(markdown, request.document_role)
+    if assessment.rejected:
+        record = _failure_record(
+            request,
+            input_path=input_path,
+            markdown_path=markdown_path,
+            metadata_path=metadata_path,
+            artifact_root=artifact_root,
+            parser_config=parser_config,
+            status=MistralMarkdownConversionStatus.FAILED,
+            quality_flags=(PARSE_QUALITY_REJECTION_FLAG,),
+            error_message=(
+                "parser output failed parse-quality gate: "
+                + ", ".join(assessment.rejection_reasons)
+            ),
+            stdout=result.stdout,
+            stderr=result.stderr,
+        )
+        return record, None
+    quality_flags = ()
     extracted_text = ExtractedTextArtifact(
         source_document_id=request.source_document_id,
         extracted_at=extracted_at,
@@ -763,6 +792,38 @@ def _write_unique_regular_file(path: Path, payload: bytes) -> None:
             # Atomic publication may already have consumed the temporary name.
             pass
         os.close(directory_fd)
+
+
+def _validate_existing_output_path(path: Path) -> None:
+    """Reject a pre-existing output alias before any quality decision."""
+
+    parent_fd: int | None = None
+    existing_fd: int | None = None
+    try:
+        parent_fd = os.open(
+            path.parent,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+        )
+        existing_fd = os.open(
+            path.name,
+            os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
+            dir_fd=parent_fd,
+        )
+    except FileNotFoundError:
+        return
+    except OSError:
+        # Preserve the kernel's O_NOFOLLOW error for symlink and alias tests.
+        raise
+    else:
+        try:
+            metadata = os.fstat(existing_fd)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise ValueError(f"parser output path is unsafe: {path}")
+        finally:
+            os.close(existing_fd)
+    finally:
+        if parent_fd is not None:
+            os.close(parent_fd)
 
 
 def _write_unique_regular_file_at(directory_fd: int, name: str, payload: bytes) -> None:

@@ -186,6 +186,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`operative_complaint.py`](../legalforecast/ingestion/operative_complaint.py) | Strict operative-complaint selection. |
 | [`packet_artifact_serialization.py`](../legalforecast/ingestion/packet_artifact_serialization.py) | Incremental, rollback-safe publication of packet artifact projections. |
 | [`packet_input_planner.py`](../legalforecast/ingestion/packet_input_planner.py) | Authenticated packet-build and private-store inputs. |
+| [`parse_quality.py`](../legalforecast/ingestion/parse_quality.py) | Provider-free substantive-text quality gate for parsed Markdown. |
 | [`packet_role_adjudication.py`](../legalforecast/ingestion/packet_role_adjudication.py) | Human role adjudication against parser evidence. |
 | [`public_packet_planner.py`](../legalforecast/ingestion/public_packet_planner.py) | Free public document download plans. |
 | [`purchased_document_recovery.py`](../legalforecast/ingestion/purchased_document_recovery.py) | Fee-acknowledged purchased-document recovery. |

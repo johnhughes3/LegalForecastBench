@@ -370,6 +370,138 @@ def test_stage_a_parse_lineage_rejects_markdown_drift_and_extra_files(
         cli._stage_a_markdown_tree_snapshot(parsed, markdown_root=markdown_root)
 
 
+def test_stage_a_parse_quality_rejects_stamps_with_matching_commitments(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "documents"
+    markdown_root = tmp_path / "parse" / "markdown"
+    source = document_root / "cand-1" / "complaint.pdf"
+    markdown = markdown_root / "cand-1" / "complaint.md"
+    source.parent.mkdir(parents=True)
+    markdown.parent.mkdir(parents=True)
+    source.write_bytes(b"complaint bytes")
+    markdown.write_text(
+        "##### Page 1\nCase 1:26-cv-1 Document 7 Filed 06/01/26 Page 1 of 1",
+        encoding="utf-8",
+    )
+    source_sha = hashlib.sha256(source.read_bytes()).hexdigest()
+    text_sha = hashlib.sha256(markdown.read_bytes()).hexdigest()
+    downloads = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "local_path": "cand-1/complaint.pdf",
+            "sha256": source_sha,
+            "byte_count": source.stat().st_size,
+            "document_role": "complaint",
+        }
+    ]
+    requests = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "input_path": str(source),
+            "expected_sha256": source_sha,
+            "expected_byte_count": source.stat().st_size,
+            "markdown_output_path": "markdown/cand-1/complaint.md",
+        }
+    ]
+    parsed = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "status": "succeeded",
+            "markdown_path": "cand-1/complaint.md",
+            "parser_config": {"engine": "mistral"},
+            "source_sha256": source_sha,
+            "source_byte_count": source.stat().st_size,
+            "quality_flags": [],
+            "extracted_text": {
+                "extraction_method": "mistral_parser_markdown",
+                "text_sha256": text_sha,
+            },
+        }
+    ]
+    _, markdown_bytes = cli._stage_a_markdown_tree_snapshot(
+        parsed, markdown_root=markdown_root
+    )
+
+    with pytest.raises(cli.CommandError, match="parse-quality gate"):
+        cli._verify_stage_a_parse_records(
+            download_records=downloads,
+            request_records=requests,
+            parser_records=parsed,
+            document_root=document_root,
+            parser_output_root=tmp_path / "parse",
+            markdown_root=markdown_root,
+            markdown_bytes=markdown_bytes,
+        )
+
+
+@pytest.mark.parametrize("parser_config", [None, "malformed"])
+def test_stage_a_malformed_parser_config_uses_strict_quality_thresholds(
+    tmp_path: Path, parser_config: object
+) -> None:
+    document_root = tmp_path / "documents"
+    markdown_root = tmp_path / "parse" / "markdown"
+    source = document_root / "cand-1" / "complaint.pdf"
+    markdown = markdown_root / "cand-1" / "complaint.md"
+    source.parent.mkdir(parents=True)
+    markdown.parent.mkdir(parents=True)
+    source.write_bytes(b"complaint bytes")
+    markdown.write_text("Short.", encoding="utf-8")
+    source_sha = hashlib.sha256(source.read_bytes()).hexdigest()
+    text_sha = hashlib.sha256(markdown.read_bytes()).hexdigest()
+    downloads = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "local_path": "cand-1/complaint.pdf",
+            "sha256": source_sha,
+            "byte_count": source.stat().st_size,
+            "document_role": "complaint",
+        }
+    ]
+    requests = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "input_path": str(source),
+            "expected_sha256": source_sha,
+            "expected_byte_count": source.stat().st_size,
+            "markdown_output_path": "markdown/cand-1/complaint.md",
+        }
+    ]
+    parsed = {
+        "candidate_id": "cand-1",
+        "source_document_id": "complaint",
+        "status": "succeeded",
+        "markdown_path": "cand-1/complaint.md",
+        "parser_config": parser_config,
+        "source_sha256": source_sha,
+        "source_byte_count": source.stat().st_size,
+        "quality_flags": [],
+        "extracted_text": {
+            "extraction_method": "mistral_parser_markdown",
+            "text_sha256": text_sha,
+        },
+    }
+    _, markdown_bytes = cli._stage_a_markdown_tree_snapshot(
+        [parsed], markdown_root=markdown_root
+    )
+
+    with pytest.raises(cli.CommandError, match="parse-quality gate"):
+        cli._verify_stage_a_parse_records(
+            download_records=downloads,
+            request_records=requests,
+            parser_records=[parsed],
+            document_root=document_root,
+            parser_output_root=tmp_path / "parse",
+            markdown_root=markdown_root,
+            markdown_bytes=markdown_bytes,
+        )
+
+
 def test_stage_a_provider_uses_captured_markdown_and_completion_detects_drift(
     tmp_path: Path,
 ) -> None:

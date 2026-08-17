@@ -120,7 +120,14 @@ def _write_live_shaped_parser_fixture(
         markdown_path = parse_root / str(record["markdown_path"])
         if document_id == source_document_id:
             markdown_path.write_text(
-                "# [PROPOSED] STIPULATION FOR AND ORDER OF DISMISSAL\n",
+                (
+                    "# [PROPOSED] STIPULATION FOR AND ORDER OF DISMISSAL\n"
+                    "The parties submit this synthetic outcome fixture for the "
+                    "authenticated replay path and its commitment checks.\n"
+                    "This text is intentionally provider-free test material.\n"
+                    "The fixture keeps the replay test deterministic and "
+                    "self-contained.\n"
+                ),
                 encoding="utf-8",
             )
         markdown_bytes = markdown_path.read_bytes()
@@ -218,7 +225,14 @@ def _completed_authenticated_stipulated_audit(
     markdown_fixtures.mkdir()
     for request in requests:
         (markdown_fixtures / f"{request['source_document_id']}.md").write_text(
-            f"Public filing {request['source_document_id']}", encoding="utf-8"
+            (
+                f"Public filing {request['source_document_id']}\n"
+                "This synthetic fixture contains enough substantive filing text "
+                "to exercise the authenticated parser and downstream lineage gate.\n"
+                "It is provider-free test content and is not a source document.\n"
+                "The fixture keeps the replay test deterministic and self-contained."
+            ),
+            encoding="utf-8",
         )
     assert (
         cli.main(
