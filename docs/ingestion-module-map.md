@@ -245,7 +245,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 
 **Owns:** Purchase approvals, immutable attempt/broker policy, isolated RECAP Fetch submission, attachment-menu acquisition, missing-document budgets, reconciliation, and terminal failure evidence.
 
-**Start with:** `purchase_approval.py` for human authority, `recap_fetch_broker.py` for isolated submission, and `recap_fetch_attempt_policy.py` for bounded retry authority.
+**Start with:** `purchase_approval.py` for human authority over a cohort projection, `document_repair_purchase_approval.py` for the same over a repair tranche, `recap_fetch_broker.py` for isolated submission, and `recap_fetch_attempt_policy.py` for bounded retry authority.
 
 | Module | Responsibility |
 | --- | --- |
@@ -257,6 +257,8 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`courtlistener_provider_identity.py`](../legalforecast/ingestion/courtlistener_provider_identity.py) | Stable shared identity for CourtListener RECAP Fetch provenance. |
 | [`courtlistener_recap_fetch.py`](../legalforecast/ingestion/courtlistener_recap_fetch.py) | Guarded individual-document RECAP Fetch purchases. |
 | [`missing_core_budget.py`](../legalforecast/ingestion/missing_core_budget.py) | Cost guardrails for missing core documents. |
+| [`document_repair_purchase_approval.py`](../legalforecast/ingestion/document_repair_purchase_approval.py) | TTY issuance of purchase authority for one document-repair tranche. |
+| [`document_repair_purchase_cli.py`](../legalforecast/ingestion/document_repair_purchase_cli.py) | Operator commands recording, publishing, and proving repair purchase authority. |
 | [`purchase_approval.py`](../legalforecast/ingestion/purchase_approval.py) | Human approval for an exact purchase plan. |
 | [`purchase_spend_summary.py`](../legalforecast/ingestion/purchase_spend_summary.py) | Provider-free immutable report of provable charges and unresolved commitments. |
 | [`recap_fetch_attempt_policy.py`](../legalforecast/ingestion/recap_fetch_attempt_policy.py) | Immutable bounded unknown-status attempt authority. |

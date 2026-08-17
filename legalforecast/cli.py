@@ -464,6 +464,9 @@ from legalforecast.ingestion.docket_sync import (
     DocketRetrievalPipeline,
     NormalizedDocketEntry,
 )
+from legalforecast.ingestion.document_repair_purchase_cli import (
+    add_parsers as add_document_repair_purchase_parsers,
+)
 from legalforecast.ingestion.downstream_rehearsal import (
     REHEARSAL_PROVENANCE,
     DownstreamRehearsalError,
@@ -2258,6 +2261,7 @@ def build_parser() -> argparse.ArgumentParser:
         handler=_cmd_project_exact100_supporting_document_successor,
     )
     add_exact100_zero_cost_recovery_parser(acquisition_subparsers)
+    add_document_repair_purchase_parsers(acquisition_subparsers)
     acquisition_accumulate_replacement_clearance = acquisition_subparsers.add_parser(
         "accumulate-replacement-clearance",
         help=(

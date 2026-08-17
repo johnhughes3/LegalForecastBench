@@ -173,6 +173,16 @@ positional arguments:
     recover-exact100-target-document-zero-cost
                         Run only the plan-derived noncharging CourtListener
                         recovery.
+    record-document-repair-purchase-approval
+                        Interactively record approve, reject, or free-only for
+                        one exact document-repair purchase tranche without
+                        provider activity.
+    verify-document-repair-purchase-approval
+                        Replay private document-repair approval evidence and
+                        publish the approved v2 purchase policy.
+    verify-document-repair-purchase-policy
+                        Prove an issued v2 purchase policy binds one document-
+                        repair execution, consuming nothing.
     accumulate-replacement-clearance
                         Merge the prior authenticated purchased clearance with
                         one new replacement tranche and require exact current-
