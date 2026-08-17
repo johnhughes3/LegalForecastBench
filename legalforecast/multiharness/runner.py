@@ -341,7 +341,12 @@ class _MultiHarnessRunner:
         selection = self.config.selection.select(self.config.task_index)
         identity = _identity_binding_for(self.config, selection.selection_sha256)
         journal = self._prepare_journal(selection=selection, identity=identity)
-        capabilities = self._load_capabilities(adapters)
+        try:
+            capabilities = self._load_capabilities(adapters)
+        except CommandAdapterCancelled:
+            journal = journal.mark_stopped()
+            write_progress_journal(self.config.output_dir, journal)
+            raise
         row_plans = self._build_row_plans(selection, adapters, capabilities)
         run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
         run_compatibility_record = _run_compatibility_record(
