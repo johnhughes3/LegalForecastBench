@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -63,6 +64,47 @@ def test_runtime_commit_is_resolved_from_the_executor_checkout(
 
     assert executor_module.current_code_commit() == "a" * 40
     assert observed["cwd"] == executor_module.repository_root()
+
+
+def test_runtime_commit_rejects_dirty_checkout_despite_clean_git_env_decoy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime_checkout = tmp_path / "runtime-checkout"
+    decoy_checkout = tmp_path / "decoy-checkout"
+    runtime_checkout.mkdir()
+    subprocess.run(["git", "init", "-q", str(runtime_checkout)], check=True)
+    tracked = runtime_checkout / "executor.py"
+    tracked.write_text("trusted bytes\n")
+    subprocess.run(
+        ["git", "-C", str(runtime_checkout), "add", "executor.py"], check=True
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(runtime_checkout),
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "user.name=Stage A test",
+            "-c",
+            "user.email=stage-a@example.invalid",
+            "commit",
+            "-qm",
+            "initial",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "clone", "-q", str(runtime_checkout), str(decoy_checkout)], check=True
+    )
+    tracked.write_text("modified runtime bytes\n")
+    monkeypatch.setenv("GIT_DIR", str(decoy_checkout / ".git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(decoy_checkout))
+    monkeypatch.setenv("GIT_INDEX_FILE", str(decoy_checkout / ".git" / "index"))
+
+    with pytest.raises(StageAReplayExecutorError, match="runtime checkout is dirty"):
+        executor_module.current_code_commit(cwd=runtime_checkout)
 
 
 def test_runtime_commit_mismatch_halts_before_provider_access(tmp_path: Path) -> None:

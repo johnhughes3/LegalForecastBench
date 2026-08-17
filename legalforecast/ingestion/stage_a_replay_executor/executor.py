@@ -29,6 +29,7 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
 )
 from legalforecast.ingestion.stage_a_replay_executor.contract import (
     ReplayOutputClaimError,
+    trusted_git_environment,
 )
 from legalforecast.ingestion.stage_a_replay_executor.guard import (
     ExecutionHalt,
@@ -86,10 +87,12 @@ def current_code_commit(*, cwd: Path | None = None) -> str:
     """Return the exact checkout commit bound into an invocation."""
 
     checkout = cwd or repository_root()
+    git_environment = trusted_git_environment()
     try:
         status = subprocess.run(
             ["git", "status", "--porcelain=v1", "--untracked-files=all"],
             cwd=checkout,
+            env=git_environment,
             check=True,
             capture_output=True,
             text=True,
@@ -101,6 +104,7 @@ def current_code_commit(*, cwd: Path | None = None) -> str:
         completed = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             cwd=checkout,
+            env=git_environment,
             check=True,
             capture_output=True,
             text=True,

@@ -23,6 +23,25 @@ AUTHORIZATION_SCHEMA_VERSION = (
     "legalforecast.candidate_scoped_stage_a_authorization.v1"
 )
 AUTHORIZATION_SIGNATURE_NAMESPACE = "legalforecast-stage-a-replay"
+_GIT_LOCAL_ENVIRONMENT_VARIABLES = frozenset(
+    {
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_CONFIG",
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_DIR",
+        "GIT_GRAFT_FILE",
+        "GIT_IMPLICIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_NO_REPLACE_OBJECTS",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_PREFIX",
+        "GIT_REPLACE_REF_BASE",
+        "GIT_SHALLOW_FILE",
+        "GIT_WORK_TREE",
+    }
+)
 
 
 class StageAReplayExecutorError(ValueError):
@@ -39,6 +58,17 @@ class ReplaySpendCeilingError(StageAReplayExecutorError):
 
 class ReplayOutputClaimError(StageAReplayExecutorError):
     """Raised when another executor already owns the spec's output paths."""
+
+
+def trusted_git_environment() -> dict[str, str]:
+    """Return the process environment without caller-controlled Git context."""
+
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key not in _GIT_LOCAL_ENVIRONMENT_VARIABLES
+        and not key.startswith("GIT_CONFIG_")
+    }
 
 
 def validate_authorization(
@@ -192,12 +222,7 @@ def verify_authorization_signature(
 ) -> None:
     """Verify owner authority against Git's configured SSH allowed-signers file."""
 
-    git_environment = {
-        key: value
-        for key, value in os.environ.items()
-        if key not in {"GIT_COMMON_DIR", "GIT_DIR", "GIT_WORK_TREE"}
-        and not key.startswith("GIT_CONFIG_")
-    }
+    checkout = repository_root()
     try:
         configured = subprocess.run(
             [
@@ -207,8 +232,8 @@ def verify_authorization_signature(
                 "--get",
                 "gpg.ssh.allowedSignersFile",
             ],
-            cwd=repository_root(),
-            env=git_environment,
+            cwd=checkout,
+            env=trusted_git_environment(),
             check=True,
             capture_output=True,
             text=True,
@@ -218,6 +243,8 @@ def verify_authorization_signature(
             "Git SSH allowed-signers configuration is unavailable"
         ) from exc
     allowed_signers = Path(configured).expanduser()
+    if not allowed_signers.is_absolute():
+        allowed_signers = checkout / allowed_signers
     read_regular(allowed_signers, "Git SSH allowed-signers file")
     try:
         subprocess.run(
