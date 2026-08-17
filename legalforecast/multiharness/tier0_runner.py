@@ -15,6 +15,7 @@ is installed.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -28,6 +29,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from legalforecast._json_io import read_json_object, write_json_object
@@ -53,6 +55,7 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorRunner,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
+    HarveyLabEvaluatorProvenance,
     HarveyLabIsolatedEvaluation,
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
@@ -90,8 +93,10 @@ from legalforecast.multiharness.run_metadata import (
     RunMetadataError,
     bind_execution_receipt,
     build_private_run_metadata,
+    verify_receipt_metadata_binding,
     write_private_run_metadata,
 )
+from legalforecast.multiharness.run_progress import CLAIM_SCOPED, COVERAGE_SCOPED
 from legalforecast.multiharness.scoring import (
     ScoreArtifact,
     build_harvey_lab_metric_definition,
@@ -113,6 +118,19 @@ from legalforecast.multiharness.validation import (
     validate_public_record,
     validate_sha256,
 )
+from legalforecast.publication.claim_policy import (
+    MATCHING_KEY_MATCHED_HARNESS,
+    MATCHING_KEY_SYSTEM_BUNDLE,
+    PRIMARY_ESTIMAND_OBSERVED_DIFFERENCE,
+    ComparisonAnalysisArtifact,
+    ExperimentSpec,
+    enforce_publication_claims,
+)
+from legalforecast.reporting.contamination_tiers import (
+    PRELIMINARY_CAVEAT,
+    ContaminationTier,
+    reported_model_label,
+)
 
 TIER0_EXECUTABLE_SPEC_SCHEMA_VERSION = (
     # contract-ratchet: allow non-authoritative Tier-0 sidecar
@@ -120,7 +138,7 @@ TIER0_EXECUTABLE_SPEC_SCHEMA_VERSION = (
 )
 TIER0_SPEND_APPROVAL_SCHEMA_VERSION = (
     # contract-ratchet: allow non-authoritative Tier-0 sidecar
-    "legalforecast.multiharness.tier0_detached_spend_approval.v1"
+    "legalforecast.multiharness.tier0_detached_spend_approval.v2"
 )
 TIER0_ARCHIVE_MANIFEST_SCHEMA_VERSION = (
     # contract-ratchet: allow non-authoritative Tier-0 sidecar
@@ -447,6 +465,9 @@ class Tier0SpendApproval:
     spec_sha256: str
     status: str
     authority: str
+    issuer_key_id: str
+    issuer_policy_sha256: str
+    signature: str
     schema_version: str = TIER0_SPEND_APPROVAL_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -455,8 +476,33 @@ class Tier0SpendApproval:
         if self.status not in {"approved", "provider_free"}:
             raise Tier0RunnerError("detached approval status is not executable")
         _require_text(self.authority, "authority")
+        _require_text(self.issuer_key_id, "issuer_key_id")
+        _require_digest(self.issuer_policy_sha256, "issuer_policy_sha256")
+        _decode_signature(self.signature)
         if self.schema_version != TIER0_SPEND_APPROVAL_SCHEMA_VERSION:
             raise Tier0RunnerError("unsupported detached approval schema")
+
+    def signing_record(self) -> dict[str, object]:
+        """Return the exact approval fields covered by the detached signature."""
+
+        return {
+            "schema_version": self.schema_version,
+            "approval_id": self.approval_id,
+            "spec_sha256": self.spec_sha256,
+            "status": self.status,
+            "authority": self.authority,
+            "issuer_key_id": self.issuer_key_id,
+            "issuer_policy_sha256": self.issuer_policy_sha256,
+        }
+
+    def signing_bytes(self) -> bytes:
+        return _canonical_record_bytes(self.signing_record())
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            **self.signing_record(),
+            "signature": self.signature,
+        }
 
     @classmethod
     def from_record(cls, record: Mapping[str, object]) -> Tier0SpendApproval:
@@ -468,6 +514,9 @@ class Tier0SpendApproval:
                 "spec_sha256",
                 "status",
                 "authority",
+                "issuer_key_id",
+                "issuer_policy_sha256",
+                "signature",
             },
             optional=set(),
             field_name="detached approval",
@@ -478,6 +527,9 @@ class Tier0SpendApproval:
             spec_sha256=_text(record, "spec_sha256"),
             status=_text(record, "status"),
             authority=_text(record, "authority"),
+            issuer_key_id=_text(record, "issuer_key_id"),
+            issuer_policy_sha256=_text(record, "issuer_policy_sha256"),
+            signature=_text(record, "signature"),
         )
 
 
@@ -500,18 +552,9 @@ class Tier0ArmResult:
     )
 
     def public_record(self) -> dict[str, object]:
-        return {
-            "arm_id": self.arm_id,
-            "adapter": self.adapter,
-            "auth_profile": self.auth_profile,
-            "projection_manifest_sha256": self.projection.manifest.manifest_sha256,
-            "task_sha256": self.discovery.sealed.task_sha256,
-            "solver_spec_sha256": self.solver_spec.spec_sha256,
-            "solver_execution": self.solver_execution.to_public_record(),
-            "discovery": self.discovery.to_record(),
-            "evaluation_receipt": self.evaluation.receipt.to_record(),
-            "score": self.score.to_record(),
-        }
+        """Return only the unblinded-safe score; mapping stays private."""
+
+        return {"score": self.score.to_record()}
 
 
 @dataclass(frozen=True, slots=True)
@@ -559,8 +602,13 @@ def load_executable_spec(
     )
 
 
-def load_detached_approval(path: Path, *, spec_sha256: str) -> Tier0SpendApproval:
-    """Load an approval and require its exact executable-spec binding."""
+def load_detached_approval(
+    path: Path,
+    *,
+    spec_sha256: str,
+    authority: IssuerAuthority | None = None,
+) -> Tier0SpendApproval:
+    """Load and authenticate an approval against one trusted issuer identity."""
 
     try:
         record = read_json_object(
@@ -580,6 +628,11 @@ def load_detached_approval(path: Path, *, spec_sha256: str) -> Tier0SpendApprova
         raise Tier0RunnerError(
             "detached approval is bound to a different executable spec"
         )
+    if authority is None:
+        raise Tier0RunnerError(
+            "detached approval verification requires a trusted issuer authority"
+        )
+    _verify_detached_approval(approval, spec_sha256=spec_sha256, authority=authority)
     return approval
 
 
@@ -668,6 +721,39 @@ def load_approved_issuer_authority(
         ) from exc
 
 
+def _verify_detached_approval(
+    approval: Tier0SpendApproval,
+    *,
+    spec_sha256: str,
+    authority: IssuerAuthority,
+) -> None:
+    """Verify approval bytes against the authority's committed public identity."""
+
+    if approval.spec_sha256 != spec_sha256:
+        raise Tier0RunnerError("detached approval does not bind this executable spec")
+    issuer_id = getattr(authority, "issuer_id", None)
+    key_id = getattr(authority, "key_id", None)
+    policy_sha256 = getattr(authority, "issuer_policy_sha256", None)
+    if not isinstance(issuer_id, str) or approval.authority != issuer_id:
+        raise Tier0RunnerError("detached approval issuer is not approved")
+    if not isinstance(key_id, str) or approval.issuer_key_id != key_id:
+        raise Tier0RunnerError("detached approval key is not approved")
+    if not isinstance(policy_sha256, str) or (
+        approval.issuer_policy_sha256 != policy_sha256
+    ):
+        raise Tier0RunnerError("detached approval issuer policy is not approved")
+    try:
+        authority.public_key.verify(
+            _decode_signature(approval.signature), approval.signing_bytes()
+        )
+    except InvalidSignature as exc:
+        raise Tier0RunnerError("detached approval signature is invalid") from exc
+    except Exception as exc:
+        raise Tier0RunnerError(
+            "detached approval issuer public key is unavailable"
+        ) from exc
+
+
 def run_tier0(
     *,
     spec: Tier0ExecutableSpec,
@@ -681,6 +767,7 @@ def run_tier0(
     spend_policy: SpendPolicy | None = None,
     pricing_snapshot: PricingSnapshot | None = None,
     evaluator_runner: EvaluatorRunner | None = None,
+    evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
 ) -> Tier0RunResult:
     """Execute both frozen arms and emit a hash-complete archive sidecar."""
 
@@ -704,6 +791,7 @@ def run_tier0(
         raise Tier0RunnerError("detached approval is not executable")
     if not callable(getattr(authority, "sign", None)):
         raise Tier0RunnerError("approved external issuer authority is required")
+    _verify_detached_approval(approval, spec_sha256=spec_sha256, authority=authority)
     if spec.pricing_snapshot_sha256 is not None:
         if spend_policy is None or pricing_snapshot is None:
             raise Tier0RunnerError(
@@ -734,6 +822,10 @@ def run_tier0(
         # artifacts always take the controller branch above.
         controller = None
     if controller is not None:
+        if evaluator_provenance is None:
+            raise Tier0RunnerError(
+                "paid evaluator requires truthful production provenance and accounting"
+            )
         if evaluator_runner is None:
             raise Tier0RunnerError(
                 "paid evaluator requires an injected per-criterion evaluator runner"
@@ -915,6 +1007,8 @@ def run_tier0(
                     after_solver=after_solver,
                     judge_request_boundary=evaluator_boundaries.get(arm.arm_id),
                     evaluator_runner=evaluator_runner,
+                    evaluator_provenance=evaluator_provenance,
+                    require_production_provenance=controller is not None,
                 )
                 results.append(
                     Tier0ArmResult(
@@ -935,6 +1029,9 @@ def run_tier0(
                         ),
                     )
                 )
+                arm_boundary = evaluator_boundaries.get(arm.arm_id)
+                if arm_boundary is not None:
+                    arm_boundary.require_every_criterion_settled()
             else:
                 capability_ref["value"] = {
                     "command": list(arm.command),
@@ -944,28 +1041,40 @@ def run_tier0(
                         "version": arm.solver_executable_version,
                     },
                 }
+                native_result = _run_native_thin(
+                    arm=arm,
+                    spec=spec,
+                    source_root=source_root,
+                    paths=paths,
+                    service=service,
+                    authority=authority,
+                    max_cost_usd=(None if ceiling is None else ceiling.max_cost_usd),
+                    budget_argument_name=(
+                        None
+                        if ceiling is None
+                        else ceiling.invocation_budget.argument_name
+                    ),
+                    before_solver=before_solver,
+                    after_solver=after_solver,
+                    judge_request_boundary=evaluator_boundaries.get(arm.arm_id),
+                    evaluator_runner=evaluator_runner,
+                    evaluator_provenance=evaluator_provenance,
+                    require_production_provenance=controller is not None,
+                )
                 results.append(
-                    _run_native_thin(
-                        arm=arm,
-                        spec=spec,
-                        source_root=source_root,
-                        paths=paths,
-                        service=service,
-                        authority=authority,
-                        max_cost_usd=(
-                            None if ceiling is None else ceiling.max_cost_usd
+                    replace(
+                        native_result,
+                        run_metadata=cast(
+                            PrivateRunMetadata, metadata_ref.get("value")
                         ),
-                        budget_argument_name=(
-                            None
-                            if ceiling is None
-                            else ceiling.invocation_budget.argument_name
+                        receipt_metadata_binding=cast(
+                            ReceiptMetadataBinding, binding_ref.get("value")
                         ),
-                        before_solver=before_solver,
-                        after_solver=after_solver,
-                        judge_request_boundary=evaluator_boundaries.get(arm.arm_id),
-                        evaluator_runner=evaluator_runner,
                     )
                 )
+                arm_boundary = evaluator_boundaries.get(arm.arm_id)
+                if arm_boundary is not None:
+                    arm_boundary.require_every_criterion_settled()
     except Exception as exc:
         _terminalize_outstanding(controller, outstanding, str(exc))
         _write_archive(
@@ -974,6 +1083,7 @@ def run_tier0(
             approval=approval,
             results=tuple(results),
             archive_root=archive_root,
+            private_root=private_root,
             matched=False,
             spend_controller=controller,
             terminal_error=str(exc),
@@ -989,6 +1099,7 @@ def run_tier0(
         approval=approval,
         results=tuple(results),
         archive_root=archive_root,
+        private_root=private_root,
         matched=matched,
         spend_controller=controller,
         partial_metadata=partial_metadata,
@@ -1176,13 +1287,13 @@ class _PerCriterionEvaluatorSpendBoundary(HarveyLabJudgeRequestBoundary):
         self._arm = arm
         self._outstanding = outstanding
         self._ceilings = _judge_ceilings_for(controller.policy, arm.arm_id)
-        self._call_id_lock = threading.RLock()
+        # The judge surface is deliberately not tied to ``arm.requested_model``.
+        # A policy may score a solver arm with a different judging model, and
+        # every reservation is validated against its own judge ceiling's
+        # provider/model by ``SpendController.reserve``.
+        self._ledger_lock = threading.RLock()
         self._seen_call_ids: set[str] = set()
-        for ceiling in self._ceilings:
-            if ceiling.model != arm.requested_model:
-                raise Tier0RunnerError(
-                    f"judge model does not match spend policy for {arm.arm_id}"
-                )
+        self._settled_criteria: set[str] = set()
 
     def _ceiling_for(self, request: HarveyLabJudgeRequest) -> JudgeCriterionCeiling:
         if request.ordinal > len(self._ceilings):
@@ -1202,7 +1313,7 @@ class _PerCriterionEvaluatorSpendBoundary(HarveyLabJudgeRequestBoundary):
         call_id = (
             f"{self._arm.arm_id}-evaluator-{request.ordinal}-{request.attempt_index}"
         )
-        with self._call_id_lock:
+        with self._ledger_lock:
             if call_id in self._seen_call_ids:
                 raise Tier0RunnerError("judge call identity was already used")
             self._seen_call_ids.add(call_id)
@@ -1221,11 +1332,11 @@ class _PerCriterionEvaluatorSpendBoundary(HarveyLabJudgeRequestBoundary):
                 )
             )
         except SpendDeniedError:
-            with self._call_id_lock:
+            with self._ledger_lock:
                 self._seen_call_ids.remove(call_id)
             raise
         except SpendConfigurationError as exc:
-            with self._call_id_lock:
+            with self._ledger_lock:
                 self._seen_call_ids.remove(call_id)
             raise Tier0RunnerError(
                 f"evaluator spend reservation is not executable for {self._arm.arm_id}"
@@ -1261,6 +1372,24 @@ class _PerCriterionEvaluatorSpendBoundary(HarveyLabJudgeRequestBoundary):
             self._controller.settle(reservation, observation)
         except SpendSettlementError as exc:
             raise Tier0RunnerError("judge spend settlement failed closed") from exc
+        with self._ledger_lock:
+            self._settled_criteria.add(ceiling.criterion_id)
+
+    def require_every_criterion_settled(self) -> None:
+        """Refuse an evaluation that skipped any pinned criterion boundary."""
+
+        with self._ledger_lock:
+            missing = tuple(
+                ceiling.criterion_id
+                for ceiling in self._ceilings
+                if ceiling.criterion_id not in self._settled_criteria
+            )
+        if missing:
+            raise Tier0RunnerError(
+                f"evaluator settled {len(self._ceilings) - len(missing)} of "
+                f"{len(self._ceilings)} per-criterion judge calls for "
+                f"{self._arm.arm_id}; unaccounted criteria: {', '.join(missing)}"
+            )
 
 
 def _settle_solver(
@@ -1384,6 +1513,8 @@ def _run_native_thin(
     after_evaluator: Callable[[HarveyLabIsolatedEvaluation], None] | None = None,
     judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
     evaluator_runner: EvaluatorRunner | None = None,
+    evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
+    require_production_provenance: bool = False,
 ) -> Tier0ArmResult:
     projection = project_harvey_lab_suite(
         source_root=source_root,
@@ -1466,6 +1597,8 @@ def _run_native_thin(
         timeout_seconds=arm.timeout_seconds,
         judge_request_boundary=judge_request_boundary,
         evaluator_runner=evaluator_runner,
+        evaluator_provenance=evaluator_provenance,
+        require_production_provenance=require_production_provenance,
     )
     if after_evaluator is not None:
         after_evaluator(evaluation)
@@ -1692,6 +1825,40 @@ def _identities_match(
         return False
     if solver_content[0] != solver_content[1]:
         return False
+    observed = tuple(_observed_solver_identity(item) for item in results)
+    if any(identity is None for identity in observed):
+        return False
+    observed_values = cast(tuple[tuple[object, ...], ...], observed)
+    # These fields define the common task/run slot.  The executable itself is
+    # intentionally different between the two treatments, but its observed
+    # name/version/digest must still agree with that arm's frozen declaration.
+    for index, (item, arm) in enumerate(zip(results, spec.arms, strict=True)):
+        execution = item.solver_execution
+        identity = getattr(item, "run_metadata", None)
+        if identity is not None:
+            if not identity.binary_identities:
+                return False
+            binary = identity.binary_identities[0]
+            expected_digest = _prefixed(arm.solver_executable_sha256)
+            if (
+                binary.executable_name != arm.solver_executable
+                or binary.executable_sha256 != expected_digest
+                or execution.executable_name != arm.solver_executable
+                or execution.executable_version is None
+                or (
+                    arm.solver_executable_version is not None
+                    and execution.executable_version != arm.solver_executable_version
+                )
+            ):
+                return False
+        if index == 0:
+            continue
+        common_slots = (0, 1, 2, 3, 4, 5, 6, 7, 10)
+        if any(
+            observed_values[index][slot] != observed_values[0][slot]
+            for slot in common_slots
+        ):
+            return False
     if results[0].auth_profile != results[1].auth_profile:
         return False
     solver_models = tuple(item.solver_execution.served_model for item in results)
@@ -1708,10 +1875,70 @@ def _identities_match(
         results[1]
     ):
         return False
-    return all(
-        item.evaluation.receipt.judge_resolved_identity
-        == results[0].evaluation.receipt.judge_resolved_identity
-        for item in results
+    judge_identities = tuple(
+        item.evaluation.receipt.judge_resolved_identity for item in results
+    )
+    if any(value == "fixture/stub@local" for value in judge_identities):
+        return False
+    return judge_identities[0] == judge_identities[1]
+
+
+def _observed_solver_identity(result: Tier0ArmResult) -> tuple[object, ...] | None:
+    """Return observed run identity fields, refusing any unresolved slot."""
+
+    execution = result.solver_execution
+    metadata = getattr(result, "run_metadata", None)
+    binding = getattr(result, "receipt_metadata_binding", None)
+    required = (
+        execution.config_sha256,
+        execution.runtime_policy_sha256,
+        execution.task_identity_key,
+        execution.solver_identity_key,
+        execution.run_identity_key,
+        execution.temporal_block,
+        execution.order,
+        execution.repeat_index,
+        execution.executable_version,
+    )
+    if any(value is None for value in required):
+        return None
+    if metadata is not None or binding is not None:
+        if metadata is None or binding is None:
+            return None
+        try:
+            verify_receipt_metadata_binding(execution, metadata, binding)
+        except RunMetadataError:
+            return None
+    if metadata is None:
+        boundary_digest = str(execution.runtime_policy_sha256)
+        binary_digest = _record_hash(
+            {
+                "executable_name": execution.executable_name,
+                "executable_version": execution.executable_version,
+            }
+        )
+    else:
+        boundary_digest = _record_hash(metadata.boundary_identity)
+        binary_digest = _record_hash(
+            {
+                "binary_identities": [
+                    item.to_record() for item in metadata.binary_identities
+                ]
+            }
+        )
+    return (
+        execution.task_identity_key,
+        execution.solver_identity_key,
+        execution.run_identity_key,
+        execution.config_sha256,
+        execution.runtime_policy_sha256,
+        execution.temporal_block,
+        execution.order,
+        execution.repeat_index,
+        execution.executable_name,
+        execution.executable_version,
+        boundary_digest,
+        binary_digest,
     )
 
 
@@ -1738,6 +1965,11 @@ def _evaluation_contract_identity(
         for field_name in (
             "schema_version",
             "evaluation_id",
+            "deliverable_manifest_sha256",
+            "deliverable_tree_sha256",
+            "task_sha256",
+            "run_sha256",
+            "config_sha256",
             "evaluator_repository",
             "evaluator_commit",
             "evaluator_tree",
@@ -1766,6 +1998,7 @@ def _write_archive(
     approval: Tier0SpendApproval,
     results: tuple[Tier0ArmResult, ...],
     archive_root: Path,
+    private_root: Path,
     matched: bool,
     spend_controller: SpendController | None = None,
     terminal_error: str | None = None,
@@ -1777,27 +2010,58 @@ def _write_archive(
     public = archive_root / "public"
     private.mkdir()
     public.mkdir()
+    _copy_private_tree(private_root, private / "retained-artifacts")
+    matching_key = (
+        MATCHING_KEY_MATCHED_HARNESS if matched else MATCHING_KEY_SYSTEM_BUNDLE
+    )
+    model_key = spec.experiment_id
+    claim_label = (
+        "Preliminary — one task pair, operator-run, not independently reproducible"
+    )
+    model_label = reported_model_label(
+        model_key, {model_key: ContaminationTier.PRELIMINARY}
+    )
+    claim_language = f"{claim_label}; {model_label} {PRELIMINARY_CAVEAT}; " + (
+        "matched observed paired difference"
+        if matched
+        else "system-bundle / plumbing-only; matched identity was not established"
+    )
+    publication_spec = ExperimentSpec(
+        spec_id=f"{spec.experiment_id}:tier0-publication",
+        primary_estimand=PRIMARY_ESTIMAND_OBSERVED_DIFFERENCE,
+        matching_key=matching_key,
+        missingness_rule="visible_under_policy",
+        coverage_claim=CLAIM_SCOPED,
+    )
+    publication_analysis = ComparisonAnalysisArtifact(
+        experiment_spec_sha256=_record_hash(publication_spec.to_record()),
+        claimed_estimand=PRIMARY_ESTIMAND_OBSERVED_DIFFERENCE,
+        claimed_coverage=CLAIM_SCOPED,
+        claimed_contamination_tier=ContaminationTier.PRELIMINARY.value,
+        claims_ranking=False,
+        claims_matched_harness=matched,
+        repeat_count=1,
+        served_model_resolved=matched,
+    )
+    enforce_publication_claims(
+        spec=publication_spec,
+        analysis=publication_analysis,
+        selection_label=f"scoped:{spec.experiment_id}",
+        coverage_kind=COVERAGE_SCOPED,
+        interrupted=False,
+        contamination_tier=ContaminationTier.PRELIMINARY,
+        rendered_text=claim_language,
+        model_key=model_key,
+    )
     public_record: dict[str, object] = {
         # contract-ratchet: allow non-authoritative Tier-0 sidecar
         "schema_version": "legalforecast.multiharness.tier0_public_summary.v1",
         "spec_sha256": spec_sha256,
         "experiment_id": spec.experiment_id,
-        "claim_language": (
-            "matched observed paired difference"
-            if matched
-            else "system-bundle / plumbing-only; matched identity was not established"
-        ),
+        "claim_language": claim_language,
         "matched": matched,
         "arms": [
             {
-                "arm_id": result.arm_id,
-                "adapter": result.adapter,
-                "auth_profile": result.auth_profile,
-                "projection_manifest_sha256": (
-                    result.projection.manifest.manifest_sha256
-                ),
-                "solver_execution": result.solver_execution.to_public_record(),
-                "evaluation_receipt": result.evaluation.receipt.to_record(),
                 "score": result.score.to_record(),
             }
             for result in results
@@ -1810,12 +2074,20 @@ def _write_archive(
     )
     write_json_object(
         private / "detached-approval.json",
+        approval.to_record(),
+    )
+    write_json_object(
+        private / "review-mapping.json",
         {
-            "schema_version": approval.schema_version,
-            "approval_id": approval.approval_id,
-            "spec_sha256": approval.spec_sha256,
-            "status": approval.status,
-            "authority": approval.authority,
+            "schema_version": "legalforecast.multiharness.tier0_review_mapping.v1",
+            "arms": [
+                {
+                    "arm_id": result.arm_id,
+                    "adapter": result.adapter,
+                    "auth_profile": result.auth_profile,
+                }
+                for result in results
+            ],
         },
     )
     if authority_record is not None:
@@ -1849,6 +2121,22 @@ def _write_archive(
         write_json_object(
             arm_private / "evaluation-receipt.json",
             result.evaluation.receipt.to_record(),
+        )
+        write_json_object(
+            arm_private / "evaluation-spec.json",
+            result.evaluation.spec.to_record(),
+        )
+        write_json_object(
+            arm_private / "evaluation-execution.json",
+            result.evaluation.execution.to_record(),
+        )
+        write_json_object(
+            arm_private / "evaluation-input-manifest.json",
+            dict(result.evaluation.input_manifest),
+        )
+        _write_private_bytes(
+            arm_private / "evaluation-raw-result.json",
+            result.evaluation.raw_result,
         )
         write_json_object(arm_private / "score.json", result.score.to_record())
         write_json_object(
@@ -1906,6 +2194,36 @@ def _write_archive(
     return manifest_path
 
 
+def _copy_private_tree(source_root: Path, destination_root: Path) -> None:
+    """Retain every private runtime artifact without following symlinks."""
+
+    if source_root.is_symlink() or not source_root.is_dir():
+        raise Tier0RunnerError("private runtime root must be a real directory")
+    destination_root.mkdir(parents=True)
+    for source in sorted(source_root.rglob("*")):
+        relative = source.relative_to(source_root)
+        destination = destination_root / relative
+        if source.is_symlink():
+            raise Tier0RunnerError(
+                "private runtime artifacts must not contain symlinks"
+            )
+        if source.is_dir():
+            destination.mkdir()
+            continue
+        if not source.is_file():
+            raise Tier0RunnerError(
+                "private runtime artifacts contain an unsupported entry"
+            )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+
+
+def _write_private_bytes(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("xb") as handle:
+        handle.write(payload)
+
+
 def _require_fresh_root(path: Path, label: str) -> None:
     if path.exists() or path.is_symlink():
         raise Tier0RunnerError(f"{label} must be a fresh, absent path")
@@ -1930,6 +2248,26 @@ def _record_hash(record: Mapping[str, object]) -> str:
         dict(record), sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode()
     return _hash_bytes(payload)
+
+
+def _canonical_record_bytes(record: Mapping[str, object]) -> bytes:
+    return json.dumps(
+        dict(record),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _decode_signature(value: str) -> bytes:
+    try:
+        decoded = base64.b64decode(value.encode("ascii"), validate=True)
+    except (UnicodeEncodeError, ValueError) as exc:
+        raise Tier0RunnerError("detached approval signature is not base64") from exc
+    if len(decoded) != 64 or base64.b64encode(decoded).decode("ascii") != value:
+        raise Tier0RunnerError("detached approval signature is not canonical Ed25519")
+    return decoded
 
 
 def _hash_file(path: Path) -> str:

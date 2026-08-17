@@ -105,8 +105,16 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabEvaluationError,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
+    HarveyLabEvaluatorProvenance,
     HarveyLabIsolatedEvaluation,
     invoke_isolated_harvey_lab_evaluator,
+)
+from legalforecast.multiharness.harvey_lab_production_runner import (
+    HARVEY_LAB_JUDGE_CRITERION_COUNT,
+    ProductionEvaluatorRunnerError,
+    ProductionHarveyLabEvaluatorRunner,
+    ProductionJudgeCall,
+    ProductionJudgeResponse,
 )
 from legalforecast.multiharness.harvey_lab_projection import (
     PROJECTION_SCHEMA_VERSION,
@@ -307,6 +315,7 @@ __all__ = [
     "EVALUATOR_PRIVATE_TARGET",
     "HARVEY_LAB_ADAPTER_ID",
     "HARVEY_LAB_ADAPTER_VERSION",
+    "HARVEY_LAB_JUDGE_CRITERION_COUNT",
     "HARVEY_LAB_NORMALIZER_ID",
     "HARVEY_LAB_REGISTRY_NAME",
     "HOST_PROCESS_CONTAINMENT_MODES",
@@ -391,6 +400,7 @@ __all__ = [
     "HarveyLabEvaluationError",
     "HarveyLabEvaluationHosts",
     "HarveyLabEvaluationIdentity",
+    "HarveyLabEvaluatorProvenance",
     "HarveyLabIsolatedEvaluation",
     "HarveyLabPin",
     "HarveyLabProjectedTask",
@@ -419,6 +429,10 @@ __all__ = [
     "MultiHarnessRunConfig",
     "MultiHarnessRunRow",
     "PrivateRunMetadata",
+    "ProductionEvaluatorRunnerError",
+    "ProductionHarveyLabEvaluatorRunner",
+    "ProductionJudgeCall",
+    "ProductionJudgeResponse",
     "ReadOnlyMaterialMount",
     "ReceiptAuthorityError",
     "ReceiptMetadataBinding",

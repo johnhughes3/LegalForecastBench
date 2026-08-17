@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
@@ -28,6 +28,10 @@ from legalforecast.multiharness.conformance import run_adapter_conformance
 from legalforecast.multiharness.folder_selection import (
     FolderSelectionError,
     select_tasks_from_folder,
+)
+from legalforecast.multiharness.harvey_lab_evaluator import (
+    EvaluatorRunner,
+    HarveyLabEvaluatorProvenance,
 )
 from legalforecast.multiharness.runner import (
     INCOMPLETE_RUN_POLICIES,
@@ -53,6 +57,7 @@ from legalforecast.multiharness.spec import (
     ContributorCredit,
     TaskIndex,
 )
+from legalforecast.multiharness.spend import PricingSnapshot, SpendPolicy
 from legalforecast.multiharness.task_loaders import (
     DEFAULT_LAB_SUITE_VERSION,
     DEFAULT_LFB_SUITE_VERSION,
@@ -60,6 +65,7 @@ from legalforecast.multiharness.task_loaders import (
     LfbTaskLoader,
 )
 from legalforecast.multiharness.tier0_runner import (
+    Tier0ExecutableSpec,
     load_approved_issuer_authority,
     load_detached_approval,
     load_executable_spec,
@@ -74,6 +80,23 @@ from legalforecast.publication.community_aggregate import (
 _CLI_PLAN_SCHEMA_VERSION = "legalforecast.multiharness.cli_plan.v1"
 _SELECTION_MANIFEST_SCHEMA_VERSION = "legalforecast.multiharness.selection_manifest.v1"
 _REPORT_SCHEMA_VERSION = "legalforecast.multiharness.report.v1"
+
+Tier0ProductionEvaluatorFactory = Callable[
+    [Tier0ExecutableSpec, Path, Path, SpendPolicy, PricingSnapshot],
+    tuple[EvaluatorRunner, HarveyLabEvaluatorProvenance],
+]
+_tier0_production_evaluator_factory: Tier0ProductionEvaluatorFactory | None = None
+
+
+def install_tier0_production_evaluator_factory(
+    factory: Tier0ProductionEvaluatorFactory,
+) -> None:
+    """Inject the reviewed paid evaluator/provider seam for an embedded CLI."""
+
+    global _tier0_production_evaluator_factory
+    if not callable(factory):
+        raise TypeError("Tier-0 production evaluator factory must be callable")
+    _tier0_production_evaluator_factory = factory
 
 
 def add_multiharness_parser(subparsers: Any) -> None:
@@ -604,9 +627,11 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         cast(Path, args.spec),
         cast(str, args.spec_sha256),
     )
+    authority = load_approved_issuer_authority()
     approval = load_detached_approval(
         cast(Path, args.approval),
         spec_sha256=spec_sha256,
+        authority=authority,
     )
     if spec.pricing_snapshot_sha256 is None and approval.status == "provider_free":
         spend_policy = None
@@ -620,6 +645,23 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
     source_root = spec_root / "lab"
     private_root = run_root / "private"
     archive_root = run_root / "archive"
+    if spend_policy is None or pricing_snapshot is None:
+        evaluator_runner = None
+        evaluator_provenance = None
+    else:
+        factory = _tier0_production_evaluator_factory
+        if factory is None:
+            raise ValueError(
+                "paid Tier-0 execution requires an injected reviewed production "
+                "evaluator/provider adapter"
+            )
+        evaluator_runner, evaluator_provenance = factory(
+            spec,
+            cast(Path, args.spec).resolve(),
+            private_root,
+            spend_policy,
+            pricing_snapshot,
+        )
     private_root.parent.mkdir(parents=True, exist_ok=True)
     archive_root.parent.mkdir(parents=True, exist_ok=True)
     result = run_tier0(
@@ -629,9 +671,11 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         source_root=source_root,
         private_root=private_root,
         archive_root=archive_root,
-        authority=load_approved_issuer_authority(),
+        authority=authority,
         spend_policy=spend_policy,
         pricing_snapshot=pricing_snapshot,
+        evaluator_runner=evaluator_runner,
+        evaluator_provenance=evaluator_provenance,
     )
     _cli_note(
         f"Tier-0 run completed ({'matched' if result.matched else 'system-bundle'}); "
@@ -644,7 +688,10 @@ def _cmd_tier0_validate(args: argparse.Namespace) -> int:
     spec, spec_sha256 = load_executable_spec(
         cast(Path, args.spec), cast(str, args.spec_sha256)
     )
-    load_detached_approval(cast(Path, args.approval), spec_sha256=spec_sha256)
+    authority = load_approved_issuer_authority()
+    load_detached_approval(
+        cast(Path, args.approval), spec_sha256=spec_sha256, authority=authority
+    )
     load_spend_artifacts(cast(Path, args.spec), spec)
     _cli_note(f"Tier-0 executable spec and sidecars validated ({spec_sha256}).")
     return 0
