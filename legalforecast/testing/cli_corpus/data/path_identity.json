@@ -210,9 +210,6 @@
     "legalforecast/multiharness/claude_agent_sdk_cli.py": [
       "claude_agent_sdk._cli_version"
     ],
-    "legalforecast/multiharness/tier0_runner.py": [
-      "legalforecast.multiharness.issuer_authority"
-    ],
     "tests/test_harvey_lab_evaluator.py": [
       "hashlib"
     ],

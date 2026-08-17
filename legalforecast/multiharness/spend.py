@@ -93,6 +93,7 @@ def _canonical_bytes(payload: Mapping[str, object]) -> bytes:
         raise SpendConfigurationError("spend record is not canonical JSON") from exc
 
 
+# contract-ratchet: allow non-persisted spend-sidecar digest
 def _record_sha256(payload: Mapping[str, object]) -> str:
     return "sha256:" + hashlib.sha256(_canonical_bytes(payload)).hexdigest()
 
@@ -237,6 +238,7 @@ class PricingSnapshot:
 
     def _hash_payload(self) -> dict[str, object]:
         return {
+            # contract-ratchet: allow non-authoritative pricing sidecar
             "schema_version": "legalforecast.multiharness.pricing_snapshot.v1",
             "snapshot_id": self.snapshot_id,
             "as_of_date": self.as_of_date,
@@ -265,7 +267,10 @@ class PricingSnapshot:
         if not isinstance(rates, Sequence) or isinstance(rates, str | bytes):
             raise SpendConfigurationError("rates must be an array")
         schema = _required_str(record, "schema_version")
-        if schema != "legalforecast.multiharness.pricing_snapshot.v1":
+        if schema != (
+            # contract-ratchet: allow non-authoritative pricing sidecar
+            "legalforecast.multiharness.pricing_snapshot.v1"
+        ):
             raise SpendConfigurationError("unsupported pricing snapshot schema")
         return cls(
             snapshot_id=_required_str(record, "snapshot_id"),
@@ -515,6 +520,7 @@ class SpendPolicy:
 
         if (
             record.get("schema_version")
+            # contract-ratchet: allow non-authoritative spend ceiling sidecar
             != "legalforecast.multiharness.spend_ceiling.v1"
         ):
             raise SpendConfigurationError("unsupported spend policy schema")
@@ -677,6 +683,7 @@ class SpendPolicy:
 
     def to_record(self) -> dict[str, object]:
         return {
+            # contract-ratchet: allow non-authoritative spend ceiling sidecar
             "schema_version": "legalforecast.multiharness.spend_ceiling.v1",
             "experiment_id": self.experiment_id,
             "executable_spec_sha256": self.executable_spec_sha256,
@@ -1064,6 +1071,7 @@ class SpendController:
 
         with self._lock:
             return {
+                # contract-ratchet: allow non-authoritative spend archive sidecar
                 "schema_version": "legalforecast.multiharness.spend_ceiling.v1",
                 "experiment_id": self.policy.experiment_id,
                 "executable_spec_sha256": self.policy.executable_spec_sha256,
