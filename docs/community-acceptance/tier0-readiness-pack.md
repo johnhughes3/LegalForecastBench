@@ -2,7 +2,7 @@
 
 Status: **NOT READY FOR SPEND SIGNATURE**
 
-No provider spend is authorized by this document. The remaining work is not limited to the designated approver's signature: production execution, evaluator-receipt, signer, containment, binary-identity, native-arm, and budget-control seams remain unresolved.
+No provider spend is authorized by this document. The production runner, native-thin arm, receipt binding, and mechanical spend-control implementation are on `main` through `9a78302075b2a0840f25f03f59242743bc283abb`, but the remaining work is still not limited to the designated approver's signature: two public authorities are unprovisioned, no production evaluator/provider factory is installed, the evaluator wrapper is not pinned, the privileged containment capture is absent, and no final executable spec, pricing snapshot, spend policy, or superseding freeze exists.
 
 ## Current specification artifact
 
@@ -21,19 +21,31 @@ Regenerating the structural specification means updating three things together: 
 
 The known complete pair requires two solver executions and 46 criterion-level judge calls before any internal retry. A planning-only administrative reserve of **USD 25–100** is proposed so budgeting work has a bounded discussion range.
 
-That band is not an estimate, cap, or authorization. No defensible maximum exists until the final runner freezes solver turns/tokens, evaluator parallelism and retries, per-call limits, a dated pricing snapshot, per-arm caps, and an experiment-wide mechanical hard stop. Subscription-unallocable usage must never be reported as `$0`.
+That band is not an estimate, cap, or authorization. The landed controller can enforce per-arm solver caps, per-criterion judge caps, retry and parallelism limits, and one experiment-wide hard stop, but no dated production pricing snapshot or final dollar-valued policy has been committed. The final inputs must choose the token/request/retry limits, prove every worst-case request fits its scoped ceiling, and bind the policy and pricing hashes into the executable spec. Subscription-unallocable usage must never be reported as `$0`.
 
 ## Exact `dm0g.4.5.15` commands
 
-**BLOCKED — there is currently no exact authorized `dm0g.4.5.15` operator command. Do not substitute an ad hoc Python invocation.**
+**BLOCKED — the supported command shape has landed, but there is no executable approval packet. Do not run these templates or substitute an ad hoc invocation.**
 
-The installed `legalforecast` entrypoint does not expose either paired Tier-0 arm. The clean-native LAB composition is an internal function requiring host roots, an external signer, a public key, and an evaluator executable. The native-thin comparison arm is not implemented. The evaluator command is not a production entrypoint, and its current receipt path writes fixture/stub, fixture-none, and unknown/not-applicable usage and cost identities that cannot truthfully describe a paid judge.
+```bash
+uv run legalforecast multiharness tier0 validate \
+  --spec TIER0_EXECUTABLE_SPEC.json \
+  --spec-sha256 sha256:SPEC_SHA256 \
+  --approval TIER0_DETACHED_APPROVAL.json
 
-`legalforecastbench-lrc3` owns the supported operator command and production evaluator/issuer seam. The future command must consume the exact executable spec hash and detached spend approval; fail closed before credential resolution unless all code, task, projection, binary, containment, auth, requested/resolved model, wrapper, issuer, pricing, and budget pins match; create fresh disjoint roots; execute the frozen opaque order; retain every attempt; seal before evaluation; and write a complete archive manifest.
+uv run legalforecast multiharness tier0 run \
+  --spec TIER0_EXECUTABLE_SPEC.json \
+  --spec-sha256 sha256:SPEC_SHA256 \
+  --approval TIER0_DETACHED_APPROVAL.json
+```
+
+The entrypoint derives fresh private and archive roots from the spec directory and hash, executes the frozen opaque arm order, and accepts no run-varying flags beyond the spec/hash/approval triplet. Its provider-free fake-binary acceptance path covers projection, registry lookup, contained clean-native and native-thin execution, discovery, authorized scoring, receipts, and archive output.
+
+The paid command is nevertheless non-executable today. Both committed public-authority files have `public_key_base64: null` and `status: pending_human_provisioning`. In addition, `legalforecast.multiharness.cli` requires an embedding runtime to call `install_tier0_production_evaluator_factory(...)`, but the supported repository has no production installer; without one, `tier0 run` refuses paid execution before evaluation. The required `harvey-lab-eval` wrapper is also not installed on the characterized PATH, so no final wrapper digest can be placed in the executable spec. These are fail-closed blockers, not operator choices that may be supplied as extra flags.
 
 ## What `dm0g.4.5.16` will review
 
-The independent reviewer must not be any `dm0g.4.5.15` or `dm0g.4.5.18` executor. An Agent Mail contact request for a review-only role is pending, but no reviewer has accepted the assignment; independence coordination therefore remains `BLOCKED`. The final private archive must record the accepted reviewer identity and prove separation from every executor.
+The independent `dm0g.4.5.16-reviewer` registered and recorded a Phase-1 `BLOCKED / NOT ACCEPTED` verdict against the earlier structural-only state. That verdict remains controlling; it is not acceptance of the landed implementation. A fresh review must receive the final executable freeze, its hash, exact commands, dated pricing and spend sidecars, configured public authorities, wrapper and binary identities, and byte-identical regeneration evidence. The reviewer must not be any `dm0g.4.5.15` or `dm0g.4.5.18` executor, and the final private archive must prove that separation.
 
 The reviewer will verify the executable spec predates spend; byte-identical inputs; requested/resolved model and configuration identity; containment and canaries; complete attempt/retry/failure/cost retention; pre-evaluation sealing; evaluator, judge, rubric, issuer, signature, and accounting bindings; recomputed criterion and paired scores; recomputed coverage/cost/token/time fields; public allowlist and secret/private-shape scans; durable archive hashes; and the permanent preliminary claim label. The full twelve-point protocol is frozen in the structural specification.
 
@@ -41,7 +53,7 @@ The reviewer will verify the executable spec predates spend; byte-identical inpu
 
 This remains a designated-credential-operator blocker. No approved privileged Claude whole-process containment fixture exists.
 
-The operator procedure is in `docs/adapters/claude-code-native-containment.md`, but its command block intentionally contains `INSERT_FRESH_INDEPENDENTLY_APPROVED_SHA256` and must not be run as written. The currently documented target is Claude Code 2.1.220 with SHA-256 `674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863`; that identity does not match the newer landed adapter manifest and therefore cannot by itself clear Tier-0.
+The operator procedure is in `docs/adapters/claude-code-native-containment.md`, but its command block intentionally contains `INSERT_FRESH_INDEPENDENTLY_APPROVED_SHA256` and must not be run as written. The currently documented target is Claude Code 2.1.220 with SHA-256 `674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863`; that identity does not match either the landed adapter manifest or the latest credential-free probe, Claude Code 2.1.233 with SHA-256 `55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9`. It therefore cannot by itself clear Tier-0.
 
 The designated credential operator's exact action sequence is:
 
@@ -59,10 +71,11 @@ There is no safe copy-paste command before steps 1 and 2 are satisfied. Printing
 | Blocker | Required result |
 | --- | --- |
 | `dm0g.4.5.13` | Narrow issue-196 selection, byte inventory, private split, seal, and provider-free dry run land; its privileged-containment dependency remains explicit |
-| `dm0g.4.3.7` | Implement the native-thin LAB arm with the same solver-visible and evaluator contract |
-| `legalforecastbench-lrc3` | Supported operator CLI, truthful paid evaluator receipt, complete archive, and approved external issuer/signing authority |
-| `legalforecastbench-e5er` | Mechanically enforced solver, evaluator, retry, and experiment-wide spend ceilings |
-| Binary identities | Reconcile Claude 2.1.220 containment with the 2.1.231 manifest, then bind the exact approved executable through generated private run metadata; reconcile the native arm's executable environment |
+| `legalforecastbench-lrc3` | Install the reviewed production evaluator/provider factory, pin an installed evaluator wrapper, and configure the approved evaluator public key; the CLI, per-arm receipts, and archive surface are landed |
+| `legalforecastbench-e5er` | Commit the dated pricing snapshot and exact dollar-valued policy, bind both hashes into the executable spec, and retain the final mutation evidence; the enforcement mechanism is landed |
+| Approval authority | The designated approval operator supplies and reviews the public Ed25519 key for `legalforecast.tier0-spend-approval-issuer.v1`; it must remain distinct from the evaluator signer |
+| Evaluator authority | The designated credential operator provisions the RFC 8032 seed only at `/agents/sandbox/legalforecastbench/harness-runtime/evaluator-issuer` in `dev` and approves committing the corresponding public key; agents never create or read the secret |
+| Binary identities | Reconcile the privileged containment target with observed Claude Code 2.1.233, then bind the exact approved solver and evaluator-wrapper identities through generated private run metadata |
 | Credentials | Complete the designated credential operator's solver/judge credential handshakes without host-store fallback |
 | Order and mapping | Commit opaque arm IDs, solver/evaluator order, private mapping custody, and terminal retry policy |
 | Pricing and caps | Bind a dated pricing snapshot and reproducible estimate to enforced maxima |
@@ -75,4 +88,4 @@ The `dm0g.4.6.6` friction list was already fixed and landed in PR #730, and its 
 
 ## Signature decision
 
-The designated approver's safe action today is **do not sign**. Resume the signature request only when an executable superseding spec replaces every `BLOCKED` field, its hash is committed on the final code head, the independent reviewer assignment is accepted, and the exact supported command and mechanical maximum cost can be reproduced from the artifact.
+The designated approver's safe action today is **do not sign**. First provide the two reviewed public keys and choose or authorize the production evaluator/provider adapter and wrapper. Then the owning lane can commit the dated pricing snapshot, dollar-valued policy, executable spec, deterministic superseding freeze, and companion hash; only after the independent reviewer records fresh acceptance should the detached spend signature be created.

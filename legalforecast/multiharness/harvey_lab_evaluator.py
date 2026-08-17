@@ -19,6 +19,7 @@ import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
@@ -153,6 +154,79 @@ class HarveyLabEvaluationIdentity:
 
 
 @dataclass(frozen=True, slots=True)
+class HarveyLabEvaluatorProvenance:
+    """Observed, non-fixture identity and accounting for a production judge."""
+
+    evaluator_repository: str
+    evaluator_commit: str
+    evaluator_tree: str
+    evaluator_file_manifest_sha256: str
+    evaluator_image_digest: str
+    judge_requested_identity: str
+    judge_resolved_identity: str
+    judge_settings_sha256: str
+    judge_prompt_sha256: str
+    judge_output_schema_sha256: str
+    runtime_policy_sha256: str
+    egress_policy_sha256: str
+    resource_policy_sha256: str
+    token_accounting_policy_sha256: str
+    token_usage: EvaluationTokenUsage
+    cost: CostMeasurement
+    is_fixture: bool = False
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "evaluator_repository",
+            "evaluator_commit",
+            "evaluator_tree",
+            "judge_requested_identity",
+            "judge_resolved_identity",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise HarveyLabEvaluationError(
+                    f"production evaluator {field_name} is required"
+                )
+        for field_name in (
+            "evaluator_file_manifest_sha256",
+            "evaluator_image_digest",
+            "judge_settings_sha256",
+            "judge_prompt_sha256",
+            "judge_output_schema_sha256",
+            "runtime_policy_sha256",
+            "egress_policy_sha256",
+            "resource_policy_sha256",
+            "token_accounting_policy_sha256",
+        ):
+            _require_prefixed(getattr(self, field_name), field_name)
+        if not self.is_fixture:
+            if FIXTURE_JUDGE_IDENTITY in {
+                self.judge_requested_identity,
+                self.judge_resolved_identity,
+            }:
+                raise HarveyLabEvaluationError(
+                    "fixture evaluator identity cannot authorize a production run"
+                )
+            if self.token_usage.source != "provider_response":
+                raise HarveyLabEvaluationError(
+                    "production evaluator token usage must come from the provider"
+                )
+            if (
+                self.cost.basis
+                not in {
+                    "metered",
+                    "provider_reported",
+                    "estimated_from_pricing_snapshot",
+                }
+                or self.cost.amount_microusd is None
+            ):
+                raise HarveyLabEvaluationError(
+                    "production evaluator cost must be an observed or priced amount"
+                )
+
+
+@dataclass(frozen=True, slots=True)
 class HarveyLabIsolatedEvaluation:
     """Result of one contained evaluator invocation."""
 
@@ -219,6 +293,8 @@ def invoke_isolated_harvey_lab_evaluator(
     attempt_nonce: str | None = None,
     judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
     evaluator_runner: EvaluatorRunner | None = None,
+    evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
+    require_production_provenance: bool = False,
 ) -> HarveyLabIsolatedEvaluation:
     """Run the common LAB evaluator in a contained boundary and bind a receipt."""
 
@@ -287,6 +363,12 @@ def invoke_isolated_harvey_lab_evaluator(
             raise HarveyLabEvaluationError(
                 "contained LAB evaluator failed; evaluation never reruns the solver"
             )
+        if require_production_provenance:
+            if evaluator_provenance is None:
+                raise HarveyLabEvaluationError(
+                    "production evaluator provenance and accounting are required"
+                )
+            _verify_production_execution_accounting(execution, evaluator_provenance)
         scores_path = Path(str(stdin_record["scores_output_path"]))
         try:
             raw_result = _read_regular_file(scores_path)
@@ -300,6 +382,8 @@ def invoke_isolated_harvey_lab_evaluator(
             private_material_sha256=str(stdin_record["private_material_sha256"]),
             wrapper_sha256=observed_wrapper,
             raw_result=raw_result,
+            provenance=evaluator_provenance,
+            require_production_provenance=require_production_provenance,
         )
         receipt = build_evaluation_receipt(
             spec=evaluation_spec,
@@ -309,13 +393,25 @@ def invoke_isolated_harvey_lab_evaluator(
             or f"eval-attempt-{uuid4().hex[:12]}",
             attempt_nonce=attempt_nonce or f"nonce-{uuid4().hex[:12]}",
             repeat_index=1,
-            judge_resolved_identity=FIXTURE_JUDGE_IDENTITY,
+            judge_resolved_identity=(
+                FIXTURE_JUDGE_IDENTITY
+                if evaluator_provenance is None
+                else evaluator_provenance.judge_resolved_identity
+            ),
             raw_result_sha256=_prefixed_digest(raw_result),
             raw_result_size_bytes=len(raw_result),
             raw_result_media_type="application/json",
             status="succeeded",
-            token_usage=_fixture_token_usage(),
-            cost=_fixture_cost(),
+            token_usage=(
+                _fixture_token_usage()
+                if evaluator_provenance is None
+                else evaluator_provenance.token_usage
+            ),
+            cost=(
+                _fixture_cost()
+                if evaluator_provenance is None
+                else evaluator_provenance.cost
+            ),
             timing=_timing(started_at, ended_at, started_monotonic, ended_monotonic),
             issuer_policy_sha256=_require_prefixed(
                 issuer_policy_sha256, "issuer_policy_sha256"
@@ -363,9 +459,8 @@ def evaluation_input_record(
         "deliverable_tree_sha256": sealed_manifest.tree_sha256,
         "task_sha256": _require_prefixed(identity.task_sha256, "task_sha256"),
         "projection_manifest_sha256": identity.projection_manifest_sha256,
-        "private_material_sha256": _directory_digest(
-            overlay["private_task_json"].parent,
-            "private_material_sha256",
+        "private_material_sha256": harvey_lab_private_material_sha256(
+            overlay["private_task_json"].parent
         ),
         "deliverable_path": str(overlay["deliverable"]),
         "private_task_json_path": str(overlay["private_task_json"]),
@@ -497,20 +592,60 @@ def _evaluation_spec(
     private_material_sha256: str,
     wrapper_sha256: str,
     raw_result: bytes,
+    provenance: HarveyLabEvaluatorProvenance | None,
+    require_production_provenance: bool,
 ) -> EvaluationSpec:
     pin = identity.pin
     private_digest = _require_prefixed(
         private_material_sha256, "private_material_sha256"
     )
     launched_wrapper = _require_prefixed(wrapper_sha256, "wrapper_sha256")
-    policy = _prefixed_json(
-        {
-            "containment": "posix_process_group.v1",
-            "network": "host-process",
-            "auth_profile": "fixture-none",
-            "filesystem": "path-disjoint-overlay",
-        }
-    )
+    if require_production_provenance and provenance is None:
+        raise HarveyLabEvaluationError(
+            "production evaluator provenance and accounting are required"
+        )
+    if provenance is None:
+        policy = _prefixed_json(
+            {
+                "containment": "posix_process_group.v1",
+                "network": "host-process",
+                "auth_profile": "fixture-none",
+                "filesystem": "path-disjoint-overlay",
+            }
+        )
+        evaluator_repository = pin.repository
+        evaluator_commit = pin.commit
+        evaluator_tree = pin.tree
+        evaluator_file_manifest = _prefixed_json(
+            {"pin": pin.to_record(), "wrapper_sha256": launched_wrapper}
+        )
+        evaluator_image = _prefixed_json({"kind": "fixture-cli"})
+        judge_requested = FIXTURE_JUDGE_IDENTITY
+        judge_settings = _prefixed_json({"judge": FIXTURE_JUDGE_IDENTITY})
+        judge_prompt = _prefixed_json({"entrypoint": "evaluate_run"})
+        judge_output_schema = _prefixed_json({"media_type": "application/json"})
+        runtime_policy = policy
+        egress_policy = policy
+        resource_policy = policy
+        token_accounting_policy = policy
+    else:
+        if provenance.is_fixture:
+            raise HarveyLabEvaluationError(
+                "fixture evaluator provenance cannot be used for production scoring"
+            )
+        evaluator_repository = provenance.evaluator_repository
+        evaluator_commit = provenance.evaluator_commit
+        evaluator_tree = provenance.evaluator_tree
+        evaluator_file_manifest = provenance.evaluator_file_manifest_sha256
+        evaluator_image = provenance.evaluator_image_digest
+        judge_requested = provenance.judge_requested_identity
+        judge_settings = provenance.judge_settings_sha256
+        judge_prompt = provenance.judge_prompt_sha256
+        judge_output_schema = provenance.judge_output_schema_sha256
+        runtime_policy = provenance.runtime_policy_sha256
+        egress_policy = provenance.egress_policy_sha256
+        resource_policy = provenance.resource_policy_sha256
+        token_accounting_policy = provenance.token_accounting_policy_sha256
     del raw_result
     return build_evaluation_spec(
         evaluation_id="harvey-lab-employment-v1",
@@ -519,27 +654,66 @@ def _evaluation_spec(
         task_sha256=_require_prefixed(identity.task_sha256, "task_sha256"),
         run_sha256=_require_prefixed(identity.run_sha256, "run_sha256"),
         config_sha256=_require_prefixed(identity.config_sha256, "config_sha256"),
-        evaluator_repository=pin.repository,
-        evaluator_commit=pin.commit,
-        evaluator_tree=pin.tree,
-        evaluator_file_manifest_sha256=_prefixed_json(
-            {"pin": pin.to_record(), "wrapper_sha256": launched_wrapper}
-        ),
-        evaluator_image_digest=_prefixed_json({"kind": "fixture-cli"}),
+        evaluator_repository=evaluator_repository,
+        evaluator_commit=evaluator_commit,
+        evaluator_tree=evaluator_tree,
+        evaluator_file_manifest_sha256=evaluator_file_manifest,
+        evaluator_image_digest=evaluator_image,
         wrapper_sha256=launched_wrapper,
         private_material_sha256=private_digest,
         rubric_sha256=private_digest,
         criteria_sha256=private_digest,
         aggregation_sha256=_prefixed_json({"aggregation_rule": "all_pass"}),
-        judge_requested_identity=FIXTURE_JUDGE_IDENTITY,
-        judge_settings_sha256=_prefixed_json({"judge": FIXTURE_JUDGE_IDENTITY}),
-        judge_prompt_sha256=_prefixed_json({"entrypoint": "evaluate_run"}),
-        judge_output_schema_sha256=_prefixed_json({"media_type": "application/json"}),
-        runtime_policy_sha256=policy,
-        egress_policy_sha256=policy,
-        resource_policy_sha256=policy,
-        token_accounting_policy_sha256=policy,
+        judge_requested_identity=judge_requested,
+        judge_settings_sha256=judge_settings,
+        judge_prompt_sha256=judge_prompt,
+        judge_output_schema_sha256=judge_output_schema,
+        runtime_policy_sha256=runtime_policy,
+        egress_policy_sha256=egress_policy,
+        resource_policy_sha256=resource_policy,
+        token_accounting_policy_sha256=token_accounting_policy,
     )
+
+
+def _verify_production_execution_accounting(
+    execution: ExecutionReceipt,
+    provenance: HarveyLabEvaluatorProvenance,
+) -> None:
+    """Bind the provider runner's aggregate receipt to its provenance claim."""
+
+    if provenance.is_fixture:
+        raise HarveyLabEvaluationError(
+            "fixture evaluator provenance cannot authorize a production run"
+        )
+    expected_input = provenance.token_usage.input_tokens.value
+    expected_output = provenance.token_usage.output_tokens.value
+    observed_input = execution.usage.get("input_tokens")
+    observed_output = execution.usage.get("output_tokens")
+    if (
+        expected_input is None
+        or expected_output is None
+        or observed_input != expected_input
+        or observed_output != expected_output
+    ):
+        raise HarveyLabEvaluationError(
+            "production evaluator token provenance does not match provider receipt"
+        )
+    if provenance.cost.amount_microusd is None or execution.cost_usd is None:
+        raise HarveyLabEvaluationError(
+            "production evaluator cost provenance is missing from provider receipt"
+        )
+    observed_microusd = int(Decimal(str(execution.cost_usd)) * Decimal(1_000_000))
+    if observed_microusd != provenance.cost.amount_microusd:
+        raise HarveyLabEvaluationError(
+            "production evaluator cost provenance does not match provider receipt"
+        )
+    if (
+        execution.served_model is not None
+        and execution.served_model != provenance.judge_resolved_identity
+    ):
+        raise HarveyLabEvaluationError(
+            "production evaluator resolved identity does not match provider receipt"
+        )
 
 
 def _reject_checkout_env(source_root: Path | None) -> None:
@@ -829,12 +1003,19 @@ def _record_reaches_root(record: Mapping[str, object], root: Path) -> bool:
 
 
 def _directory_digest(root: Path, field_name: str) -> str:
+    digest, _ = _directory_snapshot(root, field_name)
+    return digest
+
+
+def _directory_snapshot(root: Path, field_name: str) -> tuple[str, Mapping[str, bytes]]:
     if root.is_symlink() or not root.is_dir():
         raise HarveyLabEvaluationError(f"{field_name} root must be a real directory")
     entries: list[dict[str, object]] = []
+    payloads: dict[str, bytes] = {}
     for path in _walk_regular_files(root, field_name):
         relative = path.relative_to(root).as_posix()
         payload = _read_regular_file(path)
+        payloads[relative] = payload
         entries.append(
             {
                 "path": relative,
@@ -842,7 +1023,21 @@ def _directory_digest(root: Path, field_name: str) -> str:
                 "size_bytes": len(payload),
             }
         )
-    return _prefixed_json({"files": entries})
+    return _prefixed_json({"files": entries}), payloads
+
+
+def harvey_lab_private_material_sha256(root: Path) -> str:
+    """Hash the exact evaluator-private directory supplied to the judge."""
+
+    return _directory_digest(root, "private_material_sha256")
+
+
+def harvey_lab_private_material_snapshot(
+    root: Path,
+) -> tuple[str, Mapping[str, bytes]]:
+    """Return one digest and the exact private bytes used to compute it."""
+
+    return _directory_snapshot(root, "private_material_sha256")
 
 
 def _walk_regular_files(root: Path, field_name: str) -> list[Path]:
