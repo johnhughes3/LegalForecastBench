@@ -7,6 +7,10 @@ Refresh the checked-in baseline at a review-stable head by capturing
     uv run python -m legalforecast.testing.cli_corpus \\
         --write-timing --durations-file durations.log
 
+Capture the log with colour off (``NO_COLOR=1``, or simply a shell that does not
+export ``FORCE_COLOR``): the parsers read plain text, and ANSI escapes wrapped
+around a duration row make it unrecognisable.
+
 ``--durations=0`` still honours pytest's 0.005s ``--durations-min``, so modules
 whose every test is faster than that keep ``duration_seconds: null`` and sort
 below the measured tail. Durations are wall-clock on the capturing host: the
