@@ -37,7 +37,9 @@ concurrency:
 
 jobs:
   validate-request:
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
@@ -116,7 +118,9 @@ jobs:
   validate-official-s3-access:
     needs: validate-request
     if: github.ref == 'refs/heads/main'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: legalforecastbench-official-eval
     permissions:
@@ -270,7 +274,9 @@ jobs:
       - validate-request
       - validate-official-s3-access
     if: github.ref == 'refs/heads/main'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: legalforecastbench-official-eval-fan-in
     permissions:
@@ -416,7 +422,9 @@ jobs:
       - validate-request
       - validate-fan-in-access
     if: github.ref == 'refs/heads/main'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: legalforecastbench-official-eval
     permissions:
