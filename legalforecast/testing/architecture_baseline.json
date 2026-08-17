@@ -65,6 +65,7 @@
       "tests/test_live_parse_plan_role_gate.py",
       "tests/test_llm_labeling_cli.py",
       "tests/test_multiharness_cli.py",
+      "tests/test_multiharness_tier0_runner.py",
       "tests/test_official_paid_labeling_baton_cli.py",
       "tests/test_official_run_runbook.py",
       "tests/test_opinion_docket_gap_cli.py",
@@ -191,6 +192,7 @@
       "tests/test_llm_labeling_cli.py",
       "tests/test_llm_labeling_cli.py",
       "tests/test_multiharness_cli.py",
+      "tests/test_multiharness_tier0_runner.py",
       "tests/test_official_paid_labeling_baton_cli.py",
       "tests/test_official_run_runbook.py",
       "tests/test_opinion_docket_gap_cli.py",
@@ -2523,6 +2525,7 @@
       "tests/test_live_parse_plan_role_gate.py",
       "tests/test_llm_labeling_cli.py",
       "tests/test_multiharness_cli.py",
+      "tests/test_multiharness_tier0_runner.py",
       "tests/test_official_paid_labeling_baton_cli.py",
       "tests/test_official_run_runbook.py",
       "tests/test_opinion_docket_gap_cli.py",
@@ -2976,6 +2979,7 @@
       "tests/test_llm_labeling_cli.py::legalforecast.cli.load_provider_cycle_caps",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.main",
       "tests/test_multiharness_cli.py::legalforecast.cli.main",
+      "tests/test_multiharness_tier0_runner.py::legalforecast.cli.main",
       "tests/test_official_paid_labeling_baton_cli.py::legalforecast.cli.main",
       "tests/test_official_run_runbook.py::legalforecast.cli.build_parser",
       "tests/test_official_run_runbook.py::legalforecast.cli.main",
@@ -3676,7 +3680,7 @@
       "legalforecast/ingestion": 157,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/labeling": 13,
-      "legalforecast/multiharness": 57,
+      "legalforecast/multiharness": 58,
       "legalforecast/protocol": 4,
       "legalforecast/publication": 21,
       "legalforecast/reporting": 9,
@@ -3686,7 +3690,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 428,
+      "tests": 429,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -6286,7 +6290,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 2,
+        "fan_in": 3,
         "fan_out": 12,
         "flags": [
           "relative-path",
@@ -6305,17 +6309,17 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 1,
-        "fan_out": 14,
+        "fan_out": 15,
         "flags": [
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "add_multiharness_parser",
-        "largest_symbol_lines": 254,
+        "largest_symbol_lines": 281,
         "layer": "application",
-        "line_count": 1064,
-        "nonblank_line_count": 968,
-        "top_level_definition_count": 38
+        "line_count": 1141,
+        "nonblank_line_count": 1041,
+        "top_level_definition_count": 39
       },
       "legalforecast/multiharness/codex_cli.py": {
         "cycle_id": "",
@@ -6475,7 +6479,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 3,
+        "fan_in": 4,
         "fan_out": 7,
         "flags": [
           "watch"
@@ -6492,7 +6496,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 2,
+        "fan_in": 3,
         "fan_out": 3,
         "flags": [
           "oversized"
@@ -6509,7 +6513,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 5,
+        "fan_in": 6,
         "fan_out": 5,
         "flags": [
           "oversized"
@@ -6543,7 +6547,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 9,
+        "fan_in": 10,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -6594,7 +6598,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 5,
+        "fan_in": 6,
         "fan_out": 11,
         "flags": [
           "relative-path",
@@ -6699,7 +6703,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 6,
+        "fan_in": 7,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -6762,6 +6766,23 @@
         "line_count": 545,
         "nonblank_line_count": 486,
         "top_level_definition_count": 22
+      },
+      "legalforecast/multiharness/tier0_runner.py": {
+        "cycle_id": "",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.6",
+        "fan_in": 1,
+        "fan_out": 13,
+        "flags": [
+          "oversized"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "run_tier0",
+        "largest_symbol_lines": 131,
+        "layer": "application",
+        "line_count": 1139,
+        "nonblank_line_count": 1038,
+        "top_level_definition_count": 35
       },
       "legalforecast/protocol/freeze.py": {
         "cycle_id": "",
@@ -9158,6 +9179,23 @@
         "line_count": 1593,
         "nonblank_line_count": 1424,
         "top_level_definition_count": 46
+      },
+      "tests/test_multiharness_tier0_runner.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_cli_full_paired_tier0_fake_binary_run",
+        "largest_symbol_lines": 66,
+        "layer": "test",
+        "line_count": 500,
+        "nonblank_line_count": 450,
+        "top_level_definition_count": 19
       },
       "tests/test_official_aggregate.py": {
         "cycle_id": "",

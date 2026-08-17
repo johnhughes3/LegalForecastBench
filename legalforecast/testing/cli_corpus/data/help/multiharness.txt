@@ -7,6 +7,7 @@ positional arguments:
     conformance  Run the no-provider adapter conformance suite.
     run          Run or dry-run a selected task matrix through command
                  adapters.
+    tier0        Execute the hash-bound paired Harvey LAB Tier-0 smoke.
     report       Summarize a multi-harness run directory as public JSON.
     community    Community submission packaging and aggregation commands.
 
