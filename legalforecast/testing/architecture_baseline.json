@@ -2,8 +2,8 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 26984,
-    "line_count": 72639,
-    "nonblank_line_count": 69933,
+    "line_count": 72654,
+    "nonblank_line_count": 69947,
     "parser_line_count": 1773,
     "top_level_class_count": 19,
     "top_level_definition_count": 995,
@@ -813,7 +813,13 @@
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_parse_lineage",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_unitization_run_card",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.llm_review_stage_a_units",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_review_queue_generation",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_review_queue_generation",
       "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.review_queue_v2_records",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.write_review_queue_file_durably",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.write_review_queue_file_durably",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.write_review_queue_file_durably",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.write_review_queue_file_durably",
       "tests/test_successor_rerun_impact.py::legalforecast.cli._active_head_chain",
       "tests/test_successor_rerun_impact.py::legalforecast.cli._active_head_chain",
       "tests/test_successor_rerun_impact.py::legalforecast.cli._authenticate_current_v4_eligibility",
@@ -1169,6 +1175,7 @@
       "legalforecast.cli.preflight_recap_fetch_attempt_policy",
       "legalforecast.cli.private_disclosure_model_review_records",
       "legalforecast.cli.public_disclosure_model_review_record",
+      "legalforecast.cli.publish_review_queue_generation",
       "legalforecast.cli.publish_target_public_gap_outputs",
       "legalforecast.cli.ranked_reserve_result_bytes",
       "legalforecast.cli.read_case_dev_purchase_authority_audit",
@@ -1218,7 +1225,8 @@
       "legalforecast.cli.verify_target_public_gap_plan",
       "legalforecast.cli.verify_terminal_purchase_failure_authority",
       "legalforecast.cli.verify_terminal_subset_promotion_source",
-      "legalforecast.cli.write_resolved_post_recovery_documents"
+      "legalforecast.cli.write_resolved_post_recovery_documents",
+      "legalforecast.cli.write_review_queue_file_durably"
     ],
     "private_cli_files": [
       "tests/conftest.py",
@@ -3318,6 +3326,20 @@
       "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
       "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
       "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.publish_stage_a_review_queue",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.write_review_queue_file_durably",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.write_review_queue_file_durably",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.write_review_queue_file_durably",
+      "tests/test_stage_a_review_queue_v2.py::legalforecast.cli.write_review_queue_file_durably",
       "tests/test_successor_attorney_packet.py::legalforecast.cli.main",
       "tests/test_successor_rerun_impact.py::legalforecast.cli.CommandError",
       "tests/test_successor_rerun_impact.py::legalforecast.cli.load_provider_cycle_caps_bytes",
@@ -3567,7 +3589,8 @@
       "legalforecast.cli.verify_exact100_successor_replacement_v2_projection",
       "legalforecast.cli.verify_replacement_purchase_authority",
       "legalforecast.cli.verify_snapshot",
-      "legalforecast.cli.verify_terminal_subset_promotion_source"
+      "legalforecast.cli.verify_terminal_subset_promotion_source",
+      "legalforecast.cli.write_review_queue_file_durably"
     ]
   },
   "inventory": {
@@ -3760,8 +3783,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1773,
         "layer": "entrypoint",
-        "line_count": 72639,
-        "nonblank_line_count": 69933,
+        "line_count": 72654,
+        "nonblank_line_count": 69947,
         "top_level_definition_count": 995
       },
       "legalforecast/cli_commands/report.py": {
@@ -7308,6 +7331,23 @@
         "nonblank_line_count": 620,
         "top_level_definition_count": 21
       },
+      "legalforecast/unitization/review_queue_generation.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "unitization",
+        "fan_in": 1,
+        "fan_out": 4,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "unitization",
+        "largest_symbol": "publish_review_queue_generation",
+        "largest_symbol_lines": 123,
+        "layer": "application",
+        "line_count": 763,
+        "nonblank_line_count": 676,
+        "top_level_definition_count": 29
+      },
       "legalforecast/unitization/unitizer_terminal_review.py": {
         "cycle_id": "legalforecast/unitization/review.py,legalforecast/unitization/unitizer_terminal_review.py",
         "disposition_kind": "planned-seam",
@@ -10093,20 +10133,20 @@
       },
       "tests/test_stage_a_review_queue_v2.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "tests",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
         "fan_in": 0,
         "fan_out": 0,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_terminal_rows_collapse_into_one_candidate_technical_item",
         "largest_symbol_lines": 52,
         "layer": "test",
-        "line_count": 840,
-        "nonblank_line_count": 692,
-        "top_level_definition_count": 37
+        "line_count": 1233,
+        "nonblank_line_count": 1006,
+        "top_level_definition_count": 51
       },
       "tests/test_stage_a_structural_review.py": {
         "cycle_id": "",
