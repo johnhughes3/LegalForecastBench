@@ -6418,8 +6418,8 @@
         "largest_symbol": "add_multiharness_parser",
         "largest_symbol_lines": 346,
         "layer": "application",
-        "line_count": 1402,
-        "nonblank_line_count": 1288,
+        "line_count": 1418,
+        "nonblank_line_count": 1304,
         "top_level_definition_count": 43
       },
       "legalforecast/multiharness/codex_cli.py": {
@@ -8154,9 +8154,9 @@
         "largest_symbol": "test_contributor_walkthrough_projects_indexes_selects_and_runs",
         "largest_symbol_lines": 116,
         "layer": "test",
-        "line_count": 542,
-        "nonblank_line_count": 486,
-        "top_level_definition_count": 16
+        "line_count": 608,
+        "nonblank_line_count": 545,
+        "top_level_definition_count": 17
       },
       "tests/test_community_publication.py": {
         "cycle_id": "",

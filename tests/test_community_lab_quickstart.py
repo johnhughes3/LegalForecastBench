@@ -18,7 +18,9 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.multiharness import cli as multiharness_cli
 from legalforecast.multiharness import harvey_lab_projection
+from legalforecast.multiharness.command_adapter import CommandAdapterCancelled
 from legalforecast.multiharness.harvey_lab_projected_tasks import (
     HarveyLabProjectionTaskLoader,
 )
@@ -540,3 +542,67 @@ def _read_json(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(value, dict)
     return cast(dict[str, Any], value)
+
+
+def test_interrupt_during_adapter_startup_exits_130_not_a_traceback(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    """A Ctrl-C before the task loop must honor the documented interrupt contract.
+
+    The capability probe runs before the runner owns the signal, so a cancellation
+    there used to escape as an unhandled CommandAdapterCancelled traceback and
+    exit 1 — which the contributor guide promises never happens.
+    """
+
+    projected = _projected_root(tmp_path, monkeypatch)
+    index_path = tmp_path / "lab-index.json"
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "harvey-lab",
+                "--projected-root",
+                str(projected),
+                "--output",
+                str(index_path),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    def _cancelled(*_args: object, **_kwargs: object) -> None:
+        raise CommandAdapterCancelled("command adapter capabilities was cancelled")
+
+    monkeypatch.setattr(multiharness_cli, "run_multi_harness", _cancelled)
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(index_path),
+                "--category",
+                "immigration",
+                "--adapter-manifest",
+                str(FIXTURE_ADAPTER_MANIFEST),
+                "--model-key",
+                "fixture-model",
+                "--output-dir",
+                str(tmp_path / "run"),
+                "--run-id",
+                "interrupted-at-startup",
+            ]
+        )
+        == 130
+    )
+    stderr = capsys.readouterr().err
+    assert "not a crash" in stderr
+    assert "--resume" in stderr
+    assert "Traceback" not in stderr
