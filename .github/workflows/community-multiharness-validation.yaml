@@ -32,7 +32,9 @@ concurrency:
 jobs:
   validate:
     name: Validate community multi-harness surfaces
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -115,7 +117,9 @@ jobs:
     name: Build community static-site artifact
     needs: validate
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:

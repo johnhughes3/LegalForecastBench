@@ -202,9 +202,13 @@ def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
 
     assert _workflow_names(infra_text, "vars") == INFRA_VARIABLES
     assert _workflow_names(infra_text, "secrets") == {"LFB_INFRA_PLAN_AGE_IDENTITY"}
+    # The runtime workflows no longer reference vars.CI_RUNNER: this is a public
+    # repository, where GitHub-hosted Actions minutes are free and ubicloud is
+    # paid, so every job is deliberately pinned to ubuntu-latest. The runtime
+    # variable inventory is therefore exactly the manifest inventory.
     assert runtime_variables == {
-        CELL_ENVIRONMENT: CELL_VARIABLES | {"CI_RUNNER"},
-        FAN_IN_ENVIRONMENT: FAN_IN_VARIABLES | {"CI_RUNNER"},
+        CELL_ENVIRONMENT: CELL_VARIABLES,
+        FAN_IN_ENVIRONMENT: FAN_IN_VARIABLES,
     }
     assert runtime_secrets == {
         CELL_ENVIRONMENT: CELL_SECRETS,
