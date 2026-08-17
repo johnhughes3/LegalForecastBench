@@ -3657,7 +3657,7 @@
       "legalforecast/ingestion": 157,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/labeling": 13,
-      "legalforecast/multiharness": 58,
+      "legalforecast/multiharness": 61,
       "legalforecast/protocol": 4,
       "legalforecast/publication": 21,
       "legalforecast/reporting": 9,
@@ -3667,7 +3667,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 429,
+      "tests": 430,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -6422,7 +6422,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 5,
+        "fan_in": 6,
         "fan_out": 1,
         "flags": [
           "oversized"
@@ -6524,7 +6524,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 10,
+        "fan_in": 11,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -6541,7 +6541,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 3,
+        "fan_in": 5,
         "fan_out": 3,
         "flags": [
           "watch"
@@ -6558,7 +6558,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 3,
+        "fan_in": 4,
         "fan_out": 4,
         "flags": [
           "oversized"

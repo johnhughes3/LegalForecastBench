@@ -376,6 +376,7 @@
     "tests/test_scripts_docs.py",
     "tests/test_snapshot_replay_cli.py",
     "tests/test_successor_rerun_impact.py",
+    "tests/test_t0b_receipt_authority.py",
     "tests/test_target_raw_docket_recovery.py",
     "tests/test_v3_quarantine_successor_template.py",
     "tests/test_v4_ranked_reserve_template.py",

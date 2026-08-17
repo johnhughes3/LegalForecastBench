@@ -33,8 +33,12 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-RUN_METADATA_SCHEMA_VERSION = "legalforecast.multiharness.private_run_metadata.v1"
+RUN_METADATA_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative private run metadata sidecar
+    "legalforecast.multiharness.private_run_metadata.v1"
+)
 RECEIPT_METADATA_BINDING_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative receipt binding sidecar
     "legalforecast.multiharness.receipt_metadata_binding.v1"
 )
 

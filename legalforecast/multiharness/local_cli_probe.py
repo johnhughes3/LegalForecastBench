@@ -37,7 +37,10 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-LOCAL_CLI_PROBE_SCHEMA_VERSION = "legalforecast.multiharness.local_cli_probe.v1"
+LOCAL_CLI_PROBE_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative local CLI probe sidecar
+    "legalforecast.multiharness.local_cli_probe.v1"
+)
 _PROBE_FIELDS = frozenset(
     {
         "schema_version",
