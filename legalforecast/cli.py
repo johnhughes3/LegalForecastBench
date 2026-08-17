@@ -121,6 +121,7 @@ from legalforecast.ingestion import (
     extracted_text_artifact_from_record,
     source_document_provenance_from_record,
 )
+from legalforecast.ingestion import courtlistener_recap_purchase as rp
 from legalforecast.ingestion import (
     downstream_lineage_verification as _downstream_lineage,
 )
@@ -320,7 +321,6 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     UrlLibRecapFetchTransport,
     public_documents_from_selection,
 )
-from legalforecast.ingestion.courtlistener_recap_purchase import build_paid_recap
 from legalforecast.ingestion.courtlistener_request_budget import (
     CourtListenerRequestBudget,
     CourtListenerRequestBudgetError,
@@ -32636,7 +32636,7 @@ def _cmd_reconcile_purchase(args: argparse.Namespace) -> int:
             controlled_private_root=controlled_private_root,
             initialization_receipt_path=initialization_receipt,
         ) as journal:
-            journal.reconcile(_read_json_object(cast(Path, args.evidence)))
+            rp.reconcile_purchase(journal, _read_json_object(cast(Path, args.evidence)))
     except (
         CaseDevPurchaseLedgerError,
         CaseDevPurchasePolicyError,
@@ -49522,7 +49522,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     controlled_private_root=controlled_private_root,
                     initialization_receipt_path=initialization_receipt,
                 ) as journal:
-                    client = build_paid_recap(
+                    client = rp.build_paid_recap(
                         CourtListenerRecapFetchClient,
                         courtlistener_config,
                         journal=journal,
@@ -49567,7 +49567,7 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                     controlled_private_root=controlled_private_root,
                     initialization_receipt_path=initialization_receipt,
                 ) as journal:
-                    client = build_paid_recap(
+                    client = rp.build_paid_recap(
                         CourtListenerRecapFetchClient,
                         CourtListenerRecapFetchConfig("offline-fixture"),
                         journal=journal,

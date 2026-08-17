@@ -37,15 +37,29 @@ _CONFIRMATION_EVIDENCE = frozenset(
 
 
 class _PurchasePolicy(Protocol):
-    cycle_id: str
-    policy_sha256: str
+    @property
+    def cycle_id(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def policy_sha256(self) -> str:
+        raise NotImplementedError
 
 
 class _PurchaseJournal(Protocol):
-    path: Path
-    policy: _PurchasePolicy
+    @property
+    def path(self) -> Path:
+        raise NotImplementedError
 
-    def operation_records(self) -> tuple[Mapping[str, object], ...]: ...
+    @property
+    def policy(self) -> _PurchasePolicy:
+        raise NotImplementedError
+
+    def operation_records(self) -> tuple[Mapping[str, object], ...]:
+        raise NotImplementedError
+
+    def reconcile(self, evidence: Mapping[str, object]) -> None:
+        raise NotImplementedError
 
 
 class _PaidRecapClient(Protocol):
@@ -245,6 +259,7 @@ def _write_create_once(directory_fd: int, name: str, payload: bytes) -> None:
         try:
             os.unlink(name, dir_fd=directory_fd)
         except OSError:
+            # Preserve the original write failure; cleanup is best effort.
             pass
         raise
 
@@ -366,6 +381,16 @@ def _execute_with_provenance[ResultT](
         raise
     write_confirmation_provenance_sidecars(journal, output_root=output_root)
     return result
+
+
+def reconcile_purchase(
+    journal: _PurchaseJournal,
+    evidence: Mapping[str, object],
+) -> tuple[Path, ...]:
+    """Reconcile one operation and emit its successor observation, if confirmed."""
+
+    journal.reconcile(evidence)
+    return write_confirmation_provenance_sidecars(journal)
 
 
 def build_paid_recap[ClientT](

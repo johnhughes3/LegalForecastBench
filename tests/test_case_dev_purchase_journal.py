@@ -5,10 +5,13 @@ import json
 import sqlite3
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion import courtlistener_provider_identity as provider_identity
+from legalforecast.ingestion import courtlistener_recap_purchase as recap_purchase
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
     CaseDevFixtureTransport,
@@ -25,6 +28,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchasePolicyError,
     CaseDevPurchaseReconciliationRequired,
     PurchaseMaterialState,
+    canonical_purchase_operation_sha256,
     generate_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
 )
@@ -1245,69 +1249,64 @@ def test_provider_evidence_reconciles_unknown_and_writeoff_stays_counted(
         assert journal.committed_amount_usd == "5.10"
 
 
-def test_cli_generates_policy_and_records_provider_reconciliation(
-    tmp_path: Path,
-) -> None:
+def test_cli_reconciliation_emits_successor_sidecar(tmp_path: Path) -> None:
     ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
     cohort_decisions = cli._fixture_cohort_policy_decisions()
-    cohort_decisions["purchase_policy"] = {
-        "rule": "buy_cheapest_complete",
-        "cycle_budget_usd": "9.15",
-        "max_per_case_usd": "9.15",
-        "reservation_headroom_required": True,
-    }
+    cohort_purchase = cast(dict[str, object], cohort_decisions["purchase_policy"])
+    cohort_purchase.update(cycle_budget_usd="9.15", max_per_case_usd="9.15")
     cohort = cli.generate_cohort_policy(cohort_decisions)
     cohort_path = tmp_path / "cohort-policy.json"
     cohort_path.write_text(json.dumps(cohort), encoding="utf-8")
     purchase_decisions = _policy_decisions(ledger)
     purchase_decisions["cohort_policy_sha256"] = cohort["policy_sha256"]
+    policy_artifact = generate_case_dev_purchase_policy(purchase_decisions)
     policy_path = tmp_path / "purchase-policy.json"
-    policy_path.write_text(
-        json.dumps(generate_case_dev_purchase_policy(purchase_decisions)),
-        encoding="utf-8",
-    )
-    policy = verify_case_dev_purchase_policy(
-        json.loads(policy_path.read_text(encoding="utf-8"))
-    )
+    policy_path.write_text(json.dumps(policy_artifact), encoding="utf-8")
+    policy = verify_case_dev_purchase_policy(policy_artifact)
+    response = {
+        "source_provider": provider_identity.COURTLISTENER_RECAP_FETCH_PROVIDER,
+        "queue_id": "77",
+        "queue_response": {"status": 2},
+        "post_delivery_restrictions": {"id": 123},
+    }
     with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
-        journal.plan(_plan(("doc-1",)))
-        assert journal.submit("doc-1") is True
-        journal.mark_unknown("doc-1", "lost response")
-    evidence = tmp_path / "evidence.json"
-    evidence.write_text(
-        json.dumps(
-            {
-                "source_document_id": "doc-1",
-                "disposition": "failed",
-                "source_type": "statement_export",
-                "source_reference": "statement-2026-07-13",
-                "pacer_fees": None,
-                "download_url": None,
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    assert (
-        main(
-            [
-                "acquisition",
-                "reconcile-purchase",
-                "--purchase-policy",
-                str(policy_path),
-                "--cohort-policy",
-                str(cohort_path),
-                "--purchase-ledger",
-                str(ledger),
-                "--evidence",
-                str(evidence),
-            ]
-        )
-        == 0
-    )
+        journal.plan(_plan(("123",)))
+        assert journal.submit("123") is True
+        journal.queue("123", response={"queue_id": "77"})
+        journal.confirm_reserved("123", response=response)
+        old_digest = canonical_purchase_operation_sha256(journal.operation_records()[0])
+        recap_purchase.write_confirmation_provenance_sidecars(journal)
+    evidence_path = tmp_path / "evidence.json"
+    fees = {"pacerFee": "1.20", "serviceFee": "0.00", "total": "1.20"}
+    evidence = {
+        "source_document_id": "123",
+        "disposition": "confirmed",
+        "source_type": "billing_receipt",
+        "source_reference": "synthetic: true",
+        "pacer_fees": fees,
+        "download_url": "https://storage.courtlistener.com/123.pdf",
+    }
+    evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+    args = ["acquisition", "reconcile-purchase"]
+    for flag, path in {
+        "--purchase-policy": policy_path,
+        "--cohort-policy": cohort_path,
+        "--purchase-ledger": ledger,
+        "--evidence": evidence_path,
+    }.items():
+        args.extend((flag, str(path)))
+    assert main(args) == 0
+    sidecar_root = recap_purchase.confirmation_provenance_root(ledger)
     with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
-        assert journal.statuses() == {"doc-1": "failed"}
-        assert journal.committed_amount_usd == "0.00"
+        records_before = journal.operation_records()
+        state_before = journal.purchase_state_sha256()
+        new_digest = canonical_purchase_operation_sha256(records_before[0])
+        sidecar_names = {path.name for path in sidecar_root.iterdir()}
+        recap_purchase.write_confirmation_provenance_sidecars(journal)
+        assert journal.operation_records() == records_before
+        assert journal.purchase_state_sha256() == state_before
+    assert old_digest != new_digest
+    assert sidecar_names == {f"{old_digest}.json", f"{new_digest}.json"}
 
 
 @pytest.mark.parametrize("transition", ["fail", "mark_unknown"])
