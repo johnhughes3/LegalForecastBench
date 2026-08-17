@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from legalforecast._json_io import write_json_object
 from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     harvey_lab_issuer_policy_sha256,
 )
+from legalforecast.multiharness.harvey_lab_evaluator import HarveyLabJudgeRequest
 from legalforecast.multiharness.spend import (
     ExperimentCeiling,
     InvocationBudget,
@@ -30,6 +32,8 @@ from legalforecast.multiharness.tier0_runner import (
     Tier0ArmSpec,
     Tier0ExecutableSpec,
     Tier0RunnerError,
+    _OutstandingReservations,
+    _PerCriterionEvaluatorSpendBoundary,
     _terminalize_outstanding,
     load_spend_artifacts,
 )
@@ -76,12 +80,13 @@ def _solver_cap(max_cost_usd: str = "0.003000") -> SolverCeiling:
 def _judge_cap(
     criterion_id: str = "criterion-1",
     *,
+    arm_id: str = "arm-a",
     max_requests: int = 2,
     max_retries: int = 1,
     max_cost_usd: str = "0.003000",
 ) -> JudgeCriterionCeiling:
     return JudgeCriterionCeiling(
-        arm_id="arm-a",
+        arm_id=arm_id,
         criterion_id=criterion_id,
         provider="provider-a",
         model="model-a",
@@ -104,6 +109,9 @@ def _policy(
     experiment_cost: str = "0.006000",
     solver: SolverCeiling | None = None,
     judges: tuple[JudgeCriterionCeiling, ...] = (),
+    experiment_requests: int = 8,
+    experiment_retries: int = 4,
+    experiment_parallelism: int = 1,
 ) -> SpendPolicy:
     return SpendPolicy(
         experiment_id="tier0-provider-free-test",
@@ -111,9 +119,9 @@ def _policy(
         pricing_snapshot_sha256=_pricing().snapshot_sha256,
         experiment=ExperimentCeiling(
             max_cost_usd=experiment_cost,
-            max_requests=8,
-            max_retries=4,
-            max_parallelism=1,
+            max_requests=experiment_requests,
+            max_retries=experiment_retries,
+            max_parallelism=experiment_parallelism,
         ),
         solver_ceilings=(solver or _solver_cap(solver_cost),),
         judge_ceilings=judges,
@@ -358,6 +366,165 @@ def _solver_cap_with_mode(mode: str) -> SolverCeiling:
         max_output_tokens=100,
         invocation_budget=InvocationBudget(mode=mode),  # type: ignore[arg-type]
     )
+
+
+def test_per_criterion_boundary_reserves_all_23_calls_and_enforces_caps() -> None:
+    pricing = _pricing()
+    criteria = tuple(
+        _judge_cap(
+            f"criterion-{ordinal}",
+            arm_id="arm-opaque-01",
+            max_cost_usd="0.006000",
+        )
+        for ordinal in range(1, 24)
+    )
+    policy = _policy(
+        experiment_cost="0.069000",
+        experiment_requests=25,
+        experiment_retries=2,
+        judges=criteria,
+    )
+    controller = SpendController(policy, pricing)
+    spec = _bound_spec(policy=policy, pricing=pricing)
+    outstanding = _OutstandingReservations()
+    boundary = _PerCriterionEvaluatorSpendBoundary(
+        controller=controller,
+        spec=spec,
+        arm=spec.arms[0],
+        outstanding=outstanding,
+    )
+
+    reservations = []
+    for ordinal in range(1, 24):
+        request = HarveyLabJudgeRequest(ordinal, f"criterion-{ordinal}")
+        reservation = boundary.before_judge_call(request)
+        reservations.append(reservation)
+        boundary.after_judge_call(request, reservation, _known_usage(pricing))
+
+    assert len({item.call.call_id for item in reservations}) == 23
+    assert [item.call.criterion_id for item in reservations] == [
+        f"criterion-{ordinal}" for ordinal in range(1, 24)
+    ]
+    assert outstanding.snapshot() == ()
+    assert controller.archive_record()["requests"] == 23
+
+    cap_criteria = tuple(
+        _judge_cap(
+            f"criterion-{ordinal}",
+            arm_id="arm-opaque-01",
+            max_requests=3,
+            max_retries=1,
+            max_cost_usd="0.006000",
+        )
+        for ordinal in range(1, 24)
+    )
+    cap_policy = _policy(
+        experiment_cost="0.009000",
+        experiment_requests=4,
+        experiment_retries=2,
+        judges=cap_criteria,
+    )
+    cap_controller = SpendController(cap_policy, pricing)
+    cap_boundary = _PerCriterionEvaluatorSpendBoundary(
+        controller=cap_controller,
+        spec=_bound_spec(policy=cap_policy, pricing=pricing),
+        arm=spec.arms[0],
+        outstanding=_OutstandingReservations(),
+    )
+    first = cap_boundary.before_judge_call(
+        HarveyLabJudgeRequest(1, "criterion-1", attempt_index=0)
+    )
+    with pytest.raises(SpendDeniedError) as parallel:
+        cap_boundary.before_judge_call(
+            HarveyLabJudgeRequest(1, "criterion-1", attempt_index=1)
+        )
+    assert parallel.value.evidence.failure_class == SpendFailureClass.PARALLELISM_CAP
+    cap_boundary.after_judge_call(
+        HarveyLabJudgeRequest(1, "criterion-1", attempt_index=0),
+        first,
+        _known_usage(pricing),
+    )
+
+    retry = cap_boundary.before_judge_call(
+        HarveyLabJudgeRequest(1, "criterion-1", attempt_index=1)
+    )
+    cap_boundary.after_judge_call(
+        HarveyLabJudgeRequest(1, "criterion-1", attempt_index=1),
+        retry,
+        _known_usage(pricing),
+    )
+    with pytest.raises(SpendDeniedError) as retry_cap:
+        cap_boundary.before_judge_call(
+            HarveyLabJudgeRequest(1, "criterion-1", attempt_index=2)
+        )
+    assert retry_cap.value.evidence.failure_class == SpendFailureClass.RETRY_CAP
+
+
+def test_per_criterion_boundary_hard_stops_before_the_next_request() -> None:
+    pricing = _pricing()
+    criteria = tuple(
+        _judge_cap(
+            f"criterion-{ordinal}",
+            arm_id="arm-opaque-01",
+            max_cost_usd="0.003000",
+        )
+        for ordinal in range(1, 24)
+    )
+    policy = _policy(
+        experiment_cost="0.066000",
+        experiment_requests=24,
+        experiment_retries=1,
+        judges=criteria,
+    )
+    controller = SpendController(policy, pricing)
+    spec = _bound_spec(policy=policy, pricing=pricing)
+    boundary = _PerCriterionEvaluatorSpendBoundary(
+        controller=controller,
+        spec=spec,
+        arm=spec.arms[0],
+        outstanding=_OutstandingReservations(),
+    )
+    invoked: list[str] = []
+    for ordinal in range(1, 24):
+        request = HarveyLabJudgeRequest(ordinal, f"criterion-{ordinal}")
+        with pytest.raises(SpendDeniedError) if ordinal == 23 else nullcontext():
+            reservation = boundary.before_judge_call(request)
+            invoked.append(request.criterion_id)
+            boundary.after_judge_call(request, reservation, _known_usage(pricing))
+    assert len(invoked) == 22
+    assert invoked[-1] == "criterion-22"
+    assert controller.events[-1].call_id.endswith("23-0")
+    assert controller.events[-1].terminal is True
+
+
+def test_aggregate_judge_ceiling_is_rejected_by_the_evaluator_boundary() -> None:
+    pricing = _pricing()
+    policy = _policy(judges=(_judge_cap("aggregate", arm_id="arm-opaque-01"),))
+    spec = _bound_spec(policy=policy, pricing=pricing)
+    with pytest.raises(Tier0RunnerError, match="exactly 23"):
+        _PerCriterionEvaluatorSpendBoundary(
+            controller=SpendController(policy, pricing),
+            spec=spec,
+            arm=spec.arms[0],
+            outstanding=_OutstandingReservations(),
+        )
+
+
+def test_raised_per_criterion_and_experiment_caps_change_policy_identity() -> None:
+    criteria = tuple(
+        _judge_cap(f"criterion-{ordinal}", arm_id="arm-opaque-01")
+        for ordinal in range(1, 24)
+    )
+    baseline = _policy(judges=criteria, experiment_requests=23)
+    raised_criterion = replace(criteria[0], max_cost_usd="0.006000")
+    criterion_policy = _policy(
+        judges=(raised_criterion, *criteria[1:]), experiment_requests=23
+    )
+    experiment_policy = _policy(
+        judges=criteria, experiment_cost="0.069000", experiment_requests=23
+    )
+    assert baseline.policy_sha256 != criterion_policy.policy_sha256
+    assert baseline.policy_sha256 != experiment_policy.policy_sha256
 
 
 def test_policy_digest_changes_when_a_ceiling_is_raised() -> None:
