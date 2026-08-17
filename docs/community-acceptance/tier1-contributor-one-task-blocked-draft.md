@@ -19,7 +19,7 @@ Permanent scope: one contributor-grade run of `employment-labor/identify-issues-
 | --- | --- | --- |
 | Adapter | `claude-code-clean-native` | `codex-cli-offline` |
 | Requested model | `anthropic:claude-sonnet-4-6` | `codex:gpt-5.1` |
-| Executable identity | `BLOCKED`: current characterization/containment/installed versions disagree | `BLOCKED`: characterization pins 0.146.0 while the observed installation is 0.147.0 |
+| Executable identity | `BLOCKED`: repository-owned characterization and containment pins disagree; the approved executable identity must be supplied through generated private run metadata | `BLOCKED`: characterization pins 0.146.0; the approved executable identity must be supplied through generated private run metadata |
 | Required outer profiles | `contributor_native_whole_process.v1` and `linux_landlock_fs.v1` | `contributor_native_whole_process.v1` and `linux_landlock_fs.v1` |
 | Auth profile | `BLOCKED`: exact supported contributor profile and designated-credential-operator handshake | `BLOCKED`: exact supported contributor profile and designated-credential-operator handshake |
 | Resolved model rule | Exact receipt required; unknown/different identity forces system-bundle language | Exact receipt required; unknown/different identity forces system-bundle language |

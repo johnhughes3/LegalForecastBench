@@ -39,7 +39,7 @@ The reviewer will verify the executable spec predates spend; byte-identical inpu
 
 This remains a designated-credential-operator blocker. No approved privileged Claude whole-process containment fixture exists.
 
-The operator procedure is in `docs/adapters/claude-code-native-containment.md`, but its command block intentionally contains `INSERT_FRESH_INDEPENDENTLY_APPROVED_SHA256` and must not be run as written. The currently documented target is Claude Code 2.1.220 with SHA-256 `674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863`; that identity does not match the newer adapter/installed binary candidates and therefore cannot by itself clear Tier-0.
+The operator procedure is in `docs/adapters/claude-code-native-containment.md`, but its command block intentionally contains `INSERT_FRESH_INDEPENDENTLY_APPROVED_SHA256` and must not be run as written. The currently documented target is Claude Code 2.1.220 with SHA-256 `674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863`; that identity does not match the newer landed adapter manifest and therefore cannot by itself clear Tier-0.
 
 The designated credential operator's exact action sequence is:
 
@@ -60,7 +60,7 @@ There is no safe copy-paste command before steps 1 and 2 are satisfied. Printing
 | `dm0g.4.3.7` | Implement the native-thin LAB arm with the same solver-visible and evaluator contract |
 | `legalforecastbench-lrc3` | Supported operator CLI, truthful paid evaluator receipt, complete archive, and approved external issuer/signing authority |
 | `legalforecastbench-e5er` | Mechanically enforced solver, evaluator, retry, and experiment-wide spend ceilings |
-| Binary identities | Reconcile Claude 2.1.220 containment, 2.1.231 manifest, and 2.1.233 observed installation; reconcile the native arm's executable environment |
+| Binary identities | Reconcile Claude 2.1.220 containment with the 2.1.231 manifest, then bind the exact approved executable through generated private run metadata; reconcile the native arm's executable environment |
 | Credentials | Complete the designated credential operator's solver/judge credential handshakes without host-store fallback |
 | Order and mapping | Commit opaque arm IDs, solver/evaluator order, private mapping custody, and terminal retry policy |
 | Pricing and caps | Bind a dated pricing snapshot and reproducible estimate to enforced maxima |
