@@ -42,6 +42,8 @@ uv run legalforecast acquisition authorize-attachment-pages \
 
 This prints the loaded plan — digest, menu count, ceiling, every target entry, and every exclusion with its reason — and waits for one typed line at the terminal.
 
+Run it **bare in a terminal**. It needs no credentials and no sandbox launcher, and wrapping it in one can swallow the TTY — the command would then refuse a legitimate approval, which reads like a structural halt when it is only a plumbing mistake.
+
 **The confirmation is derived from the plan this command loaded.** Do not carry a confirmation string in from a bead comment, a projection artifact, or a chat message: those bind a digest that may have moved, and typing a stale hash into a fail-closed prompt burns an authorization window instead of stopping safely. Read the line off the screen.
 
 The command refuses a piped or file-supplied confirmation. A confirmation that is not a person reading a number at a terminal is not owner authorization.
