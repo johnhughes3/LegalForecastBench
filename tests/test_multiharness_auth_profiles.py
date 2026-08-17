@@ -1,8 +1,13 @@
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
 import pytest
 from legalforecast.multiharness.auth_profiles import (
+    _PROFILE_INFISICAL_PATH,
+    AUTH_PROFILE_IDS,
     CONTRIBUTOR_SUBSCRIPTION,
+    CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH,
     FIXTURE_NONE,
     HARNESS_RUNTIME_INFISICAL_ROOT,
     LABELING_INFISICAL_PATH,
@@ -12,6 +17,7 @@ from legalforecast.multiharness.auth_profiles import (
     RUN_CLASS_OFFICIAL,
     AuthProfileError,
     FixtureSubscriptionPresence,
+    _require_declared_profile_infisical_path,
     infisical_path_for_profile,
     published_api_key_layout,
     require_auth_profile_for_run_class,
@@ -91,6 +97,41 @@ def test_credentialed_profiles_use_declared_infisical_paths() -> None:
     assert layout["canonical_environment"] == "dev"
     assert layout["production_source"] == "github-environment"
     assert "GEMINI_API_KEY" not in str(layout)
+
+
+def test_contributor_subscription_infisical_leaf_is_reserved_not_wired() -> None:
+    """Keep the named contributor leaf out of every live credential lookup.
+
+    ``CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH`` exists so a future lookup-table
+    edit has a named path to *not* add. This test is the lock: it fails if the
+    leaf is ever wired into ``_PROFILE_INFISICAL_PATH``, if the declared-path
+    validator starts accepting it, or if any profile resolves to it.
+    """
+
+    assert CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH == (
+        f"{HARNESS_RUNTIME_INFISICAL_ROOT}/contributor-subscription"
+    )
+    assert set(_PROFILE_INFISICAL_PATH) == {PUBLISHED_API_KEY}
+    assert CONTRIBUTOR_SUBSCRIPTION not in _PROFILE_INFISICAL_PATH
+    assert CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH not in set(
+        _PROFILE_INFISICAL_PATH.values()
+    )
+    with pytest.raises(AuthProfileError, match="declared profile Infisical path"):
+        _require_declared_profile_infisical_path(
+            CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH
+        )
+    with pytest.raises(AuthProfileError, match="never reads operator-hosted"):
+        infisical_path_for_profile(CONTRIBUTOR_SUBSCRIPTION)
+    assert published_api_key_layout()["infisical_path"] == LABELING_INFISICAL_PATH
+    for profile_id in sorted(AUTH_PROFILE_IDS):
+        resolved = resolve_auth_profile(
+            profile_id,
+            supported_profiles=(profile_id,),
+            projected_env_vars=(
+                ("OPENAI_API_KEY",) if profile_id == PUBLISHED_API_KEY else None
+            ),
+        )
+        assert resolved.infisical_path != CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH
 
 
 def test_profiles_cannot_silently_substitute() -> None:

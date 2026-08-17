@@ -56,7 +56,11 @@ HARNESS_RUNTIME_INFISICAL_ROOT: Final = (
 # published-api-key reuses the existing labeling stage view rather than a
 # duplicate harness-runtime folder. The labeling inventory also has
 # GEMINI_API_KEY; adapters never project it. contributor-subscription never
-# reads Infisical; the reserved leaf is documentation only.
+# reads Infisical; the reserved leaf is documentation only and is deliberately
+# absent from _PROFILE_INFISICAL_PATH. Wiring it into that table is a policy
+# change, not a refactor: tests/test_multiharness_auth_profiles.py::
+# test_contributor_subscription_infisical_leaf_is_reserved_not_wired locks the
+# named leaf out of the lookup table and out of the declared-path validator.
 CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH: Final = (
     f"{HARNESS_RUNTIME_INFISICAL_ROOT}/contributor-subscription"
 )
