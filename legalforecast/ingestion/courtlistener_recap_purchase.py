@@ -11,15 +11,16 @@ stays unchanged for every existing caller.
 from __future__ import annotations
 
 import hashlib
-import json
 import os
-import re
 import stat
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Protocol, cast
 
-from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.canonical_json import (
+    canonical_json_bytes,
+    canonical_json_value_bytes,
+)
 from legalforecast.ingestion.courtlistener_provider_identity import (
     COURTLISTENER_RECAP_FETCH_PROVIDER,
 )
@@ -32,7 +33,6 @@ _CONFIRMATION_EVIDENCE_PUBLIC = "public_document_during_queue_lag"
 _CONFIRMATION_EVIDENCE = frozenset(
     {_CONFIRMATION_EVIDENCE_QUEUE, _CONFIRMATION_EVIDENCE_PUBLIC}
 )
-_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 class _PurchasePolicy(Protocol):
@@ -291,35 +291,22 @@ def _positive_decimal(value: object) -> str:
 
 
 def _sha256_json(value: Mapping[str, object]) -> str:
-    try:
-        payload = json.dumps(
-            dict(value), sort_keys=True, separators=(",", ":"), allow_nan=False
-        ).encode("utf-8")
-    except (TypeError, UnicodeError, ValueError) as exc:
-        raise ConfirmationProvenanceError(
-            "confirmation provenance evidence is not canonical JSON"
-        ) from exc
-    digest = hashlib.sha256(payload).hexdigest()
-    if _SHA256.fullmatch(digest) is None:
-        raise AssertionError("sha256 unexpectedly failed lowercase validation")
-    return digest
+    payload = canonical_json_value_bytes(
+        dict(value),
+        error_type=ConfirmationProvenanceError,
+        error_message="confirmation provenance evidence is not canonical JSON",
+    )
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _canonical_operation_sha256(operation: Mapping[str, object]) -> str:
     """Match the journal helper without creating an authenticated import cycle."""
 
-    try:
-        payload = json.dumps(
-            dict(operation),
-            allow_nan=False,
-            ensure_ascii=True,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode()
-    except (TypeError, UnicodeError, ValueError) as exc:
-        raise ConfirmationProvenanceError(
-            "confirmation provenance operation is not canonical JSON"
-        ) from exc
+    payload = canonical_json_value_bytes(
+        dict(operation),
+        error_type=ConfirmationProvenanceError,
+        error_message="confirmation provenance operation is not canonical JSON",
+    )
     return hashlib.sha256(payload).hexdigest()
 
 

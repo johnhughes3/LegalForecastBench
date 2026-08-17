@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,9 @@ from legalforecast.ingestion.case_dev_purchase import (
     canonical_purchase_operation_sha256,
     generate_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
+)
+from legalforecast.ingestion.courtlistener_provider_identity import (
+    COURTLISTENER_RECAP_FETCH_PROVIDER,
 )
 from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchClient,
@@ -42,6 +47,22 @@ def _historical_v1_algorithm_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 pytestmark = pytest.mark.usefixtures("_historical_v1_algorithm_fixture")
+
+
+@dataclass(frozen=True)
+class _SyntheticPolicy:
+    cycle_id: str
+    policy_sha256: str
+
+
+@dataclass(frozen=True)
+class _SyntheticJournal:
+    path: Path
+    policy: _SyntheticPolicy
+    operations: tuple[Mapping[str, object], ...]
+
+    def operation_records(self) -> tuple[Mapping[str, object], ...]:
+        return self.operations
 
 
 def test_paid_purchase_factory_uses_queue_lag_tolerant_window(tmp_path: Path) -> None:
@@ -201,3 +222,62 @@ def test_paid_purchase_factory_writes_public_document_queue_lag_sidecar(
     assert record["confirmation_evidence"] == "public_document_during_queue_lag"
     assert record["queue_response_sha256"] is None
     assert "queue_response" not in operation["response"]
+
+
+def test_sidecar_filename_matches_authoritative_digest_for_non_ascii(
+    tmp_path: Path,
+) -> None:
+    """synthetic: true; hand-authored Unicode isolates canonical encoding."""
+
+    restrictions: dict[str, object] = {
+        "description": "Mémoire résumé",
+        "filepath_local": "https://storage.courtlistener.com/résumé.pdf",
+    }
+    queue_response: dict[str, object] = {"message": "Prêt", "status": 2}
+    operation: dict[str, object] = {
+        "candidate_id": "café-case",
+        "response": {
+            "post_delivery_restrictions": restrictions,
+            "queue_id": "77",
+            "queue_response": queue_response,
+            "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+        },
+        "source_document_id": "123",
+        "status": "confirmed",
+    }
+    journal = _SyntheticJournal(
+        path=tmp_path / "purchases.sqlite3",
+        policy=_SyntheticPolicy(cycle_id="cycle-1", policy_sha256="b" * 64),
+        operations=(operation,),
+    )
+
+    (path,) = write_confirmation_provenance_sidecars(journal)
+
+    operation_digest = canonical_purchase_operation_sha256(operation)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    assert path.name == f"{operation_digest}.json"
+    assert record["canonical_purchase_operation_sha256"] == operation_digest
+    assert (
+        record["provider_detail_sha256"]
+        == hashlib.sha256(
+            json.dumps(
+                restrictions,
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
+    assert (
+        record["queue_response_sha256"]
+        == hashlib.sha256(
+            json.dumps(
+                queue_response,
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
