@@ -25,20 +25,21 @@ this manifest is what makes the *pair* atomic.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import tempfile
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from legalforecast.unitization.review_queue import ReviewQueueError
-
-GENERATION_MANIFEST_SCHEMA_VERSION = (
-    "legalforecast.unitization_review_queue_generation.v1"
+from legalforecast._hashing import is_lowercase_sha256
+from legalforecast.contracts import (
+    ARTIFACT_CANONICAL_JSON_V1,
+    RAW_BYTES_RAW_SHA256_V1,
+    UNITIZATION_REVIEW_QUEUE_GENERATION_V1,
 )
+from legalforecast.contracts.schemas import RAW_BYTES_RAW_SHA256_COMMITMENT_V1
+from legalforecast.unitization.review_queue import ReviewQueueError
 
 _V1_MEMBER_NAME = "unitization-review-queue.jsonl"
 _V2_MEMBER_NAME = "unitization-review-queue-v2.jsonl"
@@ -76,12 +77,12 @@ def review_queue_generation_id(v1_bytes: bytes, v2_bytes: bytes) -> str:
     generations, which is the whole point of the paired contract.
     """
 
-    return _sha256_hex(
-        _canonical_json_bytes(
+    return _raw_digest(
+        ARTIFACT_CANONICAL_JSON_V1.encode(
             {
-                "schema_version": GENERATION_MANIFEST_SCHEMA_VERSION,
-                "v1_sha256": _sha256_hex(v1_bytes),
-                "v2_sha256": _sha256_hex(v2_bytes),
+                "schema_version": str(UNITIZATION_REVIEW_QUEUE_GENERATION_V1),
+                "v1_sha256": _raw_digest(v1_bytes),
+                "v2_sha256": _raw_digest(v2_bytes),
             }
         )
     )
@@ -108,14 +109,14 @@ def publish_review_queue_generation(
     _fsync_directory(generation_root)
     manifest_path = review_queue_generation_manifest_path(queue_path)
     manifest: dict[str, object] = {
-        "schema_version": GENERATION_MANIFEST_SCHEMA_VERSION,
+        "schema_version": str(UNITIZATION_REVIEW_QUEUE_GENERATION_V1),
         "generation_id": generation_id,
         "members": {
             "v1": _member_record(v1_member, manifest_path, v1_bytes),
             "v2": _member_record(v2_member, manifest_path, v2_bytes),
         },
     }
-    _atomic_write(manifest_path, _canonical_json_bytes(manifest))
+    _atomic_write(manifest_path, ARTIFACT_CANONICAL_JSON_V1.encode(manifest))
     return ReviewQueueGeneration(
         generation_id=generation_id,
         v1_path=v1_member,
@@ -149,10 +150,10 @@ def read_review_queue_generation(queue_path: Path) -> ReviewQueueGeneration:
     manifest = _object(parsed, "review queue generation manifest")
     if set(manifest) != {"schema_version", "generation_id", "members"}:
         raise ReviewQueueError("review queue generation manifest fields differ")
-    if manifest.get("schema_version") != GENERATION_MANIFEST_SCHEMA_VERSION:
+    if manifest.get("schema_version") != str(UNITIZATION_REVIEW_QUEUE_GENERATION_V1):
         raise ReviewQueueError("review queue generation manifest schema differs")
     generation_id = manifest.get("generation_id")
-    if not isinstance(generation_id, str) or not _is_sha256_hex(generation_id):
+    if not isinstance(generation_id, str) or not is_lowercase_sha256(generation_id):
         raise ReviewQueueError("review queue generation id is invalid")
     members = _object(manifest.get("members"), "review queue generation members")
     if set(members) != set(_MEMBER_NAMES):
@@ -191,7 +192,7 @@ def _read_member(
         not isinstance(relative, str)
         or not relative
         or not isinstance(digest, str)
-        or not _is_sha256_hex(digest)
+        or not is_lowercase_sha256(digest)
         or type(byte_count) is not int
         or byte_count < 0
     ):
@@ -203,7 +204,7 @@ def _read_member(
         raise ReviewQueueError(
             f"review queue generation member {label} is unreadable: {exc}"
         ) from exc
-    if len(payload) != byte_count or _sha256_hex(payload) != digest:
+    if len(payload) != byte_count or _raw_digest(payload) != digest:
         raise ReviewQueueError(
             f"review queue generation member {label} changed after publication"
         )
@@ -232,7 +233,7 @@ def _member_record(
 ) -> dict[str, object]:
     return {
         "path": member_path.relative_to(manifest_path.parent).as_posix(),
-        "sha256": _sha256_hex(payload),
+        "sha256": _raw_digest(payload),
         "byte_count": len(payload),
     }
 
@@ -283,20 +284,9 @@ def _object(value: object, label: str) -> dict[str, object]:
     return cast(dict[str, object], value)
 
 
-def _canonical_json_bytes(payload: Mapping[str, object]) -> bytes:
-    return (
-        json.dumps(
-            dict(payload), sort_keys=True, separators=(",", ":"), allow_nan=False
-        )
-        + "\n"
-    ).encode()
-
-
-def _sha256_hex(payload: bytes) -> str:
-    return hashlib.sha256(payload).hexdigest()
-
-
-def _is_sha256_hex(value: str) -> bool:
-    return len(value) == 64 and all(
-        character in "0123456789abcdef" for character in value
+def _raw_digest(payload: bytes) -> str:
+    return str(
+        RAW_BYTES_RAW_SHA256_V1.commit(
+            payload, domain=RAW_BYTES_RAW_SHA256_COMMITMENT_V1
+        ).digest
     )
