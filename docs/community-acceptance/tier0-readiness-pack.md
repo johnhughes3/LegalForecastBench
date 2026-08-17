@@ -9,7 +9,7 @@ No provider spend is authorized by this document. The remaining work is not limi
 | Field | Value |
 | --- | --- |
 | Structural specification | `docs/community-acceptance/tier0-paired-smoke-structural-freeze.md` |
-| SHA-256 | `8c54791360b8ee741f3bd6903765b428e73d43bb89b7c1653380675c23d6bdbd` |
+| SHA-256 | `f87b916fb4eefd621e29093877dbd45b402486e20b51af876110907f880cd681` |
 | Status | Structural pre-spend freeze only; blocked and not an approval target |
 | Required next artifact | A newly hashed executable freeze that explicitly supersedes this one and predates every paid call |
 
