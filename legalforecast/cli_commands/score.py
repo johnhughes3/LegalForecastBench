@@ -16,8 +16,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from legalforecast.cli_commands import stage_a_replay as _stage_a_replay
 from legalforecast.evals.run_record_scoring import score_run_records
 from legalforecast.labeling import outcome_label_from_record
+
+
+def register_stage_a_replay(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """Register the cycle-neutral Stage A executor beside acquisition commands."""
+
+    _stage_a_replay.register(subparsers)
 
 
 def register(

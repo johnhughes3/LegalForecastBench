@@ -140,6 +140,16 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`supporting_document_successor.py`](../legalforecast/ingestion/supporting_document_successor.py) | Pure projection transformer for the closed ECF 14 exact-100 supporting-document successor. |
 | [`supporting_document_successor_cli.py`](../legalforecast/ingestion/supporting_document_successor_cli.py) | Authenticated download, immutable publication, replay, and materializer adapter for the supporting-document successor. |
 | [`candidate_scoped_stage_a_replay.py`](../legalforecast/ingestion/candidate_scoped_stage_a_replay.py) | Authenticated reuse of unchanged Stage A results with unitizer/reviewer execution only for changed successor packets. |
+| [`stage_a_replay_executor/executor.py`](../legalforecast/ingestion/stage_a_replay_executor/executor.py) | Canonical hashed replay-spec executor that binds signed ceilings, the shared provider journal, v5/v4 callbacks, invocation receipts, and qsp exhaustion routing. |
+| [`stage_a_replay_executor/contract.py`](../legalforecast/ingestion/stage_a_replay_executor/contract.py) | Shared replay-spec validation, digest, path, and spend primitives. |
+| [`stage_a_replay_executor/fixture.py`](../legalforecast/ingestion/stage_a_replay_executor/fixture.py) | Explicitly synthetic packet-lineage adapter used only by provider-free executor tests. |
+| [`stage_a_replay_executor/guard.py`](../legalforecast/ingestion/stage_a_replay_executor/guard.py) | Pre- and post-call ceiling enforcement plus per-invocation run evidence. |
+| [`stage_a_replay_executor/journal.py`](../legalforecast/ingestion/stage_a_replay_executor/journal.py) | Exact logical-call spend snapshots and frozen terminal-attempt recognition over the shared provider journal. |
+| [`stage_a_replay_executor/lineage.py`](../legalforecast/ingestion/stage_a_replay_executor/lineage.py) | Production predecessor and successor verifier replay with complete-cohort and unchanged-input checks. |
+| [`stage_a_replay_executor/provider.py`](../legalforecast/ingestion/stage_a_replay_executor/provider.py) | Canonical claim-ontology-v5/v4 provider adapters and terminal qsp commitments. |
+| [`stage_a_replay_executor/receipts.py`](../legalforecast/ingestion/stage_a_replay_executor/receipts.py) | Immutable plan, execution, Stage A receipt, invocation journal, and outer-receipt persistence and replay. |
+| [`stage_a_replay_executor/repair.py`](../legalforecast/ingestion/stage_a_replay_executor/repair.py) | Independent full document-repair plan, execution, and receipt verifier replay. |
+| [`stage_a_replay_executor/spec.py`](../legalforecast/ingestion/stage_a_replay_executor/spec.py) | Closed self-hashed production descriptor for authorization, verifier inputs, frozen configuration, spend, and outputs. |
 | [`successor_rerun_impact.py`](../legalforecast/ingestion/successor_rerun_impact.py) | Read-only impact planner for authenticated successor reruns and reusable provider work. |
 | [`successor_rerun_proposal.py`](../legalforecast/ingestion/successor_rerun_proposal.py) | Exact-byte proposal envelope and evidence binding for advisory successor rerun planning. |
 | [`exact310_rest_rebind.py`](../legalforecast/ingestion/exact310_rest_rebind.py) | Policy layer for the exact terminal REST rebind. |

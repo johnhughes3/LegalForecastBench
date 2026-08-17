@@ -6,8 +6,8 @@ gaps. Legacy Case.dev paid commands are disabled for live use.
 positional arguments:
   COMMAND
     render-cycle-config
-                        Render and validate a canonical acquisition-cycle
-                        config from a path-parameterized template.
+                        Render a validated acquisition-cycle config from a
+                        path template.
     materialize-cycle-path-metadata
                         Verify and publish the machine-local paths for a
                         frozen cycle.
@@ -20,6 +20,8 @@ positional arguments:
     locate-cycle-lineage
                         Locate and re-authenticate the unique current
                         acquisition lineage.
+    replay-stage-a      Execute one authenticated candidate-scoped Stage A
+                        replay spec.
     explain-successor-rerun
                         Explain the minimum safe rerun for proposed successor
                         inputs.
