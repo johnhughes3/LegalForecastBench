@@ -199,7 +199,7 @@ for address in "${EXISTING_IMPORT_ADDRESSES[@]}"; do
 done
 ```
 
-John runs `import_authorized <address>` once for each of the 23 addresses above and waits for the protected approval and `gh run watch <IMPORT_RUN_ID> --exit-status`. Expected evidence is a successful `state-binding` check and `import-receipt.json` with `result` `imported` or `already_present`; no apply is performed by an import run. Any non-absent AWS error stops reconciliation; it is not suppressed.
+John runs `import_authorized <address>` once for each address in `EXISTING_IMPORT_ADDRESSES` — that is, every closed-list address whose live object the read-only inventory proved present, never the full 23 unconditionally — and waits for the protected approval and `gh run watch <IMPORT_RUN_ID> --exit-status`. Expected evidence is a successful `state-binding` check and `import-receipt.json` with `result` `imported` or `already_present`; no apply is performed by an import run. Any non-absent AWS error stops reconciliation; it is not suppressed.
 
 ### 3. Read-only protected plan
 
