@@ -62,6 +62,7 @@ def guarded_callback(
     committed_by_call: dict[str, Decimal],
     invocations: list[dict[str, object]],
     clock: Callable[[], float] | None,
+    code_identity_guard: Callable[[], None] | None,
 ) -> tuple[StageAStageOutcome, Decimal]:
     if callback is None or meter is None:
         raise StageAReplayExecutorError("provider callback is unavailable")
@@ -108,6 +109,8 @@ def guarded_callback(
             invocations=invocations,
         )
     committed_by_call[before.logical_call_key] = before.committed_usd
+    if code_identity_guard is not None:
+        code_identity_guard()
     started = clock() if clock is not None else None
     outcome: StageAStageOutcome | None = None
     callback_error: Exception | None = None

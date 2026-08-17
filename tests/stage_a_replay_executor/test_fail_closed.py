@@ -133,6 +133,45 @@ def test_runtime_commit_mismatch_halts_before_provider_access(tmp_path: Path) ->
     }
 
 
+def test_runtime_code_identity_is_rechecked_immediately_before_provider_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider_touched = False
+
+    def forbidden_provider(*_args: object, **_kwargs: object) -> Any:
+        nonlocal provider_touched
+        provider_touched = True
+        raise AssertionError("provider opened after runtime code identity changed")
+
+    def reject_changed_runtime() -> None:
+        raise StageAReplayExecutorError(
+            "runtime code identity changed before provider access"
+        )
+
+    monkeypatch.setattr(
+        executor_module,
+        "_runtime_code_identity_guard",
+        lambda _spec: reject_changed_runtime,
+        raising=False,
+    )
+    result = execute_stage_a_replay(
+        write_spec(tmp_path, candidate_ids=("cand-a",)),
+        unitizer=forbidden_provider,
+        reviewer=forbidden_provider,
+        spend_meter=FakeSpendMeter(),
+        code_commit="0" * 40,
+    )
+
+    assert result.halted is True
+    assert provider_touched is False
+    assert result.to_record()["halt_evidence"] == {
+        "status": "halted_on_validation_failure",
+        "reason": "runtime code identity changed before provider access",
+        "failure_type": "StageAReplayExecutorError",
+        "provider_accessed": False,
+    }
+
+
 def test_signed_candidate_set_must_equal_exact_planned_rerun_set(
     tmp_path: Path,
 ) -> None:

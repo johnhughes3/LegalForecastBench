@@ -8,6 +8,7 @@ import json
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -494,6 +495,74 @@ def test_plan_publication_is_an_exclusive_provider_access_claim(
     assert (tmp_path / "receipt.json").is_file()
 
 
+def test_every_terminal_output_is_claimed_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    first_path = write_spec(
+        first_root,
+        aggregate_ceiling="0.30",
+        per_candidate_ceiling="0.30",
+        candidate_ids=("cand-a",),
+    )
+    second_path = write_spec(
+        second_root,
+        aggregate_ceiling="0.30",
+        per_candidate_ceiling="0.30",
+        candidate_ids=("cand-a",),
+    )
+    first = load_replay_spec(first_path)
+    second_record = read_spec(second_path)
+    second_outputs = cast(dict[str, object], second_record["outputs"])
+    second_outputs["execution_path"] = str(first.output_paths["execution_path"])
+    refresh_authorization_descriptor(second_path, second_record)
+    second = load_replay_spec(second_path)
+
+    first_provider_entered = Event()
+    release_first_provider = Event()
+    calls: list[str] = []
+
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        calls.append(f"unitizer:{request.candidate_id}")
+        if not first_provider_entered.is_set():
+            first_provider_entered.set()
+            assert release_first_provider.wait(timeout=5)
+        return settled_unitizer(request)
+
+    def reviewer(
+        request: CandidateScopedStageARerunRequest,
+        unitize: StageAStageOutcome,
+    ) -> StageAStageOutcome:
+        calls.append(f"reviewer:{request.candidate_id}")
+        return settled_reviewer(request, unitize)
+
+    def execute(parsed: object) -> object:
+        return execute_stage_a_replay(
+            cast(Any, parsed),
+            unitizer=unitizer,
+            reviewer=reviewer,
+            spend_meter=FakeSpendMeter(),
+            code_commit="0" * 40,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first_future = pool.submit(execute, first)
+        assert first_provider_entered.wait(timeout=5)
+        second_future = pool.submit(execute, second)
+        second_error = second_future.exception(timeout=5)
+        release_first_provider.set()
+        first_result = first_future.result(timeout=5)
+
+    assert second_error is not None
+    assert isinstance(second_error, ReplayOutputClaimError)
+    assert "replay execution output" in str(second_error)
+    assert getattr(first_result, "halted") is False
+    assert calls == ["unitizer:cand-a", "reviewer:cand-a"]
+
+
 def test_provider_account_alias_must_equal_pinned_caps() -> None:
     entries = cast(
         Any,
@@ -531,6 +600,8 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
                 "candidate_id": "cand-b",
                 "source_document_id": "doc-cand-b",
                 "document_role": "complaint",
+                "sha256": "c" * 64,
+                "byte_count": 10,
             }
         ],
         "nonincluded_operations": [],
@@ -547,12 +618,32 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
                 "candidate_id": "cand-a",
                 "source_document_id": "different-document",
                 "document_role": "complaint",
+                "sha256": "c" * 64,
+                "byte_count": 10,
             }
         ],
         "nonincluded_operations": [],
     }
     with pytest.raises(StageAReplayExecutorError, match="differs from authenticated"):
         repair_module.verify_repair_scope(parsed, wrong_document, successor)
+
+    wrong_content = {
+        "manifest_candidate_ids": ["cand-a"],
+        "execution_candidate_ids": ["cand-a"],
+        "receipt_candidate_ids": ["cand-a"],
+        "included_operations": [
+            {
+                "candidate_id": "cand-a",
+                "source_document_id": "doc-cand-a",
+                "document_role": "complaint",
+                "sha256": "0" * 64,
+                "byte_count": 10,
+            }
+        ],
+        "nonincluded_operations": [],
+    }
+    with pytest.raises(StageAReplayExecutorError, match="differs from authenticated"):
+        repair_module.verify_repair_scope(parsed, wrong_content, successor)
 
     excluded_operation = {
         "manifest_candidate_ids": ["cand-a"],
@@ -563,6 +654,8 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
                 "candidate_id": "cand-a",
                 "source_document_id": "doc-cand-a",
                 "document_role": "complaint",
+                "sha256": "c" * 64,
+                "byte_count": 10,
             }
         ],
         "nonincluded_operations": [
