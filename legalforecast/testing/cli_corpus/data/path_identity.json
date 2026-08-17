@@ -379,6 +379,7 @@
     "tests/test_workflow_checkout_security.py"
   ],
   "identity_checks": [
+    "tests/test_acquisition_cli.py::callable-identity",
     "tests/test_llm_labeling_cli.py::callable-identity",
     "tests/test_llm_labeling_cli.py::callable-identity",
     "tests/test_llm_labeling_cli.py::callable-identity",

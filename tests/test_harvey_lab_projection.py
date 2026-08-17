@@ -597,6 +597,35 @@ def _issue_196_source(lab_root: Path) -> Path:
     return lab_root
 
 
+def _add_unselected_task(lab_root: Path) -> None:
+    """Plant a valid lexically earlier task that Tier-0 must never select."""
+
+    task_dir = lab_root / "tasks" / "aaa-practice" / "decoy-task"
+    documents_dir = task_dir / "documents"
+    documents_dir.mkdir(parents=True)
+    (task_dir / "task.json").write_text(
+        json.dumps(
+            {
+                "id": "aaa-practice/decoy-task",
+                "instructions": "Produce decoy.docx.",
+                "expected_deliverable": "decoy.docx",
+                "criteria": [
+                    {
+                        "id": "decoy",
+                        "title": "Decoy criterion",
+                        "match_criteria": "Evaluator-private decoy criterion",
+                        "deliverables": ["decoy.docx"],
+                    }
+                ],
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    (documents_dir / "decoy.txt").write_text("decoy\n", encoding="utf-8")
+
+
 def _pin_fixture() -> dict[str, object]:
     return json.loads(PIN_FIXTURE.read_text(encoding="utf-8"))
 

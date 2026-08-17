@@ -29,6 +29,7 @@ from legalforecast.ingestion.exact100_successor_replacement_v2 import (
     _mint_verified_exact100_v2_base,
 )
 from legalforecast.ingestion.free_document_downloader import FreeDocumentFetch
+from legalforecast.ingestion.mistral_markdown_parser import ParserProcessResult
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     TerminalExclusionReason,
     _mint_terminal_evidence,
@@ -2076,6 +2077,7 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
         {
             "candidate_id": "cand-1",
             "source_document_id": "entry-1-complaint",
+            "document_role": "complaint",
             "expected_sha256": digest,
             "expected_byte_count": 10,
             "input_path": str(
@@ -2089,6 +2091,46 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
             "markdown_output_path": "markdown/cand-1/entry-1-complaint.md",
         }
     ]
+
+
+def test_live_mistral_request_carries_role_into_quality_gate(tmp_path: Path) -> None:
+    source = tmp_path / "complaint.pdf"
+    source.write_bytes(b"%PDF fixture")
+    request = cli._mistral_markdown_request(
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "document_role": "complaint",
+            "input_path": str(source),
+            "expected_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            "expected_byte_count": source.stat().st_size,
+        },
+        output_root=tmp_path / "output",
+    )
+
+    class _ShortParser:
+        def run(
+            self,
+            command: tuple[str, ...],
+            *,
+            cwd: Path,
+            timeout_seconds: int,
+        ) -> ParserProcessResult:
+            del cwd, timeout_seconds
+            Path(command[command.index("--file") + 1]).with_suffix(".md").write_text(
+                "Short.", encoding="utf-8"
+            )
+            return ParserProcessResult(return_code=0)
+
+    (record,) = cli.convert_documents_to_markdown(
+        (request,),
+        config=cli.MistralParserConfig(parser_root=tmp_path),
+        runner=_ShortParser(),
+    )
+
+    assert request.document_role == "complaint"
+    assert record.status is cli.MistralMarkdownConversionStatus.FAILED
+    assert record.quality_flags == ("parse_quality_rejected",)
 
 
 def test_parse_and_build_packet_acquisition_fixture_flow(

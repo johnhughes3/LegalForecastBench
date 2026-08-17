@@ -66955,6 +66955,7 @@ def _verify_parser_packet_authority(
             "input_path",
             "expected_sha256",
             "expected_byte_count",
+            "document_role",
             "materialization_schema_version",
         ):
             if request.get(name) != expected.get(name):
@@ -70190,6 +70191,7 @@ def _mistral_markdown_request(
         expected_sha256=_required_str(record, "expected_sha256"),
         expected_byte_count=_required_int(record, "expected_byte_count"),
         captured_source_bytes=captured_source_bytes,
+        document_role=_optional_str(record, "document_role"),
     )
 
 
@@ -70723,6 +70725,11 @@ def _planned_parse_document_request(
         "input_path": str(input_path),
         "expected_sha256": _required_str(record, "sha256").removeprefix("sha256:"),
         "expected_byte_count": _required_int(record, "byte_count"),
+        **(
+            {"document_role": _required_str(record, "document_role")}
+            if "document_role" in record
+            else {}
+        ),
         **(
             {
                 "materialization_schema_version": _required_str(

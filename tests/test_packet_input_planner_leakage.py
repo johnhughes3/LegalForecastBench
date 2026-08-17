@@ -14,6 +14,8 @@ from legalforecast.ingestion.packet_input_planner import (
     _docket_entries,
     _docket_screen_with_first_disposition_anchor,
     _redaction_or_seal_status,
+    _source_document_record,
+    _verified_parser_markdown,
     plan_packet_build_inputs,
 )
 from legalforecast.unitization.review import canonical_records_sha256
@@ -145,6 +147,193 @@ def test_packet_time_leakage_screen_excludes_adversarial_docket_entries() -> Non
         "rr_already_resolving_target",
         "tentative_ruling_revealing_target",
     }.issubset(set(plan.exclusion_ledger_records[0]["secondary_exclusion_reasons"]))
+
+
+def test_bare_opinion_below_decision_floor_is_not_model_visible() -> None:
+    plan = _docket_entries(
+        (
+            CourtListenerWebDocketEntry(
+                row_id="entry-50",
+                entry_number="50",
+                filed_at="June 29, 2026",
+                text="OPINION. SIGNED BY DISTRICT JUDGE; disposition follows.",
+            ),
+            CourtListenerWebDocketEntry(
+                row_id="entry-51",
+                entry_number="51",
+                filed_at="July 1, 2026",
+                text="Order deciding the motion to dismiss.",
+            ),
+        ),
+        selection=_selection(decision_entry_numbers=[51]),
+        source_document_ids_by_entry={},
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+
+    opinion = plan.entries[0]
+    assert opinion.is_predecision_material
+    assert opinion.contains_target_outcome
+    assert not opinion.model_visible
+    assert plan.exclusion_ledger_records[0]["source_entry_ids"] == ["entry-50"]
+
+
+def test_opinion_metadata_marks_other_document_outcome_bearing() -> None:
+    record = _source_document_record(
+        selection=_selection(decision_entry_numbers=[51]),
+        document={
+            "source_document_id": "opinion",
+            "document_role": "other",
+            "model_visible": True,
+            "contains_target_outcome": False,
+            "description": "OPINION signed June 29, 2026",
+        },
+        download={
+            "source_provider": "courtlistener",
+            "source_url": "fixture://opinion.pdf",
+            "sha256": "a" * 64,
+            "redaction_or_seal_status": "public",
+            "restriction_evidence": ["fixture"],
+        },
+        packet_document_id="candidate-opinion",
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+
+    assert record["contains_target_outcome"] is True
+    assert record["is_predecision_material"] is False
+    assert record["is_mounted_for_model"] is False
+    assert record["packet_section"] == "post_decision"
+
+
+def test_target_motion_metadata_without_result_is_not_outcome_bearing() -> None:
+    record = _source_document_record(
+        selection=_selection(decision_entry_numbers=[51]),
+        document={
+            "source_document_id": "mtd-memo",
+            "document_role": "other",
+            "model_visible": True,
+            "contains_target_outcome": False,
+            "description": "Motion to Dismiss memorandum",
+        },
+        download={
+            "source_provider": "courtlistener",
+            "source_url": "fixture://mtd-memo.pdf",
+            "sha256": "b" * 64,
+            "redaction_or_seal_status": "public",
+            "restriction_evidence": ["fixture"],
+        },
+        packet_document_id="candidate-mtd-memo",
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+
+    assert record["contains_target_outcome"] is False
+    assert record["is_predecision_material"] is True
+    assert record["is_mounted_for_model"] is True
+    assert record["packet_section"] == "other"
+
+
+def test_disposition_metadata_after_target_motion_is_outcome_bearing() -> None:
+    record = _source_document_record(
+        selection=_selection(decision_entry_numbers=[51]),
+        document={
+            "source_document_id": "mtd-order",
+            "document_role": "other",
+            "model_visible": True,
+            "contains_target_outcome": False,
+            "description": "Motion to Dismiss — denied in part",
+        },
+        download={
+            "source_provider": "courtlistener",
+            "source_url": "fixture://mtd-order.pdf",
+            "sha256": "c" * 64,
+            "redaction_or_seal_status": "public",
+            "restriction_evidence": ["fixture"],
+        },
+        packet_document_id="candidate-mtd-order",
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+
+    assert record["contains_target_outcome"] is True
+    assert record["is_predecision_material"] is False
+    assert record["is_mounted_for_model"] is False
+    assert record["packet_section"] == "post_decision"
+
+
+def test_proposed_order_attachment_on_motion_is_not_outcome_bearing() -> None:
+    record = _source_document_record(
+        selection=_selection(decision_entry_numbers=[51]),
+        document={
+            "source_document_id": "mtd-proposed-order",
+            "document_role": "motion_to_dismiss_memorandum",
+            "model_visible": True,
+            "contains_target_outcome": False,
+            "description": (
+                "MOTION to Dismiss (Attachments: # 1 Memorandum in Support, "
+                "# 2 Text of Proposed Order)"
+            ),
+        },
+        download={
+            "source_provider": "courtlistener",
+            "source_url": "fixture://mtd-proposed-order.pdf",
+            "sha256": "d" * 64,
+            "redaction_or_seal_status": "public",
+            "restriction_evidence": ["fixture"],
+        },
+        packet_document_id="candidate-mtd-proposed-order",
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+
+    assert record["contains_target_outcome"] is False
+    assert record["is_predecision_material"] is True
+    assert record["is_mounted_for_model"] is True
+
+
+def test_proposed_order_granting_attachment_is_not_outcome_bearing() -> None:
+    record = _source_document_record(
+        selection=_selection(decision_entry_numbers=[51]),
+        document={
+            "source_document_id": "mtd-proposed-order",
+            "document_role": "motion_to_dismiss_memorandum",
+            "model_visible": True,
+            "contains_target_outcome": False,
+            "description": (
+                "Motion to Dismiss (Attachment: Proposed Order Granting Motion)"
+            ),
+        },
+        download={
+            "source_provider": "courtlistener",
+            "source_url": "fixture://mtd-proposed-order.pdf",
+            "sha256": "e" * 64,
+            "redaction_or_seal_status": "public",
+            "restriction_evidence": ["fixture"],
+        },
+        packet_document_id="candidate-mtd-proposed-order",
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+
+    assert record["contains_target_outcome"] is False
+    assert record["is_predecision_material"] is True
+    assert record["is_mounted_for_model"] is True
+
+
+def test_malformed_parser_config_uses_strict_quality_thresholds(
+    tmp_path: Path,
+) -> None:
+    markdown_root = tmp_path / "markdown"
+    markdown_path = markdown_root / "candidate" / "complaint.md"
+    markdown_path.parent.mkdir(parents=True)
+    markdown_path.write_text("Short.", encoding="utf-8")
+    text_sha = hashlib.sha256(markdown_path.read_bytes()).hexdigest()
+
+    with pytest.raises(PacketInputPlanningError, match="parse-quality gate"):
+        _verified_parser_markdown(
+            {
+                "markdown_path": "candidate/complaint.md",
+                "parser_config": {},
+                "extracted_text": {"text_sha256": text_sha},
+            },
+            markdown_root=markdown_root,
+            document_role="complaint",
+        )
 
 
 def test_packet_planning_rejects_raw_prediction_units(tmp_path: Path) -> None:
@@ -588,6 +777,7 @@ def test_download_restriction_overrides_conflicting_public_selection_metadata(
             "source_document_id": "sealed",
             "status": "succeeded",
             "markdown_path": f"{candidate_id}/sealed.md",
+            "parser_config": {"engine": "fixture"},
             "quality_flags": [],
             "extracted_text": {
                 "source_document_id": "sealed",
@@ -789,6 +979,7 @@ def _packet_parser_records(
             "source_document_id": source_document_id,
             "status": "succeeded",
             "markdown_path": f"{candidate_id}/{source_document_id}.md",
+            "parser_config": {"engine": "fixture"},
             "quality_flags": [],
             "extracted_text": {
                 "source_document_id": source_document_id,
