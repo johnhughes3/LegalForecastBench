@@ -48,6 +48,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Cycle 1 Stage A unitizer terminal-review migration](cycle-1-stage-a-unitizer-terminal-review-migration.md): the provider-free attorney reconstruction route after a v5 unitizer exhausts all three reconstruction attempts without an accepted unit.
 - [Cycle 1 corpus-completion-summary v2 migration](cycle-1-corpus-completion-summary-v2-migration.md): the separate terminal Stage A handoff required to keep exhausted-unitizer candidates visible in the closed corpus audit.
 - [Cycle 1 document-repair contract migration](cycle-1-document-repair-contract-migration.md): the paired execution-schema and body-role-validator version bumps that authenticate snapshot clearance and stop single-keyword briefing admission.
+- [Document-repair purchase issuance](document-repair-purchase-issuance.md): the supported prepare, TTY-confirm, execute flow for a repair tranche, why no command initializes the purchase ledger, and the dated 147-document historical exception.
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for new code without migrating Cycle 1 artifacts.
 
 ## Community Multi-Harness (non-official)
