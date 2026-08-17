@@ -665,6 +665,7 @@ from legalforecast.ingestion.packet_role_adjudication import (
     authenticated_packet_role_evidence_from_record,
     verify_packet_role_adjudications,
 )
+from legalforecast.ingestion.parse_quality import assess_parsed_text
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     VerifiedPostSelectionTerminalExclusions,
     VerifiedTerminalExclusionEvidence,
@@ -56908,6 +56909,20 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
     # parse-quality thresholds, so only runs that can reach the live parser
     # (including reuse runs, which parse their gaps live) require the role.
     requires_live_document_role = not dry_run and fixture_markdown_dir is None
+    if requires_live_document_role:
+        # An executed run always carries a verified materialization lineage, so
+        # the authenticated role map is never optional on this path; treat a
+        # missing lineage as a verification gap rather than a reason to skip
+        # the binding.
+        if materialization_lineage is None:
+            raise CommandError(
+                "live parsing requires a verified materialization lineage for "
+                "authenticated document roles"
+            )
+        _require_authenticated_live_parse_plan_roles(
+            request_records,
+            manifest_records=materialization_lineage.manifest_records,
+        )
     requests = tuple(
         _mistral_markdown_request(
             record,
@@ -57339,6 +57354,11 @@ def _authenticate_completed_current_mistral_reuse(
         if _projection_json_object(metadata_bytes, source=metadata_path) != record:
             raise CommandError("completed current Markdown metadata differs")
         _require_reusable_live_mistral_record(record, markdown=markdown)
+        _require_reused_markdown_meets_current_role(
+            markdown=markdown,
+            request=request,
+            label="completed current Markdown",
+        )
     return records, expected_reuse_source
 
 
@@ -70345,6 +70365,107 @@ def _live_parse_plan_document_role(
         ) from exc
 
 
+def _authenticated_live_parse_document_roles(
+    manifest_records: Sequence[Mapping[str, Any]],
+) -> dict[tuple[str, str], str]:
+    """Index the authenticated document role of every materialized document.
+
+    The manifest rows come from the replay-verified materialization lineage, so
+    they are the only role statement in the run that an operator cannot edit
+    between planning and parsing.
+    """
+
+    roles: dict[tuple[str, str], str] = {}
+    for record in manifest_records:
+        candidate_id = _required_str(record, "candidate_id")
+        source_document_id = _required_str(record, "source_document_id")
+        try:
+            role = _required_str(record, "document_role")
+        except ValueError as exc:
+            raise CommandError(
+                "authenticated materialization manifest record requires "
+                f"document_role: {candidate_id}/{source_document_id}"
+            ) from exc
+        key = (candidate_id, source_document_id)
+        if roles.setdefault(key, role) != role:
+            raise CommandError(
+                "authenticated materialization manifest has conflicting "
+                f"document_role: {candidate_id}/{source_document_id}"
+            )
+    return roles
+
+
+def _require_authenticated_live_parse_plan_roles(
+    request_records: Sequence[Mapping[str, Any]],
+    *,
+    manifest_records: Sequence[Mapping[str, Any]],
+) -> None:
+    """Bind every live parse-plan role to its authenticated manifest row.
+
+    Requiring ``document_role`` to be *present* only closes the fallback that
+    ``assess_parsed_text`` applies to an unknown role.  A hand-edited plan can
+    still relabel a materialized ``complaint`` as an ``order`` and buy the
+    weaker outcome-role thresholds, so the live path additionally requires the
+    planned role to equal the role the materialization manifest authenticated
+    for that exact ``(candidate_id, source_document_id)``.  A plan row with no
+    authenticated manifest row at all has no role to be measured against and is
+    refused for the same reason.
+    """
+
+    authenticated = _authenticated_live_parse_document_roles(manifest_records)
+    for record in request_records:
+        candidate_id = _required_str(record, "candidate_id")
+        source_document_id = _required_str(record, "source_document_id")
+        planned_role = _live_parse_plan_document_role(
+            record,
+            candidate_id=candidate_id,
+            source_document_id=source_document_id,
+            required=True,
+        )
+        authenticated_role = authenticated.get((candidate_id, source_document_id))
+        if authenticated_role is None:
+            raise CommandError(
+                "live parse plan record is absent from the authenticated "
+                f"materialization manifest: {candidate_id}/{source_document_id}"
+            )
+        if planned_role != authenticated_role:
+            raise CommandError(
+                "live parse plan document_role differs from the authenticated "
+                f"materialization manifest: {candidate_id}/{source_document_id}: "
+                f"{planned_role} != {authenticated_role}"
+            )
+
+
+def _require_reused_markdown_meets_current_role(
+    *,
+    markdown: str,
+    request: MistralMarkdownConversionRequest,
+    label: str,
+) -> None:
+    """Reassess authenticated reuse under the *current* authenticated role.
+
+    Reuse matches a prior conversion by candidate, document, source hash, and
+    byte count.  None of those prove the prior run measured the Markdown
+    against the role this run authenticated: the prior run may have parsed the
+    same bytes under a weaker role, or under an older threshold table.  Reused
+    Markdown therefore re-enters the same ``assess_parsed_text`` gate the live
+    parser applies, so reuse can never be a cheaper route to a weaker gate.
+    """
+
+    if request.document_role is None:
+        raise CommandError(
+            f"{label} requires document_role: "
+            f"{request.candidate_id}/{request.source_document_id}"
+        )
+    assessment = assess_parsed_text(markdown, request.document_role)
+    if assessment.rejected:
+        raise CommandError(
+            f"{label} failed the current parse-quality gate: "
+            f"{request.candidate_id}/{request.source_document_id}: "
+            + ", ".join(assessment.rejection_reasons)
+        )
+
+
 def _mistral_markdown_request(
     record: Mapping[str, Any],
     *,
@@ -70444,6 +70565,10 @@ def _reuse_live_mistral_parse_outputs(
     copied: dict[tuple[str, str, str, int], JsonRecord] = {}
     for key, (record, markdown_bytes, metadata_bytes) in reusable.items():
         current_request = current_by_key[key]
+        try:
+            reused_markdown = markdown_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:  # pragma: no cover - authenticated above
+            raise CommandError("prior reused Markdown is not UTF-8") from exc
         _require_reuse_record_matches_request(
             record,
             {
@@ -70458,6 +70583,11 @@ def _reuse_live_mistral_parse_outputs(
             record,
             destination_markdown=current_request.markdown_output_path,
             output_root=output_root,
+        )
+        _require_reused_markdown_meets_current_role(
+            markdown=reused_markdown,
+            request=current_request,
+            label="reused live-Mistral Markdown",
         )
         _copy_reused_markdown_pair(
             markdown_bytes=markdown_bytes,

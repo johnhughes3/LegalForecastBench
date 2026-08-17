@@ -433,7 +433,16 @@ uv run legalforecast acquisition plan-parse-documents \
 
 Every row of a live parse plan must carry `document_role`, because the parse-quality gate falls back to a permissive one-character/one-line floor when the role is unknown.
 `parse-documents` refuses a role-less row before invoking the parser (`live parse plan record requires document_role: <candidate_id>/<source_document_id>`); regenerate the plan from a role-complete download manifest rather than hand-editing the request rows.
-Fixture-Markdown conversions and dry runs never consult role-aware thresholds, so they still accept a plan without the field.
+
+Presence is not sufficient: a live run also binds every planned role to the role its verified materialization manifest authenticated for the same `(candidate_id, source_document_id)`, so relabelling a materialized `complaint` as an `order` cannot trade the 200-character pleading floor for the 120-character outcome floor.
+The three refusals, all raised before `convert_documents_to_markdown` runs, are `live parse plan document_role differs from the authenticated materialization manifest: <candidate_id>/<source_document_id>: <planned> != <authenticated>`, `live parse plan record is absent from the authenticated materialization manifest: <candidate_id>/<source_document_id>`, and `authenticated materialization manifest record requires document_role: <candidate_id>/<source_document_id>`.
+The fix for each is the same: regenerate the plan (and, for the last one, the materialization manifest) rather than editing the request rows.
+
+Reuse does not skip the quality gate.
+`--reuse-live-mistral-run-card` matches a prior conversion by candidate, document, source hash, and byte count, none of which prove the prior run measured that Markdown against the role this run authenticated, so reused Markdown and the completed-current outputs of a resumed run are reassessed under the current role (`reused live-Mistral Markdown failed the current parse-quality gate: ...` / `completed current Markdown failed the current parse-quality gate: ...`).
+A prior run whose Markdown no longer clears the current role's threshold must be reparsed, not reused.
+
+Fixture-Markdown conversions and dry runs never consult role-aware thresholds, so they still accept a plan without the field and are not bound to the manifest role.
 
 Run the live parse against the clean pinned checkout explicitly; the default parser checkout may be on a different revision and will correctly fail closed:
 
