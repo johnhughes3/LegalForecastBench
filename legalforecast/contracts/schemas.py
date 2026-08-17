@@ -236,6 +236,9 @@ UNITIZATION_REVIEW_QUEUE_V1 = SchemaIdentifier(
 UNITIZATION_REVIEW_QUEUE_V2 = SchemaIdentifier(
     "legalforecast.unitization_review_queue.v2"
 )
+UNITIZATION_REVIEW_QUEUE_GENERATION_V1 = SchemaIdentifier(
+    "legalforecast.unitization_review_queue_generation.v1"
+)
 UNITIZER_TERMINAL_REVIEW_QUEUE_V1 = SchemaIdentifier(
     "legalforecast.unitizer_terminal_review_queue.v1"
 )

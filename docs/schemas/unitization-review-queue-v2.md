@@ -39,6 +39,25 @@ A response that failed whole-payload validation may still contain individually w
 
 Nothing recovered this way is ever accepted as a structural flag. It is reviewer-facing advice, marked `authoritative: false`.
 
+## The pair is published as an immutable generation
+
+Writing v1 and then v2 leaves a window: a forced process termination between the two writes strands a fresh v1 beside a stale or missing sidecar. Best-effort rollback cannot close it, because a signal does not run the rollback. Nothing in Cycle 1 reads the pair — authenticated commitments and Stage B consume v1 only — so the window cannot affect adjudication today, but it would become a real hazard the moment v2 is promoted to a consumed interface. The generation contract exists so that promotion is safe when it happens, not after.
+
+Each publication therefore also writes both payloads into an immutable, content-addressed generation directory beside the queue and then switches one manifest with a single atomic rename:
+
+- `unitization-review-queue-reviewed-generations/<generation_id>/unitization-review-queue.jsonl` and `…-v2.jsonl` — the immutable pair. `generation_id` is a SHA-256 over *both* member digests, so a publication that changes only one member is a different generation.
+- `unitization-review-queue-reviewed-generation.json` — schema `legalforecast.unitization_review_queue_generation.v1`, the only mutable name in the scheme. It carries `generation_id` plus, for each of `v1` and `v2`, a manifest-relative `path`, a `sha256`, and a `byte_count`.
+
+The manifest rename is the commit point and it happens **last**, after both canonical files are written. An interruption anywhere earlier leaves the previous generation current and orphans content-addressed member files, which is harmless because their directory name is their digest. Republishing identical records reuses the existing generation rather than creating a second copy.
+
+The contract is stated against a host crash, not only a killed process, so directory entries are fsynced as well as file bytes. Every directory entry the committed manifest depends on — the generations root, the generation directory, and the member files inside it — is persisted before the rename, and the manifest's own entry is persisted after it. Without that last step `os.replace` can return while the new name lives only in the page cache, so a crash would expose the previous manifest, or none, after the publisher already reported success.
+
+`read_review_queue_generation` in `legalforecast.unitization.review_queue_generation` is the only supported way to read the pair. It resolves both members through the manifest, verifies each member's byte count and digest, and re-derives `generation_id` from the bytes it actually read so a rewritten manifest cannot relabel a foreign pair. Any future pair reader must go through it; opening the canonical v1 queue and the v2 sidecar directly reintroduces exactly the torn-pair window.
+
+Member containment is decided on the resolved target, not the spelling. A member path that is absolute or contains `..` is rejected outright, and the resolved target must still lie beneath the resolved manifest directory — so a member name whose component is a symlink out of the generation directory is refused rather than followed, even when the file it points at carries exactly the recorded digest and byte count. Digest agreement proves the bytes, not their provenance; the manifest is the trust anchor for the pair, not a redirection mechanism. A published tree reached *through* a symlinked parent stays legal, because the base is resolved the same way.
+
+The canonical `unitization-review-queue-reviewed.jsonl` and its `-v2` sidecar are still written at their existing paths and are unchanged. The v1 byte contract is frozen for Cycle 1 and Stage B reads it directly; those two files mirror the current generation. Like the sidecar, the generation directory and manifest stay out of the stage's run-card `output_paths` and `output_commitments` — they are observational publication machinery, not new authenticated bytes.
+
 ## Coverage is verified independently
 
 `verify_review_queue_v2_coverage` re-derives coverage from the two record sets rather than trusting the projection: every v1 `review_id` must be represented exactly once, no v2 item may name a `review_id` v1 does not have, and the set of `(candidate_id, unit_id)` pairs must match exactly in both directions. The CLI asserts this before writing the sidecar, so a projection that dropped or invented review work never reaches disk.

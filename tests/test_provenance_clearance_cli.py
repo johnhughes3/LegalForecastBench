@@ -2728,3 +2728,180 @@ def test_provenance_snapshot_reread_translates_unsafe_path_error(
         cli_module._require_provenance_document_snapshot_unchanged(
             {"case/document.pdf": b"captured"}, document_root=tmp_path
         )
+
+
+def _authenticated_successor_history(
+    *,
+    recovery_root: Path,
+    private_root: Path,
+    source_paths: Sequence[Path],
+) -> dict[str, object]:
+    """Build the exact replay-authenticated history mapping the CLI projects."""
+
+    return {
+        "recovery_root": recovery_root,
+        "initial_controlled_private_root": private_root,
+        "controlled_private_root": private_root,
+        "replayed_purchase_state_sha256": "a" * 64,
+        "source_paths": tuple(source_paths),
+        "source_bytes": {
+            os.path.abspath(path): path.read_bytes() for path in source_paths
+        },
+    }
+
+
+def test_successor_history_exclusions_diverge_between_provenance_stages(
+    tmp_path: Path,
+) -> None:
+    """The two stages legitimately exclude different named-input sets."""
+
+    document_root = tmp_path / "documents"
+    document_root.mkdir()
+    plan_inputs = tuple(tmp_path / name for name in ("requests", "manifest"))
+    finalize_only_inputs = (tmp_path / "routing-plan", tmp_path / "plan-run-card")
+    recovery_inputs = (tmp_path / "recovered-public",)
+
+    plan_excluded = cli_module._successor_history_excluded_paths(
+        stage_input_paths=plan_inputs,
+        recovery_input_paths=recovery_inputs,
+        document_root=document_root,
+    )
+    finalize_excluded = cli_module._successor_history_excluded_paths(
+        stage_input_paths=(*plan_inputs, *finalize_only_inputs),
+        recovery_input_paths=recovery_inputs,
+        document_root=document_root,
+    )
+
+    assert set(plan_excluded) < set(finalize_excluded)
+    assert set(finalize_excluded) - set(plan_excluded) == set(finalize_only_inputs)
+    # Both stages always exclude the shared recovered-public inputs and the
+    # protected document root, so only the stage-named set diverges.
+    assert {*recovery_inputs, document_root} <= set(plan_excluded)
+
+
+def test_successor_history_projection_names_noncolliding_sources(
+    tmp_path: Path,
+) -> None:
+    recovery_root = tmp_path / "recovery"
+    recovery_root.mkdir()
+    private_root = tmp_path / "private"
+    private_root.mkdir()
+    history_source = recovery_root / "successor-history.jsonl"
+    history_source.write_bytes(b'{"row": 1}\n')
+    stage_input = tmp_path / "download-manifest.jsonl"
+    stage_input.write_bytes(b'{"row": 2}\n')
+
+    paths, payloads, record = cli_module._authenticated_successor_history_projection(
+        _authenticated_successor_history(
+            recovery_root=recovery_root,
+            private_root=private_root,
+            source_paths=(history_source,),
+        ),
+        excluded_paths=cli_module._successor_history_excluded_paths(
+            stage_input_paths=(stage_input,),
+            recovery_input_paths=(),
+            document_root=tmp_path / "documents",
+        ),
+    )
+
+    assert list(paths) == ["successor_history_source_0000"]
+    assert paths["successor_history_source_0000"] == history_source
+    assert payloads["successor_history_source_0000"] == b'{"row": 1}\n'
+    assert record is not None
+    assert record["source_names"] == ["successor_history_source_0000"]
+
+
+def test_successor_history_projection_fails_closed_on_stage_input_collision(
+    tmp_path: Path,
+) -> None:
+    """A history source that a stage already names must not be re-committed."""
+
+    recovery_root = tmp_path / "recovery"
+    recovery_root.mkdir()
+    private_root = tmp_path / "private"
+    private_root.mkdir()
+    shared_source = tmp_path / "download-manifest.jsonl"
+    shared_source.write_bytes(b'{"row": 1}\n')
+
+    history = _authenticated_successor_history(
+        recovery_root=recovery_root,
+        private_root=private_root,
+        source_paths=(shared_source,),
+    )
+    # The plan stage does not name this path, so the projection commits it.
+    plan_paths, _, _ = cli_module._authenticated_successor_history_projection(
+        history,
+        excluded_paths=cli_module._successor_history_excluded_paths(
+            stage_input_paths=(tmp_path / "routing-plan.json",),
+            recovery_input_paths=(),
+            document_root=tmp_path / "documents",
+        ),
+    )
+    assert plan_paths["successor_history_source_0000"] == shared_source
+
+    # The finalization stage names it, so the same history fails closed rather
+    # than committing one byte stream under two different source names.
+    with pytest.raises(
+        cli_module.CommandError,
+        match="authenticated successor history sources are empty or repeated",
+    ):
+        cli_module._authenticated_successor_history_projection(
+            history,
+            excluded_paths=cli_module._successor_history_excluded_paths(
+                stage_input_paths=(tmp_path / "routing-plan.json", shared_source),
+                recovery_input_paths=(),
+                document_root=tmp_path / "documents",
+            ),
+        )
+
+
+def test_successor_history_projection_fails_closed_on_repeated_sources(
+    tmp_path: Path,
+) -> None:
+    recovery_root = tmp_path / "recovery"
+    recovery_root.mkdir()
+    private_root = tmp_path / "private"
+    private_root.mkdir()
+    history_source = recovery_root / "successor-history.jsonl"
+    history_source.write_bytes(b'{"row": 1}\n')
+    alias = recovery_root / "alias.jsonl"
+    alias.symlink_to(history_source)
+
+    with pytest.raises(
+        cli_module.CommandError,
+        match="authenticated successor history sources are empty or repeated",
+    ):
+        cli_module._authenticated_successor_history_projection(
+            _authenticated_successor_history(
+                recovery_root=recovery_root,
+                private_root=private_root,
+                source_paths=(history_source, alias),
+            ),
+            excluded_paths=cli_module._successor_history_excluded_paths(
+                stage_input_paths=(),
+                recovery_input_paths=(),
+                document_root=tmp_path / "documents",
+            ),
+        )
+
+
+def test_provenance_committed_input_paths_order_is_shared_by_both_stages(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "documents"
+    document_root.mkdir()
+    stage_inputs = (tmp_path / "requests.jsonl", tmp_path / "manifest.jsonl")
+    history_sources = (tmp_path / "successor-history.jsonl",)
+    recovery_inputs = (tmp_path / "recovered-public.json",)
+
+    assert cli_module._provenance_committed_input_paths(
+        stage_input_paths=stage_inputs,
+        history_source_paths=history_sources,
+        recovery_input_paths=recovery_inputs,
+        document_root=document_root,
+    ) == (
+        *(path.resolve() for path in stage_inputs),
+        *(path.resolve() for path in history_sources),
+        *(path.resolve() for path in recovery_inputs),
+        document_root.resolve(),
+    )

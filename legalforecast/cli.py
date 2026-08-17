@@ -1212,6 +1212,9 @@ from legalforecast.unitization.review_queue import (
     review_queue_v2_sidecar_path,
     verify_review_queue_v2_coverage,
 )
+from legalforecast.unitization.review_queue_generation import (
+    publish_review_queue_generation,
+)
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     DefendantGrouping,
@@ -29491,6 +29494,26 @@ def _cmd_build_replacement_recovery_source(args: argparse.Namespace) -> int:
             raise ReplacementRecoverySourceError(
                 "successor history is allowed only for the ordinal 0 initial recovery"
             )
+        # Resolver-card chronology: `issue()` consumes `run_card_paths`
+        # newest-first, reversing each transition beneath the one before it, so
+        # this tuple is ordered newest -> oldest and NOT oldest -> newest.
+        #
+        # For `initial_v2`, `--resolved-post-recovery-run-card` is produced by
+        # the resolver running inside the current preparation flow, so it is the
+        # freshest ledger transition, while
+        # `--additional-resolved-post-recovery-run-card` is a pre-existing
+        # `completed-successor-resolver-run-card.json` carried over from a past
+        # successor lifecycle.  The freshest card therefore comes first.  For a
+        # `successor` source the roles are reversed: the additional card is the
+        # newer one, so the tuple is flipped to keep the same newest -> oldest
+        # order.  Swapping either branch breaks the reversal composition, which
+        # peels both resolver transitions off in order before
+        # `_authenticated_pre_successor_purchase_snapshot` reverses successor
+        # purchase history beneath them.  Reviewers have misread this ordering
+        # repeatedly; the invariant is pinned by
+        # `test_initial_v2_cli_orders_resolver_cards_newest_first` and
+        # `test_resolved_transition_capability_replays_two_ordered_transitions`
+        # in `tests/test_replacement_recovery_source_producer.py`.
         transition_card_paths: tuple[Path | None, ...] = ()
         if additional_resolved_card_path is not None:
             transition_card_paths = (
@@ -41528,6 +41551,39 @@ class _VerifiedSuccessorSelectionCard:
             "_VerifiedSuccessorSelectionCard is minted only by materialization replay"
         )
 
+    @classmethod
+    def mint_after_replay(
+        cls,
+        *,
+        selection_path: Path,
+        selection_bytes: bytes,
+        selection_record_count: int,
+        run_card_path: Path,
+        run_card_bytes: bytes,
+    ) -> _VerifiedSuccessorSelectionCard:
+        """Mint the opaque capability after a specialized replay has finished.
+
+        ``__init__`` is closed so no caller can fabricate this capability from
+        parsed bytes, which means construction has to go through
+        ``object.__new__``.  Keeping that here rather than at the call site
+        keeps field additions co-located with the field declarations above: a
+        new field is a signature change on this method, not a silent omission
+        in a distant sequence of ``object.__setattr__`` calls.
+
+        The method name is unprefixed only because the enclosing class is
+        module-private; that, plus the replay attestation its one caller
+        requires, is what keeps the capability closed.
+        """
+
+        verified = object.__new__(cls)
+        object.__setattr__(verified, "selection_path", selection_path)
+        object.__setattr__(verified, "selection_bytes", selection_bytes)
+        object.__setattr__(verified, "selection_record_count", selection_record_count)
+        object.__setattr__(verified, "run_card_path", run_card_path)
+        object.__setattr__(verified, "run_card_bytes", run_card_bytes)
+        object.__setattr__(verified, "_token", _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN)
+        return verified
+
     def is_replay_minted(self) -> bool:
         return self._token is _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN
 
@@ -41588,6 +41644,12 @@ def _verified_successor_selection_card_from_projection(
     artifact_bytes = projection.get("verified_artifact_bytes")
     selection_path = projection.get("selection_path")
     run_card_path = projection.get("run_card_path")
+    # Two path regimes, deliberately not unified.  Path *identity* is compared
+    # through `Path.resolve()` so a symlinked stage root still matches the
+    # capability it minted.  The verified-artifact snapshot below is a mapping
+    # keyed by `os.path.abspath` at capture time, so it must be looked up in
+    # that same recorded form -- resolving the key would miss the entry rather
+    # than find it under another name.
     if (
         not isinstance(artifact_bytes, Mapping)
         or not isinstance(selection_path, Path)
@@ -41669,15 +41731,13 @@ def _mint_verified_successor_selection_card_from_projection(
     ):
         raise CommandError("successor materializer replay bytes differ")
     selection_record_sequence = cast(Sequence[Mapping[str, Any]], selection_records)
-    verified = object.__new__(_VerifiedSuccessorSelectionCard)
-    object.__setattr__(verified, "selection_path", selection_path)
-    object.__setattr__(verified, "selection_bytes", selection_bytes)
-    object.__setattr__(
-        verified, "selection_record_count", len(selection_record_sequence)
+    verified = _VerifiedSuccessorSelectionCard.mint_after_replay(
+        selection_path=selection_path,
+        selection_bytes=selection_bytes,
+        selection_record_count=len(selection_record_sequence),
+        run_card_path=run_card_path,
+        run_card_bytes=run_card_bytes,
     )
-    object.__setattr__(verified, "run_card_path", run_card_path)
-    object.__setattr__(verified, "run_card_bytes", run_card_bytes)
-    object.__setattr__(verified, "_token", _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN)
     return {**projection, "verified_successor_selection_card": verified}
 
 
@@ -50916,6 +50976,60 @@ def _authenticated_successor_history_projection(
     return history_paths, history_bytes, record
 
 
+def _successor_history_excluded_paths(
+    *,
+    stage_input_paths: Iterable[Path],
+    recovery_input_paths: Iterable[Path],
+    document_root: Path,
+) -> tuple[Path, ...]:
+    """Return the paths a stage already commits under its own explicit names.
+
+    Successor-history sources are re-committed under generated
+    ``successor_history_source_NNNN`` names, so a path the stage already
+    commits under an explicit name has to be excluded here; otherwise the same
+    bytes would appear twice in one run card under two different names.
+
+    The resulting sets legitimately diverge between
+    ``plan-disclosure-provenance`` and ``finalize-provenance-quarantine``
+    because the two stages commit different named-input sets.  The plan stage
+    names only the four projection inputs (review requests, download manifest,
+    case relevance, restriction evidence); the finalization stage additionally
+    names the frozen routing plan, the exception worksheet, the plan run card,
+    the public-marker clearance policy, and the model-review authority set.
+    That difference tracks what each stage actually commits, so unifying the
+    two sets would be a regression, not a cleanup.  Divergence stays safe
+    because the exclusion is fail-closed: dropping a colliding source leaves
+    :func:`_authenticated_successor_history_projection` with an emptied or
+    repeated source set, which it rejects.
+    """
+
+    return (*stage_input_paths, *recovery_input_paths, document_root)
+
+
+def _provenance_committed_input_paths(
+    *,
+    stage_input_paths: Iterable[Path],
+    history_source_paths: Iterable[Path],
+    recovery_input_paths: Iterable[Path],
+    document_root: Path,
+) -> tuple[Path, ...]:
+    """Return the exact ordered input paths a provenance stage commits.
+
+    ``plan-disclosure-provenance`` and ``finalize-provenance-quarantine``
+    commit the same four groups in the same order: the stage's own named
+    inputs, the authenticated successor-history sources, the recovered-public
+    verification inputs, and the document root.  Building that tuple in one
+    place keeps the two stages' run-card ``input_paths`` from drifting apart.
+    """
+
+    return (
+        *(path.resolve() for path in stage_input_paths),
+        *(path.resolve() for path in history_source_paths),
+        *(path.resolve() for path in recovery_input_paths),
+        document_root.resolve(),
+    )
+
+
 def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int:
     stage = "plan-disclosure-provenance"
     output_root = _acquisition_output_root(args)
@@ -50948,7 +51062,6 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             "plan-disclosure-provenance requires --schema-version v2 or v3"
         )
     input_paths = (requests_path, manifest_path, relevance_path, restriction_path)
-    committed_input_paths = tuple(path.resolve() for path in input_paths)
     committed_output_paths = (plan_path.resolve(), worksheet_path.resolve())
     _require_controlled_private_review_root(
         private_root,
@@ -51001,10 +51114,13 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             history_run_card_record,
         ) = _authenticated_successor_history_projection(
             authenticated_successor_history,
-            excluded_paths=(
-                *input_paths,
-                *recovery_input_paths,
-                document_root,
+            # This stage commits only the four projection inputs by name; see
+            # _successor_history_excluded_paths for why the finalization stage
+            # legitimately excludes a larger set.
+            excluded_paths=_successor_history_excluded_paths(
+                stage_input_paths=input_paths,
+                recovery_input_paths=recovery_input_paths,
+                document_root=document_root,
             ),
         )
         if verified_recovery_capability is not None and selected_schema != "v3":
@@ -51068,6 +51184,12 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         )
     except (OSError, ProvenanceClearanceError) as exc:
         raise CommandError(str(exc)) from exc
+    committed_input_paths = _provenance_committed_input_paths(
+        stage_input_paths=input_paths,
+        history_source_paths=history_source_paths.values(),
+        recovery_input_paths=recovery_input_paths,
+        document_root=document_root,
+    )
     plan_bytes = canonical_json_bytes(plan)
     worksheet_bytes = canonical_json_bytes(worksheet)
     dry_run = _acquisition_dry_run(args)
@@ -51137,12 +51259,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     terminal_metadata_present = _completed_disclosure_review_resume(
         args,
         stage=stage,
-        input_paths=(
-            *committed_input_paths,
-            *(path.resolve() for path in history_source_paths.values()),
-            *(path.resolve() for path in recovery_input_paths),
-            document_root.resolve(),
-        ),
+        input_paths=committed_input_paths,
         output_paths=committed_output_paths,
         record_count=cast(int, plan["document_count"]),
         expected_extra=completion_extra,
@@ -51174,10 +51291,12 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             replayed_history_record,
         ) = _authenticated_successor_history_projection(
             replayed_history,
-            excluded_paths=(
-                *input_paths,
-                *replayed_recovery_paths,
-                document_root,
+            # Same named-input set as the first projection above; the replay
+            # must exclude exactly what the initial pass excluded.
+            excluded_paths=_successor_history_excluded_paths(
+                stage_input_paths=input_paths,
+                recovery_input_paths=replayed_recovery_paths,
+                document_root=document_root,
             ),
         )
         capability_changed = bool(verified_recovery_capability) != bool(
@@ -51261,12 +51380,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         if not _completed_disclosure_review_resume(
             args,
             stage=stage,
-            input_paths=(
-                *committed_input_paths,
-                *(path.resolve() for path in history_source_paths.values()),
-                *(path.resolve() for path in recovery_input_paths),
-                document_root.resolve(),
-            ),
+            input_paths=committed_input_paths,
             output_paths=committed_output_paths,
             record_count=cast(int, plan["document_count"]),
             expected_extra=completion_extra,
@@ -51277,12 +51391,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     _write_acquisition_completion(
         args,
         stage=stage,
-        input_paths=(
-            *committed_input_paths,
-            *(path.resolve() for path in history_source_paths.values()),
-            *(path.resolve() for path in recovery_input_paths),
-            document_root.resolve(),
-        ),
+        input_paths=committed_input_paths,
         output_paths=committed_output_paths,
         record_count=cast(int, plan["document_count"]),
         dry_run=dry_run,
@@ -52168,10 +52277,14 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             history_run_card_record,
         ) = _authenticated_successor_history_projection(
             authenticated_successor_history,
-            excluded_paths=(
-                *source_paths.values(),
-                *recovery_input_paths,
-                document_root,
+            # This stage names more inputs than plan-disclosure-provenance
+            # (routing plan, exception worksheet, plan run card, public-marker
+            # policy, model-review authority), so its exclusion set is larger
+            # by design; see _successor_history_excluded_paths.
+            excluded_paths=_successor_history_excluded_paths(
+                stage_input_paths=source_paths.values(),
+                recovery_input_paths=recovery_input_paths,
+                document_root=document_root,
             ),
         )
         if authenticated_successor_history is None and any(
@@ -52422,12 +52535,12 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             else {}
         ),
         "input_paths": [
-            str(path.resolve())
-            for path in (
-                *source_paths.values(),
-                *history_source_paths.values(),
-                *recovery_input_paths,
-                document_root,
+            str(path)
+            for path in _provenance_committed_input_paths(
+                stage_input_paths=source_paths.values(),
+                history_source_paths=history_source_paths.values(),
+                recovery_input_paths=recovery_input_paths,
+                document_root=document_root,
             )
         ],
         "source_commitments": source_commitments,
@@ -63771,11 +63884,20 @@ def publish_stage_a_review_queue(
 ) -> None:
     """Validate and publish the frozen v1 queue and observational v2 sidecar.
 
-    The two files describe the same review work.  Project and validate v2
-    before changing either path, then restore the complete prior pair if a
-    filesystem failure interrupts publication.  This preserves the frozen
-    Cycle 1 v1 contract while preventing a new v1 from being stranded beside a
-    stale or absent v2 sidecar.
+    The two files describe the same review work, and best-effort rollback
+    cannot close the window in which a forced termination strands a fresh v1
+    beside a stale or missing v2.  So the pair is also published as an
+    immutable content-addressed generation whose manifest is switched with one
+    atomic rename; see
+    :mod:`legalforecast.unitization.review_queue_generation`.  That rename is
+    the commit point and it happens last, so an interruption anywhere earlier
+    leaves the previous generation current rather than a mixed pair.
+
+    The canonical v1 queue and v2 sidecar are still written at their existing
+    paths, unchanged: the v1 byte contract is frozen for Cycle 1 and Stage B
+    reads it directly.  They mirror the current generation.  Any *pair* reader
+    added later must resolve both files through
+    :func:`read_review_queue_generation` instead of opening these two paths.
     """
 
     v1_queue = tuple(v1_records)
@@ -63811,6 +63933,16 @@ def publish_stage_a_review_queue(
         if rollback_errors:
             detail += "; rollback also failed: " + "; ".join(rollback_errors)
         raise CommandError(detail) from exc
+    try:
+        publish_review_queue_generation(
+            queue_path,
+            v1_bytes=_jsonl_bytes(v1_queue),
+            v2_bytes=_jsonl_bytes(queue_v2),
+        )
+    except (OSError, ReviewQueueError) as exc:
+        raise CommandError(
+            f"cannot publish the Stage A review queue generation: {exc}"
+        ) from exc
 
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:

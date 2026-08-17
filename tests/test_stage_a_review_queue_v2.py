@@ -26,6 +26,12 @@ from legalforecast.unitization.review_queue import (
     safe_parsed_structural_flags,
     verify_review_queue_v2_coverage,
 )
+from legalforecast.unitization.review_queue_generation import (
+    read_review_queue_generation,
+    review_queue_generation_id,
+    review_queue_generation_manifest_path,
+    review_queue_generation_root,
+)
 
 JsonRecord = dict[str, Any]
 V1 = "legalforecast.unitization_review_queue.v1"
@@ -645,3 +651,190 @@ def test_first_queue_write_failure_rolls_back_the_entire_queue_pair(
 
     assert queue_path.read_bytes() == b"prior-v1\\n"
     assert sidecar_path.read_bytes() == b"prior-v2\\n"
+
+
+def test_publication_records_a_digest_bound_paired_generation(tmp_path: Path) -> None:
+    """The manifest names both members and binds their exact bytes."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+
+    generation = read_review_queue_generation(queue_path)
+    sidecar_path = review_queue_v2_sidecar_path(queue_path)
+    assert generation.v1_bytes == queue_path.read_bytes()
+    assert generation.v2_bytes == sidecar_path.read_bytes()
+    assert generation.generation_id == review_queue_generation_id(
+        generation.v1_bytes, generation.v2_bytes
+    )
+    assert generation.v1_path.parent == generation.v2_path.parent
+    assert (
+        generation.v1_path.parent
+        == review_queue_generation_root(queue_path) / generation.generation_id
+    )
+    manifest = json.loads(
+        review_queue_generation_manifest_path(queue_path).read_bytes()
+    )
+    assert manifest["generation_id"] == generation.generation_id
+    assert set(manifest["members"]) == {"v1", "v2"}
+    assert manifest["members"]["v1"]["byte_count"] == len(generation.v1_bytes)
+
+
+def test_generation_pair_survives_a_torn_canonical_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A crash between the two canonical writes cannot tear the pair readers see.
+
+    This is the window issue #617 describes: a forced termination after the v1
+    write but before the v2 write leaves a fresh v1 beside a stale sidecar.  A
+    reader that resolves the pair through the manifest still sees the previous
+    generation whole, because the manifest rename never happened.
+    """
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    first = read_review_queue_generation(queue_path)
+
+    original_write_bytes = Path.write_bytes
+    sidecar_path = review_queue_v2_sidecar_path(queue_path)
+
+    class _ForcedTermination(BaseException):
+        """Stands in for a signal that no except-OSError handler can catch."""
+
+    def terminate_before_sidecar(path: Path, payload: bytes) -> int:
+        if path == sidecar_path:
+            raise _ForcedTermination
+        return original_write_bytes(path, payload)
+
+    monkeypatch.setattr(Path, "write_bytes", terminate_before_sidecar)
+    with pytest.raises(_ForcedTermination):
+        cli.publish_stage_a_review_queue(
+            queue_path, (_construction_row("unit-1"), _construction_row("unit-2"))
+        )
+    monkeypatch.undo()
+
+    # The canonical pair is exactly the torn state the issue describes.
+    assert queue_path.read_bytes() != first.v1_bytes
+    assert sidecar_path.read_bytes() == first.v2_bytes
+
+    # The generation reference is still whole and still self-consistent.
+    recovered = read_review_queue_generation(queue_path)
+    assert recovered == first
+    verify_review_queue_v2_coverage(
+        [json.loads(line) for line in recovered.v1_bytes.splitlines()],
+        [json.loads(line) for line in recovered.v2_bytes.splitlines()],
+    )
+
+
+def test_publication_advances_the_generation_only_after_both_writes(
+    tmp_path: Path,
+) -> None:
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    first = read_review_queue_generation(queue_path)
+    cli.publish_stage_a_review_queue(
+        queue_path, (_construction_row("unit-1"), _construction_row("unit-2"))
+    )
+    second = read_review_queue_generation(queue_path)
+
+    assert second.generation_id != first.generation_id
+    # Prior generations stay immutable and readable at their own addresses.
+    assert first.v1_path.read_bytes() == first.v1_bytes
+    assert first.v2_path.read_bytes() == first.v2_bytes
+
+
+def test_republishing_identical_records_reuses_one_generation(
+    tmp_path: Path,
+) -> None:
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    first = read_review_queue_generation(queue_path)
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+
+    assert read_review_queue_generation(queue_path) == first
+    assert [
+        path.name for path in sorted(review_queue_generation_root(queue_path).iterdir())
+    ] == [first.generation_id]
+
+
+def test_generation_reader_rejects_a_member_changed_after_publication(
+    tmp_path: Path,
+) -> None:
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    generation = read_review_queue_generation(queue_path)
+    generation.v2_path.write_bytes(b'{"tampered": true}\n')
+
+    with pytest.raises(ReviewQueueError, match="changed after publication"):
+        read_review_queue_generation(queue_path)
+
+
+def test_generation_reader_rejects_a_member_path_outside_the_manifest(
+    tmp_path: Path,
+) -> None:
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    manifest_path = review_queue_generation_manifest_path(queue_path)
+    manifest = json.loads(manifest_path.read_bytes())
+    manifest["members"]["v2"]["path"] = "../elsewhere/queue-v2.jsonl"
+    manifest_path.write_bytes(json.dumps(manifest, sort_keys=True).encode())
+
+    with pytest.raises(ReviewQueueError, match="escapes the manifest"):
+        read_review_queue_generation(queue_path)
+
+
+def test_generation_reader_rejects_a_member_reached_through_a_symlink(
+    tmp_path: Path,
+) -> None:
+    """A member that leaves the manifest's directory is rejected, not read.
+
+    Digest and byte-count agreement is not containment: an escaping member can
+    carry exactly the recorded bytes.  Rejecting only a literal ``..`` would
+    miss this, because the escape happens when the name is opened rather than
+    when it is spelled.
+    """
+
+    queue_directory = tmp_path / "queue"
+    queue_directory.mkdir()
+    queue_path = queue_directory / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    generation = read_review_queue_generation(queue_path)
+
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    foreign_member = outside / "queue-v2.jsonl"
+    foreign_member.write_bytes(generation.v2_bytes)
+    generation.v2_path.unlink()
+    generation.v2_path.symlink_to(foreign_member)
+
+    with pytest.raises(ReviewQueueError, match="escapes the manifest"):
+        read_review_queue_generation(queue_path)
+
+
+def test_generation_reader_rejects_an_unknown_manifest_schema(
+    tmp_path: Path,
+) -> None:
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    manifest_path = review_queue_generation_manifest_path(queue_path)
+    manifest = json.loads(manifest_path.read_bytes())
+    manifest["schema_version"] = "legalforecast.unitization_review_queue_generation.v2"
+    manifest_path.write_bytes(json.dumps(manifest, sort_keys=True).encode())
+
+    with pytest.raises(ReviewQueueError, match="manifest schema differs"):
+        read_review_queue_generation(queue_path)
+
+
+def test_generation_reader_rejects_a_manifest_that_names_a_foreign_pair(
+    tmp_path: Path,
+) -> None:
+    """A rewritten generation_id cannot relabel bytes it does not address."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    manifest_path = review_queue_generation_manifest_path(queue_path)
+    manifest = json.loads(manifest_path.read_bytes())
+    manifest["generation_id"] = "f" * 64
+    manifest_path.write_bytes(json.dumps(manifest, sort_keys=True).encode())
+
+    with pytest.raises(ReviewQueueError, match="does not bind its own member bytes"):
+        read_review_queue_generation(queue_path)

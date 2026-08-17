@@ -104,6 +104,32 @@ _RANKED_RESERVE_BUDGET_FIELDS = frozenset(
 )
 
 
+def _same_declared_path(left: Path, right: Path) -> bool:
+    """Compare two declared paths through one symlink-resolving normal form.
+
+    This module deliberately runs two path regimes and they must not be
+    collapsed into one call:
+
+    * **Recorded and read paths keep their ``Path.absolute()`` form.**  Run
+      cards record absolute path strings, and :func:`read_unique_regular_file`
+      opens every component with ``O_NOFOLLOW``.  Pre-resolving a path before
+      handing it to that reader would strip out exactly the symlink components
+      the no-follow walk exists to reject, so a read path is never resolved.
+    * **Comparisons resolve.**  A stage invoked through a symlinked root
+      produces a card whose recorded string is fully resolved, so comparing it
+      against an unresolved caller-supplied path with raw ``Path`` equality
+      rejects a pair that names the same file.  That failure is fail-closed
+      rather than unsafe, but it is still spurious, so every path *equality*
+      question in this module goes through this function.
+
+    Bytes are authenticated by SHA-256 against the card commitment
+    independently of the path form, so resolving for comparison cannot admit
+    different content under an equivalent name.
+    """
+
+    return left.resolve() == right.resolve()
+
+
 @dataclass(frozen=True, slots=True)
 class _ResolvedTransitionAuthority:
     ledger_path: Path
@@ -196,7 +222,7 @@ def _read_resolved_transition(
         if (
             set(commitment) != {"path", "sha256"}
             or not isinstance(raw_path, str)
-            or Path(raw_path).absolute() != input_path
+            or not _same_declared_path(Path(raw_path), input_path)
             or not isinstance(raw_digest, str)
             or re.fullmatch(r"sha256:[0-9a-f]{64}", raw_digest) is None
         ):
@@ -212,7 +238,7 @@ def _read_resolved_transition(
         # The ledger is the mutable output of each ordered resolver card. Its
         # semantic before/after state hashes are authenticated below; older cards
         # cannot be rebound to the later on-disk SQLite bytes.
-        if input_path == ledger:
+        if _same_declared_path(input_path, ledger):
             continue
         payload = read_unique_regular_file(input_path)
         if "sha256:" + _sha256(payload) != raw_digest:
@@ -233,9 +259,13 @@ def _read_resolved_transition(
         or re.fullmatch(r"sha256:[0-9a-f]{64}", raw_resolved_sha256) is None
         or not isinstance(cast(Sequence[object], raw_outputs)[0], str)
         or not isinstance(cast(Sequence[object], raw_outputs)[1], str)
-        or Path(cast(str, cast(Sequence[object], raw_outputs)[0])).absolute()
-        != Path(raw_resolved_path).absolute()
-        or Path(cast(str, cast(Sequence[object], raw_outputs)[1])).absolute() != ledger
+        or not _same_declared_path(
+            Path(cast(str, cast(Sequence[object], raw_outputs)[0])),
+            Path(raw_resolved_path),
+        )
+        or not _same_declared_path(
+            Path(cast(str, cast(Sequence[object], raw_outputs)[1])), ledger
+        )
     ):
         raise ReplacementPurchaseApprovalError(
             "resolved material transition output projection is invalid"
@@ -314,6 +344,12 @@ def _resolved_transition_capability_boundary() -> tuple[
             raise ReplacementPurchaseApprovalError(
                 "resolved transition requires at least one resolver run card"
             )
+        # The ledger and receipt are resolved because the purchase policy's
+        # `canonical_ledger_path` is itself required to be an absolute
+        # *resolved* path, so anything else can never match it.  The private
+        # root stays in its declared absolute form: it is a containment
+        # boundary checked against declared artifact paths, and resolving it
+        # here would silently accept a root reached through a symlink.
         ledger_path = purchase_ledger_path.resolve()
         receipt_path = initialization_receipt_path.resolve()
         private_root = controlled_private_root.absolute()

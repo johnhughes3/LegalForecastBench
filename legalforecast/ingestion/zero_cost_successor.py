@@ -216,6 +216,19 @@ def project_zero_cost_successor(
         ranked_result.get("schema_version")
         == POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION
     )
+    # Ordering invariant for the replay-minted capability.
+    #
+    # `_verify_ranked_result` accepts a live purchase state for the terminal
+    # disposition only when this transition is present, so the capability must
+    # already be authenticated when it is handed over: it is derived here from
+    # an exact type check plus `is_replay_minted()`, never from a mapping that
+    # merely looks like one, and it stays `None` for every other input.  The
+    # complementary direction -- a post-purchase v4 result *must* carry a
+    # replay-minted capability whose bytes match, rather than may -- is
+    # enforced immediately after the call below, before any successor state is
+    # derived from `disposition`.  Both halves have to stay on this side of
+    # the successor construction; moving either below it would let an
+    # unauthenticated result reach downstream state first.
     verified_post_purchase_transition: (
         VerifiedRankedReservePostPurchaseReplay | None
     ) = (
