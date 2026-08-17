@@ -6291,10 +6291,10 @@
         ],
         "lane_owner": "labeling",
         "largest_symbol": "ProviderAttemptJournal",
-        "largest_symbol_lines": 1059,
+        "largest_symbol_lines": 1088,
         "layer": "application",
-        "line_count": 1744,
-        "nonblank_line_count": 1589,
+        "line_count": 1773,
+        "nonblank_line_count": 1618,
         "top_level_definition_count": 31
       },
       "legalforecast/labeling/unitizer_terminal.py": {
@@ -8078,12 +8078,12 @@
           "watch"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "_mask_non_rendered",
-        "largest_symbol_lines": 44,
+        "largest_symbol": "_declared_artifact_paths",
+        "largest_symbol_lines": 52,
         "layer": "test",
-        "line_count": 589,
-        "nonblank_line_count": 464,
-        "top_level_definition_count": 35
+        "line_count": 769,
+        "nonblank_line_count": 621,
+        "top_level_definition_count": 40
       },
       "tests/test_community_publication.py": {
         "cycle_id": "",
@@ -9742,9 +9742,9 @@
         "largest_symbol": "test_journal_terminalizes_invalid_reconstruction_without_losing_accounting",
         "largest_symbol_lines": 57,
         "layer": "test",
-        "line_count": 1733,
-        "nonblank_line_count": 1517,
-        "top_level_definition_count": 54
+        "line_count": 1788,
+        "nonblank_line_count": 1565,
+        "top_level_definition_count": 55
       },
       "tests/test_provider_spend_attempt_handler.py": {
         "cycle_id": "",

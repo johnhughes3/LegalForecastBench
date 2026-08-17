@@ -536,6 +536,7 @@ class ProviderAttemptJournal:
         self.reservation_usd = reservation_usd
         self.cycle_cap_usd = cycle_cap_usd
         self._durable_ordinals: dict[int, int] = {}
+        self._attempt_limit: int | None = None
         self._connection = sqlite3.connect(self.path, isolation_level=None)
         try:
             self._connection.row_factory = sqlite3.Row
@@ -625,6 +626,11 @@ class ProviderAttemptJournal:
 
         if type(max_attempts) is not int or max_attempts <= 0:
             raise ValueError("max_attempts must be a positive integer")
+        if self._attempt_limit not in {None, max_attempts}:
+            raise ProviderJournalError(
+                "provider reconstruction retry attempt limit changed"
+            )
+        self._attempt_limit = max_attempts
         rows = self._connection.execute(
             """
             SELECT attempt_ordinal, status, failure_type FROM provider_attempts
@@ -1462,6 +1468,29 @@ class ProviderAttemptJournal:
             if settled is not None:
                 raise ProviderJournalError(
                     "provider call already has an authoritative settled response"
+                )
+            attempts = self._connection.execute(
+                """
+                SELECT COUNT(*) AS count,
+                       COALESCE(MAX(attempt_ordinal), 0) AS maximum_ordinal
+                FROM provider_attempts
+                WHERE logical_call_key = ?
+                """,
+                (self.identity.logical_call_key,),
+            ).fetchone()
+            assert attempts is not None
+            attempt_count = int(attempts["count"])
+            maximum_ordinal = int(attempts["maximum_ordinal"])
+            if self._attempt_limit is not None and (
+                attempt_count >= self._attempt_limit
+                or attempt_ordinal > self._attempt_limit
+            ):
+                raise ProviderJournalError(
+                    "provider reconstruction retry attempt limit is exhausted"
+                )
+            if attempt_ordinal != maximum_ordinal + 1:
+                raise ProviderJournalError(
+                    "provider attempt ordinal changed during reservation"
                 )
             row = self._connection.execute(
                 """

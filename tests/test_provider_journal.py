@@ -1418,6 +1418,61 @@ def test_existing_durable_attempt_limits_fresh_retry_ordinals(
     assert [row[1] for row in rows[1:]] == ["ambiguous", "ambiguous"]
 
 
+def test_concurrent_retry_plans_cannot_reserve_fourth_ordinal(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        with pytest.raises(LiveModelProviderError):
+            journal.run_attempt(
+                1,
+                lambda: _raise_provider_error(
+                    LiveModelProviderError("invalid request", status_code=400)
+                ),
+            )
+
+    with _journal(path) as first, _journal(path) as second:
+        assert first.prepare_reconstruction_retry(max_attempts=3) == 2
+        assert second.prepare_reconstruction_retry(max_attempts=3) == 2
+        with pytest.raises(LiveModelProviderError, match="first timeout"):
+            first.run_attempt(
+                1,
+                lambda: _raise_provider_error(
+                    LiveModelProviderError("first timeout", retryable=True)
+                ),
+            )
+        assert first.durable_attempt_ordinal(1) == 2
+        with pytest.raises(LiveModelProviderError, match="second timeout"):
+            second.run_attempt(
+                1,
+                lambda: _raise_provider_error(
+                    LiveModelProviderError("second timeout", retryable=True)
+                ),
+            )
+        assert second.durable_attempt_ordinal(1) == 3
+
+        provider_called = False
+
+        def forbidden_fourth_call() -> dict[str, object]:
+            nonlocal provider_called
+            provider_called = True
+            return {"request_id": "forbidden-fourth-call"}
+
+        with pytest.raises(
+            ProviderJournalError,
+            match="reconstruction retry attempt limit is exhausted",
+        ):
+            first.run_attempt(2, forbidden_fourth_call)
+
+    assert provider_called is False
+    with sqlite3.connect(path) as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [(1, "failed"), (2, "ambiguous"), (3, "ambiguous")]
+
+
 def test_settle_attempt_rejects_missing_row_and_allows_settled_replay(
     tmp_path: Path,
 ) -> None:
