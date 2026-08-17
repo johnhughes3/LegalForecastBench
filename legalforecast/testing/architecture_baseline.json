@@ -3730,7 +3730,7 @@
       "legalforecast/reporting": 9,
       "legalforecast/selection": 8,
       "legalforecast/testing": 4,
-      "legalforecast/testing/architecture_rules": 7,
+      "legalforecast/testing/architecture_rules": 8,
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,

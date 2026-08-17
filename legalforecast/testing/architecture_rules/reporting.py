@@ -1,4 +1,12 @@
-"""CLI reporting and ranked work-queue presentation."""
+"""CLI reporting and ranked work-queue presentation.
+
+This module is a runnable entrypoint.  Regenerate the reviewed baseline with::
+
+    uv run python -m legalforecast.testing.architecture_rules --write-baseline
+
+``python -m legalforecast.testing.architecture_rules.reporting`` and
+``python -m legalforecast.testing.architecture`` accept the same arguments.
+"""
 
 from __future__ import annotations
 
@@ -104,3 +112,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         reported_baseline = baseline
     print(f"architecture ratchet passed: {reported_baseline}")
     return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
