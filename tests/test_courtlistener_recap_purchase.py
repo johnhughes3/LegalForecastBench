@@ -28,6 +28,7 @@ from legalforecast.ingestion.courtlistener_recap_purchase import (
     ConfirmationProvenanceError,
     build_paid_recap,
     confirmation_provenance_root,
+    reconcile_purchase,
     write_confirmation_provenance_sidecars,
 )
 from tests.purchase_approval_fixtures import allow_historical_v1_algorithm_fixtures
@@ -281,3 +282,60 @@ def test_sidecar_filename_matches_authoritative_digest_for_non_ascii(
             ).encode("utf-8")
         ).hexdigest()
     )
+
+
+@pytest.mark.parametrize("queued", [False, True])
+def test_reconciled_row_without_queue_lag_evidence_is_ineligible(
+    tmp_path: Path,
+    queued: bool,
+) -> None:
+    """Billing reconciliation of a row that never confirmed from queue lag.
+
+    ``CaseDevPurchaseJournal.reconcile`` preserves the sparse prior response, so a
+    submitted row gains no ``queue_id`` and a queued row gains no
+    ``post_delivery_restrictions``.  Such a row carries no queue-lag confirmation
+    evidence to observe; treating it as malformed would fail the supported
+    ``acquisition reconcile-purchase`` flow after the ledger already committed.
+    """
+
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    evidence: dict[str, object] = {
+        "source_document_id": "123",
+        "disposition": "confirmed",
+        "source_type": "billing_receipt",
+        "source_reference": "statement-2026-08-17",
+        "pacer_fees": {"pacerFee": "1.20", "serviceFee": "0.00", "total": "1.20"},
+        "download_url": "https://storage.courtlistener.com/123.pdf",
+    }
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        assert (
+            journal.submit(
+                "123",
+                context={
+                    "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+                    "reservation_usd": "3.05",
+                },
+            )
+            is True
+        )
+        if queued:
+            journal.queue(
+                "123",
+                response={
+                    "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
+                    "queue_id": "77",
+                },
+            )
+
+        assert reconcile_purchase(journal, evidence) == ()
+
+        operation = journal.operation_records()[0]
+        assert operation["status"] == "confirmed"
+        response = operation["response"]
+        assert isinstance(response, Mapping)
+        assert response["source_provider"] == COURTLISTENER_RECAP_FETCH_PROVIDER
+
+    assert not confirmation_provenance_root(ledger).exists()

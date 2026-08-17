@@ -140,6 +140,14 @@ def _confirmation_record(
         raise ConfirmationProvenanceError(
             "confirmation provenance must remain outside response_json"
         )
+    if "queue_id" not in response or "post_delivery_restrictions" not in response:
+        # Billing reconciliation can confirm a submitted or queued row that never
+        # carried queue-lag confirmation evidence: a submitted response has no
+        # queue identity and a queued response has no provider document.  Such a
+        # row is ineligible for a confirmation observation, not malformed, so the
+        # supported reconciliation flow must not fail after it has already
+        # committed.  Present-but-malformed evidence still fails closed below.
+        return None
     source_document_id = _positive_decimal(operation.get("source_document_id"))
     candidate_id = _required_text(operation.get("candidate_id"), "candidate_id")
     queue_id = _positive_decimal(response.get("queue_id"))
