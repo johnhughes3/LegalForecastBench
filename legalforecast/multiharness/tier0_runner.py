@@ -140,6 +140,10 @@ TIER0_SPEND_APPROVAL_SCHEMA_VERSION = (
     # contract-ratchet: allow non-authoritative Tier-0 sidecar
     "legalforecast.multiharness.tier0_detached_spend_approval.v2"
 )
+TIER0_APPROVAL_AUTHORITY_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative Tier-0 approval sidecar
+    "legalforecast.multiharness.tier0_approval_authority.v1"
+)
 TIER0_ARCHIVE_MANIFEST_SCHEMA_VERSION = (
     # contract-ratchet: allow non-authoritative Tier-0 sidecar
     "legalforecast.multiharness.tier0_archive_manifest.v1"
@@ -151,12 +155,24 @@ _ALLOWED_COMMAND_TOKENS = frozenset(
     {"{sandbox_root}", "{output_root}", "{max_cost_usd}"}
 )
 _DIGEST_PREFIX = "sha256:"
-_DEFAULT_ISSUER_CONFIG = (
+_DEFAULT_EVALUATOR_ISSUER_CONFIG = (
     Path(__file__).resolve().parents[2]
     / "examples"
     / "adapters"
     / "harvey-lab"
     / "evaluator-issuer-authority.json"
+)
+_DEFAULT_APPROVAL_AUTHORITY_CONFIG = (
+    Path(__file__).resolve().parents[2]
+    / "examples"
+    / "adapters"
+    / "harvey-lab"
+    / "tier0-approval-authority.json"
+)
+TIER0_APPROVAL_ISSUER_ID = "legalforecast.tier0-spend-approval-issuer.v1"
+TIER0_APPROVAL_ISSUER_KEY_ID = "tier0-spend-approver-v1"
+TIER0_APPROVAL_ISSUER_POLICY_SCHEMA_VERSION = (
+    "legalforecast.tier0_spend_approval_issuer_policy.v1"
 )
 _HARVEY_LAB_JUDGE_CRITERION_COUNT = 23
 
@@ -176,6 +192,157 @@ class IssuerAuthority(Protocol):
     def sign(self, payload: bytes) -> bytes:
         """Sign receipt bytes using an external, approved authority."""
         ...
+
+
+class ApprovalAuthority(Protocol):
+    """Public-only authority that verifies a detached spend approval."""
+
+    @property
+    def issuer_id(self) -> str:
+        """Return the human approval issuer identity."""
+        ...
+
+    @property
+    def key_id(self) -> str:
+        """Return the human approval key identity."""
+        ...
+
+    @property
+    def issuer_policy_sha256(self) -> str:
+        """Return the approved human-approval policy digest."""
+        ...
+
+    @property
+    def public_key(self) -> Ed25519PublicKey:
+        """Return the public key for the human approval issuer."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class Tier0ApprovalAuthority:
+    """Committed public-only identity for detached Tier-0 approvals."""
+
+    issuer_id: str
+    key_id: str
+    issuer_policy_sha256: str
+    public_key_base64: str | None
+    algorithm: str = "Ed25519"
+    status: str = "configured"
+
+    def __post_init__(self) -> None:
+        _require_text(self.issuer_id, "Tier-0 approval issuer_id")
+        _require_text(self.key_id, "Tier-0 approval key_id")
+        if self.issuer_id != TIER0_APPROVAL_ISSUER_ID:
+            raise Tier0RunnerError("Tier-0 approval issuer_id is not approved")
+        if self.key_id != TIER0_APPROVAL_ISSUER_KEY_ID:
+            raise Tier0RunnerError("Tier-0 approval key_id is not approved")
+        if self.algorithm != "Ed25519":
+            raise Tier0RunnerError("Tier-0 approval authority must use Ed25519")
+        if _digest(self.issuer_policy_sha256, "Tier-0 approval issuer policy") != (
+            tier0_approval_issuer_policy_sha256()
+        ):
+            raise Tier0RunnerError(
+                "Tier-0 approval authority policy is not the committed policy"
+            )
+        if self.status not in {"configured", "pending_human_provisioning"}:
+            raise Tier0RunnerError("Tier-0 approval authority status is not recognized")
+        if self.public_key_base64 is not None:
+            _decode_public_key(self.public_key_base64)
+        if self.status == "configured" and self.public_key_base64 is None:
+            raise Tier0RunnerError(
+                "configured Tier-0 approval authority needs a public key"
+            )
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, object]) -> Tier0ApprovalAuthority:
+        _closed_record(
+            record,
+            required={
+                "schema_version",
+                "issuer_id",
+                "key_id",
+                "algorithm",
+                "issuer_policy_sha256",
+                "public_key_base64",
+                "status",
+            },
+            optional=set(),
+            field_name="Tier-0 approval authority",
+        )
+        if _text(record, "schema_version") != TIER0_APPROVAL_AUTHORITY_SCHEMA_VERSION:
+            raise Tier0RunnerError("unsupported Tier-0 approval authority schema")
+        public_key = record.get("public_key_base64")
+        if public_key is not None and not isinstance(public_key, str):
+            raise Tier0RunnerError(
+                "Tier-0 approval authority public_key_base64 must be a string or null"
+            )
+        return cls(
+            issuer_id=_text(record, "issuer_id"),
+            key_id=_text(record, "key_id"),
+            algorithm=_text(record, "algorithm"),
+            issuer_policy_sha256=_text(record, "issuer_policy_sha256"),
+            public_key_base64=public_key,
+            status=_text(record, "status"),
+        )
+
+    @classmethod
+    def from_json_file(cls, path: Path) -> Tier0ApprovalAuthority:
+        try:
+            record = read_json_object(
+                path,
+                error_factory=Tier0RunnerError,
+                missing_message=lambda item: (
+                    f"Tier-0 approval authority does not exist: {item.name}"
+                ),
+                non_object_message=lambda item: (
+                    f"Tier-0 approval authority must be an object: {item.name}"
+                ),
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise Tier0RunnerError(
+                "Tier-0 approval authority must be valid JSON"
+            ) from exc
+        return cls.from_record(record)
+
+    @property
+    def public_key(self) -> Ed25519PublicKey:
+        if self.public_key_base64 is None:
+            raise Tier0RunnerError(
+                "Tier-0 approval authority public key is pending human provisioning"
+            )
+        return Ed25519PublicKey.from_public_bytes(
+            _decode_public_key(self.public_key_base64)
+        )
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "schema_version": TIER0_APPROVAL_AUTHORITY_SCHEMA_VERSION,
+            "issuer_id": self.issuer_id,
+            "key_id": self.key_id,
+            "algorithm": self.algorithm,
+            "issuer_policy_sha256": self.issuer_policy_sha256,
+            "public_key_base64": self.public_key_base64,
+            "status": self.status,
+        }
+
+
+def tier0_approval_issuer_policy() -> dict[str, object]:
+    """Return the human-only detached-spend approval policy."""
+
+    return {
+        "schema_version": TIER0_APPROVAL_ISSUER_POLICY_SCHEMA_VERSION,
+        "issuer_id": TIER0_APPROVAL_ISSUER_ID,
+        "algorithm": "Ed25519",
+        "key_id": TIER0_APPROVAL_ISSUER_KEY_ID,
+        "purpose": "tier0-detached-spend-approval-only",
+        "signing_authority": "designated-human-approver",
+    }
+
+
+def tier0_approval_issuer_policy_sha256() -> str:
+    """Return the canonical digest of the human-only approval policy."""
+
+    return _hash_bytes(_canonical_record_bytes(tier0_approval_issuer_policy()))
 
 
 @dataclass(frozen=True, slots=True)
@@ -606,7 +773,7 @@ def load_detached_approval(
     path: Path,
     *,
     spec_sha256: str,
-    authority: IssuerAuthority | None = None,
+    authority: ApprovalAuthority | None = None,
 ) -> Tier0SpendApproval:
     """Load and authenticate an approval against one trusted issuer identity."""
 
@@ -694,7 +861,7 @@ def load_spend_artifacts(
 def load_approved_issuer_authority(
     *,
     secret_loader: Callable[[str, str, str], str | bytes] | None = None,
-    config_path: Path = _DEFAULT_ISSUER_CONFIG,
+    config_path: Path = _DEFAULT_EVALUATOR_ISSUER_CONFIG,
 ) -> IssuerAuthority:
     """Load public issuer config and attach only an injected secret wrapper.
 
@@ -721,11 +888,31 @@ def load_approved_issuer_authority(
         ) from exc
 
 
+def load_approved_tier0_approval_authority(
+    *, config_path: Path = _DEFAULT_APPROVAL_AUTHORITY_CONFIG
+) -> ApprovalAuthority:
+    """Load the public-only authority for human detached spend approvals."""
+
+    try:
+        authority = Tier0ApprovalAuthority.from_json_file(config_path)
+        if authority.status != "configured":
+            raise Tier0RunnerError(
+                "Tier-0 approval authority is pending human provisioning"
+            )
+        # Refuse malformed or pending public config before any execution setup.
+        _ = authority.public_key
+        return authority
+    except Tier0RunnerError:
+        raise
+    except OSError as exc:
+        raise Tier0RunnerError("Tier-0 approval authority is unavailable") from exc
+
+
 def _verify_detached_approval(
     approval: Tier0SpendApproval,
     *,
     spec_sha256: str,
-    authority: IssuerAuthority,
+    authority: ApprovalAuthority,
 ) -> None:
     """Verify approval bytes against the authority's committed public identity."""
 
@@ -754,6 +941,36 @@ def _verify_detached_approval(
         ) from exc
 
 
+def _require_authority_separation(
+    approval_authority: ApprovalAuthority,
+    evaluator_authority: IssuerAuthority,
+) -> None:
+    """Require independent identities for human approval and receipt signing."""
+
+    approval_identity = (
+        getattr(approval_authority, "issuer_id", None),
+        getattr(approval_authority, "key_id", None),
+        getattr(approval_authority, "issuer_policy_sha256", None),
+    )
+    evaluator_identity = (
+        getattr(evaluator_authority, "issuer_id", None),
+        getattr(evaluator_authority, "key_id", None),
+        getattr(evaluator_authority, "issuer_policy_sha256", None),
+    )
+    if any(not isinstance(value, str) or not value for value in approval_identity):
+        raise Tier0RunnerError("Tier-0 approval authority identity is incomplete")
+    if any(not isinstance(value, str) or not value for value in evaluator_identity):
+        raise Tier0RunnerError("evaluator issuer authority identity is incomplete")
+    if approval_identity[0] == evaluator_identity[0]:
+        raise Tier0RunnerError("approval and evaluator issuer IDs must be distinct")
+    if approval_identity[1] == evaluator_identity[1]:
+        raise Tier0RunnerError("approval and evaluator key IDs must be distinct")
+    if approval_identity[2] == evaluator_identity[2]:
+        raise Tier0RunnerError(
+            "approval and evaluator issuer policies must be distinct"
+        )
+
+
 def run_tier0(
     *,
     spec: Tier0ExecutableSpec,
@@ -762,7 +979,8 @@ def run_tier0(
     source_root: Path,
     private_root: Path,
     archive_root: Path,
-    authority: IssuerAuthority,
+    approval_authority: ApprovalAuthority,
+    evaluator_authority: IssuerAuthority,
     parent_env: Mapping[str, str] | None = None,
     spend_policy: SpendPolicy | None = None,
     pricing_snapshot: PricingSnapshot | None = None,
@@ -789,9 +1007,16 @@ def run_tier0(
         raise Tier0RunnerError("detached approval does not bind this executable spec")
     if approval.status not in {"approved", "provider_free"}:
         raise Tier0RunnerError("detached approval is not executable")
-    if not callable(getattr(authority, "sign", None)):
+    if callable(getattr(approval_authority, "sign", None)):
+        raise Tier0RunnerError(
+            "Tier-0 approval authority must be public-only and cannot sign"
+        )
+    if not callable(getattr(evaluator_authority, "sign", None)):
         raise Tier0RunnerError("approved external issuer authority is required")
-    _verify_detached_approval(approval, spec_sha256=spec_sha256, authority=authority)
+    _require_authority_separation(approval_authority, evaluator_authority)
+    _verify_detached_approval(
+        approval, spec_sha256=spec_sha256, authority=approval_authority
+    )
     if spec.pricing_snapshot_sha256 is not None:
         if spend_policy is None or pricing_snapshot is None:
             raise Tier0RunnerError(
@@ -833,7 +1058,7 @@ def run_tier0(
         for arm in spec.arms:
             _judge_ceilings_for(controller.policy, arm.arm_id)
     try:
-        authority_public_key = authority.public_key
+        authority_public_key = evaluator_authority.public_key
     except Exception as exc:
         raise Tier0RunnerError(
             "approved evaluator issuer public key is unavailable"
@@ -996,7 +1221,7 @@ def run_tier0(
                     quarantine_root=paths["quarantine"],
                     overlay_root=paths["overlay"],
                     evaluator_working_directory=paths["evaluator_work"],
-                    signer=authority.sign,
+                    signer=evaluator_authority.sign,
                     issuer_public_key=authority_public_key,
                     pin=spec.source_pin,
                     model=arm.requested_model,
@@ -1047,7 +1272,7 @@ def run_tier0(
                     source_root=source_root,
                     paths=paths,
                     service=service,
-                    authority=authority,
+                    authority=evaluator_authority,
                     max_cost_usd=(None if ceiling is None else ceiling.max_cost_usd),
                     budget_argument_name=(
                         None
@@ -1089,7 +1314,8 @@ def run_tier0(
             terminal_error=str(exc),
             partial_metadata=partial_metadata,
             partial_capabilities=partial_capabilities,
-            authority_record=_authority_record(authority),
+            authority_record=_authority_record(evaluator_authority),
+            approval_authority_record=_authority_record(approval_authority),
         )
         raise Tier0RunnerError(str(exc)) from exc
     matched = _identities_match(results, spec)
@@ -1104,7 +1330,8 @@ def run_tier0(
         spend_controller=controller,
         partial_metadata=partial_metadata,
         partial_capabilities=partial_capabilities,
-        authority_record=_authority_record(authority),
+        authority_record=_authority_record(evaluator_authority),
+        approval_authority_record=_authority_record(approval_authority),
     )
     return Tier0RunResult(
         spec_sha256=spec_sha256,
@@ -1485,7 +1712,9 @@ def _start_run_metadata(
     )
 
 
-def _authority_record(authority: IssuerAuthority) -> Mapping[str, object]:
+def _authority_record(
+    authority: IssuerAuthority | ApprovalAuthority,
+) -> Mapping[str, object]:
     record = getattr(authority, "to_record", None)
     if callable(record):
         value = record()
@@ -2005,6 +2234,7 @@ def _write_archive(
     partial_metadata: Mapping[str, PrivateRunMetadata] | None = None,
     partial_capabilities: Mapping[str, object] | None = None,
     authority_record: Mapping[str, object] | None = None,
+    approval_authority_record: Mapping[str, object] | None = None,
 ) -> Path:
     private = archive_root / "private"
     public = archive_root / "public"
@@ -2091,7 +2321,11 @@ def _write_archive(
         },
     )
     if authority_record is not None:
-        write_json_object(private / "issuer-authority.json", authority_record)
+        write_json_object(private / "evaluator-issuer-authority.json", authority_record)
+    if approval_authority_record is not None:
+        write_json_object(
+            private / "tier0-approval-authority.json", approval_authority_record
+        )
     if spend_controller is not None:
         write_json_object(
             private / "spend-controller.json", spend_controller.archive_record()
@@ -2267,6 +2501,20 @@ def _decode_signature(value: str) -> bytes:
         raise Tier0RunnerError("detached approval signature is not base64") from exc
     if len(decoded) != 64 or base64.b64encode(decoded).decode("ascii") != value:
         raise Tier0RunnerError("detached approval signature is not canonical Ed25519")
+    return decoded
+
+
+def _decode_public_key(value: str) -> bytes:
+    try:
+        decoded = base64.b64decode(value.encode("ascii"), validate=True)
+    except (UnicodeEncodeError, ValueError) as exc:
+        raise Tier0RunnerError(
+            "Tier-0 approval authority public key is not base64"
+        ) from exc
+    if len(decoded) != 32 or base64.b64encode(decoded).decode("ascii") != value:
+        raise Tier0RunnerError(
+            "Tier-0 approval authority public key is not canonical Ed25519"
+        )
     return decoded
 
 

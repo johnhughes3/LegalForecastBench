@@ -6874,11 +6874,11 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_tier0",
-        "largest_symbol_lines": 359,
+        "largest_symbol_lines": 369,
         "layer": "application",
-        "line_count": 2332,
-        "nonblank_line_count": 2160,
-        "top_level_definition_count": 55
+        "line_count": 2580,
+        "nonblank_line_count": 2380,
+        "top_level_definition_count": 62
       },
       "legalforecast/protocol/freeze.py": {
         "cycle_id": "",
@@ -9356,11 +9356,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_cli_full_paired_tier0_fake_binary_run",
-        "largest_symbol_lines": 68,
+        "largest_symbol_lines": 90,
         "layer": "test",
-        "line_count": 556,
-        "nonblank_line_count": 499,
-        "top_level_definition_count": 22
+        "line_count": 667,
+        "nonblank_line_count": 599,
+        "top_level_definition_count": 26
       },
       "tests/test_official_aggregate.py": {
         "cycle_id": "",

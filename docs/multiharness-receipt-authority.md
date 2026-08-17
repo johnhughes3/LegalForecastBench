@@ -4,6 +4,8 @@ The frozen evaluation receipt schema already carries the issuer policy hash, iss
 
 The committed public configuration is [examples/adapters/harvey-lab/evaluator-issuer-authority.json](../examples/adapters/harvey-lab/evaluator-issuer-authority.json). Its `public_key_base64` is deliberately `null` until the designated human provisions and reviews the production key. Loading this configuration therefore fails closed; no local or test key is treated as production authority.
 
+Tier-0 detached spend approvals use a separate public-only authority. The committed handoff is [examples/adapters/harvey-lab/tier0-approval-authority.json](../examples/adapters/harvey-lab/tier0-approval-authority.json), with schema `legalforecast.multiharness.tier0_approval_authority.v1`, issuer ID `legalforecast.tier0-spend-approval-issuer.v1`, key ID `tier0-spend-approver-v1`, and policy digest `sha256:29c9fa3cd4f1788f6089d74d02676dc68187d513c709be2f3c27ddfdd92c7fe4`. Its `public_key_base64` must remain `null` until designated human review and provisioning complete; the committed status is `pending_human_provisioning`. This file contains no private key and no Infisical path. The approval authority is human-only and distinct from the evaluator receipt signer, which is the only authority allowed to sign evaluator receipts.
+
 ## Provisioning handoff
 
 The designated operator should provision one secret only after approving the exact issuer policy and public-key bytes:
