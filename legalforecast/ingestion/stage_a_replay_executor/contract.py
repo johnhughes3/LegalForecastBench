@@ -12,6 +12,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.config.registry import repository_root
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
@@ -192,7 +193,15 @@ def verify_authorization_signature(
 
     try:
         configured = subprocess.run(
-            ["git", "config", "--path", "--get", "gpg.ssh.allowedSignersFile"],
+            [
+                "git",
+                "config",
+                "--local",
+                "--path",
+                "--get",
+                "gpg.ssh.allowedSignersFile",
+            ],
+            cwd=repository_root(),
             check=True,
             capture_output=True,
             text=True,

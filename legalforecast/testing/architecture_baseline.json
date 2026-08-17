@@ -3871,7 +3871,7 @@
         "cycle_id": "",
         "disposition_kind": "below-watch",
         "disposition_owner": "config",
-        "fan_in": 4,
+        "fan_in": 5,
         "fan_out": 4,
         "flags": [
           "relative-path"
@@ -7670,6 +7670,23 @@
         "line_count": 533,
         "nonblank_line_count": 462,
         "top_level_definition_count": 26
+      },
+      "tests/stage_a_replay_executor/test_review_regressions.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_authorization_signer_lookup_uses_runtime_checkout_not_caller_cwd",
+        "largest_symbol_lines": 73,
+        "layer": "test",
+        "line_count": 509,
+        "nonblank_line_count": 449,
+        "top_level_definition_count": 15
       },
       "tests/test_acquisition_cli.py": {
         "cycle_id": "",

@@ -266,9 +266,22 @@ def test_detached_sshsig_verifies_exact_authorization_bytes(
     allowed_signers.write_text(
         "owner@example.invalid " + (tmp_path / "owner-key.pub").read_text()
     )
-    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
-    monkeypatch.setenv("GIT_CONFIG_KEY_0", "gpg.ssh.allowedSignersFile")
-    monkeypatch.setenv("GIT_CONFIG_VALUE_0", str(allowed_signers))
+    trusted_checkout = tmp_path / "trusted-checkout"
+    trusted_checkout.mkdir()
+    subprocess.run(["git", "init", "-q", str(trusted_checkout)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(trusted_checkout),
+            "config",
+            "--local",
+            "gpg.ssh.allowedSignersFile",
+            str(allowed_signers),
+        ],
+        check=True,
+    )
+    monkeypatch.setattr(contract_module, "repository_root", lambda: trusted_checkout)
     signature = Path(f"{artifact}.sig")
 
     verify_authorization_signature(
@@ -284,6 +297,81 @@ def test_detached_sshsig_verifies_exact_authorization_bytes(
             signer_principal="owner@example.invalid",
             namespace=AUTHORIZATION_SIGNATURE_NAMESPACE,
         )
+
+
+def test_authorization_signer_lookup_uses_runtime_checkout_not_caller_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trusted_checkout = tmp_path / "trusted-checkout"
+    caller_checkout = tmp_path / "caller-checkout"
+    trusted_checkout.mkdir()
+    caller_checkout.mkdir()
+    subprocess.run(["git", "init", "-q", str(trusted_checkout)], check=True)
+    subprocess.run(["git", "init", "-q", str(caller_checkout)], check=True)
+
+    owner_key = tmp_path / "owner-key"
+    attacker_key = tmp_path / "attacker-key"
+    for key in (owner_key, attacker_key):
+        subprocess.run(
+            ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)],
+            check=True,
+        )
+
+    trusted_signers = tmp_path / "trusted-signers"
+    trusted_signers.write_text(
+        "owner@example.invalid " + owner_key.with_suffix(".pub").read_text()
+    )
+    caller_signers = tmp_path / "caller-signers"
+    caller_signers.write_text(
+        "owner@example.invalid " + attacker_key.with_suffix(".pub").read_text()
+    )
+    for checkout, signers in (
+        (trusted_checkout, trusted_signers),
+        (caller_checkout, caller_signers),
+    ):
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(checkout),
+                "config",
+                "--local",
+                "gpg.ssh.allowedSignersFile",
+                str(signers),
+            ],
+            check=True,
+        )
+
+    artifact = tmp_path / "authorization.json"
+    artifact.write_bytes(b'{"authorized":true}\n')
+    subprocess.run(
+        [
+            "ssh-keygen",
+            "-Y",
+            "sign",
+            "-f",
+            str(owner_key),
+            "-n",
+            AUTHORIZATION_SIGNATURE_NAMESPACE,
+            str(artifact),
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    monkeypatch.chdir(caller_checkout)
+    monkeypatch.setattr(
+        contract_module,
+        "repository_root",
+        lambda: trusted_checkout,
+        raising=False,
+    )
+    verify_authorization_signature(
+        artifact.read_bytes(),
+        signature_path=Path(f"{artifact}.sig"),
+        signer_principal="owner@example.invalid",
+        namespace=AUTHORIZATION_SIGNATURE_NAMESPACE,
+    )
 
 
 def test_plan_publication_is_an_exclusive_provider_access_claim(
