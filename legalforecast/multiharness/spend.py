@@ -693,6 +693,20 @@ class SpendPolicy:
             "judge_ceilings": [item.to_record() for item in self.judge_ceilings],
         }
 
+    @property
+    def policy_sha256(self) -> str:
+        """Canonical digest of every ceiling this policy actually enforces.
+
+        The detached approval only binds the executable spec, so the spec must
+        be able to pin this sidecar in turn.  Without that second binding an
+        operator could raise the request and dollar ceilings after approval and
+        still satisfy every remaining identity check.  ``from_record`` rejects
+        unknown and missing fields, so the canonical round trip is exact and
+        this digest is a total function of the sidecar's enforced content.
+        """
+
+        return _record_sha256(self.to_record())
+
 
 @dataclass(frozen=True, slots=True)
 class PaidCall:
@@ -1003,7 +1017,7 @@ class SpendController:
                 reason = observation.unknown_reason or "paid cost is not allocable"
                 self._terminal_reason = reason
                 self._unknown_cost_reason = reason
-                evidence = self._settled(
+                self._settled(
                     call,
                     ceiling,
                     failure_class=failure,

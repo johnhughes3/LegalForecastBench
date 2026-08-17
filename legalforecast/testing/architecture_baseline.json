@@ -6740,8 +6740,8 @@
         "largest_symbol": "SpendController",
         "largest_symbol_lines": 358,
         "layer": "application",
-        "line_count": 1283,
-        "nonblank_line_count": 1146,
+        "line_count": 1297,
+        "nonblank_line_count": 1157,
         "top_level_definition_count": 32
       },
       "legalforecast/multiharness/task_loaders.py": {
@@ -6773,11 +6773,11 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_tier0",
-        "largest_symbol_lines": 327,
+        "largest_symbol_lines": 343,
         "layer": "application",
-        "line_count": 1859,
-        "nonblank_line_count": 1725,
-        "top_level_definition_count": 47
+        "line_count": 1927,
+        "nonblank_line_count": 1782,
+        "top_level_definition_count": 50
       },
       "legalforecast/protocol/freeze.py": {
         "cycle_id": "",

@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
+from legalforecast._json_io import write_json_object
+from legalforecast.multiharness.harvey_lab_authorized_scoring import (
+    harvey_lab_issuer_policy_sha256,
+)
 from legalforecast.multiharness.spend import (
     ExperimentCeiling,
     InvocationBudget,
@@ -21,6 +26,14 @@ from legalforecast.multiharness.spend import (
     SpendSettlementError,
     UsageObservation,
 )
+from legalforecast.multiharness.tier0_runner import (
+    Tier0ArmSpec,
+    Tier0ExecutableSpec,
+    Tier0RunnerError,
+    _terminalize_outstanding,
+    load_spend_artifacts,
+)
+from tests.test_harvey_lab_projection import FIXTURE_PIN
 
 SPEC = "sha256:" + "a" * 64
 
@@ -345,3 +358,123 @@ def _solver_cap_with_mode(mode: str) -> SolverCeiling:
         max_output_tokens=100,
         invocation_budget=InvocationBudget(mode=mode),  # type: ignore[arg-type]
     )
+
+
+def test_policy_digest_changes_when_a_ceiling_is_raised() -> None:
+    approved = _policy(judges=(_judge_cap(),))
+    raised = _policy(solver_cost="9.000000", judges=(_judge_cap(),))
+    assert approved.policy_sha256 != raised.policy_sha256
+    assert approved.policy_sha256 == _policy(judges=(_judge_cap(),)).policy_sha256
+
+
+def test_load_spend_artifacts_accepts_the_policy_the_spec_binds(tmp_path: Path) -> None:
+    pricing = _pricing()
+    policy = _policy(judges=(_judge_cap(),))
+    spec_path = _write_spend_sidecars(tmp_path, policy=policy, pricing=pricing)
+    spec = _bound_spec(policy=policy, pricing=pricing)
+    loaded_policy, loaded_pricing = load_spend_artifacts(spec_path, spec)
+    assert loaded_policy.policy_sha256 == policy.policy_sha256
+    assert loaded_pricing.snapshot_sha256 == pricing.snapshot_sha256
+
+
+def test_load_spend_artifacts_rejects_a_ceiling_raised_after_approval(
+    tmp_path: Path,
+) -> None:
+    pricing = _pricing()
+    approved = _policy(judges=(_judge_cap(),))
+    spec = _bound_spec(policy=approved, pricing=pricing)
+    raised = _policy(
+        solver_cost="9.000000",
+        experiment_cost="18.000000",
+        judges=(_judge_cap(max_cost_usd="9.000000"),),
+    )
+    spec_path = _write_spend_sidecars(tmp_path, policy=raised, pricing=pricing)
+    with pytest.raises(Tier0RunnerError, match="spend policy hash"):
+        load_spend_artifacts(spec_path, spec)
+
+
+def test_load_spend_artifacts_requires_the_spec_to_bind_the_policy(
+    tmp_path: Path,
+) -> None:
+    pricing = _pricing()
+    policy = _policy(judges=(_judge_cap(),))
+    spec_path = _write_spend_sidecars(tmp_path, policy=policy, pricing=pricing)
+    spec = replace(
+        _bound_spec(policy=policy, pricing=pricing), spend_policy_sha256=None
+    )
+    with pytest.raises(Tier0RunnerError, match="must bind the spend policy hash"):
+        load_spend_artifacts(spec_path, spec)
+
+
+def test_outstanding_reservation_is_terminalized_as_unknown_cost() -> None:
+    pricing = _pricing()
+    controller = SpendController(_policy(judges=(_judge_cap(),)), pricing)
+    reservation = controller.reserve(
+        _call("judge-abandoned", surface="judge", criterion_id="criterion-1")
+    )
+    outstanding = {reservation.reservation_id: reservation}
+    _terminalize_outstanding(controller, outstanding, "evaluator process failed")
+    assert outstanding == {}
+    assert controller.terminal
+    evidence = controller.events[-1]
+    assert evidence.decision == "settled"
+    assert evidence.failure_class == SpendFailureClass.UNKNOWN_COST.value
+    assert evidence.unknown_reason == "evaluator process failed"
+    assert evidence.observed_cost_usd is None
+
+
+def _bound_spec(
+    *, policy: SpendPolicy, pricing: PricingSnapshot
+) -> Tier0ExecutableSpec:
+    digest = "sha256:" + "0" * 64
+    spec = Tier0ExecutableSpec(
+        experiment_id=policy.experiment_id,
+        source_pin=FIXTURE_PIN,
+        evaluator_command="evaluator",
+        evaluator_wrapper_sha256=digest,
+        issuer_key_id="harvey-lab-evaluator-v1",
+        issuer_policy_sha256=harvey_lab_issuer_policy_sha256(),
+        arms=(
+            Tier0ArmSpec(
+                arm_id="arm-opaque-01",
+                adapter="claude-code-clean-native",
+                auth_profile="fixture-none",
+                requested_model="model-a",
+                solver_executable="claude",
+                solver_executable_sha256=digest,
+                settings={},
+            ),
+            Tier0ArmSpec(
+                arm_id="arm-opaque-02",
+                adapter="harvey-lab",
+                auth_profile="fixture-none",
+                requested_model="model-a",
+                solver_executable="native-thin",
+                solver_executable_sha256=digest,
+                command=("native-thin", "{sandbox_root}"),
+                settings={},
+            ),
+        ),
+    )
+    return replace(
+        spec,
+        pricing_snapshot_sha256=pricing.snapshot_sha256,
+        spend_policy_sha256=policy.policy_sha256,
+        artifact_sha256=policy.executable_spec_sha256,
+    )
+
+
+def _write_spend_sidecars(
+    tmp_path: Path, *, policy: SpendPolicy, pricing: PricingSnapshot
+) -> Path:
+    spec_path = tmp_path / "tier0.executable-spec.json"
+    write_json_object(spec_path, {})
+    write_json_object(
+        spec_path.with_name("tier0.executable-spec.pricing-snapshot.json"),
+        pricing.to_record(),
+    )
+    write_json_object(
+        spec_path.with_name("tier0.executable-spec.spend-policy.json"),
+        policy.to_record(),
+    )
+    return spec_path

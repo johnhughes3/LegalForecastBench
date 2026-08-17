@@ -49,6 +49,7 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     verify_authorized_harvey_lab_receipt,
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
+    HarveyLabEvaluationError,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
     HarveyLabIsolatedEvaluation,
@@ -584,6 +585,8 @@ def load_spend_artifacts(
 
     if spec.pricing_snapshot_sha256 is None:
         raise Tier0RunnerError("executable spec must bind the pricing sidecar hash")
+    if spec.spend_policy_sha256 is None:
+        raise Tier0RunnerError("executable spec must bind the spend policy hash")
     pricing_path = spec_path.with_name(f"{spec_path.stem}.pricing-snapshot.json")
     policy_path = spec_path.with_name(f"{spec_path.stem}.spend-policy.json")
     try:
@@ -611,6 +614,11 @@ def load_spend_artifacts(
         raise Tier0RunnerError("pricing or spend sidecar is invalid") from exc
     if pricing.snapshot_sha256 != spec.pricing_snapshot_sha256:
         raise Tier0RunnerError("pricing sidecar hash does not match executable spec")
+    # The detached approval binds only the spec, so the ceilings are authorized
+    # solely through this digest.  Without it an operator could raise the
+    # request and dollar caps after approval and still pass every other check.
+    if policy.policy_sha256 != spec.spend_policy_sha256:
+        raise Tier0RunnerError("spend policy hash does not match executable spec")
     if policy.pricing_snapshot_sha256 != pricing.snapshot_sha256:
         raise Tier0RunnerError("spend policy does not bind the pricing sidecar")
     if policy.experiment_id != spec.experiment_id:
@@ -735,6 +743,11 @@ def run_tier0(
     results: list[Tier0ArmResult] = []
     partial_metadata: dict[str, PrivateRunMetadata] = {}
     partial_capabilities: dict[str, object] = {}
+    # Every reservation that has been taken but not yet settled.  A paid call
+    # can fail after the provider was invoked (evaluator timeout, nonzero exit,
+    # adapter error), and those paths must not leave the reservation dangling
+    # with neither an observed nor an unknown cost recorded against it.
+    outstanding: dict[str, Any] = {}
     try:
         for arm in spec.arms:
             paths = _arm_paths(private_root, arm.arm_id)
@@ -745,6 +758,7 @@ def run_tier0(
                 arm=arm,
                 ceiling=ceiling,
             )
+            _track_reservation(outstanding, reservation)
             metadata_ref: dict[str, object] = {}
             binding_ref: dict[str, object] = {}
             capability_ref: dict[str, object] = {}
@@ -802,6 +816,7 @@ def run_tier0(
                     )
                 metadata = metadata_value
                 if controller is not None and _reservation is not None:
+                    _release_reservation(outstanding, _reservation)
                     _settle_solver(
                         controller, _reservation, execution, pricing_snapshot
                     )
@@ -822,12 +837,14 @@ def run_tier0(
                 _arm: Tier0ArmSpec = arm,
                 _reservation_ref: dict[str, object] = evaluator_reservation_ref,
             ) -> None:
-                _reservation_ref["value"] = _reserve_evaluator(
+                evaluator_reservation = _reserve_evaluator(
                     controller,
                     spec=spec,
                     arm=_arm,
                     policy=spend_policy,
                 )
+                _reservation_ref["value"] = evaluator_reservation
+                _track_reservation(outstanding, evaluator_reservation)
 
             def after_evaluator(
                 evaluation: HarveyLabIsolatedEvaluation,
@@ -836,6 +853,7 @@ def run_tier0(
             ) -> None:
                 reservation_value = _reservation_ref.get("value")
                 if controller is not None and reservation_value is not None:
+                    _release_reservation(outstanding, reservation_value)
                     _settle_evaluator(
                         controller,
                         reservation_value,
@@ -946,7 +964,13 @@ def run_tier0(
                         after_evaluator=after_evaluator,
                     )
                 )
-    except (SpendDeniedError, SpendSettlementError, Tier0RunnerError) as exc:
+    except (
+        HarveyLabEvaluationError,
+        SpendDeniedError,
+        SpendSettlementError,
+        Tier0RunnerError,
+    ) as exc:
+        _terminalize_outstanding(controller, outstanding, str(exc))
         _write_archive(
             spec=spec,
             spec_sha256=spec_sha256,
@@ -981,6 +1005,50 @@ def run_tier0(
         archive_manifest=archive_manifest,
         matched=matched,
     )
+
+
+def _track_reservation(outstanding: dict[str, Any], reservation: Any | None) -> None:
+    """Remember a reservation until it has been settled or terminalized."""
+
+    if reservation is not None:
+        outstanding[reservation.reservation_id] = reservation
+
+
+def _release_reservation(outstanding: dict[str, Any], reservation: Any) -> None:
+    """Forget a reservation that is about to be handed to ``settle``.
+
+    ``SpendController.settle`` consumes the reservation before it can fail, so
+    the entry is dropped first; a failed settlement already carries its own
+    terminal evidence and must not be settled a second time.
+    """
+
+    outstanding.pop(reservation.reservation_id, None)
+
+
+def _terminalize_outstanding(
+    controller: SpendController | None,
+    outstanding: dict[str, Any],
+    reason: str,
+) -> None:
+    """Record unknown cost for every reservation left open by a failure.
+
+    A paid call can fail after the provider was invoked, so an unsettled
+    reservation is not evidence that nothing was spent.  Settling it as unknown
+    cost makes the controller terminal and keeps the denial evidence in the
+    archive instead of silently dropping the request.
+    """
+
+    if controller is None:
+        outstanding.clear()
+        return
+    for reservation in list(outstanding.values()):
+        try:
+            controller.settle(reservation, UsageObservation.unknown(reason))
+        except (SpendSettlementError, SpendConfigurationError):
+            # ``settle`` records the evidence before it raises, and the caller
+            # is already unwinding a terminal failure.
+            pass
+    outstanding.clear()
 
 
 def _solver_ceiling(
