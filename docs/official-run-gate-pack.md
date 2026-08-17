@@ -241,12 +241,15 @@ gh workflow run .github/workflows/fan-in-publish.yaml \
   -f artifact_retention_days=30
 ```
 
-The expected terminal artifact is `fan-in-report.json` with the accepted receipt map, exact S3 VersionId/hash commitments, frozen artifact hashes, derived counts, and no canonical report write. For the bounded provider-authority smoke, John uses the separately protected workflow and its exact main SHA; no provider API key or smoke result is available to this lane:
+The expected terminal artifact is `fan-in-report.json` with the accepted receipt map, exact S3 VersionId/hash commitments, frozen artifact hashes, derived counts, and no canonical report write. For the bounded provider-authority smoke, John uses the separately protected workflow and its exact main SHA; no provider API key or smoke result is available to this lane.
+
+`RELEASE_SHA` above is the pre-publication tip used by the Terraform import/plan/apply dispatches. Publishing the F4 workflow pins advances `main`, and `official-paid-labeling-authority-smoke.yaml` requires `release_sha` to equal the dispatch `GITHUB_SHA`. Recompute after publication instead of reusing the infra SHA:
 
 ```bash
+SMOKE_RELEASE_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
 gh workflow run .github/workflows/official-paid-labeling-authority-smoke.yaml \
   --repo "$GITHUB_REPOSITORY" --ref main \
-  -f release_sha="$RELEASE_SHA"
+  -f release_sha="$SMOKE_RELEASE_SHA"
 ```
 
 ## `ue7.32`: annotated fixture rehearsal and failure drill
