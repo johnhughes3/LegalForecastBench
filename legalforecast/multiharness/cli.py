@@ -32,6 +32,17 @@ from legalforecast.multiharness.folder_selection import (
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorRunner,
 )
+from legalforecast.multiharness.harvey_lab_projected_tasks import (
+    DEFAULT_PROJECTED_SUITE_VERSION,
+    HarveyLabProjectionTaskLoader,
+)
+from legalforecast.multiharness.harvey_lab_projection import (
+    ROOT_MANIFEST_NAME as PROJECTION_MANIFEST_NAME,
+)
+from legalforecast.multiharness.harvey_lab_projection import (
+    project_harvey_lab_suite,
+    remove_projected_tree,
+)
 from legalforecast.multiharness.runner import (
     INCOMPLETE_RUN_POLICIES,
     ModelConfig,
@@ -136,7 +147,19 @@ def add_multiharness_parser(subparsers: Any) -> None:
     task_index.add_argument(
         "--lab-root",
         type=Path,
-        help="Harvey LAB checkout/root for --suite harvey-lab.",
+        help=(
+            "Raw pinned Harvey LAB checkout for --suite harvey-lab. Maintainer "
+            "path: it reads the evaluator-private task.json. Contributors use "
+            "--projected-root."
+        ),
+    )
+    task_index.add_argument(
+        "--projected-root",
+        type=Path,
+        help=(
+            "Projected Harvey LAB layout from 'tasks project' for --suite "
+            "harvey-lab. Every listed file is re-hashed before indexing."
+        ),
     )
     task_index.add_argument("--output", type=Path, required=True)
     task_index.add_argument(
@@ -152,6 +175,59 @@ def add_multiharness_parser(subparsers: Any) -> None:
     task_index.add_argument("--selection-namespace")
     task_index.add_argument("--dry-run", action="store_true")
     task_index.set_defaults(handler=_cmd_tasks_index)
+
+    task_project = task_commands.add_parser(
+        "project",
+        help="Project solver-visible Harvey LAB bytes into a contributor layout.",
+        description=(
+            "Split a pinned Harvey LAB checkout into a solver-visible projected "
+            "layout and a private evaluator root. The projected root is the only "
+            "contributor input the harness accepts; the private root holds the "
+            "gold criteria and is never solver input and never published."
+        ),
+    )
+    task_project.add_argument(
+        "--lab-root",
+        type=Path,
+        required=True,
+        help="Your Harvey LAB checkout at the recorded pin.",
+    )
+    task_project.add_argument(
+        "--output-dir",
+        type=Path,
+        required=True,
+        help="Solver-visible projected root to create.",
+    )
+    task_project.add_argument(
+        "--evaluator-private-dir",
+        type=Path,
+        required=True,
+        help="Private evaluator root to create. Never solver input, never published.",
+    )
+    task_project.add_argument(
+        "--category",
+        action="append",
+        dest="categories",
+        metavar="CATEGORY",
+        help="Project one Harvey LAB category. Repeatable.",
+    )
+    task_project.add_argument(
+        "--task-id",
+        action="append",
+        dest="task_ids",
+        metavar="LAB_TASK_ID",
+        help="Project one task by its path under tasks/. Repeatable.",
+    )
+    task_project.add_argument(
+        "--refuse-unsupported-tasks",
+        action="store_true",
+        help=(
+            "Fail instead of skipping tasks whose upstream shape this projection "
+            "cannot carry yet. Default reports them and projects the rest."
+        ),
+    )
+    task_project.add_argument("--dry-run", action="store_true")
+    task_project.set_defaults(handler=_cmd_tasks_project)
 
     task_select = task_commands.add_parser(
         "select",
@@ -429,6 +505,9 @@ def _cmd_tasks_index(args: argparse.Namespace) -> int:
                 "suite": suite,
                 "input": _optional_path_record(cast(Path | None, args.input)),
                 "lab_root": _optional_path_record(cast(Path | None, args.lab_root)),
+                "projected_root": _optional_path_record(
+                    cast(Path | None, args.projected_root)
+                ),
                 "suite_version": cast(str | None, args.suite_version),
                 "index_id": cast(str | None, args.index_id),
                 "selection_namespace": cast(str | None, args.selection_namespace),
@@ -441,6 +520,110 @@ def _cmd_tasks_index(args: argparse.Namespace) -> int:
     write_json_object(output, task_index.to_record())
     _cli_note(f"Wrote {output} ({len(task_index.tasks)} task(s)).")
     return 0
+
+
+def _cmd_tasks_project(args: argparse.Namespace) -> int:
+    lab_root = cast(Path, args.lab_root)
+    categories = _str_tuple_arg(args, "categories")
+    task_ids = _str_tuple_arg(args, "task_ids")
+    selected = _discover_lab_task_ids(
+        lab_root, categories=categories, task_ids=task_ids
+    )
+    if cast(bool, args.dry_run):
+        _cli_note(
+            f"Dry run: {len(selected)} Harvey LAB task(s) matched; nothing written."
+        )
+        for lab_task_id in selected:
+            _cli_note(f"  {lab_task_id}")
+        return 0
+
+    output_dir = cast(Path, args.output_dir)
+    private_dir = cast(Path, args.evaluator_private_dir)
+    for label, path in (
+        ("--output-dir", output_dir),
+        ("--evaluator-private-dir", private_dir),
+    ):
+        if path.exists() or path.is_symlink():
+            raise ValueError(
+                f"{label} {path} already exists and a projection writes a fresh "
+                "tree. Projected files are sealed read-only, so remove it with: "
+                f"chmod -R u+w {path} && rm -rf {path}"
+            )
+    try:
+        result = project_harvey_lab_suite(
+            source_root=lab_root,
+            solver_root=output_dir,
+            evaluator_private_root=private_dir,
+            lab_task_ids=selected,
+            skip_unsupported_tasks=not cast(bool, args.refuse_unsupported_tasks),
+        )
+    except BaseException:
+        # A partial projection is sealed read-only too. Leaving it behind would
+        # make the obvious retry fail on "must be a fresh, absent path".
+        remove_projected_tree(output_dir)
+        remove_projected_tree(private_dir)
+        raise
+    _cli_note(
+        f"Projected {len(result.tasks)} of {len(selected)} matched Harvey LAB task(s)."
+    )
+    if result.skipped:
+        _cli_note(
+            f"Skipped {len(result.skipped)} task(s) whose upstream shape this "
+            "projection cannot carry yet (GitHub #842):"
+        )
+        for item in result.skipped:
+            _cli_note(f"  {item.lab_task_id}: {item.reason}")
+    _cli_note(f"Wrote {result.solver_root / PROJECTION_MANIFEST_NAME}.")
+    _cli_note(
+        f"Evaluator-private bytes are in {result.evaluator_private_root}. "
+        "Do not publish them and do not pass them to a solver."
+    )
+    return 0
+
+
+def _discover_lab_task_ids(
+    lab_root: Path,
+    *,
+    categories: tuple[str, ...],
+    task_ids: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Resolve --category / --task-id against the checkout, naming what missed."""
+
+    tasks_root = lab_root / "tasks"
+    if not tasks_root.is_dir():
+        raise ValueError(f"Harvey LAB root is missing tasks/: {tasks_root}")
+    discovered = tuple(
+        sorted(
+            path.parent.relative_to(tasks_root).as_posix()
+            for path in tasks_root.rglob("task.json")
+            if path.is_file() and not path.is_symlink()
+        )
+    )
+    if not discovered:
+        raise ValueError(
+            f"Harvey LAB tasks directory has no task.json files: {tasks_root}"
+        )
+    if not categories and not task_ids:
+        return discovered
+
+    known = set(discovered)
+    missing_ids = sorted(set(task_ids) - known)
+    if missing_ids:
+        raise ValueError(
+            f"Harvey LAB task id(s) were not found: {', '.join(missing_ids)}"
+        )
+    available = sorted({item.split("/", 1)[0] for item in discovered})
+    missing_categories = sorted(set(categories) - set(available))
+    if missing_categories:
+        raise ValueError(
+            f"Harvey LAB category/categories were not found: "
+            f"{', '.join(missing_categories)}. Available: {', '.join(available)}"
+        )
+    wanted = set(task_ids)
+    wanted.update(
+        item for item in discovered if item.split("/", 1)[0] in set(categories)
+    )
+    return tuple(sorted(wanted))
 
 
 def _cmd_tasks_select(args: argparse.Namespace) -> int:
@@ -924,11 +1107,27 @@ def _task_index_from_args(args: argparse.Namespace) -> TaskIndex:
     if suite == "harvey-lab":
         if args.solver_input_root is not None:
             raise ValueError("--solver-input-root is only supported for lfb")
-        lab_root = _required_path_arg(
-            args,
-            "lab_root",
-            "--lab-root is required for harvey-lab",
-        )
+        projected_root = cast(Path | None, getattr(args, "projected_root", None))
+        lab_root = cast(Path | None, args.lab_root)
+        if projected_root is not None and lab_root is not None:
+            raise ValueError("pass either --projected-root or --lab-root, not both")
+        if projected_root is not None:
+            return HarveyLabProjectionTaskLoader(
+                projected_root,
+                suite_version=suite_version or DEFAULT_PROJECTED_SUITE_VERSION,
+            ).load_task_index(
+                index_id=index_id or "harvey-lab",
+                selection_namespace=namespace or "harvey_lab",
+            )
+        if lab_root is None:
+            raise ValueError(
+                "--projected-root or --lab-root is required for harvey-lab"
+            )
+        if (lab_root / PROJECTION_MANIFEST_NAME).is_file():
+            raise ValueError(
+                f"{lab_root} is a projected layout, not a raw Harvey LAB "
+                "checkout; pass it as --projected-root"
+            )
         return HarveyLabTaskLoader(
             lab_root,
             suite_version=suite_version or DEFAULT_LAB_SUITE_VERSION,
