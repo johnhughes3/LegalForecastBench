@@ -31,6 +31,12 @@ Two properties make the record honest rather than merely decorative:
   ``purchase_policy_sha256``.  A document from another generation describes a
   ledger that no longer exists at this path, so it is reported as saying
   nothing and is replaced on the next write rather than blocking acquisition.
+
+Every function here raises on a failure it cannot honestly absorb.  A caller
+writing provenance for an already-confirmed purchase must absorb it instead:
+the charge is committed before the sidecar is touched, so a persistence failure
+must never travel back to the paid caller.  ``courtlistener_recap_fetch.py``
+does exactly that; see ``_PROVENANCE_WRITE_FAILURES`` there.
 """
 
 from __future__ import annotations
@@ -57,6 +63,19 @@ PUBLIC_DOCUMENT_CONFIRMATION: Final = "public_document_during_queue_lag"
 CONFIRMATION_EVIDENCE_KINDS: Final = frozenset(
     {QUEUE_RECEIPT_CONFIRMATION, PUBLIC_DOCUMENT_CONFIRMATION}
 )
+
+_QUEUED_CONFIRMATION_MARKER: Final = "post_delivery_restrictions"
+"""Response key written only by the direct queued-confirmation path.
+
+An absent ``queue_response`` proves the confirmation rested on the public
+document only for a response that path wrote, because that path writes the
+receipt whenever it has one.  A purchase confirmed by reconciling an
+authoritative broker receipt carries no queue payload either, even though the
+broker's receipt was verified against a readable ``status=2`` queue detail
+before reconciliation.  Reading absence alone would label such a row as
+queue-lagged and then spend a free queue read chasing a receipt its
+confirmation already had, so provenance stays silent about it instead.
+"""
 
 
 class RecapFetchConfirmationProvenanceError(ValueError):
@@ -203,13 +222,16 @@ def provenance_from_confirmed_response(
     evidence kinds.  Deriving it here rather than at the call site is what
     makes a lost entry reconstructible from bytes the journal already holds.
 
-    Returns ``None`` for a response with no ``queue_id``.  Such a purchase was
-    never a queued RECAP Fetch operation, so queue-lag provenance has nothing
-    to say about it and must not invent an entry for it.
+    Returns ``None`` rather than guessing for two responses that the absent
+    receipt does not describe: one with no ``queue_id``, which was never a
+    queued RECAP Fetch operation at all, and one the direct queued-confirmation
+    path did not write, whose missing receipt says nothing about queue lag.
     """
 
     queue_id = confirmed.get("queue_id")
     if not isinstance(queue_id, str) or not queue_id:
+        return None
+    if _QUEUED_CONFIRMATION_MARKER not in confirmed:
         return None
     queue_response = confirmed.get("queue_response")
     if queue_response is not None and not isinstance(queue_response, Mapping):

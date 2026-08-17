@@ -405,6 +405,54 @@ def test_a_corrupt_sidecar_is_rebuilt_instead_of_stranding_acquisition(
     assert recorded.confirmation_evidence == PUBLIC_DOCUMENT_CONFIRMATION
 
 
+def test_a_sidecar_that_cannot_be_written_never_loses_a_paid_purchase(
+    tmp_path: Path,
+) -> None:
+    """A charge is already committed when provenance is written."""
+
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    # The sidecar refuses to write through a symlink, so this is exactly the
+    # unwritable-path failure a full disk or a revoked directory permission
+    # would raise, without depending on the filesystem under the test.
+    sidecar = confirmation_provenance_path(ledger)
+    sidecar.symlink_to(tmp_path / "elsewhere.json")
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        _purchase_through_queue_lag(journal)
+        assert _confirmed_response(journal, "123")["queue_id"] == "77"
+
+    assert sidecar.is_symlink()
+    assert not (tmp_path / "elsewhere.json").exists()
+
+
+def test_an_unwritable_sidecar_never_strands_an_already_confirmed_row(
+    tmp_path: Path,
+) -> None:
+    """Resuming a paid row must not fail on the observation about it."""
+
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        _purchase_through_queue_lag(journal)
+
+    sidecar = confirmation_provenance_path(ledger)
+    sidecar.unlink()
+    sidecar.symlink_to(tmp_path / "elsewhere.json")
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        attempt = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport([]),
+            poll_attempts=3,
+            poll_backoff_seconds=0.0,
+        ).execute_one_document("case-1", "123")
+
+    assert attempt.status.value == "purchased"
+    assert not (tmp_path / "elsewhere.json").exists()
+
+
 def test_a_confirmation_that_was_never_queued_gets_no_entry() -> None:
     """Queue-lag provenance must not invent a record for a non-queued buy."""
 
@@ -412,6 +460,33 @@ def test_a_confirmation_that_was_never_queued_gets_no_entry() -> None:
         provenance_from_confirmed_response(
             "123",
             {"download_url": "https://storage.courtlistener.com/123.pdf"},
+            confirmed_response_sha256="c" * 64,
+        )
+        is None
+    )
+
+
+def test_a_broker_reconciled_confirmation_is_not_read_as_queue_lag() -> None:
+    """An absent receipt only names weaker evidence on the path that writes it.
+
+    This is the response `CaseDevPurchaseJournal.reconcile` leaves after an
+    authoritative broker receipt confirms a recovered queue: it carries the
+    queue id but no `queue_response`, because the broker verified `status=2`
+    itself.  Reading that absence as queue lag would both mislabel the row and
+    send the reconcile pass chasing a receipt the confirmation already had.
+    """
+
+    assert (
+        provenance_from_confirmed_response(
+            "123",
+            {
+                "source_provider": "courtlistener_recap_fetch",
+                "reservation_usd": "3.00",
+                "queue_id": "77",
+                "reservation_id": "reservation-1",
+                "actual_fees": {"total_usd": "3.00"},
+                "download_url": "https://storage.courtlistener.com/123.pdf",
+            },
             confirmed_response_sha256="c" * 64,
         )
         is None

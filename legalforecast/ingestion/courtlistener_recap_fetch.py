@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -45,12 +46,26 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
 )
 from legalforecast.ingestion.recap_fetch_confirmation_provenance import (
     ConfirmationProvenance,
+    RecapFetchConfirmationProvenanceError,
     attach_queue_receipt,
     confirmation_provenance_path,
     provenance_from_confirmed_response,
     reconcile_confirmation_provenance,
     record_confirmation_provenance,
 )
+
+_PROVENANCE_WRITE_FAILURES = (OSError, RecapFetchConfirmationProvenanceError)
+"""Sidecar persistence failures that must never reach a paid caller.
+
+Every provenance write runs after the journal has already committed a charge,
+so letting one propagate would lose the caller's purchase result for a durable,
+already-paid row and would fail the same way on every retry over it.  A full
+disk, a directory that lost write permission, and a sidecar path replaced by a
+symlink are all recoverable without operator action: the observation is
+reconstructible from bytes the journal already holds, so the next run over the
+confirmed row rewrites it.  Only these two classes are absorbed, so a genuine
+defect in the sidecar module still surfaces.
+"""
 
 _DEFAULT_BASE_URL = "https://www.courtlistener.com/api/rest/v4"
 _ALLOWED_HOSTS = frozenset({"www.courtlistener.com"})
@@ -1265,18 +1280,24 @@ class CourtListenerRecapFetchClient:
     def _write_confirmation_provenance(
         self, document_id: str, confirmed: Mapping[str, Any]
     ) -> None:
-        """Name the evidence a confirmation rests on, outside frozen bytes."""
+        """Name the evidence a confirmation rests on, outside frozen bytes.
 
-        provenance = self._confirmation_provenance(document_id, confirmed)
-        if provenance is None:
-            return
-        policy = self.journal.policy
-        record_confirmation_provenance(
-            self._confirmation_provenance_path(),
-            cycle_id=policy.cycle_id,
-            purchase_policy_sha256=policy.policy_sha256,
-            provenance=provenance,
-        )
+        The charge is already committed by the time this runs, so a sidecar
+        that cannot be persisted is absorbed rather than raised; see
+        `_PROVENANCE_WRITE_FAILURES`.
+        """
+
+        with contextlib.suppress(*_PROVENANCE_WRITE_FAILURES):
+            provenance = self._confirmation_provenance(document_id, confirmed)
+            if provenance is None:
+                return
+            policy = self.journal.policy
+            record_confirmation_provenance(
+                self._confirmation_provenance_path(),
+                cycle_id=policy.cycle_id,
+                purchase_policy_sha256=policy.policy_sha256,
+                provenance=provenance,
+            )
 
     def _reconcile_confirmation_provenance(
         self, document_id: str, confirmed: Mapping[str, Any]
@@ -1287,19 +1308,26 @@ class CourtListenerRecapFetchClient:
         nothing here reopens it or spends anything.  Reading the queue detail
         is free, and it is attempted only for a confirmation the sidecar
         already records as resting on the public document alone.
+
+        This runs on an already-paid row every time one is resumed, so a
+        sidecar that cannot be persisted is absorbed rather than raised; see
+        `_PROVENANCE_WRITE_FAILURES`.
         """
 
-        provenance = self._confirmation_provenance(document_id, confirmed)
-        if provenance is None:
-            return
         policy = self.journal.policy
         path = self._confirmation_provenance_path()
-        queue_id = reconcile_confirmation_provenance(
-            path,
-            cycle_id=policy.cycle_id,
-            purchase_policy_sha256=policy.policy_sha256,
-            provenance=provenance,
-        )
+        try:
+            provenance = self._confirmation_provenance(document_id, confirmed)
+            if provenance is None:
+                return
+            queue_id = reconcile_confirmation_provenance(
+                path,
+                cycle_id=policy.cycle_id,
+                purchase_policy_sha256=policy.policy_sha256,
+                provenance=provenance,
+            )
+        except _PROVENANCE_WRITE_FAILURES:
+            return
         if queue_id is None:
             return
         try:
@@ -1317,15 +1345,16 @@ class CourtListenerRecapFetchClient:
             return
         if _status(payload) != 2:
             return
-        attach_queue_receipt(
-            path,
-            cycle_id=policy.cycle_id,
-            purchase_policy_sha256=policy.policy_sha256,
-            source_document_id=document_id,
-            confirmed_response_sha256=_sha256_json(confirmed),
-            queue_response=payload,
-            queue_response_sha256=_sha256_json(payload),
-        )
+        with contextlib.suppress(*_PROVENANCE_WRITE_FAILURES):
+            attach_queue_receipt(
+                path,
+                cycle_id=policy.cycle_id,
+                purchase_policy_sha256=policy.policy_sha256,
+                source_document_id=document_id,
+                confirmed_response_sha256=_sha256_json(confirmed),
+                queue_response=payload,
+                queue_response_sha256=_sha256_json(payload),
+            )
 
     def _request(
         self,

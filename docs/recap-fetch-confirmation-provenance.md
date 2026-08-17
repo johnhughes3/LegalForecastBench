@@ -48,11 +48,17 @@ A present but malformed document — bad JSON, a foreign `kind`, or an entry mis
 
 Writers cannot fail closed on the same input, and should not: an unreadable observational file is not preservable, and refusing to write would strand acquisition behind a file no purchase depends on. The write path replaces the rubble and lets the backfill refill it from the journal.
 
+A sidecar that cannot be persisted at all — a full disk, a directory that lost write permission, a path replaced by a symlink — is absorbed by the client for the same reason, one step further out. Every write runs after `confirm_reserved` has already committed the charge, so raising would lose the caller's purchase result for a durable, already-paid row and would fail identically on every retry over it. The module still raises; only `courtlistener_recap_fetch.py` absorbs it, and only for `OSError` and `RecapFetchConfirmationProvenanceError`, so a genuine defect in the sidecar still surfaces.
+
 ## Late queue-receipt attachment
 
 When a purchase was confirmed during queue lag and CourtListener later publishes the queue detail, the next run over that document attaches the stronger receipt to the sidecar entry and sets `queue_receipt_attached_after_confirmation`. This costs one free `GET /recap-fetch/{id}/`, happens only for entries that lack a receipt, and touches no billing state: `confirm_reserved` already ran, the confirmed response bytes stay exactly as the confirmation wrote them, and the purchase state digest does not move.
 
 A confirmed row with no sidecar entry is backfilled from its confirmed response on the next run, since which branch confirmed it is recoverable from bytes already held. Backfill asks CourtListener nothing.
+
+## What it deliberately does not record
+
+An absent `queue_response` names the weaker evidence only for a response the direct queued-confirmation path wrote, because that path writes the receipt whenever it has one. A purchase confirmed by reconciling an authoritative broker receipt carries no queue payload either, even though the broker verified a readable `status=2` queue detail before reconciling. Reading absence alone would label that row as queue-lagged and then spend a free queue read chasing a receipt its confirmation already had, so the sidecar stays silent about it: a row with no `post_delivery_restrictions` in its confirmed response gets no entry. Recording broker-confirmed evidence is a separate observation, not this one told wrong.
 
 ## Operator notes
 
