@@ -41,18 +41,16 @@ rather than flowing into the comparison.
 from __future__ import annotations
 
 import hashlib
+import os
 import re
-from pathlib import Path
+import stat
+from pathlib import Path, PurePosixPath
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTANCE_DIR = ROOT / "docs" / "community-acceptance"
-FREEZE_NAME = "tier0-paired-smoke-structural-freeze.md"
-FREEZE_PATH = ACCEPTANCE_DIR / FREEZE_NAME
-CHECKSUM_PATH = ACCEPTANCE_DIR / "tier0-paired-smoke-structural-freeze.sha256"
 PACK_PATH = ACCEPTANCE_DIR / "tier0-readiness-pack.md"
-FREEZE_RELATIVE = f"docs/community-acceptance/{FREEZE_NAME}"
 
 SPECIFICATION_HEADING = "Current specification artifact"
 SPECIFICATION_ROW = "Structural specification"
@@ -316,32 +314,131 @@ def _pack_text() -> str:
     return PACK_PATH.read_text(encoding="utf-8")
 
 
-def _recorded_checksum() -> tuple[str, str]:
+def _read_regular_bytes(path: Path, label: str) -> bytes:
+    """Read one non-symlink regular file through the descriptor we validate."""
+
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise PackTableError(f"the declared {label} must be a regular file") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise PackTableError(f"the declared {label} must be a regular file")
+        with os.fdopen(descriptor, "rb", closefd=False) as handle:
+            return handle.read()
+    finally:
+        os.close(descriptor)
+
+
+def _declared_artifact_paths(
+    text: str, *, acceptance_dir: Path = ACCEPTANCE_DIR
+) -> tuple[Path, Path, str]:
+    """Resolve the declared artifact and companion inside ``acceptance_dir``.
+
+    The readiness pack is mutable input to this gate.  Its declaration may
+    select a successor freeze, but it may not redirect hashing through an
+    absolute path, traversal, or symlink.
+    """
+
+    declared = _declared_specification(text)
+    pure = PurePosixPath(declared)
+    raw_parts = declared.split("/")
+    expected_prefix = ["docs", "community-acceptance"]
+    repository_root = acceptance_dir.parent.parent
+    expected_acceptance = repository_root / "docs" / "community-acceptance"
+    safe = (
+        not pure.is_absolute()
+        and "\\" not in declared
+        and raw_parts[:2] == expected_prefix
+        and len(raw_parts) > 2
+        and all(part not in {"", ".", ".."} for part in raw_parts)
+        and acceptance_dir == expected_acceptance
+    )
+    base = acceptance_dir.resolve()
+    artifact = acceptance_dir.joinpath(*raw_parts[2:])
+    companion = artifact.with_suffix(".sha256")
+    if safe:
+        try:
+            artifact.resolve(strict=False).relative_to(base)
+        except (OSError, RuntimeError, ValueError):
+            safe = False
+    cursor = repository_root
+    for part in expected_prefix:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            safe = False
+            break
+    cursor = acceptance_dir
+    for part in raw_parts[2:]:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            safe = False
+            break
+    if companion.is_symlink():
+        safe = False
+    if not safe:
+        raise PackTableError(
+            "the declared specification must be a regular file inside "
+            "docs/community-acceptance without symlinks"
+        )
+    return artifact, companion, declared
+
+
+def _recorded_checksum(checksum_path: Path) -> tuple[str, str]:
     """Return the digest and target filename recorded in the companion file."""
 
     lines = [
         line
-        for line in CHECKSUM_PATH.read_text(encoding="utf-8").splitlines()
+        for line in _read_regular_bytes(checksum_path, "checksum companion")
+        .decode("utf-8")
+        .splitlines()
         if line.strip()
     ]
     assert len(lines) == 1, (
-        f"{CHECKSUM_PATH.relative_to(ROOT)} must record exactly one artifact, "
-        f"found {len(lines)} lines"
+        f"{checksum_path} must record exactly one artifact, found {len(lines)} lines"
     )
     match = CHECKSUM_LINE.match(lines[0])
-    assert match is not None, (
-        f"{CHECKSUM_PATH.relative_to(ROOT)} is not a sha256sum line: {lines[0]!r}"
-    )
+    assert match is not None, f"{checksum_path} is not a sha256sum line: {lines[0]!r}"
     return match.group(1), match.group(2)
+
+
+def _assert_declared_freeze_chain(
+    text: str, *, acceptance_dir: Path = ACCEPTANCE_DIR
+) -> None:
+    """Require pack, companion, and declared artifact bytes to agree."""
+
+    artifact, checksum, declared = _declared_artifact_paths(
+        text, acceptance_dir=acceptance_dir
+    )
+    recorded_digest, recorded_name = _recorded_checksum(checksum)
+    declared_digest = _declared_digest(text)
+    assert declared_digest == recorded_digest, (
+        "the Tier-0 readiness pack's embedded SHA-256 no longer matches "
+        f"{checksum}; regenerate the pack table from the companion checksum "
+        "instead of editing either in isolation"
+    )
+    assert recorded_name == artifact.name, (
+        f"{checksum} must name {artifact.name}, found {recorded_name!r}"
+    )
+    actual = hashlib.sha256(
+        _read_regular_bytes(artifact, "freeze artifact")
+    ).hexdigest()
+    assert actual == recorded_digest, (
+        f"{declared} hashes to {actual} but {checksum} records {recorded_digest}"
+    )
 
 
 def test_readiness_pack_digest_matches_the_recorded_checksum() -> None:
     """The pack's table and the ``.sha256`` companion must agree."""
 
-    recorded_digest, _ = _recorded_checksum()
+    text = _pack_text()
+    _, checksum, _ = _declared_artifact_paths(text)
+    recorded_digest, _ = _recorded_checksum(checksum)
     assert _declared_digest(_pack_text()) == recorded_digest, (
         "the Tier-0 readiness pack's embedded SHA-256 no longer matches "
-        f"{CHECKSUM_PATH.relative_to(ROOT)}; regenerate the pack table from the "
+        f"{checksum.relative_to(ROOT)}; regenerate the pack table from the "
         "companion checksum instead of editing either in isolation"
     )
 
@@ -349,23 +446,29 @@ def test_readiness_pack_digest_matches_the_recorded_checksum() -> None:
 def test_recorded_checksum_matches_the_frozen_bytes() -> None:
     """The companion checksum must describe the freeze document on disk."""
 
-    recorded_digest, recorded_name = _recorded_checksum()
-    assert recorded_name == FREEZE_NAME, (
-        f"{CHECKSUM_PATH.relative_to(ROOT)} must name {FREEZE_NAME}, "
+    text = _pack_text()
+    artifact, checksum, declared = _declared_artifact_paths(text)
+    recorded_digest, recorded_name = _recorded_checksum(checksum)
+    assert recorded_name == artifact.name, (
+        f"{checksum.relative_to(ROOT)} must name {artifact.name}, "
         f"found {recorded_name!r}"
     )
-    actual = hashlib.sha256(FREEZE_PATH.read_bytes()).hexdigest()
+    actual = hashlib.sha256(
+        _read_regular_bytes(artifact, "freeze artifact")
+    ).hexdigest()
     assert actual == recorded_digest, (
-        f"{FREEZE_RELATIVE} hashes to {actual} but "
-        f"{CHECKSUM_PATH.relative_to(ROOT)} records {recorded_digest}"
+        f"{declared} hashes to {actual} but "
+        f"{checksum.relative_to(ROOT)} records {recorded_digest}"
     )
 
 
 def test_readiness_pack_names_the_hashed_specification() -> None:
     """The digest must be attributed to the freeze document, not another file."""
 
-    assert _declared_specification(_pack_text()) == FREEZE_RELATIVE
-    assert FREEZE_PATH.is_file()
+    text = _pack_text()
+    artifact, _, declared = _declared_artifact_paths(text)
+    assert _declared_specification(text) == declared
+    assert artifact.is_file()
 
 
 # ---------------------------------------------------------------------------
@@ -380,16 +483,17 @@ def test_readiness_pack_names_the_hashed_specification() -> None:
 # ---------------------------------------------------------------------------
 
 SYNTHETIC_DIGEST = "a" * 64
+SYNTHETIC_FREEZE_RELATIVE = "docs/community-acceptance/example-freeze.md"
 COMPLETE_TABLE = (
     "| Field | Value |\n"
     "| --- | --- |\n"
-    f"| {SPECIFICATION_ROW} | `{FREEZE_RELATIVE}` |\n"
+    f"| {SPECIFICATION_ROW} | `{SYNTHETIC_FREEZE_RELATIVE}` |\n"
     f"| {DIGEST_ROW} | `{SYNTHETIC_DIGEST}` |\n"
 )
 DIGESTLESS_TABLE = (
     "| Field | Value |\n"
     "| --- | --- |\n"
-    f"| {SPECIFICATION_ROW} | `{FREEZE_RELATIVE}` |\n"
+    f"| {SPECIFICATION_ROW} | `{SYNTHETIC_FREEZE_RELATIVE}` |\n"
     "| Status | Structural pre-spend freeze only |\n"
 )
 
@@ -411,7 +515,7 @@ def test_scoped_parser_reads_the_current_specification_table() -> None:
     """The happy path returns the rows of the one scoped table."""
 
     fields = _current_specification_fields(_pack(COMPLETE_TABLE))
-    assert fields[SPECIFICATION_ROW] == f"`{FREEZE_RELATIVE}`"
+    assert fields[SPECIFICATION_ROW] == f"`{SYNTHETIC_FREEZE_RELATIVE}`"
     assert fields[DIGEST_ROW] == f"`{SYNTHETIC_DIGEST}`"
 
 
@@ -442,7 +546,7 @@ def test_separate_tables_in_the_section_cannot_be_combined() -> None:
     split_tables = (
         "| Field | Value |\n"
         "| --- | --- |\n"
-        f"| {SPECIFICATION_ROW} | `{FREEZE_RELATIVE}` |\n"
+        f"| {SPECIFICATION_ROW} | `{SYNTHETIC_FREEZE_RELATIVE}` |\n"
         "\n"
         "| Field | Value |\n"
         "| --- | --- |\n"
@@ -550,7 +654,7 @@ def test_pipe_lines_without_a_delimiter_row_are_not_a_table() -> None:
     """Unrendered pipe lines must not be mistaken for the declaration."""
 
     unrendered = (
-        f"| {SPECIFICATION_ROW} | `{FREEZE_RELATIVE}` |\n"
+        f"| {SPECIFICATION_ROW} | `{SYNTHETIC_FREEZE_RELATIVE}` |\n"
         f"| {DIGEST_ROW} | `{SYNTHETIC_DIGEST}` |\n"
     )
     with pytest.raises(PackTableError, match=r"not a rendered table"):
@@ -586,4 +690,80 @@ def test_decoy_tables_do_not_disturb_a_valid_current_table() -> None:
         + DIGESTLESS_TABLE
     )
     assert _declared_digest(document) == SYNTHETIC_DIGEST
-    assert _declared_specification(document) == FREEZE_RELATIVE
+    assert _declared_specification(document) == SYNTHETIC_FREEZE_RELATIVE
+
+
+def test_declared_artifact_paths_reject_absolute_traversal_and_symlink(
+    tmp_path: Path,
+) -> None:
+    """A mutable pack must not make the gate hash bytes outside its directory."""
+
+    acceptance = tmp_path / "docs" / "community-acceptance"
+    acceptance.mkdir(parents=True)
+    outside = tmp_path / "outside.md"
+    outside.write_text("outside", encoding="utf-8")
+    (acceptance / "linked.md").symlink_to(outside)
+    (acceptance / "companion-linked.md").write_text("freeze", encoding="utf-8")
+    (acceptance / "companion-linked.sha256").symlink_to(outside)
+
+    declared = (
+        "/tmp/freeze.md",
+        "docs/community-acceptance/../../outside.md",
+        "docs/community-acceptance/linked.md",
+        "docs/community-acceptance/companion-linked.md",
+    )
+    for value in declared:
+        table = COMPLETE_TABLE.replace(SYNTHETIC_FREEZE_RELATIVE, value)
+        with pytest.raises(PackTableError, match=r"inside .* without symlinks"):
+            _declared_artifact_paths(_pack(table), acceptance_dir=acceptance)
+
+    linked_repo = tmp_path / "linked-repo"
+    linked_repo.mkdir()
+    linked_docs = tmp_path / "outside-docs"
+    linked_acceptance = linked_docs / "community-acceptance"
+    linked_acceptance.mkdir(parents=True)
+    (linked_repo / "docs").symlink_to(linked_docs, target_is_directory=True)
+    with pytest.raises(PackTableError, match=r"inside .* without symlinks"):
+        _declared_artifact_paths(
+            _pack(COMPLETE_TABLE),
+            acceptance_dir=linked_repo / "docs" / "community-acceptance",
+        )
+
+
+def test_digest_gate_follows_a_renamed_artifact_and_companion(tmp_path: Path) -> None:
+    """A complete rename passes, while drift in any member of the chain fails."""
+
+    acceptance = tmp_path / "docs" / "community-acceptance"
+    acceptance.mkdir(parents=True)
+    artifact = acceptance / "tier0-executable-freeze.md"
+    artifact.write_bytes(b"executable freeze\n")
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    companion = artifact.with_suffix(".sha256")
+    companion.write_text(f"{digest}  {artifact.name}\n", encoding="utf-8")
+    relative = "docs/community-acceptance/tier0-executable-freeze.md"
+    document = _pack(
+        COMPLETE_TABLE.replace(SYNTHETIC_FREEZE_RELATIVE, relative).replace(
+            SYNTHETIC_DIGEST, digest
+        )
+    )
+
+    _assert_declared_freeze_chain(document, acceptance_dir=acceptance)
+
+    artifact.write_bytes(b"changed bytes\n")
+    with pytest.raises(AssertionError, match=r"hashes to"):
+        _assert_declared_freeze_chain(document, acceptance_dir=acceptance)
+    artifact.write_bytes(b"executable freeze\n")
+
+    companion.write_text(f"{'b' * 64}  {artifact.name}\n", encoding="utf-8")
+    with pytest.raises(AssertionError, match=r"embedded SHA-256"):
+        _assert_declared_freeze_chain(document, acceptance_dir=acceptance)
+    companion.write_text(f"{digest}  {artifact.name}\n", encoding="utf-8")
+
+    companion.write_text(f"{digest}  another-freeze.md\n", encoding="utf-8")
+    with pytest.raises(AssertionError, match=r"must name"):
+        _assert_declared_freeze_chain(document, acceptance_dir=acceptance)
+    companion.write_text(f"{digest}  {artifact.name}\n", encoding="utf-8")
+
+    renamed_document = document.replace(f"`{digest}`", f"`{'c' * 64}`")
+    with pytest.raises(AssertionError, match=r"embedded SHA-256"):
+        _assert_declared_freeze_chain(renamed_document, acceptance_dir=acceptance)
