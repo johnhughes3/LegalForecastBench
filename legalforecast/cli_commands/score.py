@@ -32,6 +32,7 @@ def register_stage_a_replay(
     """
 
     _stage_a_replay.register(subparsers)
+    _stage_a_replay.register_issuance(subparsers)
 
 
 def register(
