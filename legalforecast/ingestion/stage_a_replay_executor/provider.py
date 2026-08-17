@@ -6,6 +6,7 @@ import hashlib
 import os
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
+from importlib import import_module
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -33,6 +34,7 @@ from legalforecast.ingestion.stage_a_replay_executor.spec import (
     ReplaySpec,
     StageAReplayExecutorError,
 )
+from legalforecast.labeling import llm_pipeline, unitizer_terminal
 from legalforecast.labeling.provider_journal import (
     ProviderCallIdentity,
     ProviderJournalError,
@@ -40,6 +42,9 @@ from legalforecast.labeling.provider_journal import (
     maximum_call_cost_usd,
     provider_prompt_logical_call_scope,
 )
+
+# Load terminal-review code before the executor captures its runtime Git identity.
+import_module("legalforecast.unitization.unitizer_terminal_review")
 
 
 class _StageABatchResult(Protocol):
@@ -130,16 +135,10 @@ class CanonicalProviderRuntime:
         stage: str,
         unitize: StageAStageOutcome | None,
     ) -> tuple[ProviderCallIdentity, ModelRegistryEntry, str, str]:
-        from legalforecast.labeling.llm_pipeline import (
-            stage_a_provider_attempt_stage,
-            stage_a_structural_review_prompt_records,
-            stage_a_unitization_prompt_records,
-        )
-
         if stage == "unitizer":
             entry = self.unitizer_entry
             namespace = UNITIZER_CONFIG_NAMESPACE
-            [prompt_record] = stage_a_unitization_prompt_records(
+            [prompt_record] = llm_pipeline.stage_a_unitization_prompt_records(
                 selection_records=(request.packet.selection_record,),
                 parser_records=self.lineage.successor_parser_records,
                 markdown_root=self.lineage.successor_markdown_root,
@@ -149,7 +148,7 @@ class CanonicalProviderRuntime:
         elif stage == "reviewer" and unitize is not None:
             entry = self.reviewer_entry
             namespace = REVIEWER_CONFIG_NAMESPACE
-            [prompt_record] = stage_a_structural_review_prompt_records(
+            [prompt_record] = llm_pipeline.stage_a_structural_review_prompt_records(
                 selection_records=(request.packet.selection_record,),
                 parser_records=self.lineage.successor_parser_records,
                 prediction_unit_records=unitize.records,
@@ -170,14 +169,14 @@ class CanonicalProviderRuntime:
             prompt_contract=namespace,
             logical_call_scope=provider_prompt_logical_call_scope(prompt),
         )
-        provider_stage = stage_a_provider_attempt_stage(_base_stage(stage), namespace)
+        provider_stage = llm_pipeline.stage_a_provider_attempt_stage(
+            _base_stage(stage), namespace
+        )
         return identity, entry, account, provider_stage
 
     def unitizer(
         self, request: CandidateScopedStageARerunRequest
     ) -> StageAStageOutcome:
-        from legalforecast.labeling.llm_pipeline import llm_unitize_cases
-
         identity, entry, account, _provider_stage = self.call_identity(
             request, stage="unitizer", unitize=None
         )
@@ -191,7 +190,7 @@ class CanonicalProviderRuntime:
         if exhausted:
             return self._unitizer_terminal(request)
         try:
-            result = llm_unitize_cases(
+            result = llm_pipeline.llm_unitize_cases(
                 selection_records=(request.packet.selection_record,),
                 parser_records=self.lineage.successor_parser_records,
                 markdown_root=self.lineage.successor_markdown_root,
@@ -223,8 +222,6 @@ class CanonicalProviderRuntime:
         request: CandidateScopedStageARerunRequest,
         unitize: StageAStageOutcome,
     ) -> StageAStageOutcome:
-        from legalforecast.labeling.llm_pipeline import llm_review_stage_a_units
-
         identity, entry, account, _provider_stage = self.call_identity(
             request, stage="reviewer", unitize=unitize
         )
@@ -237,7 +234,7 @@ class CanonicalProviderRuntime:
         ):
             return self._reviewer_terminal(request, unitize)
         try:
-            result = llm_review_stage_a_units(
+            result = llm_pipeline.llm_review_stage_a_units(
                 selection_records=(request.packet.selection_record,),
                 parser_records=self.lineage.successor_parser_records,
                 prediction_unit_records=unitize.records,
@@ -267,17 +264,12 @@ class CanonicalProviderRuntime:
     def _unitizer_terminal(
         self, request: CandidateScopedStageARerunRequest
     ) -> StageAStageOutcome:
-        from legalforecast.labeling.llm_pipeline import llm_unitize_cases
-        from legalforecast.labeling.unitizer_terminal import (
-            build_llm_stage_a_unitizer_terminal_escalation,
-        )
-
         entry = self.unitizer_entry
         account = self.accounts[entry.provider.lower()]
         identity, _entry, _account, _provider_stage = self.call_identity(
             request, stage="unitizer", unitize=None
         )
-        escalation = build_llm_stage_a_unitizer_terminal_escalation(
+        escalation = unitizer_terminal.build_llm_stage_a_unitizer_terminal_escalation(
             selection_record=request.packet.selection_record,
             parser_records=self.lineage.successor_parser_records,
             markdown_root=self.lineage.successor_markdown_root,
@@ -295,7 +287,7 @@ class CanonicalProviderRuntime:
         commitment = self._terminal_commitment(
             request.candidate_id, "unitizer", escalation.to_record()
         )
-        result = llm_unitize_cases(
+        result = llm_pipeline.llm_unitize_cases(
             selection_records=(request.packet.selection_record,),
             parser_records=self.lineage.successor_parser_records,
             markdown_root=self.lineage.successor_markdown_root,
@@ -318,36 +310,33 @@ class CanonicalProviderRuntime:
         request: CandidateScopedStageARerunRequest,
         unitize: StageAStageOutcome,
     ) -> StageAStageOutcome:
-        from legalforecast.labeling.llm_pipeline import (
-            build_llm_stage_a_structural_review_terminal_escalation,
-            llm_review_stage_a_units,
-        )
-
         entry = self.reviewer_entry
         account = self.accounts[entry.provider.lower()]
         identity, _entry, _account, _provider_stage = self.call_identity(
             request, stage="reviewer", unitize=unitize
         )
-        escalation = build_llm_stage_a_structural_review_terminal_escalation(
-            selection_record=request.packet.selection_record,
-            parser_records=self.lineage.successor_parser_records,
-            prediction_unit_records=unitize.records,
-            markdown_root=self.lineage.successor_markdown_root,
-            markdown_bytes=self.lineage.successor_markdown_bytes,
-            registry_entry=entry,
-            model_registry_sha256=self.spec.model_registry_sha256,
-            provider_journal_path=self.spec.provider_journal_path,
-            provider_cycle_cap_usd=self.caps.cap_usd(entry.provider),
-            provider_cycle_id=self.spec.cycle_id,
-            provider_cycle_caps_sha256=self.spec.provider_caps_sha256,
-            provider_account=account,
-            provider_attempt_namespace=REVIEWER_CONFIG_NAMESPACE,
-            provider_logical_call_scope=identity.logical_call_scope,
+        escalation = (
+            llm_pipeline.build_llm_stage_a_structural_review_terminal_escalation(
+                selection_record=request.packet.selection_record,
+                parser_records=self.lineage.successor_parser_records,
+                prediction_unit_records=unitize.records,
+                markdown_root=self.lineage.successor_markdown_root,
+                markdown_bytes=self.lineage.successor_markdown_bytes,
+                registry_entry=entry,
+                model_registry_sha256=self.spec.model_registry_sha256,
+                provider_journal_path=self.spec.provider_journal_path,
+                provider_cycle_cap_usd=self.caps.cap_usd(entry.provider),
+                provider_cycle_id=self.spec.cycle_id,
+                provider_cycle_caps_sha256=self.spec.provider_caps_sha256,
+                provider_account=account,
+                provider_attempt_namespace=REVIEWER_CONFIG_NAMESPACE,
+                provider_logical_call_scope=identity.logical_call_scope,
+            )
         )
         commitment = self._terminal_commitment(
             request.candidate_id, "reviewer", escalation.to_record()
         )
-        result = llm_review_stage_a_units(
+        result = llm_pipeline.llm_review_stage_a_units(
             selection_records=(request.packet.selection_record,),
             parser_records=self.lineage.successor_parser_records,
             prediction_unit_records=unitize.records,

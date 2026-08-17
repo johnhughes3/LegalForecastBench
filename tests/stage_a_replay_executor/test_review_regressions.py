@@ -4,10 +4,13 @@
 
 from __future__ import annotations
 
+import fcntl
+import hashlib
 import json
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -19,6 +22,9 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
 from legalforecast.ingestion.stage_a_replay_executor import contract as contract_module
 from legalforecast.ingestion.stage_a_replay_executor import executor as executor_module
 from legalforecast.ingestion.stage_a_replay_executor import lineage as lineage_module
+from legalforecast.ingestion.stage_a_replay_executor import (
+    output_claims as output_claims_module,
+)
 from legalforecast.ingestion.stage_a_replay_executor import provider as provider_module
 from legalforecast.ingestion.stage_a_replay_executor import repair as repair_module
 from legalforecast.ingestion.stage_a_replay_executor.contract import (
@@ -489,9 +495,115 @@ def test_plan_publication_is_an_exclusive_provider_access_claim(
     assert len(results) == 1
     assert len(errors) == 1
     assert isinstance(errors[0], ReplayOutputClaimError)
-    assert "replay plan output already exists" in str(errors[0])
+    assert "already exists" in str(errors[0])
     assert calls == ["unitizer:cand-a", "reviewer:cand-a"]
     assert (tmp_path / "receipt.json").is_file()
+
+
+def test_output_claim_rejects_replaced_lock_inode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parsed = load_replay_spec(
+        write_spec(
+            tmp_path,
+            aggregate_ceiling="0.30",
+            per_candidate_ceiling="0.30",
+            candidate_ids=("cand-a",),
+        )
+    )
+    _name, first_output = min(
+        parsed.output_paths.items(), key=lambda item: str(item[1])
+    )
+    lock_path = output_claims_module._output_lock_path(first_output)
+    real_flock = output_claims_module.fcntl.flock
+    replaced = False
+
+    def replace_path_after_lock(descriptor: int, operation: int) -> None:
+        nonlocal replaced
+        real_flock(descriptor, operation)
+        if operation == fcntl.LOCK_EX | fcntl.LOCK_NB and not replaced:
+            lock_path.unlink()
+            lock_path.write_bytes(b"replacement lock inode\n")
+            replaced = True
+
+    monkeypatch.setattr(output_claims_module.fcntl, "flock", replace_path_after_lock)
+    claims = output_claims_module.OutputClaimSet(parsed)
+    try:
+        with pytest.raises(ReplayOutputClaimError, match="lock was replaced"):
+            claims.acquire()
+    finally:
+        claims.release()
+
+    assert replaced is True
+    assert all(not path.exists() for path in parsed.output_paths.values())
+
+
+def test_every_terminal_output_is_claimed_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    first_path = write_spec(
+        first_root,
+        aggregate_ceiling="0.30",
+        per_candidate_ceiling="0.30",
+        candidate_ids=("cand-a",),
+    )
+    second_path = write_spec(
+        second_root,
+        aggregate_ceiling="0.30",
+        per_candidate_ceiling="0.30",
+        candidate_ids=("cand-a",),
+    )
+    first = load_replay_spec(first_path)
+    second_record = read_spec(second_path)
+    second_outputs = cast(dict[str, object], second_record["outputs"])
+    second_outputs["execution_path"] = str(first.output_paths["execution_path"])
+    refresh_authorization_descriptor(second_path, second_record)
+    second = load_replay_spec(second_path)
+
+    first_provider_entered = Event()
+    release_first_provider = Event()
+    calls: list[str] = []
+
+    def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
+        calls.append(f"unitizer:{request.candidate_id}")
+        if not first_provider_entered.is_set():
+            first_provider_entered.set()
+            assert release_first_provider.wait(timeout=5)
+        return settled_unitizer(request)
+
+    def reviewer(
+        request: CandidateScopedStageARerunRequest,
+        unitize: StageAStageOutcome,
+    ) -> StageAStageOutcome:
+        calls.append(f"reviewer:{request.candidate_id}")
+        return settled_reviewer(request, unitize)
+
+    def execute(parsed: object) -> object:
+        return execute_stage_a_replay(
+            cast(Any, parsed),
+            unitizer=unitizer,
+            reviewer=reviewer,
+            spend_meter=FakeSpendMeter(),
+            code_commit="0" * 40,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first_future = pool.submit(execute, first)
+        assert first_provider_entered.wait(timeout=5)
+        second_future = pool.submit(execute, second)
+        second_error = second_future.exception(timeout=5)
+        release_first_provider.set()
+        first_result = first_future.result(timeout=5)
+
+    assert second_error is not None
+    assert isinstance(second_error, ReplayOutputClaimError)
+    assert "replay execution output" in str(second_error)
+    assert first_result.halted is False
+    assert calls == ["unitizer:cand-a", "reviewer:cand-a"]
 
 
 def test_provider_account_alias_must_equal_pinned_caps() -> None:
@@ -531,6 +643,8 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
                 "candidate_id": "cand-b",
                 "source_document_id": "doc-cand-b",
                 "document_role": "complaint",
+                "sha256": "c" * 64,
+                "byte_count": 10,
             }
         ],
         "nonincluded_operations": [],
@@ -547,12 +661,32 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
                 "candidate_id": "cand-a",
                 "source_document_id": "different-document",
                 "document_role": "complaint",
+                "sha256": "2" * 64,
+                "byte_count": 10,
             }
         ],
         "nonincluded_operations": [],
     }
     with pytest.raises(StageAReplayExecutorError, match="differs from authenticated"):
         repair_module.verify_repair_scope(parsed, wrong_document, successor)
+
+    wrong_content = {
+        "manifest_candidate_ids": ["cand-a"],
+        "execution_candidate_ids": ["cand-a"],
+        "receipt_candidate_ids": ["cand-a"],
+        "included_operations": [
+            {
+                "candidate_id": "cand-a",
+                "source_document_id": "doc-cand-a",
+                "document_role": "complaint",
+                "sha256": "0" * 64,
+                "byte_count": 10,
+            }
+        ],
+        "nonincluded_operations": [],
+    }
+    with pytest.raises(StageAReplayExecutorError, match="differs from authenticated"):
+        repair_module.verify_repair_scope(parsed, wrong_content, successor)
 
     excluded_operation = {
         "manifest_candidate_ids": ["cand-a"],
@@ -563,6 +697,8 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
                 "candidate_id": "cand-a",
                 "source_document_id": "doc-cand-a",
                 "document_role": "complaint",
+                "sha256": "2" * 64,
+                "byte_count": 10,
             }
         ],
         "nonincluded_operations": [
@@ -576,3 +712,41 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
     }
     with pytest.raises(StageAReplayExecutorError, match="nonincluded repair"):
         repair_module.verify_repair_scope(parsed, excluded_operation, successor)
+
+
+def test_acquired_document_artifact_replays_exact_referenced_bytes(
+    tmp_path: Path,
+) -> None:
+    document = tmp_path / "document.pdf"
+    document.write_bytes(b"%PDF exact acquired bytes\n")
+    record = [
+        {
+            "candidate_id": "cand-a",
+            "source_document_id": "doc-cand-a",
+            "document_role": "complaint",
+            "path": str(document.resolve()),
+            "sha256": hashlib.sha256(document.read_bytes()).hexdigest(),
+            "byte_count": document.stat().st_size,
+            "clearance_status": "cleared",
+        }
+    ]
+    artifact = tmp_path / "acquired-documents.json"
+    artifact.write_text(json.dumps(record))
+    artifact_sha256 = hashlib.sha256(artifact.read_bytes()).hexdigest()
+
+    assert repair_module._verify_acquired_documents(
+        artifact,
+        expected_sha256=artifact_sha256,
+    ) == {
+        ("cand-a", "doc-cand-a", "complaint"): (
+            record[0]["sha256"],
+            record[0]["byte_count"],
+        )
+    }
+
+    document.write_bytes(b"%PDF substituted bytes\n")
+    with pytest.raises(StageAReplayExecutorError, match="bytes differ"):
+        repair_module._verify_acquired_documents(
+            artifact,
+            expected_sha256=artifact_sha256,
+        )

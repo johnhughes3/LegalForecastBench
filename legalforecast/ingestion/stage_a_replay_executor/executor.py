@@ -44,6 +44,9 @@ from legalforecast.ingestion.stage_a_replay_executor.lineage import (
     VerifiedReplayLineage,
     verify_replay_lineage,
 )
+from legalforecast.ingestion.stage_a_replay_executor.output_claims import (
+    acquire_output_claims,
+)
 from legalforecast.ingestion.stage_a_replay_executor.provider import (
     CanonicalProviderRuntime,
 )
@@ -159,9 +162,11 @@ def execute_stage_a_replay(
             "runtime code commit differs from the code commit in replay-spec",
             failure_type="RuntimeCommitMismatch",
         )
+    code_identity_guard = _runtime_code_identity_guard(parsed)
 
     plan: CandidateScopedStageAPlan | None = None
     plan_persisted = False
+    output_claims = acquire_output_claims(parsed)
     execution: CandidateScopedStageAExecution | None = None
     stage_a_receipt: CandidateScopedStageAReceipt | None = None
     lineage: VerifiedReplayLineage | None = None
@@ -245,6 +250,7 @@ def execute_stage_a_replay(
                 committed_by_call=committed_by_call,
                 invocations=invocations,
                 clock=clock,
+                code_identity_guard=code_identity_guard,
             )
             return outcome
 
@@ -266,6 +272,7 @@ def execute_stage_a_replay(
                 committed_by_call=committed_by_call,
                 invocations=invocations,
                 clock=clock,
+                code_identity_guard=code_identity_guard,
             )
             return outcome
 
@@ -280,6 +287,7 @@ def execute_stage_a_replay(
     except ExecutionHalt as exc:
         halt = {"provider_accessed": provider_accessed(invocations), **exc.evidence}
     except ReplayOutputClaimError:
+        output_claims.release()
         raise
     except (CandidateScopedStageAReplayError, StageAReplayExecutorError) as exc:
         halt = _failure_evidence(
@@ -291,16 +299,19 @@ def execute_stage_a_replay(
         )
     if not plan_persisted:
         plan = None
-    receipt = persist_terminal_evidence(
-        parsed,
-        plan=plan,
-        execution=execution,
-        stage_a_receipt=stage_a_receipt,
-        invocations=invocations,
-        halt_evidence=halt,
-        lineage_evidence=None if lineage is None else lineage.evidence,
-        halted=halt is not None,
-    )
+    try:
+        receipt = persist_terminal_evidence(
+            parsed,
+            plan=plan,
+            execution=execution,
+            stage_a_receipt=stage_a_receipt,
+            invocations=invocations,
+            halt_evidence=halt,
+            lineage_evidence=None if lineage is None else lineage.evidence,
+            halted=halt is not None,
+        )
+    finally:
+        output_claims.release()
     return ReplayExecutionResult(
         spec_sha256=parsed.spec_sha256,
         plan=plan,
@@ -333,6 +344,19 @@ def _callbacks(
     return runtime.unitizer, runtime.reviewer, JournalSpendMeter(runtime)
 
 
+def _runtime_code_identity_guard(spec: ReplaySpec) -> Callable[[], None] | None:
+    if spec.synthetic_fixture:
+        return None
+
+    def require_unchanged() -> None:
+        if current_code_commit() != spec.code_commit:
+            raise StageAReplayExecutorError(
+                "runtime code identity changed before provider access"
+            )
+
+    return require_unchanged
+
+
 def _failure_evidence(
     status: str,
     error: Exception,
@@ -356,16 +380,20 @@ def _preflight_halt(
         "failure_type": failure_type,
         "provider_accessed": False,
     }
-    receipt = persist_terminal_evidence(
-        spec,
-        plan=None,
-        execution=None,
-        stage_a_receipt=None,
-        invocations=(),
-        halt_evidence=evidence,
-        lineage_evidence=None,
-        halted=True,
-    )
+    claims = acquire_output_claims(spec)
+    try:
+        receipt = persist_terminal_evidence(
+            spec,
+            plan=None,
+            execution=None,
+            stage_a_receipt=None,
+            invocations=(),
+            halt_evidence=evidence,
+            lineage_evidence=None,
+            halted=True,
+        )
+    finally:
+        claims.release()
     return ReplayExecutionResult(
         spec_sha256=spec.spec_sha256,
         plan=None,

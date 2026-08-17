@@ -146,6 +146,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`stage_a_replay_executor/guard.py`](../legalforecast/ingestion/stage_a_replay_executor/guard.py) | Pre- and post-call ceiling enforcement plus per-invocation run evidence. |
 | [`stage_a_replay_executor/journal.py`](../legalforecast/ingestion/stage_a_replay_executor/journal.py) | Exact logical-call spend snapshots and frozen terminal-attempt recognition over the shared provider journal. |
 | [`stage_a_replay_executor/lineage.py`](../legalforecast/ingestion/stage_a_replay_executor/lineage.py) | Production predecessor and successor verifier replay with complete-cohort and unchanged-input checks. |
+| [`stage_a_replay_executor/output_claims.py`](../legalforecast/ingestion/stage_a_replay_executor/output_claims.py) | Cross-process exclusive claims for every signed executor output path. |
 | [`stage_a_replay_executor/predecessor.py`](../legalforecast/ingestion/stage_a_replay_executor/predecessor.py) | Exact-byte predecessor unitizer/reviewer run-card authentication and frozen prompt-namespace extraction. |
 | [`stage_a_replay_executor/provider.py`](../legalforecast/ingestion/stage_a_replay_executor/provider.py) | Canonical claim-ontology-v5/v4 provider adapters and terminal qsp commitments. |
 | [`stage_a_replay_executor/receipts.py`](../legalforecast/ingestion/stage_a_replay_executor/receipts.py) | Immutable plan, execution, Stage A receipt, invocation journal, and outer-receipt persistence and replay. |

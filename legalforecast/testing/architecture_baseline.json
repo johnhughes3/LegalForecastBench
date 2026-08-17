@@ -3723,7 +3723,7 @@
       "legalforecast/extraction": 4,
       "legalforecast/ingestion": 157,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
-      "legalforecast/ingestion/stage_a_replay_executor": 11,
+      "legalforecast/ingestion/stage_a_replay_executor": 12,
       "legalforecast/labeling": 13,
       "legalforecast/multiharness": 64,
       "legalforecast/protocol": 4,
@@ -3871,7 +3871,7 @@
         "cycle_id": "",
         "disposition_kind": "below-watch",
         "disposition_owner": "config",
-        "fan_in": 5,
+        "fan_in": 6,
         "fan_out": 4,
         "flags": [
           "relative-path"
@@ -5929,6 +5929,23 @@
         "nonblank_line_count": 2697,
         "top_level_definition_count": 28
       },
+      "legalforecast/ingestion/stage_a_replay_executor/spec.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "ingestion",
+        "fan_in": 10,
+        "fan_out": 2,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "ingestion",
+        "largest_symbol": "load_replay_spec",
+        "largest_symbol_lines": 101,
+        "layer": "application",
+        "line_count": 505,
+        "nonblank_line_count": 471,
+        "top_level_definition_count": 11
+      },
       "legalforecast/ingestion/strict_screen_evidence.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
@@ -7432,7 +7449,7 @@
         "cycle_id": "legalforecast/unitization/review.py,legalforecast/unitization/unitizer_terminal_review.py",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.4",
-        "fan_in": 4,
+        "fan_in": 5,
         "fan_out": 2,
         "flags": [
           "cycle"
@@ -7684,9 +7701,9 @@
         "largest_symbol": "test_reviewer_two_identical_failures_qualify_without_a_third_attempt",
         "largest_symbol_lines": 48,
         "layer": "test",
-        "line_count": 502,
-        "nonblank_line_count": 429,
-        "top_level_definition_count": 18
+        "line_count": 577,
+        "nonblank_line_count": 495,
+        "top_level_definition_count": 20
       },
       "tests/stage_a_replay_executor/test_review_regressions.py": {
         "cycle_id": "",
@@ -7701,9 +7718,9 @@
         "largest_symbol": "test_authorization_signer_lookup_uses_runtime_checkout_not_caller_context",
         "largest_symbol_lines": 141,
         "layer": "test",
-        "line_count": 578,
-        "nonblank_line_count": 518,
-        "top_level_definition_count": 15
+        "line_count": 752,
+        "nonblank_line_count": 674,
+        "top_level_definition_count": 18
       },
       "tests/test_acquisition_cli.py": {
         "cycle_id": "",
