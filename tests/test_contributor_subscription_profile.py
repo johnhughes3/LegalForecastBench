@@ -18,9 +18,12 @@ from legalforecast.multiharness.auth_binding import (
 )
 from legalforecast.multiharness.auth_profiles import (
     _PROFILE_INFISICAL_PATH,
+    AUTH_PROFILE_IDS,
     CONTRIBUTOR_SUBSCRIPTION,
     CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH,
     FIXTURE_NONE,
+    HARNESS_RUNTIME_INFISICAL_ROOT,
+    LABELING_INFISICAL_PATH,
     LOCAL_CLI_SUBSCRIPTION_CATEGORY,
     OFFICIAL_AUTH_PROFILES,
     PUBLISHED_API_KEY,
@@ -88,6 +91,29 @@ def test_public_provenance_records_only_the_nonsecret_category() -> None:
     assert CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH not in json.dumps(
         resolved.public_provenance()
     )
+
+
+def test_reserved_contributor_infisical_leaf_is_never_a_live_lookup() -> None:
+    """The reserved leaf documents a path to never add, not one to resolve."""
+
+    assert CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH.startswith(
+        f"{HARNESS_RUNTIME_INFISICAL_ROOT}/"
+    )
+    live_paths: set[str] = set()
+    for profile_id in sorted(AUTH_PROFILE_IDS):
+        try:
+            live_paths.add(infisical_path_for_profile(profile_id))
+        except AuthProfileError:
+            continue
+    # published-api-key is the only profile that resolves to a live path, so a
+    # future lookup-table edit that wires up the reserved leaf fails here.
+    assert live_paths == {LABELING_INFISICAL_PATH}
+    assert CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH not in live_paths
+    resolved = resolve_auth_profile(
+        CONTRIBUTOR_SUBSCRIPTION,
+        supported_profiles=(CONTRIBUTOR_SUBSCRIPTION,),
+    )
+    assert resolved.infisical_path is None
 
 
 def test_unknown_absent_and_ci_presence_fail_closed_without_fallback() -> None:
