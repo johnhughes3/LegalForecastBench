@@ -25,10 +25,13 @@ this manifest is what makes the *pair* atomic.
 
 from __future__ import annotations
 
+import ctypes
+import errno
 import json
 import os
 import secrets
 import stat
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -73,6 +76,15 @@ class ReviewQueueGeneration:
     v2_bytes: bytes
 
 
+@dataclass(frozen=True, slots=True)
+class ReviewQueueParentAnchor:
+    """One open queue parent retained for an entire publication transaction."""
+
+    resolved_parent: Path
+    descriptor: int
+    identity: tuple[int, int]
+
+
 def review_queue_generation_root(queue_path: Path) -> Path:
     """Return the directory holding every published generation of a queue."""
 
@@ -83,6 +95,41 @@ def review_queue_generation_manifest_path(queue_path: Path) -> Path:
     """Return the single mutable pointer naming the current generation."""
 
     return queue_path.with_name(f"{queue_path.stem}-generation.json")
+
+
+def open_review_queue_parent_anchor(queue_path: Path) -> ReviewQueueParentAnchor:
+    """Open and identify the queue parent for a publication transaction."""
+
+    resolved_parent, descriptor = _open_directory_anchor(queue_path.parent)
+    return ReviewQueueParentAnchor(
+        resolved_parent=resolved_parent,
+        descriptor=descriptor,
+        identity=_directory_identity(descriptor),
+    )
+
+
+def require_review_queue_parent_anchor(
+    queue_path: Path, parent_anchor: ReviewQueueParentAnchor
+) -> None:
+    """Require the caller's queue path to still name its retained parent."""
+
+    _require_review_queue_parent_descriptor(parent_anchor)
+    _require_parent_anchor(
+        queue_path.parent,
+        parent_anchor.resolved_parent,
+        parent_anchor.descriptor,
+    )
+
+
+def _require_review_queue_parent_descriptor(
+    parent_anchor: ReviewQueueParentAnchor,
+) -> None:
+    try:
+        identity = _directory_identity(parent_anchor.descriptor)
+    except OSError as exc:
+        raise ReviewQueueError("review queue parent anchor is unavailable") from exc
+    if identity != parent_anchor.identity:
+        raise ReviewQueueError("review queue parent anchor changed")
 
 
 def review_queue_generation_id(v1_bytes: bytes, v2_bytes: bytes) -> str:
@@ -105,7 +152,11 @@ def review_queue_generation_id(v1_bytes: bytes, v2_bytes: bytes) -> str:
 
 
 def publish_review_queue_generation(
-    queue_path: Path, *, v1_bytes: bytes, v2_bytes: bytes
+    queue_path: Path,
+    *,
+    v1_bytes: bytes,
+    v2_bytes: bytes,
+    parent_anchor: ReviewQueueParentAnchor | None = None,
 ) -> ReviewQueueGeneration:
     """Publish an immutable pair and switch the manifest in one atomic step.
 
@@ -127,8 +178,13 @@ def publish_review_queue_generation(
     manifest_path = review_queue_generation_manifest_path(queue_path)
     generations_root = review_queue_generation_root(queue_path)
     manifest_parent = manifest_path.parent
-    manifest_parent.mkdir(parents=True, exist_ok=True)
-    resolved_parent, parent_descriptor = _open_directory_anchor(manifest_parent)
+    if parent_anchor is None:
+        manifest_parent.mkdir(parents=True, exist_ok=True)
+        resolved_parent, parent_descriptor = _open_directory_anchor(manifest_parent)
+    else:
+        require_review_queue_parent_anchor(queue_path, parent_anchor)
+        resolved_parent = parent_anchor.resolved_parent
+        parent_descriptor = os.dup(parent_anchor.descriptor)
     root_descriptor: int | None = None
     generation_descriptor: int | None = None
     try:
@@ -463,7 +519,9 @@ def _open_directory_path_no_follow(path: Path) -> int:
         raise
 
 
-def _open_directory_anchor(path: Path) -> tuple[Path, int]:
+def _open_directory_anchor(
+    path: Path, *, expected_identity: tuple[int, int] | None = None
+) -> tuple[Path, int]:
     try:
         resolved = path.resolve(strict=True)
     except OSError as exc:
@@ -476,6 +534,12 @@ def _open_directory_anchor(path: Path) -> tuple[Path, int]:
         raise ReviewQueueError(
             f"review queue directory is unsafe: {path}: {exc}"
         ) from exc
+    if (
+        expected_identity is not None
+        and _directory_identity(descriptor) != expected_identity
+    ):
+        os.close(descriptor)
+        raise ReviewQueueError("review queue generation tree changed: parent")
     return resolved, descriptor
 
 
@@ -502,6 +566,7 @@ def _open_or_create_directory_at(
         os.mkdir(name, 0o755, dir_fd=parent_descriptor)
         created = True
     except FileExistsError:
+        # A pre-existing directory is opened and identity-checked below.
         pass
     try:
         descriptor = os.open(
@@ -645,7 +710,24 @@ def _write_immutable_member(
                 f"review queue generation member is not immutable: {path}"
             )
         return
-    _atomic_write_at(directory_descriptor, name, payload, path)
+    try:
+        _atomic_write_at(
+            directory_descriptor, name, payload, path, replace_existing=False
+        )
+    except FileExistsError:
+        # Another publisher may have installed the same content after the
+        # initial stat.  Re-read the destination through the anchored
+        # descriptor and accept it only when the immutable bytes agree.
+        try:
+            existing = _read_regular_file_at(directory_descriptor, name, path)
+        except OSError as exc:
+            raise ReviewQueueError(
+                f"review queue generation member is unreadable: {path}: {exc}"
+            ) from exc
+        if existing != payload:
+            raise ReviewQueueError(
+                f"review queue generation member is not immutable: {path}"
+            ) from None
 
 
 def _atomic_write_at(
@@ -655,6 +737,7 @@ def _atomic_write_at(
     path: Path,
     *,
     mode: int = 0o600,
+    replace_existing: bool = True,
 ) -> None:
     """Write bytes relative to an anchored directory and persist the rename.
 
@@ -687,16 +770,26 @@ def _atomic_write_at(
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(
-            temporary_name,
-            name,
-            src_dir_fd=directory_descriptor,
-            dst_dir_fd=directory_descriptor,
-        )
+        if replace_existing:
+            os.replace(
+                temporary_name,
+                name,
+                src_dir_fd=directory_descriptor,
+                dst_dir_fd=directory_descriptor,
+            )
+        else:
+            _rename_noreplace_at(
+                directory_descriptor,
+                temporary_name,
+                directory_descriptor,
+                name,
+                path,
+            )
     except BaseException:
         try:
             os.unlink(temporary_name, dir_fd=directory_descriptor)
         except FileNotFoundError:
+            # A successful rename already consumed the temporary name.
             pass
         raise
     try:
@@ -705,13 +798,90 @@ def _atomic_write_at(
         raise _PostCommitFsyncError(path, exc) from exc
 
 
-def write_review_queue_file_durably(path: Path, payload: bytes) -> None:
+def _rename_noreplace_at(
+    source_descriptor: int,
+    source_name: str,
+    destination_descriptor: int,
+    destination_name: str,
+    path: Path,
+) -> None:
+    """Atomically install one name without replacing a racing destination."""
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    rename_noreplace = getattr(libc, "renameat2", None)
+    rename_flag = 1  # Linux RENAME_NOREPLACE from ``linux/fs.h``.
+    if rename_noreplace is None and sys.platform == "darwin":
+        rename_noreplace = getattr(libc, "renameatx_np", None)
+        # Darwin RENAME_EXCL from ``sys/stdio.h``.  ``renameatx_np`` retains
+        # the descriptor-relative path binding that publication requires.
+        rename_flag = 0x00000004
+    if rename_noreplace is None:
+        raise ReviewQueueError(
+            "safe immutable review queue publication requires "
+            "renameat2(RENAME_NOREPLACE) or Darwin "
+            "renameatx_np(RENAME_EXCL)"
+        )
+    rename_noreplace.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    rename_noreplace.restype = ctypes.c_int
+    result = rename_noreplace(
+        source_descriptor,
+        os.fsencode(source_name),
+        destination_descriptor,
+        os.fsencode(destination_name),
+        rename_flag,
+    )
+    if result == 0:
+        return
+    error_number = ctypes.get_errno()
+    if error_number == errno.EEXIST:
+        raise FileExistsError(error_number, os.strerror(error_number), path)
+    raise OSError(error_number, os.strerror(error_number), path)
+
+
+def read_review_queue_file_safely(
+    path: Path, *, parent_anchor: ReviewQueueParentAnchor
+) -> bytes | None:
+    """Read an optional canonical queue file from the transaction's parent."""
+
+    require_review_queue_parent_anchor(path, parent_anchor)
+    try:
+        payload = _read_regular_file_at(
+            parent_anchor.descriptor,
+            path.name,
+            parent_anchor.resolved_parent / path.name,
+        )
+    except FileNotFoundError:
+        payload = None
+    require_review_queue_parent_anchor(path, parent_anchor)
+    return payload
+
+
+def write_review_queue_file_durably(
+    path: Path,
+    payload: bytes,
+    *,
+    parent_anchor: ReviewQueueParentAnchor | None = None,
+    verify_parent_path: bool = True,
+) -> None:
     """Atomically replace one canonical queue file and persist its directory."""
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    resolved_parent, descriptor = _open_directory_anchor(path.parent)
+    owns_descriptor = parent_anchor is None
+    if parent_anchor is None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        resolved_parent, descriptor = _open_directory_anchor(path.parent)
+    else:
+        resolved_parent = parent_anchor.resolved_parent
+        descriptor = parent_anchor.descriptor
+        _require_review_queue_parent_descriptor(parent_anchor)
     try:
-        _require_parent_anchor(path.parent, resolved_parent, descriptor)
+        if verify_parent_path:
+            _require_parent_anchor(path.parent, resolved_parent, descriptor)
         _atomic_write_at(
             descriptor,
             path.name,
@@ -719,27 +889,43 @@ def write_review_queue_file_durably(path: Path, payload: bytes) -> None:
             resolved_parent / path.name,
             mode=0o666,
         )
-        _require_parent_anchor(path.parent, resolved_parent, descriptor)
+        if verify_parent_path:
+            _require_parent_anchor(path.parent, resolved_parent, descriptor)
     finally:
-        os.close(descriptor)
+        if owns_descriptor:
+            os.close(descriptor)
 
 
-def remove_review_queue_file_durably(path: Path) -> None:
+def remove_review_queue_file_durably(
+    path: Path,
+    *,
+    parent_anchor: ReviewQueueParentAnchor | None = None,
+    verify_parent_path: bool = True,
+) -> None:
     """Remove one canonical queue file and persist the directory entry."""
 
-    if not path.parent.exists():
+    owns_descriptor = parent_anchor is None
+    if parent_anchor is None and not path.parent.exists():
         return
-    resolved_parent, descriptor = _open_directory_anchor(path.parent)
+    if parent_anchor is None:
+        resolved_parent, descriptor = _open_directory_anchor(path.parent)
+    else:
+        resolved_parent = parent_anchor.resolved_parent
+        descriptor = parent_anchor.descriptor
+        _require_review_queue_parent_descriptor(parent_anchor)
     try:
-        _require_parent_anchor(path.parent, resolved_parent, descriptor)
+        if verify_parent_path:
+            _require_parent_anchor(path.parent, resolved_parent, descriptor)
         try:
             os.unlink(path.name, dir_fd=descriptor)
         except FileNotFoundError:
             return
         _fsync_directory_descriptor(descriptor)
-        _require_parent_anchor(path.parent, resolved_parent, descriptor)
+        if verify_parent_path:
+            _require_parent_anchor(path.parent, resolved_parent, descriptor)
     finally:
-        os.close(descriptor)
+        if owns_descriptor:
+            os.close(descriptor)
 
 
 def _fsync_directory_descriptor(descriptor: int) -> None:
