@@ -15,6 +15,8 @@ No provider spend is authorized by this document. The remaining work is not limi
 
 The companion `.sha256` file permits a reviewer to verify the exact bytes. The designated approver should not approve spend against this hash.
 
+Regenerating the structural specification means updating three things together: the freeze document, its `.sha256` companion, and the SHA-256 row above. `tests/test_community_acceptance_freeze_digest.py` fails if any of the three drifts from the others, so the table above cannot silently outlive the bytes it names.
+
 ## Cost state
 
 The known complete pair requires two solver executions and 46 criterion-level judge calls before any internal retry. A planning-only administrative reserve of **USD 25–100** is proposed so budgeting work has a bounded discussion range.
