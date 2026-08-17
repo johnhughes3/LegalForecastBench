@@ -22,6 +22,10 @@ positional arguments:
                         acquisition lineage.
     replay-stage-a      Execute one authenticated candidate-scoped Stage A
                         replay spec.
+    issue-replay-spec   Derive the replay descriptor the owner signs against.
+    record-replay-authorization
+                        Bind the owner's typed approval to one replay
+                        descriptor.
     plan-attachment-pages
                         Authenticate docket entries whose PACER attachment
                         menu is missing.
