@@ -1,0 +1,16 @@
+{
+  "algorithm": "Ed25519",
+  "issuer_id": "legalforecast.harvey-lab-evaluator-issuer.v1",
+  "issuer_policy_sha256": "sha256:8b0b29efb2f044ef6a65d2cea79c832e6c44f6ac00280e00cd5a00265efefb90",
+  "key_id": "harvey-lab-evaluator-v1",
+  "private_key_source": {
+    "backend": "infisical-agent-sandbox",
+    "encoding": "base64-raw-32-byte-ed25519",
+    "environment": "dev",
+    "name": "HARVEY_LAB_EVALUATOR_ED25519_PRIVATE_KEY",
+    "path": "/agents/sandbox/legalforecastbench/harness-runtime/evaluator-issuer"
+  },
+  "public_key_base64": null,
+  "schema_version": "legalforecast.multiharness.receipt_authority.v1",
+  "status": "pending_human_provisioning"
+}
