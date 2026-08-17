@@ -299,8 +299,11 @@ def test_detached_sshsig_verifies_exact_authorization_bytes(
         )
 
 
-def test_authorization_signer_lookup_uses_runtime_checkout_not_caller_cwd(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("attacker_config_root", ["home", "xdg"])
+def test_authorization_signer_lookup_uses_runtime_checkout_not_caller_context(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    attacker_config_root: str,
 ) -> None:
     trusted_checkout = tmp_path / "trusted-checkout"
     caller_checkout = tmp_path / "caller-checkout"
@@ -326,19 +329,57 @@ def test_authorization_signer_lookup_uses_runtime_checkout_not_caller_cwd(
     caller_signers.write_text(
         "owner@example.invalid " + attacker_key.with_suffix(".pub").read_text()
     )
-    git_home = tmp_path / "git-home"
-    git_home.mkdir()
-    monkeypatch.setenv("HOME", str(git_home))
+    trusted_git_home = tmp_path / "trusted-git-home"
+    trusted_git_home.mkdir()
     subprocess.run(
         [
             "git",
             "config",
-            "--global",
+            "--file",
+            str(trusted_git_home / ".gitconfig"),
             "gpg.ssh.allowedSignersFile",
             ".git-trust/allowed_signers",
         ],
         check=True,
     )
+    monkeypatch.setattr(
+        contract_module,
+        "_trusted_user_home",
+        lambda: trusted_git_home,
+        raising=False,
+    )
+    attacker_git_home = tmp_path / "attacker-git-home"
+    attacker_git_home.mkdir()
+    if attacker_config_root == "home":
+        subprocess.run(
+            [
+                "git",
+                "config",
+                "--file",
+                str(attacker_git_home / ".gitconfig"),
+                "gpg.ssh.allowedSignersFile",
+                str(caller_signers),
+            ],
+            check=True,
+        )
+        monkeypatch.setenv("HOME", str(attacker_git_home))
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    else:
+        attacker_xdg_config = tmp_path / "attacker-xdg-config"
+        (attacker_xdg_config / "git").mkdir(parents=True)
+        subprocess.run(
+            [
+                "git",
+                "config",
+                "--file",
+                str(attacker_xdg_config / "git" / "config"),
+                "gpg.ssh.allowedSignersFile",
+                str(caller_signers),
+            ],
+            check=True,
+        )
+        monkeypatch.setenv("HOME", str(attacker_git_home))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(attacker_xdg_config))
     subprocess.run(
         [
             "git",

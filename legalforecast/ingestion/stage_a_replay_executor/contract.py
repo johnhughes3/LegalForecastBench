@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import pwd
 import re
 import subprocess
 from collections.abc import Mapping
@@ -63,12 +64,21 @@ class ReplayOutputClaimError(StageAReplayExecutorError):
 def trusted_git_environment() -> dict[str, str]:
     """Return the process environment without caller-controlled Git context."""
 
-    return {
+    environment = {
         key: value
         for key, value in os.environ.items()
         if key not in _GIT_LOCAL_ENVIRONMENT_VARIABLES
         and not key.startswith("GIT_CONFIG_")
     }
+    environment["HOME"] = str(_trusted_user_home())
+    environment.pop("XDG_CONFIG_HOME", None)
+    return environment
+
+
+def _trusted_user_home() -> Path:
+    """Return the operating-system account home, independent of caller input."""
+
+    return Path(pwd.getpwuid(os.getuid()).pw_dir)
 
 
 def validate_authorization(
@@ -242,7 +252,7 @@ def verify_authorization_signature(
         raise StageAReplayExecutorError(
             "Git SSH allowed-signers configuration is unavailable"
         ) from exc
-    allowed_signers = Path(configured).expanduser()
+    allowed_signers = Path(configured)
     if not allowed_signers.is_absolute():
         allowed_signers = checkout / allowed_signers
     read_regular(allowed_signers, "Git SSH allowed-signers file")
