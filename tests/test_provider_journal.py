@@ -14,6 +14,7 @@ from legalforecast.evals.live_model_solver import (
     complete_live_prompt,
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.labeling import llm_pipeline
 from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
     ProviderBudgetExceededError,
@@ -1360,6 +1361,61 @@ def test_reserved_attempt_after_crash_is_never_reissued(tmp_path: Path) -> None:
             "ORDER BY attempt_ordinal"
         ).fetchall()
     assert rows == [(1, "reserved"), (2, "response_received")]
+
+
+@pytest.mark.parametrize("prior_status", ("failed", "ambiguous", "reserved"))
+def test_existing_durable_attempt_limits_fresh_retry_ordinals(
+    tmp_path: Path,
+    prior_status: str,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        if prior_status == "reserved":
+            journal._reserve(1)
+        elif prior_status == "failed":
+            with pytest.raises(LiveModelProviderError):
+                journal.run_attempt(
+                    1,
+                    lambda: _raise_provider_error(
+                        LiveModelProviderError("invalid request", status_code=400)
+                    ),
+                )
+        else:
+            with pytest.raises(ValueError, match="ambiguous response"):
+                journal.run_attempt(
+                    1,
+                    lambda: _raise_value_error("ambiguous response"),
+                )
+
+    provider_calls = 0
+
+    def retryable_failure() -> dict[str, object]:
+        nonlocal provider_calls
+        provider_calls += 1
+        raise LiveModelProviderError("timeout", retryable=True)
+
+    with _journal(path) as retry:
+        max_attempts = llm_pipeline._reconstruction_retry_max_attempts(retry)
+        assert max_attempts == 2
+        assert retry.durable_attempt_ordinal(1) == 2
+        assert retry.durable_attempt_ordinal(2) == 3
+        with pytest.raises(LiveModelProviderError, match="timeout"):
+            _call_with_provider_retries(
+                retryable_failure,
+                max_attempts=max_attempts,
+                retry_backoff_seconds=0,
+                attempt_handler=retry,
+            )
+
+    assert provider_calls == 2
+    with sqlite3.connect(path) as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert [row[0] for row in rows] == [1, 2, 3]
+    assert rows[0][1] == prior_status
+    assert [row[1] for row in rows[1:]] == ["ambiguous", "ambiguous"]
 
 
 def test_settle_attempt_rejects_missing_row_and_allows_settled_replay(

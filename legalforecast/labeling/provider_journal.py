@@ -633,19 +633,6 @@ class ProviderAttemptJournal:
             """,
             (self.identity.logical_call_key,),
         ).fetchall()
-        recovered = next(
-            (
-                row
-                for row in reversed(rows)
-                if row["status"] == "settled" and row["failure_type"] is not None
-            ),
-            None,
-        )
-        if not any(row["status"] == "reconstruction_failed" for row in rows):
-            if recovered is not None:
-                self._durable_ordinals[1] = int(recovered["attempt_ordinal"])
-                return 1
-            return max_attempts
         replayable = next(
             (
                 row
@@ -663,7 +650,9 @@ class ProviderAttemptJournal:
             raise ProviderJournalError(
                 "provider reconstruction retry attempt limit is exhausted"
             )
-        next_ordinal = max(int(row["attempt_ordinal"]) for row in rows) + 1
+        next_ordinal = (
+            max(int(row["attempt_ordinal"]) for row in rows) + 1 if rows else 1
+        )
         for local_ordinal in range(1, remaining + 1):
             self._durable_ordinals[local_ordinal] = next_ordinal + local_ordinal - 1
         return remaining

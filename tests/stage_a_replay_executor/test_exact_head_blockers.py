@@ -130,15 +130,18 @@ def test_runtime_and_llm_adapter_derive_the_same_prompt_scope(
         )
 
 
-def test_non_reconstruction_journal_failure_reserves_three_fresh_attempts() -> None:
+@pytest.mark.parametrize("status", ("failed", "ambiguous", "reserved"))
+def test_non_reconstruction_journal_attempt_consumes_fixed_allowance(
+    status: str,
+) -> None:
     rows = (
         {
             "attempt_ordinal": 1,
-            "status": "failed",
+            "status": status,
         },
     )
 
-    assert journal_module._maximum_new_attempts(rows, stage="unitizer") == 3
+    assert journal_module._maximum_new_attempts(rows, stage="unitizer") == 2
 
 
 def test_predecessor_namespace_mismatch_halts_before_binder(

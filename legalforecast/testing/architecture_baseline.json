@@ -3723,7 +3723,7 @@
       "legalforecast/extraction": 4,
       "legalforecast/ingestion": 157,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
-      "legalforecast/ingestion/stage_a_replay_executor": 10,
+      "legalforecast/ingestion/stage_a_replay_executor": 11,
       "legalforecast/labeling": 13,
       "legalforecast/multiharness": 63,
       "legalforecast/protocol": 4,
@@ -3743,7 +3743,7 @@
       "tests/fixtures/container_runtime_worker": 1,
       "tests/fixtures/harvey_lab": 2,
       "tests/ingestion": 1,
-      "tests/stage_a_replay_executor": 5
+      "tests/stage_a_replay_executor": 6
     },
     "files": {
       "examples/adapters/claude-agent-sdk/adapter.py": {
@@ -6291,10 +6291,10 @@
         ],
         "lane_owner": "labeling",
         "largest_symbol": "ProviderAttemptJournal",
-        "largest_symbol_lines": 1070,
+        "largest_symbol_lines": 1059,
         "layer": "application",
-        "line_count": 1755,
-        "nonblank_line_count": 1600,
+        "line_count": 1744,
+        "nonblank_line_count": 1589,
         "top_level_definition_count": 31
       },
       "legalforecast/labeling/unitizer_terminal.py": {
@@ -9742,9 +9742,9 @@
         "largest_symbol": "test_journal_terminalizes_invalid_reconstruction_without_losing_accounting",
         "largest_symbol_lines": 57,
         "layer": "test",
-        "line_count": 1677,
-        "nonblank_line_count": 1467,
-        "top_level_definition_count": 53
+        "line_count": 1733,
+        "nonblank_line_count": 1517,
+        "top_level_definition_count": 54
       },
       "tests/test_provider_spend_attempt_handler.py": {
         "cycle_id": "",

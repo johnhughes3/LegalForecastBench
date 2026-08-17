@@ -201,13 +201,12 @@ def _terminal_route_from_rows(
 def _maximum_new_attempts(rows: tuple[Mapping[str, object], ...], *, stage: str) -> int:
     if _terminal_route_from_rows(rows, stage=stage):
         return 0
-    if any(row["status"] == "reconstruction_failed" for row in rows):
-        if len(rows) < 3:
-            return 3 - len(rows)
-        raise StageAReplayExecutorError(
-            f"{stage} provider journal exhausted without a valid terminal route"
-        )
-    return 3
+    remaining = 3 - len(rows)
+    if remaining > 0:
+        return remaining
+    raise StageAReplayExecutorError(
+        f"{stage} provider journal exhausted without a valid terminal route"
+    )
 
 
 def journal_rows(
