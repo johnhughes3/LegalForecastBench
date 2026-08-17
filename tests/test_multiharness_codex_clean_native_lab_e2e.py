@@ -14,7 +14,6 @@ import zipfile
 from dataclasses import replace
 from pathlib import Path
 
-import legalforecast.multiharness.codex_cli_harvey_lab as codex_lab_composition
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
@@ -37,6 +36,7 @@ from legalforecast.multiharness.harvey_lab_output_discovery import (
 from legalforecast.multiharness.harvey_lab_projection import (
     ISSUE_196_LAB_TASK_ID,
     HarveyLabProjectionResult,
+    project_harvey_lab_suite,
 )
 from legalforecast.multiharness.local_cli_contracts import LocalCliFailureClass
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
@@ -131,7 +131,7 @@ def test_pipeline_refuses_an_invalid_projection_manifest(
 ) -> None:
     env = _install_binaries(tmp_path, outcome="success")
     hosts = _hosts(tmp_path)
-    real_project = codex_lab_composition.project_harvey_lab_suite
+    real_project = project_harvey_lab_suite
 
     def project_without_tasks(
         *args: object, **kwargs: object
@@ -143,8 +143,7 @@ def test_pipeline_refuses_an_invalid_projection_manifest(
         )
 
     monkeypatch.setattr(
-        codex_lab_composition,
-        "project_harvey_lab_suite",
+        "legalforecast.multiharness.codex_cli_harvey_lab.project_harvey_lab_suite",
         project_without_tasks,
     )
     try:
