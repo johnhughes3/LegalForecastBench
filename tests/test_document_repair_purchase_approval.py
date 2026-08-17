@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from legalforecast.cli import main
+from legalforecast.ingestion import document_repair_purchase_cli as cli_module
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchasePolicyError,
     initialize_case_dev_purchase_journal,
@@ -741,3 +743,247 @@ def test_input_outside_the_recorded_root_is_refused(
             fee_schedule_path=cast(Path, tranche["fee_schedule_path"]),
             canonical_ledger_path=cast(Path, tranche["canonical_ledger_path"]),
         )
+
+
+class _TTY:
+    @staticmethod
+    def isatty() -> bool:
+        return True
+
+
+class _NotTTY:
+    @staticmethod
+    def isatty() -> bool:
+        return False
+
+
+def _cli_source_arguments(tranche: Mapping[str, Any]) -> list[str]:
+    inputs = cast(DocumentRepairPurchaseInputs, tranche["inputs"])
+    return [
+        "--repair-execution-root",
+        str(inputs.repair_execution_root),
+        "--repair-manifest",
+        str(inputs.repair_manifest_path),
+        "--repair-plan-approval",
+        str(inputs.repair_plan_approval_path),
+        "--docket-snapshot-manifest",
+        str(inputs.docket_snapshot_manifest_path),
+        "--source-lineage",
+        str(inputs.source_lineage_path),
+        "--source-lineage-sha256",
+        inputs.source_lineage_sha256,
+        "--docket-snapshot-dir",
+        str(inputs.docket_snapshot_dir),
+        "--cohort-policy",
+        str(tranche["cohort_policy_path"]),
+        "--fee-schedule",
+        str(tranche["fee_schedule_path"]),
+        "--canonical-ledger-path",
+        str(tranche["canonical_ledger_path"]),
+    ]
+
+
+def _script_tty(
+    monkeypatch: pytest.MonkeyPatch,
+    tranche: Mapping[str, Any],
+    *,
+    decision: str,
+    mangle: Callable[[str], str] = lambda phrase: phrase,
+) -> str:
+    """Answer the recorder as an operator does: copy the phrase it printed.
+
+    ``mangle`` stands in for a phrase that took a detour -- through a chat
+    client, say -- before being pasted back. State lives in this closure rather
+    than at module scope so parallel workers cannot share it.
+    """
+
+    projection = _projection(tranche)
+    required = mangle(projection.request.required_confirmation(decision))
+    monkeypatch.setattr(cli_module.sys, "stdin", _TTY())
+
+    def answer(prompt: str) -> str:
+        return decision if prompt.startswith("Decision") else required
+
+    monkeypatch.setattr("builtins.input", answer)
+    return required
+
+
+def test_cli_dry_run_shows_the_projection_and_records_nothing(
+    tranche: dict[str, Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    private_root = cast(Path, tranche["private_root"])
+    assert (
+        main(
+            [
+                "acquisition",
+                "record-document-repair-purchase-approval",
+                *_cli_source_arguments(tranche),
+                "--controlled-private-root",
+                str(private_root),
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "projected cost:        USD 6.00" in output
+    assert "Dry run: nothing recorded" in output
+    assert not private_root.exists()
+
+
+def test_cli_refuses_to_record_without_a_tty(
+    tranche: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cli_module.sys, "stdin", _NotTTY())
+    assert (
+        main(
+            [
+                "acquisition",
+                "record-document-repair-purchase-approval",
+                *_cli_source_arguments(tranche),
+                "--controlled-private-root",
+                str(cast(Path, tranche["private_root"])),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert not cast(Path, tranche["private_root"]).exists()
+
+
+def test_cli_issues_a_policy_that_binds_and_leaves_the_ledger_absent(
+    tranche: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    private_root = cast(Path, tranche["private_root"])
+    _script_tty(monkeypatch, tranche, decision="approve")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "record-document-repair-purchase-approval",
+                *_cli_source_arguments(tranche),
+                "--controlled-private-root",
+                str(private_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    checkpoint, run_card = cli_module.default_evidence_paths(private_root)
+    assert checkpoint.is_file() and run_card.is_file()
+
+    policy_path = cast(Path, tranche["root"]) / "issued-purchase-policy.json"
+    assert (
+        main(
+            [
+                "acquisition",
+                "verify-document-repair-purchase-approval",
+                *_cli_source_arguments(tranche),
+                "--controlled-private-root",
+                str(private_root),
+                "--checkpoint",
+                str(checkpoint),
+                "--approval-run-card",
+                str(run_card),
+                "--purchase-policy-output",
+                str(policy_path),
+            ]
+        )
+        == 0
+    )
+    issued = json.loads(policy_path.read_bytes())
+    assert verify_case_dev_purchase_policy(issued).has_verified_approval
+
+    capsys.readouterr()
+    assert (
+        main(
+            [
+                "acquisition",
+                "verify-document-repair-purchase-policy",
+                *_cli_source_arguments(tranche),
+                "--purchase-policy",
+                str(policy_path),
+            ]
+        )
+        == 0
+    )
+    reported = json.loads(capsys.readouterr().out.splitlines()[0])
+    assert reported["binds"] is True
+    assert reported["canonical_ledger_present"] is False
+    assert reported["projected_cost_usd"] == "6.00"
+    # Issuance is idempotent: the same policy bytes may be republished.
+    assert (
+        main(
+            [
+                "acquisition",
+                "verify-document-repair-purchase-approval",
+                *_cli_source_arguments(tranche),
+                "--controlled-private-root",
+                str(private_root),
+                "--checkpoint",
+                str(checkpoint),
+                "--approval-run-card",
+                str(run_card),
+                "--purchase-policy-output",
+                str(policy_path),
+            ]
+        )
+        == 0
+    )
+
+
+def test_cli_rejects_a_chat_wrapped_confirmation(
+    tranche: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _script_tty(
+        monkeypatch,
+        tranche,
+        decision="approve",
+        mangle=lambda phrase: phrase.replace(" ", "\n", 1),
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "record-document-repair-purchase-approval",
+                *_cli_source_arguments(tranche),
+                "--controlled-private-root",
+                str(cast(Path, tranche["private_root"])),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    checkpoint, _run_card = cli_module.default_evidence_paths(
+        cast(Path, tranche["private_root"])
+    )
+    assert not checkpoint.exists()
+
+
+def test_cli_free_only_decision_records_but_grants_no_purchase_authority(
+    tranche: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    private_root = cast(Path, tranche["private_root"])
+    _script_tty(monkeypatch, tranche, decision="free_only")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "record-document-repair-purchase-approval",
+                *_cli_source_arguments(tranche),
+                "--controlled-private-root",
+                str(private_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    checkpoint, run_card = cli_module.default_evidence_paths(private_root)
+    with pytest.raises(
+        DocumentRepairPurchaseApprovalError, match="does not authorize repair purchases"
+    ):
+        _verify(tranche, checkpoint, run_card)
