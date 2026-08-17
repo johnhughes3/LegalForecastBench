@@ -76,7 +76,6 @@ jobs:
       LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
-      LFB_PROVIDER_ACCOUNT_ALIAS: ${{ vars.LFB_PROVIDER_ACCOUNT_ALIAS }}
       LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
@@ -204,7 +203,6 @@ jobs:
           for name in \
             LFB_GITHUB_PACKET_READ_ROLE_ARN \
             LFB_PACKET_BUCKET \
-            LFB_PROVIDER_ACCOUNT_ALIAS \
             LFB_PROVIDER_AUTHORITY_TABLE \
             LFB_RESULTS_BUCKET; do
             if [[ -z "${!name:-}" ]]; then
@@ -264,7 +262,7 @@ jobs:
           EXPECTED_EXECUTION_POLICY_SHA256: ${{ inputs.execution_policy_sha256 }}
           EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}
           EXPECTED_PACKET_SHA256: ${{ inputs.packet_sha256 }}
-          LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}
+          LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && !contains(fromJSON('["bedrock","aws-bedrock","aws_bedrock"]'), vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}
           MODEL_KEY: ${{ inputs.model_key }}
           MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
           PROVIDER: ${{ inputs.provider }}
@@ -314,7 +312,6 @@ jobs:
             --workflow-run-id "${GITHUB_RUN_ID}" \
             --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
             --provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}" \
-            --provider-account "${LFB_PROVIDER_ACCOUNT_ALIAS}" \
             --provider-authority-region "${AWS_REGION}" \
             "${resume_args[@]}"
 

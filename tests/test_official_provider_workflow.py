@@ -125,8 +125,9 @@ def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
     selector = (
         "LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && "
         "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
-        "secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && "
-        "secrets.GEMINI_API_KEY }}"
+        '!contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
+        "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
+        "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}"
     )
     assert provider_step.count(selector) == 1
     assert "export OPENAI_API_KEY=" in provider_step
@@ -142,6 +143,8 @@ def test_provider_cell_preserves_frozen_dispatch_and_cycle_bindings() -> None:
     assert "downloaded execution policy differs from matrix commitment" in WORKFLOW
     assert "dispatch provenance execution-policy commitment differs" in WORKFLOW
     assert "--expected-execution-policy-sha256" in WORKFLOW
+    assert "--provider-account" not in WORKFLOW
+    assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in WORKFLOW
     assert '--workflow-run-id "${GITHUB_RUN_ID}"' in WORKFLOW
     assert '--workflow-run-attempt "${GITHUB_RUN_ATTEMPT}"' in WORKFLOW
     begin = WORKFLOW.index("- name: Begin per-case cycle mutation")

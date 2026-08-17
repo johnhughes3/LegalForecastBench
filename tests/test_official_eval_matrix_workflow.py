@@ -613,7 +613,7 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert (
         '--provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}"' in RUN_CASE_JOB
     )
-    assert '--provider-account "${LFB_PROVIDER_ACCOUNT_ALIAS}"' in RUN_CASE_JOB
+    assert "--provider-account" not in RUN_CASE_JOB
     assert '--provider-authority-region "${AWS_REGION}"' in RUN_CASE_JOB
     assert (
         "RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}" in RUN_CASE_JOB
@@ -627,12 +627,13 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}" in RUN_CASE_JOB
     assert "EXPECTED_PACKET_SHA256: ${{ inputs.packet_sha256 }}" in RUN_CASE_JOB
     assert "LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars." in RUN_CASE_JOB
-    assert "LFB_PROVIDER_ACCOUNT_ALIAS: ${{ vars." in RUN_CASE_JOB
+    assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in RUN_CASE_JOB
     selector = (
         "LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && "
         "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
-        "secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && "
-        "secrets.GEMINI_API_KEY }}"
+        '!contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
+        "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
+        "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}"
     )
     assert selector in RUN_CASE_JOB
     assert (

@@ -1017,7 +1017,8 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
         assert runtime in provider_workflow
     assert "LFB_ANTHROPIC_BEDROCK_MODEL_ID" in provider_workflow
     assert "LFB_PROVIDER_AUTHORITY_TABLE" in provider_workflow
-    assert "LFB_PROVIDER_ACCOUNT_ALIAS" in provider_workflow
+    assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in provider_workflow
+    assert "--provider-account" not in provider_workflow
     assert "--provider-authority-table" in provider_workflow
     assert "--provider-authority-region" in provider_workflow
 
