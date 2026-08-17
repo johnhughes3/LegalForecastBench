@@ -562,6 +562,21 @@ def test_production_output_must_live_outside_runtime_checkout(
     assert not in_tree_plan.exists()
 
 
+def test_synthetic_output_may_live_inside_runtime_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime_checkout = tmp_path / "runtime-checkout"
+    runtime_checkout.mkdir()
+    monkeypatch.setattr(
+        spec_module, "repository_root", lambda: runtime_checkout, raising=False
+    )
+
+    spec = load_replay_spec(write_spec(runtime_checkout))
+
+    assert spec.synthetic_fixture is True
+    assert all(runtime_checkout in path.parents for path in spec.output_paths.values())
+
+
 def test_output_paths_may_not_nest_and_fail_after_provider_access(
     tmp_path: Path,
 ) -> None:
