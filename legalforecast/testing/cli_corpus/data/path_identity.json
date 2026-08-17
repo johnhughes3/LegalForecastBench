@@ -347,6 +347,7 @@
     "tests/test_official_paid_labeling_smoke_workflow.py",
     "tests/test_official_paid_labeling_workflow.py",
     "tests/test_official_provider_authority_infra_workflow.py",
+    "tests/test_official_provider_workflow.py",
     "tests/test_official_run_runbook.py",
     "tests/test_official_s3_workflow.py",
     "tests/test_package_skeleton.py",

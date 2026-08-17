@@ -15,6 +15,7 @@ from tests.official_infra_trust_helpers import (
     replace_terraform_local,
     role_assuming_jobs,
     terraform_local_string,
+    workflow_jobs,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,7 @@ INFRA_ROOT = ROOT / "infra" / "official-eval"
 POLICY_ROOT = INFRA_ROOT / "policies"
 ENVIRONMENT_MANIFEST = INFRA_ROOT / "github-environments.json"
 RUN_BENCHMARK_WORKFLOW = ROOT / ".github" / "workflows" / "run-benchmark.yaml"
+PROVIDER_CELL_WORKFLOW = ROOT / ".github" / "workflows" / "official-provider-cell.yaml"
 FAN_IN_WORKFLOW = ROOT / ".github" / "workflows" / "fan-in-publish.yaml"
 WORKFLOW_ROOT = ROOT / ".github" / "workflows"
 
@@ -739,6 +741,43 @@ def _assert_eval_trust_refs_satisfiable(
     assert isinstance(branch, str)
     assert ref == f"refs/heads/{branch}"
 
+    # The provider-cell reusable workflow uses the single provisioned evaluation
+    # environment. Validate that binding once, then validate every dispatcher
+    # caller maps one provider to that same environment. A called workflow
+    # cannot inherit the caller's job-level environment, so the called job's
+    # literal binding is the actual OIDC claim source.
+    provider_cell_name = PROVIDER_CELL_WORKFLOW.name
+    provider_cell_text = workflow_texts.get(provider_cell_name)
+    assert provider_cell_text is not None
+    assert re.search(
+        r"^      environment_name:\s*$\n"
+        r"        required: true\s*$\n"
+        r"        type: string\s*$",
+        provider_cell_text,
+        flags=re.MULTILINE,
+    )
+    assert "    environment: legalforecastbench-official-eval" in provider_cell_text
+
+    expected_provider_lanes = {
+        "run-openai": ("openai", cell_environment),
+        "run-anthropic": ("anthropic", cell_environment),
+        "run-gemini": ("gemini", cell_environment),
+    }
+    caller_lanes: dict[str, tuple[str, str]] = {}
+    for job_id, block in workflow_jobs(
+        workflow_texts[RUN_BENCHMARK_WORKFLOW.name]
+    ).items():
+        if "uses: ./.github/workflows/official-provider-cell.yaml" not in block:
+            continue
+        provider_match = re.search(r"^      provider: (\S+)\s*$", block, re.MULTILINE)
+        environment_match = re.search(
+            r"^      environment_name: (\S+)\s*$", block, re.MULTILINE
+        )
+        assert provider_match is not None, job_id
+        assert environment_match is not None, job_id
+        caller_lanes[job_id] = (provider_match.group(1), environment_match.group(1))
+    assert caller_lanes == expected_provider_lanes
+
     # Every job in any workflow that assumes one of these roles must itself
     # bind that role's provisioned environment and grant itself the OIDC
     # token; a workflow-wide substring cannot see which job carries the
@@ -760,7 +799,12 @@ def _assert_eval_trust_refs_satisfiable(
             for variable in assumed:
                 if variable not in role_environments:
                     continue
-                assert job_environment(block) == role_environments[variable], label
+                environment = job_environment(block)
+                if workflow_name == provider_cell_name:
+                    assert variable == "LFB_GITHUB_PACKET_READ_ROLE_ARN", label
+                    assert environment == role_environments[variable], label
+                else:
+                    assert environment == role_environments[variable], label
                 assert job_grants_id_token_write(block), label
                 producers[variable] += 1
     for variable, count in producers.items():
@@ -950,6 +994,7 @@ def test_official_workflows_do_not_silently_default_lfb_aws_region() -> None:
 
 def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> None:
     run_workflow = RUN_BENCHMARK_WORKFLOW.read_text(encoding="utf-8")
+    provider_workflow = PROVIDER_CELL_WORKFLOW.read_text(encoding="utf-8")
     fan_in_workflow = FAN_IN_WORKFLOW.read_text(encoding="utf-8")
     per_case_source = ROOT / "legalforecast" / "evals" / "per_case_runner.py"
     bedrock_source = ROOT / "legalforecast" / "evals" / "live_model_solver.py"
@@ -961,14 +1006,21 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in run_workflow
     assert "environment: legalforecastbench-official-eval-fan-in" in run_workflow
     assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in run_workflow
-    assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in run_workflow
+    assert "environment: legalforecastbench-official-eval" in provider_workflow
+    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in provider_workflow
+    assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in provider_workflow
     assert (
         '--results-store-root "s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}"'
-        in run_workflow
+        in provider_workflow
     )
     for runtime in ("bedrock", "aws-bedrock", "aws_bedrock"):
-        assert runtime in run_workflow
-    assert "LFB_ANTHROPIC_BEDROCK_MODEL_ID" in run_workflow
+        assert runtime in provider_workflow
+    assert "LFB_ANTHROPIC_BEDROCK_MODEL_ID" in provider_workflow
+    assert "LFB_PROVIDER_AUTHORITY_TABLE" in provider_workflow
+    assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in provider_workflow
+    assert "--provider-account" not in provider_workflow
+    assert "--provider-authority-table" in provider_workflow
+    assert "--provider-authority-region" in provider_workflow
 
     assert "environment: legalforecastbench-official-eval-fan-in" in fan_in_workflow
     assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in fan_in_workflow

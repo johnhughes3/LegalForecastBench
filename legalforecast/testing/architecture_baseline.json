@@ -9165,11 +9165,11 @@
           "oversized"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "_assert_exact_cell_policy",
-        "largest_symbol_lines": 96,
+        "largest_symbol": "_assert_eval_trust_refs_satisfiable",
+        "largest_symbol_lines": 134,
         "layer": "test",
-        "line_count": 1187,
-        "nonblank_line_count": 1081,
+        "line_count": 1239,
+        "nonblank_line_count": 1131,
         "top_level_definition_count": 34
       },
       "tests/test_official_eval_matrix_workflow.py": {
@@ -9184,10 +9184,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row",
-        "largest_symbol_lines": 71,
+        "largest_symbol_lines": 64,
         "layer": "test",
-        "line_count": 736,
-        "nonblank_line_count": 677,
+        "line_count": 730,
+        "nonblank_line_count": 672,
         "top_level_definition_count": 22
       },
       "tests/test_official_paid_labeling_baton.py": {
