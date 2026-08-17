@@ -210,9 +210,6 @@
     "legalforecast/multiharness/claude_agent_sdk_cli.py": [
       "claude_agent_sdk._cli_version"
     ],
-    "legalforecast/multiharness/tier0_runner.py": [
-      "legalforecast.multiharness.issuer_authority"
-    ],
     "tests/test_harvey_lab_evaluator.py": [
       "hashlib"
     ],
@@ -243,6 +240,7 @@
     "legalforecast/multiharness/local_cli_runtime.py",
     "legalforecast/multiharness/openai_responses.py",
     "legalforecast/multiharness/process_containment.py",
+    "legalforecast/multiharness/tier0_runner.py",
     "scripts/build_release_bundle.py",
     "scripts/dev_check_recovery_vertical_slice.py",
     "scripts/probe_claude_code_native_containment.py",

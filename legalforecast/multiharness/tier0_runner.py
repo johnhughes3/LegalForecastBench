@@ -16,13 +16,14 @@ is installed.
 from __future__ import annotations
 
 import hashlib
-import importlib
 import json
 import os
 import shutil
 import stat
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -48,6 +49,7 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     verify_authorized_harvey_lab_receipt,
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
+    HarveyLabEvaluationError,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
     HarveyLabIsolatedEvaluation,
@@ -69,10 +71,37 @@ from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
     RunSpec,
 )
+from legalforecast.multiharness.local_cli_identity import (
+    ObservedExecutableIdentity,
+    verify_executable_digest,
+)
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
+from legalforecast.multiharness.receipt_authority import (
+    EvaluatorIssuerAuthority,
+    ReceiptAuthorityError,
+)
+from legalforecast.multiharness.run_metadata import (
+    BinaryRunIdentity,
+    PrivateRunMetadata,
+    ReceiptMetadataBinding,
+    RunMetadataError,
+    bind_execution_receipt,
+    build_private_run_metadata,
+    write_private_run_metadata,
+)
 from legalforecast.multiharness.scoring import (
     ScoreArtifact,
     build_harvey_lab_metric_definition,
+)
+from legalforecast.multiharness.spend import (
+    PaidCall,
+    PricingSnapshot,
+    SpendConfigurationError,
+    SpendController,
+    SpendDeniedError,
+    SpendPolicy,
+    SpendSettlementError,
+    UsageObservation,
 )
 from legalforecast.multiharness.validation import (
     MultiHarnessValidationError,
@@ -95,8 +124,17 @@ TIER0_ARCHIVE_MANIFEST_SCHEMA_VERSION = (
 
 _ARM_IDS = ("arm-opaque-01", "arm-opaque-02")
 _ARM_ADAPTERS = frozenset({CLAUDE_CODE_REGISTRY_NAME, HARVEY_LAB_REGISTRY_NAME})
-_ALLOWED_COMMAND_TOKENS = frozenset({"{sandbox_root}", "{output_root}"})
+_ALLOWED_COMMAND_TOKENS = frozenset(
+    {"{sandbox_root}", "{output_root}", "{max_cost_usd}"}
+)
 _DIGEST_PREFIX = "sha256:"
+_DEFAULT_ISSUER_CONFIG = (
+    Path(__file__).resolve().parents[2]
+    / "examples"
+    / "adapters"
+    / "harvey-lab"
+    / "evaluator-issuer-authority.json"
+)
 
 
 class Tier0RunnerError(ValueError):
@@ -131,7 +169,8 @@ class Tier0ArmSpec:
         default_factory=lambda: cast(Mapping[str, object], {})
     )
     timeout_seconds: float = 300.0
-    max_cost_usd: float | None = None
+    solver_executable_version: str | None = None
+    version_probe_args: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _require_text(self.arm_id, "arm_id")
@@ -146,10 +185,19 @@ class Tier0ArmSpec:
         _require_text(self.requested_model, "requested_model")
         _require_executable_basename(self.solver_executable, "solver_executable")
         _require_digest(self.solver_executable_sha256, "solver_executable_sha256")
+        if self.solver_executable_version is not None:
+            _require_text(self.solver_executable_version, "solver_executable_version")
+            if not self.version_probe_args:
+                raise Tier0RunnerError(
+                    "version_probe_args are required for a pinned executable version"
+                )
+        for value in self.version_probe_args:
+            if not value:
+                raise Tier0RunnerError(
+                    "version_probe_args must contain non-empty strings"
+                )
         if self.timeout_seconds <= 0:
             raise Tier0RunnerError("timeout_seconds must be positive")
-        if self.max_cost_usd is not None and self.max_cost_usd < 0:
-            raise Tier0RunnerError("max_cost_usd must be non-negative")
         if not self.command and self.adapter == HARVEY_LAB_REGISTRY_NAME:
             raise Tier0RunnerError("native-thin arm must declare a frozen command")
         if self.command and self.adapter == CLAUDE_CODE_REGISTRY_NAME:
@@ -182,8 +230,10 @@ class Tier0ArmSpec:
             "settings": dict(self.settings),
             "timeout_seconds": self.timeout_seconds,
         }
-        if self.max_cost_usd is not None:
-            record["max_cost_usd"] = self.max_cost_usd
+        if self.solver_executable_version is not None:
+            record["solver_executable_version"] = self.solver_executable_version
+        if self.version_probe_args:
+            record["version_probe_args"] = list(self.version_probe_args)
         return record
 
     @classmethod
@@ -201,7 +251,7 @@ class Tier0ArmSpec:
                 "settings",
                 "timeout_seconds",
             },
-            optional={"max_cost_usd"},
+            optional={"solver_executable_version", "version_probe_args"},
             field_name="Tier-0 arm",
         )
         command = record["command"]
@@ -215,11 +265,15 @@ class Tier0ArmSpec:
         timeout = record["timeout_seconds"]
         if not isinstance(timeout, int | float) or isinstance(timeout, bool):
             raise Tier0RunnerError("Tier-0 arm timeout_seconds must be a number")
-        cost = record.get("max_cost_usd")
-        if cost is not None and (
-            not isinstance(cost, int | float) or isinstance(cost, bool)
+        probe_args = record.get("version_probe_args")
+        if probe_args is None:
+            parsed_probe_args: tuple[str, ...] = ()
+        elif not isinstance(probe_args, list) or any(
+            not isinstance(item, str) for item in cast(list[object], probe_args)
         ):
-            raise Tier0RunnerError("Tier-0 arm max_cost_usd must be a number")
+            raise Tier0RunnerError("version_probe_args must be an array of strings")
+        else:
+            parsed_probe_args = tuple(cast(list[str], probe_args))
         return cls(
             arm_id=_text(record, "arm_id"),
             adapter=_text(record, "adapter"),
@@ -230,7 +284,12 @@ class Tier0ArmSpec:
             command=tuple(cast(list[str], command)),
             settings=dict(cast(Mapping[str, object], settings)),
             timeout_seconds=float(timeout),
-            max_cost_usd=None if cost is None else float(cost),
+            solver_executable_version=(
+                None
+                if record.get("solver_executable_version") is None
+                else _text(record, "solver_executable_version")
+            ),
+            version_probe_args=parsed_probe_args,
         )
 
 
@@ -246,6 +305,8 @@ class Tier0ExecutableSpec:
     issuer_policy_sha256: str
     arms: tuple[Tier0ArmSpec, ...]
     order: tuple[str, ...] = _ARM_IDS
+    pricing_snapshot_sha256: str | None = None
+    spend_policy_sha256: str | None = None
     schema_version: str = TIER0_EXECUTABLE_SPEC_SCHEMA_VERSION
     artifact_sha256: str | None = field(default=None, repr=False, compare=False)
     loaded_record_sha256: str | None = field(default=None, repr=False, compare=False)
@@ -264,6 +325,10 @@ class Tier0ExecutableSpec:
             raise Tier0RunnerError(
                 "executable spec order must be the frozen opaque order"
             )
+        if self.pricing_snapshot_sha256 is not None:
+            _require_digest(self.pricing_snapshot_sha256, "pricing_snapshot_sha256")
+        if self.spend_policy_sha256 is not None:
+            _require_digest(self.spend_policy_sha256, "spend_policy_sha256")
         names = tuple(arm.adapter for arm in self.arms)
         if names != (CLAUDE_CODE_REGISTRY_NAME, HARVEY_LAB_REGISTRY_NAME):
             raise Tier0RunnerError(
@@ -271,7 +336,7 @@ class Tier0ExecutableSpec:
             )
 
     def to_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "schema_version": self.schema_version,
             "experiment_id": self.experiment_id,
             "source_pin": self.source_pin.to_record(),
@@ -282,6 +347,11 @@ class Tier0ExecutableSpec:
             "arms": [arm.to_record() for arm in self.arms],
             "order": list(self.order),
         }
+        if self.pricing_snapshot_sha256 is not None:
+            record["pricing_snapshot_sha256"] = self.pricing_snapshot_sha256
+        if self.spend_policy_sha256 is not None:
+            record["spend_policy_sha256"] = self.spend_policy_sha256
+        return record
 
     @classmethod
     def from_record(cls, record: Mapping[str, object]) -> Tier0ExecutableSpec:
@@ -298,7 +368,11 @@ class Tier0ExecutableSpec:
                 "arms",
                 "order",
             },
-            optional={"artifact_sha256"},
+            optional={
+                "artifact_sha256",
+                "pricing_snapshot_sha256",
+                "spend_policy_sha256",
+            },
             field_name="Tier-0 executable spec",
         )
         pin = cast(Mapping[str, object], record["source_pin"])
@@ -339,6 +413,18 @@ class Tier0ExecutableSpec:
                 for item in cast(list[object], arms)
             ),
             order=tuple(cast(list[str], order)),
+            pricing_snapshot_sha256=(
+                None
+                if record.get("pricing_snapshot_sha256") is None
+                else _digest(
+                    record["pricing_snapshot_sha256"], "pricing_snapshot_sha256"
+                )
+            ),
+            spend_policy_sha256=(
+                None
+                if record.get("spend_policy_sha256") is None
+                else _digest(record["spend_policy_sha256"], "spend_policy_sha256")
+            ),
             artifact_sha256=(
                 _digest(record["artifact_sha256"], "artifact_sha256")
                 if "artifact_sha256" in record
@@ -402,6 +488,10 @@ class Tier0ArmResult:
     discovery: HarveyLabOutputDiscoveryResult
     evaluation: HarveyLabIsolatedEvaluation
     score: ScoreArtifact
+    run_metadata: PrivateRunMetadata | None = field(default=None, repr=False)
+    receipt_metadata_binding: ReceiptMetadataBinding | None = field(
+        default=None, repr=False
+    )
 
     def public_record(self) -> dict[str, object]:
         return {
@@ -487,30 +577,89 @@ def load_detached_approval(path: Path, *, spec_sha256: str) -> Tier0SpendApprova
     return approval
 
 
-def load_approved_issuer_authority() -> IssuerAuthority:
-    """Resolve the approved external issuer authority, never a local key.
+def load_spend_artifacts(
+    spec_path: Path,
+    spec: Tier0ExecutableSpec,
+) -> tuple[SpendPolicy, PricingSnapshot]:
+    """Load deterministic sibling sidecars bound by the executable spec."""
 
-    The authority module is intentionally supplied by the receipt-authority
-    lane. Keeping this import lazy lets provider-free tests inject a fake
-    authority without giving the runner a private-key or secret-loading path.
+    if spec.pricing_snapshot_sha256 is None:
+        raise Tier0RunnerError("executable spec must bind the pricing sidecar hash")
+    if spec.spend_policy_sha256 is None:
+        raise Tier0RunnerError("executable spec must bind the spend policy hash")
+    pricing_path = spec_path.with_name(f"{spec_path.stem}.pricing-snapshot.json")
+    policy_path = spec_path.with_name(f"{spec_path.stem}.spend-policy.json")
+    try:
+        pricing_record = read_json_object(
+            pricing_path,
+            error_factory=Tier0RunnerError,
+            missing_message=lambda path: (
+                f"pricing snapshot does not exist: {path.name}"
+            ),
+            non_object_message=lambda path: (
+                f"pricing snapshot must be an object: {path.name}"
+            ),
+        )
+        policy_record = read_json_object(
+            policy_path,
+            error_factory=Tier0RunnerError,
+            missing_message=lambda path: f"spend policy does not exist: {path.name}",
+            non_object_message=lambda path: (
+                f"spend policy must be an object: {path.name}"
+            ),
+        )
+        pricing = PricingSnapshot.from_record(pricing_record)
+        policy = SpendPolicy.from_record(policy_record)
+    except (SpendConfigurationError, json.JSONDecodeError) as exc:
+        raise Tier0RunnerError("pricing or spend sidecar is invalid") from exc
+    if pricing.snapshot_sha256 != spec.pricing_snapshot_sha256:
+        raise Tier0RunnerError("pricing sidecar hash does not match executable spec")
+    # The detached approval binds only the spec, so the ceilings are authorized
+    # solely through this digest.  Without it an operator could raise the
+    # request and dollar caps after approval and still pass every other check.
+    if policy.policy_sha256 != spec.spend_policy_sha256:
+        raise Tier0RunnerError("spend policy hash does not match executable spec")
+    if policy.pricing_snapshot_sha256 != pricing.snapshot_sha256:
+        raise Tier0RunnerError("spend policy does not bind the pricing sidecar")
+    if policy.experiment_id != spec.experiment_id:
+        raise Tier0RunnerError("spend policy experiment does not match executable spec")
+    if policy.executable_spec_sha256 != spec.artifact_sha256:
+        raise Tier0RunnerError("spend policy does not bind the executable artifact")
+    try:
+        policy.validate_before_credentials(pricing)
+    except SpendConfigurationError as exc:
+        raise Tier0RunnerError("spend policy is not executable") from exc
+    return policy, pricing
+
+
+def load_approved_issuer_authority(
+    *,
+    secret_loader: Callable[[str, str, str], str | bytes] | None = None,
+    config_path: Path = _DEFAULT_ISSUER_CONFIG,
+) -> IssuerAuthority:
+    """Load public issuer config and attach only an injected secret wrapper.
+
+    The runner never discovers credentials.  A supported operator wrapper must
+    provide ``secret_loader`` explicitly; ambient environment and ``.env``
+    fallbacks are intentionally absent.  Pending public configuration fails
+    before the callback can be invoked.
     """
 
     try:
-        issuer_authority = importlib.import_module(
-            "legalforecast.multiharness.issuer_authority"
-        )
-    except ImportError as exc:
+        authority = EvaluatorIssuerAuthority.from_json_file(config_path)
+        if authority.status != "configured":
+            raise Tier0RunnerError(
+                "evaluator issuer authority is pending human provisioning"
+            )
+        if secret_loader is None:
+            raise Tier0RunnerError(
+                "approved issuer requires an injected Infisical wrapper callback"
+            )
+        return authority.with_signing_secret_loader(secret_loader)
+    except (ReceiptAuthorityError, OSError) as exc:
         raise Tier0RunnerError(
-            "approved external issuer authority is not installed"
+            "approved evaluator issuer authority is unavailable"
         ) from exc
-    loader = cast(
-        Callable[[], IssuerAuthority],
-        issuer_authority.load_approved_issuer_authority,
-    )
-    authority = loader()
-    if not callable(getattr(authority, "sign", None)):
-        raise Tier0RunnerError("issuer loader did not return an approved authority")
-    return authority
 
 
 def run_tier0(
@@ -523,6 +672,8 @@ def run_tier0(
     archive_root: Path,
     authority: IssuerAuthority,
     parent_env: Mapping[str, str] | None = None,
+    spend_policy: SpendPolicy | None = None,
+    pricing_snapshot: PricingSnapshot | None = None,
 ) -> Tier0RunResult:
     """Execute both frozen arms and emit a hash-complete archive sidecar."""
 
@@ -546,6 +697,35 @@ def run_tier0(
         raise Tier0RunnerError("detached approval is not executable")
     if not callable(getattr(authority, "sign", None)):
         raise Tier0RunnerError("approved external issuer authority is required")
+    if spec.pricing_snapshot_sha256 is not None:
+        if spend_policy is None or pricing_snapshot is None:
+            raise Tier0RunnerError(
+                "executable Tier-0 runs require loaded spend and pricing sidecars"
+            )
+        if spec.pricing_snapshot_sha256 != pricing_snapshot.snapshot_sha256:
+            raise Tier0RunnerError("pricing snapshot does not match executable spec")
+        if spend_policy.executable_spec_sha256 != spec_sha256:
+            raise Tier0RunnerError("spend policy does not bind executable spec")
+        try:
+            controller: SpendController | None = SpendController(
+                spend_policy, pricing_snapshot
+            )
+        except SpendConfigurationError as exc:
+            raise Tier0RunnerError("spend policy is not executable") from exc
+    elif approval.status == "approved":
+        raise Tier0RunnerError(
+            "approved Tier-0 runs require pricing and spend sidecar bindings"
+        )
+    else:
+        # Legacy provider-free fixtures do not make paid requests.  Production
+        # artifacts always take the controller branch above.
+        controller = None
+    try:
+        authority_public_key = authority.public_key
+    except Exception as exc:
+        raise Tier0RunnerError(
+            "approved evaluator issuer public key is unavailable"
+        ) from exc
     _require_fresh_root(private_root, "private root")
     _require_fresh_root(archive_root, "archive root")
     if _overlap(private_root, archive_root):
@@ -554,80 +734,257 @@ def run_tier0(
     registry = builtin_adapter_registry()
     for arm in spec.arms:
         registry.require_known(arm.adapter)
-    _preflight_executables(spec, parent_env)
+    executable_identities = _preflight_executables(spec, parent_env)
     _preflight_evaluator(spec, parent_env)
 
     private_root.mkdir(parents=True)
     archive_root.mkdir(parents=True)
     env = dict(os.environ if parent_env is None else parent_env)
     results: list[Tier0ArmResult] = []
-    for arm in spec.arms:
-        paths = _arm_paths(private_root, arm.arm_id)
-        service = LocalCliExecutionService(
-            auth_profile=arm.auth_profile,
-            parent_env=env,
-        )
-        adapter = registry.get(
-            arm.adapter,
-            execution_service=service,
-            parent_env=env,
-            lab_command=arm.command,
-            lab_root=source_root,
-            timeout_seconds=arm.timeout_seconds,
-        )
-        if arm.adapter == CLAUDE_CODE_REGISTRY_NAME:
-            if not isinstance(adapter, ClaudeCodeCliAdapter):
-                raise Tier0RunnerError(
-                    "registry returned the wrong clean-native adapter"
-                )
-            adapter = replace(adapter, auth_profile=arm.auth_profile)
-            result = run_claude_code_clean_native_harvey_lab(
-                adapter=adapter,
-                source_root=source_root,
-                solver_root=paths["solver"],
-                evaluator_private_root=paths["evaluator_private"],
-                sandbox_root=paths["sandbox"],
-                sealed_root=paths["sealed"],
-                quarantine_root=paths["quarantine"],
-                overlay_root=paths["overlay"],
-                evaluator_working_directory=paths["evaluator_work"],
-                signer=authority.sign,
-                issuer_public_key=authority.public_key,
-                pin=spec.source_pin,
-                model=arm.requested_model,
-                timeout_seconds=arm.timeout_seconds,
-                evaluator_command=spec.evaluator_command,
+    partial_metadata: dict[str, PrivateRunMetadata] = {}
+    partial_capabilities: dict[str, object] = {}
+    # Every reservation that has been taken but not yet settled.  A paid call
+    # can fail after the provider was invoked (evaluator timeout, nonzero exit,
+    # adapter error), and those paths must not leave the reservation dangling
+    # with neither an observed nor an unknown cost recorded against it.
+    outstanding: dict[str, Any] = {}
+    try:
+        for arm in spec.arms:
+            paths = _arm_paths(private_root, arm.arm_id)
+            ceiling = _solver_ceiling(controller, arm)
+            reservation = _reserve_solver(
+                controller,
+                spec=spec,
+                arm=arm,
+                ceiling=ceiling,
             )
-            if (
-                result.solver_execution.cost_usd is not None
-                and arm.max_cost_usd is not None
-                and result.solver_execution.cost_usd > arm.max_cost_usd
-            ):
-                raise Tier0RunnerError("clean-native solver exceeded its frozen budget")
-            results.append(
-                Tier0ArmResult(
-                    arm_id=arm.arm_id,
-                    adapter=arm.adapter,
-                    auth_profile=arm.auth_profile,
-                    projection=result.projection,
-                    solver_spec=result.solver_spec,
-                    solver_execution=result.solver_execution,
-                    discovery=result.discovery,
-                    evaluation=result.evaluation,
-                    score=result.score,
-                )
-            )
-        else:
-            results.append(
-                _run_native_thin(
-                    arm=arm,
+            _track_reservation(outstanding, reservation)
+            metadata_ref: dict[str, object] = {}
+            binding_ref: dict[str, object] = {}
+            capability_ref: dict[str, object] = {}
+
+            def before_solver(
+                run_spec: RunSpec,
+                *,
+                _arm: Tier0ArmSpec = arm,
+                _paths: Mapping[str, Path] = paths,
+                _metadata_ref: dict[str, object] = metadata_ref,
+                _capability_ref: dict[str, object] = capability_ref,
+            ) -> None:
+                metadata = _start_run_metadata(
                     spec=spec,
-                    source_root=source_root,
-                    paths=paths,
-                    service=service,
-                    authority=authority,
+                    spec_sha256=spec_sha256,
+                    arm=_arm,
+                    run_spec=run_spec,
+                    paths=_paths,
+                    executable_identity=executable_identities[_arm.arm_id],
+                    spend_policy=spend_policy,
+                    pricing_snapshot=pricing_snapshot,
+                    capability_record=_capability_ref.get("value"),
                 )
+                _metadata_ref["value"] = metadata
+                partial_metadata[_arm.arm_id] = metadata
+                partial_capabilities[_arm.arm_id] = _capability_ref.get("value")
+                write_private_run_metadata(_paths["metadata"], metadata)
+                write_json_object(
+                    _paths["capability"],
+                    {
+                        "schema_version": (
+                            # contract-ratchet: allow capability sidecar
+                            "legalforecast.multiharness.tier0_capability.v1"
+                        ),
+                        "arm_id": _arm.arm_id,
+                        "adapter": _arm.adapter,
+                        "run_spec_sha256": run_spec.spec_sha256,
+                        "metadata_sha256": metadata.metadata_sha256,
+                        "capability": _capability_ref.get("value"),
+                    },
+                )
+
+            def after_solver(
+                run_spec: RunSpec,
+                execution: ExecutionReceipt,
+                *,
+                _metadata_ref: dict[str, object] = metadata_ref,
+                _binding_ref: dict[str, object] = binding_ref,
+                _reservation: Any | None = reservation,
+            ) -> ExecutionReceipt:
+                metadata_value = _metadata_ref.get("value")
+                if not isinstance(metadata_value, PrivateRunMetadata):
+                    raise Tier0RunnerError(
+                        "solver metadata was not created before execution"
+                    )
+                metadata = metadata_value
+                if controller is not None and _reservation is not None:
+                    _release_reservation(outstanding, _reservation)
+                    _settle_solver(
+                        controller, _reservation, execution, pricing_snapshot
+                    )
+                bound = replace(execution, config_sha256=metadata.config_sha256)
+                try:
+                    binding = bind_execution_receipt(bound, metadata)
+                except RunMetadataError as exc:
+                    raise Tier0RunnerError(
+                        "solver receipt metadata binding failed"
+                    ) from exc
+                _binding_ref["value"] = binding
+                return bound
+
+            evaluator_reservation_ref: dict[str, object] = {}
+
+            def reserve_evaluator(
+                *,
+                _arm: Tier0ArmSpec = arm,
+                _reservation_ref: dict[str, object] = evaluator_reservation_ref,
+            ) -> None:
+                evaluator_reservation = _reserve_evaluator(
+                    controller,
+                    spec=spec,
+                    arm=_arm,
+                    policy=spend_policy,
+                )
+                _reservation_ref["value"] = evaluator_reservation
+                _track_reservation(outstanding, evaluator_reservation)
+
+            def after_evaluator(
+                evaluation: HarveyLabIsolatedEvaluation,
+                *,
+                _reservation_ref: dict[str, object] = evaluator_reservation_ref,
+            ) -> None:
+                reservation_value = _reservation_ref.get("value")
+                if controller is not None and reservation_value is not None:
+                    _release_reservation(outstanding, reservation_value)
+                    _settle_evaluator(
+                        controller,
+                        reservation_value,
+                        evaluation,
+                        pricing_snapshot,
+                    )
+
+            service = LocalCliExecutionService(
+                auth_profile=arm.auth_profile,
+                parent_env=env,
             )
+            adapter = registry.get(
+                arm.adapter,
+                execution_service=service,
+                parent_env=env,
+                lab_command=arm.command,
+                lab_root=source_root,
+                timeout_seconds=arm.timeout_seconds,
+            )
+            if arm.adapter == CLAUDE_CODE_REGISTRY_NAME:
+                if not isinstance(adapter, ClaudeCodeCliAdapter):
+                    raise Tier0RunnerError(
+                        "registry returned the wrong clean-native adapter"
+                    )
+                adapter = replace(adapter, auth_profile=arm.auth_profile)
+                capability_ref["value"] = {
+                    "manifest": adapter.local_manifest.to_record(),
+                    "executable": {
+                        "name": arm.solver_executable,
+                        "sha256": arm.solver_executable_sha256,
+                        "version": arm.solver_executable_version,
+                    },
+                }
+                if ceiling is None and controller is None:
+                    max_budget = None
+                else:
+                    assert ceiling is not None
+                    max_budget = ceiling.invocation_budget.argument_value_usd
+                result = run_claude_code_clean_native_harvey_lab(
+                    adapter=adapter,
+                    source_root=source_root,
+                    solver_root=paths["solver"],
+                    evaluator_private_root=paths["evaluator_private"],
+                    sandbox_root=paths["sandbox"],
+                    sealed_root=paths["sealed"],
+                    quarantine_root=paths["quarantine"],
+                    overlay_root=paths["overlay"],
+                    evaluator_working_directory=paths["evaluator_work"],
+                    signer=authority.sign,
+                    issuer_public_key=authority_public_key,
+                    pin=spec.source_pin,
+                    model=arm.requested_model,
+                    timeout_seconds=arm.timeout_seconds,
+                    evaluator_command=spec.evaluator_command,
+                    max_budget_usd=max_budget,
+                    before_solver=before_solver,
+                    after_solver=after_solver,
+                    before_evaluator=reserve_evaluator,
+                    after_evaluator=after_evaluator,
+                )
+                results.append(
+                    Tier0ArmResult(
+                        arm_id=arm.arm_id,
+                        adapter=arm.adapter,
+                        auth_profile=arm.auth_profile,
+                        projection=result.projection,
+                        solver_spec=result.solver_spec,
+                        solver_execution=result.solver_execution,
+                        discovery=result.discovery,
+                        evaluation=result.evaluation,
+                        score=result.score,
+                        run_metadata=cast(
+                            PrivateRunMetadata, metadata_ref.get("value")
+                        ),
+                        receipt_metadata_binding=cast(
+                            ReceiptMetadataBinding, binding_ref.get("value")
+                        ),
+                    )
+                )
+            else:
+                capability_ref["value"] = {
+                    "command": list(arm.command),
+                    "executable": {
+                        "name": arm.solver_executable,
+                        "sha256": arm.solver_executable_sha256,
+                        "version": arm.solver_executable_version,
+                    },
+                }
+                results.append(
+                    _run_native_thin(
+                        arm=arm,
+                        spec=spec,
+                        source_root=source_root,
+                        paths=paths,
+                        service=service,
+                        authority=authority,
+                        max_cost_usd=(
+                            None if ceiling is None else ceiling.max_cost_usd
+                        ),
+                        budget_argument_name=(
+                            None
+                            if ceiling is None
+                            else ceiling.invocation_budget.argument_name
+                        ),
+                        before_solver=before_solver,
+                        after_solver=after_solver,
+                        before_evaluator=reserve_evaluator,
+                        after_evaluator=after_evaluator,
+                    )
+                )
+    except (
+        HarveyLabEvaluationError,
+        SpendDeniedError,
+        SpendSettlementError,
+        Tier0RunnerError,
+    ) as exc:
+        _terminalize_outstanding(controller, outstanding, str(exc))
+        _write_archive(
+            spec=spec,
+            spec_sha256=spec_sha256,
+            approval=approval,
+            results=tuple(results),
+            archive_root=archive_root,
+            matched=False,
+            spend_controller=controller,
+            terminal_error=str(exc),
+            partial_metadata=partial_metadata,
+            partial_capabilities=partial_capabilities,
+            authority_record=_authority_record(authority),
+        )
+        raise Tier0RunnerError(str(exc)) from exc
     matched = _identities_match(results, spec)
     archive_manifest = _write_archive(
         spec=spec,
@@ -636,6 +993,10 @@ def run_tier0(
         results=tuple(results),
         archive_root=archive_root,
         matched=matched,
+        spend_controller=controller,
+        partial_metadata=partial_metadata,
+        partial_capabilities=partial_capabilities,
+        authority_record=_authority_record(authority),
     )
     return Tier0RunResult(
         spec_sha256=spec_sha256,
@@ -646,6 +1007,304 @@ def run_tier0(
     )
 
 
+def _track_reservation(outstanding: dict[str, Any], reservation: Any | None) -> None:
+    """Remember a reservation until it has been settled or terminalized."""
+
+    if reservation is not None:
+        outstanding[reservation.reservation_id] = reservation
+
+
+def _release_reservation(outstanding: dict[str, Any], reservation: Any) -> None:
+    """Forget a reservation that is about to be handed to ``settle``.
+
+    ``SpendController.settle`` consumes the reservation before it can fail, so
+    the entry is dropped first; a failed settlement already carries its own
+    terminal evidence and must not be settled a second time.
+    """
+
+    outstanding.pop(reservation.reservation_id, None)
+
+
+def _terminalize_outstanding(
+    controller: SpendController | None,
+    outstanding: dict[str, Any],
+    reason: str,
+) -> None:
+    """Record unknown cost for every reservation left open by a failure.
+
+    A paid call can fail after the provider was invoked, so an unsettled
+    reservation is not evidence that nothing was spent.  Settling it as unknown
+    cost makes the controller terminal and keeps the denial evidence in the
+    archive instead of silently dropping the request.
+    """
+
+    if controller is None:
+        outstanding.clear()
+        return
+    for reservation in list(outstanding.values()):
+        try:
+            controller.settle(reservation, UsageObservation.unknown(reason))
+        except (SpendSettlementError, SpendConfigurationError):
+            # ``settle`` records the evidence before it raises, and the caller
+            # is already unwinding a terminal failure.
+            pass
+    outstanding.clear()
+
+
+def _solver_ceiling(
+    controller: SpendController | None,
+    arm: Tier0ArmSpec,
+) -> Any | None:
+    if controller is None:
+        return None
+    try:
+        ceiling = controller.policy.solver_for(arm.arm_id)
+    except SpendConfigurationError as exc:
+        raise Tier0RunnerError(
+            f"missing solver spend ceiling for {arm.arm_id}"
+        ) from exc
+    if ceiling.model != arm.requested_model:
+        raise Tier0RunnerError(
+            f"solver model does not match spend policy for {arm.arm_id}"
+        )
+    if ceiling.invocation_budget.mode != "adapter_argument":
+        raise Tier0RunnerError(
+            f"solver budget is not mechanically enforced for {arm.arm_id}"
+        )
+    return ceiling
+
+
+def _reserve_solver(
+    controller: SpendController | None,
+    *,
+    spec: Tier0ExecutableSpec,
+    arm: Tier0ArmSpec,
+    ceiling: Any | None,
+) -> Any | None:
+    if controller is None:
+        return None
+    assert ceiling is not None
+    try:
+        return controller.reserve(
+            PaidCall(
+                call_id=f"{arm.arm_id}-solver-0",
+                surface="solver",
+                arm_id=arm.arm_id,
+                provider=ceiling.provider,
+                model=ceiling.model,
+                executable_spec_sha256=spec.artifact_sha256 or "",
+                pricing_snapshot_sha256=controller.pricing.snapshot_sha256,
+            )
+        )
+    except (SpendDeniedError, SpendConfigurationError) as exc:
+        raise Tier0RunnerError(
+            f"solver spend reservation denied for {arm.arm_id}"
+        ) from exc
+
+
+def _judge_criterion_for(policy: SpendPolicy, arm_id: str) -> str:
+    candidates = [item for item in policy.judge_ceilings if item.arm_id == arm_id]
+    if len(candidates) != 1:
+        raise Tier0RunnerError(
+            "evaluator request requires exactly one aggregate judge ceiling per arm"
+        )
+    return candidates[0].criterion_id
+
+
+def _reserve_evaluator(
+    controller: SpendController | None,
+    *,
+    spec: Tier0ExecutableSpec,
+    arm: Tier0ArmSpec,
+    policy: SpendPolicy | None,
+) -> Any | None:
+    if controller is None:
+        return None
+    assert policy is not None
+    criterion_id = _judge_criterion_for(policy, arm.arm_id)
+    ceiling = policy.judge_for(arm.arm_id, criterion_id)
+    try:
+        return controller.reserve(
+            PaidCall(
+                call_id=f"{arm.arm_id}-evaluator-0",
+                surface="judge",
+                arm_id=arm.arm_id,
+                provider=ceiling.provider,
+                model=ceiling.model,
+                executable_spec_sha256=spec.artifact_sha256 or "",
+                pricing_snapshot_sha256=controller.pricing.snapshot_sha256,
+                criterion_id=criterion_id,
+            )
+        )
+    except (SpendDeniedError, SpendConfigurationError) as exc:
+        raise Tier0RunnerError(
+            f"evaluator spend reservation denied for {arm.arm_id}"
+        ) from exc
+
+
+def _settle_solver(
+    controller: SpendController,
+    reservation: Any,
+    execution: ExecutionReceipt,
+    pricing: PricingSnapshot | None,
+) -> None:
+    if pricing is None:
+        raise Tier0RunnerError("solver settlement has no pricing snapshot")
+    try:
+        controller.settle(
+            reservation,
+            _usage_observation_from_execution(execution, pricing),
+        )
+    except SpendSettlementError as exc:
+        raise Tier0RunnerError("solver spend settlement failed closed") from exc
+
+
+def _settle_evaluator(
+    controller: SpendController,
+    reservation: Any,
+    evaluation: HarveyLabIsolatedEvaluation,
+    pricing: PricingSnapshot | None,
+) -> None:
+    if pricing is None:
+        raise Tier0RunnerError("evaluator settlement has no pricing snapshot")
+    try:
+        controller.settle(
+            reservation,
+            _usage_observation_from_evaluation(evaluation, pricing),
+        )
+    except SpendSettlementError as exc:
+        raise Tier0RunnerError("evaluator spend settlement failed closed") from exc
+
+
+def _usage_observation_from_execution(
+    execution: ExecutionReceipt,
+    pricing: PricingSnapshot,
+) -> UsageObservation:
+    input_tokens = execution.usage.get("input_tokens")
+    output_tokens = execution.usage.get("output_tokens")
+    if type(input_tokens) is not int or type(output_tokens) is not int:
+        return UsageObservation.unknown("solver did not report auditable token usage")
+    if execution.cost_usd is None:
+        return UsageObservation(
+            basis="estimated_from_pricing_snapshot",
+            pricing_snapshot_sha256=pricing.snapshot_sha256,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+    amount = Decimal(str(execution.cost_usd)).quantize(Decimal("0.000001"))
+    return UsageObservation(
+        basis="provider_reported",
+        pricing_snapshot_sha256=pricing.snapshot_sha256,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        reported_cost_usd=format(amount, "f"),
+    )
+
+
+def _usage_observation_from_evaluation(
+    evaluation: HarveyLabIsolatedEvaluation,
+    pricing: PricingSnapshot,
+) -> UsageObservation:
+    cost = evaluation.receipt.cost
+    input_count = evaluation.receipt.token_usage.input_tokens.value
+    output_count = evaluation.receipt.token_usage.output_tokens.value
+    if cost.basis in {"subscription_unallocable", "unknown"}:
+        return UsageObservation.unknown(
+            cost.unknown_reason or "evaluator did not report allocable cost",
+            subscription=cost.basis == "subscription_unallocable",
+        )
+    if input_count is None or output_count is None:
+        return UsageObservation.unknown(
+            "evaluator did not report auditable token usage"
+        )
+    if cost.pricing_snapshot_sha256 not in {
+        None,
+        pricing.snapshot_sha256,
+    }:
+        return UsageObservation.unknown(
+            "evaluator reported a different pricing snapshot"
+        )
+    amount = (
+        None
+        if cost.amount_microusd is None
+        else format(Decimal(cost.amount_microusd) / Decimal(1_000_000), "f")
+    )
+    return UsageObservation(
+        basis=(
+            "estimated_from_pricing_snapshot"
+            if cost.basis == "estimated_from_pricing_snapshot"
+            else "provider_reported"
+        ),
+        pricing_snapshot_sha256=pricing.snapshot_sha256,
+        input_tokens=input_count,
+        output_tokens=output_count,
+        reported_cost_usd=amount,
+    )
+
+
+def _start_run_metadata(
+    *,
+    spec: Tier0ExecutableSpec,
+    spec_sha256: str,
+    arm: Tier0ArmSpec,
+    run_spec: RunSpec,
+    paths: Mapping[str, Path],
+    executable_identity: ObservedExecutableIdentity,
+    spend_policy: SpendPolicy | None,
+    pricing_snapshot: PricingSnapshot | None,
+    capability_record: object,
+) -> PrivateRunMetadata:
+    config_records: dict[str, object] = {
+        "executable_spec": spec.to_record(),
+        "arm_settings": dict(arm.settings),
+        "boundary": {
+            "containment": "posix_process_group.v1",
+            "network_policy": "provider_egress_host_only",
+            "auth_profile": arm.auth_profile,
+        },
+        "capability": capability_record,
+    }
+    if spend_policy is not None:
+        config_records["spend_policy"] = spend_policy.to_record()
+    if pricing_snapshot is not None:
+        config_records["pricing_snapshot"] = pricing_snapshot.to_record()
+    version = arm.solver_executable_version or "unversioned-fixture"
+    return build_private_run_metadata(
+        run_id=f"{spec.experiment_id}:{arm.arm_id}",
+        run_spec=run_spec,
+        executable_identities=(
+            BinaryRunIdentity(
+                executable_name=executable_identity.basename,
+                executable_version=version,
+                executable_sha256=f"sha256:{executable_identity.sha256.removeprefix('sha256:')}",
+                capability_sha256=(
+                    _record_hash(cast(Mapping[str, object], capability_record))
+                    if isinstance(capability_record, Mapping)
+                    else None
+                ),
+            ),
+        ),
+        boundary_identity={
+            "containment": "posix_process_group.v1",
+            "network_policy": "provider_egress_host_only",
+            "auth_profile": arm.auth_profile,
+        },
+        config_records=config_records,
+    )
+
+
+def _authority_record(authority: IssuerAuthority) -> Mapping[str, object]:
+    record = getattr(authority, "to_record", None)
+    if callable(record):
+        value = record()
+        if isinstance(value, Mapping):
+            return cast(Mapping[str, object], value)
+    return {
+        "schema_version": "external-authority.v1",
+        "authority_type": type(authority).__name__,
+    }
+
+
 def _run_native_thin(
     *,
     arm: Tier0ArmSpec,
@@ -654,6 +1313,12 @@ def _run_native_thin(
     paths: Mapping[str, Path],
     service: LocalCliExecutionService,
     authority: IssuerAuthority,
+    max_cost_usd: str | None = None,
+    budget_argument_name: str | None = None,
+    before_solver: Callable[[RunSpec], None] | None = None,
+    after_solver: Callable[[RunSpec, ExecutionReceipt], ExecutionReceipt] | None = None,
+    before_evaluator: Callable[[], None] | None = None,
+    after_evaluator: Callable[[HarveyLabIsolatedEvaluation], None] | None = None,
 ) -> Tier0ArmResult:
     projection = project_harvey_lab_suite(
         source_root=source_root,
@@ -677,6 +1342,8 @@ def _run_native_thin(
         arm.command,
         sandbox_root=sandbox_root,
         output_root=resolved_output,
+        max_cost_usd=max_cost_usd,
+        argument_name=budget_argument_name,
     )
     solver_spec = RunSpec(
         spec_id=f"{spec.experiment_id}:{arm.arm_id}:solver",
@@ -684,7 +1351,11 @@ def _run_native_thin(
         working_directory=sandbox_root.resolve(),
         timeout_seconds=arm.timeout_seconds,
     )
+    if before_solver is not None:
+        before_solver(solver_spec)
     execution = service.execute(solver_spec)
+    if after_solver is not None:
+        execution = after_solver(solver_spec, execution)
     if execution.status != "succeeded" or execution.returncode not in {0, None}:
         raise Tier0RunnerError("native-thin solver execution failed")
     discovery = discover_harvey_lab_outputs(
@@ -710,6 +1381,8 @@ def _run_native_thin(
         config_sha256=_settings_digest(arm.settings),
         pin=projection.manifest.pin,
     )
+    if before_evaluator is not None:
+        before_evaluator()
     evaluation = invoke_isolated_harvey_lab_evaluator(
         hosts=HarveyLabEvaluationHosts(
             sealed_deliverable_root=paths["sealed"],
@@ -727,6 +1400,8 @@ def _run_native_thin(
         evaluator_command=spec.evaluator_command,
         timeout_seconds=arm.timeout_seconds,
     )
+    if after_evaluator is not None:
+        after_evaluator(evaluation)
     metric = build_harvey_lab_metric_definition(
         rubric_sha256=evaluation.spec.rubric_sha256,
         criteria_sha256=evaluation.spec.criteria_sha256,
@@ -746,9 +1421,6 @@ def _run_native_thin(
         expected_deliverable_manifest_sha256=discovery.sealed.manifest_sha256,
         expected_runtime_policy_sha256=evaluation.spec.runtime_policy_sha256,
     )
-    if execution.cost_usd is not None and arm.max_cost_usd is not None:
-        if execution.cost_usd > arm.max_cost_usd:
-            raise Tier0RunnerError("native-thin solver exceeded its frozen budget")
     return Tier0ArmResult(
         arm_id=arm.arm_id,
         adapter=arm.adapter,
@@ -782,13 +1454,54 @@ def _copy_projection_task(source: Path, sandbox_root: Path) -> None:
 
 def _preflight_executables(
     spec: Tier0ExecutableSpec, parent_env: Mapping[str, str] | None
-) -> None:
+) -> dict[str, ObservedExecutableIdentity]:
+    identities: dict[str, ObservedExecutableIdentity] = {}
     for arm in spec.arms:
         path = _resolve_on_path(arm.solver_executable, parent_env)
+        try:
+            pin = _pin_for_arm(arm)
+            observed = verify_executable_digest(
+                # The digest-only bind intentionally cannot launch a probe or
+                # resolve credentials.  Full capability probes happen in the
+                # contained runtime immediately before execution.
+                _pin_for_arm(arm),
+                (arm.solver_executable,),
+                search_path=(parent_env or os.environ).get("PATH", "/usr/bin"),
+            )
+            if arm.solver_executable_version is not None:
+                from legalforecast.multiharness.local_cli_identity import (
+                    bind_executable_identity,
+                )
+
+                with tempfile.TemporaryDirectory(prefix="lfb-tier0-probe-") as probe:
+                    observed = bind_executable_identity(
+                        pin,
+                        (arm.solver_executable,),
+                        version_probe_args=arm.version_probe_args,
+                        scratch_root=Path(probe),
+                        parent_env=parent_env,
+                        requested_model=arm.requested_model,
+                    )
+        except Exception as exc:
+            raise Tier0RunnerError(
+                f"{arm.arm_id} solver executable identity does not match spec"
+            ) from exc
         if _hash_file(path) != arm.solver_executable_sha256:
             raise Tier0RunnerError(
                 f"{arm.arm_id} solver executable hash does not match spec"
             )
+        identities[arm.arm_id] = observed
+    return identities
+
+
+def _pin_for_arm(arm: Tier0ArmSpec) -> Any:
+    from legalforecast.multiharness.local_cli_identity import ExecutableIdentityPin
+
+    return ExecutableIdentityPin(
+        basename=arm.solver_executable,
+        version=arm.solver_executable_version or "unversioned-fixture",
+        sha256=arm.solver_executable_sha256.removeprefix("sha256:"),
+    )
 
 
 def _preflight_evaluator(
@@ -830,18 +1543,40 @@ def _arm_paths(private_root: Path, arm_id: str) -> dict[str, Path]:
         "sealed": arm / "sealed",
         "overlay": private_root / "evaluator" / "overlay" / arm_id,
         "evaluator_work": private_root / "evaluator" / "work" / arm_id,
+        "metadata": arm / "run-metadata.json",
+        "capability": arm / "capability-record.json",
     }
 
 
 def _render_command(
-    command: Sequence[str], *, sandbox_root: Path, output_root: Path
+    command: Sequence[str],
+    *,
+    sandbox_root: Path,
+    output_root: Path,
+    max_cost_usd: str | None = None,
+    argument_name: str | None = None,
 ) -> tuple[str, ...]:
     values = {"{sandbox_root}": str(sandbox_root), "{output_root}": str(output_root)}
+    if max_cost_usd is not None:
+        values["{max_cost_usd}"] = max_cost_usd
     rendered = tuple(values.get(token, token) for token in command)
     if not rendered or any(not item for item in rendered):
         raise Tier0RunnerError("native-thin command is empty")
     if any(item in {"sh", "bash"} for item in rendered):
         raise Tier0RunnerError("native-thin command must not invoke a shell")
+    if max_cost_usd is not None:
+        if argument_name is None:
+            raise Tier0RunnerError("native-thin budget argument name is missing")
+        try:
+            index = rendered.index(argument_name)
+        except ValueError as exc:
+            raise Tier0RunnerError(
+                "native-thin command does not enforce its frozen budget argument"
+            ) from exc
+        if index + 1 >= len(rendered) or rendered[index + 1] != max_cost_usd:
+            raise Tier0RunnerError(
+                "native-thin budget argument does not equal the frozen ceiling"
+            )
     return rendered
 
 
@@ -965,6 +1700,11 @@ def _write_archive(
     results: tuple[Tier0ArmResult, ...],
     archive_root: Path,
     matched: bool,
+    spend_controller: SpendController | None = None,
+    terminal_error: str | None = None,
+    partial_metadata: Mapping[str, PrivateRunMetadata] | None = None,
+    partial_capabilities: Mapping[str, object] | None = None,
+    authority_record: Mapping[str, object] | None = None,
 ) -> Path:
     private = archive_root / "private"
     public = archive_root / "public"
@@ -1011,6 +1751,26 @@ def _write_archive(
             "authority": approval.authority,
         },
     )
+    if authority_record is not None:
+        write_json_object(private / "issuer-authority.json", authority_record)
+    if spend_controller is not None:
+        write_json_object(
+            private / "spend-controller.json", spend_controller.archive_record()
+        )
+    if terminal_error is not None:
+        write_json_object(
+            private / "terminal-denial.json",
+            {
+                # contract-ratchet: allow non-authoritative terminal denial sidecar
+                "schema_version": "legalforecast.multiharness.tier0_terminal_denial.v1",
+                "error": terminal_error,
+                "spend": (
+                    None
+                    if spend_controller is None
+                    else spend_controller.archive_record()
+                ),
+            },
+        )
     for result in results:
         arm_private = private / result.arm_id
         arm_private.mkdir()
@@ -1028,6 +1788,34 @@ def _write_archive(
             arm_private / "projection-manifest.json",
             result.projection.manifest.to_record(),
         )
+        if result.run_metadata is not None:
+            write_json_object(
+                arm_private / "run-metadata.json",
+                result.run_metadata.to_record(),
+            )
+        if result.receipt_metadata_binding is not None:
+            write_json_object(
+                arm_private / "receipt-metadata-binding.json",
+                result.receipt_metadata_binding.to_record(),
+            )
+    archived_arm_ids = {result.arm_id for result in results}
+    for arm_id, metadata in (partial_metadata or {}).items():
+        if arm_id in archived_arm_ids:
+            continue
+        arm_private = private / arm_id
+        arm_private.mkdir(exist_ok=True)
+        write_json_object(arm_private / "run-metadata.json", metadata.to_record())
+        capability = (partial_capabilities or {}).get(arm_id)
+        if capability is not None:
+            write_json_object(
+                arm_private / "capability-record.json",
+                {
+                    # contract-ratchet: allow non-authoritative capability sidecar
+                    "schema_version": "legalforecast.multiharness.tier0_capability.v1",
+                    "arm_id": arm_id,
+                    "capability": capability,
+                },
+            )
     entries: list[dict[str, object]] = []
     for path in sorted(item for item in archive_root.rglob("*") if item.is_file()):
         relative = path.relative_to(archive_root).as_posix()
