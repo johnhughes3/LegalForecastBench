@@ -19287,6 +19287,600 @@
       "aliases": [],
       "group_dest": "acquisition_command",
       "handler": {
+        "module": "legalforecast.ingestion.document_repair_purchase_cli",
+        "name": "run_record",
+        "qualname": "run_record"
+      },
+      "logical_handler_id": "acquisition.record-document-repair-purchase-approval",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repair_execution_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repair-execution-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repair_manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repair-manifest"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repair_plan_approval",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repair-plan-approval"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "docket_snapshot_manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--docket-snapshot-manifest"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_lineage",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-lineage"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_lineage_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-lineage-sha256"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "docket_snapshot_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--docket-snapshot-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "cohort_policy",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--cohort-policy"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fee_schedule",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fee-schedule"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "canonical_ledger_path",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--canonical-ledger-path"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "controlled_private_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--controlled-private-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
+          "dest": "execute",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--execute"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "BooleanOptionalAction",
+          "choices": null,
+          "default": false,
+          "dest": "resume",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--resume",
+            "--no-resume"
+          ],
+          "required": false,
+          "type": null
+        }
+      ],
+      "path": [
+        "acquisition",
+        "record-document-repair-purchase-approval"
+      ],
+      "registration_index": 116
+    },
+    {
+      "aliases": [],
+      "group_dest": "acquisition_command",
+      "handler": {
+        "module": "legalforecast.ingestion.document_repair_purchase_cli",
+        "name": "run_verify",
+        "qualname": "run_verify"
+      },
+      "logical_handler_id": "acquisition.verify-document-repair-purchase-approval",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repair_execution_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repair-execution-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repair_manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repair-manifest"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repair_plan_approval",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repair-plan-approval"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "docket_snapshot_manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--docket-snapshot-manifest"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_lineage",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-lineage"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_lineage_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-lineage-sha256"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "docket_snapshot_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--docket-snapshot-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "cohort_policy",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--cohort-policy"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fee_schedule",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fee-schedule"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "canonical_ledger_path",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--canonical-ledger-path"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "controlled_private_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--controlled-private-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "checkpoint",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--checkpoint"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "approval_run_card",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--approval-run-card"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "purchase_policy_output",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--purchase-policy-output"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        }
+      ],
+      "path": [
+        "acquisition",
+        "verify-document-repair-purchase-approval"
+      ],
+      "registration_index": 117
+    },
+    {
+      "aliases": [],
+      "group_dest": "acquisition_command",
+      "handler": {
+        "module": "legalforecast.ingestion.document_repair_purchase_cli",
+        "name": "run_verify_policy",
+        "qualname": "run_verify_policy"
+      },
+      "logical_handler_id": "acquisition.verify-document-repair-purchase-policy",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repair_execution_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repair-execution-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repair_manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repair-manifest"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repair_plan_approval",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repair-plan-approval"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "docket_snapshot_manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--docket-snapshot-manifest"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_lineage",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-lineage"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_lineage_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-lineage-sha256"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "docket_snapshot_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--docket-snapshot-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "cohort_policy",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--cohort-policy"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fee_schedule",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fee-schedule"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "canonical_ledger_path",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--canonical-ledger-path"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "purchase_policy",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--purchase-policy"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        }
+      ],
+      "path": [
+        "acquisition",
+        "verify-document-repair-purchase-policy"
+      ],
+      "registration_index": 118
+    },
+    {
+      "aliases": [],
+      "group_dest": "acquisition_command",
+      "handler": {
         "module": "legalforecast.cli",
         "name": "_cmd_accumulate_replacement_clearance",
         "qualname": "_cmd_accumulate_replacement_clearance"
@@ -19471,7 +20065,7 @@
         "acquisition",
         "accumulate-replacement-clearance"
       ],
-      "registration_index": 116
+      "registration_index": 119
     },
     {
       "aliases": [],
@@ -19609,7 +20203,7 @@
         "acquisition",
         "build-replacement-exclusions"
       ],
-      "registration_index": 117
+      "registration_index": 120
     },
     {
       "aliases": [],
@@ -20007,7 +20601,7 @@
         "acquisition",
         "build-replacement-recovery-source"
       ],
-      "registration_index": 118
+      "registration_index": 121
     },
     {
       "aliases": [],
@@ -20132,7 +20726,7 @@
         "acquisition",
         "build-replacement-recovery-index"
       ],
-      "registration_index": 119
+      "registration_index": 122
     },
     {
       "aliases": [],
@@ -20387,7 +20981,7 @@
         "acquisition",
         "consolidate-replacement-recovery"
       ],
-      "registration_index": 120
+      "registration_index": 123
     },
     {
       "aliases": [],
@@ -20667,7 +21261,7 @@
         "acquisition",
         "record-replacement-purchase-approval"
       ],
-      "registration_index": 121
+      "registration_index": 124
     },
     {
       "aliases": [],
@@ -20869,7 +21463,7 @@
         "acquisition",
         "verify-replacement-purchase-approval"
       ],
-      "registration_index": 122
+      "registration_index": 125
     },
     {
       "aliases": [],
@@ -21084,7 +21678,7 @@
         "acquisition",
         "generate-replacement-purchase-authority"
       ],
-      "registration_index": 123
+      "registration_index": 126
     },
     {
       "aliases": [],
@@ -21234,7 +21828,7 @@
         "acquisition",
         "generate-recap-fetch-attempt-policy"
       ],
-      "registration_index": 124
+      "registration_index": 127
     },
     {
       "aliases": [],
@@ -21488,7 +22082,7 @@
         "acquisition",
         "generate-recap-fetch-broker-policy"
       ],
-      "registration_index": 125
+      "registration_index": 128
     },
     {
       "aliases": [],
@@ -21599,7 +22193,7 @@
         "acquisition",
         "reconcile-purchase"
       ],
-      "registration_index": 126
+      "registration_index": 129
     },
     {
       "aliases": [],
@@ -21736,7 +22330,7 @@
         "acquisition",
         "summarize-purchase-spend"
       ],
-      "registration_index": 127
+      "registration_index": 130
     },
     {
       "aliases": [],
@@ -21808,7 +22402,7 @@
         "acquisition",
         "export-cohort-observations"
       ],
-      "registration_index": 128
+      "registration_index": 131
     },
     {
       "aliases": [],
@@ -21867,7 +22461,7 @@
         "acquisition",
         "verify-cohort-observations"
       ],
-      "registration_index": 129
+      "registration_index": 132
     },
     {
       "aliases": [],
@@ -22108,7 +22702,7 @@
         "acquisition",
         "fetch-firecrawl-dockets"
       ],
-      "registration_index": 130
+      "registration_index": 133
     },
     {
       "aliases": [],
@@ -22414,7 +23008,7 @@
         "acquisition",
         "screen-firecrawl-dockets"
       ],
-      "registration_index": 131
+      "registration_index": 134
     },
     {
       "aliases": [],
@@ -22785,7 +23379,7 @@
         "acquisition",
         "replay-screening-snapshots"
       ],
-      "registration_index": 132
+      "registration_index": 135
     },
     {
       "aliases": [],
@@ -23234,7 +23828,7 @@
         "acquisition",
         "promote-terminal-firecrawl-subset"
       ],
-      "registration_index": 133
+      "registration_index": 136
     },
     {
       "aliases": [],
@@ -23592,7 +24186,7 @@
         "acquisition",
         "promote-terminal-rest-priority-subset"
       ],
-      "registration_index": 134
+      "registration_index": 137
     },
     {
       "aliases": [],
@@ -23729,7 +24323,7 @@
         "acquisition",
         "quarantine-orphan-snapshot"
       ],
-      "registration_index": 135
+      "registration_index": 138
     },
     {
       "aliases": [],
@@ -24155,7 +24749,7 @@
         "acquisition",
         "bridge-pacer-gaps"
       ],
-      "registration_index": 136
+      "registration_index": 139
     },
     {
       "aliases": [],
@@ -24539,7 +25133,7 @@
         "acquisition",
         "rebase-pacer-gap-checkpoints"
       ],
-      "registration_index": 137
+      "registration_index": 140
     },
     {
       "aliases": [],
@@ -24676,7 +25270,7 @@
         "acquisition",
         "filter-core-documents"
       ],
-      "registration_index": 138
+      "registration_index": 141
     },
     {
       "aliases": [],
@@ -24891,7 +25485,7 @@
         "acquisition",
         "plan"
       ],
-      "registration_index": 139
+      "registration_index": 142
     },
     {
       "aliases": [],
@@ -25254,7 +25848,7 @@
         "acquisition",
         "prepare-target-cohort"
       ],
-      "registration_index": 140
+      "registration_index": 143
     },
     {
       "aliases": [],
@@ -25417,7 +26011,7 @@
         "acquisition",
         "materialize-target-cohort-frontier"
       ],
-      "registration_index": 141
+      "registration_index": 144
     },
     {
       "aliases": [],
@@ -25739,7 +26333,7 @@
         "acquisition",
         "prepare-target-100"
       ],
-      "registration_index": 142
+      "registration_index": 145
     },
     {
       "aliases": [],
@@ -26149,7 +26743,7 @@
         "acquisition",
         "project-target-cohort"
       ],
-      "registration_index": 143
+      "registration_index": 146
     },
     {
       "aliases": [],
@@ -26468,7 +27062,7 @@
         "acquisition",
         "extend-target-cohort"
       ],
-      "registration_index": 144
+      "registration_index": 147
     },
     {
       "aliases": [],
@@ -26868,7 +27462,7 @@
         "acquisition",
         "plan-public-downloads"
       ],
-      "registration_index": 145
+      "registration_index": 148
     },
     {
       "aliases": [],
@@ -27057,7 +27651,7 @@
         "acquisition",
         "plan-opinion-docket-gaps"
       ],
-      "registration_index": 146
+      "registration_index": 149
     },
     {
       "aliases": [],
@@ -27233,7 +27827,7 @@
         "acquisition",
         "download-free"
       ],
-      "registration_index": 147
+      "registration_index": 150
     },
     {
       "aliases": [],
@@ -27491,7 +28085,7 @@
         "acquisition",
         "purchase-missing"
       ],
-      "registration_index": 148
+      "registration_index": 151
     },
     {
       "aliases": [],
@@ -27865,7 +28459,7 @@
         "acquisition",
         "purchase-missing-recap-fetch"
       ],
-      "registration_index": 149
+      "registration_index": 152
     },
     {
       "aliases": [],
@@ -28291,7 +28885,7 @@
         "acquisition",
         "recover-recap-fetch-quarantine"
       ],
-      "registration_index": 150
+      "registration_index": 153
     },
     {
       "aliases": [],
@@ -28545,7 +29139,7 @@
         "acquisition",
         "plan-docket-live-fetches"
       ],
-      "registration_index": 151
+      "registration_index": 154
     },
     {
       "aliases": [],
@@ -28734,7 +29328,7 @@
         "acquisition",
         "execute-docket-live-fetches"
       ],
-      "registration_index": 152
+      "registration_index": 155
     },
     {
       "aliases": [],
@@ -28949,7 +29543,7 @@
         "acquisition",
         "recover-purchased"
       ],
-      "registration_index": 153
+      "registration_index": 156
     },
     {
       "aliases": [],
@@ -29099,7 +29693,7 @@
         "acquisition",
         "merge-download-manifests"
       ],
-      "registration_index": 154
+      "registration_index": 157
     },
     {
       "aliases": [],
@@ -29483,7 +30077,7 @@
         "acquisition",
         "materialize-cohort-documents"
       ],
-      "registration_index": 155
+      "registration_index": 158
     },
     {
       "aliases": [],
@@ -29665,7 +30259,7 @@
         "acquisition",
         "bind-acquisition-component"
       ],
-      "registration_index": 156
+      "registration_index": 159
     },
     {
       "aliases": [],
@@ -29802,7 +30396,7 @@
         "acquisition",
         "assemble-cycle-acquisition"
       ],
-      "registration_index": 157
+      "registration_index": 160
     },
     {
       "aliases": [],
@@ -30017,7 +30611,7 @@
         "acquisition",
         "prepare-disclosure-review"
       ],
-      "registration_index": 158
+      "registration_index": 161
     },
     {
       "aliases": [],
@@ -30365,7 +30959,7 @@
         "acquisition",
         "plan-disclosure-provenance"
       ],
-      "registration_index": 159
+      "registration_index": 162
     },
     {
       "aliases": [],
@@ -30437,7 +31031,7 @@
         "acquisition",
         "preflight-disclosure-review-signer"
       ],
-      "registration_index": 160
+      "registration_index": 163
     },
     {
       "aliases": [],
@@ -30626,7 +31220,7 @@
         "acquisition",
         "record-disclosure-review-decisions"
       ],
-      "registration_index": 161
+      "registration_index": 164
     },
     {
       "aliases": [],
@@ -30841,7 +31435,7 @@
         "acquisition",
         "build-disclosure-review-bundle"
       ],
-      "registration_index": 162
+      "registration_index": 165
     },
     {
       "aliases": [],
@@ -31095,7 +31689,7 @@
         "acquisition",
         "seal-disclosure-review-bundle"
       ],
-      "registration_index": 163
+      "registration_index": 166
     },
     {
       "aliases": [],
@@ -31349,7 +31943,7 @@
         "acquisition",
         "clear-disclosures"
       ],
-      "registration_index": 164
+      "registration_index": 167
     },
     {
       "aliases": [],
@@ -31616,7 +32210,7 @@
         "acquisition",
         "clear-provenance-disclosures"
       ],
-      "registration_index": 165
+      "registration_index": 168
     },
     {
       "aliases": [],
@@ -32104,7 +32698,7 @@
         "acquisition",
         "finalize-provenance-quarantine"
       ],
-      "registration_index": 166
+      "registration_index": 169
     },
     {
       "aliases": [],
@@ -32345,7 +32939,7 @@
         "acquisition",
         "review-disclosure-exceptions"
       ],
-      "registration_index": 167
+      "registration_index": 170
     },
     {
       "aliases": [],
@@ -32742,7 +33336,7 @@
         "acquisition",
         "resolve-post-recovery-documents"
       ],
-      "registration_index": 168
+      "registration_index": 171
     },
     {
       "aliases": [],
@@ -33064,7 +33658,7 @@
         "acquisition",
         "plan-parse-documents"
       ],
-      "registration_index": 169
+      "registration_index": 172
     },
     {
       "aliases": [],
@@ -33422,7 +34016,7 @@
         "acquisition",
         "parse-documents"
       ],
-      "registration_index": 170
+      "registration_index": 173
     },
     {
       "aliases": [],
@@ -33858,7 +34452,7 @@
         "acquisition",
         "rehearse-downstream"
       ],
-      "registration_index": 171
+      "registration_index": 174
     },
     {
       "aliases": [],
@@ -34294,7 +34888,7 @@
         "acquisition",
         "rehearsal-build-decision-texts"
       ],
-      "registration_index": 172
+      "registration_index": 175
     },
     {
       "aliases": [],
@@ -34730,7 +35324,7 @@
         "acquisition",
         "rehearsal-stage-a-unitize"
       ],
-      "registration_index": 173
+      "registration_index": 176
     },
     {
       "aliases": [],
@@ -35166,7 +35760,7 @@
         "acquisition",
         "rehearsal-stage-a-review"
       ],
-      "registration_index": 174
+      "registration_index": 177
     },
     {
       "aliases": [],
@@ -35602,7 +36196,7 @@
         "acquisition",
         "rehearsal-stage-a-apply"
       ],
-      "registration_index": 175
+      "registration_index": 178
     },
     {
       "aliases": [],
@@ -36038,7 +36632,7 @@
         "acquisition",
         "rehearsal-stage-b-label"
       ],
-      "registration_index": 176
+      "registration_index": 179
     },
     {
       "aliases": [],
@@ -36474,7 +37068,7 @@
         "acquisition",
         "rehearsal-stage-b-apply"
       ],
-      "registration_index": 177
+      "registration_index": 180
     },
     {
       "aliases": [],
@@ -36910,7 +37504,7 @@
         "acquisition",
         "rehearsal-plan-packet-inputs"
       ],
-      "registration_index": 178
+      "registration_index": 181
     },
     {
       "aliases": [],
@@ -37346,7 +37940,7 @@
         "acquisition",
         "rehearsal-build-packets"
       ],
-      "registration_index": 179
+      "registration_index": 182
     },
     {
       "aliases": [],
@@ -37574,7 +38168,7 @@
         "acquisition",
         "finalize-rehearsal-corpus"
       ],
-      "registration_index": 180
+      "registration_index": 183
     },
     {
       "aliases": [],
@@ -37867,7 +38461,7 @@
         "acquisition",
         "build-decision-texts"
       ],
-      "registration_index": 181
+      "registration_index": 184
     },
     {
       "aliases": [],
@@ -38051,7 +38645,7 @@
         "acquisition",
         "build-paid-labeling-source"
       ],
-      "registration_index": 182
+      "registration_index": 185
     },
     {
       "aliases": [],
@@ -38300,7 +38894,7 @@
         "acquisition",
         "assemble-paid-labeling-baton"
       ],
-      "registration_index": 183
+      "registration_index": 186
     },
     {
       "aliases": [],
@@ -38484,7 +39078,7 @@
         "acquisition",
         "open-paid-labeling-baton"
       ],
-      "registration_index": 184
+      "registration_index": 187
     },
     {
       "aliases": [],
@@ -38698,7 +39292,7 @@
         "acquisition",
         "seal-paid-labeling-result"
       ],
-      "registration_index": 185
+      "registration_index": 188
     },
     {
       "aliases": [],
@@ -39191,7 +39785,7 @@
         "acquisition",
         "llm-unitize"
       ],
-      "registration_index": 186
+      "registration_index": 189
     },
     {
       "aliases": [],
@@ -39471,7 +40065,7 @@
         "acquisition",
         "audit-stage-a-target-eligibility"
       ],
-      "registration_index": 187
+      "registration_index": 190
     },
     {
       "aliases": [],
@@ -39990,7 +40584,7 @@
         "acquisition",
         "recover-llm-unitize-reconstruction"
       ],
-      "registration_index": 188
+      "registration_index": 191
     },
     {
       "aliases": [],
@@ -40509,7 +41103,7 @@
         "acquisition",
         "terminalize-llm-unitize-reconstruction"
       ],
-      "registration_index": 189
+      "registration_index": 192
     },
     {
       "aliases": [],
@@ -40828,7 +41422,7 @@
         "acquisition",
         "build-unitizer-terminal-review-bundle"
       ],
-      "registration_index": 190
+      "registration_index": 193
     },
     {
       "aliases": [],
@@ -41056,7 +41650,7 @@
         "acquisition",
         "build-successor-attorney-packet"
       ],
-      "registration_index": 191
+      "registration_index": 194
     },
     {
       "aliases": [],
@@ -41258,7 +41852,7 @@
         "acquisition",
         "convert-unitization-adjudication-worksheet"
       ],
-      "registration_index": 192
+      "registration_index": 195
     },
     {
       "aliases": [],
@@ -41647,7 +42241,7 @@
         "acquisition",
         "llm-review-stage-a"
       ],
-      "registration_index": 193
+      "registration_index": 196
     },
     {
       "aliases": [],
@@ -41958,7 +42552,7 @@
         "acquisition",
         "recover-llm-review-stage-a-reconstruction"
       ],
-      "registration_index": 194
+      "registration_index": 197
     },
     {
       "aliases": [],
@@ -42269,7 +42863,7 @@
         "acquisition",
         "terminalize-llm-review-stage-a-reconstruction"
       ],
-      "registration_index": 195
+      "registration_index": 198
     },
     {
       "aliases": [],
@@ -42484,7 +43078,7 @@
         "acquisition",
         "build-unitization-review-bundle"
       ],
-      "registration_index": 196
+      "registration_index": 199
     },
     {
       "aliases": [],
@@ -42621,7 +43215,7 @@
         "acquisition",
         "preflight-unitization-adjudication"
       ],
-      "registration_index": 197
+      "registration_index": 200
     },
     {
       "aliases": [],
@@ -42862,7 +43456,7 @@
         "acquisition",
         "apply-unitization-review"
       ],
-      "registration_index": 198
+      "registration_index": 201
     },
     {
       "aliases": [],
@@ -43155,7 +43749,7 @@
         "acquisition",
         "apply-unitizer-terminal-review"
       ],
-      "registration_index": 199
+      "registration_index": 202
     },
     {
       "aliases": [],
@@ -43664,7 +44258,7 @@
         "acquisition",
         "llm-label"
       ],
-      "registration_index": 200
+      "registration_index": 203
     },
     {
       "aliases": [],
@@ -43983,7 +44577,7 @@
         "acquisition",
         "plan-label-audit"
       ],
-      "registration_index": 201
+      "registration_index": 204
     },
     {
       "aliases": [],
@@ -44302,7 +44896,7 @@
         "acquisition",
         "apply-lawyer-review"
       ],
-      "registration_index": 202
+      "registration_index": 205
     },
     {
       "aliases": [],
@@ -44790,7 +45384,7 @@
         "acquisition",
         "plan-packet-inputs"
       ],
-      "registration_index": 203
+      "registration_index": 206
     },
     {
       "aliases": [],
@@ -45375,7 +45969,7 @@
         "acquisition",
         "build-packets"
       ],
-      "registration_index": 204
+      "registration_index": 207
     },
     {
       "aliases": [],
@@ -46280,7 +46874,7 @@
         "acquisition",
         "finalize-corpus"
       ],
-      "registration_index": 205
+      "registration_index": 208
     },
     {
       "aliases": [],
@@ -46547,7 +47141,7 @@
         "acquisition",
         "summarize-corpus"
       ],
-      "registration_index": 206
+      "registration_index": 209
     },
     {
       "aliases": [],
@@ -46710,7 +47304,7 @@
         "acquisition",
         "merge-artifacts"
       ],
-      "registration_index": 207
+      "registration_index": 210
     }
   ],
   "prog": "legalforecast",
