@@ -11,6 +11,9 @@ import pytest
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from legalforecast.ingestion.recap_fetch_broker import (
+    ATTACHMENT_PAGE_REQUEST_TYPE,
+    BROKERED_REQUEST_TYPES,
+    DIRECT_REQUEST_TYPES,
     BrokerDefiniteRejection,
     BrokerOutcomeUnknown,
     BrokerRawResponse,
@@ -455,6 +458,52 @@ def test_cross_language_wire_vector_binds_raw_body_hash_and_signature_payload() 
 def test_noncanonical_raw_submission_bytes_are_rejected(raw: bytes) -> None:
     with pytest.raises(ValueError, match="canonical broker submission"):
         parse_canonical_submission_bytes(raw)
+
+
+def test_attachment_page_request_type_is_refused_on_the_brokered_lane() -> None:
+    """The deployed broker validates request_type 2, so the client must too."""
+
+    request = _request(request_type=ATTACHMENT_PAGE_REQUEST_TYPE)
+    transport = _Transport()
+    key, jwk = _key()
+    del key
+    broker = SignedRecapFetchPurchaseBroker(_config(jwk), transport=transport)
+
+    with pytest.raises(ValueError, match="invalid RECAP Fetch request type"):
+        broker.submit(request)
+    with pytest.raises(ValueError, match="invalid RECAP Fetch request type"):
+        canonical_submission_bytes(request)
+    assert transport.requests == []
+    assert broker.paid_dispatch_count == 0
+
+
+def test_attachment_page_bytes_are_canonical_only_on_an_authorized_lane() -> None:
+    request = _request(request_type=ATTACHMENT_PAGE_REQUEST_TYPE)
+    raw = canonical_submission_bytes(
+        request, allowed_request_types=DIRECT_REQUEST_TYPES
+    )
+
+    assert raw == (
+        b'{"request_type":"3","recap_document":"123","cycle_id":"cycle-1",'
+        b'"purchase_policy_sha256":"' + b"a" * 64 + b'",'
+        b'"operation_key":"00000000-0000-4000-8000-000000000000",'
+        b'"reservation_usd":"3.05"}'
+    )
+    assert (
+        parse_canonical_submission_bytes(
+            raw, allowed_request_types=DIRECT_REQUEST_TYPES
+        )
+        == request
+    )
+    with pytest.raises(ValueError, match="canonical broker submission"):
+        parse_canonical_submission_bytes(raw)
+
+
+def test_widening_beyond_the_direct_lane_is_refused() -> None:
+    for allowed in (frozenset[str](), frozenset({"1"}), frozenset({"2", "1"})):
+        with pytest.raises(ValueError, match="request-type authority"):
+            canonical_submission_bytes(_request(), allowed_request_types=allowed)
+    assert BROKERED_REQUEST_TYPES < DIRECT_REQUEST_TYPES
 
 
 def test_nocharge_failed_reconciliation_has_null_fees_and_url() -> None:

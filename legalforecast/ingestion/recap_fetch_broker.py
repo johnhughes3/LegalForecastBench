@@ -31,6 +31,14 @@ _POSITIVE_DECIMAL = re.compile(r"^[1-9][0-9]*$")
 _MONEY = re.compile(r"^(0|[1-9][0-9]*)\.[0-9]{2}$")
 _NONCE = re.compile(r"^[A-Za-z0-9_-]{22,128}$")
 _MAX_BODY = 1_048_576
+# The deployed secure-gate broker validates `request_type == "2"` on its own
+# side, so the brokered lane stays byte-for-byte what the confirmed Cycle 1
+# submissions committed. Attachment-page menus (RECAP Fetch request type 3)
+# carry the identical six fields but are dispatchable only on the in-tree
+# direct CourtListener lane, whose counterpart accepts them.
+BROKERED_REQUEST_TYPES = frozenset({"2"})
+ATTACHMENT_PAGE_REQUEST_TYPE = "3"
+DIRECT_REQUEST_TYPES = frozenset({"2", ATTACHMENT_PAGE_REQUEST_TYPE})
 _RECEIPT_FIELDS = frozenset(
     {
         "version",
@@ -360,9 +368,21 @@ class SignedRecapFetchPurchaseBroker:
         return response
 
 
-def canonical_submission_bytes(request: Mapping[str, str]) -> bytes:
-    """Return the exact six-field body committed by the broker contract."""
+def canonical_submission_bytes(
+    request: Mapping[str, str],
+    *,
+    allowed_request_types: frozenset[str] = BROKERED_REQUEST_TYPES,
+) -> bytes:
+    """Return the exact six-field body committed by the broker contract.
 
+    The default accept-set is the frozen brokered one. A caller dispatching on
+    a lane whose counterpart accepts more types passes that lane's set
+    explicitly; the serialized bytes are otherwise unchanged, so every
+    previously committed submission still re-serializes identically.
+    """
+
+    if not allowed_request_types or not allowed_request_types <= DIRECT_REQUEST_TYPES:
+        raise ValueError("unsupported RECAP Fetch request-type authority")
     fields = (
         "request_type",
         "recap_document",
@@ -376,8 +396,12 @@ def canonical_submission_bytes(request: Mapping[str, str]) -> bytes:
     ):
         raise ValueError("broker submission requires the exact six string fields")
     ordered = {field: request[field] for field in fields}
-    if ordered["request_type"] != "2":
-        raise ValueError("invalid RECAP Fetch request type")
+    if ordered["request_type"] not in allowed_request_types:
+        raise ValueError(
+            "invalid RECAP Fetch request type for this dispatch lane: "
+            f"{ordered['request_type']} not in "
+            f"{','.join(sorted(allowed_request_types))}"
+        )
     if not _POSITIVE_DECIMAL.fullmatch(ordered["recap_document"]):
         raise ValueError("invalid RECAP document ID")
     if not ordered["cycle_id"] or "\n" in ordered["cycle_id"]:
@@ -390,7 +414,11 @@ def canonical_submission_bytes(request: Mapping[str, str]) -> bytes:
     return json.dumps(ordered, ensure_ascii=False, separators=(",", ":")).encode()
 
 
-def parse_canonical_submission_bytes(raw: bytes) -> dict[str, str]:
+def parse_canonical_submission_bytes(
+    raw: bytes,
+    *,
+    allowed_request_types: frozenset[str] = BROKERED_REQUEST_TYPES,
+) -> dict[str, str]:
     """Parse only the byte-exact canonical request accepted by the broker."""
 
     try:
@@ -403,7 +431,12 @@ def parse_canonical_submission_bytes(raw: bytes) -> dict[str, str]:
         if not isinstance(value, dict):
             raise ValueError
         request = cast(dict[str, str], value)
-        if canonical_submission_bytes(request) != raw:
+        if (
+            canonical_submission_bytes(
+                request, allowed_request_types=allowed_request_types
+            )
+            != raw
+        ):
             raise ValueError
         return request
     except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError):

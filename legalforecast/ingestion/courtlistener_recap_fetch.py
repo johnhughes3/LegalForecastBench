@@ -31,6 +31,7 @@ from legalforecast.ingestion.recap_fetch_attempt_policy import (
     is_exact_unknown_status_evidence,
 )
 from legalforecast.ingestion.recap_fetch_broker import (
+    DIRECT_REQUEST_TYPES,
     BrokerDefiniteRejection,
     BrokerOutcomeUnknown,
     PreparedRecapFetchSubmission,
@@ -45,8 +46,15 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
 
 _DEFAULT_BASE_URL = "https://www.courtlistener.com/api/rest/v4"
 _ALLOWED_HOSTS = frozenset({"www.courtlistener.com"})
-_RETRYABLE = frozenset({429, 500, 502, 503, 504})
-_TERMINAL_FAILURES = frozenset({3, 6, 7})
+# CourtListener's documented RECAP Fetch queue status table: 1 queued,
+# 2 processed, 3 error, 4 in progress, 5 retrying, 6 invalid POST,
+# 7 insufficient metadata.
+RECAP_FETCH_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+RECAP_FETCH_SUCCESS_STATUS = 2
+RECAP_FETCH_PENDING_STATUSES = frozenset({1, 4, 5})
+RECAP_FETCH_TERMINAL_FAILURE_STATUSES = frozenset({3, 6, 7})
+_RETRYABLE = RECAP_FETCH_RETRYABLE_STATUS_CODES
+_TERMINAL_FAILURES = RECAP_FETCH_TERMINAL_FAILURE_STATUSES
 
 
 class CourtListenerRecapFetchError(RuntimeError):
@@ -449,10 +457,13 @@ class DirectCourtListenerRecapFetchPurchaseBroker:
         preparation.consumed = True
         self._active_preparation = None
 
-        canonical_submission_bytes(request)
+        # The direct lane's counterpart is CourtListener itself, which accepts
+        # both individual documents (2) and attachment-page menus (3); the
+        # canonical six fields are identical for either.
+        canonical_submission_bytes(request, allowed_request_types=DIRECT_REQUEST_TYPES)
         operation_key = request["operation_key"]
         form = {
-            "request_type": "2",
+            "request_type": request["request_type"],
             "pacer_username": self.config.pacer_username,
             "pacer_password": self.config.pacer_password,
             "recap_document": request["recap_document"],
@@ -1118,7 +1129,7 @@ class CourtListenerRecapFetchClient:
                     CaseDevPacerPurchaseStatus.PROVIDER_ERROR,
                     f"recap_fetch_status_{last_status}",
                 )
-            if last_status not in {1, 4, 5}:
+            if last_status not in RECAP_FETCH_PENDING_STATUSES:
                 self.journal.mark_unknown(
                     document_id, f"unknown RECAP Fetch status {last_status}"
                 )
@@ -1571,6 +1582,13 @@ def _identifier(value: str) -> str:
             "CourtListener identifiers must be positive canonical decimals"
         )
     return value
+
+
+# Public aliases so other RECAP Fetch lanes read queue receipts through exactly
+# one implementation instead of re-deriving the identifier and status rules.
+recap_fetch_queue_id = _queue_id
+recap_fetch_queue_status = _status
+recap_fetch_identifier = _identifier
 
 
 def _mapping(value: object, field_name: str) -> Mapping[str, Any]:

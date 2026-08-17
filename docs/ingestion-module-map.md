@@ -254,6 +254,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`missing_core_budget.py`](../legalforecast/ingestion/missing_core_budget.py) | Cost guardrails for missing core documents. |
 | [`purchase_approval.py`](../legalforecast/ingestion/purchase_approval.py) | Human approval for an exact purchase plan. |
 | [`purchase_spend_summary.py`](../legalforecast/ingestion/purchase_spend_summary.py) | Provider-free immutable report of provable charges and unresolved commitments. |
+| [`recap_attachment_page_fetch.py`](../legalforecast/ingestion/recap_attachment_page_fetch.py) | Exactly-once attachment-menu purchases and selector resolution. |
 | [`recap_fetch_attempt_policy.py`](../legalforecast/ingestion/recap_fetch_attempt_policy.py) | Immutable bounded unknown-status attempt authority. |
 | [`recap_fetch_broker.py`](../legalforecast/ingestion/recap_fetch_broker.py) | Signed isolated budget-enforcing broker client. |
 | [`recap_fetch_broker_policy.py`](../legalforecast/ingestion/recap_fetch_broker_policy.py) | Broker allowlist derived from executable artifacts. |

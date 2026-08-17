@@ -241,6 +241,52 @@ def test_direct_submit_requires_and_consumes_one_preparation() -> None:
     assert direct.paid_dispatch_count == 1
 
 
+def test_direct_lane_forwards_the_attachment_page_request_type() -> None:
+    paid = _RecordingPaidTransport(
+        [RecapFetchHTTPResponse(status_code=201, payload={"id": 91})]
+    )
+    direct = DirectCourtListenerRecapFetchPurchaseBroker(
+        _direct_config(), transport=paid
+    )
+    request = {
+        "request_type": "3",
+        "recap_document": "123",
+        "cycle_id": "cycle-1",
+        "purchase_policy_sha256": "a" * 64,
+        "operation_key": "00000000-0000-4000-8000-000000000000",
+        "reservation_usd": "0.30",
+    }
+
+    assert direct.prepare_submission()(request) == {
+        "id": "91",
+        "reservation_id": "direct:00000000-0000-4000-8000-000000000000",
+    }
+    form = paid.calls[0]["form"]
+    assert isinstance(form, dict)
+    assert form["request_type"] == "3"
+    assert form["recap_document"] == "123"
+
+
+def test_direct_lane_refuses_request_types_outside_documents_and_menus() -> None:
+    paid = _RecordingPaidTransport([])
+    direct = DirectCourtListenerRecapFetchPurchaseBroker(
+        _direct_config(), transport=paid
+    )
+    request = {
+        "request_type": "1",
+        "recap_document": "123",
+        "cycle_id": "cycle-1",
+        "purchase_policy_sha256": "a" * 64,
+        "operation_key": "00000000-0000-4000-8000-000000000000",
+        "reservation_usd": "0.30",
+    }
+
+    with pytest.raises(ValueError, match="invalid RECAP Fetch request type"):
+        direct.prepare_submission()(request)
+    assert paid.calls == []
+    assert direct.paid_dispatch_count == 0
+
+
 def test_direct_budget_wait_stays_planned_and_attempt_policy_restarts_once(
     tmp_path: Path,
 ) -> None:

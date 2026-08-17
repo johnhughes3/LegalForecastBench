@@ -22,6 +22,9 @@ positional arguments:
                         acquisition lineage.
     replay-stage-a      Execute one authenticated candidate-scoped Stage A
                         replay spec.
+    fetch-recap-attachment-pages
+                        Buy missing PACER attachment menus and resolve their
+                        selectors.
     explain-successor-rerun
                         Explain the minimum safe rerun for proposed successor
                         inputs.

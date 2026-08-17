@@ -2,9 +2,9 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 26998,
-    "line_count": 72860,
-    "nonblank_line_count": 70133,
-    "parser_line_count": 1773,
+    "line_count": 72864,
+    "nonblank_line_count": 70137,
+    "parser_line_count": 1774,
     "top_level_class_count": 19,
     "top_level_definition_count": 1001,
     "verifier_family_count": 162,
@@ -3718,14 +3718,14 @@
       "examples/adapters/codex-cli": 1,
       "examples/adapters/openai-responses": 1,
       "legalforecast": 9,
-      "legalforecast/cli_commands": 4,
+      "legalforecast/cli_commands": 5,
       "legalforecast/config": 6,
       "legalforecast/config/cycles": 3,
       "legalforecast/contracts": 4,
       "legalforecast/document_need": 10,
       "legalforecast/evals": 20,
       "legalforecast/extraction": 4,
-      "legalforecast/ingestion": 157,
+      "legalforecast/ingestion": 158,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/ingestion/stage_a_replay_executor": 12,
       "legalforecast/labeling": 13,
@@ -3739,7 +3739,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 437,
+      "tests": 438,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -3823,7 +3823,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-cwdv",
         "fan_in": 10,
-        "fan_out": 173,
+        "fan_out": 174,
         "flags": [
           "relative-path",
           "cycle",
@@ -3831,10 +3831,10 @@
         ],
         "lane_owner": "cli",
         "largest_symbol": "build_parser",
-        "largest_symbol_lines": 1773,
+        "largest_symbol_lines": 1774,
         "layer": "entrypoint",
-        "line_count": 72860,
-        "nonblank_line_count": 70133,
+        "line_count": 72864,
+        "nonblank_line_count": 70137,
         "top_level_definition_count": 1001
       },
       "legalforecast/cli_commands/report.py": {
@@ -4498,7 +4498,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-l8qv.15",
-        "fan_in": 17,
+        "fan_in": 18,
         "fan_out": 2,
         "flags": [
           "oversized"
@@ -4532,7 +4532,7 @@
         "cycle_id": "legalforecast/acquisition_completion_summary_cli.py,legalforecast/cli.py,legalforecast/cli_commands/report.py,legalforecast/cli_commands/score.py,legalforecast/extraction/pdf_text.py,legalforecast/ingestion/__init__.py,legalforecast/ingestion/budgeted_docket_acquisition.py,legalforecast/ingestion/case_dev_provisional_frontier.py,legalforecast/ingestion/case_dev_purchase.py,legalforecast/ingestion/case_dev_ranked_selection.py,legalforecast/ingestion/case_dev_recap_batch.py,legalforecast/ingestion/clearance_replacement.py,legalforecast/ingestion/cohort_document_materializer.py,legalforecast/ingestion/corpus_completion_summary.py,legalforecast/ingestion/courtlistener_case_dev_bridge.py,legalforecast/ingestion/courtlistener_recap_fetch.py,legalforecast/ingestion/cycle_lineage_index.py,legalforecast/ingestion/cycle_manifest_template.py,legalforecast/ingestion/cycle_orchestrator.py,legalforecast/ingestion/cycle_path_metadata.py,legalforecast/ingestion/cycle_preflight_manifest.py,legalforecast/ingestion/decision_text_artifact.py,legalforecast/ingestion/disclosure_clearance.py,legalforecast/ingestion/disclosure_model_review.py,legalforecast/ingestion/disclosure_model_review_authority.py,legalforecast/ingestion/disclosure_review_bundle.py,legalforecast/ingestion/docket_decision_text_source.py,legalforecast/ingestion/downstream_lineage_verification.py,legalforecast/ingestion/downstream_rehearsal.py,legalforecast/ingestion/exact100_successor_replacement_v2_cli.py,legalforecast/ingestion/firecrawl_docket_recovery.py,legalforecast/ingestion/free_only_materialization.py,legalforecast/ingestion/free_support_memorandum_recovery.py,legalforecast/ingestion/packet_build_replay.py,legalforecast/ingestion/packet_input_planner.py,legalforecast/ingestion/provenance_clearance.py,legalforecast/ingestion/purchase_approval.py,legalforecast/ingestion/purchase_spend_summary.py,legalforecast/ingestion/purchased_document_recovery.py,legalforecast/ingestion/ranked_reserve_replacement.py,legalforecast/ingestion/readiness_provenance.py,legalforecast/ingestion/recap_fetch_attempt_policy.py,legalforecast/ingestion/recap_fetch_broker_policy.py,legalforecast/ingestion/recap_fetch_quarantine_recovery.py,legalforecast/ingestion/recovered_public_replay.py,legalforecast/ingestion/replacement_purchase_approval.py,legalforecast/ingestion/resolved_post_recovery.py,legalforecast/ingestion/retained_cohort_extension.py,legalforecast/ingestion/stage_a_lineage_verification.py,legalforecast/ingestion/successor_rerun_impact.py,legalforecast/ingestion/successor_rerun_proposal.py,legalforecast/ingestion/supporting_document_successor_cli.py,legalforecast/ingestion/target_cohort_projection.py,legalforecast/ingestion/target_public_gap_refresh.py,legalforecast/ingestion/target_raw_docket_auxiliary_provenance.py,legalforecast/ingestion/target_raw_docket_recovery.py,legalforecast/ingestion/terminal_purchase_failure.py,legalforecast/ingestion/terminal_subset_promotion.py,legalforecast/ingestion/zero_cost_successor.py,legalforecast/labeling/llm_pipeline.py,legalforecast/labeling/official_paid_baton.py,legalforecast/labeling/unitizer_terminal.py",
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-l8qv.15",
-        "fan_in": 4,
+        "fan_in": 5,
         "fan_out": 6,
         "flags": [
           "cycle",
@@ -4542,8 +4542,8 @@
         "largest_symbol": "CourtListenerRecapFetchClient",
         "largest_symbol_lines": 766,
         "layer": "application",
-        "line_count": 1596,
-        "nonblank_line_count": 1459,
+        "line_count": 1614,
+        "nonblank_line_count": 1475,
         "top_level_definition_count": 36
       },
       "legalforecast/ingestion/courtlistener_recap_purchase.py": {
@@ -5648,6 +5648,23 @@
         "nonblank_line_count": 1908,
         "top_level_definition_count": 42
       },
+      "legalforecast/ingestion/recap_attachment_page_fetch.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "ingestion",
+        "fan_in": 0,
+        "fan_out": 4,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "ingestion",
+        "largest_symbol": "AttachmentPageFetchJournal",
+        "largest_symbol_lines": 144,
+        "layer": "application",
+        "line_count": 861,
+        "nonblank_line_count": 767,
+        "top_level_definition_count": 23
+      },
       "legalforecast/ingestion/recap_client.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -5687,7 +5704,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "ingestion",
-        "fan_in": 5,
+        "fan_in": 6,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -5696,8 +5713,8 @@
         "largest_symbol": "SignedRecapFetchPurchaseBroker",
         "largest_symbol_lines": 106,
         "layer": "application",
-        "line_count": 886,
-        "nonblank_line_count": 787,
+        "line_count": 919,
+        "nonblank_line_count": 819,
         "top_level_definition_count": 32
       },
       "legalforecast/ingestion/recap_fetch_broker_policy.py": {
@@ -8551,9 +8568,9 @@
         "largest_symbol": "test_direct_budget_wait_stays_planned_and_attempt_policy_restarts_once",
         "largest_symbol_lines": 108,
         "layer": "test",
-        "line_count": 1582,
-        "nonblank_line_count": 1446,
-        "top_level_definition_count": 36
+        "line_count": 1628,
+        "nonblank_line_count": 1486,
+        "top_level_definition_count": 38
       },
       "tests/test_disclosure_clearance.py": {
         "cycle_id": "",
@@ -10009,6 +10026,23 @@
         "nonblank_line_count": 2703,
         "top_level_definition_count": 64
       },
+      "tests/test_recap_attachment_page_fetch.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_attachment_menu_fetch_dispatches_type_three_once_and_resolves_selectors",
+        "largest_symbol_lines": 63,
+        "layer": "test",
+        "line_count": 607,
+        "nonblank_line_count": 527,
+        "top_level_definition_count": 21
+      },
       "tests/test_recap_fetch_broker.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -10022,9 +10056,9 @@
         "largest_symbol": "test_signs_exact_canonical_six_field_submission_and_nine_field_domain",
         "largest_symbol_lines": 56,
         "layer": "test",
-        "line_count": 629,
-        "nonblank_line_count": 557,
-        "top_level_definition_count": 27
+        "line_count": 678,
+        "nonblank_line_count": 597,
+        "top_level_definition_count": 30
       },
       "tests/test_recap_fetch_broker_policy.py": {
         "cycle_id": "",
