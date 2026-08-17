@@ -17,11 +17,11 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
     CandidateScopedStageARerunRequest,
     StageAStageOutcome,
 )
+from legalforecast.ingestion.stage_a_replay_executor import contract as contract_module
 from legalforecast.ingestion.stage_a_replay_executor import executor as executor_module
 from legalforecast.ingestion.stage_a_replay_executor import lineage as lineage_module
 from legalforecast.ingestion.stage_a_replay_executor import provider as provider_module
 from legalforecast.ingestion.stage_a_replay_executor import spec as spec_module
-from legalforecast.ingestion.stage_a_replay_executor import contract as contract_module
 from legalforecast.ingestion.stage_a_replay_executor.executor import (
     StageAReplayExecutorError,
     execute_canonical_stage_a_replay,
