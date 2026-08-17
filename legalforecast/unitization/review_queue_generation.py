@@ -97,6 +97,15 @@ def publish_review_queue_generation(
     commit point.  An interruption before that rename leaves the previous
     generation current and only orphans content-addressed member files, which
     are harmless because their names are their digests.
+
+    Durability is stated in terms of directory entries, not just file bytes: a
+    renamed file whose *parent directory* was never fsynced can vanish after a
+    host crash even though ``os.replace`` returned.  So every new entry on the
+    path to the commit point is persisted before it -- the member files inside
+    the generation directory, then that directory's own entry in the
+    generations root -- and the manifest's entry is persisted by the same
+    ``_atomic_write`` that renames it, which also covers the generations-root
+    entry beside it.
     """
 
     generation_id = review_queue_generation_id(v1_bytes, v2_bytes)
@@ -107,6 +116,7 @@ def publish_review_queue_generation(
     _write_immutable_member(v1_member, v1_bytes)
     _write_immutable_member(v2_member, v2_bytes)
     _fsync_directory(generation_root)
+    _fsync_directory(generation_root.parent)
     manifest_path = review_queue_generation_manifest_path(queue_path)
     manifest: dict[str, object] = {
         "schema_version": str(UNITIZATION_REVIEW_QUEUE_GENERATION_V1),
@@ -218,6 +228,13 @@ def _resolve_member_path(relative: str, *, manifest_path: Path) -> Path:
     moved or copied whole.  A member that is absolute or escapes the manifest's
     directory is rejected rather than followed: the manifest is the trust
     anchor for the pair, not a redirection mechanism.
+
+    Rejecting a literal ``..`` is not enough on its own, because any component
+    of the name can be a symlink that leaves the directory once opened.  So
+    containment is decided on the *resolved* target, against a base that is
+    resolved the same way -- a published tree reached through a symlinked
+    parent stays legal, while a member that leaves the manifest's directory
+    does not, whatever its recorded digest says.
     """
 
     candidate = Path(relative)
@@ -225,7 +242,13 @@ def _resolve_member_path(relative: str, *, manifest_path: Path) -> Path:
         raise ReviewQueueError(
             f"review queue generation member path escapes the manifest: {relative}"
         )
-    return manifest_path.parent / candidate
+    member_path = manifest_path.parent / candidate
+    base = manifest_path.parent.resolve()
+    if not member_path.resolve().is_relative_to(base):
+        raise ReviewQueueError(
+            f"review queue generation member path escapes the manifest: {relative}"
+        )
+    return member_path
 
 
 def _member_record(
@@ -251,6 +274,14 @@ def _write_immutable_member(path: Path, payload: bytes) -> None:
 
 
 def _atomic_write(path: Path, payload: bytes) -> None:
+    """Write ``payload`` to ``path`` so a crash leaves it whole or absent.
+
+    The directory fsync after the rename is not optional bookkeeping: without
+    it the new name is only in the page cache, so a host crash can expose the
+    previous file -- or no file at all -- after ``os.replace`` already returned
+    and the caller reported the publication committed.
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
@@ -262,6 +293,7 @@ def _atomic_write(path: Path, payload: bytes) -> None:
     except BaseException:
         Path(name).unlink(missing_ok=True)
         raise
+    _fsync_directory(path.parent)
 
 
 def _fsync_directory(path: Path) -> None:

@@ -782,6 +782,34 @@ def test_generation_reader_rejects_a_member_path_outside_the_manifest(
         read_review_queue_generation(queue_path)
 
 
+def test_generation_reader_rejects_a_member_reached_through_a_symlink(
+    tmp_path: Path,
+) -> None:
+    """A member that leaves the manifest's directory is rejected, not read.
+
+    Digest and byte-count agreement is not containment: an escaping member can
+    carry exactly the recorded bytes.  Rejecting only a literal ``..`` would
+    miss this, because the escape happens when the name is opened rather than
+    when it is spelled.
+    """
+
+    queue_directory = tmp_path / "queue"
+    queue_directory.mkdir()
+    queue_path = queue_directory / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    generation = read_review_queue_generation(queue_path)
+
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    foreign_member = outside / "queue-v2.jsonl"
+    foreign_member.write_bytes(generation.v2_bytes)
+    generation.v2_path.unlink()
+    generation.v2_path.symlink_to(foreign_member)
+
+    with pytest.raises(ReviewQueueError, match="escapes the manifest"):
+        read_review_queue_generation(queue_path)
+
+
 def test_generation_reader_rejects_an_unknown_manifest_schema(
     tmp_path: Path,
 ) -> None:
