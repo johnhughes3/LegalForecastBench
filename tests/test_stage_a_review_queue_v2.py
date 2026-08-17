@@ -28,6 +28,7 @@ from legalforecast.unitization.review_queue import (
     verify_review_queue_v2_coverage,
 )
 from legalforecast.unitization.review_queue_generation import (
+    ReviewQueueGenerationCommitError,
     read_review_queue_generation,
     review_queue_generation_id,
     review_queue_generation_manifest_path,
@@ -59,6 +60,27 @@ def _construction_row(unit_id: str, *, reason: str = "low_confidence") -> JsonRe
             "notes": "Stage A unit requires blinded pre-decision review.",
         },
     }
+
+
+def _jsonl_bytes(records: tuple[JsonRecord, ...]) -> bytes:
+    return "".join(
+        f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
+        for record in records
+    ).encode()
+
+
+def _publish_generation(queue_path: Path, records: tuple[JsonRecord, ...]) -> None:
+    """Publish a digest-bound pair without going through the CLI facade."""
+
+    queue_v2 = review_queue_v2_records(records)
+    verify_review_queue_v2_coverage(records, queue_v2)
+    v1_bytes = _jsonl_bytes(records)
+    v2_bytes = _jsonl_bytes(queue_v2)
+    queue_path.write_bytes(v1_bytes)
+    review_queue_v2_sidecar_path(queue_path).write_bytes(v2_bytes)
+    generation_module.publish_review_queue_generation(
+        queue_path, v1_bytes=v1_bytes, v2_bytes=v2_bytes
+    )
 
 
 def _failed_attempt(
@@ -632,18 +654,22 @@ def test_generation_publish_failure_rolls_back_the_entire_queue_pair(
 
     queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
     sidecar_path = review_queue_v2_sidecar_path(queue_path)
-    queue_path.write_bytes(b"prior-v1\\n")
-    sidecar_path.write_bytes(b"prior-v2\\n")
+    prior = {queue_path: b"prior-v1\\n", sidecar_path: b"prior-v2\\n"}
+    queue_path.write_bytes(b"new-v1\\n")
+    sidecar_path.write_bytes(b"new-v2\\n")
 
-    def fail_generation(*_: object, **__: object) -> None:
+    def fail_member(_path: Path, _payload: bytes) -> None:
         raise OSError("generation storage unavailable")
 
-    monkeypatch.setattr(cli, "publish_review_queue_generation", fail_generation)
+    monkeypatch.setattr(generation_module, "_write_immutable_member", fail_member)
 
-    with pytest.raises(
-        CommandError, match="cannot publish the Stage A review queue generation"
-    ):
-        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    with pytest.raises(OSError, match="generation storage unavailable"):
+        generation_module.publish_review_queue_generation(
+            queue_path,
+            v1_bytes=b"new-v1\\n",
+            v2_bytes=b"new-v2\\n",
+            restore_canonical=prior,
+        )
 
     assert queue_path.read_bytes() == b"prior-v1\\n"
     assert sidecar_path.read_bytes() == b"prior-v2\\n"
@@ -656,8 +682,11 @@ def test_manifest_post_commit_fsync_failure_keeps_the_new_canonical_pair(
 
     queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
     sidecar_path = review_queue_v2_sidecar_path(queue_path)
-    queue_path.write_bytes(b"prior-v1\\n")
-    sidecar_path.write_bytes(b"prior-v2\\n")
+    prior = {queue_path: b"prior-v1\\n", sidecar_path: b"prior-v2\\n"}
+    v1_bytes = b"new-v1\\n"
+    v2_bytes = b"new-v2\\n"
+    queue_path.write_bytes(v1_bytes)
+    sidecar_path.write_bytes(v2_bytes)
     original_fsync = generation_module._fsync_directory
     queue_directory_fsyncs = 0
 
@@ -673,14 +702,19 @@ def test_manifest_post_commit_fsync_failure_keeps_the_new_canonical_pair(
         generation_module, "_fsync_directory", fail_final_manifest_fsync
     )
 
-    with pytest.raises(CommandError, match="after the manifest commit"):
-        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    with pytest.raises(ReviewQueueGenerationCommitError):
+        generation_module.publish_review_queue_generation(
+            queue_path,
+            v1_bytes=v1_bytes,
+            v2_bytes=v2_bytes,
+            restore_canonical=prior,
+        )
 
     generation = read_review_queue_generation(queue_path)
-    assert queue_path.read_bytes() == generation.v1_bytes
-    assert sidecar_path.read_bytes() == generation.v2_bytes
-    assert generation.v1_bytes != b"prior-v1\\n"
-    assert generation.v2_bytes != b"prior-v2\\n"
+    assert queue_path.read_bytes() == v1_bytes
+    assert sidecar_path.read_bytes() == v2_bytes
+    assert generation.v1_bytes == v1_bytes
+    assert generation.v2_bytes == v2_bytes
 
 
 def test_first_queue_write_failure_rolls_back_the_entire_queue_pair(
@@ -875,7 +909,7 @@ def test_generation_publisher_rejects_an_existing_member_symlink(
     """Publishing cannot bless a symlink that its own reader rejects."""
 
     queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
-    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    _publish_generation(queue_path, (_construction_row("unit-1"),))
     generation = read_review_queue_generation(queue_path)
     outside = tmp_path / "outside-v1.jsonl"
     outside.write_bytes(generation.v1_bytes)
@@ -896,9 +930,9 @@ def test_generation_reader_rejects_a_member_from_a_different_generation(
     """A valid digest in a sibling generation cannot be relabeled as current."""
 
     queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
-    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    _publish_generation(queue_path, (_construction_row("unit-1"),))
     first = read_review_queue_generation(queue_path)
-    cli.publish_stage_a_review_queue(
+    _publish_generation(
         queue_path, (_construction_row("unit-1"), _construction_row("unit-2"))
     )
     manifest_path = review_queue_generation_manifest_path(queue_path)

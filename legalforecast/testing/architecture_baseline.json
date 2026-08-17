@@ -2,8 +2,8 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 26979,
-    "line_count": 72595,
-    "nonblank_line_count": 69894,
+    "line_count": 72588,
+    "nonblank_line_count": 69887,
     "parser_line_count": 1773,
     "top_level_class_count": 19,
     "top_level_definition_count": 994,

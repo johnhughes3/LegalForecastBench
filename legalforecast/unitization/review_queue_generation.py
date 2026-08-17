@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -102,8 +103,30 @@ def review_queue_generation_id(v1_bytes: bytes, v2_bytes: bytes) -> str:
     )
 
 
+def restore_canonical_review_queue_pair(
+    prior_payloads: Mapping[Path, bytes | None],
+) -> tuple[str, ...]:
+    """Best-effort restore of the canonical v1/v2 files after a failed publish."""
+
+    rollback_errors: list[str] = []
+    for path, payload in prior_payloads.items():
+        try:
+            if payload is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(payload)
+        except OSError as rollback_exc:
+            rollback_errors.append(f"{path}: {rollback_exc}")
+    return tuple(rollback_errors)
+
+
 def publish_review_queue_generation(
-    queue_path: Path, *, v1_bytes: bytes, v2_bytes: bytes
+    queue_path: Path,
+    *,
+    v1_bytes: bytes,
+    v2_bytes: bytes,
+    restore_canonical: Mapping[Path, bytes | None] | None = None,
 ) -> ReviewQueueGeneration:
     """Publish an immutable pair and switch the manifest in one atomic step.
 
@@ -119,7 +142,33 @@ def publish_review_queue_generation(
     the generations root, the generation directory inside it, and the two
     member files inside that -- walking outward-in and then inside-out.  The
     manifest's own entry is persisted by the ``_atomic_write`` that renames it.
+
+    When ``restore_canonical`` is provided, a failure *before* that commit
+    restores those exact bytes (or deletes a path whose prior payload was
+    ``None``).  A :class:`ReviewQueueGenerationCommitError` means the manifest
+    already moved, so the new canonical pair is left in place.
     """
+
+    try:
+        return _commit_review_queue_generation(
+            queue_path, v1_bytes=v1_bytes, v2_bytes=v2_bytes
+        )
+    except ReviewQueueGenerationCommitError:
+        raise
+    except (OSError, ReviewQueueError) as exc:
+        if restore_canonical is not None:
+            rollback_errors = restore_canonical_review_queue_pair(restore_canonical)
+            if rollback_errors:
+                raise ReviewQueueError(
+                    f"{exc}; rollback also failed: {'; '.join(rollback_errors)}"
+                ) from exc
+        raise
+
+
+def _commit_review_queue_generation(
+    queue_path: Path, *, v1_bytes: bytes, v2_bytes: bytes
+) -> ReviewQueueGeneration:
+    """Write generation members and switch the current-generation manifest."""
 
     generation_id = review_queue_generation_id(v1_bytes, v2_bytes)
     generations_root = review_queue_generation_root(queue_path)
