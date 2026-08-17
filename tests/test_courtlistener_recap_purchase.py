@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +29,7 @@ from legalforecast.ingestion.courtlistener_recap_purchase import (
     ConfirmationProvenanceError,
     build_paid_recap,
     confirmation_provenance_root,
+    reconcile_purchase,
     write_confirmation_provenance_sidecars,
 )
 from tests.purchase_approval_fixtures import allow_historical_v1_algorithm_fixtures
@@ -102,6 +104,7 @@ def test_paid_purchase_factory_uses_queue_lag_tolerant_window(tmp_path: Path) ->
 
 def test_paid_purchase_factory_writes_digest_keyed_queue_provenance_sidecar(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
@@ -142,6 +145,20 @@ def test_paid_purchase_factory_writes_digest_keyed_queue_provenance_sidecar(
                 write_confirmation_provenance_sidecars(journal)
         finally:
             paths[0].write_bytes(original_sidecar)
+        paths[0].unlink()
+        real_write = os.write
+
+        def interrupted_write(descriptor: int, payload: bytes) -> int:
+            real_write(descriptor, payload[:1])
+            raise OSError("synthetic interrupted sidecar write")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "write", interrupted_write)
+            with pytest.raises(ConfirmationProvenanceError, match="publish"):
+                write_confirmation_provenance_sidecars(journal)
+        assert not paths[0].exists()
+        (recovered_path,) = write_confirmation_provenance_sidecars(journal)
+        assert recovered_path.read_bytes() == original_sidecar
 
     assert result.executed_purchase_count == 1
     assert len(paths) == 1
@@ -222,6 +239,35 @@ def test_paid_purchase_factory_writes_public_document_queue_lag_sidecar(
     assert record["confirmation_evidence"] == "public_document_during_queue_lag"
     assert record["queue_response_sha256"] is None
     assert "queue_response" not in operation["response"]
+
+
+@pytest.mark.parametrize("queued", [False, True])
+def test_sparse_reconciled_recap_rows_do_not_emit_sidecars(
+    tmp_path: Path,
+    *,
+    queued: bool,
+) -> None:
+    ledger = (tmp_path / f"sparse-{queued}.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    context = {"source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER}
+    evidence = {
+        "source_document_id": "123",
+        "disposition": "confirmed",
+        "source_type": "billing_receipt",
+        "source_reference": "synthetic: true",
+        "pacer_fees": {"pacerFee": "1.20", "serviceFee": "0.00", "total": "1.20"},
+        "download_url": "https://storage.courtlistener.com/123.pdf",
+    }
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123", context=context) is True
+        if queued:
+            journal.queue("123", response={**context, "queue_id": "77"})
+
+        assert reconcile_purchase(journal, evidence) == ()
+        assert journal.statuses() == {"123": "confirmed"}
+
+    assert not confirmation_provenance_root(ledger).exists()
 
 
 def test_sidecar_filename_matches_authoritative_digest_for_non_ascii(

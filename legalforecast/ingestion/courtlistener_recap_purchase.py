@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import secrets
 import stat
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -140,6 +141,8 @@ def _confirmation_record(
         raise ConfirmationProvenanceError(
             "confirmation provenance must remain outside response_json"
         )
+    if not {"queue_id", "post_delivery_restrictions"}.issubset(response):
+        return None
     source_document_id = _positive_decimal(operation.get("source_document_id"))
     candidate_id = _required_text(operation.get("candidate_id"), "candidate_id")
     queue_id = _positive_decimal(response.get("queue_id"))
@@ -232,36 +235,71 @@ def _write_create_once(directory_fd: int, name: str, payload: bytes) -> None:
         raise ConfirmationProvenanceError(
             "confirmation provenance writes require O_NOFOLLOW"
         )
+    temporary = f".{name}.{secrets.token_hex(8)}.tmp"
+    descriptor: int | None = None
+    temporary_created = False
     try:
         descriptor = os.open(
-            name,
+            temporary,
             flags | nofollow,
             0o600,
             dir_fd=directory_fd,
         )
-    except FileExistsError:
-        existing = _read_existing(directory_fd, name)
-        if existing != payload:
+        temporary_created = True
+        _write_all(descriptor, payload)
+        os.fsync(descriptor)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
             raise ConfirmationProvenanceError(
-                f"confirmation provenance output conflicts: {name}"
-            ) from None
-        return
+                "confirmation provenance temporary must be a singly linked file"
+            )
+        try:
+            os.link(
+                temporary,
+                name,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError:
+            existing = _read_existing(directory_fd, name)
+            if existing != payload:
+                raise ConfirmationProvenanceError(
+                    f"confirmation provenance output conflicts: {name}"
+                ) from None
+        else:
+            os.unlink(temporary, dir_fd=directory_fd)
+            temporary_created = False
+        os.fsync(directory_fd)
+        if _read_existing(directory_fd, name) != payload:
+            raise ConfirmationProvenanceError(
+                f"confirmation provenance output changed while publishing: {name}"
+            )
+    except ConfirmationProvenanceError:
+        raise
     except OSError as exc:
         raise ConfirmationProvenanceError(
-            f"unable to create confirmation provenance output: {name}"
+            f"unable to publish confirmation provenance output: {name}"
         ) from exc
-    try:
-        with os.fdopen(descriptor, "wb", closefd=True) as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-    except BaseException:
-        try:
-            os.unlink(name, dir_fd=directory_fd)
-        except OSError:
-            # Preserve the original write failure; cleanup is best effort.
-            pass
-        raise
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if temporary_created:
+            try:
+                os.unlink(temporary, dir_fd=directory_fd)
+                os.fsync(directory_fd)
+            except OSError:
+                # Preserve the original publish result; cleanup is best effort.
+                pass
+
+
+def _write_all(descriptor: int, payload: bytes) -> None:
+    view = memoryview(payload)
+    while view:
+        written = os.write(descriptor, view)
+        if written <= 0:
+            raise OSError("confirmation provenance write made no progress")
+        view = view[written:]
 
 
 def _read_existing(directory_fd: int, name: str) -> bytes:
@@ -278,7 +316,20 @@ def _read_existing(directory_fd: int, name: str) -> bytes:
             raise ConfirmationProvenanceError(
                 "confirmation provenance output must be a singly linked file"
             )
-        return os.read(descriptor, metadata.st_size)
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 64 * 1024):
+            chunks.append(chunk)
+        after = os.fstat(descriptor)
+        if (metadata.st_dev, metadata.st_ino, metadata.st_size, metadata.st_nlink) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_nlink,
+        ):
+            raise ConfirmationProvenanceError(
+                "confirmation provenance output changed while reading"
+            )
+        return b"".join(chunks)
     except ConfirmationProvenanceError:
         raise
     except OSError as exc:
