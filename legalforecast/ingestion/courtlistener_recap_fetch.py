@@ -1245,7 +1245,7 @@ class CourtListenerRecapFetchClient:
 
     def _confirmation_provenance(
         self, document_id: str, confirmed: Mapping[str, Any]
-    ) -> ConfirmationProvenance:
+    ) -> ConfirmationProvenance | None:
         """Read the evidence a confirmed response rests on, out of its bytes."""
 
         receipt = _mapping_or_none(confirmed.get("queue_response"))
@@ -1261,12 +1261,15 @@ class CourtListenerRecapFetchClient:
     ) -> None:
         """Name the evidence a confirmation rests on, outside frozen bytes."""
 
+        provenance = self._confirmation_provenance(document_id, confirmed)
+        if provenance is None:
+            return
         policy = self.journal.policy
         record_confirmation_provenance(
             self._confirmation_provenance_path(),
             cycle_id=policy.cycle_id,
             purchase_policy_sha256=policy.policy_sha256,
-            provenance=self._confirmation_provenance(document_id, confirmed),
+            provenance=provenance,
         )
 
     def _reconcile_confirmation_provenance(
@@ -1280,13 +1283,16 @@ class CourtListenerRecapFetchClient:
         already records as resting on the public document alone.
         """
 
+        provenance = self._confirmation_provenance(document_id, confirmed)
+        if provenance is None:
+            return
         policy = self.journal.policy
         path = self._confirmation_provenance_path()
         queue_id = reconcile_confirmation_provenance(
             path,
             cycle_id=policy.cycle_id,
             purchase_policy_sha256=policy.policy_sha256,
-            provenance=self._confirmation_provenance(document_id, confirmed),
+            provenance=provenance,
         )
         if queue_id is None:
             return

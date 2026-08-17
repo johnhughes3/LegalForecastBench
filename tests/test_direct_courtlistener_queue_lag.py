@@ -24,6 +24,7 @@ from legalforecast.ingestion.recap_fetch_confirmation_provenance import (
     RecapFetchConfirmationProvenanceError,
     attach_queue_receipt,
     confirmation_provenance_path,
+    provenance_from_confirmed_response,
     read_confirmation_provenance,
     record_confirmation_provenance,
 )
@@ -375,6 +376,19 @@ def test_sidecar_from_another_ledger_generation_reads_as_no_observation(
             path, cycle_id="cycle-1", purchase_policy_sha256="f" * 64
         )
         == {}
+    )
+
+
+def test_a_confirmation_that_was_never_queued_gets_no_entry() -> None:
+    """Queue-lag provenance must not invent a record for a non-queued buy."""
+
+    assert (
+        provenance_from_confirmed_response(
+            "123",
+            {"download_url": "https://storage.courtlistener.com/123.pdf"},
+            confirmed_response_sha256="c" * 64,
+        )
+        is None
     )
 
 

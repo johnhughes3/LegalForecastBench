@@ -86,6 +86,17 @@ class ConfirmationProvenance:
     queue_receipt_attached_after_confirmation: bool = False
 
     def __post_init__(self) -> None:
+        # Reject at construction exactly what the reader rejects, so an entry
+        # that could not be read back can never be written in the first place.
+        for field_name in (
+            "source_document_id",
+            "queue_id",
+            "confirmed_response_sha256",
+        ):
+            if not getattr(self, field_name):
+                raise RecapFetchConfirmationProvenanceError(
+                    f"confirmation provenance {field_name} must not be empty"
+                )
         if self.confirmation_evidence not in CONFIRMATION_EVIDENCE_KINDS:
             raise RecapFetchConfirmationProvenanceError(
                 "unknown RECAP Fetch confirmation evidence: "
@@ -184,15 +195,22 @@ def provenance_from_confirmed_response(
     *,
     confirmed_response_sha256: str,
     queue_response_sha256: str | None = None,
-) -> ConfirmationProvenance:
+) -> ConfirmationProvenance | None:
     """Derive which evidence a confirmed response rests on.
 
     A confirmation carries its queue receipt only when the queue detail was
     readable, so the presence of ``queue_response`` is what separates the two
     evidence kinds.  Deriving it here rather than at the call site is what
     makes a lost entry reconstructible from bytes the journal already holds.
+
+    Returns ``None`` for a response with no ``queue_id``.  Such a purchase was
+    never a queued RECAP Fetch operation, so queue-lag provenance has nothing
+    to say about it and must not invent an entry for it.
     """
 
+    queue_id = confirmed.get("queue_id")
+    if not isinstance(queue_id, str) or not queue_id:
+        return None
     queue_response = confirmed.get("queue_response")
     if queue_response is not None and not isinstance(queue_response, Mapping):
         raise RecapFetchConfirmationProvenanceError(
@@ -209,7 +227,7 @@ def provenance_from_confirmed_response(
         )
     return ConfirmationProvenance(
         source_document_id=document_id,
-        queue_id=str(confirmed.get("queue_id", "")),
+        queue_id=queue_id,
         confirmation_evidence=(
             QUEUE_RECEIPT_CONFIRMATION
             if receipt is not None
