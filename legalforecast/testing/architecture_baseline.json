@@ -6489,6 +6489,23 @@
         "nonblank_line_count": 751,
         "top_level_definition_count": 26
       },
+      "legalforecast/multiharness/local_cli_identity.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 3,
+        "fan_out": 3,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "bind_executable_identity",
+        "largest_symbol_lines": 72,
+        "layer": "application",
+        "line_count": 562,
+        "nonblank_line_count": 496,
+        "top_level_definition_count": 18
+      },
       "legalforecast/multiharness/local_cli_manifest.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
@@ -6518,11 +6535,11 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "_run_contained_cli",
-        "largest_symbol_lines": 208,
+        "largest_symbol_lines": 216,
         "layer": "application",
-        "line_count": 1056,
-        "nonblank_line_count": 974,
-        "top_level_definition_count": 22
+        "line_count": 1098,
+        "nonblank_line_count": 1011,
+        "top_level_definition_count": 23
       },
       "legalforecast/multiharness/material_separation.py": {
         "cycle_id": "",
@@ -8970,6 +8987,24 @@
         "line_count": 681,
         "nonblank_line_count": 616,
         "top_level_definition_count": 23
+      },
+      "tests/test_multiharness_local_cli_identity.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_symlink_shim_keeps_pin_basename_and_hashes_target_bytes",
+        "largest_symbol_lines": 49,
+        "layer": "test",
+        "line_count": 641,
+        "nonblank_line_count": 580,
+        "top_level_definition_count": 24
       },
       "tests/test_multiharness_local_cli_runtime.py": {
         "cycle_id": "",

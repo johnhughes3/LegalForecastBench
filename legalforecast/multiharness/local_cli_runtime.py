@@ -5,9 +5,11 @@ spawning CLIs themselves. The contained launch path is ``execute_local_cli``.
 Executable identity is bound fail-closed before spend (``dm0g.4.2.8``).
 Persisted transcripts, events, and errors go through one redaction module
 (``dm0g.4.2.9``). Streams are drained during execution at the capture cap
-(GitHub #699). Scheduling is recorded as requested-versus-actual evidence
-(``dm0g.4.2.10``). B1's adapter-manifest fields are stubbed here until
-``dm0g.4.4.1`` freezes them.
+(GitHub #699); when a drain thread misses its join the capture is incomplete,
+so the receipt records truncation and publishes no ``cost_usd`` rather than an
+older envelope from the rolling tail (GitHub #719). Scheduling is recorded as
+requested-versus-actual evidence (``dm0g.4.2.10``). B1's adapter-manifest
+fields are stubbed here until ``dm0g.4.4.1`` freezes them.
 """
 
 from __future__ import annotations
@@ -54,6 +56,7 @@ from legalforecast.multiharness.local_cli_identity import (
     ObservedExecutableIdentity,
     bind_executable_identity,
     executable_pin_for,
+    verify_executable_digest,
 )
 from legalforecast.multiharness.local_cli_redaction import (
     PRIVATE_EXECUTION_DIR,
@@ -674,21 +677,30 @@ def _pin_run_spec_executable(
     version: str,
     parent_env: Mapping[str, str] | None,
 ) -> ExecutableIdentityPin | None:
-    """Hash the PATH-resolved argv0, or return None if it is not a file."""
+    """Hash the PATH-resolved argv0, or return None if it is not a file.
+
+    An unreadable or racing path is a pin failure, not a crash: ``is_file``
+    and the hash read can raise ``OSError`` whose message embeds the host
+    path, and the caller turns None into a path-free failed receipt
+    (GitHub #724).
+    """
 
     search_path = (parent_env or os.environ).get("PATH", "/usr/bin")
-    if "/" in argv0 or "\\" in argv0:
-        candidate = Path(argv0)
-        if not candidate.is_absolute() or not candidate.is_file():
+    try:
+        if "/" in argv0 or "\\" in argv0:
+            candidate = Path(argv0)
+            if not candidate.is_absolute() or not candidate.is_file():
+                return None
+            return executable_pin_for(candidate, version=version)
+        located = shutil.which(argv0, path=search_path)
+        if located is None:
             return None
-        return executable_pin_for(candidate, version=version)
-    located = shutil.which(argv0, path=search_path)
-    if located is None:
+        path = Path(located)
+        if not path.is_file():
+            return None
+        return executable_pin_for(path, version=version)
+    except (OSError, LocalCliIdentityError):
         return None
-    path = Path(located)
-    if not path.is_file():
-        return None
-    return executable_pin_for(path, version=version)
 
 
 def execution_receipt_from_runtime(
@@ -792,15 +804,17 @@ def _run_contained_cli(
             stdin_handle = stdin_file
         try:
             try:
-                bind_executable_identity(
+                # Digest-only re-check against the TOCTOU window between the
+                # pre-spend bind and this spawn. The credential-free helper
+                # takes a bare PATH string, never the projected child
+                # environment, and cannot launch a probe (GitHub #722). The
+                # pin's capability framing and model allowlist are checks over
+                # immutable in-memory inputs already enforced at the pre-spend
+                # bind, so re-running them here would add no evidence.
+                verify_executable_digest(
                     spec.manifest.executable,
                     observed.resolved_argv,
-                    version_probe_args=spec.manifest.version_probe_args,
-                    required_capabilities=spec.manifest.required_capabilities,
-                    scratch_root=scratch_root,
-                    parent_env=environment,
-                    requested_model=spec.requested_model,
-                    probe=False,
+                    search_path=environment.get("PATH", "/usr/bin"),
                 )
             except LocalCliIdentityError as exc:
                 raise LocalCliRuntimeError(str(exc)) from exc
@@ -881,10 +895,16 @@ def _run_contained_cli(
                 drain_threads,
                 timeout_seconds=max(termination_grace_seconds, _DRAIN_JOIN_SECONDS),
             )
-            if not drains_complete:
-                stdout_drain.truncated = True
-                stderr_drain.truncated = True
-            cost_usd = _optional_cost_usd(stdout_drain.tail_bytes_copy())
+            if drains_complete:
+                cost_usd = _optional_cost_usd(stdout_drain.tail_bytes_copy())
+            else:
+                # An unread pipe may still hold the trailing cost envelope, so
+                # the newest JSON object in the tail is an earlier one. Publish
+                # no cost rather than an older run's number (GitHub #719).
+                _mark_incomplete_drains(
+                    (stdout_drain, stderr_drain),
+                    drain_threads,
+                )
             stdout, stdout_truncated = stdout_drain.finish()
             stderr, stderr_truncated = stderr_drain.finish()
     except ProcessContainmentError as exc:
@@ -929,6 +949,28 @@ def _run_contained_cli(
         "local CLI execution receipt",
     )
     return result
+
+
+def _mark_incomplete_drains(
+    drains: Sequence[StreamDrain],
+    threads: Sequence[Thread],
+) -> None:
+    """Record truncation for streams whose drain thread missed the join.
+
+    Attribution needs a live thread: only a stream still being read can still
+    be holding unread bytes. When the join reported incomplete but no thread
+    is alive by the time we look (the straggler finished in between), every
+    stream is flagged -- an unattributable miss is still a miss, and a receipt
+    that under-claims truncation is the failure this guards.
+    """
+
+    live = [
+        drain
+        for drain, thread in zip(drains, threads, strict=False)
+        if thread.is_alive()
+    ]
+    for drain in live or drains:
+        drain.mark_truncated()
 
 
 def _scheduler_release_result(
