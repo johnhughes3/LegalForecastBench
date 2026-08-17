@@ -14,7 +14,7 @@ permissions:
 jobs:
   smoke-exact-table-authority:
     name: Provider-free exact-table authority smoke
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: legalforecastbench-official-labeling-authority-smoke
     permissions:

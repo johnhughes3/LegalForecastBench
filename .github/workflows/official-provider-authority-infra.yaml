@@ -89,7 +89,7 @@ concurrency:
 jobs:
   validate-request:
     name: Validate closed infrastructure request
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       actions: read
@@ -223,7 +223,7 @@ jobs:
   operate:
     name: ${{ inputs.operation }} ${{ inputs.module }}
     needs: validate-request
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: legalforecastbench-official-provider-authority-infra
     permissions:
