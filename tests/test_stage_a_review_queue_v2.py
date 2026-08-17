@@ -1477,6 +1477,49 @@ def test_generation_member_install_never_exposes_a_hardlink(
     assert member_path.stat().st_nlink == 1
 
 
+def test_generation_member_install_uses_darwin_atomic_noreplace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Darwin uses its descriptor-relative exclusive rename primitive."""
+
+    observed: list[tuple[int, bytes, int, bytes, int]] = []
+
+    def renameatx_np(
+        source_descriptor: int,
+        source_name: bytes,
+        destination_descriptor: int,
+        destination_name: bytes,
+        flags: int,
+    ) -> int:
+        observed.append(
+            (
+                source_descriptor,
+                source_name,
+                destination_descriptor,
+                destination_name,
+                flags,
+            )
+        )
+        return 0
+
+    class DarwinLibc:
+        def __init__(self) -> None:
+            self.renameatx_np = renameatx_np
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(
+        generation_module.ctypes,
+        "CDLL",
+        lambda *_args, **_kwargs: DarwinLibc(),
+    )
+
+    generation_module._rename_noreplace_at(
+        11, "source.tmp", 12, "member.jsonl", tmp_path / "member.jsonl"
+    )
+
+    assert observed == [(11, b"source.tmp", 12, b"member.jsonl", 0x00000004)]
+
+
 def test_generation_pair_supports_a_legitimate_symlinked_parent(
     tmp_path: Path,
 ) -> None:

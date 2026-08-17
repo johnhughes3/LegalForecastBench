@@ -31,6 +31,7 @@ import json
 import os
 import secrets
 import stat
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -806,26 +807,34 @@ def _rename_noreplace_at(
 ) -> None:
     """Atomically install one name without replacing a racing destination."""
 
-    renameat2 = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
-    if renameat2 is None:
+    libc = ctypes.CDLL(None, use_errno=True)
+    rename_noreplace = getattr(libc, "renameat2", None)
+    rename_flag = 1  # Linux RENAME_NOREPLACE from ``linux/fs.h``.
+    if rename_noreplace is None and sys.platform == "darwin":
+        rename_noreplace = getattr(libc, "renameatx_np", None)
+        # Darwin RENAME_EXCL from ``sys/stdio.h``.  ``renameatx_np`` retains
+        # the descriptor-relative path binding that publication requires.
+        rename_flag = 0x00000004
+    if rename_noreplace is None:
         raise ReviewQueueError(
             "safe immutable review queue publication requires "
-            "renameat2(RENAME_NOREPLACE)"
+            "renameat2(RENAME_NOREPLACE) or Darwin "
+            "renameatx_np(RENAME_EXCL)"
         )
-    renameat2.argtypes = [
+    rename_noreplace.argtypes = [
         ctypes.c_int,
         ctypes.c_char_p,
         ctypes.c_int,
         ctypes.c_char_p,
         ctypes.c_uint,
     ]
-    renameat2.restype = ctypes.c_int
-    result = renameat2(
+    rename_noreplace.restype = ctypes.c_int
+    result = rename_noreplace(
         source_descriptor,
         os.fsencode(source_name),
         destination_descriptor,
         os.fsencode(destination_name),
-        1,
+        rename_flag,
     )
     if result == 0:
         return

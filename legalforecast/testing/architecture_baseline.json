@@ -7388,8 +7388,8 @@
         "largest_symbol": "publish_review_queue_generation",
         "largest_symbol_lines": 132,
         "layer": "application",
-        "line_count": 940,
-        "nonblank_line_count": 836,
+        "line_count": 949,
+        "nonblank_line_count": 845,
         "top_level_definition_count": 35
       },
       "legalforecast/unitization/unitizer_terminal_review.py": {
@@ -10205,9 +10205,9 @@
         "largest_symbol": "test_failed_publisher_cannot_rollback_a_newer_committed_generation",
         "largest_symbol_lines": 62,
         "layer": "test",
-        "line_count": 1566,
-        "nonblank_line_count": 1288,
-        "top_level_definition_count": 59
+        "line_count": 1609,
+        "nonblank_line_count": 1323,
+        "top_level_definition_count": 60
       },
       "tests/test_stage_a_structural_review.py": {
         "cycle_id": "",
