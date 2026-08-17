@@ -46,6 +46,20 @@ _V2_MEMBER_NAME = "unitization-review-queue-v2.jsonl"
 _MEMBER_NAMES = ("v1", "v2")
 
 
+class _PostCommitFsyncError(ReviewQueueError):
+    """A directory fsync failed after the named file was atomically replaced."""
+
+    def __init__(self, path: Path, cause: OSError) -> None:
+        super().__init__(f"{path}: {cause}")
+        self.path = path
+
+
+class ReviewQueueGenerationCommitError(ReviewQueueError):
+    """The generation manifest changed, but its final durability fsync failed."""
+
+    committed = True
+
+
 @dataclass(frozen=True, slots=True)
 class ReviewQueueGeneration:
     """One immutable, digest-verified v1/v2 review-queue pair."""
@@ -109,8 +123,16 @@ def publish_review_queue_generation(
 
     generation_id = review_queue_generation_id(v1_bytes, v2_bytes)
     generations_root = review_queue_generation_root(queue_path)
+    if generations_root.is_symlink():
+        raise ReviewQueueError(
+            f"review queue generation root is a symlink: {generations_root}"
+        )
     generation_root = generations_root / generation_id
     generation_root.mkdir(parents=True, exist_ok=True)
+    if generation_root.is_symlink():
+        raise ReviewQueueError(
+            f"review queue generation directory is a symlink: {generation_root}"
+        )
     manifest_path = review_queue_generation_manifest_path(queue_path)
     _fsync_directory(manifest_path.parent)
     v1_member = generation_root / _V1_MEMBER_NAME
@@ -127,7 +149,15 @@ def publish_review_queue_generation(
             "v2": _member_record(v2_member, manifest_path, v2_bytes),
         },
     }
-    _atomic_write(manifest_path, ARTIFACT_CANONICAL_JSON_V1.encode(manifest))
+    try:
+        _atomic_write(manifest_path, ARTIFACT_CANONICAL_JSON_V1.encode(manifest))
+    except _PostCommitFsyncError as exc:
+        if exc.path == manifest_path:
+            raise ReviewQueueGenerationCommitError(
+                "review queue generation manifest committed, but its directory "
+                f"fsync failed: {exc}"
+            ) from exc
+        raise
     return ReviewQueueGeneration(
         generation_id=generation_id,
         v1_path=v1_member,
@@ -174,6 +204,7 @@ def read_review_queue_generation(queue_path: Path) -> ReviewQueueGeneration:
         payloads[name] = _read_member(
             _object(members.get(name), f"review queue generation member {name}"),
             manifest_path=manifest_path,
+            generation_id=generation_id,
             label=name,
         )
     v1_path, v1_bytes = payloads["v1"]
@@ -192,7 +223,7 @@ def read_review_queue_generation(queue_path: Path) -> ReviewQueueGeneration:
 
 
 def _read_member(
-    record: dict[str, object], *, manifest_path: Path, label: str
+    record: dict[str, object], *, manifest_path: Path, generation_id: str, label: str
 ) -> tuple[Path, bytes]:
     if set(record) != {"path", "sha256", "byte_count"}:
         raise ReviewQueueError(f"review queue generation member {label} fields differ")
@@ -208,9 +239,11 @@ def _read_member(
         or byte_count < 0
     ):
         raise ReviewQueueError(f"review queue generation member {label} is invalid")
-    member_path = _resolve_member_path(relative, manifest_path=manifest_path)
+    resolved_member = _resolve_member_path(
+        relative, manifest_path=manifest_path, generation_id=generation_id
+    )
     try:
-        payload = member_path.read_bytes()
+        payload = _read_direct_child_no_follow(resolved_member)
     except OSError as exc:
         raise ReviewQueueError(
             f"review queue generation member {label} is unreadable: {exc}"
@@ -219,10 +252,12 @@ def _read_member(
         raise ReviewQueueError(
             f"review queue generation member {label} changed after publication"
         )
-    return member_path, payload
+    return resolved_member, payload
 
 
-def _resolve_member_path(relative: str, *, manifest_path: Path) -> Path:
+def _resolve_member_path(
+    relative: str, *, manifest_path: Path, generation_id: str
+) -> Path:
     """Resolve a manifest-relative member name inside the generation root.
 
     Members are named relative to the manifest so a published tree can be
@@ -245,11 +280,46 @@ def _resolve_member_path(relative: str, *, manifest_path: Path) -> Path:
         )
     member_path = manifest_path.parent / candidate
     base = manifest_path.parent.resolve()
-    if not member_path.resolve().is_relative_to(base):
+    expected_root = (
+        base
+        / f"{manifest_path.name.removesuffix('-generation.json')}-generations"
+        / generation_id
+    )
+    resolved = member_path.resolve()
+    if not resolved.is_relative_to(base):
         raise ReviewQueueError(
             f"review queue generation member path escapes the manifest: {relative}"
         )
-    return member_path
+    if not resolved.is_relative_to(expected_root) or resolved.parent != expected_root:
+        raise ReviewQueueError(
+            "review queue generation id does not bind its own member bytes or "
+            "immutable generation path: "
+            f"{relative}"
+        )
+    return resolved
+
+
+def _read_direct_child_no_follow(path: Path) -> bytes:
+    """Read one regular generation member through an anchored directory handle."""
+
+    no_follow = getattr(os, "O_NOFOLLOW", 0)
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | no_follow
+    directory_descriptor = os.open(path.parent, directory_flags)
+    try:
+        descriptor = os.open(
+            path.name,
+            os.O_RDONLY | no_follow,
+            dir_fd=directory_descriptor,
+        )
+    finally:
+        os.close(directory_descriptor)
+    try:
+        stream = os.fdopen(descriptor, "rb")
+    except BaseException:
+        os.close(descriptor)
+        raise
+    with stream:
+        return stream.read()
 
 
 def _member_record(
@@ -265,8 +335,16 @@ def _member_record(
 def _write_immutable_member(path: Path, payload: bytes) -> None:
     """Write one content-addressed member, refusing to change existing bytes."""
 
+    if path.is_symlink():
+        raise ReviewQueueError(f"review queue generation member is a symlink: {path}")
     if path.exists():
-        if path.read_bytes() != payload:
+        try:
+            existing = _read_direct_child_no_follow(path)
+        except OSError as exc:
+            raise ReviewQueueError(
+                f"review queue generation member is unreadable: {path}: {exc}"
+            ) from exc
+        if existing != payload:
             raise ReviewQueueError(
                 f"review queue generation member is not immutable: {path}"
             )
@@ -294,7 +372,10 @@ def _atomic_write(path: Path, payload: bytes) -> None:
     except BaseException:
         Path(name).unlink(missing_ok=True)
         raise
-    _fsync_directory(path.parent)
+    try:
+        _fsync_directory(path.parent)
+    except OSError as exc:
+        raise _PostCommitFsyncError(path, exc) from exc
 
 
 def _fsync_directory(path: Path) -> None:

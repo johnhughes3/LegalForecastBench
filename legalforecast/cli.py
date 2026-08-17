@@ -1213,6 +1213,7 @@ from legalforecast.unitization.review_queue import (
     verify_review_queue_v2_coverage,
 )
 from legalforecast.unitization.review_queue_generation import (
+    ReviewQueueGenerationCommitError,
     publish_review_queue_generation,
 )
 from legalforecast.unitization.schemas import (
@@ -63939,10 +63940,26 @@ def publish_stage_a_review_queue(
             v1_bytes=_jsonl_bytes(v1_queue),
             v2_bytes=_jsonl_bytes(queue_v2),
         )
-    except (OSError, ReviewQueueError) as exc:
+    except ReviewQueueGenerationCommitError as exc:
         raise CommandError(
-            f"cannot publish the Stage A review queue generation: {exc}"
+            "cannot durably publish the Stage A review queue generation after "
+            f"the manifest commit: {exc}"
         ) from exc
+    except (OSError, ReviewQueueError) as exc:
+        rollback_errors: list[str] = []
+        for path, payload in prior_payloads.items():
+            try:
+                if payload is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(payload)
+            except OSError as rollback_exc:
+                rollback_errors.append(f"{path}: {rollback_exc}")
+        detail = f"cannot publish the Stage A review queue generation: {exc}"
+        if rollback_errors:
+            detail += "; rollback also failed: " + "; ".join(rollback_errors)
+        raise CommandError(detail) from exc
 
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
