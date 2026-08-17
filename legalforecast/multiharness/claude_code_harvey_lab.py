@@ -111,6 +111,11 @@ def run_claude_code_clean_native_harvey_lab(
     measurement_id: str | None = None,
     evaluation_attempt_id: str | None = None,
     attempt_nonce: str | None = None,
+    max_budget_usd: str | None = None,
+    before_solver: Callable[[RunSpec], None] | None = None,
+    after_solver: Callable[[RunSpec, ExecutionReceipt], ExecutionReceipt] | None = None,
+    before_evaluator: Callable[[], None] | None = None,
+    after_evaluator: Callable[[HarveyLabIsolatedEvaluation], None] | None = None,
 ) -> ClaudeCodeHarveyLabPipelineResult:
     """Project a LAB task, run contained Claude Code, discover, and score."""
 
@@ -178,6 +183,7 @@ def run_claude_code_clean_native_harvey_lab(
         auth_profile=adapter.auth_profile,
         json_schema=HARVEY_LAB_COMPLETION_SCHEMA,
         extra_add_dirs=(task_dir,),
+        max_budget_usd=max_budget_usd,
     )
     if plan.argv[plan.argv.index("--tools") + 1] != tools_token:
         raise ClaudeCodeCliAdapterError(
@@ -196,8 +202,13 @@ def run_claude_code_clean_native_harvey_lab(
         environment={},
         timeout_seconds=applied_timeout,
         json_schema=plan.json_schema,
+        max_budget_usd=(None if max_budget_usd is None else float(max_budget_usd)),
     )
+    if before_solver is not None:
+        before_solver(spec)
     execution = service.execute(spec)
+    if after_solver is not None:
+        execution = after_solver(spec, execution)
     _require_solver_success(spec, execution, requested_model=model)
     task_digest = _prefixed_digest_text(task.task_sha256)
     run_digest = spec.spec_sha256
@@ -246,6 +257,8 @@ def run_claude_code_clean_native_harvey_lab(
         config_sha256=config_digest,
         pin=projection.manifest.pin,
     )
+    if before_evaluator is not None:
+        before_evaluator()
     evaluation = invoke_isolated_harvey_lab_evaluator(
         hosts=hosts,
         sealed_manifest=discovery.sealed,
@@ -260,6 +273,8 @@ def run_claude_code_clean_native_harvey_lab(
         evaluation_attempt_id=evaluation_attempt_id,
         attempt_nonce=attempt_nonce,
     )
+    if after_evaluator is not None:
+        after_evaluator(evaluation)
     metric = build_harvey_lab_metric_definition(
         rubric_sha256=evaluation.spec.rubric_sha256,
         criteria_sha256=evaluation.spec.criteria_sha256,

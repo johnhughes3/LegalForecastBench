@@ -60,6 +60,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [multiharness-deliverable-contract.md](multiharness-deliverable-contract.md): the harness-independent sealed boundary between a solver run and later evaluation.
 - [multiharness-evaluation-contract.md](multiharness-evaluation-contract.md): `EvaluationSpec` precommitments for deliverables, evaluator identity, judge settings, and runtime policy.
 - [multiharness-score-contract.md](multiharness-score-contract.md): the pinned score contract — deliberately a strict Harvey LAB specialization, not generic metric arithmetic.
+- [multiharness-receipt-authority.md](multiharness-receipt-authority.md): the receipt authority and run-metadata seams that bind executable harness runs to their issuer and runtime evidence.
 - [multiharness-artifact-compatibility.md](multiharness-artifact-compatibility.md): the frozen compatibility baseline for community artifact readers and writers.
 - [multiharness-identity-keys.md](multiharness-identity-keys.md): harness-independent task, solver, run, and matched-harness identity keys shared by community submissions and official runs.
 - [multiharness-receipt-authority.md](multiharness-receipt-authority.md): the external Ed25519 evaluator-issuer seam, its Infisical custody handoff, and the credential-free executable probe procedure.
