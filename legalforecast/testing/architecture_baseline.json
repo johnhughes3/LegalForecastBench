@@ -3619,7 +3619,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 9,
       "scripts": 14,
-      "tests": 421,
+      "tests": 422,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
