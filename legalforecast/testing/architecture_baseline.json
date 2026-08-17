@@ -6794,10 +6794,10 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "_MultiHarnessRunner",
-        "largest_symbol_lines": 595,
+        "largest_symbol_lines": 600,
         "layer": "application",
-        "line_count": 1334,
-        "nonblank_line_count": 1229,
+        "line_count": 1339,
+        "nonblank_line_count": 1234,
         "top_level_definition_count": 34
       },
       "legalforecast/multiharness/scoring.py": {
@@ -8154,8 +8154,8 @@
         "largest_symbol": "test_contributor_walkthrough_projects_indexes_selects_and_runs",
         "largest_symbol_lines": 116,
         "layer": "test",
-        "line_count": 608,
-        "nonblank_line_count": 545,
+        "line_count": 613,
+        "nonblank_line_count": 549,
         "top_level_definition_count": 17
       },
       "tests/test_community_publication.py": {
