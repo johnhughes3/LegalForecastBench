@@ -47,7 +47,11 @@ from legalforecast.ingestion.document_repair_purchase_approval import (
     verify_document_repair_purchase_approval,
     verify_document_repair_purchase_policy_binds,
 )
-from legalforecast.ingestion.purchase_approval import record_purchase_approval
+from legalforecast.ingestion.purchase_approval import (
+    PurchaseApprovalError,
+    record_purchase_approval,
+    verify_purchase_approval,
+)
 
 _REVIEWER = "John Hughes"
 _RECORDED_AT = "2026-08-17T19:00:00Z"
@@ -987,3 +991,308 @@ def test_cli_free_only_decision_records_but_grants_no_purchase_authority(
         DocumentRepairPurchaseApprovalError, match="does not authorize repair purchases"
     ):
         _verify(tranche, checkpoint, run_card)
+
+
+def _multi_entry_manifest_row(
+    candidate_id: str, entries: tuple[int, ...]
+) -> dict[str, object]:
+    """Return one repair row whose case owes several paid documents.
+
+    Hand-authored fixture: synthetic: true. This is the Sony 73215717 shape --
+    a single case with two paid entries -- which exercises a budget the
+    one-document-per-case rows cannot: one case plan holding two document IDs.
+    """
+
+    return {
+        "candidate_id": candidate_id,
+        "recommendation": "repair",
+        "cost_usd": 3.0 * len(entries),
+        "missing_docs": [
+            {
+                "entry": entry,
+                "role": "reply",
+                "cost_usd": 3.0,
+                "free_document_count": 0,
+                "pacer_only_document_count": 1,
+                "evidence": "synthetic issuance fixture",
+                "source": "pass1",
+                "opinion_derived": False,
+            }
+            for entry in entries
+        ],
+        "byte_mismatches": [],
+        "current_selection": [],
+        "required_entries": [],
+        "extra_selected": [],
+    }
+
+
+def _multi_entry_snapshot(candidate_id: str, entries: tuple[int, ...]) -> bytes:
+    docket_id = int(candidate_id, 36) + 100
+    return _canonical(
+        {
+            "candidate_id": candidate_id,
+            "docket_id": docket_id,
+            "entries": [
+                {
+                    "id": entry + 1000,
+                    "docket": docket_id,
+                    "entry_number": entry,
+                    "recap_documents": [
+                        {
+                            "id": 9000 + entry,
+                            "docket_entry_id": entry + 1000,
+                            "document_number": str(entry),
+                            "attachment_number": None,
+                            "is_available": False,
+                            "is_private": False,
+                            "is_sealed": False,
+                            "filepath_local": None,
+                        }
+                    ],
+                }
+                for entry in entries
+            ],
+        }
+    )
+
+
+@pytest.fixture
+def single_case_two_document_tranche(tmp_path: Path) -> dict[str, Any]:
+    """Materialize the Sony-shaped tranche: one case, two paid entries, USD 6."""
+
+    root = tmp_path / "sony-tranche"
+    snapshots = root / "docket-snapshots"
+    snapshots.mkdir(parents=True)
+    entries = (56, 58)
+
+    manifest = _canonical(_multi_entry_manifest_row("s", entries))
+    manifest_path = root / "repair-manifest.jsonl"
+    manifest_path.write_bytes(manifest)
+
+    approval_path = root / "repair-plan-approval.json"
+    approval_path.write_bytes(
+        _canonical(
+            {
+                "schema_version": "legalforecast.repair_manifest_approval.v2",
+                "decision": "approve",
+                "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+                "maximum_cost_usd": "6.00",
+                "max_per_document_usd": "3.00",
+                "candidate_count": 1,
+                "repair_count": 1,
+                "keep_count": 0,
+                "replace_count": 0,
+                "missing_slot_count": len(entries),
+            }
+        )
+    )
+
+    payload = _multi_entry_snapshot("s", entries)
+    (snapshots / "s.json").write_bytes(payload)
+
+    cohort_artifact = _cohort_policy_artifact()
+    cohort_path = tmp_path / "cohort-policy.json"
+    cohort_path.write_bytes(_canonical(cohort_artifact))
+
+    snapshot_manifest = _canonical(
+        {"candidate_sha256": {"s": hashlib.sha256(payload).hexdigest()}}
+    )
+    snapshot_manifest_path = root / "docket-snapshot-manifest.json"
+    snapshot_manifest_path.write_bytes(snapshot_manifest)
+
+    lineage = _canonical(
+        {
+            "docket_snapshot_manifest_sha256": hashlib.sha256(
+                snapshot_manifest
+            ).hexdigest(),
+            "cohort_policy_sha256": cast(str, cohort_artifact["policy_sha256"]),
+        }
+    )
+    lineage_path = root / "source-lineage.json"
+    lineage_path.write_bytes(lineage)
+
+    fee_path = tmp_path / "fee-schedule.json"
+    fee_path.write_bytes(_canonical(_fee_schedule()))
+
+    return {
+        "inputs": DocumentRepairPurchaseInputs(
+            repair_execution_root=root,
+            repair_manifest_path=manifest_path,
+            repair_plan_approval_path=approval_path,
+            docket_snapshot_manifest_path=snapshot_manifest_path,
+            source_lineage_path=lineage_path,
+            source_lineage_sha256=hashlib.sha256(lineage).hexdigest(),
+            docket_snapshot_dir=snapshots,
+        ),
+        "cohort_policy_path": cohort_path,
+        "fee_schedule_path": fee_path,
+        "canonical_ledger_path": tmp_path / "ledger/sony-repair.sqlite3",
+        "private_root": tmp_path / "private-sony-approval",
+        "root": root,
+    }
+
+
+def test_single_case_two_document_tranche_executes_end_to_end(
+    single_case_two_document_tranche: dict[str, Any],
+) -> None:
+    """The Sony 73215717 E56/E58 shape: one case, two paid documents, USD 6.00.
+
+    A one-paid-document-per-case fixture cannot reach this budget shape, so this
+    is the test that covers a real prepared tranche rather than a convenient one.
+    """
+
+    tranche = single_case_two_document_tranche
+    projection = _projection(tranche)
+    request = projection.request
+    budget = projection.execution.purchase_budget
+
+    assert request.selected_case_count == 1
+    assert request.target_case_count == 1
+    assert request.purchase_document_count == 2
+    assert request.projected_cost_usd == "6.00"
+    assert len(budget.case_plans) == 1
+    assert budget.case_plans[0].purchase_document_ids == ("9056", "9058")
+    assert budget.case_plans[0].estimated_cost_usd == "6.00"
+    assert budget.max_missing_core_documents_per_case == 2
+    # The signed phrase says TARGET 1: one case, not one document.
+    assert " TARGET 1 " in request.required_confirmation("approve")
+
+    checkpoint, run_card = _record(tranche, projection)
+    artifact = generate_approved_document_repair_purchase_policy(
+        _verify(tranche, checkpoint, run_card)
+    )
+    policy = verify_case_dev_purchase_policy(artifact)
+    # The whole tranche sits inside one case's ceiling; that is the constraint a
+    # multi-document case can violate and a single-document case never can.
+    assert budget.case_plans[0].estimated_cost <= policy.max_per_case_usd
+
+    policy_path = cast(Path, tranche["root"]) / "approved-purchase-policy.json"
+    policy_path.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n")
+    issuance = initialize_document_repair_purchase_runtime(
+        execution=projection.execution,
+        purchase_policy_path=policy_path,
+        cohort_policy_path=cast(Path, tranche["cohort_policy_path"]),
+        initialization_receipt_path=(
+            cast(Path, tranche["root"]) / "purchase-ledger-initialization.json"
+        ),
+        initialized_at="2026-08-17T19:05:00Z",
+    )
+
+    ticks = iter(float(value) for value in range(10))
+    result = run_document_repair_execution(
+        execution=projection.execution,
+        purchase_runtime=issuance.runtime,
+        acquire=_BoundAcquirer(
+            issuance.runtime,
+            lambda operation: AcquiredRepairDocument(
+                disposition="included",
+                source_document_id=operation.recap_document_id,
+                document_bytes=f"{operation.document_role} bytes".encode(),
+                committed_cost_usd="3.00",
+                retry_count=0,
+            ),
+        ),
+        monotonic=lambda: next(ticks),
+    )
+
+    assert len(result.acquired_documents) == 2
+    assert result.exclusions == ()
+    assert result.receipt.committed_cost_usd == "6.00"
+
+
+def test_repair_evidence_does_not_verify_in_the_cohort_recorder(
+    tranche: dict[str, Any],
+) -> None:
+    """A repair checkpoint must not mint cohort purchase authority.
+
+    Both recorders write the same private checkpoint schema, so the separation
+    has to come from each verifier recomputing its own request. The cohort
+    verifier requires a completed project-target-cohort run card, which a repair
+    tranche root does not have.
+    """
+
+    projection = _projection(tranche)
+    checkpoint, run_card = _record(tranche, projection)
+
+    with pytest.raises(PurchaseApprovalError):
+        verify_purchase_approval(
+            controlled_private_root=cast(Path, tranche["private_root"]),
+            checkpoint_path=checkpoint,
+            run_card_path=run_card,
+            target_cohort_root=cast(Path, tranche["root"]),
+            cohort_policy_path=cast(Path, tranche["cohort_policy_path"]),
+            fee_schedule_path=cast(Path, tranche["fee_schedule_path"]),
+            canonical_ledger_path=cast(Path, tranche["canonical_ledger_path"]),
+        )
+
+
+def test_case_exceeding_the_per_case_ceiling_never_reaches_the_reviewer(
+    single_case_two_document_tranche: dict[str, Any],
+) -> None:
+    """Refuse at projection, not at execution.
+
+    A single case owing four paid documents costs USD 12.00 against a USD 10.00
+    per-case ceiling. The executor would reject that policy later; showing it to
+    the reviewer as signable first would burn an authorization window on a
+    structural halt, which is the failure this lane exists to stop.
+    """
+
+    tranche = single_case_two_document_tranche
+    root = cast(Path, tranche["root"])
+    entries = (56, 58, 60, 62)
+
+    manifest = _canonical(_multi_entry_manifest_row("s", entries))
+    cast(Path, tranche["inputs"].repair_manifest_path).write_bytes(manifest)
+    cast(Path, tranche["inputs"].repair_plan_approval_path).write_bytes(
+        _canonical(
+            {
+                "schema_version": "legalforecast.repair_manifest_approval.v2",
+                "decision": "approve",
+                "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+                "maximum_cost_usd": "12.00",
+                "max_per_document_usd": "3.00",
+                "candidate_count": 1,
+                "repair_count": 1,
+                "keep_count": 0,
+                "replace_count": 0,
+                "missing_slot_count": len(entries),
+            }
+        )
+    )
+    payload = _multi_entry_snapshot("s", entries)
+    (root / "docket-snapshots/s.json").write_bytes(payload)
+    snapshot_manifest = _canonical(
+        {"candidate_sha256": {"s": hashlib.sha256(payload).hexdigest()}}
+    )
+    cast(Path, tranche["inputs"].docket_snapshot_manifest_path).write_bytes(
+        snapshot_manifest
+    )
+    cohort = json.loads(cast(Path, tranche["cohort_policy_path"]).read_bytes())
+    lineage = _canonical(
+        {
+            "docket_snapshot_manifest_sha256": hashlib.sha256(
+                snapshot_manifest
+            ).hexdigest(),
+            "cohort_policy_sha256": cohort["policy_sha256"],
+        }
+    )
+    cast(Path, tranche["inputs"].source_lineage_path).write_bytes(lineage)
+    inputs = cast(DocumentRepairPurchaseInputs, tranche["inputs"])
+    refreshed = DocumentRepairPurchaseInputs(
+        repair_execution_root=inputs.repair_execution_root,
+        repair_manifest_path=inputs.repair_manifest_path,
+        repair_plan_approval_path=inputs.repair_plan_approval_path,
+        docket_snapshot_manifest_path=inputs.docket_snapshot_manifest_path,
+        source_lineage_path=inputs.source_lineage_path,
+        source_lineage_sha256=hashlib.sha256(lineage).hexdigest(),
+        docket_snapshot_dir=inputs.docket_snapshot_dir,
+    )
+
+    with pytest.raises(DocumentRepairPurchaseApprovalError, match="per-case ceiling"):
+        build_document_repair_purchase_approval_request(
+            inputs=refreshed,
+            cohort_policy_path=cast(Path, tranche["cohort_policy_path"]),
+            fee_schedule_path=cast(Path, tranche["fee_schedule_path"]),
+            canonical_ledger_path=cast(Path, tranche["canonical_ledger_path"]),
+        )
