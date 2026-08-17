@@ -20,21 +20,24 @@ their menu would spend money for data CourtListener already has.
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Final
 
+from legalforecast.contracts import (
+    ARTIFACT_RAW_SHA256_V1,
+    ATTACHMENT_PAGE_FETCH_PLAN_V1,
+    CommitmentEncodingError,
+)
 from legalforecast.ingestion.attachment_page import _typed
-from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClient,
     CourtListenerClientError,
     CourtListenerDocketEntry,
 )
 
-PLAN_SCHEMA_VERSION: Final = "legalforecast.attachment_page_fetch_plan.v1"
+PLAN_SCHEMA_VERSION: Final = str(ATTACHMENT_PAGE_FETCH_PLAN_V1)
 ATTACHMENT_PAGE_REQUEST_TYPE: Final = "3"
 CONFIRMATION_RULE: Final = "fetch_exact_attachment_menus"
 
@@ -129,12 +132,17 @@ class AttachmentPageFetchPlan:
 
 
 def commit_plan_digest(content: Mapping[str, object]) -> str:
-    payload = canonical_json_value_bytes(
-        content,
-        error_type=AttachmentPagePlanError,
-        error_message="attachment-page plan is not canonically serializable",
-    )
-    return hashlib.sha256(payload).hexdigest()
+    """Commit the plan body under the blessed artifact profile."""
+
+    try:
+        commitment = ARTIFACT_RAW_SHA256_V1.commit(
+            content, domain=ATTACHMENT_PAGE_FETCH_PLAN_V1
+        )
+    except CommitmentEncodingError as exc:
+        raise AttachmentPagePlanError(
+            "attachment-page plan is not canonically serializable"
+        ) from exc
+    return str(commitment.digest)
 
 
 def _money(value: str | Decimal, label: str) -> str:

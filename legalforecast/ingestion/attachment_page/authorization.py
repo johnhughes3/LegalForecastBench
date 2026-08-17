@@ -14,12 +14,16 @@ in from a file or a chat transcript is not a person reading a number.
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, TextIO
 
+from legalforecast.contracts import (
+    ARTIFACT_RAW_SHA256_V1,
+    ATTACHMENT_PAGE_AUTHORIZATION_V1,
+    CommitmentEncodingError,
+)
 from legalforecast.ingestion.attachment_page import _typed
 from legalforecast.ingestion.attachment_page.plan import (
     AttachmentPageFetchPlan,
@@ -27,7 +31,7 @@ from legalforecast.ingestion.attachment_page.plan import (
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 
-AUTHORIZATION_SCHEMA_VERSION: Final = "legalforecast.attachment_page_authorization.v1"
+AUTHORIZATION_SCHEMA_VERSION: Final = str(ATTACHMENT_PAGE_AUTHORIZATION_V1)
 REVIEWER_ID: Final = "John Hughes"
 
 
@@ -71,12 +75,17 @@ class AttachmentPageAuthorization:
 
 
 def _digest(body: Mapping[str, object]) -> str:
-    payload = canonical_json_bytes(
-        body,
-        error_type=AttachmentPageAuthorizationError,
-        error_message="authorization is not canonically serializable",
-    )
-    return hashlib.sha256(payload).hexdigest()
+    """Commit the authorization body under the blessed artifact profile."""
+
+    try:
+        commitment = ARTIFACT_RAW_SHA256_V1.commit(
+            body, domain=ATTACHMENT_PAGE_AUTHORIZATION_V1
+        )
+    except CommitmentEncodingError as exc:
+        raise AttachmentPageAuthorizationError(
+            "authorization is not canonically serializable"
+        ) from exc
+    return str(commitment.digest)
 
 
 def render_authorization_prompt(plan: AttachmentPageFetchPlan) -> str:

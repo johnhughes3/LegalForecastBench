@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Final
 
+from legalforecast.contracts import ATTACHMENT_PAGE_FETCH_RECEIPT_V1
 from legalforecast.ingestion.attachment_page.authorization import (
     AttachmentPageAuthorization,
     verify_authorization_binds_plan,
@@ -40,7 +41,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     RecapFetchTransport,
 )
 
-RECEIPT_SCHEMA_VERSION: Final = "legalforecast.attachment_page_fetch_receipt.v1"
+RECEIPT_SCHEMA_VERSION: Final = str(ATTACHMENT_PAGE_FETCH_RECEIPT_V1)
 _FETCH_PATH: Final = "/recap-fetch/"
 _TERMINAL_SUCCESS: Final = 2
 _TERMINAL_FAILURES: Final = frozenset({3, 6, 7})

@@ -4173,7 +4173,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-l8qv.15",
         "fan_in": 2,
-        "fan_out": 4,
+        "fan_out": 5,
         "flags": [
           "cycle"
         ],
@@ -4181,8 +4181,8 @@
         "largest_symbol": "render_authorization_prompt",
         "largest_symbol_lines": 46,
         "layer": "application",
-        "line_count": 269,
-        "nonblank_line_count": 235,
+        "line_count": 278,
+        "nonblank_line_count": 243,
         "top_level_definition_count": 9
       },
       "legalforecast/ingestion/attachment_page/execute.py": {
@@ -4190,7 +4190,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-l8qv.15",
         "fan_in": 1,
-        "fan_out": 4,
+        "fan_out": 5,
         "flags": [
           "cycle"
         ],
@@ -4198,8 +4198,8 @@
         "largest_symbol": "execute_attachment_page_fetches",
         "largest_symbol_lines": 216,
         "layer": "application",
-        "line_count": 450,
-        "nonblank_line_count": 399,
+        "line_count": 451,
+        "nonblank_line_count": 400,
         "top_level_definition_count": 14
       },
       "legalforecast/ingestion/attachment_page/plan.py": {
@@ -4215,8 +4215,8 @@
         "largest_symbol": "build_attachment_page_fetch_plan",
         "largest_symbol_lines": 129,
         "layer": "application",
-        "line_count": 386,
-        "nonblank_line_count": 339,
+        "line_count": 394,
+        "nonblank_line_count": 346,
         "top_level_definition_count": 9
       },
       "legalforecast/ingestion/budgeted_courtlistener_html_source.py": {
@@ -4292,7 +4292,7 @@
         "cycle_id": "",
         "disposition_kind": "no-move",
         "disposition_owner": "legalforecast/ingestion/canonical_json.py",
-        "fan_in": 36,
+        "fan_in": 35,
         "fan_out": 0,
         "flags": [
           "authenticated-path"
