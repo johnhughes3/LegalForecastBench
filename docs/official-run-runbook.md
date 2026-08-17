@@ -431,11 +431,11 @@ uv run legalforecast acquisition plan-parse-documents \
   --execute --no-resume
 ```
 
-Run the live parse against the clean pinned checkout explicitly; the default parser checkout may be on a different revision and will correctly fail closed:
-
 Every row of a live parse plan must carry `document_role`, because the parse-quality gate falls back to a permissive one-character/one-line floor when the role is unknown.
 `parse-documents` refuses a role-less row before invoking the parser (`live parse plan record requires document_role: <candidate_id>/<source_document_id>`); regenerate the plan from a role-complete download manifest rather than hand-editing the request rows.
 Fixture-Markdown conversions and dry runs never consult role-aware thresholds, so they still accept a plan without the field.
+
+Run the live parse against the clean pinned checkout explicitly; the default parser checkout may be on a different revision and will correctly fail closed:
 
 ```bash
 infisical-agent-sandbox run \
