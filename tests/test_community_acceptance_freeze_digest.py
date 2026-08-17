@@ -22,9 +22,11 @@ comparing only the companion against the file would pass while the pack -- the
 document an approver actually reads -- named something else entirely.
 
 The values are read by locating the document structure an approver reads, not
-by scanning the file. ``_current_specification_fields`` masks fenced code
-blocks, requires exactly one ``## Current specification artifact`` heading,
-takes the single rendered table in that section, and requires exactly one
+by scanning the file. ``_current_specification_fields`` masks the regions a
+reader never sees rendered -- fenced code blocks and HTML comments -- requires
+exactly one level-two ``## Current specification artifact`` heading, takes the
+single rendered table in that section (rows indented past three spaces are an
+indented code block, not a declaration), and requires exactly one
 ``Structural specification`` row and exactly one ``SHA-256`` row inside that
 one table. Scoping is the point: a whole-document regex would happily read a
 row out of a fenced Markdown example, a historical table, or a neighbouring
@@ -58,7 +60,8 @@ DIGEST_ROW = "SHA-256"
 
 CHECKSUM_LINE = re.compile(r"^([0-9a-f]{64})\s+(\S+)$")
 _FENCE = re.compile(r"^(`{3,}|~{3,})")
-_HEADING = re.compile(r"^ {0,3}(#{1,6})\s+(.*?)\s*#*$")
+_HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
+_TABLE_ROW = re.compile(r"^ {0,3}\|")
 _DELIMITER_CELL = re.compile(r"^:?-+:?$")
 _BACKTICKED = re.compile(r"^`([^`]+)`$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -73,48 +76,91 @@ class PackTableError(AssertionError):
     """
 
 
-def _mask_fenced_blocks(text: str) -> list[str]:
-    """Return the document's lines with fenced code blocks blanked out.
+def _strip_comment_spans(line: str, in_comment: bool) -> tuple[str, bool]:
+    """Return ``line`` minus its HTML-comment spans, and the carried state.
 
-    Fenced content is prose *about* Markdown, not Markdown the reader renders,
-    so a fenced example table must never feed the gate. Blanking rather than
-    deleting keeps a fenced block from silently joining the table rows on
-    either side of it.
+    Removing spans rather than whole lines keeps a trailing ``<!-- note -->``
+    on a real table row from erasing the row itself.
+    """
+
+    visible: list[str] = []
+    index = 0
+    while index < len(line):
+        if in_comment:
+            end = line.find("-->", index)
+            if end == -1:
+                break
+            index = end + len("-->")
+            in_comment = False
+            continue
+        start = line.find("<!--", index)
+        if start == -1:
+            visible.append(line[index:])
+            break
+        visible.append(line[index:start])
+        index = start + len("<!--")
+        in_comment = True
+    return "".join(visible), in_comment
+
+
+def _mask_non_rendered(text: str) -> list[str]:
+    """Return the document's lines with non-rendered regions blanked out.
+
+    Fenced code blocks and HTML comments are both prose *about* the document
+    rather than Markdown the reader renders, so neither may feed the gate. One
+    pass tracks both states because each hides the other: a fence marker
+    written inside a comment opens nothing, and ``<!--`` inside a fence is
+    sample text. Blanking rather than deleting keeps a masked region from
+    silently joining the table rows on either side of it.
     """
 
     masked: list[str] = []
     fence: tuple[str, int] | None = None
+    in_comment = False
     for raw in text.splitlines():
-        stripped = raw.strip()
-        marker = _FENCE.match(stripped)
-        if fence is None:
-            if marker is not None:
+        if fence is not None:
+            stripped = raw.strip()
+            marker = _FENCE.match(stripped)
+            if marker is not None and stripped == marker.group(1):
                 run = marker.group(1)
-                fence = (run[0], len(run))
-                masked.append("")
-                continue
-            masked.append(raw)
+                if run[0] == fence[0] and len(run) >= fence[1]:
+                    fence = None
+            masked.append("")
             continue
-        if marker is not None and stripped == marker.group(1):
+        visible, in_comment = _strip_comment_spans(raw, in_comment)
+        stripped = visible.strip()
+        marker = _FENCE.match(stripped)
+        if marker is not None:
             run = marker.group(1)
-            if run[0] == fence[0] and len(run) >= fence[1]:
-                fence = None
-        masked.append("")
+            fence = (run[0], len(run))
+            masked.append("")
+            continue
+        masked.append(visible)
     if fence is not None:
         raise PackTableError(
             f"{PACK_PATH.relative_to(ROOT)} has an unterminated code fence; "
+            "the current-specification table cannot be located safely"
+        )
+    if in_comment:
+        raise PackTableError(
+            f"{PACK_PATH.relative_to(ROOT)} has an unterminated HTML comment; "
             "the current-specification table cannot be located safely"
         )
     return masked
 
 
 def _section_lines(lines: list[str], heading: str) -> list[str]:
-    """Return the body of the single ``## <heading>`` section in ``lines``."""
+    """Return the body of the single ``## <heading>`` section in ``lines``.
+
+    The heading must be level two exactly. A demoted ``### `` heading is a
+    different section of the rendered document, and binding the gate to it
+    would let the advertised declaration be quietly reorganised away.
+    """
 
     starts: list[int] = []
     for index, line in enumerate(lines):
         match = _HEADING.match(line)
-        if match is not None and match.group(2) == heading:
+        if match is not None and match.group(1) == "##" and match.group(2) == heading:
             starts.append(index)
     if len(starts) != 1:
         raise PackTableError(
@@ -138,12 +184,16 @@ def _sole_table(section: list[str], heading: str) -> list[str]:
     table, and it is the stricter rule that actually holds the gate honest: if
     someone adds a second table to this section, the reviewer-visible
     declaration has become ambiguous and a human should say which one binds.
+
+    Rows may be indented by at most three spaces, matching the same allowance
+    ``_HEADING`` makes: at four the block is an indented code block, which the
+    reader sees as sample text rather than a declaration.
     """
 
     tables: list[list[str]] = []
     block: list[str] = []
     for line in [*section, ""]:
-        if line.lstrip().startswith("|"):
+        if _TABLE_ROW.match(line):
             block.append(line)
             continue
         if block:
@@ -214,7 +264,7 @@ def _table_fields(table: list[str], heading: str) -> dict[str, str]:
 def _current_specification_fields(text: str) -> dict[str, str]:
     """Return the rows of the pack's Current specification artifact table."""
 
-    lines = _mask_fenced_blocks(text)
+    lines = _mask_non_rendered(text)
     section = _section_lines(lines, SPECIFICATION_HEADING)
     table = _sole_table(section, SPECIFICATION_HEADING)
     fields = _table_fields(table, SPECIFICATION_HEADING)
@@ -432,6 +482,70 @@ def test_duplicate_current_specification_heading_fails() -> None:
         _current_specification_fields(document)
 
 
+def test_demoted_current_specification_heading_fails() -> None:
+    """A section demoted to level three is no longer the advertised one."""
+
+    document = _pack(COMPLETE_TABLE).replace(
+        f"## {SPECIFICATION_HEADING}", f"### {SPECIFICATION_HEADING}"
+    )
+    with pytest.raises(PackTableError, match=r"exactly one .* heading"):
+        _current_specification_fields(document)
+
+
+def test_heading_without_valid_atx_closing_syntax_fails() -> None:
+    """``## Heading###`` renders the hashes as text, so it is a different heading."""
+
+    document = _pack(COMPLETE_TABLE).replace(
+        f"## {SPECIFICATION_HEADING}", f"## {SPECIFICATION_HEADING}###"
+    )
+    with pytest.raises(PackTableError, match=r"exactly one .* heading"):
+        _current_specification_fields(document)
+
+
+def test_valid_atx_closing_sequence_still_matches() -> None:
+    """A properly spaced closing hash run is the same heading, not a new one."""
+
+    document = _pack(COMPLETE_TABLE).replace(
+        f"## {SPECIFICATION_HEADING}", f"## {SPECIFICATION_HEADING} ##"
+    )
+    assert _declared_digest(document) == SYNTHETIC_DIGEST
+
+
+def test_html_comment_table_cannot_stand_in_for_the_rendered_table() -> None:
+    """A table inside ``<!-- -->`` is invisible to the approver, so it cannot bind."""
+
+    document = _pack(f"<!--\n{COMPLETE_TABLE}-->\n\nProse only.\n")
+    with pytest.raises(PackTableError, match=r"exactly one table"):
+        _current_specification_fields(document)
+
+
+def test_html_comment_span_does_not_erase_a_real_row() -> None:
+    """Masking removes the comment span, not the row that carries it."""
+
+    annotated = COMPLETE_TABLE.replace(
+        f"| {DIGEST_ROW} | `{SYNTHETIC_DIGEST}` |\n",
+        f"| {DIGEST_ROW} | `{SYNTHETIC_DIGEST}` | <!-- regenerate me -->\n",
+    )
+    assert _declared_digest(_pack(annotated)) == SYNTHETIC_DIGEST
+
+
+def test_unterminated_html_comment_fails() -> None:
+    """An unclosed comment swallows the rest of the pack; say so rather than guess."""
+
+    document = _pack(f"<!--\n{COMPLETE_TABLE}")
+    with pytest.raises(PackTableError, match=r"unterminated HTML comment"):
+        _current_specification_fields(document)
+
+
+def test_indented_code_block_table_cannot_stand_in_for_the_rendered_table() -> None:
+    """A four-space-indented table is sample text, not the declaration."""
+
+    indented = "".join(f"    {line}\n" for line in COMPLETE_TABLE.splitlines())
+    document = _pack(f"Example of the table to add:\n\n{indented}")
+    with pytest.raises(PackTableError, match=r"exactly one table"):
+        _current_specification_fields(document)
+
+
 def test_pipe_lines_without_a_delimiter_row_are_not_a_table() -> None:
     """Unrendered pipe lines must not be mistaken for the declaration."""
 
@@ -458,10 +572,15 @@ def test_malformed_digest_cell_fails_even_when_scoped() -> None:
 def test_decoy_tables_do_not_disturb_a_valid_current_table() -> None:
     """Scoping ignores decoys; it must not trip over them either."""
 
+    indented = "".join(f"    {line}\n" for line in DIGESTLESS_TABLE.splitlines())
     document = (
         _pack(
             COMPLETE_TABLE,
-            trailing=f"\nExample:\n\n```markdown\n{DIGESTLESS_TABLE}```\n\n",
+            trailing=(
+                f"\nExample:\n\n```markdown\n{DIGESTLESS_TABLE}```\n\n"
+                f"<!--\n{DIGESTLESS_TABLE}-->\n\n"
+                f"Indented example:\n\n{indented}\n"
+            ),
         )
         + "\n## Historical specification artifacts\n\n"
         + DIGESTLESS_TABLE
