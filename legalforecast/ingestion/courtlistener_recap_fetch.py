@@ -1248,12 +1248,18 @@ class CourtListenerRecapFetchClient:
     ) -> ConfirmationProvenance | None:
         """Read the evidence a confirmed response rests on, out of its bytes."""
 
-        receipt = _mapping_or_none(confirmed.get("queue_response"))
+        # A non-mapping queue receipt is rejected by the sidecar itself, so
+        # this only has to decide whether there is a receipt worth hashing.
+        receipt = confirmed.get("queue_response")
         return provenance_from_confirmed_response(
             document_id,
             confirmed,
             confirmed_response_sha256=_sha256_json(confirmed),
-            queue_response_sha256=(None if receipt is None else _sha256_json(receipt)),
+            queue_response_sha256=(
+                _sha256_json(cast(Mapping[str, Any], receipt))
+                if isinstance(receipt, Mapping)
+                else None
+            ),
         )
 
     def _write_confirmation_provenance(
@@ -1672,14 +1678,6 @@ def _mapping(value: object, field_name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise CourtListenerRecapFetchError(f"{field_name} must be an object")
     return cast(Mapping[str, Any], value)
-
-
-def _mapping_or_none(value: object) -> Mapping[str, Any] | None:
-    """Narrow an optional recorded object without rejecting its absence."""
-
-    if value is None:
-        return None
-    return _mapping(value, "queue response")
 
 
 def _json_object(content: bytes) -> Mapping[str, Any]:
