@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
+import stat
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -607,17 +611,17 @@ def test_sidecar_write_failure_rolls_back_the_entire_queue_pair(
     sidecar_path = review_queue_v2_sidecar_path(queue_path)
     queue_path.write_bytes(b"prior-v1\\n")
     sidecar_path.write_bytes(b"prior-v2\\n")
-    original_write_bytes = Path.write_bytes
+    original_write = cli.write_review_queue_file_durably
     failed_sidecar_write = False
 
-    def fail_sidecar_write(path: Path, payload: bytes) -> int:
+    def fail_sidecar_write(path: Path, payload: bytes) -> None:
         nonlocal failed_sidecar_write
         if path == sidecar_path and not failed_sidecar_write:
             failed_sidecar_write = True
             raise OSError("sidecar storage unavailable")
-        return original_write_bytes(path, payload)
+        original_write(path, payload)
 
-    monkeypatch.setattr(Path, "write_bytes", fail_sidecar_write)
+    monkeypatch.setattr(cli, "write_review_queue_file_durably", fail_sidecar_write)
 
     with pytest.raises(CommandError, match="cannot publish the Stage A review queue"):
         cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
@@ -650,6 +654,98 @@ def test_generation_publish_failure_rolls_back_the_entire_queue_pair(
     assert sidecar_path.read_bytes() == b"prior-v2\\n"
 
 
+def test_generation_failure_durably_restores_canonical_pair(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pre-commit failure restores both canonical files with durable writes."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    sidecar_path = review_queue_v2_sidecar_path(queue_path)
+    queue_path.write_bytes(b"prior-v1\\n")
+    sidecar_path.write_bytes(b"prior-v2\\n")
+    writes: list[tuple[Path, bytes]] = []
+    original_write = cli.write_review_queue_file_durably
+
+    def record_write(path: Path, payload: bytes) -> None:
+        writes.append((path, payload))
+        original_write(path, payload)
+
+    monkeypatch.setattr(cli, "write_review_queue_file_durably", record_write)
+
+    def fail_generation(*_: object, **__: object) -> None:
+        raise OSError("generation storage unavailable")
+
+    monkeypatch.setattr(cli, "publish_review_queue_generation", fail_generation)
+
+    with pytest.raises(
+        CommandError, match="cannot publish the Stage A review queue generation"
+    ):
+        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+
+    assert [path for path, _ in writes] == [
+        queue_path,
+        sidecar_path,
+        queue_path,
+        sidecar_path,
+    ]
+    assert [payload for _, payload in writes][-2:] == [
+        b"prior-v1\\n",
+        b"prior-v2\\n",
+    ]
+    assert queue_path.read_bytes() == b"prior-v1\\n"
+    assert sidecar_path.read_bytes() == b"prior-v2\\n"
+
+
+def test_durable_queue_write_replaces_inode_and_fsyncs_file_and_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Canonical publication is atomic and persists bytes plus its directory entry."""
+
+    path = tmp_path / "queue.jsonl"
+    path.write_bytes(b"prior\\n")
+    prior_inode = path.stat().st_ino
+    fsynced_modes: list[int] = []
+    original_fsync = generation_module.os.fsync
+
+    def record_fsync(descriptor: int) -> None:
+        fsynced_modes.append(os.fstat(descriptor).st_mode)
+        original_fsync(descriptor)
+
+    monkeypatch.setattr(generation_module.os, "fsync", record_fsync)
+    generation_module.write_review_queue_file_durably(path, b"current\\n")
+
+    assert path.read_bytes() == b"current\\n"
+    assert path.stat().st_ino != prior_inode
+    assert any(stat.S_ISREG(mode) for mode in fsynced_modes)
+    assert any(stat.S_ISDIR(mode) for mode in fsynced_modes)
+
+
+def test_generation_reader_rejects_fifo_without_blocking(tmp_path: Path) -> None:
+    """A FIFO member is rejected promptly instead of waiting for a writer."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    generation = read_review_queue_generation(queue_path)
+    generation.v1_path.unlink()
+    os.mkfifo(generation.v1_path)
+    code = (
+        "from pathlib import Path; "
+        "from legalforecast.unitization.review_queue_generation import "
+        "read_review_queue_generation; "
+        "read_review_queue_generation(Path(__import__('sys').argv[1]))"
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-c", code, str(queue_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert completed.returncode != 0
+    assert "regular file with one link" in completed.stderr
+
+
 def test_manifest_post_commit_fsync_failure_keeps_the_new_canonical_pair(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -659,19 +755,26 @@ def test_manifest_post_commit_fsync_failure_keeps_the_new_canonical_pair(
     sidecar_path = review_queue_v2_sidecar_path(queue_path)
     queue_path.write_bytes(b"prior-v1\\n")
     sidecar_path.write_bytes(b"prior-v2\\n")
-    original_fsync = generation_module._fsync_directory
+    original_fsync = generation_module._fsync_directory_descriptor
+    queue_directory_identity = (
+        queue_path.parent.stat().st_dev,
+        queue_path.parent.stat().st_ino,
+    )
     queue_directory_fsyncs = 0
 
-    def fail_final_manifest_fsync(path: Path) -> None:
+    def fail_final_manifest_fsync(descriptor: int) -> None:
         nonlocal queue_directory_fsyncs
-        if path == queue_path.parent:
+        metadata = os.fstat(descriptor)
+        if (metadata.st_dev, metadata.st_ino) == queue_directory_identity:
             queue_directory_fsyncs += 1
-            if queue_directory_fsyncs == 2:
+            if queue_directory_fsyncs == 4:
                 raise OSError("manifest directory unavailable")
-        original_fsync(path)
+        original_fsync(descriptor)
 
     monkeypatch.setattr(
-        generation_module, "_fsync_directory", fail_final_manifest_fsync
+        generation_module,
+        "_fsync_directory_descriptor",
+        fail_final_manifest_fsync,
     )
 
     with pytest.raises(CommandError, match="after the manifest commit"):
@@ -693,18 +796,20 @@ def test_first_queue_write_failure_rolls_back_the_entire_queue_pair(
     sidecar_path = review_queue_v2_sidecar_path(queue_path)
     queue_path.write_bytes(b"prior-v1\\n")
     sidecar_path.write_bytes(b"prior-v2\\n")
-    original_write_bytes = Path.write_bytes
+    original_write = cli.write_review_queue_file_durably
     failed_queue_write = False
 
-    def partially_overwrite_then_fail(path: Path, payload: bytes) -> int:
+    def partially_overwrite_then_fail(path: Path, payload: bytes) -> None:
         nonlocal failed_queue_write
         if path == queue_path and not failed_queue_write:
             failed_queue_write = True
-            original_write_bytes(path, b"partial-v1")
+            original_write(path, b"partial-v1")
             raise OSError("queue storage unavailable")
-        return original_write_bytes(path, payload)
+        original_write(path, payload)
 
-    monkeypatch.setattr(Path, "write_bytes", partially_overwrite_then_fail)
+    monkeypatch.setattr(
+        cli, "write_review_queue_file_durably", partially_overwrite_then_fail
+    )
 
     with pytest.raises(CommandError, match="cannot publish the Stage A review queue"):
         cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
@@ -754,18 +859,20 @@ def test_generation_pair_survives_a_torn_canonical_write(
     cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
     first = read_review_queue_generation(queue_path)
 
-    original_write_bytes = Path.write_bytes
+    original_write = cli.write_review_queue_file_durably
     sidecar_path = review_queue_v2_sidecar_path(queue_path)
 
     class _ForcedTermination(BaseException):
         """Stands in for a signal that no except-OSError handler can catch."""
 
-    def terminate_before_sidecar(path: Path, payload: bytes) -> int:
+    def terminate_before_sidecar(path: Path, payload: bytes) -> None:
         if path == sidecar_path:
             raise _ForcedTermination
-        return original_write_bytes(path, payload)
+        original_write(path, payload)
 
-    monkeypatch.setattr(Path, "write_bytes", terminate_before_sidecar)
+    monkeypatch.setattr(
+        cli, "write_review_queue_file_durably", terminate_before_sidecar
+    )
     with pytest.raises(_ForcedTermination):
         cli.publish_stage_a_review_queue(
             queue_path, (_construction_row("unit-1"), _construction_row("unit-2"))
@@ -943,7 +1050,134 @@ def test_generation_reader_rejects_an_ancestor_symlink_swap(
 
     monkeypatch.setattr(generation_module, "_resolve_member_path", swap_after_resolve)
 
-    with pytest.raises(ReviewQueueError, match="unreadable"):
+    with pytest.raises(ReviewQueueError, match="generation tree changed"):
+        read_review_queue_generation(queue_path)
+
+
+def test_generation_reader_rejects_an_ancestor_real_directory_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A renamed generations root cannot redirect an anchored reader."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    generations_root = review_queue_generation_root(queue_path)
+    foreign_root = tmp_path / "foreign-generations"
+    shutil.copytree(generations_root, foreign_root)
+    original_resolve = generation_module._resolve_member_path
+    swapped = False
+
+    def swap_after_resolve(
+        relative: str, *, manifest_path: Path, generation_id: str
+    ) -> Path:
+        nonlocal swapped
+        resolved = original_resolve(
+            relative, manifest_path=manifest_path, generation_id=generation_id
+        )
+        if not swapped:
+            swapped = True
+            generations_root.rename(tmp_path / "generations-real")
+            foreign_root.rename(generations_root)
+        return resolved
+
+    monkeypatch.setattr(generation_module, "_resolve_member_path", swap_after_resolve)
+
+    with pytest.raises(ReviewQueueError, match="generation tree changed"):
+        read_review_queue_generation(queue_path)
+
+
+def test_generation_publisher_rejects_a_generation_root_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Publication cannot commit a manifest after its root entry is replaced."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    generations_root = review_queue_generation_root(queue_path)
+    generations_root.mkdir()
+    foreign_root = tmp_path / "foreign-generations"
+    foreign_root.mkdir()
+    original_write = generation_module._write_immutable_member
+    swapped = False
+
+    def swap_before_write(*args: object, **kwargs: object) -> None:
+        nonlocal swapped
+        if not swapped:
+            swapped = True
+            generations_root.rename(tmp_path / "generations-real")
+            generations_root.symlink_to(foreign_root, target_is_directory=True)
+        original_write(*args, **kwargs)
+
+    monkeypatch.setattr(generation_module, "_write_immutable_member", swap_before_write)
+
+    with pytest.raises(ReviewQueueError, match="generation tree changed"):
+        generation_module.publish_review_queue_generation(
+            queue_path, v1_bytes=b"v1\\n", v2_bytes=b"v2\\n"
+        )
+
+
+def test_generation_publisher_rejects_a_real_generation_root_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A real-directory replacement cannot redirect generation publication."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    generations_root = review_queue_generation_root(queue_path)
+    generations_root.mkdir()
+    foreign_root = tmp_path / "foreign-generations"
+    foreign_root.mkdir()
+    original_write = generation_module._write_immutable_member
+    swapped = False
+
+    def swap_before_write(*args: object, **kwargs: object) -> None:
+        nonlocal swapped
+        if not swapped:
+            swapped = True
+            generations_root.rename(tmp_path / "generations-real")
+            foreign_root.rename(generations_root)
+        original_write(*args, **kwargs)
+
+    monkeypatch.setattr(generation_module, "_write_immutable_member", swap_before_write)
+
+    with pytest.raises(ReviewQueueError, match="generation tree changed"):
+        generation_module.publish_review_queue_generation(
+            queue_path, v1_bytes=b"v1\\n", v2_bytes=b"v2\\n"
+        )
+
+
+def test_generation_pair_supports_a_legitimate_symlinked_parent(
+    tmp_path: Path,
+) -> None:
+    """A symlinked queue parent is resolved once and remains a legal location."""
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    queue_path = linked_parent / "unitization-review-queue-reviewed.jsonl"
+
+    generation_module.publish_review_queue_generation(
+        queue_path, v1_bytes=b"v1\\n", v2_bytes=b"v2\\n"
+    )
+
+    generation = read_review_queue_generation(queue_path)
+    assert generation.v1_bytes == b"v1\\n"
+    assert generation.v2_bytes == b"v2\\n"
+    assert generation.v1_path.parent.parent.parent == real_parent
+
+
+@pytest.mark.parametrize("missing_flag", ["O_NOFOLLOW", "O_DIRECTORY"])
+def test_generation_reader_fails_closed_without_required_open_flags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_flag: str
+) -> None:
+    """Safe generation reads refuse platforms without required dirfd flags."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    generation_module.publish_review_queue_generation(
+        queue_path, v1_bytes=b"v1\\n", v2_bytes=b"v2\\n"
+    )
+    monkeypatch.delattr(generation_module.os, missing_flag, raising=False)
+
+    with pytest.raises(ReviewQueueError, match="requires O_NOFOLLOW and O_DIRECTORY"):
         read_review_queue_generation(queue_path)
 
 
