@@ -479,3 +479,58 @@ def test_recording_boundary_sees_every_criterion_attempt() -> None:
         reservation = boundary.before_judge_call(request)
         boundary.after_judge_call(request, reservation, object())
     assert len(boundary.calls) == 23
+
+
+def test_cli_mint_writes_the_three_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The CLI handler must reach the generator, not just import it."""
+
+    import argparse
+
+    from legalforecast.multiharness.cli import _cmd_tier0_mint
+
+    task = tmp_path / "task.json"
+    payload = json.dumps(
+        {
+            "criteria": [
+                {"id": value, "title": "t", "match_criteria": "m"}
+                for value in CRITERION_IDS
+            ]
+        }
+    ).encode("utf-8")
+    task.write_bytes(payload)
+    monkeypatch.setattr(tier0_mint, "PINNED_TASK_SHA256", sha256(payload).hexdigest())
+    manifest = tmp_path / "native-thin.json"
+    native = _native_thin()
+    manifest.write_text(
+        json.dumps(
+            {
+                "executable": native.executable,
+                "executable_sha256": native.executable_sha256,
+                "executable_version": native.executable_version,
+                "version_probe_args": list(native.version_probe_args),
+                "command": list(native.command),
+                "budget_argument": native.budget_argument,
+            }
+        ),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "mint"
+    output_dir.mkdir()
+    exit_code = _cmd_tier0_mint(
+        argparse.Namespace(
+            output_dir=output_dir,
+            private_task_json=task,
+            native_thin_manifest=manifest,
+            evaluator_wrapper_sha256=None,
+        )
+    )
+    assert exit_code == 0
+    assert sorted(path.name for path in output_dir.iterdir()) == [
+        "tier0-executable-spec.json",
+        "tier0-executable-spec.pricing-snapshot.json",
+        "tier0-executable-spec.spend-policy.json",
+    ]
+    # The operator must be told these bytes are private before they move them.
+    assert "evaluator-private" in capsys.readouterr().err
