@@ -18,6 +18,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Contamination-tier reporting](contamination-tier-reporting.md): the mechanical rule that distinguishes contamination-resistant scores from preliminary (non-contamination-resistant) scores, and the paired drift metric.
 - [labeling-protocol.md](labeling-protocol.md): the unit-resolution and edge-case codebook used to label frozen prediction units.
 - [official-run-runbook.md](official-run-runbook.md): operator checklist for protected official cycles — freeze, dispatch, recovery, aggregation, and site rendering.
+- [official-run-gate-pack.md](official-run-gate-pack.md): Lane F4 preparation checklist for provider-isolated official-run gates; does not apply infrastructure or dispatch a protected cycle.
 - [GitHub → AWS OIDC trust claims](github-aws-oidc-trust-claims.md): the verified condition-key surface behind the official roles' trust policies, and the two false review claims it retires.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
 - [Publication governance](publication-governance.md): public evidence tiers, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
