@@ -32,7 +32,7 @@ concurrency:
 jobs:
   validate:
     name: Validate community multi-harness surfaces
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
 
     steps:
@@ -115,7 +115,7 @@ jobs:
     name: Build community static-site artifact
     needs: validate
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
 
     steps:

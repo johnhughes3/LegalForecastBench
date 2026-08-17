@@ -62,7 +62,7 @@ concurrency:
 jobs:
   authorize-boundary:
     name: Authorize exact stage and provider boundary
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     permissions:
       contents: read
     outputs:
@@ -93,7 +93,7 @@ jobs:
   run-provider-stage:
     name: Run ${{ inputs.stage }} / ${{ inputs.provider }}
     needs: authorize-boundary
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 120
     environment: ${{ needs.authorize-boundary.outputs.environment_name }}
     permissions:
