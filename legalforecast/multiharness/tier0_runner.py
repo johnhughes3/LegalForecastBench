@@ -21,6 +21,7 @@ import os
 import shutil
 import stat
 import tempfile
+import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
@@ -49,10 +50,12 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     verify_authorized_harvey_lab_receipt,
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
-    HarveyLabEvaluationError,
+    EvaluatorRunner,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
     HarveyLabIsolatedEvaluation,
+    HarveyLabJudgeRequest,
+    HarveyLabJudgeRequestBoundary,
     invoke_isolated_harvey_lab_evaluator,
 )
 from legalforecast.multiharness.harvey_lab_output_discovery import (
@@ -94,12 +97,14 @@ from legalforecast.multiharness.scoring import (
     build_harvey_lab_metric_definition,
 )
 from legalforecast.multiharness.spend import (
+    JudgeCriterionCeiling,
     PaidCall,
     PricingSnapshot,
     SpendConfigurationError,
     SpendController,
     SpendDeniedError,
     SpendPolicy,
+    SpendReservation,
     SpendSettlementError,
     UsageObservation,
 )
@@ -135,6 +140,7 @@ _DEFAULT_ISSUER_CONFIG = (
     / "harvey-lab"
     / "evaluator-issuer-authority.json"
 )
+_HARVEY_LAB_JUDGE_CRITERION_COUNT = 23
 
 
 class Tier0RunnerError(ValueError):
@@ -674,6 +680,7 @@ def run_tier0(
     parent_env: Mapping[str, str] | None = None,
     spend_policy: SpendPolicy | None = None,
     pricing_snapshot: PricingSnapshot | None = None,
+    evaluator_runner: EvaluatorRunner | None = None,
 ) -> Tier0RunResult:
     """Execute both frozen arms and emit a hash-complete archive sidecar."""
 
@@ -702,8 +709,14 @@ def run_tier0(
             raise Tier0RunnerError(
                 "executable Tier-0 runs require loaded spend and pricing sidecars"
             )
+        if spec.spend_policy_sha256 is None:
+            raise Tier0RunnerError(
+                "executable Tier-0 runs require a spend policy hash binding"
+            )
         if spec.pricing_snapshot_sha256 != pricing_snapshot.snapshot_sha256:
             raise Tier0RunnerError("pricing snapshot does not match executable spec")
+        if spend_policy.policy_sha256 != spec.spend_policy_sha256:
+            raise Tier0RunnerError("spend policy hash does not match executable spec")
         if spend_policy.executable_spec_sha256 != spec_sha256:
             raise Tier0RunnerError("spend policy does not bind executable spec")
         try:
@@ -720,6 +733,13 @@ def run_tier0(
         # Legacy provider-free fixtures do not make paid requests.  Production
         # artifacts always take the controller branch above.
         controller = None
+    if controller is not None:
+        if evaluator_runner is None:
+            raise Tier0RunnerError(
+                "paid evaluator requires an injected per-criterion evaluator runner"
+            )
+        for arm in spec.arms:
+            _judge_ceilings_for(controller.policy, arm.arm_id)
     try:
         authority_public_key = authority.public_key
     except Exception as exc:
@@ -747,7 +767,20 @@ def run_tier0(
     # can fail after the provider was invoked (evaluator timeout, nonzero exit,
     # adapter error), and those paths must not leave the reservation dangling
     # with neither an observed nor an unknown cost recorded against it.
-    outstanding: dict[str, Any] = {}
+    outstanding = _OutstandingReservations()
+    evaluator_boundaries = (
+        {
+            arm.arm_id: _PerCriterionEvaluatorSpendBoundary(
+                controller=controller,
+                spec=spec,
+                arm=arm,
+                outstanding=outstanding,
+            )
+            for arm in spec.arms
+        }
+        if controller is not None
+        else {}
+    )
     try:
         for arm in spec.arms:
             paths = _arm_paths(private_root, arm.arm_id)
@@ -830,37 +863,6 @@ def run_tier0(
                 _binding_ref["value"] = binding
                 return bound
 
-            evaluator_reservation_ref: dict[str, object] = {}
-
-            def reserve_evaluator(
-                *,
-                _arm: Tier0ArmSpec = arm,
-                _reservation_ref: dict[str, object] = evaluator_reservation_ref,
-            ) -> None:
-                evaluator_reservation = _reserve_evaluator(
-                    controller,
-                    spec=spec,
-                    arm=_arm,
-                    policy=spend_policy,
-                )
-                _reservation_ref["value"] = evaluator_reservation
-                _track_reservation(outstanding, evaluator_reservation)
-
-            def after_evaluator(
-                evaluation: HarveyLabIsolatedEvaluation,
-                *,
-                _reservation_ref: dict[str, object] = evaluator_reservation_ref,
-            ) -> None:
-                reservation_value = _reservation_ref.get("value")
-                if controller is not None and reservation_value is not None:
-                    _release_reservation(outstanding, reservation_value)
-                    _settle_evaluator(
-                        controller,
-                        reservation_value,
-                        evaluation,
-                        pricing_snapshot,
-                    )
-
             service = LocalCliExecutionService(
                 auth_profile=arm.auth_profile,
                 parent_env=env,
@@ -911,8 +913,8 @@ def run_tier0(
                     max_budget_usd=max_budget,
                     before_solver=before_solver,
                     after_solver=after_solver,
-                    before_evaluator=reserve_evaluator,
-                    after_evaluator=after_evaluator,
+                    judge_request_boundary=evaluator_boundaries.get(arm.arm_id),
+                    evaluator_runner=evaluator_runner,
                 )
                 results.append(
                     Tier0ArmResult(
@@ -960,16 +962,14 @@ def run_tier0(
                         ),
                         before_solver=before_solver,
                         after_solver=after_solver,
-                        before_evaluator=reserve_evaluator,
-                        after_evaluator=after_evaluator,
+                        judge_request_boundary=evaluator_boundaries.get(arm.arm_id),
+                        evaluator_runner=evaluator_runner,
                     )
                 )
-    except (
-        HarveyLabEvaluationError,
-        SpendDeniedError,
-        SpendSettlementError,
-        Tier0RunnerError,
-    ) as exc:
+            arm_boundary = evaluator_boundaries.get(arm.arm_id)
+            if arm_boundary is not None:
+                arm_boundary.require_every_criterion_settled()
+    except Exception as exc:
         _terminalize_outstanding(controller, outstanding, str(exc))
         _write_archive(
             spec=spec,
@@ -1007,14 +1007,46 @@ def run_tier0(
     )
 
 
-def _track_reservation(outstanding: dict[str, Any], reservation: Any | None) -> None:
+class _OutstandingReservations:
+    """Thread-safe ledger of reservations not yet handed to ``settle``."""
+
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._values: dict[str, SpendReservation] = {}
+
+    def add(self, reservation: SpendReservation) -> None:
+        with self._lock:
+            self._values[reservation.reservation_id] = reservation
+
+    def remove(self, reservation: SpendReservation) -> None:
+        with self._lock:
+            self._values.pop(reservation.reservation_id, None)
+
+    def snapshot(self) -> tuple[SpendReservation, ...]:
+        with self._lock:
+            return tuple(self._values.values())
+
+    def clear(self) -> None:
+        with self._lock:
+            self._values.clear()
+
+
+def _track_reservation(
+    outstanding: _OutstandingReservations | dict[str, Any],
+    reservation: SpendReservation | None,
+) -> None:
     """Remember a reservation until it has been settled or terminalized."""
 
     if reservation is not None:
-        outstanding[reservation.reservation_id] = reservation
+        if isinstance(outstanding, _OutstandingReservations):
+            outstanding.add(reservation)
+        else:
+            outstanding[reservation.reservation_id] = reservation
 
 
-def _release_reservation(outstanding: dict[str, Any], reservation: Any) -> None:
+def _release_reservation(
+    outstanding: _OutstandingReservations | dict[str, Any], reservation: Any
+) -> None:
     """Forget a reservation that is about to be handed to ``settle``.
 
     ``SpendController.settle`` consumes the reservation before it can fail, so
@@ -1022,12 +1054,15 @@ def _release_reservation(outstanding: dict[str, Any], reservation: Any) -> None:
     terminal evidence and must not be settled a second time.
     """
 
-    outstanding.pop(reservation.reservation_id, None)
+    if isinstance(outstanding, _OutstandingReservations):
+        outstanding.remove(reservation)
+    else:
+        outstanding.pop(reservation.reservation_id, None)
 
 
 def _terminalize_outstanding(
     controller: SpendController | None,
-    outstanding: dict[str, Any],
+    outstanding: _OutstandingReservations | dict[str, Any],
     reason: str,
 ) -> None:
     """Record unknown cost for every reservation left open by a failure.
@@ -1039,9 +1074,17 @@ def _terminalize_outstanding(
     """
 
     if controller is None:
-        outstanding.clear()
+        if isinstance(outstanding, _OutstandingReservations):
+            outstanding.clear()
+        else:
+            outstanding.clear()
         return
-    for reservation in list(outstanding.values()):
+    reservations = (
+        outstanding.snapshot()
+        if isinstance(outstanding, _OutstandingReservations)
+        else tuple(outstanding.values())
+    )
+    for reservation in reservations:
         try:
             controller.settle(reservation, UsageObservation.unknown(reason))
         except (SpendSettlementError, SpendConfigurationError):
@@ -1102,44 +1145,151 @@ def _reserve_solver(
         ) from exc
 
 
-def _judge_criterion_for(policy: SpendPolicy, arm_id: str) -> str:
-    candidates = [item for item in policy.judge_ceilings if item.arm_id == arm_id]
-    if len(candidates) != 1:
+def _judge_ceilings_for(
+    policy: SpendPolicy, arm_id: str
+) -> tuple[JudgeCriterionCeiling, ...]:
+    """Return judge ceilings in policy tuple order, one for each LAB criterion."""
+
+    ceilings = tuple(item for item in policy.judge_ceilings if item.arm_id == arm_id)
+    if len(ceilings) != _HARVEY_LAB_JUDGE_CRITERION_COUNT:
         raise Tier0RunnerError(
-            "evaluator request requires exactly one aggregate judge ceiling per arm"
+            f"evaluator requires exactly {_HARVEY_LAB_JUDGE_CRITERION_COUNT} "
+            f"per-criterion judge ceilings for {arm_id}; got {len(ceilings)}"
         )
-    return candidates[0].criterion_id
+    return ceilings
 
 
-def _reserve_evaluator(
-    controller: SpendController | None,
-    *,
-    spec: Tier0ExecutableSpec,
-    arm: Tier0ArmSpec,
-    policy: SpendPolicy | None,
-) -> Any | None:
-    if controller is None:
-        return None
-    assert policy is not None
-    criterion_id = _judge_criterion_for(policy, arm.arm_id)
-    ceiling = policy.judge_for(arm.arm_id, criterion_id)
-    try:
-        return controller.reserve(
-            PaidCall(
-                call_id=f"{arm.arm_id}-evaluator-0",
-                surface="judge",
-                arm_id=arm.arm_id,
-                provider=ceiling.provider,
-                model=ceiling.model,
-                executable_spec_sha256=spec.artifact_sha256 or "",
-                pricing_snapshot_sha256=controller.pricing.snapshot_sha256,
-                criterion_id=criterion_id,
+class _PerCriterionEvaluatorSpendBoundary(HarveyLabJudgeRequestBoundary):
+    """Reserve and settle one mechanical spend scope for each LAB criterion."""
+
+    def __init__(
+        self,
+        *,
+        controller: SpendController | None,
+        spec: Tier0ExecutableSpec,
+        arm: Tier0ArmSpec,
+        outstanding: _OutstandingReservations,
+    ) -> None:
+        if controller is None:
+            raise Tier0RunnerError(
+                "per-criterion evaluator boundary requires spend controller"
             )
+        self._controller = controller
+        self._spec = spec
+        self._arm = arm
+        self._outstanding = outstanding
+        self._ceilings = _judge_ceilings_for(controller.policy, arm.arm_id)
+        # The judge surface is deliberately not tied to ``arm.requested_model``.
+        # A policy may score a solver arm with a different judging model, and
+        # every reservation is validated against its own judge ceiling's
+        # provider/model by ``SpendController.reserve``.
+        self._ledger_lock = threading.RLock()
+        self._seen_call_ids: set[str] = set()
+        self._settled_criteria: set[str] = set()
+
+    def _ceiling_for(self, request: HarveyLabJudgeRequest) -> JudgeCriterionCeiling:
+        if request.ordinal > len(self._ceilings):
+            raise Tier0RunnerError(
+                f"judge criterion ordinal {request.ordinal} exceeds the pinned "
+                f"{len(self._ceilings)}-criterion LAB evaluator"
+            )
+        ceiling = self._ceilings[request.ordinal - 1]
+        if request.criterion_id != ceiling.criterion_id:
+            raise Tier0RunnerError(
+                "judge criterion identity does not match its pinned ordinal"
+            )
+        return ceiling
+
+    def before_judge_call(self, request: HarveyLabJudgeRequest) -> SpendReservation:
+        ceiling = self._ceiling_for(request)
+        call_id = (
+            f"{self._arm.arm_id}-evaluator-{request.ordinal}-{request.attempt_index}"
         )
-    except (SpendDeniedError, SpendConfigurationError) as exc:
-        raise Tier0RunnerError(
-            f"evaluator spend reservation denied for {arm.arm_id}"
-        ) from exc
+        with self._ledger_lock:
+            if call_id in self._seen_call_ids:
+                raise Tier0RunnerError("judge call identity was already used")
+            self._seen_call_ids.add(call_id)
+        try:
+            reservation = self._controller.reserve(
+                PaidCall(
+                    call_id=call_id,
+                    surface="judge",
+                    arm_id=self._arm.arm_id,
+                    provider=ceiling.provider,
+                    model=ceiling.model,
+                    executable_spec_sha256=self._spec.artifact_sha256 or "",
+                    pricing_snapshot_sha256=self._controller.pricing.snapshot_sha256,
+                    attempt_index=request.attempt_index,
+                    criterion_id=ceiling.criterion_id,
+                )
+            )
+        except SpendDeniedError:
+            with self._ledger_lock:
+                self._seen_call_ids.remove(call_id)
+            raise
+        except SpendConfigurationError as exc:
+            with self._ledger_lock:
+                self._seen_call_ids.remove(call_id)
+            raise Tier0RunnerError(
+                f"evaluator spend reservation is not executable for {self._arm.arm_id}"
+            ) from exc
+        self._outstanding.add(reservation)
+        return reservation
+
+    def after_judge_call(
+        self,
+        request: HarveyLabJudgeRequest,
+        reservation: object,
+        observation: object,
+    ) -> None:
+        ceiling = self._ceiling_for(request)
+        if not isinstance(reservation, SpendReservation):
+            raise Tier0RunnerError("evaluator returned an invalid judge reservation")
+        if not isinstance(observation, UsageObservation):
+            raise Tier0RunnerError(
+                "evaluator must provide a UsageObservation for every judge call"
+            )
+        call = reservation.call
+        if (
+            call.surface != "judge"
+            or call.arm_id != self._arm.arm_id
+            or call.criterion_id != ceiling.criterion_id
+            or call.attempt_index != request.attempt_index
+        ):
+            raise Tier0RunnerError(
+                "judge reservation does not match the criterion request"
+            )
+        self._outstanding.remove(reservation)
+        try:
+            self._controller.settle(reservation, observation)
+        except SpendSettlementError as exc:
+            raise Tier0RunnerError("judge spend settlement failed closed") from exc
+        with self._ledger_lock:
+            self._settled_criteria.add(ceiling.criterion_id)
+
+    def require_every_criterion_settled(self) -> None:
+        """Refuse an evaluation that skipped any pinned criterion boundary.
+
+        The evaluator owns the criterion loop, so a runner that silently omits
+        a callback would leave that provider call outside the ledger entirely:
+        unreserved before the request and unsettled afterwards.  A scores file
+        can still look complete in that case, so the arm is only accepted once
+        every pinned criterion has been reserved *and* settled through this
+        boundary.
+        """
+
+        with self._ledger_lock:
+            missing = tuple(
+                ceiling.criterion_id
+                for ceiling in self._ceilings
+                if ceiling.criterion_id not in self._settled_criteria
+            )
+        if missing:
+            raise Tier0RunnerError(
+                f"evaluator settled {len(self._ceilings) - len(missing)} of "
+                f"{len(self._ceilings)} per-criterion judge calls for "
+                f"{self._arm.arm_id}; unaccounted criteria: {', '.join(missing)}"
+            )
 
 
 def _settle_solver(
@@ -1157,23 +1307,6 @@ def _settle_solver(
         )
     except SpendSettlementError as exc:
         raise Tier0RunnerError("solver spend settlement failed closed") from exc
-
-
-def _settle_evaluator(
-    controller: SpendController,
-    reservation: Any,
-    evaluation: HarveyLabIsolatedEvaluation,
-    pricing: PricingSnapshot | None,
-) -> None:
-    if pricing is None:
-        raise Tier0RunnerError("evaluator settlement has no pricing snapshot")
-    try:
-        controller.settle(
-            reservation,
-            _usage_observation_from_evaluation(evaluation, pricing),
-        )
-    except SpendSettlementError as exc:
-        raise Tier0RunnerError("evaluator spend settlement failed closed") from exc
 
 
 def _usage_observation_from_execution(
@@ -1198,47 +1331,6 @@ def _usage_observation_from_execution(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         reported_cost_usd=format(amount, "f"),
-    )
-
-
-def _usage_observation_from_evaluation(
-    evaluation: HarveyLabIsolatedEvaluation,
-    pricing: PricingSnapshot,
-) -> UsageObservation:
-    cost = evaluation.receipt.cost
-    input_count = evaluation.receipt.token_usage.input_tokens.value
-    output_count = evaluation.receipt.token_usage.output_tokens.value
-    if cost.basis in {"subscription_unallocable", "unknown"}:
-        return UsageObservation.unknown(
-            cost.unknown_reason or "evaluator did not report allocable cost",
-            subscription=cost.basis == "subscription_unallocable",
-        )
-    if input_count is None or output_count is None:
-        return UsageObservation.unknown(
-            "evaluator did not report auditable token usage"
-        )
-    if cost.pricing_snapshot_sha256 not in {
-        None,
-        pricing.snapshot_sha256,
-    }:
-        return UsageObservation.unknown(
-            "evaluator reported a different pricing snapshot"
-        )
-    amount = (
-        None
-        if cost.amount_microusd is None
-        else format(Decimal(cost.amount_microusd) / Decimal(1_000_000), "f")
-    )
-    return UsageObservation(
-        basis=(
-            "estimated_from_pricing_snapshot"
-            if cost.basis == "estimated_from_pricing_snapshot"
-            else "provider_reported"
-        ),
-        pricing_snapshot_sha256=pricing.snapshot_sha256,
-        input_tokens=input_count,
-        output_tokens=output_count,
-        reported_cost_usd=amount,
     )
 
 
@@ -1319,6 +1411,8 @@ def _run_native_thin(
     after_solver: Callable[[RunSpec, ExecutionReceipt], ExecutionReceipt] | None = None,
     before_evaluator: Callable[[], None] | None = None,
     after_evaluator: Callable[[HarveyLabIsolatedEvaluation], None] | None = None,
+    judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
+    evaluator_runner: EvaluatorRunner | None = None,
 ) -> Tier0ArmResult:
     projection = project_harvey_lab_suite(
         source_root=source_root,
@@ -1399,6 +1493,8 @@ def _run_native_thin(
         issuer_policy_sha256=spec.issuer_policy_sha256,
         evaluator_command=spec.evaluator_command,
         timeout_seconds=arm.timeout_seconds,
+        judge_request_boundary=judge_request_boundary,
+        evaluator_runner=evaluator_runner,
     )
     if after_evaluator is not None:
         after_evaluator(evaluation)

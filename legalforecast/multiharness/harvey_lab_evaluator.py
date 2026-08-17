@@ -72,6 +72,61 @@ class HarveyLabEvaluationError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class HarveyLabJudgeRequest:
+    """Private identity for one evaluator criterion request."""
+
+    ordinal: int
+    criterion_id: str
+    attempt_index: int = 0
+
+    def __post_init__(self) -> None:
+        if type(self.ordinal) is not int or self.ordinal <= 0:
+            raise HarveyLabEvaluationError("judge criterion ordinal must be positive")
+        allowed_characters = (
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._+-:/@"
+        )
+        if (
+            type(self.criterion_id) is not str
+            or not self.criterion_id
+            or any(
+                character not in allowed_characters for character in self.criterion_id
+            )
+        ):
+            raise HarveyLabEvaluationError("judge criterion ID is not a public token")
+        if type(self.attempt_index) is not int or self.attempt_index < 0:
+            raise HarveyLabEvaluationError("judge attempt index must be non-negative")
+
+
+class HarveyLabJudgeRequestBoundary:
+    """Callback surface an evaluator uses immediately around each paid judge call.
+
+    The evaluator implementation owns the loop over criteria and retries.  It
+    must invoke ``before_judge_call`` immediately before constructing or
+    sending each provider request, and ``after_judge_call`` immediately after
+    the response has been converted to an auditable usage observation.  The
+    boundary is deliberately an object protocol rather than aggregate hooks:
+    a caller cannot truthfully reserve one call for all 23 criteria.
+    """
+
+    def before_judge_call(self, request: HarveyLabJudgeRequest) -> object:
+        raise NotImplementedError
+
+    def after_judge_call(
+        self,
+        request: HarveyLabJudgeRequest,
+        reservation: object,
+        observation: object,
+    ) -> None:
+        raise NotImplementedError
+
+
+EvaluatorRunner = Callable[
+    [LocalCliExecutionService, RunSpec, HarveyLabJudgeRequestBoundary],
+    ExecutionReceipt,
+]
+
+
+@dataclass(frozen=True, slots=True)
 class HarveyLabEvaluationHosts:
     """Disjoint host directories for one isolated evaluation."""
 
@@ -162,6 +217,8 @@ def invoke_isolated_harvey_lab_evaluator(
     measurement_id: str | None = None,
     evaluation_attempt_id: str | None = None,
     attempt_nonce: str | None = None,
+    judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
+    evaluator_runner: EvaluatorRunner | None = None,
 ) -> HarveyLabIsolatedEvaluation:
     """Run the common LAB evaluator in a contained boundary and bind a receipt."""
 
@@ -208,7 +265,22 @@ def invoke_isolated_harvey_lab_evaluator(
             ) from exc
         started_monotonic = _monotonic_ns()
         started_at = datetime.now(UTC)
-        execution = pinned_service.execute(spec)
+        if judge_request_boundary is None:
+            if evaluator_runner is not None:
+                raise HarveyLabEvaluationError(
+                    "evaluator runner requires a per-criterion judge boundary"
+                )
+            execution = pinned_service.execute(spec)
+        else:
+            if evaluator_runner is None:
+                raise HarveyLabEvaluationError(
+                    "paid evaluator requires a per-criterion judge runner"
+                )
+            execution = evaluator_runner(
+                pinned_service,
+                spec,
+                judge_request_boundary,
+            )
         ended_monotonic = _monotonic_ns()
         ended_at = datetime.now(UTC)
         if execution.status != "succeeded" or execution.returncode not in {0, None}:
