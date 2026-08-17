@@ -39,6 +39,7 @@ def verify_document_repair_pilot_bytes(
     full_plan: MissingDocumentAcquisitionPlan,
     execution: DocumentRepairExecution,
     receipt: DocumentRepairReceipt,
+    expected_receipt_sha256: str,
     acquired_documents: Sequence[Mapping[str, object]],
     exclusions: Sequence[Mapping[str, object]],
     role_bytes_match: Callable[[str, bytes], bool],
@@ -46,12 +47,18 @@ def verify_document_repair_pilot_bytes(
     """Refuse unless stored bytes still match the hardened repair contracts.
 
     Missing bytes are a verify-only refusal, not a purchase trigger.
+    ``expected_receipt_sha256`` is the caller's independent commitment to the
+    receipt under verification; an in-process receipt that authenticates only
+    against itself is not evidence.
     """
 
     try:
         require_repair_execution_binding(full_plan, execution)
         require_authenticated_repair_receipt(
-            full_plan=full_plan, execution=execution, receipt=receipt
+            full_plan=full_plan,
+            execution=execution,
+            receipt=receipt,
+            expected_receipt_sha256=expected_receipt_sha256,
         )
     except DocumentRepairExecutorError as exc:
         raise DocumentRepairVerifyOnlyError(str(exc)) from exc

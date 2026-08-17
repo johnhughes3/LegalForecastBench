@@ -95,6 +95,9 @@ EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1 = SchemaIdentifier(
 DOCUMENT_BODY_ROLE_VALIDATOR_V1 = SchemaIdentifier(
     "legalforecast.document_body_role_validator.v1"
 )
+DOCUMENT_BODY_ROLE_VALIDATOR_V2 = SchemaIdentifier(
+    "legalforecast.document_body_role_validator.v2"
+)
 MISSING_DOCUMENT_EXCLUSION_V1 = SchemaIdentifier(
     "legalforecast.missing_document_exclusion.v1"
 )
@@ -169,6 +172,9 @@ EXACT100_DOCUMENT_REPAIR_PILOT_V2 = SchemaIdentifier(
 )
 EXACT100_DOCUMENT_REPAIR_EXECUTION_V1 = SchemaIdentifier(
     "legalforecast.exact100_document_repair_execution.v1"
+)
+EXACT100_DOCUMENT_REPAIR_EXECUTION_V2 = SchemaIdentifier(
+    "legalforecast.exact100_document_repair_execution.v2"
 )
 EXACT100_DOCUMENT_REPAIR_RECEIPT_V1 = SchemaIdentifier(
     "legalforecast.exact100_document_repair_receipt.v1"

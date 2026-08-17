@@ -19,7 +19,7 @@ from typing import Any, cast
 
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
-    DOCUMENT_BODY_ROLE_VALIDATOR_V1,
+    DOCUMENT_BODY_ROLE_VALIDATOR_V2,
     EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
     EXACT100_MISSING_DOCUMENT_SUCCESSOR_V2,
     MISSING_DOCUMENT_EXCLUSION_V1,
@@ -46,7 +46,7 @@ APPROVAL_SCHEMA_VERSION = str(REPAIR_MANIFEST_APPROVAL_V1)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _SOURCE_KINDS = frozenset({"free", "pacer"})
 _STATUSES = frozenset({"acquired", "unavailable"})
-ROLE_VALIDATOR_VERSION = str(DOCUMENT_BODY_ROLE_VALIDATOR_V1)
+ROLE_VALIDATOR_VERSION = str(DOCUMENT_BODY_ROLE_VALIDATOR_V2)
 _ROLE_ALIASES = {
     "interpleader": "interpleader_complaint",
     "response": "opposition",
@@ -61,6 +61,7 @@ _PLEADING_KINDS = {
     "crossclaim": OperativeComplaintKind.CROSSCLAIM,
     "third_party_complaint": OperativeComplaintKind.THIRD_PARTY_COMPLAINT,
     "interpleader_complaint": OperativeComplaintKind.INTERPLEADER_COMPLAINT,
+    "other_claim_bearing_filing": OperativeComplaintKind.OTHER_CLAIM_BEARING_FILING,
 }
 
 
@@ -806,15 +807,48 @@ def _add_inclusions(
 
 
 def _body_matches_role(markdown: str, requested_role: str) -> bool:
+    """Decide whether observed document bytes can carry the requested role.
+
+    Validator ``v2``. Opposition and reply briefs are no longer admitted on a
+    bare occurrence of ``opposition`` or ``reply``: those words appear
+    incidentally in almost every litigation document, including the motion
+    being opposed and the docket narrative quoted inside an unrelated exhibit.
+    Admission now requires the word in a responsive-brief construction — the
+    caption phrasing a real brief uses — so a single incidental keyword no
+    longer satisfies the role.
+    """
+
     normalized_role = _ROLE_ALIASES.get(requested_role, requested_role)
     pleading_kind = _PLEADING_KINDS.get(normalized_role)
     if pleading_kind is not None:
         return pleading_body_matches_kind(markdown, pleading_kind)
     text = " ".join(markdown.lower().split())
     if normalized_role == "opposition":
-        return bool(re.search(r"\b(?:opposition|response)\b", text))
+        return bool(
+            re.search(
+                r"\bin\s+opposition\s+to\b|\bopposition\s+to\s+(?:the\s+)?"
+                r"(?:plaintiff'?s?|defendant'?s?|movant'?s?|[a-z]+\s+)?"
+                r"(?:motion|petition|application)\b|"
+                r"\b(?:response|opposition)\s+(?:brief\s+)?in\s+opposition\b|"
+                r"\bresponse\s+in\s+opposition\s+to\b|"
+                r"\b(?:opposes|oppose)\s+(?:the\s+)?"
+                r"(?:motion|petition|application)\b",
+                text,
+            )
+        )
     if normalized_role == "reply":
-        return bool(re.search(r"\breply\b", text))
+        return bool(
+            re.search(
+                r"\breply\s+(?:brief\s+|memorandum\s+)?in\s+"
+                r"(?:further\s+)?support\s+of\b|"
+                r"\breply\s+(?:memorandum|brief)\b|"
+                r"\breply\s+to\s+(?:the\s+)?(?:[a-z]+\s+){0,3}"
+                r"(?:opposition|response)\b|"
+                r"\bin\s+reply\s+to\s+(?:the\s+)?(?:[a-z]+\s+){0,3}"
+                r"(?:opposition|response)\b",
+                text,
+            )
+        )
     if normalized_role == "surreply":
         return bool(re.search(r"\bsur-?reply\b", text))
     if normalized_role == "supplemental_brief":

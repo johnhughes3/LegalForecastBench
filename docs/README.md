@@ -45,6 +45,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Cycle 1 Stage A v5 unitizer-selector migration](cycle-1-stage-a-v5-unitizer-selector-migration.md): the closed v5 unitizer and v4 structural-review pairing that replaces brittle copied citation endpoints with bounded line counts.
 - [Cycle 1 Stage A unitizer terminal-review migration](cycle-1-stage-a-unitizer-terminal-review-migration.md): the provider-free attorney reconstruction route after a v5 unitizer exhausts all three reconstruction attempts without an accepted unit.
 - [Cycle 1 corpus-completion-summary v2 migration](cycle-1-corpus-completion-summary-v2-migration.md): the separate terminal Stage A handoff required to keep exhausted-unitizer candidates visible in the closed corpus audit.
+- [Cycle 1 document-repair contract migration](cycle-1-document-repair-contract-migration.md): the paired execution-schema and body-role-validator version bumps that authenticate snapshot clearance and stop single-keyword briefing admission.
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for new code without migrating Cycle 1 artifacts.
 
 ## Community Multi-Harness (non-official)
@@ -131,6 +132,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [exact100-document-repair-pilot-v1.md](schemas/exact100-document-repair-pilot-v1.md): exact ordered five-candidate projection of the authenticated full repair plan without minting independent authority.
 - [exact100-document-repair-pilot-v2.md](schemas/exact100-document-repair-pilot-v2.md): selector-bearing five-candidate projection of the authenticated v2 repair plan.
 - [exact100-document-repair-executor-v1.md](schemas/exact100-document-repair-executor-v1.md): provider-neutral free and paid execution contract preserving document selectors through resolution, acquisition, receipts, and successor evidence.
+- [exact100-document-repair-executor-v2.md](schemas/exact100-document-repair-executor-v2.md): the same execution contract with derived snapshot clearance moved inside the committed execution digest.
 
 **Spend authority and purchase**
 

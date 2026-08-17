@@ -12,6 +12,7 @@ import shutil
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -23,6 +24,7 @@ from legalforecast.multiharness.claude_code import (
     ClaudeCodeCliAdapter,
     ClaudeCodeCliAdapterError,
     build_claude_invocation_plan,
+    classify_claude_completion_execution,
     encode_claude_code_tools_argv_token,
 )
 from legalforecast.multiharness.harvey_lab_authorized_scoring import (
@@ -40,6 +42,7 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
 from legalforecast.multiharness.harvey_lab_output_discovery import (
     HarveyLabOutputDiscoveryResult,
     discover_harvey_lab_outputs,
+    require_harvey_lab_sandbox_hosts,
 )
 from legalforecast.multiharness.harvey_lab_projection import (
     INSTRUCTIONS_NAME,
@@ -143,8 +146,10 @@ def run_claude_code_clean_native_harvey_lab(
     instructions = task_dir / INSTRUCTIONS_NAME
     prompt = _lab_solver_prompt(instructions, task.expected_deliverable)
     sandbox_root.mkdir(parents=True, exist_ok=True)
-    resolved_output = output_root or (sandbox_root / "output")
-    resolved_output.mkdir(parents=True, exist_ok=True)
+    resolved_output = require_harvey_lab_sandbox_hosts(
+        sandbox_root=sandbox_root,
+        output_root=output_root or (sandbox_root / "output"),
+    )
     schema_path = sandbox_root / CLAUDE_CODE_OUTPUT_SCHEMA_NAME
     schema_path.write_text(
         json.dumps(
@@ -193,7 +198,7 @@ def run_claude_code_clean_native_harvey_lab(
         json_schema=plan.json_schema,
     )
     execution = service.execute(spec)
-    _require_solver_success(spec, execution)
+    _require_solver_success(spec, execution, requested_model=model)
     task_digest = _prefixed_digest_text(task.task_sha256)
     run_digest = spec.spec_sha256
     config_digest = spec.spec_sha256
@@ -303,26 +308,63 @@ def _lab_solver_prompt(instructions: Path, expected_deliverable: str) -> str:
     )
 
 
-def _require_solver_success(spec: RunSpec, execution: ExecutionReceipt) -> None:
+_LAB_FAILURE_MESSAGES: Mapping[LocalCliFailureClass, str] = MappingProxyType(
+    {
+        LocalCliFailureClass.TIMEOUT: (
+            "clean-native Claude Code Harvey LAB run timed out"
+        ),
+        LocalCliFailureClass.CANCELLED: (
+            "clean-native Claude Code Harvey LAB run was cancelled"
+        ),
+        LocalCliFailureClass.SANDBOX_DENIAL: (
+            "clean-native Claude Code Harvey LAB run hit a sandbox denial"
+        ),
+        LocalCliFailureClass.IDENTITY_DRIFT: (
+            "clean-native Claude Code Harvey LAB run was served a different model"
+        ),
+    }
+)
+
+
+def _require_solver_success(
+    spec: RunSpec,
+    execution: ExecutionReceipt,
+    *,
+    requested_model: str,
+) -> None:
+    """Refuse to score a LAB run that is not a clean, correctly served success.
+
+    The classification order is the shared adapter-core taxonomy rather than a
+    LAB-local copy: ``cancelled`` is a lifecycle abort, not a crash, and a
+    served-model mismatch is ``identity_drift`` even when the CLI exits zero.
+    """
+
     if execution.spec_sha256 != spec.spec_sha256:
         raise ClaudeCodeCliAdapterError("execution receipt does not bind the RunSpec")
-    failure_text = "\n".join((execution.stdout, execution.stderr))
-    if execution.status == "timeout":
-        raise ClaudeCodeCliAdapterError(
-            "clean-native Claude Code Harvey LAB run timed out",
-            failure_class=LocalCliFailureClass.TIMEOUT,
-        )
-    if is_local_cli_sandbox_denial(failure_text):
-        raise ClaudeCodeCliAdapterError(
-            "clean-native Claude Code Harvey LAB run hit a sandbox denial",
-            failure_class=LocalCliFailureClass.SANDBOX_DENIAL,
-        )
-    if execution.status != "succeeded" or execution.returncode not in {0, None}:
-        detail = execution.stderr.strip() or execution.stdout.strip() or "crash"
-        raise ClaudeCodeCliAdapterError(
-            f"clean-native Claude Code Harvey LAB run failed: {detail}",
-            failure_class=LocalCliFailureClass.CRASH,
-        )
+    failure_class = classify_claude_completion_execution(
+        execution,
+        requested_model=requested_model,
+    )
+    if failure_class is None and is_local_cli_sandbox_denial(
+        "\n".join((execution.stdout, execution.stderr))
+    ):
+        failure_class = LocalCliFailureClass.SANDBOX_DENIAL
+    if failure_class is None:
+        if execution.status != "succeeded" or execution.returncode not in {0, None}:
+            detail = execution.stderr.strip() or execution.stdout.strip() or "crash"
+            raise ClaudeCodeCliAdapterError(
+                f"clean-native Claude Code Harvey LAB run failed: {detail}",
+                failure_class=LocalCliFailureClass.CRASH,
+            )
+        return
+    named = _LAB_FAILURE_MESSAGES.get(failure_class)
+    if named is not None:
+        raise ClaudeCodeCliAdapterError(named, failure_class=failure_class)
+    detail = execution.stderr.strip() or execution.stdout.strip() or "crash"
+    raise ClaudeCodeCliAdapterError(
+        f"clean-native Claude Code Harvey LAB run failed: {detail}",
+        failure_class=failure_class,
+    )
 
 
 def _require_on_path(

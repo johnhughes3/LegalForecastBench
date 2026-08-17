@@ -28,7 +28,14 @@ opaque approval capability used by the projector.
 obligation. The selector distinguishes a main document from same-entry
 attachments. The record binds the material `source_document_id`, acquisition
 source and cost, byte hash and count, markdown hash, admitted role, and validator
-version (`legalforecast.document_body_role_validator.v1`).
+version.
+
+New inclusions stamp `legalforecast.document_body_role_validator.v2`, which
+recognizes the cohort-policy v3 fallback role `other_claim_bearing_filing` on
+claim-asserting body text and refuses to admit an `opposition` or `reply` on a
+single incidental keyword — the word must appear in a responsive-brief
+construction. Artifacts stamped `…validator.v1` keep their original semantics;
+see [the migration note](../cycle-1-document-repair-contract-migration.md).
 
 `legalforecast.missing_document_exclusion.v1` records either a removed inherited
 document whose bytes mismatch its selected role or the terminal reason an

@@ -31,6 +31,7 @@ from legalforecast.ingestion.free_document_downloader import (
 from legalforecast.ingestion.missing_core_budget import DEFAULT_PURCHASE_COST_USD
 from legalforecast.ingestion.operative_complaint import (
     OperativeComplaintKind,
+    motion_attacked_entry_numbers,
     select_operative_complaint_document,
     select_operative_complaint_entry,
 )
@@ -542,7 +543,11 @@ def _documents_for_candidate(
 ) -> tuple[tuple[PublicPacketDocumentPlan, ...], tuple[str, ...], int, int]:
     decision_floor = min(decision_entries) if decision_entries else _max_entry(page)
     complaint_floor = min(target_entries) if target_entries else decision_floor
-    complaint = _operative_complaint_entry(page, before_entry=complaint_floor)
+    complaint = _operative_complaint_entry(
+        page,
+        before_entry=complaint_floor,
+        target_entries=target_entries,
+    )
     target_mtd_entries = _target_mtd_entries(
         page,
         target_entries=target_entries,
@@ -1063,6 +1068,10 @@ def _core_packet_restriction_reasons(
         else select_operative_complaint_entry(
             page.entries,
             before_entry=complaint_floor,
+            attacked_entry_numbers=motion_attacked_entry_numbers(
+                page.entries,
+                target_entry_numbers=target_entries,
+            ),
         )
     )
     target_numbers = set(target_entries)
@@ -1127,12 +1136,17 @@ def _operative_complaint_entry(
     page: CourtListenerWebDocketPage,
     *,
     before_entry: int | None,
+    target_entries: tuple[int, ...] = (),
 ) -> CourtListenerWebDocketEntry | None:
     if before_entry is None:
         return None
     selection = select_operative_complaint_entry(
         page.entries,
         before_entry=before_entry,
+        attacked_entry_numbers=motion_attacked_entry_numbers(
+            page.entries,
+            target_entry_numbers=target_entries,
+        ),
     )
     return None if selection is None else selection.entry
 

@@ -10,11 +10,18 @@ from enum import StrEnum
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocument,
+    explicit_motion_reference_numbers,
 )
 
 
 class OperativeComplaintKind(StrEnum):
-    """Pleading role established by affirmative docket evidence."""
+    """Pleading role established by affirmative docket evidence.
+
+    ``other_claim_bearing_filing`` is the cohort-policy v3 fallback role for a
+    claim-bearing pleading whose docket label does not match one of the named
+    kinds. Docket-label recognition never infers it; it exists so an approved
+    repair slot can request that role and still have its bytes validated.
+    """
 
     COMPLAINT = "complaint"
     AMENDED_COMPLAINT = "amended_complaint"
@@ -22,6 +29,7 @@ class OperativeComplaintKind(StrEnum):
     CROSSCLAIM = "crossclaim"
     THIRD_PARTY_COMPLAINT = "third_party_complaint"
     INTERPLEADER_COMPLAINT = "interpleader_complaint"
+    OTHER_CLAIM_BEARING_FILING = "other_claim_bearing_filing"
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,17 +40,50 @@ class OperativeComplaintSelection:
     kind: OperativeComplaintKind
 
 
+def motion_attacked_entry_numbers(
+    entries: Iterable[CourtListenerWebDocketEntry],
+    *,
+    target_entry_numbers: Iterable[int],
+) -> frozenset[int]:
+    """Return the docket entries the target motions explicitly name.
+
+    A motion to dismiss cites the pleading it attacks by entry number. Those
+    citations are the only affirmative evidence on the docket of which
+    pleading is actually under attack, so they are collected from the target
+    motion rows only — never from arbitrary later filings.
+    """
+
+    targets = frozenset(target_entry_numbers)
+    cited: set[int] = set()
+    for entry in entries:
+        number = _positive_entry_number(entry.entry_number)
+        if number is None or number not in targets:
+            continue
+        cited.update(explicit_motion_reference_numbers(entry))
+    return frozenset(cited)
+
+
 def select_operative_complaint_entry(
     entries: Iterable[CourtListenerWebDocketEntry],
     *,
     before_entry: int,
     body_text_by_entry: Mapping[int, str] | None = None,
+    attacked_entry_numbers: Iterable[int] | None = None,
 ) -> OperativeComplaintSelection | None:
-    """Return the latest affirmative pleading before the target motion.
+    """Return the pleading the target motion attacks, else the latest one.
 
     When authenticated extracted body text is supplied, every docket-label
     candidate must have matching body evidence. Docket ``narrative_text`` is
     intentionally not used because it is row metadata, not document content.
+
+    ``attacked_entry_numbers`` carries the entries the target motion
+    explicitly names (see :func:`motion_attacked_entry_numbers`). When any
+    candidate pleading is among them, selection is restricted to those
+    candidates, so a later counterclaim no longer displaces the earlier
+    complaint the motion is actually attacking. When the motion names no
+    candidate pleading — an unnumbered or purely narrative reference — the
+    latest pre-motion pleading remains the fallback rather than a refusal,
+    because that is the pre-existing behaviour the exact-100 goldens pin.
     """
 
     candidates: list[
@@ -62,6 +103,13 @@ def select_operative_complaint_entry(
         candidates.append((number, entry, kind))
     if not candidates:
         return None
+    if attacked_entry_numbers is not None:
+        attacked = frozenset(attacked_entry_numbers)
+        directly_attacked = [
+            candidate for candidate in candidates if candidate[0] in attacked
+        ]
+        if directly_attacked:
+            candidates = directly_attacked
     _, entry, kind = max(candidates, key=lambda item: item[0])
     return OperativeComplaintSelection(entry=entry, kind=kind)
 
@@ -140,6 +188,13 @@ def pleading_body_matches_kind(
         OperativeComplaintKind.THIRD_PARTY_COMPLAINT: (r"\bthird-?party\s+complaint\b"),
         OperativeComplaintKind.INTERPLEADER_COMPLAINT: (
             r"\binterpleader(?:\s+(?:complaint|counterclaim))?\b"
+        ),
+        # The v3 fallback role has no label of its own, so it is admitted on
+        # affirmative claim-assertion language instead: a numbered cause of
+        # action, a claim for relief, or the prayer that closes one.
+        OperativeComplaintKind.OTHER_CLAIM_BEARING_FILING: (
+            r"\bcauses?\s+of\s+action\b|\bclaims?\s+for\s+relief\b|"
+            r"\bprayer\s+for\s+relief\b|\bwherefore\b.{0,120}?\bpray"
         ),
     }
     if kind is OperativeComplaintKind.COMPLAINT and re.search(

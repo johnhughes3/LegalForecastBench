@@ -23,10 +23,12 @@ from legalforecast.contracts import (
     ARTIFACT_JSON_VALUE_V1,
     ARTIFACT_RAW_SHA256_V1,
     EXACT100_DOCUMENT_REPAIR_EXECUTION_V1,
+    EXACT100_DOCUMENT_REPAIR_EXECUTION_V2,
     EXACT100_DOCUMENT_REPAIR_PILOT_V2,
     EXACT100_DOCUMENT_REPAIR_PURCHASE_AUTHORITY_V1,
     EXACT100_DOCUMENT_REPAIR_RECEIPT_V1,
     EXACT100_MISSING_DOCUMENT_ACQUISITION_PLAN_V2,
+    SchemaIdentifier,
 )
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
@@ -52,7 +54,18 @@ from legalforecast.ingestion.missing_document_successor import (
 from legalforecast.ingestion.recap_api_discovery import public_recap_download_url
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
-SCHEMA_VERSION = str(EXACT100_DOCUMENT_REPAIR_EXECUTION_V1)
+EXECUTION_SCHEMA_VERSION_V1 = str(EXACT100_DOCUMENT_REPAIR_EXECUTION_V1)
+EXECUTION_SCHEMA_VERSION_V2 = str(EXACT100_DOCUMENT_REPAIR_EXECUTION_V2)
+# v2 is the version freshly built executions mint. v1 stays constructible so
+# already-acquired v1 bytes (the five-case ``3ak.11`` pilot receipts) can still
+# be replayed verify-only against their original ``execution_sha256``.
+SCHEMA_VERSION = EXECUTION_SCHEMA_VERSION_V2
+_EXECUTION_SCHEMA_DOMAINS = MappingProxyType(
+    {
+        EXECUTION_SCHEMA_VERSION_V1: EXACT100_DOCUMENT_REPAIR_EXECUTION_V1,
+        EXECUTION_SCHEMA_VERSION_V2: EXACT100_DOCUMENT_REPAIR_EXECUTION_V2,
+    }
+)
 RECEIPT_SCHEMA_VERSION = str(EXACT100_DOCUMENT_REPAIR_RECEIPT_V1)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _RECEIPT_RECORD_KEYS = frozenset(
@@ -118,6 +131,14 @@ class ResolvedRepairOperation:
         return self.candidate_id, self.docket_entry_number, self.document_selector
 
     def to_record(self) -> dict[str, object]:
+        """Return the frozen v1 operation record.
+
+        This spelling is also what every receipt ledger row carries, so it is
+        never widened in place: doing so would change committed
+        ``execution_sha256`` and ``receipt_sha256`` values for artifacts that
+        already exist.
+        """
+
         return {
             "candidate_id": self.candidate_id,
             "docket_entry_number": self.docket_entry_number,
@@ -129,6 +150,21 @@ class ResolvedRepairOperation:
             "source_url": self.source_url,
             "projected_cost_usd": _money(self.projected_cost_usd),
             "docket_snapshot_sha256": self.docket_snapshot_sha256,
+        }
+
+    def to_record_v2(self) -> dict[str, object]:
+        """Return the v2 operation record with clearance inside the digest.
+
+        The derived snapshot clearance decides whether an included acquisition
+        may proceed, so under v2 it is part of the authenticated execution
+        bytes: mutating it after the mint invalidates ``execution_sha256``
+        instead of silently surviving into ``acquire()``.
+        """
+
+        return {
+            **self.to_record(),
+            "public_clearance": _clearance_record(self.public_clearance),
+            "paid_clearance_pending": self.paid_clearance_pending,
         }
 
 
@@ -146,6 +182,7 @@ class DocumentRepairExecution:
     operations: tuple[ResolvedRepairOperation, ...]
     purchase_budget: MissingCoreBudgetPlan
     execution_sha256: str
+    schema_version: str
     _mint: object
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -158,7 +195,7 @@ class DocumentRepairExecution:
 
     def content_record(self) -> dict[str, object]:
         return {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": self.schema_version,
             "full_plan_sha256": self.full_plan_sha256,
             "manifest_sha256": self.manifest_sha256,
             "source_lineage_sha256": self.source_lineage_sha256,
@@ -166,7 +203,12 @@ class DocumentRepairExecution:
             "scope": self.scope,
             "scope_sha256": self.scope_sha256,
             "pilot_sha256": self.pilot_sha256,
-            "operations": [operation.to_record() for operation in self.operations],
+            "operations": [
+                operation.to_record()
+                if self.schema_version == EXECUTION_SCHEMA_VERSION_V1
+                else operation.to_record_v2()
+                for operation in self.operations
+            ],
             "purchase_budget": self.purchase_budget.to_record(),
         }
 
@@ -322,9 +364,16 @@ def build_document_repair_execution(
     docket_snapshot_bytes: Mapping[str, bytes],
     docket_snapshot_sha256: Mapping[str, str],
     snapshot_authority: DocketSnapshotAuthority,
+    schema_version: str = EXECUTION_SCHEMA_VERSION_V2,
 ) -> DocumentRepairExecution:
-    """Resolve the exact pilot obligations from authenticated docket snapshots."""
+    """Resolve the exact pilot obligations from authenticated docket snapshots.
 
+    ``schema_version`` selects the committed execution bytes. New work mints
+    v2, which authenticates the derived ``public_clearance``. Pass v1 only to
+    reproduce an ``execution_sha256`` that was committed before the migration.
+    """
+
+    _execution_domain(schema_version)
     _require_scope_binding(full_plan, pilot)
     frozen_digests = _require_snapshot_authority(
         snapshot_authority, docket_snapshot_sha256
@@ -378,6 +427,7 @@ def build_document_repair_execution(
         operations=operations,
         purchase_budget=purchase_budget,
         execution_sha256="",
+        schema_version=schema_version,
     )
     return _mint_execution(
         full_plan_sha256=provisional.full_plan_sha256,
@@ -390,6 +440,7 @@ def build_document_repair_execution(
         operations=provisional.operations,
         purchase_budget=provisional.purchase_budget,
         execution_sha256=_commit_execution(provisional.content_record()),
+        schema_version=provisional.schema_version,
     )
 
 
@@ -399,9 +450,15 @@ def build_full_document_repair_execution(
     docket_snapshot_bytes: Mapping[str, bytes],
     docket_snapshot_sha256: Mapping[str, str],
     snapshot_authority: DocketSnapshotAuthority,
+    schema_version: str = EXECUTION_SCHEMA_VERSION_V2,
 ) -> DocumentRepairExecution:
-    """Resolve every approved full-plan obligation without a pilot sub-scope."""
+    """Resolve every approved full-plan obligation without a pilot sub-scope.
 
+    ``schema_version`` selects the committed execution bytes; see
+    :func:`build_document_repair_execution`.
+    """
+
+    _execution_domain(schema_version)
     _require_valid_full_plan(full_plan)
     frozen_digests = _require_snapshot_authority(
         snapshot_authority, docket_snapshot_sha256
@@ -459,6 +516,7 @@ def build_full_document_repair_execution(
         operations=operations,
         purchase_budget=purchase_budget,
         execution_sha256="",
+        schema_version=schema_version,
     )
     return _mint_execution(
         full_plan_sha256=provisional.full_plan_sha256,
@@ -471,6 +529,7 @@ def build_full_document_repair_execution(
         operations=provisional.operations,
         purchase_budget=provisional.purchase_budget,
         execution_sha256=_commit_execution(provisional.content_record()),
+        schema_version=provisional.schema_version,
     )
 
 
@@ -654,7 +713,10 @@ def replay_document_repair_receipt(
     if receipt_record.get("committed_cost_usd") != receipt.committed_cost_usd:
         raise DocumentRepairExecutorError("repair receipt committed cost changed")
     _require_authenticated_receipt(
-        full_plan=full_plan, execution=execution, receipt=receipt
+        full_plan=full_plan,
+        execution=execution,
+        receipt=receipt,
+        expected_receipt_sha256=pin,
     )
     return receipt
 
@@ -957,11 +1019,18 @@ def seal_document_repair_execution(
     full_plan: MissingDocumentAcquisitionPlan,
     execution: DocumentRepairExecution,
     receipt: DocumentRepairReceipt,
+    expected_receipt_sha256: str,
     acquired_documents: Sequence[Mapping[str, object]],
     exclusions: Sequence[Mapping[str, object]],
     role_bytes_match: Callable[[str, bytes], bool],
 ) -> SealedMissingDocumentSuccessor:
-    """Seal only a complete resolved execution with exact RECAP identities."""
+    """Seal only a complete resolved execution with exact RECAP identities.
+
+    ``expected_receipt_sha256`` is the caller's independent commitment to the
+    outcome ledger being sealed. It is required rather than derived so the
+    same-process boundary cannot be satisfied by a receipt that authenticates
+    only against itself.
+    """
 
     _require_scope_binding_from_execution(full_plan, execution)
     if execution.scope != "full_plan":
@@ -969,7 +1038,10 @@ def seal_document_repair_execution(
             "only a complete full-plan execution may seal the exact-100 successor"
         )
     _require_authenticated_receipt(
-        full_plan=full_plan, execution=execution, receipt=receipt
+        full_plan=full_plan,
+        execution=execution,
+        receipt=receipt,
+        expected_receipt_sha256=expected_receipt_sha256,
     )
     if len(receipt.operation_ledger) != len(execution.operations):
         raise DocumentRepairExecutorError("repair receipt ledger is incomplete")
@@ -1126,12 +1198,27 @@ def _require_authenticated_receipt(
     full_plan: MissingDocumentAcquisitionPlan,
     execution: DocumentRepairExecution,
     receipt: DocumentRepairReceipt,
+    expected_receipt_sha256: str,
 ) -> None:
+    """Authenticate a receipt against an independently supplied digest.
+
+    A self-consistent receipt proves nothing on its own: an in-process holder
+    can rewrite the ledger with ``object.__setattr__`` and recompute
+    ``receipt_sha256`` to match, and the mint token survives that edit because
+    Python cannot make the object immutable. The pin is therefore mandatory at
+    every authentication boundary, so the digest a caller commits to comes
+    from outside the object being checked -- a run card, a journal commitment,
+    or the persisted receipt bytes -- rather than from the object itself.
+    """
+
+    pin = _digest(expected_receipt_sha256, "repair receipt digest")
     if type(receipt) is not DocumentRepairReceipt or not receipt.is_replay_minted():
         raise DocumentRepairExecutorError(
             "repair receipt_sha256 lacks replay-minted authority"
         )
-    if _commit_receipt(receipt.content_record()) != receipt.receipt_sha256:
+    if receipt.receipt_sha256 != pin:
+        raise DocumentRepairExecutorError("repair receipt differs from its pin")
+    if _commit_receipt(receipt.content_record()) != pin:
         raise DocumentRepairExecutorError(
             "repair receipt_sha256 changed after execution"
         )
@@ -1714,10 +1801,30 @@ def _money(value: Decimal) -> str:
     return f"{value:.2f}"
 
 
+def _clearance_record(
+    clearance: tuple[str, bool, bool] | None,
+) -> dict[str, object] | None:
+    if clearance is None:
+        return None
+    status, is_private, is_sealed = clearance
+    return {"status": status, "is_private": is_private, "is_sealed": is_sealed}
+
+
+def _execution_domain(schema_version: object) -> SchemaIdentifier:
+    if not isinstance(schema_version, str):
+        raise DocumentRepairExecutorError("execution schema version is invalid")
+    domain = _EXECUTION_SCHEMA_DOMAINS.get(schema_version)
+    if domain is None:
+        raise DocumentRepairExecutorError(
+            f"unsupported execution schema version: {schema_version}"
+        )
+    return domain
+
+
 def _commit_execution(record: Mapping[str, object]) -> str:
     return str(
         ARTIFACT_RAW_SHA256_V1.commit(
-            record, domain=EXACT100_DOCUMENT_REPAIR_EXECUTION_V1
+            record, domain=_execution_domain(record.get("schema_version"))
         ).digest
     )
 
@@ -1728,6 +1835,9 @@ def _require_replay_minted_execution(execution: DocumentRepairExecution) -> None
         or not execution.is_replay_minted()
     ):
         raise DocumentRepairExecutorError("execution lacks replay-minted authority")
+    # A hand-built object may omit the field entirely; that is still an
+    # unsupported execution version rather than an AttributeError.
+    _execution_domain(getattr(execution, "schema_version", None))
     if _commit_execution(execution.content_record()) != execution.execution_sha256:
         raise DocumentRepairExecutorError("execution changed after resolution")
 

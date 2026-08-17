@@ -43,6 +43,7 @@ from legalforecast.ingestion.free_document_downloader import (
 )
 from legalforecast.ingestion.operative_complaint import (
     OperativeComplaintKind,
+    motion_attacked_entry_numbers,
     select_operative_complaint_document,
     select_operative_complaint_entry,
 )
@@ -2155,12 +2156,19 @@ def _requested_paid_gap_entries(
         base = _paid_gap_reason_base(reason)
         explicit_number = _paid_gap_reason_entry_number(reason)
         if base == "no_free_operative_complaint":
+            attacked = motion_attacked_entry_numbers(
+                numbered_entries.values(),
+                target_entry_numbers=target_numbers,
+            )
             rest_complaint = select_operative_complaint_entry(
                 (web_entry_from_api(entry) for entry in rest_entries),
                 before_entry=min(target_numbers),
+                attacked_entry_numbers=attacked,
             )
             complaint = rest_complaint or select_operative_complaint_entry(
-                numbered_entries.values(), before_entry=min(target_numbers)
+                numbered_entries.values(),
+                before_entry=min(target_numbers),
+                attacked_entry_numbers=attacked,
             )
             if complaint is None:
                 raise CourtListenerCaseDevBridgeError("operative_complaint_not_found")
@@ -2261,6 +2269,10 @@ def _bridge_documents(
         complaint_selection = select_operative_complaint_entry(
             numbered_entries.values(),
             before_entry=min(target_numbers),
+            attacked_entry_numbers=motion_attacked_entry_numbers(
+                numbered_entries.values(),
+                target_entry_numbers=target_numbers,
+            ),
         )
         if complaint_selection is None:
             raise CourtListenerCaseDevBridgeError("operative_complaint_not_found")
