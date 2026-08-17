@@ -48,6 +48,8 @@ from legalforecast.ingestion.stage_a_replay_executor.provider import (
     CanonicalProviderRuntime,
 )
 from legalforecast.ingestion.stage_a_replay_executor.receipts import (
+    OutputClaimSet,
+    acquire_output_claims,
     persist_plan,
     persist_terminal_evidence,
 )
@@ -159,9 +161,11 @@ def execute_stage_a_replay(
             "runtime code commit differs from the code commit in replay-spec",
             failure_type="RuntimeCommitMismatch",
         )
+    code_identity_guard = _runtime_code_identity_guard(parsed)
 
     plan: CandidateScopedStageAPlan | None = None
     plan_persisted = False
+    output_claims: OutputClaimSet | None = None
     execution: CandidateScopedStageAExecution | None = None
     stage_a_receipt: CandidateScopedStageAReceipt | None = None
     lineage: VerifiedReplayLineage | None = None
@@ -213,6 +217,7 @@ def execute_stage_a_replay(
                 "planned rerun candidates differ from signed authorization"
             )
         lineage.require_unchanged()
+        output_claims = acquire_output_claims(parsed)
         persist_plan(parsed, plan)
         plan_persisted = True
         unitizer, reviewer, spend_meter = _callbacks(
@@ -245,6 +250,7 @@ def execute_stage_a_replay(
                 committed_by_call=committed_by_call,
                 invocations=invocations,
                 clock=clock,
+                code_identity_guard=code_identity_guard,
             )
             return outcome
 
@@ -266,6 +272,7 @@ def execute_stage_a_replay(
                 committed_by_call=committed_by_call,
                 invocations=invocations,
                 clock=clock,
+                code_identity_guard=code_identity_guard,
             )
             return outcome
 
@@ -280,6 +287,8 @@ def execute_stage_a_replay(
     except ExecutionHalt as exc:
         halt = {"provider_accessed": provider_accessed(invocations), **exc.evidence}
     except ReplayOutputClaimError:
+        if output_claims is not None:
+            output_claims.release()
         raise
     except (CandidateScopedStageAReplayError, StageAReplayExecutorError) as exc:
         halt = _failure_evidence(
@@ -291,16 +300,20 @@ def execute_stage_a_replay(
         )
     if not plan_persisted:
         plan = None
-    receipt = persist_terminal_evidence(
-        parsed,
-        plan=plan,
-        execution=execution,
-        stage_a_receipt=stage_a_receipt,
-        invocations=invocations,
-        halt_evidence=halt,
-        lineage_evidence=None if lineage is None else lineage.evidence,
-        halted=halt is not None,
-    )
+    try:
+        receipt = persist_terminal_evidence(
+            parsed,
+            plan=plan,
+            execution=execution,
+            stage_a_receipt=stage_a_receipt,
+            invocations=invocations,
+            halt_evidence=halt,
+            lineage_evidence=None if lineage is None else lineage.evidence,
+            halted=halt is not None,
+        )
+    finally:
+        if output_claims is not None:
+            output_claims.release()
     return ReplayExecutionResult(
         spec_sha256=parsed.spec_sha256,
         plan=plan,
@@ -331,6 +344,19 @@ def _callbacks(
         )
     runtime = CanonicalProviderRuntime(spec, lineage)
     return runtime.unitizer, runtime.reviewer, JournalSpendMeter(runtime)
+
+
+def _runtime_code_identity_guard(spec: ReplaySpec) -> Callable[[], None] | None:
+    if spec.synthetic_fixture:
+        return None
+
+    def require_unchanged() -> None:
+        if current_code_commit() != spec.code_commit:
+            raise StageAReplayExecutorError(
+                "runtime code identity changed before provider access"
+            )
+
+    return require_unchanged
 
 
 def _failure_evidence(
