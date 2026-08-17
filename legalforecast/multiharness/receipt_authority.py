@@ -348,6 +348,7 @@ class EvaluatorIssuerAuthority:
         expected_evaluation_attempt_id: str,
         expected_attempt_nonce: str,
         expected_repeat_index: int,
+        expected_media_type: str,
         expected_deliverable_manifest_sha256: str | None = None,
         expected_runtime_policy_sha256: str | None = None,
         seen_measurement_ids: set[str] | None = None,
@@ -356,6 +357,8 @@ class EvaluatorIssuerAuthority:
     ) -> EvaluationReceipt:
         """Verify an exact receipt/result pair against this trusted authority."""
 
+        if not expected_media_type:
+            raise ReceiptAuthorityError("trusted expected media type is required")
         if not receipt.signature:
             raise ReceiptAuthorityError("unsigned evaluator receipt is refused")
         if receipt.issuer_key_id != self.key_id:
@@ -366,7 +369,7 @@ class EvaluatorIssuerAuthority:
             return verify_evaluation_result(
                 receipt,
                 raw_result,
-                expected_media_type=receipt.raw_result_media_type,
+                expected_media_type=expected_media_type,
                 spec=spec,
                 expected_spec_sha256=spec.spec_sha256,
                 expected_deliverable_manifest_sha256=(
