@@ -477,6 +477,7 @@ class ProviderCallIdentity:
     model_registry_sha256: str
     account: str = "default"
     prompt_contract: str | None = None
+    logical_call_scope: str | None = None
 
     @property
     def logical_call_key(self) -> str:
@@ -487,11 +488,21 @@ class ProviderCallIdentity:
             payload = "\0".join(
                 (*parts, "stage-a-prompt-contract", self.prompt_contract)
             )
+        if self.logical_call_scope is not None:
+            payload = "\0".join(
+                (payload, "provider-logical-call-scope", self.logical_call_scope)
+            )
         return hashlib.sha256(payload.encode()).hexdigest()
 
     @property
     def prompt_sha256(self) -> str:
         return hashlib.sha256(self.prompt.encode()).hexdigest()
+
+
+def provider_prompt_logical_call_scope(prompt: str) -> str:
+    """Return the opt-in logical-call scope for one exact provider prompt."""
+
+    return "prompt-sha256:" + hashlib.sha256(prompt.encode()).hexdigest()
 
 
 class ProviderAttemptJournal:

@@ -23,6 +23,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderCallIdentity,
     ProviderJournalError,
     open_provider_journal_snapshot,
+    provider_prompt_logical_call_scope,
     verify_provider_journal_identity,
 )
 
@@ -55,6 +56,7 @@ class StageSpendSnapshot:
     committed_usd: Decimal
     attempt_count: int
     maximum_new_attempts: int
+    logical_call_scope: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,9 +107,17 @@ class JournalSpendMeter:
             committed_usd=committed,
             attempt_count=len(rows),
             maximum_new_attempts=_maximum_new_attempts(rows, stage=stage),
+            logical_call_scope=identity.logical_call_scope,
         )
 
     def after(self, before: StageSpendSnapshot) -> StageSpend:
+        logical_call_scope = None
+        if before.logical_call_scope is not None:
+            logical_call_scope = provider_prompt_logical_call_scope(before.prompt)
+            if before.logical_call_scope != logical_call_scope:
+                raise StageAReplayExecutorError(
+                    "provider logical-call scope differs from the exact prompt"
+                )
         identity = ProviderCallIdentity(
             stage=_base_stage(before.stage),
             candidate_id=before.candidate_id,
@@ -116,6 +126,7 @@ class JournalSpendMeter:
             model_registry_sha256=self.runtime.spec.model_registry_sha256,
             account=before.account,
             prompt_contract=_namespace(before.stage),
+            logical_call_scope=logical_call_scope,
         )
         committed, rows = journal_rows(
             self.runtime.spec.provider_journal_path,
@@ -190,11 +201,13 @@ def _terminal_route_from_rows(
 def _maximum_new_attempts(rows: tuple[Mapping[str, object], ...], *, stage: str) -> int:
     if _terminal_route_from_rows(rows, stage=stage):
         return 0
-    if len(rows) >= 3:
+    if any(row["status"] == "reconstruction_failed" for row in rows):
+        if len(rows) < 3:
+            return 3 - len(rows)
         raise StageAReplayExecutorError(
             f"{stage} provider journal exhausted without a valid terminal route"
         )
-    return 3 - len(rows)
+    return 3
 
 
 def journal_rows(

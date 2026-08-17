@@ -49,6 +49,8 @@ def fixture_lineage(spec: ReplaySpec) -> dict[str, Any]:
         "successor_parser_records": (),
         "successor_markdown_root": Path("/synthetic"),
         "successor_markdown_bytes": {},
+        "unitizer_namespace": "claim-ontology-v5",
+        "reviewer_namespace": "claim-ontology-v4",
         "require_unchanged": lambda: None,
         "evidence": {"synthetic": True},
     }

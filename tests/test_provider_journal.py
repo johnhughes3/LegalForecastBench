@@ -22,6 +22,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderJournalReplayMismatchError,
     load_provider_cycle_caps,
     open_provider_journal_snapshot,
+    provider_prompt_logical_call_scope,
     verify_provider_journal_identity,
 )
 
@@ -42,6 +43,15 @@ def test_provider_call_identity_preserves_legacy_key_and_namespaces_successor() 
         model_registry_sha256=legacy.model_registry_sha256,
         prompt_contract="claim-ontology-v2",
     )
+    prompt_scoped = ProviderCallIdentity(
+        stage=successor.stage,
+        candidate_id=successor.candidate_id,
+        model_key=successor.model_key,
+        prompt=successor.prompt,
+        model_registry_sha256=successor.model_registry_sha256,
+        prompt_contract=successor.prompt_contract,
+        logical_call_scope=provider_prompt_logical_call_scope(successor.prompt),
+    )
 
     assert (
         legacy.logical_call_key
@@ -55,6 +65,17 @@ def test_provider_call_identity_preserves_legacy_key_and_namespaces_successor() 
         ).hexdigest()
     )
     assert successor.logical_call_key != legacy.logical_call_key
+    prompt_scoped_payload = (
+        b"llm-unitize\0cand-1\0anthropic:unitizer\0"
+        b"stage-a-prompt-contract\0claim-ontology-v2\0"
+        b"provider-logical-call-scope\0prompt-sha256:"
+        + hashlib.sha256(b"successor prompt").hexdigest().encode()
+    )
+    assert (
+        prompt_scoped.logical_call_key
+        == hashlib.sha256(prompt_scoped_payload).hexdigest()
+    )
+    assert prompt_scoped.logical_call_key != successor.logical_call_key
 
 
 def test_legacy_and_successor_calls_share_one_cycle_cap(tmp_path: Path) -> None:

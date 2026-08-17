@@ -23,6 +23,9 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
 from legalforecast.ingestion.stage_a_replay_executor.contract import (
     parse_strict_jsonl,
 )
+from legalforecast.ingestion.stage_a_replay_executor.predecessor import (
+    verify_predecessor_run_cards,
+)
 from legalforecast.ingestion.stage_a_replay_executor.repair import (
     verify_repair_receipt,
     verify_repair_scope,
@@ -51,6 +54,8 @@ class VerifiedReplayLineage:
     successor_parser_records: tuple[Mapping[str, Any], ...]
     successor_markdown_root: Path
     successor_markdown_bytes: Mapping[str, bytes] | None
+    unitizer_namespace: str
+    reviewer_namespace: str
     require_unchanged: Callable[[], None]
     evidence: Mapping[str, object]
 
@@ -118,7 +123,6 @@ def _production_lineage(spec: ReplaySpec) -> VerifiedReplayLineage:
         require_stage_a_parse_lineage_unchanged,
         verify_stage_a_packet_authority,
         verify_stage_a_parse_lineage_uncached,
-        verify_stage_a_unitization_run_card,
     )
 
     lineage_record = _mapping(spec.record, "lineage")
@@ -126,18 +130,13 @@ def _production_lineage(spec: ReplaySpec) -> VerifiedReplayLineage:
     successor = _mapping(lineage_record, "successor")
     controlled_root = _optional_path(prior, "controlled_private_root")
     initialization_receipt = _optional_path(prior, "initialization_receipt_path")
-    unitization_card = _path(prior, "unitization_run_card_path")
-    raw_units = _path(prior, "raw_prediction_units_path")
-    unit_audit = _path(prior, "unitization_audit_path")
-    original_review = _path(prior, "original_review_path")
-    predecessor_lineage = verify_stage_a_unitization_run_card(
-        unitization_card,
-        expected_prediction_units_path=raw_units,
-        expected_review_queue_path=original_review,
-        expected_audit_path=unit_audit,
+    predecessor_run_cards = verify_predecessor_run_cards(
+        record=prior,
         controlled_private_root=controlled_root,
         initialization_receipt_path=initialization_receipt,
     )
+    predecessor_lineage = predecessor_run_cards.lineage
+    predecessor_paths = predecessor_run_cards.paths
     if (
         predecessor_lineage.provider_journal_path.resolve()
         != spec.provider_journal_path
@@ -161,18 +160,18 @@ def _production_lineage(spec: ReplaySpec) -> VerifiedReplayLineage:
     stage_a = verify_stage_a_packet_authority(
         selection_records=predecessor_lineage.selection_records,
         parser_records=predecessor_lineage.parser_records,
-        raw_prediction_units_path=raw_units,
-        unitization_audit_path=unit_audit,
-        unitization_run_card_path=unitization_card,
+        raw_prediction_units_path=predecessor_paths.raw_units,
+        unitization_audit_path=predecessor_paths.unitization_audit,
+        unitization_run_card_path=predecessor_paths.unitization_card,
         unitization_provider_journal_path=spec.provider_journal_path,
-        original_review_path=original_review,
-        structural_flags_path=_path(prior, "structural_flags_path"),
-        structural_review_audit_path=_path(prior, "structural_review_audit_path"),
-        structural_review_run_card_path=_path(prior, "structural_review_run_card_path"),
+        original_review_path=predecessor_paths.original_review,
+        structural_flags_path=predecessor_paths.structural_flags,
+        structural_review_audit_path=predecessor_paths.structural_audit,
+        structural_review_run_card_path=predecessor_paths.structural_card,
         structural_review_provider_journal_path=spec.provider_journal_path,
-        structural_review_registry_path=_path(prior, "structural_review_registry_path"),
-        structural_review_model_key=_text(prior, "structural_review_model_key"),
-        merged_review_path=_path(prior, "merged_review_path"),
+        structural_review_registry_path=predecessor_paths.structural_registry,
+        structural_review_model_key=predecessor_paths.structural_model,
+        merged_review_path=predecessor_paths.merged_review,
         finalized_prediction_unit_records=finalized_records,
         finalized_prediction_units_path=finalized_path,
         adjudications_path=_path(prior, "adjudications_path"),
@@ -180,7 +179,7 @@ def _production_lineage(spec: ReplaySpec) -> VerifiedReplayLineage:
         controlled_private_root=controlled_root,
         initialization_receipt_path=initialization_receipt,
     )
-    if _text(prior, "structural_review_model_key") != spec.model_ids["reviewer"]:
+    if predecessor_paths.structural_model != spec.model_ids["reviewer"]:
         raise StageAReplayExecutorError(
             "predecessor Stage A reviewer model differs from replay-spec"
         )
@@ -233,6 +232,7 @@ def _production_lineage(spec: ReplaySpec) -> VerifiedReplayLineage:
     successor_digests = _lineage_component_digests(successor_parse.input_commitments)
 
     def unchanged() -> None:
+        predecessor_run_cards.require_unchanged()
         require_stage_a_lineage_unchanged(predecessor_lineage)
         require_stage_a_parse_lineage_unchanged(successor_parse)
 
@@ -249,6 +249,8 @@ def _production_lineage(spec: ReplaySpec) -> VerifiedReplayLineage:
         successor_parser_records=tuple(successor_parse.parser_records),
         successor_markdown_root=successor_parse.markdown_root,
         successor_markdown_bytes=dict(successor_parse.markdown_bytes),
+        unitizer_namespace=predecessor_run_cards.unitizer_namespace,
+        reviewer_namespace=predecessor_run_cards.reviewer_namespace,
         require_unchanged=unchanged,
         evidence={
             "cycle_root_identity_sha256": _digest(

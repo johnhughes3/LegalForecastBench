@@ -38,6 +38,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderJournalError,
     load_provider_cycle_caps_bytes,
     maximum_call_cost_usd,
+    provider_prompt_logical_call_scope,
 )
 
 
@@ -167,6 +168,7 @@ class CanonicalProviderRuntime:
             model_registry_sha256=self.spec.model_registry_sha256,
             account=account,
             prompt_contract=namespace,
+            logical_call_scope=provider_prompt_logical_call_scope(prompt),
         )
         provider_stage = stage_a_provider_attempt_stage(_base_stage(stage), namespace)
         return identity, entry, account, provider_stage
@@ -202,6 +204,7 @@ class CanonicalProviderRuntime:
                 provider_cycle_caps_sha256=self.spec.provider_caps_sha256,
                 provider_accounts={entry.provider.lower(): account},
                 provider_attempt_namespace=UNITIZER_CONFIG_NAMESPACE,
+                provider_logical_call_scope=identity.logical_call_scope,
             )
         except Exception:
             if not terminal_route_available(
@@ -247,6 +250,7 @@ class CanonicalProviderRuntime:
                 provider_cycle_caps_sha256=self.spec.provider_caps_sha256,
                 provider_accounts={entry.provider.lower(): account},
                 provider_attempt_namespace=REVIEWER_CONFIG_NAMESPACE,
+                provider_logical_call_scope=identity.logical_call_scope,
             )
         except Exception:
             if not terminal_route_available(
@@ -270,6 +274,9 @@ class CanonicalProviderRuntime:
 
         entry = self.unitizer_entry
         account = self.accounts[entry.provider.lower()]
+        identity, _entry, _account, _provider_stage = self.call_identity(
+            request, stage="unitizer", unitize=None
+        )
         escalation = build_llm_stage_a_unitizer_terminal_escalation(
             selection_record=request.packet.selection_record,
             parser_records=self.lineage.successor_parser_records,
@@ -283,6 +290,7 @@ class CanonicalProviderRuntime:
             provider_cycle_caps_sha256=self.spec.provider_caps_sha256,
             provider_account=account,
             provider_attempt_namespace=UNITIZER_CONFIG_NAMESPACE,
+            provider_logical_call_scope=identity.logical_call_scope,
         )
         commitment = self._terminal_commitment(
             request.candidate_id, "unitizer", escalation.to_record()
@@ -301,6 +309,7 @@ class CanonicalProviderRuntime:
             provider_accounts={entry.provider.lower(): account},
             terminal_escalations={request.candidate_id: (escalation, commitment)},
             provider_attempt_namespace=UNITIZER_CONFIG_NAMESPACE,
+            provider_logical_call_scope=identity.logical_call_scope,
         )
         return _outcome(request, result)
 
@@ -316,6 +325,9 @@ class CanonicalProviderRuntime:
 
         entry = self.reviewer_entry
         account = self.accounts[entry.provider.lower()]
+        identity, _entry, _account, _provider_stage = self.call_identity(
+            request, stage="reviewer", unitize=unitize
+        )
         escalation = build_llm_stage_a_structural_review_terminal_escalation(
             selection_record=request.packet.selection_record,
             parser_records=self.lineage.successor_parser_records,
@@ -330,6 +342,7 @@ class CanonicalProviderRuntime:
             provider_cycle_caps_sha256=self.spec.provider_caps_sha256,
             provider_account=account,
             provider_attempt_namespace=REVIEWER_CONFIG_NAMESPACE,
+            provider_logical_call_scope=identity.logical_call_scope,
         )
         commitment = self._terminal_commitment(
             request.candidate_id, "reviewer", escalation.to_record()
@@ -348,6 +361,7 @@ class CanonicalProviderRuntime:
             provider_accounts={entry.provider.lower(): account},
             terminal_escalations={request.candidate_id: (escalation, commitment)},
             provider_attempt_namespace=REVIEWER_CONFIG_NAMESPACE,
+            provider_logical_call_scope=identity.logical_call_scope,
         )
         return _outcome(request, result)
 

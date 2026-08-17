@@ -165,10 +165,26 @@ def execute_stage_a_replay(
     halt: Mapping[str, object] | None = None
     try:
         lineage = verify_replay_lineage(parsed)
+        if lineage.unitizer_namespace != UNITIZER_CONFIG_NAMESPACE:
+            raise ExecutionHalt(
+                {
+                    "status": "halted_on_preflight_failure",
+                    "reason": "predecessor Stage A unitizer namespace is not frozen v5",
+                    "failure_type": "StageAReplayExecutorError",
+                }
+            )
+        if lineage.reviewer_namespace != REVIEWER_CONFIG_NAMESPACE:
+            raise ExecutionHalt(
+                {
+                    "status": "halted_on_preflight_failure",
+                    "reason": "predecessor Stage A reviewer namespace is not frozen v4",
+                    "failure_type": "StageAReplayExecutorError",
+                }
+            )
         predecessor = bind_predecessor_stage_a_lineage(
             candidates=lineage.predecessor,
-            unitizer_namespace=UNITIZER_CONFIG_NAMESPACE,
-            reviewer_namespace=REVIEWER_CONFIG_NAMESPACE,
+            unitizer_namespace=lineage.unitizer_namespace,
+            reviewer_namespace=lineage.reviewer_namespace,
             provider_caps_sha256=parsed.provider_caps_sha256,
             provider_journal_path=parsed.provider_journal_path,
             selection_sha256=lineage.predecessor_selection_sha256,
@@ -181,8 +197,8 @@ def execute_stage_a_replay(
             successor_selection_sha256=lineage.successor_selection_sha256,
             successor_materialization_sha256=lineage.successor_materialization_sha256,
             successor_parser_sha256=lineage.successor_parser_sha256,
-            unitizer_namespace=UNITIZER_CONFIG_NAMESPACE,
-            reviewer_namespace=REVIEWER_CONFIG_NAMESPACE,
+            unitizer_namespace=lineage.unitizer_namespace,
+            reviewer_namespace=lineage.reviewer_namespace,
             provider_caps_sha256=parsed.provider_caps_sha256,
             provider_journal_path=parsed.provider_journal_path,
         )
