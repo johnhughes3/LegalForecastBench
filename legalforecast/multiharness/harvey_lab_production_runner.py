@@ -28,7 +28,7 @@ from typing import cast
 from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
-    harvey_lab_private_material_sha256,
+    harvey_lab_private_material_snapshot,
 )
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
@@ -316,9 +316,11 @@ def _authenticated_criteria(spec: RunSpec) -> tuple[Mapping[str, object], ...]:
             "private task material must be an absolute regular file"
         )
     try:
-        actual_digest = harvey_lab_private_material_sha256(private_path.parent)
-        task = json.loads(private_path.read_bytes())
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        actual_digest, private_files = harvey_lab_private_material_snapshot(
+            private_path.parent
+        )
+        task = json.loads(private_files[private_path.name])
+    except (KeyError, OSError, json.JSONDecodeError, ValueError) as exc:
         raise ProductionEvaluatorRunnerError(
             "private task material is not readable authenticated JSON"
         ) from exc
