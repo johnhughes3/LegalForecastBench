@@ -243,6 +243,7 @@
     "legalforecast/multiharness/local_cli_runtime.py",
     "legalforecast/multiharness/openai_responses.py",
     "legalforecast/multiharness/process_containment.py",
+    "legalforecast/multiharness/tier0_runner.py",
     "scripts/build_release_bundle.py",
     "scripts/dev_check_recovery_vertical_slice.py",
     "scripts/probe_claude_code_native_containment.py",

@@ -509,6 +509,158 @@ class SpendPolicy:
                     f"{ceiling.surface} ceiling is below one worst-case paid request"
                 )
 
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> Self:
+        """Load a policy sidecar without widening the frozen run contracts."""
+
+        if (
+            record.get("schema_version")
+            != "legalforecast.multiharness.spend_ceiling.v1"
+        ):
+            raise SpendConfigurationError("unsupported spend policy schema")
+        required = {
+            "schema_version",
+            "experiment_id",
+            "executable_spec_sha256",
+            "pricing_snapshot_sha256",
+            "experiment",
+            "solver_ceilings",
+            "judge_ceilings",
+        }
+        if set(record) != required:
+            raise SpendConfigurationError(
+                "spend policy contains unknown or missing fields"
+            )
+
+        def mapping(value: object, field_name: str) -> Mapping[str, Any]:
+            if not isinstance(value, Mapping):
+                raise SpendConfigurationError(f"{field_name} must be an object")
+            return cast(Mapping[str, Any], value)
+
+        def ceiling(
+            value: object, field_name: str
+        ) -> SolverCeiling | JudgeCriterionCeiling:
+            item = mapping(value, field_name)
+            invocation = mapping(
+                item.get("invocation_budget"), f"{field_name}.invocation_budget"
+            )
+            allowed_invocation = {
+                "mode",
+                "argument_name",
+                "argument_value_usd",
+                "advertised_budget_usd",
+            }
+            if set(invocation) - allowed_invocation:
+                raise SpendConfigurationError(
+                    f"{field_name}.invocation_budget contains unknown fields"
+                )
+            budget = InvocationBudget(
+                mode=cast(EnforcementMode, _required_str(invocation, "mode")),
+                argument_name=_optional_str(invocation, "argument_name"),
+                argument_value_usd=_optional_str(invocation, "argument_value_usd"),
+                advertised_budget_usd=_optional_str(
+                    invocation, "advertised_budget_usd"
+                ),
+            )
+            common: dict[str, Any] = {
+                "arm_id": _required_str(item, "arm_id"),
+                "provider": _required_str(item, "provider"),
+                "model": _required_str(item, "model"),
+                "max_cost_usd": _required_str(item, "max_cost_usd"),
+                "max_requests": _required_int(item, "max_requests"),
+                "max_retries": _required_int(item, "max_retries"),
+                "max_parallelism": _required_int(item, "max_parallelism"),
+                "max_input_tokens": _required_int(item, "max_input_tokens"),
+                "max_output_tokens": _required_int(item, "max_output_tokens"),
+                "invocation_budget": budget,
+            }
+            surface = _required_str(item, "surface")
+            if surface == "solver":
+                if set(item) != {
+                    "surface",
+                    "arm_id",
+                    "provider",
+                    "model",
+                    "max_cost_usd",
+                    "max_requests",
+                    "max_retries",
+                    "max_parallelism",
+                    "max_input_tokens",
+                    "max_output_tokens",
+                    "invocation_budget",
+                }:
+                    raise SpendConfigurationError(
+                        f"{field_name} contains unknown or missing fields"
+                    )
+                return SolverCeiling(**common)
+            if surface == "judge":
+                if set(item) != {
+                    "surface",
+                    "arm_id",
+                    "criterion_id",
+                    "provider",
+                    "model",
+                    "max_cost_usd",
+                    "max_requests",
+                    "max_retries",
+                    "max_parallelism",
+                    "max_input_tokens",
+                    "max_output_tokens",
+                    "invocation_budget",
+                }:
+                    raise SpendConfigurationError(
+                        f"{field_name} contains unknown or missing fields"
+                    )
+                return JudgeCriterionCeiling(
+                    **common,
+                    criterion_id=_required_str(item, "criterion_id"),
+                )
+            raise SpendConfigurationError(f"{field_name}.surface is unsupported")
+
+        experiment = mapping(record.get("experiment"), "experiment")
+        if set(experiment) != {
+            "max_cost_usd",
+            "max_requests",
+            "max_retries",
+            "max_parallelism",
+        }:
+            raise SpendConfigurationError(
+                "experiment contains unknown or missing fields"
+            )
+        solver_records = record.get("solver_ceilings")
+        judge_records = record.get("judge_ceilings")
+        if not isinstance(solver_records, Sequence) or isinstance(
+            solver_records, str | bytes
+        ):
+            raise SpendConfigurationError("solver_ceilings must be an array")
+        if not isinstance(judge_records, Sequence) or isinstance(
+            judge_records, str | bytes
+        ):
+            raise SpendConfigurationError("judge_ceilings must be an array")
+        solver_values = cast(Sequence[object], solver_records)
+        judge_values = cast(Sequence[object], judge_records)
+        parsed_solver = tuple(
+            cast(SolverCeiling, ceiling(item, f"solver_ceilings[{index}]"))
+            for index, item in enumerate(solver_values)
+        )
+        parsed_judge = tuple(
+            cast(JudgeCriterionCeiling, ceiling(item, f"judge_ceilings[{index}]"))
+            for index, item in enumerate(judge_values)
+        )
+        return cls(
+            experiment_id=_required_str(record, "experiment_id"),
+            executable_spec_sha256=_required_str(record, "executable_spec_sha256"),
+            pricing_snapshot_sha256=_required_str(record, "pricing_snapshot_sha256"),
+            experiment=ExperimentCeiling(
+                max_cost_usd=_required_str(experiment, "max_cost_usd"),
+                max_requests=_required_int(experiment, "max_requests"),
+                max_retries=_required_int(experiment, "max_retries"),
+                max_parallelism=_required_int(experiment, "max_parallelism"),
+            ),
+            solver_ceilings=parsed_solver,
+            judge_ceilings=parsed_judge,
+        )
+
     def solver_for(self, arm_id: str) -> SolverCeiling:
         for ceiling in self.solver_ceilings:
             if ceiling.arm_id == arm_id:
@@ -1078,6 +1230,13 @@ def _required_str(record: Mapping[str, Any], field_name: str) -> str:
 
 def _required_field_str(value: object, field_name: str) -> str:
     if not isinstance(value, str) or not value:
+        raise SpendConfigurationError(f"{field_name} must be a non-empty string")
+    return value
+
+
+def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value is not None and (not isinstance(value, str) or not value):
         raise SpendConfigurationError(f"{field_name} must be a non-empty string")
     return value
 
