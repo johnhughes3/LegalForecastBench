@@ -111,6 +111,16 @@ class HarveyLabProjectionError(ValueError):
     """Raised when LAB tasks cannot be projected without leaking private bytes."""
 
 
+class HarveyLabUnsupportedTaskShapeError(HarveyLabProjectionError):
+    """The upstream task shape is recognized but this contract cannot carry it.
+
+    Distinct from every other projection refusal, which signals tampering,
+    private-material leakage, or a malformed source. This one means the bytes
+    are fine and the *contract* is the limit, so a suite projection may skip
+    the task and report it instead of failing the whole category.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class HarveyLabPin:
     """Pinned upstream identity recorded on a projection manifest."""
@@ -255,6 +265,14 @@ class HarveyLabTaskProjection:
 
 
 @dataclass(frozen=True, slots=True)
+class HarveyLabSkippedTask:
+    """One task a suite projection left out, with the reason it was left out."""
+
+    lab_task_id: str
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class HarveyLabProjectionResult:
     """Suite projection: disjoint roots plus the self-describing index."""
 
@@ -262,6 +280,7 @@ class HarveyLabProjectionResult:
     evaluator_private_root: Path
     manifest: HarveyLabProjectionManifest
     tasks: tuple[HarveyLabTaskProjection, ...]
+    skipped: tuple[HarveyLabSkippedTask, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -361,8 +380,15 @@ def classify_harvey_lab_task(
             ),
         ),
     )
-    instructions = _required_instructions(task_record)
-    expected_deliverable = _required_expected_deliverable(task_record)
+    try:
+        instructions = _required_instructions(task_record)
+        expected_deliverable = _required_expected_deliverable(task_record)
+    except HarveyLabUnsupportedTaskShapeError as exc:
+        # Name the task: an operator projecting a 27-task category otherwise
+        # learns only that *some* task did not fit.
+        raise HarveyLabUnsupportedTaskShapeError(f"{lab_task_id}: {exc}") from exc
+    except HarveyLabProjectionError as exc:
+        raise HarveyLabProjectionError(f"{lab_task_id}: {exc}") from exc
     category = lab_task_id.split("/", 1)[0]
     staging_root = _fresh_root(staging_root, "staging root")
     document_files = _regular_files(documents_dir)
@@ -485,8 +511,15 @@ def project_harvey_lab_suite(
     pin: HarveyLabPin | None = None,
     lab_task_ids: Sequence[str] | None = None,
     limits: MaterializationLimits | None = None,
+    skip_unsupported_tasks: bool = False,
 ) -> HarveyLabProjectionResult:
-    """Project solver-visible LAB bytes into a self-describing folder tree."""
+    """Project solver-visible LAB bytes into a self-describing folder tree.
+
+    With ``skip_unsupported_tasks``, tasks whose upstream shape this contract
+    cannot carry are left out and reported on the result instead of failing the
+    whole projection. Only shape refusals are skippable: tampering, private
+    material in solver bytes, and malformed sources still fail closed.
+    """
 
     source = _existing_directory(source_root, "LAB source root")
     applied_pin = pin or issue_196_pin()
@@ -520,15 +553,27 @@ def project_harvey_lab_suite(
         private = _fresh_root(evaluator_private_root, "evaluator-private root")
         _require_disjoint(solver, private)
         projected_tasks: list[HarveyLabTaskProjection] = []
+        skipped_tasks: list[HarveyLabSkippedTask] = []
         for task_dir in task_dirs:
             lab_task_id = _relative_posix(task_dir, tasks_root)
             staging = solver.parent / f".harvey-lab-staging-{uuid4().hex}"
             try:
-                classified = classify_harvey_lab_task(
-                    task_dir,
-                    lab_root=source,
-                    staging_root=staging,
-                )
+                try:
+                    classified = classify_harvey_lab_task(
+                        task_dir,
+                        lab_root=source,
+                        staging_root=staging,
+                    )
+                except HarveyLabUnsupportedTaskShapeError as exc:
+                    if not skip_unsupported_tasks:
+                        raise
+                    skipped_tasks.append(
+                        HarveyLabSkippedTask(
+                            lab_task_id=lab_task_id,
+                            reason=str(exc).removeprefix(f"{lab_task_id}: "),
+                        )
+                    )
+                    continue
                 solver_dest = solver / "tasks" / lab_task_id
                 private_dest = private / "tasks" / lab_task_id
                 _ensure_parent_directory(solver_dest)
@@ -561,6 +606,12 @@ def project_harvey_lab_suite(
                 )
             finally:
                 _remove_tree(staging)
+        if not projected_tasks:
+            skipped_ids = ", ".join(item.lab_task_id for item in skipped_tasks)
+            raise HarveyLabProjectionError(
+                "no Harvey LAB task in the selection could be projected; "
+                f"every matched task has an unsupported shape: {skipped_ids}"
+            )
         manifest = _write_root_manifest(
             solver,
             pin=applied_pin,
@@ -573,10 +624,29 @@ def project_harvey_lab_suite(
             evaluator_private_root=private,
             manifest=manifest,
             tasks=tuple(projected_tasks),
+            skipped=tuple(skipped_tasks),
         )
     finally:
         if snapshot_root is not None:
             _remove_tree(snapshot_root)
+
+
+def remove_projected_tree(root: Path) -> None:
+    """Remove a projected root, undoing the read-only seal it applied.
+
+    Projected task directories are sealed ``0o555``, so an ordinary recursive
+    delete cannot unlink what is inside them. Without this, recovering from a
+    failed projection needs an undocumented ``chmod -R u+w`` before the retry.
+    """
+
+    if root.is_symlink() or not root.exists():
+        _remove_tree(root)
+        return
+    for path in sorted(root.rglob("*"), reverse=True):
+        if path.is_dir() and not path.is_symlink():
+            path.chmod(0o755)
+    root.chmod(0o755)
+    _remove_tree(root)
 
 
 def load_harvey_lab_projection_manifest(
@@ -871,6 +941,10 @@ def _required_instructions(record: Mapping[str, object]) -> str:
 
 
 def _required_expected_deliverable(record: Mapping[str, object]) -> str:
+    return _supported_deliverable_basename(_declared_deliverable_basename(record))
+
+
+def _declared_deliverable_basename(record: Mapping[str, object]) -> str:
     for field_name in (
         "expected_deliverable",
         "expected_output",
@@ -883,9 +957,62 @@ def _required_expected_deliverable(record: Mapping[str, object]) -> str:
     output = record.get("output")
     if isinstance(output, str) and output.strip():
         return Path(output).name
-    raise HarveyLabProjectionError(
-        "task.json is missing the expected deliverable basename"
-    )
+    return _deliverable_from_upstream_mapping(record)
+
+
+def _supported_deliverable_basename(basename: str) -> str:
+    """Reject deliverable kinds this contract cannot carry, as a task shape.
+
+    ``HarveyLabProjectedTask`` enforces the same ``.docx`` rule, but it does so
+    while building the manifest record, too late to be attributed to a task or
+    skipped. Checking here keeps spreadsheet-deliverable tasks (4 in the pinned
+    corpus) in the same reportable class as the multi-deliverable ones.
+    """
+
+    if not basename.endswith(".docx"):
+        raise HarveyLabUnsupportedTaskShapeError(
+            f"deliverable {basename} is not a .docx; "
+            "this projection carries .docx deliverables only"
+        )
+    return basename
+
+
+def _deliverable_from_upstream_mapping(record: Mapping[str, object]) -> str:
+    """Read the pinned upstream ``deliverables`` mapping (GitHub #842).
+
+    Every task in the pinned corpus declares deliverables as a mapping, never
+    as one of the single-basename fields above, so the singular fields alone
+    project nothing at all. Only the one-entry shape fits this contract's
+    single ``expected_deliverable``; the empty and multi-entry shapes are
+    refused as unsupported *shapes* so a suite projection can name them and
+    move on rather than failing an entire category.
+    """
+
+    deliverables = record.get("deliverables")
+    if not isinstance(deliverables, Mapping):
+        raise HarveyLabUnsupportedTaskShapeError(
+            "task.json declares no deliverable; this projection requires exactly one"
+        )
+    entries = cast(Mapping[str, object], deliverables)
+    if len(entries) != 1:
+        raise HarveyLabUnsupportedTaskShapeError(
+            f"task.json declares {len(entries)} deliverables; "
+            "this projection requires exactly one"
+        )
+    key, value = next(iter(entries.items()))
+    if not isinstance(value, str) or not value.strip():
+        raise HarveyLabProjectionError(
+            "task.json deliverables value must be a non-empty string"
+        )
+    if key != value:
+        # Both halves name the same file everywhere in the pinned corpus.
+        # A disagreement means an unreviewed upstream shape, not a basename
+        # worth guessing at.
+        raise HarveyLabProjectionError(
+            "task.json deliverables key and value disagree; "
+            "refusing to guess the deliverable basename"
+        )
+    return Path(value).name
 
 
 def _is_private_filename(name: str) -> bool:

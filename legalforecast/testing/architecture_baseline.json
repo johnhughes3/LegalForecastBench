@@ -31,6 +31,7 @@
       "tests/test_cli_orchestration.py",
       "tests/test_cohort_document_materializer.py",
       "tests/test_cohort_policy.py",
+      "tests/test_community_lab_quickstart.py",
       "tests/test_community_publication.py",
       "tests/test_community_submission.py",
       "tests/test_corpus_completion_summary_cli.py",
@@ -146,6 +147,7 @@
       "tests/test_cli_orchestration.py",
       "tests/test_cohort_document_materializer.py",
       "tests/test_cohort_policy.py",
+      "tests/test_community_lab_quickstart.py",
       "tests/test_community_publication.py",
       "tests/test_community_submission.py",
       "tests/test_corpus_completion_summary_cli.py",
@@ -2510,6 +2512,7 @@
       "tests/test_cli_orchestration.py",
       "tests/test_cohort_document_materializer.py",
       "tests/test_cohort_policy.py",
+      "tests/test_community_lab_quickstart.py",
       "tests/test_community_publication.py",
       "tests/test_community_submission.py",
       "tests/test_corpus_completion_summary_cli.py",
@@ -2809,6 +2812,7 @@
       "tests/test_cohort_document_materializer.py::legalforecast.cli.main",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.main",
       "tests/test_cohort_policy.py::legalforecast.cli.main",
+      "tests/test_community_lab_quickstart.py::legalforecast.cli.main",
       "tests/test_community_publication.py::legalforecast.cli.main",
       "tests/test_community_submission.py::legalforecast.cli.main",
       "tests/test_corpus_completion_summary_cli.py::legalforecast.cli.main",
@@ -5940,10 +5944,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "load_replay_spec",
-        "largest_symbol_lines": 101,
+        "largest_symbol_lines": 102,
         "layer": "application",
-        "line_count": 505,
-        "nonblank_line_count": 471,
+        "line_count": 506,
+        "nonblank_line_count": 472,
         "top_level_definition_count": 11
       },
       "legalforecast/ingestion/strict_screen_evidence.py": {
@@ -6406,17 +6410,17 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 1,
-        "fan_out": 18,
+        "fan_out": 20,
         "flags": [
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "add_multiharness_parser",
-        "largest_symbol_lines": 281,
+        "largest_symbol_lines": 346,
         "layer": "application",
-        "line_count": 1203,
-        "nonblank_line_count": 1097,
-        "top_level_definition_count": 41
+        "line_count": 1402,
+        "nonblank_line_count": 1288,
+        "top_level_definition_count": 43
       },
       "legalforecast/multiharness/codex_cli.py": {
         "cycle_id": "",
@@ -6610,18 +6614,18 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 6,
+        "fan_in": 8,
         "fan_out": 5,
         "flags": [
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "classify_harvey_lab_task",
-        "largest_symbol_lines": 144,
+        "largest_symbol_lines": 151,
         "layer": "application",
-        "line_count": 1304,
-        "nonblank_line_count": 1158,
-        "top_level_definition_count": 55
+        "line_count": 1431,
+        "nonblank_line_count": 1264,
+        "top_level_definition_count": 61
       },
       "legalforecast/multiharness/identity.py": {
         "cycle_id": "",
@@ -6834,7 +6838,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 34,
+        "fan_in": 35,
         "fan_out": 1,
         "flags": [
           "watch"
@@ -7701,9 +7705,9 @@
         "largest_symbol": "test_reviewer_two_identical_failures_qualify_without_a_third_attempt",
         "largest_symbol_lines": 48,
         "layer": "test",
-        "line_count": 577,
-        "nonblank_line_count": 495,
-        "top_level_definition_count": 20
+        "line_count": 592,
+        "nonblank_line_count": 506,
+        "top_level_definition_count": 21
       },
       "tests/stage_a_replay_executor/test_review_regressions.py": {
         "cycle_id": "",
