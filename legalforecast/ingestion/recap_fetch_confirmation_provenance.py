@@ -177,7 +177,7 @@ def record_confirmation_provenance(
     it can only ever describe a durable billing state, never create one.
     """
 
-    existing = read_confirmation_provenance(
+    existing = _readable_confirmations(
         path, cycle_id=cycle_id, purchase_policy_sha256=purchase_policy_sha256
     )
     existing[provenance.source_document_id] = provenance
@@ -260,7 +260,7 @@ def reconcile_confirmation_provenance(
     making at all.
     """
 
-    recorded = read_confirmation_provenance(
+    recorded = _readable_confirmations(
         path, cycle_id=cycle_id, purchase_policy_sha256=purchase_policy_sha256
     ).get(provenance.source_document_id)
     if recorded is None or recorded.confirmed_response_sha256 != (
@@ -301,7 +301,7 @@ def attach_queue_receipt(
     frozen purchase bytes stay exactly as the confirmation wrote them.
     """
 
-    existing = read_confirmation_provenance(
+    existing = _readable_confirmations(
         path, cycle_id=cycle_id, purchase_policy_sha256=purchase_policy_sha256
     )
     recorded = existing.get(source_document_id)
@@ -329,6 +329,30 @@ def attach_queue_receipt(
         confirmations=existing,
     )
     return True
+
+
+def _readable_confirmations(
+    path: Path,
+    *,
+    cycle_id: str,
+    purchase_policy_sha256: str,
+) -> dict[str, ConfirmationProvenance]:
+    """Read what is preservable before a write, treating rubble as absent.
+
+    Readers of this sidecar fail closed, because reporting a corrupt document
+    as empty would present loss as evidence.  Writers cannot: an unreadable
+    observational file is not preservable, and refusing to write would strand
+    acquisition behind a file that no purchase depends on.  The entries such a
+    document would have held are reconstructible from the journal, so the
+    write path replaces it and lets the backfill refill it.
+    """
+
+    try:
+        return read_confirmation_provenance(
+            path, cycle_id=cycle_id, purchase_policy_sha256=purchase_policy_sha256
+        )
+    except RecapFetchConfirmationProvenanceError:
+        return {}
 
 
 def _provenance_from_record(document_id: str, record: object) -> ConfirmationProvenance:

@@ -44,7 +44,9 @@ Two bindings keep an entry from being read as evidence about something it does n
 - **Row binding.** `confirmed_response_sha256` commits the exact confirmed response the entry annotates. An entry whose digest no longer matches the row in front of the reader is refused rather than reconciled.
 - **Generation binding.** `cycle_id` and `purchase_policy_sha256` bind the whole document to one ledger generation. A document from another generation reads as no observation and is replaced on the next write, so a stale file can never block acquisition.
 
-A present but malformed document — bad JSON, a foreign `kind`, or an entry missing a required field — fails closed, because silently treating it as empty would hide the loss.
+A present but malformed document — bad JSON, a foreign `kind`, or an entry missing a required field — fails closed when read as evidence, because reporting loss as an empty set would present it as a fact.
+
+Writers cannot fail closed on the same input, and should not: an unreadable observational file is not preservable, and refusing to write would strand acquisition behind a file no purchase depends on. The write path replaces the rubble and lets the backfill refill it from the journal.
 
 ## Late queue-receipt attachment
 
@@ -55,5 +57,5 @@ A confirmed row with no sidecar entry is backfilled from its confirmed response 
 ## Operator notes
 
 - The sidecar is private (`0600`) and replaced atomically. It is not an input to any gate, validator, or published artifact.
-- Deleting it loses only the late-attached receipts; the evidence kind is reconstructed on the next run.
+- Deleting or corrupting it loses only the late-attached receipts; the evidence kind is reconstructed on the next run, and no run stops because of it.
 - It belongs to exactly one ledger generation. Re-initializing a ledger at the same path leaves the old sidecar in place until the next confirmation rewrites it.

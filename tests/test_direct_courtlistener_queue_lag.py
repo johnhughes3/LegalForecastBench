@@ -379,6 +379,32 @@ def test_sidecar_from_another_ledger_generation_reads_as_no_observation(
     )
 
 
+def test_a_corrupt_sidecar_is_rebuilt_instead_of_stranding_acquisition(
+    tmp_path: Path,
+) -> None:
+    """No observational file may hold a paid workflow hostage."""
+
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        _purchase_through_queue_lag(journal)
+
+    confirmation_provenance_path(ledger).write_text("{ truncated", encoding="utf-8")
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        attempt = CourtListenerRecapFetchClient(
+            _public_config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport([]),
+            poll_attempts=3,
+            poll_backoff_seconds=0.0,
+        ).execute_one_document("case-1", "123")
+
+    assert attempt.status.value == "purchased"
+    recorded = _sidecar(ledger, policy)["123"]
+    assert recorded.confirmation_evidence == PUBLIC_DOCUMENT_CONFIRMATION
+
+
 def test_a_confirmation_that_was_never_queued_gets_no_entry() -> None:
     """Queue-lag provenance must not invent a record for a non-queued buy."""
 
