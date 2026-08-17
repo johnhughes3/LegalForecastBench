@@ -1215,8 +1215,12 @@ from legalforecast.unitization.review_queue import (
 )
 from legalforecast.unitization.review_queue_generation import (
     ReviewQueueGenerationCommitError,
+    ReviewQueueParentAnchor,
+    open_review_queue_parent_anchor,
     publish_review_queue_generation,
+    read_review_queue_file_safely,
     remove_review_queue_file_durably,
+    require_review_queue_parent_anchor,
     write_review_queue_file_durably,
 )
 from legalforecast.unitization.schemas import (
@@ -63907,60 +63911,43 @@ def _require_stage_a_structural_review_namespace_pair(
         )
 
 
-def _review_queue_publication_lock_path(queue_path: Path) -> Path:
-    queue_path.parent.mkdir(parents=True, exist_ok=True)
-    resolved_parent = queue_path.parent.resolve(strict=True)
-    return resolved_parent / f".{queue_path.name}.publication.lock"
-
-
-def _acquire_review_queue_publication_lock(queue_path: Path) -> int:
+def _acquire_review_queue_publication_lock(
+    queue_path: Path,
+) -> ReviewQueueParentAnchor:
     """Serialize canonical writes, generation commit, and any rollback."""
 
-    lock_path = _review_queue_publication_lock_path(queue_path)
-    no_follow = getattr(os, "O_NOFOLLOW", None)
-    if no_follow is None:
-        raise CommandError("safe review queue publication requires O_NOFOLLOW")
-    flags = os.O_RDWR | os.O_CREAT | no_follow | getattr(os, "O_CLOEXEC", 0)
     try:
-        lock_fd = os.open(lock_path, flags, 0o600)
-    except OSError as exc:
+        queue_path.parent.mkdir(parents=True, exist_ok=True)
+        parent_anchor = open_review_queue_parent_anchor(queue_path)
+    except (OSError, ReviewQueueError) as exc:
         raise CommandError(
-            f"review queue publication lock must be a regular file: {lock_path}"
+            f"cannot anchor the Stage A review queue parent: {exc}"
         ) from exc
     try:
-        initial = os.fstat(lock_fd)
-        if not stat.S_ISREG(initial.st_mode) or initial.st_nlink != 1:
-            raise CommandError(
-                "review queue publication lock must be a singly linked regular "
-                f"file: {lock_path}"
-            )
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        locked = os.fstat(lock_fd)
-        named = lock_path.lstat()
-        if (
-            not stat.S_ISREG(locked.st_mode)
-            or locked.st_nlink != 1
-            or not stat.S_ISREG(named.st_mode)
-            or named.st_nlink != 1
-            or (locked.st_dev, locked.st_ino) != (named.st_dev, named.st_ino)
-        ):
-            raise CommandError(
-                f"review queue publication lock changed while acquiring it: {lock_path}"
-            )
-        return lock_fd
-    except BaseException:
+        # Lock the directory inode itself: every process or mount namespace
+        # exposing this queue shares the same lock, regardless of TMPDIR.
+        fcntl.flock(parent_anchor.descriptor, fcntl.LOCK_EX)
+        require_review_queue_parent_anchor(queue_path, parent_anchor)
+        return parent_anchor
+    except BaseException as exc:
         try:
-            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            fcntl.flock(parent_anchor.descriptor, fcntl.LOCK_UN)
         finally:
-            os.close(lock_fd)
+            os.close(parent_anchor.descriptor)
+        if isinstance(exc, (OSError, ReviewQueueError)):
+            raise CommandError(
+                "review queue directory changed while acquiring its publication lock"
+            ) from exc
         raise
 
 
-def _release_review_queue_publication_lock(lock_fd: int) -> None:
+def _release_review_queue_publication_lock(
+    parent_anchor: ReviewQueueParentAnchor,
+) -> None:
     try:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        fcntl.flock(parent_anchor.descriptor, fcntl.LOCK_UN)
     finally:
-        os.close(lock_fd)
+        os.close(parent_anchor.descriptor)
 
 
 def publish_stage_a_review_queue(
@@ -63968,15 +63955,20 @@ def publish_stage_a_review_queue(
 ) -> None:
     """Publish one queue pair while holding its cross-process transaction lock."""
 
-    lock_fd = _acquire_review_queue_publication_lock(queue_path)
+    parent_anchor = _acquire_review_queue_publication_lock(queue_path)
     try:
-        _publish_stage_a_review_queue_locked(queue_path, v1_records)
+        _publish_stage_a_review_queue_locked(
+            queue_path, v1_records, parent_anchor=parent_anchor
+        )
     finally:
-        _release_review_queue_publication_lock(lock_fd)
+        _release_review_queue_publication_lock(parent_anchor)
 
 
 def _publish_stage_a_review_queue_locked(
-    queue_path: Path, v1_records: Iterable[Mapping[str, Any]]
+    queue_path: Path,
+    v1_records: Iterable[Mapping[str, Any]],
+    *,
+    parent_anchor: ReviewQueueParentAnchor,
 ) -> None:
     """Validate and publish the frozen v1 queue and observational v2 sidecar.
 
@@ -64009,8 +64001,10 @@ def _publish_stage_a_review_queue_locked(
     prior_payloads: dict[Path, bytes | None] = {}
     try:
         for path in (queue_path, sidecar_path):
-            prior_payloads[path] = path.read_bytes() if path.exists() else None
-    except OSError as exc:
+            prior_payloads[path] = read_review_queue_file_safely(
+                path, parent_anchor=parent_anchor
+            )
+    except (OSError, ReviewQueueError) as exc:
         raise CommandError(f"cannot snapshot the Stage A review queue: {exc}") from exc
 
     def rollback_canonical_pair() -> list[str]:
@@ -64018,16 +64012,29 @@ def _publish_stage_a_review_queue_locked(
         for path, payload in prior_payloads.items():
             try:
                 if payload is None:
-                    remove_review_queue_file_durably(path)
+                    remove_review_queue_file_durably(
+                        path,
+                        parent_anchor=parent_anchor,
+                        verify_parent_path=False,
+                    )
                 else:
-                    write_review_queue_file_durably(path, payload)
+                    write_review_queue_file_durably(
+                        path,
+                        payload,
+                        parent_anchor=parent_anchor,
+                        verify_parent_path=False,
+                    )
             except (OSError, ReviewQueueError) as rollback_exc:
                 rollback_errors.append(f"{path}: {rollback_exc}")
         return rollback_errors
 
     try:
-        write_review_queue_file_durably(queue_path, v1_bytes)
-        write_review_queue_file_durably(sidecar_path, v2_bytes)
+        write_review_queue_file_durably(
+            queue_path, v1_bytes, parent_anchor=parent_anchor
+        )
+        write_review_queue_file_durably(
+            sidecar_path, v2_bytes, parent_anchor=parent_anchor
+        )
     except (OSError, ReviewQueueError) as exc:
         rollback_errors = rollback_canonical_pair()
         detail = f"cannot publish the Stage A review queue: {exc}"
@@ -64039,6 +64046,7 @@ def _publish_stage_a_review_queue_locked(
             queue_path,
             v1_bytes=v1_bytes,
             v2_bytes=v2_bytes,
+            parent_anchor=parent_anchor,
         )
     except ReviewQueueGenerationCommitError as exc:
         raise CommandError(
