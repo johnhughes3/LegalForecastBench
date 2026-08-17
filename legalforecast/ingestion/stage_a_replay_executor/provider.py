@@ -94,10 +94,11 @@ class CanonicalProviderRuntime:
                     f"{stage} model entry differs from replay-spec"
                 )
         accounts = _mapping(provider, "provider_accounts")
-        self.accounts = {
-            entry.provider.lower(): _text(accounts, entry.provider.lower())
-            for entry in (self.unitizer_entry, self.reviewer_entry)
-        }
+        self.accounts = _validated_provider_accounts(
+            accounts,
+            (self.unitizer_entry, self.reviewer_entry),
+            self.caps.account,
+        )
         self.provider_caps_usd = {
             name: self.caps.cap_usd(name) for name in self.caps.providers
         }
@@ -403,6 +404,31 @@ def _registry_entry(registry: ModelRegistry, key: str) -> ModelRegistryEntry:
         raise StageAReplayExecutorError(
             f"model id is absent from pinned registry: {key}"
         ) from exc
+
+
+def _validated_provider_accounts(
+    accounts: Mapping[str, object],
+    entries: Sequence[ModelRegistryEntry],
+    caps_account: Any,
+) -> dict[str, str]:
+    used_providers = {entry.provider.lower() for entry in entries}
+    if set(accounts) != used_providers:
+        raise StageAReplayExecutorError(
+            "provider accounts must exactly cover frozen model providers"
+        )
+    validated: dict[str, str] = {}
+    for provider_name in sorted(used_providers):
+        alias = _text(accounts, provider_name)
+        try:
+            canonical_alias = caps_account(provider_name)
+        except ProviderJournalError as exc:
+            raise StageAReplayExecutorError(str(exc)) from exc
+        if alias != canonical_alias:
+            raise StageAReplayExecutorError(
+                f"provider account alias differs from pinned caps: {provider_name}"
+            )
+        validated[provider_name] = alias
+    return validated
 
 
 def _read_regular(path: Path, label: str) -> bytes:

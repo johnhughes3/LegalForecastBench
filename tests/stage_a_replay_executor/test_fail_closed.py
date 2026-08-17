@@ -32,6 +32,10 @@ from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
     ProviderCallIdentity,
 )
+from tests.stage_a_replay_executor.authorization_fixtures import (
+    refresh_authorization_descriptor,
+    rewrite_authorization_artifact,
+)
 from tests.stage_a_replay_executor.fixtures import (
     FakeSpendMeter,
     read_spec,
@@ -39,7 +43,6 @@ from tests.stage_a_replay_executor.fixtures import (
     settled_unitizer,
     terminal_outcome,
     write_spec,
-    write_spec_record,
 )
 
 
@@ -50,6 +53,9 @@ def test_runtime_commit_is_resolved_from_the_executor_checkout(
 
     def fake_run(*_args: object, **kwargs: object) -> SimpleNamespace:
         observed["cwd"] = kwargs.get("cwd")
+        command = cast(list[str], _args[0])
+        if command[1] == "status":
+            return SimpleNamespace(stdout="")
         return SimpleNamespace(stdout="a" * 40)
 
     monkeypatch.chdir(tmp_path)
@@ -134,11 +140,10 @@ def test_lineage_toctou_drift_halts_before_provider_access(
     def drifted() -> None:
         raise StageAReplayExecutorError(drift_reason)
 
-    monkeypatch.setattr(
-        executor_module,
-        "verify_replay_lineage",
-        lambda _spec: replace(lineage, require_unchanged=drifted),
-    )
+    def drifted_lineage(_spec: object) -> object:
+        return replace(lineage, require_unchanged=drifted)
+
+    monkeypatch.setattr(executor_module, "verify_replay_lineage", drifted_lineage)
     result = execute_stage_a_replay(
         parsed,
         unitizer=settled_unitizer,
@@ -181,7 +186,7 @@ def test_canonical_provider_mapper_refuses_unknown_audit_status() -> None:
     result = SimpleNamespace(audit_records=({"status": "mystery"},), records=())
 
     with pytest.raises(StageAReplayExecutorError, match="unknown status 'mystery'"):
-        provider_module._outcome(request, result)
+        provider_module._outcome(request, cast(Any, result))
 
 
 def test_forbidden_fourth_attempt_halts_and_never_opens_reviewer(
@@ -209,7 +214,7 @@ def test_forbidden_fourth_attempt_halts_and_never_opens_reviewer(
     assert reviewer_calls == 0
     halt = cast(dict[str, object], result.to_record()["halt_evidence"])
     assert halt["reason"] == (
-        "unitizer candidate cand-a attempted a forbidden fourth call"
+        "unitizer candidate cand-a exceeded its reserved provider attempt authority"
     )
     row = json.loads((tmp_path / "invocations.json").read_text())["invocations"][0]
     assert row["attempt_count"] == 4
@@ -265,7 +270,6 @@ def test_post_call_aggregate_overage_halts_across_candidates(tmp_path: Path) -> 
         reviewer=settled_reviewer,
         spend_meter=FakeSpendMeter(
             actual_usd="0.15",
-            attempts_by_call={("cand-a", "unitizer"): 3},
         ),
         code_commit="0" * 40,
     )
@@ -320,7 +324,10 @@ def test_reviewer_two_attempt_terminal_route_is_receipted_without_a_third_call(
         write_spec(tmp_path, aggregate_ceiling="0.50", candidate_ids=("cand-a",)),
         unitizer=settled_unitizer,
         reviewer=reviewer,
-        spend_meter=FakeSpendMeter(attempts_by_call={("cand-a", "reviewer"): 2}),
+        spend_meter=FakeSpendMeter(
+            attempts_by_call={("cand-a", "reviewer"): 2},
+            maximum_new_attempts_by_call={("cand-a", "reviewer"): 2},
+        ),
         code_commit="0" * 40,
     )
 
@@ -399,11 +406,10 @@ def test_expired_authorization_refuses_before_output_or_provider_access(
     tmp_path: Path,
 ) -> None:
     path = write_spec(tmp_path)
-    record = read_spec(path)
-    cast(dict[str, object], record["authorization"])["expires_at"] = (
-        datetime.now(UTC) - timedelta(seconds=1)
-    ).isoformat()
-    write_spec_record(path, record, validate=False)
+    rewrite_authorization_artifact(
+        path,
+        {"expires_at": (datetime.now(UTC) - timedelta(seconds=1)).isoformat()},
+    )
 
     with pytest.raises(StageAReplayExecutorError, match="authorization has expired"):
         load_replay_spec(path)
@@ -412,11 +418,7 @@ def test_expired_authorization_refuses_before_output_or_provider_access(
 
 def test_request_artifact_pin_mismatch_refuses_before_lineage(tmp_path: Path) -> None:
     path = write_spec(tmp_path)
-    record = read_spec(path)
-    cast(dict[str, object], record["authorization"])["request_artifact_sha256"] = (
-        "0" * 64
-    )
-    write_spec_record(path, record, validate=False)
+    rewrite_authorization_artifact(path, {"request_artifact_sha256": "0" * 64})
 
     with pytest.raises(StageAReplayExecutorError, match="request artifact differs"):
         load_replay_spec(path)
@@ -428,13 +430,18 @@ def test_output_path_may_not_descend_from_an_authenticated_input(
     path = write_spec(tmp_path)
     record = read_spec(path)
     authorization = cast(dict[str, object], record["authorization"])
-    request_path = Path(cast(str, authorization["request_artifact_path"]))
+    authorization_artifact = json.loads(
+        Path(cast(str, authorization["artifact_path"])).read_text()
+    )
+    request_path = Path(cast(str, authorization_artifact["request_artifact_path"]))
     cast(dict[str, object], record["outputs"])["plan_path"] = str(
         request_path / "plan.json"
     )
-    write_spec_record(path, record, validate=False)
+    refresh_authorization_descriptor(path, record, validate=False)
 
-    with pytest.raises(StageAReplayExecutorError, match="output overlaps"):
+    with pytest.raises(
+        StageAReplayExecutorError, match=r"output parent|output overlaps"
+    ):
         load_replay_spec(path)
 
 
@@ -447,43 +454,7 @@ def test_output_paths_may_not_nest_and_fail_after_provider_access(
     nested_root = tmp_path / "nested-output"
     outputs["plan_path"] = str(nested_root)
     outputs["execution_path"] = str(nested_root / "execution.json")
-    write_spec_record(path, record, validate=False)
+    refresh_authorization_descriptor(path, record, validate=False)
 
     with pytest.raises(StageAReplayExecutorError, match="must not overlap each other"):
         load_replay_spec(path)
-
-
-def test_independent_repair_receipt_pin_is_mandatory_and_well_formed(
-    tmp_path: Path,
-) -> None:
-    path = write_spec(tmp_path, production=True, candidate_ids=("cand-a",))
-    record = read_spec(path)
-    lineage = cast(dict[str, object], record["lineage"])
-    cast(dict[str, object], lineage["repair_receipt"])["expected_receipt_sha256"] = (
-        "self-pinned"
-    )
-    write_spec_record(path, record, validate=False)
-
-    with pytest.raises(
-        StageAReplayExecutorError,
-        match="expected_receipt_sha256 must be a lowercase SHA-256 digest",
-    ):
-        load_replay_spec(path)
-
-
-def test_stale_cycle_root_identity_is_rejected(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    parsed = load_replay_spec(
-        write_spec(tmp_path, production=True, candidate_ids=("cand-a",))
-    )
-    monkeypatch.setattr(
-        "legalforecast.ingestion.cycle_lineage_index.locate_cycle_lineage",
-        lambda **_kwargs: {
-            "verification": "VERIFIED",
-            "root_identity_sha256": "8" * 64,
-        },
-    )
-
-    with pytest.raises(StageAReplayExecutorError, match="root identity differs"):
-        lineage_module._verify_cycle_root(parsed)

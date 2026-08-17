@@ -8,11 +8,16 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
     CandidateScopedStageARerunRequest,
     StageAStageOutcome,
+)
+from legalforecast.ingestion.stage_a_replay_executor.contract import (
+    AUTHORIZATION_SCHEMA_VERSION,
+    AUTHORIZATION_SIGNATURE_NAMESPACE,
 )
 from legalforecast.ingestion.stage_a_replay_executor.executor import (
     REPLAY_SPEC_SCHEMA_VERSION,
@@ -38,11 +43,17 @@ class FakeSpendMeter:
         actual_usd: str = "0.10",
         actual_by_call: Mapping[tuple[str, str], str] | None = None,
         attempts_by_call: Mapping[tuple[str, str], int] | None = None,
+        preexisting_attempts_by_call: Mapping[tuple[str, str], int] | None = None,
+        preexisting_committed_by_call: Mapping[tuple[str, str], str] | None = None,
+        maximum_new_attempts_by_call: Mapping[tuple[str, str], int] | None = None,
         after_error: Exception | None = None,
     ) -> None:
         self.actual_usd = actual_usd
         self.actual_by_call = dict(actual_by_call or {})
         self.attempts_by_call = dict(attempts_by_call or {})
+        self.preexisting_attempts_by_call = dict(preexisting_attempts_by_call or {})
+        self.preexisting_committed_by_call = dict(preexisting_committed_by_call or {})
+        self.maximum_new_attempts_by_call = dict(maximum_new_attempts_by_call or {})
         self.after_error = after_error
         self.attempts: dict[tuple[str, str], int] = {}
 
@@ -55,8 +66,14 @@ class FakeSpendMeter:
     ) -> StageSpendSnapshot:
         del unitize
         key = (request.candidate_id, stage)
-        attempt_count = self.attempts.get(key, 0)
+        prior_attempts = self.preexisting_attempts_by_call.get(key, 0)
+        attempt_count = prior_attempts + self.attempts.get(key, 0)
         actual = Decimal(self.actual_by_call.get(key, self.actual_usd))
+        committed = Decimal(
+            self.preexisting_committed_by_call.get(
+                key, format(actual * prior_attempts, "f")
+            )
+        ) + actual * self.attempts.get(key, 0)
         return StageSpendSnapshot(
             logical_call_key=f"fixture:{request.candidate_id}:{stage}",
             provider_stage=f"fixture:{stage}",
@@ -67,8 +84,9 @@ class FakeSpendMeter:
             account="fixture",
             prompt=f"prompt:{request.candidate_id}:{stage}",
             prompt_sha256="f" * 64,
-            committed_usd=actual * attempt_count,
+            committed_usd=committed,
             attempt_count=attempt_count,
+            maximum_new_attempts=self.maximum_new_attempts_by_call.get(key, 1),
         )
 
     def after(self, before: StageSpendSnapshot) -> StageSpend:
@@ -77,7 +95,7 @@ class FakeSpendMeter:
         key = (before.candidate_id, before.stage)
         new_attempts = self.attempts_by_call.get(key, 1)
         attempt_count = before.attempt_count + new_attempts
-        self.attempts[key] = attempt_count
+        self.attempts[key] = self.attempts.get(key, 0) + new_attempts
         actual = Decimal(self.actual_by_call.get(key, self.actual_usd))
         return StageSpend(
             actual_usd=actual,
@@ -193,19 +211,7 @@ def write_spec(
     )
     record: dict[str, object] = {
         "schema_version": REPLAY_SPEC_SCHEMA_VERSION,
-        "authorization": {
-            "request_artifact_path": str(request.resolve()),
-            "request_artifact_sha256": hashlib.sha256(request.read_bytes()).hexdigest(),
-            "approval_text": approval_text,
-            "approval_sha256": hashlib.sha256(approval_text.encode()).hexdigest(),
-            "signature": "John Hughes" if production else "synthetic:true",
-            "expires_at": (
-                expires_at or datetime.now(UTC) + timedelta(days=1)
-            ).isoformat(),
-            "candidate_ids": list(candidate_ids),
-            "estimated_cost_usd": aggregate_ceiling,
-            "hard_ceiling_usd": aggregate_ceiling,
-        },
+        "authorization": {},
         "candidate_ids": list(candidate_ids),
         "lineage": (
             _production_lineage(root)
@@ -245,13 +251,43 @@ def write_spec(
         },
         "code_commit": code_commit,
     }
-    return write_spec_record(root / "replay.json", record)
+    descriptor = replay_descriptor(record)
+    authorization_artifact = {
+        "schema_version": AUTHORIZATION_SCHEMA_VERSION,
+        "request_artifact_path": str(request.resolve()),
+        "request_artifact_sha256": hashlib.sha256(request.read_bytes()).hexdigest(),
+        "approval_text": approval_text,
+        "expires_at": (expires_at or datetime.now(UTC) + timedelta(days=1)).isoformat(),
+        "candidate_ids": list(candidate_ids),
+        "estimated_cost_usd": aggregate_ceiling,
+        "hard_ceiling_usd": aggregate_ceiling,
+        "replay_descriptor_sha256": record_sha256(descriptor),
+    }
+    approval_path = root / "authorization.json"
+    approval_path.write_bytes(ARTIFACT_CANONICAL_JSON_V1.encode(authorization_artifact))
+    signature_path = root / "authorization.json.sig"
+    if production:
+        signature_path.write_bytes(b"synthetic invalid SSHSIG fixture\n")
+    record["authorization"] = {
+        "mode": "git_allowed_signers_sshsig" if production else "synthetic_fixture",
+        "artifact_path": str(approval_path.resolve()),
+        "artifact_sha256": hashlib.sha256(approval_path.read_bytes()).hexdigest(),
+        "signature_path": str(signature_path.resolve()) if production else None,
+        "signature_sha256": (
+            hashlib.sha256(signature_path.read_bytes()).hexdigest()
+            if production
+            else None
+        ),
+        "signature_namespace": AUTHORIZATION_SIGNATURE_NAMESPACE,
+        "signer_principal": "owner@example.invalid" if production else "synthetic:true",
+    }
+    return write_spec_record(root / "replay.json", record, validate=not production)
 
 
 def read_spec(path: Path) -> dict[str, object]:
-    value = json.loads(path.read_text())
+    value: object = json.loads(path.read_text())
     assert isinstance(value, dict)
-    return value
+    return cast(dict[str, object], value)
 
 
 def write_spec_record(
@@ -267,6 +303,24 @@ def write_spec_record(
 
 def record_sha256(record: object) -> str:
     return hashlib.sha256(ARTIFACT_CANONICAL_JSON_V1.encode(record)).hexdigest()
+
+
+def replay_descriptor(record: Mapping[str, object]) -> dict[str, object]:
+    """Return the exact spec fields committed by the signed authorization."""
+
+    return {
+        name: record[name]
+        for name in (
+            "schema_version",
+            "candidate_ids",
+            "lineage",
+            "configuration",
+            "spend",
+            "provider",
+            "outputs",
+            "code_commit",
+        )
+    }
 
 
 def configuration(stage: str, namespace: str) -> dict[str, object]:

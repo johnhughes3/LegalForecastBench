@@ -27,6 +27,9 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
     run_candidate_scoped_stage_a_replay,
     seal_candidate_scoped_stage_a_replay,
 )
+from legalforecast.ingestion.stage_a_replay_executor.contract import (
+    ReplayOutputClaimError,
+)
 from legalforecast.ingestion.stage_a_replay_executor.guard import (
     ExecutionHalt,
     SpendMeter,
@@ -84,6 +87,17 @@ def current_code_commit(*, cwd: Path | None = None) -> str:
 
     checkout = cwd or repository_root()
     try:
+        status = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+            cwd=checkout,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        if status.stdout:
+            raise StageAReplayExecutorError(
+                "runtime checkout is dirty; code commit cannot identify execution bytes"
+            )
         completed = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             cwd=checkout,
@@ -91,6 +105,8 @@ def current_code_commit(*, cwd: Path | None = None) -> str:
             capture_output=True,
             text=True,
         )
+    except StageAReplayExecutorError:
+        raise
     except (OSError, subprocess.CalledProcessError) as exc:
         raise StageAReplayExecutorError(
             "cannot resolve the runtime code commit for replay receipt"
@@ -111,7 +127,7 @@ def execute_canonical_stage_a_replay(path: str | Path) -> ReplayExecutionResult:
         raise StageAReplayExecutorError(
             "production replay-stage-a refuses synthetic fixture authority"
         )
-    return execute_stage_a_replay(spec, code_commit=current_code_commit())
+    return execute_stage_a_replay(spec)
 
 
 def execute_stage_a_replay(
@@ -126,6 +142,12 @@ def execute_stage_a_replay(
     """Preflight, execute once, and persist terminal evidence for every outcome."""
 
     parsed = spec if isinstance(spec, ReplaySpec) else load_replay_spec(spec)
+    if not parsed.synthetic_fixture and code_commit is not None:
+        return _preflight_halt(
+            parsed,
+            "production execution forbids a caller-supplied code commit",
+            failure_type="ProductionCodeCommitOverride",
+        )
     runtime_commit = code_commit or current_code_commit()
     if runtime_commit != parsed.code_commit:
         return _preflight_halt(
@@ -181,6 +203,7 @@ def execute_stage_a_replay(
             spend_meter=spend_meter,
         )
         aggregate_spent = Decimal("0")
+        committed_by_call: dict[str, Decimal] = {}
         spent_by_candidate = {
             candidate_id: Decimal("0") for candidate_id in parsed.candidate_ids
         }
@@ -199,6 +222,7 @@ def execute_stage_a_replay(
                 lineage=lineage,
                 spent_by_candidate=spent_by_candidate,
                 aggregate_spent=aggregate_spent,
+                committed_by_call=committed_by_call,
                 invocations=invocations,
                 clock=clock,
             )
@@ -219,6 +243,7 @@ def execute_stage_a_replay(
                 lineage=lineage,
                 spent_by_candidate=spent_by_candidate,
                 aggregate_spent=aggregate_spent,
+                committed_by_call=committed_by_call,
                 invocations=invocations,
                 clock=clock,
             )
@@ -234,6 +259,8 @@ def execute_stage_a_replay(
         stage_a_receipt = seal_candidate_scoped_stage_a_replay(plan, execution)
     except ExecutionHalt as exc:
         halt = {"provider_accessed": provider_accessed(invocations), **exc.evidence}
+    except ReplayOutputClaimError:
+        raise
     except (CandidateScopedStageAReplayError, StageAReplayExecutorError) as exc:
         halt = _failure_evidence(
             "halted_on_validation_failure", exc, invocations=invocations

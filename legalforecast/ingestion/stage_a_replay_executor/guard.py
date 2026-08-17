@@ -59,34 +59,55 @@ def guarded_callback(
     lineage: VerifiedReplayLineage,
     spent_by_candidate: dict[str, Decimal],
     aggregate_spent: Decimal,
+    committed_by_call: dict[str, Decimal],
     invocations: list[dict[str, object]],
     clock: Callable[[], float] | None,
 ) -> tuple[StageAStageOutcome, Decimal]:
     if callback is None or meter is None:
         raise StageAReplayExecutorError("provider callback is unavailable")
     candidate_id = request.candidate_id
-    reservation = spec.invocation_reservations_usd[stage]
+    per_attempt_reservation = spec.invocation_reservations_usd[stage]
     candidate_spent = spent_by_candidate[candidate_id]
-    if aggregate_spent + reservation > spec.aggregate_ceiling_usd:
+    lineage.require_unchanged()
+    before = meter.before(request, stage=stage, unitize=unitize)
+    lineage.require_unchanged()
+    accounted_commitment = committed_by_call.get(before.logical_call_key, Decimal("0"))
+    if accounted_commitment > before.committed_usd:
+        raise StageAReplayExecutorError(
+            "provider journal commitment moved backwards for an accounted call"
+        )
+    prior_committed = before.committed_usd - accounted_commitment
+    candidate_spent += prior_committed
+    aggregate_spent += prior_committed
+    reserved_authority = per_attempt_reservation * before.maximum_new_attempts
+    if aggregate_spent + reserved_authority > spec.aggregate_ceiling_usd:
         raise _ceiling_halt(
             spec,
             request,
             stage=stage,
-            reservation=reservation,
+            per_attempt_reservation=per_attempt_reservation,
+            reserved_authority=reserved_authority,
+            before=before,
+            prior_committed=prior_committed,
             reason="aggregate",
             invocations=invocations,
         )
-    if candidate_spent + reservation > spec.per_candidate_ceiling_usd[candidate_id]:
+    if (
+        candidate_spent + reserved_authority
+        > spec.per_candidate_ceiling_usd[candidate_id]
+    ):
         raise _ceiling_halt(
             spec,
             request,
             stage=stage,
-            reservation=reservation,
+            per_attempt_reservation=per_attempt_reservation,
+            reserved_authority=reserved_authority,
+            before=before,
+            prior_committed=prior_committed,
             reason="per-candidate",
             invocations=invocations,
         )
-    lineage.require_unchanged()
-    before = meter.before(request, stage=stage, unitize=unitize)
+    committed_by_call[before.logical_call_key] = before.committed_usd
     started = clock() if clock is not None else None
     outcome: StageAStageOutcome | None = None
     callback_error: Exception | None = None
@@ -115,7 +136,9 @@ def guarded_callback(
                 spec,
                 request,
                 stage=stage,
-                reservation=reservation,
+                per_attempt_reservation=per_attempt_reservation,
+                reserved_authority=reserved_authority,
+                prior_committed=prior_committed,
                 spend=None,
                 before=before,
                 status="halted",
@@ -134,12 +157,18 @@ def guarded_callback(
             }
         ) from meter_error
 
+    committed_by_call[before.logical_call_key] = before.committed_usd + spend.actual_usd
     new_candidate_spent = candidate_spent + spend.actual_usd
     new_aggregate_spent = aggregate_spent + spend.actual_usd
     status = "failed" if outcome is None else outcome.status
     reason: str | None = None
     if callback_error is not None:
         reason = f"{stage} provider callback failed: {callback_error}"
+    elif spend.new_attempt_count > before.maximum_new_attempts:
+        reason = (
+            f"{stage} candidate {candidate_id} exceeded its reserved provider "
+            "attempt authority"
+        )
     elif spend.attempt_count > 3:
         reason = f"{stage} candidate {candidate_id} attempted a forbidden fourth call"
     elif outcome is not None and outcome.status == "unknown":
@@ -156,7 +185,9 @@ def guarded_callback(
             spec,
             request,
             stage=stage,
-            reservation=reservation,
+            per_attempt_reservation=per_attempt_reservation,
+            reserved_authority=reserved_authority,
+            prior_committed=prior_committed,
             spend=spend,
             before=before,
             status="halted" if reason is not None else status,
@@ -204,7 +235,9 @@ def invocation_record(
     request: CandidateScopedStageARerunRequest,
     *,
     stage: str,
-    reservation: Decimal,
+    per_attempt_reservation: Decimal,
+    reserved_authority: Decimal,
+    prior_committed: Decimal,
     spend: StageSpend | None,
     before: StageSpendSnapshot | None = None,
     status: str,
@@ -219,10 +252,19 @@ def invocation_record(
         "config_sha256": spec.config_hashes[stage],
         "model_id": spec.model_ids[stage],
         "request_sha256": request.request_sha256,
-        "reservation_usd": format(reservation, "f"),
+        "reservation_usd": format(per_attempt_reservation, "f"),
+        "reserved_authority_usd": format(reserved_authority, "f"),
+        "prior_committed_usd": format(prior_committed, "f"),
         "actual_cost_usd": None if spend is None else format(spend.actual_usd, "f"),
+        "authorization_accounted_usd": format(
+            prior_committed + (Decimal("0") if spend is None else spend.actual_usd),
+            "f",
+        ),
         "attempt_count": _evidence_value(spend, before, "attempt_count"),
         "new_attempt_count": None if spend is None else spend.new_attempt_count,
+        "maximum_new_attempts": (
+            None if before is None else before.maximum_new_attempts
+        ),
         "logical_call_key": _evidence_value(spend, before, "logical_call_key"),
         "provider_stage": _evidence_value(spend, before, "provider_stage"),
         "prompt_sha256": _evidence_value(spend, before, "prompt_sha256"),
@@ -266,7 +308,10 @@ def _ceiling_halt(
     request: CandidateScopedStageARerunRequest,
     *,
     stage: str,
-    reservation: Decimal,
+    per_attempt_reservation: Decimal,
+    reserved_authority: Decimal,
+    before: StageSpendSnapshot,
+    prior_committed: Decimal,
     reason: str,
     invocations: list[dict[str, object]],
 ) -> ExecutionHalt:
@@ -280,8 +325,11 @@ def _ceiling_halt(
             spec,
             request,
             stage=stage,
-            reservation=reservation,
+            per_attempt_reservation=per_attempt_reservation,
+            reserved_authority=reserved_authority,
+            prior_committed=prior_committed,
             spend=None,
+            before=before,
             status="halted_at_ceiling",
             error=str(error),
         )

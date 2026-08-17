@@ -1,14 +1,13 @@
 """Synthetic fake-provider coverage for the canonical Stage A executor.
 
 Fixture authenticity: these replay specs are hand-authored test artifacts and
-are explicitly marked ``signature=synthetic:true``.  They are not derived from
-Cycle 1 private evidence and never open a provider transport.
+use the closed ``synthetic_fixture`` authorization mode. They are not derived
+from Cycle 1 private evidence and never open a provider transport.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 from typing import cast
@@ -20,6 +19,7 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
     CandidateScopedStageARerunRequest,
     StageAStageOutcome,
 )
+from legalforecast.ingestion.stage_a_replay_executor import contract as contract_module
 from legalforecast.ingestion.stage_a_replay_executor import executor as executor_module
 from legalforecast.ingestion.stage_a_replay_executor import lineage as lineage_module
 from legalforecast.ingestion.stage_a_replay_executor.executor import (
@@ -43,10 +43,20 @@ from tests.stage_a_replay_executor.fixtures import (
 )
 
 
+def _accept_authorization_signature(
+    _artifact_payload: bytes,
+    *,
+    signature_path: Path,
+    signer_principal: str,
+    namespace: str,
+) -> None:
+    del signature_path, signer_principal, namespace
+
+
 def test_fake_provider_full_path_halts_at_ceiling_and_routes_exhaustion(
     tmp_path: Path,
 ) -> None:
-    spec_path = _write_spec(tmp_path, aggregate_ceiling="0.30")
+    spec_path = _write_spec(tmp_path, aggregate_ceiling="0.50")
     calls: list[tuple[str, str]] = []
 
     def unitizer(request: CandidateScopedStageARerunRequest) -> StageAStageOutcome:
@@ -84,7 +94,13 @@ def test_fake_provider_full_path_halts_at_ceiling_and_routes_exhaustion(
         spec_path,
         unitizer=unitizer,
         reviewer=reviewer,
-        spend_meter=_FakeSpendMeter(attempts_by_call={("cand-b", "unitizer"): 3}),
+        spend_meter=_FakeSpendMeter(
+            attempts_by_call={("cand-b", "unitizer"): 3},
+            maximum_new_attempts_by_call={
+                ("cand-b", "unitizer"): 3,
+                ("cand-c", "reviewer"): 2,
+            },
+        ),
         code_commit="0" * 40,
     )
 
@@ -93,28 +109,36 @@ def test_fake_provider_full_path_halts_at_ceiling_and_routes_exhaustion(
         ("unitizer", "cand-a"),
         ("reviewer", "cand-a"),
         ("unitizer", "cand-b"),
+        ("unitizer", "cand-c"),
     ]
     receipt = result.to_record()
     assert receipt["stage_a_receipt_sha256"] is None
     assert receipt["halt_evidence"] == {
         "status": "halted_at_ceiling",
         "reason": (
-            "unitizer invocation for candidate cand-c would exceed the signed "
+            "reviewer invocation for candidate cand-c would exceed the signed "
             "aggregate replay ceiling"
         ),
         "candidate_id": "cand-c",
-        "stage": "unitizer",
+        "stage": "reviewer",
         "provider_accessed": True,
     }
-    journal = json.loads((tmp_path / "invocations.json").read_text())
+    journal_value: object = json.loads((tmp_path / "invocations.json").read_text())
+    assert isinstance(journal_value, dict)
+    journal = cast(dict[str, object], journal_value)
     invocations = journal["invocations"]
     assert isinstance(invocations, list)
-    exhausted = next(row for row in invocations if row["candidate_id"] == "cand-b")
+    typed_invocations = cast(list[dict[str, object]], invocations)
+    exhausted = next(
+        row for row in typed_invocations if row["candidate_id"] == "cand-b"
+    )
     assert exhausted["attempt_count"] == 3
     assert exhausted["terminal_route"] == "qsp.attorney_adjudication"
     assert ("reviewer", "cand-b") not in calls
     assert len([row for row in calls if row[1] == "cand-b"]) == 1
-    assert json.loads((tmp_path / "receipt.json").read_text())["halted"] is True
+    receipt_value: object = json.loads((tmp_path / "receipt.json").read_text())
+    assert isinstance(receipt_value, dict)
+    assert receipt_value["halted"] is True
 
 
 def test_success_persists_and_replays_every_bound_artifact(tmp_path: Path) -> None:
@@ -146,19 +170,25 @@ def test_success_persists_and_replays_every_bound_artifact(tmp_path: Path) -> No
     assert receipt["configuration_hashes"] == dict(parsed.config_hashes)
     assert receipt["model_ids"] == dict(parsed.model_ids)
     assert receipt["halt_evidence"] is None
-    assert all(value is not None for value in receipt["artifacts"].values())
-    journal = json.loads(parsed.output_paths["invocation_journal_path"].read_text())
-    assert journal["spend_summary"]["aggregate_actual_cost_usd"] == "0.20"
-    assert [row["stage"] for row in journal["invocations"]] == [
+    artifacts = cast(dict[str, object], receipt["artifacts"])
+    assert all(value is not None for value in artifacts.values())
+    journal_value = json.loads(
+        parsed.output_paths["invocation_journal_path"].read_text()
+    )
+    assert isinstance(journal_value, dict)
+    journal = cast(dict[str, object], journal_value)
+    spend_summary = cast(dict[str, object], journal["spend_summary"])
+    rows = cast(list[dict[str, object]], journal["invocations"])
+    assert spend_summary["aggregate_actual_cost_usd"] == "0.20"
+    assert [row["stage"] for row in rows] == [
         "unitizer",
         "reviewer",
     ]
-    assert all(row["code_commit"] == "0" * 40 for row in journal["invocations"])
-    assert all(row["config_sha256"] for row in journal["invocations"])
-    assert all(row["model_id"].startswith("fixture:") for row in journal["invocations"])
+    assert all(row["code_commit"] == "0" * 40 for row in rows)
+    assert all(row["config_sha256"] for row in rows)
+    assert all(cast(str, row["model_id"]).startswith("fixture:") for row in rows)
     assert all(
-        row["logical_call_key"].startswith("fixture:cand-a:")
-        for row in journal["invocations"]
+        cast(str, row["logical_call_key"]).startswith("fixture:cand-a:") for row in rows
     )
 
 
@@ -192,18 +222,20 @@ def test_raising_spec_ceiling_moves_the_deterministic_halt_point(
         return _settled_reviewer(request, _unitize)
 
     result = execute_stage_a_replay(
-        _write_spec(tmp_path, aggregate_ceiling="0.40"),
+        _write_spec(tmp_path, aggregate_ceiling="0.60"),
         unitizer=unitizer,
         reviewer=reviewer,
-        spend_meter=_FakeSpendMeter(attempts_by_call={("cand-b", "unitizer"): 3}),
+        spend_meter=_FakeSpendMeter(
+            attempts_by_call={("cand-b", "unitizer"): 3},
+            maximum_new_attempts_by_call={
+                ("cand-b", "unitizer"): 3,
+                ("cand-c", "reviewer"): 2,
+            },
+        ),
         code_commit="0" * 40,
     )
-    assert result.halted is True
-    assert calls[-1] == ("unitizer", "cand-c")
-    halt = result.to_record()["halt_evidence"]
-    assert isinstance(halt, dict)
-    assert halt["candidate_id"] == "cand-c"
-    assert "reviewer invocation" in str(halt["reason"])
+    assert result.halted is False
+    assert calls[-1] == ("reviewer", "cand-c")
 
 
 def test_corrupt_replay_spec_hash_refuses_before_journal_or_provider_access(
@@ -248,15 +280,14 @@ def test_cli_surface_accepts_only_the_hashed_replay_spec() -> None:
         )
 
 
-def test_inline_packets_cannot_be_promoted_to_owner_authority(tmp_path: Path) -> None:
+def test_public_name_string_cannot_promote_inline_packets_to_owner_authority(
+    tmp_path: Path,
+) -> None:
     path = _write_spec(tmp_path, candidate_ids=("cand-a",))
     record = _read_spec(path)
     authorization = cast(dict[str, object], record["authorization"])
-    approval = "I approve cand-a at estimated cost USD 0.30 and hard ceiling USD 0.30."
     authorization.update(
         {
-            "approval_text": approval,
-            "approval_sha256": hashlib.sha256(approval.encode()).hexdigest(),
             "signature": "John Hughes",
         }
     )
@@ -264,7 +295,7 @@ def test_inline_packets_cannot_be_promoted_to_owner_authority(tmp_path: Path) ->
 
     with pytest.raises(
         StageAReplayExecutorError,
-        match="inline packet authority is permitted only for synthetic fixtures",
+        match="authorization descriptor fields differ",
     ):
         load_replay_spec(path)
 
@@ -280,21 +311,26 @@ def test_production_execution_forbids_injected_provider_seams(
     fixture_lineage = lineage_module.verify_replay_lineage(fixture_spec)
     production_root = tmp_path / "production"
     production_root.mkdir()
+    monkeypatch.setattr(
+        contract_module,
+        "verify_authorization_signature",
+        _accept_authorization_signature,
+    )
     production_spec = load_replay_spec(
         _write_spec(production_root, candidate_ids=("cand-a",), production=True)
     )
-    monkeypatch.setattr(
-        executor_module,
-        "verify_replay_lineage",
-        lambda _spec: fixture_lineage,
-    )
+
+    def fixture_verifier(_spec: object) -> object:
+        return fixture_lineage
+
+    monkeypatch.setattr(executor_module, "verify_replay_lineage", fixture_verifier)
+    monkeypatch.setattr(executor_module, "current_code_commit", lambda: "0" * 40)
 
     result = execute_stage_a_replay(
         production_spec,
         unitizer=_settled_unitizer,
         reviewer=_settled_reviewer,
         spend_meter=_FakeSpendMeter(),
-        code_commit="0" * 40,
     )
 
     assert result.halted is True

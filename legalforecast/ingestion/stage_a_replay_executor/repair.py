@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
+from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
+    CandidatePacketInput,
+)
 from legalforecast.ingestion.stage_a_replay_executor.spec import (
+    ReplaySpec,
     StageAReplayExecutorError,
 )
 
@@ -91,6 +95,34 @@ def verify_repair_receipt(record: Mapping[str, object]) -> dict[str, object]:
         receipt_record=_json_object(receipt_bytes, "document repair receipt"),
         expected_receipt_sha256=_digest(record, "expected_receipt_sha256"),
     )
+    manifest_candidate_ids = tuple(
+        dict.fromkeys(item.candidate_id for item in full_plan.items)
+    )
+    execution_candidate_ids = tuple(
+        dict.fromkeys(operation.candidate_id for operation in execution.operations)
+    )
+    receipt_candidate_ids = tuple(
+        dict.fromkeys(_text(row, "candidate_id") for row in replayed.operation_ledger)
+    )
+    included_operations = [
+        {
+            "candidate_id": _text(row, "candidate_id"),
+            "source_document_id": _text(row, "recap_document_id"),
+            "document_role": _text(row, "document_role"),
+        }
+        for row in replayed.operation_ledger
+        if row.get("disposition") == "included"
+    ]
+    nonincluded_operations = [
+        {
+            "candidate_id": _text(row, "candidate_id"),
+            "source_document_id": _text(row, "recap_document_id"),
+            "document_role": _text(row, "document_role"),
+            "disposition": _text(row, "disposition"),
+        }
+        for row in replayed.operation_ledger
+        if row.get("disposition") != "included"
+    ]
     return {
         "manifest_path": str(manifest_path),
         "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
@@ -101,7 +133,94 @@ def verify_repair_receipt(record: Mapping[str, object]) -> dict[str, object]:
         "receipt_path": str(receipt_path),
         "receipt_sha256": replayed.receipt_sha256,
         "receipt_artifact_sha256": receipt_raw_sha256,
+        "manifest_candidate_ids": list(manifest_candidate_ids),
+        "execution_candidate_ids": list(execution_candidate_ids),
+        "receipt_candidate_ids": list(receipt_candidate_ids),
+        "included_operations": included_operations,
+        "nonincluded_operations": nonincluded_operations,
     }
+
+
+def verify_repair_scope(
+    spec: ReplaySpec,
+    evidence: Mapping[str, object],
+    successor_packets: Sequence[CandidatePacketInput],
+) -> None:
+    """Bind authorized candidates and included repairs to successor packets."""
+
+    authorized = set(spec.candidate_ids)
+    for field in (
+        "manifest_candidate_ids",
+        "execution_candidate_ids",
+        "receipt_candidate_ids",
+    ):
+        value = evidence.get(field)
+        if not isinstance(value, list):
+            raise StageAReplayExecutorError(
+                f"verified repair receipt {field} is invalid"
+            )
+        raw_items = cast(list[object], value)
+        if not all(isinstance(item, str) and item for item in raw_items):
+            raise StageAReplayExecutorError(
+                f"verified repair receipt {field} is invalid"
+            )
+        candidate_scope = {cast(str, item) for item in raw_items}
+        if not authorized.issubset(candidate_scope):
+            raise StageAReplayExecutorError(
+                "signed replay candidates fall outside verified repair receipt scope"
+            )
+    packet_documents = {
+        packet.candidate_id: {
+            (document.source_document_id, document.document_role)
+            for document in packet.documents
+        }
+        for packet in successor_packets
+    }
+    included = evidence.get("included_operations")
+    if not isinstance(included, list):
+        raise StageAReplayExecutorError(
+            "verified repair receipt included operations are invalid"
+        )
+    authorized_with_inclusion: set[str] = set()
+    for raw in cast(list[object], included):
+        if not isinstance(raw, Mapping):
+            raise StageAReplayExecutorError(
+                "verified repair receipt included operation is invalid"
+            )
+        operation = cast(Mapping[str, object], raw)
+        candidate_id = _text(operation, "candidate_id")
+        source_document_id = _text(operation, "source_document_id")
+        document_role = _text(operation, "document_role")
+        if candidate_id not in authorized:
+            continue
+        authorized_with_inclusion.add(candidate_id)
+        if (source_document_id, document_role) not in packet_documents.get(
+            candidate_id, set()
+        ):
+            raise StageAReplayExecutorError(
+                "included repair document differs from authenticated successor packet: "
+                f"{candidate_id}/{source_document_id}/{document_role}"
+            )
+    if authorized_with_inclusion != authorized:
+        raise StageAReplayExecutorError(
+            "signed replay candidate lacks an included terminal repair operation"
+        )
+    nonincluded = evidence.get("nonincluded_operations")
+    if not isinstance(nonincluded, list):
+        raise StageAReplayExecutorError(
+            "verified repair receipt nonincluded operations are invalid"
+        )
+    for raw in cast(list[object], nonincluded):
+        if not isinstance(raw, Mapping):
+            raise StageAReplayExecutorError(
+                "verified repair receipt nonincluded operation is invalid"
+            )
+        operation = cast(Mapping[str, object], raw)
+        if _text(operation, "candidate_id") in authorized:
+            raise StageAReplayExecutorError(
+                "signed replay candidate has a nonincluded repair operation: "
+                f"{_text(operation, 'disposition')}"
+            )
 
 
 def _snapshot_path(root: Path, candidate_id: str) -> Path:

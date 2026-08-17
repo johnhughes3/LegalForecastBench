@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import tempfile
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from pathlib import Path
@@ -20,6 +21,9 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
     CandidateScopedStageAExecution,
     CandidateScopedStageAPlan,
     CandidateScopedStageAReceipt,
+)
+from legalforecast.ingestion.stage_a_replay_executor.contract import (
+    ReplayOutputClaimError,
 )
 from legalforecast.ingestion.stage_a_replay_executor.spec import (
     ReplaySpec,
@@ -43,7 +47,12 @@ def persist_plan(
 
     record = plan.to_record()
     _verify_plan_record(record, plan.plan_sha256)
-    return _persist(spec.output_paths["plan_path"], record, "replay plan")
+    return _persist(
+        spec.output_paths["plan_path"],
+        record,
+        "replay plan",
+        claim=True,
+    )
 
 
 def persist_terminal_evidence(
@@ -276,14 +285,20 @@ def _verify_invocation_journal(spec: ReplaySpec, record: Mapping[str, object]) -
 def _spend_summary(
     spec: ReplaySpec, invocations: Sequence[Mapping[str, object]]
 ) -> dict[str, object]:
-    totals = {candidate_id: Decimal("0") for candidate_id in spec.candidate_ids}
+    actual_totals = {candidate_id: Decimal("0") for candidate_id in spec.candidate_ids}
+    prior_totals = {candidate_id: Decimal("0") for candidate_id in spec.candidate_ids}
+    accounted_totals = {
+        candidate_id: Decimal("0") for candidate_id in spec.candidate_ids
+    }
     outcomes: dict[str, list[dict[str, object]]] = {
         candidate_id: [] for candidate_id in spec.candidate_ids
     }
-    aggregate = Decimal("0")
+    aggregate_actual = Decimal("0")
+    aggregate_prior = Decimal("0")
+    aggregate_accounted = Decimal("0")
     for invocation in invocations:
         candidate_id = invocation.get("candidate_id")
-        if not isinstance(candidate_id, str) or candidate_id not in totals:
+        if not isinstance(candidate_id, str) or candidate_id not in actual_totals:
             raise StageAReplayExecutorError(
                 "invocation journal contains an unauthorized candidate"
             )
@@ -291,24 +306,63 @@ def _spend_summary(
         cost = Decimal("0") if raw_cost is None else Decimal(str(raw_cost))
         if not cost.is_finite() or cost < 0:
             raise StageAReplayExecutorError("invocation cost is invalid")
-        totals[candidate_id] += cost
-        aggregate += cost
+        prior = Decimal(str(invocation.get("prior_committed_usd")))
+        accounted = Decimal(str(invocation.get("authorization_accounted_usd")))
+        if (
+            not prior.is_finite()
+            or prior < 0
+            or not accounted.is_finite()
+            or accounted != prior + cost
+        ):
+            raise StageAReplayExecutorError(
+                "invocation authorization-accounted cost is invalid"
+            )
+        maximum_new_attempts = invocation.get("maximum_new_attempts")
+        if (
+            not isinstance(maximum_new_attempts, int)
+            or isinstance(maximum_new_attempts, bool)
+            or maximum_new_attempts not in range(4)
+        ):
+            raise StageAReplayExecutorError(
+                "invocation maximum new attempt count is invalid"
+            )
+        reservation = Decimal(str(invocation.get("reservation_usd")))
+        reserved = Decimal(str(invocation.get("reserved_authority_usd")))
+        if reserved != reservation * maximum_new_attempts:
+            raise StageAReplayExecutorError(
+                "invocation reserved authority does not cover maximum attempts"
+            )
+        actual_totals[candidate_id] += cost
+        prior_totals[candidate_id] += prior
+        accounted_totals[candidate_id] += accounted
+        aggregate_actual += cost
+        aggregate_prior += prior
+        aggregate_accounted += accounted
         outcomes[candidate_id].append(
             {
                 "stage": invocation.get("stage"),
                 "status": invocation.get("status"),
                 "actual_cost_usd": None if raw_cost is None else format(cost, "f"),
+                "prior_committed_usd": format(prior, "f"),
+                "authorization_accounted_usd": format(accounted, "f"),
                 "attempt_count": invocation.get("attempt_count"),
                 "new_attempt_count": invocation.get("new_attempt_count"),
+                "maximum_new_attempts": maximum_new_attempts,
                 "terminal_route": invocation.get("terminal_route"),
             }
         )
     return {
-        "aggregate_actual_cost_usd": format(aggregate, "f"),
+        "aggregate_actual_cost_usd": format(aggregate_actual, "f"),
+        "aggregate_prior_committed_usd": format(aggregate_prior, "f"),
+        "aggregate_authorization_accounted_usd": format(aggregate_accounted, "f"),
         "aggregate_ceiling_usd": format(spec.aggregate_ceiling_usd, "f"),
         "per_candidate": {
             candidate_id: {
-                "actual_cost_usd": format(totals[candidate_id], "f"),
+                "actual_cost_usd": format(actual_totals[candidate_id], "f"),
+                "prior_committed_usd": format(prior_totals[candidate_id], "f"),
+                "authorization_accounted_usd": format(
+                    accounted_totals[candidate_id], "f"
+                ),
                 "ceiling_usd": format(
                     spec.per_candidate_ceiling_usd[candidate_id], "f"
                 ),
@@ -320,15 +374,33 @@ def _spend_summary(
 
 
 def _persist(
-    path: Path, record: Mapping[str, object], label: str
+    path: Path,
+    record: Mapping[str, object],
+    label: str,
+    *,
+    claim: bool = False,
 ) -> Mapping[str, object]:
     if path.exists() or path.is_symlink():
-        raise StageAReplayExecutorError(f"{label} output already exists: {path}")
+        error_type = ReplayOutputClaimError if claim else StageAReplayExecutorError
+        raise error_type(f"{label} output already exists: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = ARTIFACT_CANONICAL_JSON_V1.encode(record)
-    temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_bytes(payload)
-    os.replace(temporary, path)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        try:
+            os.link(temporary, path)
+        except FileExistsError as exc:
+            error_type = ReplayOutputClaimError if claim else StageAReplayExecutorError
+            raise error_type(f"{label} output already exists: {path}") from exc
+    finally:
+        temporary.unlink(missing_ok=True)
     if _read_regular(path, label) != payload:
         raise StageAReplayExecutorError(f"{label} changed after persistence")
     return {

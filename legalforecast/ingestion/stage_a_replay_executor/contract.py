@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -14,6 +15,12 @@ from typing import Any, cast
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+
+AUTHORIZATION_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative Stage A spend authorization sidecar
+    "legalforecast.candidate_scoped_stage_a_authorization.v1"
+)
+AUTHORIZATION_SIGNATURE_NAMESPACE = "legalforecast-stage-a-replay"
 
 
 class StageAReplayExecutorError(ValueError):
@@ -28,41 +35,83 @@ class ReplaySpendCeilingError(StageAReplayExecutorError):
         self.candidate_id = candidate_id
 
 
+class ReplayOutputClaimError(StageAReplayExecutorError):
+    """Raised when another executor already owns the spec's output paths."""
+
+
 def validate_authorization(
     authorization: Mapping[str, object],
     candidate_ids: tuple[str, ...],
     *,
+    replay_descriptor_sha256: str,
     now: datetime | None,
-) -> Path:
+) -> tuple[Path, Mapping[str, object], bool]:
     required = {
+        "mode",
+        "artifact_path",
+        "artifact_sha256",
+        "signature_path",
+        "signature_sha256",
+        "signature_namespace",
+        "signer_principal",
+    }
+    if set(authorization) != required:
+        raise StageAReplayExecutorError("authorization descriptor fields differ")
+    mode = text_value(authorization, "mode")
+    if mode not in {"git_allowed_signers_sshsig", "synthetic_fixture"}:
+        raise StageAReplayExecutorError("authorization mode is unsupported")
+    synthetic = mode == "synthetic_fixture"
+    artifact_path = path_value(authorization, "artifact_path")
+    artifact_payload = read_regular(artifact_path, "authorization artifact")
+    if hashlib.sha256(artifact_payload).hexdigest() != digest(
+        authorization, "artifact_sha256"
+    ):
+        raise StageAReplayExecutorError(
+            "authorization artifact differs from its SHA-256 pin"
+        )
+    try:
+        loaded: object = json.loads(artifact_payload)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise StageAReplayExecutorError(
+            "authorization artifact is not valid JSON"
+        ) from exc
+    if not isinstance(loaded, Mapping):
+        raise StageAReplayExecutorError("authorization artifact must be an object")
+    artifact = cast(Mapping[str, object], loaded)
+    if canonical(artifact) != artifact_payload:
+        raise StageAReplayExecutorError("authorization artifact is not canonical JSON")
+    artifact_fields = {
+        "schema_version",
         "request_artifact_path",
         "request_artifact_sha256",
         "approval_text",
-        "approval_sha256",
-        "signature",
         "expires_at",
         "candidate_ids",
         "estimated_cost_usd",
         "hard_ceiling_usd",
+        "replay_descriptor_sha256",
     }
-    if set(authorization) != required:
-        raise StageAReplayExecutorError("signed authorization fields differ")
-    request_path = path_value(authorization, "request_artifact_path")
+    if (
+        set(artifact) != artifact_fields
+        or artifact.get("schema_version") != AUTHORIZATION_SCHEMA_VERSION
+    ):
+        raise StageAReplayExecutorError(
+            "authorization artifact fields or schema_version differ"
+        )
+    if digest(artifact, "replay_descriptor_sha256") != replay_descriptor_sha256:
+        raise StageAReplayExecutorError(
+            "signed authorization replay descriptor differs from replay-spec"
+        )
+
+    request_path = path_value(artifact, "request_artifact_path")
     request_payload = read_regular(request_path, "authorization request artifact")
-    request_sha256 = digest(authorization, "request_artifact_sha256")
+    request_sha256 = digest(artifact, "request_artifact_sha256")
     if hashlib.sha256(request_payload).hexdigest() != request_sha256:
         raise StageAReplayExecutorError(
             "authorization request artifact differs from its SHA-256 pin"
         )
-    approval = text_value(authorization, "approval_text")
-    if hashlib.sha256(approval.encode("utf-8")).hexdigest() != digest(
-        authorization, "approval_sha256"
-    ):
-        raise StageAReplayExecutorError("signed authorization approval digest differs")
-    signature = text_value(authorization, "signature")
-    if signature not in {"John Hughes", "synthetic:true"}:
-        raise StageAReplayExecutorError("signed authorization identity is unsupported")
-    expiry_text = text_value(authorization, "expires_at")
+    approval = text_value(artifact, "approval_text")
+    expiry_text = text_value(artifact, "expires_at")
     try:
         expiry = datetime.fromisoformat(expiry_text.replace("Z", "+00:00"))
     except ValueError as exc:
@@ -75,12 +124,12 @@ def validate_authorization(
         )
     if (now or datetime.now(UTC)) >= expiry.astimezone(UTC):
         raise StageAReplayExecutorError("signed authorization has expired")
-    if candidate_ids_value(authorization.get("candidate_ids"), "authorization") != (
+    if candidate_ids_value(artifact.get("candidate_ids"), "authorization") != (
         candidate_ids
     ):
         raise StageAReplayExecutorError("signed authorization candidate set differs")
-    estimated = decimal_value(authorization, "estimated_cost_usd")
-    hard_ceiling = decimal_value(authorization, "hard_ceiling_usd")
+    estimated = decimal_value(artifact, "estimated_cost_usd")
+    hard_ceiling = decimal_value(artifact, "hard_ceiling_usd")
     if estimated > hard_ceiling:
         raise StageAReplayExecutorError(
             "signed authorization estimate exceeds its hard ceiling"
@@ -90,18 +139,98 @@ def validate_authorization(
         f"USD {estimated:.2f}",
         f"USD {hard_ceiling:.2f}",
     )
-    if signature != "synthetic:true" and any(
-        token not in approval for token in approval_tokens
-    ):
+    if not synthetic and any(token not in approval for token in approval_tokens):
         raise StageAReplayExecutorError(
             "signed authorization text does not bind candidates and spend ceilings"
         )
-    return request_path
+    namespace = text_value(authorization, "signature_namespace")
+    if namespace != AUTHORIZATION_SIGNATURE_NAMESPACE:
+        raise StageAReplayExecutorError("authorization signature namespace differs")
+    principal = text_value(authorization, "signer_principal")
+    signature_path = optional_path(authorization, "signature_path")
+    signature_sha256 = authorization.get("signature_sha256")
+    if synthetic:
+        if (
+            signature_path is not None
+            or signature_sha256 is not None
+            or principal != "synthetic:true"
+        ):
+            raise StageAReplayExecutorError(
+                "synthetic authorization may not carry signer authority"
+            )
+    else:
+        if signature_path is None:
+            raise StageAReplayExecutorError(
+                "production authorization requires a detached SSH signature"
+            )
+        signature_payload = read_regular(
+            signature_path, "authorization detached SSH signature"
+        )
+        if hashlib.sha256(signature_payload).hexdigest() != digest(
+            authorization, "signature_sha256"
+        ):
+            raise StageAReplayExecutorError(
+                "authorization detached signature differs from its SHA-256 pin"
+            )
+        verify_authorization_signature(
+            artifact_payload,
+            signature_path=signature_path,
+            signer_principal=principal,
+            namespace=namespace,
+        )
+    return request_path, artifact, synthetic
+
+
+def verify_authorization_signature(
+    artifact_payload: bytes,
+    *,
+    signature_path: Path,
+    signer_principal: str,
+    namespace: str,
+) -> None:
+    """Verify owner authority against Git's configured SSH allowed-signers file."""
+
+    try:
+        configured = subprocess.run(
+            ["git", "config", "--path", "--get", "gpg.ssh.allowedSignersFile"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise StageAReplayExecutorError(
+            "Git SSH allowed-signers configuration is unavailable"
+        ) from exc
+    allowed_signers = Path(configured).expanduser()
+    read_regular(allowed_signers, "Git SSH allowed-signers file")
+    try:
+        subprocess.run(
+            [
+                "ssh-keygen",
+                "-Y",
+                "verify",
+                "-f",
+                str(allowed_signers),
+                "-I",
+                signer_principal,
+                "-n",
+                namespace,
+                "-s",
+                str(signature_path),
+            ],
+            input=artifact_payload,
+            check=True,
+            capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise StageAReplayExecutorError(
+            "authorization detached SSH signature is invalid for the configured signer"
+        ) from exc
 
 
 def validate_spend(
     spend: Mapping[str, object],
-    authorization: Mapping[str, object],
+    authorization_artifact: Mapping[str, object],
     candidate_ids: tuple[str, ...],
 ) -> tuple[Decimal, dict[str, Decimal], dict[str, Decimal]]:
     if set(spend) != {
@@ -111,7 +240,7 @@ def validate_spend(
     }:
         raise StageAReplayExecutorError("spend descriptor fields differ")
     aggregate = decimal_value(spend, "aggregate_ceiling_usd")
-    if aggregate != decimal_value(authorization, "hard_ceiling_usd"):
+    if aggregate != decimal_value(authorization_artifact, "hard_ceiling_usd"):
         raise StageAReplayExecutorError(
             "spend aggregate ceiling differs from signed authorization hard ceiling"
         )
@@ -242,6 +371,27 @@ def parse_decimal(value: object, field: str) -> Decimal:
 
 def canonical(value: object) -> bytes:
     return ARTIFACT_CANONICAL_JSON_V1.encode(value)
+
+
+def replay_descriptor(record: Mapping[str, object]) -> dict[str, object]:
+    """Return the exact operative replay fields covered by owner authority."""
+
+    fields = (
+        "schema_version",
+        "candidate_ids",
+        "lineage",
+        "configuration",
+        "spend",
+        "provider",
+        "outputs",
+        "code_commit",
+    )
+    try:
+        return {field: record[field] for field in fields}
+    except KeyError as exc:
+        raise StageAReplayExecutorError(
+            f"replay-spec lacks authorized field {exc.args[0]}"
+        ) from exc
 
 
 # contract-ratchet: allow non-persisted replay-sidecar digest

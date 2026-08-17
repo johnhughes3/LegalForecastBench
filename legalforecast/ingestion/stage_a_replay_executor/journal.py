@@ -54,6 +54,7 @@ class StageSpendSnapshot:
     prompt_sha256: str
     committed_usd: Decimal
     attempt_count: int
+    maximum_new_attempts: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +104,7 @@ class JournalSpendMeter:
             prompt_sha256=identity.prompt_sha256,
             committed_usd=committed,
             attempt_count=len(rows),
+            maximum_new_attempts=_maximum_new_attempts(rows, stage=stage),
         )
 
     def after(self, before: StageSpendSnapshot) -> StageSpend:
@@ -155,6 +157,12 @@ def terminal_route_available(
     _committed, rows = journal_rows(
         path, identity=identity, provider=provider, account=account
     )
+    return _terminal_route_from_rows(rows, stage=stage)
+
+
+def _terminal_route_from_rows(
+    rows: tuple[Mapping[str, object], ...], *, stage: str
+) -> bool:
     if len(rows) > 3:
         raise StageAReplayExecutorError(
             f"{stage} provider journal contains a forbidden fourth attempt"
@@ -177,6 +185,16 @@ def terminal_route_available(
             "failure_message",
         )
     )
+
+
+def _maximum_new_attempts(rows: tuple[Mapping[str, object], ...], *, stage: str) -> int:
+    if _terminal_route_from_rows(rows, stage=stage):
+        return 0
+    if len(rows) >= 3:
+        raise StageAReplayExecutorError(
+            f"{stage} provider journal exhausted without a valid terminal route"
+        )
+    return 3 - len(rows)
 
 
 def journal_rows(

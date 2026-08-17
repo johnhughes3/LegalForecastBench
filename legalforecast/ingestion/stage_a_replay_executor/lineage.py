@@ -25,6 +25,7 @@ from legalforecast.ingestion.stage_a_replay_executor.contract import (
 )
 from legalforecast.ingestion.stage_a_replay_executor.repair import (
     verify_repair_receipt,
+    verify_repair_scope,
 )
 from legalforecast.ingestion.stage_a_replay_executor.spec import (
     ReplaySpec,
@@ -225,6 +226,7 @@ def _production_lineage(spec: ReplaySpec) -> VerifiedReplayLineage:
         )
     predecessors = _predecessor_stage_a(predecessor_packets, stage_a)
     repair_evidence = verify_repair_receipt(_mapping(lineage_record, "repair_receipt"))
+    verify_repair_scope(spec, repair_evidence, successor_packets)
     predecessor_digests = _lineage_component_digests(
         predecessor_lineage.input_commitments
     )

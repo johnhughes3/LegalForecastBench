@@ -44,6 +44,9 @@ from legalforecast.ingestion.stage_a_replay_executor.contract import (
     read_regular as _read_regular,
 )
 from legalforecast.ingestion.stage_a_replay_executor.contract import (
+    replay_descriptor as _replay_descriptor,
+)
+from legalforecast.ingestion.stage_a_replay_executor.contract import (
     sha256_bytes as _sha256_bytes,
 )
 from legalforecast.ingestion.stage_a_replay_executor.contract import (
@@ -212,11 +215,17 @@ def load_replay_spec(path: str | Path, *, now: datetime | None = None) -> Replay
 
     candidate_ids = _candidate_ids(raw.get("candidate_ids"), "replay-spec")
     authorization = _mapping(raw, "authorization")
-    request_artifact_path = _validate_authorization(
-        authorization, candidate_ids, now=now
+    descriptor_sha256 = _sha256_bytes(_canonical(_replay_descriptor(raw)))
+    request_artifact_path, authorization_artifact, synthetic_authorization = (
+        _validate_authorization(
+            authorization,
+            candidate_ids,
+            replay_descriptor_sha256=descriptor_sha256,
+            now=now,
+        )
     )
     lineage = _mapping(raw, "lineage")
-    synthetic = _validate_lineage(lineage, authorization)
+    synthetic = _validate_lineage(lineage, synthetic_authorization)
     cycle_id = _text(lineage, "cycle_id")
     provider = _mapping(raw, "provider")
     provider_paths, caps_sha, registry_sha = _validate_provider(provider)
@@ -226,7 +235,7 @@ def load_replay_spec(path: str | Path, *, now: datetime | None = None) -> Replay
         model_registry_sha256=registry_sha,
     )
     aggregate, per_candidate, reservations = _validate_spend(
-        _mapping(raw, "spend"), authorization, candidate_ids
+        _mapping(raw, "spend"), authorization_artifact, candidate_ids
     )
     output_paths = _validate_outputs(_mapping(raw, "outputs"))
     code_commit = _text(raw, "code_commit")
@@ -236,6 +245,12 @@ def load_replay_spec(path: str | Path, *, now: datetime | None = None) -> Replay
     lineage_inputs = _lineage_input_paths(lineage)
     input_paths = (
         source,
+        _path(authorization, "artifact_path"),
+        *(
+            ()
+            if _optional_path(authorization, "signature_path") is None
+            else (_path(authorization, "signature_path"),)
+        ),
         request_artifact_path,
         *provider_paths,
         *lineage_inputs,
@@ -269,7 +284,7 @@ def configuration_digest(record: Mapping[str, object]) -> str:
 
 
 def _validate_lineage(
-    lineage: Mapping[str, object], authorization: Mapping[str, object]
+    lineage: Mapping[str, object], synthetic_authorization: bool
 ) -> bool:
     mode = _text(lineage, "mode")
     if mode == "synthetic_fixture":
@@ -278,7 +293,7 @@ def _validate_lineage(
             or lineage.get("synthetic") is not True
         ):
             raise StageAReplayExecutorError("synthetic fixture lineage fields differ")
-        if _text(authorization, "signature") != "synthetic:true":
+        if not synthetic_authorization:
             raise StageAReplayExecutorError(
                 "inline packet authority is permitted only for synthetic fixtures"
             )
@@ -297,7 +312,7 @@ def _validate_lineage(
         return True
     if mode != "verified_artifacts" or set(lineage) != _PRODUCTION_LINEAGE_FIELDS:
         raise StageAReplayExecutorError("production lineage descriptor fields differ")
-    if _text(authorization, "signature") == "synthetic:true":
+    if synthetic_authorization:
         raise StageAReplayExecutorError(
             "production lineage requires owner authorization"
         )
@@ -424,7 +439,22 @@ def _validate_outputs(outputs: Mapping[str, object]) -> dict[str, Path]:
                 )
     if any(path.exists() or path.is_symlink() for path in values):
         raise StageAReplayExecutorError("executor outputs must not already exist")
+    for path in values:
+        _require_usable_output_parent(path)
     return paths
+
+
+def _require_usable_output_parent(path: Path) -> None:
+    ancestor = path.parent
+    while not ancestor.exists() and not ancestor.is_symlink():
+        parent = ancestor.parent
+        if parent == ancestor:
+            break
+        ancestor = parent
+    if ancestor.is_symlink() or not ancestor.is_dir():
+        raise StageAReplayExecutorError(
+            f"executor output parent is not a real directory: {ancestor}"
+        )
 
 
 def _lineage_input_paths(lineage: Mapping[str, object]) -> tuple[Path, ...]:
