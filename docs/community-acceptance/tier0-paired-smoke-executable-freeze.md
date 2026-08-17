@@ -1,6 +1,6 @@
-# Tier-0 executable freeze (T0R successor packet)
+# Tier-0 executable freeze (T0R2 operator-half successor packet)
 
-Status: **NOT AN APPROVAL TARGET**. This packet supersedes the structural freeze for command shape, binary identity, per-call spend enforcement, and receipt-authority coordinates. It does not authorize spend. The designated approver must not sign until `dm0g.4.5.16-reviewer` records acceptance against these bytes and the remaining fail-closed inputs below are provisioned.
+Status: **NOT AN APPROVAL TARGET**. This packet supersedes the T0R successor packet for operator command shape, evaluator entrypoint identity, production evaluator seam, dated pricing, and per-call ceiling configuration. It does not authorize spend. The designated approver must not sign until `dm0g.4.5.16-reviewer` records acceptance against these bytes and the blocking inputs in "What is still missing" are resolved.
 
 No provider call is authorized by this document.
 
@@ -9,35 +9,71 @@ No provider call is authorized by this document.
 | Field | Value |
 | --- | --- |
 | Packet | `docs/community-acceptance/tier0-paired-smoke-executable-freeze.md` |
-| Supersedes | `docs/community-acceptance/tier0-paired-smoke-structural-freeze.md` (`f87b916fb4eefd621e29093877dbd45b402486e20b51af876110907f880cd681`) for operator command, binary identity, and spend-control shape only |
+| Supersedes | The T0R successor packet (`00d37b320cee3d937712b291748143cc816e0dad6813c2ccd71cad2e45c136bc`) in full, and `docs/community-acceptance/tier0-paired-smoke-structural-freeze.md` (`f87b916fb4eefd621e29093877dbd45b402486e20b51af876110907f880cd681`) for operator command, binary identity, evaluator entrypoint, and spend-control shape |
 | Reviewer | `dm0g.4.5.16-reviewer` |
-| Regeneration | Recreate this file from the rows below, then `sha256sum` it. The companion `.sha256` and the readiness-pack executable-freeze table must move together |
+| Regeneration | Recreate this file from the rows below, then `sha256sum` it. The companion `.sha256` and the readiness-pack executable-freeze table move together |
 
 ## Exact operator commands
 
-Caller-supplied roots are mandatory. Private and archive roots must be fresh absent paths. There are no run-varying flags.
+Caller-supplied roots are mandatory. Private and archive roots must be fresh absent paths. There are no run-varying flags on the paid commands.
 
 ```bash
+# 1. Install the pinned evaluator entrypoint (one time, provider-free).
+uv run legalforecast multiharness tier0 install-evaluator-wrapper \
+  --bin-dir "<operator bin directory on PATH>" \
+  --scratch-root "<fresh absent probe scratch root>" \
+  --output "<install record path>"
+
+# 2. Mint the executable spec and its two sidecars (one time, provider-free,
+#    inside the private boundary; the outputs carry evaluator-private
+#    criterion IDs and must never enter git).
+uv run legalforecast multiharness tier0 mint \
+  --output-dir "<fresh private mint directory>" \
+  --private-task-json "<pinned LAB checkout>/tasks/employment-labor/identify-issues-in-counterparty-motion-brief/task.json" \
+  --native-thin-manifest "<native-thin arm identity JSON>"
+
+# 3. Validate, then run.
 export LFB_TIER0_SOURCE_ROOT="<existing LAB pin directory>"
 export LFB_TIER0_PRIVATE_ROOT="<fresh absent private root>"
 export LFB_TIER0_ARCHIVE_ROOT="<fresh absent archive root>"
 
 uv run legalforecast multiharness tier0 validate \
-  --spec TIER0_EXECUTABLE_SPEC.json \
-  --spec-sha256 sha256:SPEC_SHA256 \
+  --spec "<mint dir>/tier0-executable-spec.json" \
+  --spec-sha256 sha256:MINTED_SPEC_SHA256 \
   --approval TIER0_DETACHED_APPROVAL.json
 
 uv run legalforecast multiharness tier0 run \
-  --spec TIER0_EXECUTABLE_SPEC.json \
-  --spec-sha256 sha256:SPEC_SHA256 \
+  --spec "<mint dir>/tier0-executable-spec.json" \
+  --spec-sha256 sha256:MINTED_SPEC_SHA256 \
   --approval TIER0_DETACHED_APPROVAL.json
 ```
 
-The CLI loads the evaluator issuer through `load_approved_issuer_authority(secret_loader=infisical_evaluator_issuer_secret_loader)`. The loader is not invoked while the public key remains `pending_human_provisioning`.
+`tier0 run` installs the single supported production evaluator/provider factory at the CLI boundary when no embedding runtime has already installed a reviewed one. There is no adapter selector: an adapter chosen by flag or environment variable would be a run-varying input the frozen spec hash does not cover.
+
+## Why the spec hash is not printed in this packet
+
+The per-criterion judge ceilings must carry the 23 upstream criterion IDs verbatim, because the runner matches reservation *N* to the *N*th ceiling for its arm and refuses an identity mismatch. `docs/adapters/harvey-lab-pinned-evaluator-seam.md` classifies the criterion `id` field as evaluator-private, and this repository is public. The spec binds the policy digest, so the spec hash cannot be computed publicly either.
+
+This packet therefore binds the **deterministic generator plus every public input**, and the operator mints the artifacts inside the private boundary. `tests/test_tier0_operator_half.py::test_mint_is_byte_reproducible_across_output_directories` proves the generator is byte-reproducible; a reviewer holding the same pin recomputes the same three hashes.
+
+| Field | Value |
+| --- | --- |
+| Generator | `legalforecast/multiharness/tier0_mint.py` |
+| Experiment ID | `tier0-paired-smoke-2026-08-17` |
+| Emitted files | `tier0-executable-spec.json`, `tier0-executable-spec.pricing-snapshot.json`, `tier0-executable-spec.spend-policy.json` |
+| Private inputs | pinned `task.json` (hash-verified against `c117cc3faf49b879f3c475b097bd67293ca79fa5b9e3d9cd91782b0f70f687e4` before parsing); native-thin arm identity manifest |
+
+## Source pin and task
+
+| Field | Value |
+| --- | --- |
+| Repository | `https://github.com/harveyai/harvey-labs` |
+| Commit | `73feb91d63d53b1a44151d99329779c4defcdb72` |
+| Tree | `944913ee8cdeaef4930a106e5e16d74aa93a29d7` |
+| Task | `employment-labor/identify-issues-in-counterparty-motion-brief` |
+| `task.json` SHA-256 | `c117cc3faf49b879f3c475b097bd67293ca79fa5b9e3d9cd91782b0f70f687e4` |
 
 ## Model identities
-
-These are the frozen requested identities from the structural packet. Resolved identities must match or publication uses system-bundle language.
 
 | Surface | Requested identity |
 | --- | --- |
@@ -57,13 +93,68 @@ Provider-free interface re-characterization on 2026-08-17. Probe commands reques
 
 `codex exec --help` on 0.147.0 advertises `--approve-for-me`. The adapter still refuses that flag. The earlier 4.4.27 digest `d6877199…` is not this pin.
 
-Privileged whole-process containment (`dm0g.4.2.2`) remains a designated-operator blocker and still names an older Claude identity.
+## Evaluator entrypoint
 
-## Per-call spend ceilings
+The pinned entrypoint is now installed rather than assumed.
 
-The evaluator must request budget through `HarveyLabJudgeRequestBoundary.before_judge_call` immediately before every paid judge request, including retries. An experiment-wide request or dollar cap must halt the next judge call. The provider-free proof is `tests/test_tier0_mid_evaluator_spend_halt.py`: a fake provider with `experiment.max_requests=11` makes 11 paid calls and is denied on criterion 12 of 23 with terminal evidence.
+| Field | Value |
+| --- | --- |
+| Committed source | `scripts/harvey-lab-eval` |
+| Installed name | `harvey-lab-eval` |
+| Version | `1.0.0` (probe line: `harvey-lab-eval 1.0.0`) |
+| SHA-256 | `sha256:cddca86118ff9a26ce9e78c5d09f34487f65df46ee6a133ee14326383da80895` |
+| Installer | `uv run legalforecast multiharness tier0 install-evaluator-wrapper` |
+| Install semantics | byte-identical copy; the committed digest is the installed digest |
 
-Final dollar figures are not in this packet. A dated production pricing snapshot and the exact per-criterion / experiment maxima must still be committed and bound into the executable spec before spend.
+The wrapper is provider-free and credential-free. Executed, it validates the frozen evaluation-input contract and then refuses with exit `3`: the upstream aggregate evaluator issues all 23 criterion judge calls inside one invocation, and no per-call ceiling can be checked before them. Paid scoring runs through the per-criterion production seam instead, which reserves budget immediately before every paid request. The wrapper's role on the paid path is identity — its bytes are pinned by the spec and bound into every evaluation receipt — plus making the unaccounted aggregate path unreachable rather than merely discouraged. It inherits the stripped containment environment and holds no credential logic; a credential-dependent failure surfaces upstream, by design.
+
+## Production evaluator and judge seam
+
+| Field | Value |
+| --- | --- |
+| Module | `legalforecast/multiharness/tier0_production_factory.py` |
+| Installed by | `tier0 run`, unconditionally, when no reviewed factory is already installed |
+| Provider surface | Anthropic Messages API through the official SDK |
+| Required SDK version | `0.116.0` (optional extra `tier0-judge-adapter`; a mismatch fails closed) |
+| Judge credential | Infisical `dev`, `/agents/sandbox/legalforecastbench/harness-runtime/tier0-judge`, `TIER0_JUDGE_ANTHROPIC_API_KEY` |
+| Credential resolution | injected callback at the process boundary; no host-environment fallback |
+| Judge settings SHA-256 | `sha256:87863d48b22b4a1803605b0ae0a352fa06123a075b10ad96a3aa70d6789e57bf` |
+| Judge prompt SHA-256 | `sha256:9aa7ce65e53bba6309b88d380f26ece8776fc3d63eb6eda36db9a287a79d8bac` |
+| Judge output schema SHA-256 | `sha256:0543828cbd14f4f8d22312f89666cae2bdacfbfae6b5eabb2b8a4ea350bc5dc0` |
+| Runtime policy SHA-256 | `sha256:81fdf9cdab802a9543cd6bc93b6eba7236be49f932c4449ea1843d6ea9352dda` |
+| Egress policy SHA-256 | `sha256:e34d58b19f2ebe034e84ee59de0e02bebe194bfd72d9e6449a278f2720051f46` |
+| Resource policy SHA-256 | `sha256:6302b8ece0d27180c098c9f5cc4c43516222d384732a461af27860b0b52b5b95` |
+| Token accounting policy SHA-256 | `sha256:9ec98d3f7e68889f2414538099137ebc8ce88bcff2a84bc4cd5a5848452e7f88` |
+| Cost basis | `estimated_from_pricing_snapshot` |
+
+Every billed attempt, including retries, is written under `<private root>/evaluator/judge-attempts/<criterion>/` with exclusive-create semantics before settlement, so a retry can never erase the attempt it replaced. A response carrying subscription-unallocable or unknown usage is refused; `fixture/stub@local` is refused on this path.
+
+## Dated pricing snapshot
+
+| Field | Value |
+| --- | --- |
+| Snapshot ID | `tier0-anthropic-2026-08-17` |
+| As-of date | `2026-08-17` |
+| Source | `https://platform.claude.com/docs/en/about-claude/models/overview`, legacy-models table, checked 2026-08-17 |
+| SHA-256 | `sha256:efbdc066693a3ef273c6a2738f47d1dbc3ca27383b37f5d8ea439f4e49eedc55` |
+
+| Provider | Model | Input µUSD/token | Output µUSD/token | Request µUSD |
+| --- | --- | --- | --- | --- |
+| `anthropic` | `claude-sonnet-4-6` | 3 | 15 | 0 |
+
+That is $3.00 per million input tokens and $15.00 per million output tokens. Only the model the spec actually uses is priced; an unused row would be a pricing claim nothing verifies.
+
+## Per-call ceiling configuration
+
+Every dollar figure is derived from the token caps and the rates above.
+
+| Scope | Cap | Derivation |
+| --- | --- | --- |
+| Judge, per criterion | `$0.08`, 3 requests, 2 retries, parallelism 1 | worst case 24,000 in + 16 out = `$0.072240`, rounded up to the next cent |
+| Solver, per arm | `$8.000000`, 1 request, 0 retries, parallelism 1 | worst case 400,000 in + 64,000 out = `$2.16` per request |
+| Experiment-wide | `$27.040000`, 140 requests, parallelism 1 | 2 solver invocations plus 2 × 23 × 3 judge attempts |
+
+The experiment stop sits inside the planning-only USD 25–100 administrative band the readiness pack records. The evaluator requests budget through `HarveyLabJudgeRequestBoundary.before_judge_call` immediately before every paid judge request, retries included; the provider-free proof of a mid-evaluator halt is `tests/test_tier0_mid_evaluator_spend_halt.py`.
 
 ## Receipt authority
 
@@ -80,19 +171,27 @@ Final dollar figures are not in this packet. A dated production pricing snapshot
 | Secret format | Base64 of exactly 32 raw Ed25519 seed bytes (RFC 8032) |
 | Public format | Base64 of exactly 32 raw Ed25519 public-key bytes in `public_key_base64` |
 
-The designated credential operator provisions the secret. Agents never write or read it. The wrapper has no `secrets set` command. Verification fails closed until the public key is committed and `status` is `configured`. The approval authority is a distinct human-only key.
+The designated credential operator provisions the secret; agents never write or read it. Verification fails closed until the public key is committed and `status` is `configured`.
+
+The Tier-0 **approval** authority is a distinct, human-only key. Its private half must never be stored under `/agents/sandbox/`: an agent-readable approval key would let an agent sign its own spend approval. Generate it offline and keep the private half in 1Password; only the public half is committed to `examples/adapters/harvey-lab/tier0-approval-authority.json`.
+
+## What is still missing
+
+These are blocking, in the order they gate the run.
+
+1. **The native-thin arm has no enforceable dollar ceiling.** `SolverCeiling` requires an `adapter_argument` budget — a flag the invoked command genuinely honors — and the runner verifies the rendered command passes `<argument> <amount>`. The 2026-07-16 characterization of the pinned upstream harness records its complete option list as `--model`, `--task`, `--run-id`, `--max-turns`, `--temperature`, `--shell-timeout`, `--reasoning-effort`, `--skills`, `--sandbox-image`. None is a monetary cap, and a turn limit is not a dollar ceiling. `tier0 mint` therefore cannot produce a complete paired policy today, and refuses rather than emitting an advertised-but-unenforced budget. Two remediation paths exist, both needing review before use: land an approved metering boundary the native-thin invocation must egress through, or obtain an upstream budget flag and re-characterize. **Until one lands, paid Tier-0 is blocked regardless of every other input below.**
+2. **Two public keys are unprovisioned** — the evaluator issuer and the distinct Tier-0 approval authority. Both committed config files still carry `public_key_base64: null`.
+3. **The judge credential is unprovisioned** at the Infisical path named above.
+4. **The `dm0g.4.2.2` privileged containment capture is absent**, and the documented procedure still targets Claude Code 2.1.220 rather than the installed 2.1.233.
+5. **The detached spend approval does not exist**, and must not be created before the reviewer records acceptance.
 
 ## Unminted paid artifacts
 
 These hashes do not exist yet and must not be invented:
 
-- executable spec SHA-256
-- dated pricing-snapshot SHA-256
-- spend-policy SHA-256
-- evaluator wrapper SHA-256 (`harvey-lab-eval` is not installed on the characterized PATH)
+- executable spec SHA-256, spend-policy SHA-256 (minted per §"Why the spec hash is not printed", once item 1 is unblocked)
+- native-thin solver executable digest and version
 - detached spend-approval signature
-
-Paid `tier0 run` also requires a reviewed `install_tier0_production_evaluator_factory(...)` whose provider adapter returns allocable usage and cost. Fixture identity `fixture/stub@local` is refused on that path.
 
 ## Characterization live probe (not a Tier-0 run)
 
@@ -107,12 +206,8 @@ One cheapest-model probe was authorized for the 2.1.233 pin:
 | Cost | `0.00787875` USD |
 | Tokens | 10 input / 41 output |
 
-The sibling published-api-key path 404'd and was not used. No Codex live task was retried after the 4.4.27 timeout.
+The sibling published-api-key path 404'd and was not used. No Codex live task was retried after the 4.4.27 timeout. This lane performed no additional live probe.
 
-## Designated credential operator's remaining exact actions
+## Designated operator's remaining exact actions
 
-1. Provision the evaluator Ed25519 seed at the Infisical coordinates above and approve committing the public key.
-2. Provision the distinct Tier-0 approval public key.
-3. Choose or authorize the production evaluator/provider adapter and install `harvey-lab-eval`.
-4. Run the `dm0g.4.2.2` privileged no-spend capture after an independent reviewer approves the exact probe bytes and the 2.1.233 digest. Do not run the placeholder block that still says `INSERT_FRESH_INDEPENDENTLY_APPROVED_SHA256`.
-5. After those inputs exist, mint the dated pricing snapshot, dollar-valued policy, executable spec, and detached approval; then request fresh `dm0g.4.5.16` acceptance against the resulting hashes.
+The batched sequence is in `docs/community-acceptance/tier0-operator-provisioning-card.md`. In summary: provision the two keypairs and the judge credential in one sitting, run the privileged no-spend capture from the exact block that card prints, and resolve the native-thin enforcement blocker. Only after those inputs exist may the spec be minted, the reviewer asked for fresh acceptance, and the detached approval created.

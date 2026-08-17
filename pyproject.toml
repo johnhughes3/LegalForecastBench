@@ -33,6 +33,9 @@ legalforecast-provider-env-run = "legalforecast.labeling.provider_environment:ma
 claude-agent-sdk-adapter = [
     "claude-agent-sdk==0.2.138",
 ]
+tier0-judge-adapter = [
+    "anthropic==0.116.0",
+]
 
 [dependency-groups]
 dev = [

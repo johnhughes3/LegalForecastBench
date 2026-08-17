@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""Pinned Tier-0 Harvey LAB evaluator entrypoint.
+
+This is the installed executable that a Tier-0 executable spec names in
+``evaluator_command`` and pins by ``evaluator_wrapper_sha256``.  Its bytes are
+the identity anchor bound into every evaluation receipt, so it is committed
+verbatim and installed by byte-identical copy: the committed file's SHA-256 is
+the installed digest.
+
+It is deliberately provider-free and credential-free.
+
+The pinned upstream evaluator exposes only an aggregate CLI: one invocation
+issues all 23 criterion judge calls internally.  A controller cannot check a
+ceiling before each of those calls, so running the aggregate path would spend
+provider money that no per-call ceiling authorized.  The paid Tier-0 path
+therefore never executes this wrapper for scoring -- it drives the reviewed
+per-criterion production evaluator seam instead, which requests budget through
+the controller immediately before every paid request.
+
+What this wrapper does when executed is validate the frozen evaluation-input
+contract and then refuse, terminally, to produce scores.  That refusal is the
+feature: it makes the unaccounted aggregate path unreachable rather than
+merely discouraged, while keeping a stable, version-stamped, probe-discoverable
+identity on PATH.
+
+``--version`` and ``--help`` are pure: they touch no file named on stdin, read
+no environment, and are safe for the credential-free capability probe.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any, cast
+
+HARVEY_LAB_EVAL_WRAPPER_NAME = "harvey-lab-eval"
+HARVEY_LAB_EVAL_WRAPPER_VERSION = "1.0.0"
+EVALUATION_INPUT_SCHEMA_VERSION = "legalforecast.multiharness.evaluation_input.v1"
+
+# Exactly the fields the frozen stdin manifest may name as filesystem paths.
+ALLOWED_PATH_FIELDS = (
+    "deliverable_path",
+    "private_task_json_path",
+    "scores_output_path",
+)
+REQUIRED_FIELDS = (
+    "schema_version",
+    "lab_task_id",
+    "expected_deliverable_basename",
+    "deliverable_manifest_sha256",
+    "deliverable_tree_sha256",
+    "task_sha256",
+    "projection_manifest_sha256",
+    "private_material_sha256",
+    *ALLOWED_PATH_FIELDS,
+)
+
+EXIT_OK = 0
+EXIT_USAGE = 2
+EXIT_REFUSED_UNACCOUNTED = 3
+EXIT_INVALID_INPUT = 4
+
+_USAGE = f"""\
+{HARVEY_LAB_EVAL_WRAPPER_NAME} {HARVEY_LAB_EVAL_WRAPPER_VERSION}
+
+Pinned Tier-0 Harvey LAB evaluator entrypoint. Reads one frozen
+evaluation-input JSON document on stdin and takes no positional arguments.
+
+Options:
+  --version   Print the pinned wrapper name and version, then exit 0.
+  --help      Print this message, then exit 0.
+
+Exit status:
+  0  --version or --help completed.
+  2  invalid command-line usage.
+  3  refused: aggregate scoring would issue provider calls that no per-call
+     ceiling authorized. Paid evaluation must run through the controller-bound
+     per-criterion production evaluator seam.
+  4  the evaluation-input document did not satisfy the frozen contract.
+
+This wrapper never resolves a credential, never opens a network connection,
+and never writes a score.
+"""
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else list(argv)
+    if args:
+        if args == ["--version"]:
+            print(f"{HARVEY_LAB_EVAL_WRAPPER_NAME} {HARVEY_LAB_EVAL_WRAPPER_VERSION}")
+            return EXIT_OK
+        if args == ["--help"]:
+            print(_USAGE, end="")
+            return EXIT_OK
+        print(_USAGE, end="", file=sys.stderr)
+        return EXIT_USAGE
+    return _validate_then_refuse(sys.stdin.read())
+
+
+def _validate_then_refuse(raw: str) -> int:
+    """Prove the input contract holds, then refuse the unaccounted path.
+
+    Validating before refusing is deliberate: an operator who reaches this
+    wrapper gets told which of the two problems they have -- a malformed
+    evaluation input, or a correct input on an execution path that is not
+    permitted to spend.
+    """
+
+    try:
+        record = _require_record(raw)
+        _require_fields(record)
+        _require_manifest_paths(record)
+    except _InvalidInput as exc:
+        print(f"invalid evaluation input: {exc}", file=sys.stderr)
+        return EXIT_INVALID_INPUT
+    print(
+        "refusing aggregate Harvey LAB evaluation: this entrypoint would issue "
+        "23 criterion judge calls in one invocation, and no per-call ceiling "
+        "can be checked before them. Run paid evaluation through the reviewed "
+        "per-criterion production evaluator seam, which reserves budget "
+        "immediately before every paid request.",
+        file=sys.stderr,
+    )
+    return EXIT_REFUSED_UNACCOUNTED
+
+
+class _InvalidInput(ValueError):
+    """The stdin document does not satisfy the frozen evaluation contract."""
+
+
+def _require_record(raw: str) -> Mapping[str, Any]:
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise _InvalidInput("stdin is not valid JSON") from exc
+    if not isinstance(decoded, dict):
+        raise _InvalidInput("stdin document must be a JSON object")
+    return cast(Mapping[str, Any], decoded)
+
+
+def _require_fields(record: Mapping[str, Any]) -> None:
+    missing = [name for name in REQUIRED_FIELDS if name not in record]
+    if missing:
+        raise _InvalidInput(f"missing required fields: {', '.join(sorted(missing))}")
+    schema = record["schema_version"]
+    if schema != EVALUATION_INPUT_SCHEMA_VERSION:
+        raise _InvalidInput("unsupported evaluation-input schema version")
+    for name in REQUIRED_FIELDS:
+        value = record[name]
+        if not isinstance(value, str) or not value:
+            raise _InvalidInput(f"{name} must be a non-empty string")
+
+
+def _require_manifest_paths(record: Mapping[str, Any]) -> None:
+    """Every path must be absolute, unlinked, and listed in the manifest.
+
+    The wrapper opens nothing, so this is a contract check rather than a
+    sandbox: it catches a caller that passes relative paths, symlinks, or a
+    scores destination that already exists before that caller reaches a path
+    where those defects would matter.
+    """
+
+    seen: set[Path] = set()
+    for name in ALLOWED_PATH_FIELDS:
+        candidate = Path(str(record[name]))
+        if not candidate.is_absolute():
+            raise _InvalidInput(f"{name} must be an absolute path")
+        if candidate.is_symlink():
+            raise _InvalidInput(f"{name} must not be a symlink")
+        if candidate in seen:
+            raise _InvalidInput("evaluation input paths must be distinct")
+        seen.add(candidate)
+    for name in ("deliverable_path", "private_task_json_path"):
+        candidate = Path(str(record[name]))
+        if not candidate.is_file():
+            raise _InvalidInput(f"{name} does not name an existing regular file")
+    scores = Path(str(record["scores_output_path"]))
+    if scores.exists():
+        raise _InvalidInput("scores_output_path must not already exist")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

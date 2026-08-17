@@ -402,6 +402,59 @@ def add_multiharness_parser(subparsers: Any) -> None:
     tier0_validate.add_argument("--spec-sha256", required=True)
     tier0_validate.add_argument("--approval", type=Path, required=True)
     tier0_validate.set_defaults(handler=_cmd_tier0_validate)
+    tier0_install = tier0_commands.add_parser(
+        "install-evaluator-wrapper",
+        help="Install the pinned harvey-lab-eval entrypoint and probe it.",
+        description=(
+            "Copy the committed evaluator wrapper byte-for-byte into an "
+            "operator-supplied directory on PATH, then run the credential-free "
+            "capability probe against the installed bytes. The printed digest "
+            "is the value a Tier-0 executable spec must pin."
+        ),
+    )
+    tier0_install.add_argument("--bin-dir", type=Path, required=True)
+    tier0_install.add_argument("--scratch-root", type=Path, required=True)
+    tier0_install.add_argument("--output", type=Path, required=True)
+    tier0_install.add_argument("--overwrite", action="store_true")
+    tier0_install.set_defaults(handler=_cmd_tier0_install_evaluator_wrapper)
+    tier0_mint = tier0_commands.add_parser(
+        "mint",
+        help="Deterministically mint the Tier-0 spec and its spend sidecars.",
+        description=(
+            "Regenerate the executable spec, dated pricing snapshot, and "
+            "spend policy from committed inputs. The same inputs always "
+            "produce the same bytes, so a reviewer can recompute every hash "
+            "the freeze names."
+        ),
+    )
+    tier0_mint.add_argument("--output-dir", type=Path, required=True)
+    tier0_mint.add_argument(
+        "--private-task-json",
+        type=Path,
+        required=True,
+        help=(
+            "Pinned upstream task.json. Hash-verified before use; supplies the "
+            "evaluator-private criterion IDs the judge ceilings must carry."
+        ),
+    )
+    tier0_mint.add_argument(
+        "--native-thin-manifest",
+        type=Path,
+        required=True,
+        help=(
+            "JSON identity of the pinned native-thin solver, including the "
+            "budget argument its command genuinely enforces."
+        ),
+    )
+    tier0_mint.add_argument(
+        "--evaluator-wrapper-sha256",
+        help=(
+            "Digest of the installed harvey-lab-eval. Defaults to the "
+            "committed wrapper bytes, which install-evaluator-wrapper copies "
+            "verbatim."
+        ),
+    )
+    tier0_mint.set_defaults(handler=_cmd_tier0_mint)
 
     report = commands.add_parser(
         "report",
@@ -854,6 +907,17 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
     else:
         factory = _tier0_production_evaluator_factory
         if factory is None:
+            # Install the single supported production adapter rather than
+            # refusing outright. An embedding runtime that already installed a
+            # reviewed factory keeps it; nothing here selects between adapters,
+            # so no run-varying input escapes the frozen spec hash.
+            from legalforecast.multiharness.tier0_production_factory import (
+                install_supported_production_factory,
+            )
+
+            install_supported_production_factory()
+            factory = _tier0_production_evaluator_factory
+        if factory is None:
             raise ValueError(
                 "paid Tier-0 execution requires an injected reviewed production "
                 "evaluator/provider adapter"
@@ -882,6 +946,63 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
     _cli_note(
         f"Tier-0 run completed ({'matched' if result.matched else 'system-bundle'}); "
         f"wrote {result.archive_manifest}."
+    )
+    return 0
+
+
+def _cmd_tier0_install_evaluator_wrapper(args: argparse.Namespace) -> int:
+    """Install the pinned evaluator wrapper and record its probed identity."""
+
+    from legalforecast.multiharness.tier0_evaluator_wrapper import (
+        install_evaluator_wrapper,
+    )
+
+    installed = install_evaluator_wrapper(
+        cast(Path, args.bin_dir),
+        scratch_root=cast(Path, args.scratch_root),
+        overwrite=cast(bool, args.overwrite),
+    )
+    write_json_object(cast(Path, args.output), installed.to_record())
+    _cli_note(
+        f"Installed {installed.install_path.name} "
+        f"({installed.wrapper_version}); pin evaluator_wrapper_sha256 to "
+        f"{installed.wrapper_sha256}."
+    )
+    return 0
+
+
+def _cmd_tier0_mint(args: argparse.Namespace) -> int:
+    """Mint the executable spec and its deterministic spend sidecars."""
+
+    from legalforecast.multiharness.tier0_mint import (
+        NativeThinArmInput,
+        criterion_ids_from_private_task,
+        mint_tier0_artifacts,
+    )
+
+    manifest = _read_json(cast(Path, args.native_thin_manifest), "native-thin manifest")
+    native_thin = NativeThinArmInput(
+        executable=_required_record_str(manifest, "executable"),
+        executable_sha256=_required_record_str(manifest, "executable_sha256"),
+        executable_version=_required_record_str(manifest, "executable_version"),
+        version_probe_args=_record_str_tuple(manifest, "version_probe_args"),
+        command=_record_str_tuple(manifest, "command"),
+        budget_argument=_required_record_str(manifest, "budget_argument"),
+    )
+    minted = mint_tier0_artifacts(
+        cast(Path, args.output_dir),
+        criterion_ids=criterion_ids_from_private_task(
+            cast(Path, args.private_task_json)
+        ),
+        native_thin=native_thin,
+        evaluator_wrapper_sha256=cast(str | None, args.evaluator_wrapper_sha256),
+    )
+    _cli_note(
+        f"Minted {minted.spec_path.name} and its sidecars. "
+        f"Spec SHA-256 {minted.spec_sha256}; pricing "
+        f"{minted.pricing_snapshot_sha256}; policy {minted.spend_policy_sha256}. "
+        "These artifacts contain evaluator-private criterion IDs and must stay "
+        "outside the public repository."
     )
     return 0
 
