@@ -1296,3 +1296,65 @@ def test_case_exceeding_the_per_case_ceiling_never_reaches_the_reviewer(
             fee_schedule_path=cast(Path, tranche["fee_schedule_path"]),
             canonical_ledger_path=cast(Path, tranche["canonical_ledger_path"]),
         )
+
+
+def _last_json_object(output: str, *, key: str) -> dict[str, Any]:
+    """Return the last JSON line in *output* carrying *key*.
+
+    The recorder prints the request, a human-readable block, and then its
+    machine-readable record, so a fixed line index would silently drift with the
+    display.
+    """
+
+    for line in reversed(output.splitlines()):
+        if not line.startswith("{"):
+            continue
+        try:
+            value = cast(dict[str, Any], json.loads(line))
+        except json.JSONDecodeError:
+            continue
+        if key in value:
+            return value
+    raise AssertionError(f"no JSON line carrying {key!r} in:\n{output}")
+
+
+def test_cli_resume_rebuilds_only_a_missing_run_card(
+    tranche: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`--resume` must not re-prompt.
+
+    A second recording stamps a new `recorded_at_utc`, so its checkpoint bytes
+    differ from the durable ones and the immutable write refuses them. Resume
+    therefore rebuilds the run card from the checkpoint that already exists.
+    """
+
+    private_root = cast(Path, tranche["private_root"])
+    command = [
+        "acquisition",
+        "record-document-repair-purchase-approval",
+        *_cli_source_arguments(tranche),
+        "--controlled-private-root",
+        str(private_root),
+        "--execute",
+    ]
+    _script_tty(monkeypatch, tranche, decision="approve")
+    assert main(command) == 0
+    checkpoint, run_card = cli_module.default_evidence_paths(private_root)
+    checkpoint_before = checkpoint.read_bytes()
+    run_card.unlink()
+
+    # Any prompt at this point is a defect: resume must be non-interactive.
+    def refuse(prompt: str) -> str:
+        raise AssertionError(f"resume must not prompt: {prompt}")
+
+    monkeypatch.setattr("builtins.input", refuse)
+    capsys.readouterr()
+    assert main([*command, "--resume"]) == 0
+
+    reported = _last_json_object(capsys.readouterr().out, key="resumed")
+    assert reported["resumed"] is True
+    assert checkpoint.read_bytes() == checkpoint_before
+    approval = _verify(tranche, checkpoint, run_card)
+    assert approval.reviewer_id == _REVIEWER

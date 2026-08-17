@@ -40,7 +40,10 @@ from legalforecast.ingestion.document_repair_purchase_approval import (
     verify_document_repair_purchase_approval,
     verify_document_repair_purchase_policy_binds,
 )
-from legalforecast.ingestion.purchase_approval import record_purchase_approval
+from legalforecast.ingestion.purchase_approval import (
+    record_purchase_approval,
+    resume_purchase_approval_recording,
+)
 
 _CHECKPOINT_NAME = "purchase-approval-checkpoint.json"
 _RUN_CARD_NAME = "run-cards/record-purchase-approval.json"
@@ -90,7 +93,10 @@ def add_parsers(subparsers: Any) -> None:
         "--resume",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Accept an existing byte-identical checkpoint instead of failing.",
+        help=(
+            "Rebuild only a missing run card from an existing durable checkpoint "
+            "instead of prompting again."
+        ),
     )
     record.set_defaults(handler=run_record)
 
@@ -230,6 +236,34 @@ def run_record(args: argparse.Namespace) -> int:
     if not cast(bool, args.execute):
         print("Dry run: nothing recorded. Re-run with --execute to confirm.")
         return 0
+    checkpoint_path = private_root / _CHECKPOINT_NAME
+    if cast(bool, args.resume) and (
+        checkpoint_path.exists() or checkpoint_path.is_symlink()
+    ):
+        # Repair only a missing run card from the durable checkpoint. Re-running
+        # the prompt could not resume: a second recording stamps a new
+        # ``recorded_at_utc``, so its checkpoint bytes would differ from the
+        # durable ones and the immutable write would refuse them.
+        resumed_checkpoint, resumed_run_card = resume_purchase_approval_recording(
+            request=request,
+            controlled_private_root=private_root,
+        )
+        print(
+            json.dumps(
+                {
+                    "resumed": True,
+                    "repair_execution_sha256": projection.execution.execution_sha256,
+                    "checkpoint_sha256": _file_sha256(resumed_checkpoint),
+                    "run_card_sha256": _file_sha256(resumed_run_card),
+                    "provider_activity_requested": False,
+                    "provider_activity_executed": False,
+                    "paid_activity_requested": False,
+                    "paid_activity_executed": False,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     if not sys.stdin.isatty():
         raise DocumentRepairPurchaseApprovalError(
             "record-document-repair-purchase-approval requires an interactive TTY"
@@ -240,7 +274,7 @@ def run_record(args: argparse.Namespace) -> int:
     required = request.required_confirmation(decision)
     print(f"Type exactly: {required}")
     confirmation = input("Exact confirmation: ")
-    checkpoint_path, run_card_path = record_purchase_approval(
+    recorded_checkpoint, recorded_run_card = record_purchase_approval(
         request=request,
         controlled_private_root=private_root,
         decision=decision,
@@ -254,8 +288,8 @@ def run_record(args: argparse.Namespace) -> int:
             {
                 "decision": decision,
                 "repair_execution_sha256": projection.execution.execution_sha256,
-                "checkpoint_sha256": _file_sha256(checkpoint_path),
-                "run_card_sha256": _file_sha256(run_card_path),
+                "checkpoint_sha256": _file_sha256(recorded_checkpoint),
+                "run_card_sha256": _file_sha256(recorded_run_card),
                 "provider_activity_requested": False,
                 "provider_activity_executed": False,
                 "paid_activity_requested": False,

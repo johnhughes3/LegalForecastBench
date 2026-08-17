@@ -5029,10 +5029,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "add_parsers",
-        "largest_symbol_lines": 83,
+        "largest_symbol_lines": 86,
         "layer": "adapter",
-        "line_count": 387,
-        "nonblank_line_count": 351,
+        "line_count": 421,
+        "nonblank_line_count": 385,
         "top_level_definition_count": 10
       },
       "legalforecast/ingestion/downstream_lineage_verification.py": {
@@ -8881,20 +8881,20 @@
       },
       "tests/test_document_repair_purchase_approval.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "tests",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
         "fan_in": 0,
         "fan_out": 0,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "tests",
         "largest_symbol": "tranche",
         "largest_symbol_lines": 88,
         "layer": "test",
-        "line_count": 989,
-        "nonblank_line_count": 870,
-        "top_level_definition_count": 30
+        "line_count": 1360,
+        "nonblank_line_count": 1193,
+        "top_level_definition_count": 38
       },
       "tests/test_downstream_rehearsal.py": {
         "cycle_id": "",
