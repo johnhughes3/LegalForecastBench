@@ -814,6 +814,18 @@ class CourtListenerClient:
                 return
             cursor = page.next_cursor
 
+    def get_recap_fetch(self, queue_id: str) -> Mapping[str, Any]:
+        """Read one queued RECAP Fetch request's current disposition.
+
+        RECAP Fetch is asynchronous: a dispatch returns a queue row whose
+        ``status`` settles later. Polling is a plain authenticated GET and
+        costs nothing, so a charge-bearing dispatch can be resolved to a
+        durable outcome without ever re-sending the charge.
+        """
+
+        normalized = _positive_path_identifier(queue_id, "queue_id")
+        return self._request_json("GET", f"/recap-fetch/{normalized}/", {})
+
     def list_recap_documents(
         self,
         docket_entry_id: str,

@@ -24,7 +24,12 @@ from legalforecast.labeling import outcome_label_from_record
 def register_stage_a_replay(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the cycle-neutral Stage A executor beside acquisition commands."""
+    """Register the cycle-neutral Stage A executor beside acquisition commands.
+
+    Registration stays here rather than in the facade so the heavy executor
+    loads lazily while production verifiers still contain reviewed CLI-facade
+    bridges during the command-slice migration.
+    """
 
     _stage_a_replay.register(subparsers)
 

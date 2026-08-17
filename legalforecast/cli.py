@@ -44,6 +44,7 @@ from legalforecast import __version__
 from legalforecast.acquisition_completion_summary_cli import (
     add_acquisition_completion_summary_parser,
 )
+from legalforecast.cli_commands import attachment_pages as _attachment_pages_cmd
 from legalforecast.cli_commands import report as _report_cmd
 from legalforecast.cli_commands import score as _score_cmd
 from legalforecast.cli_commands.report import (
@@ -1806,9 +1807,8 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_locate_cycle_lineage_arguments(acquisition_locate_cycle_lineage)
-    # Keep the heavy executor lazy while production verifiers still contain
-    # reviewed CLI-facade bridges during the command-slice migration.
     _score_cmd.register_stage_a_replay(acquisition_subparsers)
+    _attachment_pages_cmd.register(acquisition_subparsers)
     acquisition_successor_rerun_impact = acquisition_subparsers.add_parser(
         "explain-successor-rerun",
         help="Explain the minimum safe rerun for proposed successor inputs.",
