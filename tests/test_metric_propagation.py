@@ -28,6 +28,8 @@ from legalforecast.publication.accounting import (
 )
 from legalforecast.publication.metric_propagation import (
     MetricReconstructionError,
+    MetricTrace,
+    PublishedMetrics,
     metrics_from_artifacts,
     verify_metric_traces,
 )
@@ -230,3 +232,49 @@ def test_hand_edited_metric_fails_reconstruction(tmp_path: Path) -> None:
                 }
             },
         )
+
+
+@pytest.mark.parametrize(
+    "value", [float("nan"), float("inf"), float("-inf")], ids=["nan", "inf", "-inf"]
+)
+def test_non_finite_displayed_value_is_refused(value: float) -> None:
+    """A displayed figure must be a real number, not NaN or an infinity."""
+
+    with pytest.raises(MetricReconstructionError, match="displayed_value must be"):
+        MetricTrace(
+            field_name="cost_usd",
+            displayed_value=value,
+            source_artifact_sha256s=(DIGEST_A,),
+            source_field="cost_usd",
+            reduce="identity",
+        )
+
+
+@pytest.mark.parametrize(
+    "value", [float("nan"), float("inf"), float("-inf")], ids=["nan", "inf", "-inf"]
+)
+def test_non_finite_coverage_percentage_is_refused(value: float) -> None:
+    """Coverage is a percentage of a finite cohort, so it can never be infinite."""
+
+    with pytest.raises(MetricReconstructionError, match="coverage_percentage must be"):
+        PublishedMetrics(
+            selected_count=1,
+            solved_count=1,
+            evaluated_count=1,
+            coverage_percentage=value,
+            traces=(),
+        )
+
+
+def test_large_finite_integer_value_is_accepted() -> None:
+    """A huge but finite int is a valid figure, not an overflow crash."""
+
+    trace = MetricTrace(
+        field_name="token_total",
+        displayed_value=10**400,
+        source_artifact_sha256s=(DIGEST_A,),
+        source_field="token_total",
+        reduce="identity",
+    )
+
+    assert trace.displayed_value == 10**400

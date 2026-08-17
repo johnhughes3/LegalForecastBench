@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = ROOT / ".github/workflows/publish-package.yaml"
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
+TRUSTED_PUBLISHING_DOC = ROOT / "docs/security/pypi-trusted-publishing.md"
 
 
 def test_publish_package_workflow_is_tag_triggered() -> None:
@@ -67,4 +68,52 @@ def test_publish_package_workflow_does_not_use_official_eval_credentials() -> No
         "LFB_PACKET_BUCKET",
         "LFB_RESULTS_BUCKET",
     ):
+        assert forbidden not in WORKFLOW
+
+
+def test_publish_job_declines_a_non_tag_ref() -> None:
+    """The tag-only trigger is backed by a guard on the job itself."""
+
+    assert "if: startsWith(github.ref, 'refs/tags/v')" in WORKFLOW
+
+
+def test_trusted_publisher_doc_matches_the_registered_claim_set() -> None:
+    """The documented claim set is bound to the values PyPI actually matches.
+
+    A trusted-publisher registration fails closed on any mismatch, and the
+    mismatch surfaces only at upload time -- after a tag is pushed. Binding the
+    doc to the workflow filename, the environment name, and the distribution
+    name means a rename reddens here instead of at release.
+    """
+
+    doc = TRUSTED_PUBLISHING_DOC.read_text(encoding="utf-8")
+    project_name = re.search(
+        r'^name = "([^"]+)"',
+        (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+        re.M,
+    )
+
+    assert project_name is not None
+    for claim in (
+        f"`{project_name.group(1)}`",
+        "`LegalForecastBench`",
+        f"`{WORKFLOW_PATH.name}`",
+        "`pypi`",
+    ):
+        assert claim in doc
+    # The owner claim is described rather than named: this repository is public
+    # and AGENTS.md forbids committing account identifiers, so the doc points at
+    # GitHub's ``repository_owner`` claim instead of a maintainer literal.
+    assert "repository_owner" in doc
+    assert "environment:\n      name: pypi" in WORKFLOW
+    assert "startsWith(github.ref, 'refs/tags/v')" in doc
+
+
+def test_trusted_publisher_doc_forbids_a_static_pypi_credential() -> None:
+    """No API token may be reintroduced without contradicting the doc."""
+
+    doc = TRUSTED_PUBLISHING_DOC.read_text(encoding="utf-8")
+
+    assert "Adding a PyPI API token" in doc
+    for forbidden in ("PYPI_API_TOKEN", "TWINE_PASSWORD", "password:"):
         assert forbidden not in WORKFLOW

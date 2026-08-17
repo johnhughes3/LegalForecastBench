@@ -304,6 +304,175 @@ def test_private_receipt_check_swallows_stat_errors(
     assert _private_receipt_already_written(tmp_path) is False
 
 
+def _succeed_spec(spec_id: str) -> LocalCliRunSpec:
+    path = _FAKE_CLI.resolve()
+    return LocalCliRunSpec(
+        spec_id=spec_id,
+        manifest=LocalCliAdapterManifest(
+            adapter_id="fixture-cli",
+            display_name="Fixture CLI",
+            adapter_version="0.1.0",
+            command=(sys.executable, str(path)),
+            executable=executable_pin_for(path, version="0.1.0"),
+            supported_auth_profiles=(PUBLISHED_API_KEY,),
+            profile_env_vars=((PUBLISHED_API_KEY, ("OPENAI_API_KEY",)),),
+            version_probe_args=("--mode", "version"),
+        ),
+        auth_profile=PUBLISHED_API_KEY,
+        extra_args=("--mode", "succeed-json"),
+    )
+
+
+def _run_against_planted_scratch(scratch: Path) -> str:
+    """Execute the fixture CLI and return the redacted fail-closed message."""
+
+    with pytest.raises(LocalCliRuntimeError) as exc:
+        execute_local_cli(
+            _succeed_spec("planted"),
+            scratch,
+            credential_source=StaticCredentialSource({"OPENAI_API_KEY": _ENV_SECRET}),
+            parent_env={
+                "PATH": os.environ.get("PATH", "/usr/bin"),
+                "LC_CTYPE": "C.UTF-8",
+            },
+        )
+    return str(exc.value)
+
+
+def _prepared_artifact_dir(scratch: Path) -> Path:
+    scratch.mkdir(mode=0o700)
+    artifact_dir = scratch / PRIVATE_EXECUTION_DIR
+    artifact_dir.mkdir(mode=0o700)
+    return artifact_dir
+
+
+def test_planted_directory_at_receipt_path_fails_closed(tmp_path: Path) -> None:
+    """A non-regular artifact path is refused instead of being written around."""
+
+    scratch = tmp_path / "scratch"
+    planted = _prepared_artifact_dir(scratch) / "receipt.json"
+    planted.mkdir(mode=0o700)
+
+    message = _run_against_planted_scratch(scratch)
+
+    assert "regular files" in message
+    assert planted.is_dir()
+    assert list(planted.iterdir()) == []
+
+
+def test_planted_file_symlink_is_refused_without_writing_through(
+    tmp_path: Path,
+) -> None:
+    """A symlinked artifact path never becomes a write into the link target."""
+
+    scratch = tmp_path / "scratch"
+    leaked = tmp_path / "leaked.json"
+    leaked.write_text("", encoding="utf-8")
+    (_prepared_artifact_dir(scratch) / "receipt.json").symlink_to(leaked)
+
+    message = _run_against_planted_scratch(scratch)
+
+    assert "symlink" in message
+    assert leaked.read_bytes() == b""
+
+
+def test_artifact_open_failure_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An ``os.open`` refusal surfaces as a runtime failure, not a silent skip."""
+
+    redaction = sys.modules[persist_execution_artifacts.__module__]
+    scratch = tmp_path / "scratch"
+    artifact_dir = _prepared_artifact_dir(scratch)
+    real_open = os.open
+
+    def _refuse_artifact_open(
+        path: object, flags: int, mode: int = 0o777, **kwargs: object
+    ) -> int:
+        if isinstance(path, (str, Path)) and Path(path).parent == artifact_dir:
+            raise PermissionError("planted artifact open failure")
+        return real_open(path, flags, mode, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(redaction.os, "open", _refuse_artifact_open)
+
+    message = _run_against_planted_scratch(scratch)
+
+    assert "could not be created" in message
+    assert list(artifact_dir.iterdir()) == []
+
+
+def test_artifact_replacement_unlink_failure_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stale regular artifact that cannot be removed is never appended to."""
+
+    scratch = tmp_path / "scratch"
+    artifact_dir = _prepared_artifact_dir(scratch)
+    stale = artifact_dir / "receipt.json"
+    stale.write_bytes(b"stale\n")
+    real_unlink = Path.unlink
+
+    def _refuse_artifact_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if self == stale:
+            raise PermissionError("planted artifact unlink failure")
+        real_unlink(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "unlink", _refuse_artifact_unlink)
+
+    message = _run_against_planted_scratch(scratch)
+
+    assert "could not be replaced" in message
+    assert stale.read_bytes() == b"stale\n"
+
+
+@pytest.mark.parametrize("removed", ["receipt.json", "receipt.sha256"])
+def test_verify_refuses_a_missing_private_artifact(
+    tmp_path: Path, removed: str
+) -> None:
+    scratch = _persisted_scratch(tmp_path)
+    (scratch / PRIVATE_EXECUTION_DIR / removed).unlink()
+
+    with pytest.raises(LocalCliRedactionError, match="is missing"):
+        verify_execution_artifacts(scratch)
+
+
+def test_verify_refuses_a_symlinked_private_artifact(tmp_path: Path) -> None:
+    scratch = _persisted_scratch(tmp_path)
+    decoy = tmp_path / "decoy.sha256"
+    decoy.write_text("0" * 64 + "\n", encoding="utf-8")
+    digest_path = scratch / PRIVATE_EXECUTION_DIR / "receipt.sha256"
+    digest_path.unlink()
+    digest_path.symlink_to(decoy)
+
+    with pytest.raises(LocalCliRedactionError, match="must not be symlinks"):
+        verify_execution_artifacts(scratch)
+
+
+def test_verify_refuses_a_non_regular_private_artifact(tmp_path: Path) -> None:
+    scratch = _persisted_scratch(tmp_path)
+    digest_path = scratch / PRIVATE_EXECUTION_DIR / "receipt.sha256"
+    digest_path.unlink()
+    digest_path.mkdir(mode=0o700)
+
+    with pytest.raises(LocalCliRedactionError, match="regular files"):
+        verify_execution_artifacts(scratch)
+
+
+def _persisted_scratch(tmp_path: Path) -> Path:
+    scratch = tmp_path / "scratch"
+    scratch.mkdir(mode=0o700)
+    persist_execution_artifacts(
+        scratch,
+        receipt={"status": "succeeded"},
+        argv=["fixture-cli"],
+        stdout=b"",
+        stderr=b"",
+        secret_values=(),
+    )
+    verify_execution_artifacts(scratch)
+    return scratch
+
+
 def _canary_spec() -> LocalCliRunSpec:
     path = _FAKE_CLI.resolve()
     return LocalCliRunSpec(

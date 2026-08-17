@@ -43,6 +43,10 @@ jobs:
   publish:
     name: Publish package
     needs: release-check
+    # Defense in depth behind the tag-only trigger: if a future trigger reaches
+    # this job from a branch, it declines rather than publishing. See
+    # docs/security/pypi-trusted-publishing.md.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
