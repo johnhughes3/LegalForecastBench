@@ -1,0 +1,186 @@
+{
+  "activation": {
+    "allowed": false,
+    "blocking_gaps": [
+      "native model tool inventory not observed for this binary",
+      "resolved model not observed for this binary"
+    ]
+  },
+  "binary": {
+    "distribution": {
+      "kind": "homebrew-cask",
+      "package": "codex",
+      "version": "0.147.0"
+    },
+    "executable": "codex",
+    "mode": "0755",
+    "sha256": "cb0a15567e9a60a5820d54b0f6ae86d504dc3805c1eab21a47f70e3eb7b73a40",
+    "version": "codex-cli 0.147.0"
+  },
+  "identity": {
+    "adapter_profile": "codex-cli-clean-native",
+    "foreign_mcp_primary_loop": false,
+    "openai_responses_adapter": false
+  },
+  "interface": {
+    "exec_help_sha256": "444f5b0c9ccbf961a3ba12ad3099074106b5ff757df854dd718f93b4dcd3a174",
+    "exec_long_flags": [
+      "--add-dir",
+      "--approve-for-me",
+      "--cd",
+      "--color",
+      "--config",
+      "--dangerously-bypass-approvals-and-sandbox",
+      "--dangerously-bypass-hook-trust",
+      "--disable",
+      "--enable",
+      "--ephemeral",
+      "--help",
+      "--ignore-rules",
+      "--ignore-user-config",
+      "--image",
+      "--json",
+      "--last",
+      "--local-provider",
+      "--model",
+      "--oss",
+      "--output-last-message",
+      "--output-schema",
+      "--profile",
+      "--sandbox",
+      "--skip-git-repo-check",
+      "--strict-config",
+      "--version"
+    ],
+    "parser_probe": {
+      "help_only": true,
+      "probe_requested_model_call": false,
+      "sha256": "444f5b0c9ccbf961a3ba12ad3099074106b5ff757df854dd718f93b4dcd3a174"
+    },
+    "required_exec_flags": [
+      "--cd",
+      "--ephemeral",
+      "--ignore-rules",
+      "--ignore-user-config",
+      "--json",
+      "--model",
+      "--sandbox",
+      "--strict-config"
+    ],
+    "root_help_sha256": "729c716c961be6575059274ad202aca4ff470a0a0ce556afa9fa7bad5fe9d333",
+    "root_long_flags": [
+      "--add-dir",
+      "--approve-for-me",
+      "--ask-for-approval",
+      "--cd",
+      "--config",
+      "--dangerously-bypass-approvals-and-sandbox",
+      "--dangerously-bypass-hook-trust",
+      "--disable",
+      "--enable",
+      "--help",
+      "--image",
+      "--last",
+      "--local-provider",
+      "--model",
+      "--no-alt-screen",
+      "--oss",
+      "--profile",
+      "--remote",
+      "--remote-auth-token-env",
+      "--sandbox",
+      "--search",
+      "--strict-config",
+      "--version"
+    ],
+    "root_subcommands": [
+      "app-server",
+      "apply",
+      "archive",
+      "cloud",
+      "completion",
+      "debug",
+      "delete",
+      "doctor",
+      "exec",
+      "exec-server",
+      "features",
+      "fork",
+      "help",
+      "login",
+      "logout",
+      "mcp",
+      "mcp-server",
+      "plugin",
+      "remote-control",
+      "resume",
+      "review",
+      "sandbox",
+      "unarchive",
+      "update"
+    ],
+    "sandbox_modes": [
+      "danger-full-access",
+      "read-only",
+      "workspace-write"
+    ]
+  },
+  "model": {
+    "requested": "gpt-5.1",
+    "resolved": null,
+    "resolved_verification": "requires a separately approved model request"
+  },
+  "platform": {
+    "machine": "x86_64",
+    "system": "linux"
+  },
+  "safety": {
+    "auth_paths_requested": false,
+    "benchmark_task_paths_requested": false,
+    "external_network_isolation_enforced": false,
+    "no_external_behavior_claimed": true,
+    "probe_kind": "version-help-feature-interface-only",
+    "probe_requested_model_calls": 0,
+    "provider_credential_environment_inherited": false
+  },
+  "schema_version": "legalforecast.codex_cli_interface_characterization.v1",
+  "tools": {
+    "feature_list_sha256": "84657247e0d197ea156e4dffd1bd75e876659cc6fc4e28af4cf98aa6f0d40435",
+    "feature_rows": {
+      "apps": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "hooks": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "image_generation": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "memories": {
+        "enabled": false,
+        "stage": "stable"
+      },
+      "multi_agent": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "plugins": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "shell_tool": {
+        "enabled": true,
+        "stage": "stable"
+      },
+      "unified_exec": {
+        "enabled": true,
+        "stage": "stable"
+      }
+    },
+    "native_model_tool_inventory": null,
+    "observed_without_model_request": false
+  }
+}

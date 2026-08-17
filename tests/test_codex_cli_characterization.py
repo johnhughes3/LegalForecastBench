@@ -24,10 +24,10 @@ FIXTURE = (
     / "tests"
     / "fixtures"
     / "codex_cli_characterization"
-    / "codex-cli-interface-0.146.0.json"
+    / "codex-cli-interface-0.147.0.json"
 )
 DOC = ROOT / "docs" / "adapters" / "codex-cli-characterization.md"
-EXPECTED_SHA256 = "2e863156ed35ecc5253b1e2f907a9143077b9f7cb51942070c61996471ff6e04"
+EXPECTED_SHA256 = "cb0a15567e9a60a5820d54b0f6ae86d504dc3805c1eab21a47f70e3eb7b73a40"
 
 
 def _fixture() -> dict[str, Any]:
@@ -44,12 +44,12 @@ def test_committed_characterization_pins_binary_and_requested_probe_controls() -
         "distribution": {
             "kind": "homebrew-cask",
             "package": "codex",
-            "version": "0.146.0",
+            "version": "0.147.0",
         },
-        "executable": "codex-x86_64-unknown-linux-musl",
+        "executable": "codex",
         "mode": "0755",
         "sha256": EXPECTED_SHA256,
-        "version": "codex-cli 0.146.0",
+        "version": "codex-cli 0.147.0",
     }
     assert evidence["safety"] == {
         "auth_paths_requested": False,
@@ -67,6 +67,7 @@ def test_characterization_pins_required_noninteractive_controls() -> None:
     interface = evidence["interface"]
 
     assert "exec" in interface["root_subcommands"]
+    assert "--approve-for-me" in interface["exec_long_flags"]
     assert set(interface["required_exec_flags"]) == {
         "--cd",
         "--ephemeral",
@@ -111,7 +112,7 @@ def test_identity_is_distinct_and_unverified_activation_is_blocked() -> None:
 def test_documentation_preserves_the_non_spending_claim_boundary() -> None:
     documentation = DOC.read_text(encoding="utf-8")
 
-    assert "`codex-cli 0.146.0`" in documentation
+    assert "`codex-cli 0.147.0`" in documentation
     assert EXPECTED_SHA256 in documentation
     assert "does not prove JSONL event semantics" in documentation
     assert "does not supersede" in documentation
@@ -189,7 +190,7 @@ def test_hash_drift_is_rejected_before_executable_invocation(tmp_path: Path) -> 
     executable = _write_recording_fake(
         tmp_path,
         marker=marker,
-        name="codex-x86_64-unknown-linux-musl",
+        name="codex",
     )
 
     with pytest.raises(CharacterizationDriftError, match="hash"):

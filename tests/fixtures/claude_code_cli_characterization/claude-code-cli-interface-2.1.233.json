@@ -1,0 +1,143 @@
+{
+  "activation": {
+    "allowed": false,
+    "blocking_gaps": [
+      "native model tool inventory not observed for this binary",
+      "resolved model not observed for this binary"
+    ]
+  },
+  "auth": {
+    "help_documents_api_key": true,
+    "help_documents_bare_oauth_skip": true,
+    "status_command_requested": false
+  },
+  "binary": {
+    "distribution": {
+      "kind": "standalone-cli",
+      "package": "claude",
+      "version": "2.1.233 (Claude Code)"
+    },
+    "executable": "claude",
+    "mode": "0755",
+    "sha256": "55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9",
+    "version": "2.1.233 (Claude Code)"
+  },
+  "identity": {
+    "adapter_profile": "claude-code-clean-native",
+    "claude_agent_sdk_adapter": false,
+    "uses_bare_flag": false
+  },
+  "interface": {
+    "output_formats": [
+      "json",
+      "stream-json",
+      "text"
+    ],
+    "parser_probe": {
+      "help_only": true,
+      "probe_requested_model_call": false,
+      "sha256": "826d2c6f5002fc0d05180aa0d9013c9fbff3b873fb639cd8d23141f402856a79"
+    },
+    "print_long_flags": [
+      "--add-dir",
+      "--agent",
+      "--agents",
+      "--allow-dangerously-skip-permissions",
+      "--allowed",
+      "--allowed-tools",
+      "--append-system-prompt",
+      "--autocompact",
+      "--ax-screen-reader",
+      "--background",
+      "--bare",
+      "--betas",
+      "--bg",
+      "--brief",
+      "--chrome",
+      "--cloud",
+      "--continue",
+      "--dangerously-skip-permissions",
+      "--debug",
+      "--debug-file",
+      "--disable-slash-commands",
+      "--disallowed",
+      "--disallowed-tools",
+      "--effort",
+      "--environment",
+      "--exclude-dynamic-system-prompt-sections",
+      "--fallback-model",
+      "--file",
+      "--fork-session",
+      "--forward-subagent-text",
+      "--from-pr",
+      "--help",
+      "--ide",
+      "--include-hook-events",
+      "--include-partial-messages",
+      "--input-format",
+      "--json-schema",
+      "--max-budget-usd",
+      "--mcp-config",
+      "--model",
+      "--name",
+      "--no-chrome",
+      "--no-session-persistence",
+      "--output-format",
+      "--permission-mode",
+      "--plugin-dir",
+      "--plugin-url",
+      "--print",
+      "--prompt-suggestions",
+      "--remote-control",
+      "--remote-control-session-name-prefix",
+      "--replay-user-messages",
+      "--resume",
+      "--safe-mode",
+      "--session-id",
+      "--setting-sources",
+      "--settings",
+      "--strict-mcp-config",
+      "--system-prompt",
+      "--teleport",
+      "--tmux",
+      "--tools",
+      "--verbose",
+      "--version",
+      "--worktree"
+    ],
+    "required_print_flags": [
+      "--json-schema",
+      "--model",
+      "--no-session-persistence",
+      "--output-format",
+      "--print",
+      "--setting-sources",
+      "--strict-mcp-config",
+      "--tools"
+    ],
+    "root_help_sha256": "71ad650f59e08ae40ede14c534db4f49d8590ee5a4f92f6da2882d3a5560fea6"
+  },
+  "model": {
+    "requested": "claude-haiku-4-5",
+    "resolved": null,
+    "resolved_verification": "requires a separately approved model request"
+  },
+  "platform": {
+    "machine": "x86_64",
+    "system": "linux"
+  },
+  "safety": {
+    "auth_paths_requested": false,
+    "benchmark_task_paths_requested": false,
+    "external_network_isolation_enforced": false,
+    "no_external_behavior_claimed": true,
+    "probe_kind": "version-help-print-interface-only",
+    "probe_requested_model_calls": 0,
+    "provider_credential_environment_inherited": false
+  },
+  "schema_version": "legalforecast.claude_code_cli_interface_characterization.v1",
+  "tools": {
+    "native_model_tool_inventory": null,
+    "observed_without_model_request": false
+  }
+}

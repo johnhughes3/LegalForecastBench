@@ -86,7 +86,7 @@ CLAUDE_FORECAST_SEALED_PATH = "forecast.json"
 CLAUDE_CODE_WRAPPER_COMMAND = (
     "legalforecast.multiharness.claude_code:ClaudeCodeCliAdapter",
 )
-# Pinned Claude Code 2.1.231: ``--tools`` takes exactly one argv value token.
+# Pinned Claude Code 2.1.233: ``--tools`` takes exactly one argv value token.
 # The frozen template fills that slot with ``""``. Clean-native replaces the
 # same slot with a comma-joined allowlist (``Read,Glob``), not a shell string
 # and not repeated argv words. See ``encode_claude_code_tools_argv_token``.
@@ -301,7 +301,7 @@ def write_forecast_output_schema(
 
 
 def encode_claude_code_tools_argv_token(allowed_tools: Sequence[str]) -> str:
-    """Return the single ``--tools`` argv token for pinned Claude Code 2.1.231.
+    """Return the single ``--tools`` argv token for pinned Claude Code 2.1.233.
 
     The frozen ``argv_template`` reserves one value slot after ``--tools``.
     Offline cores leave that slot as the empty string. Clean-native fills the

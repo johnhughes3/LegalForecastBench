@@ -37,8 +37,8 @@ FIXTURE_DIR = ROOT / "tests" / "fixtures" / "local_cli_adapters"
 CLAUDE_FIXTURE = FIXTURE_DIR / "claude-code.json"
 CODEX_FIXTURE = FIXTURE_DIR / "codex-cli.json"
 SCHEMA_DOC = ROOT / "docs" / "schemas" / "local-cli-adapter-manifest-v1.md"
-CLAUDE_SHA256 = "47a01daebf794f6c86c13d1875ad6e5be0627029ad8600731161f24018ecde5b"
-CODEX_SHA256 = "2e863156ed35ecc5253b1e2f907a9143077b9f7cb51942070c61996471ff6e04"
+CLAUDE_SHA256 = "55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9"
+CODEX_SHA256 = "cb0a15567e9a60a5820d54b0f6ae86d504dc3805c1eab21a47f70e3eb7b73a40"
 
 
 def _binding(
@@ -69,7 +69,7 @@ def _claude_record() -> dict[str, Any]:
         "adapter_kind": LOCAL_CLI_ADAPTER_KIND,
         "executable": {
             "basename": "claude",
-            "version": "2.1.231 (Claude Code)",
+            "version": "2.1.233 (Claude Code)",
             "sha256": CLAUDE_SHA256,
             "distribution_kind": "standalone-cli",
         },
@@ -182,7 +182,7 @@ def _codex_record() -> dict[str, Any]:
         "adapter_kind": LOCAL_CLI_ADAPTER_KIND,
         "executable": {
             "basename": "codex",
-            "version": "codex-cli 0.146.0",
+            "version": "codex-cli 0.147.0",
             "sha256": CODEX_SHA256,
             "distribution_kind": "homebrew-cask",
         },

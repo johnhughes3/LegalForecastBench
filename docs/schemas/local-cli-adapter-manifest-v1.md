@@ -61,8 +61,8 @@ The fenced example is the committed Claude Code instance (`tests/fixtures/local_
   "executable": {
     "basename": "claude",
     "distribution_kind": "standalone-cli",
-    "sha256": "47a01daebf794f6c86c13d1875ad6e5be0627029ad8600731161f24018ecde5b",
-    "version": "2.1.231 (Claude Code)"
+    "sha256": "55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9",
+    "version": "2.1.233 (Claude Code)"
   },
   "harness_binding": {
     "adapter_id": "claude-code-clean-native",
@@ -324,8 +324,8 @@ The following tables are the anti-drift inventory. Tests parse the `field` colum
 
 ## Fixtures
 
-- `tests/fixtures/local_cli_adapters/claude-code.json` — first real instance, dogfooding the Claude Code 2.1.231 characterization.
-- `tests/fixtures/local_cli_adapters/codex-cli.json` — Codex CLI 0.146.0 interface pin, same schema, no Claude-specific fields.
+- `tests/fixtures/local_cli_adapters/claude-code.json` — first real instance, dogfooding the Claude Code 2.1.233 characterization.
+- `tests/fixtures/local_cli_adapters/codex-cli.json` — Codex CLI 0.147.0 interface pin, same schema, no Claude-specific fields.
 
 Validate with:
 
