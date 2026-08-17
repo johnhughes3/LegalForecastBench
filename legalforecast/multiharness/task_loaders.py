@@ -96,7 +96,7 @@ class LfbTaskLoader:
             index_id=index_id,
             selection_namespace=selection_namespace,
             tasks=tasks,
-            index_sha256=_record_sha256([task.to_record() for task in tasks]),
+            index_sha256=task_index_sha256(tasks),
         )
 
     def write_solver_inputs(
@@ -203,7 +203,7 @@ class HarveyLabTaskLoader:
             index_id=index_id,
             selection_namespace=selection_namespace,
             tasks=tasks,
-            index_sha256=_record_sha256([task.to_record() for task in tasks]),
+            index_sha256=task_index_sha256(tasks),
         )
 
     def load_task_directory(self, task_dir: Path) -> CanonicalTask:
@@ -287,6 +287,16 @@ class HarveyLabTaskLoader:
         if result.returncode != 0 or not commit:
             return None
         return commit
+
+
+def task_index_sha256(tasks: Sequence[CanonicalTask]) -> str:
+    """Digest a task index's records the way every suite loader must.
+
+    Suite loaders live in different modules but their indexes are compared and
+    resumed against each other, so the digest has exactly one definition.
+    """
+
+    return _record_sha256([task.to_record() for task in tasks])
 
 
 def _extract_packet_record(record: Mapping[str, Any]) -> Mapping[str, Any]:

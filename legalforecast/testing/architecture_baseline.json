@@ -3729,7 +3729,7 @@
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/ingestion/stage_a_replay_executor": 12,
       "legalforecast/labeling": 13,
-      "legalforecast/multiharness": 64,
+      "legalforecast/multiharness": 65,
       "legalforecast/protocol": 4,
       "legalforecast/publication": 21,
       "legalforecast/reporting": 9,
@@ -3739,7 +3739,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 435,
+      "tests": 437,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -6872,7 +6872,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 2,
+        "fan_in": 3,
         "fan_out": 8,
         "flags": [
           "watch"
@@ -6881,9 +6881,9 @@
         "largest_symbol": "LfbTaskLoader",
         "largest_symbol_lines": 125,
         "layer": "application",
-        "line_count": 545,
-        "nonblank_line_count": 486,
-        "top_level_definition_count": 22
+        "line_count": 555,
+        "nonblank_line_count": 492,
+        "top_level_definition_count": 23
       },
       "legalforecast/multiharness/tier0_runner.py": {
         "cycle_id": "",
@@ -8139,6 +8139,24 @@
         "line_count": 769,
         "nonblank_line_count": 621,
         "top_level_definition_count": 40
+      },
+      "tests/test_community_lab_quickstart.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_contributor_walkthrough_projects_indexes_selects_and_runs",
+        "largest_symbol_lines": 116,
+        "layer": "test",
+        "line_count": 542,
+        "nonblank_line_count": 486,
+        "top_level_definition_count": 16
       },
       "tests/test_community_publication.py": {
         "cycle_id": "",
