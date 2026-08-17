@@ -169,9 +169,13 @@ _DEFAULT_APPROVAL_AUTHORITY_CONFIG = (
     / "harvey-lab"
     / "tier0-approval-authority.json"
 )
-TIER0_APPROVAL_ISSUER_ID = "legalforecast.tier0-spend-approval-issuer.v1"
+TIER0_APPROVAL_ISSUER_ID = (
+    # contract-ratchet: allow non-authoritative Tier-0 issuer identity
+    "legalforecast.tier0-spend-approval-issuer.v1"
+)
 TIER0_APPROVAL_ISSUER_KEY_ID = "tier0-spend-approver-v1"
 TIER0_APPROVAL_ISSUER_POLICY_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative Tier-0 approval policy sidecar
     "legalforecast.tier0_spend_approval_issuer_policy.v1"
 )
 _HARVEY_LAB_JUDGE_CRITERION_COUNT = 23
@@ -2309,6 +2313,7 @@ def _write_archive(
     write_json_object(
         private / "review-mapping.json",
         {
+            # contract-ratchet: allow private Tier-0 review-mapping sidecar
             "schema_version": "legalforecast.multiharness.tier0_review_mapping.v1",
             "arms": [
                 {
