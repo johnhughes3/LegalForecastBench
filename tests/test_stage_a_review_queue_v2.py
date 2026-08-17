@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -888,6 +889,62 @@ def test_generation_publisher_rejects_an_existing_member_symlink(
             v1_bytes=generation.v1_bytes,
             v2_bytes=generation.v2_bytes,
         )
+
+
+def test_generation_publisher_and_reader_reject_member_hard_links(
+    tmp_path: Path,
+) -> None:
+    """Immutable generation members must be regular files with one link."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    generation = read_review_queue_generation(queue_path)
+    outside = tmp_path / "outside-v1.jsonl"
+    outside.hardlink_to(generation.v1_path)
+
+    with pytest.raises(ReviewQueueError, match="one link"):
+        generation_module.publish_review_queue_generation(
+            queue_path,
+            v1_bytes=generation.v1_bytes,
+            v2_bytes=generation.v2_bytes,
+        )
+    with pytest.raises(ReviewQueueError, match="one link"):
+        read_review_queue_generation(queue_path)
+
+
+def test_generation_reader_rejects_an_ancestor_symlink_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A queue-directory swap cannot redirect an already-validated member path."""
+
+    queue_directory = tmp_path / "queue"
+    queue_directory.mkdir()
+    queue_path = queue_directory / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-1"),))
+    external = tmp_path / "external"
+    shutil.copytree(queue_directory, external)
+    real_queue_directory = tmp_path / "queue-real"
+
+    original_resolve = generation_module._resolve_member_path
+    swapped = False
+
+    def swap_after_resolve(
+        relative: str, *, manifest_path: Path, generation_id: str
+    ) -> Path:
+        nonlocal swapped
+        resolved = original_resolve(
+            relative, manifest_path=manifest_path, generation_id=generation_id
+        )
+        if not swapped:
+            swapped = True
+            queue_directory.rename(real_queue_directory)
+            queue_directory.symlink_to(external, target_is_directory=True)
+        return resolved
+
+    monkeypatch.setattr(generation_module, "_resolve_member_path", swap_after_resolve)
+
+    with pytest.raises(ReviewQueueError, match="unreadable"):
+        read_review_queue_generation(queue_path)
 
 
 def test_generation_reader_rejects_a_member_from_a_different_generation(
