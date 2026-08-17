@@ -10,8 +10,6 @@ from legalforecast.ingestion.case_dev_purchase import (
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.courtlistener_recap_fetch import (
-    CONFIRMED_BY_PUBLIC_DOCUMENT,
-    CONFIRMED_BY_QUEUE_RECEIPT,
     CourtListenerRecapFetchClient,
     DirectCourtListenerRecapFetchPurchaseBroker,
     FixtureRecapFetchTransport,
@@ -78,8 +76,10 @@ def test_direct_queue_lag_waits_beyond_default_three_polls_without_duplicate_pos
     assert len(paid.calls) == 1
 
 
-def test_queue_receipt_confirmation_names_its_evidence(tmp_path: Path) -> None:
-    """A status=2 queue receipt is recorded as the confirming evidence."""
+def test_queue_receipt_confirmation_preserves_frozen_response_shape(
+    tmp_path: Path,
+) -> None:
+    """Observational provenance never enters authenticated purchase bytes."""
 
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
@@ -111,15 +111,15 @@ def test_queue_receipt_confirmation_names_its_evidence(tmp_path: Path) -> None:
         )
         response = _confirmed_response(journal, "123")
 
-    assert response["confirmation_evidence"] == CONFIRMED_BY_QUEUE_RECEIPT
+    assert "confirmation_evidence" not in response
     assert "queue_response" in response
     assert len(paid.calls) == 1
 
 
-def test_queue_lag_confirmation_records_public_document_recovery_provenance(
+def test_queue_lag_confirmation_preserves_frozen_response_shape(
     tmp_path: Path,
 ) -> None:
-    """Confirming from the public PDF names the weaker recovery evidence."""
+    """Public-document recovery retains the pre-existing response field set."""
 
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
@@ -151,7 +151,7 @@ def test_queue_lag_confirmation_records_public_document_recovery_provenance(
         )
         response = _confirmed_response(journal, "123")
 
-    assert response["confirmation_evidence"] == CONFIRMED_BY_PUBLIC_DOCUMENT
+    assert "confirmation_evidence" not in response
     assert "queue_response" not in response
     assert response["queue_id"] == "77"
     assert len(paid.calls) == 1
