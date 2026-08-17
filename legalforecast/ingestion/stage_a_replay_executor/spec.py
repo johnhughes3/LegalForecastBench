@@ -259,7 +259,8 @@ def load_replay_spec(path: str | Path, *, now: datetime | None = None) -> Replay
         *lineage_inputs,
     )
     _require_output_isolation(output_paths, input_paths)
-    _require_outputs_outside_checkout(output_paths)
+    if not synthetic:
+        _require_outputs_outside_checkout(output_paths)
     return ReplaySpec(
         path=source,
         spec_sha256=claimed,
