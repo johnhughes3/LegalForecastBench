@@ -63,7 +63,7 @@ Index tasks, then select a slice. A scoped run is labeled scoped. It is not a fu
 
 ### LegalForecastBench fixture packets (zero credentials)
 
-This is the walkthrough that works today with no extra checkout and no credentials. `fixture e2e` writes one packet.
+The quickest zero-credential path: no extra checkout, one packet. The Harvey LAB category below also works without credentials; it just needs the upstream corpus cloned first.
 
 ```bash
 uv run legalforecast fixture e2e --output-dir tmp/fixture-run
@@ -82,15 +82,18 @@ uv run legalforecast multiharness tasks index \
 
 A raw Harvey LAB git clone is **not** a contributor input. Upstream `task.json` files carry the evaluator's `criteria` — the graded answer. You project the corpus first: the projection splits each task into solver-visible bytes and an evaluator-private root, and the harness only ever indexes the projected side.
 
-**Clone the pinned corpus.** The projection authenticates your checkout against a recorded commit, so fetch exactly that revision. A shallow fetch is enough and takes about 700 MB:
+**Clone the pinned corpus, beside this checkout — not inside it.** The projection authenticates your checkout against a recorded commit, so fetch exactly that revision. A shallow fetch is enough: about 700 MB of working tree, roughly 15 seconds on a fast link.
 
 ```bash
+cd ..                      # leave the LegalForecastBench checkout
 git init harvey-labs && cd harvey-labs
 git remote add origin https://github.com/harveyai/harvey-labs.git
 git fetch --depth 1 origin 73feb91d63d53b1a44151d99329779c4defcdb72
 git checkout FETCH_HEAD
-cd ..
+cd ../LegalForecastBench   # back to this repository
 ```
+
+Cloning it inside the benchmark checkout leaves a nested git repository and 700 MB of untracked files in your working tree, which is easy to commit by accident. The commands below assume the sibling layout and use `--lab-root ../harvey-labs`.
 
 The pin lives in `legalforecast/multiharness/harvey_lab_projection.py` (`PINNED_COMMIT`). A checkout at any other revision, or one with local edits, is refused.
 
@@ -98,7 +101,7 @@ The pin lives in `legalforecast/multiharness/harvey_lab_projection.py` (`PINNED_
 
 ```bash
 uv run legalforecast multiharness tasks project \
-  --lab-root harvey-labs \
+  --lab-root ../harvey-labs \
   --category immigration \
   --output-dir tmp/lab/projected \
   --evaluator-private-dir tmp/lab/private
@@ -178,7 +181,9 @@ uv run legalforecast multiharness run \
 
 The fixture adapter answers every task without calling a provider, so a category finishes in seconds. It does not write the task's deliverable, so a fixture LAB run proves the harness path, not model quality; there is no LAB score in it.
 
-On a long run, interrupt with Ctrl-C (SIGINT) or SIGTERM. The in-flight task gets a terminal `interrupted` receipt, not a crash. Child processes are torn down. The command exits `130` and prints a resume hint. The run is a **partial** claim.
+On a long run, interrupt with Ctrl-C (SIGINT) or SIGTERM. The in-flight task gets a terminal `interrupted` receipt, not a crash. Child processes are torn down. The command exits `130` and prints a resume hint. The run is a **partial** claim. Interrupting during startup, before the first task begins, is also an exit `130` with the same hint.
+
+To see interrupt and resume actually do something, pick a category big enough to take a while. With the fixture adapter each task finishes in well under a second, so `immigration` (19 projected tasks) is usually over before you can reach for Ctrl-C; `corporate-ma` (123 projected tasks) gives you room.
 
 Resume with the same command plus `--resume`:
 
@@ -220,6 +225,8 @@ uv run legalforecast multiharness community validate-submission \
 
 Stderr reports each `Wrote …` path. `tmp/community-validation.json` has `"status": "passed"`.
 
+`--task-source-credit-name` names whoever the tasks came from, which is **not** always this project: for a Harvey LAB run it is `Harvey LAB`. `--benchmark-credit-name` stays `LegalForecastBench`. Only the submitter, operator, and adapter-author names are yours to fill in.
+
 Open a pull request that adds only that submission directory. Details, attestations, and credits: [docs/community-submissions.md](community-submissions.md). Adapter contract: [docs/multiharness-adapter-spec.md](multiharness-adapter-spec.md).
 
 ## 7. Costs
@@ -255,7 +262,8 @@ Public JSON is scanned for secrets and path leakage. If a command’s output con
 | `tasks index --lab-root` says to use `--projected-root` | You pointed the maintainer flag at a projected layout. Use `--projected-root`. |
 | `--lab-root` fails on a raw Harvey LAB clone | The raw path reads evaluator `criteria`; it is not a contributor input. Project the corpus first. |
 | Folder mode refuses a projected layout | Known contract mismatch ([#845](https://github.com/johnhughes3/LegalForecastBench/issues/845)). Use `--projected-root` with `--category` or `--task-id`. |
-| Ctrl-C does nothing on the fixture walkthrough | The one-task fixture finishes in about a second. That is expected. |
+| Ctrl-C does nothing on the fixture walkthrough | The one-task fixture finishes in about a second. That is expected. Use a large LAB category to exercise interrupt and resume. |
+| I want a live provider run instead of `fixture-none` | The profile comes from the adapter manifest's `auth_profile_name`, not a CLI flag ([#853](https://github.com/johnhughes3/LegalForecastBench/issues/853)). Copy a manifest that lists `published-api-key` in `supported_auth_profiles` and set that field in your copy. |
 | Resume says solver, config, policy, or selection identity drifted | Re-run with the original adapter, model key, sandbox flags, and selectors. |
 | Resume says the progress journal is corrupt | Do not hand-edit `run-progress.json`. Start a new `--output-dir`. |
 | Exit `130` after Ctrl-C | Expected. Resume with the same command plus `--resume`. |
