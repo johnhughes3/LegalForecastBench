@@ -1055,6 +1055,38 @@ def test_courtlistener_page_extracts_cursor_from_next_url() -> None:
     assert [entry.docket_entry_id for entry in entries] == ["7001", "7002"]
 
 
+def test_courtlistener_reads_one_queued_recap_fetch_disposition() -> None:
+    """Polling a dispatched fetch must be a free GET, never a re-dispatch."""
+
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(
+            (
+                _response(
+                    path="/recap-fetch/5150/",
+                    payload={"id": 5150, "status": 2, "message": "ok"},
+                ),
+            )
+        ),
+    )
+
+    payload = client.get_recap_fetch("5150")
+
+    assert payload["status"] == 2
+    assert client.request_count == 1
+
+
+@pytest.mark.parametrize("queue_id", ["", "  ", "0", "-1", "abc", "5150/../1"])
+def test_courtlistener_rejects_an_unsafe_recap_fetch_queue_id(queue_id: str) -> None:
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(()),
+    )
+
+    with pytest.raises(CourtListenerResponseError):
+        client.get_recap_fetch(queue_id)
+
+
 def test_courtlistener_lists_attachment_rows_for_one_docket_entry() -> None:
     client = CourtListenerClient(
         config=CourtListenerConfig(),

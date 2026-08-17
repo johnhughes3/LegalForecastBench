@@ -30,6 +30,7 @@ The technical documentation in this folder is drafted and maintained with substa
 ## Acquisition Operations
 
 - [Ingestion module map](ingestion-module-map.md): concern-oriented ownership and entry points for every module in the intentionally shallow `legalforecast.ingestion` package.
+- [Attachment-menu acquisition](attachment-menu-acquisition.md) — plan, authorize, and fetch the PACER attachment menus that make attachment-level documents purchasable.
 - [Repository-wide code organization plan](migration/2026-08-14-repository-code-organization.md): audited umbrella plan and Beads topology for decomposing oversized production, test, and script modules without changing benchmark contracts.
 - [CLI and package reorganization plan](migration/2026-08-12-cli-and-package-reorganization.md): proposed sequence for thinning the CLI, inverting domain dependencies, and later organizing ingestion without changing Cycle 1 contracts.
 - [CLI seam analysis](migration/2026-08-12-cli-seam-analysis.md): empirical measurements, probe-verified extraction mechanics, and slice-sizing data supporting the reorganization plan.

@@ -27,6 +27,15 @@ class SchemaIdentifier:
 
 
 ACQUISITION_RUN_CARD_V1 = SchemaIdentifier("legalforecast.acquisition_run_card.v1")
+ATTACHMENT_PAGE_AUTHORIZATION_V1 = SchemaIdentifier(
+    "legalforecast.attachment_page_authorization.v1"
+)
+ATTACHMENT_PAGE_FETCH_PLAN_V1 = SchemaIdentifier(
+    "legalforecast.attachment_page_fetch_plan.v1"
+)
+ATTACHMENT_PAGE_FETCH_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.attachment_page_fetch_receipt.v1"
+)
 CANDIDATE_SCOPED_STAGE_A_REPLAY_V1 = SchemaIdentifier(
     "legalforecast.candidate_scoped_stage_a_replay.v1"
 )
@@ -352,6 +361,9 @@ MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1 = SchemaIdentifier(
 # producer's local constant.  Migration to these imports is post-Cycle 1 work.
 RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     ACQUISITION_RUN_CARD_V1,
+    ATTACHMENT_PAGE_AUTHORIZATION_V1,
+    ATTACHMENT_PAGE_FETCH_PLAN_V1,
+    ATTACHMENT_PAGE_FETCH_RECEIPT_V1,
     CLEARANCE_REPLACEMENT_PLAN_V1,
     DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1,
     DISCLOSURE_CLEARANCE_V1,

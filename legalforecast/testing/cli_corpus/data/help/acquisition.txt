@@ -22,6 +22,15 @@ positional arguments:
                         acquisition lineage.
     replay-stage-a      Execute one authenticated candidate-scoped Stage A
                         replay spec.
+    plan-attachment-pages
+                        Authenticate docket entries whose PACER attachment
+                        menu is missing.
+    authorize-attachment-pages
+                        Record one owner authorization for an exact
+                        attachment-menu plan.
+    fetch-attachment-pages
+                        Fetch exactly the authorized attachment menus, once
+                        each.
     explain-successor-rerun
                         Explain the minimum safe rerun for proposed successor
                         inputs.

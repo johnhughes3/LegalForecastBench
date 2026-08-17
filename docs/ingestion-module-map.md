@@ -243,12 +243,17 @@ Use this page to find code, not as a second API specification. Module docstrings
 
 ## 10. Spend authority, RECAP Fetch, and terminal outcomes
 
-**Owns:** Purchase approvals, immutable attempt/broker policy, isolated RECAP Fetch submission, missing-document budgets, reconciliation, and terminal failure evidence.
+**Owns:** Purchase approvals, immutable attempt/broker policy, isolated RECAP Fetch submission, attachment-menu acquisition, missing-document budgets, reconciliation, and terminal failure evidence.
 
 **Start with:** `purchase_approval.py` for human authority, `recap_fetch_broker.py` for isolated submission, and `recap_fetch_attempt_policy.py` for bounded retry authority.
 
 | Module | Responsibility |
 | --- | --- |
+| [`attachment_page/__init__.py`](../legalforecast/ingestion/attachment_page/__init__.py) | Attachment-menu acquisition surface: plan, authorize, fetch. |
+| [`attachment_page/_typed.py`](../legalforecast/ingestion/attachment_page/_typed.py) | Field validators for reading attachment-menu artifacts back from disk. |
+| [`attachment_page/authorization.py`](../legalforecast/ingestion/attachment_page/authorization.py) | Owner authorization bound to one exact attachment-menu plan digest. |
+| [`attachment_page/execute.py`](../legalforecast/ingestion/attachment_page/execute.py) | Fail-closed attachment-menu fetching against an authorized plan. |
+| [`attachment_page/plan.py`](../legalforecast/ingestion/attachment_page/plan.py) | Authenticated attachment-menu targets committed to a digest. |
 | [`courtlistener_provider_identity.py`](../legalforecast/ingestion/courtlistener_provider_identity.py) | Stable shared identity for CourtListener RECAP Fetch provenance. |
 | [`courtlistener_recap_fetch.py`](../legalforecast/ingestion/courtlistener_recap_fetch.py) | Guarded individual-document RECAP Fetch purchases. |
 | [`missing_core_budget.py`](../legalforecast/ingestion/missing_core_budget.py) | Cost guardrails for missing core documents. |
