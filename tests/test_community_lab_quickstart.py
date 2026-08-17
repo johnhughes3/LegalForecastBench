@@ -18,9 +18,11 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
-from legalforecast.multiharness import cli as multiharness_cli
 from legalforecast.multiharness import harvey_lab_projection
-from legalforecast.multiharness.command_adapter import CommandAdapterCancelled
+from legalforecast.multiharness.command_adapter import (
+    CommandAdapter,
+    CommandAdapterCancelled,
+)
 from legalforecast.multiharness.harvey_lab_projected_tasks import (
     HarveyLabProjectionTaskLoader,
 )
@@ -579,7 +581,9 @@ def test_interrupt_during_adapter_startup_exits_130_not_a_traceback(
     def _cancelled(*_args: object, **_kwargs: object) -> None:
         raise CommandAdapterCancelled("command adapter capabilities was cancelled")
 
-    monkeypatch.setattr(multiharness_cli, "run_multi_harness", _cancelled)
+    monkeypatch.setattr(CommandAdapter, "capabilities", _cancelled)
+
+    run_dir = tmp_path / "run"
 
     assert (
         main(
@@ -595,7 +599,7 @@ def test_interrupt_during_adapter_startup_exits_130_not_a_traceback(
                 "--model-key",
                 "fixture-model",
                 "--output-dir",
-                str(tmp_path / "run"),
+                str(run_dir),
                 "--run-id",
                 "interrupted-at-startup",
             ]
@@ -606,3 +610,4 @@ def test_interrupt_during_adapter_startup_exits_130_not_a_traceback(
     assert "not a crash" in stderr
     assert "--resume" in stderr
     assert "Traceback" not in stderr
+    assert _read_json(run_dir / "run-progress.json")["status"] == "interrupted"
