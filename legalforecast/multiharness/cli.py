@@ -31,7 +31,6 @@ from legalforecast.multiharness.folder_selection import (
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorRunner,
-    HarveyLabEvaluatorProvenance,
 )
 from legalforecast.multiharness.runner import (
     INCOMPLETE_RUN_POLICIES,
@@ -65,6 +64,7 @@ from legalforecast.multiharness.task_loaders import (
     LfbTaskLoader,
 )
 from legalforecast.multiharness.tier0_runner import (
+    Tier0EvaluatorProvenanceProvider,
     Tier0ExecutableSpec,
     load_approved_issuer_authority,
     load_approved_tier0_approval_authority,
@@ -84,7 +84,7 @@ _REPORT_SCHEMA_VERSION = "legalforecast.multiharness.report.v1"
 
 Tier0ProductionEvaluatorFactory = Callable[
     [Tier0ExecutableSpec, Path, Path, SpendPolicy, PricingSnapshot],
-    tuple[EvaluatorRunner, HarveyLabEvaluatorProvenance],
+    tuple[EvaluatorRunner, Tier0EvaluatorProvenanceProvider],
 ]
 _tier0_production_evaluator_factory: Tier0ProductionEvaluatorFactory | None = None
 
@@ -649,7 +649,7 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
     archive_root = run_root / "archive"
     if spend_policy is None or pricing_snapshot is None:
         evaluator_runner = None
-        evaluator_provenance = None
+        evaluator_provenance_provider = None
     else:
         factory = _tier0_production_evaluator_factory
         if factory is None:
@@ -657,7 +657,7 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
                 "paid Tier-0 execution requires an injected reviewed production "
                 "evaluator/provider adapter"
             )
-        evaluator_runner, evaluator_provenance = factory(
+        evaluator_runner, evaluator_provenance_provider = factory(
             spec,
             cast(Path, args.spec).resolve(),
             private_root,
@@ -678,7 +678,7 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         spend_policy=spend_policy,
         pricing_snapshot=pricing_snapshot,
         evaluator_runner=evaluator_runner,
-        evaluator_provenance=evaluator_provenance,
+        evaluator_provenance_provider=evaluator_provenance_provider,
     )
     _cli_note(
         f"Tier-0 run completed ({'matched' if result.matched else 'system-bundle'}); "

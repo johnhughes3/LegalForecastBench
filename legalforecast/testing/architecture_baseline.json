@@ -6523,7 +6523,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 6,
+        "fan_in": 7,
         "fan_out": 1,
         "flags": [
           "oversized"
@@ -6566,9 +6566,9 @@
         "largest_symbol": "invoke_isolated_harvey_lab_evaluator",
         "largest_symbol_lines": 160,
         "layer": "application",
-        "line_count": 1123,
-        "nonblank_line_count": 1017,
-        "top_level_definition_count": 42
+        "line_count": 1128,
+        "nonblank_line_count": 1019,
+        "top_level_definition_count": 43
       },
       "legalforecast/multiharness/harvey_lab_output_discovery.py": {
         "cycle_id": "",
@@ -6841,8 +6841,8 @@
         "largest_symbol": "SpendController",
         "largest_symbol_lines": 358,
         "layer": "application",
-        "line_count": 1297,
-        "nonblank_line_count": 1157,
+        "line_count": 1302,
+        "nonblank_line_count": 1162,
         "top_level_definition_count": 32
       },
       "legalforecast/multiharness/task_loaders.py": {
@@ -6867,18 +6867,18 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 1,
-        "fan_out": 20,
+        "fan_out": 21,
         "flags": [
           "relative-path",
           "monolith"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_tier0",
-        "largest_symbol_lines": 369,
+        "largest_symbol_lines": 414,
         "layer": "application",
-        "line_count": 2580,
-        "nonblank_line_count": 2380,
-        "top_level_definition_count": 62
+        "line_count": 2923,
+        "nonblank_line_count": 2692,
+        "top_level_definition_count": 68
       },
       "legalforecast/protocol/freeze.py": {
         "cycle_id": "",
@@ -9341,9 +9341,9 @@
         "largest_symbol": "test_per_criterion_boundary_reserves_all_23_calls_and_enforces_caps",
         "largest_symbol_lines": 90,
         "layer": "test",
-        "line_count": 752,
-        "nonblank_line_count": 666,
-        "top_level_definition_count": 34
+        "line_count": 764,
+        "nonblank_line_count": 675,
+        "top_level_definition_count": 35
       },
       "tests/test_multiharness_tier0_runner.py": {
         "cycle_id": "",
@@ -9358,9 +9358,9 @@
         "largest_symbol": "test_cli_full_paired_tier0_fake_binary_run",
         "largest_symbol_lines": 90,
         "layer": "test",
-        "line_count": 667,
-        "nonblank_line_count": 599,
-        "top_level_definition_count": 26
+        "line_count": 754,
+        "nonblank_line_count": 678,
+        "top_level_definition_count": 28
       },
       "tests/test_official_aggregate.py": {
         "cycle_id": "",

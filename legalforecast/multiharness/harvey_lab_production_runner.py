@@ -28,6 +28,7 @@ from typing import cast
 from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
+    harvey_lab_private_material_sha256,
 )
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
@@ -108,7 +109,6 @@ class ProductionHarveyLabEvaluatorRunner:
         self,
         *,
         provider_call: ProviderJudgeCall,
-        criteria: Sequence[object],
         attempt_writer: JudgeAttemptWriter,
         pricing_snapshot: PricingSnapshot | None = None,
         pricing_provider: str | None = None,
@@ -125,29 +125,6 @@ class ProductionHarveyLabEvaluatorRunner:
             raise ProductionEvaluatorRunnerError(
                 "production evaluator requires a private attempt-retention sink"
             )
-        if len(criteria) != HARVEY_LAB_JUDGE_CRITERION_COUNT:
-            raise ProductionEvaluatorRunnerError(
-                "production evaluator requires exactly 23 criterion records"
-            )
-        normalized: list[Mapping[str, object]] = []
-        seen: set[str] = set()
-        for ordinal, criterion in enumerate(criteria, start=1):
-            if not isinstance(criterion, Mapping):
-                raise ProductionEvaluatorRunnerError(
-                    f"criterion {ordinal} must be an object"
-                )
-            criterion_record = cast(Mapping[str, object], criterion)
-            criterion_id = criterion_record.get("id")
-            if not isinstance(criterion_id, str) or not criterion_id.strip():
-                raise ProductionEvaluatorRunnerError(
-                    f"criterion {ordinal} must have a non-empty id"
-                )
-            if criterion_id in seen:
-                raise ProductionEvaluatorRunnerError(
-                    "production evaluator criterion IDs must be unique"
-                )
-            seen.add(criterion_id)
-            normalized.append(dict(criterion_record))
         if type(max_attempts) is not int or max_attempts <= 0:
             raise ProductionEvaluatorRunnerError(
                 "production evaluator max_attempts must be positive"
@@ -171,7 +148,6 @@ class ProductionHarveyLabEvaluatorRunner:
                 "evaluator executable version must not be blank"
             )
         self._provider_call = provider_call
-        self._criteria = tuple(normalized)
         self._attempt_writer = attempt_writer
         self._pricing_snapshot = pricing_snapshot
         self._pricing_provider = pricing_provider
@@ -200,11 +176,12 @@ class ProductionHarveyLabEvaluatorRunner:
             raise ProductionEvaluatorRunnerError(
                 "production evaluator requires a judge request boundary"
             )
+        criteria = _authenticated_criteria(spec)
         started = time.monotonic_ns()
         final_responses: list[ProductionJudgeResponse] = []
         all_responses: list[ProductionJudgeResponse] = []
         resolved_identity: str | None = None
-        for ordinal, criterion in enumerate(self._criteria, start=1):
+        for ordinal, criterion in enumerate(criteria, start=1):
             criterion_id = str(criterion["id"])
             final: ProductionJudgeResponse | None = None
             for attempt_index in range(self._max_attempts):
@@ -225,9 +202,9 @@ class ProductionHarveyLabEvaluatorRunner:
                     raise ProductionEvaluatorRunnerError(
                         "provider adapter returned an invalid judge response"
                     )
-                # Convert/validate usage before the immediate settlement hook.
-                observation = response.usage
-                boundary.after_judge_call(request, reservation, observation)
+                # Retain the billed response before settlement removes the
+                # reservation. If retention fails, the outer boundary can
+                # still terminalize the outstanding reservation fail-closed.
                 self._attempt_writer(
                     ProductionJudgeCall(
                         request=request,
@@ -236,6 +213,8 @@ class ProductionHarveyLabEvaluatorRunner:
                     ),
                     response,
                 )
+                observation = response.usage
+                boundary.after_judge_call(request, reservation, observation)
                 all_responses.append(response)
                 if resolved_identity is None:
                     resolved_identity = response.judge_resolved_identity
@@ -305,7 +284,7 @@ def _scores_record(
     }
 
 
-def _scores_path(spec: RunSpec) -> Path:
+def _evaluator_input_record(spec: RunSpec) -> Mapping[str, object]:
     try:
         record = json.loads(spec.stdin_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -316,7 +295,74 @@ def _scores_path(spec: RunSpec) -> Path:
         raise ProductionEvaluatorRunnerError(
             "evaluator RunSpec stdin must be an object"
         )
-    record = cast(Mapping[str, object], record)
+    return cast(Mapping[str, object], record)
+
+
+def _authenticated_criteria(spec: RunSpec) -> tuple[Mapping[str, object], ...]:
+    record = _evaluator_input_record(spec)
+    private_value = record.get("private_task_json_path")
+    expected_digest = record.get("private_material_sha256")
+    if not isinstance(private_value, str) or not private_value:
+        raise ProductionEvaluatorRunnerError(
+            "evaluator input does not bind private task material"
+        )
+    if not isinstance(expected_digest, str) or not expected_digest:
+        raise ProductionEvaluatorRunnerError(
+            "evaluator input does not bind the private material digest"
+        )
+    private_path = Path(private_value)
+    if not private_path.is_absolute() or private_path.is_symlink():
+        raise ProductionEvaluatorRunnerError(
+            "private task material must be an absolute regular file"
+        )
+    try:
+        actual_digest = harvey_lab_private_material_sha256(private_path.parent)
+        task = json.loads(private_path.read_bytes())
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        raise ProductionEvaluatorRunnerError(
+            "private task material is not readable authenticated JSON"
+        ) from exc
+    if actual_digest != expected_digest:
+        raise ProductionEvaluatorRunnerError(
+            "private task material does not match the pinned digest"
+        )
+    if not isinstance(task, Mapping):
+        raise ProductionEvaluatorRunnerError("private task material must be an object")
+    typed_task = cast(Mapping[str, object], task)
+    raw_criteria = typed_task.get("criteria")
+    if not isinstance(raw_criteria, Sequence) or isinstance(raw_criteria, str | bytes):
+        raise ProductionEvaluatorRunnerError(
+            "private task material must contain a criteria array"
+        )
+    criterion_values = cast(Sequence[object], raw_criteria)
+    if len(criterion_values) != HARVEY_LAB_JUDGE_CRITERION_COUNT:
+        raise ProductionEvaluatorRunnerError(
+            "production evaluator requires exactly 23 criterion records"
+        )
+    normalized: list[Mapping[str, object]] = []
+    seen: set[str] = set()
+    for ordinal, criterion in enumerate(criterion_values, start=1):
+        if not isinstance(criterion, Mapping):
+            raise ProductionEvaluatorRunnerError(
+                f"criterion {ordinal} must be an object"
+            )
+        criterion_record = cast(Mapping[str, object], criterion)
+        criterion_id = criterion_record.get("id")
+        if not isinstance(criterion_id, str) or not criterion_id.strip():
+            raise ProductionEvaluatorRunnerError(
+                f"criterion {ordinal} must have a non-empty id"
+            )
+        if criterion_id in seen:
+            raise ProductionEvaluatorRunnerError(
+                "production evaluator criterion IDs must be unique"
+            )
+        seen.add(criterion_id)
+        normalized.append(dict(criterion_record))
+    return tuple(normalized)
+
+
+def _scores_path(spec: RunSpec) -> Path:
+    record = _evaluator_input_record(spec)
     value = record.get("scores_output_path")
     if not isinstance(value, str) or not value:
         raise ProductionEvaluatorRunnerError(

@@ -21,9 +21,12 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
 )
 from legalforecast.multiharness.harvey_lab_evaluator import EVALUATOR_COMMAND_NAME
 from legalforecast.multiharness.harvey_lab_projection import project_harvey_lab_suite
+from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
 from legalforecast.multiharness.tier0_runner import (
     TIER0_SPEND_APPROVAL_SCHEMA_VERSION,
     Tier0ArmSpec,
+    Tier0EvaluatorConfiguration,
+    Tier0EvaluatorProvenanceFactory,
     Tier0ExecutableSpec,
     Tier0RunnerError,
     Tier0SpendApproval,
@@ -416,6 +419,90 @@ def test_tier0_matched_identity_requires_byte_identical_projection(
     document.chmod(document.stat().st_mode | stat.S_IWUSR)
     document.write_bytes(document.read_bytes() + b"drift")
     assert not _identities_match((result_one, result_two), spec)
+
+
+def test_tier0_matching_ignores_arm_specific_evaluation_hashes(
+    tmp_path: Path,
+) -> None:
+    source_root = _issue_196_source(tmp_path / "lab")
+    first = project_harvey_lab_suite(
+        source_root=source_root,
+        solver_root=tmp_path / "solver-a",
+        evaluator_private_root=tmp_path / "private-a",
+        pin=FIXTURE_PIN,
+        lab_task_ids=("employment-labor/identify-issues-in-counterparty-motion-brief",),
+    )
+    second = project_harvey_lab_suite(
+        source_root=source_root,
+        solver_root=tmp_path / "solver-b",
+        evaluator_private_root=tmp_path / "private-b",
+        pin=FIXTURE_PIN,
+        lab_task_ids=("employment-labor/identify-issues-in-counterparty-motion-brief",),
+    )
+    result_one = _identity_result(first, "claude")
+    result_two = _identity_result(second, "native-thin")
+    result_two.evaluation.spec.deliverable_manifest_sha256 = "sha256:" + "1" * 64
+    result_two.evaluation.spec.deliverable_tree_sha256 = "sha256:" + "2" * 64
+    result_two.evaluation.spec.run_sha256 = "sha256:" + "3" * 64
+    spec = _identity_spec()
+
+    assert _identities_match((result_one, result_two), spec)
+
+    result_two.evaluation.spec.config_sha256 = "sha256:" + "4" * 64
+    assert not _identities_match((result_one, result_two), spec)
+
+
+def test_tier0_provenance_factory_uses_each_arm_execution_accounting(
+    tmp_path: Path,
+) -> None:
+    digest = "sha256:" + "a" * 64
+    configuration = Tier0EvaluatorConfiguration(
+        evaluator_repository="https://example.com/evaluator",
+        evaluator_commit="b" * 40,
+        evaluator_tree="c" * 40,
+        evaluator_file_manifest_sha256=digest,
+        evaluator_image_digest=digest,
+        judge_requested_identity="provider/judge@v1",
+        judge_settings_sha256=digest,
+        judge_prompt_sha256=digest,
+        judge_output_schema_sha256=digest,
+        runtime_policy_sha256=digest,
+        egress_policy_sha256=digest,
+        resource_policy_sha256=digest,
+        token_accounting_policy_sha256=digest,
+        cost_basis="provider_reported",
+    )
+    factory = Tier0EvaluatorProvenanceFactory(configuration)
+    run_spec = RunSpec(
+        spec_id="provenance-fixture",
+        argv=("judge",),
+        working_directory=tmp_path,
+    )
+    first_execution = ExecutionReceipt.from_transcript(
+        run_spec,
+        stdout="first",
+        served_model="provider/judge@v1",
+        usage={"input_tokens": 10, "output_tokens": 5},
+        cost_usd=0.000012,
+    )
+    second_execution = ExecutionReceipt.from_transcript(
+        run_spec,
+        stdout="second",
+        served_model="provider/judge@v1",
+        usage={"input_tokens": 20, "output_tokens": 7},
+        cost_usd=0.000034,
+    )
+
+    first = factory("arm-opaque-01", first_execution)
+    second = factory("arm-opaque-02", second_execution)
+
+    assert first.evaluator_repository == second.evaluator_repository
+    assert first.token_usage.input_tokens.value == 10
+    assert first.token_usage.output_tokens.value == 5
+    assert first.cost.amount_microusd == 12
+    assert second.token_usage.input_tokens.value == 20
+    assert second.token_usage.output_tokens.value == 7
+    assert second.cost.amount_microusd == 34
 
 
 def _write_spec_and_approval(

@@ -210,6 +210,18 @@ def test_policy_and_archive_bind_exact_spec_budget_and_dated_pricing() -> None:
     )  # type: ignore[index]
 
 
+def test_policy_digest_excludes_only_full_spec_back_reference() -> None:
+    policy = _policy(judges=(_judge_cap(),))
+    rebound = replace(policy, executable_spec_sha256="sha256:" + "b" * 64)
+    raised_cap = replace(
+        policy,
+        experiment=replace(policy.experiment, max_cost_usd="0.007000"),
+    )
+
+    assert rebound.policy_sha256 == policy.policy_sha256
+    assert raised_cap.policy_sha256 != policy.policy_sha256
+
+
 def test_solver_dollar_ceiling_denies_before_next_paid_request() -> None:
     pricing = _pricing()
     controller = SpendController(_policy(), pricing)
