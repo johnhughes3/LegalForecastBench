@@ -80,7 +80,7 @@ Final dollar figures are not in this packet. A dated production pricing snapshot
 | Secret format | Base64 of exactly 32 raw Ed25519 seed bytes (RFC 8032) |
 | Public format | Base64 of exactly 32 raw Ed25519 public-key bytes in `public_key_base64` |
 
-John provisions the secret. Agents never write or read it. The wrapper has no `secrets set` command. Verification fails closed until the public key is committed and `status` is `configured`. The approval authority is a distinct human-only key.
+The designated credential operator provisions the secret. Agents never write or read it. The wrapper has no `secrets set` command. Verification fails closed until the public key is committed and `status` is `configured`. The approval authority is a distinct human-only key.
 
 ## Unminted paid artifacts
 
@@ -109,7 +109,7 @@ One cheapest-model probe was authorized for the 2.1.233 pin:
 
 The sibling published-api-key path 404'd and was not used. No Codex live task was retried after the 4.4.27 timeout.
 
-## John's remaining exact actions
+## Designated credential operator's remaining exact actions
 
 1. Provision the evaluator Ed25519 seed at the Infisical coordinates above and approve committing the public key.
 2. Provision the distinct Tier-0 approval public key.

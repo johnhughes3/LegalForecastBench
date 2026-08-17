@@ -8,7 +8,7 @@ Tier-0 detached spend approvals use a separate public-only authority. The commit
 
 ## Provisioning handoff
 
-John provisions the secret; agents never write or read it. The wrapper has no `secrets set` command, so provisioning is a human Infisical write into the exact coordinates below. After the public key is independently reviewed, commit it as `public_key_base64` and set `status` to `configured` in `examples/adapters/harvey-lab/evaluator-issuer-authority.json`. Verification stays fail-closed until that public key is present.
+The designated credential operator provisions the secret; agents never write or read it. The wrapper has no `secrets set` command, so provisioning is a human Infisical write into the exact coordinates below. After the public key is independently reviewed, commit it as `public_key_base64` and set `status` to `configured` in `examples/adapters/harvey-lab/evaluator-issuer-authority.json`. Verification stays fail-closed until that public key is present.
 
 The designated operator should provision one secret only after approving the exact issuer policy and public-key bytes:
 

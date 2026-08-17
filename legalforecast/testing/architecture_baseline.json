@@ -3725,7 +3725,7 @@
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/ingestion/stage_a_replay_executor": 11,
       "legalforecast/labeling": 13,
-      "legalforecast/multiharness": 63,
+      "legalforecast/multiharness": 64,
       "legalforecast/protocol": 4,
       "legalforecast/publication": 21,
       "legalforecast/reporting": 9,
@@ -3735,7 +3735,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 433,
+      "tests": 435,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -6389,7 +6389,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 1,
-        "fan_out": 17,
+        "fan_out": 18,
         "flags": [
           "oversized"
         ],
@@ -9135,8 +9135,8 @@
         "largest_symbol": "_fake_sdk",
         "largest_symbol_lines": 70,
         "layer": "test",
-        "line_count": 970,
-        "nonblank_line_count": 872,
+        "line_count": 984,
+        "nonblank_line_count": 886,
         "top_level_definition_count": 29
       },
       "tests/test_multiharness_claude_code_adapter.py": {
@@ -9392,11 +9392,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_cli_full_paired_tier0_fake_binary_run",
-        "largest_symbol_lines": 90,
+        "largest_symbol_lines": 100,
         "layer": "test",
-        "line_count": 754,
-        "nonblank_line_count": 678,
-        "top_level_definition_count": 28
+        "line_count": 847,
+        "nonblank_line_count": 758,
+        "top_level_definition_count": 32
       },
       "tests/test_official_aggregate.py": {
         "cycle_id": "",
