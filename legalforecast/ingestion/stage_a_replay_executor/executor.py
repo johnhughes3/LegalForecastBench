@@ -44,12 +44,13 @@ from legalforecast.ingestion.stage_a_replay_executor.lineage import (
     VerifiedReplayLineage,
     verify_replay_lineage,
 )
+from legalforecast.ingestion.stage_a_replay_executor.output_claims import (
+    acquire_output_claims,
+)
 from legalforecast.ingestion.stage_a_replay_executor.provider import (
     CanonicalProviderRuntime,
 )
 from legalforecast.ingestion.stage_a_replay_executor.receipts import (
-    OutputClaimSet,
-    acquire_output_claims,
     persist_plan,
     persist_terminal_evidence,
 )
@@ -165,7 +166,7 @@ def execute_stage_a_replay(
 
     plan: CandidateScopedStageAPlan | None = None
     plan_persisted = False
-    output_claims: OutputClaimSet | None = None
+    output_claims = acquire_output_claims(parsed)
     execution: CandidateScopedStageAExecution | None = None
     stage_a_receipt: CandidateScopedStageAReceipt | None = None
     lineage: VerifiedReplayLineage | None = None
@@ -217,7 +218,6 @@ def execute_stage_a_replay(
                 "planned rerun candidates differ from signed authorization"
             )
         lineage.require_unchanged()
-        output_claims = acquire_output_claims(parsed)
         persist_plan(parsed, plan)
         plan_persisted = True
         unitizer, reviewer, spend_meter = _callbacks(
@@ -287,8 +287,7 @@ def execute_stage_a_replay(
     except ExecutionHalt as exc:
         halt = {"provider_accessed": provider_accessed(invocations), **exc.evidence}
     except ReplayOutputClaimError:
-        if output_claims is not None:
-            output_claims.release()
+        output_claims.release()
         raise
     except (CandidateScopedStageAReplayError, StageAReplayExecutorError) as exc:
         halt = _failure_evidence(
@@ -312,8 +311,7 @@ def execute_stage_a_replay(
             halted=halt is not None,
         )
     finally:
-        if output_claims is not None:
-            output_claims.release()
+        output_claims.release()
     return ReplayExecutionResult(
         spec_sha256=parsed.spec_sha256,
         plan=plan,
@@ -382,16 +380,20 @@ def _preflight_halt(
         "failure_type": failure_type,
         "provider_accessed": False,
     }
-    receipt = persist_terminal_evidence(
-        spec,
-        plan=None,
-        execution=None,
-        stage_a_receipt=None,
-        invocations=(),
-        halt_evidence=evidence,
-        lineage_evidence=None,
-        halted=True,
-    )
+    claims = acquire_output_claims(spec)
+    try:
+        receipt = persist_terminal_evidence(
+            spec,
+            plan=None,
+            execution=None,
+            stage_a_receipt=None,
+            invocations=(),
+            halt_evidence=evidence,
+            lineage_evidence=None,
+            halted=True,
+        )
+    finally:
+        claims.release()
     return ReplayExecutionResult(
         spec_sha256=spec.spec_sha256,
         plan=None,

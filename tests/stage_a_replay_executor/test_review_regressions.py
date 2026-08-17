@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -618,7 +619,7 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
                 "candidate_id": "cand-a",
                 "source_document_id": "different-document",
                 "document_role": "complaint",
-                "sha256": "c" * 64,
+                "sha256": "2" * 64,
                 "byte_count": 10,
             }
         ],
@@ -626,6 +627,24 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
     }
     with pytest.raises(StageAReplayExecutorError, match="differs from authenticated"):
         repair_module.verify_repair_scope(parsed, wrong_document, successor)
+
+    wrong_content = {
+        "manifest_candidate_ids": ["cand-a"],
+        "execution_candidate_ids": ["cand-a"],
+        "receipt_candidate_ids": ["cand-a"],
+        "included_operations": [
+            {
+                "candidate_id": "cand-a",
+                "source_document_id": "doc-cand-a",
+                "document_role": "complaint",
+                "sha256": "0" * 64,
+                "byte_count": 10,
+            }
+        ],
+        "nonincluded_operations": [],
+    }
+    with pytest.raises(StageAReplayExecutorError, match="differs from authenticated"):
+        repair_module.verify_repair_scope(parsed, wrong_content, successor)
 
     excluded_operation = {
         "manifest_candidate_ids": ["cand-a"],
@@ -636,7 +655,7 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
                 "candidate_id": "cand-a",
                 "source_document_id": "doc-cand-a",
                 "document_role": "complaint",
-                "sha256": "c" * 64,
+                "sha256": "2" * 64,
                 "byte_count": 10,
             }
         ],
@@ -651,3 +670,41 @@ def test_repair_receipt_scope_and_documents_bind_authorized_candidates(
     }
     with pytest.raises(StageAReplayExecutorError, match="nonincluded repair"):
         repair_module.verify_repair_scope(parsed, excluded_operation, successor)
+
+
+def test_acquired_document_artifact_replays_exact_referenced_bytes(
+    tmp_path: Path,
+) -> None:
+    document = tmp_path / "document.pdf"
+    document.write_bytes(b"%PDF exact acquired bytes\n")
+    record = [
+        {
+            "candidate_id": "cand-a",
+            "source_document_id": "doc-cand-a",
+            "document_role": "complaint",
+            "path": str(document.resolve()),
+            "sha256": hashlib.sha256(document.read_bytes()).hexdigest(),
+            "byte_count": document.stat().st_size,
+            "clearance_status": "cleared",
+        }
+    ]
+    artifact = tmp_path / "acquired-documents.json"
+    artifact.write_text(json.dumps(record))
+    artifact_sha256 = hashlib.sha256(artifact.read_bytes()).hexdigest()
+
+    assert repair_module._verify_acquired_documents(
+        artifact,
+        expected_sha256=artifact_sha256,
+    ) == {
+        ("cand-a", "doc-cand-a", "complaint"): (
+            record[0]["sha256"],
+            record[0]["byte_count"],
+        )
+    }
+
+    document.write_bytes(b"%PDF substituted bytes\n")
+    with pytest.raises(StageAReplayExecutorError, match="bytes differ"):
+        repair_module._verify_acquired_documents(
+            artifact,
+            expected_sha256=artifact_sha256,
+        )

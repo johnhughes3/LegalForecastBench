@@ -37,6 +37,12 @@ def verify_repair_receipt(record: Mapping[str, object]) -> dict[str, object]:
     snapshots_root = _path(record, "snapshots_root")
     execution_path = _path(record, "execution_path")
     receipt_path = _path(record, "receipt_path")
+    acquired_documents_path = _path(record, "acquired_documents_path")
+    acquired_documents_sha256 = _digest(record, "acquired_documents_sha256")
+    acquired_documents = _verify_acquired_documents(
+        acquired_documents_path,
+        expected_sha256=acquired_documents_sha256,
+    )
 
     manifest_bytes = _read_regular(manifest_path, "document repair manifest")
     approval = verify_repair_plan_approval(
@@ -104,14 +110,35 @@ def verify_repair_receipt(record: Mapping[str, object]) -> dict[str, object]:
     receipt_candidate_ids = tuple(
         dict.fromkeys(_text(row, "candidate_id") for row in replayed.operation_ledger)
     )
+    included_rows = [
+        row for row in replayed.operation_ledger if row.get("disposition") == "included"
+    ]
+    included_keys = [
+        (
+            _text(row, "candidate_id"),
+            _text(row, "recap_document_id"),
+            _text(row, "document_role"),
+        )
+        for row in included_rows
+    ]
+    if len(set(included_keys)) != len(included_keys):
+        raise StageAReplayExecutorError(
+            "document repair receipt contains duplicate included operations"
+        )
+    if set(included_keys) != set(acquired_documents):
+        raise StageAReplayExecutorError(
+            "acquired document identities differ from included repair operations"
+        )
     included_operations = [
         {
-            "candidate_id": _text(row, "candidate_id"),
-            "source_document_id": _text(row, "recap_document_id"),
-            "document_role": _text(row, "document_role"),
+            "candidate_id": candidate_id,
+            "source_document_id": source_document_id,
+            "document_role": document_role,
+            "sha256": acquired_documents[key][0],
+            "byte_count": acquired_documents[key][1],
         }
-        for row in replayed.operation_ledger
-        if row.get("disposition") == "included"
+        for key in included_keys
+        for candidate_id, source_document_id, document_role in (key,)
     ]
     nonincluded_operations = [
         {
@@ -133,6 +160,8 @@ def verify_repair_receipt(record: Mapping[str, object]) -> dict[str, object]:
         "receipt_path": str(receipt_path),
         "receipt_sha256": replayed.receipt_sha256,
         "receipt_artifact_sha256": receipt_raw_sha256,
+        "acquired_documents_path": str(acquired_documents_path),
+        "acquired_documents_sha256": acquired_documents_sha256,
         "manifest_candidate_ids": list(manifest_candidate_ids),
         "execution_candidate_ids": list(execution_candidate_ids),
         "receipt_candidate_ids": list(receipt_candidate_ids),
@@ -171,7 +200,12 @@ def verify_repair_scope(
             )
     packet_documents = {
         packet.candidate_id: {
-            (document.source_document_id, document.document_role)
+            (
+                document.source_document_id,
+                document.document_role,
+                document.sha256,
+                document.byte_count,
+            )
             for document in packet.documents
         }
         for packet in successor_packets
@@ -191,12 +225,17 @@ def verify_repair_scope(
         candidate_id = _text(operation, "candidate_id")
         source_document_id = _text(operation, "source_document_id")
         document_role = _text(operation, "document_role")
+        sha256 = _digest(operation, "sha256")
+        byte_count = _byte_count(operation, "byte_count")
         if candidate_id not in authorized:
             continue
         authorized_with_inclusion.add(candidate_id)
-        if (source_document_id, document_role) not in packet_documents.get(
-            candidate_id, set()
-        ):
+        if (
+            source_document_id,
+            document_role,
+            sha256,
+            byte_count,
+        ) not in packet_documents.get(candidate_id, set()):
             raise StageAReplayExecutorError(
                 "included repair document differs from authenticated successor packet: "
                 f"{candidate_id}/{source_document_id}/{document_role}"
@@ -221,6 +260,62 @@ def verify_repair_scope(
                 "signed replay candidate has a nonincluded repair operation: "
                 f"{_text(operation, 'disposition')}"
             )
+
+
+def _verify_acquired_documents(
+    path: Path,
+    *,
+    expected_sha256: str,
+) -> dict[tuple[str, str, str], tuple[str, int]]:
+    """Verify every acquired-document record and its exact referenced bytes."""
+
+    payload = _read_regular(path, "acquired documents")
+    if hashlib.sha256(payload).hexdigest() != expected_sha256:
+        raise StageAReplayExecutorError("acquired documents artifact pin differs")
+    try:
+        loaded: object = json.loads(payload)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise StageAReplayExecutorError(
+            "acquired documents artifact is not valid JSON"
+        ) from exc
+    if not isinstance(loaded, list):
+        raise StageAReplayExecutorError("acquired documents artifact must be an array")
+    verified: dict[tuple[str, str, str], tuple[str, int]] = {}
+    for raw in cast(list[object], loaded):
+        if not isinstance(raw, Mapping):
+            raise StageAReplayExecutorError("acquired document record is invalid")
+        record = cast(Mapping[str, object], raw)
+        key = (
+            _text(record, "candidate_id"),
+            _text(record, "source_document_id"),
+            _text(record, "document_role"),
+        )
+        if key in verified:
+            raise StageAReplayExecutorError(
+                "acquired documents artifact contains a duplicate document"
+            )
+        document_path = Path(_text(record, "path"))
+        if (
+            not document_path.is_absolute()
+            or ".." in document_path.parts
+            or document_path.resolve() != document_path
+        ):
+            raise StageAReplayExecutorError(
+                f"acquired document path is not absolute and canonical: {document_path}"
+            )
+        expected_digest = _digest(record, "sha256")
+        expected_bytes = _byte_count(record, "byte_count")
+        document = _read_regular(document_path, "acquired document")
+        if (
+            hashlib.sha256(document).hexdigest() != expected_digest
+            or len(document) != expected_bytes
+        ):
+            raise StageAReplayExecutorError(
+                "acquired document bytes differ from their committed identity: "
+                f"{key[0]}/{key[1]}/{key[2]}"
+            )
+        verified[key] = (expected_digest, expected_bytes)
+    return verified
 
 
 def _snapshot_path(root: Path, candidate_id: str) -> Path:
@@ -268,4 +363,11 @@ def _digest(record: Mapping[str, object], field: str) -> str:
     value = _text(record, field).removeprefix("sha256:")
     if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
         raise StageAReplayExecutorError(f"{field} must be a lowercase SHA-256 digest")
+    return value
+
+
+def _byte_count(record: Mapping[str, object], field: str) -> int:
+    value = record.get(field)
+    if type(value) is not int or value < 0:
+        raise StageAReplayExecutorError(f"{field} must be a nonnegative integer")
     return value

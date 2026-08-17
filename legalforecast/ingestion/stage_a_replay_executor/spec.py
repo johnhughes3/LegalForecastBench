@@ -117,6 +117,8 @@ _SUCCESSOR_FIELDS = {
     "initialization_receipt_path",
 }
 _REPAIR_EVIDENCE_FIELDS = {
+    "acquired_documents_path",
+    "acquired_documents_sha256",
     "manifest_path",
     "approval_path",
     "snapshot_manifest_path",

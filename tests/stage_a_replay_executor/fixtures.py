@@ -390,6 +390,7 @@ def _production_lineage(root: Path) -> dict[str, object]:
         "markdown_root": "markdown",
     }
     repair_fields = {
+        "acquired_documents_path": "acquired-documents.json",
         "manifest_path": "repair-manifest.json",
         "approval_path": "repair-approval.json",
         "snapshot_manifest_path": "snapshot-manifest.json",
@@ -416,6 +417,7 @@ def _production_lineage(root: Path) -> dict[str, object]:
         },
         "repair_receipt": {
             **{field: input_path(name) for field, name in repair_fields.items()},
+            "acquired_documents_sha256": "8" * 64,
             "source_lineage_sha256": "6" * 64,
             "execution_artifact_sha256": "5" * 64,
             "receipt_artifact_sha256": "4" * 64,
