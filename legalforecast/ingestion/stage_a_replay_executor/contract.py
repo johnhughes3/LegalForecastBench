@@ -244,5 +244,6 @@ def canonical(value: object) -> bytes:
     return ARTIFACT_CANONICAL_JSON_V1.encode(value)
 
 
+# contract-ratchet: allow non-persisted replay-sidecar digest
 def sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()

@@ -56,7 +56,10 @@ from legalforecast.ingestion.stage_a_replay_executor.contract import (
     validate_spend as _validate_spend,
 )
 
-REPLAY_SPEC_SCHEMA_VERSION = "legalforecast.candidate_scoped_stage_a_executor_spec.v1"
+REPLAY_SPEC_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative Stage A replay input sidecar
+    "legalforecast.candidate_scoped_stage_a_executor_spec.v1"
+)
 UNITIZER_CONFIG_NAMESPACE = "claim-ontology-v5"
 REVIEWER_CONFIG_NAMESPACE = "claim-ontology-v4"
 

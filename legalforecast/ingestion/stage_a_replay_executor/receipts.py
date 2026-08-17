@@ -27,9 +27,11 @@ from legalforecast.ingestion.stage_a_replay_executor.spec import (
 )
 
 INVOCATION_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative provider invocation sidecar
     "legalforecast.candidate_scoped_stage_a_invocation_journal.v1"
 )
 EXECUTOR_RECEIPT_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative Stage A executor receipt sidecar
     "legalforecast.candidate_scoped_stage_a_executor_receipt.v1"
 )
 
