@@ -1,10 +1,10 @@
 # Official-run gate pack (Lane F4, preparation only)
 
-This pack compresses the remaining operator work for the first official cycle. It is intentionally a preparation artifact: the agent did not apply infrastructure, read or write secrets, dispatch a protected workflow, call a model provider, purchase a document, or open a workflow-bearing pull request.
+This pack compresses the remaining operator work for the first official cycle. It is intentionally a preparation artifact: publishing the reviewed workflow changes through PR #772 did not apply infrastructure, read or write secrets, dispatch a protected workflow, call a model provider, purchase a document, or run an official cycle.
 
 ## Stop condition and ownership
 
-The official first cycle (`ur6`) remains blocked on `ue7.32` (rehearsal, failure drill, and John’s sign-off). `ue7.32` remains behind the protected infrastructure and workflow gates `hckb.15`, `5qd6.119`, `5qd6.32`, and `5qd6.101`. Secure-gate is down under the standing repository instruction, so workflow files in this pack are drafts for John to publish.
+The official first cycle (`ur6`) remains blocked on `ue7.32` (rehearsal, failure drill, and John’s sign-off). `ue7.32` remains behind the protected infrastructure and workflow gates `hckb.15`, `5qd6.119`, `5qd6.32`, and `5qd6.101`. Secure-gate is down under the standing repository instruction; the workflow files were published only after explicit operator authorization, and landing them is not evidence that any operational gate ran or passed.
 
 The corpus dependency is strict: Lane F2 must finish Stage A and Gate 3, then freeze the exact corpus and release inputs. The official evaluation consumes those frozen bytes; it must not start from a fixture, an inferred successor, or a mutable working tree.
 
@@ -24,7 +24,7 @@ The corpus dependency is strict: Lane F2 must finish Stage A and Gate 3, then fr
 
 ## Draft branch and workflow changes
 
-The draft is stacked as `feat/code2` on `feat/code`; both currently meet at `ff9fcd96ce5bb37bee4a27c013ab38ed1786f864`. No pull request was opened.
+The draft was prepared on `feat/code2`, originally stacked on `feat/code`. After the parent landed, PR #772 was retargeted to `main` for exact-head review and landing.
 
 The draft changes are:
 
@@ -45,31 +45,33 @@ Every external action in the three official provider-smoke workflows is pinned t
 
 `official-s3-access-validation.yaml` already uses the same full-SHA pins and was not changed by this lane.
 
-### John’s workflow publication step
+### Workflow publication record
 
-After completing the protected `hckb.15` import/plan/apply, John should publish the exact F4 branch with workflow-capable authority and then create the stacked PR before starting `5qd6.119`. The agent must not perform these workflow-bearing steps while secure-gate is down:
+The reviewed branch and PR already exist; John does not need to repeat the publication step. These are the generic commands corresponding to the completed publication record:
 
 ```bash
-git fetch origin feat/code
 F4_COMMIT_SHA="$(git rev-parse feat/code2)"
 git show --stat --oneline "$F4_COMMIT_SHA"
-git push origin feat/code2
-gh pr create --repo johnhughes3/LegalForecastBench \
-  --base feat/code --head feat/code2 \
+git push origin HEAD:refs/heads/feat/code2
+export GITHUB_REPOSITORY="<owner>/<repository>"
+gh pr create --repo "$GITHUB_REPOSITORY" \
+  --base main --head feat/code2 \
   --title "feat(eval): prepare provider-isolated official run gates" \
   --body 'F4 reviewed workflow drafts only. The F4 agent performed no infrastructure apply, protected dispatch, provider call, secret operation, or official run. The PR remains blocked until hckb.15, 5qd6.119, the live validation and smoke gates, and ue7.32 sign-off complete.'
 ```
 
-The PR body must state that the workflow files are the reviewed drafts, that F4 itself performed no infrastructure apply or provider call, and that the PR is blocked until `hckb.15`, `5qd6.119`, the live validation/smoke gates, and `ue7.32` sign-off complete. If the ordinary push rejects workflow paths, retain the exact rejection and use the approved workflow-capable publication path; do not split, weaken, or force-push the draft.
+The PR body records that the workflow files are reviewed drafts, that F4 itself performed no infrastructure apply or provider call, and that the operational sequence remains blocked until `hckb.15`, `5qd6.119`, the live validation/smoke gates, and `ue7.32` sign-off complete. Do not split, weaken, or force-push the draft.
 
-The agent attempted the ordinary push for `c57057ee` and GitHub rejected it before updating the remote ref:
+An earlier non-workflow-capable push was rejected before updating the remote ref:
 
 ```text
 ! [remote rejected] feat/code2 -> feat/code2 (refusing to allow a GitHub App to create or update workflow `.github/workflows/official-provider-cell.yaml` without `workflows` permission)
-error: failed to push some refs to 'https://github.com/johnhughes3/LegalForecastBench'
+error: failed to push some refs to 'https://github.com/<owner>/<repository>'
 ```
 
-No remote branch or pull request was created by that attempt. John’s out-of-band session must run the same `git push origin feat/code2` with workflow-capable authority, verify that the remote head equals `$F4_COMMIT_SHA`, and then run the `gh pr create` command above; no force-push or path split is needed.
+That rejected attempt performed no remote mutation. The later operator-authorized publication created PR #772 without a force-push or path split. Before merge, verify that the PR head equals the locally validated commit; after merge, verify the merge commit on remote `main`. Neither proof authorizes an infrastructure apply or workflow dispatch.
+
+All GitHub CLI snippets below assume `GITHUB_REPOSITORY` is exported as the current `<owner>/<repository>` slug; they never require a hard-coded account identifier.
 
 ## `hckb.15`: protected import, plan, and apply
 
@@ -162,7 +164,7 @@ print(import_authorization_sha256(
 PY
   )"
   gh workflow run .github/workflows/official-provider-authority-infra.yaml \
-    --repo johnhughes3/LegalForecastBench --ref main \
+    --repo "$GITHUB_REPOSITORY" --ref main \
     -f operation=import -f module=official-eval -f release_sha="$RELEASE_SHA" \
     -f import_address="$address" -f import_id_sha256="$import_id_sha256" \
     -f import_authorization_sha256="$authorization_sha256" \
@@ -180,7 +182,7 @@ After all imports and live bucket-policy/lifecycle/IAM inventory have been recon
 
 ```bash
 gh workflow run .github/workflows/official-provider-authority-infra.yaml \
-  --repo johnhughes3/LegalForecastBench --ref main \
+  --repo "$GITHUB_REPOSITORY" --ref main \
   -f operation=plan -f module=official-eval -f release_sha="$RELEASE_SHA"
 ```
 
@@ -198,7 +200,7 @@ PLAN_FILE_SHA256=<64-lowercase-hex-from-plan-receipt.json>
 PLAN_ARTIFACT_NAME="provider-authority-infra-plan-official-eval-${PLAN_RUN_ID}-${PLAN_RUN_ATTEMPT}"
 
 gh workflow run .github/workflows/official-provider-authority-infra.yaml \
-  --repo johnhughes3/LegalForecastBench --ref main \
+  --repo "$GITHUB_REPOSITORY" --ref main \
   -f operation=apply -f module=official-eval -f release_sha="$RELEASE_SHA" \
   -f plan_run_id="$PLAN_RUN_ID" -f plan_run_attempt="$PLAN_RUN_ATTEMPT" \
   -f plan_artifact_name="$PLAN_ARTIFACT_NAME" \
@@ -214,7 +216,7 @@ After the applied outputs and environment variables are assigned, John dispatche
 
 ```bash
 gh workflow run .github/workflows/official-s3-access-validation.yaml \
-  --repo johnhughes3/LegalForecastBench --ref main \
+  --repo "$GITHUB_REPOSITORY" --ref main \
   -f release_sha="$RELEASE_SHA" \
   -f packet_object_key="<existing-model-packets-key>" \
   -f manifest_object_key="<existing-manifests-key>" \
@@ -229,7 +231,7 @@ Run the provider-free fan-in verification only after a successful shard receipt 
 
 ```bash
 gh workflow run .github/workflows/fan-in-publish.yaml \
-  --repo johnhughes3/LegalForecastBench --ref main \
+  --repo "$GITHUB_REPOSITORY" --ref main \
   -f release_sha="$RELEASE_SHA" \
   -f cycle_id="<frozen-cycle-id>" \
   -f freeze_bundle_path="manifests/<frozen-cycle-id>.freeze.json" \
@@ -243,7 +245,7 @@ The expected terminal artifact is `fan-in-report.json` with the accepted receipt
 
 ```bash
 gh workflow run .github/workflows/official-paid-labeling-authority-smoke.yaml \
-  --repo johnhughes3/LegalForecastBench --ref main \
+  --repo "$GITHUB_REPOSITORY" --ref main \
   -f release_sha="$RELEASE_SHA"
 ```
 
