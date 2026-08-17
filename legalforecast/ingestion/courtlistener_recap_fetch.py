@@ -47,11 +47,6 @@ _DEFAULT_BASE_URL = "https://www.courtlistener.com/api/rest/v4"
 _ALLOWED_HOSTS = frozenset({"www.courtlistener.com"})
 _RETRYABLE = frozenset({429, 500, 502, 503, 504})
 _TERMINAL_FAILURES = frozenset({3, 6, 7})
-# Which evidence confirmed a queued purchase. Recorded explicitly on every
-# confirmation so a later reader never has to infer the weaker public-document
-# recovery from an absent ``queue_response``.
-CONFIRMED_BY_QUEUE_RECEIPT = "recap_fetch_queue_status_2"
-CONFIRMED_BY_PUBLIC_DOCUMENT = "public_document_during_queue_lag"
 
 
 class CourtListenerRecapFetchError(RuntimeError):
@@ -1193,15 +1188,6 @@ class CourtListenerRecapFetchClient:
         queue_payload: Mapping[str, Any] | None,
         document: Mapping[str, Any],
     ) -> CaseDevPacerPurchaseAttempt:
-        """Confirm a queued purchase and record which evidence confirmed it.
-
-        ``queue_payload`` is ``None`` when RECAP Fetch queue detail stayed
-        unreadable through the lag window and confirmation rests on the public
-        document instead of queue ``status=2``. That is the weaker of the two
-        proofs, so it is named on the journal response rather than left to be
-        inferred from a missing ``queue_response``.
-        """
-
         verified = _verified_download(document, document_id)
         operation = self.journal.operation_evidence(document_id)
         if operation is None:
@@ -1234,11 +1220,6 @@ class CourtListenerRecapFetchClient:
             "reservation_usd": str(operation["reservation_usd"]),
             "source_provider": COURTLISTENER_RECAP_FETCH_PROVIDER,
             "post_delivery_restrictions": document,
-            "confirmation_evidence": (
-                CONFIRMED_BY_QUEUE_RECEIPT
-                if queue_payload is not None
-                else CONFIRMED_BY_PUBLIC_DOCUMENT
-            ),
         }
         if queue_payload is not None:
             confirmed["queue_response"] = dict(queue_payload)
