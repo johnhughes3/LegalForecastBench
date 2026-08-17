@@ -10,7 +10,7 @@ approval_target: false
 supersession_required: true
 ```
 
-This artifact freezes the facts that are already supportable before spend. It is deliberately not an executable Tier-0 specification and must not be submitted to John for spend approval. A later artifact must fill every `BLOCKED` field, carry a new SHA-256, land before any solver or judge call, and explicitly supersede this structural freeze.
+This artifact freezes the facts that are already supportable before spend. It is deliberately not an executable Tier-0 specification and must not be submitted to the designated approver for spend approval. A later artifact must fill every `BLOCKED` field, carry a new SHA-256, land before any solver or judge call, and explicitly supersede this structural freeze.
 
 Permanent public label: **Preliminary — one task pair, operator-run, not independently reproducible**
 
@@ -59,7 +59,7 @@ The mixed-boundary upstream `task.json`, all criteria and match text, gold mater
 | Model settings | `BLOCKED`: exact settings hash and served identity are not frozen | `BLOCKED`: `--max-turns`, `--temperature`, `--shell-timeout`, `--reasoning-effort`, `--skills`, and `--sandbox-image` are not frozen |
 | Native tool policy | Candidate inventory: `Read,Glob,Grep,Bash,Write,Edit` | `BLOCKED`: upstream policy has not been converted into the matched-arm contract |
 | Outer containment | `BLOCKED`: no approved privileged whole-process receipt exists for the chosen executable | `BLOCKED`: matched outer envelope is not implemented |
-| Auth profile | `BLOCKED`: John-held credential handshake and exact solver/judge profiles remain unresolved | `BLOCKED`: exact solver/judge profiles remain unresolved |
+| Auth profile | `BLOCKED`: designated-credential-operator handshake and exact solver/judge profiles remain unresolved | `BLOCKED`: exact solver/judge profiles remain unresolved |
 
 The characterized upstream command prefix is evidence only, not the authorized operator command:
 
@@ -99,7 +99,7 @@ Evaluation must use the exact output basename, seal each deliverable before eval
 - The current Claude manifest's advertised `max_budget_usd` is not an enforced cap because the invocation builder does not emit `--max-budget-usd`.
 - Subscription use, if ever selected, must be recorded as `subscription_unallocable`, never as `$0`.
 
-Planning-only administrative reserve: **USD 25–100 for the complete pair**. This is neither an estimate nor a spend ceiling: token limits, internal judge retry behavior, a dated pricing snapshot, and mechanical caps are missing. The executable superseding freeze must replace this band with a reproducible estimate and enforced maximum before John is asked to approve spend.
+Planning-only administrative reserve: **USD 25–100 for the complete pair**. This is neither an estimate nor a spend ceiling: token limits, internal judge retry behavior, a dated pricing snapshot, and mechanical caps are missing. The executable superseding freeze must replace this band with a reproducible estimate and enforced maximum before the designated approver is asked to approve spend.
 
 ## Paths and archive contract
 
@@ -149,4 +149,4 @@ The reviewer must be independent of every `dm0g.4.5.15` and `dm0g.4.5.18` execut
 
 ## Conditions for an executable superseding freeze
 
-`dm0g.4.5.14` remains open until `dm0g.4.5.13`, `dm0g.4.3.7`, `dm0g.4.2.2`, `legalforecastbench-lrc3`, `legalforecastbench-e5er`, the John-held credential handshakes, exact binary identities, the production evaluator receipt, signer custody, pricing, budgets, order, and archive fields are all resolved and captured in a newly hashed artifact.
+`dm0g.4.5.14` remains open until `dm0g.4.5.13`, `dm0g.4.3.7`, `dm0g.4.2.2`, `legalforecastbench-lrc3`, `legalforecastbench-e5er`, the designated credential operator's handshakes, exact binary identities, the production evaluator receipt, signer custody, pricing, budgets, order, and archive fields are all resolved and captured in a newly hashed artifact.

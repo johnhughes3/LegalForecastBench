@@ -21,7 +21,7 @@ Permanent scope: one contributor-grade run of `employment-labor/identify-issues-
 | Requested model | `anthropic:claude-sonnet-4-6` | `codex:gpt-5.1` |
 | Executable identity | `BLOCKED`: current characterization/containment/installed versions disagree | `BLOCKED`: characterization pins 0.146.0 while the observed installation is 0.147.0 |
 | Required outer profiles | `contributor_native_whole_process.v1` and `linux_landlock_fs.v1` | `contributor_native_whole_process.v1` and `linux_landlock_fs.v1` |
-| Auth profile | `BLOCKED`: exact supported contributor profile and John-held handshake | `BLOCKED`: exact supported contributor profile and John-held handshake |
+| Auth profile | `BLOCKED`: exact supported contributor profile and designated-credential-operator handshake | `BLOCKED`: exact supported contributor profile and designated-credential-operator handshake |
 | Resolved model rule | Exact receipt required; unknown/different identity forces system-bundle language | Exact receipt required; unknown/different identity forces system-bundle language |
 
 ## Fields that the final Tier-1 freeze must inherit or derive

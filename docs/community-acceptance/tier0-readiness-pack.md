@@ -1,19 +1,19 @@
-# Tier-0 readiness pack for John
+# Tier-0 readiness pack for the designated approver
 
 Status: **NOT READY FOR SPEND SIGNATURE**
 
-No provider spend is authorized by this document. The remaining work is not limited to John's signature: production execution, evaluator-receipt, signer, containment, binary-identity, native-arm, and budget-control seams remain unresolved.
+No provider spend is authorized by this document. The remaining work is not limited to the designated approver's signature: production execution, evaluator-receipt, signer, containment, binary-identity, native-arm, and budget-control seams remain unresolved.
 
 ## Current specification artifact
 
 | Field | Value |
 | --- | --- |
 | Structural specification | `docs/community-acceptance/tier0-paired-smoke-structural-freeze.md` |
-| SHA-256 | `c75e591658f994fa676e81a3e9767007782c8a481630be3c96cb3ca5458c26ea` |
+| SHA-256 | `8c54791360b8ee741f3bd6903765b428e73d43bb89b7c1653380675c23d6bdbd` |
 | Status | Structural pre-spend freeze only; blocked and not an approval target |
 | Required next artifact | A newly hashed executable freeze that explicitly supersedes this one and predates every paid call |
 
-The companion `.sha256` file permits a reviewer to verify the exact bytes. John should not approve spend against this hash.
+The companion `.sha256` file permits a reviewer to verify the exact bytes. The designated approver should not approve spend against this hash.
 
 ## Cost state
 
@@ -37,11 +37,11 @@ The reviewer will verify the executable spec predates spend; byte-identical inpu
 
 ## `dm0g.4.2.2` privileged no-spend capture
 
-This remains a John-held blocker. No approved privileged Claude whole-process containment fixture exists.
+This remains a designated-credential-operator blocker. No approved privileged Claude whole-process containment fixture exists.
 
 The operator procedure is in `docs/adapters/claude-code-native-containment.md`, but its command block intentionally contains `INSERT_FRESH_INDEPENDENTLY_APPROVED_SHA256` and must not be run as written. The currently documented target is Claude Code 2.1.220 with SHA-256 `674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863`; that identity does not match the newer adapter/installed binary candidates and therefore cannot by itself clear Tier-0.
 
-John's exact action sequence is:
+The designated credential operator's exact action sequence is:
 
 1. Assign an independent reviewer to approve the exact current probe and test bytes plus the intended target executable hash.
 2. Resolve or identify the supported cwd-bound V2 `sudo-request` client/daemon invocation; the unchanged clients from the recorded HTTP 422 failures must not be retried.
@@ -61,7 +61,7 @@ There is no safe copy-paste command before steps 1 and 2 are satisfied. Printing
 | `legalforecastbench-lrc3` | Supported operator CLI, truthful paid evaluator receipt, complete archive, and approved external issuer/signing authority |
 | `legalforecastbench-e5er` | Mechanically enforced solver, evaluator, retry, and experiment-wide spend ceilings |
 | Binary identities | Reconcile Claude 2.1.220 containment, 2.1.231 manifest, and 2.1.233 observed installation; reconcile the native arm's executable environment |
-| Credentials | Complete the John-held solver/judge credential handshakes without host-store fallback |
+| Credentials | Complete the designated credential operator's solver/judge credential handshakes without host-store fallback |
 | Order and mapping | Commit opaque arm IDs, solver/evaluator order, private mapping custody, and terminal retry policy |
 | Pricing and caps | Bind a dated pricing snapshot and reproducible estimate to enforced maxima |
 
@@ -73,4 +73,4 @@ The `dm0g.4.6.6` friction list was already fixed and landed in PR #730, and its 
 
 ## Signature decision
 
-John's safe action today is **do not sign**. Resume the signature request only when an executable superseding spec replaces every `BLOCKED` field, its hash is committed on the final code head, the independent reviewer assignment is accepted, and the exact supported command and mechanical maximum cost can be reproduced from the artifact.
+The designated approver's safe action today is **do not sign**. Resume the signature request only when an executable superseding spec replaces every `BLOCKED` field, its hash is committed on the final code head, the independent reviewer assignment is accepted, and the exact supported command and mechanical maximum cost can be reproduced from the artifact.
