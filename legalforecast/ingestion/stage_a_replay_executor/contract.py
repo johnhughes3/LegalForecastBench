@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 from collections.abc import Mapping
@@ -191,17 +192,23 @@ def verify_authorization_signature(
 ) -> None:
     """Verify owner authority against Git's configured SSH allowed-signers file."""
 
+    git_environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"GIT_COMMON_DIR", "GIT_DIR", "GIT_WORK_TREE"}
+        and not key.startswith("GIT_CONFIG_")
+    }
     try:
         configured = subprocess.run(
             [
                 "git",
                 "config",
-                "--local",
                 "--path",
                 "--get",
                 "gpg.ssh.allowedSignersFile",
             ],
             cwd=repository_root(),
+            env=git_environment,
             check=True,
             capture_output=True,
             text=True,

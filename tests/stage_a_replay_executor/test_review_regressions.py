@@ -325,22 +325,31 @@ def test_authorization_signer_lookup_uses_runtime_checkout_not_caller_cwd(
     caller_signers.write_text(
         "owner@example.invalid " + attacker_key.with_suffix(".pub").read_text()
     )
-    for checkout, signers in (
-        (trusted_checkout, trusted_signers),
-        (caller_checkout, caller_signers),
-    ):
-        subprocess.run(
-            [
-                "git",
-                "-C",
-                str(checkout),
-                "config",
-                "--local",
-                "gpg.ssh.allowedSignersFile",
-                str(signers),
-            ],
-            check=True,
-        )
+    git_home = tmp_path / "git-home"
+    git_home.mkdir()
+    monkeypatch.setenv("HOME", str(git_home))
+    subprocess.run(
+        [
+            "git",
+            "config",
+            "--global",
+            "gpg.ssh.allowedSignersFile",
+            str(trusted_signers),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(caller_checkout),
+            "config",
+            "--local",
+            "gpg.ssh.allowedSignersFile",
+            str(caller_signers),
+        ],
+        check=True,
+    )
 
     artifact = tmp_path / "authorization.json"
     artifact.write_bytes(b'{"authorized":true}\n')
@@ -360,6 +369,11 @@ def test_authorization_signer_lookup_uses_runtime_checkout_not_caller_cwd(
     )
 
     monkeypatch.chdir(caller_checkout)
+    monkeypatch.setenv("GIT_DIR", str(caller_checkout / ".git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(caller_checkout))
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "gpg.ssh.allowedSignersFile")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", str(caller_signers))
     monkeypatch.setattr(
         contract_module,
         "repository_root",
