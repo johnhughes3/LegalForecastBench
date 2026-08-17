@@ -645,7 +645,24 @@ def _write_immutable_member(
                 f"review queue generation member is not immutable: {path}"
             )
         return
-    _atomic_write_at(directory_descriptor, name, payload, path)
+    try:
+        _atomic_write_at(
+            directory_descriptor, name, payload, path, replace_existing=False
+        )
+    except FileExistsError:
+        # Another publisher may have installed the same content after the
+        # initial stat.  Re-read the destination through the anchored
+        # descriptor and accept it only when the immutable bytes agree.
+        try:
+            existing = _read_regular_file_at(directory_descriptor, name, path)
+        except OSError as exc:
+            raise ReviewQueueError(
+                f"review queue generation member is unreadable: {path}: {exc}"
+            ) from exc
+        if existing != payload:
+            raise ReviewQueueError(
+                f"review queue generation member is not immutable: {path}"
+            ) from None
 
 
 def _atomic_write_at(
@@ -655,6 +672,7 @@ def _atomic_write_at(
     path: Path,
     *,
     mode: int = 0o600,
+    replace_existing: bool = True,
 ) -> None:
     """Write bytes relative to an anchored directory and persist the rename.
 
@@ -687,12 +705,25 @@ def _atomic_write_at(
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(
-            temporary_name,
-            name,
-            src_dir_fd=directory_descriptor,
-            dst_dir_fd=directory_descriptor,
-        )
+        if replace_existing:
+            os.replace(
+                temporary_name,
+                name,
+                src_dir_fd=directory_descriptor,
+                dst_dir_fd=directory_descriptor,
+            )
+        else:
+            # A hard-link install is the portable no-replace primitive on
+            # POSIX.  It leaves an existing destination untouched, unlike
+            # rename/replace, while the temporary inode is still fsynced.
+            os.link(
+                temporary_name,
+                name,
+                src_dir_fd=directory_descriptor,
+                dst_dir_fd=directory_descriptor,
+                follow_symlinks=False,
+            )
+            os.unlink(temporary_name, dir_fd=directory_descriptor)
     except BaseException:
         try:
             os.unlink(temporary_name, dir_fd=directory_descriptor)

@@ -63907,7 +63907,75 @@ def _require_stage_a_structural_review_namespace_pair(
         )
 
 
+def _review_queue_publication_lock_path(queue_path: Path) -> Path:
+    queue_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_parent = queue_path.parent.resolve(strict=True)
+    return resolved_parent / f".{queue_path.name}.publication.lock"
+
+
+def _acquire_review_queue_publication_lock(queue_path: Path) -> int:
+    """Serialize canonical writes, generation commit, and any rollback."""
+
+    lock_path = _review_queue_publication_lock_path(queue_path)
+    no_follow = getattr(os, "O_NOFOLLOW", None)
+    if no_follow is None:
+        raise CommandError("safe review queue publication requires O_NOFOLLOW")
+    flags = os.O_RDWR | os.O_CREAT | no_follow | getattr(os, "O_CLOEXEC", 0)
+    try:
+        lock_fd = os.open(lock_path, flags, 0o600)
+    except OSError as exc:
+        raise CommandError(
+            f"review queue publication lock must be a regular file: {lock_path}"
+        ) from exc
+    try:
+        initial = os.fstat(lock_fd)
+        if not stat.S_ISREG(initial.st_mode) or initial.st_nlink != 1:
+            raise CommandError(
+                "review queue publication lock must be a singly linked regular "
+                f"file: {lock_path}"
+            )
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        locked = os.fstat(lock_fd)
+        named = lock_path.lstat()
+        if (
+            not stat.S_ISREG(locked.st_mode)
+            or locked.st_nlink != 1
+            or not stat.S_ISREG(named.st_mode)
+            or named.st_nlink != 1
+            or (locked.st_dev, locked.st_ino) != (named.st_dev, named.st_ino)
+        ):
+            raise CommandError(
+                f"review queue publication lock changed while acquiring it: {lock_path}"
+            )
+        return lock_fd
+    except BaseException:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        finally:
+            os.close(lock_fd)
+        raise
+
+
+def _release_review_queue_publication_lock(lock_fd: int) -> None:
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    finally:
+        os.close(lock_fd)
+
+
 def publish_stage_a_review_queue(
+    queue_path: Path, v1_records: Iterable[Mapping[str, Any]]
+) -> None:
+    """Publish one queue pair while holding its cross-process transaction lock."""
+
+    lock_fd = _acquire_review_queue_publication_lock(queue_path)
+    try:
+        _publish_stage_a_review_queue_locked(queue_path, v1_records)
+    finally:
+        _release_review_queue_publication_lock(lock_fd)
+
+
+def _publish_stage_a_review_queue_locked(
     queue_path: Path, v1_records: Iterable[Mapping[str, Any]]
 ) -> None:
     """Validate and publish the frozen v1 queue and observational v2 sidecar.

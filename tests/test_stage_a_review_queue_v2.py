@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
+from threading import Event, Thread
 from typing import Any
 
 import pytest
@@ -696,6 +697,63 @@ def test_generation_failure_durably_restores_canonical_pair(
     assert sidecar_path.read_bytes() == b"prior-v2\\n"
 
 
+def test_failed_publisher_cannot_rollback_a_newer_committed_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The queue lock serializes commit and rollback across publishers."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("prior"),))
+    original_publish = cli.publish_review_queue_generation
+    first_at_generation = Event()
+    allow_first_failure = Event()
+    second_done = Event()
+    outcomes: dict[str, BaseException | None] = {}
+
+    def controlled_publish(
+        path: Path, *, v1_bytes: bytes, v2_bytes: bytes
+    ) -> object:
+        if b'"unit-a"' in v1_bytes:
+            first_at_generation.set()
+            assert allow_first_failure.wait(timeout=5)
+            raise OSError("first generation unavailable")
+        return original_publish(path, v1_bytes=v1_bytes, v2_bytes=v2_bytes)
+
+    monkeypatch.setattr(cli, "publish_review_queue_generation", controlled_publish)
+
+    def publish(name: str, unit_id: str) -> None:
+        try:
+            cli.publish_stage_a_review_queue(
+                queue_path, (_construction_row(unit_id),)
+            )
+        except BaseException as exc:  # captured for assertions in the parent thread
+            outcomes[name] = exc
+        else:
+            outcomes[name] = None
+        finally:
+            if name == "second":
+                second_done.set()
+
+    first = Thread(target=publish, args=("first", "unit-a"))
+    second = Thread(target=publish, args=("second", "unit-b"))
+    first.start()
+    assert first_at_generation.wait(timeout=5)
+    second.start()
+    assert not second_done.wait(timeout=0.1)
+    allow_first_failure.set()
+    first.join(timeout=5)
+    second.join(timeout=5)
+
+    assert not first.is_alive()
+    assert not second.is_alive()
+    assert isinstance(outcomes["first"], CommandError)
+    assert outcomes["second"] is None
+    generation = read_review_queue_generation(queue_path)
+    assert generation.v1_bytes == queue_path.read_bytes()
+    assert generation.v2_bytes == review_queue_v2_sidecar_path(queue_path).read_bytes()
+    assert b'"unit-b"' in generation.v1_bytes
+
+
 def test_durable_queue_write_replaces_inode_and_fsyncs_file_and_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1142,6 +1200,38 @@ def test_generation_publisher_rejects_a_real_generation_root_swap(
         generation_module.publish_review_queue_generation(
             queue_path, v1_bytes=b"v1\\n", v2_bytes=b"v2\\n"
         )
+
+
+def test_generation_member_install_never_replaces_a_racing_destination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A destination created after preflight is rejected without replacement."""
+
+    member_path = tmp_path / "member.jsonl"
+    directory_descriptor = os.open(
+        tmp_path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    )
+    original_atomic_write = generation_module._atomic_write_at
+
+    def race_destination_into_place(*args: object, **kwargs: object) -> None:
+        member_path.write_bytes(b"racing-bytes\\n")
+        original_atomic_write(*args, **kwargs)
+
+    monkeypatch.setattr(
+        generation_module, "_atomic_write_at", race_destination_into_place
+    )
+    try:
+        with pytest.raises(ReviewQueueError, match="not immutable"):
+            generation_module._write_immutable_member(
+                directory_descriptor,
+                member_path.name,
+                member_path,
+                b"intended-bytes\\n",
+            )
+    finally:
+        os.close(directory_descriptor)
+
+    assert member_path.read_bytes() == b"racing-bytes\\n"
 
 
 def test_generation_pair_supports_a_legitimate_symlinked_parent(
