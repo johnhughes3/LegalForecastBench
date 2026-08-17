@@ -776,6 +776,7 @@ def run_tier0(
                     _paths["capability"],
                     {
                         "schema_version": (
+                            # contract-ratchet: allow capability sidecar
                             "legalforecast.multiharness.tier0_capability.v1"
                         ),
                         "arm_id": _arm.arm_id,
@@ -1692,6 +1693,7 @@ def _write_archive(
         write_json_object(
             private / "terminal-denial.json",
             {
+                # contract-ratchet: allow non-authoritative terminal denial sidecar
                 "schema_version": "legalforecast.multiharness.tier0_terminal_denial.v1",
                 "error": terminal_error,
                 "spend": (
@@ -1740,6 +1742,7 @@ def _write_archive(
             write_json_object(
                 arm_private / "capability-record.json",
                 {
+                    # contract-ratchet: allow non-authoritative capability sidecar
                     "schema_version": "legalforecast.multiharness.tier0_capability.v1",
                     "arm_id": arm_id,
                     "capability": capability,
