@@ -3690,7 +3690,7 @@
       "legalforecast/document_need": 10,
       "legalforecast/evals": 20,
       "legalforecast/extraction": 4,
-      "legalforecast/ingestion": 157,
+      "legalforecast/ingestion": 158,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/labeling": 13,
       "legalforecast/multiharness": 62,
@@ -4164,7 +4164,7 @@
         "cycle_id": "",
         "disposition_kind": "no-move",
         "disposition_owner": "legalforecast/ingestion/canonical_json.py",
-        "fan_in": 32,
+        "fan_in": 33,
         "fan_out": 0,
         "flags": [
           "authenticated-path"
@@ -4496,17 +4496,17 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-l8qv.15",
         "fan_in": 4,
-        "fan_out": 6,
+        "fan_out": 7,
         "flags": [
           "cycle",
           "oversized"
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "CourtListenerRecapFetchClient",
-        "largest_symbol_lines": 766,
+        "largest_symbol_lines": 858,
         "layer": "application",
-        "line_count": 1596,
-        "nonblank_line_count": 1459,
+        "line_count": 1697,
+        "nonblank_line_count": 1552,
         "top_level_definition_count": 36
       },
       "legalforecast/ingestion/courtlistener_snapshot_materialization.py": {
