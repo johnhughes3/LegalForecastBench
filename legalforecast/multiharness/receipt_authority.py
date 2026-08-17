@@ -49,7 +49,10 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-RECEIPT_AUTHORITY_SCHEMA_VERSION = "legalforecast.multiharness.receipt_authority.v1"
+RECEIPT_AUTHORITY_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative evaluator issuer sidecar
+    "legalforecast.multiharness.receipt_authority.v1"
+)
 ED25519_RAW_PRIVATE_KEY_BYTES = 32
 ED25519_RAW_PUBLIC_KEY_BYTES = 32
 
