@@ -258,7 +258,7 @@ def test_claude_agent_sdk_baseline_advertises_live_tool_protocol(
         "output_contract_version": "legalforecast.claude_agent_sdk.output.v1",
         "prompt_version": "legalforecast.claude_agent_sdk.prompt.v1",
         "sdk_name": "claude-agent-sdk",
-        "sdk_version": "0.2.132",
+        "sdk_version": "0.2.138",
         "supported_families": ["legalforecast_mtd"],
         "supported_scoring_modes": ["lfb_brier"],
         "supports_sandbox_policy": True,
