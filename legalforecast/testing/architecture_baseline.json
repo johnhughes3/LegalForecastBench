@@ -7698,11 +7698,11 @@
           "watch"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "test_authorization_signer_lookup_uses_runtime_checkout_not_caller_cwd",
-        "largest_symbol_lines": 101,
+        "largest_symbol": "test_authorization_signer_lookup_uses_runtime_checkout_not_caller_context",
+        "largest_symbol_lines": 141,
         "layer": "test",
-        "line_count": 537,
-        "nonblank_line_count": 477,
+        "line_count": 578,
+        "nonblank_line_count": 518,
         "top_level_definition_count": 15
       },
       "tests/test_acquisition_cli.py": {
