@@ -59,6 +59,12 @@ from legalforecast.multiharness.task_loaders import (
     HarveyLabTaskLoader,
     LfbTaskLoader,
 )
+from legalforecast.multiharness.tier0_runner import (
+    load_approved_issuer_authority,
+    load_detached_approval,
+    load_executable_spec,
+    run_tier0,
+)
 from legalforecast.publication.community_aggregate import (
     CommunityAggregateConfig,
     build_community_aggregate,
@@ -261,6 +267,33 @@ def add_multiharness_parser(subparsers: Any) -> None:
     run.add_argument("--timeout-seconds", type=float, default=300.0)
     run.add_argument("--dry-run", action="store_true")
     run.set_defaults(handler=_cmd_run)
+
+    tier0 = commands.add_parser(
+        "tier0",
+        help="Execute the hash-bound paired Harvey LAB Tier-0 smoke.",
+        description=(
+            "Run the committed executable-spec artifact in its frozen opaque "
+            "order. Model, adapter, command, timeout, and settings are loaded "
+            "from the spec; no run-varying execution flags are accepted."
+        ),
+    )
+    tier0_commands = tier0.add_subparsers(dest="tier0_command", metavar="COMMAND")
+    tier0_run = tier0_commands.add_parser(
+        "run",
+        help="Run both frozen Tier-0 arms and emit a private/public archive.",
+    )
+    tier0_run.add_argument("--spec", type=Path, required=True)
+    tier0_run.add_argument("--spec-sha256", required=True)
+    tier0_run.add_argument("--approval", type=Path, required=True)
+    tier0_run.add_argument("--source-root", type=Path, required=True)
+    tier0_run.add_argument("--private-root", type=Path, required=True)
+    tier0_run.add_argument("--archive-root", type=Path, required=True)
+    tier0_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate the frozen spec and detached approval without spawning.",
+    )
+    tier0_run.set_defaults(handler=_cmd_tier0_run)
 
     report = commands.add_parser(
         "report",
@@ -559,6 +592,50 @@ def _cmd_run(args: argparse.Namespace) -> int:
     _cli_note(
         f"Run completed ({succeeded}/{len(run.rows)} succeeded). "
         f"Wrote {output_dir / 'run-progress.json'}."
+    )
+    return 0
+
+
+def _cmd_tier0_run(args: argparse.Namespace) -> int:
+    """Execute only the immutable Tier-0 spec/approval pair."""
+
+    spec, spec_sha256 = load_executable_spec(
+        cast(Path, args.spec),
+        cast(str, args.spec_sha256),
+    )
+    approval = load_detached_approval(
+        cast(Path, args.approval),
+        spec_sha256=spec_sha256,
+    )
+    if cast(bool, args.dry_run):
+        output = cast(Path, args.archive_root) / "tier0-run-plan.json"
+        write_json_object(
+            output,
+            {
+                "schema_version": _CLI_PLAN_SCHEMA_VERSION,
+                "command": "multiharness tier0 run",
+                "dry_run": True,
+                "experiment_id": spec.experiment_id,
+                "spec_sha256": spec_sha256,
+                "approval_id": approval.approval_id,
+                "approval_status": approval.status,
+                "order": list(spec.order),
+            },
+        )
+        _cli_note(f"Wrote {output}.")
+        return 0
+    result = run_tier0(
+        spec=spec,
+        spec_sha256=spec_sha256,
+        approval=approval,
+        source_root=cast(Path, args.source_root),
+        private_root=cast(Path, args.private_root),
+        archive_root=cast(Path, args.archive_root),
+        authority=load_approved_issuer_authority(),
+    )
+    _cli_note(
+        f"Tier-0 run completed ({'matched' if result.matched else 'system-bundle'}); "
+        f"wrote {result.archive_manifest}."
     )
     return 0
 
