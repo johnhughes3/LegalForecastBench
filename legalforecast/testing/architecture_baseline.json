@@ -3730,7 +3730,7 @@
       "legalforecast/reporting": 9,
       "legalforecast/selection": 8,
       "legalforecast/testing": 4,
-      "legalforecast/testing/architecture_rules": 7,
+      "legalforecast/testing/architecture_rules": 8,
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
@@ -9118,8 +9118,8 @@
         "largest_symbol": "_write_adapter_script",
         "largest_symbol_lines": 116,
         "layer": "test",
-        "line_count": 1746,
-        "nonblank_line_count": 1548,
+        "line_count": 1749,
+        "nonblank_line_count": 1551,
         "top_level_definition_count": 53
       },
       "tests/test_multiharness_container_runtime.py": {

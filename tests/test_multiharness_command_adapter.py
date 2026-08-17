@@ -1682,7 +1682,10 @@ def _pid_is_running(pid: int) -> bool:
     stat_path = Path(f"/proc/{pid}/stat")
     try:
         fields = stat_path.read_text(encoding="utf-8").split()
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
+        # The task can be reaped between the open() and the read(); Linux then
+        # fails the read with ESRCH (ProcessLookupError) rather than ENOENT.
+        # Both mean the same thing here: the process is gone.
         return False
     return len(fields) < 3 or fields[2] != "Z"
 
