@@ -137,3 +137,58 @@ def test_contested_motion_based_on_settlement_release_remains_eligible() -> None
             "Plaintiff opposes the motion and disputes the release's scope."
         ),
     )
+
+
+def test_plural_plaintiffs_settlement_dismissal_is_ineligible() -> None:
+    assert is_stipulated_or_voluntary_target_document(
+        candidate_id="plural-plaintiffs",
+        source_document_id="document",
+        document_role=DocumentRole.MTD_MEMORANDUM,
+        markdown=(
+            "# PLAINTIFFS' MOTION TO DISMISS\n\n"
+            "Plaintiffs move to dismiss this action because they settled their "
+            "claims with Defendant."
+        ),
+    )
+
+
+def test_joint_agreement_to_dismiss_needs_no_second_dismissal_token() -> None:
+    assert is_stipulated_or_voluntary_target_document(
+        candidate_id="joint-dismissal",
+        source_document_id="document",
+        document_role=DocumentRole.MTD_MEMORANDUM,
+        markdown=(
+            "# MOTION TO DISMISS\n\n"
+            "The parties have resolved the matter and agreed to dismiss it with "
+            "prejudice."
+        ),
+    )
+
+
+def test_defendant_motion_enforcing_prior_settlement_remains_eligible() -> None:
+    assert not is_stipulated_or_voluntary_target_document(
+        candidate_id="contested-prior-settlement",
+        source_document_id="document",
+        document_role=DocumentRole.MTD_MEMORANDUM,
+        markdown=(
+            "# DEFENDANT'S MOTION TO DISMISS\n\n"
+            "The parties executed a Settlement Agreement and Mutual Release. "
+            "Defendant moves to dismiss because that prior release bars Plaintiff's "
+            "claims. Plaintiff contests the release's validity."
+        ),
+    )
+
+
+def test_defendant_motion_quoting_plaintiff_dismissal_remains_eligible() -> None:
+    assert not is_stipulated_or_voluntary_target_document(
+        candidate_id="contested-quoted-dismissal",
+        source_document_id="document",
+        document_role=DocumentRole.MTD_MEMORANDUM,
+        markdown=(
+            "# DEFENDANT'S MOTION TO DISMISS\n\n"
+            "Defendant moves to dismiss for failure to state a claim. The motion "
+            "quotes another filing: 'Plaintiff moves to dismiss a related action "
+            "after a settlement.' That procedural history does not resolve this "
+            "contested motion."
+        ),
+    )

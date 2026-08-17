@@ -32,28 +32,47 @@ def require_eligible_target_document(
     stipulated_or_voluntary_title = re.search(
         r"(?im)^\s*(?:#{1,6}\s*)?(?:\[?proposed\]?\s+)?"
         r"(?:(?:joint\s+)?stipulation\s+(?:for\s+(?:and\s+)?order\s+of|of|to)\s+"
-        r"dismiss(?:al)?|stipulated\s+motion\s+to\s+dismiss|notice\s+of\s+voluntary\s+"
-        r"dismissal)\s*$",
+        r"dismiss(?:al)?|(?:joint|stipulated)\s+motion\s+to\s+dismiss|"
+        r"notice\s+of\s+voluntary\s+dismissal)\s*$",
         opening,
     )
-    # A party's settlement-driven dismissal is often filed as an ordinary
-    # ``Motion to Dismiss`` rather than using ``voluntary dismissal`` in the
-    # title.  Require both party-initiated dismissal language and an explicit
-    # settlement/release/resolution signal so a contested motion that merely
-    # mentions settlement negotiations remains eligible.
-    party_settlement_dismissal = re.search(
-        r"(?is)\b(?:plaintiff|petitioner)\b.{0,240}\bmove[s]?\s+to\s+dismiss\b"
-        r".{0,800}\b(?:settlement|mutual\s+release|confidential\s+release|"
-        r"resolve[d]?|agreed|voluntar(?:y|ily))\b",
+    party_motion_title = re.search(
+        r"(?im)^\s*(?:#{1,6}\s*)?(?:plaintiffs?|petitioners?)"
+        r"(?:['\u2019]s?)?\s+motion\s+to\s+dismiss\b",
         opening,
     )
-    joint_settlement_dismissal = re.search(
-        r"(?is)\bparties\b.{0,120}\b(?:"
-        r"(?:have\s+)?reached\s+(?:a\s+)?(?:full\s+and\s+final\s+)?settlement|"
-        r"(?:have\s+)?settled|(?:have\s+)?resolved\s+(?:this\s+)?"
-        r"(?:matter|action|case)|agreed\s+to\s+dismiss|"
-        r"executed\s+(?:a\s+)?(?:settlement\s+agreement|mutual\s+release))\b"
-        r".{0,600}\b(?:dismiss(?:ed|al|ing)?|motion\s+to\s+dismiss)\b",
+    party_mover = re.search(
+        r"(?is)\b(?:plaintiffs?|petitioners?)\b.{0,240}"
+        r"\bmove[s]?\s+to\s+dismiss\b",
+        opening,
+    )
+    defendant_mover = re.search(
+        r"(?im)^\s*(?:#{1,6}\s*)?defendants?(?:['\u2019]s?)?"
+        r".{0,80}\bmotion\s+to\s+dismiss\b",
+        opening,
+    ) or re.search(
+        r"(?is)\bdefendants?\b.{0,160}\bmove[s]?\s+to\s+dismiss\b",
+        opening,
+    )
+    settlement_signal = re.search(
+        r"(?is)\b(?:settlement|settled|mutual\s+release|confidential\s+release|"
+        r"resolv(?:e|ed)\s+(?:this|the)\s+(?:matter|action|case)|"
+        r"agreed\s+to\s+(?:voluntarily\s+)?dismiss|"
+        r"voluntar(?:y|ily)\s+dismiss(?:al|ed)?)\b",
+        opening,
+    )
+    # Settlement-driven dismissals can be captioned as ordinary MTDs.  Bind the
+    # signal to a plaintiff/petitioner movant and reject an explicit defendant
+    # movant, which preserves contested motions enforcing a prior release.
+    party_settlement_dismissal = bool(
+        (party_motion_title or party_mover)
+        and not defendant_mover
+        and settlement_signal
+    )
+    joint_dismissal_agreement = re.search(
+        r"(?is)\b(?:the\s+)?parties\b.{0,160}\b(?:hereby\s+)?"
+        r"(?:jointly\s+move|agree(?:d)?|stipulate(?:d)?)\s+to\s+"
+        r"(?:voluntarily\s+)?dismiss\b",
         opening,
     )
     rule_41_stipulation = re.search(
@@ -69,7 +88,7 @@ def require_eligible_target_document(
         stipulated_or_voluntary_title
         or rule_41_stipulation
         or party_settlement_dismissal
-        or joint_settlement_dismissal
+        or (joint_dismissal_agreement and not defendant_mover)
     ):
         raise TargetDocumentEligibilityError(
             "target motion document is a stipulated or voluntary dismissal filing: "
