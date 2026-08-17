@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
+from threading import Event, Thread
 from typing import Any
 
 import pytest
@@ -614,12 +615,23 @@ def test_sidecar_write_failure_rolls_back_the_entire_queue_pair(
     original_write = cli.write_review_queue_file_durably
     failed_sidecar_write = False
 
-    def fail_sidecar_write(path: Path, payload: bytes) -> None:
+    def fail_sidecar_write(
+        path: Path,
+        payload: bytes,
+        *,
+        parent_anchor: generation_module.ReviewQueueParentAnchor | None = None,
+        verify_parent_path: bool = True,
+    ) -> None:
         nonlocal failed_sidecar_write
         if path == sidecar_path and not failed_sidecar_write:
             failed_sidecar_write = True
             raise OSError("sidecar storage unavailable")
-        original_write(path, payload)
+        original_write(
+            path,
+            payload,
+            parent_anchor=parent_anchor,
+            verify_parent_path=verify_parent_path,
+        )
 
     monkeypatch.setattr(cli, "write_review_queue_file_durably", fail_sidecar_write)
 
@@ -666,9 +678,20 @@ def test_generation_failure_durably_restores_canonical_pair(
     writes: list[tuple[Path, bytes]] = []
     original_write = cli.write_review_queue_file_durably
 
-    def record_write(path: Path, payload: bytes) -> None:
+    def record_write(
+        path: Path,
+        payload: bytes,
+        *,
+        parent_anchor: generation_module.ReviewQueueParentAnchor | None = None,
+        verify_parent_path: bool = True,
+    ) -> None:
         writes.append((path, payload))
-        original_write(path, payload)
+        original_write(
+            path,
+            payload,
+            parent_anchor=parent_anchor,
+            verify_parent_path=verify_parent_path,
+        )
 
     monkeypatch.setattr(cli, "write_review_queue_file_durably", record_write)
 
@@ -694,6 +717,229 @@ def test_generation_failure_durably_restores_canonical_pair(
     ]
     assert queue_path.read_bytes() == b"prior-v1\\n"
     assert sidecar_path.read_bytes() == b"prior-v2\\n"
+
+
+def test_failed_publisher_cannot_rollback_a_newer_committed_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The queue lock serializes commit and rollback across publishers."""
+
+    queue_path = tmp_path / "unitization-review-queue-reviewed.jsonl"
+    cli.publish_stage_a_review_queue(queue_path, (_construction_row("prior"),))
+    original_publish = cli.publish_review_queue_generation
+    first_at_generation = Event()
+    allow_first_failure = Event()
+    second_done = Event()
+    outcomes: dict[str, Exception | None] = {}
+
+    def controlled_publish(
+        path: Path,
+        *,
+        v1_bytes: bytes,
+        v2_bytes: bytes,
+        parent_anchor: generation_module.ReviewQueueParentAnchor | None = None,
+    ) -> object:
+        if b'"unit-a"' in v1_bytes:
+            first_at_generation.set()
+            assert allow_first_failure.wait(timeout=5)
+            raise OSError("first generation unavailable")
+        return original_publish(
+            path,
+            v1_bytes=v1_bytes,
+            v2_bytes=v2_bytes,
+            parent_anchor=parent_anchor,
+        )
+
+    monkeypatch.setattr(cli, "publish_review_queue_generation", controlled_publish)
+
+    def publish(name: str, unit_id: str) -> None:
+        try:
+            cli.publish_stage_a_review_queue(queue_path, (_construction_row(unit_id),))
+        except Exception as exc:  # captured for assertions in the parent thread
+            outcomes[name] = exc
+        else:
+            outcomes[name] = None
+        finally:
+            if name == "second":
+                second_done.set()
+
+    first = Thread(target=publish, args=("first", "unit-a"))
+    second = Thread(target=publish, args=("second", "unit-b"))
+    first.start()
+    assert first_at_generation.wait(timeout=5)
+    second.start()
+    assert not second_done.wait(timeout=0.1)
+    allow_first_failure.set()
+    first.join(timeout=5)
+    second.join(timeout=5)
+
+    assert not first.is_alive()
+    assert not second.is_alive()
+    assert isinstance(outcomes["first"], CommandError)
+    assert outcomes["second"] is None
+    generation = read_review_queue_generation(queue_path)
+    assert generation.v1_bytes == queue_path.read_bytes()
+    assert generation.v2_bytes == review_queue_v2_sidecar_path(queue_path).read_bytes()
+    assert b'"unit-b"' in generation.v1_bytes
+
+
+def test_publication_lock_rejects_parent_swap_while_waiting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The transaction stays bound to the parent used to select its lock."""
+
+    queue_parent = tmp_path / "queue-parent"
+    queue_parent.mkdir()
+    queue_path = queue_parent / "unitization-review-queue-reviewed.jsonl"
+    displaced_parent = tmp_path / "displaced-parent"
+    original_flock = cli.fcntl.flock
+    swapped = False
+
+    def swap_parent_on_lock(descriptor: int, operation: int) -> None:
+        nonlocal swapped
+        original_flock(descriptor, operation)
+        if operation == cli.fcntl.LOCK_EX and not swapped:
+            swapped = True
+            queue_parent.rename(displaced_parent)
+            queue_parent.mkdir()
+
+    monkeypatch.setattr(cli.fcntl, "flock", swap_parent_on_lock)
+
+    with pytest.raises(CommandError, match="directory changed while acquiring"):
+        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-a"),))
+
+    assert swapped
+    assert list(queue_parent.iterdir()) == []
+    assert not (displaced_parent / queue_path.name).exists()
+
+
+def test_publication_reports_parent_anchor_failure_as_command_error(
+    tmp_path: Path,
+) -> None:
+    """An unsafe queue parent follows the normal CLI error boundary."""
+
+    queue_parent = tmp_path / "queue-parent"
+    queue_parent.symlink_to(tmp_path / "missing-parent", target_is_directory=True)
+    queue_path = queue_parent / "unitization-review-queue-reviewed.jsonl"
+
+    with pytest.raises(CommandError, match="cannot anchor"):
+        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-a"),))
+
+
+def test_publication_lock_is_shared_by_aliases_to_one_parent(tmp_path: Path) -> None:
+    """The directory-inode lock is shared across path and temp namespaces."""
+
+    queue_parent = tmp_path / "queue-parent"
+    queue_parent.mkdir()
+    first_alias = tmp_path / "first-alias"
+    second_alias = tmp_path / "second-alias"
+    first_alias.symlink_to(queue_parent, target_is_directory=True)
+    second_alias.symlink_to(queue_parent, target_is_directory=True)
+    first_path = first_alias / "unitization-review-queue-reviewed.jsonl"
+    second_path = second_alias / "unitization-review-queue-reviewed.jsonl"
+    first_anchor = cli._acquire_review_queue_publication_lock(first_path)
+    second_acquired = Event()
+
+    def acquire_second() -> None:
+        second_anchor = cli._acquire_review_queue_publication_lock(second_path)
+        try:
+            second_acquired.set()
+        finally:
+            cli._release_review_queue_publication_lock(second_anchor)
+
+    second = Thread(target=acquire_second)
+    second.start()
+    assert not second_acquired.wait(timeout=0.1)
+    cli._release_review_queue_publication_lock(first_anchor)
+    second.join(timeout=5)
+
+    assert not second.is_alive()
+    assert second_acquired.is_set()
+
+
+def test_publication_rejects_symlink_parent_retargeted_after_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every transaction operation remains bound to the caller's parent alias."""
+
+    original_parent = tmp_path / "original-parent"
+    replacement_parent = tmp_path / "replacement-parent"
+    original_parent.mkdir()
+    replacement_parent.mkdir()
+    queue_alias = tmp_path / "queue-alias"
+    queue_alias.symlink_to(original_parent, target_is_directory=True)
+    queue_path = queue_alias / "unitization-review-queue-reviewed.jsonl"
+    original_acquire = cli._acquire_review_queue_publication_lock
+
+    def retarget_after_lock(
+        path: Path,
+    ) -> generation_module.ReviewQueueParentAnchor:
+        result = original_acquire(path)
+        queue_alias.unlink()
+        queue_alias.symlink_to(replacement_parent, target_is_directory=True)
+        return result
+
+    monkeypatch.setattr(
+        cli, "_acquire_review_queue_publication_lock", retarget_after_lock
+    )
+
+    with pytest.raises(CommandError, match="cannot snapshot"):
+        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-a"),))
+
+    assert list(original_parent.iterdir()) == []
+    assert list(replacement_parent.iterdir()) == []
+
+
+def test_parent_retarget_after_first_write_rolls_back_original_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rollback uses the retained parent descriptor after the alias moves."""
+
+    original_parent = tmp_path / "original-parent"
+    replacement_parent = tmp_path / "replacement-parent"
+    original_parent.mkdir()
+    replacement_parent.mkdir()
+    queue_alias = tmp_path / "queue-alias"
+    queue_alias.symlink_to(original_parent, target_is_directory=True)
+    queue_path = queue_alias / "unitization-review-queue-reviewed.jsonl"
+    sidecar_path = review_queue_v2_sidecar_path(queue_path)
+    original_queue = original_parent / queue_path.name
+    original_sidecar = original_parent / sidecar_path.name
+    original_queue.write_bytes(b"prior-v1\n")
+    original_sidecar.write_bytes(b"prior-v2\n")
+    original_write = cli.write_review_queue_file_durably
+    retargeted = False
+
+    def retarget_after_first_write(
+        path: Path,
+        payload: bytes,
+        *,
+        parent_anchor: generation_module.ReviewQueueParentAnchor | None = None,
+        verify_parent_path: bool = True,
+    ) -> None:
+        nonlocal retargeted
+        original_write(
+            path,
+            payload,
+            parent_anchor=parent_anchor,
+            verify_parent_path=verify_parent_path,
+        )
+        if path == queue_path and verify_parent_path and not retargeted:
+            retargeted = True
+            queue_alias.unlink()
+            queue_alias.symlink_to(replacement_parent, target_is_directory=True)
+
+    monkeypatch.setattr(
+        cli, "write_review_queue_file_durably", retarget_after_first_write
+    )
+
+    with pytest.raises(CommandError, match="cannot publish"):
+        cli.publish_stage_a_review_queue(queue_path, (_construction_row("unit-a"),))
+
+    assert retargeted
+    assert original_queue.read_bytes() == b"prior-v1\n"
+    assert original_sidecar.read_bytes() == b"prior-v2\n"
+    assert list(replacement_parent.iterdir()) == []
 
 
 def test_durable_queue_write_replaces_inode_and_fsyncs_file_and_directory(
@@ -799,13 +1045,29 @@ def test_first_queue_write_failure_rolls_back_the_entire_queue_pair(
     original_write = cli.write_review_queue_file_durably
     failed_queue_write = False
 
-    def partially_overwrite_then_fail(path: Path, payload: bytes) -> None:
+    def partially_overwrite_then_fail(
+        path: Path,
+        payload: bytes,
+        *,
+        parent_anchor: generation_module.ReviewQueueParentAnchor | None = None,
+        verify_parent_path: bool = True,
+    ) -> None:
         nonlocal failed_queue_write
         if path == queue_path and not failed_queue_write:
             failed_queue_write = True
-            original_write(path, b"partial-v1")
+            original_write(
+                path,
+                b"partial-v1",
+                parent_anchor=parent_anchor,
+                verify_parent_path=verify_parent_path,
+            )
             raise OSError("queue storage unavailable")
-        original_write(path, payload)
+        original_write(
+            path,
+            payload,
+            parent_anchor=parent_anchor,
+            verify_parent_path=verify_parent_path,
+        )
 
     monkeypatch.setattr(
         cli, "write_review_queue_file_durably", partially_overwrite_then_fail
@@ -865,10 +1127,21 @@ def test_generation_pair_survives_a_torn_canonical_write(
     class _ForcedTermination(BaseException):
         """Stands in for a signal that no except-OSError handler can catch."""
 
-    def terminate_before_sidecar(path: Path, payload: bytes) -> None:
+    def terminate_before_sidecar(
+        path: Path,
+        payload: bytes,
+        *,
+        parent_anchor: generation_module.ReviewQueueParentAnchor | None = None,
+        verify_parent_path: bool = True,
+    ) -> None:
         if path == sidecar_path:
             raise _ForcedTermination
-        original_write(path, payload)
+        original_write(
+            path,
+            payload,
+            parent_anchor=parent_anchor,
+            verify_parent_path=verify_parent_path,
+        )
 
     monkeypatch.setattr(
         cli, "write_review_queue_file_durably", terminate_before_sidecar
@@ -1142,6 +1415,109 @@ def test_generation_publisher_rejects_a_real_generation_root_swap(
         generation_module.publish_review_queue_generation(
             queue_path, v1_bytes=b"v1\\n", v2_bytes=b"v2\\n"
         )
+
+
+def test_generation_member_install_never_replaces_a_racing_destination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A destination created after preflight is rejected without replacement."""
+
+    member_path = tmp_path / "member.jsonl"
+    directory_descriptor = os.open(
+        tmp_path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    )
+    original_atomic_write = generation_module._atomic_write_at
+
+    def race_destination_into_place(*args: object, **kwargs: object) -> None:
+        member_path.write_bytes(b"racing-bytes\\n")
+        original_atomic_write(*args, **kwargs)
+
+    monkeypatch.setattr(
+        generation_module, "_atomic_write_at", race_destination_into_place
+    )
+    try:
+        with pytest.raises(ReviewQueueError, match="not immutable"):
+            generation_module._write_immutable_member(
+                directory_descriptor,
+                member_path.name,
+                member_path,
+                b"intended-bytes\\n",
+            )
+    finally:
+        os.close(directory_descriptor)
+
+    assert member_path.read_bytes() == b"racing-bytes\\n"
+
+
+def test_generation_member_install_never_exposes_a_hardlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Atomic no-replace rename keeps the installed inode singly linked."""
+
+    member_path = tmp_path / "member.jsonl"
+    directory_descriptor = os.open(
+        tmp_path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    )
+
+    def reject_hardlink(*_: object, **__: object) -> None:
+        raise AssertionError("immutable installation must not use a hard link")
+
+    monkeypatch.setattr(generation_module.os, "link", reject_hardlink)
+    try:
+        generation_module._write_immutable_member(
+            directory_descriptor,
+            member_path.name,
+            member_path,
+            b"intended-bytes\\n",
+        )
+    finally:
+        os.close(directory_descriptor)
+
+    assert member_path.read_bytes() == b"intended-bytes\\n"
+    assert member_path.stat().st_nlink == 1
+
+
+def test_generation_member_install_uses_darwin_atomic_noreplace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Darwin uses its descriptor-relative exclusive rename primitive."""
+
+    observed: list[tuple[int, bytes, int, bytes, int]] = []
+
+    def renameatx_np(
+        source_descriptor: int,
+        source_name: bytes,
+        destination_descriptor: int,
+        destination_name: bytes,
+        flags: int,
+    ) -> int:
+        observed.append(
+            (
+                source_descriptor,
+                source_name,
+                destination_descriptor,
+                destination_name,
+                flags,
+            )
+        )
+        return 0
+
+    class DarwinLibc:
+        def __init__(self) -> None:
+            self.renameatx_np = renameatx_np
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(
+        generation_module.ctypes,
+        "CDLL",
+        lambda *_args, **_kwargs: DarwinLibc(),
+    )
+
+    generation_module._rename_noreplace_at(
+        11, "source.tmp", 12, "member.jsonl", tmp_path / "member.jsonl"
+    )
+
+    assert observed == [(11, b"source.tmp", 12, b"member.jsonl", 0x00000004)]
 
 
 def test_generation_pair_supports_a_legitimate_symlinked_parent(
