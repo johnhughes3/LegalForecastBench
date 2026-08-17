@@ -4501,10 +4501,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "CourtListenerClient",
-        "largest_symbol_lines": 295,
+        "largest_symbol_lines": 341,
         "layer": "application",
-        "line_count": 1557,
-        "nonblank_line_count": 1384,
+        "line_count": 1603,
+        "nonblank_line_count": 1426,
         "top_level_definition_count": 57
       },
       "legalforecast/ingestion/courtlistener_opinion_discovery.py": {
@@ -8287,9 +8287,9 @@
         "largest_symbol": "test_courtlistener_unavailable_auth_rate_and_server_errors",
         "largest_symbol_lines": 62,
         "layer": "test",
-        "line_count": 1132,
-        "nonblank_line_count": 976,
-        "top_level_definition_count": 41
+        "line_count": 1275,
+        "nonblank_line_count": 1103,
+        "top_level_definition_count": 45
       },
       "tests/test_courtlistener_durable_discovery.py": {
         "cycle_id": "",

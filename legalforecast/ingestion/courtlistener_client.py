@@ -814,6 +814,52 @@ class CourtListenerClient:
                 return
             cursor = page.next_cursor
 
+    def list_recap_documents(
+        self,
+        docket_entry_id: str,
+        *,
+        cursor: str | None = None,
+        page_size: int | None = None,
+    ) -> CourtListenerPage[CourtListenerRecapDocument]:
+        """List the RECAP documents filed under one docket entry.
+
+        ``/docket-entries/`` nests ``recap_documents``, but a nested list
+        cannot by itself distinguish "this entry has no attachment row" from
+        "the parent payload omitted it". Reading ``/recap-documents/`` keyed on
+        the parent entry is an independent GET-only view of the same rows --
+        attachment rows carry ``attachment_number`` -- so sub-entry absence can
+        be proven rather than inferred.
+        """
+
+        params: dict[str, Any] = {"docket_entry": docket_entry_id}
+        if cursor is not None:
+            params["cursor"] = cursor
+        if page_size is not None:
+            params["page_size"] = page_size
+        payload = self._request_json("GET", "/recap-documents/", params)
+        parser: ResponseParser[CourtListenerRecapDocument] = (
+            CourtListenerRecapDocument.from_record
+        )
+        return _page_from_payload(payload, parser)
+
+    def iter_recap_documents(
+        self,
+        docket_entry_id: str,
+        *,
+        page_size: int | None = None,
+    ) -> Iterator[CourtListenerRecapDocument]:
+        cursor: str | None = None
+        while True:
+            page = self.list_recap_documents(
+                docket_entry_id,
+                cursor=cursor,
+                page_size=page_size,
+            )
+            yield from page.items
+            if page.next_cursor is None:
+                return
+            cursor = page.next_cursor
+
     def _request_json(
         self,
         method: str,
