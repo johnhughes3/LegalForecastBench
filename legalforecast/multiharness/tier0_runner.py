@@ -81,12 +81,15 @@ from legalforecast.multiharness.validation import (
 )
 
 TIER0_EXECUTABLE_SPEC_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative Tier-0 sidecar
     "legalforecast.multiharness.tier0_executable_spec.v1"
 )
 TIER0_SPEND_APPROVAL_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative Tier-0 sidecar
     "legalforecast.multiharness.tier0_detached_spend_approval.v1"
 )
 TIER0_ARCHIVE_MANIFEST_SCHEMA_VERSION = (
+    # contract-ratchet: allow non-authoritative Tier-0 sidecar
     "legalforecast.multiharness.tier0_archive_manifest.v1"
 )
 
@@ -968,6 +971,7 @@ def _write_archive(
     private.mkdir()
     public.mkdir()
     public_record: dict[str, object] = {
+        # contract-ratchet: allow non-authoritative Tier-0 sidecar
         "schema_version": "legalforecast.multiharness.tier0_public_summary.v1",
         "spec_sha256": spec_sha256,
         "experiment_id": spec.experiment_id,
