@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import sys
 from pathlib import Path
 
@@ -13,12 +14,17 @@ from legalforecast.multiharness.local_cli_identity import (
     bind_executable_identity,
     executable_pin_for,
     sha256_file,
+    verify_executable_digest,
 )
 from legalforecast.multiharness.local_cli_runtime import (
     LocalCliAdapterManifest,
     LocalCliRunSpec,
     LocalCliRuntimeError,
     execute_local_cli,
+)
+from legalforecast.multiharness.local_cli_scheduler import (
+    NullScheduler,
+    ScheduledSpec,
 )
 
 _IDENTITY_CLI = (
@@ -358,6 +364,184 @@ def test_omitted_probe_version_is_mismatch(tmp_path: Path) -> None:
             tmp_path / "scratch",
             parent_env=_CANARY_ENV,
         )
+
+
+def test_omitted_probe_events_refuse_when_pin_lists_allowed_events(
+    tmp_path: Path,
+) -> None:
+    sentinel = tmp_path / "task-ran"
+    script = _probe_only_script(tmp_path, sentinel, extra_fields=())
+    pin = executable_pin_for(script.resolve(), allowed_events=("result",))
+    with pytest.raises(LocalCliRuntimeError, match="identity probe omitted events"):
+        execute_local_cli(
+            _spec_for(
+                script,
+                extra_args=("--mode", "would-run"),
+                executable=pin,
+                version_probe_args=("--mode", "version"),
+            ),
+            tmp_path / "scratch",
+            parent_env=_CANARY_ENV,
+        )
+    assert not sentinel.exists()
+
+
+def test_reported_empty_probe_events_are_accepted(tmp_path: Path) -> None:
+    sentinel = tmp_path / "task-ran"
+    script = _probe_only_script(tmp_path, sentinel, extra_fields=("'events': [],",))
+    pin = executable_pin_for(script.resolve(), allowed_events=("result",))
+    result = execute_local_cli(
+        _spec_for(
+            script,
+            extra_args=("--mode", "would-run"),
+            executable=pin,
+            version_probe_args=("--mode", "version"),
+        ),
+        tmp_path / "scratch",
+        parent_env=_CANARY_ENV,
+    )
+    assert result.status == "completed"
+    assert sentinel.exists()
+
+
+def test_unreadable_executable_refuses_without_leaking_host_path(
+    tmp_path: Path,
+) -> None:
+    script = tmp_path / "cli.py"
+    script.write_text("print('ok')\n", encoding="utf-8")
+    pin = executable_pin_for(script, version="0.1.0")
+    script.chmod(0o000)
+    try:
+        script.read_bytes()
+    except OSError:
+        pass
+    else:
+        script.chmod(0o600)
+        pytest.skip("mode 0o000 is not enforced here (root or permissive mount)")
+    try:
+        with pytest.raises(LocalCliRuntimeError) as excinfo:
+            execute_local_cli(
+                _spec_for(script, executable=pin),
+                tmp_path / "scratch",
+                parent_env=_CANARY_ENV,
+            )
+    finally:
+        script.chmod(0o600)
+    assert "executable bytes could not be read" in str(excinfo.value)
+    assert str(tmp_path) not in str(excinfo.value)
+    assert "cli.py" not in str(excinfo.value)
+
+
+def test_probe_launch_failure_refuses_without_leaking_host_path(
+    tmp_path: Path,
+) -> None:
+    """A probe that cannot exec must not surface OSError's host-path text."""
+
+    script = tmp_path / "cli.py"
+    script.write_text("print('ok')\n", encoding="utf-8")
+    pin = executable_pin_for(script, version="0.1.0")
+    with pytest.raises(LocalCliRuntimeError) as excinfo:
+        execute_local_cli(
+            LocalCliRunSpec(
+                spec_id="probe-launch",
+                manifest=LocalCliAdapterManifest(
+                    adapter_id="fixture-cli",
+                    display_name="Fixture CLI",
+                    adapter_version="0.1.0",
+                    # argv[0] is the pinned script itself, which is not
+                    # executable, so exec fails inside the probe launch.
+                    command=(str(script.resolve()),),
+                    executable=pin,
+                    supported_auth_profiles=(FIXTURE_NONE,),
+                    version_probe_args=("--mode", "version"),
+                ),
+                auth_profile=FIXTURE_NONE,
+            ),
+            tmp_path / "scratch",
+            parent_env=_CANARY_ENV,
+        )
+    assert "identity probe could not be launched" in str(excinfo.value)
+    assert str(tmp_path) not in str(excinfo.value)
+
+
+def test_spawn_time_digest_recheck_refuses_a_swap_after_the_first_bind(
+    tmp_path: Path,
+) -> None:
+    """The pre-Popen re-check must still catch bytes swapped after binding."""
+
+    script = tmp_path / "cli.py"
+    script.write_bytes(_FAKE_CLI.read_bytes())
+    pin = executable_pin_for(script, version="0.1.0")
+    sentinel = tmp_path / "scratch" / "swapped-ran"
+
+    class _SwapBetweenBindAndSpawn(NullScheduler):
+        def before_execute(self, spec: ScheduledSpec) -> None:
+            del spec
+            script.write_text(
+                f"from pathlib import Path\n"
+                f"Path({str(sentinel)!r}).write_text('swapped')\n",
+                encoding="utf-8",
+            )
+
+    with pytest.raises(LocalCliRuntimeError, match="executable digest mismatch"):
+        execute_local_cli(
+            _spec_for(script, executable=pin),
+            tmp_path / "scratch",
+            parent_env=_CANARY_ENV,
+            scheduler=_SwapBetweenBindAndSpawn(),
+        )
+    assert not sentinel.exists()
+
+
+def test_digest_only_recheck_takes_no_environment(tmp_path: Path) -> None:
+    """The spawn-time helper accepts a PATH string, not a credentialed env."""
+
+    path = _FAKE_CLI.resolve()
+    pin = executable_pin_for(path, version="0.1.0")
+    observed = verify_executable_digest(
+        pin,
+        (sys.executable, str(path)),
+        search_path="/usr/bin",
+    )
+    assert observed.sha256 == pin.sha256
+    signature = inspect.signature(verify_executable_digest, eval_str=True)
+    assert set(signature.parameters) == {"pin", "argv", "search_path"}
+    assert signature.parameters["search_path"].annotation is str
+    # No probe means no child process and no environment to project into one.
+    assert "parent_env" not in signature.parameters
+    assert "probe" not in signature.parameters
+
+
+def _probe_only_script(
+    tmp_path: Path,
+    sentinel: Path,
+    *,
+    extra_fields: tuple[str, ...],
+) -> Path:
+    """Write a CLI that answers ``--mode version`` and otherwise runs a task."""
+
+    script = tmp_path / "cli.py"
+    script.write_text(
+        "\n".join(
+            [
+                "import json, sys",
+                "from pathlib import Path",
+                "if sys.argv[1:] == ['--mode', 'version']:",
+                "    print(json.dumps({",
+                "        'schema_version':",
+                f"        {LOCAL_CLI_IDENTITY_PROBE_SCHEMA_VERSION!r},",
+                "        'basename': 'cli.py',",
+                "        'version': '0.1.0',",
+                *[f"        {field}" for field in extra_fields],
+                "    }))",
+                "    raise SystemExit(0)",
+                f"Path({str(sentinel)!r}).write_text('task')",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return script
 
 
 def test_identity_probe_uses_isolated_home(tmp_path: Path) -> None:

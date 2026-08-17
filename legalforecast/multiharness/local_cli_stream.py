@@ -3,6 +3,10 @@
 Capture is truncated while the child is still running so a runaway solver
 cannot fill the historic 256 MiB disk cap. The receipt records truncation;
 silent truncation is a defect.
+
+A drain thread that misses its join may still be writing, so callers record
+that miss through ``StreamDrain.mark_truncated()`` rather than assigning the
+flag, and must not treat the rolling tail as a complete stream tail.
 """
 
 from __future__ import annotations
@@ -47,6 +51,16 @@ class StreamDrain:
                     self.truncated = True
             else:
                 self.truncated = True
+
+    def mark_truncated(self) -> None:
+        """Record truncation the drain thread cannot see, under the lock.
+
+        A drain thread that missed its join may still be inside ``feed``, so
+        the caller must not assign ``truncated`` directly.
+        """
+
+        with self._lock:
+            self.truncated = True
 
     def finish(self) -> tuple[bytes, bool]:
         """Return bounded capture bytes and whether truncation occurred."""

@@ -26,7 +26,10 @@ figure from that file and from `score-artifacts.jsonl`.
   counted once per `receipt_id`.
 - **solve_cost** — `ExecutionReceipt.cost_usd` converted to micro-USD
   with basis `provider_reported`. Null cost is unknown, never `$0`.
-  `subscription_unallocable` cannot carry an amount.
+  `subscription_unallocable` cannot carry an amount. A local-CLI run
+  whose stdout drain missed its join reports null here: the trailing
+  cost envelope may still have been in the pipe, so the newest object
+  in the rolling tail is an earlier one and is not published.
 - **eval_cost** — `EvaluationReceipt.cost`, including its basis,
   currency, and `pricing_snapshot_sha256`. `subscription_unallocable`
   remains null.

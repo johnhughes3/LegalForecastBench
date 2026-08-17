@@ -5,7 +5,17 @@ The service binds each launch to the exact bytes named by the manifest pin
 a silent run. The launch path keeps the pin basename, including Homebrew or
 npm shims; hashing follows that path so the digest is the bytes ``exec`` runs.
 Host paths stay off public receipts; error text carries basename and digests
-only.
+only, including when the filesystem itself refuses (a raw ``OSError`` message
+would embed the host path, so bind-time ``OSError`` becomes a path-free
+``LocalCliIdentityError``; GitHub #724).
+
+``bind_executable_identity`` is the full bind: digest plus the optional
+self-attestation probe, which needs an environment and launches a child.
+``verify_executable_digest`` is the credential-free half: it takes a bare
+``PATH`` string, never an environment mapping, and can never spawn. Callers
+re-checking the digest immediately before spawn use the digest-only helper so
+projected credentials are not threaded into a helper that can also launch a
+probe (GitHub #722).
 """
 
 from __future__ import annotations
@@ -153,6 +163,58 @@ def executable_pin_for(
 pin_executable_file = executable_pin_for
 
 
+def verify_executable_digest(
+    pin: ExecutableIdentityPin,
+    argv: Sequence[str],
+    *,
+    search_path: str,
+) -> ObservedExecutableIdentity:
+    """Resolve the launch path from argv and re-hash it, with no environment.
+
+    This is the credential-free half of :func:`bind_executable_identity`. It
+    takes a bare ``PATH`` string rather than an environment mapping and never
+    launches a process, so a caller re-checking the digest immediately before
+    ``Popen`` cannot leak projected credentials into a helper that can also
+    spawn an identity probe (GitHub #722).
+
+    Filesystem races -- the file deleted, replaced by a directory, or made
+    unreadable between resolution and hashing -- raise a path-free
+    ``LocalCliIdentityError`` instead of an ``OSError`` whose message embeds
+    the host path (GitHub #724).
+    """
+
+    try:
+        identity_path = _resolve_identity_path(
+            argv,
+            pin.basename,
+            search_path=search_path,
+        )
+        digest = sha256_file(identity_path)
+    except OSError as exc:
+        # Never interpolate str(exc): OSError text embeds the host path.
+        raise LocalCliIdentityError(
+            "executable bytes could not be read",
+            failure_class="unreadable_executable",
+        ) from exc
+    if identity_path.name != pin.basename:
+        raise LocalCliIdentityError(
+            "executable basename mismatch",
+            failure_class="basename_mismatch",
+        )
+    if digest != pin.sha256:
+        raise LocalCliIdentityError(
+            "executable digest mismatch",
+            failure_class="digest_mismatch",
+        )
+    return ObservedExecutableIdentity(
+        basename=pin.basename,
+        version=pin.version,
+        sha256=digest,
+        distribution_kind=pin.distribution_kind,
+        resolved_argv=_argv_with_identity(argv, pin.basename, identity_path),
+    )
+
+
 def bind_executable_identity(
     pin: ExecutableIdentityPin,
     argv: Sequence[str],
@@ -164,33 +226,16 @@ def bind_executable_identity(
     requested_model: str | None = None,
     probe: bool = True,
 ) -> ObservedExecutableIdentity:
-    """Resolve the identity file from argv, hash it, and refuse on mismatch."""
+    """Resolve the identity file from argv, hash it, and refuse on mismatch.
+
+    The digest half is :func:`verify_executable_digest`; this wrapper adds the
+    pin's capability framing and the optional identity probe, which needs an
+    environment because it launches a child process.
+    """
 
     search_path = (parent_env or os.environ).get("PATH", "/usr/bin")
-    identity_path = _resolve_identity_path(
-        argv,
-        pin.basename,
-        search_path=search_path,
-    )
-    digest = sha256_file(identity_path)
-    if identity_path.name != pin.basename:
-        raise LocalCliIdentityError(
-            "executable basename mismatch",
-            failure_class="basename_mismatch",
-        )
-    if digest != pin.sha256:
-        raise LocalCliIdentityError(
-            "executable digest mismatch",
-            failure_class="digest_mismatch",
-        )
-    resolved_argv = _argv_with_identity(argv, pin.basename, identity_path)
-    observed = ObservedExecutableIdentity(
-        basename=pin.basename,
-        version=pin.version,
-        sha256=digest,
-        distribution_kind=pin.distribution_kind,
-        resolved_argv=resolved_argv,
-    )
+    observed = verify_executable_digest(pin, argv, search_path=search_path)
+    resolved_argv = observed.resolved_argv
     needs_probe = bool(
         version_probe_args
         or required_capabilities
@@ -339,15 +384,22 @@ def _run_identity_probe(
     cwd: Path,
     timeout_seconds: float = _IDENTITY_PROBE_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
-    process = subprocess.Popen(
-        tuple(argv),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=cwd,
-        env=dict(environment),
-        start_new_session=True,
-    )
+    try:
+        process = subprocess.Popen(
+            tuple(argv),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=cwd,
+            env=dict(environment),
+            start_new_session=True,
+        )
+    except OSError as exc:
+        # FileNotFoundError/PermissionError text embeds the host path.
+        raise LocalCliIdentityError(
+            "identity probe could not be launched",
+            failure_class="probe_framing",
+        ) from exc
     try:
         stdout, _stderr = process.communicate(timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
@@ -361,6 +413,12 @@ def _run_identity_probe(
             "identity probe timed out",
             failure_class="probe_framing",
         ) from None
+    except OSError as exc:
+        _kill_process_group(process)
+        raise LocalCliIdentityError(
+            "identity probe framing",
+            failure_class="probe_framing",
+        ) from exc
     if process.returncode != 0:
         raise LocalCliIdentityError(
             "identity probe framing",
@@ -425,8 +483,17 @@ def _check_probe(
             "required flag missing",
             failure_class="missing_capability",
         )
-    events = _optional_str_tuple(record, "events")
+    events = _reported_str_tuple(record, "events")
     if pin.allowed_events:
+        # A pinned allowlist makes the events report mandatory: an omitted
+        # list would otherwise pass the denylist check vacuously, the same
+        # way an omitted version once passed (GitHub #723). A reported empty
+        # list still passes -- that is an attestation, not a silence.
+        if events is None:
+            raise LocalCliIdentityError(
+                "identity probe omitted events",
+                failure_class="unknown_event",
+            )
         unknown = [event for event in events if event not in pin.allowed_events]
         if unknown:
             raise LocalCliIdentityError(
@@ -454,9 +521,19 @@ def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
 
 
 def _optional_str_tuple(record: Mapping[str, Any], field_name: str) -> tuple[str, ...]:
+    reported = _reported_str_tuple(record, field_name)
+    return () if reported is None else reported
+
+
+def _reported_str_tuple(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[str, ...] | None:
+    """Return the reported list, or None when the probe omitted the field."""
+
     value = record.get(field_name)
     if value is None:
-        return ()
+        return None
     if not isinstance(value, list):
         raise LocalCliIdentityError(
             "identity probe framing",

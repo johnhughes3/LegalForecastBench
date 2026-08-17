@@ -135,6 +135,63 @@ def test_unfinished_drain_join_is_recorded_as_truncation(
     assert public["stderr_truncated"] is True
 
 
+def test_mark_truncated_sets_the_flag_without_touching_capture() -> None:
+    drain = StreamDrain(max_capture_bytes=16, tail_bytes=8)
+    drain.feed(b"abc")
+    assert drain.finish() == (b"abc", False)
+    drain.mark_truncated()
+    captured, truncated = drain.finish()
+    assert truncated is True
+    assert captured.startswith(b"abc")
+    assert captured.endswith(b"\n[truncated]\n")
+    assert drain.total == 3
+
+
+def test_unfinished_drain_join_publishes_no_cost(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An incomplete capture must not publish a cost from the rolling tail.
+
+    The trailing ``total_cost_usd`` envelope may still be sitting unread in
+    the pipe, so the newest JSON object in the tail is an earlier one.
+    """
+
+    complete = execute_local_cli(
+        _cost_spec("join-cost-baseline"),
+        tmp_path / "baseline",
+        parent_env=_CANARY_ENV,
+    )
+    assert complete.cost_usd == 1.25
+
+    def unfinished(threads: object, *, timeout_seconds: float) -> bool:
+        del threads, timeout_seconds
+        return False
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.local_cli_runtime.join_pipe_drains",
+        unfinished,
+    )
+    result = execute_local_cli(
+        _cost_spec("join-cost-missed"),
+        tmp_path / "missed",
+        parent_env=_CANARY_ENV,
+    )
+    assert result.status == "completed"
+    assert result.cost_usd is None
+    assert result.to_public_record()["cost_usd"] is None
+
+
+def _cost_spec(spec_id: str) -> LocalCliRunSpec:
+    return LocalCliRunSpec(
+        spec_id=spec_id,
+        manifest=_manifest(),
+        auth_profile=FIXTURE_NONE,
+        extra_args=("--mode", "spew-then-cost"),
+        timeout_seconds=10,
+    )
+
+
 def _spew_spec(*, timeout_seconds: float) -> LocalCliRunSpec:
     return LocalCliRunSpec(
         spec_id="spew-disk",
