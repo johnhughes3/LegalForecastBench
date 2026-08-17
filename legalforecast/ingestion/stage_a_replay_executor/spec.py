@@ -18,6 +18,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import cast
 
+from legalforecast.config.registry import repository_root
 from legalforecast.ingestion.stage_a_replay_executor.contract import (
     ReplaySpendCeilingError,
     StageAReplayExecutorError,
@@ -258,6 +259,7 @@ def load_replay_spec(path: str | Path, *, now: datetime | None = None) -> Replay
         *lineage_inputs,
     )
     _require_output_isolation(output_paths, input_paths)
+    _require_outputs_outside_checkout(output_paths)
     return ReplaySpec(
         path=source,
         spec_sha256=claimed,
@@ -491,3 +493,13 @@ def _require_output_isolation(
                     "executor output overlaps authenticated input: "
                     f"{output} vs {source}"
                 )
+
+
+def _require_outputs_outside_checkout(outputs: Mapping[str, Path]) -> None:
+    checkout = repository_root().resolve()
+    for output in outputs.values():
+        resolved = output.resolve()
+        if resolved == checkout or checkout in resolved.parents:
+            raise StageAReplayExecutorError(
+                "executor outputs must live outside the runtime checkout"
+            )

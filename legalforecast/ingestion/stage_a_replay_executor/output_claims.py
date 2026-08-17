@@ -55,6 +55,7 @@ class OutputClaimSet:
                         )
                     os.fchmod(descriptor, 0o600)
                     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    _assert_held_lock(descriptor, lock_path)
                 except BlockingIOError as exc:
                     os.close(descriptor)
                     raise ReplayOutputClaimError(
@@ -93,6 +94,42 @@ def acquire_output_claims(spec: ReplaySpec) -> OutputClaimSet:
     return claims
 
 
-def _output_lock_path(path: Path) -> Path:
+def output_lock_path(path: Path) -> Path:
+    """Return the sibling lock file used to claim one signed output path."""
+
     digest = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
     return path.parent / f".stage-a-replay-output-{digest}.lock"
+
+
+def authorized_identity_exclusions(spec: ReplaySpec) -> frozenset[Path]:
+    """Return output and lock paths the identity recheck must ignore."""
+
+    excluded: set[Path] = set()
+    for path in spec.output_paths.values():
+        excluded.add(path.resolve())
+        excluded.add(output_lock_path(path).resolve())
+    return frozenset(excluded)
+
+
+def _assert_held_lock(descriptor: int, lock_path: Path) -> None:
+    """Reject a lock fd that no longer names a single live lock inode."""
+
+    held = os.fstat(descriptor)
+    try:
+        named = os.lstat(lock_path)
+    except OSError as exc:
+        raise ReplayOutputClaimError(
+            f"output lock path disappeared after acquire: {lock_path}"
+        ) from exc
+    if (named.st_dev, named.st_ino) != (held.st_dev, held.st_ino):
+        raise ReplayOutputClaimError(
+            f"output lock was replaced after acquire: {lock_path}"
+        )
+    if held.st_nlink != 1:
+        raise ReplayOutputClaimError(
+            f"output lock is not exclusively linked: {lock_path}"
+        )
+
+
+def _output_lock_path(path: Path) -> Path:
+    return output_lock_path(path)

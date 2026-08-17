@@ -41,12 +41,8 @@ from legalforecast.labeling.provider_journal import (
     maximum_call_cost_usd,
     provider_prompt_logical_call_scope,
 )
-from legalforecast.unitization import unitizer_terminal_review
-
-_EAGER_PROVIDER_MODULES = (
-    llm_pipeline,
-    unitizer_terminal,
-    unitizer_terminal_review,
+from legalforecast.unitization import (  # noqa: F401
+    unitizer_terminal_review as _eager_unitizer_terminal_review,
 )
 
 

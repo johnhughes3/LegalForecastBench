@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import subprocess
@@ -21,6 +22,9 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
 from legalforecast.ingestion.stage_a_replay_executor import contract as contract_module
 from legalforecast.ingestion.stage_a_replay_executor import executor as executor_module
 from legalforecast.ingestion.stage_a_replay_executor import lineage as lineage_module
+from legalforecast.ingestion.stage_a_replay_executor import (
+    output_claims as output_claims_module,
+)
 from legalforecast.ingestion.stage_a_replay_executor import provider as provider_module
 from legalforecast.ingestion.stage_a_replay_executor import repair as repair_module
 from legalforecast.ingestion.stage_a_replay_executor.contract import (
@@ -494,6 +498,44 @@ def test_plan_publication_is_an_exclusive_provider_access_claim(
     assert "already exists" in str(errors[0])
     assert calls == ["unitizer:cand-a", "reviewer:cand-a"]
     assert (tmp_path / "receipt.json").is_file()
+
+
+def test_output_claim_rejects_replaced_lock_inode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parsed = load_replay_spec(
+        write_spec(
+            tmp_path,
+            aggregate_ceiling="0.30",
+            per_candidate_ceiling="0.30",
+            candidate_ids=("cand-a",),
+        )
+    )
+    _name, first_output = min(
+        parsed.output_paths.items(), key=lambda item: str(item[1])
+    )
+    lock_path = output_claims_module._output_lock_path(first_output)
+    real_flock = output_claims_module.fcntl.flock
+    replaced = False
+
+    def replace_path_after_lock(descriptor: int, operation: int) -> None:
+        nonlocal replaced
+        real_flock(descriptor, operation)
+        if operation == fcntl.LOCK_EX | fcntl.LOCK_NB and not replaced:
+            lock_path.unlink()
+            lock_path.write_bytes(b"replacement lock inode\n")
+            replaced = True
+
+    monkeypatch.setattr(output_claims_module.fcntl, "flock", replace_path_after_lock)
+    claims = output_claims_module.OutputClaimSet(parsed)
+    try:
+        with pytest.raises(ReplayOutputClaimError, match="lock was replaced"):
+            claims.acquire()
+    finally:
+        claims.release()
+
+    assert replaced is True
+    assert all(not path.exists() for path in parsed.output_paths.values())
 
 
 def test_every_terminal_output_is_claimed_before_provider_access(

@@ -20,6 +20,8 @@ from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
 from legalforecast.ingestion.stage_a_replay_executor import executor as executor_module
 from legalforecast.ingestion.stage_a_replay_executor import lineage as lineage_module
 from legalforecast.ingestion.stage_a_replay_executor import provider as provider_module
+from legalforecast.ingestion.stage_a_replay_executor import spec as spec_module
+from legalforecast.ingestion.stage_a_replay_executor import contract as contract_module
 from legalforecast.ingestion.stage_a_replay_executor.executor import (
     StageAReplayExecutorError,
     execute_canonical_stage_a_replay,
@@ -524,6 +526,40 @@ def test_output_path_may_not_descend_from_an_authenticated_input(
         StageAReplayExecutorError, match=r"output parent|output overlaps"
     ):
         load_replay_spec(path)
+
+
+def test_production_output_must_live_outside_runtime_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authority_root = tmp_path / "authority"
+    runtime_checkout = tmp_path / "runtime-checkout"
+    authority_root.mkdir()
+    runtime_checkout.mkdir()
+    monkeypatch.setattr(
+        contract_module,
+        "verify_authorization_signature",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        spec_module, "repository_root", lambda: runtime_checkout, raising=False
+    )
+    path = write_spec(
+        authority_root,
+        production=True,
+        candidate_ids=("cand-a",),
+    )
+    record = read_spec(path)
+    outputs = cast(dict[str, object], record["outputs"])
+    in_tree_plan = runtime_checkout / "executor-output" / "plan.json"
+    outputs["plan_path"] = str(in_tree_plan)
+    refresh_authorization_descriptor(path, record, validate=False)
+
+    with pytest.raises(
+        StageAReplayExecutorError,
+        match="executor outputs must live outside the runtime checkout",
+    ):
+        load_replay_spec(path)
+    assert not in_tree_plan.exists()
 
 
 def test_output_paths_may_not_nest_and_fail_after_provider_access(
