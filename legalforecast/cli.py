@@ -1213,7 +1213,10 @@ from legalforecast.unitization.review_queue import (
     verify_review_queue_v2_coverage,
 )
 from legalforecast.unitization.review_queue_generation import (
+    ReviewQueueGenerationCommitError,
     publish_review_queue_generation,
+    remove_review_queue_file_durably,
+    write_review_queue_file_durably,
 )
 from legalforecast.unitization.schemas import (
     ChallengeScope,
@@ -63913,6 +63916,8 @@ def publish_stage_a_review_queue(
         raise CommandError(f"cannot project the Stage A review queue: {exc}") from exc
 
     sidecar_path = review_queue_v2_sidecar_path(queue_path)
+    v1_bytes = _jsonl_bytes(v1_queue)
+    v2_bytes = _jsonl_bytes(queue_v2)
     prior_payloads: dict[Path, bytes | None] = {}
     try:
         for path in (queue_path, sidecar_path):
@@ -63920,20 +63925,23 @@ def publish_stage_a_review_queue(
     except OSError as exc:
         raise CommandError(f"cannot snapshot the Stage A review queue: {exc}") from exc
 
-    try:
-        _write_jsonl(queue_path, v1_queue)
-        _write_jsonl(sidecar_path, queue_v2)
-    except OSError as exc:
+    def rollback_canonical_pair() -> list[str]:
         rollback_errors: list[str] = []
         for path, payload in prior_payloads.items():
             try:
                 if payload is None:
-                    path.unlink(missing_ok=True)
+                    remove_review_queue_file_durably(path)
                 else:
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_bytes(payload)
-            except OSError as rollback_exc:
+                    write_review_queue_file_durably(path, payload)
+            except (OSError, ReviewQueueError) as rollback_exc:
                 rollback_errors.append(f"{path}: {rollback_exc}")
+        return rollback_errors
+
+    try:
+        write_review_queue_file_durably(queue_path, v1_bytes)
+        write_review_queue_file_durably(sidecar_path, v2_bytes)
+    except (OSError, ReviewQueueError) as exc:
+        rollback_errors = rollback_canonical_pair()
         detail = f"cannot publish the Stage A review queue: {exc}"
         if rollback_errors:
             detail += "; rollback also failed: " + "; ".join(rollback_errors)
@@ -63941,13 +63949,20 @@ def publish_stage_a_review_queue(
     try:
         publish_review_queue_generation(
             queue_path,
-            v1_bytes=_jsonl_bytes(v1_queue),
-            v2_bytes=_jsonl_bytes(queue_v2),
+            v1_bytes=v1_bytes,
+            v2_bytes=v2_bytes,
         )
-    except (OSError, ReviewQueueError) as exc:
+    except ReviewQueueGenerationCommitError as exc:
         raise CommandError(
-            f"cannot publish the Stage A review queue generation: {exc}"
+            "cannot durably publish the Stage A review queue generation after "
+            f"the manifest commit: {exc}"
         ) from exc
+    except (OSError, ReviewQueueError) as exc:
+        rollback_errors = rollback_canonical_pair()
+        detail = f"cannot publish the Stage A review queue generation: {exc}"
+        if rollback_errors:
+            detail += "; rollback also failed: " + "; ".join(rollback_errors)
+        raise CommandError(detail) from exc
 
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
