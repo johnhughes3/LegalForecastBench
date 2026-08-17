@@ -7,6 +7,12 @@ silent truncation is a defect.
 A drain thread that misses its join may still be writing, so callers record
 that miss through ``StreamDrain.mark_truncated()`` rather than assigning the
 flag, and must not treat the rolling tail as a complete stream tail.
+
+Whether a tail is complete is the drain's own answer, not the caller's:
+``_drain_pipe`` signals it only after the read loop breaks on end of file, and
+``StreamDrain.completed_tail()`` is the only way to read the tail. A thread
+that died on a read error is neither alive nor complete, so liveness alone
+cannot stand in for that signal (GitHub #771).
 """
 
 from __future__ import annotations
@@ -30,6 +36,7 @@ class StreamDrain:
     captured: bytearray = field(default_factory=bytearray)
     tail: bytearray = field(default_factory=bytearray)
     truncated: bool = False
+    completed: bool = False
     total: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -62,6 +69,17 @@ class StreamDrain:
         with self._lock:
             self.truncated = True
 
+    def mark_completed(self) -> None:
+        """Record that this stream was read through to end of file.
+
+        Only the drain thread may call this, and only once its read loop has
+        seen end of file. Any other exit -- a read error, a cancelled thread --
+        must leave the stream incomplete.
+        """
+
+        with self._lock:
+            self.completed = True
+
     def finish(self) -> tuple[bytes, bool]:
         """Return bounded capture bytes and whether truncation occurred."""
 
@@ -74,11 +92,17 @@ class StreamDrain:
                 raw = raw[: self.max_capture_bytes]
             return raw, truncated
 
-    def tail_bytes_copy(self) -> bytes:
-        """Return the rolling tail used for cost-envelope parsing."""
+    def completed_tail(self) -> bytes | None:
+        """Return the rolling tail, or ``None`` when it is not the stream tail.
+
+        The tail is only the true end of the stream once the drain thread has
+        read to end of file, so callers parsing a trailing envelope out of it
+        get nothing until then. Reading the flag and the bytes under one lock
+        keeps a caller from acting on a tail that grew after the check.
+        """
 
         with self._lock:
-            return bytes(self.tail)
+            return bytes(self.tail) if self.completed else None
 
 
 def start_pipe_drain(pipe: IO[bytes], drain: StreamDrain) -> threading.Thread:
@@ -104,6 +128,9 @@ def join_pipe_drains(
     Return True only if every thread finished. A timed-out join means unread
     pipe bytes may remain, so the caller must record truncation rather than
     treat a short capture as complete.
+
+    This is an aggregate liveness answer, not a per-stream completeness one:
+    ask ``StreamDrain.completed_tail()`` before trusting a stream's tail.
     """
 
     deadline = time.monotonic() + max(0.0, timeout_seconds)
@@ -127,5 +154,9 @@ def _drain_pipe(pipe: IO[bytes], drain: StreamDrain) -> None:
             if not chunk:
                 break
             drain.feed(chunk)
+        # Reached only by the end-of-file break, never by the exception path:
+        # a read that raised leaves bytes unread, and the thread it kills is
+        # indistinguishable from a clean one by liveness alone (GitHub #771).
+        drain.mark_completed()
     finally:
         pipe.close()

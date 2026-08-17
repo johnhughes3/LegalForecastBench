@@ -27,9 +27,12 @@ figure from that file and from `score-artifacts.jsonl`.
 - **solve_cost** — `ExecutionReceipt.cost_usd` converted to micro-USD
   with basis `provider_reported`. Null cost is unknown, never `$0`.
   `subscription_unallocable` cannot carry an amount. A local-CLI run
-  whose stdout drain missed its join reports null here: the trailing
-  cost envelope may still have been in the pipe, so the newest object
-  in the rolling tail is an earlier one and is not published.
+  reports null here unless its stdout drain read that stream through to
+  end of file: the trailing cost envelope may still have been in the
+  pipe, so the newest object in the rolling tail is an earlier one and
+  is not published. A stderr drain that missed its join still marks the
+  receipt truncated, but it says nothing about stdout and does not
+  suppress an amount parsed from a completed stdout tail.
 - **eval_cost** — `EvaluationReceipt.cost`, including its basis,
   currency, and `pricing_snapshot_sha256`. `subscription_unallocable`
   remains null.

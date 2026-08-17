@@ -5,9 +5,9 @@ spawning CLIs themselves. The contained launch path is ``execute_local_cli``.
 Executable identity is bound fail-closed before spend (``dm0g.4.2.8``).
 Persisted transcripts, events, and errors go through one redaction module
 (``dm0g.4.2.9``). Streams are drained during execution at the capture cap
-(GitHub #699); when a drain thread misses its join the capture is incomplete,
-so the receipt records truncation and publishes no ``cost_usd`` rather than an
-older envelope from the rolling tail (GitHub #719). Scheduling is recorded as
+(GitHub #699); a missed drain join leaves the capture incomplete, so the
+receipt records truncation, and ``cost_usd`` comes only from a stdout tail its
+own drain read to end of file (GitHub #719, #771). Scheduling is recorded as
 requested-versus-actual evidence (``dm0g.4.2.10``). B1's adapter-manifest
 fields are stubbed here until ``dm0g.4.4.1`` freezes them.
 """
@@ -895,16 +895,15 @@ def _run_contained_cli(
                 drain_threads,
                 timeout_seconds=max(termination_grace_seconds, _DRAIN_JOIN_SECONDS),
             )
-            if drains_complete:
-                cost_usd = _optional_cost_usd(stdout_drain.tail_bytes_copy())
-            else:
-                # An unread pipe may still hold the trailing cost envelope, so
-                # the newest JSON object in the tail is an earlier one. Publish
-                # no cost rather than an older run's number (GitHub #719).
-                _mark_incomplete_drains(
-                    (stdout_drain, stderr_drain),
-                    drain_threads,
-                )
+            # Only a stdout tail read to end of file can hold the trailing cost
+            # envelope: a short read leaves an earlier envelope newest in the
+            # tail (GitHub #719), while a stderr drain that missed its join says
+            # nothing about stdout and must not void a real paid amount (#771).
+            stdout_tail = stdout_drain.completed_tail()
+            if stdout_tail is not None:
+                cost_usd = _optional_cost_usd(stdout_tail)
+            if not drains_complete:
+                _mark_incomplete_drains((stdout_drain, stderr_drain), drain_threads)
             stdout, stdout_truncated = stdout_drain.finish()
             stderr, stderr_truncated = stderr_drain.finish()
     except ProcessContainmentError as exc:
@@ -961,7 +960,8 @@ def _mark_incomplete_drains(
     be holding unread bytes. When the join reported incomplete but no thread
     is alive by the time we look (the straggler finished in between), every
     stream is flagged -- an unattributable miss is still a miss, and a receipt
-    that under-claims truncation is the failure this guards.
+    that under-claims truncation is the failure this guards. Cost publication
+    keys instead on the stdout drain's own end-of-file signal (GitHub #771).
     """
 
     live = [
