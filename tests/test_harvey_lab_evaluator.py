@@ -23,6 +23,8 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabEvaluationError,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
+    HarveyLabJudgeRequest,
+    HarveyLabJudgeRequestBoundary,
     _directory_digest,
     _pin_wrapper_executable,
     build_contained_evaluator_run_spec,
@@ -49,6 +51,40 @@ PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(b"k" * 32)
 ISSUER_POLICY = "sha256:" + "8" * 64
 RUN_DIGEST = "sha256:" + "4" * 64
 CONFIG_DIGEST = "sha256:" + "5" * 64
+
+
+class _RecordingJudgeBoundary(HarveyLabJudgeRequestBoundary):
+    def __init__(self) -> None:
+        self.events: list[tuple[str, int, str, int]] = []
+
+    def before_judge_call(self, request: HarveyLabJudgeRequest) -> object:
+        self.events.append(
+            ("before", request.ordinal, request.criterion_id, request.attempt_index)
+        )
+        return request
+
+    def after_judge_call(
+        self,
+        request: HarveyLabJudgeRequest,
+        reservation: object,
+        observation: object,
+    ) -> None:
+        assert reservation is request
+        self.events.append(
+            ("after", request.ordinal, request.criterion_id, request.attempt_index)
+        )
+
+
+def _fake_per_criterion_runner(
+    service: LocalCliExecutionService,
+    spec: RunSpec,
+    boundary: HarveyLabJudgeRequestBoundary,
+) -> ExecutionReceipt:
+    for ordinal in range(1, 24):
+        request = HarveyLabJudgeRequest(ordinal, f"criterion-{ordinal}")
+        reservation = boundary.before_judge_call(request)
+        boundary.after_judge_call(request, reservation, object())
+    return service.execute(spec)
 
 
 def test_isolated_evaluator_binds_receipt_without_solver_or_network(
@@ -95,6 +131,78 @@ def test_isolated_evaluator_binds_receipt_without_solver_or_network(
     assert "harness.run" not in stdin
     if hasattr(time, "CLOCK_MONOTONIC_RAW"):
         assert result.receipt.timing.clock_id == "linux-clock-monotonic-raw"
+
+
+def test_isolated_evaluator_runner_receives_each_23_criterion_boundary_callback(
+    tmp_path: Path,
+) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    boundary = _RecordingJudgeBoundary()
+    result = invoke_isolated_harvey_lab_evaluator(
+        hosts=hosts,
+        sealed_manifest=sealed,
+        identity=_identity(projected, tmp_path),
+        execution_service=LocalCliExecutionService(
+            auth_profile=FIXTURE_NONE,
+            parent_env=env,
+        ),
+        signer=PRIVATE_KEY.sign,
+        issuer_key_id="evaluation-key-fixture",
+        issuer_policy_sha256=ISSUER_POLICY,
+        judge_request_boundary=boundary,
+        evaluator_runner=_fake_per_criterion_runner,
+    )
+    assert result.receipt.status == "succeeded"
+    assert len(boundary.events) == 46
+    assert boundary.events[::2] == [
+        ("before", ordinal, f"criterion-{ordinal}", 0) for ordinal in range(1, 24)
+    ]
+    assert boundary.events[1::2] == [
+        ("after", ordinal, f"criterion-{ordinal}", 0) for ordinal in range(1, 24)
+    ]
+
+
+def test_paid_evaluator_boundary_without_runner_fails_before_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    service = LocalCliExecutionService(auth_profile=FIXTURE_NONE, parent_env=env)
+
+    def unexpected_execution(
+        _service: LocalCliExecutionService, _spec: RunSpec
+    ) -> ExecutionReceipt:
+        raise AssertionError("paid evaluator launched without its runner")
+
+    monkeypatch.setattr(LocalCliExecutionService, "execute", unexpected_execution)
+    with pytest.raises(HarveyLabEvaluationError, match="per-criterion judge runner"):
+        invoke_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=_identity(projected, tmp_path),
+            execution_service=service,
+            signer=PRIVATE_KEY.sign,
+            issuer_key_id="evaluation-key-fixture",
+            issuer_policy_sha256=ISSUER_POLICY,
+            judge_request_boundary=_RecordingJudgeBoundary(),
+        )
 
 
 def test_receipt_binds_to_copied_private_inputs_not_live_source(

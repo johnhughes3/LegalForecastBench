@@ -34,9 +34,11 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EVALUATOR_COMMAND_NAME,
+    EvaluatorRunner,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
     HarveyLabIsolatedEvaluation,
+    HarveyLabJudgeRequestBoundary,
     invoke_isolated_harvey_lab_evaluator,
 )
 from legalforecast.multiharness.harvey_lab_output_discovery import (
@@ -116,6 +118,8 @@ def run_claude_code_clean_native_harvey_lab(
     after_solver: Callable[[RunSpec, ExecutionReceipt], ExecutionReceipt] | None = None,
     before_evaluator: Callable[[], None] | None = None,
     after_evaluator: Callable[[HarveyLabIsolatedEvaluation], None] | None = None,
+    judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
+    evaluator_runner: EvaluatorRunner | None = None,
 ) -> ClaudeCodeHarveyLabPipelineResult:
     """Project a LAB task, run contained Claude Code, discover, and score."""
 
@@ -272,6 +276,8 @@ def run_claude_code_clean_native_harvey_lab(
         measurement_id=measurement_id,
         evaluation_attempt_id=evaluation_attempt_id,
         attempt_nonce=attempt_nonce,
+        judge_request_boundary=judge_request_boundary,
+        evaluator_runner=evaluator_runner,
     )
     if after_evaluator is not None:
         after_evaluator(evaluation)
