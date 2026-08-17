@@ -878,6 +878,7 @@ def test_receipt_requires_monotonic_duration_and_exact_operation_prefix() -> Non
         "pilot_sha256",
         "operations",
         "purchase_budget",
+        "schema_version",
         "_mint",
     ):
         object.__setattr__(tampered, name, getattr(execution, name))
@@ -1147,6 +1148,7 @@ def test_execution_seals_complete_successor_only_from_exact_resolved_documents()
         full_plan=plan,
         execution=execution,
         receipt=receipt,
+        expected_receipt_sha256=receipt.receipt_sha256,
         acquired_documents=tuple(acquired),
         exclusions=(),
         role_bytes_match=lambda role, body: role.encode() in body,
@@ -1161,6 +1163,7 @@ def test_execution_seals_complete_successor_only_from_exact_resolved_documents()
             full_plan=plan,
             execution=execution,
             receipt=receipt,
+            expected_receipt_sha256=receipt.receipt_sha256,
             acquired_documents=tuple(acquired),
             exclusions=(),
             role_bytes_match=lambda _role, _body: True,
@@ -1172,6 +1175,7 @@ def test_execution_seals_complete_successor_only_from_exact_resolved_documents()
             full_plan=plan,
             execution=execution,
             receipt=receipt,
+            expected_receipt_sha256=receipt.receipt_sha256,
             acquired_documents=tuple(acquired[1:]),
             exclusions=(
                 {
@@ -1210,6 +1214,7 @@ def test_unknown_receipt_cannot_seal_successor() -> None:
             full_plan=plan,
             execution=execution,
             receipt=receipt,
+            expected_receipt_sha256=receipt.receipt_sha256,
             acquired_documents=(),
             exclusions=(),
             role_bytes_match=lambda _role, _body: True,
@@ -1238,6 +1243,7 @@ def test_retryable_provider_error_cannot_seal_successor() -> None:
             full_plan=plan,
             execution=execution,
             receipt=receipt,
+            expected_receipt_sha256=receipt.receipt_sha256,
             acquired_documents=(),
             exclusions=(
                 {
@@ -1298,6 +1304,7 @@ def test_retry_permitted_terminal_receipt_cannot_seal_successor() -> None:
             full_plan=plan,
             execution=execution,
             receipt=tampered,
+            expected_receipt_sha256=tampered.receipt_sha256,
             acquired_documents=(
                 {
                     "candidate_id": "a",
@@ -1494,6 +1501,7 @@ def test_runner_materializes_complete_evidence_for_successor_seal(
         full_plan=plan,
         execution=execution,
         receipt=result.receipt,
+        expected_receipt_sha256=result.receipt.receipt_sha256,
         acquired_documents=result.acquired_documents,
         exclusions=result.exclusions,
         role_bytes_match=lambda role, body: role.encode() in body,
@@ -1841,6 +1849,7 @@ def test_execution_resolves_same_entry_attachment_selector(tmp_path: Path) -> No
         full_plan=plan,
         execution=execution,
         receipt=result.receipt,
+        expected_receipt_sha256=result.receipt.receipt_sha256,
         acquired_documents=result.acquired_documents,
         exclusions=result.exclusions,
         role_bytes_match=lambda role, body: role.encode() == body,
@@ -2038,6 +2047,7 @@ def test_reconstructed_receipt_cannot_seal_without_replay_mint() -> None:
             full_plan=plan,
             execution=execution,
             receipt=reconstructed,
+            expected_receipt_sha256=reconstructed.receipt_sha256,
             acquired_documents=acquired,
             exclusions=(),
             role_bytes_match=lambda _role, _body: True,
@@ -2110,6 +2120,7 @@ def test_replay_persisted_receipt_can_seal_and_refuses_tampered_digest() -> None
         full_plan=plan,
         execution=execution,
         receipt=replayed,
+        expected_receipt_sha256=replayed.receipt_sha256,
         acquired_documents=acquired,
         exclusions=(),
         role_bytes_match=lambda role, body: role.encode() in body,
@@ -2214,6 +2225,7 @@ def test_stamp_refuses_acquired_cost_that_differs_from_receipt() -> None:
             full_plan=plan,
             execution=execution,
             receipt=receipt,
+            expected_receipt_sha256=receipt.receipt_sha256,
             acquired_documents=tuple(acquired),
             exclusions=(),
             role_bytes_match=lambda role, body: role.encode() in body,
@@ -2273,6 +2285,7 @@ def test_seal_refuses_acquired_documents_without_clearance_evidence() -> None:
             full_plan=plan,
             execution=execution,
             receipt=receipt,
+            expected_receipt_sha256=receipt.receipt_sha256,
             acquired_documents=acquired,
             exclusions=(),
             role_bytes_match=lambda _role, _body: True,

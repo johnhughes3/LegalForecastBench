@@ -21,7 +21,9 @@ from legalforecast.ingestion.missing_document_successor import (
 )
 
 
-def _manifest_bytes(*, free_count: int = 1, cost: float = 0.0) -> bytes:
+def _manifest_bytes(
+    *, free_count: int = 1, cost: float = 0.0, role: str = "opposition"
+) -> bytes:
     record = {
         "candidate_id": "case-1",
         "recommendation": "repair",
@@ -29,7 +31,7 @@ def _manifest_bytes(*, free_count: int = 1, cost: float = 0.0) -> bytes:
         "missing_docs": [
             {
                 "entry": 12,
-                "role": "opposition",
+                "role": role,
                 "cost_usd": cost,
                 "free_document_count": free_count,
                 "pacer_only_document_count": 0 if free_count else 1,

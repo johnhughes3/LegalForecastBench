@@ -76,6 +76,12 @@ For the stronger mode, cleanup sends graceful signals through pidfds read from t
 
 This boundary owns ordinary forked, daemonized, and `setsid()` descendants; it is not a separate UID, filesystem sandbox, network sandbox, or defense against an actively malicious same-UID process asking the user manager to create a sibling unit. `Delegate=no` prevents delegated child cgroups, but the stronger same-UID threat model remains the responsibility of the separate Codex and Claude native-containment tracks. Unsupported hosts and unavailable primitives fail before the adapter executable or provider environment is released.
 
+### Harvey LAB composition preflight
+
+Both clean-native Harvey LAB compositions run the same host check before the solver starts: `output_root` must be a real, non-symlink directory that resolves strictly inside `sandbox_root`, never equal to it. Output discovery enforces the identical rule after the run, but only the pre-spawn check keeps a bad layout from launching a solver at all — a path outside the sandbox is refused before any directory is created for it, so the run never begins. The check lives in `require_harvey_lab_sandbox_hosts` alongside the post-run rule rather than being reimplemented per adapter, and it raises the same `HarveyLabOutputDiscoveryError` codes (`layout`, `symlink`).
+
+A LAB run is scored only when its solver receipt is a clean success served by the requested model. Because a LAB task returns a deliverable rather than a forecast envelope, the Claude LAB path classifies its receipt with `classify_claude_completion_execution` — the shared adapter-core taxonomy without the forecast parser — so `cancelled` is reported as a lifecycle abort rather than a crash, and a served-model mismatch is `identity_drift` even when the CLI exits zero. The Codex LAB path uses `classify_codex_execution` for the same purpose. Neither path invents a LAB-local failure vocabulary.
+
 Minimal manifest:
 
 ```json

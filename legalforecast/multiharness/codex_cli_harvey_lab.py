@@ -38,6 +38,7 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
 from legalforecast.multiharness.harvey_lab_output_discovery import (
     HarveyLabOutputDiscoveryResult,
     discover_harvey_lab_outputs,
+    require_harvey_lab_sandbox_hosts,
 )
 from legalforecast.multiharness.harvey_lab_projection import (
     INSTRUCTIONS_NAME,
@@ -127,8 +128,10 @@ def run_codex_cli_clean_native_harvey_lab(
     prompt = _lab_solver_prompt(instructions=task_dir / INSTRUCTIONS_NAME, task=task)
     sandbox_root.mkdir(parents=True, exist_ok=True)
     _stage_solver_visible_task(task_dir, sandbox_root)
-    resolved_output = output_root or (sandbox_root / "output")
-    resolved_output.mkdir(parents=True, exist_ok=True)
+    resolved_output = require_harvey_lab_sandbox_hosts(
+        sandbox_root=sandbox_root,
+        output_root=output_root or (sandbox_root / "output"),
+    )
     local_cli_manifest = adapter.local_cli_manifest
     declared_timeout = float(local_cli_manifest.timeout_retry.timeout_seconds)
     applied_timeout = (

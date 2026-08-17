@@ -4,17 +4,24 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocument,
+    explicit_motion_reference_numbers,
 )
 
 
 class OperativeComplaintKind(StrEnum):
-    """Pleading role established by affirmative docket evidence."""
+    """Pleading role established by affirmative docket evidence.
+
+    ``other_claim_bearing_filing`` is the cohort-policy v3 fallback role for a
+    claim-bearing pleading whose docket label does not match one of the named
+    kinds. Docket-label recognition never infers it; it exists so an approved
+    repair slot can request that role and still have its bytes validated.
+    """
 
     COMPLAINT = "complaint"
     AMENDED_COMPLAINT = "amended_complaint"
@@ -22,6 +29,7 @@ class OperativeComplaintKind(StrEnum):
     CROSSCLAIM = "crossclaim"
     THIRD_PARTY_COMPLAINT = "third_party_complaint"
     INTERPLEADER_COMPLAINT = "interpleader_complaint"
+    OTHER_CLAIM_BEARING_FILING = "other_claim_bearing_filing"
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,17 +40,73 @@ class OperativeComplaintSelection:
     kind: OperativeComplaintKind
 
 
+def motion_attacked_entry_numbers(
+    entries: Iterable[CourtListenerWebDocketEntry],
+    *,
+    target_entry_numbers: Iterable[int],
+) -> frozenset[int]:
+    """Return the docket entries the target motions explicitly name.
+
+    A motion to dismiss cites the pleading it attacks by entry number. Those
+    citations are the only affirmative evidence on the docket of which
+    pleading is actually under attack, so they are collected from the target
+    motion rows only — never from arbitrary later filings.
+    """
+
+    targets = frozenset(target_entry_numbers)
+    cited: set[int] = set()
+    for entry in entries:
+        number = _positive_entry_number(entry.entry_number)
+        if number is None or number not in targets:
+            continue
+        # A target motion can cite several pleadings for background. Only a
+        # reference in the clause that actually requests dismissal identifies
+        # the attacked pleading; collecting every ECF/Dkt reference makes a
+        # later procedural-history citation displace the real target.
+        for clause in _dismissal_request_clauses(entry.text):
+            cited.update(explicit_motion_reference_numbers(replace(entry, text=clause)))
+    return frozenset(cited)
+
+
+def _dismissal_request_clauses(text: str) -> tuple[str, ...]:
+    """Return clauses whose syntax requests dismissal of a cited filing."""
+
+    normalized = _normalized(text)
+    clauses = re.split(
+        r";|\n|[!?]|\.(?!\s*\d)|"
+        r"\b(?:because|although|whereas|while|after|before|later)\b|"
+        r",\s+(?=(?:and\s+)?(?:plaintiff|defendant|petitioner|claimant)\b)",
+        normalized,
+    )
+    request = re.compile(
+        r"\b(?:motion|moves?|moved|seeks?|sought|requests?|requested|asks?|asked)"
+        r"\b.{0,120}?\bdismiss\b|\b(?:motion|moves?|moved|seeks?|sought|"
+        r"requests?|requested|asks?|asked)\b.{0,80}?\bdismissal\s+of\b",
+    )
+    return tuple(clause for clause in clauses if request.search(clause))
+
+
 def select_operative_complaint_entry(
     entries: Iterable[CourtListenerWebDocketEntry],
     *,
     before_entry: int,
     body_text_by_entry: Mapping[int, str] | None = None,
+    attacked_entry_numbers: Iterable[int] | None = None,
 ) -> OperativeComplaintSelection | None:
-    """Return the latest affirmative pleading before the target motion.
+    """Return the pleading the target motion attacks, else the latest one.
 
     When authenticated extracted body text is supplied, every docket-label
     candidate must have matching body evidence. Docket ``narrative_text`` is
     intentionally not used because it is row metadata, not document content.
+
+    ``attacked_entry_numbers`` carries the entries the target motion
+    explicitly names (see :func:`motion_attacked_entry_numbers`). When any
+    candidate pleading is among them, selection is restricted to those
+    candidates, so a later counterclaim no longer displaces the earlier
+    complaint the motion is actually attacking. When the motion names no
+    candidate pleading — an unnumbered or purely narrative reference — the
+    latest pre-motion pleading remains the fallback rather than a refusal,
+    because that is the pre-existing behaviour the exact-100 goldens pin.
     """
 
     candidates: list[
@@ -62,6 +126,13 @@ def select_operative_complaint_entry(
         candidates.append((number, entry, kind))
     if not candidates:
         return None
+    if attacked_entry_numbers is not None:
+        attacked = frozenset(attacked_entry_numbers)
+        directly_attacked = [
+            candidate for candidate in candidates if candidate[0] in attacked
+        ]
+        if directly_attacked:
+            candidates = directly_attacked
     _, entry, kind = max(candidates, key=lambda item: item[0])
     return OperativeComplaintSelection(entry=entry, kind=kind)
 
@@ -142,6 +213,32 @@ def pleading_body_matches_kind(
             r"\binterpleader(?:\s+(?:complaint|counterclaim))?\b"
         ),
     }
+    if kind is OperativeComplaintKind.OTHER_CLAIM_BEARING_FILING:
+        # Generic motions routinely discuss another party's claims and close
+        # with a prayer to dismiss them.  The fallback therefore requires a
+        # claim-bearing filing title as well as affirmative claim or prayer
+        # language attributable to that filing.
+        title_lines = tuple(
+            line.strip().lower() for line in body.splitlines()[:80] if line.strip()
+        )
+        has_claim_bearing_title = any(
+            re.search(
+                r"^(?:(?:(?:first|second|third)\s+)?amended\s+)?"
+                r"(?:petition\b|statement\s+of\s+claim\b|claim\s+for\s+relief\b|"
+                r"complaint\s+in\s+intervention\b|plea\s+in\s+intervention\b)",
+                line,
+            )
+            for line in title_lines
+        )
+        asserts_claim = re.search(
+            r"\b(?:(?:first|second|third|fourth|fifth|\d+(?:st|nd|rd|th))\s+)?"
+            r"cause\s+of\s+action\b|\bclaims?\s+for\s+relief\b|"
+            r"\bprayer\s+for\s+relief\b|\bwherefore\b.{0,160}?"
+            r"\b(?:petitioner|claimant|intervenor|plaintiff)\s+"
+            r"(?:prays?|requests?|demands?)\b",
+            text,
+        )
+        return has_claim_bearing_title and asserts_claim is not None
     if kind is OperativeComplaintKind.COMPLAINT and re.search(
         patterns[OperativeComplaintKind.AMENDED_COMPLAINT], text
     ):

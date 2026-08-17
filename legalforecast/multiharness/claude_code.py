@@ -509,6 +509,53 @@ def classify_execution(
     )
 
 
+def classify_claude_completion_execution(
+    receipt: ExecutionReceipt,
+    *,
+    requested_model: str,
+) -> LocalCliFailureClass | None:
+    """Classify a non-forecast Claude completion into the shared taxonomy.
+
+    Harvey LAB and other completion-shaped tasks return a deliverable rather
+    than a forecast envelope, so ``classify_execution``'s parser does not
+    apply. The failure taxonomy still does: this is ``classify_execution``
+    without the forecast-payload branches, so callers do not grow a second
+    private copy of the ``timeout`` / ``cancelled`` / ``sandbox_denial`` /
+    ``identity_drift`` / ``crash`` ordering. Returns ``None`` when the
+    execution is a clean success served by the requested model.
+    """
+
+    if receipt.status == "timeout":
+        return LocalCliFailureClass.TIMEOUT
+    envelope = _parse_json_envelope(receipt.stdout)
+    if envelope is None:
+        if is_local_cli_sandbox_denial(_failure_text(receipt, None)):
+            return LocalCliFailureClass.SANDBOX_DENIAL
+        return LocalCliFailureClass.CRASH
+    if _is_error_like(receipt, envelope):
+        if envelope.get("is_error") is True and envelope.get("subtype") == "timeout":
+            return LocalCliFailureClass.TIMEOUT
+        if envelope.get("subtype") == "cancelled":
+            return LocalCliFailureClass.CANCELLED
+        if is_local_cli_sandbox_denial(_failure_text(receipt, envelope)):
+            return LocalCliFailureClass.SANDBOX_DENIAL
+        return LocalCliFailureClass.CRASH
+    if envelope.get("subtype") != "success" or envelope.get("is_error") is not False:
+        return LocalCliFailureClass.CRASH
+    envelope_model = envelope.get("model")
+    has_envelope_model = isinstance(envelope_model, str) and bool(
+        envelope_model.strip()
+    )
+    has_receipt_model = isinstance(receipt.served_model, str) and bool(
+        receipt.served_model.strip()
+    )
+    if not has_envelope_model and not has_receipt_model:
+        return LocalCliFailureClass.IDENTITY_DRIFT
+    if _served_model_drifted(envelope, receipt, requested_model):
+        return LocalCliFailureClass.IDENTITY_DRIFT
+    return None
+
+
 def declared_failure_classes() -> tuple[str, ...]:
     """Return the failure classes this adapter classifies fail-closed."""
 

@@ -133,6 +133,53 @@ class HarveyLabOutputDiscoveryResult:
         }
 
 
+def require_harvey_lab_sandbox_hosts(
+    *,
+    sandbox_root: Path,
+    output_root: Path,
+) -> Path:
+    """Fail closed before a solver spawns unless the LAB host layout is safe.
+
+    Discovery already refuses a bad layout after the run, but by then the
+    solver has already written somewhere. This is the same containment rule
+    applied pre-spawn: ``sandbox_root`` and ``output_root`` must be real
+    directories, neither may be a symlink, and ``output_root`` must resolve
+    strictly inside ``sandbox_root`` (never equal to it). The resolved output
+    directory is returned so callers hand the solver the checked path rather
+    than the caller-supplied spelling.
+    """
+
+    sandbox_path = (
+        sandbox_root if sandbox_root.is_absolute() else Path.cwd() / sandbox_root
+    )
+    output_path = output_root if output_root.is_absolute() else Path.cwd() / output_root
+    _ensure_directory(sandbox_path, "sandbox_root")
+    resolved_sandbox = sandbox_path.resolve(strict=True)
+    _reject_uncontained_output(output_path, resolved_sandbox)
+    _ensure_directory(output_path, "output_root")
+    resolved_output = output_path.resolve(strict=True)
+    _reject_uncontained_output(resolved_output, resolved_sandbox)
+    return resolved_output
+
+
+def _reject_uncontained_output(output_path: Path, resolved_sandbox: Path) -> None:
+    """Refuse an output path that does not resolve strictly inside the sandbox.
+
+    ``resolve(strict=False)`` is used for the not-yet-created case so a path
+    whose parents escape the sandbox is rejected before ``mkdir`` would create
+    directories outside it.
+    """
+
+    resolved_output = output_path.resolve(strict=False)
+    if resolved_output == resolved_sandbox or not resolved_output.is_relative_to(
+        resolved_sandbox
+    ):
+        raise HarveyLabOutputDiscoveryError(
+            "output_root must be a real directory strictly inside sandbox_root",
+            code=HarveyLabOutputErrorCode.LAYOUT,
+        )
+
+
 def discover_harvey_lab_outputs(
     *,
     sandbox_root: Path,
