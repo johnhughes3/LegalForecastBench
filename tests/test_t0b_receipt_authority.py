@@ -7,6 +7,7 @@ resolves credentials or invokes a provider.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import stat
@@ -245,6 +246,25 @@ def test_private_run_metadata_hash_binds_existing_receipt_config(
     tampered_binary["binary_identities"][0]["executable_sha256"] = "sha256:" + "a" * 64
     with pytest.raises(RunMetadataError, match="metadata_sha256"):
         type(metadata).from_record(tampered_binary)
+
+    tampered_config = json.loads(json.dumps(metadata.to_record()))
+    tampered_config["config_hashes"]["runtime"] = "sha256:" + "9" * 64
+    content = dict(tampered_config)
+    content.pop("metadata_sha256")
+    tampered_config["metadata_sha256"] = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                content,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
+    with pytest.raises(RunMetadataError, match="config_sha256"):
+        type(metadata).from_record(tampered_config)
 
     tampered_binding = dict(binding.to_record())
     tampered_binding["config_sha256"] = "sha256:" + "a" * 64

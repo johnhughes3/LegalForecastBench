@@ -6,7 +6,7 @@ The committed public configuration is [examples/adapters/harvey-lab/evaluator-is
 
 ## Provisioning handoff
 
-John should provision one secret only after approving the exact issuer policy and public-key bytes:
+The designated operator should provision one secret only after approving the exact issuer policy and public-key bytes:
 
 | Field | Proposed value |
 | --- | --- |
@@ -25,13 +25,10 @@ This lane did not read Infisical, resolve credentials, generate a production key
 
 The executable probe invokes only `--version` and `--help` in an isolated credential-free environment. It reports mismatches against the declared pin and never asserts a pinned version when the installed bytes disagree. A corrected capability record updates only the observed executable version/digest; capability claims remain unchanged until supported help evidence is reviewed.
 
-## Current no-spend probe evidence
+## Credential-free probe procedure
 
-The installed executable observations on the lane host were:
-
-| Executable | Version output | Resolved bytes SHA-256 | Pin comparison |
-| --- | --- | --- | --- |
-| `claude` | `2.1.233 (Claude Code)` | `55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9` | drifted from the 2.1.231 pin |
-| `codex` | `codex-cli 0.147.0` | `cb0a15567e9a60a5820d54b0f6ae86d504dc3805c1eab21a47f70e3eb7b73a40` | matches the supported 0.147.0 line; differs from the historical 0.146.0 characterization |
-
-The probes were `--version` and `--help` only, with an empty provider/auth environment. These observations do not authorize a paid solver or evaluator run and do not replace the historical characterization fixtures.
+Run the executable probe with `--version` and `--help` only, in an isolated
+provider/auth environment. Persist exact observed versions and byte digests in
+the generated private run metadata; do not commit lane-host observations to
+this reusable public document. Probe results do not authorize a paid solver or
+evaluator run and do not replace the historical characterization fixtures.

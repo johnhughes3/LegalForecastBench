@@ -156,6 +156,11 @@ class PrivateRunMetadata:
         _require_prefixed_digest(self.run_spec_sha256, "run_spec_sha256")
         _validate_hash_map(self.config_hashes, "config_hashes")
         _require_prefixed_digest(self.config_sha256, "config_sha256")
+        expected_config = _digest(
+            {"config_hashes": dict(sorted(self.config_hashes.items()))}
+        )
+        if self.config_sha256 != expected_config:
+            raise RunMetadataError("config_sha256 does not match config_hashes")
         if not self.binary_identities:
             raise RunMetadataError("binary_identities must not be empty")
         if not self.boundary_identity:
