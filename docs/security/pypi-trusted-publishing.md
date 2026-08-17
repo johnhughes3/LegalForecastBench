@@ -24,7 +24,7 @@ Renaming the workflow file, renaming the environment, moving the repository, or 
 
 Publication is restricted to release tags at three independent layers, so no single edit re-opens branch publication:
 
-1. **Trigger.** `.github/workflows/publish-package.yaml` runs only on `push` of tags matching `v*`. There is no `workflow_dispatch` trigger and no manual publish input; manual branch publication was removed rather than redesigned, because the release-check artifacts a publish consumes are only meaningful for a tagged commit.
+1. **Trigger.** `.github/workflows/publish-package.yaml` runs only on `push` of tags matching `v*`. There is no `workflow_dispatch` trigger and no manual publish input. Manual branch publication is not offered rather than being gated, because the release-check artifacts a publish consumes are only meaningful for a tagged commit; adding either is a change to this policy, not a convenience.
 2. **Job guard.** The `publish` job additionally requires `startsWith(github.ref, 'refs/tags/v')`. This is defense against a future trigger being added without the ref implications being noticed: a non-tag ref reaches the job and the job declines to run.
 3. **Environment rule.** The `pypi` environment must restrict deployments to protected tags matching `v*`. This is a repository setting, not a file in the tree, and it is the layer that survives a compromised workflow file, because the environment gate is evaluated by GitHub before any job step executes.
 
@@ -51,7 +51,7 @@ Publication rights are revoked on PyPI, not here. Deleting a workflow file or a 
 
 **If the repository, a maintainer account, or a release tag is compromised:**
 
-1. **Revoke first.** Remove the trusted publisher for `legalforecast-mtd` in the PyPI project's publishing settings. This takes effect immediately and blocks further uploads even from a run that is already in flight.
+1. **Revoke first.** Remove the trusted publisher for `legalforecast-mtd` in the PyPI project's publishing settings. That stops any further OIDC exchange immediately. It does not retract a short-lived upload token a run has already obtained, so cancel any in-flight run of the publishing workflow in the same step.
 2. **Contain the release.** Yank affected versions on PyPI. Yanking leaves the files resolvable for existing pins while removing them from new resolution; deleting a release is irreversible and frees the version number for reuse, so prefer yanking unless the artifact must not be retrievable at all.
 3. **Assess the artifacts.** `package-artifact-hashes.json` from the corresponding `release-check` run records the hashes of what was built. Compare it against what is on PyPI to establish whether the published bytes are the reviewed bytes.
 4. **Recover the repository side.** Rotate the compromised account's credentials, review the environment's protection rules and reviewer list for edits, and audit the workflow file's history for an added trigger, an added secret reference, or a changed action pin.
