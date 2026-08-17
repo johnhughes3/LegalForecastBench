@@ -73,8 +73,8 @@ There is no safe copy-paste command before steps 1 and 2 are satisfied. Printing
 | `dm0g.4.5.13` | Narrow issue-196 selection, byte inventory, private split, seal, and provider-free dry run land; its privileged-containment dependency remains explicit |
 | `legalforecastbench-lrc3` | Install the reviewed production evaluator/provider factory, pin an installed evaluator wrapper, and configure the approved evaluator public key; the CLI, per-arm receipts, and archive surface are landed |
 | `legalforecastbench-e5er` | Commit the dated pricing snapshot and exact dollar-valued policy, bind both hashes into the executable spec, and retain the final mutation evidence; the enforcement mechanism is landed |
-| Approval authority | John supplies and reviews the public Ed25519 key for `legalforecast.tier0-spend-approval-issuer.v1`; it must remain distinct from the evaluator signer |
-| Evaluator authority | John provisions the RFC 8032 seed only at `/agents/sandbox/legalforecastbench/harness-runtime/evaluator-issuer` in `dev` and approves committing the corresponding public key; agents never create or read the secret |
+| Approval authority | The designated approval operator supplies and reviews the public Ed25519 key for `legalforecast.tier0-spend-approval-issuer.v1`; it must remain distinct from the evaluator signer |
+| Evaluator authority | The designated credential operator provisions the RFC 8032 seed only at `/agents/sandbox/legalforecastbench/harness-runtime/evaluator-issuer` in `dev` and approves committing the corresponding public key; agents never create or read the secret |
 | Binary identities | Reconcile the privileged containment target with observed Claude Code 2.1.233, then bind the exact approved solver and evaluator-wrapper identities through generated private run metadata |
 | Credentials | Complete the designated credential operator's solver/judge credential handshakes without host-store fallback |
 | Order and mapping | Commit opaque arm IDs, solver/evaluator order, private mapping custody, and terminal retry policy |
