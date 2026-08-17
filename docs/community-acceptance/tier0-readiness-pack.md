@@ -15,7 +15,7 @@ No provider spend is authorized by this document. The remaining work is not limi
 
 The companion `.sha256` file permits a reviewer to verify the exact bytes. The designated approver should not approve spend against this hash.
 
-Regenerating the structural specification means updating three things together: the freeze document, its `.sha256` companion, and the SHA-256 row above. `tests/test_community_acceptance_freeze_digest.py` fails if any of the three drifts from the others, so the table above cannot silently outlive the bytes it names.
+Regenerating the structural specification means updating three things together: the freeze document, its `.sha256` companion, and the SHA-256 row above. `tests/test_community_acceptance_freeze_digest.py` fails if any of the three drifts from the others, so the table above cannot silently outlive the bytes it names. That gate reads the rendered table in this section only, and requires exactly one such table — under a level-two heading — carrying exactly one `Structural specification` row and one `SHA-256` row: a row moved into a code fence, an HTML comment, or an indented block, or into a historical table or a second table here, is not a declaration a reviewer can see, and the gate reports it missing rather than accepting it.
 
 ## Cost state
 
