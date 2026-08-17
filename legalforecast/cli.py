@@ -56901,10 +56901,16 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
         if materialization_lineage is not None
         else {}
     )
+    fixture_markdown_dir = cast(Path | None, args.fixture_markdown_dir)
+    # Fixture Markdown conversions and dry runs never consult the role-aware
+    # parse-quality thresholds, so only runs that can reach the live parser
+    # (including reuse runs, which parse their gaps live) require the role.
+    requires_live_document_role = not dry_run and fixture_markdown_dir is None
     requests = tuple(
         _mistral_markdown_request(
             record,
             output_root=output_root,
+            require_document_role=requires_live_document_role,
             captured_source_bytes=(
                 document_source_snapshots.get(
                     Path(_required_str(record, "input_path"))
@@ -56926,7 +56932,6 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
         raise CommandError(
             "parse source is missing from materialized document snapshot"
         )
-    fixture_markdown_dir = cast(Path | None, args.fixture_markdown_dir)
     parser_root = cast(Path | None, args.parser_root)
     _acquisition_output_root(args)
     source_commitments = _parse_document_source_commitments(
@@ -70286,14 +70291,53 @@ def _fixture_content_bytes(value: object) -> bytes:
     raise ValueError("fixture document content must be a string")
 
 
+def _live_parse_plan_document_role(
+    record: Mapping[str, Any],
+    *,
+    candidate_id: str,
+    source_document_id: str,
+    required: bool,
+) -> str | None:
+    """Return a parse-plan record's document role, failing closed when live.
+
+    The live parser gates converted Markdown with role-aware density
+    thresholds.  ``assess_parsed_text`` falls back to a permissive
+    one-character/one-line floor when the role is unknown, so a legacy or
+    hand-crafted plan row that omits ``document_role`` would silently buy a
+    weaker quality gate than every authenticated row beside it.  Live runs
+    therefore refuse such a row instead of parsing it under the fallback.
+
+    ``required=False`` is reserved for runs that never reach the live parser
+    (dry runs and fixture-Markdown conversions), where no role-aware threshold
+    is ever consulted.
+    """
+
+    if not required:
+        return _optional_str(record, "document_role")
+    try:
+        return _required_str(record, "document_role")
+    except ValueError as exc:
+        raise CommandError(
+            "live parse plan record requires document_role: "
+            f"{candidate_id}/{source_document_id}"
+        ) from exc
+
+
 def _mistral_markdown_request(
     record: Mapping[str, Any],
     *,
     output_root: Path,
     captured_source_bytes: bytes | None = None,
+    require_document_role: bool = True,
 ) -> MistralMarkdownConversionRequest:
     candidate_id = _required_str(record, "candidate_id")
     source_document_id = _required_str(record, "source_document_id")
+    document_role = _live_parse_plan_document_role(
+        record,
+        candidate_id=candidate_id,
+        source_document_id=source_document_id,
+        required=require_document_role,
+    )
     markdown_output = _optional_str(record, "markdown_output_path")
     safe_document_id = safe_path_component(
         source_document_id,
@@ -70316,7 +70360,7 @@ def _mistral_markdown_request(
         expected_sha256=_required_str(record, "expected_sha256"),
         expected_byte_count=_required_int(record, "expected_byte_count"),
         captured_source_bytes=captured_source_bytes,
-        document_role=_optional_str(record, "document_role"),
+        document_role=document_role,
     )
 
 

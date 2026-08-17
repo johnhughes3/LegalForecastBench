@@ -2373,6 +2373,7 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_and_parses_onl
     request_record = {
         "candidate_id": "cand-1",
         "source_document_id": "complaint",
+        "document_role": "complaint",
         "expected_sha256": digest,
         "expected_byte_count": source.stat().st_size,
     }
@@ -2389,6 +2390,7 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_and_parses_onl
             {
                 "candidate_id": "cand-1",
                 "source_document_id": "new",
+                "document_role": "complaint",
                 "expected_sha256": gap_digest,
                 "expected_byte_count": gap_source.stat().st_size,
                 "input_path": str(gap_source),
