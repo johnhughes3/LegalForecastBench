@@ -2362,7 +2362,15 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_and_parses_onl
     previous_root = tmp_path / "previous-markdown"
     previous_markdown = previous_root / "cand-1" / "complaint.md"
     previous_markdown.parent.mkdir(parents=True)
-    markdown = "# Complaint\n\nExact historical Markdown.\n"
+    # Reused Markdown is reassessed under the authenticated ``complaint`` role,
+    # so the historical fixture must clear the pleading threshold it claims.
+    markdown = (
+        "# Complaint\n\nExact historical Markdown that states enough of the "
+        "pleading to clear the complaint role's substantive-density floor "
+        "rather than relying on the permissive unknown-role fallback.\n\n"
+        "Plaintiff alleges breach of the parties' written agreement and seeks "
+        "damages, interest, and costs.\n"
+    )
     previous_markdown.write_text(markdown, encoding="utf-8")
     source = tmp_path / "relocated" / "complaint.pdf"
     source.parent.mkdir()
@@ -2497,6 +2505,26 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_and_parses_onl
         )
     _write_jsonl(clearance, clearance_records)
     _, materialization_card = _materialized_cli_unit_fixture(monkeypatch, tmp_path)
+    # The verified materialization manifest is the authenticated statement of
+    # each document's role; the live parse plan is bound to it.
+    materialized_manifest_records = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "document_role": "complaint",
+        }
+    ]
+    if with_gap:
+        materialized_manifest_records.append(
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": "new",
+                "document_role": "complaint",
+            }
+        )
+    _write_jsonl(
+        tmp_path / "materialized-manifest.jsonl", materialized_manifest_records
+    )
 
     provider_requests: list[tuple[str, ...]] = []
 
@@ -2511,7 +2539,13 @@ def test_parse_documents_reuses_authenticated_live_mistral_output_and_parses_onl
             raise AssertionError("live Mistral provider conversion must not run")
         assert tuple(request.source_document_id for request in requests) == ("new",)
         request = requests[0]
-        gap_markdown = "# New\n"
+        gap_markdown = (
+            "# New\n\nThe freshly parsed gap document also carries enough "
+            "substantive pleading text to clear the complaint role's density "
+            "floor when the completed run is later reauthenticated.\n\n"
+            "Plaintiff alleges breach of the same written supply agreement "
+            "and seeks damages, interest, and costs.\n"
+        )
         request.markdown_output_path.parent.mkdir(parents=True, exist_ok=True)
         request.markdown_output_path.write_text(gap_markdown, encoding="utf-8")
         record = cli.MistralMarkdownConversionRecord(
@@ -2847,8 +2881,18 @@ def test_live_mistral_reuse_plans_exact_intersection_and_authenticates_dropped_r
     }
     prior_requests: list[dict[str, object]] = []
     prior_records: list[dict[str, object]] = []
+    markdown_by_document: dict[str, str] = {}
     for document_id, digest in digest_by_document.items():
-        markdown = f"# {document_id}\n"
+        # Reuse reassesses Markdown under the current authenticated role, so the
+        # prior fixture has to clear the complaint threshold it is reused under.
+        markdown = (
+            f"# {document_id}\n\nPlaintiff alleges that the defendant breached "
+            "the parties' written supply agreement by refusing to deliver the "
+            "goods it had promised.\n\nPlaintiff seeks damages, interest, and "
+            "costs for the resulting losses, together with such further relief "
+            "as the court deems just.\n"
+        )
+        markdown_by_document[document_id] = markdown
         markdown_path = prior_root / "cand" / f"{document_id}.md"
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
         markdown_path.write_text(markdown, encoding="utf-8")
@@ -2941,6 +2985,7 @@ def test_live_mistral_reuse_plans_exact_intersection_and_authenticates_dropped_r
         output_root / "markdown" / "cand" / "kept.md",
         digest_by_document["kept"],
         len("kept-source"),
+        document_role="complaint",
     )
     new_digest = hashlib.sha256(b"new-source").hexdigest()
     new = cli.MistralMarkdownConversionRequest(
@@ -2950,6 +2995,7 @@ def test_live_mistral_reuse_plans_exact_intersection_and_authenticates_dropped_r
         output_root / "markdown" / "cand" / "new.md",
         new_digest,
         len("new-source"),
+        document_role="complaint",
     )
 
     plan = cli._reuse_live_mistral_parse_outputs(
@@ -2964,7 +3010,10 @@ def test_live_mistral_reuse_plans_exact_intersection_and_authenticates_dropped_r
     assert plan.source["prior_record_count"] == 2
     assert plan.source["reused_record_count"] == 1
     assert plan.source["parsed_gap_count"] == 1
-    assert kept.markdown_output_path.read_text(encoding="utf-8") == "# kept\n"
+    assert (
+        kept.markdown_output_path.read_text(encoding="utf-8")
+        == (markdown_by_document["kept"])
+    )
 
     (prior_root / "cand" / "dropped.md").write_text(
         "tampered dropped row", encoding="utf-8"
