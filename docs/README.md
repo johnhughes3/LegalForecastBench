@@ -146,6 +146,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [provider-cycle-caps-successor-v1.md](schemas/provider-cycle-caps-successor-v1.md): provider-free derivation of the authority-enabled caps artifact from immutable legacy caps.
 - [case-dev-purchase-policy-v2.md](schemas/case-dev-purchase-policy-v2.md): the sole public derived authority for a new official document-purchase session.
 - [case-dev-purchase-policy-v1.md](schemas/case-dev-purchase-policy-v1.md): superseded by v2; retained for fixture and read-only compatibility and cannot mint purchase authority.
+- [recap-fetch-confirmation-provenance-v1.md](schemas/recap-fetch-confirmation-provenance-v1.md): non-authoritative, digest-keyed confirmation observations that remain outside canonical purchase commitments.
 - [clearance-replacement-v1.md](schemas/clearance-replacement-v1.md): the frozen canonical order used when a purchased document fails disclosure clearance.
 - [resolved-post-recovery-v4.md](schemas/resolved-post-recovery-v4.md): a recovered public document purchased directly through CourtListener RECAP Fetch, with no broker receipt history.
 - [recap-fetch-quarantine-recovery-v1.md](schemas/recap-fetch-quarantine-recovery-v1.md): the noncharging exact partition of recoverable purchase material and canonical terminal-unavailable operations.
