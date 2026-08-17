@@ -46,6 +46,50 @@ def test_single_incidental_opposition_keyword_is_not_an_opposition_brief() -> No
     ]
 
 
+def test_incidental_opposes_language_is_not_an_opposition_brief() -> None:
+    manifest = _manifest_bytes()
+
+    result = project_missing_document_successor(
+        base_selection=_base_selection(),
+        manifest_bytes=manifest,
+        approval=_approval(manifest),
+        acquisitions=(
+            _observation(
+                markdown=(
+                    "ORDER\nPlaintiff opposes the motion to dismiss. The motion "
+                    "is denied."
+                )
+            ),
+        ),
+    )
+
+    assert len(result.inclusion_ledger) == 0
+    assert "acquired_bytes_mismatch_requested_role" in [
+        row["reason"] for row in result.exclusion_ledger
+    ]
+
+
+def test_captioned_opposition_brief_is_still_admitted() -> None:
+    manifest = _manifest_bytes()
+
+    result = project_missing_document_successor(
+        base_selection=_base_selection(),
+        manifest_bytes=manifest,
+        approval=_approval(manifest),
+        acquisitions=(
+            _observation(
+                markdown=(
+                    "PLAINTIFF'S MEMORANDUM IN OPPOSITION TO DEFENDANT'S "
+                    "MOTION TO DISMISS"
+                )
+            ),
+        ),
+    )
+
+    assert len(result.inclusion_ledger) == 1
+    assert result.inclusion_ledger[0]["admitted_role"] == "opposition"
+
+
 def test_single_incidental_reply_keyword_is_not_a_reply_brief() -> None:
     manifest = _manifest_bytes(role="reply")
 

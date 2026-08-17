@@ -189,14 +189,33 @@ def pleading_body_matches_kind(
         OperativeComplaintKind.INTERPLEADER_COMPLAINT: (
             r"\binterpleader(?:\s+(?:complaint|counterclaim))?\b"
         ),
-        # The v3 fallback role has no label of its own, so it is admitted on
-        # affirmative claim-assertion language instead: a numbered cause of
-        # action, a claim for relief, or the prayer that closes one.
-        OperativeComplaintKind.OTHER_CLAIM_BEARING_FILING: (
-            r"\bcauses?\s+of\s+action\b|\bclaims?\s+for\s+relief\b|"
-            r"\bprayer\s+for\s+relief\b|\bwherefore\b.{0,120}?\bpray"
-        ),
     }
+    if kind is OperativeComplaintKind.OTHER_CLAIM_BEARING_FILING:
+        # Generic motions routinely discuss another party's claims and close
+        # with a prayer to dismiss them.  The fallback therefore requires a
+        # claim-bearing filing title as well as affirmative claim or prayer
+        # language attributable to that filing.
+        title_lines = tuple(
+            line.strip().lower() for line in body.splitlines()[:80] if line.strip()
+        )
+        has_claim_bearing_title = any(
+            re.search(
+                r"^(?:(?:(?:first|second|third)\s+)?amended\s+)?"
+                r"(?:petition\b|statement\s+of\s+claim\b|claim\s+for\s+relief\b|"
+                r"complaint\s+in\s+intervention\b|plea\s+in\s+intervention\b)",
+                line,
+            )
+            for line in title_lines
+        )
+        asserts_claim = re.search(
+            r"\b(?:(?:first|second|third|fourth|fifth|\d+(?:st|nd|rd|th))\s+)?"
+            r"cause\s+of\s+action\b|\bclaims?\s+for\s+relief\b|"
+            r"\bprayer\s+for\s+relief\b|\bwherefore\b.{0,160}?"
+            r"\b(?:petitioner|claimant|intervenor|plaintiff)\s+"
+            r"(?:prays?|requests?|demands?)\b",
+            text,
+        )
+        return has_claim_bearing_title and asserts_claim is not None
     if kind is OperativeComplaintKind.COMPLAINT and re.search(
         patterns[OperativeComplaintKind.AMENDED_COMPLAINT], text
     ):

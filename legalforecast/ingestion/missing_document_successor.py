@@ -830,9 +830,7 @@ def _body_matches_role(markdown: str, requested_role: str) -> bool:
                 r"(?:plaintiff'?s?|defendant'?s?|movant'?s?|[a-z]+\s+)?"
                 r"(?:motion|petition|application)\b|"
                 r"\b(?:response|opposition)\s+(?:brief\s+)?in\s+opposition\b|"
-                r"\bresponse\s+in\s+opposition\s+to\b|"
-                r"\b(?:opposes|oppose)\s+(?:the\s+)?"
-                r"(?:motion|petition|application)\b",
+                r"\bresponse\s+in\s+opposition\s+to\b",
                 text,
             )
         )

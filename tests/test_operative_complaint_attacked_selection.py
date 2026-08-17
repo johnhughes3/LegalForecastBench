@@ -138,3 +138,12 @@ def test_other_claim_bearing_filing_admits_only_claim_asserting_bytes() -> None:
         _AO440_SUMMONS_EXCERPT + "\nFIRST CAUSE OF ACTION",
         OperativeComplaintKind.OTHER_CLAIM_BEARING_FILING,
     )
+    assert not pleading_body_matches_kind(
+        "MOTION TO DISMISS\nPlaintiff's claims for relief should be dismissed.",
+        OperativeComplaintKind.OTHER_CLAIM_BEARING_FILING,
+    )
+    assert not pleading_body_matches_kind(
+        "MOTION TO DISMISS\nWHEREFORE, Defendant prays that the complaint be "
+        "dismissed.",
+        OperativeComplaintKind.OTHER_CLAIM_BEARING_FILING,
+    )
