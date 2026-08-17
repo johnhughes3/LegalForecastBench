@@ -111,10 +111,24 @@ def test_sdk_is_an_exact_optional_runtime_pin() -> None:
         f"claude-agent-sdk=={CLAUDE_AGENT_SDK_VERSION}"
     ]
     assert CLAUDE_AGENT_SDK_VERSION == "0.2.138"
-    assert CLAUDE_BUNDLED_CLI_VERSION == "2.1.220"
-    assert CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM["linux-x86_64"] == (
-        "sha256:674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863"
-    )
+    assert CLAUDE_BUNDLED_CLI_VERSION == "2.1.232"
+    assert CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM == {
+        "darwin-arm64": (
+            "sha256:7b39c1588df919d001dea3ffd5651adb682f2451b5a0e18d42d4233296b53cc7"
+        ),
+        "darwin-x86_64": (
+            "sha256:aa3d606d7bf0ea9739a6d0de11810e72a662e7a4e5061d67ee7f8bc47c8890f9"
+        ),
+        "linux-aarch64": (
+            "sha256:20797ebc644dfc47a69865c46d5cf702c7dbedd48d4268063b8828ebd55b39d0"
+        ),
+        "linux-x86_64": (
+            "sha256:61d23f8749136907d586d5b11831ea8a5234d4c1dea40a5e55c33b52e204c6d1"
+        ),
+        "win32-x86_64": (
+            "sha256:ec9e32479bc887809003c91384c6c3a26e7691856d1916f72f6f6d21800f3bd6"
+        ),
+    }
 
 
 def test_offline_protocol_fixture_is_credential_free_and_explicit(

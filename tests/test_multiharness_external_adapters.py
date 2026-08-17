@@ -252,7 +252,7 @@ def test_claude_agent_sdk_baseline_advertises_live_tool_protocol(
         "adapter_id": "claude-agent-sdk-baseline",
         "adapter_version": "1.0.0",
         "adapter_bundle_sha256": claude_adapter_bundle_sha256(),
-        "bundled_cli_version": "2.1.220",
+        "bundled_cli_version": "2.1.232",
         "max_budget_usd": 0.5,
         "max_turns": 8,
         "output_contract_version": "legalforecast.claude_agent_sdk.output.v1",
