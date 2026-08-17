@@ -1,5 +1,14 @@
 # Agent Instructions
 
+## Priority: finish Cycle 1 (2026-08-17 standing directive)
+
+**The critical path is completing Cycle 1 and publishing results as soon as possible.** Bias every decision toward that: prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
+
+- **PACER/document purchases require the owner's approval with the approximate dollar amount** — state the amount, get the approval, journal the spend, respect the stated ceiling. That is the entire required purchase process; do not add authority chains or approval machinery beyond it.
+- Everything else on the Cycle 1 path (code, validation, parsing, Stage A execution under an existing signed authorization, evidence assembly): **do what needs to be done, promptly**. Halt-and-escalate is for genuine blockers (missing owner approval, frozen-contract conflicts, failed validation), not for perfectible process.
+- Before building anything, run the executability audit: name the command that produces every input your work requires and the path where it exists today. If one doesn't exist, building or escalating THAT is your first task.
+- Integrity controls are not negotiable and are not the slowdown: contamination/model rules, outcome-leakage blinding, byte-role validation, and frozen-contract change control stay exactly as documented.
+
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
 > **Architecture in one line:** Issues live in a centrally configured beads-db Dolt SQL server. The server is the durable source of truth, so no `bd dolt push/pull` is needed. Connection details come from generated local metadata. `.beads/issues.jsonl` is a passive export, not the wire protocol.
