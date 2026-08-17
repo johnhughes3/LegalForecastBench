@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 """Contributor-owned local_cli_subscription profile (dm0g.4.2.14)."""
 
 from __future__ import annotations
@@ -15,7 +17,9 @@ from legalforecast.multiharness.auth_binding import (
     project_bound_child_environment,
 )
 from legalforecast.multiharness.auth_profiles import (
+    _PROFILE_INFISICAL_PATH,
     CONTRIBUTOR_SUBSCRIPTION,
+    CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH,
     FIXTURE_NONE,
     LOCAL_CLI_SUBSCRIPTION_CATEGORY,
     OFFICIAL_AUTH_PROFILES,
@@ -75,6 +79,15 @@ def test_public_provenance_records_only_the_nonsecret_category() -> None:
     }
     with pytest.raises(AuthProfileError, match="never reads operator-hosted"):
         infisical_path_for_profile(CONTRIBUTOR_SUBSCRIPTION)
+    # The reserved harness-runtime leaf is documentation only. It must never
+    # become a live lookup and must never reach a public record.
+    assert CONTRIBUTOR_SUBSCRIPTION not in _PROFILE_INFISICAL_PATH
+    assert CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH not in set(
+        _PROFILE_INFISICAL_PATH.values()
+    )
+    assert CONTRIBUTOR_SUBSCRIPTION_INFISICAL_PATH not in json.dumps(
+        resolved.public_provenance()
+    )
 
 
 def test_unknown_absent_and_ci_presence_fail_closed_without_fallback() -> None:

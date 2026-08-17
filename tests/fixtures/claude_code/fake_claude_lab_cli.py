@@ -19,6 +19,8 @@ FIXTURES = Path(__file__).resolve().parents[1]
 FAKE_CLI = FIXTURES / "local_cli_fake_cli.py"
 LAB_OUTPUT = "output"
 LAB_BASENAME = "issue-identification-memo.docx"
+# Shell convention for "found but not executable"; used when exec itself fails.
+EXEC_FAILURE_STATUS = 126
 
 
 def _flag_value(argv: list[str], flag: str) -> str | None:
@@ -57,18 +59,26 @@ def _write_lab_deliverable(argv: list[str]) -> None:
 def main(argv: list[str] | None = None) -> int:
     remainder = list(sys.argv[1:] if argv is None else argv)
     _write_lab_deliverable(remainder)
-    os.execv(
-        sys.executable,
-        [
+    try:
+        os.execv(
             sys.executable,
-            str(FAKE_CLI),
-            "--adapter",
-            "claude",
-            "--outcome",
-            "success",
-            *remainder,
-        ],
-    )
+            [
+                sys.executable,
+                str(FAKE_CLI),
+                "--adapter",
+                "claude",
+                "--outcome",
+                "success",
+                *remainder,
+            ],
+        )
+    except OSError as exc:
+        print(f"LAB fixture could not exec {FAKE_CLI}: {exc}", file=sys.stderr)
+    # ``os.execv`` replaces this process on success, so control reaches here
+    # only when exec failed. Return an explicit nonzero status rather than
+    # falling off the end with ``None``, which ``raise SystemExit(main())``
+    # would report as a successful run.
+    return EXEC_FAILURE_STATUS
 
 
 if __name__ == "__main__":
