@@ -1055,6 +1055,143 @@ def test_courtlistener_page_extracts_cursor_from_next_url() -> None:
     assert [entry.docket_entry_id for entry in entries] == ["7001", "7002"]
 
 
+def test_courtlistener_lists_attachment_rows_for_one_docket_entry() -> None:
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(
+            (
+                _response(
+                    path="/recap-documents/",
+                    params={"docket_entry": "7001", "page_size": 100},
+                    payload={
+                        "results": [
+                            {
+                                "id": 9001,
+                                "docket_entry": _entry_uri(7001),
+                                "document_number": "17",
+                                "attachment_number": None,
+                                "document_type": 1,
+                                "description": "Motion to Dismiss",
+                                "is_available": True,
+                            },
+                            {
+                                "id": 9002,
+                                "docket_entry": _entry_uri(7001),
+                                "document_number": "17",
+                                "attachment_number": 1,
+                                "document_type": 2,
+                                "description": "Memorandum in Support",
+                                "is_available": True,
+                            },
+                        ],
+                        "next": None,
+                    },
+                ),
+            )
+        ),
+    )
+
+    page = client.list_recap_documents("7001", page_size=100)
+
+    assert [document.document_id for document in page.items] == ["9001", "9002"]
+    assert [document.attachment_number for document in page.items] == [None, "1"]
+    assert page.items[1].docket_entry_id == "7001"
+    assert page.items[1].description == "Memorandum in Support"
+    assert client.request_count == 1
+
+
+def test_courtlistener_recap_document_listing_proves_attachment_absence() -> None:
+    """An entry whose docket text promises attachments can still have no rows.
+
+    That is the signal the attachment-selector work needs: no attachment row
+    means CourtListener never ingested the entry's attachment page, so no
+    authenticated ``source_document_id`` exists to purchase against.
+    """
+
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(
+            (
+                _response(
+                    path="/recap-documents/",
+                    params={"docket_entry": "7002"},
+                    payload={
+                        "results": [
+                            {
+                                "id": 9101,
+                                "docket_entry": _entry_uri(7002),
+                                "document_number": "8",
+                                "attachment_number": None,
+                                "document_type": 1,
+                                "description": "Dismiss",
+                                "is_available": True,
+                            }
+                        ],
+                        "next": None,
+                    },
+                ),
+            )
+        ),
+    )
+
+    page = client.list_recap_documents("7002")
+
+    assert [document.attachment_number for document in page.items] == [None]
+    assert not [
+        document for document in page.items if document.attachment_number is not None
+    ]
+
+
+def test_courtlistener_iterates_recap_documents_across_cursor_pages() -> None:
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(
+            (
+                _response(
+                    path="/recap-documents/",
+                    params={"docket_entry": "7001", "page_size": 1},
+                    payload={
+                        "results": [
+                            {
+                                "id": 9001,
+                                "docket_entry": _entry_uri(7001),
+                                "attachment_number": None,
+                            }
+                        ],
+                        "next": (
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "recap-documents/?cursor=abc123"
+                        ),
+                    },
+                ),
+                _response(
+                    path="/recap-documents/",
+                    params={
+                        "docket_entry": "7001",
+                        "cursor": "abc123",
+                        "page_size": 1,
+                    },
+                    payload={
+                        "results": [
+                            {
+                                "id": 9002,
+                                "docket_entry": _entry_uri(7001),
+                                "attachment_number": 1,
+                            }
+                        ],
+                        "next": None,
+                    },
+                ),
+            )
+        ),
+    )
+
+    documents = tuple(client.iter_recap_documents("7001", page_size=1))
+
+    assert [document.document_id for document in documents] == ["9001", "9002"]
+    assert [document.attachment_number for document in documents] == [None, "1"]
+
+
 @pytest.mark.parametrize(
     "base_url",
     [
@@ -1067,6 +1204,12 @@ def test_courtlistener_page_extracts_cursor_from_next_url() -> None:
 def test_courtlistener_config_rejects_unsafe_base_urls(base_url: str) -> None:
     with pytest.raises(CourtListenerResponseError, match=COURTLISTENER_BASE_URL_ENV):
         CourtListenerConfig.from_env({COURTLISTENER_BASE_URL_ENV: base_url})
+
+
+def _entry_uri(docket_entry_id: int) -> str:
+    return (
+        f"https://www.courtlistener.com/api/rest/v4/docket-entries/{docket_entry_id}/"
+    )
 
 
 def _response(
