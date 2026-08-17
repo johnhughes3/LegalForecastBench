@@ -50916,6 +50916,60 @@ def _authenticated_successor_history_projection(
     return history_paths, history_bytes, record
 
 
+def _successor_history_excluded_paths(
+    *,
+    stage_input_paths: Iterable[Path],
+    recovery_input_paths: Iterable[Path],
+    document_root: Path,
+) -> tuple[Path, ...]:
+    """Return the paths a stage already commits under its own explicit names.
+
+    Successor-history sources are re-committed under generated
+    ``successor_history_source_NNNN`` names, so a path the stage already
+    commits under an explicit name has to be excluded here; otherwise the same
+    bytes would appear twice in one run card under two different names.
+
+    The resulting sets legitimately diverge between
+    ``plan-disclosure-provenance`` and ``finalize-provenance-quarantine``
+    because the two stages commit different named-input sets.  The plan stage
+    names only the four projection inputs (review requests, download manifest,
+    case relevance, restriction evidence); the finalization stage additionally
+    names the frozen routing plan, the exception worksheet, the plan run card,
+    the public-marker clearance policy, and the model-review authority set.
+    That difference tracks what each stage actually commits, so unifying the
+    two sets would be a regression, not a cleanup.  Divergence stays safe
+    because the exclusion is fail-closed: dropping a colliding source leaves
+    :func:`_authenticated_successor_history_projection` with an emptied or
+    repeated source set, which it rejects.
+    """
+
+    return (*stage_input_paths, *recovery_input_paths, document_root)
+
+
+def _provenance_committed_input_paths(
+    *,
+    stage_input_paths: Iterable[Path],
+    history_source_paths: Iterable[Path],
+    recovery_input_paths: Iterable[Path],
+    document_root: Path,
+) -> tuple[Path, ...]:
+    """Return the exact ordered input paths a provenance stage commits.
+
+    ``plan-disclosure-provenance`` and ``finalize-provenance-quarantine``
+    commit the same four groups in the same order: the stage's own named
+    inputs, the authenticated successor-history sources, the recovered-public
+    verification inputs, and the document root.  Building that tuple in one
+    place keeps the two stages' run-card ``input_paths`` from drifting apart.
+    """
+
+    return (
+        *(path.resolve() for path in stage_input_paths),
+        *(path.resolve() for path in history_source_paths),
+        *(path.resolve() for path in recovery_input_paths),
+        document_root.resolve(),
+    )
+
+
 def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int:
     stage = "plan-disclosure-provenance"
     output_root = _acquisition_output_root(args)
@@ -50948,7 +51002,6 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             "plan-disclosure-provenance requires --schema-version v2 or v3"
         )
     input_paths = (requests_path, manifest_path, relevance_path, restriction_path)
-    committed_input_paths = tuple(path.resolve() for path in input_paths)
     committed_output_paths = (plan_path.resolve(), worksheet_path.resolve())
     _require_controlled_private_review_root(
         private_root,
@@ -51001,10 +51054,13 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             history_run_card_record,
         ) = _authenticated_successor_history_projection(
             authenticated_successor_history,
-            excluded_paths=(
-                *input_paths,
-                *recovery_input_paths,
-                document_root,
+            # This stage commits only the four projection inputs by name; see
+            # _successor_history_excluded_paths for why the finalization stage
+            # legitimately excludes a larger set.
+            excluded_paths=_successor_history_excluded_paths(
+                stage_input_paths=input_paths,
+                recovery_input_paths=recovery_input_paths,
+                document_root=document_root,
             ),
         )
         if verified_recovery_capability is not None and selected_schema != "v3":
@@ -51068,6 +51124,12 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         )
     except (OSError, ProvenanceClearanceError) as exc:
         raise CommandError(str(exc)) from exc
+    committed_input_paths = _provenance_committed_input_paths(
+        stage_input_paths=input_paths,
+        history_source_paths=history_source_paths.values(),
+        recovery_input_paths=recovery_input_paths,
+        document_root=document_root,
+    )
     plan_bytes = canonical_json_bytes(plan)
     worksheet_bytes = canonical_json_bytes(worksheet)
     dry_run = _acquisition_dry_run(args)
@@ -51137,12 +51199,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     terminal_metadata_present = _completed_disclosure_review_resume(
         args,
         stage=stage,
-        input_paths=(
-            *committed_input_paths,
-            *(path.resolve() for path in history_source_paths.values()),
-            *(path.resolve() for path in recovery_input_paths),
-            document_root.resolve(),
-        ),
+        input_paths=committed_input_paths,
         output_paths=committed_output_paths,
         record_count=cast(int, plan["document_count"]),
         expected_extra=completion_extra,
@@ -51174,10 +51231,12 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
             replayed_history_record,
         ) = _authenticated_successor_history_projection(
             replayed_history,
-            excluded_paths=(
-                *input_paths,
-                *replayed_recovery_paths,
-                document_root,
+            # Same named-input set as the first projection above; the replay
+            # must exclude exactly what the initial pass excluded.
+            excluded_paths=_successor_history_excluded_paths(
+                stage_input_paths=input_paths,
+                recovery_input_paths=replayed_recovery_paths,
+                document_root=document_root,
             ),
         )
         capability_changed = bool(verified_recovery_capability) != bool(
@@ -51261,12 +51320,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
         if not _completed_disclosure_review_resume(
             args,
             stage=stage,
-            input_paths=(
-                *committed_input_paths,
-                *(path.resolve() for path in history_source_paths.values()),
-                *(path.resolve() for path in recovery_input_paths),
-                document_root.resolve(),
-            ),
+            input_paths=committed_input_paths,
             output_paths=committed_output_paths,
             record_count=cast(int, plan["document_count"]),
             expected_extra=completion_extra,
@@ -51277,12 +51331,7 @@ def _cmd_acquisition_plan_disclosure_provenance(args: argparse.Namespace) -> int
     _write_acquisition_completion(
         args,
         stage=stage,
-        input_paths=(
-            *committed_input_paths,
-            *(path.resolve() for path in history_source_paths.values()),
-            *(path.resolve() for path in recovery_input_paths),
-            document_root.resolve(),
-        ),
+        input_paths=committed_input_paths,
         output_paths=committed_output_paths,
         record_count=cast(int, plan["document_count"]),
         dry_run=dry_run,
@@ -52168,10 +52217,14 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             history_run_card_record,
         ) = _authenticated_successor_history_projection(
             authenticated_successor_history,
-            excluded_paths=(
-                *source_paths.values(),
-                *recovery_input_paths,
-                document_root,
+            # This stage names more inputs than plan-disclosure-provenance
+            # (routing plan, exception worksheet, plan run card, public-marker
+            # policy, model-review authority), so its exclusion set is larger
+            # by design; see _successor_history_excluded_paths.
+            excluded_paths=_successor_history_excluded_paths(
+                stage_input_paths=source_paths.values(),
+                recovery_input_paths=recovery_input_paths,
+                document_root=document_root,
             ),
         )
         if authenticated_successor_history is None and any(
@@ -52422,12 +52475,12 @@ def _cmd_acquisition_quarantine_provenance_exceptions(
             else {}
         ),
         "input_paths": [
-            str(path.resolve())
-            for path in (
-                *source_paths.values(),
-                *history_source_paths.values(),
-                *recovery_input_paths,
-                document_root,
+            str(path)
+            for path in _provenance_committed_input_paths(
+                stage_input_paths=source_paths.values(),
+                history_source_paths=history_source_paths.values(),
+                recovery_input_paths=recovery_input_paths,
+                document_root=document_root,
             )
         ],
         "source_commitments": source_commitments,
