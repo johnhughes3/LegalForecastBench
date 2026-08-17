@@ -700,12 +700,17 @@ class SpendPolicy:
         The detached approval only binds the executable spec, so the spec must
         be able to pin this sidecar in turn.  Without that second binding an
         operator could raise the request and dollar ceilings after approval and
-        still satisfy every remaining identity check.  ``from_record`` rejects
-        unknown and missing fields, so the canonical round trip is exact and
-        this digest is a total function of the sidecar's enforced content.
+        still satisfy every remaining identity check.  The policy's full-spec
+        back-reference is excluded from this digest to avoid a cryptographic
+        cycle: the spec contains this policy digest, while the policy contains
+        the resulting full-spec digest.  That back-reference is checked
+        independently at load time.  ``from_record`` rejects unknown and
+        missing fields, so every enforcing field remains covered.
         """
 
-        return _record_sha256(self.to_record())
+        payload = self.to_record()
+        del payload["executable_spec_sha256"]
+        return _record_sha256(payload)
 
 
 @dataclass(frozen=True, slots=True)

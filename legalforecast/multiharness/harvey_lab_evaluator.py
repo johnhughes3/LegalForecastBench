@@ -459,9 +459,8 @@ def evaluation_input_record(
         "deliverable_tree_sha256": sealed_manifest.tree_sha256,
         "task_sha256": _require_prefixed(identity.task_sha256, "task_sha256"),
         "projection_manifest_sha256": identity.projection_manifest_sha256,
-        "private_material_sha256": _directory_digest(
-            overlay["private_task_json"].parent,
-            "private_material_sha256",
+        "private_material_sha256": harvey_lab_private_material_sha256(
+            overlay["private_task_json"].parent
         ),
         "deliverable_path": str(overlay["deliverable"]),
         "private_task_json_path": str(overlay["private_task_json"]),
@@ -1018,6 +1017,12 @@ def _directory_digest(root: Path, field_name: str) -> str:
             }
         )
     return _prefixed_json({"files": entries})
+
+
+def harvey_lab_private_material_sha256(root: Path) -> str:
+    """Hash the exact evaluator-private directory supplied to the judge."""
+
+    return _directory_digest(root, "private_material_sha256")
 
 
 def _walk_regular_files(root: Path, field_name: str) -> list[Path]:

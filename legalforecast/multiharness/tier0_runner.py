@@ -46,6 +46,11 @@ from legalforecast.multiharness.claude_code import (
 from legalforecast.multiharness.claude_code_harvey_lab import (
     run_claude_code_clean_native_harvey_lab,
 )
+from legalforecast.multiharness.evaluation import (
+    CostMeasurement,
+    EvaluationTokenUsage,
+    TokenCount,
+)
 from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
     harvey_lab_issuer_policy_sha256,
@@ -183,6 +188,291 @@ _HARVEY_LAB_JUDGE_CRITERION_COUNT = 23
 
 class Tier0RunnerError(ValueError):
     """A frozen Tier-0 run cannot proceed without violating a boundary."""
+
+
+_PRODUCTION_COST_BASES = frozenset(
+    {"metered", "provider_reported", "estimated_from_pricing_snapshot"}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class Tier0EvaluatorConfiguration:
+    """Immutable evaluator identity and policy, excluding observed accounting."""
+
+    evaluator_repository: str
+    evaluator_commit: str
+    evaluator_tree: str
+    evaluator_file_manifest_sha256: str
+    evaluator_image_digest: str
+    judge_requested_identity: str
+    judge_settings_sha256: str
+    judge_prompt_sha256: str
+    judge_output_schema_sha256: str
+    runtime_policy_sha256: str
+    egress_policy_sha256: str
+    resource_policy_sha256: str
+    token_accounting_policy_sha256: str
+    cost_basis: str
+    pricing_snapshot_sha256: str | None = None
+    is_fixture: bool = False
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "evaluator_repository",
+            "evaluator_commit",
+            "evaluator_tree",
+            "judge_requested_identity",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise Tier0RunnerError(f"Tier-0 evaluator {field_name} is required")
+        for field_name in (
+            "evaluator_file_manifest_sha256",
+            "evaluator_image_digest",
+            "judge_settings_sha256",
+            "judge_prompt_sha256",
+            "judge_output_schema_sha256",
+            "runtime_policy_sha256",
+            "egress_policy_sha256",
+            "resource_policy_sha256",
+            "token_accounting_policy_sha256",
+        ):
+            _digest(getattr(self, field_name), field_name)
+        if self.cost_basis not in _PRODUCTION_COST_BASES:
+            raise Tier0RunnerError(
+                "Tier-0 evaluator cost basis is not an observed production basis"
+            )
+        if self.cost_basis == "estimated_from_pricing_snapshot":
+            if self.pricing_snapshot_sha256 is None:
+                raise Tier0RunnerError(
+                    "estimated Tier-0 evaluator cost requires a pricing snapshot"
+                )
+            _digest(self.pricing_snapshot_sha256, "pricing_snapshot_sha256")
+        elif self.pricing_snapshot_sha256 is not None:
+            _digest(self.pricing_snapshot_sha256, "pricing_snapshot_sha256")
+        if self.is_fixture:
+            raise Tier0RunnerError(
+                "fixture evaluator configuration cannot authorize a paid run"
+            )
+
+    @classmethod
+    def from_provenance(
+        cls, provenance: HarveyLabEvaluatorProvenance
+    ) -> Tier0EvaluatorConfiguration:
+        """Strip pre-run accounting from a legacy provenance record."""
+
+        return cls(
+            evaluator_repository=provenance.evaluator_repository,
+            evaluator_commit=provenance.evaluator_commit,
+            evaluator_tree=provenance.evaluator_tree,
+            evaluator_file_manifest_sha256=provenance.evaluator_file_manifest_sha256,
+            evaluator_image_digest=provenance.evaluator_image_digest,
+            judge_requested_identity=provenance.judge_requested_identity,
+            judge_settings_sha256=provenance.judge_settings_sha256,
+            judge_prompt_sha256=provenance.judge_prompt_sha256,
+            judge_output_schema_sha256=provenance.judge_output_schema_sha256,
+            runtime_policy_sha256=provenance.runtime_policy_sha256,
+            egress_policy_sha256=provenance.egress_policy_sha256,
+            resource_policy_sha256=provenance.resource_policy_sha256,
+            token_accounting_policy_sha256=provenance.token_accounting_policy_sha256,
+            cost_basis=provenance.cost.basis,
+            pricing_snapshot_sha256=provenance.cost.pricing_snapshot_sha256,
+            is_fixture=provenance.is_fixture,
+        )
+
+    def provenance_for_execution(
+        self, execution: ExecutionReceipt
+    ) -> HarveyLabEvaluatorProvenance:
+        """Build one provenance record from one completed evaluator invocation."""
+
+        if execution.status != "succeeded":
+            raise Tier0RunnerError(
+                "Tier-0 evaluator provenance requires a successful invocation"
+            )
+        if execution.served_model is None or not execution.served_model.strip():
+            raise Tier0RunnerError(
+                "Tier-0 evaluator execution did not resolve a judge identity"
+            )
+        input_tokens = _observed_token_count(execution.usage.get("input_tokens"))
+        output_tokens = _observed_token_count(execution.usage.get("output_tokens"))
+        total_tokens = (
+            TokenCount(input_tokens.value + output_tokens.value, None)
+            if input_tokens.value is not None and output_tokens.value is not None
+            else TokenCount(None, "not_reported")
+        )
+        usage = EvaluationTokenUsage(
+            source="provider_response",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_read_tokens=TokenCount(None, "not_reported"),
+            cache_write_tokens=TokenCount(None, "not_reported"),
+            reasoning_tokens=TokenCount(None, "not_reported"),
+            total_tokens=total_tokens,
+        )
+        if execution.cost_usd is None:
+            raise Tier0RunnerError("Tier-0 evaluator execution did not report a cost")
+        try:
+            amount_microusd = int(Decimal(str(execution.cost_usd)) * Decimal(1_000_000))
+            cost = CostMeasurement(
+                amount_microusd=amount_microusd,
+                currency="USD",
+                basis=self.cost_basis,
+                pricing_snapshot_sha256=self.pricing_snapshot_sha256,
+                unknown_reason=None,
+            )
+            return HarveyLabEvaluatorProvenance(
+                evaluator_repository=self.evaluator_repository,
+                evaluator_commit=self.evaluator_commit,
+                evaluator_tree=self.evaluator_tree,
+                evaluator_file_manifest_sha256=self.evaluator_file_manifest_sha256,
+                evaluator_image_digest=self.evaluator_image_digest,
+                judge_requested_identity=self.judge_requested_identity,
+                judge_resolved_identity=execution.served_model,
+                judge_settings_sha256=self.judge_settings_sha256,
+                judge_prompt_sha256=self.judge_prompt_sha256,
+                judge_output_schema_sha256=self.judge_output_schema_sha256,
+                runtime_policy_sha256=self.runtime_policy_sha256,
+                egress_policy_sha256=self.egress_policy_sha256,
+                resource_policy_sha256=self.resource_policy_sha256,
+                token_accounting_policy_sha256=self.token_accounting_policy_sha256,
+                token_usage=usage,
+                cost=cost,
+                is_fixture=self.is_fixture,
+            )
+        except (TypeError, ValueError) as exc:
+            raise Tier0RunnerError(
+                "Tier-0 evaluator execution accounting is invalid"
+            ) from exc
+
+
+class Tier0EvaluatorProvenanceProvider(Protocol):
+    """Per-arm provenance factory with immutable configuration."""
+
+    @property
+    def configuration(self) -> Tier0EvaluatorConfiguration:
+        """Return evaluator identity/policy without observed accounting."""
+        ...
+
+    def __call__(
+        self, arm_id: str, execution: ExecutionReceipt
+    ) -> HarveyLabEvaluatorProvenance:
+        """Return provenance produced from the completed arm invocation."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class Tier0EvaluatorProvenanceFactory:
+    """Default provider that derives observed accounting from each execution."""
+
+    configuration: Tier0EvaluatorConfiguration
+
+    def __call__(
+        self, arm_id: str, execution: ExecutionReceipt
+    ) -> HarveyLabEvaluatorProvenance:
+        _require_text(arm_id, "Tier-0 evaluator arm_id")
+        return self.configuration.provenance_for_execution(execution)
+
+
+class _LazyEvaluatorProvenance:
+    """Expose pinned fields before a run and observed accounting afterward."""
+
+    _STATIC_FIELDS = frozenset(
+        {
+            "evaluator_repository",
+            "evaluator_commit",
+            "evaluator_tree",
+            "evaluator_file_manifest_sha256",
+            "evaluator_image_digest",
+            "judge_requested_identity",
+            "judge_settings_sha256",
+            "judge_prompt_sha256",
+            "judge_output_schema_sha256",
+            "runtime_policy_sha256",
+            "egress_policy_sha256",
+            "resource_policy_sha256",
+            "token_accounting_policy_sha256",
+            "is_fixture",
+        }
+    )
+
+    def __init__(
+        self,
+        configuration: Tier0EvaluatorConfiguration,
+        observation: Mapping[str, ExecutionReceipt],
+    ) -> None:
+        self._configuration = configuration
+        self._observation = observation
+
+    def __getattr__(self, name: str) -> object:
+        if name in self._STATIC_FIELDS:
+            return getattr(self._configuration, name)
+        if name in {"judge_resolved_identity", "token_usage", "cost"}:
+            return getattr(self._resolved(), name)
+        raise AttributeError(name)
+
+    def _resolved(self) -> HarveyLabEvaluatorProvenance:
+        execution = self._observation.get("execution")
+        if execution is None:
+            raise Tier0RunnerError(
+                "Tier-0 evaluator accounting was accessed before invocation"
+            )
+        return self._configuration.provenance_for_execution(execution)
+
+
+def _verify_arm_evaluator_provenance(
+    provider: Tier0EvaluatorProvenanceProvider,
+    arm_id: str,
+    evaluation: HarveyLabIsolatedEvaluation,
+) -> None:
+    """Require post-run provenance to match the signed arm receipt exactly."""
+
+    try:
+        provenance = provider(arm_id, evaluation.execution)
+    except Exception as exc:
+        raise Tier0RunnerError(
+            f"Tier-0 evaluator provenance failed for {arm_id}"
+        ) from exc
+    if type(provenance) is not HarveyLabEvaluatorProvenance:
+        raise Tier0RunnerError(
+            "Tier-0 evaluator provenance provider returned an invalid record"
+        )
+    configuration = provider.configuration
+    static_fields = (
+        "evaluator_repository",
+        "evaluator_commit",
+        "evaluator_tree",
+        "evaluator_file_manifest_sha256",
+        "evaluator_image_digest",
+        "judge_requested_identity",
+        "judge_settings_sha256",
+        "judge_prompt_sha256",
+        "judge_output_schema_sha256",
+        "runtime_policy_sha256",
+        "egress_policy_sha256",
+        "resource_policy_sha256",
+        "token_accounting_policy_sha256",
+    )
+    if any(
+        getattr(provenance, field_name) != getattr(configuration, field_name)
+        for field_name in static_fields
+    ):
+        raise Tier0RunnerError(
+            f"Tier-0 evaluator provenance configuration drifted for {arm_id}"
+        )
+    if provenance.is_fixture:
+        raise Tier0RunnerError(
+            "fixture evaluator provenance cannot authorize a paid run"
+        )
+    receipt = evaluation.receipt
+    if (
+        provenance.judge_resolved_identity != receipt.judge_resolved_identity
+        or provenance.judge_resolved_identity != evaluation.execution.served_model
+        or provenance.token_usage.to_record() != receipt.token_usage.to_record()
+        or provenance.cost.to_record() != receipt.cost.to_record()
+    ):
+        raise Tier0RunnerError(
+            f"Tier-0 evaluator provenance does not match the arm receipt for {arm_id}"
+        )
 
 
 class IssuerAuthority(Protocol):
@@ -989,7 +1279,7 @@ def run_tier0(
     spend_policy: SpendPolicy | None = None,
     pricing_snapshot: PricingSnapshot | None = None,
     evaluator_runner: EvaluatorRunner | None = None,
-    evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
+    evaluator_provenance_provider: Tier0EvaluatorProvenanceProvider | None = None,
 ) -> Tier0RunResult:
     """Execute both frozen arms and emit a hash-complete archive sidecar."""
 
@@ -1051,13 +1341,18 @@ def run_tier0(
         # artifacts always take the controller branch above.
         controller = None
     if controller is not None:
-        if evaluator_provenance is None:
+        if evaluator_provenance_provider is None:
             raise Tier0RunnerError(
-                "paid evaluator requires truthful production provenance and accounting"
+                "paid evaluator requires a per-arm provenance provider"
             )
         if evaluator_runner is None:
             raise Tier0RunnerError(
                 "paid evaluator requires an injected per-criterion evaluator runner"
+            )
+        configuration = evaluator_provenance_provider.configuration
+        if type(configuration) is not Tier0EvaluatorConfiguration:
+            raise Tier0RunnerError(
+                "paid evaluator provenance configuration is not immutable"
             )
         for arm in spec.arms:
             _judge_ceilings_for(controller.policy, arm.arm_id)
@@ -1105,6 +1400,32 @@ def run_tier0(
     try:
         for arm in spec.arms:
             paths = _arm_paths(private_root, arm.arm_id)
+            arm_observation: dict[str, ExecutionReceipt] = {}
+            arm_provenance: HarveyLabEvaluatorProvenance | None = None
+            arm_evaluator_runner: EvaluatorRunner | None = None
+            if controller is not None:
+                assert evaluator_provenance_provider is not None
+                arm_provenance = cast(
+                    HarveyLabEvaluatorProvenance,
+                    _LazyEvaluatorProvenance(
+                        evaluator_provenance_provider.configuration,
+                        arm_observation,
+                    ),
+                )
+
+                def capture_evaluator_execution(
+                    service: LocalCliExecutionService,
+                    run_spec: RunSpec,
+                    boundary: HarveyLabJudgeRequestBoundary,
+                    *,
+                    _observation: dict[str, ExecutionReceipt] = arm_observation,
+                ) -> ExecutionReceipt:
+                    assert evaluator_runner is not None
+                    execution = evaluator_runner(service, run_spec, boundary)
+                    _observation["execution"] = execution
+                    return execution
+
+                arm_evaluator_runner = capture_evaluator_execution
             ceiling = _solver_ceiling(controller, arm)
             reservation = _reserve_solver(
                 controller,
@@ -1235,10 +1556,17 @@ def run_tier0(
                     before_solver=before_solver,
                     after_solver=after_solver,
                     judge_request_boundary=evaluator_boundaries.get(arm.arm_id),
-                    evaluator_runner=evaluator_runner,
-                    evaluator_provenance=evaluator_provenance,
+                    evaluator_runner=arm_evaluator_runner,
+                    evaluator_provenance=arm_provenance,
                     require_production_provenance=controller is not None,
                 )
+                if controller is not None:
+                    assert evaluator_provenance_provider is not None
+                    _verify_arm_evaluator_provenance(
+                        evaluator_provenance_provider,
+                        arm.arm_id,
+                        result.evaluation,
+                    )
                 results.append(
                     Tier0ArmResult(
                         arm_id=arm.arm_id,
@@ -1286,10 +1614,17 @@ def run_tier0(
                     before_solver=before_solver,
                     after_solver=after_solver,
                     judge_request_boundary=evaluator_boundaries.get(arm.arm_id),
-                    evaluator_runner=evaluator_runner,
-                    evaluator_provenance=evaluator_provenance,
+                    evaluator_runner=arm_evaluator_runner,
+                    evaluator_provenance=arm_provenance,
                     require_production_provenance=controller is not None,
                 )
+                if controller is not None:
+                    assert evaluator_provenance_provider is not None
+                    _verify_arm_evaluator_provenance(
+                        evaluator_provenance_provider,
+                        arm.arm_id,
+                        native_result.evaluation,
+                    )
                 results.append(
                     replace(
                         native_result,
@@ -2198,10 +2533,7 @@ def _evaluation_contract_identity(
         for field_name in (
             "schema_version",
             "evaluation_id",
-            "deliverable_manifest_sha256",
-            "deliverable_tree_sha256",
             "task_sha256",
-            "run_sha256",
             "config_sha256",
             "evaluator_repository",
             "evaluator_commit",
@@ -2521,6 +2853,12 @@ def _decode_public_key(value: str) -> bytes:
             "Tier-0 approval authority public key is not canonical Ed25519"
         )
     return decoded
+
+
+def _observed_token_count(value: object) -> TokenCount:
+    if type(value) is int and value >= 0:
+        return TokenCount(value, None)
+    return TokenCount(None, "not_reported")
 
 
 def _hash_file(path: Path) -> str:
