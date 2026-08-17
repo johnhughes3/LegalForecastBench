@@ -41528,6 +41528,39 @@ class _VerifiedSuccessorSelectionCard:
             "_VerifiedSuccessorSelectionCard is minted only by materialization replay"
         )
 
+    @classmethod
+    def mint_after_replay(
+        cls,
+        *,
+        selection_path: Path,
+        selection_bytes: bytes,
+        selection_record_count: int,
+        run_card_path: Path,
+        run_card_bytes: bytes,
+    ) -> _VerifiedSuccessorSelectionCard:
+        """Mint the opaque capability after a specialized replay has finished.
+
+        ``__init__`` is closed so no caller can fabricate this capability from
+        parsed bytes, which means construction has to go through
+        ``object.__new__``.  Keeping that here rather than at the call site
+        keeps field additions co-located with the field declarations above: a
+        new field is a signature change on this method, not a silent omission
+        in a distant sequence of ``object.__setattr__`` calls.
+
+        The method name is unprefixed only because the enclosing class is
+        module-private; that, plus the replay attestation its one caller
+        requires, is what keeps the capability closed.
+        """
+
+        verified = object.__new__(cls)
+        object.__setattr__(verified, "selection_path", selection_path)
+        object.__setattr__(verified, "selection_bytes", selection_bytes)
+        object.__setattr__(verified, "selection_record_count", selection_record_count)
+        object.__setattr__(verified, "run_card_path", run_card_path)
+        object.__setattr__(verified, "run_card_bytes", run_card_bytes)
+        object.__setattr__(verified, "_token", _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN)
+        return verified
+
     def is_replay_minted(self) -> bool:
         return self._token is _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN
 
@@ -41588,6 +41621,12 @@ def _verified_successor_selection_card_from_projection(
     artifact_bytes = projection.get("verified_artifact_bytes")
     selection_path = projection.get("selection_path")
     run_card_path = projection.get("run_card_path")
+    # Two path regimes, deliberately not unified.  Path *identity* is compared
+    # through `Path.resolve()` so a symlinked stage root still matches the
+    # capability it minted.  The verified-artifact snapshot below is a mapping
+    # keyed by `os.path.abspath` at capture time, so it must be looked up in
+    # that same recorded form -- resolving the key would miss the entry rather
+    # than find it under another name.
     if (
         not isinstance(artifact_bytes, Mapping)
         or not isinstance(selection_path, Path)
@@ -41669,15 +41708,13 @@ def _mint_verified_successor_selection_card_from_projection(
     ):
         raise CommandError("successor materializer replay bytes differ")
     selection_record_sequence = cast(Sequence[Mapping[str, Any]], selection_records)
-    verified = object.__new__(_VerifiedSuccessorSelectionCard)
-    object.__setattr__(verified, "selection_path", selection_path)
-    object.__setattr__(verified, "selection_bytes", selection_bytes)
-    object.__setattr__(
-        verified, "selection_record_count", len(selection_record_sequence)
+    verified = _VerifiedSuccessorSelectionCard.mint_after_replay(
+        selection_path=selection_path,
+        selection_bytes=selection_bytes,
+        selection_record_count=len(selection_record_sequence),
+        run_card_path=run_card_path,
+        run_card_bytes=run_card_bytes,
     )
-    object.__setattr__(verified, "run_card_path", run_card_path)
-    object.__setattr__(verified, "run_card_bytes", run_card_bytes)
-    object.__setattr__(verified, "_token", _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN)
     return {**projection, "verified_successor_selection_card": verified}
 
 

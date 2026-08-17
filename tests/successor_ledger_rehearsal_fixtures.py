@@ -175,6 +175,14 @@ def build_successor_ledger_rehearsal(
         )
         evidence = journal.operation_evidence(document_id)
         assert evidence is not None
+        # Filler-digest convention: a repeated filler means the two fields are
+        # genuinely bound and the verifier compares them, so
+        # `selection_document_sha256`, `attempt_policy_sha256`,
+        # `queue_response_sha256`, `download_url_sha256`, `content_sha256`, and
+        # the provider-detail/`fresh_recap_detail_sha256` pair deliberately
+        # reuse the journal's filler.  Every unrelated commitment field gets a
+        # digest no other field uses, so a verifier that compared the wrong two
+        # fields would fail closed here instead of passing on a coincidence.
         resolved_record: dict[str, object] = {
             "schema_version": "legalforecast.resolved_post_recovery_public_document.v1",
             "candidate_id": case_plan.candidate_id,
@@ -197,13 +205,13 @@ def build_successor_ledger_rehearsal(
             "fresh_detail_public_evidence_sha256": "7" * 64,
             "reviews_artifact_sha256": "8" * 64,
             "review_receipt_sha256": "9" * 64,
-            "review_authority_sha256": "a" * 64,
+            "review_authority_sha256": "ab" * 32,
             "purchase_policy_sha256": policy.policy_sha256,
             "purchase_operation_sha256": canonical_purchase_operation_sha256(
                 preclear_operation
             ),
             "operation_key": evidence["operation_key"],
-            "broker_receipt_sha256": "b" * 64,
+            "broker_receipt_sha256": "bc" * 32,
             "broker_receipt_state": "provider_free_fixture",
             "restriction_status": "public",
             "parser_eligible": True,

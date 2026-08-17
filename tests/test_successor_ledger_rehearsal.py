@@ -26,7 +26,10 @@ from legalforecast.ingestion.replacement_recovery_source import (
     build_recovery_source_descriptor,
     derive_resolved_source_coordinates,
 )
-from legalforecast.ingestion.resolved_post_recovery import ResolvedPostRecoveryError
+from legalforecast.ingestion.resolved_post_recovery import (
+    ResolvedPostRecoveryError,
+    reconstruct_pre_resolution_purchase_snapshot,
+)
 from tests.successor_ledger_rehearsal_fixtures import (
     build_successor_ledger_rehearsal,
     reconstructed_transition,
@@ -162,10 +165,6 @@ def test_successor_ledger_rehearsal_fails_closed_on_authority_and_transition_tam
         ResolvedPostRecoveryError,
         match="does not reproduce its prior state",
     ):
-        from legalforecast.ingestion.resolved_post_recovery import (
-            reconstruct_pre_resolution_purchase_snapshot,
-        )
-
         reconstruct_pre_resolution_purchase_snapshot(
             current_snapshot=tampered_after_snapshot,
             resolved_records=(rehearsal.resolved_record,),
@@ -180,10 +179,6 @@ def test_successor_ledger_rehearsal_fails_closed_on_authority_and_transition_tam
     with pytest.raises(
         ResolvedPostRecoveryError, match="resolved document hash changed"
     ):
-        from legalforecast.ingestion.resolved_post_recovery import (
-            reconstruct_pre_resolution_purchase_snapshot,
-        )
-
         reconstruct_pre_resolution_purchase_snapshot(
             current_snapshot=rehearsal.transition_after,
             resolved_records=(tampered_resolved,),

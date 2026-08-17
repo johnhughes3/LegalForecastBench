@@ -83,6 +83,22 @@ class ClearanceSourceCoordinates:
     clearance_sha256: str
 
 
+def _comparison_path(path: Path) -> Path:
+    """Return the one normal form this module compares recovery paths by.
+
+    Recovery, clearance, and resolve run cards record absolute path strings.
+    Every path reconstructed from a card is therefore kept in its recorded
+    ``Path.absolute()`` form -- rewriting it would change the bytes a
+    downstream commitment is bound to -- while every *comparison* has to see
+    through symlinks, or a card written from a symlinked root would spuriously
+    fail to match an otherwise identical path.  Equality, set membership, and
+    duplicate detection all go through this function so the two regimes stay
+    separated; do not mix in raw ``Path`` equality or ``os.path.abspath``.
+    """
+
+    return path.resolve()
+
+
 def _string_mapping(value: object, *, label: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise ReplacementRecoverySourceError(f"{label} must be an object")
@@ -102,7 +118,9 @@ def _path_sequence(
         if not isinstance(raw_path, str) or not raw_path:
             raise ReplacementRecoverySourceError(f"{label} contains an invalid path")
         paths.append(Path(raw_path).absolute())
-    if not allow_duplicates and len({path.resolve() for path in paths}) != len(paths):
+    if not allow_duplicates and len({_comparison_path(path) for path in paths}) != len(
+        paths
+    ):
         raise ReplacementRecoverySourceError(f"{label} repeats a path")
     return tuple(paths)
 
@@ -137,7 +155,7 @@ def derive_recovery_source_coordinates(
     if mode == "initial_projection":
         if len(paths) not in {8, 10}:
             raise ReplacementRecoverySourceError("initial recovery input paths differ")
-        if len({path.resolve() for path in paths}) != len(paths):
+        if len({_comparison_path(path) for path in paths}) != len(paths):
             raise ReplacementRecoverySourceError(
                 "initial recovery input paths repeat a path"
             )
@@ -165,11 +183,11 @@ def derive_recovery_source_coordinates(
             )
         kind = SUCCESSOR_KIND
         selection_path = paths[0]
-        if selection_path.resolve() != paths[1].resolve():
+        if _comparison_path(selection_path) != _comparison_path(paths[1]):
             raise ReplacementRecoverySourceError(
                 "successor recovery selection and case relevance differ"
             )
-        if len({path.resolve() for path in paths}) != len(paths) - 1:
+        if len({_comparison_path(path) for path in paths}) != len(paths) - 1:
             raise ReplacementRecoverySourceError(
                 "successor recovery input paths repeat an unexpected path"
             )
@@ -270,9 +288,9 @@ def derive_clearance_source_coordinates(
     )
     raw_outputs = card.get("output_paths")
     outputs = _path_sequence(raw_outputs, label="clearance output_paths")
-    if {path.resolve() for path in outputs} != {
-        clearance_path.resolve(),
-        quarantine_path.resolve(),
+    if {_comparison_path(path) for path in outputs} != {
+        _comparison_path(clearance_path),
+        _comparison_path(quarantine_path),
     }:
         raise ReplacementRecoverySourceError("clearance output paths rebound")
     return ClearanceSourceCoordinates(
@@ -322,11 +340,12 @@ def derive_resolved_source_coordinates(
         for path in expected_input_paths
         if not (
             legacy_empty_terminal
-            and path.resolve() == expected_terminal_unavailable_path.resolve()
+            and _comparison_path(path)
+            == _comparison_path(expected_terminal_unavailable_path)
         )
     )
-    expected = {path.resolve() for path in expected_inputs}
-    if not expected <= {path.resolve() for path in inputs}:
+    expected = {_comparison_path(path) for path in expected_inputs}
+    if not expected <= {_comparison_path(path) for path in inputs}:
         raise ReplacementRecoverySourceError(
             "resolved source omits authenticated recovery inputs"
         )
@@ -352,11 +371,13 @@ def derive_resolved_source_coordinates(
         )
         terminal_count = raw_terminal.get("record_count")
         if (
-            terminal_path.resolve() != expected_terminal_unavailable_path.resolve()
+            _comparison_path(terminal_path)
+            != _comparison_path(expected_terminal_unavailable_path)
             or terminal_sha256 != expected_terminal_unavailable_sha256
             or type(terminal_count) is not int
             or terminal_count != expected_terminal_unavailable_count
-            or terminal_path.resolve() not in {path.resolve() for path in inputs}
+            or _comparison_path(terminal_path)
+            not in {_comparison_path(path) for path in inputs}
         ):
             raise ReplacementRecoverySourceError(
                 "resolved terminal-unavailable partition changed"
@@ -378,10 +399,9 @@ def derive_resolved_source_coordinates(
             )
         for name, expected_path in expected_terminal_disposition_paths.items():
             raw_path = disposition_sources.get(name)
-            if (
-                not isinstance(raw_path, str)
-                or Path(raw_path).resolve() != expected_path.resolve()
-            ):
+            if not isinstance(raw_path, str) or _comparison_path(
+                Path(raw_path)
+            ) != _comparison_path(expected_path):
                 raise ReplacementRecoverySourceError(
                     "resolved terminal disposition source path rebound"
                 )
@@ -403,18 +423,18 @@ def derive_resolved_source_coordinates(
             raw_sources[f"input_{index:02d}"],
             label=f"resolved input_{index:02d}",
         )
-        if committed_path.resolve() != input_path.resolve():
+        if _comparison_path(committed_path) != _comparison_path(input_path):
             raise ReplacementRecoverySourceError(
                 "resolved source commitment path rebound"
             )
-        resolved_input = input_path.resolve()
+        resolved_input = _comparison_path(input_path)
         previous_digest = source_digests_by_path.get(resolved_input)
         if previous_digest is not None and previous_digest != digest:
             raise ReplacementRecoverySourceError(
                 "resolved duplicate input commitments differ"
             )
         source_digests_by_path[resolved_input] = digest
-    terminal_resolved_path = expected_terminal_unavailable_path.resolve()
+    terminal_resolved_path = _comparison_path(expected_terminal_unavailable_path)
     if (
         legacy_empty_terminal
         and terminal_resolved_path in source_digests_by_path
@@ -424,19 +444,24 @@ def derive_resolved_source_coordinates(
         raise ReplacementRecoverySourceError(
             "resolved legacy empty terminal input changed"
         )
-    expected_resolved_paths = {path.resolve() for path in expected_inputs}
+    expected_resolved_paths = {_comparison_path(path) for path in expected_inputs}
     ordered_inputs = (
         *expected_inputs,
         *(
             path
             for path in inputs
-            if path.resolve() not in expected_resolved_paths
-            and not (legacy_empty_terminal and path.resolve() == terminal_resolved_path)
+            if _comparison_path(path) not in expected_resolved_paths
+            and not (
+                legacy_empty_terminal
+                and _comparison_path(path) == terminal_resolved_path
+            )
         ),
     )
     raw_outputs = card.get("output_paths")
     outputs = _path_sequence(raw_outputs, label="resolved output_paths")
-    if len(outputs) != 2 or outputs[1].resolve() != expected_ledger_path.resolve():
+    if len(outputs) != 2 or _comparison_path(outputs[1]) != _comparison_path(
+        expected_ledger_path
+    ):
         raise ReplacementRecoverySourceError(
             "resolved post-recovery output paths differ"
         )
@@ -455,7 +480,7 @@ def derive_resolved_source_coordinates(
         raw_output_commitments["resolved_post_recovery_documents"],
         label="resolved post-recovery documents",
     )
-    if resolved_path.resolve() != outputs[0].resolve():
+    if _comparison_path(resolved_path) != _comparison_path(outputs[0]):
         raise ReplacementRecoverySourceError(
             "resolved post-recovery output path rebound"
         )
@@ -472,7 +497,7 @@ def derive_resolved_source_coordinates(
         resolved_sha256=resolved_sha256,
         input_paths=tuple(ordered_inputs),
         input_sha256=tuple(
-            source_digests_by_path[path.resolve()] for path in ordered_inputs
+            source_digests_by_path[_comparison_path(path)] for path in ordered_inputs
         ),
         terminal_unavailable_path=terminal_path,
         terminal_unavailable_sha256=terminal_sha256,
