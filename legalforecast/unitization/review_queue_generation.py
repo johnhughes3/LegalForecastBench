@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -226,7 +227,7 @@ def read_review_queue_generation(queue_path: Path) -> ReviewQueueGeneration:
 
     manifest_path = review_queue_generation_manifest_path(queue_path)
     try:
-        raw_manifest = manifest_path.read_bytes()
+        raw_manifest = _read_direct_child_no_follow(manifest_path)
     except OSError as exc:
         raise ReviewQueueError(
             f"review queue generation manifest is unreadable: {exc}"
@@ -349,12 +350,11 @@ def _resolve_member_path(
 
 
 def _read_direct_child_no_follow(path: Path) -> bytes:
-    """Read one regular generation member through an anchored directory handle."""
+    """Read one regular file through no-follow handles for every path component."""
 
-    no_follow = getattr(os, "O_NOFOLLOW", 0)
-    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | no_follow
-    directory_descriptor = os.open(path.parent, directory_flags)
+    directory_descriptor = _open_directory_path_no_follow(path.parent)
     try:
+        no_follow = getattr(os, "O_NOFOLLOW", 0)
         descriptor = os.open(
             path.name,
             os.O_RDONLY | no_follow,
@@ -363,12 +363,35 @@ def _read_direct_child_no_follow(path: Path) -> bytes:
     finally:
         os.close(directory_descriptor)
     try:
+        file_stat = os.fstat(descriptor)
+        if not stat.S_ISREG(file_stat.st_mode) or file_stat.st_nlink != 1:
+            raise OSError(
+                "review queue generation member must be a regular file with one link"
+            )
         stream = os.fdopen(descriptor, "rb")
     except BaseException:
         os.close(descriptor)
         raise
     with stream:
         return stream.read()
+
+
+def _open_directory_path_no_follow(path: Path) -> int:
+    """Open every absolute directory component without following symlinks."""
+
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    parts = absolute.parts
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    current = os.open(Path(parts[0]), flags)
+    try:
+        for part in parts[1:]:
+            next_descriptor = os.open(part, flags, dir_fd=current)
+            os.close(current)
+            current = next_descriptor
+        return current
+    except BaseException:
+        os.close(current)
+        raise
 
 
 def _member_record(
