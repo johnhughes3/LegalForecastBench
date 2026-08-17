@@ -11,8 +11,10 @@ import os
 import stat
 import sys
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 
+import legalforecast.multiharness.codex_cli_harvey_lab as codex_lab_composition
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
@@ -32,11 +34,18 @@ from legalforecast.multiharness.harvey_lab_output_discovery import (
     HarveyLabOutputDiscoveryError,
     HarveyLabOutputErrorCode,
 )
-from legalforecast.multiharness.harvey_lab_projection import ISSUE_196_LAB_TASK_ID
+from legalforecast.multiharness.harvey_lab_projection import (
+    ISSUE_196_LAB_TASK_ID,
+    HarveyLabProjectionResult,
+)
 from legalforecast.multiharness.local_cli_contracts import LocalCliFailureClass
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.scoring import build_harvey_lab_metric_definition
-from tests.test_harvey_lab_projection import FIXTURE_PIN, _issue_196_source
+from tests.test_harvey_lab_projection import (
+    FIXTURE_PIN,
+    _add_unselected_task,
+    _issue_196_source,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 FAKE_CLI = ROOT / "tests" / "fixtures" / "local_cli_fake_cli.py"
@@ -94,6 +103,69 @@ def test_fake_cli_lab_pipeline_binds_projection_receipt_discovery_and_score(
     assert result.score.n_passed == result.score.n_criteria == 23
     assert (tmp_path / "sealed" / LAB_BASENAME).is_file()
     assert not list((tmp_path / "solver").rglob("gold-answers.json"))
+
+
+def test_pipeline_selects_only_the_frozen_issue_196_task(tmp_path: Path) -> None:
+    env = _install_binaries(tmp_path, outcome="success")
+    hosts = _hosts(tmp_path)
+    _add_unselected_task(hosts["source_root"])
+    try:
+        result = run_codex_cli_clean_native_harvey_lab(
+            adapter=_adapter(env),
+            pin=FIXTURE_PIN,
+            signer=KEY.sign,
+            issuer_public_key=KEY.public_key(),
+            **hosts,
+        )
+    finally:
+        _make_writable(tmp_path)
+
+    assert result.task.lab_task_id == ISSUE_196_LAB_TASK_ID
+    assert tuple(task.lab_task_id for task in result.projection.manifest.tasks) == (
+        ISSUE_196_LAB_TASK_ID,
+    )
+
+
+def test_pipeline_refuses_an_invalid_projection_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _install_binaries(tmp_path, outcome="success")
+    hosts = _hosts(tmp_path)
+    real_project = codex_lab_composition.project_harvey_lab_suite
+
+    def project_without_tasks(
+        *args: object, **kwargs: object
+    ) -> HarveyLabProjectionResult:
+        projection = real_project(*args, **kwargs)
+        return replace(
+            projection,
+            manifest=replace(projection.manifest, tasks=()),
+        )
+
+    monkeypatch.setattr(
+        codex_lab_composition,
+        "project_harvey_lab_suite",
+        project_without_tasks,
+    )
+    try:
+        with pytest.raises(
+            CodexCliAdapterError,
+            match=(
+                "Harvey LAB projection did not produce exactly "
+                "the frozen issue-196 task"
+            ),
+        ):
+            run_codex_cli_clean_native_harvey_lab(
+                adapter=_adapter(env),
+                pin=FIXTURE_PIN,
+                signer=KEY.sign,
+                issuer_public_key=KEY.public_key(),
+                **hosts,
+            )
+    finally:
+        _make_writable(tmp_path)
+
+    assert not (tmp_path / "sealed").exists()
 
 
 def test_sandbox_denial_classifies_at_top_of_stack(tmp_path: Path) -> None:

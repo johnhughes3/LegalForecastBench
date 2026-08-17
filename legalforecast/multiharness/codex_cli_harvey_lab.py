@@ -41,6 +41,7 @@ from legalforecast.multiharness.harvey_lab_output_discovery import (
 )
 from legalforecast.multiharness.harvey_lab_projection import (
     INSTRUCTIONS_NAME,
+    ISSUE_196_LAB_TASK_ID,
     HarveyLabPin,
     HarveyLabProjectedTask,
     HarveyLabProjectionResult,
@@ -112,9 +113,15 @@ def run_codex_cli_clean_native_harvey_lab(
         solver_root=solver_root,
         evaluator_private_root=evaluator_private_root,
         pin=pin,
+        lab_task_ids=(ISSUE_196_LAB_TASK_ID,),
     )
-    if not projection.manifest.tasks:
-        raise CodexCliAdapterError("Harvey LAB projection produced no tasks")
+    if (
+        len(projection.manifest.tasks) != 1
+        or projection.manifest.tasks[0].lab_task_id != ISSUE_196_LAB_TASK_ID
+    ):
+        raise CodexCliAdapterError(
+            "Harvey LAB projection did not produce exactly the frozen issue-196 task"
+        )
     task = projection.manifest.tasks[0]
     task_dir = projection.solver_root / task.relative_path
     prompt = _lab_solver_prompt(instructions=task_dir / INSTRUCTIONS_NAME, task=task)
