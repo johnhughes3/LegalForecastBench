@@ -10628,6 +10628,23 @@
         "nonblank_line_count": 597,
         "top_level_definition_count": 16
       },
+      "tests/test_tier0_operator_half.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_cli_mint_writes_the_three_artifacts",
+        "largest_symbol_lines": 53,
+        "layer": "test",
+        "line_count": 536,
+        "nonblank_line_count": 455,
+        "top_level_definition_count": 28
+      },
       "tests/test_unitization_add_adjudication.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
