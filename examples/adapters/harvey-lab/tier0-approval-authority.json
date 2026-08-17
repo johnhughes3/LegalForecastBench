@@ -1,0 +1,9 @@
+{
+  "algorithm": "Ed25519",
+  "issuer_id": "legalforecast.tier0-spend-approval-issuer.v1",
+  "issuer_policy_sha256": "sha256:29c9fa3cd4f1788f6089d74d02676dc68187d513c709be2f3c27ddfdd92c7fe4",
+  "key_id": "tier0-spend-approver-v1",
+  "public_key_base64": null,
+  "schema_version": "legalforecast.multiharness.tier0_approval_authority.v1",
+  "status": "pending_human_provisioning"
+}

@@ -67,6 +67,7 @@ from legalforecast.multiharness.task_loaders import (
 from legalforecast.multiharness.tier0_runner import (
     Tier0ExecutableSpec,
     load_approved_issuer_authority,
+    load_approved_tier0_approval_authority,
     load_detached_approval,
     load_executable_spec,
     load_spend_artifacts,
@@ -627,11 +628,12 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         cast(Path, args.spec),
         cast(str, args.spec_sha256),
     )
-    authority = load_approved_issuer_authority()
+    approval_authority = load_approved_tier0_approval_authority()
+    evaluator_authority = load_approved_issuer_authority()
     approval = load_detached_approval(
         cast(Path, args.approval),
         spec_sha256=spec_sha256,
-        authority=authority,
+        authority=approval_authority,
     )
     if spec.pricing_snapshot_sha256 is None and approval.status == "provider_free":
         spend_policy = None
@@ -664,11 +666,6 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         )
     private_root.parent.mkdir(parents=True, exist_ok=True)
     archive_root.parent.mkdir(parents=True, exist_ok=True)
-    # ``evaluator_runner`` is intentionally absent.  No production runner drives
-    # the 23 LAB criterion calls through the per-criterion spend boundary yet,
-    # and inventing one here would let paid judge requests leave the process
-    # without a reservation.  ``run_tier0`` therefore refuses any spend-carrying
-    # spec from this entry point until that runner exists; see issue #824.
     result = run_tier0(
         spec=spec,
         spec_sha256=spec_sha256,
@@ -676,7 +673,8 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         source_root=source_root,
         private_root=private_root,
         archive_root=archive_root,
-        authority=authority,
+        approval_authority=approval_authority,
+        evaluator_authority=evaluator_authority,
         spend_policy=spend_policy,
         pricing_snapshot=pricing_snapshot,
         evaluator_runner=evaluator_runner,
@@ -693,9 +691,11 @@ def _cmd_tier0_validate(args: argparse.Namespace) -> int:
     spec, spec_sha256 = load_executable_spec(
         cast(Path, args.spec), cast(str, args.spec_sha256)
     )
-    authority = load_approved_issuer_authority()
+    approval_authority = load_approved_tier0_approval_authority()
     load_detached_approval(
-        cast(Path, args.approval), spec_sha256=spec_sha256, authority=authority
+        cast(Path, args.approval),
+        spec_sha256=spec_sha256,
+        authority=approval_authority,
     )
     load_spend_artifacts(cast(Path, args.spec), spec)
     _cli_note(f"Tier-0 executable spec and sidecars validated ({spec_sha256}).")
