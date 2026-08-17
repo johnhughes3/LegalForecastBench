@@ -245,6 +245,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`recap_fetch_attempt_policy.py`](../legalforecast/ingestion/recap_fetch_attempt_policy.py) | Immutable bounded unknown-status attempt authority. |
 | [`recap_fetch_broker.py`](../legalforecast/ingestion/recap_fetch_broker.py) | Signed isolated budget-enforcing broker client. |
 | [`recap_fetch_broker_policy.py`](../legalforecast/ingestion/recap_fetch_broker_policy.py) | Broker allowlist derived from executable artifacts. |
+| [`recap_fetch_confirmation_provenance.py`](../legalforecast/ingestion/recap_fetch_confirmation_provenance.py) | Non-authoritative sidecar naming which evidence confirmed each purchase. |
 | [`downstream_lineage_verification.py`](../legalforecast/ingestion/downstream_lineage_verification.py) | Importable materialized downstream-lineage verification helpers. |
 | [`packet_build_replay.py`](../legalforecast/ingestion/packet_build_replay.py) | Importable packet-build and packet-planner run-card replay helpers. |
 | [`recovered_public_replay.py`](../legalforecast/ingestion/recovered_public_replay.py) | Importable recovered-public and successor-history replay helpers. |
