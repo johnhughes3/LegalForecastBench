@@ -6530,11 +6530,11 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "invoke_isolated_harvey_lab_evaluator",
-        "largest_symbol_lines": 121,
+        "largest_symbol_lines": 138,
         "layer": "application",
-        "line_count": 876,
-        "nonblank_line_count": 788,
-        "top_level_definition_count": 38
+        "line_count": 948,
+        "nonblank_line_count": 849,
+        "top_level_definition_count": 40
       },
       "legalforecast/multiharness/harvey_lab_output_discovery.py": {
         "cycle_id": "",
@@ -6840,11 +6840,11 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_tier0",
-        "largest_symbol_lines": 343,
+        "largest_symbol_lines": 334,
         "layer": "application",
-        "line_count": 1927,
-        "nonblank_line_count": 1782,
-        "top_level_definition_count": 50
+        "line_count": 1994,
+        "nonblank_line_count": 1844,
+        "top_level_definition_count": 49
       },
       "legalforecast/protocol/freeze.py": {
         "cycle_id": "",
@@ -8838,9 +8838,9 @@
         "largest_symbol": "test_receipt_binds_to_copied_private_inputs_not_live_source",
         "largest_symbol_lines": 60,
         "layer": "test",
-        "line_count": 749,
-        "nonblank_line_count": 695,
-        "top_level_definition_count": 23
+        "line_count": 857,
+        "nonblank_line_count": 791,
+        "top_level_definition_count": 27
       },
       "tests/test_harvey_lab_output_discovery.py": {
         "cycle_id": "",
@@ -9276,6 +9276,23 @@
         "line_count": 1593,
         "nonblank_line_count": 1424,
         "top_level_definition_count": 46
+      },
+      "tests/test_multiharness_spend.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_per_criterion_boundary_reserves_all_23_calls_and_enforces_caps",
+        "largest_symbol_lines": 90,
+        "layer": "test",
+        "line_count": 647,
+        "nonblank_line_count": 574,
+        "top_level_definition_count": 31
       },
       "tests/test_official_aggregate.py": {
         "cycle_id": "",
