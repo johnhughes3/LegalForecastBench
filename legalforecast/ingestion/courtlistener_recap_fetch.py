@@ -12,6 +12,7 @@ import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from http.client import HTTPMessage
+from pathlib import Path
 from typing import IO, Any, Protocol, cast
 
 from legalforecast.ingestion.case_dev_purchase import (
@@ -41,6 +42,15 @@ from legalforecast.ingestion.recap_fetch_broker import (
 )
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
+)
+from legalforecast.ingestion.recap_fetch_confirmation_provenance import (
+    PUBLIC_DOCUMENT_CONFIRMATION,
+    QUEUE_RECEIPT_CONFIRMATION,
+    ConfirmationProvenance,
+    attach_queue_receipt,
+    confirmation_provenance_path,
+    read_confirmation_provenance,
+    record_confirmation_provenance,
 )
 
 _DEFAULT_BASE_URL = "https://www.courtlistener.com/api/rest/v4"
@@ -676,6 +686,7 @@ class CourtListenerRecapFetchClient:
                     "unknown_status_material_pending_clearance",
                 )
             response = _mapping(evidence.get("response"), "confirmed response")
+            self._reconcile_confirmation_provenance(document_id, response)
             return _purchased_attempt(candidate_id, document_id, response)
         if status == "failed":
             assert evidence is not None
@@ -1224,7 +1235,98 @@ class CourtListenerRecapFetchClient:
         if queue_payload is not None:
             confirmed["queue_response"] = dict(queue_payload)
         self.journal.confirm_reserved(document_id, response=confirmed)
+        # Provenance is written only after the journal has already committed
+        # the confirmation, so this observation can describe a durable billing
+        # state but can never create one.
+        self._write_confirmation_provenance(document_id, confirmed)
         return _purchased_attempt(candidate_id, document_id, confirmed)
+
+    def _confirmation_provenance_path(self) -> Path:
+        return confirmation_provenance_path(self.journal.path)
+
+    def _write_confirmation_provenance(
+        self, document_id: str, confirmed: Mapping[str, Any]
+    ) -> None:
+        """Name the evidence a confirmation rests on, outside frozen bytes."""
+
+        queue_payload = confirmed.get("queue_response")
+        queue_receipt = _mapping_or_none(queue_payload)
+        policy = self.journal.policy
+        record_confirmation_provenance(
+            self._confirmation_provenance_path(),
+            cycle_id=policy.cycle_id,
+            purchase_policy_sha256=policy.policy_sha256,
+            provenance=ConfirmationProvenance(
+                source_document_id=document_id,
+                queue_id=str(confirmed.get("queue_id", "")),
+                confirmation_evidence=(
+                    QUEUE_RECEIPT_CONFIRMATION
+                    if queue_receipt is not None
+                    else PUBLIC_DOCUMENT_CONFIRMATION
+                ),
+                confirmed_response_sha256=_sha256_json(confirmed),
+                queue_response=queue_receipt,
+                queue_response_sha256=(
+                    None if queue_receipt is None else _sha256_json(queue_receipt)
+                ),
+            ),
+        )
+
+    def _reconcile_confirmation_provenance(
+        self, document_id: str, confirmed: Mapping[str, Any]
+    ) -> None:
+        """Backfill missing provenance and attach a late-visible queue receipt.
+
+        A confirmation recorded before this sidecar existed, or one whose
+        sidecar write failed, is reconstructible from the confirmed response
+        itself, so a missing entry is repaired here rather than lost.  A
+        queue-lag confirmation additionally gets its stronger queue receipt
+        attached once CourtListener publishes the queue detail.  Both paths are
+        sidecar-only: `confirm_reserved` already ran, and nothing here reopens
+        it.
+        """
+
+        policy = self.journal.policy
+        path = self._confirmation_provenance_path()
+        recorded = read_confirmation_provenance(
+            path,
+            cycle_id=policy.cycle_id,
+            purchase_policy_sha256=policy.policy_sha256,
+        ).get(document_id)
+        confirmed_sha256 = _sha256_json(confirmed)
+        if recorded is None or recorded.confirmed_response_sha256 != confirmed_sha256:
+            self._write_confirmation_provenance(document_id, confirmed)
+            return
+        if (
+            recorded.confirmation_evidence != PUBLIC_DOCUMENT_CONFIRMATION
+            or recorded.queue_response is not None
+        ):
+            return
+        try:
+            queue_id = _identifier(recorded.queue_id)
+            payload = self._request(
+                "GET",
+                f"/recap-fetch/{queue_id}/",
+                {},
+                paid=False,
+                retry=True,
+                queue_detail=True,
+            )
+        except CourtListenerRecapFetchError:
+            # The queue is still not readable.  The confirmation stands on the
+            # public document exactly as recorded; there is nothing to attach.
+            return
+        if _status(payload) != 2:
+            return
+        attach_queue_receipt(
+            path,
+            cycle_id=policy.cycle_id,
+            purchase_policy_sha256=policy.policy_sha256,
+            source_document_id=document_id,
+            confirmed_response_sha256=confirmed_sha256,
+            queue_response=payload,
+            queue_response_sha256=_sha256_json(payload),
+        )
 
     def _request(
         self,
@@ -1577,6 +1679,14 @@ def _mapping(value: object, field_name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise CourtListenerRecapFetchError(f"{field_name} must be an object")
     return cast(Mapping[str, Any], value)
+
+
+def _mapping_or_none(value: object) -> Mapping[str, Any] | None:
+    """Narrow an optional recorded object without rejecting its absence."""
+
+    if value is None:
+        return None
+    return _mapping(value, "queue response")
 
 
 def _json_object(content: bytes) -> Mapping[str, Any]:
