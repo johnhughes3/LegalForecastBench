@@ -15,8 +15,6 @@ second implementation of the same hashing.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import mimetypes
 from pathlib import Path
 from typing import Any
@@ -28,6 +26,7 @@ from legalforecast.multiharness.harvey_lab_projection import (
     verify_harvey_lab_projection,
 )
 from legalforecast.multiharness.spec import ArtifactRecord, CanonicalTask, TaskIndex
+from legalforecast.multiharness.task_loaders import task_index_sha256
 from legalforecast.multiharness.validation import (
     validate_safe_relative_path,
     validate_unique_ids,
@@ -69,7 +68,7 @@ class HarveyLabProjectionTaskLoader:
             index_id=index_id,
             selection_namespace=selection_namespace,
             tasks=tasks,
-            index_sha256=_record_sha256([task.to_record() for task in tasks]),
+            index_sha256=task_index_sha256(tasks),
         )
 
     def _canonical_task(
@@ -138,8 +137,3 @@ def _artifact_id(role: str, path: str) -> str:
     if role == "document":
         return f"document:{path.removeprefix('documents/')}"
     return role
-
-
-def _record_sha256(record: Any) -> str:
-    encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()

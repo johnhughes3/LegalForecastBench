@@ -276,6 +276,7 @@
     "tests/test_community_acceptance_executable_freeze_digest.py",
     "tests/test_community_acceptance_freeze_digest.py",
     "tests/test_community_examples.py",
+    "tests/test_community_lab_quickstart.py",
     "tests/test_community_multiharness_workflow.py",
     "tests/test_community_run_summary_v2.py",
     "tests/test_contributor_subscription_profile.py",
