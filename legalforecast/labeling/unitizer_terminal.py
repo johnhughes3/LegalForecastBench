@@ -18,6 +18,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderJournalError,
     ReconstructionFailureEvidence,
     open_provider_journal_snapshot,
+    provider_prompt_logical_call_scope,
     verify_provider_journal_identity,
 )
 from legalforecast.unitization.review import canonical_sha256
@@ -179,6 +180,7 @@ def build_llm_stage_a_unitizer_terminal_escalation(
     provider_cycle_caps_sha256: str,
     provider_account: str,
     provider_attempt_namespace: str | None = None,
+    provider_logical_call_scope: str | None = None,
 ) -> LlmStageAUnitizerTerminalEscalation:
     """Build one provider-free receipt from exactly three durable failures.
 
@@ -212,6 +214,13 @@ def build_llm_stage_a_unitizer_terminal_escalation(
     )
     namespace = _required_namespace(provider_attempt_namespace)
     del provider_cycle_cap_usd
+    logical_call_scope = None
+    if provider_logical_call_scope is not None:
+        logical_call_scope = provider_prompt_logical_call_scope(prompt)
+        if provider_logical_call_scope != logical_call_scope:
+            raise UnitizerTerminalEscalationError(
+                "provider logical-call scope differs from the exact prompt"
+            )
     identity = ProviderCallIdentity(
         stage="llm-unitize",
         candidate_id=candidate_id,
@@ -220,6 +229,7 @@ def build_llm_stage_a_unitizer_terminal_escalation(
         model_registry_sha256=model_registry_sha256,
         account=provider_account,
         prompt_contract=namespace,
+        logical_call_scope=logical_call_scope,
     )
     evidence = read_llm_stage_a_unitizer_terminal_failure_evidence(
         provider_journal_path,

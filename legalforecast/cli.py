@@ -1749,10 +1749,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     acquisition_render_cycle_config = acquisition_subparsers.add_parser(
         "render-cycle-config",
-        help=(
-            "Render and validate a canonical acquisition-cycle config from a "
-            "path-parameterized template."
-        ),
+        help=("Render a validated acquisition-cycle config from a path template."),
         description=(
             "Substitute only explicitly declared absolute-path variables, validate "
             "the complete rendered config against the run-cycle allowlist and "
@@ -1809,6 +1806,9 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_locate_cycle_lineage_arguments(acquisition_locate_cycle_lineage)
+    # Keep the heavy executor lazy while production verifiers still contain
+    # reviewed CLI-facade bridges during the command-slice migration.
+    _score_cmd.register_stage_a_replay(acquisition_subparsers)
     acquisition_successor_rerun_impact = acquisition_subparsers.add_parser(
         "explain-successor-rerun",
         help="Explain the minimum safe rerun for proposed successor inputs.",

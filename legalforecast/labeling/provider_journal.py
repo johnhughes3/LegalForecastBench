@@ -477,6 +477,7 @@ class ProviderCallIdentity:
     model_registry_sha256: str
     account: str = "default"
     prompt_contract: str | None = None
+    logical_call_scope: str | None = None
 
     @property
     def logical_call_key(self) -> str:
@@ -487,11 +488,21 @@ class ProviderCallIdentity:
             payload = "\0".join(
                 (*parts, "stage-a-prompt-contract", self.prompt_contract)
             )
+        if self.logical_call_scope is not None:
+            payload = "\0".join(
+                (payload, "provider-logical-call-scope", self.logical_call_scope)
+            )
         return hashlib.sha256(payload.encode()).hexdigest()
 
     @property
     def prompt_sha256(self) -> str:
         return hashlib.sha256(self.prompt.encode()).hexdigest()
+
+
+def provider_prompt_logical_call_scope(prompt: str) -> str:
+    """Return the opt-in logical-call scope for one exact provider prompt."""
+
+    return "prompt-sha256:" + hashlib.sha256(prompt.encode()).hexdigest()
 
 
 class ProviderAttemptJournal:
@@ -525,6 +536,7 @@ class ProviderAttemptJournal:
         self.reservation_usd = reservation_usd
         self.cycle_cap_usd = cycle_cap_usd
         self._durable_ordinals: dict[int, int] = {}
+        self._attempt_limit: int | None = None
         self._connection = sqlite3.connect(self.path, isolation_level=None)
         try:
             self._connection.row_factory = sqlite3.Row
@@ -614,6 +626,11 @@ class ProviderAttemptJournal:
 
         if type(max_attempts) is not int or max_attempts <= 0:
             raise ValueError("max_attempts must be a positive integer")
+        if self._attempt_limit not in {None, max_attempts}:
+            raise ProviderJournalError(
+                "provider reconstruction retry attempt limit changed"
+            )
+        self._attempt_limit = max_attempts
         rows = self._connection.execute(
             """
             SELECT attempt_ordinal, status, failure_type FROM provider_attempts
@@ -622,19 +639,6 @@ class ProviderAttemptJournal:
             """,
             (self.identity.logical_call_key,),
         ).fetchall()
-        recovered = next(
-            (
-                row
-                for row in reversed(rows)
-                if row["status"] == "settled" and row["failure_type"] is not None
-            ),
-            None,
-        )
-        if not any(row["status"] == "reconstruction_failed" for row in rows):
-            if recovered is not None:
-                self._durable_ordinals[1] = int(recovered["attempt_ordinal"])
-                return 1
-            return max_attempts
         replayable = next(
             (
                 row
@@ -652,7 +656,9 @@ class ProviderAttemptJournal:
             raise ProviderJournalError(
                 "provider reconstruction retry attempt limit is exhausted"
             )
-        next_ordinal = max(int(row["attempt_ordinal"]) for row in rows) + 1
+        next_ordinal = (
+            max(int(row["attempt_ordinal"]) for row in rows) + 1 if rows else 1
+        )
         for local_ordinal in range(1, remaining + 1):
             self._durable_ordinals[local_ordinal] = next_ordinal + local_ordinal - 1
         return remaining
@@ -1462,6 +1468,29 @@ class ProviderAttemptJournal:
             if settled is not None:
                 raise ProviderJournalError(
                     "provider call already has an authoritative settled response"
+                )
+            attempts = self._connection.execute(
+                """
+                SELECT COUNT(*) AS count,
+                       COALESCE(MAX(attempt_ordinal), 0) AS maximum_ordinal
+                FROM provider_attempts
+                WHERE logical_call_key = ?
+                """,
+                (self.identity.logical_call_key,),
+            ).fetchone()
+            assert attempts is not None
+            attempt_count = int(attempts["count"])
+            maximum_ordinal = int(attempts["maximum_ordinal"])
+            if self._attempt_limit is not None and (
+                attempt_count >= self._attempt_limit
+                or attempt_ordinal > self._attempt_limit
+            ):
+                raise ProviderJournalError(
+                    "provider reconstruction retry attempt limit is exhausted"
+                )
+            if attempt_ordinal != maximum_ordinal + 1:
+                raise ProviderJournalError(
+                    "provider attempt ordinal changed during reservation"
                 )
             row = self._connection.execute(
                 """

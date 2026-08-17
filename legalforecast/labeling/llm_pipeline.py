@@ -93,6 +93,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderJournalError,
     RepeatedReconstructionFailureEvidence,
     maximum_call_cost_usd,
+    provider_prompt_logical_call_scope,
 )
 from legalforecast.labeling.unitizer_terminal import (
     LlmStageAUnitizerTerminalEscalation,
@@ -570,6 +571,7 @@ def llm_unitize_cases(
     ]
     | None = None,
     provider_attempt_namespace: str | None = None,
+    provider_logical_call_scope: str | None = None,
 ) -> LlmBatchResult:
     """Generate and validate Stage A prediction units from predecision materials."""
 
@@ -705,6 +707,7 @@ def llm_unitize_cases(
                 cycle_id=provider_cycle_id,
                 provider_cycle_caps_sha256=provider_cycle_caps_sha256,
                 provider_attempt_namespace=provider_attempt_namespace,
+                provider_logical_call_scope=provider_logical_call_scope,
             )
             _require_successor_or_completed_legacy_attempt(
                 journal,
@@ -734,6 +737,7 @@ def llm_unitize_cases(
                             registry_entry.provider.lower(), "default"
                         ),
                         provider_attempt_namespace=provider_attempt_namespace,
+                        provider_logical_call_scope=provider_logical_call_scope,
                     )
                 except (LlmPipelineError, ValueError):
                     # The exact old response remains failed; the existing bounded
@@ -1019,6 +1023,7 @@ def recover_llm_unitization_reconstruction(
     provider_cycle_caps_sha256: str,
     provider_account: str,
     provider_attempt_namespace: str | None = None,
+    provider_logical_call_scope: str | None = None,
 ) -> LlmUnitizationReconstructionRecovery:
     """Revalidate and settle the latest failed Stage A response without a call."""
 
@@ -1049,6 +1054,7 @@ def recover_llm_unitization_reconstruction(
         cycle_id=provider_cycle_id,
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
         provider_attempt_namespace=provider_attempt_namespace,
+        provider_logical_call_scope=provider_logical_call_scope,
     )
     if journal is None:
         raise LlmPipelineError("provider reconstruction recovery requires a journal")
@@ -1121,6 +1127,7 @@ def recover_llm_stage_a_structural_review_reconstruction(
     provider_cycle_caps_sha256: str,
     provider_account: str,
     provider_attempt_namespace: str | None = None,
+    provider_logical_call_scope: str | None = None,
 ) -> LlmStageAStructuralReviewReconstructionRecovery:
     """Revalidate and settle one failed structural-review response without a call."""
 
@@ -1160,6 +1167,7 @@ def recover_llm_stage_a_structural_review_reconstruction(
         cycle_id=provider_cycle_id,
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
         provider_attempt_namespace=provider_attempt_namespace,
+        provider_logical_call_scope=provider_logical_call_scope,
     )
     if journal is None:
         raise LlmPipelineError("provider reconstruction recovery requires a journal")
@@ -1229,6 +1237,7 @@ def build_llm_stage_a_structural_review_terminal_escalation(
     provider_cycle_caps_sha256: str,
     provider_account: str,
     provider_attempt_namespace: str | None = None,
+    provider_logical_call_scope: str | None = None,
 ) -> LlmStageAStructuralReviewTerminalEscalation:
     """Build one narrow, provider-free escalation from durable failures.
 
@@ -1282,6 +1291,7 @@ def build_llm_stage_a_structural_review_terminal_escalation(
         cycle_id=provider_cycle_id,
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
         provider_attempt_namespace=provider_attempt_namespace,
+        provider_logical_call_scope=provider_logical_call_scope,
     )
     if journal is None:
         raise LlmPipelineError("provider terminal escalation requires a journal")
@@ -1462,6 +1472,7 @@ def llm_review_stage_a_units(
     | None = None,
     unitizer_terminal_candidates: Iterable[str] = (),
     provider_attempt_namespace: str | None = None,
+    provider_logical_call_scope: str | None = None,
 ) -> LlmBatchResult:
     """Flag structural defects without permitting the reviewer to rewrite Stage A."""
 
@@ -1616,6 +1627,7 @@ def llm_review_stage_a_units(
             cycle_id=provider_cycle_id,
             provider_cycle_caps_sha256=provider_cycle_caps_sha256,
             provider_attempt_namespace=provider_attempt_namespace,
+            provider_logical_call_scope=provider_logical_call_scope,
         )
         try:
             _require_successor_or_completed_legacy_attempt(
@@ -1647,6 +1659,7 @@ def llm_review_stage_a_units(
                             registry_entry.provider.lower(), "default"
                         ),
                         provider_attempt_namespace=provider_attempt_namespace,
+                        provider_logical_call_scope=provider_logical_call_scope,
                     )
                 except (LlmPipelineError, ValueError):
                     # Preserve the failed journal evidence and use the normal
@@ -3621,9 +3634,17 @@ def _provider_attempt_journal(
     cycle_id: str | None,
     provider_cycle_caps_sha256: str | None,
     provider_attempt_namespace: str | None = None,
+    provider_logical_call_scope: str | None = None,
 ) -> ProviderAttemptJournal | None:
     if stage in _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS_BY_STAGE:
         _require_stage_a_provider_attempt_namespace(stage, provider_attempt_namespace)
+    logical_call_scope = None
+    if provider_logical_call_scope is not None:
+        logical_call_scope = provider_prompt_logical_call_scope(prompt)
+        if provider_logical_call_scope != logical_call_scope:
+            raise LlmPipelineError(
+                "provider logical-call scope differs from the exact prompt"
+            )
     if path is None:
         return None
     if not cycle_id or not provider_cycle_caps_sha256:
@@ -3640,6 +3661,7 @@ def _provider_attempt_journal(
             model_registry_sha256=model_registry_sha256 or "unrecorded",
             account=account,
             prompt_contract=provider_attempt_namespace,
+            logical_call_scope=logical_call_scope,
         ),
         provider=registry_entry.provider,
         reservation_usd=maximum_call_cost_usd(

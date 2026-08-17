@@ -14,6 +14,7 @@ from legalforecast.evals.live_model_solver import (
     complete_live_prompt,
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.labeling import llm_pipeline
 from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
     ProviderBudgetExceededError,
@@ -22,6 +23,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderJournalReplayMismatchError,
     load_provider_cycle_caps,
     open_provider_journal_snapshot,
+    provider_prompt_logical_call_scope,
     verify_provider_journal_identity,
 )
 
@@ -42,6 +44,15 @@ def test_provider_call_identity_preserves_legacy_key_and_namespaces_successor() 
         model_registry_sha256=legacy.model_registry_sha256,
         prompt_contract="claim-ontology-v2",
     )
+    prompt_scoped = ProviderCallIdentity(
+        stage=successor.stage,
+        candidate_id=successor.candidate_id,
+        model_key=successor.model_key,
+        prompt=successor.prompt,
+        model_registry_sha256=successor.model_registry_sha256,
+        prompt_contract=successor.prompt_contract,
+        logical_call_scope=provider_prompt_logical_call_scope(successor.prompt),
+    )
 
     assert (
         legacy.logical_call_key
@@ -55,6 +66,17 @@ def test_provider_call_identity_preserves_legacy_key_and_namespaces_successor() 
         ).hexdigest()
     )
     assert successor.logical_call_key != legacy.logical_call_key
+    prompt_scoped_payload = (
+        b"llm-unitize\0cand-1\0anthropic:unitizer\0"
+        b"stage-a-prompt-contract\0claim-ontology-v2\0"
+        b"provider-logical-call-scope\0prompt-sha256:"
+        + hashlib.sha256(b"successor prompt").hexdigest().encode()
+    )
+    assert (
+        prompt_scoped.logical_call_key
+        == hashlib.sha256(prompt_scoped_payload).hexdigest()
+    )
+    assert prompt_scoped.logical_call_key != successor.logical_call_key
 
 
 def test_legacy_and_successor_calls_share_one_cycle_cap(tmp_path: Path) -> None:
@@ -1339,6 +1361,116 @@ def test_reserved_attempt_after_crash_is_never_reissued(tmp_path: Path) -> None:
             "ORDER BY attempt_ordinal"
         ).fetchall()
     assert rows == [(1, "reserved"), (2, "response_received")]
+
+
+@pytest.mark.parametrize("prior_status", ("failed", "ambiguous", "reserved"))
+def test_existing_durable_attempt_limits_fresh_retry_ordinals(
+    tmp_path: Path,
+    prior_status: str,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        if prior_status == "reserved":
+            journal._reserve(1)
+        elif prior_status == "failed":
+            with pytest.raises(LiveModelProviderError):
+                journal.run_attempt(
+                    1,
+                    lambda: _raise_provider_error(
+                        LiveModelProviderError("invalid request", status_code=400)
+                    ),
+                )
+        else:
+            with pytest.raises(ValueError, match="ambiguous response"):
+                journal.run_attempt(
+                    1,
+                    lambda: _raise_value_error("ambiguous response"),
+                )
+
+    provider_calls = 0
+
+    def retryable_failure() -> dict[str, object]:
+        nonlocal provider_calls
+        provider_calls += 1
+        raise LiveModelProviderError("timeout", retryable=True)
+
+    with _journal(path) as retry:
+        max_attempts = llm_pipeline._reconstruction_retry_max_attempts(retry)
+        assert max_attempts == 2
+        assert retry.durable_attempt_ordinal(1) == 2
+        assert retry.durable_attempt_ordinal(2) == 3
+        with pytest.raises(LiveModelProviderError, match="timeout"):
+            _call_with_provider_retries(
+                retryable_failure,
+                max_attempts=max_attempts,
+                retry_backoff_seconds=0,
+                attempt_handler=retry,
+            )
+
+    assert provider_calls == 2
+    with sqlite3.connect(path) as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert [row[0] for row in rows] == [1, 2, 3]
+    assert rows[0][1] == prior_status
+    assert [row[1] for row in rows[1:]] == ["ambiguous", "ambiguous"]
+
+
+def test_concurrent_retry_plans_cannot_reserve_fourth_ordinal(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path) as journal:
+        with pytest.raises(LiveModelProviderError):
+            journal.run_attempt(
+                1,
+                lambda: _raise_provider_error(
+                    LiveModelProviderError("invalid request", status_code=400)
+                ),
+            )
+
+    with _journal(path) as first, _journal(path) as second:
+        assert first.prepare_reconstruction_retry(max_attempts=3) == 2
+        assert second.prepare_reconstruction_retry(max_attempts=3) == 2
+        with pytest.raises(LiveModelProviderError, match="first timeout"):
+            first.run_attempt(
+                1,
+                lambda: _raise_provider_error(
+                    LiveModelProviderError("first timeout", retryable=True)
+                ),
+            )
+        assert first.durable_attempt_ordinal(1) == 2
+        with pytest.raises(LiveModelProviderError, match="second timeout"):
+            second.run_attempt(
+                1,
+                lambda: _raise_provider_error(
+                    LiveModelProviderError("second timeout", retryable=True)
+                ),
+            )
+        assert second.durable_attempt_ordinal(1) == 3
+
+        provider_called = False
+
+        def forbidden_fourth_call() -> dict[str, object]:
+            nonlocal provider_called
+            provider_called = True
+            return {"request_id": "forbidden-fourth-call"}
+
+        with pytest.raises(
+            ProviderJournalError,
+            match="reconstruction retry attempt limit is exhausted",
+        ):
+            first.run_attempt(2, forbidden_fourth_call)
+
+    assert provider_called is False
+    with sqlite3.connect(path) as connection:
+        rows = connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall()
+    assert rows == [(1, "failed"), (2, "ambiguous"), (3, "ambiguous")]
 
 
 def test_settle_attempt_rejects_missing_row_and_allows_settled_replay(
