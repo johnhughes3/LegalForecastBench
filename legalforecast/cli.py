@@ -1212,6 +1212,9 @@ from legalforecast.unitization.review_queue import (
     review_queue_v2_sidecar_path,
     verify_review_queue_v2_coverage,
 )
+from legalforecast.unitization.review_queue_generation import (
+    publish_review_queue_generation,
+)
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     DefendantGrouping,
@@ -63881,11 +63884,20 @@ def publish_stage_a_review_queue(
 ) -> None:
     """Validate and publish the frozen v1 queue and observational v2 sidecar.
 
-    The two files describe the same review work.  Project and validate v2
-    before changing either path, then restore the complete prior pair if a
-    filesystem failure interrupts publication.  This preserves the frozen
-    Cycle 1 v1 contract while preventing a new v1 from being stranded beside a
-    stale or absent v2 sidecar.
+    The two files describe the same review work, and best-effort rollback
+    cannot close the window in which a forced termination strands a fresh v1
+    beside a stale or missing v2.  So the pair is also published as an
+    immutable content-addressed generation whose manifest is switched with one
+    atomic rename; see
+    :mod:`legalforecast.unitization.review_queue_generation`.  That rename is
+    the commit point and it happens last, so an interruption anywhere earlier
+    leaves the previous generation current rather than a mixed pair.
+
+    The canonical v1 queue and v2 sidecar are still written at their existing
+    paths, unchanged: the v1 byte contract is frozen for Cycle 1 and Stage B
+    reads it directly.  They mirror the current generation.  Any *pair* reader
+    added later must resolve both files through
+    :func:`read_review_queue_generation` instead of opening these two paths.
     """
 
     v1_queue = tuple(v1_records)
@@ -63921,6 +63933,16 @@ def publish_stage_a_review_queue(
         if rollback_errors:
             detail += "; rollback also failed: " + "; ".join(rollback_errors)
         raise CommandError(detail) from exc
+    try:
+        publish_review_queue_generation(
+            queue_path,
+            v1_bytes=_jsonl_bytes(v1_queue),
+            v2_bytes=_jsonl_bytes(queue_v2),
+        )
+    except (OSError, ReviewQueueError) as exc:
+        raise CommandError(
+            f"cannot publish the Stage A review queue generation: {exc}"
+        ) from exc
 
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
