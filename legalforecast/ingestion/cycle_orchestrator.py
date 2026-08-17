@@ -103,6 +103,22 @@ COMMAND_BOUNDARIES: Mapping[str, AcquisitionBoundary] = MappingProxyType(
         "build-packets": AcquisitionBoundary.PROVIDER_FREE,
         "finalize-corpus": AcquisitionBoundary.PROVIDER_FREE,
         "merge-artifacts": AcquisitionBoundary.PROVIDER_FREE,
+        # Provider-free direct continuations with receipt-backed run cards.
+        # These commands predate the coordinator cycle manifest but remain
+        # eligible for standalone lineage registration after their outputs and
+        # declared commitments are re-authenticated.
+        "audit-stage-a-target-eligibility": AcquisitionBoundary.PROVIDER_FREE,
+        "recover-llm-unitize-reconstruction": AcquisitionBoundary.PROVIDER_FREE,
+        "terminalize-llm-unitize-reconstruction": AcquisitionBoundary.PROVIDER_FREE,
+        "build-unitizer-terminal-review-bundle": AcquisitionBoundary.PROVIDER_FREE,
+        "build-successor-attorney-packet": AcquisitionBoundary.PROVIDER_FREE,
+        "recover-llm-review-stage-a-reconstruction": (
+            AcquisitionBoundary.PROVIDER_FREE
+        ),
+        "terminalize-llm-review-stage-a-reconstruction": (
+            AcquisitionBoundary.PROVIDER_FREE
+        ),
+        "build-unitization-review-bundle": AcquisitionBoundary.PROVIDER_FREE,
         # Public-source discovery, downloads, and noncharging provider lookups.
         "discover-case-dev": AcquisitionBoundary.NETWORK,
         "discover-firecrawl-recap": AcquisitionBoundary.NETWORK,

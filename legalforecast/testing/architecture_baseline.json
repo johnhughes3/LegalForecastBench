@@ -4544,8 +4544,8 @@
         "largest_symbol": "_verify_external_disclosure_review_completion",
         "largest_symbol_lines": 178,
         "layer": "application",
-        "line_count": 2459,
-        "nonblank_line_count": 2292,
+        "line_count": 2475,
+        "nonblank_line_count": 2308,
         "top_level_definition_count": 57
       },
       "legalforecast/ingestion/cycle_path_metadata.py": {
