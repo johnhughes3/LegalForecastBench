@@ -183,7 +183,8 @@ These are blocking, in the order they gate the run.
 2. **Two public keys are unprovisioned** — the evaluator issuer and the distinct Tier-0 approval authority. Both committed config files still carry `public_key_base64: null`.
 3. **The judge credential is unprovisioned** at the Infisical path named above.
 4. **The `dm0g.4.2.2` privileged containment capture is absent**, and the documented procedure still targets Claude Code 2.1.220 rather than the installed 2.1.233.
-5. **The detached spend approval does not exist**, and must not be created before the reviewer records acceptance.
+5. **The solver credential handshake is unresolved.** Both arms pin `auth_profile: published-api-key`, and that path 404'd during the B2 close-out (`dm0g.4.2.13`, still open). The judge credential in item 3 is a separate secret at a separate path and does not cover the solver surface.
+6. **The detached spend approval does not exist**, and must not be created before the reviewer records acceptance.
 
 ## Unminted paid artifacts
 
