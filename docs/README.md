@@ -22,6 +22,10 @@ The technical documentation in this folder is drafted and maintained with substa
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
 - [Publication governance](publication-governance.md): public evidence tiers, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
 
+## Release Security
+
+- [PyPI trusted publishing and release environment](security/pypi-trusted-publishing.md): the registered trusted-publisher claim set, the three layers that restrict publication to `v*` tags, the recorded self-review/admin-bypass policy, and the revocation and recovery order.
+
 ## Acquisition Operations
 
 - [Ingestion module map](ingestion-module-map.md): concern-oriented ownership and entry points for every module in the intentionally shallow `legalforecast.ingestion` package.

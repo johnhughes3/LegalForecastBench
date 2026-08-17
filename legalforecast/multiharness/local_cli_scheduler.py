@@ -3,6 +3,19 @@
 A request for parallelism cannot silently execute serially or exceed the
 scheduler cap. Divergence is recorded on the receipt; over-subscribe either
 refuses before spend or is disclosed, never swallowed.
+
+Enforcement is per scheduler instance. ``execute_local_cli`` constructs a fresh
+:class:`LocalCliScheduler` whenever the caller omits one, so callers that want a
+process-wide cap must build one scheduler and pass that same instance to every
+run. An uncapped scheduler (``max_concurrency=None``) takes each spec's own
+``max_concurrency`` as its cap, so a later spec requesting more parallelism can
+raise observed concurrency above what an in-flight spec requested; that is
+disclosed as divergence on the in-flight spec's receipt rather than hidden.
+
+Concurrency is measured per run window, not over the scheduler's lifetime: each
+acquired slot records the highest in-flight count seen between its own acquire
+and release. A lifetime peak would attribute an earlier, unrelated burst to a
+run that never overlapped it, which is false evidence on a receipt.
 """
 
 from __future__ import annotations
@@ -44,7 +57,12 @@ class ScheduledSpec(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class SchedulingEvidence:
-    """Path-free scheduling evidence copied onto an execution receipt."""
+    """Path-free scheduling evidence copied onto an execution receipt.
+
+    ``peak_concurrency`` is the highest in-flight count observed while this run
+    held its slot, so it answers "how parallel was this run" rather than "how
+    busy has the scheduler ever been".
+    """
 
     requested_max_concurrency: int
     requested_ordering: str
@@ -123,6 +141,8 @@ class LocalCliScheduler:
         self._serial_inflight = 0
         self._peak = 0
         self._next_sequence = 1
+        self._next_slot = 1
+        self._window_peaks: dict[int, int] = {}
         self._tls = threading.local()
 
     @property
@@ -176,6 +196,12 @@ class LocalCliScheduler:
                 self._serial_inflight += 1
             if next_inflight > self._peak:
                 self._peak = next_inflight
+            for held in self._window_peaks:
+                if next_inflight > self._window_peaks[held]:
+                    self._window_peaks[held] = next_inflight
+            slot = self._next_slot
+            self._next_slot += 1
+            self._window_peaks[slot] = next_inflight
             sequence = self._next_sequence
             self._next_sequence += 1
             evidence = SchedulingEvidence(
@@ -183,11 +209,12 @@ class LocalCliScheduler:
                 requested_ordering=ordering,
                 observed_concurrency=next_inflight,
                 schedule_sequence=sequence,
-                peak_concurrency=self._peak,
+                peak_concurrency=next_inflight,
                 divergence=divergence,
             )
         self._tls.evidence = evidence
         self._tls.serial = ordering == ORDERING_SERIAL
+        self._tls.slot = slot
 
     def after_execute(self, spec: ScheduledSpec, result: object) -> SchedulingEvidence:
         """Release the slot and return requested-versus-actual evidence."""
@@ -199,20 +226,30 @@ class LocalCliScheduler:
                 requested_max_concurrency=spec.max_concurrency,
                 requested_ordering=spec.ordering,
             )
+        slot = getattr(self._tls, "slot", None)
         with self._lock:
             if self._inflight > 0:
                 self._inflight -= 1
             if getattr(self._tls, "serial", False) and self._serial_inflight > 0:
                 self._serial_inflight -= 1
-            peak = self._peak
-        undersubscribed = (
-            evidence.divergence is None
-            and evidence.requested_ordering == ORDERING_PARALLEL
-            and peak < evidence.requested_max_concurrency
-        )
+            peak = (
+                self._window_peaks.pop(slot, evidence.peak_concurrency)
+                if isinstance(slot, int)
+                else self._peak
+            )
+        self._tls.slot = None
         divergence = evidence.divergence
-        if undersubscribed:
-            divergence = "observed_concurrency_below_requested"
+        if divergence is None:
+            # An in-flight spec must disclose a window that ran hotter than it
+            # asked for, which is how a higher-request neighbor joining an
+            # uncapped scheduler becomes visible on this spec's receipt.
+            if peak > evidence.requested_max_concurrency:
+                divergence = "observed_concurrency_exceeds_requested"
+            elif (
+                evidence.requested_ordering == ORDERING_PARALLEL
+                and peak < evidence.requested_max_concurrency
+            ):
+                divergence = "observed_concurrency_below_requested"
         return SchedulingEvidence(
             requested_max_concurrency=evidence.requested_max_concurrency,
             requested_ordering=evidence.requested_ordering,

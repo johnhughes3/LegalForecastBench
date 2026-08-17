@@ -35,6 +35,9 @@ from legalforecast.ingestion.successor_rerun_proposal import (
     load_successor_proposal,
     successor_derived_output_paths,
 )
+from legalforecast.labeling.llm_pipeline import (
+    STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT as V5_NAMESPACE,
+)
 from legalforecast.labeling.provider_journal import ProviderCallIdentity
 
 
@@ -265,7 +268,7 @@ def test_invalid_prerequisite_blocks_every_descendant_deterministically() -> Non
         ("model_key", "openai:successor-unitizer"),
         ("model_provider", "anthropic"),
         ("provider_account", "secondary"),
-        ("provider_attempt_namespace", "claim-ontology-v5"),
+        ("provider_attempt_namespace", V5_NAMESPACE),
         ("model_registry_sha256", "c" * 64),
         ("policy_sha256", "d" * 64),
     ],
@@ -299,10 +302,9 @@ def test_global_provider_drift_reuses_authenticated_parser_inputs(
     ]
     commands = cast(list[dict[str, object]], report.record["next_commands"])
     assert [command["stage"] for command in commands] == ["llm-unitize"]
-    if field != "provider_attempt_namespace":
-        cli._validate_successor_rerun_commands(  # pyright: ignore[reportPrivateUsage]
-            report.record
-        )
+    cli._validate_successor_rerun_commands(  # pyright: ignore[reportPrivateUsage]
+        report.record
+    )
     argv = cast(list[str], commands[0]["argv"])
     assert _flag_value(argv, "--provider-attempt-namespace") == (
         successor.provider_attempt_namespace
@@ -399,14 +401,14 @@ def test_v4_namespace_upgrade_creates_eligibility_before_unitization(
 def test_v5_namespace_emits_eligibility_audit_and_unitize_arguments(
     tmp_path: Path,
 ) -> None:
+    """Bind the emitted namespace to the v5 contract constant, not a literal."""
+
     current, proposal = _fixture(tmp_path, replace_document=True)
     v5_inputs = replace(
-        proposal.require_inputs(), provider_attempt_namespace="claim-ontology-v5"
+        proposal.require_inputs(), provider_attempt_namespace=V5_NAMESPACE
     )
     proposal = replace(
-        proposal,
-        provider_attempt_namespace="claim-ontology-v5",
-        inputs=v5_inputs,
+        proposal, provider_attempt_namespace=V5_NAMESPACE, inputs=v5_inputs
     )
 
     report = plan_successor_rerun_impact(current=current, proposed=proposal)
@@ -420,9 +422,7 @@ def test_v5_namespace_emits_eligibility_audit_and_unitize_arguments(
     ]
     eligibility_argv = cast(list[str], commands[-2]["argv"])
     unitize_argv = cast(list[str], commands[-1]["argv"])
-    assert _flag_value(unitize_argv, "--provider-attempt-namespace") == (
-        "claim-ontology-v5"
-    )
+    assert _flag_value(unitize_argv, "--provider-attempt-namespace") == V5_NAMESPACE
     expected_audit = (
         proposal.successor_output_root / "target-document-eligibility-audit.jsonl"
     )

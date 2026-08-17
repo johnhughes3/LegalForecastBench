@@ -7,6 +7,7 @@ receipt-backed observations, traced to the artifact hashes that produced it.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Self, cast
@@ -473,9 +474,13 @@ def _as_float(value: Any, field_name: str) -> float:
 
 
 def _require_finite_number(value: int | float, field_name: str) -> None:
+    # Only floats carry NaN and the infinities, so the predicate is applied to
+    # floats alone: ``math.isfinite`` converts its argument to a float first and
+    # would raise ``OverflowError`` on a large but perfectly finite int, turning
+    # a valid displayed figure into a crash instead of a check.
     if isinstance(value, bool):
         raise MetricReconstructionError(f"{field_name} must be a number")
-    if value != value:  # NaN
+    if isinstance(value, float) and not math.isfinite(value):
         raise MetricReconstructionError(f"{field_name} must be finite")
 
 
