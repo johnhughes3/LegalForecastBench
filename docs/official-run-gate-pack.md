@@ -1,5 +1,11 @@
 # Official-run gate pack (Lane F4, preparation only)
 
+> [!CAUTION]
+> **DO NOT EXECUTE.** This is a preparation and review artifact only. Do not
+> dispatch workflows, resolve credentials, access provider infrastructure, or
+> run an official cycle from these commands without the separately recorded
+> human approvals and protected-environment evidence.
+
 This pack compresses the remaining operator work for the first official cycle. It is intentionally a preparation artifact: publishing the reviewed workflow changes through PR #772 did not apply infrastructure, read or write secrets, dispatch a protected workflow, call a model provider, purchase a document, or run an official cycle.
 
 ## Stop condition and ownership
@@ -106,7 +112,19 @@ TERRAFORM_INPUT_IDENTITY_SHA256="$(jq -cn \
   '{module:$module,region:$region,oidc:$oidc,identity:$identity,packet_bucket:$packet_bucket,results_bucket:$results_bucket,table:$table}' | sha256sum | cut -d' ' -f1)"
 ```
 
-### 2. Import every existing official-eval resource
+### 2. Inventory and import every existing official-eval resource
+
+The import address list is conditional on the live bucket subresources. Before
+dispatching any import, the designated operator performs a read-only inventory
+of the two protected buckets and removes absent optional resources from the
+dispatch set. In particular, `get-bucket-lifecycle-configuration` and
+`get-bucket-policy` return a documented absence when no lifecycle configuration
+or bucket policy exists; that absence is not an import target.
+
+The inventory result is retained as operator evidence and is used to construct
+`EXISTING_IMPORT_ADDRESSES` from the closed list below. Every IAM, bucket, and
+present lifecycle/policy address remains exact; only an address whose live
+object is absent is omitted.
 
 Import is one protected workflow dispatch per address. The closed address set is:
 
@@ -172,6 +190,13 @@ PY
     -f import_state_backend_identity_sha256="$STATE_BACKEND_IDENTITY_SHA256" \
     -f import_terraform_input_identity_sha256="$TERRAFORM_INPUT_IDENTITY_SHA256"
 }
+
+# Preparation-only pseudocode for the protected operator session. The helper
+# must not dispatch an address that the inventory proved absent.
+EXISTING_IMPORT_ADDRESSES=(...closed addresses with present optional objects...)
+for address in "${EXISTING_IMPORT_ADDRESSES[@]}"; do
+  import_authorized "$address"
+done
 ```
 
 John runs `import_authorized <address>` once for each of the 23 addresses above and waits for the protected approval and `gh run watch <IMPORT_RUN_ID> --exit-status`. Expected evidence is a successful `state-binding` check and `import-receipt.json` with `result` `imported` or `already_present`; no apply is performed by an import run. Any non-absent AWS error stops reconciliation; it is not suppressed.
