@@ -207,6 +207,9 @@
       "inspect_ai.scorer",
       "inspect_ai.solver"
     ],
+    "legalforecast/ingestion/stage_a_replay_executor/provider.py": [
+      "legalforecast.unitization.unitizer_terminal_review"
+    ],
     "legalforecast/multiharness/claude_agent_sdk_cli.py": [
       "claude_agent_sdk._cli_version"
     ],
