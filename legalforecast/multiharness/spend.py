@@ -972,8 +972,6 @@ class SpendController:
                     terminal=denial[2],
                     max_cost_usd=ceiling.max_cost_usd,
                 )
-                if denial[2] and denial[0] == SpendFailureClass.OVER_BUDGET:
-                    self._terminal_reason = denial[1]
                 raise SpendDeniedError(evidence)
             self._sequence += 1
             reservation_id = f"reservation-{self._sequence:06d}"
@@ -1196,6 +1194,8 @@ class SpendController:
         terminal: bool,
         max_cost_usd: str | None = None,
     ) -> SpendEvidence:
+        if terminal and self._terminal_reason is None:
+            self._terminal_reason = reason
         evidence = SpendEvidence(
             decision="denied",
             call_id=call.call_id,

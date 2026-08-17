@@ -189,6 +189,85 @@ class InfisicalSandboxCredentialSource:
         return Path(located)
 
 
+def fetch_named_infisical_secret(
+    *,
+    environment: str,
+    path: str,
+    name: str,
+    wrapper_path: Path | None = None,
+    python_executable: str | None = None,
+    parent_env: Mapping[str, str] | None = None,
+    timeout_seconds: float = _WRAPPER_FETCH_TIMEOUT_SECONDS,
+) -> str:
+    """Fetch one sanctioned Infisical secret through the reviewed wrapper.
+
+    This is invoked only when a caller explicitly requests a named secret.
+    It never reads host environment credentials and never uses the bare
+    ``infisical`` CLI.
+    """
+
+    require_infisical_environment(environment)
+    if not path.startswith("/agents/sandbox/legalforecastbench/"):
+        raise AuthProfileError("Infisical path is outside the sanctioned namespace")
+    validate_env_var_names((name,), "secret name")
+    wrapper = wrapper_path
+    if wrapper is None:
+        located = shutil.which(_INFISICAL_WRAPPER_NAME)
+        if located is None:
+            raise AuthProfileError("declared auth profile credentials are unavailable")
+        wrapper = Path(located)
+    parent = os.environ if parent_env is None else parent_env
+    argv = (
+        str(wrapper),
+        "run",
+        "--env",
+        environment,
+        "--path",
+        path,
+        "--json",
+        "--",
+        python_executable or sys.executable,
+        "-m",
+        "legalforecast.multiharness._infisical_env_extract",
+        "--names",
+        name,
+    )
+    _reject_bare_infisical_or_op(argv)
+    try:
+        completed = subprocess.run(
+            argv,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+            env=_wrapper_launch_environment(parent),
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise AuthProfileError(
+            "declared auth profile credentials are unavailable"
+        ) from exc
+    if completed.returncode != 0 or len(completed.stdout) > _WRAPPER_MAX_OUTPUT_BYTES:
+        raise AuthProfileError("declared auth profile credentials are unavailable")
+    try:
+        decoded = json.loads(completed.stdout.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise AuthProfileError(
+            "declared auth profile credentials are unavailable"
+        ) from exc
+    if not isinstance(decoded, dict):
+        raise AuthProfileError("declared auth profile credentials are unavailable")
+    payload = cast(dict[object, object], decoded)
+    raw = payload.get(name)
+    if not isinstance(raw, str) or not raw:
+        raise AuthProfileError("declared auth profile credentials are unavailable")
+    if set(payload) - {name}:
+        raise AuthProfileError(
+            "credential source returned names outside the declared profile"
+        )
+    _reject_ambient_fallback({name: raw}, parent)
+    return raw
+
+
 def project_profile_credentials(
     profile: ResolvedAuthProfile,
     *,

@@ -270,6 +270,7 @@
     "tests/test_codex_cli_characterization.py",
     "tests/test_codex_native_containment.py",
     "tests/test_cohort_policy.py",
+    "tests/test_community_acceptance_executable_freeze_digest.py",
     "tests/test_community_acceptance_freeze_digest.py",
     "tests/test_community_examples.py",
     "tests/test_community_multiharness_workflow.py",

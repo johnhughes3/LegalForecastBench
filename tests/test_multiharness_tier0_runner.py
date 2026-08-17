@@ -22,6 +22,12 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
 from legalforecast.multiharness.harvey_lab_evaluator import EVALUATOR_COMMAND_NAME
 from legalforecast.multiharness.harvey_lab_projection import project_harvey_lab_suite
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
+from legalforecast.multiharness.tier0_operator_contract import (
+    TIER0_ARCHIVE_ROOT_ENV,
+    TIER0_PRIVATE_ROOT_ENV,
+    TIER0_SOURCE_ROOT_ENV,
+    infisical_evaluator_issuer_secret_loader,
+)
 from legalforecast.multiharness.tier0_runner import (
     TIER0_SPEND_APPROVAL_SCHEMA_VERSION,
     Tier0ArmSpec,
@@ -107,7 +113,9 @@ def test_cli_full_paired_tier0_fake_binary_run(
         lambda: _FixtureApprovalAuthority(),
     )
     monkeypatch.setattr(
-        runner, "load_approved_issuer_authority", lambda: _FixtureEvaluatorAuthority()
+        runner,
+        "load_approved_issuer_authority",
+        lambda **_kwargs: _FixtureEvaluatorAuthority(),
     )
     import legalforecast.multiharness.cli as multiharness_cli
 
@@ -116,11 +124,18 @@ def test_cli_full_paired_tier0_fake_binary_run(
         "load_approved_tier0_approval_authority",
         lambda: _FixtureApprovalAuthority(),
     )
+    seen_loader: dict[str, object] = {}
+
+    def _capture_authority(**kwargs: object) -> _FixtureEvaluatorAuthority:
+        seen_loader.update(kwargs)
+        return _FixtureEvaluatorAuthority()
+
     monkeypatch.setattr(
         multiharness_cli,
         "load_approved_issuer_authority",
-        lambda: _FixtureEvaluatorAuthority(),
+        _capture_authority,
     )
+    _install_tier0_caller_roots(monkeypatch, tmp_path)
     assert (
         main(
             [
@@ -137,9 +152,10 @@ def test_cli_full_paired_tier0_fake_binary_run(
         )
         == 0
     )
-    run_root = tmp_path / ".tier0-runtime" / spec_sha256.removeprefix("sha256:")
-    private_root = run_root / "private"
-    archive_root = run_root / "archive"
+    assert seen_loader.get("secret_loader") is infisical_evaluator_issuer_secret_loader
+    assert not (tmp_path / ".tier0-runtime").exists()
+    private_root = tmp_path / "private"
+    archive_root = tmp_path / "archive"
     archive = _read_json(archive_root / "archive-manifest.json")
     summary = _read_json(archive_root / "public" / "summary.json")
     assert archive["spec_sha256"] == spec_sha256
@@ -174,6 +190,66 @@ def test_cli_full_paired_tier0_fake_binary_run(
         assert (archive_root / "private" / arm_id / "score.json").is_file()
     assert (private_root / "arm-opaque-01" / "sealed" / LAB_BASENAME).is_file()
     assert (private_root / "arm-opaque-02" / "sealed" / LAB_BASENAME).is_file()
+
+
+def test_tier0_cli_requires_caller_supplied_empty_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _issue_196_source(tmp_path / "lab")
+    env = _install_fixture_binaries(tmp_path)
+    monkeypatch.setenv("PATH", env["PATH"])
+    spec_path, approval_path, spec_sha256 = _write_spec_and_approval(tmp_path, env)
+    _patch_fixture_authority(monkeypatch)
+    monkeypatch.delenv(TIER0_SOURCE_ROOT_ENV, raising=False)
+    monkeypatch.delenv(TIER0_PRIVATE_ROOT_ENV, raising=False)
+    monkeypatch.delenv(TIER0_ARCHIVE_ROOT_ENV, raising=False)
+    assert main(_run_args(spec_path, approval_path, spec_sha256=spec_sha256)) == 2
+    assert not (tmp_path / ".tier0-runtime").exists()
+
+
+def test_tier0_cli_refuses_nonempty_private_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _issue_196_source(tmp_path / "lab")
+    env = _install_fixture_binaries(tmp_path)
+    monkeypatch.setenv("PATH", env["PATH"])
+    spec_path, approval_path, spec_sha256 = _write_spec_and_approval(tmp_path, env)
+    _patch_fixture_authority(monkeypatch)
+    _install_tier0_caller_roots(monkeypatch, tmp_path)
+    (tmp_path / "private").mkdir()
+    (tmp_path / "private" / "stale.txt").write_text("occupied", encoding="utf-8")
+    assert main(_run_args(spec_path, approval_path, spec_sha256=spec_sha256)) == 2
+
+
+def test_tier0_cli_pending_authority_fails_before_infisical(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _issue_196_source(tmp_path / "lab")
+    env = _install_fixture_binaries(tmp_path)
+    monkeypatch.setenv("PATH", env["PATH"])
+    spec_path, approval_path, spec_sha256 = _write_spec_and_approval(tmp_path, env)
+    _install_tier0_caller_roots(monkeypatch, tmp_path)
+    import legalforecast.multiharness.cli as multiharness_cli
+
+    monkeypatch.setattr(
+        multiharness_cli,
+        "load_approved_tier0_approval_authority",
+        lambda: _FixtureApprovalAuthority(),
+    )
+    called = False
+
+    def _forbidden_loader(_environment: str, _path: str, _name: str) -> str:
+        nonlocal called
+        called = True
+        raise AssertionError("Infisical must not be contacted")
+
+    monkeypatch.setattr(
+        multiharness_cli,
+        "infisical_evaluator_issuer_secret_loader",
+        _forbidden_loader,
+    )
+    assert main(_run_args(spec_path, approval_path, spec_sha256=spec_sha256)) == 2
+    assert called is False
 
 
 def test_tier0_spec_hash_and_approval_are_required(
@@ -309,6 +385,7 @@ def test_tier0_wrong_solver_hash_fails_before_any_spawn(
         tmp_path, env, record=record
     )
     _patch_fixture_authority(monkeypatch)
+    _install_tier0_caller_roots(monkeypatch, tmp_path)
     assert (
         main(
             _run_args(
@@ -334,6 +411,7 @@ def test_tier0_wrong_wrapper_hash_fails_before_any_spawn(
         tmp_path, env, record=record
     )
     _patch_fixture_authority(monkeypatch)
+    _install_tier0_caller_roots(monkeypatch, tmp_path)
     assert (
         main(
             _run_args(
@@ -505,6 +583,19 @@ def test_tier0_provenance_factory_uses_each_arm_execution_accounting(
     assert second.cost.amount_microusd == 34
 
 
+def _install_tier0_caller_roots(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> tuple[Path, Path, Path]:
+    source_root = tmp_path / "lab"
+    private_root = tmp_path / "private"
+    archive_root = tmp_path / "archive"
+    source_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv(TIER0_SOURCE_ROOT_ENV, str(source_root))
+    monkeypatch.setenv(TIER0_PRIVATE_ROOT_ENV, str(private_root))
+    monkeypatch.setenv(TIER0_ARCHIVE_ROOT_ENV, str(archive_root))
+    return source_root, private_root, archive_root
+
+
 def _write_spec_and_approval(
     tmp_path: Path,
     env: dict[str, str],
@@ -548,7 +639,9 @@ def _patch_fixture_authority(monkeypatch: pytest.MonkeyPatch) -> None:
         _FixtureApprovalAuthority,
     )
     monkeypatch.setattr(
-        runner, "load_approved_issuer_authority", _FixtureEvaluatorAuthority
+        runner,
+        "load_approved_issuer_authority",
+        lambda **_kwargs: _FixtureEvaluatorAuthority(),
     )
     monkeypatch.setattr(
         multiharness_cli,
@@ -558,7 +651,7 @@ def _patch_fixture_authority(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         multiharness_cli,
         "load_approved_issuer_authority",
-        _FixtureEvaluatorAuthority,
+        lambda **_kwargs: _FixtureEvaluatorAuthority(),
     )
 
 

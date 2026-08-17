@@ -47,6 +47,9 @@ from legalforecast.multiharness.run_metadata import (
     verify_receipt_metadata_binding,
     write_private_run_metadata,
 )
+from legalforecast.multiharness.tier0_operator_contract import (
+    infisical_evaluator_issuer_secret_loader,
+)
 
 POLICY = "sha256:" + "a" * 64
 
@@ -110,6 +113,36 @@ def test_synthetic_fixture_signer_is_bound_to_public_key_and_exact_loader_scope(
     mutated_signature[-1] ^= 1
     with pytest.raises(InvalidSignature):
         authority.public_key.verify(bytes(mutated_signature), payload)
+
+
+def test_infisical_loader_refuses_unsanctioned_coordinates_without_wrapper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _fail_fetch(**_kwargs: object) -> str:
+        raise AssertionError("wrapper must not run")
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.local_cli_environment.fetch_named_infisical_secret",
+        _fail_fetch,
+    )
+    with pytest.raises(ReceiptAuthorityError, match="Infisical dev"):
+        infisical_evaluator_issuer_secret_loader(
+            "prod",
+            EVALUATOR_ISSUER_INFISICAL_PATH,
+            EVALUATOR_ISSUER_PRIVATE_KEY_NAME,
+        )
+    with pytest.raises(ReceiptAuthorityError, match="sanctioned namespace"):
+        infisical_evaluator_issuer_secret_loader(
+            EVALUATOR_ISSUER_INFISICAL_ENVIRONMENT,
+            "/agents/sandbox/other/evaluator-issuer",
+            EVALUATOR_ISSUER_PRIVATE_KEY_NAME,
+        )
+    with pytest.raises(ReceiptAuthorityError, match="not approved"):
+        infisical_evaluator_issuer_secret_loader(
+            EVALUATOR_ISSUER_INFISICAL_ENVIRONMENT,
+            EVALUATOR_ISSUER_INFISICAL_PATH,
+            "SOME_OTHER_KEY",
+        )
 
 
 def test_committed_authority_config_is_pending_and_loads_fail_closed() -> None:

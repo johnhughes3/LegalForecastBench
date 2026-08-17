@@ -1,10 +1,10 @@
 # Claude Code CLI Interface Characterization
 
-Decision: the installed standalone `claude` 2.1.231 interface is pinned for offline adapter work. It is not activated for benchmark execution.
+Decision: the installed standalone `claude` 2.1.233 interface is pinned for offline adapter work. It is not activated for benchmark execution.
 
 This characterization invokes only the installed binary's version, help, and help-only print-mode parser surfaces, plus one credential-free `claude -p` call that failed closed before a provider request. The probe argv requests no benchmark-task path. The child environment inherits no provider credential variable. The probe does not enforce network isolation or trace system calls, so it makes no categorical claim that the executable performed zero external behavior internally.
 
-Issue `#196` recorded earlier 2.1.210 / 2.1.211 observations. The SDK-bundled community baseline remains pinned at Claude Code **2.1.220** (`legalforecast.multiharness.claude_agent_sdk`). This document amends the **standalone CLI** pin to the currently installed 2.1.231 bytes (superseding the 2.1.229 observation on this lane). Those identities must not be silently transferred.
+Issue `#196` recorded earlier 2.1.210 / 2.1.211 observations. The SDK-bundled community baseline remains pinned at Claude Code **2.1.220** (`legalforecast.multiharness.claude_agent_sdk`). This document amends the **standalone CLI** pin to the currently installed 2.1.233 bytes (superseding the 2.1.231 observation on this lane). Those identities must not be silently transferred.
 
 ## Exact installed identity
 
@@ -13,8 +13,8 @@ Issue `#196` recorded earlier 2.1.210 / 2.1.211 observations. The SDK-bundled co
 | Distribution | standalone Claude Code CLI |
 | Public executable name | `claude` |
 | Executable mode | `0755` |
-| Version output | `2.1.231 (Claude Code)` |
-| SHA-256 | `47a01daebf794f6c86c13d1875ad6e5be0627029ad8600731161f24018ecde5b` |
+| Version output | `2.1.233 (Claude Code)` |
+| SHA-256 | `55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9` |
 | Requested future model pin | `claude-haiku-4-5` |
 
 The public record stores the PATH command name `claude`, not a host-specific versions-directory filename.
@@ -74,7 +74,7 @@ On the characterized host, compare the installed executable to the exact fixture
 ```bash
 uv run python scripts/probe_claude_code_cli_interface.py \
   --expected-model claude-haiku-4-5 \
-  --check tests/fixtures/claude_code_cli_characterization/claude-code-cli-interface-2.1.231.json
+  --check tests/fixtures/claude_code_cli_characterization/claude-code-cli-interface-2.1.233.json
 ```
 
 Review a changed sanitized observation explicitly rather than refreshing the fixture automatically:
@@ -89,7 +89,7 @@ uv run python scripts/probe_claude_code_cli_interface.py \
 
 Help text on this binary is `--json-schema <schema>` — a JSON Schema value, not a file path. The safe parser probe therefore passes inline JSON (`{"type":"object"}`). The frozen local-CLI argv_template uses `{output_schema}` (inline) and must not use `{output_schema_path}`.
 
-A credential-free print that supplied a filesystem path as the flag value was rejected as invalid JSON. The auth-closed envelope fixture records that observation. Do not switch the freeze to a path token without a new characterization of this exact 2.1.231 binary.
+A credential-free print that supplied a filesystem path as the flag value was rejected as invalid JSON. The auth-closed envelope fixture records that observation. Do not switch the freeze to a path token without a new characterization of this exact 2.1.233 binary.
 
 ## `--tools` argv encoding
 

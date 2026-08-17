@@ -2,7 +2,7 @@
 
 Status: **NOT READY FOR SPEND SIGNATURE**
 
-No provider spend is authorized by this document. The production runner, native-thin arm, receipt binding, and mechanical spend-control implementation are on `main` through `9a78302075b2a0840f25f03f59242743bc283abb`, but the remaining work is still not limited to the designated approver's signature: two public authorities are unprovisioned, no production evaluator/provider factory is installed, the evaluator wrapper is not pinned, the privileged containment capture is absent, and no final executable spec, pricing snapshot, spend policy, or superseding freeze exists.
+No provider spend is authorized by this document. The production runner, native-thin arm, receipt binding, per-call spend control, caller-supplied root contract, and installed Claude 2.1.233 / Codex 0.147.0 identities are in this packet. Two public authorities remain unprovisioned, no production evaluator/provider factory is installed, the evaluator wrapper is not pinned, the privileged containment capture is absent, and the final executable spec, pricing snapshot, and spend policy are unminted.
 
 ## Current specification artifact
 
@@ -14,6 +14,17 @@ No provider spend is authorized by this document. The production runner, native-
 | Required next artifact | A newly hashed executable freeze that explicitly supersedes this one and predates every paid call |
 
 The companion `.sha256` file permits a reviewer to verify the exact bytes. The designated approver should not approve spend against this hash.
+
+## Executable freeze artifact
+
+| Field | Value |
+| --- | --- |
+| Executable freeze | `docs/community-acceptance/tier0-paired-smoke-executable-freeze.md` |
+| SHA-256 | `00d37b320cee3d937712b291748143cc816e0dad6813c2ccd71cad2e45c136bc` |
+| Status | Command, binary-identity, and per-call spend packet; not an approval target |
+| Remaining mint | Public authorities, wrapper digest, dated pricing/policy, executable spec, detached approval |
+
+This table is informational. Spend signature still targets a later hash after `dm0g.4.5.16-reviewer` acceptance.
 
 Regenerating the structural specification means updating three things together: the freeze document, its `.sha256` companion, and the SHA-256 row above. `tests/test_community_acceptance_freeze_digest.py` fails if any of the three drifts from the others, so the table above cannot silently outlive the bytes it names. That gate reads the rendered table in this section only, and requires exactly one such table — under a level-two heading — carrying exactly one `Structural specification` row and one `SHA-256` row: a row moved into a code fence, an HTML comment, or an indented block, or into a historical table or a second table here, is not a declaration a reviewer can see, and the gate reports it missing rather than accepting it.
 
@@ -28,6 +39,10 @@ That band is not an estimate, cap, or authorization. The landed controller can e
 **BLOCKED — the supported command shape has landed, but there is no executable approval packet. Do not run these templates or substitute an ad hoc invocation.**
 
 ```bash
+export LFB_TIER0_SOURCE_ROOT="$PWD/lab"
+export LFB_TIER0_PRIVATE_ROOT="$PWD/private-root"
+export LFB_TIER0_ARCHIVE_ROOT="$PWD/archive-root"
+
 uv run legalforecast multiharness tier0 validate \
   --spec TIER0_EXECUTABLE_SPEC.json \
   --spec-sha256 sha256:SPEC_SHA256 \
@@ -39,7 +54,7 @@ uv run legalforecast multiharness tier0 run \
   --approval TIER0_DETACHED_APPROVAL.json
 ```
 
-The entrypoint derives fresh private and archive roots from the spec directory and hash, executes the frozen opaque arm order, and accepts no run-varying flags beyond the spec/hash/approval triplet. Its provider-free fake-binary acceptance path covers projection, registry lookup, contained clean-native and native-thin execution, discovery, authorized scoring, receipts, and archive output.
+The entrypoint honors the frozen caller-supplied empty-root contract: `LFB_TIER0_SOURCE_ROOT` is the existing LAB pin, and `LFB_TIER0_PRIVATE_ROOT` plus `LFB_TIER0_ARCHIVE_ROOT` must be fresh absent paths. It does not invent locations under the spec directory and accepts no run-varying flags beyond the spec/hash/approval triplet. Its provider-free fake-binary acceptance path covers projection, registry lookup, contained clean-native and native-thin execution, discovery, authorized scoring, receipts, and archive output.
 
 The paid command is nevertheless non-executable today. Both committed public-authority files have `public_key_base64: null` and `status: pending_human_provisioning`. In addition, `legalforecast.multiharness.cli` requires an embedding runtime to call `install_tier0_production_evaluator_factory(...)`, but the supported repository has no production installer; without one, `tier0 run` refuses paid execution before evaluation. The required `harvey-lab-eval` wrapper is also not installed on the characterized PATH, so no final wrapper digest can be placed in the executable spec. These are fail-closed blockers, not operator choices that may be supplied as extra flags.
 
@@ -75,7 +90,7 @@ There is no safe copy-paste command before steps 1 and 2 are satisfied. Printing
 | `legalforecastbench-e5er` | Commit the dated pricing snapshot and exact dollar-valued policy, bind both hashes into the executable spec, and retain the final mutation evidence; the enforcement mechanism is landed |
 | Approval authority | The designated approval operator supplies and reviews the public Ed25519 key for `legalforecast.tier0-spend-approval-issuer.v1`; it must remain distinct from the evaluator signer |
 | Evaluator authority | The designated credential operator provisions the RFC 8032 seed only at `/agents/sandbox/legalforecastbench/harness-runtime/evaluator-issuer` in `dev` and approves committing the corresponding public key; agents never create or read the secret |
-| Binary identities | Reconcile the privileged containment target with observed Claude Code 2.1.233, then bind the exact approved solver and evaluator-wrapper identities through generated private run metadata |
+| Binary identities | Standalone CLI pins now match the installed bytes: Claude Code 2.1.233 (`55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9`) and Codex CLI 0.147.0 (`cb0a15567e9a60a5820d54b0f6ae86d504dc3805c1eab21a47f70e3eb7b73a40`). Privileged containment still targets an older Claude identity and remains a designated-operator blocker |
 | Credentials | Complete the designated credential operator's solver/judge credential handshakes without host-store fallback |
 | Order and mapping | Commit opaque arm IDs, solver/evaluator order, private mapping custody, and terminal retry policy |
 | Pricing and caps | Bind a dated pricing snapshot and reproducible estimate to enforced maxima |

@@ -65,6 +65,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [multiharness-receipt-authority.md](multiharness-receipt-authority.md): the external Ed25519 evaluator-issuer seam, its Infisical custody handoff, and the credential-free executable probe procedure.
 - [Lane F3 provider-free acceptance](community-acceptance/2026-08-16-provider-free-f3-acceptance.md): archived fake-binary, hostile-boundary, package, aggregate, site, and full-suite evidence with the task-selection defect found during acceptance.
 - [Tier-0 paired smoke structural freeze](community-acceptance/tier0-paired-smoke-structural-freeze.md): hash-bound known fields and explicit blockers for the non-executable pre-spend Tier-0 artifact.
+- [Tier-0 paired smoke executable freeze](community-acceptance/tier0-paired-smoke-executable-freeze.md): command shape, binary identity, per-call spend enforcement, and receipt-authority coordinates; not an approval target.
 - [Tier-0 readiness pack](community-acceptance/tier0-readiness-pack.md): current cost, command, independent-review, privileged-capture, and signature blocker status.
 - [Tier-1 one-task blocked draft](community-acceptance/tier1-contributor-one-task-blocked-draft.md): contributor-grade Claude/Codex structure that remains blocked on Tier-0 observations and review.
 

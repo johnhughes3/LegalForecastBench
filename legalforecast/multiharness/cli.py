@@ -63,6 +63,10 @@ from legalforecast.multiharness.task_loaders import (
     HarveyLabTaskLoader,
     LfbTaskLoader,
 )
+from legalforecast.multiharness.tier0_operator_contract import (
+    caller_tier0_roots,
+    infisical_evaluator_issuer_secret_loader,
+)
 from legalforecast.multiharness.tier0_runner import (
     Tier0EvaluatorProvenanceProvider,
     Tier0ExecutableSpec,
@@ -629,7 +633,9 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         cast(str, args.spec_sha256),
     )
     approval_authority = load_approved_tier0_approval_authority()
-    evaluator_authority = load_approved_issuer_authority()
+    evaluator_authority = load_approved_issuer_authority(
+        secret_loader=infisical_evaluator_issuer_secret_loader
+    )
     approval = load_detached_approval(
         cast(Path, args.approval),
         spec_sha256=spec_sha256,
@@ -642,11 +648,7 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         spend_policy, pricing_snapshot = load_spend_artifacts(
             cast(Path, args.spec), spec
         )
-    spec_root = cast(Path, args.spec).resolve().parent
-    run_root = spec_root / ".tier0-runtime" / spec_sha256.removeprefix("sha256:")
-    source_root = spec_root / "lab"
-    private_root = run_root / "private"
-    archive_root = run_root / "archive"
+    source_root, private_root, archive_root = caller_tier0_roots()
     if spend_policy is None or pricing_snapshot is None:
         evaluator_runner = None
         evaluator_provenance_provider = None
@@ -664,8 +666,6 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
             spend_policy,
             pricing_snapshot,
         )
-    private_root.parent.mkdir(parents=True, exist_ok=True)
-    archive_root.parent.mkdir(parents=True, exist_ok=True)
     result = run_tier0(
         spec=spec,
         spec_sha256=spec_sha256,

@@ -24,11 +24,11 @@ FIXTURE = (
     / "tests"
     / "fixtures"
     / "claude_code_cli_characterization"
-    / "claude-code-cli-interface-2.1.231.json"
+    / "claude-code-cli-interface-2.1.233.json"
 )
 DOC = ROOT / "docs" / "adapters" / "claude-code-cli-characterization.md"
 MANIFEST = ROOT / "tests" / "fixtures" / "local_cli_adapters" / "claude-code.json"
-EXPECTED_SHA256 = "47a01daebf794f6c86c13d1875ad6e5be0627029ad8600731161f24018ecde5b"
+EXPECTED_SHA256 = "55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9"
 EXPECTED_MODEL = "claude-haiku-4-5"
 
 
@@ -46,12 +46,12 @@ def test_committed_characterization_pins_binary_and_requested_probe_controls() -
         "distribution": {
             "kind": "standalone-cli",
             "package": "claude",
-            "version": "2.1.231 (Claude Code)",
+            "version": "2.1.233 (Claude Code)",
         },
         "executable": "claude",
         "mode": "0755",
         "sha256": EXPECTED_SHA256,
-        "version": "2.1.231 (Claude Code)",
+        "version": "2.1.233 (Claude Code)",
     }
     assert evidence["safety"] == {
         "auth_paths_requested": False,
@@ -105,7 +105,7 @@ def test_documentation_and_manifest_preserve_the_non_spending_claim_boundary() -
     documentation = DOC.read_text(encoding="utf-8")
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
 
-    assert "2.1.231" in documentation
+    assert "2.1.233" in documentation
     assert EXPECTED_SHA256 in documentation
     assert "does not prove JSON envelope semantics" in documentation
     assert "Claude Agent SDK" in documentation
@@ -115,7 +115,7 @@ def test_documentation_and_manifest_preserve_the_non_spending_claim_boundary() -
     assert manifest["timeout_retry"]["max_attempts"] == 1
     typed = LocalCliAdapterManifest.from_record(manifest)
     assert typed.executable.sha256 == EXPECTED_SHA256
-    assert typed.executable.version == "2.1.231 (Claude Code)"
+    assert typed.executable.version == "2.1.233 (Claude Code)"
     assert typed.to_record() == manifest
 
 
