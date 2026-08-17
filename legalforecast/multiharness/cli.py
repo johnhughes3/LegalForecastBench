@@ -63,6 +63,7 @@ from legalforecast.multiharness.tier0_runner import (
     load_approved_issuer_authority,
     load_detached_approval,
     load_executable_spec,
+    load_spend_artifacts,
     run_tier0,
 )
 from legalforecast.publication.community_aggregate import (
@@ -285,15 +286,15 @@ def add_multiharness_parser(subparsers: Any) -> None:
     tier0_run.add_argument("--spec", type=Path, required=True)
     tier0_run.add_argument("--spec-sha256", required=True)
     tier0_run.add_argument("--approval", type=Path, required=True)
-    tier0_run.add_argument("--source-root", type=Path, required=True)
-    tier0_run.add_argument("--private-root", type=Path, required=True)
-    tier0_run.add_argument("--archive-root", type=Path, required=True)
-    tier0_run.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Validate the frozen spec and detached approval without spawning.",
-    )
     tier0_run.set_defaults(handler=_cmd_tier0_run)
+    tier0_validate = tier0_commands.add_parser(
+        "validate",
+        help="Validate the frozen executable spec and its deterministic sidecars.",
+    )
+    tier0_validate.add_argument("--spec", type=Path, required=True)
+    tier0_validate.add_argument("--spec-sha256", required=True)
+    tier0_validate.add_argument("--approval", type=Path, required=True)
+    tier0_validate.set_defaults(handler=_cmd_tier0_validate)
 
     report = commands.add_parser(
         "report",
@@ -607,36 +608,45 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         cast(Path, args.approval),
         spec_sha256=spec_sha256,
     )
-    if cast(bool, args.dry_run):
-        output = cast(Path, args.archive_root) / "tier0-run-plan.json"
-        write_json_object(
-            output,
-            {
-                "schema_version": _CLI_PLAN_SCHEMA_VERSION,
-                "command": "multiharness tier0 run",
-                "dry_run": True,
-                "experiment_id": spec.experiment_id,
-                "spec_sha256": spec_sha256,
-                "approval_id": approval.approval_id,
-                "approval_status": approval.status,
-                "order": list(spec.order),
-            },
+    if spec.pricing_snapshot_sha256 is None and approval.status == "provider_free":
+        spend_policy = None
+        pricing_snapshot = None
+    else:
+        spend_policy, pricing_snapshot = load_spend_artifacts(
+            cast(Path, args.spec), spec
         )
-        _cli_note(f"Wrote {output}.")
-        return 0
+    spec_root = cast(Path, args.spec).resolve().parent
+    run_root = spec_root / ".tier0-runtime" / spec_sha256.removeprefix("sha256:")
+    source_root = spec_root / "lab"
+    private_root = run_root / "private"
+    archive_root = run_root / "archive"
+    private_root.parent.mkdir(parents=True, exist_ok=True)
+    archive_root.parent.mkdir(parents=True, exist_ok=True)
     result = run_tier0(
         spec=spec,
         spec_sha256=spec_sha256,
         approval=approval,
-        source_root=cast(Path, args.source_root),
-        private_root=cast(Path, args.private_root),
-        archive_root=cast(Path, args.archive_root),
+        source_root=source_root,
+        private_root=private_root,
+        archive_root=archive_root,
         authority=load_approved_issuer_authority(),
+        spend_policy=spend_policy,
+        pricing_snapshot=pricing_snapshot,
     )
     _cli_note(
         f"Tier-0 run completed ({'matched' if result.matched else 'system-bundle'}); "
         f"wrote {result.archive_manifest}."
     )
+    return 0
+
+
+def _cmd_tier0_validate(args: argparse.Namespace) -> int:
+    spec, spec_sha256 = load_executable_spec(
+        cast(Path, args.spec), cast(str, args.spec_sha256)
+    )
+    load_detached_approval(cast(Path, args.approval), spec_sha256=spec_sha256)
+    load_spend_artifacts(cast(Path, args.spec), spec)
+    _cli_note(f"Tier-0 executable spec and sidecars validated ({spec_sha256}).")
     return 0
 
 

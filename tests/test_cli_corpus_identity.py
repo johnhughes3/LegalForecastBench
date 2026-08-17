@@ -39,6 +39,25 @@ tests/test_cycle_acquisition_store.py::test_commit
 tests/test_cycle_acquisition_store.py::test_replay
 tests/test_package_skeleton.py::test_cli_placeholder_prints_help
 """
+# Parametrized IDs derived from natural-language parameter values carry spaces.
+# The interleaved non-node lines are the surrounding pytest chrome the capture
+# command redirects into the same log.
+_WHITESPACE_DURATION_SAMPLE = """
+============================= slowest durations ==============================
+0.40s call     tests/test_operative_complaint.py::test_docket[1 COMPLAINT filed]
+0.25s setup    tests/test_operative_complaint.py::test_docket[1 COMPLAINT filed]
+0.30s call     tests/test_operative_complaint.py::test_docket[2 ANSWER filed]
+0.05s call     tests/test_cli.py::test_help
+(0.00 durations hidden.  Use -vv to show these durations.)
+0.99s call     123 not a node id
+"""
+_WHITESPACE_COLLECT_SAMPLE = """
+tests/test_operative_complaint.py::test_docket[1 COMPLAINT filed]
+tests/test_operative_complaint.py::test_docket[2 ANSWER filed]
+tests/test_operative_complaint.py::TestDocket::test_nested[a b][c d]
+tests/test_cli.py::test_help
+4 tests collected in 0.12s
+"""
 
 
 def test_path_identity_inventory_is_current() -> None:
@@ -128,6 +147,31 @@ def test_xdist_timing_parser_and_critical_path() -> None:
     counts_only = timing_payload(test_counts=counts)
     assert counts_only["durations_recorded"] is False
     assert counts_only["critical_path_rank"] == "test_count"
+
+
+def test_xdist_parsers_keep_whitespace_bearing_node_ids() -> None:
+    # A node ID matched with ``\\S+`` anchored to end-of-line does not merely
+    # split wrong when the parametrized ID contains a space: the row fails to
+    # match at all, so the test disappears from the baseline without a trace.
+    durations, rows = parse_duration_lines(_WHITESPACE_DURATION_SAMPLE)
+    assert durations == {
+        "tests/test_cli.py": 0.05,
+        "tests/test_operative_complaint.py": 0.95,
+    }
+    assert rows == {"tests/test_cli.py": 1, "tests/test_operative_complaint.py": 3}
+
+    counts = parse_collect_only(_WHITESPACE_COLLECT_SAMPLE)
+    assert counts == {"tests/test_cli.py": 1, "tests/test_operative_complaint.py": 3}
+
+
+def test_xdist_duration_parser_rejects_non_node_lines() -> None:
+    # The node ID now runs to end-of-line, so ``::`` is the only thing keeping
+    # captured test output that happens to lead with a number and a word out of
+    # the baseline.
+    assert parse_duration_lines("1.20s call     a plain sentence\n") == ({}, {})
+    assert parse_duration_lines("0.10s teardown  tests/test_cli.py\n") == ({}, {})
+    assert parse_collect_only("collected 8 items in 1.5s\n") == {}
+    assert parse_collect_only("legalforecast/cli.py::doctest one\n") == {}
 
 
 def test_xdist_timing_baseline_exists_and_names_loadscope_shards() -> None:

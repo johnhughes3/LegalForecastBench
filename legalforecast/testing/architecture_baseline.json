@@ -3680,7 +3680,7 @@
       "legalforecast/ingestion": 157,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/labeling": 13,
-      "legalforecast/multiharness": 61,
+      "legalforecast/multiharness": 62,
       "legalforecast/protocol": 4,
       "legalforecast/publication": 21,
       "legalforecast/reporting": 9,
@@ -3690,7 +3690,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 430,
+      "tests": 431,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -6300,8 +6300,8 @@
         "largest_symbol": "ClaudeCodeCliSolver",
         "largest_symbol_lines": 128,
         "layer": "application",
-        "line_count": 1372,
-        "nonblank_line_count": 1245,
+        "line_count": 1378,
+        "nonblank_line_count": 1251,
         "top_level_definition_count": 45
       },
       "legalforecast/multiharness/cli.py": {
@@ -6317,9 +6317,9 @@
         "largest_symbol": "add_multiharness_parser",
         "largest_symbol_lines": 281,
         "layer": "application",
-        "line_count": 1141,
-        "nonblank_line_count": 1041,
-        "top_level_definition_count": 39
+        "line_count": 1151,
+        "nonblank_line_count": 1049,
+        "top_level_definition_count": 40
       },
       "legalforecast/multiharness/codex_cli.py": {
         "cycle_id": "",
@@ -6564,7 +6564,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 5,
+        "fan_in": 6,
         "fan_out": 3,
         "flags": [
           "watch"
@@ -6750,6 +6750,23 @@
         "nonblank_line_count": 707,
         "top_level_definition_count": 23
       },
+      "legalforecast/multiharness/spend.py": {
+        "cycle_id": "",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.6",
+        "fan_in": 1,
+        "fan_out": 1,
+        "flags": [
+          "oversized"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "SpendController",
+        "largest_symbol_lines": 358,
+        "layer": "application",
+        "line_count": 1297,
+        "nonblank_line_count": 1157,
+        "top_level_definition_count": 32
+      },
       "legalforecast/multiharness/task_loaders.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -6772,17 +6789,18 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 1,
-        "fan_out": 13,
+        "fan_out": 17,
         "flags": [
+          "relative-path",
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_tier0",
-        "largest_symbol_lines": 131,
+        "largest_symbol_lines": 343,
         "layer": "application",
-        "line_count": 1139,
-        "nonblank_line_count": 1038,
-        "top_level_definition_count": 35
+        "line_count": 1927,
+        "nonblank_line_count": 1782,
+        "top_level_definition_count": 50
       },
       "legalforecast/protocol/freeze.py": {
         "cycle_id": "",
@@ -9179,23 +9197,6 @@
         "line_count": 1593,
         "nonblank_line_count": 1424,
         "top_level_definition_count": 46
-      },
-      "tests/test_multiharness_tier0_runner.py": {
-        "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "tests",
-        "fan_in": 0,
-        "fan_out": 0,
-        "flags": [
-          "watch"
-        ],
-        "lane_owner": "tests",
-        "largest_symbol": "test_cli_full_paired_tier0_fake_binary_run",
-        "largest_symbol_lines": 66,
-        "layer": "test",
-        "line_count": 500,
-        "nonblank_line_count": 450,
-        "top_level_definition_count": 19
       },
       "tests/test_official_aggregate.py": {
         "cycle_id": "",

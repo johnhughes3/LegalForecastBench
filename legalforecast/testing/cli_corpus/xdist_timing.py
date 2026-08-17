@@ -7,6 +7,10 @@ Refresh the checked-in baseline at a review-stable head by capturing
     uv run python -m legalforecast.testing.cli_corpus \\
         --write-timing --durations-file durations.log
 
+Capture the log with colour off (``NO_COLOR=1``, or simply a shell that does not
+export ``FORCE_COLOR``): the parsers read plain text, and ANSI escapes wrapped
+around a duration row make it unrecognisable.
+
 ``--durations=0`` still honours pytest's 0.005s ``--durations-min``, so modules
 whose every test is faster than that keep ``duration_seconds: null`` and sort
 below the measured tail. Durations are wall-clock on the capturing host: the
@@ -27,10 +31,18 @@ from legalforecast.testing.cli_corpus.paths import (
     load_json,
 )
 
+# Node IDs are the last field on the line and may contain whitespace, because
+# ``pytest.mark.parametrize`` derives IDs from the parameter values themselves
+# (``test_messages[sample_id is required]``).  Matching them with ``\S+``
+# anchored to end-of-line does not merely mis-split such a row: the line fails
+# to match at all and the test drops out of the baseline silently.  So the node
+# ID runs to end-of-line, and the ``::`` separator -- present in every pytest
+# node ID -- is what keeps the looser pattern from claiming unrelated log lines
+# that happen to start with a number and a word.
 _DURATION_LINE = re.compile(
-    r"^(?P<seconds>[0-9]+(?:\.[0-9]+)?)s\s+(?P<phase>\S+)\s+(?P<nodeid>\S+)\s*$"
+    r"^(?P<seconds>[0-9]+(?:\.[0-9]+)?)s\s+(?P<phase>\S+)\s+(?P<nodeid>\S+::\S.*?)\s*$"
 )
-_COLLECT_LINE = re.compile(r"^(?P<nodeid>tests/\S+::\S+)\s*$")
+_COLLECT_LINE = re.compile(r"^(?P<nodeid>tests/\S+::\S.*?)\s*$")
 _CRITICAL_PATH_LIMIT = 25
 SUPPORTED_XDIST_COMMAND = "uv run pytest -q -n 4 --dist=loadscope --durations=0"
 

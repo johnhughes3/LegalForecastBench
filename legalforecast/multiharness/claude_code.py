@@ -132,6 +132,7 @@ _ALLOWED_VALUE_FLAGS = frozenset(
         "--setting-sources",
         "--model",
         "--add-dir",
+        "--max-budget-usd",
     }
 )
 _ALLOWED_BARE_FLAGS = frozenset(
@@ -323,6 +324,7 @@ def build_claude_invocation_plan(
     auth_profile: object = FIXTURE_NONE,
     json_schema: Mapping[str, Any] | None = None,
     extra_add_dirs: Sequence[Path] = (),
+    max_budget_usd: str | None = None,
 ) -> ClaudeInvocationPlan:
     """Translate one task into a shell-safe argv from the frozen template."""
 
@@ -362,6 +364,10 @@ def build_claude_invocation_plan(
         extra_dirs.extend(["--add-dir", extra.as_posix()])
     if extra_dirs:
         argv = (*argv, *extra_dirs)
+    if max_budget_usd is not None:
+        if not max_budget_usd.strip():
+            raise ClaudeCodeCliAdapterError("max_budget_usd must be non-empty")
+        argv = (*argv, "--max-budget-usd", max_budget_usd)
     return ClaudeInvocationPlan(
         argv=argv,
         prompt=prompt,

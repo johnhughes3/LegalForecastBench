@@ -55,7 +55,7 @@ def test_cli_full_paired_tier0_fake_binary_run(
 ) -> None:
     """The supported command runs both arms and emits archive receipts."""
 
-    source_root = _issue_196_source(tmp_path / "lab")
+    _issue_196_source(tmp_path / "lab")
     env = _install_fixture_binaries(tmp_path)
     monkeypatch.setenv("PATH", env["PATH"])
     spec_record = _spec_record(env)
@@ -84,8 +84,6 @@ def test_cli_full_paired_tier0_fake_binary_run(
     monkeypatch.setattr(
         multiharness_cli, "load_approved_issuer_authority", lambda: _FixtureAuthority()
     )
-    private_root = tmp_path / "private"
-    archive_root = tmp_path / "archive"
     assert (
         main(
             [
@@ -98,16 +96,13 @@ def test_cli_full_paired_tier0_fake_binary_run(
                 spec_sha256,
                 "--approval",
                 str(approval_path),
-                "--source-root",
-                str(source_root),
-                "--private-root",
-                str(private_root),
-                "--archive-root",
-                str(archive_root),
             ]
         )
         == 0
     )
+    run_root = tmp_path / ".tier0-runtime" / spec_sha256.removeprefix("sha256:")
+    private_root = run_root / "private"
+    archive_root = run_root / "archive"
     archive = _read_json(archive_root / "archive-manifest.json")
     assert archive["spec_sha256"] == spec_sha256
     assert archive["matched"] is False
@@ -160,8 +155,6 @@ def test_tier0_wrong_spec_hash_fails_before_any_spawn(
                 spec_path,
                 approval_path,
                 spec_sha256="sha256:" + "0" * 64,
-                private_root=tmp_path / "private",
-                archive_root=tmp_path / "archive",
             )
         )
         == 2
@@ -191,8 +184,6 @@ def test_tier0_wrong_solver_hash_fails_before_any_spawn(
                 spec_path,
                 approval_path,
                 spec_sha256=spec_sha256,
-                private_root=tmp_path / "private",
-                archive_root=tmp_path / "archive",
             )
         )
         == 2
@@ -218,8 +209,6 @@ def test_tier0_wrong_wrapper_hash_fails_before_any_spawn(
                 spec_path,
                 approval_path,
                 spec_sha256=spec_sha256,
-                private_root=tmp_path / "private",
-                archive_root=tmp_path / "archive",
             )
         )
         == 2
@@ -257,9 +246,19 @@ def test_tier0_mutated_loaded_spec_is_rejected_before_roots(
     assert not (tmp_path / "archive").exists()
 
 
-def test_tier0_cli_rejects_ad_hoc_model_flags() -> None:
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--model", "anything"],
+        ["--source-root", "/tmp/source"],
+        ["--private-root", "/tmp/private"],
+        ["--archive-root", "/tmp/archive"],
+        ["--dry-run"],
+    ],
+)
+def test_tier0_cli_rejects_run_varying_flags(arguments: list[str]) -> None:
     with pytest.raises(SystemExit) as exc_info:
-        main(["multiharness", "tier0", "run", "--model", "anything"])
+        main(["multiharness", "tier0", "run", *arguments])
     assert exc_info.value.code == 2
 
 
@@ -323,8 +322,6 @@ def _run_args(
     approval_path: Path,
     *,
     spec_sha256: str,
-    private_root: Path,
-    archive_root: Path,
 ) -> list[str]:
     return [
         "multiharness",
@@ -336,12 +333,6 @@ def _run_args(
         spec_sha256,
         "--approval",
         str(approval_path),
-        "--source-root",
-        str(spec_path.parent / "lab"),
-        "--private-root",
-        str(private_root),
-        "--archive-root",
-        str(archive_root),
     ]
 
 
