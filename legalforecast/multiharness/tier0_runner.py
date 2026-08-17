@@ -966,6 +966,9 @@ def run_tier0(
                         evaluator_runner=evaluator_runner,
                     )
                 )
+            arm_boundary = evaluator_boundaries.get(arm.arm_id)
+            if arm_boundary is not None:
+                arm_boundary.require_every_criterion_settled()
     except Exception as exc:
         _terminalize_outstanding(controller, outstanding, str(exc))
         _write_archive(
@@ -1176,13 +1179,13 @@ class _PerCriterionEvaluatorSpendBoundary(HarveyLabJudgeRequestBoundary):
         self._arm = arm
         self._outstanding = outstanding
         self._ceilings = _judge_ceilings_for(controller.policy, arm.arm_id)
-        self._call_id_lock = threading.RLock()
+        # The judge surface is deliberately not tied to ``arm.requested_model``.
+        # A policy may score a solver arm with a different judging model, and
+        # every reservation is validated against its own judge ceiling's
+        # provider/model by ``SpendController.reserve``.
+        self._ledger_lock = threading.RLock()
         self._seen_call_ids: set[str] = set()
-        for ceiling in self._ceilings:
-            if ceiling.model != arm.requested_model:
-                raise Tier0RunnerError(
-                    f"judge model does not match spend policy for {arm.arm_id}"
-                )
+        self._settled_criteria: set[str] = set()
 
     def _ceiling_for(self, request: HarveyLabJudgeRequest) -> JudgeCriterionCeiling:
         if request.ordinal > len(self._ceilings):
@@ -1202,7 +1205,7 @@ class _PerCriterionEvaluatorSpendBoundary(HarveyLabJudgeRequestBoundary):
         call_id = (
             f"{self._arm.arm_id}-evaluator-{request.ordinal}-{request.attempt_index}"
         )
-        with self._call_id_lock:
+        with self._ledger_lock:
             if call_id in self._seen_call_ids:
                 raise Tier0RunnerError("judge call identity was already used")
             self._seen_call_ids.add(call_id)
@@ -1221,11 +1224,11 @@ class _PerCriterionEvaluatorSpendBoundary(HarveyLabJudgeRequestBoundary):
                 )
             )
         except SpendDeniedError:
-            with self._call_id_lock:
+            with self._ledger_lock:
                 self._seen_call_ids.remove(call_id)
             raise
         except SpendConfigurationError as exc:
-            with self._call_id_lock:
+            with self._ledger_lock:
                 self._seen_call_ids.remove(call_id)
             raise Tier0RunnerError(
                 f"evaluator spend reservation is not executable for {self._arm.arm_id}"
@@ -1261,6 +1264,32 @@ class _PerCriterionEvaluatorSpendBoundary(HarveyLabJudgeRequestBoundary):
             self._controller.settle(reservation, observation)
         except SpendSettlementError as exc:
             raise Tier0RunnerError("judge spend settlement failed closed") from exc
+        with self._ledger_lock:
+            self._settled_criteria.add(ceiling.criterion_id)
+
+    def require_every_criterion_settled(self) -> None:
+        """Refuse an evaluation that skipped any pinned criterion boundary.
+
+        The evaluator owns the criterion loop, so a runner that silently omits
+        a callback would leave that provider call outside the ledger entirely:
+        unreserved before the request and unsettled afterwards.  A scores file
+        can still look complete in that case, so the arm is only accepted once
+        every pinned criterion has been reserved *and* settled through this
+        boundary.
+        """
+
+        with self._ledger_lock:
+            missing = tuple(
+                ceiling.criterion_id
+                for ceiling in self._ceilings
+                if ceiling.criterion_id not in self._settled_criteria
+            )
+        if missing:
+            raise Tier0RunnerError(
+                f"evaluator settled {len(self._ceilings) - len(missing)} of "
+                f"{len(self._ceilings)} per-criterion judge calls for "
+                f"{self._arm.arm_id}; unaccounted criteria: {', '.join(missing)}"
+            )
 
 
 def _settle_solver(

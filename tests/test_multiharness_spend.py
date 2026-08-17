@@ -81,6 +81,7 @@ def _judge_cap(
     criterion_id: str = "criterion-1",
     *,
     arm_id: str = "arm-a",
+    model: str = "model-a",
     max_requests: int = 2,
     max_retries: int = 1,
     max_cost_usd: str = "0.003000",
@@ -89,7 +90,7 @@ def _judge_cap(
         arm_id=arm_id,
         criterion_id=criterion_id,
         provider="provider-a",
-        model="model-a",
+        model=model,
         max_cost_usd=max_cost_usd,
         max_requests=max_requests,
         max_retries=max_retries,
@@ -103,6 +104,29 @@ def _judge_cap(
     )
 
 
+def _judge_model_pricing() -> PricingSnapshot:
+    """Pricing that rates a dedicated judging model beside the solver model."""
+
+    return PricingSnapshot(
+        snapshot_id="synthetic-judge-pricing-2026-08-17",
+        as_of_date="2026-08-17",
+        rates=(
+            PricingRate(
+                provider="provider-a",
+                model="model-a",
+                input_microusd_per_token=10,
+                output_microusd_per_token=20,
+            ),
+            PricingRate(
+                provider="provider-a",
+                model="judge-model-b",
+                input_microusd_per_token=10,
+                output_microusd_per_token=20,
+            ),
+        ),
+    )
+
+
 def _policy(
     *,
     solver_cost: str = "0.003000",
@@ -112,11 +136,12 @@ def _policy(
     experiment_requests: int = 8,
     experiment_retries: int = 4,
     experiment_parallelism: int = 1,
+    pricing: PricingSnapshot | None = None,
 ) -> SpendPolicy:
     return SpendPolicy(
         experiment_id="tier0-provider-free-test",
         executable_spec_sha256=SPEC,
-        pricing_snapshot_sha256=_pricing().snapshot_sha256,
+        pricing_snapshot_sha256=(pricing or _pricing()).snapshot_sha256,
         experiment=ExperimentCeiling(
             max_cost_usd=experiment_cost,
             max_requests=experiment_requests,
@@ -508,6 +533,86 @@ def test_aggregate_judge_ceiling_is_rejected_by_the_evaluator_boundary() -> None
             arm=spec.arms[0],
             outstanding=_OutstandingReservations(),
         )
+
+
+def test_skipped_criterion_boundary_refuses_the_completed_evaluation() -> None:
+    pricing = _pricing()
+    criteria = tuple(
+        _judge_cap(
+            f"criterion-{ordinal}",
+            arm_id="arm-opaque-01",
+            max_cost_usd="0.006000",
+        )
+        for ordinal in range(1, 24)
+    )
+    policy = _policy(
+        experiment_cost="0.069000",
+        experiment_requests=25,
+        experiment_retries=2,
+        judges=criteria,
+    )
+    controller = SpendController(policy, pricing)
+    spec = _bound_spec(policy=policy, pricing=pricing)
+    boundary = _PerCriterionEvaluatorSpendBoundary(
+        controller=controller,
+        spec=spec,
+        arm=spec.arms[0],
+        outstanding=_OutstandingReservations(),
+    )
+
+    # An evaluator runner that omits one callback still returns a full scores
+    # file, so the omission has to be caught by the ledger rather than by the
+    # evaluator's own output.
+    for ordinal in range(1, 23):
+        request = HarveyLabJudgeRequest(ordinal, f"criterion-{ordinal}")
+        reservation = boundary.before_judge_call(request)
+        boundary.after_judge_call(request, reservation, _known_usage(pricing))
+
+    with pytest.raises(Tier0RunnerError, match="unaccounted criteria: criterion-23"):
+        boundary.require_every_criterion_settled()
+
+    final = HarveyLabJudgeRequest(23, "criterion-23")
+    reservation = boundary.before_judge_call(final)
+
+    # A reserved-but-unsettled call is still unaccounted for.
+    with pytest.raises(Tier0RunnerError, match="unaccounted criteria: criterion-23"):
+        boundary.require_every_criterion_settled()
+
+    boundary.after_judge_call(final, reservation, _known_usage(pricing))
+    assert boundary.require_every_criterion_settled() is None
+
+
+def test_judge_ceilings_may_pin_a_model_other_than_the_solver_model() -> None:
+    pricing = _judge_model_pricing()
+    criteria = tuple(
+        _judge_cap(
+            f"criterion-{ordinal}",
+            arm_id="arm-opaque-01",
+            model="judge-model-b",
+            max_cost_usd="0.006000",
+        )
+        for ordinal in range(1, 24)
+    )
+    policy = _policy(
+        pricing=pricing,
+        experiment_cost="0.069000",
+        experiment_requests=25,
+        experiment_retries=2,
+        judges=criteria,
+    )
+    spec = _bound_spec(policy=policy, pricing=pricing)
+    assert spec.arms[0].requested_model == "model-a"
+
+    boundary = _PerCriterionEvaluatorSpendBoundary(
+        controller=SpendController(policy, pricing),
+        spec=spec,
+        arm=spec.arms[0],
+        outstanding=_OutstandingReservations(),
+    )
+    request = HarveyLabJudgeRequest(1, "criterion-1")
+    reservation = boundary.before_judge_call(request)
+    assert reservation.call.model == "judge-model-b"
+    boundary.after_judge_call(request, reservation, _known_usage(pricing))
 
 
 def test_raised_per_criterion_and_experiment_caps_change_policy_identity() -> None:
