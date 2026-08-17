@@ -31,7 +31,7 @@ legalforecast-provider-env-run = "legalforecast.labeling.provider_environment:ma
 
 [project.optional-dependencies]
 claude-agent-sdk-adapter = [
-    "claude-agent-sdk==0.2.132",
+    "claude-agent-sdk==0.2.138",
 ]
 
 [dependency-groups]
