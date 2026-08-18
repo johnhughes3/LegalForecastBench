@@ -82,7 +82,14 @@ FROZEN_PREDECESSOR_PARSE_QUALITY_REGIME: Final[Mapping[str, str]] = MappingProxy
         # digest in the exact-100 predecessor llm-unitize run card.
         "53c9e7245b56b0f21e5cac715a6010156ba4d3f4d322911d54beb27279de8357": (
             PARSE_QUALITY_REGIME_PRE_764
-        )
+        ),
+        # 31-final-exact100-downstream-v1 and 32-final-exact100-downstream-v2
+        # share these exact bytes.  The materialization projection replays this
+        # ancestor for provenance while authenticating 47, so it is reached from
+        # inside the same frozen chain and carries the same 2026-08-07 rows.
+        "f0059a6c19afec540331337a4f8e5ba89a7802f886180943b318bde7bf35bcc6": (
+            PARSE_QUALITY_REGIME_PRE_764
+        ),
     }
 )
 

@@ -43597,8 +43597,15 @@ def _replay_exact100_stipulated_eligibility_unchecked(
             "purchase_ledger_initialization_receipt"
         ),
     )
+    # Every path above comes from the persisted audit run card's own committed
+    # ``input_paths``, so this replays frozen, digest-committed ancestor
+    # evidence for provenance and never bytes any stage will consume.  That
+    # makes it a frozen-predecessor replay; the closed digest map is still the
+    # second condition, so an unpinned ancestor stays on the current gate.
     lineage = _verify_verified_stage_a_parse_lineage(
-        lineage_args, markdown_root=lineage_args.markdown_root
+        lineage_args,
+        markdown_root=lineage_args.markdown_root,
+        frozen_predecessor_replay=True,
     )
     if lineage.selection_bytes != selection_bytes:
         raise CommandError(
@@ -60027,11 +60034,14 @@ def _verify_stage_a_parse_lineage_uncached(
     args: argparse.Namespace,
     *,
     markdown_root: Path,
+    frozen_predecessor_replay: bool = False,
 ) -> _VerifiedStageAParseLineage:
     """Authenticate parser inputs before model registry or journal concerns."""
 
     return _stage_a_lineage.verify_stage_a_parse_lineage_uncached(
-        _stage_a_lineage_inputs(args), markdown_root=markdown_root
+        _stage_a_lineage_inputs(args),
+        markdown_root=markdown_root,
+        frozen_predecessor_replay=frozen_predecessor_replay,
     )
 
 
@@ -60060,11 +60070,16 @@ def _verify_verified_stage_a_parse_lineage(
     args: argparse.Namespace,
     *,
     markdown_root: Path,
+    frozen_predecessor_replay: bool = False,
 ) -> _VerifiedStageAParseLineage:
     """Replay provider-free parser lineage while reusing verified PDF scans."""
 
     with cache_disclosure_document_scans():
-        return _verify_stage_a_parse_lineage_uncached(args, markdown_root=markdown_root)
+        return _verify_stage_a_parse_lineage_uncached(
+            args,
+            markdown_root=markdown_root,
+            frozen_predecessor_replay=frozen_predecessor_replay,
+        )
 
 
 def _require_stage_a_parse_lineage_unchanged(

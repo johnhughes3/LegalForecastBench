@@ -36,6 +36,11 @@ from legalforecast.ingestion.stage_a_lineage_verification import (
 _PINNED_MANIFEST_SHA256 = (
     "53c9e7245b56b0f21e5cac715a6010156ba4d3f4d322911d54beb27279de8357"
 )
+# Stages 31/32, the ancestor the materialization projection replays while
+# authenticating 47.
+_PINNED_ANCESTOR_MANIFEST_SHA256 = (
+    "f0059a6c19afec540331337a4f8e5ba89a7802f886180943b318bde7bf35bcc6"
+)
 _BOILERPLATE_ONLY = (
     "Case 2:25-cv-02154-DCF Document 3 Filed 11/20/25 Page 1 of 21 PageID #: 154\n"
     "Case 2:25-cv-02154-DCF Document 3 Filed 11/20/25 Page 2 of 21 PageID #: 155\n"
@@ -46,7 +51,8 @@ def test_the_pinned_map_holds_exactly_the_one_audited_manifest() -> None:
     """A closed mapping is the whole security argument; keep it visible."""
 
     assert dict(FROZEN_PREDECESSOR_PARSE_QUALITY_REGIME) == {
-        _PINNED_MANIFEST_SHA256: PARSE_QUALITY_REGIME_PRE_764
+        _PINNED_MANIFEST_SHA256: PARSE_QUALITY_REGIME_PRE_764,
+        _PINNED_ANCESTOR_MANIFEST_SHA256: PARSE_QUALITY_REGIME_PRE_764,
     }
     assert parse_quality_regime_names() == (
         PARSE_QUALITY_REGIME_CURRENT,
