@@ -484,6 +484,39 @@ def validate_sealed_deliverable(
     return canonical_manifest
 
 
+def single_artifact_tree_sha256(artifact_path: str, payload: bytes) -> str:
+    """Recompute the tree commitment of a deliverable tree holding one file.
+
+    A consumer that already holds the artifact bytes -- an evaluator reading
+    the overlay copy of a sealed deliverable, for example -- can re-derive the
+    committed ``tree_sha256`` from those bytes alone, without re-walking the
+    sealed root it no longer has access to. That makes the bytes it is about
+    to act on authenticated against the same commitment the sealing step
+    produced.
+
+    Deliberately built from the same primitives ``_bounded_tree_snapshot``
+    uses, so the two encodings cannot drift apart; a tree holding anything
+    other than exactly one root-level file simply will not match.
+    """
+
+    if not artifact_path or artifact_path != PurePosixPath(artifact_path).name:
+        raise DeliverableValidationError(
+            "single-artifact tree path must be a bare filename"
+        )
+    entry: dict[str, object] = {
+        "path": artifact_path,
+        "type": "file",
+        "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
+        "size_bytes": len(payload),
+    }
+    return _record_sha256(
+        {
+            "schema_version": DELIVERABLE_TREE_COMMITMENT_SCHEMA_VERSION,
+            "entries": [entry],
+        }
+    )
+
+
 def _validate_projections(
     artifacts: tuple[DeliverableArtifactProjection, ...],
     limits: DeliverableLimits,

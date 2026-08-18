@@ -83,7 +83,7 @@ uv run legalforecast multiharness tier0 install-evaluator-wrapper \
   --output "<install record path>"
 ```
 
-Expected digest: `sha256:cddca86118ff9a26ce9e78c5d09f34487f65df46ee6a133ee14326383da80895`. The installer copies the committed bytes verbatim, then runs the credential-free capability probe against the installed path and refuses a mismatch.
+Expected digest: `sha256:3af0fdfa4af48cbc123fc599f65c9119b9fc832efd30c9c2acce341b51cdd820`. The installer copies the committed bytes verbatim, then runs the credential-free capability probe against the installed path and refuses a mismatch.
 
 ## 5. `dm0g.4.2.2` privileged containment capture — DO NOT RUN YET
 

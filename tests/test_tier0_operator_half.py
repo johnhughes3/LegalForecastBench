@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 """Provider-free proofs for the Tier-0 operator half.
 
 Covers the three pieces that turned the frozen-spec contract from
@@ -8,22 +10,36 @@ evaluator factory. No test resolves a credential or contacts a provider.
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import sys
+import zipfile
 from hashlib import sha256
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from legalforecast.multiharness import tier0_mint
+from legalforecast.multiharness.deliverable_text import (
+    DeliverableTextError,
+    docx_visible_text,
+)
+from legalforecast.multiharness.deliverables import single_artifact_tree_sha256
 from legalforecast.multiharness.harvey_lab_evaluator import (
+    EVALUATION_INPUT_SCHEMA_VERSION,
+    HarveyLabEvaluationHosts,
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
+    build_contained_evaluator_run_spec,
 )
 from legalforecast.multiharness.harvey_lab_production_runner import (
+    JudgeDeliverable,
+    ProductionEvaluatorRunnerError,
     ProductionJudgeCall,
     ProductionJudgeResponse,
 )
+from legalforecast.multiharness.harvey_lab_projection import ISSUE_196_LAB_TASK_ID
 from legalforecast.multiharness.spend import PricingRate, PricingSnapshot
 from legalforecast.multiharness.tier0_evaluator_wrapper import (
     HARVEY_LAB_EVAL_WRAPPER_SOURCE,
@@ -46,13 +62,38 @@ from legalforecast.multiharness.tier0_production_factory import (
     ProductionFactoryError,
     build_production_evaluator,
     infisical_tier0_judge_secret_loader,
+    judge_max_prompt_bytes,
 )
 from legalforecast.multiharness.tier0_runner import (
     load_executable_spec,
     load_spend_artifacts,
 )
+from tests.test_harvey_lab_evaluator import _identity, _project, _seal_deliverable
 
 CRITERION_IDS = tuple(f"criterion-{index:02d}" for index in range(1, 24))
+DELIVERABLE_BASENAME = "issue-identification-memo.docx"
+
+
+def _docx_bytes(*paragraphs: str) -> bytes:
+    """Build a minimal WordprocessingML package.
+
+    synthetic: true -- hand-authored rather than produced by a word processor,
+    because the extraction contract under test is the OOXML element shape, not
+    any particular authoring tool's output.
+    """
+
+    body = "".join(f"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>" for text in paragraphs)
+    document = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+        'wordprocessingml/2006/main">'
+        f"<w:body>{body}</w:body></w:document>"
+    )
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types></Types>")
+        archive.writestr("word/document.xml", document)
+    return buffer.getvalue()
 
 
 def _native_thin(budget_argument: str = "--max-cost-usd") -> NativeThinArmInput:
@@ -89,7 +130,11 @@ def _evaluation_input(tmp_path: Path, **overrides: object) -> dict[str, object]:
     private = tmp_path / "task.json"
     private.write_text("{}", encoding="utf-8")
     record: dict[str, object] = {
-        "schema_version": "legalforecast.multiharness.evaluation_input.v1",
+        # Taken from the producer, never retyped: the wrapper and the producer
+        # disagreeing on this string is exactly the defect a hand-written
+        # spelling hid, because the suite then only ever fed the wrapper its
+        # own dialect.
+        "schema_version": EVALUATION_INPUT_SCHEMA_VERSION,
         "lab_task_id": tier0_mint.PINNED_TASK_ID,
         "expected_deliverable_basename": "issue-identification-memo.docx",
         "deliverable_manifest_sha256": "sha256:" + "1" * 64,
@@ -139,7 +184,7 @@ def test_wrapper_refuses_the_unaccounted_aggregate_path(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"schema_version": "legalforecast.multiharness.evaluation_input.v99"},
+        {"schema_version": EVALUATION_INPUT_SCHEMA_VERSION + "9"},
         {"deliverable_path": "relative/path.docx"},
     ],
 )
@@ -293,8 +338,19 @@ class _RecordingBoundary(HarveyLabJudgeRequestBoundary):
         del request, reservation, observation
 
 
-def _transport(verdict: str = "pass") -> object:
-    def call(
+class _CapturingTransport:
+    """A fake provider that records exactly what would have been billed."""
+
+    def __init__(
+        self, verdict: str = "pass", resolved_model: str | None = None
+    ) -> None:
+        self.verdict = verdict
+        self.resolved_model = resolved_model
+        self.prompts: list[str] = []
+        self.systems: list[str] = []
+
+    def __call__(
+        self,
         *,
         api_key: str,
         model: str,
@@ -303,25 +359,45 @@ def _transport(verdict: str = "pass") -> object:
         max_output_tokens: int,
         temperature: float,
     ) -> JudgeTransportResult:
-        del api_key, system, prompt, max_output_tokens, temperature
+        del api_key, max_output_tokens, temperature
+        self.prompts.append(prompt)
+        self.systems.append(system)
         return JudgeTransportResult(
-            verdict_text=verdict,
-            resolved_model=model,
+            verdict_text=self.verdict,
+            resolved_model=self.resolved_model or model,
             input_tokens=1200,
             output_tokens=1,
             raw_response=b'{"stub":true}',
         )
 
-    return call
+
+def _transport(verdict: str = "pass") -> object:
+    return _CapturingTransport(verdict=verdict)
 
 
-def _judge_call(criterion_id: str, attempt_index: int = 0) -> ProductionJudgeCall:
+def _deliverable(
+    text: str = "The memo identifies the tolling issue.",
+) -> JudgeDeliverable:
+    payload = _docx_bytes(text)
+    return JudgeDeliverable(
+        basename=DELIVERABLE_BASENAME,
+        text=text,
+        sha256="sha256:" + sha256(payload).hexdigest(),
+    )
+
+
+def _judge_call(
+    criterion_id: str,
+    attempt_index: int = 0,
+    deliverable: JudgeDeliverable | None = None,
+) -> ProductionJudgeCall:
     return ProductionJudgeCall(
         request=HarveyLabJudgeRequest(
             ordinal=1, criterion_id=criterion_id, attempt_index=attempt_index
         ),
         run_spec=None,  # type: ignore[arg-type]
         criterion={"id": criterion_id, "title": "t", "match_criteria": "requirement"},
+        deliverable=deliverable or _deliverable(),
     )
 
 
@@ -331,6 +407,7 @@ def test_judge_adapter_reports_allocable_usage_and_the_resolved_model() -> None:
         pricing_snapshot=pricing,
         secret_loader=lambda _e, _p, _n: "stub-key",
         transport=_transport(),  # type: ignore[arg-type]
+        max_prompt_bytes=100_000,
     )
     response = adapter(_judge_call("criterion-01"))
     assert isinstance(response, ProductionJudgeResponse)
@@ -345,6 +422,7 @@ def test_unparseable_verdict_is_retryable_rather_than_silently_dropped() -> None
         pricing_snapshot=build_pricing_snapshot(),
         secret_loader=lambda _e, _p, _n: "stub-key",
         transport=_transport(verdict="maybe"),  # type: ignore[arg-type]
+        max_prompt_bytes=100_000,
     )
     response = adapter(_judge_call("criterion-01"))
     assert response.retryable is True
@@ -433,6 +511,7 @@ def test_attempt_retention_keeps_every_billed_attempt(tmp_path: Path) -> None:
         pricing_snapshot=pricing,
         secret_loader=lambda _e, _p, _n: "stub-key",
         transport=_transport(),  # type: ignore[arg-type]
+        max_prompt_bytes=100_000,
     )
     first = _judge_call("criterion-01", attempt_index=0)
     second = _judge_call("criterion-01", attempt_index=1)
@@ -534,3 +613,255 @@ def test_cli_mint_writes_the_three_artifacts(
     ]
     # The operator must be told these bytes are private before they move them.
     assert "evaluator-private" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------
+# Candidate deliverable: extraction, authentication, and delivery to the judge
+# --------------------------------------------------------------------------
+
+
+def test_docx_extraction_returns_visible_text_in_document_order() -> None:
+    payload = _docx_bytes("First paragraph.", "Second paragraph.")
+    assert docx_visible_text(payload) == "First paragraph.\nSecond paragraph."
+
+
+@pytest.mark.parametrize(
+    ("payload", "reason"),
+    [
+        (b"not a zip at all", "not a zip container"),
+        (_docx_bytes(), "renders to no text"),
+        (_docx_bytes("   "), "renders to whitespace only"),
+    ],
+)
+def test_docx_extraction_refuses_what_it_cannot_faithfully_render(
+    payload: bytes, reason: str
+) -> None:
+    """A partial or empty rendering would be graded as if it were the memo."""
+
+    with pytest.raises(DeliverableTextError):
+        docx_visible_text(payload)
+
+
+def test_docx_extraction_refuses_a_document_part_declaring_a_dtd() -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types></Types>")
+        archive.writestr(
+            "word/document.xml",
+            '<!DOCTYPE w:document [<!ENTITY a "boom">]><w:document/>',
+        )
+    with pytest.raises(DeliverableTextError):
+        docx_visible_text(buffer.getvalue())
+
+
+def test_single_artifact_tree_digest_matches_the_sealing_commitment(
+    tmp_path: Path,
+) -> None:
+    """The recompute must equal what seal_deliverable actually committed."""
+
+    projected = _project(tmp_path)
+    payload = _docx_bytes("Sealed memo body.")
+    _sealed_root, manifest = _seal_deliverable(tmp_path, projected, payload=payload)
+    assert (
+        single_artifact_tree_sha256(DELIVERABLE_BASENAME, payload)
+        == manifest.tree_sha256
+    )
+
+
+def _real_criterion_ids(projected: Any) -> tuple[str, ...]:
+    task = (
+        Path(projected.evaluator_private_root)
+        / "tasks"
+        / ISSUE_196_LAB_TASK_ID
+        / "task.json"
+    )
+    record = json.loads(task.read_text(encoding="utf-8"))
+    return tuple(str(item["id"]) for item in record["criteria"])
+
+
+def _evaluator_run_spec(root: Path, *, deliverable_text: str) -> tuple[Any, Any]:
+    """Build a real evaluator RunSpec through the production producer path."""
+
+    root.mkdir(parents=True, exist_ok=True)
+    projected = _project(root)
+    sealed_root, sealed = _seal_deliverable(
+        root, projected, payload=_docx_bytes(deliverable_text)
+    )
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=root / "overlay",
+        working_directory=root / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    spec, _record = build_contained_evaluator_run_spec(
+        hosts=hosts, sealed_manifest=sealed, identity=_identity(projected, root)
+    )
+    return spec, projected
+
+
+def _production_runner(root: Path, projected: Any, transport: Any) -> Any:
+    mint_dir = root / "mint"
+    mint_dir.mkdir()
+    minted = mint_tier0_artifacts(
+        mint_dir,
+        criterion_ids=_real_criterion_ids(projected),
+        native_thin=_native_thin(),
+    )
+    spec, _ = load_executable_spec(minted.spec_path, minted.spec_sha256)
+    policy, pricing = load_spend_artifacts(minted.spec_path, spec)
+    archive_root = root / "private-archive"
+    archive_root.mkdir()
+    runner, _provenance = build_production_evaluator(
+        spec,
+        minted.spec_path,
+        archive_root,
+        policy,
+        pricing,
+        secret_loader=lambda _e, _p, _n: "stub-key",
+        transport=transport,
+    )
+    return runner
+
+
+def _run_production_evaluation(
+    root: Path, *, deliverable_text: str, transport: _CapturingTransport
+) -> Any:
+    run_spec, projected = _evaluator_run_spec(root, deliverable_text=deliverable_text)
+    runner = _production_runner(root, projected, transport)
+    return runner(cast(Any, None), run_spec, _RecordingBoundary())
+
+
+def test_changing_the_deliverable_changes_the_judge_input_bytes(
+    tmp_path: Path,
+) -> None:
+    """The bug this proves absent: verdicts independent of the work product.
+
+    Two runs differing only in the candidate's memo must send different bytes
+    to the provider. Before the deliverable reached the prompt, these were
+    byte-identical for every candidate.
+    """
+
+    first = _CapturingTransport()
+    second = _CapturingTransport()
+    _run_production_evaluation(
+        tmp_path / "first",
+        deliverable_text="The memo identifies the statute of limitations defect.",
+        transport=first,
+    )
+    _run_production_evaluation(
+        tmp_path / "second",
+        deliverable_text="The memo argues the arbitration clause is unenforceable.",
+        transport=second,
+    )
+    assert len(first.prompts) == 23
+    assert len(second.prompts) == 23
+    assert first.prompts != second.prompts
+    assert "statute of limitations defect" in first.prompts[0]
+    assert "arbitration clause is unenforceable" in second.prompts[0]
+    # The criterion still reaches the judge alongside the work product.
+    assert "EVALUATOR_PRIVATE_CANARY" in first.prompts[0]
+
+
+def test_run_refuses_before_any_billable_call_when_the_deliverable_is_missing(
+    tmp_path: Path,
+) -> None:
+    """An unreadable work product must stop the run, not grade an absence."""
+
+    transport = _CapturingTransport()
+    run_spec, projected = _evaluator_run_spec(
+        tmp_path / "run", deliverable_text="Body text."
+    )
+    runner = _production_runner(tmp_path / "run", projected, transport)
+    record = json.loads(run_spec.stdin_bytes.decode("utf-8"))
+    Path(str(record["deliverable_path"])).unlink()
+    boundary = _RecordingBoundary()
+    with pytest.raises(ProductionEvaluatorRunnerError):
+        runner(cast(Any, None), run_spec, boundary)
+    # Nothing was sent and nothing was even reserved: the refusal lands before
+    # the run touches the spend boundary, not after the first criterion.
+    assert transport.prompts == []
+    assert boundary.calls == []
+
+
+def test_run_refuses_a_deliverable_that_does_not_match_the_sealed_commitment(
+    tmp_path: Path,
+) -> None:
+    """Substituted bytes must not be gradeable just because the path is right."""
+
+    transport = _CapturingTransport()
+    run_spec, projected = _evaluator_run_spec(
+        tmp_path / "run", deliverable_text="Body text."
+    )
+    runner = _production_runner(tmp_path / "run", projected, transport)
+    record = json.loads(run_spec.stdin_bytes.decode("utf-8"))
+    overlay_copy = Path(str(record["deliverable_path"]))
+    # The overlay copy lands read-only; anyone able to swap it would have
+    # cleared that first, so the test does too.
+    overlay_copy.chmod(0o644)
+    overlay_copy.write_bytes(_docx_bytes("A different memo entirely."))
+    with pytest.raises(ProductionEvaluatorRunnerError):
+        runner(cast(Any, None), run_spec, _RecordingBoundary())
+    assert transport.prompts == []
+
+
+def test_run_refuses_a_substituted_judge_model(tmp_path: Path) -> None:
+    """Costing is pinned to Sonnet 4.6, so the resolved identity must be too."""
+
+    transport = _CapturingTransport(resolved_model="claude-opus-4-6")
+    with pytest.raises(ProductionEvaluatorRunnerError):
+        _run_production_evaluation(
+            tmp_path / "run", deliverable_text="Body text.", transport=transport
+        )
+
+
+def test_judge_prompt_over_the_reserved_input_budget_refuses() -> None:
+    """Refuse rather than truncate: a clipped memo yields a confident wrong verdict."""
+
+    adapter = AnthropicMessagesJudgeAdapter(
+        pricing_snapshot=build_pricing_snapshot(),
+        secret_loader=lambda _e, _p, _n: "stub-key",
+        transport=_transport(),  # type: ignore[arg-type]
+        max_prompt_bytes=256,
+    )
+    call = _judge_call("criterion-01", deliverable=_deliverable("x" * 4096))
+    with pytest.raises(ProductionFactoryError):
+        adapter(call)
+
+
+def test_judge_prompt_budget_comes_from_the_minted_spend_policy(
+    tmp_path: Path,
+) -> None:
+    """The bound is spec-covered, not a loose constant beside the adapter."""
+
+    minted = mint_tier0_artifacts(
+        tmp_path, criterion_ids=CRITERION_IDS, native_thin=_native_thin()
+    )
+    spec, _ = load_executable_spec(minted.spec_path, minted.spec_sha256)
+    policy, _pricing = load_spend_artifacts(minted.spec_path, spec)
+    budget = judge_max_prompt_bytes(policy)
+    assert budget == tier0_mint.JUDGE_MAX_INPUT_TOKENS - 256
+    assert budget < tier0_mint.JUDGE_MAX_INPUT_TOKENS
+
+
+def test_wrapper_refuses_output_the_real_producer_actually_emits(
+    tmp_path: Path,
+) -> None:
+    """Feed the wrapper the producer's own record, not the suite's dialect.
+
+    The suite previously only ever fed the wrapper a hand-written record using
+    the wrapper's own schema spelling, so a producer/wrapper mismatch scored
+    exit 4 (malformed) on every real input while the tests stayed green.
+    """
+
+    run_spec, _projected = _evaluator_run_spec(
+        tmp_path / "run", deliverable_text="Body text."
+    )
+    result = subprocess.run(
+        [sys.executable, str(HARVEY_LAB_EVAL_WRAPPER_SOURCE)],
+        input=run_spec.stdin_bytes,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 3, result.stderr.decode("utf-8", "replace")
+    assert b"per-criterion" in result.stderr

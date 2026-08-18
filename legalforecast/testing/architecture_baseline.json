@@ -6531,7 +6531,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 5,
+        "fan_in": 6,
         "fan_out": 4,
         "flags": [
           "oversized"
@@ -6540,9 +6540,9 @@
         "largest_symbol": "seal_deliverable",
         "largest_symbol_lines": 161,
         "layer": "application",
-        "line_count": 1004,
-        "nonblank_line_count": 901,
-        "top_level_definition_count": 37
+        "line_count": 1037,
+        "nonblank_line_count": 929,
+        "top_level_definition_count": 38
       },
       "legalforecast/multiharness/evaluation.py": {
         "cycle_id": "",
@@ -6611,6 +6611,23 @@
         "line_count": 1082,
         "nonblank_line_count": 978,
         "top_level_definition_count": 40
+      },
+      "legalforecast/multiharness/harvey_lab_production_runner.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 2,
+        "fan_out": 6,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "ProductionHarveyLabEvaluatorRunner",
+        "largest_symbol_lines": 176,
+        "layer": "application",
+        "line_count": 577,
+        "nonblank_line_count": 527,
+        "top_level_definition_count": 14
       },
       "legalforecast/multiharness/harvey_lab_projection.py": {
         "cycle_id": "",
@@ -6928,15 +6945,16 @@
         "fan_in": 2,
         "fan_out": 8,
         "flags": [
-          "cycle"
+          "cycle",
+          "watch"
         ],
         "lane_owner": "multiharness",
-        "largest_symbol": "anthropic_messages_transport",
-        "largest_symbol_lines": 51,
+        "largest_symbol": "AnthropicMessagesJudgeAdapter",
+        "largest_symbol_lines": 64,
         "layer": "application",
-        "line_count": 468,
-        "nonblank_line_count": 407,
-        "top_level_definition_count": 16
+        "line_count": 541,
+        "nonblank_line_count": 474,
+        "top_level_definition_count": 17
       },
       "legalforecast/multiharness/tier0_runner.py": {
         "cycle_id": "",
@@ -10641,9 +10659,9 @@
         "largest_symbol": "test_cli_mint_writes_the_three_artifacts",
         "largest_symbol_lines": 53,
         "layer": "test",
-        "line_count": 536,
-        "nonblank_line_count": 455,
-        "top_level_definition_count": 28
+        "line_count": 867,
+        "nonblank_line_count": 732,
+        "top_level_definition_count": 46
       },
       "tests/test_unitization_add_adjudication.py": {
         "cycle_id": "",

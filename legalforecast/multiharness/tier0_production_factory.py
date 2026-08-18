@@ -36,6 +36,7 @@ from typing import Any, Protocol, cast
 
 from legalforecast.multiharness.auth_profiles import AuthProfileError
 from legalforecast.multiharness.harvey_lab_production_runner import (
+    JudgeDeliverable,
     ProductionEvaluatorRunnerError,
     ProductionHarveyLabEvaluatorRunner,
     ProductionJudgeCall,
@@ -73,6 +74,11 @@ JUDGE_REQUESTED_MODEL = "claude-sonnet-4-6"
 # The paid path fails closed rather than silently running against an SDK whose
 # request shape was never characterized for this freeze.
 REQUIRED_ANTHROPIC_SDK_VERSION = "0.116.0"
+
+# Tokens reserved for provider-side message framing, which the prompt bytes do
+# not account for. Small and fixed: the bound below only has to be safe, and
+# framing overhead does not scale with the deliverable.
+JUDGE_PROMPT_FRAMING_TOKEN_RESERVE = 256
 
 _PASS = "pass"
 _FAIL = "fail"
@@ -142,7 +148,9 @@ class JudgeTransport(Protocol):
         prompt: str,
         max_output_tokens: int,
         temperature: float,
-    ) -> JudgeTransportResult: ...
+    ) -> JudgeTransportResult:
+        """Issue the request and report what the provider actually returned."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,11 +249,24 @@ class AnthropicMessagesJudgeAdapter:
     pricing_snapshot: PricingSnapshot
     secret_loader: Callable[[str, str, str], str]
     transport: JudgeTransport
+    max_prompt_bytes: int
     requested_model: str = JUDGE_REQUESTED_MODEL
 
     def __call__(self, call: ProductionJudgeCall) -> ProductionJudgeResponse:
         criterion = call.criterion
-        prompt = _judge_prompt(criterion)
+        prompt = _judge_prompt(criterion, call.deliverable)
+        # A token spans at least one byte, so bounding the prompt's bytes
+        # bounds its tokens. Refusing an oversized prompt is deliberate: a
+        # truncated deliverable would produce a confident verdict on a
+        # document the candidate did not write, and silently overrun the
+        # per-call ceiling the spend policy reserved for this request.
+        prompt_bytes = len(JUDGE_SYSTEM_PROMPT.encode("utf-8")) + len(
+            prompt.encode("utf-8")
+        )
+        if prompt_bytes > self.max_prompt_bytes:
+            raise ProductionFactoryError(
+                "judge prompt exceeds the input budget the spend policy reserved"
+            )
         api_key = self.secret_loader(
             JUDGE_CREDENTIAL_INFISICAL_ENVIRONMENT,
             JUDGE_CREDENTIAL_INFISICAL_PATH,
@@ -313,8 +334,17 @@ def build_production_evaluator(
         pricing_snapshot=pricing,
         secret_loader=secret_loader or infisical_tier0_judge_secret_loader,
         transport=transport or anthropic_messages_transport,
+        max_prompt_bytes=judge_max_prompt_bytes(policy),
     )
     writer = JudgeAttemptWriter(private_root / "evaluator" / "judge-attempts")
+    # The receipt must attest the wrapper the run is pinned to, which preflight
+    # verified against the installed bytes -- not whatever the repo checkout
+    # happens to hold at construction time.
+    installed_wrapper_sha256 = wrapper_source_sha256()
+    if installed_wrapper_sha256 != spec.evaluator_wrapper_sha256:
+        raise ProductionFactoryError(
+            "evaluator wrapper source does not match the digest pinned by the spec"
+        )
     runner = ProductionHarveyLabEvaluatorRunner(
         provider_call=adapter,
         attempt_writer=writer,
@@ -322,13 +352,38 @@ def build_production_evaluator(
         pricing_provider=JUDGE_PROVIDER,
         pricing_model=JUDGE_REQUESTED_MODEL,
         max_attempts=cast(int, RESOURCE_POLICY["max_attempts_per_criterion"]),
-        expected_judge_identity=None,
-        evaluator_executable_version=f"harvey-lab-eval@{wrapper_source_sha256()}",
+        # Pinned, not defaulted: pricing_model below costs every call at the
+        # frozen Sonnet 4.6 rate, so a substituted model must refuse rather
+        # than be accepted and billed against a rate it never earned.
+        expected_judge_identity=JUDGE_REQUESTED_MODEL,
+        evaluator_executable_version=(
+            f"harvey-lab-eval@{spec.evaluator_wrapper_sha256}"
+        ),
     )
     provenance = Tier0EvaluatorProvenanceFactory(
         configuration=production_evaluator_configuration(spec, pricing)
     )
     return runner, provenance
+
+
+def judge_max_prompt_bytes(policy: SpendPolicy) -> int:
+    """Return the prompt byte budget implied by the minted judge ceilings.
+
+    The bound is taken from the spend policy rather than a module constant so
+    it is covered by the executable spec hash: the same artifact that reserves
+    a per-call input allowance is the one that decides how much deliverable
+    text may be sent under it. Bytes are a safe proxy for tokens because a
+    token always spans at least one byte.
+    """
+
+    ceilings = policy.judge_ceilings
+    if not ceilings:
+        raise ProductionFactoryError("spend policy declares no judge ceilings")
+    budget = min(ceiling.max_input_tokens for ceiling in ceilings)
+    allowance = budget - JUDGE_PROMPT_FRAMING_TOKEN_RESERVE
+    if allowance <= 0:
+        raise ProductionFactoryError("judge input ceiling leaves no room for a prompt")
+    return allowance
 
 
 def production_evaluator_configuration(
@@ -383,6 +438,9 @@ class JudgeAttemptWriter:
             "criterion_id": call.request.criterion_id,
             "ordinal": call.request.ordinal,
             "attempt_index": call.request.attempt_index,
+            # Names the exact deliverable bytes this verdict was formed
+            # against, so a retained attempt is auditable on its own.
+            "deliverable_sha256": call.deliverable.sha256,
             "verdict": response.verdict,
             "judge_resolved_identity": response.judge_resolved_identity,
             "retryable": response.retryable,
@@ -415,15 +473,30 @@ class JudgeAttemptWriter:
             ) from exc
 
 
-def _judge_prompt(criterion: Mapping[str, object]) -> str:
-    """Render the frozen per-criterion prompt from private task material."""
+def _judge_prompt(
+    criterion: Mapping[str, object], deliverable: JudgeDeliverable
+) -> str:
+    """Render the per-criterion prompt from private task material and the work.
+
+    Including the deliverable is the point of the request: a criterion alone
+    tells the judge what to look for but never what to look at, and a judge
+    given only the criterion still answers -- confidently, billably, and
+    identically for every candidate.
+    """
 
     title = criterion.get("title")
     match_criteria = criterion.get("match_criteria")
     if not isinstance(match_criteria, str) or not match_criteria.strip():
         raise ProductionFactoryError("criterion is missing its private match text")
+    if type(deliverable) is not JudgeDeliverable:
+        raise ProductionFactoryError("judge call is missing its candidate deliverable")
     heading = title if isinstance(title, str) and title.strip() else "criterion"
-    return f"Criterion: {heading}\n\nRequirement:\n{match_criteria}\n"
+    return (
+        f"Criterion: {heading}\n\n"
+        f"Requirement:\n{match_criteria}\n\n"
+        f"Candidate deliverable ({deliverable.basename}):\n"
+        f"<deliverable>\n{deliverable.text}\n</deliverable>\n"
+    )
 
 
 def policy_digest(record: Mapping[str, object]) -> str:

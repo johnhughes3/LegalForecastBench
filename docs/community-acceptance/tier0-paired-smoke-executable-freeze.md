@@ -101,12 +101,12 @@ The pinned entrypoint is now installed rather than assumed.
 | --- | --- |
 | Committed source | `scripts/harvey-lab-eval` |
 | Installed name | `harvey-lab-eval` |
-| Version | `1.0.0` (probe line: `harvey-lab-eval 1.0.0`) |
-| SHA-256 | `sha256:cddca86118ff9a26ce9e78c5d09f34487f65df46ee6a133ee14326383da80895` |
+| Version | `1.1.0` (probe line: `harvey-lab-eval 1.1.0`) |
+| SHA-256 | `sha256:3af0fdfa4af48cbc123fc599f65c9119b9fc832efd30c9c2acce341b51cdd820` |
 | Installer | `uv run legalforecast multiharness tier0 install-evaluator-wrapper` |
 | Install semantics | byte-identical copy; the committed digest is the installed digest |
 
-The wrapper is provider-free and credential-free. Executed, it validates the frozen evaluation-input contract and then refuses with exit `3`: the upstream aggregate evaluator issues all 23 criterion judge calls inside one invocation, and no per-call ceiling can be checked before them. Paid scoring runs through the per-criterion production seam instead, which reserves budget immediately before every paid request. The wrapper's role on the paid path is identity — its bytes are pinned by the spec and bound into every evaluation receipt — plus making the unaccounted aggregate path unreachable rather than merely discouraged. It inherits the stripped containment environment and holds no credential logic; a credential-dependent failure surfaces upstream, by design.
+The wrapper is provider-free and credential-free. Executed, it validates the frozen evaluation-input contract and then refuses with exit `3`: the upstream aggregate evaluator issues all 23 criterion judge calls inside one invocation, and no per-call ceiling can be checked before them. Paid scoring runs through the per-criterion production seam instead, which reserves budget immediately before every paid request. The wrapper's role on the paid path is identity — its bytes are pinned by the spec and bound into every evaluation receipt — plus making the unaccounted aggregate path unreachable rather than merely discouraged. It inherits the stripped containment environment and holds no credential logic; a credential-dependent failure surfaces upstream, by design. The accepted `schema_version` is `legalforecast.harvey_lab_evaluation_input.v1` — the identifier the in-tree producer actually emits. Version `1.0.0` pinned a different spelling, so every real `evaluation_input_record()` exited `4` (malformed) instead of reaching the intended exit-`3` refusal; the wrapper refused everything by accident rather than by design.
 
 ## Production evaluator and judge seam
 
@@ -125,9 +125,13 @@ The wrapper is provider-free and credential-free. Executed, it validates the fro
 | Egress policy SHA-256 | `sha256:e34d58b19f2ebe034e84ee59de0e02bebe194bfd72d9e6449a278f2720051f46` |
 | Resource policy SHA-256 | `sha256:6302b8ece0d27180c098c9f5cc4c43516222d384732a461af27860b0b52b5b95` |
 | Token accounting policy SHA-256 | `sha256:9ec98d3f7e68889f2414538099137ebc8ce88bcff2a84bc4cd5a5848452e7f88` |
+| Judge input | criterion text **and** the candidate deliverable, extracted from the sealed `.docx` |
+| Deliverable authentication | overlay bytes must reproduce the sealed `deliverable_tree_sha256` before any request |
+| Deliverable bound | prompt bytes must not exceed the minted judge `max_input_tokens` less a 256-token framing reserve; an oversized prompt refuses rather than truncating |
+| Judge identity enforcement | resolved model must equal the pinned `claude-sonnet-4-6`; a substitution refuses rather than being costed at the pinned rate |
 | Cost basis | `estimated_from_pricing_snapshot` |
 
-Every billed attempt, including retries, is written under `<private root>/evaluator/judge-attempts/<criterion>/` with exclusive-create semantics before settlement, so a retry can never erase the attempt it replaced. A response carrying subscription-unallocable or unknown usage is refused; `fixture/stub@local` is refused on this path.
+Every billed attempt, including retries, is written under `<private root>/evaluator/judge-attempts/<criterion>/` with exclusive-create semantics before settlement, so a retry can never erase the attempt it replaced. A response carrying subscription-unallocable or unknown usage is refused; `fixture/stub@local` is refused on this path. Each retained attempt also records the `deliverable_sha256` the verdict was formed against, so the bytes behind a verdict are auditable from the attempt alone.
 
 ## Dated pricing snapshot
 
