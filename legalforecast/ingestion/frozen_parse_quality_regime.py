@@ -22,20 +22,32 @@ reproduce its committed ``text_sha256`` over the captured bytes, and carry live
 Mistral extraction provenance.  The regime decides one question only: whether a
 gate written after the evidence is applied to it retroactively.
 
-Two independent conditions gate the selection, so neither alone weakens a check:
+Two conditions gate the selection, and they are **not** equally strong.  Be
+precise about which one actually enforces this feature:
 
-1. the caller must be replaying a **frozen predecessor** run card — the only
-   path whose parse inputs are pinned by an earlier paid run and so cannot name
-   a corrected parse stage — and
-2. the parse manifest digest must appear in the closed mapping below.
+1. ``frozen_predecessor_replay`` — an *unchecked caller assertion* that the
+   replay reached us from a run card whose parse inputs are pinned by an
+   earlier paid run and therefore cannot name a corrected parse stage.  Nothing
+   verifies that claim; it is a routing fact the caller states about itself.
+2. The parse manifest digest must appear in the closed mapping below.  **This
+   is the enforcing boundary.**  It is content-addressed over bytes the
+   verifier itself read and authenticated, so obtaining a preserved regime for
+   anything not audited here would require a SHA-256 preimage.
+
+A caller that satisfies condition 1 by accident therefore still gets the current
+gate for every manifest except the two audited below.  Do not extend more trust
+to condition 1 than it earns: a new *live* caller that needs this path should
+verify its context explicitly rather than inheriting the flag by default.
 
 The **successor** half of a replay — the bytes that will drive fresh provider
-calls — never satisfies condition 1 and is always assessed under the current
-gate.  A corrected parse for a superseded row therefore has to clear today's
-gate on the way in; see ``_reuse_live_mistral_parse_outputs`` in the CLI.  The
-finding this regime declines to apply retroactively is not suppressed: it is
-repaired in the successor lineage, and the systemic parser defect behind it is
-tracked separately.
+calls — never sets condition 1 for its own top-level manifest and is always
+assessed under the current gate.  A corrected parse for a superseded row
+therefore has to clear today's gate on the way in; see
+``_reuse_live_mistral_parse_outputs`` in the CLI.  Frozen *ancestor*
+projections replayed for provenance run under their producing regime in both
+halves.  The finding this regime declines to apply retroactively is not
+suppressed: it is repaired in the successor lineage, and the systemic parser
+defect behind it is tracked separately.
 """
 
 from __future__ import annotations
@@ -83,10 +95,16 @@ FROZEN_PREDECESSOR_PARSE_QUALITY_REGIME: Final[Mapping[str, str]] = MappingProxy
         "53c9e7245b56b0f21e5cac715a6010156ba4d3f4d322911d54beb27279de8357": (
             PARSE_QUALITY_REGIME_PRE_764
         ),
-        # 31-final-exact100-downstream-v1 and 32-final-exact100-downstream-v2
-        # share these exact bytes.  The materialization projection replays this
-        # ancestor for provenance while authenticating 47, so it is reached from
-        # inside the same frozen chain and carries the same 2026-08-07 rows.
+        # The stage 31 and stage 32 parse manifests are byte-identical to each
+        # other (and distinct from 47's above), so one entry covers both.
+        #
+        # Reached while authenticating 47, not instead of it: the materialization
+        # projection walks _verify_supporting_document_downstream_projection ->
+        # verify_exact100_successor_replacement_v2_projection ->
+        # _replay_exact100_successor_replacement_v2_inputs ->
+        # _replay_exact100_stipulated_eligibility_unchecked, which replays this
+        # ancestor from the persisted eligibility-audit run card's own committed
+        # input_paths.  Same frozen chain, same 2026-08-07 rows.
         "f0059a6c19afec540331337a4f8e5ba89a7802f886180943b318bde7bf35bcc6": (
             PARSE_QUALITY_REGIME_PRE_764
         ),

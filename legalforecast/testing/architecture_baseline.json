@@ -2,8 +2,8 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 27009,
-    "line_count": 73244,
-    "nonblank_line_count": 70484,
+    "line_count": 73248,
+    "nonblank_line_count": 70488,
     "parser_line_count": 1773,
     "top_level_class_count": 19,
     "top_level_definition_count": 1008,
@@ -3880,8 +3880,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1773,
         "layer": "entrypoint",
-        "line_count": 73244,
-        "nonblank_line_count": 70484,
+        "line_count": 73248,
+        "nonblank_line_count": 70488,
         "top_level_definition_count": 1008
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -6150,8 +6150,8 @@
         "largest_symbol": "verify_stage_a_review_run_card",
         "largest_symbol_lines": 554,
         "layer": "application",
-        "line_count": 2830,
-        "nonblank_line_count": 2738,
+        "line_count": 2838,
+        "nonblank_line_count": 2746,
         "top_level_definition_count": 28
       },
       "legalforecast/ingestion/stage_a_replay_executor/provider.py": {

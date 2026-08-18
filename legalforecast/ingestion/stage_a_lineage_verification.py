@@ -95,9 +95,11 @@ class VerifiedStageAParseLineage:
     document_tree: Mapping[str, bytes]
     markdown_bytes: Mapping[str, bytes]
     download_records: tuple[JsonRecord, ...] = ()
-    #: Which parse-quality regime authenticated these records.  Recorded so a
-    #: caller can prove which half of a replay it is holding; it is derived,
-    #: never supplied by an artifact.
+    #: Which parse-quality regime authenticated these records.  **Descriptive
+    #: only.**  It is derived rather than artifact-supplied, but nothing
+    #: downstream reads it and it is not tamper-evident, so it must never be
+    #: used as an authorization signal.  It exists to make the regime visible
+    #: in tests and debugging.
     parse_quality_regime: str = PARSE_QUALITY_REGIME_CURRENT
     verifier_seal: object | None = field(repr=False, compare=False, default=None)
 
@@ -146,10 +148,16 @@ def verify_stage_a_unitization_lineage_uncached(
 ) -> StageAUnitizationLineage:
     _c = _cli()
     if parse_lineage is None:
-        # Reached from a completed, paid llm-unitize run card that committed its
-        # parse inputs by digest, so this is the frozen-predecessor replay.  A
-        # lineage handed in by another caller was verified under the current
-        # gate and stays that way.
+        # Callers that build their own parse lineage here are replaying a
+        # completed, paid llm-unitize run card whose parse inputs it committed
+        # by digest.  NOTE this is asserted, not checked: nothing below verifies
+        # the caller's provenance, so the flag alone grants nothing.  What
+        # actually bounds it is the closed digest map in
+        # ``frozen_parse_quality_regime`` — an unaudited manifest reaching this
+        # branch still gets the current gate.  A new *live* caller must not
+        # inherit this branch by default; hand in a lineage you verified under
+        # the current gate (as ``_cmd_acquisition_llm_unitize`` does), which is
+        # then reused verbatim.
         parse_lineage = verify_stage_a_parse_lineage_uncached(
             inputs, markdown_root=markdown_root, frozen_predecessor_replay=True
         )

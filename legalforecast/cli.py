@@ -43599,9 +43599,13 @@ def _replay_exact100_stipulated_eligibility_unchecked(
     )
     # Every path above comes from the persisted audit run card's own committed
     # ``input_paths``, so this replays frozen, digest-committed ancestor
-    # evidence for provenance and never bytes any stage will consume.  That
-    # makes it a frozen-predecessor replay; the closed digest map is still the
-    # second condition, so an unpinned ancestor stays on the current gate.
+    # evidence.  Its Markdown *is* consumed downstream -- the eligibility audit
+    # is reconstructed from it -- but the reconstruction must equal the
+    # persisted audit bytes exactly, so this replay can never mint a different
+    # conclusion than the one already frozen.  That exact-match requirement, not
+    # any claim about the bytes going unused, is what makes a preserved regime
+    # safe here.  The closed digest map remains the enforcing condition, so an
+    # unaudited ancestor stays on the current gate.
     lineage = _verify_verified_stage_a_parse_lineage(
         lineage_args,
         markdown_root=lineage_args.markdown_root,

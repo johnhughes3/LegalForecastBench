@@ -15,8 +15,9 @@ pin cannot select that regime.
 from __future__ import annotations
 
 import hashlib
+import inspect
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from legalforecast.ingestion.frozen_parse_quality_regime import (
@@ -128,6 +129,54 @@ def test_an_unpinned_regime_name_fails_closed() -> None:
     assert not resolve_parse_quality_regime(
         PARSE_QUALITY_REGIME_PRE_764
     ).enforces_parse_quality
+
+
+class _ParseLineageReached(Exception):
+    """Sentinel carrying the flag the parse-lineage verifier was handed."""
+
+    def __init__(self, frozen_predecessor_replay: bool) -> None:
+        super().__init__(str(frozen_predecessor_replay))
+        self.frozen_predecessor_replay = frozen_predecessor_replay
+
+
+def test_only_the_frozen_predecessor_branch_asserts_the_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pin the wiring, because the flag is caller-asserted rather than checked.
+
+    Reading the call graph is exactly how a future live caller would inherit
+    this branch unnoticed, so assert both directions: building the lineage in
+    place asserts the frozen-predecessor context, and the shared entry point
+    defaults to not asserting it.
+    """
+
+    import legalforecast.ingestion.stage_a_lineage_verification as slv
+
+    # Read the real default before patching: it is what keeps the successor
+    # half, and every ordinary caller, on the current gate.
+    assert (
+        inspect.signature(slv.verify_stage_a_parse_lineage_uncached)
+        .parameters["frozen_predecessor_replay"]
+        .default
+        is False
+    )
+
+    def _capture(
+        _inputs: object,
+        *,
+        markdown_root: Path,
+        frozen_predecessor_replay: bool = False,
+    ) -> None:
+        del markdown_root
+        raise _ParseLineageReached(frozen_predecessor_replay)
+
+    monkeypatch.setattr(slv, "verify_stage_a_parse_lineage_uncached", _capture)
+
+    with pytest.raises(_ParseLineageReached) as caught:
+        slv.verify_stage_a_unitization_lineage_uncached(
+            cast(Any, object()), markdown_root=Path("/nonexistent")
+        )
+    assert caught.value.frozen_predecessor_replay is True
 
 
 def _parse_records(
