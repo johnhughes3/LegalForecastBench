@@ -32,6 +32,16 @@ _CREATE_FLAGS: Final = (
 _MODE: Final = 0o600
 
 
+def _sync_directory(directory: Path) -> None:
+    """Flush a directory entry so a create or rename survives a crash."""
+
+    descriptor = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def canonical_artifact_bytes(record: object, *, error: type[ValueError]) -> bytes:
     """Serialize one artifact under the repo's canonical JSON profile."""
 
@@ -58,6 +68,7 @@ def reserve_artifact_path(path: Path, *, error: type[ValueError]) -> None:
     except OSError as exc:
         raise error(f"could not reserve an artifact path at {path}: {exc}") from exc
     os.close(descriptor)
+    _sync_directory(path.parent)
 
 
 def replace_artifact(path: Path, payload: bytes, *, error: type[ValueError]) -> None:
@@ -81,6 +92,9 @@ def replace_artifact(path: Path, payload: bytes, *, error: type[ValueError]) -> 
             temporary.unlink(missing_ok=True)
             raise
         os.replace(temporary, path)
+        # Without this the rename itself can be lost by a crash, leaving the
+        # reservation or the previous bytes in place and the write "done".
+        _sync_directory(path.parent)
     except OSError as exc:
         raise error(f"could not write the artifact at {path}: {exc}") from exc
 
