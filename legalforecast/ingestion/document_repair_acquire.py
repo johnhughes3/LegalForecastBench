@@ -193,6 +193,14 @@ def _paid_delivery_clearance_from_journal(
     ``is_sealed`` must still be present. The provider serializes it on every
     RECAP document, so a mapping without it is not a delivery record and proves
     nothing -- which is also what keeps an empty mapping from clearing.
+
+    Both fields are read as an identity whitelist, never as an ``is True``
+    blacklist. Only an absent field, an explicit null, or an explicit ``False``
+    states that no restriction applies; a malformed truthy value (``1``,
+    ``"true"``) or any other type refuses, exactly as
+    ``restricted_material.restricted_material_markers`` treats these same two
+    fields. Refusing only the ``True`` singleton would let a type-confused
+    restriction through the last gate before a real purchase.
     """
 
     evidence = journal.operation_evidence(document_id)
@@ -208,8 +216,10 @@ def _paid_delivery_clearance_from_journal(
     restrictions = cast(Mapping[str, object], restrictions)
     if "is_sealed" not in restrictions:
         return None
-    if restrictions.get("is_private") is True or restrictions.get("is_sealed") is True:
-        return None
+    for field in ("is_private", "is_sealed"):
+        value = restrictions.get(field)
+        if value is not None and value is not False:
+            return None
     return ("cleared", False, False)
 
 

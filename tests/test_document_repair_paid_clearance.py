@@ -385,6 +385,14 @@ def test_live_v4_paid_row_clears_through_post_delivery_evidence(
         ("asserted_private", {"is_private": True, "is_sealed": None}),
         ("asserted_sealed", {"is_private": None, "is_sealed": True}),
         ("sealed_field_dropped", {"is_private": None}),
+        # A restriction asserted as a non-boolean must refuse too. Reading these
+        # fields as an "is True" blacklist rather than an identity whitelist
+        # would clear every one of the five cases below.
+        ("truthy_int_sealed", {"is_private": None, "is_sealed": 1}),
+        ("truthy_string_private", {"is_private": "true", "is_sealed": None}),
+        ("falsey_string_sealed", {"is_private": None, "is_sealed": "false"}),
+        ("zero_int_sealed", {"is_private": None, "is_sealed": 0}),
+        ("list_private", {"is_private": [1], "is_sealed": None}),
     ],
 )
 def test_live_v4_paid_row_refuses_unproven_delivery_evidence(
