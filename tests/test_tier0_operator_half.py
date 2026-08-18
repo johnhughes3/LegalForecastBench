@@ -74,6 +74,34 @@ CRITERION_IDS = tuple(f"criterion-{index:02d}" for index in range(1, 24))
 DELIVERABLE_BASENAME = "issue-identification-memo.docx"
 
 
+def _zip_parts(*parts: tuple[str, str | bytes]) -> bytes:
+    """Zip named parts with a fixed timestamp.
+
+    Deterministic on purpose: `writestr` stamps entries with the current time,
+    so identical logical fixtures produce different bytes from one call to the
+    next. That makes any parametrize case carrying these bytes generate a
+    different test ID per xdist worker, which fails collection outright.
+    """
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, body in parts:
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_STORED
+            archive.writestr(info, body)
+    return buffer.getvalue()
+
+
+def _document_part(*paragraphs: str) -> str:
+    body = "".join(f"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>" for text in paragraphs)
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+        'wordprocessingml/2006/main">'
+        f"<w:body>{body}</w:body></w:document>"
+    )
+
+
 def _docx_bytes(*paragraphs: str) -> bytes:
     """Build a minimal WordprocessingML package.
 
@@ -82,18 +110,10 @@ def _docx_bytes(*paragraphs: str) -> bytes:
     any particular authoring tool's output.
     """
 
-    body = "".join(f"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>" for text in paragraphs)
-    document = (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<w:document xmlns:w="http://schemas.openxmlformats.org/'
-        'wordprocessingml/2006/main">'
-        f"<w:body>{body}</w:body></w:document>"
+    return _zip_parts(
+        ("[Content_Types].xml", "<Types></Types>"),
+        ("word/document.xml", _document_part(*paragraphs)),
     )
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("[Content_Types].xml", "<Types></Types>")
-        archive.writestr("word/document.xml", document)
-    return buffer.getvalue()
 
 
 def _native_thin(budget_argument: str = "--max-cost-usd") -> NativeThinArmInput:
@@ -615,30 +635,29 @@ def test_docx_extraction_returns_visible_text_in_document_order() -> None:
 
 
 @pytest.mark.parametrize(
-    ("payload", "reason"),
-    [
-        (b"not a zip at all", "not a zip container"),
-        (_docx_bytes(), "renders to no text"),
-        (_docx_bytes("   "), "renders to whitespace only"),
-    ],
+    "case",
+    ["not-a-zip", "no-paragraphs", "whitespace-only"],
 )
 def test_docx_extraction_refuses_what_it_cannot_faithfully_render(
-    payload: bytes, reason: str
+    case: str,
 ) -> None:
     """A partial or empty rendering would be graded as if it were the memo."""
 
+    payloads = {
+        "not-a-zip": b"not a zip at all",
+        "no-paragraphs": _docx_bytes(),
+        "whitespace-only": _docx_bytes("   "),
+    }
     with pytest.raises(DeliverableTextError):
-        docx_visible_text(payload)
+        docx_visible_text(payloads[case])
 
 
 def _docx_with_raw_document(document: bytes) -> bytes:
     """Package an arbitrary document part. synthetic: true."""
 
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("[Content_Types].xml", "<Types></Types>")
-        archive.writestr("word/document.xml", document)
-    return buffer.getvalue()
+    return _zip_parts(
+        ("[Content_Types].xml", "<Types></Types>"), ("word/document.xml", document)
+    )
 
 
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-16"])
@@ -694,10 +713,11 @@ def _docx_with_note_part(part_name: str, note_text: str) -> bytes:
         f"<w:footnote><w:p><w:r><w:t>{note_text}</w:t></w:r></w:p></w:footnote>"
         "</w:footnotes>"
     )
-    buffer = io.BytesIO(_docx_bytes("Body paragraph."))
-    with zipfile.ZipFile(buffer, "a") as archive:
-        archive.writestr(part_name, note)
-    return buffer.getvalue()
+    return _zip_parts(
+        ("[Content_Types].xml", "<Types></Types>"),
+        ("word/document.xml", _document_part("Body paragraph.")),
+        (part_name, note),
+    )
 
 
 @pytest.mark.parametrize("part_name", ["word/footnotes.xml", "word/endnotes.xml"])
@@ -727,15 +747,15 @@ def test_docx_extraction_tolerates_word_s_empty_note_separators(
 
 
 def test_docx_extraction_refuses_a_document_part_declaring_a_dtd() -> None:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("[Content_Types].xml", "<Types></Types>")
-        archive.writestr(
+    payload = _zip_parts(
+        ("[Content_Types].xml", "<Types></Types>"),
+        (
             "word/document.xml",
             '<!DOCTYPE w:document [<!ENTITY a "boom">]><w:document/>',
-        )
+        ),
+    )
     with pytest.raises(DeliverableTextError):
-        docx_visible_text(buffer.getvalue())
+        docx_visible_text(payload)
 
 
 def test_single_artifact_tree_digest_matches_the_sealing_commitment(
