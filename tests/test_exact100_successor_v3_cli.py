@@ -8,6 +8,7 @@ for both the sealed cohort head and a chained v3 root, and the end-to-end
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -447,3 +448,37 @@ def test_a_free_tranche_validation_without_a_finding_for_the_document_refuses() 
 
     with pytest.raises(OwnerAdjudicatedReplacementCliError, match="no role finding"):
         _validation_index((payload,))
+
+
+def test_the_sealed_anchor_matches_the_real_cohort_head_when_it_is_available() -> None:
+    """Catch a stale anchor pin here rather than at execution time.
+
+    The end-to-end tests monkeypatch the anchor constants, which proves the
+    authentication logic but says nothing about whether the pinned digests still
+    describe the real cohort head.  This closes that gap where the artifacts
+    tree is reachable, and skips where it is not, so the check runs for an
+    operator and stays out of CI.  The path comes from the environment because
+    this repository is public and must not carry local filesystem paths.
+    """
+
+    import os
+
+    configured = os.environ.get("LFB_EXACT100_ANCHOR_ROOT")
+    if not configured:
+        pytest.skip("LFB_EXACT100_ANCHOR_ROOT is not set")
+    card = (
+        Path(configured)
+        / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    if not card.is_file():
+        pytest.skip("the configured cohort head is not present")
+
+    payload = card.read_bytes()
+    assert hashlib.sha256(payload).hexdigest() == v3_cli._ANCHOR_RUN_CARD_SHA256  # pyright: ignore[reportPrivateUsage]
+    committed = json.loads(payload)["output_commitments"]
+    for key, (relative, expected) in v3_cli._ANCHOR_OUTPUTS.items():  # pyright: ignore[reportPrivateUsage]
+        assert str(committed[key]).removeprefix("sha256:") == expected, key
+        assert (
+            hashlib.sha256((Path(configured) / relative).read_bytes()).hexdigest()
+            == expected
+        ), relative

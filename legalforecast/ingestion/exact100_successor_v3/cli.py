@@ -78,26 +78,40 @@ _ANCHOR_RUN_CARD_SHA256 = (
 )
 _ANCHOR_SCHEMA_VERSION = str(EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1)
 _ANCHOR_STAGE = "project-exact100-supporting-document-successor"
-_ANCHOR_OUTPUT_SHA256: Mapping[str, str] = {
-    "target-cohort-selection.jsonl": (
-        "eb780b19fc50733ecf5cbae3dc7e140197b09fdb0e53db065da2183b36ff6834"
+# The cohort head commits its outputs under LOGICAL names, not filenames, so
+# each entry carries both: the key the run card uses, and the file it names.
+_ANCHOR_OUTPUTS: Mapping[str, tuple[str, str]] = {
+    "selection": (
+        "target-cohort-selection.jsonl",
+        "eb780b19fc50733ecf5cbae3dc7e140197b09fdb0e53db065da2183b36ff6834",
     ),
-    "case-relevance.jsonl": (
-        "d8bd1ab98c7c61d180dcf5437e5d18d49c7051371bf4bdc7b4687cb71b6c0bbe"
+    "relevance": (
+        "case-relevance.jsonl",
+        "d8bd1ab98c7c61d180dcf5437e5d18d49c7051371bf4bdc7b4687cb71b6c0bbe",
     ),
-    "document-downloads-merged.jsonl": (
-        "efdadda36e78f5cc727d56e20ba40508e7e4e1f136c650f40ae519fdaba04daf"
+    "manifest": (
+        "document-downloads-merged.jsonl",
+        "efdadda36e78f5cc727d56e20ba40508e7e4e1f136c650f40ae519fdaba04daf",
     ),
-    "disclosure-clearance.jsonl": (
-        "31db2f59824844eda4fef5312a7bca34e80aff425564bcbd7af7e9f8b651aab7"
+    "clearance": (
+        "disclosure-clearance.jsonl",
+        "31db2f59824844eda4fef5312a7bca34e80aff425564bcbd7af7e9f8b651aab7",
     ),
-    "restriction-evidence.jsonl": (
-        "bf03406437e995ab13243043ecf2bb52a6b9002cde1a741ec4176b9a30b76c3b"
+    "restriction": (
+        "restriction-evidence.jsonl",
+        "bf03406437e995ab13243043ecf2bb52a6b9002cde1a741ec4176b9a30b76c3b",
     ),
-    "core-filter-results.jsonl": (
-        "a4399af0626bcde701345a0d2aec3288071f3e1a805c759d77836bfb18d45c5f"
+    "core_filter": (
+        "core-filter-results.jsonl",
+        "a4399af0626bcde701345a0d2aec3288071f3e1a805c759d77836bfb18d45c5f",
     ),
 }
+# The six cohort-surface files a predecessor must supply, whatever it calls them
+# in its own run card.  A v3 root keys its commitments by filename directly.
+_COHORT_SURFACE_FILES = tuple(
+    relative for relative, _digest in _ANCHOR_OUTPUTS.values()
+)
+
 # Root 46's own committed inputs, which chain the anchor back to the v2 root by
 # commitment without this lane having to replay that chain.
 _ANCHOR_INPUT_SHA256: Mapping[str, str] = {
@@ -377,9 +391,9 @@ def _verified_anchor_predecessor(
         )
     committed = _mapping(card.get("output_commitments"), "cohort head commitments")
     if {
-        name: str(committed.get(name, "")).removeprefix("sha256:")
-        for name in _ANCHOR_OUTPUT_SHA256
-    } != dict(_ANCHOR_OUTPUT_SHA256):
+        key: str(committed.get(key, "")).removeprefix("sha256:")
+        for key in _ANCHOR_OUTPUTS
+    } != {key: digest for key, (_relative, digest) in _ANCHOR_OUTPUTS.items()}:
         raise Exact100SuccessorReplacementV3CliError(
             "cohort head commitments differ from the sealed v3 anchor"
         )
@@ -391,8 +405,8 @@ def _verified_anchor_predecessor(
             "cohort head does not chain to the sealed predecessor lineage"
         )
     payloads = {
-        name: _require_committed(root / name, expected)
-        for name, expected in _ANCHOR_OUTPUT_SHA256.items()
+        relative: _require_committed(root / relative, digest)
+        for relative, digest in _ANCHOR_OUTPUTS.values()
     }
     base = _mint_base(
         card_bytes=card_bytes,
@@ -488,7 +502,7 @@ def _verified_chained_predecessor(
         card_bytes=card_bytes,
         schema_version=STATE_SCHEMA_VERSION,
         stage=STAGE,
-        payloads={name: payloads[name] for name in _ANCHOR_OUTPUT_SHA256},
+        payloads={name: payloads[name] for name in _COHORT_SURFACE_FILES},
         run_card_sha256=hashlib.sha256(card_bytes).hexdigest(),
     )
     return base, _ANCHOR_RUN_CARD_SHA256, carried

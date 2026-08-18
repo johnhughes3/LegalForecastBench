@@ -3793,7 +3793,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 453,
+      "tests": 455,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -5247,8 +5247,8 @@
         "largest_symbol": "run_project",
         "largest_symbol_lines": 127,
         "layer": "application",
-        "line_count": 939,
-        "nonblank_line_count": 845,
+        "line_count": 953,
+        "nonblank_line_count": 858,
         "top_level_definition_count": 29
       },
       "legalforecast/ingestion/exact100_successor_v3/projector.py": {
@@ -8055,6 +8055,23 @@
         "line_count": 766,
         "nonblank_line_count": 688,
         "top_level_definition_count": 31
+      },
+      "tests/exact100_successor_v3_fixtures.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "_issue_evidence_root",
+        "largest_symbol_lines": 89,
+        "layer": "test",
+        "line_count": 506,
+        "nonblank_line_count": 453,
+        "top_level_definition_count": 20
       },
       "tests/fixtures/local_cli_fake_cli.py": {
         "cycle_id": "",

@@ -421,8 +421,16 @@ def _anchor_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         _write(root / name, payload)
     _write(root / _CARRIED_RELATIVE, _CARRIED_BYTES)
 
+    logical = {
+        "target-cohort-selection.jsonl": "selection",
+        "case-relevance.jsonl": "relevance",
+        "document-downloads-merged.jsonl": "manifest",
+        "disclosure-clearance.jsonl": "clearance",
+        "restriction-evidence.jsonl": "restriction",
+        "core-filter-results.jsonl": "core_filter",
+    }
     outputs = {
-        name: "sha256:" + hashlib.sha256(payload).hexdigest()
+        logical[name]: "sha256:" + hashlib.sha256(payload).hexdigest()
         for name, payload in payloads.items()
     }
     outputs["supplemental_document:case099/entry-1.pdf"] = (
@@ -448,11 +456,10 @@ def _anchor_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     monkeypatch.setattr(
         v3_cli,
-        "_ANCHOR_OUTPUT_SHA256",
+        "_ANCHOR_OUTPUTS",
         {
-            name: value.removeprefix("sha256:")
-            for name, value in outputs.items()
-            if "/" not in name
+            key: (name, outputs[key].removeprefix("sha256:"))
+            for name, key in logical.items()
         },
     )
     monkeypatch.setattr(v3_cli, "_ANCHOR_INPUT_SHA256", inputs)
