@@ -10832,9 +10832,9 @@
         "largest_symbol": "test_cli_mint_writes_the_three_artifacts",
         "largest_symbol_lines": 53,
         "layer": "test",
-        "line_count": 941,
-        "nonblank_line_count": 790,
-        "top_level_definition_count": 50
+        "line_count": 991,
+        "nonblank_line_count": 830,
+        "top_level_definition_count": 53
       },
       "tests/test_unitization_add_adjudication.py": {
         "cycle_id": "",

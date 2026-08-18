@@ -631,6 +631,56 @@ def test_docx_extraction_refuses_what_it_cannot_faithfully_render(
         docx_visible_text(payload)
 
 
+def _docx_with_raw_document(document: bytes) -> bytes:
+    """Package an arbitrary document part. synthetic: true."""
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types></Types>")
+        archive.writestr("word/document.xml", document)
+    return buffer.getvalue()
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-16"])
+def test_docx_extraction_refuses_a_dtd_in_any_declared_encoding(
+    encoding: str,
+) -> None:
+    """The DTD refusal must not depend on the part's byte encoding.
+
+    A scan for the literal bytes of `<!DOCTYPE` is not sound: the XML parser
+    honours the encoding declared in the prolog, so a UTF-16 part hides those
+    bytes from any ASCII substring search while the parser still expands the
+    entities the DTD declares -- a billion-laughs expansion from a payload well
+    under the size cap, which bounds pre-expansion bytes only.
+    """
+
+    entities = "".join(
+        f'<!ENTITY l{index} "{f"&l{index - 1};" * 10}">' for index in range(1, 7)
+    )
+    document = (
+        f'<?xml version="1.0" encoding="{encoding.upper()}"?>'
+        f'<!DOCTYPE w:document [<!ENTITY l0 "AAAAAAAAAA">{entities}]>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+        'wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>&l6;</w:t>'
+        "</w:r></w:p></w:body></w:document>"
+    )
+    with pytest.raises(DeliverableTextError, match="declares a DTD"):
+        docx_visible_text(_docx_with_raw_document(document.encode(encoding)))
+
+
+def test_docx_extraction_still_reads_a_legitimate_utf16_part() -> None:
+    """Refusing DTDs must not mean refusing every non-UTF-8 document."""
+
+    document = (
+        '<?xml version="1.0" encoding="UTF-16"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+        'wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Valid UTF-16 memo.'
+        "</w:t></w:r></w:p></w:body></w:document>"
+    )
+    payload = _docx_with_raw_document(document.encode("utf-16"))
+    assert docx_visible_text(payload) == "Valid UTF-16 memo."
+
+
 def _docx_with_note_part(part_name: str, note_text: str) -> bytes:
     """A package whose footnote/endnote part carries `note_text`.
 
