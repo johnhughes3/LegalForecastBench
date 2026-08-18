@@ -10731,8 +10731,8 @@
         "largest_symbol": "test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units",
         "largest_symbol_lines": 552,
         "layer": "test",
-        "line_count": 2292,
-        "nonblank_line_count": 2187,
+        "line_count": 2289,
+        "nonblank_line_count": 2184,
         "top_level_definition_count": 17
       },
       "tests/test_stage_a_prompt_ontology.py": {
