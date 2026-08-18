@@ -29,6 +29,7 @@ on exactly three).
 from __future__ import annotations
 
 import pytest
+from legalforecast.ingestion.courtlistener_web import CourtListenerWebDocketEntry
 from legalforecast.ingestion.frozen_replay_model_regime import (
     FROZEN_PREDECESSOR_TARGET_ELIGIBILITY_REGIME,
     FROZEN_V2_OPERATIVE_COMPLAINT_REGIME,
@@ -47,7 +48,6 @@ from legalforecast.ingestion.frozen_replay_model_regime import (
     resolve_target_eligibility_regime,
     target_eligibility_regime_names,
 )
-from legalforecast.ingestion.courtlistener_web import CourtListenerWebDocketEntry
 from legalforecast.ingestion.operative_complaint import (
     OperativeComplaintKind,
     select_operative_complaint_entry,
