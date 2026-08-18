@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -9,7 +11,9 @@ from legalforecast.ingestion.attachment_page import (
     AttachmentPageFetchPlan,
     build_attachment_page_fetch_plan,
     load_attachment_page_authorization,
+    mark_authorization_executed,
     prompt_for_attachment_page_authorization,
+    read_authorization_artifact,
     record_attachment_page_authorization,
     render_authorization_prompt,
     verify_authorization_binds_plan,
@@ -228,5 +232,114 @@ def test_writing_an_authorization_refuses_to_clobber_an_existing_one(
     path = tmp_path / "authorization.json"
 
     write_authorization(path, authorization)
+    with pytest.raises(AttachmentPageAuthorizationError, match="already exists"):
+        write_authorization(path, authorization)
+
+
+def _signed_authorization_at(path: Path, plan: AttachmentPageFetchPlan) -> Any:
+    authorization = record_attachment_page_authorization(
+        plan=plan,
+        typed_confirmation=plan.required_confirmation(),
+        reviewer_id="John Hughes",
+        recorded_at_utc=RECORDED_AT,
+    )
+    write_authorization(path, authorization)
+    return authorization
+
+
+def test_marking_an_authorization_executed_makes_it_unusable(tmp_path: Path) -> None:
+    """The gate at load time finally has a writer; this is it."""
+
+    path = tmp_path / "authorization.json"
+    plan = _plan()
+    _signed_authorization_at(path, plan)
+    # Before: the artifact loads and binds the plan.
+    assert load_attachment_page_authorization(read_authorization_artifact(path))
+
+    mark_authorization_executed(path)
+
+    body = json.loads(path.read_text(encoding="utf-8"))
+    assert body["authorization"]["paid_activity_executed"] is True
+    with pytest.raises(
+        AttachmentPageAuthorizationError, match="already records executed paid activity"
+    ):
+        load_attachment_page_authorization(read_authorization_artifact(path))
+
+
+def test_a_consumed_authorization_keeps_a_verifying_digest(tmp_path: Path) -> None:
+    """Consuming must re-commit the body, not leave a tampered-looking file."""
+
+    path = tmp_path / "authorization.json"
+    plan = _plan()
+    _signed_authorization_at(path, plan)
+    mark_authorization_executed(path)
+
+    envelope = read_authorization_artifact(path)
+    # The digest check runs before the executed check inside the loader, so a
+    # stale digest would surface as "does not verify" rather than "already
+    # executed" -- and would hide a real tamper behind a benign message.
+    with pytest.raises(
+        AttachmentPageAuthorizationError, match="already records executed paid activity"
+    ):
+        load_attachment_page_authorization(envelope)
+    assert envelope["authorization"]["typed_confirmation"] == (
+        plan.required_confirmation()
+    )
+    assert envelope["authorization"]["plan_sha256"] == plan.plan_sha256
+
+
+def test_an_authorization_cannot_be_consumed_twice(tmp_path: Path) -> None:
+    path = tmp_path / "authorization.json"
+    _signed_authorization_at(path, _plan())
+    mark_authorization_executed(path)
+
+    with pytest.raises(
+        AttachmentPageAuthorizationError, match="already records executed paid activity"
+    ):
+        mark_authorization_executed(path)
+
+
+def test_consuming_a_tampered_authorization_is_refused(tmp_path: Path) -> None:
+    path = tmp_path / "authorization.json"
+    plan = _plan()
+    _signed_authorization_at(path, plan)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["authorization"]["menu_count"] = 99
+    path.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(AttachmentPageAuthorizationError, match="does not verify"):
+        mark_authorization_executed(path)
+    # The refusal leaves the artifact exactly as it found it.
+    assert json.loads(path.read_text(encoding="utf-8")) == record
+
+
+def test_a_missing_or_malformed_authorization_refuses_rather_than_tracebacks(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "absent.json"
+    with pytest.raises(AttachmentPageAuthorizationError, match="no attachment-menu"):
+        read_authorization_artifact(missing)
+
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text("{not json", encoding="utf-8")
+    with pytest.raises(AttachmentPageAuthorizationError, match="not valid JSON"):
+        read_authorization_artifact(malformed)
+
+    not_an_object = tmp_path / "list.json"
+    not_an_object.write_text("[]", encoding="utf-8")
+    with pytest.raises(AttachmentPageAuthorizationError, match="not a JSON object"):
+        read_authorization_artifact(not_an_object)
+
+
+def test_an_authorization_is_written_atomically_and_never_clobbered(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "nested" / "authorization.json"
+    plan = _plan()
+    authorization = _signed_authorization_at(path, plan)
+
+    assert path.is_file()
+    # No temporary is left behind next to the artifact.
+    assert sorted(item.name for item in path.parent.iterdir()) == ["authorization.json"]
     with pytest.raises(AttachmentPageAuthorizationError, match="already exists"):
         write_authorization(path, authorization)

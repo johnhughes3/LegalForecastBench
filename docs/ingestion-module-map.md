@@ -256,8 +256,10 @@ Use this page to find code, not as a second API specification. Module docstrings
 | --- | --- |
 | [`attachment_page/__init__.py`](../legalforecast/ingestion/attachment_page/__init__.py) | Attachment-menu acquisition surface: plan, authorize, fetch. |
 | [`attachment_page/_typed.py`](../legalforecast/ingestion/attachment_page/_typed.py) | Field validators for reading attachment-menu artifacts back from disk. |
+| [`attachment_page/artifact_io.py`](../legalforecast/ingestion/attachment_page/artifact_io.py) | Crash-safe reserve-then-replace writes for attachment-menu artifacts. |
 | [`attachment_page/authorization.py`](../legalforecast/ingestion/attachment_page/authorization.py) | Owner authorization bound to one exact attachment-menu plan digest. |
 | [`attachment_page/execute.py`](../legalforecast/ingestion/attachment_page/execute.py) | Fail-closed attachment-menu fetching against an authorized plan. |
+| [`attachment_page/journal.py`](../legalforecast/ingestion/attachment_page/journal.py) | Durable pre-dispatch journal of every intended attachment-menu charge. |
 | [`attachment_page/plan.py`](../legalforecast/ingestion/attachment_page/plan.py) | Authenticated attachment-menu targets committed to a digest. |
 | [`courtlistener_provider_identity.py`](../legalforecast/ingestion/courtlistener_provider_identity.py) | Stable shared identity for CourtListener RECAP Fetch provenance. |
 | [`courtlistener_recap_fetch.py`](../legalforecast/ingestion/courtlistener_recap_fetch.py) | Guarded individual-document RECAP Fetch purchases. |
