@@ -37,6 +37,10 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import (
+    EXACT100_METHODS_DISCLOSURE_V1,
+    EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_v3.projector import (
     STAGE,
@@ -72,7 +76,7 @@ COMMAND = "legalforecast-exact100-successor-v3"
 _ANCHOR_RUN_CARD_SHA256 = (
     "61645025ec32d6aa22ee0533028ac210341d4087cb656716c7233bd9c4cc4a8f"
 )
-_ANCHOR_SCHEMA_VERSION = "legalforecast.exact100_supporting_document_successor.v1"
+_ANCHOR_SCHEMA_VERSION = str(EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1)
 _ANCHOR_STAGE = "project-exact100-supporting-document-successor"
 _ANCHOR_OUTPUT_SHA256: Mapping[str, str] = {
     "target-cohort-selection.jsonl": (
@@ -228,7 +232,7 @@ def run_project(args: argparse.Namespace) -> int:
     payloads = _result_payloads(first)
     payloads["methods_disclosure"] = _canonical(
         {
-            "schema_version": "legalforecast.exact100_methods_disclosure.v1",
+            "schema_version": str(EXACT100_METHODS_DISCLOSURE_V1),
             "owner_adjudicated_promotion_count": sum(
                 1
                 for record in first.promotions
@@ -253,6 +257,18 @@ def run_project(args: argparse.Namespace) -> int:
         "record_count": len(first.selection),
         "predecessor_anchor_sha256": anchor,
         "input_paths": [str(path.absolute()) for path in inputs],
+        "input_roots": {
+            "predecessor_root": str(predecessor_root.absolute()),
+            "stipulated_evidence_roots": [
+                str(path.absolute()) for path in stipulated_roots
+            ],
+            "owner_judgment_exclusions": [
+                str(path.absolute()) for path in owner_exclusions
+            ],
+            "replacement_evidence_roots": [
+                str(path.absolute()) for path in replacement_roots
+            ],
+        },
         "output_paths": [
             str((output_root / relative).absolute())
             for relative in _OUTPUT_NAMES.values()
@@ -319,10 +335,9 @@ def _project(
     documents = dict(carried)
     for replacement in replacements:
         for relative, payload in replacement.document_bytes.items():
-            key = (
-                f"{_REPLACEMENT_DOCUMENT_ROOT}/{replacement.candidate_id}/"
-                f"{relative.removeprefix('documents/')}"
-            )
+            # ``relative`` is already documents/<candidate>/<id>.pdf, which is
+            # exactly the layout the manifest's local_path resolves against.
+            key = f"{_REPLACEMENT_DOCUMENT_ROOT}/{relative.removeprefix('documents/')}"
             documents[key] = payload
     return result, documents, anchor
 
@@ -379,31 +394,58 @@ def _verified_anchor_predecessor(
         name: _require_committed(root / name, expected)
         for name, expected in _ANCHOR_OUTPUT_SHA256.items()
     }
-    base = mint_verified_exact100_v3_base(
-        predecessor_run_card_bytes=card_bytes,
-        predecessor_schema_version=_ANCHOR_SCHEMA_VERSION,
-        predecessor_stage=_ANCHOR_STAGE,
-        selection_rows=_jsonl(payloads["target-cohort-selection.jsonl"]),
-        case_relevance_rows=_jsonl(payloads["case-relevance.jsonl"]),
-        download_manifest_rows=_jsonl(payloads["document-downloads-merged.jsonl"]),
-        disclosure_rows=_jsonl(payloads["disclosure-clearance.jsonl"]),
-        restriction_rows=_jsonl(payloads["restriction-evidence.jsonl"]),
-        core_filter_rows=_jsonl(payloads["core-filter-results.jsonl"]),
-        source_commitments={
-            "predecessor_run_card": "sha256:" + digest,
-            **{
-                f"predecessor_{name}": "sha256:" + value
-                for name, value in _ANCHOR_OUTPUT_SHA256.items()
-            },
-        },
+    base = _mint_base(
+        card_bytes=card_bytes,
+        schema_version=_ANCHOR_SCHEMA_VERSION,
+        stage=_ANCHOR_STAGE,
+        payloads=payloads,
+        run_card_sha256=digest,
     )
-    return base, digest, _carried_documents(root)
+    return (
+        base,
+        digest,
+        _carried_documents(root, _anchor_document_commitments(committed)),
+    )
+
+
+def _anchor_document_commitments(committed: Mapping[str, Any]) -> dict[str, str]:
+    """Map the cohort head's supplemental commitments onto its own file paths.
+
+    The head commits its supplemental documents under
+    ``supplemental_document:<path-under-documents>`` keys plus two sidecar
+    manifests.  Rewriting them to root-relative paths is what lets the carried
+    tree be checked rather than trusted.
+    """
+
+    expected: dict[str, str] = {}
+    for name, value in committed.items():
+        if not isinstance(value, str):
+            continue
+        digest = value.removeprefix("sha256:")
+        if name.startswith("supplemental_document:"):
+            relative = name.removeprefix("supplemental_document:")
+            expected[f"{_CARRIED_SUPPLEMENTAL_ROOT}/documents/{relative}"] = digest
+        elif name == "supplemental_manifest":
+            expected[f"{_CARRIED_SUPPLEMENTAL_ROOT}/document-downloads.jsonl"] = digest
+        elif name == "supplemental_clearance":
+            expected[f"{_CARRIED_SUPPLEMENTAL_ROOT}/disclosure-clearance.jsonl"] = (
+                digest
+            )
+    return expected
 
 
 def _verified_chained_predecessor(
     root: Path, card_path: Path
 ) -> tuple[Any, str, dict[str, bytes]]:
-    """Accept an earlier v3 root, provided it chains to the sealed anchor."""
+    """Accept an earlier v3 root only by replaying the run that produced it.
+
+    Checking a v3 card's self-declared digests would authenticate nothing: the
+    anchor constant is public, so a fabricated card naming any structurally
+    valid 100-case surface would pass.  The card names the exact roots it was
+    minted from, so those are replayed and the result must equal the persisted
+    bytes -- the same shape the supporting-document successor uses, and the
+    reason a root cannot authorise itself.
+    """
 
     card_bytes = _read(card_path)
     card = _object(card_bytes, card_path)
@@ -417,15 +459,53 @@ def _verified_chained_predecessor(
         raise Exact100SuccessorReplacementV3CliError(
             "v3 predecessor run card does not chain to the sealed anchor"
         )
-    committed = _mapping(card.get("output_commitments"), "v3 predecessor commitments")
+    recorded = _mapping(card.get("input_roots"), "v3 predecessor input roots")
+    replayed, replayed_documents, _anchor = _project(
+        predecessor_root=Path(_required_str(recorded, "predecessor_root")),
+        stipulated_roots=_path_list(recorded, "stipulated_evidence_roots"),
+        owner_exclusions=_path_list(recorded, "owner_judgment_exclusions"),
+        replacement_roots=_path_list(recorded, "replacement_evidence_roots"),
+    )
+    expected = _result_payloads(replayed)
     payloads: dict[str, bytes] = {}
-    for name in _ANCHOR_OUTPUT_SHA256:
-        expected = str(committed.get(name, "")).removeprefix("sha256:")
-        payloads[name] = _require_committed(root / name, expected)
-    base = mint_verified_exact100_v3_base(
+    for name, relative in _OUTPUT_NAMES.items():
+        if name in {"state", "methods_disclosure"}:
+            continue
+        payload = _read(root / relative)
+        if payload != expected[name]:
+            raise Exact100SuccessorReplacementV3CliError(
+                f"v3 predecessor output differs from its replay: {relative}"
+            )
+        payloads[relative] = payload
+    carried = _carried_documents(
+        root,
+        {
+            relative: hashlib.sha256(payload).hexdigest()
+            for relative, payload in replayed_documents.items()
+        },
+    )
+    base = _mint_base(
+        card_bytes=card_bytes,
+        schema_version=STATE_SCHEMA_VERSION,
+        stage=STAGE,
+        payloads={name: payloads[name] for name in _ANCHOR_OUTPUT_SHA256},
+        run_card_sha256=hashlib.sha256(card_bytes).hexdigest(),
+    )
+    return base, _ANCHOR_RUN_CARD_SHA256, carried
+
+
+def _mint_base(
+    *,
+    card_bytes: bytes,
+    schema_version: str,
+    stage: str,
+    payloads: Mapping[str, bytes],
+    run_card_sha256: str,
+) -> Any:
+    return mint_verified_exact100_v3_base(
         predecessor_run_card_bytes=card_bytes,
-        predecessor_schema_version=STATE_SCHEMA_VERSION,
-        predecessor_stage=STAGE,
+        predecessor_schema_version=schema_version,
+        predecessor_stage=stage,
         selection_rows=_jsonl(payloads["target-cohort-selection.jsonl"]),
         case_relevance_rows=_jsonl(payloads["case-relevance.jsonl"]),
         download_manifest_rows=_jsonl(payloads["document-downloads-merged.jsonl"]),
@@ -433,22 +513,41 @@ def _verified_chained_predecessor(
         restriction_rows=_jsonl(payloads["restriction-evidence.jsonl"]),
         core_filter_rows=_jsonl(payloads["core-filter-results.jsonl"]),
         source_commitments={
-            "predecessor_run_card": "sha256:" + hashlib.sha256(card_bytes).hexdigest(),
+            "predecessor_run_card": "sha256:" + run_card_sha256,
             **{
                 f"predecessor_{name}": "sha256:" + hashlib.sha256(payload).hexdigest()
                 for name, payload in payloads.items()
             },
         },
     )
-    return base, _ANCHOR_RUN_CARD_SHA256, _carried_documents(root)
 
 
-def _carried_documents(root: Path) -> dict[str, bytes]:
-    """Carry the predecessor's materialised document trees forward verbatim.
+def _path_list(recorded: Mapping[str, Any], name: str) -> tuple[Path, ...]:
+    value = recorded.get(name)
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise Exact100SuccessorReplacementV3CliError(
+            f"v3 predecessor run card {name} is malformed"
+        )
+    paths: list[Path] = []
+    for item in cast(Sequence[object], value):
+        if not isinstance(item, str) or not item:
+            raise Exact100SuccessorReplacementV3CliError(
+                f"v3 predecessor run card {name} is malformed"
+            )
+        paths.append(Path(item))
+    return tuple(paths)
 
-    Dropping them would strand the candidates the earlier successors added, so
-    the successor root stays a complete materialisation surface rather than a
-    delta that only resolves against its ancestor.
+
+def _carried_documents(root: Path, committed: Mapping[str, str]) -> dict[str, bytes]:
+    """Carry the predecessor's document trees forward, checked against its card.
+
+    Dropping them would strand the candidates earlier successors added, so the
+    successor root stays a complete materialisation surface.  Republishing them
+    unchecked would be worse: the next successor's fresh commitments would bless
+    whatever bytes happened to be on disk, so byte-role validated evidence could
+    silently diverge from what is carried.  Every carried file is therefore
+    matched against the predecessor's own committed digest, and every committed
+    document must still be present.
     """
 
     carried: dict[str, bytes] = {}
@@ -461,8 +560,25 @@ def _carried_documents(root: Path) -> dict[str, bytes]:
                 raise Exact100SuccessorReplacementV3CliError(
                     "predecessor document tree contains a symlink"
                 )
-            if path.is_file():
-                carried[path.relative_to(root).as_posix()] = path.read_bytes()
+            if not path.is_file():
+                continue
+            relative = path.relative_to(root).as_posix()
+            payload = path.read_bytes()
+            expected = committed.get(relative)
+            if expected is None:
+                raise Exact100SuccessorReplacementV3CliError(
+                    f"predecessor carries an uncommitted document: {relative}"
+                )
+            if hashlib.sha256(payload).hexdigest() != expected.removeprefix("sha256:"):
+                raise Exact100SuccessorReplacementV3CliError(
+                    f"predecessor document differs from its commitment: {relative}"
+                )
+            carried[relative] = payload
+    missing = set(committed) - set(carried)
+    if missing:
+        raise Exact100SuccessorReplacementV3CliError(
+            f"predecessor is missing a committed document: {sorted(missing)[0]}"
+        )
     return carried
 
 
@@ -547,7 +663,7 @@ def _replay_stipulated_exclusions(
         raise Exact100SuccessorReplacementV3CliError(
             "stipulated eligibility audit contains no ineligible target"
         )
-    owner = _owner_authorization_commitments(card_bytes, root)
+    citation = _stipulated_audit_citation(card_bytes)
     return tuple(
         {
             "candidate_id": _required_str(record, "candidate_id"),
@@ -559,19 +675,23 @@ def _replay_stipulated_exclusions(
                 "target_eligibility_record": _sha(_canonical(dict(record))),
                 **dict(audit.input_commitments),
             },
-            "owner_authorization_commitments": owner,
+            "owner_authorization_commitments": citation,
         }
         for record in audit.ineligible_records
     )
 
 
-def _owner_authorization_commitments(card_bytes: bytes, root: Path) -> dict[str, str]:
-    """Bind the audit root's own bytes as the exclusion's citation."""
+def _stipulated_audit_citation(card_bytes: bytes) -> dict[str, str]:
+    """Cite the audit run card whose replay produced this exclusion.
 
-    return {
-        "stipulated_audit_run_card": _sha(card_bytes),
-        "stipulated_audit_root": _sha(str(root.absolute()).encode()),
-    }
+    Named for what it is.  A detector-derived exclusion's authority is the
+    authenticated audit replay, not an owner signature, and the earlier name
+    invited a future auditor to read it as the latter.  A hash of the root's
+    path string was also dropped: it committed nothing about content and did not
+    survive relocation.
+    """
+
+    return {"stipulated_audit_run_card": _sha(card_bytes)}
 
 
 def _owner_judgment_exclusion(path: Path) -> Mapping[str, Any]:
@@ -589,6 +709,12 @@ def _owner_judgment_exclusion(path: Path) -> Mapping[str, Any]:
     citation = _mapping(
         record.get("owner_disposition"), "owner-judgment exclusion disposition"
     )
+    # Hold the same bar the replacement side already holds: a citation that
+    # names no recorded owner text, and no source for it, is not a disposition.
+    # This ground is only ever human-verifiable, which is a reason to record it
+    # more carefully than a detector-derived one, not less.
+    _required_str(citation, "owner_verbatim")
+    _required_str(citation, "signoff_source")
     return {
         "candidate_id": _required_str(record, "candidate_id"),
         "source_document_id": _required_str(record, "source_document_id"),

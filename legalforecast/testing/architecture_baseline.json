@@ -3779,7 +3779,7 @@
       "legalforecast/ingestion": 165,
       "legalforecast/ingestion/attachment_page": 7,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
-      "legalforecast/ingestion/exact100_successor_v3": 2,
+      "legalforecast/ingestion/exact100_successor_v3": 5,
       "legalforecast/ingestion/frozen_parser_model": 2,
       "legalforecast/ingestion/stage_a_replay_executor": 17,
       "legalforecast/labeling": 13,
@@ -3793,7 +3793,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 452,
+      "tests": 453,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -5234,6 +5234,23 @@
         "nonblank_line_count": 514,
         "top_level_definition_count": 20
       },
+      "legalforecast/ingestion/exact100_successor_v3/cli.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "ingestion",
+        "fan_in": 0,
+        "fan_out": 7,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "ingestion",
+        "largest_symbol": "run_project",
+        "largest_symbol_lines": 127,
+        "layer": "application",
+        "line_count": 939,
+        "nonblank_line_count": 845,
+        "top_level_definition_count": 29
+      },
       "legalforecast/ingestion/exact100_successor_v3/projector.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -5247,9 +5264,9 @@
         "largest_symbol": "project_exact100_successor_replacement_v3",
         "largest_symbol_lines": 203,
         "layer": "application",
-        "line_count": 866,
-        "nonblank_line_count": 766,
-        "top_level_definition_count": 30
+        "line_count": 907,
+        "nonblank_line_count": 804,
+        "top_level_definition_count": 31
       },
       "legalforecast/ingestion/exact100_successor_v3/replacement_evidence.py": {
         "cycle_id": "",
@@ -5262,11 +5279,28 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "mint_verified_owner_adjudicated_replacement",
-        "largest_symbol_lines": 248,
+        "largest_symbol_lines": 241,
         "layer": "application",
-        "line_count": 673,
-        "nonblank_line_count": 601,
-        "top_level_definition_count": 22
+        "line_count": 741,
+        "nonblank_line_count": 664,
+        "top_level_definition_count": 23
+      },
+      "legalforecast/ingestion/exact100_successor_v3/replacement_evidence_cli.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "ingestion",
+        "fan_in": 1,
+        "fan_out": 3,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "ingestion",
+        "largest_symbol": "_mint",
+        "largest_symbol_lines": 99,
+        "layer": "adapter",
+        "line_count": 687,
+        "nonblank_line_count": 615,
+        "top_level_definition_count": 25
       },
       "legalforecast/ingestion/exact100_successor_wider_rank.py": {
         "cycle_id": "",

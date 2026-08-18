@@ -27,6 +27,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import OWNER_ADJUDICATED_REPLACEMENT_PLAN_V1
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
     EVIDENCE_SCHEMA_VERSION,
@@ -36,7 +37,7 @@ from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
 )
 
 STAGE = "mint-owner-adjudicated-replacement-evidence"
-PLAN_SCHEMA_VERSION = "legalforecast.owner_adjudicated_replacement_plan.v1"
+PLAN_SCHEMA_VERSION = str(OWNER_ADJUDICATED_REPLACEMENT_PLAN_V1)
 
 _OUTPUTS = {
     "selection": "replacement-selection.jsonl",
@@ -482,24 +483,37 @@ def _validation_index(payloads: Sequence[bytes]) -> dict[str, JsonMapping]:
             )
         strict_record = cast(Mapping[str, object], strict)
         visual_record = cast(Mapping[str, object], visual)
+        findings = document.get("role_findings")
         if (
             strict_record.get("all_pages_parsed") is not True
             or strict_record.get("all_documents_unencrypted") is not True
             or visual_record.get("result") != "pass"
-            or "role_findings" not in document
+            or not isinstance(findings, Mapping)
+            or not findings
         ):
             raise OwnerAdjudicatedReplacementCliError(
                 "free-tranche validation does not clear every document"
             )
+        recorded_findings = cast(Mapping[str, object], findings)
         for row in _sequence(strict_record.get("documents"), "validation documents"):
             digest = _required_str(row, "sha256")
-            index[_required_str(row, "source_document_id")] = {
+            source_document_id = _required_str(row, "source_document_id")
+            # A synthesized "match" is only honest if the tranche actually
+            # recorded a role finding for this document.  Without this the mere
+            # presence of a role_findings key would promote every strictly
+            # parseable PDF to a verified role.
+            if not _mentions_document(recorded_findings, source_document_id):
+                raise OwnerAdjudicatedReplacementCliError(
+                    "free-tranche validation records no role finding for "
+                    f"{source_document_id}"
+                )
+            index[source_document_id] = {
                 "encrypted": False,
                 "pdf_byte_count": row.get("byte_count"),
                 "pdf_sha256": digest,
                 "requested_role": row.get("role"),
                 "role_verdict": "match",
-                "source_document_id": _required_str(row, "source_document_id"),
+                "source_document_id": source_document_id,
                 "strict_parse": "pass",
                 "structural_defects": [],
                 "validation_class": "free_tranche_strict_pdf_and_role_findings",
@@ -509,6 +523,20 @@ def _validation_index(payloads: Sequence[bytes]) -> dict[str, JsonMapping]:
             "validation artifacts carry no document records"
         )
     return index
+
+
+def _mentions_document(findings: Mapping[str, object], source_document_id: str) -> bool:
+    """Say whether the tranche's role findings actually cover this document.
+
+    The shapes differ across tranches: some key findings by candidate with a
+    nested evidence list naming ``document_id``, others key them directly by
+    document.  Rather than guess, look for the identifier anywhere in the
+    recorded findings.
+    """
+
+    if source_document_id in findings:
+        return True
+    return source_document_id in json.dumps(findings, sort_keys=True, default=str)
 
 
 def _docket_entries(

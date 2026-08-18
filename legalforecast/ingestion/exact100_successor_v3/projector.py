@@ -64,6 +64,28 @@ STAGE = "project-exact100-successor-replacement-v3"
 _TARGET_COUNT = 100
 _BASE_SEAL = object()
 _EXCLUSION_SEAL = object()
+# Carried forward verbatim from the v2 contract.  A row whose restriction status
+# is "unknown" is only publicly usable when it carries the complete set.
+_PUBLIC_UNKNOWN_RESTRICTION_EVIDENCE = frozenset(
+    {
+        "courtlistener_rest_docket_exact_match",
+        "courtlistener_rest_docket_entry_exact_match",
+        "courtlistener_rest_recap_document_exact_match",
+        "courtlistener_rest_recap_document_is_available_true",
+        "courtlistener_rest_recap_document_is_sealed_unknown",
+        "courtlistener_rest_public_download_url_allowlisted",
+    }
+)
+# A purchased document cannot carry the CourtListener public-download evidence:
+# REST v4 no longer serialises is_private at all, which is why #868 moved paid
+# clearance onto post-delivery provider evidence.  This is that basis, and it is
+# the only additional one v3 admits.
+_PAID_DELIVERY_RESTRICTION_EVIDENCE = frozenset(
+    {
+        "document_repair_paid_delivery_clearance",
+        "document_repair_byte_role_validation_match",
+    }
+)
 
 
 class Exact100SuccessorReplacementV3Error(ValueError):
@@ -703,14 +725,33 @@ def _require_evidence_coverage(
         restricted = restriction_by_key[key]
         if (
             clear.get("status") != "cleared"
-            or restricted.get("is_sealed") is True
-            or restricted.get("is_private") is True
+            or not _restriction_is_publicly_usable(restricted)
             or _hex(clear, "sha256") != _hex(document, "sha256")
             or clear.get("byte_count") != document.get("byte_count")
         ):
             raise Exact100SuccessorReplacementV3Error(
                 f"{label} document is not cleared and public: {key[0]}/{key[1]}"
             )
+
+
+def _restriction_is_publicly_usable(record: Mapping[str, Any]) -> bool:
+    """Hold v2's public-use property, widened only for post-delivery paid rows."""
+
+    if record.get("is_sealed") is True or record.get("is_private") is True:
+        return False
+    status = record.get("restriction_status")
+    if status == "public":
+        return True
+    raw = record.get("restriction_evidence")
+    if not isinstance(raw, (list, tuple)):
+        return False
+    evidence = cast(Sequence[object], raw)
+    if not all(isinstance(value, str) for value in evidence):
+        return False
+    present = set(cast(Sequence[str], evidence))
+    if status == "unknown":
+        return _PUBLIC_UNKNOWN_RESTRICTION_EVIDENCE <= present
+    return _PAID_DELIVERY_RESTRICTION_EVIDENCE <= present
 
 
 def _require_clean_core_result(

@@ -219,6 +219,7 @@ def mint_verified_owner_adjudicated_replacement(
             source_document_id=source_document_id,
             digest=digest,
             byte_count=len(payload),
+            receipt_role=_text(row, "document_role"),
         )
         route = _route(row)
         is_decision = role == DocumentRole.DECISION.value
@@ -236,7 +237,12 @@ def mint_verified_owner_adjudicated_replacement(
             raise OwnerAdjudicatedReplacementError(
                 f"replacement document source URL is invalid: {source_document_id}"
             )
-        local_path = f"documents/{source_document_id}.pdf"
+        # ``local_path`` is resolved by downstream materialisation against the
+        # successor root's sidecar documents tree, so it must be the path
+        # relative to that tree, not the path inside this evidence root.  Root
+        # 46 set the precedent: its newly promoted candidate's merged-manifest
+        # rows are candidate-structured for exactly this reason.
+        local_path = f"{candidate_id}/{source_document_id}.pdf"
         manifest.append(
             {
                 "byte_count": len(payload),
@@ -321,32 +327,28 @@ def mint_verified_owner_adjudicated_replacement(
         candidate_id=candidate_id,
         case_identity=case_identity,
         documents=selection_documents,
+        free_document_count=sum(
+            1 for row in manifest if row["free_or_purchased"] == "free"
+        ),
         required_role_count=len(required_roles),
         decision_entry_numbers=sorted(decision_entry_numbers),
         target_motion_entry_numbers=sorted(target_motion_entry_numbers),
     )
-    commitment = _sha(
-        _canonical_bytes(
-            {
-                "candidate_id": candidate_id,
-                "replaces_candidate_id": replaces_candidate_id,
-                "selection_row": _sha(_canonical_bytes(selection_row)),
-                "download_manifest": _sha(_jsonl_bytes(manifest)),
-                "disclosure_clearance": _sha(_jsonl_bytes(clearance)),
-                "restriction_evidence": _sha(_jsonl_bytes(restriction)),
-                "document_tree": _sha(
-                    _canonical_bytes(
-                        {
-                            f"documents/{key}.pdf": hashlib.sha256(value).hexdigest()
-                            for key, value in sorted(document_bytes_by_id.items())
-                            if key in seen
-                        }
-                    )
-                ),
-                "field_provenance": dict(provenance),
-                "source_commitments": dict(commitments),
-            }
-        )
+    document_tree = {
+        f"documents/{candidate_id}/{key}.pdf": value
+        for key, value in sorted(document_bytes_by_id.items())
+        if key in seen
+    }
+    commitment = _replacement_commitment_sha256(
+        candidate_id=candidate_id,
+        replaces_candidate_id=replaces_candidate_id,
+        selection_row=selection_row,
+        manifest=manifest,
+        clearance=clearance,
+        restriction=restriction,
+        document_tree=document_tree,
+        field_provenance=provenance,
+        source_commitments=commitments,
     )
     value = object.__new__(VerifiedOwnerAdjudicatedReplacement)
     for name, item in (
@@ -357,16 +359,7 @@ def mint_verified_owner_adjudicated_replacement(
         ("download_manifest", tuple(manifest)),
         ("disclosure_clearance", tuple(clearance)),
         ("restriction_evidence", tuple(restriction)),
-        (
-            "document_bytes",
-            MappingProxyType(
-                {
-                    f"documents/{key}.pdf": value
-                    for key, value in sorted(document_bytes_by_id.items())
-                    if key in seen
-                }
-            ),
-        ),
+        ("document_bytes", MappingProxyType(document_tree)),
         (
             "required_document_sha256",
             MappingProxyType(dict(sorted(required_document_sha256.items()))),
@@ -380,10 +373,56 @@ def mint_verified_owner_adjudicated_replacement(
     return value
 
 
+# contract-ratchet: allow in-process capability seal, never a persisted artifact
+def _replacement_commitment_sha256(
+    *,
+    candidate_id: str,
+    replaces_candidate_id: str,
+    selection_row: Mapping[str, Any],
+    manifest: Sequence[Mapping[str, Any]],
+    clearance: Sequence[Mapping[str, Any]],
+    restriction: Sequence[Mapping[str, Any]],
+    document_tree: Mapping[str, bytes],
+    field_provenance: Mapping[str, str],
+    source_commitments: Mapping[str, str],
+) -> str:
+    """Commit every field a consumer relies on, so mutation is detectable."""
+
+    return _sha(
+        _canonical_bytes(
+            {
+                "candidate_id": candidate_id,
+                "replaces_candidate_id": replaces_candidate_id,
+                "selection_row": _sha(_canonical_bytes(dict(selection_row))),
+                "download_manifest": _sha(_jsonl_bytes(manifest)),
+                "disclosure_clearance": _sha(_jsonl_bytes(clearance)),
+                "restriction_evidence": _sha(_jsonl_bytes(restriction)),
+                "document_tree": _sha(
+                    _canonical_bytes(
+                        {
+                            name: hashlib.sha256(payload).hexdigest()
+                            for name, payload in sorted(document_tree.items())
+                        }
+                    )
+                ),
+                "field_provenance": dict(field_provenance),
+                "source_commitments": dict(source_commitments),
+            }
+        )
+    )
+
+
 def require_verified_owner_adjudicated_replacement(
     replacement: VerifiedOwnerAdjudicatedReplacement,
 ) -> None:
-    """Reject a caller-constructed or mutated replacement capability."""
+    """Reject a caller-constructed or mutated replacement capability.
+
+    Checking the seal alone is not enough.  The dataclass is frozen but its
+    records are ordinary dicts and lists, so a minted replacement can still be
+    reached into -- flipping a disposition to ``model_visible``, say -- without
+    the seal noticing.  Recomputing the commitment over every field a consumer
+    relies on is what makes that mutation detectable.
+    """
 
     if (
         type(replacement) is not VerifiedOwnerAdjudicatedReplacement
@@ -391,6 +430,24 @@ def require_verified_owner_adjudicated_replacement(
     ):
         raise OwnerAdjudicatedReplacementError(
             "owner-adjudicated replacement was not produced by verified minting"
+        )
+    if replacement.case_relevance_row != replacement.selection_row:
+        raise OwnerAdjudicatedReplacementError(
+            "owner-adjudicated replacement changed after verified minting"
+        )
+    if replacement.commitment_sha256 != _replacement_commitment_sha256(
+        candidate_id=replacement.candidate_id,
+        replaces_candidate_id=replacement.replaces_candidate_id,
+        selection_row=replacement.selection_row,
+        manifest=replacement.download_manifest,
+        clearance=replacement.disclosure_clearance,
+        restriction=replacement.restriction_evidence,
+        document_tree=replacement.document_bytes,
+        field_provenance=replacement.field_provenance,
+        source_commitments=replacement.source_commitments,
+    ):
+        raise OwnerAdjudicatedReplacementError(
+            "owner-adjudicated replacement changed after verified minting"
         )
 
 
@@ -428,8 +485,15 @@ def _require_byte_role_validation(
     source_document_id: str,
     digest: str,
     byte_count: int,
+    receipt_role: str,
 ) -> str:
-    """Require an exact-role verdict bound to these exact bytes."""
+    """Require an exact-role verdict bound to these exact bytes and this role.
+
+    A verdict of "match" only means something once you know *which* role it
+    matched.  The tranches label the same document differently ("target_motion"
+    on the receipt, "target_motion_opening_brief" in the validation), so the
+    comparison is on the mapped corpus role rather than on the raw label.
+    """
 
     if record is None:
         raise OwnerAdjudicatedReplacementError(
@@ -462,6 +526,13 @@ def _require_byte_role_validation(
     # regimes.  Both are accepted, but which one applied is recorded per
     # document rather than flattened away, so a reader of the promotion can see
     # exactly what was checked.
+    validated_role = record.get("requested_role")
+    if not isinstance(validated_role, str) or _mapped_role(validated_role) != (
+        _mapped_role(receipt_role)
+    ):
+        raise OwnerAdjudicatedReplacementError(
+            f"byte-role validation is for a different role: {source_document_id}"
+        )
     validation_class = record.get("validation_class")
     if validation_class not in _VALIDATION_CLASSES:
         raise OwnerAdjudicatedReplacementError(
@@ -505,6 +576,7 @@ def _selection_row(
     candidate_id: str,
     case_identity: Mapping[str, Any],
     documents: Sequence[Mapping[str, Any]],
+    free_document_count: int,
     required_role_count: int,
     decision_entry_numbers: Sequence[int],
     target_motion_entry_numbers: Sequence[int],
@@ -523,11 +595,7 @@ def _selection_row(
         "docket_number": _text(case_identity, "docket_number"),
         "documents": [dict(document) for document in documents],
         "exclusion_reasons": [],
-        "free_required_document_count": sum(
-            1
-            for document in documents
-            if document.get("free_or_purchased") != "purchased"
-        ),
+        "free_required_document_count": free_document_count,
         "mdl_family_id": None,
         "missing_required_document_count": 0,
         "nature_of_suit": case_identity.get("nature_of_suit"),
