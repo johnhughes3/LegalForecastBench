@@ -128,13 +128,6 @@ class StageAUnitizationLineage:
         Mapping[str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]]
         | None
     ) = None
-    #: Durable files that answered for committed paths whose capture root is
-    #: gone, keyed by the absolute committed path.  Derived by this verifier from
-    #: digests the run card commits -- never artifact-supplied -- and carried so
-    #: that re-reads of ``file_snapshots`` reach the same file that was
-    #: authenticated.  ``file_snapshots`` stays keyed by the frozen path, which
-    #: remains this lineage's emitted identity.
-    relocations: Mapping[str, tuple[Path, bytes]] = field(default_factory=dict)
 
 
 def _relocated_read_path(
@@ -274,10 +267,20 @@ def verify_stage_a_unitization_lineage_uncached(
             ),
         },
         markdown_tree=parse_lineage.markdown_tree,
-        file_snapshots={**parse_lineage.file_snapshots, **provider_snapshots},
+        # A relocated input is stored under the durable file that answered for
+        # it.  ``file_snapshots`` exists to be re-read -- by the TOCTOU check in
+        # ``require_stage_a_lineage_unchanged`` and by successor output-isolation
+        # -- and the durable file is what a re-read must reach; the committed
+        # path stays the identity in ``input_paths`` and ``input_commitments``.
+        file_snapshots={
+            **parse_lineage.file_snapshots,
+            **{
+                _relocated_read_path(path, verified_relocations): payload
+                for path, payload in provider_snapshots.items()
+            },
+        },
         document_tree=parse_lineage.document_tree,
         markdown_bytes=parse_lineage.markdown_bytes,
-        relocations=dict(verified_relocations),
     )
 
 
@@ -840,14 +843,8 @@ def require_stage_a_lineage_unchanged(
     lineage: StageAUnitizationLineage,
 ) -> None:
     _c = _cli()
-    # ``file_snapshots`` is keyed by each input's committed path, so a relocated
-    # input must be re-read through the durable file that answered for it --
-    # otherwise this TOCTOU check would look for a capture root already known to
-    # be gone and refuse evidence it just authenticated.
     _c._require_snapshot_unchanged(
-        lineage.file_snapshots,
-        label="authenticated Stage A input",
-        relocations=dict(lineage.relocations) or None,
+        lineage.file_snapshots, label="authenticated Stage A input"
     )
     if _c._materializer_tree_snapshot(lineage.document_root) != dict(
         lineage.document_tree

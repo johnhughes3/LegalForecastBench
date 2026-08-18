@@ -3792,7 +3792,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 451,
+      "tests": 452,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -6173,8 +6173,8 @@
         "largest_symbol": "verify_stage_a_review_run_card",
         "largest_symbol_lines": 554,
         "layer": "application",
-        "line_count": 2943,
-        "nonblank_line_count": 2842,
+        "line_count": 2954,
+        "nonblank_line_count": 2853,
         "top_level_definition_count": 30
       },
       "legalforecast/ingestion/stage_a_replay_executor/provider.py": {
@@ -9451,8 +9451,8 @@
         "largest_symbol": "test_acquisition_llm_unitize_and_label_validate_registry_outputs",
         "largest_symbol_lines": 534,
         "layer": "test",
-        "line_count": 3958,
-        "nonblank_line_count": 3666,
+        "line_count": 3962,
+        "nonblank_line_count": 3670,
         "top_level_definition_count": 80
       },
       "tests/test_local_cli_adapter_manifest.py": {
@@ -10731,8 +10731,8 @@
         "largest_symbol": "test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units",
         "largest_symbol_lines": 552,
         "layer": "test",
-        "line_count": 2289,
-        "nonblank_line_count": 2184,
+        "line_count": 2292,
+        "nonblank_line_count": 2187,
         "top_level_definition_count": 17
       },
       "tests/test_stage_a_prompt_ontology.py": {

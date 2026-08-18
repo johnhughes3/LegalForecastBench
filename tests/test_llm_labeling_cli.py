@@ -1046,9 +1046,13 @@ def test_stage_a_lineage_reuses_identical_authenticated_pdf_scans(
         *,
         markdown_root: Path,
         parse_lineage: object | None = None,
+        relocations: object | None = None,
     ) -> object:
         assert markdown_root == tmp_path
         assert parse_lineage is None
+        # Nothing is relocated in this fixture, so the scan-reuse path under
+        # test is exercised exactly as it is in production.
+        assert not relocations
         for _ in range(4):
             assert (
                 provenance_clearance.document_scanner_for_plan(scanner_plan)(
