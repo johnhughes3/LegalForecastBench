@@ -44547,6 +44547,15 @@ def _replay_exact100_v2_public_plan(
     # reproduce the persisted plan bytes exactly under whichever generation is
     # bound.
     #
+    # Scoped to the operative-complaint classifier only.  #667 also broadened
+    # three ``courtlistener_web`` functions this planner consults live, but
+    # measurement -- not assumption -- leaves them on the current model:
+    # restoring both that module and the planner to their pre-#667 2ce1fd80
+    # content reproduces today's digest unchanged, while restoring the
+    # classifier alone reproduces the minted digest byte-for-byte.  The
+    # recomputed plan is byte-compared below either way, so a cohort where those
+    # functions did matter refuses rather than passing quietly.
+    #
     # Synchronous call only: the scope is a ContextVar and does not propagate
     # into threads a callee might spawn.
     with operative_complaint_regime_scope(

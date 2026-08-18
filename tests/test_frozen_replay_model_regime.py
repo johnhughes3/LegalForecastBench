@@ -368,9 +368,10 @@ def test_the_preserved_classifier_predates_the_counterclaim_kind() -> None:
         before_entry=10,
         regime=OPERATIVE_COMPLAINT_REGIME_PRE_667,
     )
-    assert (
-        selection is None or selection.kind is not OperativeComplaintKind.COUNTERCLAIM
-    )
+    # Strictly ``None``: pre-#667 the docket label "counterclaim" matched no
+    # complaint pattern at all, so the entry was never a candidate.  Asserting
+    # the exact outcome keeps this from passing for an unrelated reason.
+    assert selection is None
 
 
 def test_the_scope_binds_the_classifier_without_a_parameter() -> None:
@@ -385,7 +386,7 @@ def test_the_scope_binds_the_classifier_without_a_parameter() -> None:
 
     assert unscoped is not None
     assert unscoped.kind is OperativeComplaintKind.COUNTERCLAIM
-    assert scoped is None or scoped.kind is not OperativeComplaintKind.COUNTERCLAIM
+    assert scoped is None
 
 
 def test_an_explicit_regime_overrides_the_active_scope() -> None:

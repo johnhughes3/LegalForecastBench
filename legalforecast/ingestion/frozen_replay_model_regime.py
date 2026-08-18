@@ -16,6 +16,30 @@ deliberately broadened after the evidence under replay was minted:
    #667 (``253bad6d``, 2026-08-13).  The v2 root committed its
    ``wider_public_plan`` digest before that hunk existed.
 
+   **Be precise about #667's scope, because this module versions only part of
+   it.**  #667 touched eight production files.  Besides adding
+   ``_non_complaint_claim_kind`` it also broadened three functions in
+   ``courtlistener_web.py`` that the planner consults live -
+   ``classify_courtlistener_entry_role`` (reached on every
+   ``CourtListenerWebDocketEntry.role`` access, which is a property, not a
+   frozen field), ``brief_targets_motion``, and
+   ``is_substantive_mtd_opposition_entry``.  Those are deliberately **not**
+   versioned here, on measurement rather than assumption:
+
+   * restoring ``courtlistener_web.py`` *and* ``public_packet_planner.py`` to
+     their pre-#667 ``2ce1fd80`` content reproduces the **current** digest
+     ``6bacc47b…`` unchanged, so neither module moves this cohort's plan; and
+   * restoring ``_non_complaint_claim_kind`` alone, with ``courtlistener_web``
+     left at HEAD, reproduces the minted ``a499faec…`` **byte-for-byte** - which
+     it could not do if the other hunks perturbed this cohort at all.
+
+   So the seam is scoped to the one hunk that actually moves the digest.  This
+   is safe in the fail-loud direction regardless: the recomputed plan is still
+   byte-compared against the persisted plan, so a cohort where those other
+   functions *did* matter would refuse here rather than pass quietly.  A future
+   frozen plan root that refuses despite this regime should suspect exactly
+   those three functions first.
+
 Replaying either through today's model compares one model's output against a
 different model's output, so a deliberate later broadening reads as evidence
 corruption.  This is the same class of drift that
@@ -277,8 +301,11 @@ def operative_complaint_regime_scope(name: str) -> Generator[str]:
     a different plan digest rather than refuse.  A regime is a property of the
     whole recomputation, not of an individual call, so binding it once around
     the recomputation is both smaller and safer -- it is exactly the shape the
-    root-cause probe validated, where the pre-#667 model applied uniformly and
-    reproduced the minted digest byte-for-byte.
+    root-cause probe validated, where the pre-#667 classifier applied uniformly
+    across the recomputation and reproduced the minted digest byte-for-byte.
+    What the scope covers -- and which parts of #667 it deliberately does not,
+    with the measurements behind that choice -- is set out in the module
+    docstring above.
 
     This mirrors ``_VERIFIED_PROJECTION_BYTE_COLLECTOR`` in the CLI, which
     already carries verifier-owned state across one nested projection the same
