@@ -747,6 +747,8 @@ def test_a_journal_that_cannot_record_the_intent_dispatches_nothing(
     )
     transport = _RecordingTransport([])
 
+    cancelled: list[str] = []
+
     def _unwritable(**kwargs: Any) -> Any:
         del kwargs
         raise OSError("read-only file system")
@@ -760,9 +762,47 @@ def test_a_journal_that_cannot_record_the_intent_dispatches_nothing(
             transport=transport,
             client=execution_client,
             journal=journal,
+            before_request=lambda method, path: (
+                lambda: cancelled.append(f"{method} {path}")
+            ),
             sleep=lambda _: None,
         )
 
     assert transport.posts == []
     assert receipt.outcomes[0].disposition == "not_attempted"
     assert "pre-dispatch journal write failed" in (receipt.halted_reason or "")
+    # Nothing was transmitted, so the reserved slot goes back to the budget
+    # rather than being spent against the rolling ceiling for no request.
+    assert cancelled == ["POST /recap-fetch/"]
+
+
+def test_an_ambiguous_dispatch_still_leaves_a_durable_journal_row(
+    tmp_path: Path,
+) -> None:
+    """The charge state is unknown; the record of having tried is not."""
+
+    plan = _plan_for(_plan_only_client())
+    execution_client, _ = client_for(
+        [recap_documents_response(documents=[main_document()])]
+    )
+    transport = _RecordingTransport([TimeoutError("connection reset")])
+    cancelled: list[str] = []
+
+    with _journal(tmp_path) as journal:
+        receipt = execute_attachment_page_fetches(
+            plan=plan,
+            authorization=_authorized(plan),
+            config=CONFIG,
+            transport=transport,
+            client=execution_client,
+            journal=journal,
+            before_request=lambda method, path: (
+                lambda: cancelled.append(f"{method} {path}")
+            ),
+            sleep=lambda _: None,
+        )
+
+    assert receipt.outcomes[0].charge_dispatched is True
+    assert (
+        journal_at(tmp_path / "journal.sqlite3").dispatched_count(plan.plan_sha256) == 1
+    )

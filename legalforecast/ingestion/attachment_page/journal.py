@@ -33,12 +33,13 @@ from types import TracebackType
 from typing import Any, Final
 
 from legalforecast._datetime import format_utc_iso_z
+from legalforecast.contracts import ATTACHMENT_PAGE_DISPATCH_JOURNAL_V1
 from legalforecast.ingestion.attachment_page.plan import (
     AttachmentPageFetchPlan,
     AttachmentPageTarget,
 )
 
-JOURNAL_SCHEMA_VERSION: Final = "legalforecast.attachment_page_dispatch_journal.v1"
+JOURNAL_SCHEMA_VERSION: Final = str(ATTACHMENT_PAGE_DISPATCH_JOURNAL_V1)
 
 #: The disposition a row carries between the pre-dispatch write and the
 #: observed outcome. A row still holding it has an unknown charge state.

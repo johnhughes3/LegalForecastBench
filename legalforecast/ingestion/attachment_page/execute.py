@@ -326,6 +326,7 @@ def execute_attachment_page_fetches(
             try:
                 before_first_dispatch()
             except Exception as exc:  # broad on purpose: reported, never swallowed
+                _release(cancel)
                 halted = f"could not consume the authorization before spending: {exc}"
                 outcomes.append(
                     _outcome(
@@ -340,6 +341,9 @@ def execute_attachment_page_fetches(
         try:
             journal.record_intent(plan=plan, target=target)
         except _JOURNAL_ERRORS as exc:
+            # Nothing was transmitted, so the reserved slot is genuinely unused
+            # and belongs back in the rolling budget.
+            _release(cancel)
             halted = f"pre-dispatch journal write failed: {exc}"
             outcomes.append(
                 _outcome(
@@ -376,6 +380,20 @@ def execute_attachment_page_fetches(
         recap_fetch_post_count=posts,
         halted_reason=halted,
     )
+
+
+def _release(cancel: Callable[[], None] | None) -> None:
+    """Return an unused reservation to the budget, if it is cancellable.
+
+    Only called where nothing was transmitted -- a pre-dispatch write that
+    failed before the POST. Note that the production wiring passes
+    ``budget.before_request``, which reserves without returning a canceller,
+    so this is a no-op there; it matters to a caller that supplies
+    ``reserve_cancellable``.
+    """
+
+    if cancel is not None:
+        cancel()
 
 
 def _record(
