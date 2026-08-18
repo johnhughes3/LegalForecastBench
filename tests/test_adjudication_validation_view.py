@@ -268,8 +268,13 @@ def test_unacquired_documents_are_not_counted_as_unvalidated() -> None:
     assert 16 not in [document.entry_number for document in view.unvalidated_documents]
 
 
-def test_match_wins_when_one_entry_carries_several_documents() -> None:
+def _shared_entry_row(*, main_verdict: str, attachment_verdict: str) -> dict[str, Any]:
+    """One docket entry carrying a main reply plus an unrelated exhibit."""
+
     row = _ponce_row()
+    row["missing_document_status"][0]["byte_role_validation"]["byte_role_verdict"] = (
+        main_verdict
+    )
     row["missing_document_status"].append(
         _status(
             entry=13,
@@ -279,12 +284,112 @@ def test_match_wins_when_one_entry_carries_several_documents() -> None:
                 candidate_id="71843630",
                 entry=13,
                 role="reply_exhibit",
-                verdict="unverifiable",
+                verdict=attachment_verdict,
+            ),
+        )
+    )
+    return row
+
+
+def test_role_scoped_lookup_answers_for_the_document_asked_about() -> None:
+    view = build_candidate_validation_view(
+        _shared_entry_row(main_verdict="match", attachment_verdict="unverifiable")
+    )
+    assert view.verdict_for_entry(13, role="reply") == "match"
+    assert view.verdict_for_entry(13, role="reply_exhibit") == "unverifiable"
+
+
+def test_a_matching_attachment_cannot_rescue_a_mismatched_required_document() -> None:
+    """The one answer this view must never give.
+
+    A required document that failed validation must not read as validated
+    because an unrelated document at the same docket entry passed.
+    """
+
+    view = build_candidate_validation_view(
+        _shared_entry_row(main_verdict="mismatch", attachment_verdict="match")
+    )
+    assert view.verdict_for_entry(13, role="reply") == "mismatch"
+    assert view.verdict_for_entry(13) != "match"
+
+
+def test_shared_entry_without_a_role_is_conservative() -> None:
+    view = build_candidate_validation_view(
+        _shared_entry_row(main_verdict="match", attachment_verdict="unverifiable")
+    )
+    assert view.verdict_for_entry(13) == "unverifiable"
+
+
+def test_unanimous_match_at_a_shared_entry_still_reports_match() -> None:
+    view = build_candidate_validation_view(
+        _shared_entry_row(main_verdict="match", attachment_verdict="match")
+    )
+    assert view.verdict_for_entry(13) == "match"
+
+
+def test_role_with_no_comparable_document_at_a_shared_entry_declines() -> None:
+    view = build_candidate_validation_view(
+        _shared_entry_row(main_verdict="match", attachment_verdict="match")
+    )
+    assert view.verdict_for_entry(13, role="opposition") == NOT_VALIDATED
+
+
+def test_role_spelling_differences_still_resolve() -> None:
+    """A validation recorded as target_motion answers the corpus spelling."""
+
+    view = build_candidate_validation_view(_nalder_row())
+    assert view.verdict_for_entry(13, role="motion_to_dismiss_memorandum") == "match"
+    assert view.verdict_for_entry(13, role="target_motion") == "match"
+
+
+def test_a_lone_document_answers_even_under_an_unmatched_role() -> None:
+    """Corpus and validation role vocabularies differ; a sole record still answers."""
+
+    view = build_candidate_validation_view(_ponce_row())
+    assert view.verdict_for_entry(13, role="some_other_role") == "match"
+
+
+def test_unrelated_attachment_cannot_supersede_a_genuine_mismatch() -> None:
+    row = _driver_row()
+    row["missing_document_status"].append(
+        _status(
+            entry=4,
+            role="summons_exhibit",
+            source_document_id="445361399",
+            validation=_legacy_validation(
+                candidate_id="70754103", entry=4, role="summons_exhibit"
             ),
         )
     )
     view = build_candidate_validation_view(row)
-    assert view.verdict_for_entry(13) == "match"
+    (mismatch,) = view.mismatches
+    assert mismatch.superseded is False
+
+
+def test_docket_entry_zero_is_not_treated_as_unknown() -> None:
+    row = {
+        "candidate_id": "70000003",
+        "byte_mismatches": [
+            {
+                "entry": 0,
+                "observed_role": "unknown",
+                "selected_role": "complaint",
+                "verdict": "unverifiable",
+            }
+        ],
+        "missing_document_status": [
+            _status(
+                entry=0,
+                role="complaint",
+                validation=_legacy_validation(
+                    candidate_id="70000003", entry=0, role="complaint"
+                ),
+            )
+        ],
+    }
+    view = build_candidate_validation_view(row)
+    assert view.verdict_for_entry(0) == "match"
+    assert view.mismatches[0].superseded is True
 
 
 def test_unknown_entry_reports_not_validated() -> None:
