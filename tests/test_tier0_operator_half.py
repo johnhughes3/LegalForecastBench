@@ -631,6 +631,51 @@ def test_docx_extraction_refuses_what_it_cannot_faithfully_render(
         docx_visible_text(payload)
 
 
+def _docx_with_note_part(part_name: str, note_text: str) -> bytes:
+    """A package whose footnote/endnote part carries `note_text`.
+
+    synthetic: true -- hand-authored OOXML, matching the shape Word emits.
+    """
+
+    note = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:footnotes xmlns:w="http://schemas.openxmlformats.org/'
+        'wordprocessingml/2006/main">'
+        f"<w:footnote><w:p><w:r><w:t>{note_text}</w:t></w:r></w:p></w:footnote>"
+        "</w:footnotes>"
+    )
+    buffer = io.BytesIO(_docx_bytes("Body paragraph."))
+    with zipfile.ZipFile(buffer, "a") as archive:
+        archive.writestr(part_name, note)
+    return buffer.getvalue()
+
+
+@pytest.mark.parametrize("part_name", ["word/footnotes.xml", "word/endnotes.xml"])
+def test_docx_extraction_refuses_notes_it_would_silently_drop(
+    part_name: str,
+) -> None:
+    """Footnote prose lives outside the document part and is never rendered.
+
+    A memo that argues in its footnotes would otherwise be graded without that
+    argument -- a confident, billed verdict on partial input, which is the same
+    failure class as sending no deliverable at all.
+    """
+
+    payload = _docx_with_note_part(part_name, "The limitations period was tolled.")
+    with pytest.raises(DeliverableTextError):
+        docx_visible_text(payload)
+
+
+@pytest.mark.parametrize("part_name", ["word/footnotes.xml", "word/endnotes.xml"])
+def test_docx_extraction_tolerates_word_s_empty_note_separators(
+    part_name: str,
+) -> None:
+    """Word writes a note part into ordinary documents; empty stubs are fine."""
+
+    payload = _docx_with_note_part(part_name, "   ")
+    assert docx_visible_text(payload) == "Body paragraph."
+
+
 def test_docx_extraction_refuses_a_document_part_declaring_a_dtd() -> None:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
