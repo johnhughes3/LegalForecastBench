@@ -161,6 +161,7 @@ class ConvergenceReport:
             "failing_invariant_count": len(self.failing),
             "invariant_count": len(self.results),
             "invariants": [result.to_json() for result in self.results],
+            # contract-ratchet: allow non-authoritative convergence-report sidecar
             "schema_version": "legalforecast.exact100_convergence_invariants.v1",
         }
 
