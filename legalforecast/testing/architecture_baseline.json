@@ -3770,7 +3770,7 @@
       "legalforecast/document_need": 10,
       "legalforecast/evals": 20,
       "legalforecast/extraction": 4,
-      "legalforecast/ingestion": 164,
+      "legalforecast/ingestion": 165,
       "legalforecast/ingestion/attachment_page": 7,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/ingestion/frozen_parser_model": 2,
@@ -3786,7 +3786,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 450,
+      "tests": 451,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -5134,12 +5134,12 @@
           "watch"
         ],
         "lane_owner": "ingestion",
-        "largest_symbol": "_invariant_7",
-        "largest_symbol_lines": 79,
+        "largest_symbol": "_invariant_1",
+        "largest_symbol_lines": 85,
         "layer": "application",
-        "line_count": 722,
-        "nonblank_line_count": 661,
-        "top_level_definition_count": 20
+        "line_count": 778,
+        "nonblank_line_count": 713,
+        "top_level_definition_count": 21
       },
       "legalforecast/ingestion/exact100_reserve_extension.py": {
         "cycle_id": "",
@@ -9132,12 +9132,12 @@
           "watch"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "test_brief_linked_to_a_different_motion_is_named",
-        "largest_symbol_lines": 30,
+        "largest_symbol": "test_overlay_wins_even_when_the_two_artifacts_disagree_on_entry_type",
+        "largest_symbol_lines": 31,
         "layer": "test",
-        "line_count": 764,
-        "nonblank_line_count": 661,
-        "top_level_definition_count": 45
+        "line_count": 797,
+        "nonblank_line_count": 690,
+        "top_level_definition_count": 46
       },
       "tests/test_exact100_reserve_extension.py": {
         "cycle_id": "",
