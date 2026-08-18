@@ -12,6 +12,11 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocument,
     explicit_motion_reference_numbers,
 )
+from legalforecast.ingestion.frozen_replay_model_regime import (
+    OperativeComplaintRegime,
+    active_operative_complaint_regime,
+    resolve_operative_complaint_regime,
+)
 
 
 class OperativeComplaintKind(StrEnum):
@@ -92,6 +97,7 @@ def select_operative_complaint_entry(
     before_entry: int,
     body_text_by_entry: Mapping[int, str] | None = None,
     attacked_entry_numbers: Iterable[int] | None = None,
+    regime: str | None = None,
 ) -> OperativeComplaintSelection | None:
     """Return the pleading the target motion attacks, else the latest one.
 
@@ -109,6 +115,7 @@ def select_operative_complaint_entry(
     because that is the pre-existing behaviour the exact-100 goldens pin.
     """
 
+    model = _resolved_regime(regime)
     candidates: list[
         tuple[int, CourtListenerWebDocketEntry, OperativeComplaintKind]
     ] = []
@@ -116,7 +123,7 @@ def select_operative_complaint_entry(
         number = _positive_entry_number(entry.entry_number)
         if number is None or number >= before_entry:
             continue
-        kind = _complaint_entry_kind(entry)
+        kind = _complaint_entry_kind(entry, regime=model)
         if kind is None:
             continue
         if body_text_by_entry is not None:
@@ -141,12 +148,14 @@ def select_operative_complaint_document(
     entry: CourtListenerWebDocketEntry,
     *,
     require_free: bool,
+    regime: str | None = None,
 ) -> CourtListenerWebDocument | None:
     """Select one exact pleading document without relying on generic mentions."""
 
+    model = _resolved_regime(regime)
     text = _normalized(entry.text)
     if _is_removal_entry(text, entry.documents):
-        removal_pleadings = _removal_pleading_documents(entry.documents)
+        removal_pleadings = _removal_pleading_documents(entry.documents, regime=model)
         if len(removal_pleadings) != 1:
             return None
         pleading = removal_pleadings[0]
@@ -160,7 +169,7 @@ def select_operative_complaint_document(
     described = tuple(
         document
         for document in available
-        if _complaint_document_kind(document.description) is not None
+        if _complaint_document_kind(document.description, regime=model) is not None
     )
     if len(described) == 1:
         return described[0]
@@ -168,7 +177,7 @@ def select_operative_complaint_document(
         amended = tuple(
             document
             for document in described
-            if _complaint_document_kind(document.description)
+            if _complaint_document_kind(document.description, regime=model)
             is OperativeComplaintKind.AMENDED_COMPLAINT
         )
         return amended[0] if len(amended) == 1 else None
@@ -176,7 +185,10 @@ def select_operative_complaint_document(
     main_documents = tuple(
         document for document in available if "main" in _normalized(document.kind)
     )
-    if len(main_documents) == 1 and _complaint_entry_kind(entry) is not None:
+    if (
+        len(main_documents) == 1
+        and _complaint_entry_kind(entry, regime=model) is not None
+    ):
         return main_documents[0]
     return None
 
@@ -248,9 +260,11 @@ def pleading_body_matches_kind(
 
 def _complaint_entry_kind(
     entry: CourtListenerWebDocketEntry,
+    *,
+    regime: OperativeComplaintRegime,
 ) -> OperativeComplaintKind | None:
     text = _normalized(entry.text)
-    claim_kind = _non_complaint_claim_kind(text)
+    claim_kind = _non_complaint_claim_kind(text, regime=regime)
     if claim_kind is not None:
         return claim_kind
     if re.search(r"\banswer\s+to\s+(?:amended\s+)?complaint\b", text):
@@ -264,7 +278,8 @@ def _complaint_entry_kind(
     descriptions = tuple(
         kind
         for document in entry.documents
-        if (kind := _complaint_document_kind(document.description)) is not None
+        if (kind := _complaint_document_kind(document.description, regime=regime))
+        is not None
     )
     if re.search(r"\bcivil case - complaint, amended\s+filed\b", text):
         return OperativeComplaintKind.AMENDED_COMPLAINT
@@ -289,7 +304,8 @@ def _complaint_entry_kind(
         kind
         for document in entry.documents
         if "main" in _normalized(document.kind)
-        and (kind := _complaint_document_kind(document.description)) is not None
+        and (kind := _complaint_document_kind(document.description, regime=regime))
+        is not None
     )
     if len(described_main) == 1:
         described_filing_match = re.search(
@@ -303,9 +319,11 @@ def _complaint_entry_kind(
             return described_main[0]
         if not re.search(procedural_pattern, text):
             return described_main[0]
-    removal_documents = _removal_pleading_documents(entry.documents)
+    removal_documents = _removal_pleading_documents(entry.documents, regime=regime)
     if _is_removal_entry(text, entry.documents) and len(removal_documents) == 1:
-        return _removal_pleading_document_kind(removal_documents[0].description) or (
+        return _removal_pleading_document_kind(
+            removal_documents[0].description, regime=regime
+        ) or (
             OperativeComplaintKind.AMENDED_COMPLAINT
             if OperativeComplaintKind.AMENDED_COMPLAINT in descriptions
             else OperativeComplaintKind.COMPLAINT
@@ -313,9 +331,11 @@ def _complaint_entry_kind(
     return None
 
 
-def _complaint_document_kind(description: str) -> OperativeComplaintKind | None:
+def _complaint_document_kind(
+    description: str, *, regime: OperativeComplaintRegime
+) -> OperativeComplaintKind | None:
     text = _normalized(description)
-    claim_kind = _non_complaint_claim_kind(text)
+    claim_kind = _non_complaint_claim_kind(text, regime=regime)
     if claim_kind is not None:
         return claim_kind
     if re.fullmatch(
@@ -338,7 +358,21 @@ def _complaint_document_kind(description: str) -> OperativeComplaintKind | None:
     return None
 
 
-def _non_complaint_claim_kind(text: str) -> OperativeComplaintKind | None:
+def _non_complaint_claim_kind(
+    text: str, *, regime: OperativeComplaintRegime
+) -> OperativeComplaintKind | None:
+    """Classify a claim-bearing pleading that is not itself a complaint.
+
+    Added by PR #667 (``253bad6d``, 2026-08-13).  Before that commit this
+    function did not exist and both call sites fell straight through to the
+    complaint patterns, so the preserved generation returns ``None`` here --
+    that *is* the pre-#667 model, not an approximation of it.  A frozen public
+    plan minted before #667 therefore reproduces its committed digest; see
+    ``frozen_replay_model_regime``.
+    """
+
+    if not regime.classifies_non_complaint_claim_kinds:
+        return None
     patterns = (
         (OperativeComplaintKind.CROSSCLAIM, r"\bcross-?claims?\b"),
         (OperativeComplaintKind.COUNTERCLAIM, r"\bcounterclaims?\b"),
@@ -380,12 +414,15 @@ def _is_removal_entry(
 
 def _removal_pleading_documents(
     documents: Iterable[CourtListenerWebDocument],
+    *,
+    regime: OperativeComplaintRegime,
 ) -> tuple[CourtListenerWebDocument, ...]:
     candidates = tuple(documents)
     explicit = tuple(
         document
         for document in candidates
-        if _removal_pleading_document_kind(document.description) is not None
+        if _removal_pleading_document_kind(document.description, regime=regime)
+        is not None
     )
     if explicit:
         return explicit
@@ -397,9 +434,9 @@ def _removal_pleading_documents(
 
 
 def _removal_pleading_document_kind(
-    description: str,
+    description: str, *, regime: OperativeComplaintRegime
 ) -> OperativeComplaintKind | None:
-    direct_kind = _complaint_document_kind(description)
+    direct_kind = _complaint_document_kind(description, regime=regime)
     if direct_kind is not None:
         return direct_kind
     text = _normalized(description)
@@ -426,6 +463,20 @@ def _looks_like_generic_removal_exhibit(description: str) -> bool:
         return False
     return bool(
         re.fullmatch(r"(?:exhibit|exh\.?)\s+[a-z0-9](?:\s*-\s*[a-z0-9])?", text)
+    )
+
+
+def _resolved_regime(regime: str | None) -> OperativeComplaintRegime:
+    """Resolve an explicit regime name, else the one bound to this context.
+
+    ``None`` means "whatever generation this recomputation is running under",
+    which is the current production classifier unless a verifier has entered
+    ``operative_complaint_regime_scope`` for one frozen replay.  An explicit
+    name always wins, so a caller can pin a generation directly.
+    """
+
+    return resolve_operative_complaint_regime(
+        active_operative_complaint_regime() if regime is None else regime
     )
 
 

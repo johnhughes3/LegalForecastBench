@@ -18,6 +18,9 @@ from typing import Any, cast
 
 from legalforecast.contracts import TARGET_DOCUMENT_ELIGIBILITY_AUDIT_V1
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.frozen_replay_model_regime import (
+    TARGET_ELIGIBILITY_REGIME_CURRENT,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.target_document_eligibility import (
     TargetDocumentEligibilityError,
@@ -73,12 +76,21 @@ def _mint_verified_target_document_eligibility_audit(  # pyright: ignore[reportU
     parser_manifest_bytes: bytes,
     parser_records: Sequence[Mapping[str, Any]],
     markdown_by_document: Mapping[tuple[str, str], bytes],
+    regime: str = TARGET_ELIGIBILITY_REGIME_CURRENT,
 ) -> VerifiedTargetDocumentEligibilityAudit:
     """Replay the semantic audit from already-authenticated parser snapshots.
 
     This is deliberately private: byte validation establishes only integrity.
     Production callers must first authenticate the complete materialization and
     parser lineage, then pass those verifier-owned snapshots here.
+
+    ``regime`` names the detector generation that re-derives each verdict.  It
+    defaults to today's detector; a caller replaying a frozen audit selects the
+    generation contemporaneous with that audit through
+    ``frozen_replay_model_regime``, keyed on the parse manifest digest it has
+    already authenticated.  The regime never affects whether the replayed
+    records must equal the persisted audit bytes -- only which model derives
+    them.
     """
 
     selections = _jsonl_records(selection_bytes, "selection")
@@ -134,6 +146,7 @@ def _mint_verified_target_document_eligibility_audit(  # pyright: ignore[reportU
                     source_document_id=source_document_id,
                     document_role=role,
                     markdown=markdown,
+                    regime=regime,
                 )
             except TargetDocumentEligibilityError as exc:
                 raise TargetDocumentEligibilityAuditError(str(exc)) from exc
@@ -183,14 +196,22 @@ def _replay_verified_target_document_eligibility_audit(  # pyright: ignore[repor
     parser_manifest_bytes: bytes,
     parser_records: Sequence[Mapping[str, Any]],
     markdown_by_document: Mapping[tuple[str, str], bytes],
+    regime: str = TARGET_ELIGIBILITY_REGIME_CURRENT,
 ) -> VerifiedTargetDocumentEligibilityAudit:
-    """Reconstruct and require exact equality with a persisted audit JSONL."""
+    """Reconstruct and require exact equality with a persisted audit JSONL.
+
+    ``regime`` selects which detector generation reconstructs the audit.  Byte
+    equality with ``persisted_audit_bytes`` is required under every regime, so a
+    preserved detector that derived anything other than the frozen verdicts
+    would refuse here exactly as loudly as the current one does.
+    """
 
     audit = _mint_verified_target_document_eligibility_audit(
         selection_bytes=selection_bytes,
         parser_manifest_bytes=parser_manifest_bytes,
         parser_records=parser_records,
         markdown_by_document=markdown_by_document,
+        regime=regime,
     )
     if persisted_audit_bytes != audit.records_bytes:
         raise TargetDocumentEligibilityAuditError(
