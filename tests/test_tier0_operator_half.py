@@ -549,17 +549,6 @@ def test_provenance_configuration_is_never_fixture(tmp_path: Path) -> None:
     assert configuration.pricing_snapshot_sha256 == pricing.snapshot_sha256
 
 
-def test_recording_boundary_sees_every_criterion_attempt() -> None:
-    """The boundary contract the production runner drives, exercised directly."""
-
-    boundary = _RecordingBoundary()
-    for ordinal in range(1, 24):
-        request = HarveyLabJudgeRequest(ordinal=ordinal, criterion_id=f"c{ordinal}")
-        reservation = boundary.before_judge_call(request)
-        boundary.after_judge_call(request, reservation, object())
-    assert len(boundary.calls) == 23
-
-
 def test_cli_mint_writes_the_three_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -865,3 +854,43 @@ def test_wrapper_refuses_output_the_real_producer_actually_emits(
     )
     assert result.returncode == 3, result.stderr.decode("utf-8", "replace")
     assert b"per-criterion" in result.stderr
+
+
+def test_installing_the_supported_factory_binds_the_reviewed_seam(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The paid CLI path auto-installs a factory; prove which one it installs.
+
+    `tier0 run` previously refused when no reviewed factory was injected and
+    now installs the in-tree one instead. That is this branch's single
+    gate-behavior change, so the identity of the installed factory is a
+    contract worth pinning rather than assuming.
+    """
+
+    from legalforecast.multiharness import cli as multiharness_cli
+    from legalforecast.multiharness.tier0_production_factory import (
+        install_supported_production_factory,
+    )
+
+    monkeypatch.setattr(
+        multiharness_cli, "_tier0_production_evaluator_factory", None, raising=False
+    )
+    install_supported_production_factory()
+    installed = multiharness_cli._tier0_production_evaluator_factory
+    assert installed is build_production_evaluator
+
+
+def test_boundary_reservations_cover_every_criterion_of_a_real_run(
+    tmp_path: Path,
+) -> None:
+    """One reservation per criterion, driven by the runner rather than a stub."""
+
+    transport = _CapturingTransport()
+    run_spec, projected = _evaluator_run_spec(
+        tmp_path / "run", deliverable_text="Body text."
+    )
+    runner = _production_runner(tmp_path / "run", projected, transport)
+    boundary = _RecordingBoundary()
+    runner(cast(Any, None), run_spec, boundary)
+    assert len(boundary.calls) == 23
+    assert [ordinal for ordinal, _id, _attempt in boundary.calls] == list(range(1, 24))
