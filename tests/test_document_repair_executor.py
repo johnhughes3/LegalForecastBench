@@ -2292,12 +2292,18 @@ def test_seal_refuses_acquired_documents_without_clearance_evidence() -> None:
         )
 
 
-def test_included_acquisition_fails_closed_without_snapshot_clearance(
+def test_included_acquisition_fails_closed_without_restriction_fields(
     tmp_path: Path,
 ) -> None:
+    # A payload carrying neither restriction field is not a shape this gate
+    # recognizes, so it refuses before acquiring anything. Deleting is_private
+    # alone no longer refuses: that is the live CourtListener v4 shape and it
+    # routes through post-delivery evidence instead (legalforecastbench-n3y7).
+    # tests/test_document_repair_paid_clearance.py covers that case.
     snapshots = {"a": _snapshot("a", 1, 9001, free=False)}
     payload = json.loads(snapshots["a"])
     del payload["entries"][0]["recap_documents"][0]["is_private"]
+    del payload["entries"][0]["recap_documents"][0]["is_sealed"]
     snapshots["a"] = _canonical_bytes(payload)
     manifest = _manifest_bytes(_row("a", 1, free=False))
     plan = build_missing_document_acquisition_plan(

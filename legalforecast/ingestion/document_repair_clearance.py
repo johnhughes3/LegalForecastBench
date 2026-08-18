@@ -20,13 +20,25 @@ def post_delivery_restrictions(document: Mapping[str, object]) -> dict[str, obje
 
 
 def paid_clearance_pending(document: Mapping[str, object], *, route: str) -> bool:
-    """Recognize explicit PACER nulls that require post-delivery evidence."""
+    """Recognize unasserted PACER restrictions that need post-delivery evidence.
+
+    ``is_private`` is deliberately not required to be present. CourtListener
+    REST v4 stopped serializing it on every RECAP-document serializer -- list,
+    detail, and the nested docket-entries list -- so an absent key and an
+    explicit null carry the same provider statement: no restriction asserted.
+    Requiring the key made this predicate unsatisfiable by any live response and
+    refused every document-repair purchase (legalforecastbench-n3y7).
+
+    ``is_sealed`` stays required-and-null, because the provider does still
+    serialize it: its absence means the payload is not a shape this gate
+    recognizes. An asserted ``True`` on either field falls through to a refusal
+    here, and again against the post-delivery evidence.
+    """
 
     return (
         route == "pacer_purchase"
         and document.get("is_private") is None
         and document.get("is_sealed") is None
-        and "is_private" in document
         and "is_sealed" in document
     )
 

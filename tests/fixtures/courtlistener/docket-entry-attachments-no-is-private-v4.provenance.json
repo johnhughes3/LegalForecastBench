@@ -1,0 +1,13 @@
+{
+  "alterations": [
+    "Blanked the free main document's plain_text OCR body: it carries a pro-se litigant's postal address, telephone number, and personal email address, and this repository is public. \"\" is the value CourtListener already serves for the three unpurchased attachment rows, so the serialized key set is unchanged.",
+    "No key was added, removed, or renamed. is_private is absent because CourtListener REST v4 does not serialize it; that absence is the property this fixture exists to pin."
+  ],
+  "capture_result": "HTTP 200. Captured as part of the authenticated docket snapshot taken for the Cycle 1 document-repair attachment tranche.",
+  "fetch_date": "2026-08-17",
+  "fixture_sha256": "fd5c3193478e2a811e2d9e84178ccb2c298c1258185f2f7bc1d8a550f6e61d0e",
+  "purpose": "Regression canary for legalforecastbench-n3y7: a live CourtListener v4 docket entry whose RECAP documents omit is_private entirely and carry is_sealed present-and-null. One free available main document plus three PACER-only attachment rows.",
+  "raw_page_retained": false,
+  "source_url": "https://www.courtlistener.com/api/rest/v4/docket-entries/451158527/",
+  "synthetic": false
+}
