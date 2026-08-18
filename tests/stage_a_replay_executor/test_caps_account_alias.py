@@ -168,6 +168,25 @@ def test_legacy_accountless_caps_bind_the_alias_the_journal_commits(
     )
 
 
+def test_a_mixed_case_journal_provider_still_binds(tmp_path: Path) -> None:
+    """Case is not a reason to re-create the unsatisfiable pair.
+
+    Caps provider keys and the replay's provider names are both lower-cased,
+    but the journal records the model-registry entry's provider verbatim.  A
+    registry that spelled the provider ``Anthropic`` would otherwise match zero
+    journal rows and refuse a run that should have succeeded.
+    """
+
+    journal = _journal(tmp_path / "journal.sqlite3", accounts={"Anthropic": "default"})
+
+    assert (
+        _canonical_provider_account(
+            _caps(with_account=False), _spec(journal), "anthropic"
+        )
+        == "default"
+    )
+
+
 def test_caps_that_carry_the_alias_never_consult_the_journal(tmp_path: Path) -> None:
     """The fallback fills a missing alias; it never overrides a committed one."""
 
@@ -255,13 +274,20 @@ def test_two_aliases_for_one_provider_refuse(tmp_path: Path) -> None:
 
 
 def test_a_credential_shaped_journal_alias_refuses(tmp_path: Path) -> None:
-    """A journal-sourced alias faces the same publishable-alias rule as caps."""
+    """A journal-sourced alias faces the same publishable-alias rule as caps.
+
+    The refusal must also name the journal rather than the caps artifact, so an
+    incident report points at the artifact that actually carried the value.
+    """
 
     journal = _journal(
         tmp_path / "journal.sqlite3", accounts={"anthropic": "sk-live-secret"}
     )
 
-    with pytest.raises(StageAReplayExecutorError, match="public account alias"):
+    with pytest.raises(
+        StageAReplayExecutorError,
+        match="pinned provider journal account must be a public account alias",
+    ):
         _canonical_provider_account(
             _caps(with_account=False), _spec(journal), "anthropic"
         )

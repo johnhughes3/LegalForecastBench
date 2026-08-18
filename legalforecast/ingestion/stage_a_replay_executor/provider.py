@@ -469,7 +469,13 @@ def _canonical_provider_account(
 
 
 def _journal_committed_account(spec: ReplaySpec, provider_name: str) -> str:
-    """Read one provider's single committed alias from the pinned journal."""
+    """Read one provider's single committed alias from the pinned journal.
+
+    ``provider_name`` is already lower-cased, as are the caps artifact's own
+    provider keys, but the journal records the registry entry's provider
+    verbatim.  Matching case-insensitively keeps a mixed-case registry entry
+    from re-creating the unsatisfiable pair this fallback exists to resolve.
+    """
 
     snapshot: sqlite3.Connection | None = None
     try:
@@ -481,8 +487,8 @@ def _journal_committed_account(spec: ReplaySpec, provider_name: str) -> str:
             snapshot=snapshot,
         )
         rows = snapshot.execute(
-            "SELECT DISTINCT account FROM provider_attempts WHERE provider = ?",
-            (provider_name,),
+            "SELECT DISTINCT account FROM provider_attempts WHERE LOWER(provider) = ?",
+            (provider_name.lower(),),
         ).fetchall()
     except (ProviderJournalError, sqlite3.Error, ValueError) as exc:
         raise StageAReplayExecutorError(str(exc)) from exc
@@ -496,7 +502,7 @@ def _journal_committed_account(spec: ReplaySpec, provider_name: str) -> str:
             f"for {provider_name!r}"
         )
     try:
-        return public_account_alias(aliases[0])
+        return public_account_alias(aliases[0], source="pinned provider journal")
     except ProviderJournalError as exc:
         raise StageAReplayExecutorError(str(exc)) from exc
 

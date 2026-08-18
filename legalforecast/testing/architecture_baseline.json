@@ -487,6 +487,7 @@
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.convert_documents_to_markdown",
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.convert_documents_to_markdown",
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.convert_documents_to_markdown",
+      "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.convert_documents_to_markdown",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.DynamoDbProviderSpendAuthority",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.DynamoDbProviderSpendAuthority",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.DynamoDbProviderSpendAuthority",
@@ -3020,6 +3021,7 @@
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.main",
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.main",
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.main",
+      "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.main",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.CommandError",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.CommandError",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.CommandError",
@@ -3788,7 +3790,7 @@
       "tests/fixtures/container_runtime_worker": 1,
       "tests/fixtures/harvey_lab": 2,
       "tests/ingestion": 1,
-      "tests/stage_a_replay_executor": 8
+      "tests/stage_a_replay_executor": 9
     },
     "files": {
       "examples/adapters/claude-agent-sdk/adapter.py": {
@@ -6161,8 +6163,8 @@
         "largest_symbol": "CanonicalProviderRuntime",
         "largest_symbol_lines": 311,
         "layer": "application",
-        "line_count": 532,
-        "nonblank_line_count": 492,
+        "line_count": 538,
+        "nonblank_line_count": 497,
         "top_level_definition_count": 12
       },
       "legalforecast/ingestion/stage_a_replay_executor/spec.py": {
@@ -6546,8 +6548,8 @@
         "largest_symbol": "ProviderAttemptJournal",
         "largest_symbol_lines": 1088,
         "layer": "application",
-        "line_count": 1783,
-        "nonblank_line_count": 1624,
+        "line_count": 1782,
+        "nonblank_line_count": 1623,
         "top_level_definition_count": 32
       },
       "legalforecast/labeling/unitizer_terminal.py": {
@@ -9388,8 +9390,8 @@
         "largest_symbol": "_prior_live_mistral_run",
         "largest_symbol_lines": 120,
         "layer": "test",
-        "line_count": 869,
-        "nonblank_line_count": 758,
+        "line_count": 889,
+        "nonblank_line_count": 773,
         "top_level_definition_count": 24
       },
       "tests/test_llm_labeling_cli.py": {
