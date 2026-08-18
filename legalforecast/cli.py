@@ -613,6 +613,9 @@ from legalforecast.ingestion.frozen_batch_firecrawl_observation import (
     plan_frozen_firecrawl_observation,
     run_frozen_firecrawl_observation,
 )
+from legalforecast.ingestion.frozen_parse_quality_regime import (
+    PARSE_QUALITY_REGIME_CURRENT as _PARSE_QUALITY_REGIME_CURRENT,
+)
 from legalforecast.ingestion.funnel_report import (
     FunnelReportError,
     build_acquisition_funnel_report,
@@ -43594,8 +43597,19 @@ def _replay_exact100_stipulated_eligibility_unchecked(
             "purchase_ledger_initialization_receipt"
         ),
     )
+    # Every path above comes from the persisted audit run card's own committed
+    # ``input_paths``, so this replays frozen, digest-committed ancestor
+    # evidence.  Its Markdown *is* consumed downstream -- the eligibility audit
+    # is reconstructed from it -- but the reconstruction must equal the
+    # persisted audit bytes exactly, so this replay can never mint a different
+    # conclusion than the one already frozen.  That exact-match requirement, not
+    # any claim about the bytes going unused, is what makes a preserved regime
+    # safe here.  The closed digest map remains the enforcing condition, so an
+    # unaudited ancestor stays on the current gate.
     lineage = _verify_verified_stage_a_parse_lineage(
-        lineage_args, markdown_root=lineage_args.markdown_root
+        lineage_args,
+        markdown_root=lineage_args.markdown_root,
+        frozen_predecessor_replay=True,
     )
     if lineage.selection_bytes != selection_bytes:
         raise CommandError(
@@ -57297,6 +57311,11 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
                     destination_markdown=expected_gap_by_key[key].markdown_output_path,
                     output_root=output_root,
                 )
+            _require_superseded_gap_parse_meets_current_role(
+                superseded_keys=reuse_plan.superseded_keys,
+                records_by_key=parsed_gap_by_key,
+                requests_by_key=expected_gap_by_key,
+            )
             combined_by_key = {
                 **reuse_plan.records_by_key,
                 **parsed_gap_by_key,
@@ -57511,10 +57530,18 @@ def _authenticate_completed_current_mistral_reuse(
     current_by_key = _parse_reuse_request_object_index(
         requests, label="completed current parse requests"
     )
+    # Rows the current gate rejects were superseded rather than reused, so the
+    # completed card records them as gaps.  Partitioning the same way here is
+    # what keeps a superseding run resumable instead of refusing every resume
+    # as "completed current parse reuse card differs".
+    superseded = _superseded_live_mistral_reuse_keys(
+        authenticated=prior, current_by_key=current_by_key
+    )
+    reused_keys = (set(prior.artifacts_by_key) & set(current_by_key)) - superseded
     expected_reuse_source: JsonRecord = {
         **prior.source,
-        "reused_record_count": len(set(prior.artifacts_by_key) & set(current_by_key)),
-        "parsed_gap_count": len(set(current_by_key) - set(prior.artifacts_by_key)),
+        "reused_record_count": len(reused_keys),
+        "parsed_gap_count": len(current_by_key) - len(reused_keys),
     }
 
     card_bytes = _read_singly_linked_regular_input(
@@ -60011,11 +60038,14 @@ def _verify_stage_a_parse_lineage_uncached(
     args: argparse.Namespace,
     *,
     markdown_root: Path,
+    frozen_predecessor_replay: bool = False,
 ) -> _VerifiedStageAParseLineage:
     """Authenticate parser inputs before model registry or journal concerns."""
 
     return _stage_a_lineage.verify_stage_a_parse_lineage_uncached(
-        _stage_a_lineage_inputs(args), markdown_root=markdown_root
+        _stage_a_lineage_inputs(args),
+        markdown_root=markdown_root,
+        frozen_predecessor_replay=frozen_predecessor_replay,
     )
 
 
@@ -60044,11 +60074,16 @@ def _verify_verified_stage_a_parse_lineage(
     args: argparse.Namespace,
     *,
     markdown_root: Path,
+    frozen_predecessor_replay: bool = False,
 ) -> _VerifiedStageAParseLineage:
     """Replay provider-free parser lineage while reusing verified PDF scans."""
 
     with cache_disclosure_document_scans():
-        return _verify_stage_a_parse_lineage_uncached(args, markdown_root=markdown_root)
+        return _verify_stage_a_parse_lineage_uncached(
+            args,
+            markdown_root=markdown_root,
+            frozen_predecessor_replay=frozen_predecessor_replay,
+        )
 
 
 def _require_stage_a_parse_lineage_unchanged(
@@ -60207,6 +60242,7 @@ def _verify_stage_a_parse_lineage(
     download_records: Sequence[Mapping[str, Any]],
     clearance_bytes: bytes,
     markdown_bytes: Mapping[str, bytes],
+    parse_quality_regime: str = _PARSE_QUALITY_REGIME_CURRENT,
 ) -> None:
     return _stage_a_lineage.verify_stage_a_parse_lineage(
         selection_path=selection_path,
@@ -60226,6 +60262,7 @@ def _verify_stage_a_parse_lineage(
         download_records=download_records,
         clearance_bytes=clearance_bytes,
         markdown_bytes=markdown_bytes,
+        parse_quality_regime=parse_quality_regime,
     )
 
 
@@ -70750,13 +70787,13 @@ def _require_authenticated_live_parse_plan_roles(
             )
 
 
-def _require_reused_markdown_meets_current_role(
+def _current_role_parse_quality_rejection(
     *,
     markdown: str,
     request: MistralMarkdownConversionRequest,
     label: str,
-) -> None:
-    """Reassess authenticated reuse under the *current* authenticated role.
+) -> str | None:
+    """Assess authenticated Markdown under the *current* authenticated role.
 
     Reuse matches a prior conversion by candidate, document, source hash, and
     byte count.  None of those prove the prior run measured the Markdown
@@ -70764,6 +70801,11 @@ def _require_reused_markdown_meets_current_role(
     same bytes under a weaker role, or under an older threshold table.  Reused
     Markdown therefore re-enters the same ``assess_parsed_text`` gate the live
     parser applies, so reuse can never be a cheaper route to a weaker gate.
+
+    Returns the joined rejection reasons, or ``None`` when the gate accepts.  A
+    missing ``document_role`` is a structural defect rather than a quality
+    verdict — there is no threshold to measure against, so it fails closed here
+    instead of being reported as something a re-parse could repair.
     """
 
     if request.document_role is None:
@@ -70772,11 +70814,26 @@ def _require_reused_markdown_meets_current_role(
             f"{request.candidate_id}/{request.source_document_id}"
         )
     assessment = assess_parsed_text(markdown, request.document_role)
-    if assessment.rejected:
+    if not assessment.rejected:
+        return None
+    return ", ".join(assessment.rejection_reasons)
+
+
+def _require_reused_markdown_meets_current_role(
+    *,
+    markdown: str,
+    request: MistralMarkdownConversionRequest,
+    label: str,
+) -> None:
+    """Refuse Markdown the current authenticated role no longer accepts."""
+
+    rejection = _current_role_parse_quality_rejection(
+        markdown=markdown, request=request, label=label
+    )
+    if rejection is not None:
         raise CommandError(
             f"{label} failed the current parse-quality gate: "
-            f"{request.candidate_id}/{request.source_document_id}: "
-            + ", ".join(assessment.rejection_reasons)
+            f"{request.candidate_id}/{request.source_document_id}: {rejection}"
         )
 
 
@@ -70826,6 +70883,10 @@ class _MistralParseReusePlan:
     records_by_key: Mapping[tuple[str, str, str, int], JsonRecord]
     gaps: tuple[MistralMarkdownConversionRequest, ...]
     source: JsonRecord
+    #: Reusable keys whose frozen Markdown fails the *current* gate and are
+    #: therefore re-converted as gaps.  The caller must hold the fresh
+    #: conversion for each of these to the same gate the frozen one failed.
+    superseded_keys: frozenset[tuple[str, str, str, int]] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -70858,10 +70919,13 @@ def _reuse_live_mistral_parse_outputs(
     current_by_key = _parse_reuse_request_object_index(
         requests, label="current parse requests"
     )
+    superseded = _superseded_live_mistral_reuse_keys(
+        authenticated=authenticated, current_by_key=current_by_key
+    )
     reusable = {
         key: value
         for key, value in authenticated.artifacts_by_key.items()
-        if key in current_by_key
+        if key in current_by_key and key not in superseded
     }
     gaps = tuple(
         request
@@ -70918,7 +70982,93 @@ def _reuse_live_mistral_parse_outputs(
             "reused_record_count": len(copied),
             "parsed_gap_count": len(gaps),
         },
+        superseded_keys=superseded,
     )
+
+
+def _superseded_live_mistral_reuse_keys(
+    *,
+    authenticated: _AuthenticatedMistralParseReuse,
+    current_by_key: Mapping[
+        tuple[str, str, str, int], MistralMarkdownConversionRequest
+    ],
+) -> frozenset[tuple[str, str, str, int]]:
+    """Return matched prior rows whose Markdown fails the *current* gate.
+
+    A prior conversion that no longer clears the gate is not reusable, but it
+    is also not a reason to abandon the plan: the same authenticated source
+    bytes are still present, and the pinned parser can convert them again.
+    Moving the key into the gap set supersedes the failed conversion instead of
+    refusing outright, which relaxes nothing — the frozen artifact is never
+    mutated, the fresh conversion must clear the very same gate (see
+    ``_require_superseded_gap_parse_meets_current_role``), and a fresh
+    conversion that fails again still refuses the run.
+    """
+
+    superseded: set[tuple[str, str, str, int]] = set()
+    for key, (
+        _record,
+        markdown_bytes,
+        _metadata_bytes,
+    ) in authenticated.artifacts_by_key.items():
+        current_request = current_by_key.get(key)
+        if current_request is None:
+            continue
+        try:
+            markdown = markdown_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:  # pragma: no cover - authenticated above
+            raise CommandError("prior reused Markdown is not UTF-8") from exc
+        if (
+            _current_role_parse_quality_rejection(
+                markdown=markdown,
+                request=current_request,
+                label="reused live-Mistral Markdown",
+            )
+            is not None
+        ):
+            superseded.add(key)
+    return frozenset(superseded)
+
+
+def _require_superseded_gap_parse_meets_current_role(
+    *,
+    superseded_keys: frozenset[tuple[str, str, str, int]],
+    records_by_key: Mapping[tuple[str, str, str, int], JsonRecord],
+    requests_by_key: Mapping[
+        tuple[str, str, str, int], MistralMarkdownConversionRequest
+    ],
+) -> None:
+    """Fail closed when a supersession re-parse does not clear the gate.
+
+    Superseding an authenticated conversion is only safening while the
+    replacement is strictly better.  A fresh conversion that fails the parser's
+    own quality gate publishes no Markdown at all, so accepting it here would
+    turn the refusal this path exists to answer into a silent downgrade of a
+    row the prior run had already committed as succeeded.
+    """
+
+    for key in sorted(superseded_keys):
+        request = requests_by_key[key]
+        record = records_by_key[key]
+        identity = f"{request.candidate_id}/{request.source_document_id}"
+        if record.get("status") != MistralMarkdownConversionStatus.SUCCEEDED.value:
+            raise CommandError(
+                "superseded live-Mistral conversion did not succeed: "
+                f"{identity}: {record.get('error_message') or 'no error recorded'}"
+            )
+        markdown_bytes = _read_singly_linked_regular_input(
+            request.markdown_output_path, label="superseded live-Mistral Markdown"
+        )
+        try:
+            markdown = markdown_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CommandError("superseded live-Mistral Markdown is not UTF-8") from exc
+        _require_reusable_live_mistral_record(record, markdown=markdown)
+        _require_reused_markdown_meets_current_role(
+            markdown=markdown,
+            request=request,
+            label="superseded live-Mistral Markdown",
+        )
 
 
 def _authenticate_live_mistral_parse_reuse(

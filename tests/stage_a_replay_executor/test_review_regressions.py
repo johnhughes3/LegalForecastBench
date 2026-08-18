@@ -37,6 +37,10 @@ from legalforecast.ingestion.stage_a_replay_executor.executor import (
     execute_stage_a_replay,
     load_replay_spec,
 )
+from legalforecast.labeling.provider_journal import (
+    ProviderCycleCaps,
+    load_provider_cycle_caps_bytes,
+)
 from tests.stage_a_replay_executor.authorization_fixtures import (
     refresh_authorization_descriptor,
 )
@@ -59,8 +63,33 @@ def _accept_authorization_signature(
     del signature_path, signer_principal, namespace
 
 
-def _canonical_provider_alias(_provider: str) -> str:
-    return "canonical-alias"
+def _canonical_alias_caps() -> ProviderCycleCaps:
+    """Caps that already carry the alias, so no journal is ever consulted."""
+
+    return load_provider_cycle_caps_bytes(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.provider_cycle_caps.v1",
+                "cycle_id": "cycle-1-fixture",
+                "providers": [
+                    {
+                        "provider": "openai",
+                        "cycle_reservation_cap_usd": "100.00",
+                        "account": "canonical-alias",
+                    }
+                ],
+            }
+        ).encode("utf-8"),
+        source="fixture-caps.json",
+    )
+
+
+def _canonical_alias_spec() -> Any:
+    return SimpleNamespace(
+        provider_journal_path=Path("/nonexistent/provider-attempts.sqlite3"),
+        provider_caps_sha256="a" * 64,
+        cycle_id="cycle-1-fixture",
+    )
 
 
 def _verified_cycle_root(**_kwargs: object) -> dict[str, object]:
@@ -619,13 +648,15 @@ def test_provider_account_alias_must_equal_pinned_caps() -> None:
         provider_module._validated_provider_accounts(
             {"openai": "untrusted-alias"},
             entries,
-            _canonical_provider_alias,
+            _canonical_alias_caps(),
+            _canonical_alias_spec(),
         )
     with pytest.raises(StageAReplayExecutorError, match="exactly cover"):
         provider_module._validated_provider_accounts(
             {"openai": "canonical-alias", "unused": "extra"},
             entries,
-            _canonical_provider_alias,
+            _canonical_alias_caps(),
+            _canonical_alias_spec(),
         )
 
 

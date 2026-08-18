@@ -1645,12 +1645,19 @@ def _exact_schema_keys(
         )
 
 
-def _public_account_alias(record: Mapping[str, object], field: str) -> str:
-    value = record.get(field)
+def public_account_alias(value: object, *, source: str = "provider cycle caps") -> str:
+    """Validate one provider account alias as publishable, non-credential text.
+
+    Account aliases travel into call identities, receipts, and audit evidence,
+    so the same shape check applies wherever an alias is read: the caps
+    artifact, or any other authenticated artifact that commits one.  ``source``
+    names the artifact the alias came from, so an incident report says which
+    one carried the offending value.
+    """
+
+    message = f"{source} account must be a public account alias"
     if not isinstance(value, str):
-        raise ProviderJournalError(
-            "provider cycle caps account must be a public account alias"
-        )
+        raise ProviderJournalError(message)
     segments = frozenset(value.split("-"))
     credential_like = value.startswith(_CREDENTIAL_ALIAS_PREFIXES) or bool(
         segments & _CREDENTIAL_ALIAS_SEGMENTS
@@ -1660,10 +1667,12 @@ def _public_account_alias(record: Mapping[str, object], field: str) -> str:
         or re.search(r"\d{12}", value) is not None
         or credential_like
     ):
-        raise ProviderJournalError(
-            "provider cycle caps account must be a public account alias"
-        )
+        raise ProviderJournalError(message)
     return value
+
+
+def _public_account_alias(record: Mapping[str, object], field: str) -> str:
+    return public_account_alias(record.get(field))
 
 
 def _nonempty_identity(value: str, field: str) -> str:
