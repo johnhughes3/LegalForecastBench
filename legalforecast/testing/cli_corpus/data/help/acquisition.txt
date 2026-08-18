@@ -187,6 +187,10 @@ positional arguments:
     verify-document-repair-purchase-policy
                         Prove an issued v2 purchase policy binds one document-
                         repair execution, consuming nothing.
+    resume-document-repair-purchase
+                        Resume one interrupted document-repair tranche,
+                        dispatching only the rows its purchase journal still
+                        records as planned.
     accumulate-replacement-clearance
                         Merge the prior authenticated purchased clearance with
                         one new replacement tranche and require exact current-

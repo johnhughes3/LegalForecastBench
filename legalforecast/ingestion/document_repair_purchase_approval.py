@@ -55,7 +55,7 @@ import hashlib
 import json
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -66,7 +66,9 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
+    _require_existing_purchase_ledger_file,  # pyright: ignore[reportPrivateUsage]
     initialize_case_dev_purchase_journal,
+    read_verified_purchase_ledger_initialization_receipt,
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.cohort_policy import (
@@ -83,8 +85,10 @@ from legalforecast.ingestion.document_repair_executor import (
     DocumentRepairPurchaseAuthority,
     DocumentRepairPurchaseRuntime,
     build_document_repair_purchase_authority,
+    build_document_repair_purchase_resume_authority,
     build_full_document_repair_execution,
     replay_docket_snapshot_authority,
+    verify_document_repair_purchase_resume_runtime,
     verify_document_repair_purchase_runtime,
     verify_purchase_policy_compatibility,
 )
@@ -244,6 +248,56 @@ def build_document_repair_purchase_approval_request(
     so no caller-supplied cost, count, or digest reaches the typed phrase.
     """
 
+    return _build_purchase_projection(
+        inputs=inputs,
+        cohort_policy_path=cohort_policy_path,
+        fee_schedule_path=fee_schedule_path,
+        canonical_ledger_path=canonical_ledger_path,
+        ledger_precondition=_require_fresh_ledger,
+    )
+
+
+def build_document_repair_purchase_resume_request(
+    *,
+    inputs: DocumentRepairPurchaseInputs,
+    cohort_policy_path: Path,
+    fee_schedule_path: Path,
+    canonical_ledger_path: Path,
+) -> DocumentRepairPurchaseProjection:
+    """Replay the same tranche once its canonical ledger already exists.
+
+    Identical to :func:`build_document_repair_purchase_approval_request` apart
+    from the ledger precondition, which is inverted: an interrupted tranche's
+    ledger must be present. Treating its presence as an error is what left the
+    type-2 journal without a resume verb, and deleting the ledger to satisfy
+    the original precondition is the double-charge path.
+
+    The re-minted request is byte-identical to the one the reviewer typed
+    against, which is what makes a resume verifiable at all:
+    ``ledger_initial_state`` is the constant recording the state at issuance,
+    not a reading of the ledger taken now, so no field of the request record
+    moves when the ledger appears.
+    """
+
+    return _build_purchase_projection(
+        inputs=inputs,
+        cohort_policy_path=cohort_policy_path,
+        fee_schedule_path=fee_schedule_path,
+        canonical_ledger_path=canonical_ledger_path,
+        ledger_precondition=_require_initialized_ledger,
+    )
+
+
+def _build_purchase_projection(
+    *,
+    inputs: DocumentRepairPurchaseInputs,
+    cohort_policy_path: Path,
+    fee_schedule_path: Path,
+    canonical_ledger_path: Path,
+    ledger_precondition: Callable[[Path], None],
+) -> DocumentRepairPurchaseProjection:
+    """Mint one repair projection under the caller's ledger precondition."""
+
     root = _normalized(inputs.repair_execution_root, "repair execution root")
     if root.is_symlink() or not root.is_dir():
         raise DocumentRepairPurchaseApprovalError(
@@ -270,7 +324,7 @@ def build_document_repair_purchase_approval_request(
             raise DocumentRepairPurchaseApprovalError(
                 f"{label} escapes the repair execution root: {path}"
             )
-    _require_fresh_ledger(ledger)
+    ledger_precondition(ledger)
 
     manifest_bytes = _read(contained["repair manifest"], "repair manifest")
     plan_approval_bytes = _read(
@@ -458,7 +512,7 @@ def build_document_repair_purchase_approval_request(
             raise DocumentRepairPurchaseApprovalError(
                 f"repair approval source changed while reading: snapshot {candidate_id}"
             )
-    _require_fresh_ledger(ledger)
+    ledger_precondition(ledger)
     return DocumentRepairPurchaseProjection(request=request, execution=execution)
 
 
@@ -473,6 +527,65 @@ def verify_document_repair_purchase_approval(
     canonical_ledger_path: Path,
 ) -> VerifiedDocumentRepairPurchaseApproval:
     """Replay private repair-approval evidence and mint the policy authority."""
+
+    return _verify_purchase_approval(
+        controlled_private_root=controlled_private_root,
+        checkpoint_path=checkpoint_path,
+        run_card_path=run_card_path,
+        inputs=inputs,
+        cohort_policy_path=cohort_policy_path,
+        fee_schedule_path=fee_schedule_path,
+        canonical_ledger_path=canonical_ledger_path,
+        ledger_precondition=_require_fresh_ledger,
+    )
+
+
+def verify_document_repair_purchase_resume_approval(
+    *,
+    controlled_private_root: Path,
+    checkpoint_path: Path,
+    run_card_path: Path,
+    inputs: DocumentRepairPurchaseInputs,
+    cohort_policy_path: Path,
+    fee_schedule_path: Path,
+    canonical_ledger_path: Path,
+) -> VerifiedDocumentRepairPurchaseApproval:
+    """Replay the same private evidence once the canonical ledger exists.
+
+    A resume must prove the *whole* recorded approval, not merely that a digest
+    still matches: the checkpoint's request record compared field by field
+    against a freshly re-minted request, the typed confirmation bound to that
+    exact request, the reviewer identity, every activity flag false, the run
+    card replaying against the checkpoint bytes, and both artifacts unchanged
+    while being read. All of that is inherited from
+    :func:`verify_document_repair_purchase_approval` unchanged; only the ledger
+    precondition differs.
+    """
+
+    return _verify_purchase_approval(
+        controlled_private_root=controlled_private_root,
+        checkpoint_path=checkpoint_path,
+        run_card_path=run_card_path,
+        inputs=inputs,
+        cohort_policy_path=cohort_policy_path,
+        fee_schedule_path=fee_schedule_path,
+        canonical_ledger_path=canonical_ledger_path,
+        ledger_precondition=_require_initialized_ledger,
+    )
+
+
+def _verify_purchase_approval(
+    *,
+    controlled_private_root: Path,
+    checkpoint_path: Path,
+    run_card_path: Path,
+    inputs: DocumentRepairPurchaseInputs,
+    cohort_policy_path: Path,
+    fee_schedule_path: Path,
+    canonical_ledger_path: Path,
+    ledger_precondition: Callable[[Path], None],
+) -> VerifiedDocumentRepairPurchaseApproval:
+    """Replay recorded approval evidence under the caller's ledger precondition."""
 
     private_root = _normalized(controlled_private_root, "controlled private root")
     if (
@@ -523,11 +636,12 @@ def verify_document_repair_purchase_approval(
             "repair approval run-card hash differs"
         )
 
-    projection = build_document_repair_purchase_approval_request(
+    projection = _build_purchase_projection(
         inputs=inputs,
         cohort_policy_path=cohort_policy_path,
         fee_schedule_path=fee_schedule_path,
         canonical_ledger_path=canonical_ledger_path,
+        ledger_precondition=ledger_precondition,
     )
     request = projection.request
     if checkpoint.get("request") != request.to_record():
@@ -733,6 +847,89 @@ def initialize_document_repair_purchase_runtime(
     )
 
 
+def resume_document_repair_purchase_runtime(
+    *,
+    execution: DocumentRepairExecution,
+    purchase_policy_path: Path,
+    cohort_policy_path: Path,
+    initialization_receipt_path: Path,
+    expected_purchase_state_sha256: str,
+) -> DocumentRepairPurchaseIssuance:
+    """Re-bind authority and runtime to a tranche's already-initialized ledger.
+
+    This is the resume counterpart of
+    :func:`initialize_document_repair_purchase_runtime`, and the ordering
+    problem that function documents does not arise here: nothing is created.
+    The ledger already exists, so authority is minted against it rather than
+    against its absence, and the runtime verifies it against the immutable
+    initialization receipt written when it *was* created.
+
+    No ``initialized_at`` is accepted, deliberately. A resume must not restamp
+    initialization; the receipt it authenticates against is the one artifact
+    that still testifies to the original fresh-ledger boundary.
+
+    ``expected_purchase_state_sha256`` is the caller's external commitment to
+    the interrupted ledger's *current* operation history, which the
+    initialization receipt cannot speak to. See
+    :func:`~legalforecast.ingestion.document_repair_executor.verify_document_repair_purchase_resume_runtime`.
+    """
+
+    policy_path = _normalized(purchase_policy_path, "purchase policy path")
+    cohort_path = _normalized(cohort_policy_path, "cohort policy path")
+    receipt_path = _normalized(
+        initialization_receipt_path, "initialization receipt path"
+    )
+    policy_bytes = _read(policy_path, "approved purchase policy")
+    cohort_bytes = _read(cohort_path, "cohort policy")
+    artifact = _json_object(policy_bytes, "approved purchase policy")
+    try:
+        authority = build_document_repair_purchase_resume_authority(
+            execution=execution,
+            approved_purchase_policy_artifact=artifact,
+        )
+    except DocumentRepairExecutorError as exc:
+        raise DocumentRepairPurchaseApprovalError(
+            f"repair purchase authority does not bind this execution: {exc}"
+        ) from exc
+    policy_commitment = "sha256:" + hashlib.sha256(policy_bytes).hexdigest()
+    cohort_commitment = "sha256:" + hashlib.sha256(cohort_bytes).hexdigest()
+    try:
+        receipt, _identity = read_verified_purchase_ledger_initialization_receipt(
+            receipt_path, policy=authority.purchase_policy
+        )
+    except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+        raise DocumentRepairPurchaseApprovalError(
+            f"repair purchase ledger initialization receipt is invalid: {exc}"
+        ) from exc
+    try:
+        runtime = verify_document_repair_purchase_resume_runtime(
+            execution=execution,
+            purchase_authority=authority,
+            initialization_receipt_path=receipt_path,
+            purchase_policy_file_sha256=policy_commitment,
+            cohort_policy_file_sha256=cohort_commitment,
+            expected_purchase_state_sha256=expected_purchase_state_sha256,
+        )
+    except DocumentRepairExecutorError as exc:
+        raise DocumentRepairPurchaseApprovalError(
+            f"repair purchase runtime does not verify: {exc}"
+        ) from exc
+    # The runtime performed its own authoritative read of the same path. If the
+    # two disagree the receipt was replaced between them, so the reported
+    # record is not the one the runtime bound and nothing here may proceed.
+    if receipt.get("initialization_id") != runtime.initialization_id:
+        runtime.journal.close()
+        raise DocumentRepairPurchaseApprovalError(
+            "repair purchase ledger initialization receipt changed while resuming"
+        )
+    return DocumentRepairPurchaseIssuance(
+        authority=authority,
+        runtime=runtime,
+        initialization_receipt=receipt,
+        initialization_receipt_path=receipt_path,
+    )
+
+
 def read_approved_document_repair_purchase_policy(
     path: Path,
 ) -> tuple[dict[str, object], CaseDevPurchasePolicy]:
@@ -773,6 +970,22 @@ def _require_fresh_ledger(path: Path) -> None:
         require_fresh_purchase_ledger_namespace(path)
     except PurchaseApprovalError as exc:
         raise DocumentRepairPurchaseApprovalError(str(exc)) from exc
+
+
+def _require_initialized_ledger(path: Path) -> None:
+    """Require the canonical ledger a resume must bind, and nothing weaker.
+
+    The shared check is reused rather than restated so a resume and the runtime
+    journal cannot drift on what counts as a ledger: a nonempty, singly linked,
+    non-symlink regular file at the canonical path.
+    """
+
+    try:
+        _require_existing_purchase_ledger_file(path)
+    except CaseDevPurchaseLedgerError as exc:
+        raise DocumentRepairPurchaseApprovalError(
+            f"resume requires the tranche's initialized canonical ledger: {exc}"
+        ) from exc
 
 
 def _read(path: Path, label: str) -> bytes:

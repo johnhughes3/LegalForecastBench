@@ -35,6 +35,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
+    read_verified_purchase_ledger_initialization_receipt,
     require_approved_case_dev_purchase_policy,
     verify_case_dev_purchase_journal_initialization,
     verify_case_dev_purchase_policy,
@@ -917,6 +918,160 @@ def verify_document_repair_purchase_runtime(
         authority_sha256=purchase_authority.authority_sha256,
         initialization_id=initialization_id,
         policy=purchase_authority.purchase_policy,
+        journal=journal,
+        initialization_receipt_path=initialization_receipt_path,
+        purchase_policy_file_sha256=purchase_policy_file_sha256,
+        cohort_policy_file_sha256=cohort_policy_file_sha256,
+        _consumed=False,
+    )
+
+
+def build_document_repair_purchase_resume_authority(
+    *,
+    execution: DocumentRepairExecution,
+    approved_purchase_policy_artifact: Mapping[str, object],
+) -> DocumentRepairPurchaseAuthority:
+    """Re-bind already-approved purchase authority to an initialized ledger.
+
+    This is :func:`build_document_repair_purchase_authority` with one gate
+    inverted: the canonical ledger must already exist rather than be absent.
+    That gate cannot hold for a resume, because the ledger it would refuse *is*
+    the record of what the interrupted run already bought, and deleting it to
+    restore mintability is precisely the double-charge path.
+
+    Exactly-once does not depend on the fresh-ledger check. It is held by the
+    journal's own ``planned -> submitted`` transition under the ledger lock, by
+    ``require_reconciled`` refusing another dispatch while an outcome is
+    ambiguous, and by the resume entrypoint dispatching only ``planned`` rows.
+    The authority minted here is byte-identical to the original run's, because
+    its content record is derived entirely from the execution and the approved
+    policy -- neither of which a resume may change.
+    """
+
+    _require_replay_minted_execution(execution)
+    budget = execution.purchase_budget
+    if not budget.case_plans:
+        raise DocumentRepairExecutorError(
+            "purchase authority requires at least one paid operation"
+        )
+    policy = _verify_purchase_policy_binding(
+        execution=execution,
+        purchase_policy_artifact=approved_purchase_policy_artifact,
+        require_fresh_ledger=False,
+    )
+    if not policy.canonical_ledger_path.exists():
+        raise DocumentRepairExecutorError(
+            "resume purchase authority requires an initialized canonical ledger"
+        )
+    provisional = _mint_purchase_authority(
+        execution_sha256=execution.execution_sha256,
+        scope=execution.scope,
+        scope_sha256=execution.scope_sha256,
+        purchase_policy=policy,
+        authority_sha256="",
+    )
+    return _mint_purchase_authority(
+        execution_sha256=provisional.execution_sha256,
+        scope=provisional.scope,
+        scope_sha256=provisional.scope_sha256,
+        purchase_policy=provisional.purchase_policy,
+        authority_sha256=_commit_purchase_authority(provisional.content_record()),
+    )
+
+
+def verify_document_repair_purchase_resume_runtime(
+    *,
+    execution: DocumentRepairExecution,
+    purchase_authority: DocumentRepairPurchaseAuthority,
+    initialization_receipt_path: Path,
+    purchase_policy_file_sha256: str,
+    cohort_policy_file_sha256: str,
+    expected_purchase_state_sha256: str,
+) -> DocumentRepairPurchaseRuntime:
+    """Verify an already-used ledger against its immutable initialization receipt.
+
+    :func:`verify_document_repair_purchase_runtime` re-verifies the ledger as
+    *pristine*, which is true exactly once. A resumed tranche's ledger carries
+    the rows proving what was already bought, so the pristine check refuses the
+    very evidence the resume depends on.
+
+    What replaces it is not weaker in kind, only narrower in what it can
+    observe. The immutable initialization receipt is still authenticated
+    against the policy; the two file commitments recorded inside it are still
+    compared with digests of the bytes this process read; and opening the
+    journal still re-binds cycle, policy digest, ceilings, canonical path and
+    initialization identity to the ledger under its lock. What is deliberately
+    not asserted is the ledger's *file* digest and byte count, which the first
+    paid operation necessarily changed.
+
+    That leaves one gap the initialization receipt cannot close: it testifies
+    to the ledger's *initial* state, so it says nothing about the operation
+    history written since. A ledger restored from an older copy of the same
+    lineage, or edited to put a spent row back to ``planned``, satisfies every
+    check above while presenting an already-bought document as buyable.
+
+    ``expected_purchase_state_sha256`` closes that gap. It commits to the
+    policy, the committed amount, and every operation row; it is supplied by
+    the caller rather than read from the ledger being checked, because a digest
+    taken from the artifact it authenticates cannot detect a rollback of that
+    artifact; and it is compared while this process holds the ledger's write
+    lock, before ``plan()`` writes anything.
+    """
+
+    _require_purchase_authority(execution, purchase_authority)
+    policy = purchase_authority.purchase_policy
+    try:
+        receipt, initialization_id = (
+            read_verified_purchase_ledger_initialization_receipt(
+                initialization_receipt_path, policy=policy
+            )
+        )
+    except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+        raise DocumentRepairExecutorError(
+            f"purchase journal initialization is invalid: {exc}"
+        ) from exc
+    for field, supplied in (
+        ("purchase_policy_file_sha256", purchase_policy_file_sha256),
+        ("cohort_policy_file_sha256", cohort_policy_file_sha256),
+    ):
+        if receipt.get(field) != supplied:
+            raise DocumentRepairExecutorError(
+                f"purchase journal initialization {field} differs from the bytes "
+                "this resume read"
+            )
+    journal: CaseDevPurchaseJournal | None = None
+    try:
+        journal = CaseDevPurchaseJournal(
+            policy.canonical_ledger_path,
+            policy=policy,
+            initialization_receipt_path=initialization_receipt_path,
+            initialization_receipt_record=receipt,
+        )
+        observed = journal.authenticated_snapshot().purchase_state_sha256
+        if observed != _digest(expected_purchase_state_sha256, "purchase state digest"):
+            raise DocumentRepairExecutorError(
+                "purchase state differs from the pinned interrupted state; the "
+                "ledger may have been rolled back, restored, or edited. Observed "
+                f"{observed}. Refusing rather than treating a spent row as "
+                "buyable"
+            )
+        journal.plan(execution.purchase_budget)
+    except BaseException as exc:
+        if journal is not None:
+            try:
+                journal.close()
+            except BaseException as cleanup_error:
+                exc.add_note(f"purchase journal cleanup also failed: {cleanup_error}")
+        if isinstance(exc, (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError)):
+            raise DocumentRepairExecutorError(
+                f"purchase journal runtime is invalid: {exc}"
+            ) from exc
+        raise
+    return _mint_purchase_runtime(
+        execution_sha256=execution.execution_sha256,
+        authority_sha256=purchase_authority.authority_sha256,
+        initialization_id=initialization_id,
+        policy=policy,
         journal=journal,
         initialization_receipt_path=initialization_receipt_path,
         purchase_policy_file_sha256=purchase_policy_file_sha256,
