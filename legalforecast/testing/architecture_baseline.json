@@ -6678,8 +6678,8 @@
         "largest_symbol": "seal_deliverable",
         "largest_symbol_lines": 161,
         "layer": "application",
-        "line_count": 1037,
-        "nonblank_line_count": 929,
+        "line_count": 1040,
+        "nonblank_line_count": 932,
         "top_level_definition_count": 38
       },
       "legalforecast/multiharness/evaluation.py": {
@@ -10832,9 +10832,9 @@
         "largest_symbol": "test_cli_mint_writes_the_three_artifacts",
         "largest_symbol_lines": 53,
         "layer": "test",
-        "line_count": 867,
-        "nonblank_line_count": 732,
-        "top_level_definition_count": 46
+        "line_count": 896,
+        "nonblank_line_count": 756,
+        "top_level_definition_count": 47
       },
       "tests/test_unitization_add_adjudication.py": {
         "cycle_id": "",

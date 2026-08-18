@@ -484,6 +484,9 @@ def validate_sealed_deliverable(
     return canonical_manifest
 
 
+# Recomputes this module's existing tree commitment from its own primitives; it
+# defines no new codec and persists nothing.
+# contract-ratchet: allow recomputation of the existing deliverable tree commitment
 def single_artifact_tree_sha256(artifact_path: str, payload: bytes) -> str:
     """Recompute the tree commitment of a deliverable tree holding one file.
 
