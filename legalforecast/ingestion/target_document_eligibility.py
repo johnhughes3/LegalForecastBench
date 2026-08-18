@@ -4,7 +4,30 @@ from __future__ import annotations
 
 import re
 
+from legalforecast.ingestion.frozen_replay_model_regime import (
+    TARGET_ELIGIBILITY_REGIME_CURRENT,
+    resolve_target_eligibility_regime,
+)
 from legalforecast.ingestion.provenance import DocumentRole
+
+# The title pattern exactly as it stood before PR #767 (``a73dde0d``,
+# 2026-08-16), preserved so a frozen audit minted under it replays under it.
+# See ``frozen_replay_model_regime``; never applied to bytes entering Stage A.
+_PRE_767_STIPULATED_TITLE = (
+    r"(?im)^\s*(?:#{1,6}\s*)?(?:\[?proposed\]?\s+)?"
+    r"(?:(?:joint\s+)?stipulation\s+(?:for\s+(?:and\s+)?order\s+of|of)\s+"
+    r"dismissal|stipulated\s+motion\s+to\s+dismiss|notice\s+of\s+voluntary\s+"
+    r"dismissal)\s*$"
+)
+
+# Today's production title pattern.  #767 additionally catches "stipulation to
+# dismiss", a bare "…order of dismiss", and joint motions to dismiss.
+_CURRENT_STIPULATED_TITLE = (
+    r"(?im)^\s*(?:#{1,6}\s*)?(?:\[?proposed\]?\s+)?"
+    r"(?:(?:joint\s+)?stipulation\s+(?:for\s+(?:and\s+)?order\s+of|of|to)\s+"
+    r"dismiss(?:al)?|(?:joint|stipulated)\s+motion\s+to\s+dismiss|"
+    r"notice\s+of\s+voluntary\s+dismissal)\s*$"
+)
 
 
 class TargetDocumentEligibilityError(ValueError):
@@ -17,9 +40,18 @@ def require_eligible_target_document(
     source_document_id: str,
     document_role: DocumentRole | str,
     markdown: str,
+    regime: str = TARGET_ELIGIBILITY_REGIME_CURRENT,
 ) -> None:
-    """Reject strong parsed-body evidence that a target MTD role is false."""
+    """Reject strong parsed-body evidence that a target MTD role is false.
 
+    ``regime`` names the detector generation to apply.  Every caller gets
+    today's production detector by default; only a replay of frozen evidence
+    whose authenticated parse manifest is pinned in
+    ``frozen_replay_model_regime`` may pass anything else, and an unrecognized
+    name fails closed rather than reading as "no detector".
+    """
+
+    model = resolve_target_eligibility_regime(regime)
     try:
         role = DocumentRole(document_role)
     except ValueError as exc:
@@ -30,10 +62,11 @@ def require_eligible_target_document(
         return
     opening = "\n".join(markdown.splitlines()[:120])
     stipulated_or_voluntary_title = re.search(
-        r"(?im)^\s*(?:#{1,6}\s*)?(?:\[?proposed\]?\s+)?"
-        r"(?:(?:joint\s+)?stipulation\s+(?:for\s+(?:and\s+)?order\s+of|of|to)\s+"
-        r"dismiss(?:al)?|(?:joint|stipulated)\s+motion\s+to\s+dismiss|"
-        r"notice\s+of\s+voluntary\s+dismissal)\s*$",
+        (
+            _CURRENT_STIPULATED_TITLE
+            if model.detects_settlement_driven_dismissals
+            else _PRE_767_STIPULATED_TITLE
+        ),
         opening,
     )
     party_motion_title = re.search(
@@ -84,12 +117,14 @@ def require_eligible_target_document(
         r"\b.{0,800}\brule\s+41\s*\(a\)\s*\(1\)\s*\(a\)\s*\(ii\)",
         opening,
     )
-    if (
-        stipulated_or_voluntary_title
-        or rule_41_stipulation
-        or party_settlement_dismissal
-        or (joint_dismissal_agreement and not defendant_mover)
-    ):
+    # The settlement-driven clauses are #767's addition and exist only under the
+    # current detector.  Under the preserved generation the title and Rule 41
+    # tests stand alone, which is exactly the pre-#767 disjunction.
+    settlement_driven = model.detects_settlement_driven_dismissals and (
+        party_settlement_dismissal
+        or bool(joint_dismissal_agreement and not defendant_mover)
+    )
+    if stipulated_or_voluntary_title or rule_41_stipulation or settlement_driven:
         raise TargetDocumentEligibilityError(
             "target motion document is a stipulated or voluntary dismissal filing: "
             f"{candidate_id}/{source_document_id}"
@@ -102,6 +137,7 @@ def is_stipulated_or_voluntary_target_document(
     source_document_id: str,
     document_role: DocumentRole | str,
     markdown: str,
+    regime: str = TARGET_ELIGIBILITY_REGIME_CURRENT,
 ) -> bool:
     """Return whether the shared target gate rejects the parsed document."""
 
@@ -117,6 +153,7 @@ def is_stipulated_or_voluntary_target_document(
             source_document_id=source_document_id,
             document_role=role,
             markdown=markdown,
+            regime=regime,
         )
     except TargetDocumentEligibilityError:
         return True

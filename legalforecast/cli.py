@@ -616,6 +616,11 @@ from legalforecast.ingestion.frozen_batch_firecrawl_observation import (
 from legalforecast.ingestion.frozen_parse_quality_regime import (
     PARSE_QUALITY_REGIME_CURRENT as _PARSE_QUALITY_REGIME_CURRENT,
 )
+from legalforecast.ingestion.frozen_replay_model_regime import (
+    operative_complaint_regime_scope,
+    replay_operative_complaint_regime,
+    replay_target_eligibility_regime,
+)
 from legalforecast.ingestion.funnel_report import (
     FunnelReportError,
     build_acquisition_funnel_report,
@@ -43615,6 +43620,23 @@ def _replay_exact100_stipulated_eligibility_unchecked(
         raise CommandError(
             "stipulated eligibility audit selection differs from exact100 predecessor"
         )
+    # PR #767 broadened the stipulation detector on 2026-08-16; this audit was
+    # minted 2026-08-07 and is committed by digest in a paid run card, so
+    # re-deriving it under today's detector compares two models instead of
+    # checking byte identity.  Select the generation contemporaneous with the
+    # evidence, keyed on the parse manifest digest this replay just
+    # authenticated.  The closed map in ``frozen_replay_model_regime`` is the
+    # enforcing boundary -- an unaudited manifest stays on the current detector
+    # even here -- and byte equality with the persisted audit is still required
+    # under whichever generation is selected.
+    #
+    # The live line-addressed consumer,
+    # ``_require_clean_v4_target_document_eligibility_audit``, deliberately does
+    # not select a regime: bytes a stage will consume face today's detector.
+    eligibility_regime = replay_target_eligibility_regime(
+        parser_manifest_sha256=_bytes_sha256(lineage.parser_manifest_bytes),
+        frozen_predecessor_replay=True,
+    )
     try:
         audit = _replay_verified_target_document_eligibility_audit(
             persisted_audit_bytes=audit_bytes,
@@ -43622,6 +43644,7 @@ def _replay_exact100_stipulated_eligibility_unchecked(
             parser_manifest_bytes=lineage.parser_manifest_bytes,
             parser_records=lineage.parser_records,
             markdown_by_document=_stage_a_markdown_by_document(lineage),
+            regime=eligibility_regime,
         )
         require_verified_target_document_eligibility_audit(audit)
     except TargetDocumentEligibilityAuditError as exc:
@@ -44508,12 +44531,44 @@ def _replay_exact100_v2_public_plan(
                 for candidate_id, payload in raw_html_bytes.items()
             }
         )
-    plan = plan_public_packet_downloads(
-        snapshot_rows,
-        raw_html_bytes_by_candidate=raw_html_bytes,
-        target_clean_cases=expected_target_count,
-        use_embedded_entries=True,
-    )
+    # PR #667 (``253bad6d``, 2026-08-13) added ``_non_complaint_claim_kind`` to
+    # the operative-complaint classifier.  This plan's run card -- whose bytes
+    # were just checked against the sealed ``wider_plan_run_card`` authority
+    # above -- was completed before that hunk existed, so recomputing the plan
+    # under today's classifier derives a digest the frozen v2 root never
+    # committed to.  Bind the generation contemporaneous with the run card for
+    # the recomputation only.
+    #
+    # Keyed on the run card rather than the snapshot manifest: the manifest
+    # digest already names the 911371f *parser* model elsewhere and is shared by
+    # plan roots that do not drift.  An unpinned run card -- the historical
+    # packet's, and every live planning caller, which never enters this scope at
+    # all -- resolves to the current classifier.  The recomputed plan must still
+    # reproduce the persisted plan bytes exactly under whichever generation is
+    # bound.
+    #
+    # Scoped to the operative-complaint classifier only.  #667 also broadened
+    # three ``courtlistener_web`` functions this planner consults live, but
+    # measurement -- not assumption -- leaves them on the current model:
+    # restoring both that module and the planner to their pre-#667 2ce1fd80
+    # content reproduces today's digest unchanged, while restoring the
+    # classifier alone reproduces the minted digest byte-for-byte.  The
+    # recomputed plan is byte-compared below either way, so a cohort where those
+    # functions did matter refuses rather than passing quietly.
+    #
+    # Synchronous call only: the scope is a ContextVar and does not propagate
+    # into threads a callee might spawn.
+    with operative_complaint_regime_scope(
+        replay_operative_complaint_regime(
+            public_plan_run_card_sha256=_bytes_sha256(snapshots[run_card_path])
+        )
+    ):
+        plan = plan_public_packet_downloads(
+            snapshot_rows,
+            raw_html_bytes_by_candidate=raw_html_bytes,
+            target_clean_cases=expected_target_count,
+            use_embedded_entries=True,
+        )
     expected = {
         "requests": _projection_jsonl_bytes(
             request.to_record() for request in plan.download_requests
