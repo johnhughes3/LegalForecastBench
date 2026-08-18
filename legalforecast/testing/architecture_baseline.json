@@ -6171,10 +6171,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "verify_stage_a_review_run_card",
-        "largest_symbol_lines": 554,
+        "largest_symbol_lines": 562,
         "layer": "application",
-        "line_count": 2954,
-        "nonblank_line_count": 2853,
+        "line_count": 2962,
+        "nonblank_line_count": 2861,
         "top_level_definition_count": 30
       },
       "legalforecast/ingestion/stage_a_replay_executor/provider.py": {

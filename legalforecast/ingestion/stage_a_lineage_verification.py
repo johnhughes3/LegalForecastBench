@@ -2064,6 +2064,14 @@ def verify_stage_a_review_run_card(
         != cast(Mapping[str, object], expected_caps_commitment).get("sha256")
     ):
         raise _c.CommandError("structural review source lineage differs from Stage A")
+    # Deliberately NOT relocation-aware, unlike the unitizer card's reads of the
+    # same two files.  Every structural-review card on disk commits these at
+    # durable in-repo paths -- verified against the real frozen card, which pins
+    # the very digests the unitizer card captured under its now-dead ephemeral
+    # root.  Should a future review card ever pin a capture root that has since
+    # gone, this loop fails loudly on the missing file rather than accepting
+    # anything, and the fix is to feed it ``relocated_stage_a_committed_inputs``
+    # the way ``verify_stage_a_unitization_run_card`` does.
     for name in (
         "selection",
         "parser_manifest",
