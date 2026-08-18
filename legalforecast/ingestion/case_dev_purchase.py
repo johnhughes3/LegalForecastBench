@@ -1765,6 +1765,28 @@ def verify_purchase_ledger_initialization_lineage(
     )
 
 
+def read_verified_purchase_ledger_initialization_receipt(
+    receipt_path: str | Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+) -> tuple[dict[str, object], str]:
+    """Return one authenticated initialization receipt and its identity.
+
+    The record is read exactly once and verified from the bytes that read
+    returned, so a caller that must both check the receipt's lineage and
+    compare the file commitments recorded inside it cannot end up doing that
+    against two different reads of the same path. The returned record is also
+    accepted directly by :class:`CaseDevPurchaseJournal`, which keeps a whole
+    open sequence on one set of bytes.
+    """
+
+    record = _read_purchase_ledger_initialization_receipt(Path(receipt_path))
+    identity = _verify_purchase_ledger_initialization_lineage_record(
+        record, policy=policy
+    )
+    return record, identity
+
+
 def _require_pristine_purchase_ledger(connection: sqlite3.Connection) -> None:
     operations = connection.execute(
         "SELECT COUNT(*) FROM purchase_operations"

@@ -143,6 +143,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`document_repair_acquire.py`](../legalforecast/ingestion/document_repair_acquire.py) | Injected free-download and one-document RECAP Fetch callback for one resolved repair operation. |
 | [`document_repair_executor.py`](../legalforecast/ingestion/document_repair_executor.py) | Provider-neutral execution of authenticated exact-100 repair plans with selector-preserving resolution, accounting, and evidence. |
 | [`document_repair_pilot.py`](../legalforecast/ingestion/document_repair_pilot.py) | Exact ordered pilot projection from an authenticated full repair plan. |
+| [`document_repair_resume.py`](../legalforecast/ingestion/document_repair_resume.py) | Journal-status partition, remaining-ceiling derivation, and carry-forward acquirer for one interrupted repair tranche. |
 | [`document_repair_verify_only.py`](../legalforecast/ingestion/document_repair_verify_only.py) | Provider-free revalidation of already-acquired repair bytes without purchasing. |
 | [`missing_document_successor.py`](../legalforecast/ingestion/missing_document_successor.py) | Approved-manifest-bound, free-first projection with byte-role validation and complete repair ledgers. |
 | [`supporting_document_successor.py`](../legalforecast/ingestion/supporting_document_successor.py) | Pure projection transformer for the closed ECF 14 exact-100 supporting-document successor. |
@@ -274,6 +275,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`missing_core_budget.py`](../legalforecast/ingestion/missing_core_budget.py) | Cost guardrails for missing core documents. |
 | [`document_repair_purchase_approval.py`](../legalforecast/ingestion/document_repair_purchase_approval.py) | TTY issuance of purchase authority for one document-repair tranche. |
 | [`document_repair_purchase_cli.py`](../legalforecast/ingestion/document_repair_purchase_cli.py) | Operator commands recording, publishing, and proving repair purchase authority. |
+| [`document_repair_resume_cli.py`](../legalforecast/ingestion/document_repair_resume_cli.py) | Operator command resuming one interrupted repair tranche against its existing ledger. |
 | [`purchase_approval.py`](../legalforecast/ingestion/purchase_approval.py) | Human approval for an exact purchase plan. |
 | [`purchase_spend_summary.py`](../legalforecast/ingestion/purchase_spend_summary.py) | Provider-free immutable report of provable charges and unresolved commitments. |
 | [`recap_fetch_attempt_policy.py`](../legalforecast/ingestion/recap_fetch_attempt_policy.py) | Immutable bounded unknown-status attempt authority. |
