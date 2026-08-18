@@ -132,6 +132,11 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`exact100_successor_replacement_cli.py`](../legalforecast/ingestion/exact100_successor_replacement_cli.py) | Closed exact-100 successor command and materializer replay adapter. |
 | [`exact100_successor_replacement_v2.py`](../legalforecast/ingestion/exact100_successor_replacement_v2.py) | Versioned exact-100 successor projection over complete materialization and wider-rank authority. |
 | [`exact100_successor_replacement_v2_cli.py`](../legalforecast/ingestion/exact100_successor_replacement_v2_cli.py) | Closed provider-free publication and specialized replay verifier for exact-100 successor v2. |
+| [`exact100_successor_v3/__init__.py`](../legalforecast/ingestion/exact100_successor_v3/__init__.py) | Reading order for the v3 exact-100 successor lane and why it is a subpackage. |
+| [`exact100_successor_v3/cli.py`](../legalforecast/ingestion/exact100_successor_v3/cli.py) | Standalone `legalforecast-exact100-successor-v3` entry point: evidence issuance and v3 projection. |
+| [`exact100_successor_v3/projector.py`](../legalforecast/ingestion/exact100_successor_v3/projector.py) | Versioned exact-100 successor admitting N paired terminal exclusions and owner-adjudicated promotions. |
+| [`exact100_successor_v3/replacement_evidence.py`](../legalforecast/ingestion/exact100_successor_v3/replacement_evidence.py) | Sealed, byte-authenticated replacement evidence for owner-adjudicated exact-100 promotions. |
+| [`exact100_successor_v3/replacement_evidence_cli.py`](../legalforecast/ingestion/exact100_successor_v3/replacement_evidence_cli.py) | Mints and reauthenticates owner-adjudicated replacement evidence roots from existing receipts. |
 | [`exact100_successor_semantic_repair.py`](../legalforecast/ingestion/exact100_successor_semantic_repair.py) | Byte-bound semantic repair for embedded complaints and combined motion memoranda. |
 | [`exact100_successor_wider_rank.py`](../legalforecast/ingestion/exact100_successor_wider_rank.py) | Deterministic authenticated ranking of the complete nonselected successor horizon. |
 | [`exact100_zero_cost_recovery.py`](../legalforecast/ingestion/exact100_zero_cost_recovery.py) | One-record CourtListener-only public/terminal recovery for the stipulated exact-100 memorandum. |

@@ -77,6 +77,15 @@ _RECEIPT_ROLE_TO_DOCUMENT_ROLE: Mapping[str, str] = MappingProxyType(
         "decision_audit_only": DocumentRole.DECISION.value,
     }
 )
+# Which validation regime cleared a document.  The paid tranche carries a
+# quote-verified byte-role verdict; the free tranches carry strict PDF parsing
+# plus recorded role findings and a visual render check.
+_VALIDATION_CLASSES = frozenset(
+    {
+        "document_repair_byte_role_verdict",
+        "free_tranche_strict_pdf_and_role_findings",
+    }
+)
 _DOCUMENT_DESCRIPTIONS: Mapping[str, str] = MappingProxyType(
     {
         DocumentRole.COMPLAINT.value: "Operative Complaint",
@@ -205,7 +214,7 @@ def mint_verified_owner_adjudicated_replacement(
             entry_number=entry_number,
             source_document_id=source_document_id,
         )
-        _require_byte_role_validation(
+        validation_class = _require_byte_role_validation(
             byte_role_validation_by_id.get(source_document_id),
             source_document_id=source_document_id,
             digest=digest,
@@ -239,6 +248,7 @@ def mint_verified_owner_adjudicated_replacement(
                 "sha256": digest,
                 "source_document_id": source_document_id,
                 "source_url": source_url,
+                "validation_class": validation_class,
             }
         )
         clearance.append(
@@ -418,7 +428,7 @@ def _require_byte_role_validation(
     source_document_id: str,
     digest: str,
     byte_count: int,
-) -> None:
+) -> str:
     """Require an exact-role verdict bound to these exact bytes."""
 
     if record is None:
@@ -448,6 +458,17 @@ def _require_byte_role_validation(
         raise OwnerAdjudicatedReplacementError(
             f"replacement document is encrypted: {source_document_id}"
         )
+    # The repair tranches validated paid and free documents under different
+    # regimes.  Both are accepted, but which one applied is recorded per
+    # document rather than flattened away, so a reader of the promotion can see
+    # exactly what was checked.
+    validation_class = record.get("validation_class")
+    if validation_class not in _VALIDATION_CLASSES:
+        raise OwnerAdjudicatedReplacementError(
+            f"replacement document validation regime is unrecorded: "
+            f"{source_document_id}"
+        )
+    return cast(str, validation_class)
 
 
 def _require_docket_entry(

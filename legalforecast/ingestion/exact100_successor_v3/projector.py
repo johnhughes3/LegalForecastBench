@@ -47,7 +47,7 @@ from legalforecast.contracts import (
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.core_document_filter import filter_core_documents
-from legalforecast.ingestion.owner_adjudicated_replacement import (
+from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
     VerifiedOwnerAdjudicatedReplacement,
     require_verified_owner_adjudicated_replacement,
 )
