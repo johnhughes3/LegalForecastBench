@@ -104,6 +104,21 @@ EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1 = SchemaIdentifier(
 EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1 = SchemaIdentifier(
     "legalforecast.exact100_successor_terminal_exclusion.v1"
 )
+EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V2 = SchemaIdentifier(
+    "legalforecast.exact100_successor_terminal_exclusion.v2"
+)
+EXACT100_SUCCESSOR_PROMOTION_V3 = SchemaIdentifier(
+    "legalforecast.exact100_successor_promotion.v3"
+)
+EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V3 = SchemaIdentifier(
+    "legalforecast.exact100_successor_replacement_config.v3"
+)
+EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3 = SchemaIdentifier(
+    "legalforecast.exact100_successor_replacement_state.v3"
+)
+OWNER_ADJUDICATED_REPLACEMENT_EVIDENCE_V1 = SchemaIdentifier(
+    "legalforecast.owner_adjudicated_replacement_evidence.v1"
+)
 DOCUMENT_BODY_ROLE_VALIDATOR_V1 = SchemaIdentifier(
     "legalforecast.document_body_role_validator.v1"
 )
@@ -381,6 +396,11 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     EXACT100_SUCCESSOR_SEMANTIC_REPAIR_V1,
     EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1,
     EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V1,
+    EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V2,
+    EXACT100_SUCCESSOR_PROMOTION_V3,
+    EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V3,
+    EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3,
+    OWNER_ADJUDICATED_REPLACEMENT_EVIDENCE_V1,
     EXACT100_ZERO_COST_RECOVERY_PLAN_V1,
     EXACT100_ZERO_COST_RECOVERY_PUBLIC_DOCUMENT_V1,
     EXACT100_ZERO_COST_RECOVERY_RECEIPT_V1,
