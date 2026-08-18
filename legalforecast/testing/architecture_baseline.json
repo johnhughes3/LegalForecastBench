@@ -2,13 +2,13 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 27004,
-    "line_count": 72918,
-    "nonblank_line_count": 70185,
+    "line_count": 72951,
+    "nonblank_line_count": 70218,
     "parser_line_count": 1773,
     "top_level_class_count": 19,
     "top_level_definition_count": 1002,
     "verifier_family_count": 162,
-    "verifier_family_lines": 12023
+    "verifier_family_lines": 12048
   },
   "compatibility": {
     "cli_import_files": [
@@ -3854,8 +3854,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1773,
         "layer": "entrypoint",
-        "line_count": 72918,
-        "nonblank_line_count": 70185,
+        "line_count": 72951,
+        "nonblank_line_count": 70218,
         "top_level_definition_count": 1002
       },
       "legalforecast/cli_commands/attachment_pages.py": {

@@ -28610,6 +28610,8 @@ def _verify_replacement_exclusion_card(
     output_path: Path,
     selection_path: Path,
     screened_cases_path: Path,
+    _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
+    _verified_clearance_source_roots: Mapping[str, Path] | None = None,
 ) -> tuple[JsonRecord, ...]:
     card_bytes = _read_singly_linked_regular_input(
         run_card_path, label="replacement successor exclusion run card"
@@ -28664,7 +28666,9 @@ def _verify_replacement_exclusion_card(
     }:
         raise CommandError("replacement successor exclusion output commitment changed")
     projection = verify_completed_target_cohort_projection_for_purchase_approval(
-        inputs[0].parent.parent
+        inputs[0].parent.parent,
+        _verified_clearance_relocations=_verified_clearance_relocations,
+        _verified_clearance_source_roots=_verified_clearance_source_roots,
     )
     verified_projection_bytes = cast(
         Mapping[str, bytes], projection["verified_artifact_bytes"]
@@ -44186,6 +44190,14 @@ def _replay_exact100_successor_replacement_v2_inputs(
         output_path=exclusion_path,
         selection_path=predecessor_root / "target-cohort-selection.jsonl",
         screened_cases_path=final153_snapshot / "screened-cases.jsonl",
+        _verified_clearance_relocations=cast(
+            Mapping[str, tuple[Path, bytes]] | None,
+            getattr(args, "_verified_clearance_relocations", None),
+        ),
+        _verified_clearance_source_roots=cast(
+            Mapping[str, Path] | None,
+            getattr(args, "_verified_clearance_source_roots", None),
+        ),
     )
 
     (
@@ -44840,6 +44852,8 @@ def _verify_materializer_projection(
             target_root=target_root,
             free_clearance_path=free_clearance_path,
             expected_target_count=expected_target_count,
+            _verified_clearance_relocations=_verified_clearance_relocations,
+            _verified_clearance_source_roots=_verified_clearance_source_roots,
         )
     if run_card_path.is_file() and not run_card_path.is_symlink():
         candidate_card = _projection_json_object(
@@ -45342,6 +45356,8 @@ def _verify_supporting_document_downstream_projection(
     free_clearance_path: Path,
     expected_target_count: int,
     _verified_byte_closure: dict[str, bytes] | None = None,
+    _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
+    _verified_clearance_source_roots: Mapping[str, Path] | None = None,
 ) -> dict[str, object]:
     """Replay one supporting-document successor for downstream consumers."""
 
@@ -45370,10 +45386,16 @@ def _verify_supporting_document_downstream_projection(
             ),
             source=v2_card_path,
         )
+        replay_args = _exact100_successor_v2_replay_args(v2_card)
+        # Same private-kwarg convention the zero-cost successor replay uses: a
+        # verified relocation travels on the replay namespace so it reaches the
+        # nested projection verifier without becoming ambient authority.
+        replay_args._verified_clearance_relocations = _verified_clearance_relocations
+        replay_args._verified_clearance_source_roots = _verified_clearance_source_roots
         return verify_exact100_successor_replacement_v2_projection(
             root,
             replay=_replay_exact100_successor_replacement_v2_inputs,
-            args=_exact100_successor_v2_replay_args(v2_card),
+            args=replay_args,
         )
 
     try:
@@ -45698,7 +45720,14 @@ def _verify_completed_target_cohort_projection_in_operation(
             str(target_root.resolve()),
             _bytes_sha256(supporting_card_bytes),
         )
-        cached = operation.cache.get(cache_key)
+        # A relocated input is authenticated for one operation only, so a
+        # projection verified through one must never answer from, or populate,
+        # the shared cache -- exactly as the ranked-replay guard below requires.
+        supporting_cacheable = (
+            _verified_clearance_relocations is None
+            and _verified_clearance_source_roots is None
+        )
+        cached = operation.cache.get(cache_key) if supporting_cacheable else None
         if cached is not None:
             _require_snapshot_unchanged(
                 {Path(path): payload for path, payload in cached.snapshots},
@@ -45730,6 +45759,8 @@ def _verify_completed_target_cohort_projection_in_operation(
                     supporting_card, "selected_case_count"
                 ),
                 _verified_byte_closure=closure,
+                _verified_clearance_relocations=_verified_clearance_relocations,
+                _verified_clearance_source_roots=_verified_clearance_source_roots,
             )
         finally:
             _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.reset(absence_token)
@@ -45775,6 +45806,7 @@ def _verify_completed_target_cohort_projection_in_operation(
         _require_snapshot_unchanged(
             {Path(path): payload for path, payload in closure.items()},
             label="supporting-document projection artifact",
+            relocations=_verified_clearance_relocations,
         )
         _require_projection_absences_unchanged(
             absent_paths,
@@ -45790,11 +45822,12 @@ def _verify_completed_target_cohort_projection_in_operation(
         outer_absences = _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.get()
         if outer_absences is not None:
             outer_absences.update(absent_paths)
-        operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
-            result=copy.deepcopy(result),
-            snapshots=tuple(sorted(closure.items())),
-            absent_paths=absent_paths,
-        )
+        if supporting_cacheable:
+            operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
+                result=copy.deepcopy(result),
+                snapshots=tuple(sorted(closure.items())),
+                absent_paths=absent_paths,
+            )
         return result
 
     run_card_path = target_root / "run-cards/project-target-cohort.json"
