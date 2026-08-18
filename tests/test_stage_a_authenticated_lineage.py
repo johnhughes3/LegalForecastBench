@@ -564,6 +564,9 @@ def test_stage_a_provider_uses_captured_markdown_and_completion_detects_drift(
             document_tree={"cand-1/complaint.pdf": b"document A"},
             markdown_root=markdown_root,
             markdown_bytes=captured_markdown,
+            # No committed input was relocated here; every snapshot key is a live
+            # path that re-reads as itself.
+            relocations={},
         ),
     )
     with pytest.raises(cli.CommandError, match="Stage A Markdown"):
