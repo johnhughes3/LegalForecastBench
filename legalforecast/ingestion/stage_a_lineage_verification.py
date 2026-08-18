@@ -130,6 +130,19 @@ class StageAUnitizationLineage:
     ) = None
 
 
+def _relocated_read_path(
+    path: Path, relocations: Mapping[str, tuple[Path, bytes]]
+) -> Path:
+    """Return the durable file that answers for one committed path.
+
+    The frozen path remains the input's identity; only the read is redirected,
+    and only when a verified relocation established byte identity for it.
+    """
+
+    relocation = relocations.get(os.path.abspath(path))
+    return path if relocation is None else relocation[0]
+
+
 def required_stage_a_lineage_path(path: Path | None, flag: str) -> Path:
     _c = _cli()
     CommandError = _c.CommandError
@@ -145,6 +158,7 @@ def verify_stage_a_unitization_lineage_uncached(
     *,
     markdown_root: Path,
     parse_lineage: object | None = None,
+    relocations: Mapping[str, tuple[Path, bytes]] | None = None,
 ) -> StageAUnitizationLineage:
     _c = _cli()
     if parse_lineage is None:
@@ -179,8 +193,14 @@ def verify_stage_a_unitization_lineage_uncached(
     provider_journal_path = required_stage_a_lineage_path(
         inputs.provider_journal, "--provider-journal"
     )
+    # A verified relocation answers for a committed path whose ephemeral capture
+    # root is gone.  The snapshot stays keyed by the frozen path -- that is the
+    # identity this lineage re-emits and that the run card is compared against --
+    # while the bytes come from the durable file that matched its digest.
+    verified_relocations = relocations or {}
     for path in (registry_path, caps_path):
-        if path.is_symlink() or not path.is_file():
+        read_path = _relocated_read_path(path, verified_relocations)
+        if read_path.is_symlink() or not read_path.is_file():
             raise _c.CommandError(f"authenticated Stage A input is not a file: {path}")
     if provider_journal_path.exists() and (
         provider_journal_path.is_symlink() or not provider_journal_path.is_file()
@@ -190,7 +210,8 @@ def verify_stage_a_unitization_lineage_uncached(
         )
     provider_snapshots = {
         path: _c._read_singly_linked_regular_input(
-            path, label="authenticated Stage A input"
+            _relocated_read_path(path, verified_relocations),
+            label="authenticated Stage A input",
         )
         for path in (registry_path, caps_path)
     }
@@ -212,7 +233,9 @@ def verify_stage_a_unitization_lineage_uncached(
     provider_caps.cap_usd(registry_entry.provider)
     require_stage_a_parse_lineage_unchanged(parse_lineage)
     _c._require_snapshot_unchanged(
-        provider_snapshots, label="authenticated Stage A provider input"
+        provider_snapshots,
+        label="authenticated Stage A provider input",
+        relocations=verified_relocations or None,
     )
     return StageAUnitizationLineage(
         selection_records=parse_lineage.selection_records,
@@ -1492,6 +1515,80 @@ def stage_a_committed_path(commitments: Mapping[str, object], name: str) -> Path
     return Path(raw_path)
 
 
+def relocated_stage_a_committed_inputs(
+    commitments: Mapping[str, object],
+    names: Sequence[str],
+    *,
+    search_root: Path,
+) -> dict[str, tuple[Path, bytes]]:
+    """Content-address committed Stage A inputs whose capture root is gone.
+
+    A completed llm-unitize run card commits the absolute path each input
+    occupied alongside its digest, and ``verify_stage_a_unitization_run_card``
+    compares the rebuilt commitments against the frozen ones as whole records --
+    path included.  A card that pinned an ephemeral capture directory therefore
+    cannot be repaired by rewriting the path: the rebuilt commitment would no
+    longer equal the frozen one and the card would be rejected.  The committed
+    digest is the authority here and the path is only a hint, so a durable file
+    whose bytes hash to that digest is the same authenticated input wherever it
+    now lives, and the frozen path stays the identity this lineage re-emits.
+
+    Deliberately narrow, mirroring ``_derived_clearance_relocations``: it engages
+    only when the committed path does not exist, accepts only bytes matching the
+    committed digest, and requires the stand-in to sit at the identical position
+    under its own source root, so the result is a pure relocation.  When nothing
+    matches it returns nothing and the caller refuses exactly as before -- no
+    candidate is ever accepted on the strength of its location, and a candidate
+    sitting at the committed position with the wrong bytes refuses loudly rather
+    than being skipped into a false pass.
+    """
+
+    _c = _cli()
+    relocations: dict[str, tuple[Path, bytes]] = {}
+    for name in names:
+        commitment = commitments.get(name)
+        if not isinstance(commitment, Mapping):
+            continue
+        record = cast(Mapping[str, object], commitment)
+        raw_path = record.get("path")
+        expected_digest = record.get("sha256")
+        if not isinstance(raw_path, str) or not isinstance(expected_digest, str):
+            continue
+        frozen_path = Path(raw_path)
+        if os.path.lexists(frozen_path):
+            continue
+        parents = frozen_path.parents
+        if len(parents) < 2:
+            continue
+        frozen_source_root = parents[1]
+        relative = frozen_path.relative_to(frozen_source_root)
+        label = name.replace("_", " ")
+        mismatched: list[Path] = []
+        for stable_root in _c._stable_source_root_candidates(search_root):
+            stable_path = stable_root / relative
+            if stable_path.is_symlink() or not stable_path.is_file():
+                continue
+            payload = _c._read_singly_linked_regular_input(
+                stable_path, label=f"relocated {label}"
+            )
+            if _c._bytes_sha256(payload).removeprefix(
+                "sha256:"
+            ) != expected_digest.removeprefix("sha256:"):
+                # The candidate-root list is deliberately liberal, so a file that
+                # merely shares the committed relative position proves nothing.
+                mismatched.append(stable_path)
+                continue
+            relocations[os.path.abspath(frozen_path)] = (stable_path, payload)
+            break
+        else:
+            if mismatched:
+                raise _c.CommandError(
+                    f"no durable copy of the committed {label} matches the digest "
+                    f"its llm-unitize run card committed: {frozen_path}"
+                )
+    return relocations
+
+
 def capture_stage_a_committed_file(
     commitments: Mapping[str, object], name: str
 ) -> tuple[Path, bytes]:
@@ -1631,7 +1728,15 @@ def verify_stage_a_unitization_run_card(
             ),
         ),
         markdown_root=Path(cast(str, markdown_root)),
+        relocations=relocated_stage_a_committed_inputs(
+            input_records,
+            ("model_registry", "provider_cycle_caps"),
+            search_root=run_card_path,
+        )
+        or None,
     )
+    # Whole-record comparison, path included: this is exactly why a relocation
+    # redirects the read instead of rewriting the committed path.
     if dict(lineage.input_commitments) != dict(input_records):
         raise _c.CommandError("llm-unitize authenticated input commitments changed")
     if card.get("cohort_cycle_id") != lineage.cohort_cycle_id:

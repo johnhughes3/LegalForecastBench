@@ -60076,6 +60076,7 @@ def _verify_stage_a_unitization_lineage_uncached(
     *,
     markdown_root: Path,
     parse_lineage: object | None = None,
+    relocations: Mapping[str, tuple[Path, bytes]] | None = None,
 ) -> _StageAUnitizationLineage:
     if parse_lineage is not None and (
         not isinstance(parse_lineage, _VerifiedStageAParseLineage)
@@ -60086,6 +60087,7 @@ def _verify_stage_a_unitization_lineage_uncached(
         _stage_a_lineage_inputs(args),
         markdown_root=markdown_root,
         parse_lineage=parse_lineage,
+        relocations=relocations,
     )
 
 
@@ -60109,6 +60111,7 @@ def _verify_stage_a_unitization_lineage(
     *,
     markdown_root: Path,
     parse_lineage: _VerifiedStageAParseLineage | None = None,
+    relocations: Mapping[str, tuple[Path, bytes]] | None = None,
 ) -> _StageAUnitizationLineage:
     """Replay Stage A lineage while reusing identical authenticated PDF scans."""
 
@@ -60118,10 +60121,13 @@ def _verify_stage_a_unitization_lineage(
     with cache_disclosure_document_scans():
         if parse_lineage is None:
             return _verify_stage_a_unitization_lineage_uncached(
-                args, markdown_root=markdown_root
+                args, markdown_root=markdown_root, relocations=relocations
             )
         return _verify_stage_a_unitization_lineage_uncached(
-            args, markdown_root=markdown_root, parse_lineage=parse_lineage
+            args,
+            markdown_root=markdown_root,
+            parse_lineage=parse_lineage,
+            relocations=relocations,
         )
 
 
