@@ -180,7 +180,28 @@ def _paid_delivery_clearance_from_journal(
     journal: CaseDevPurchaseJournal,
     document_id: str,
 ) -> tuple[str, bool, bool] | None:
-    """Read explicit provider restriction evidence persisted by paid delivery."""
+    """Read provider restriction evidence persisted by paid delivery.
+
+    The evidence is the post-purchase provider document that the RECAP Fetch
+    client journals under ``post_delivery_restrictions``. Clearance requires
+    that the delivered document assert neither restriction -- not that it
+    explicitly denies both. CourtListener REST v4 never sends
+    ``is_private: false``; it omits the field entirely, so demanding an explicit
+    ``False`` excluded every purchased document after the money was already
+    spent (legalforecastbench-n3y7).
+
+    ``is_sealed`` must still be present. The provider serializes it on every
+    RECAP document, so a mapping without it is not a delivery record and proves
+    nothing -- which is also what keeps an empty mapping from clearing.
+
+    Both fields are read as an identity whitelist, never as an ``is True``
+    blacklist. Only an absent field, an explicit null, or an explicit ``False``
+    states that no restriction applies; a malformed truthy value (``1``,
+    ``"true"``) or any other type refuses, exactly as
+    ``restricted_material.restricted_material_markers`` treats these same two
+    fields. Refusing only the ``True`` singleton would let a type-confused
+    restriction through the last gate before a real purchase.
+    """
 
     evidence = journal.operation_evidence(document_id)
     if evidence is None:
@@ -193,11 +214,12 @@ def _paid_delivery_clearance_from_journal(
     if not isinstance(restrictions, Mapping):
         return None
     restrictions = cast(Mapping[str, object], restrictions)
-    if (
-        restrictions.get("is_private") is not False
-        or restrictions.get("is_sealed") is not False
-    ):
+    if "is_sealed" not in restrictions:
         return None
+    for field in ("is_private", "is_sealed"):
+        value = restrictions.get(field)
+        if value is not None and value is not False:
+            return None
     return ("cleared", False, False)
 
 

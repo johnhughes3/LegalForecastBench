@@ -9031,8 +9031,8 @@
         "largest_symbol": "test_replay_persisted_receipt_can_seal_and_refuses_tampered_digest",
         "largest_symbol_lines": 102,
         "layer": "test",
-        "line_count": 2337,
-        "nonblank_line_count": 2104,
+        "line_count": 2343,
+        "nonblank_line_count": 2110,
         "top_level_definition_count": 68
       },
       "tests/test_document_repair_purchase_approval.py": {
