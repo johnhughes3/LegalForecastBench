@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.ingestion.frozen_parse_quality_regime import (
+    PARSE_QUALITY_REGIME_CURRENT,
+    frozen_predecessor_parse_quality_regime,
+    resolve_parse_quality_regime,
+)
 from legalforecast.ingestion.parse_quality import (
     assess_parsed_text,
     enforce_role_thresholds_for_parser_config,
@@ -90,6 +95,10 @@ class VerifiedStageAParseLineage:
     document_tree: Mapping[str, bytes]
     markdown_bytes: Mapping[str, bytes]
     download_records: tuple[JsonRecord, ...] = ()
+    #: Which parse-quality regime authenticated these records.  Recorded so a
+    #: caller can prove which half of a replay it is holding; it is derived,
+    #: never supplied by an artifact.
+    parse_quality_regime: str = PARSE_QUALITY_REGIME_CURRENT
     verifier_seal: object | None = field(repr=False, compare=False, default=None)
 
 
@@ -137,8 +146,12 @@ def verify_stage_a_unitization_lineage_uncached(
 ) -> StageAUnitizationLineage:
     _c = _cli()
     if parse_lineage is None:
+        # Reached from a completed, paid llm-unitize run card that committed its
+        # parse inputs by digest, so this is the frozen-predecessor replay.  A
+        # lineage handed in by another caller was verified under the current
+        # gate and stays that way.
         parse_lineage = verify_stage_a_parse_lineage_uncached(
-            inputs, markdown_root=markdown_root
+            inputs, markdown_root=markdown_root, frozen_predecessor_replay=True
         )
     elif (
         not isinstance(parse_lineage, VerifiedStageAParseLineage)
@@ -233,8 +246,17 @@ def verify_stage_a_parse_lineage_uncached(
     inputs: StageALineageInputs,
     *,
     markdown_root: Path,
+    frozen_predecessor_replay: bool = False,
 ) -> VerifiedStageAParseLineage:
-    """Authenticate parser inputs before model registry or journal concerns."""
+    """Authenticate parser inputs before model registry or journal concerns.
+
+    ``frozen_predecessor_replay`` says the caller is replaying a paid run card
+    whose parse inputs are pinned by digest and therefore cannot be redirected
+    at a corrected parse stage.  Only such a caller may select a preserved
+    parse-quality regime, and even then only for a manifest digest pinned in
+    ``frozen_parse_quality_regime``.  Every other caller — the successor half of
+    a replay above all — is assessed under the current gate.
+    """
     _c = _cli()
 
     selection_path = inputs.selection
@@ -336,6 +358,15 @@ def verify_stage_a_parse_lineage_uncached(
     markdown_tree, markdown_bytes = _c._stage_a_markdown_tree_snapshot(
         parser_records, markdown_root=markdown_root
     )
+    # Derived from the bytes this function already captured and authenticated,
+    # never from anything the manifest says about itself.
+    parse_quality_regime = (
+        frozen_predecessor_parse_quality_regime(
+            _c._bytes_sha256(stage_a_file_snapshots[parser_manifest_path])
+        )
+        if frozen_predecessor_replay
+        else PARSE_QUALITY_REGIME_CURRENT
+    )
     _c._verify_stage_a_parse_lineage(
         selection_path=selection_path,
         manifest_path=manifest_path,
@@ -356,6 +387,7 @@ def verify_stage_a_parse_lineage_uncached(
             os.path.abspath(clearance_path)
         ],
         markdown_bytes=markdown_bytes,
+        parse_quality_regime=parse_quality_regime,
     )
     cohort_cycle_id = _c._materialization_cohort_cycle_id(
         materialization_card_path,
@@ -418,6 +450,7 @@ def verify_stage_a_parse_lineage_uncached(
         file_snapshots=dict(stage_a_file_snapshots),
         document_tree=dict(verified_materialization.document_tree),
         markdown_bytes=markdown_bytes,
+        parse_quality_regime=parse_quality_regime,
         verifier_seal=VERIFIED_STAGE_A_PARSE_LINEAGE_SEAL,
     )
 
@@ -533,6 +566,7 @@ def verify_stage_a_parse_lineage(
     download_records: Sequence[Mapping[str, Any]],
     clearance_bytes: bytes,
     markdown_bytes: Mapping[str, bytes],
+    parse_quality_regime: str = PARSE_QUALITY_REGIME_CURRENT,
 ) -> None:
     _c = _cli()
     parser_card = _c._projection_json_object(
@@ -598,6 +632,7 @@ def verify_stage_a_parse_lineage(
         parser_output_root=parser_manifest_path.parent,
         markdown_root=markdown_root,
         markdown_bytes=markdown_bytes,
+        parse_quality_regime=parse_quality_regime,
     )
 
 
@@ -610,8 +645,12 @@ def verify_stage_a_parse_records(
     parser_output_root: Path,
     markdown_root: Path,
     markdown_bytes: Mapping[str, bytes],
+    parse_quality_regime: str = PARSE_QUALITY_REGIME_CURRENT,
 ) -> None:
     _c = _cli()
+    # Resolved before any record is read so an unpinned regime name refuses the
+    # whole replay rather than silently skipping the gate on an empty cohort.
+    regime = resolve_parse_quality_regime(parse_quality_regime)
 
     def keyed(
         records: Sequence[Mapping[str, Any]], *, label: str
@@ -696,6 +735,10 @@ def verify_stage_a_parse_records(
             raise _c.CommandError(
                 f"parser Markdown is not UTF-8: {key[0]}/{key[1]}"
             ) from exc
+        if not regime.enforces_parse_quality:
+            # Evidence produced before the gate existed replays under the regime
+            # that produced it.  Every byte-identity check above already ran.
+            continue
         assessment = assess_parsed_text(
             markdown_text,
             role,

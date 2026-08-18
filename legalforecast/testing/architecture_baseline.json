@@ -2,13 +2,13 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 27009,
-    "line_count": 73224,
-    "nonblank_line_count": 70464,
+    "line_count": 73229,
+    "nonblank_line_count": 70469,
     "parser_line_count": 1773,
     "top_level_class_count": 19,
     "top_level_definition_count": 1008,
     "verifier_family_count": 163,
-    "verifier_family_lines": 12088
+    "verifier_family_lines": 12090
   },
   "compatibility": {
     "cli_import_files": [
@@ -63,6 +63,7 @@
       "tests/test_firecrawl_recap_decision_discovery_cli.py",
       "tests/test_firecrawl_recap_discovery_cli.py",
       "tests/test_frozen_batch_firecrawl_observation.py",
+      "tests/test_frozen_parse_quality_regime.py",
       "tests/test_funnel_report_cli.py",
       "tests/test_init_cycle_cli.py",
       "tests/test_live_parse_plan_role_gate.py",
@@ -190,6 +191,7 @@
       "tests/test_firecrawl_recap_discovery_cli.py",
       "tests/test_firecrawl_recap_discovery_cli.py",
       "tests/test_frozen_batch_firecrawl_observation.py",
+      "tests/test_frozen_parse_quality_regime.py",
       "tests/test_funnel_report_cli.py",
       "tests/test_init_cycle_cli.py",
       "tests/test_init_cycle_cli.py",
@@ -2555,6 +2557,7 @@
       "tests/test_firecrawl_recap_decision_discovery_cli.py",
       "tests/test_firecrawl_recap_discovery_cli.py",
       "tests/test_frozen_batch_firecrawl_observation.py",
+      "tests/test_frozen_parse_quality_regime.py",
       "tests/test_funnel_report_cli.py",
       "tests/test_init_cycle_cli.py",
       "tests/test_live_parse_plan_role_gate.py",
@@ -2999,6 +3002,7 @@
       "tests/test_firecrawl_recap_decision_discovery_cli.py::legalforecast.cli.main",
       "tests/test_firecrawl_recap_discovery_cli.py::legalforecast.cli.main",
       "tests/test_frozen_batch_firecrawl_observation.py::legalforecast.cli.main",
+      "tests/test_frozen_parse_quality_regime.py::legalforecast.cli.CommandError",
       "tests/test_funnel_report_cli.py::legalforecast.cli.main",
       "tests/test_init_cycle_cli.py::legalforecast.cli.main",
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.CommandError",
@@ -3866,7 +3870,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-cwdv",
         "fan_in": 10,
-        "fan_out": 175,
+        "fan_out": 176,
         "flags": [
           "relative-path",
           "cycle",
@@ -3876,8 +3880,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1773,
         "layer": "entrypoint",
-        "line_count": 73224,
-        "nonblank_line_count": 70464,
+        "line_count": 73229,
+        "nonblank_line_count": 70469,
         "top_level_definition_count": 1008
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -6136,7 +6140,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-l8qv.15",
         "fan_in": 3,
-        "fan_out": 9,
+        "fan_out": 10,
         "flags": [
           "cycle",
           "reverse-edge",
@@ -6146,8 +6150,8 @@
         "largest_symbol": "verify_stage_a_review_run_card",
         "largest_symbol_lines": 554,
         "layer": "application",
-        "line_count": 2788,
-        "nonblank_line_count": 2697,
+        "line_count": 2831,
+        "nonblank_line_count": 2739,
         "top_level_definition_count": 28
       },
       "legalforecast/ingestion/stage_a_replay_executor/provider.py": {

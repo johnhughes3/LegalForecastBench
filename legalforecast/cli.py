@@ -613,6 +613,9 @@ from legalforecast.ingestion.frozen_batch_firecrawl_observation import (
     plan_frozen_firecrawl_observation,
     run_frozen_firecrawl_observation,
 )
+from legalforecast.ingestion.frozen_parse_quality_regime import (
+    PARSE_QUALITY_REGIME_CURRENT as _PARSE_QUALITY_REGIME_CURRENT,
+)
 from legalforecast.ingestion.funnel_report import (
     FunnelReportError,
     build_acquisition_funnel_report,
@@ -60220,6 +60223,7 @@ def _verify_stage_a_parse_lineage(
     download_records: Sequence[Mapping[str, Any]],
     clearance_bytes: bytes,
     markdown_bytes: Mapping[str, bytes],
+    parse_quality_regime: str = _PARSE_QUALITY_REGIME_CURRENT,
 ) -> None:
     return _stage_a_lineage.verify_stage_a_parse_lineage(
         selection_path=selection_path,
@@ -60239,6 +60243,7 @@ def _verify_stage_a_parse_lineage(
         download_records=download_records,
         clearance_bytes=clearance_bytes,
         markdown_bytes=markdown_bytes,
+        parse_quality_regime=parse_quality_regime,
     )
 
 
