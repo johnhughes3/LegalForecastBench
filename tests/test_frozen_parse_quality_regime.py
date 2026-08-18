@@ -26,6 +26,7 @@ from legalforecast.ingestion.frozen_parse_quality_regime import (
     ParseQualityRegimeError,
     frozen_predecessor_parse_quality_regime,
     parse_quality_regime_names,
+    replay_parse_quality_regime,
     resolve_parse_quality_regime,
 )
 from legalforecast.ingestion.stage_a_lineage_verification import (
@@ -74,6 +75,45 @@ def test_an_unlisted_manifest_selects_the_current_gate() -> None:
     assert (
         frozen_predecessor_parse_quality_regime(f"sha256:{_PINNED_MANIFEST_SHA256}")
         == PARSE_QUALITY_REGIME_PRE_764
+    )
+
+
+@pytest.mark.parametrize(
+    ("digest", "flagged", "expected"),
+    [
+        pytest.param(
+            _PINNED_MANIFEST_SHA256,
+            True,
+            PARSE_QUALITY_REGIME_PRE_764,
+            id="pinned-and-frozen-caller",
+        ),
+        pytest.param(
+            _PINNED_MANIFEST_SHA256,
+            False,
+            PARSE_QUALITY_REGIME_CURRENT,
+            id="pinned-but-ordinary-caller",
+        ),
+        pytest.param(
+            "f" * 64, True, PARSE_QUALITY_REGIME_CURRENT, id="frozen-caller-unpinned"
+        ),
+        pytest.param("f" * 64, False, PARSE_QUALITY_REGIME_CURRENT, id="neither"),
+    ],
+)
+def test_both_conditions_are_required(
+    digest: str, flagged: bool, expected: str
+) -> None:
+    """The whole truth table, because neither condition alone may suffice.
+
+    The third row matters most in practice: the flag reaches shared code that
+    also replays ancestors while authenticating the *successor* half, so an
+    unpinned manifest has to stay strict even on a flagged path.
+    """
+
+    assert (
+        replay_parse_quality_regime(
+            parser_manifest_sha256=digest, frozen_predecessor_replay=flagged
+        )
+        == expected
     )
 
 

@@ -108,6 +108,21 @@ def frozen_predecessor_parse_quality_regime(parser_manifest_sha256: str) -> str:
     )
 
 
+def replay_parse_quality_regime(
+    *, parser_manifest_sha256: str, frozen_predecessor_replay: bool
+) -> str:
+    """Apply both selection conditions in one place.
+
+    Keeping the conjunction here rather than inline at the call site gives the
+    rule — *a preserved regime needs a frozen-predecessor caller* **and** *a
+    pinned digest* — exactly one implementation and one truth table to test.
+    """
+
+    if not frozen_predecessor_replay:
+        return PARSE_QUALITY_REGIME_CURRENT
+    return frozen_predecessor_parse_quality_regime(parser_manifest_sha256)
+
+
 def resolve_parse_quality_regime(name: str) -> ParseQualityRegime:
     """Return one named regime, or fail closed on an unrecognized name."""
 
@@ -131,5 +146,6 @@ __all__ = [
     "ParseQualityRegimeError",
     "frozen_predecessor_parse_quality_regime",
     "parse_quality_regime_names",
+    "replay_parse_quality_regime",
     "resolve_parse_quality_regime",
 ]

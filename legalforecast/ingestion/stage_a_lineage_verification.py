@@ -16,7 +16,7 @@ from typing import Any, cast
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.ingestion.frozen_parse_quality_regime import (
     PARSE_QUALITY_REGIME_CURRENT,
-    frozen_predecessor_parse_quality_regime,
+    replay_parse_quality_regime,
     resolve_parse_quality_regime,
 )
 from legalforecast.ingestion.parse_quality import (
@@ -360,12 +360,11 @@ def verify_stage_a_parse_lineage_uncached(
     )
     # Derived from the bytes this function already captured and authenticated,
     # never from anything the manifest says about itself.
-    parse_quality_regime = (
-        frozen_predecessor_parse_quality_regime(
-            _c._bytes_sha256(stage_a_file_snapshots[parser_manifest_path])
-        )
-        if frozen_predecessor_replay
-        else PARSE_QUALITY_REGIME_CURRENT
+    parse_quality_regime = replay_parse_quality_regime(
+        parser_manifest_sha256=_c._bytes_sha256(
+            stage_a_file_snapshots[parser_manifest_path]
+        ),
+        frozen_predecessor_replay=frozen_predecessor_replay,
     )
     _c._verify_stage_a_parse_lineage(
         selection_path=selection_path,
