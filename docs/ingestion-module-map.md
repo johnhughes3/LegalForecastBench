@@ -126,6 +126,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`document_repair_errors.py`](../legalforecast/ingestion/document_repair_errors.py) | Shared fail-closed document-repair execution error. |
 | [`exact100_convergence_invariants.py`](../legalforecast/ingestion/exact100_convergence_invariants.py) | The nine final exact-100 corpus convergence invariants, each failure naming the case and document that blocks it. |
 | [`exact100_convergence_invariants_cli.py`](../legalforecast/ingestion/exact100_convergence_invariants_cli.py) | Standalone `legalforecast-exact100-convergence` entry point for the convergence gate. |
+| [`exact100_convergence_model.py`](../legalforecast/ingestion/exact100_convergence_model.py) | Failure, result, disposition, and input types the convergence invariants speak. |
 | [`exact100_reserve_extension.py`](../legalforecast/ingestion/exact100_reserve_extension.py) | Provider-free reserve extension for an authenticated exact-100 successor. |
 | [`exact100_successor_replacement.py`](../legalforecast/ingestion/exact100_successor_replacement.py) | Provider-free exact-100 successor projection from replay-verified terminal exclusions and frozen-rank promotions. |
 | [`exact100_successor_replacement_cli.py`](../legalforecast/ingestion/exact100_successor_replacement_cli.py) | Closed exact-100 successor command and materializer replay adapter. |
