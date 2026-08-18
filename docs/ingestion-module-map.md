@@ -31,6 +31,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 
 | Module | Responsibility |
 | --- | --- |
+| [`adjudication_validation_view.py`](../legalforecast/ingestion/adjudication_validation_view.py) | One canonical current byte-role validation verdict across both record spellings, with stale-mismatch supersession. |
 | [`corpus_readiness.py`](../legalforecast/ingestion/corpus_readiness.py) | Clean-corpus readiness checks. |
 | [`corpus_completion_summary.py`](../legalforecast/ingestion/corpus_completion_summary.py) | Provider-free terminal funnel, spend, case-mix, and adjudication audit. |
 | [`cycle_acquisition_assembler.py`](../legalforecast/ingestion/cycle_acquisition_assembler.py) | Content-addressed immutable batch assembly. |
@@ -123,6 +124,8 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`cohort_policy.py`](../legalforecast/ingestion/cohort_policy.py) | Immutable precommitments and append-only observations. |
 | [`document_repair_clearance.py`](../legalforecast/ingestion/document_repair_clearance.py) | Fail-closed public-clearance resolution for free and paid repair results. |
 | [`document_repair_errors.py`](../legalforecast/ingestion/document_repair_errors.py) | Shared fail-closed document-repair execution error. |
+| [`exact100_convergence_invariants.py`](../legalforecast/ingestion/exact100_convergence_invariants.py) | The nine final exact-100 corpus convergence invariants, each failure naming the case and document that blocks it. |
+| [`exact100_convergence_invariants_cli.py`](../legalforecast/ingestion/exact100_convergence_invariants_cli.py) | Standalone `legalforecast-exact100-convergence` entry point for the convergence gate. |
 | [`exact100_reserve_extension.py`](../legalforecast/ingestion/exact100_reserve_extension.py) | Provider-free reserve extension for an authenticated exact-100 successor. |
 | [`exact100_successor_replacement.py`](../legalforecast/ingestion/exact100_successor_replacement.py) | Provider-free exact-100 successor projection from replay-verified terminal exclusions and frozen-rank promotions. |
 | [`exact100_successor_replacement_cli.py`](../legalforecast/ingestion/exact100_successor_replacement_cli.py) | Closed exact-100 successor command and materializer replay adapter. |
