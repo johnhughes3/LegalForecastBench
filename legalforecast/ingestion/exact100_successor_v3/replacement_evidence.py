@@ -77,9 +77,11 @@ _RECEIPT_ROLE_TO_DOCUMENT_ROLE: Mapping[str, str] = MappingProxyType(
         "decision_audit_only": DocumentRole.DECISION.value,
     }
 )
-# Which validation regime cleared a document.  The paid tranche carries a
-# quote-verified byte-role verdict; the free tranches carry strict PDF parsing
-# plus recorded role findings and a visual render check.
+# Only one regime can clear a document's role: a per-document, quote-verified
+# byte-role verdict.  The free tranches' role findings are keyed by finding
+# topic and cite several documents per topic -- a disposition is quoted under
+# the pleading finding -- so they can never establish a single document's own
+# role, and _require_byte_role_validation refuses them as "unverified".
 _VALIDATION_CLASSES = frozenset(
     {
         "document_repair_byte_role_verdict",
@@ -527,10 +529,9 @@ def _require_byte_role_validation(
         raise OwnerAdjudicatedReplacementError(
             f"replacement document is encrypted: {source_document_id}"
         )
-    # The repair tranches validated paid and free documents under different
-    # regimes.  Both are accepted, but which one applied is recorded per
-    # document rather than flattened away, so a reader of the promotion can see
-    # exactly what was checked.
+    # Only the byte-role verdict regime clears a role.  The regime is still
+    # recorded per document rather than flattened away, so a reader of the
+    # promotion can see exactly what was checked rather than inferring it.
     validated_role = record.get("requested_role")
     if not isinstance(validated_role, str) or _mapped_role(validated_role) != (
         _mapped_role(receipt_role)

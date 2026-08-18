@@ -131,7 +131,12 @@ _CARRIED_SUPPLEMENTAL_ROOT = "supplemental-free-source"
 # by cost.  The cap exists for a different reason: two roots naming each other in
 # input_roots would recurse until the interpreter's own limit and surface a
 # traceback instead of a refusal.
-_MAX_PREDECESSOR_CHAIN_DEPTH = 8
+#
+# The value is therefore derived from stack safety, NOT from how many swaps are
+# expected.  This lane exists so later swaps chain without a v4, and there is no
+# re-anchoring step, so the legitimate chain grows for the life of the project.
+# A cap sized to today's chain would eventually refuse honest work.
+_MAX_PREDECESSOR_CHAIN_DEPTH = 256
 
 _OUTPUT_NAMES = {
     "selection": "target-cohort-selection.jsonl",
