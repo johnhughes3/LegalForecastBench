@@ -3779,7 +3779,7 @@
       "legalforecast/ingestion": 165,
       "legalforecast/ingestion/attachment_page": 7,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
-      "legalforecast/ingestion/exact100_successor_v3": 2,
+      "legalforecast/ingestion/exact100_successor_v3": 5,
       "legalforecast/ingestion/frozen_parser_model": 2,
       "legalforecast/ingestion/stage_a_replay_executor": 17,
       "legalforecast/labeling": 13,
@@ -3793,7 +3793,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 452,
+      "tests": 453,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -5234,6 +5234,23 @@
         "nonblank_line_count": 514,
         "top_level_definition_count": 20
       },
+      "legalforecast/ingestion/exact100_successor_v3/cli.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "ingestion",
+        "fan_in": 0,
+        "fan_out": 7,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "ingestion",
+        "largest_symbol": "run_project",
+        "largest_symbol_lines": 115,
+        "layer": "application",
+        "line_count": 817,
+        "nonblank_line_count": 733,
+        "top_level_definition_count": 26
+      },
       "legalforecast/ingestion/exact100_successor_v3/projector.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -5267,6 +5284,23 @@
         "line_count": 673,
         "nonblank_line_count": 601,
         "top_level_definition_count": 22
+      },
+      "legalforecast/ingestion/exact100_successor_v3/replacement_evidence_cli.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "ingestion",
+        "fan_in": 1,
+        "fan_out": 3,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "ingestion",
+        "largest_symbol": "_mint",
+        "largest_symbol_lines": 99,
+        "layer": "adapter",
+        "line_count": 660,
+        "nonblank_line_count": 592,
+        "top_level_definition_count": 24
       },
       "legalforecast/ingestion/exact100_successor_wider_rank.py": {
         "cycle_id": "",
@@ -9247,6 +9281,23 @@
         "line_count": 532,
         "nonblank_line_count": 477,
         "top_level_definition_count": 19
+      },
+      "tests/test_exact100_successor_v3.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "_issue_evidence_root",
+        "largest_symbol_lines": 89,
+        "layer": "test",
+        "line_count": 922,
+        "nonblank_line_count": 766,
+        "top_level_definition_count": 48
       },
       "tests/test_exact310_rest_rebind.py": {
         "cycle_id": "",
