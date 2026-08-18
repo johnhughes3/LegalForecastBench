@@ -8,6 +8,7 @@ from pathlib import Path
 
 import legalforecast.multiharness.harvey_lab_production_runner as production_runner
 import pytest
+from legalforecast.multiharness.deliverables import single_artifact_tree_sha256
 from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
@@ -26,6 +27,7 @@ from legalforecast.multiharness.spend import (
     PricingSnapshot,
     UsageObservation,
 )
+from tests.test_tier0_operator_half import DELIVERABLE_BASENAME, _docx_bytes
 
 
 class _Boundary(HarveyLabJudgeRequestBoundary):
@@ -84,6 +86,12 @@ def _run_spec(tmp_path: Path) -> tuple[RunSpec, Path]:
     scores_path = tmp_path / "overlay" / "raw" / "scores.json"
     private_path = tmp_path / "overlay" / "private" / "task.json"
     private_path.parent.mkdir(parents=True)
+    # The runner authenticates the candidate deliverable before any provider
+    # call, so a spec without one is refused rather than graded.
+    deliverable_payload = _docx_bytes("Candidate memo body.")
+    deliverable_path = tmp_path / "overlay" / "output" / DELIVERABLE_BASENAME
+    deliverable_path.parent.mkdir(parents=True)
+    deliverable_path.write_bytes(deliverable_payload)
     private_path.write_text(
         json.dumps(
             {
@@ -108,6 +116,11 @@ def _run_spec(tmp_path: Path) -> tuple[RunSpec, Path]:
                 "private_task_json_path": str(private_path),
                 "private_material_sha256": harvey_lab_private_material_sha256(
                     private_path.parent
+                ),
+                "deliverable_path": str(deliverable_path),
+                "expected_deliverable_basename": DELIVERABLE_BASENAME,
+                "deliverable_tree_sha256": single_artifact_tree_sha256(
+                    DELIVERABLE_BASENAME, deliverable_payload
                 ),
             },
             separators=(",", ":"),
