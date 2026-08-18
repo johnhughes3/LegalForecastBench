@@ -494,49 +494,35 @@ def _validation_index(payloads: Sequence[bytes]) -> dict[str, JsonMapping]:
             raise OwnerAdjudicatedReplacementCliError(
                 "free-tranche validation does not clear every document"
             )
-        recorded_findings = cast(Mapping[str, object], findings)
         for row in _sequence(strict_record.get("documents"), "validation documents"):
             digest = _required_str(row, "sha256")
             source_document_id = _required_str(row, "source_document_id")
-            # A synthesized "match" is only honest if the tranche actually
-            # recorded a role finding for this document.  Without this the mere
-            # presence of a role_findings key would promote every strictly
-            # parseable PDF to a verified role.
-            if not _mentions_document(recorded_findings, source_document_id):
-                raise OwnerAdjudicatedReplacementCliError(
-                    "free-tranche validation records no role finding for "
-                    f"{source_document_id}"
-                )
+            # This tranche proves the bytes parse and render; it does NOT prove
+            # what role they carry.  Its role_findings are keyed by finding topic
+            # ("operative_pleading", "contested_motion"), and each topic's
+            # evidence cites SEVERAL documents -- the target motion and the
+            # disposition both appear as corroborating quotes under the pleading
+            # finding.  So a document's appearance there says nothing about that
+            # document's own role, and synthesising "match" from it would let a
+            # mislabelled disposition become model-visible.  The role verdict is
+            # therefore left unverified and a per-document byte-role validation
+            # must supply it.
             index[source_document_id] = {
                 "encrypted": False,
                 "pdf_byte_count": row.get("byte_count"),
                 "pdf_sha256": digest,
                 "requested_role": row.get("role"),
-                "role_verdict": "match",
+                "role_verdict": "unverified",
                 "source_document_id": source_document_id,
                 "strict_parse": "pass",
                 "structural_defects": [],
-                "validation_class": "free_tranche_strict_pdf_and_role_findings",
+                "validation_class": "free_tranche_strict_pdf_only",
             }
     if not index:
         raise OwnerAdjudicatedReplacementCliError(
             "validation artifacts carry no document records"
         )
     return index
-
-
-def _mentions_document(findings: Mapping[str, object], source_document_id: str) -> bool:
-    """Say whether the tranche's role findings actually cover this document.
-
-    The shapes differ across tranches: some key findings by candidate with a
-    nested evidence list naming ``document_id``, others key them directly by
-    document.  Rather than guess, look for the identifier anywhere in the
-    recorded findings.
-    """
-
-    if source_document_id in findings:
-        return True
-    return source_document_id in json.dumps(findings, sort_keys=True, default=str)
 
 
 def _docket_entries(
@@ -561,20 +547,93 @@ def _docket_entries(
 def _owner_disposition(
     payload: bytes, *, path: Path, candidate_id: str, replaces_candidate_id: str
 ) -> JsonMapping:
-    """Select the one recorded owner swap record naming this exact pair."""
+    """Select the one recorded owner decision naming this exact swap.
 
-    document = _object(payload, path)
-    matches = [
-        dict(row)
-        for row in _sequence(document.get("swaps"), "owner disposition swaps")
-        if row.get("excluded_candidate_id") == replaces_candidate_id
-        and row.get("replacement_candidate_id") == candidate_id
-    ]
+    Two shapes are accepted, and the first is the one that matters: the owner
+    disposition overlay this project already produces, a JSONL of records keyed
+    by the EXCLUDED candidate with the replacement named under ``exclusion``.
+    Requiring a bespoke shape instead would have meant no supported artifact
+    could satisfy the mint at all -- enforcement without issuance, which is the
+    failure this lane exists to avoid repeating.
+
+    The second is a transcription object carrying a ``swaps`` array, for a
+    sign-off that was recorded somewhere other than the sitting overlay.
+    """
+
+    try:
+        document = _object(payload, path)
+    except OwnerAdjudicatedReplacementCliError:
+        document = None
+    if document is not None and "swaps" in document:
+        matches = [
+            dict(row)
+            for row in _sequence(document.get("swaps"), "owner disposition swaps")
+            if row.get("excluded_candidate_id") == replaces_candidate_id
+            and row.get("replacement_candidate_id") == candidate_id
+        ]
+        if len(matches) != 1:
+            raise OwnerAdjudicatedReplacementCliError(
+                "owner disposition does not record exactly one matching swap"
+            )
+        return matches[0]
+    return _owner_disposition_from_overlay(
+        payload,
+        path=path,
+        candidate_id=candidate_id,
+        replaces_candidate_id=replaces_candidate_id,
+    )
+
+
+def _owner_disposition_from_overlay(
+    payload: bytes, *, path: Path, candidate_id: str, replaces_candidate_id: str
+) -> JsonMapping:
+    """Read the sitting's own disposition overlay for this excluded slot."""
+
+    rows: list[JsonMapping] = []
+    for line in payload.splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise OwnerAdjudicatedReplacementCliError(
+                f"{path} is neither a swap transcription nor a disposition overlay"
+            ) from exc
+        if isinstance(record, dict):
+            rows.append(cast(JsonMapping, record))
+    matches = [row for row in rows if row.get("candidate_id") == replaces_candidate_id]
     if len(matches) != 1:
         raise OwnerAdjudicatedReplacementCliError(
-            "owner disposition does not record exactly one matching swap"
+            "owner disposition overlay does not record exactly one row for "
+            f"{replaces_candidate_id}"
         )
-    return matches[0]
+    row = matches[0]
+    if row.get("decision") != "exclude_and_promote_replacement":
+        raise OwnerAdjudicatedReplacementCliError(
+            "owner disposition does not exclude and promote for "
+            f"{replaces_candidate_id}"
+        )
+    exclusion = _mapping(row.get("exclusion"), "owner disposition exclusion")
+    # A proposed successor is not an approved one.  The overlay distinguishes
+    # them, and so must this: a row naming a proposal with
+    # replacement_approved_by_owner false is exactly the state the fourth swap
+    # is in, and it must refuse rather than execute.
+    if exclusion.get("replacement_approved_by_owner") is not True:
+        raise OwnerAdjudicatedReplacementCliError(
+            f"owner has not approved a replacement for {replaces_candidate_id}"
+        )
+    if exclusion.get("replacement_candidate_id") != candidate_id:
+        raise OwnerAdjudicatedReplacementCliError(
+            "owner disposition names a different replacement candidate"
+        )
+    return {
+        "excluded_candidate_id": replaces_candidate_id,
+        "replacement_candidate_id": candidate_id,
+        "owner_verbatim": _required_str(row, "decision_text"),
+        "signoff_source": _required_str(row, "decision_source"),
+        "signoff_source_sha256": row.get("decision_source_sha256"),
+        "owner_stated_ground": exclusion.get("reason"),
+    }
 
 
 def _require_closed_root(

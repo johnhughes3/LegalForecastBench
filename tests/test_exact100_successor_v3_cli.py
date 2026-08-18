@@ -90,10 +90,13 @@ def test_the_console_script_reports_a_refusal_instead_of_raising(
     assert "missing regular evidence file" in capsys.readouterr().err
 
 
-def test_the_free_tranche_validation_shape_is_accepted_and_labelled(
-    tmp_path: Path,
-) -> None:
-    """Free documents were cleared under a different regime; both are admitted."""
+def test_the_free_tranche_shape_never_synthesises_a_role_verdict() -> None:
+    """Strict-PDF validation proves the bytes parse, not what role they carry.
+
+    role_findings is keyed by finding topic, and each topic cites several
+    documents as corroborating quotes, so a document appearing there says
+    nothing about its own role.
+    """
 
     from legalforecast.ingestion.exact100_successor_v3.replacement_evidence_cli import (
         _validation_index,  # pyright: ignore[reportPrivateUsage]
@@ -114,16 +117,14 @@ def test_the_free_tranche_validation_shape_is_accepted_and_labelled(
                 ],
             },
             "visual_validation": {"result": "pass"},
-            "role_findings": {"d1": "synthetic"},
+            "role_findings": {"operative_pleading": {"verdict": "synthetic"}},
         }
     ).encode()
 
     index = _validation_index((payload,))
 
-    assert index["d1"]["validation_class"] == (
-        "free_tranche_strict_pdf_and_role_findings"
-    )
-    assert index["d1"]["role_verdict"] == "match"
+    assert index["d1"]["validation_class"] == "free_tranche_strict_pdf_only"
+    assert index["d1"]["role_verdict"] == "unverified"
 
 
 def test_a_free_tranche_validation_that_did_not_clear_refuses() -> None:
@@ -422,32 +423,26 @@ def test_projection_is_byte_stable_across_runs(
         assert (first / name).read_bytes() == (second / name).read_bytes()
 
 
-def test_a_free_tranche_validation_without_a_finding_for_the_document_refuses() -> None:
-    from legalforecast.ingestion.exact100_successor_v3.replacement_evidence_cli import (
-        _validation_index,  # pyright: ignore[reportPrivateUsage]
+def test_a_document_with_only_strict_pdf_validation_refuses_at_the_mint() -> None:
+    """The fail-closed half: an unverified role can never reach the packet."""
+
+    from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
+        OwnerAdjudicatedReplacementError,
+        mint_verified_owner_adjudicated_replacement,
+    )
+    from tests.exact100_successor_v3_fixtures import _replacement_inputs
+
+    inputs = _replacement_inputs("new1", "case000")
+    key = next(iter(inputs["byte_role_validation_by_id"]))
+    inputs["byte_role_validation_by_id"][key]["role_verdict"] = "unverified"
+    inputs["byte_role_validation_by_id"][key]["validation_class"] = (
+        "free_tranche_strict_pdf_only"
     )
 
-    payload = json.dumps(
-        {
-            "strict_pdf_validation": {
-                "all_pages_parsed": True,
-                "all_documents_unencrypted": True,
-                "documents": [
-                    {
-                        "source_document_id": "d1",
-                        "role": "operative_pleading",
-                        "sha256": "a" * 64,
-                        "byte_count": 10,
-                    }
-                ],
-            },
-            "visual_validation": {"result": "pass"},
-            "role_findings": {"some-other-document": "synthetic"},
-        }
-    ).encode()
-
-    with pytest.raises(OwnerAdjudicatedReplacementCliError, match="no role finding"):
-        _validation_index((payload,))
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError, match="no per-document byte-role verdict"
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
 
 
 def test_the_sealed_anchor_matches_the_real_cohort_head_when_it_is_available() -> None:
@@ -482,3 +477,159 @@ def test_the_sealed_anchor_matches_the_real_cohort_head_when_it_is_available() -
             hashlib.sha256((Path(configured) / relative).read_bytes()).hexdigest()
             == expected
         ), relative
+
+
+# --------------------------------------------------------------------------
+# Owner-disposition shapes and the controls that guard them
+# --------------------------------------------------------------------------
+
+
+def _overlay_row(**overrides: object) -> bytes:
+    """One record in the shape the owner disposition overlay actually uses."""
+
+    row = {
+        "candidate_id": "case000",
+        "decision": "exclude_and_promote_replacement",
+        "decision_source": "owner-dispositions-synthetic.md",
+        "decision_source_sha256": "d" * 64,
+        "decision_text": "EXCLUDE AND PROMOTE REPLACEMENT. Synthetic owner text.",
+        "exclusion": {
+            "replacement_candidate_id": "new1",
+            "replacement_approved_by_owner": True,
+            "reason": "synthetic recorded ground",
+        },
+    }
+    row.update(overrides)
+    return (json.dumps(row) + "\n").encode()
+
+
+def _disposition(payload: bytes, path: Path) -> object:
+    from legalforecast.ingestion.exact100_successor_v3.replacement_evidence_cli import (
+        _owner_disposition,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    return _owner_disposition(
+        payload, path=path, candidate_id="new1", replaces_candidate_id="case000"
+    )
+
+
+def test_the_real_disposition_overlay_shape_is_accepted(tmp_path: Path) -> None:
+    """The sitting's own overlay must satisfy the mint, or nothing can.
+
+    Requiring a bespoke artifact instead would be enforcement without issuance,
+    which is the failure this lane exists to stop repeating.
+    """
+
+    record = _disposition(_overlay_row(), tmp_path / "dispositions.jsonl")
+
+    assert record == {  # pyright: ignore[reportUnknownMemberType]
+        "excluded_candidate_id": "case000",
+        "replacement_candidate_id": "new1",
+        "owner_verbatim": "EXCLUDE AND PROMOTE REPLACEMENT. Synthetic owner text.",
+        "signoff_source": "owner-dispositions-synthetic.md",
+        "signoff_source_sha256": "d" * 64,
+        "owner_stated_ground": "synthetic recorded ground",
+    }
+
+
+def test_a_proposed_but_unapproved_replacement_refuses(tmp_path: Path) -> None:
+    """The fourth swap's real state: a proposal is not an approval."""
+
+    payload = _overlay_row(
+        exclusion={
+            "replacement_candidate_id": None,
+            "proposed_replacement_candidate_id": "new1",
+            "replacement_approved_by_owner": False,
+        }
+    )
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementCliError, match="has not approved a replacement"
+    ):
+        _disposition(payload, tmp_path / "dispositions.jsonl")
+
+
+def test_an_overlay_naming_a_different_replacement_refuses(tmp_path: Path) -> None:
+    payload = _overlay_row(
+        exclusion={
+            "replacement_candidate_id": "someone-else",
+            "replacement_approved_by_owner": True,
+        }
+    )
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementCliError, match="different replacement candidate"
+    ):
+        _disposition(payload, tmp_path / "dispositions.jsonl")
+
+
+def test_an_overlay_that_does_not_exclude_refuses(tmp_path: Path) -> None:
+    payload = _overlay_row(decision="accept_existing_audit_repair")
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementCliError, match="does not exclude and promote"
+    ):
+        _disposition(payload, tmp_path / "dispositions.jsonl")
+
+
+def test_an_owner_judgment_exclusion_without_a_signoff_source_refuses(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path / "exclusion.json",
+        json.dumps(
+            {
+                "candidate_id": "case000",
+                "source_document_id": "case000-doc-2",
+                "ground": "owner_adjudicated_rule_41_a_2_voluntary_dismissal",
+                "owner_disposition": {
+                    "artifact_sha256": "sha256:" + "c" * 64,
+                    "owner_verbatim": "synthetic recorded owner text",
+                },
+            }
+        ).encode(),
+    )
+
+    with pytest.raises(
+        v3_cli.Exact100SuccessorReplacementV3CliError, match="signoff_source"
+    ):
+        v3_cli._owner_judgment_exclusion(path)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_an_owner_judgment_exclusion_without_recorded_owner_text_refuses(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path / "exclusion.json",
+        json.dumps(
+            {
+                "candidate_id": "case000",
+                "source_document_id": "case000-doc-2",
+                "ground": "owner_adjudicated_rule_41_a_2_voluntary_dismissal",
+                "owner_disposition": {
+                    "artifact_sha256": "sha256:" + "c" * 64,
+                    "signoff_source": "synthetic fixture",
+                },
+            }
+        ).encode(),
+    )
+
+    with pytest.raises(
+        v3_cli.Exact100SuccessorReplacementV3CliError, match="owner_verbatim"
+    ):
+        v3_cli._owner_judgment_exclusion(path)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_a_predecessor_chain_longer_than_the_cap_refuses(tmp_path: Path) -> None:
+    """A cycle in input_roots must refuse, not exhaust the interpreter stack."""
+
+    with pytest.raises(
+        v3_cli.Exact100SuccessorReplacementV3CliError, match="longer than the supported"
+    ):
+        v3_cli._project(  # pyright: ignore[reportPrivateUsage]
+            predecessor_root=tmp_path,
+            stipulated_roots=(),
+            owner_exclusions=(),
+            replacement_roots=(),
+            depth=v3_cli._MAX_PREDECESSOR_CHAIN_DEPTH + 1,  # pyright: ignore[reportPrivateUsage]
+        )

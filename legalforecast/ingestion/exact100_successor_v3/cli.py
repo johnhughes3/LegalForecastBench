@@ -126,6 +126,12 @@ _ANCHOR_INPUT_SHA256: Mapping[str, str] = {
     ),
 }
 _CARRIED_SUPPLEMENTAL_ROOT = "supplemental-free-source"
+# Chain verification is linear -- run_project replays twice at the top, and each
+# hop replays its predecessor once -- so depth is bounded by the real chain, not
+# by cost.  The cap exists for a different reason: two roots naming each other in
+# input_roots would recurse until the interpreter's own limit and surface a
+# traceback instead of a refusal.
+_MAX_PREDECESSOR_CHAIN_DEPTH = 8
 
 _OUTPUT_NAMES = {
     "selection": "target-cohort-selection.jsonl",
@@ -329,8 +335,13 @@ def _project(
     stipulated_roots: Sequence[Path],
     owner_exclusions: Sequence[Path],
     replacement_roots: Sequence[Path],
+    depth: int = 0,
 ) -> tuple[Exact100SuccessorReplacementV3, dict[str, bytes], str]:
-    base, anchor, carried = _verified_predecessor(predecessor_root)
+    if depth > _MAX_PREDECESSOR_CHAIN_DEPTH:
+        raise Exact100SuccessorReplacementV3CliError(
+            "v3 predecessor chain is longer than the supported depth"
+        )
+    base, anchor, carried = _verified_predecessor(predecessor_root, depth=depth)
     exclusions: list[Mapping[str, Any]] = []
     for root in stipulated_roots:
         exclusions.extend(_replay_stipulated_exclusions(root, base.selection_bytes))
@@ -356,7 +367,9 @@ def _project(
     return result, documents, anchor
 
 
-def _verified_predecessor(root: Path) -> tuple[Any, str, dict[str, bytes]]:
+def _verified_predecessor(
+    root: Path, *, depth: int = 0
+) -> tuple[Any, str, dict[str, bytes]]:
     """Authenticate the cohort head, whether it is the anchor or a v3 root."""
 
     anchor_card = root / "run-cards/project-exact100-supporting-document-successor.json"
@@ -364,7 +377,7 @@ def _verified_predecessor(root: Path) -> tuple[Any, str, dict[str, bytes]]:
     if anchor_card.is_file():
         return _verified_anchor_predecessor(root, anchor_card)
     if v3_card.is_file():
-        return _verified_chained_predecessor(root, v3_card)
+        return _verified_chained_predecessor(root, v3_card, depth=depth)
     raise Exact100SuccessorReplacementV3CliError(
         "predecessor root carries neither the sealed cohort head nor a v3 run card"
     )
@@ -449,7 +462,7 @@ def _anchor_document_commitments(committed: Mapping[str, Any]) -> dict[str, str]
 
 
 def _verified_chained_predecessor(
-    root: Path, card_path: Path
+    root: Path, card_path: Path, *, depth: int = 0
 ) -> tuple[Any, str, dict[str, bytes]]:
     """Accept an earlier v3 root only by replaying the run that produced it.
 
@@ -479,6 +492,7 @@ def _verified_chained_predecessor(
         stipulated_roots=_path_list(recorded, "stipulated_evidence_roots"),
         owner_exclusions=_path_list(recorded, "owner_judgment_exclusions"),
         replacement_roots=_path_list(recorded, "replacement_evidence_roots"),
+        depth=depth + 1,
     )
     expected = _result_payloads(replayed)
     payloads: dict[str, bytes] = {}

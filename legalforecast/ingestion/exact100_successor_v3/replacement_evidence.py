@@ -83,7 +83,6 @@ _RECEIPT_ROLE_TO_DOCUMENT_ROLE: Mapping[str, str] = MappingProxyType(
 _VALIDATION_CLASSES = frozenset(
     {
         "document_repair_byte_role_verdict",
-        "free_tranche_strict_pdf_and_role_findings",
     }
 )
 _DOCUMENT_DESCRIPTIONS: Mapping[str, str] = MappingProxyType(
@@ -504,6 +503,12 @@ def _require_byte_role_validation(
     ):
         raise OwnerAdjudicatedReplacementError(
             f"byte-role validation binds different bytes: {source_document_id}"
+        )
+    if record.get("role_verdict") == "unverified":
+        raise OwnerAdjudicatedReplacementError(
+            "replacement document has no per-document byte-role verdict, only "
+            f"strict-PDF validation: {source_document_id}. Run the supported "
+            "byte-role validator over it and pass that artifact."
         )
     if record.get("role_verdict") != "match":
         raise OwnerAdjudicatedReplacementError(

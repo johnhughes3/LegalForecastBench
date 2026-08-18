@@ -5247,8 +5247,8 @@
         "largest_symbol": "run_project",
         "largest_symbol_lines": 127,
         "layer": "application",
-        "line_count": 953,
-        "nonblank_line_count": 858,
+        "line_count": 967,
+        "nonblank_line_count": 872,
         "top_level_definition_count": 29
       },
       "legalforecast/ingestion/exact100_successor_v3/projector.py": {
@@ -5281,8 +5281,8 @@
         "largest_symbol": "mint_verified_owner_adjudicated_replacement",
         "largest_symbol_lines": 241,
         "layer": "application",
-        "line_count": 741,
-        "nonblank_line_count": 664,
+        "line_count": 746,
+        "nonblank_line_count": 669,
         "top_level_definition_count": 23
       },
       "legalforecast/ingestion/exact100_successor_v3/replacement_evidence_cli.py": {
@@ -5298,8 +5298,8 @@
         "largest_symbol": "_mint",
         "largest_symbol_lines": 99,
         "layer": "adapter",
-        "line_count": 687,
-        "nonblank_line_count": 615,
+        "line_count": 746,
+        "nonblank_line_count": 673,
         "top_level_definition_count": 25
       },
       "legalforecast/ingestion/exact100_successor_wider_rank.py": {
@@ -9298,6 +9298,23 @@
         "line_count": 532,
         "nonblank_line_count": 477,
         "top_level_definition_count": 19
+      },
+      "tests/test_exact100_successor_v3_cli.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_a_second_swap_chains_from_the_first_v3_root",
+        "largest_symbol_lines": 40,
+        "layer": "test",
+        "line_count": 635,
+        "nonblank_line_count": 511,
+        "top_level_definition_count": 31
       },
       "tests/test_exact310_rest_rebind.py": {
         "cycle_id": "",
