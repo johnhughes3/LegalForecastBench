@@ -229,3 +229,53 @@ def test_relocated_read_path_redirects_only_relocated_inputs(tmp_path: Path) -> 
     assert _relocated_read_path(frozen, relocations) == durable
     assert _relocated_read_path(untouched, relocations) == untouched
     assert _relocated_read_path(frozen, {}) == frozen
+
+
+def test_a_wrong_bytes_candidate_does_not_shadow_a_later_correct_one(
+    tmp_path: Path,
+) -> None:
+    """Candidate roots are searched in order, so a bad early hit must not win.
+
+    ``_stable_source_root_candidates`` returns an ordered list, and the search is
+    deliberately liberal about location. A file that merely occupies the committed
+    relative position under an earlier root proves nothing: it must be skipped in
+    favour of a later candidate whose bytes actually match the committed digest,
+    and it must not be reported as a digest failure either, because a correct
+    durable copy does exist.
+    """
+
+    frozen_root = tmp_path / "ephemeral-capture-root"
+    # Candidate roots are the ancestors of the run card, nearest first, so the
+    # deeper root is searched before the shallower one.
+    near_root = tmp_path / "artifacts" / "cycle-1"
+    far_root = tmp_path / "artifacts"
+    (near_root / "model_registries").mkdir(parents=True)
+    (far_root / "model_registries").mkdir(parents=True, exist_ok=True)
+
+    # Wrong bytes at the position the nearer root offers.
+    (near_root / "model_registries" / REGISTRY_NAME).write_bytes(
+        REGISTRY_BYTES + b"decoy\n"
+    )
+    (near_root / "model_registries" / CAPS_NAME).write_bytes(CAPS_BYTES + b"decoy\n")
+    # The genuine durable copies live one level further out.
+    (far_root / "model_registries" / REGISTRY_NAME).write_bytes(REGISTRY_BYTES)
+    (far_root / "model_registries" / CAPS_NAME).write_bytes(CAPS_BYTES)
+
+    card = near_root / "unitize" / "run-cards" / "llm-unitize.json"
+    card.parent.mkdir(parents=True)
+
+    relocations = relocated_stage_a_committed_inputs(
+        commitments(frozen_root), NAMES, search_root=card
+    )
+
+    registry_path, registry_payload = relocations[
+        str(frozen_root / "model_registries" / REGISTRY_NAME)
+    ]
+    assert registry_path == far_root / "model_registries" / REGISTRY_NAME
+    assert registry_payload == REGISTRY_BYTES
+
+    caps_path, caps_payload = relocations[
+        str(frozen_root / "model_registries" / CAPS_NAME)
+    ]
+    assert caps_path == far_root / "model_registries" / CAPS_NAME
+    assert caps_payload == CAPS_BYTES
