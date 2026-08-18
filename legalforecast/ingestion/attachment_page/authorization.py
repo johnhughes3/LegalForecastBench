@@ -14,22 +14,28 @@ in from a file or a chat transcript is not a person reading a number.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, TextIO
 
+from legalforecast._json_io import read_json_object
 from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     ATTACHMENT_PAGE_AUTHORIZATION_V1,
     CommitmentEncodingError,
 )
 from legalforecast.ingestion.attachment_page import _typed
+from legalforecast.ingestion.attachment_page.artifact_io import (
+    canonical_artifact_bytes,
+    replace_artifact,
+    write_new_artifact,
+)
 from legalforecast.ingestion.attachment_page.plan import (
     AttachmentPageFetchPlan,
     AttachmentPagePlanError,
 )
-from legalforecast.ingestion.canonical_json import canonical_json_bytes
 
 AUTHORIZATION_SCHEMA_VERSION: Final = str(ATTACHMENT_PAGE_AUTHORIZATION_V1)
 REVIEWER_ID: Final = "John Hughes"
@@ -268,11 +274,84 @@ def write_authorization(path: Path, authorization: AttachmentPageAuthorization) 
         raise AttachmentPageAuthorizationError(
             "an attachment-menu authorization already exists at this path"
         )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(
-        canonical_json_bytes(
-            authorization.to_record(),
-            error_type=AttachmentPageAuthorizationError,
-            error_message="authorization is not canonically serializable",
+    write_new_artifact(
+        path, authorization.to_record(), error=AttachmentPageAuthorizationError
+    )
+
+
+def mark_authorization_executed(path: Path) -> None:
+    """Consume this authorization by recording that paid activity executed.
+
+    ``load_attachment_page_authorization`` already refuses an artifact whose
+    ``paid_activity_executed`` is anything but ``False``; until now nothing
+    wrote it, so the gate had no key and one signed file authorized unlimited
+    re-runs. This is the writer.
+
+    It must be called *before* the first charge-bearing POST, never after. A
+    crash between this write and the dispatch leaves the authorization spent
+    for a charge that may never have gone out, which costs one fresh owner
+    signature; the reverse ordering leaves a live authorization over a run
+    whose charge state is unknown, which is the silent second charge this
+    surface exists to refuse.
+    """
+
+    envelope = read_authorization_artifact(path)
+    if envelope.get("schema_version") != AUTHORIZATION_SCHEMA_VERSION:
+        raise AttachmentPageAuthorizationError(
+            "unexpected authorization schema version"
+        )
+    body = dict(
+        _typed.mapping(
+            envelope.get("authorization"),
+            "authorization content",
+            error=AttachmentPageAuthorizationError,
         )
     )
+    if envelope.get("authorization_sha256") != _digest(body):
+        raise AttachmentPageAuthorizationError("authorization digest does not verify")
+    if body.get("paid_activity_executed") is not False:
+        raise AttachmentPageAuthorizationError(
+            "authorization already records executed paid activity"
+        )
+    body["paid_activity_executed"] = True
+    replace_artifact(
+        path,
+        canonical_artifact_bytes(
+            {
+                "schema_version": AUTHORIZATION_SCHEMA_VERSION,
+                "authorization": body,
+                "authorization_sha256": _digest(body),
+            },
+            error=AttachmentPageAuthorizationError,
+        ),
+        error=AttachmentPageAuthorizationError,
+    )
+
+
+def read_authorization_artifact(path: Path) -> Mapping[str, object]:
+    """Read one authorization artifact, refusing rather than tracebacking.
+
+    A missing or malformed artifact on a charge-bearing path must produce the
+    same fail-closed refusal as an unbound one, not a stack trace and an exit
+    code that says something else.
+    """
+
+    try:
+        return read_json_object(
+            path,
+            error_factory=AttachmentPageAuthorizationError,
+            missing_message=lambda target: (
+                f"no attachment-menu authorization exists at {target}"
+            ),
+            non_object_message=lambda target: (
+                f"attachment-menu authorization at {target} is not a JSON object"
+            ),
+        )
+    except json.JSONDecodeError as exc:
+        raise AttachmentPageAuthorizationError(
+            f"attachment-menu authorization at {path} is not valid JSON: {exc}"
+        ) from exc
+    except OSError as exc:
+        raise AttachmentPageAuthorizationError(
+            f"attachment-menu authorization at {path} could not be read: {exc}"
+        ) from exc

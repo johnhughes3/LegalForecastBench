@@ -9889,6 +9889,19 @@
           "type": "pathlib.Path"
         },
         {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "dispatch_journal",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--dispatch-journal"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
           "action": "store_true",
           "choices": null,
           "default": false,
