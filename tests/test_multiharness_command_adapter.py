@@ -878,7 +878,9 @@ def test_systemd_scope_cancellation_before_gate_release_cleans_without_exec(
     script = _write_adapter_script(tmp_path, start_marker=marker)
     adapter = CommandAdapter(
         manifest=_manifest(command=(sys.executable, str(script))),
-        termination_grace_seconds=0.05,
+        # A 50ms reap deadline races under pytest-xdist on a saturated host and
+        # can report cleanup_outcome "incomplete" after the kill was requested.
+        termination_grace_seconds=SATURATED_HOST_CLEANUP_GRACE_SECONDS,
     )
     cancellation_type = cast(
         type[BaseException],
