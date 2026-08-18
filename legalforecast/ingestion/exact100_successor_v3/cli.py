@@ -37,6 +37,10 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import (
+    EXACT100_METHODS_DISCLOSURE_V1,
+    EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_v3.projector import (
     STAGE,
@@ -72,7 +76,7 @@ COMMAND = "legalforecast-exact100-successor-v3"
 _ANCHOR_RUN_CARD_SHA256 = (
     "61645025ec32d6aa22ee0533028ac210341d4087cb656716c7233bd9c4cc4a8f"
 )
-_ANCHOR_SCHEMA_VERSION = "legalforecast.exact100_supporting_document_successor.v1"
+_ANCHOR_SCHEMA_VERSION = str(EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1)
 _ANCHOR_STAGE = "project-exact100-supporting-document-successor"
 _ANCHOR_OUTPUT_SHA256: Mapping[str, str] = {
     "target-cohort-selection.jsonl": (
@@ -228,7 +232,7 @@ def run_project(args: argparse.Namespace) -> int:
     payloads = _result_payloads(first)
     payloads["methods_disclosure"] = _canonical(
         {
-            "schema_version": "legalforecast.exact100_methods_disclosure.v1",
+            "schema_version": str(EXACT100_METHODS_DISCLOSURE_V1),
             "owner_adjudicated_promotion_count": sum(
                 1
                 for record in first.promotions

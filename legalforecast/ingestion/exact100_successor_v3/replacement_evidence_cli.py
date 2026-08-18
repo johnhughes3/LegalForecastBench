@@ -27,6 +27,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import OWNER_ADJUDICATED_REPLACEMENT_PLAN_V1
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
     EVIDENCE_SCHEMA_VERSION,
@@ -36,7 +37,7 @@ from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
 )
 
 STAGE = "mint-owner-adjudicated-replacement-evidence"
-PLAN_SCHEMA_VERSION = "legalforecast.owner_adjudicated_replacement_plan.v1"
+PLAN_SCHEMA_VERSION = str(OWNER_ADJUDICATED_REPLACEMENT_PLAN_V1)
 
 _OUTPUTS = {
     "selection": "replacement-selection.jsonl",
