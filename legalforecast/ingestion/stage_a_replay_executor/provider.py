@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sqlite3
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from importlib import import_module
@@ -37,10 +38,14 @@ from legalforecast.ingestion.stage_a_replay_executor.spec import (
 from legalforecast.labeling import llm_pipeline, unitizer_terminal
 from legalforecast.labeling.provider_journal import (
     ProviderCallIdentity,
+    ProviderCycleCaps,
     ProviderJournalError,
     load_provider_cycle_caps_bytes,
     maximum_call_cost_usd,
+    open_provider_journal_snapshot,
     provider_prompt_logical_call_scope,
+    public_account_alias,
+    verify_provider_journal_identity,
 )
 
 # Load terminal-review code before the executor captures its runtime Git identity.
@@ -103,7 +108,8 @@ class CanonicalProviderRuntime:
         self.accounts = _validated_provider_accounts(
             accounts,
             (self.unitizer_entry, self.reviewer_entry),
-            self.caps.account,
+            self.caps,
+            spec,
         )
         self.provider_caps_usd = {
             name: self.caps.cap_usd(name) for name in self.caps.providers
@@ -412,7 +418,8 @@ def _registry_entry(registry: ModelRegistry, key: str) -> ModelRegistryEntry:
 def _validated_provider_accounts(
     accounts: Mapping[str, object],
     entries: Sequence[ModelRegistryEntry],
-    caps_account: Any,
+    caps: ProviderCycleCaps,
+    spec: ReplaySpec,
 ) -> dict[str, str]:
     used_providers = {entry.provider.lower() for entry in entries}
     if set(accounts) != used_providers:
@@ -422,16 +429,76 @@ def _validated_provider_accounts(
     validated: dict[str, str] = {}
     for provider_name in sorted(used_providers):
         alias = _text(accounts, provider_name)
-        try:
-            canonical_alias = caps_account(provider_name)
-        except ProviderJournalError as exc:
-            raise StageAReplayExecutorError(str(exc)) from exc
+        canonical_alias = _canonical_provider_account(caps, spec, provider_name)
         if alias != canonical_alias:
             raise StageAReplayExecutorError(
                 f"provider account alias differs from pinned caps: {provider_name}"
             )
         validated[provider_name] = alias
     return validated
+
+
+def _canonical_provider_account(
+    caps: ProviderCycleCaps, spec: ReplaySpec, provider_name: str
+) -> str:
+    """Resolve the canonical account alias this replay's caps digest commits to.
+
+    A caps artifact that carries the alias answers directly.  A *legacy base*
+    caps artifact cannot: ``provider_cycle_caps_materializer`` requires the
+    base artifact to omit accounts, so a replay pinned to one has no alias to
+    compare against even though it is fully authenticated.  Refusing there
+    would make the pin and the account check jointly unsatisfiable.
+
+    The alias is still authenticated in that case, one artifact further along:
+    the pinned journal's immutable identity row commits to this replay's cycle
+    id *and* to the exact caps digest the spec pins, so the aliases its attempt
+    rows carry belong to the same artifact the digest check already
+    authenticated.  Nothing about that digest binding is relaxed here — this
+    only reads an alias the caps artifact itself never carried, and the
+    request must still match it exactly.
+    """
+
+    cap = caps.providers.get(provider_name)
+    if cap is None:
+        raise StageAReplayExecutorError(
+            f"provider cycle caps artifact has no entry for {provider_name!r}"
+        )
+    if cap.account is not None:
+        return cap.account
+    return _journal_committed_account(spec, provider_name)
+
+
+def _journal_committed_account(spec: ReplaySpec, provider_name: str) -> str:
+    """Read one provider's single committed alias from the pinned journal."""
+
+    snapshot: sqlite3.Connection | None = None
+    try:
+        snapshot = open_provider_journal_snapshot(spec.provider_journal_path)
+        verify_provider_journal_identity(
+            spec.provider_journal_path,
+            cycle_id=spec.cycle_id,
+            provider_cycle_caps_sha256=spec.provider_caps_sha256,
+            snapshot=snapshot,
+        )
+        rows = snapshot.execute(
+            "SELECT DISTINCT account FROM provider_attempts WHERE provider = ?",
+            (provider_name,),
+        ).fetchall()
+    except (ProviderJournalError, sqlite3.Error, ValueError) as exc:
+        raise StageAReplayExecutorError(str(exc)) from exc
+    finally:
+        if snapshot is not None:
+            snapshot.close()
+    aliases = sorted({row[0] for row in rows})
+    if len(aliases) != 1:
+        raise StageAReplayExecutorError(
+            "pinned provider journal does not commit exactly one account alias "
+            f"for {provider_name!r}"
+        )
+    try:
+        return public_account_alias(aliases[0])
+    except ProviderJournalError as exc:
+        raise StageAReplayExecutorError(str(exc)) from exc
 
 
 def _read_regular(path: Path, label: str) -> bytes:

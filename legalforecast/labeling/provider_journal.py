@@ -1645,8 +1645,14 @@ def _exact_schema_keys(
         )
 
 
-def _public_account_alias(record: Mapping[str, object], field: str) -> str:
-    value = record.get(field)
+def public_account_alias(value: object) -> str:
+    """Validate one provider account alias as publishable, non-credential text.
+
+    Account aliases travel into call identities, receipts, and audit evidence,
+    so the same shape check applies wherever an alias is read: the caps
+    artifact, or any other authenticated artifact that commits one.
+    """
+
     if not isinstance(value, str):
         raise ProviderJournalError(
             "provider cycle caps account must be a public account alias"
@@ -1664,6 +1670,10 @@ def _public_account_alias(record: Mapping[str, object], field: str) -> str:
             "provider cycle caps account must be a public account alias"
         )
     return value
+
+
+def _public_account_alias(record: Mapping[str, object], field: str) -> str:
+    return public_account_alias(record.get(field))
 
 
 def _nonempty_identity(value: str, field: str) -> str:
