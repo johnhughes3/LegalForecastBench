@@ -22,9 +22,18 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from hashlib import sha256
 from pathlib import Path
 from typing import cast
 
+from legalforecast.multiharness.deliverable_text import (
+    DeliverableTextError,
+    docx_visible_text,
+)
+from legalforecast.multiharness.deliverables import (
+    DeliverableValidationError,
+    single_artifact_tree_sha256,
+)
 from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
@@ -45,12 +54,41 @@ class ProductionEvaluatorRunnerError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class JudgeDeliverable:
+    """The authenticated candidate work product shown to the judge.
+
+    ``text`` is what actually reaches the provider; ``sha256`` is the digest of
+    the exact deliverable bytes it was rendered from, so a retained attempt can
+    name the bytes each verdict was formed against.
+    """
+
+    basename: str
+    text: str
+    sha256: str
+
+    def __post_init__(self) -> None:
+        if not self.basename.strip():
+            raise ProductionEvaluatorRunnerError(
+                "judge deliverable must name its artifact"
+            )
+        if not self.text.strip():
+            raise ProductionEvaluatorRunnerError(
+                "judge deliverable text must not be blank"
+            )
+        if not self.sha256.startswith("sha256:"):
+            raise ProductionEvaluatorRunnerError(
+                "judge deliverable digest must use the sha256:<hex> form"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class ProductionJudgeCall:
     """The private, criterion-scoped input supplied to the provider adapter."""
 
     request: HarveyLabJudgeRequest
     run_spec: RunSpec
     criterion: Mapping[str, object]
+    deliverable: JudgeDeliverable
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +215,10 @@ class ProductionHarveyLabEvaluatorRunner:
                 "production evaluator requires a judge request boundary"
             )
         criteria = _authenticated_criteria(spec)
+        # Resolved before the loop: a deliverable that cannot be authenticated
+        # must refuse the run before any reservation, credential fetch, or
+        # billable request, not after the first criterion has been paid for.
+        deliverable = _authenticated_deliverable(spec)
         started = time.monotonic_ns()
         final_responses: list[ProductionJudgeResponse] = []
         all_responses: list[ProductionJudgeResponse] = []
@@ -196,6 +238,7 @@ class ProductionHarveyLabEvaluatorRunner:
                         request=request,
                         run_spec=spec,
                         criterion=criterion,
+                        deliverable=deliverable,
                     )
                 )
                 if type(response) is not ProductionJudgeResponse:
@@ -210,6 +253,7 @@ class ProductionHarveyLabEvaluatorRunner:
                         request=request,
                         run_spec=spec,
                         criterion=criterion,
+                        deliverable=deliverable,
                     ),
                     response,
                 )
@@ -361,6 +405,71 @@ def _authenticated_criteria(spec: RunSpec) -> tuple[Mapping[str, object], ...]:
         seen.add(criterion_id)
         normalized.append(dict(criterion_record))
     return tuple(normalized)
+
+
+def _authenticated_deliverable(spec: RunSpec) -> JudgeDeliverable:
+    """Return the candidate deliverable text, bound to its sealed commitment.
+
+    The evaluation-input record carries ``deliverable_tree_sha256``, the
+    commitment produced when the deliverable was sealed. The overlay copy the
+    evaluator can actually read is a single-file tree, so that commitment is
+    recomputable from the bytes on disk: matching it proves the text handed to
+    the judge is the candidate's authenticated work product and not a
+    substituted or mutated file.
+    """
+
+    record = _evaluator_input_record(spec)
+    path_value = record.get("deliverable_path")
+    basename = record.get("expected_deliverable_basename")
+    expected_tree = record.get("deliverable_tree_sha256")
+    if not isinstance(path_value, str) or not path_value:
+        raise ProductionEvaluatorRunnerError(
+            "evaluator input does not bind a deliverable path"
+        )
+    if not isinstance(basename, str) or not basename:
+        raise ProductionEvaluatorRunnerError(
+            "evaluator input does not bind the deliverable basename"
+        )
+    if not isinstance(expected_tree, str) or not expected_tree:
+        raise ProductionEvaluatorRunnerError(
+            "evaluator input does not bind the deliverable tree digest"
+        )
+    path = Path(path_value)
+    if not path.is_absolute() or path.is_symlink() or not path.is_file():
+        raise ProductionEvaluatorRunnerError(
+            "candidate deliverable must be an absolute regular file"
+        )
+    if path.name != basename:
+        raise ProductionEvaluatorRunnerError(
+            "candidate deliverable does not match the expected basename"
+        )
+    try:
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise ProductionEvaluatorRunnerError(
+            "candidate deliverable is unreadable"
+        ) from exc
+    try:
+        actual_tree = single_artifact_tree_sha256(basename, payload)
+    except DeliverableValidationError as exc:
+        raise ProductionEvaluatorRunnerError(
+            "candidate deliverable tree commitment is not recomputable"
+        ) from exc
+    if actual_tree != expected_tree:
+        raise ProductionEvaluatorRunnerError(
+            "candidate deliverable does not match the sealed tree digest"
+        )
+    try:
+        text = docx_visible_text(payload)
+    except DeliverableTextError as exc:
+        raise ProductionEvaluatorRunnerError(
+            "candidate deliverable text is not extractable"
+        ) from exc
+    return JudgeDeliverable(
+        basename=basename,
+        text=text,
+        sha256="sha256:" + sha256(payload).hexdigest(),
+    )
 
 
 def _scores_path(spec: RunSpec) -> Path:

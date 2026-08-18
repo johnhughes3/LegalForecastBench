@@ -69,6 +69,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [Tier-0 paired smoke structural freeze](community-acceptance/tier0-paired-smoke-structural-freeze.md): hash-bound known fields and explicit blockers for the non-executable pre-spend Tier-0 artifact.
 - [Tier-0 paired smoke executable freeze](community-acceptance/tier0-paired-smoke-executable-freeze.md): command shape, binary identity, per-call spend enforcement, and receipt-authority coordinates; not an approval target.
 - [Tier-0 readiness pack](community-acceptance/tier0-readiness-pack.md): current cost, command, independent-review, privileged-capture, and signature blocker status.
+- [Tier-0 operator provisioning card](community-acceptance/tier0-operator-provisioning-card.md): the batched key, credential, wrapper-install, and privileged-capture steps the designated operator performs; agents never run them.
 - [Tier-1 one-task blocked draft](community-acceptance/tier1-contributor-one-task-blocked-draft.md): contributor-grade Claude/Codex structure that remains blocked on Tier-0 observations and review.
 
 ### Adapter tracks

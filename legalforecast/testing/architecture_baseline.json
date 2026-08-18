@@ -3721,6 +3721,11 @@
         "legalforecast/labeling/unitizer_terminal.py"
       ],
       [
+        "legalforecast/multiharness/cli.py",
+        "legalforecast/multiharness/tier0_mint.py",
+        "legalforecast/multiharness/tier0_production_factory.py"
+      ],
+      [
         "legalforecast/unitization/review.py",
         "legalforecast/unitization/unitizer_terminal_review.py"
       ]
@@ -3743,7 +3748,7 @@
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/ingestion/stage_a_replay_executor": 17,
       "legalforecast/labeling": 13,
-      "legalforecast/multiharness": 65,
+      "legalforecast/multiharness": 69,
       "legalforecast/protocol": 4,
       "legalforecast/publication": 21,
       "legalforecast/reporting": 9,
@@ -6492,7 +6497,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 0,
+        "fan_in": 1,
         "fan_out": 26,
         "flags": [
           "watch"
@@ -6559,21 +6564,22 @@
         "top_level_definition_count": 45
       },
       "legalforecast/multiharness/cli.py": {
-        "cycle_id": "",
+        "cycle_id": "legalforecast/multiharness/cli.py,legalforecast/multiharness/tier0_mint.py,legalforecast/multiharness/tier0_production_factory.py",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 1,
-        "fan_out": 20,
+        "fan_in": 2,
+        "fan_out": 23,
         "flags": [
+          "cycle",
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "add_multiharness_parser",
-        "largest_symbol_lines": 346,
+        "largest_symbol_lines": 399,
         "layer": "application",
-        "line_count": 1418,
-        "nonblank_line_count": 1304,
-        "top_level_definition_count": 43
+        "line_count": 1539,
+        "nonblank_line_count": 1416,
+        "top_level_definition_count": 45
       },
       "legalforecast/multiharness/codex_cli.py": {
         "cycle_id": "",
@@ -6682,7 +6688,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 5,
+        "fan_in": 6,
         "fan_out": 4,
         "flags": [
           "oversized"
@@ -6691,9 +6697,9 @@
         "largest_symbol": "seal_deliverable",
         "largest_symbol_lines": 161,
         "layer": "application",
-        "line_count": 1004,
-        "nonblank_line_count": 901,
-        "top_level_definition_count": 37
+        "line_count": 1040,
+        "nonblank_line_count": 932,
+        "top_level_definition_count": 38
       },
       "legalforecast/multiharness/evaluation.py": {
         "cycle_id": "",
@@ -6733,7 +6739,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 6,
+        "fan_in": 7,
         "fan_out": 7,
         "flags": [
           "oversized"
@@ -6763,11 +6769,28 @@
         "nonblank_line_count": 978,
         "top_level_definition_count": 40
       },
+      "legalforecast/multiharness/harvey_lab_production_runner.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 2,
+        "fan_out": 6,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "ProductionHarveyLabEvaluatorRunner",
+        "largest_symbol_lines": 176,
+        "layer": "application",
+        "line_count": 577,
+        "nonblank_line_count": 527,
+        "top_level_definition_count": 14
+      },
       "legalforecast/multiharness/harvey_lab_projection.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 8,
+        "fan_in": 9,
         "fan_out": 5,
         "flags": [
           "oversized"
@@ -6818,7 +6841,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 6,
+        "fan_in": 7,
         "fan_out": 3,
         "flags": [
           "watch"
@@ -7008,7 +7031,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 3,
+        "fan_in": 5,
         "fan_out": 1,
         "flags": [
           "oversized"
@@ -7038,11 +7061,63 @@
         "nonblank_line_count": 492,
         "top_level_definition_count": 23
       },
+      "legalforecast/multiharness/tier0_evaluator_wrapper.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 3,
+        "fan_out": 2,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "install_evaluator_wrapper",
+        "largest_symbol_lines": 61,
+        "layer": "application",
+        "line_count": 215,
+        "nonblank_line_count": 182,
+        "top_level_definition_count": 9
+      },
+      "legalforecast/multiharness/tier0_mint.py": {
+        "cycle_id": "legalforecast/multiharness/cli.py,legalforecast/multiharness/tier0_mint.py,legalforecast/multiharness/tier0_production_factory.py",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.6",
+        "fan_in": 1,
+        "fan_out": 7,
+        "flags": [
+          "cycle"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "build_spend_policy",
+        "largest_symbol_lines": 73,
+        "layer": "application",
+        "line_count": 460,
+        "nonblank_line_count": 405,
+        "top_level_definition_count": 14
+      },
+      "legalforecast/multiharness/tier0_production_factory.py": {
+        "cycle_id": "legalforecast/multiharness/cli.py,legalforecast/multiharness/tier0_mint.py,legalforecast/multiharness/tier0_production_factory.py",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.6",
+        "fan_in": 2,
+        "fan_out": 8,
+        "flags": [
+          "cycle",
+          "watch"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "AnthropicMessagesJudgeAdapter",
+        "largest_symbol_lines": 64,
+        "layer": "application",
+        "line_count": 541,
+        "nonblank_line_count": 474,
+        "top_level_definition_count": 17
+      },
       "legalforecast/multiharness/tier0_runner.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 1,
+        "fan_in": 3,
         "fan_out": 21,
         "flags": [
           "relative-path",
@@ -10779,6 +10854,23 @@
         "line_count": 651,
         "nonblank_line_count": 597,
         "top_level_definition_count": 16
+      },
+      "tests/test_tier0_operator_half.py": {
+        "cycle_id": "",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "oversized"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_cli_mint_writes_the_three_artifacts",
+        "largest_symbol_lines": 53,
+        "layer": "test",
+        "line_count": 1011,
+        "nonblank_line_count": 844,
+        "top_level_definition_count": 55
       },
       "tests/test_unitization_add_adjudication.py": {
         "cycle_id": "",
