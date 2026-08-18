@@ -109,6 +109,15 @@ def _add_arguments(parser: argparse.ArgumentParser) -> None:
         help="JSONL: replacement-validation records for owner-excluded slots.",
     )
     parser.add_argument(
+        "--acquisitions",
+        type=Path,
+        default=None,
+        help=(
+            "JSONL: corpus-wide held-document records. Without it, cases outside "
+            "the adjudication overlay read as unheld."
+        ),
+    )
+    parser.add_argument(
         "--json",
         dest="emit_json",
         action="store_true",
@@ -138,6 +147,7 @@ def build_report(
     dispositions: Path,
     parse_quality: Path | None = None,
     replacements: Path | None = None,
+    acquisitions: Path | None = None,
 ) -> ConvergenceReport:
     """Read every artifact and evaluate the suite."""
 
@@ -153,6 +163,9 @@ def build_report(
         replacements_text=(
             None if replacements is None else _read(replacements, label="replacements")
         ),
+        acquisitions_text=(
+            None if acquisitions is None else _read(acquisitions, label="acquisitions")
+        ),
     )
     return evaluate_convergence(inputs)
 
@@ -165,6 +178,7 @@ def run(args: argparse.Namespace) -> int:
             dispositions=cast(Path, args.dispositions),
             parse_quality=cast("Path | None", args.parse_quality),
             replacements=cast("Path | None", args.replacements),
+            acquisitions=cast("Path | None", getattr(args, "acquisitions", None)),
         )
     except (Exact100ConvergenceCliError, json.JSONDecodeError) as error:
         print(f"exact-100 convergence: unreadable input — {error}")

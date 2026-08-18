@@ -492,7 +492,28 @@ def test_exclusion_with_unsourced_replacement_is_named() -> None:
     )
     report = evaluate_convergence(_inputs(dispositions=[disposition]))
     result = _result(report, "replacements_fully_validated")
-    assert "no replacement candidate sourced" in result.failures[0].detail
+    assert "no sourced replacement candidate" in result.failures[0].detail
+
+
+def test_a_posted_proposal_is_neither_unsourced_nor_approved() -> None:
+    """A sourced-but-unapproved successor must read as exactly that."""
+
+    disposition = _disposition(
+        decision="exclude_and_promote_replacement",
+        execution_state="blocked",
+        exclusion={
+            "replacement_candidate_id": None,
+            "proposed_replacement_candidate_id": "70142291",
+        },
+    )
+    report = evaluate_convergence(_inputs(dispositions=[disposition]))
+    for key in ("replacements_fully_validated", "exactly_100_eligible_unique_cases"):
+        details = [failure.detail for failure in _result(report, key).failures]
+        assert any(
+            "70142291 is sourced and posted but not yet owner-approved" in detail
+            for detail in details
+        ), key
+        assert not any("no sourced replacement candidate" in d for d in details), key
 
 
 def test_fully_validated_replacement_passes_and_refills_the_slot() -> None:
@@ -649,6 +670,84 @@ def test_cli_reports_unreadable_input(
     )
     assert run(args) == EXIT_UNREADABLE
     assert "unreadable input" in capsys.readouterr().out
+
+
+def _acquisition(
+    candidate_id: str, entry: int, role: str, *, verdict: str = "match"
+) -> dict[str, Any]:
+    return {
+        "byte_role_verdict": verdict,
+        "candidate_id": candidate_id,
+        "entry": entry,
+        "role": role,
+        "source_document_id": f"doc-{candidate_id}-{entry}",
+        "validation_basis": "parsed_heading",
+    }
+
+
+def test_acquisitions_supply_held_evidence_for_cases_outside_the_overlay() -> None:
+    """A case with no adjudication row is an evidence gap until acquisitions land."""
+
+    corpus = [_corpus_row(), _corpus_row("70000002")]
+    gap = evaluate_convergence(_inputs(corpus=corpus))
+    assert any(
+        failure.candidate_id == "70000002" and "evidence_gap" in failure.detail
+        for failure in _result(
+            gap, "selected_documents_parseable_and_byte_role_validated"
+        ).failures
+    )
+
+    supplied = evaluate_convergence(
+        ConvergenceInputs.build(
+            corpus=corpus,
+            adjudication=[_adjudication_row()],
+            dispositions=[_disposition()],
+            parse_quality={"rejected": []},
+            replacements=[],
+            acquisitions=[
+                _acquisition("70000002", 1, "complaint"),
+                _acquisition("70000002", 9, "target_motion"),
+                _acquisition("70000002", 12, "opposition"),
+                _acquisition("70000002", 14, "reply"),
+            ],
+        )
+    )
+    assert _result(
+        supplied, "selected_documents_parseable_and_byte_role_validated"
+    ).passed
+
+
+def test_acquisitions_do_not_displace_overlay_evidence() -> None:
+    """An overlay row's own status wins; acquisitions only fill entries it lacks."""
+
+    inputs = ConvergenceInputs.build(
+        corpus=[_corpus_row()],
+        adjudication=[
+            _adjudication_row(
+                statuses=[_validated_status(1, "complaint", verdict="mismatch")]
+            )
+        ],
+        dispositions=[_disposition()],
+        parse_quality={"rejected": []},
+        replacements=[],
+        acquisitions=[
+            _acquisition("70000001", 1, "complaint"),
+            _acquisition("70000001", 9, "target_motion"),
+        ],
+    )
+    view = inputs.validation_views["70000001"]
+    assert view.verdict_for_entry(1) == "mismatch"
+    assert view.verdict_for_entry(9) == "match"
+
+
+def test_acquisitions_absent_leaves_adjudication_rows_untouched() -> None:
+    inputs = ConvergenceInputs.build(
+        corpus=[_corpus_row()],
+        adjudication=[_adjudication_row()],
+        dispositions=[_disposition()],
+        acquisitions=None,
+    )
+    assert set(inputs.validation_views) == {"70000001"}
 
 
 def test_load_inputs_parses_every_artifact() -> None:

@@ -15,11 +15,14 @@ byte re-derivation. It joins artifacts that already exist:
   evidence),
 * the owner disposition overlay (the legal decisions, each with an independent
   execution state),
-* optionally a parse-quality rejection artifact and a replacement-validation
-  artifact.
+* optionally corpus-wide held-document evidence, a parse-quality rejection
+  artifact, and a replacement-validation artifact.
 
-Verdicts are read through :mod:`legalforecast.ingestion.adjudication_validation_view`
-so that the suite and every renderer agree on what "validated" means.
+Verdicts are read through
+:mod:`legalforecast.ingestion.adjudication_validation_view` so that the suite
+and every renderer agree on what "validated" means. The vocabulary the
+invariants speak -- failures, results, dispositions, inputs -- lives in
+:mod:`legalforecast.ingestion.exact100_convergence_model`.
 
 Where the evidence an invariant needs was not supplied, the invariant fails
 with an ``evidence_gap`` rather than passing by default. A convergence gate
@@ -29,15 +32,31 @@ that passes for lack of looking is worse than no gate.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
-from typing import Any, Final, cast
+from collections.abc import Mapping
+from typing import Any, Final
 
 from legalforecast.ingestion.adjudication_validation_view import (
     MATCH_VERDICT,
     NOT_VALIDATED,
     CandidateValidationView,
-    build_validation_views,
+)
+from legalforecast.ingestion.exact100_convergence_model import (
+    BRIEFING_ROLES,
+    COMPLETE,
+    EXECUTION_STATES,
+    PLEADING_ROLES,
+    REQUIRED_CASE_COUNT,
+    TARGET_MOTION_ROLES,
+    ConvergenceInputs,
+    ConvergenceReport,
+    Disposition,
+    InvariantFailure,
+    InvariantResult,
+    entries_of,
+    mapping_of,
+    rows_of,
+    sequence_of,
+    text_of,
 )
 
 __all__ = [
@@ -54,306 +73,19 @@ __all__ = [
     "load_inputs",
 ]
 
-#: The corpus is exactly this many eligible unique cases when converged.
-REQUIRED_CASE_COUNT: Final = 100
-
-#: Roles that identify the case's target motion.
-TARGET_MOTION_ROLES: Final = frozenset({"target_motion"})
-
-#: Roles that identify the pleading the target motion attacks.
-PLEADING_ROLES: Final = frozenset(
-    {
-        "amended_complaint",
-        "complaint",
-        "counterclaim",
-        "crossclaim",
-        "interpleader_complaint",
-        "operative_pleading",
-        "second_amended_complaint",
-    }
-)
-
-#: Roles that identify docketed briefing on the target motion.
-BRIEFING_ROLES: Final = frozenset(
-    {
-        "motion_memorandum",
-        "opposition",
-        "reply",
-        "response",
-        "surreply",
-    }
-)
-
-#: Execution state meaning the disposition has been carried out in full.
-COMPLETE: Final = "complete"
-
-_EXECUTION_STATES: Final = frozenset({"ready", "blocked", COMPLETE})
-
-
-@dataclass(frozen=True, slots=True)
-class InvariantFailure:
-    """One named blocker: which invariant, which case, which document."""
-
-    invariant: str
-    detail: str
-    candidate_id: str | None = None
-    entry_number: int | None = None
-    source_document_id: str | None = None
-
-    def describe(self) -> str:
-        location = self.candidate_id or "corpus"
-        if self.entry_number is not None:
-            location = f"{location} E{self.entry_number}"
-        if self.source_document_id:
-            location = f"{location} (document {self.source_document_id})"
-        return f"{location}: {self.detail}"
-
-    def to_json(self) -> dict[str, Any]:
-        return {
-            "candidate_id": self.candidate_id,
-            "detail": self.detail,
-            "entry_number": self.entry_number,
-            "invariant": self.invariant,
-            "source_document_id": self.source_document_id,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class InvariantResult:
-    """Outcome of one invariant, with every blocker it found."""
-
-    key: str
-    statement: str
-    checked: int
-    failures: tuple[InvariantFailure, ...] = ()
-
-    @property
-    def passed(self) -> bool:
-        return not self.failures
-
-    @property
-    def blocking_candidate_ids(self) -> tuple[str, ...]:
-        seen: dict[str, None] = {}
-        for failure in self.failures:
-            if failure.candidate_id:
-                seen.setdefault(failure.candidate_id, None)
-        return tuple(seen)
-
-    def to_json(self) -> dict[str, Any]:
-        return {
-            "blocking_candidate_ids": list(self.blocking_candidate_ids),
-            "checked": self.checked,
-            "failure_count": len(self.failures),
-            "failures": [failure.to_json() for failure in self.failures],
-            "key": self.key,
-            "passed": self.passed,
-            "statement": self.statement,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class ConvergenceReport:
-    """The suite's whole result: nine invariants, each pass or blocked."""
-
-    results: tuple[InvariantResult, ...]
-
-    @property
-    def passed(self) -> bool:
-        return all(result.passed for result in self.results)
-
-    @property
-    def failing(self) -> tuple[InvariantResult, ...]:
-        return tuple(result for result in self.results if not result.passed)
-
-    def to_json(self) -> dict[str, Any]:
-        return {
-            "converged": self.passed,
-            "failing_invariant_count": len(self.failing),
-            "invariant_count": len(self.results),
-            "invariants": [result.to_json() for result in self.results],
-            "schema_version": "legalforecast.exact100_convergence_invariants.v1",
-        }
-
-    def render_text(self) -> str:
-        lines: list[str] = []
-        status = "CONVERGED" if self.passed else "BLOCKED"
-        passing = len(self.results) - len(self.failing)
-        lines.append(
-            f"exact-100 convergence: {status} "
-            f"({passing}/{len(self.results)} invariants pass)"
-        )
-        for result in self.results:
-            mark = "PASS" if result.passed else "FAIL"
-            lines.append("")
-            lines.append(f"[{mark}] {result.key} — {result.statement}")
-            lines.append(f"       checked {result.checked}")
-            for failure in result.failures:
-                lines.append(f"       - {failure.describe()}")
-        return "\n".join(lines)
-
-
-@dataclass(frozen=True, slots=True)
-class Disposition:
-    """One owner legal decision plus its independent execution state."""
-
-    candidate_id: str
-    decision: str
-    execution_state: str
-    execution_blocked_on: str | None = None
-    final_packet: tuple[Mapping[str, Any], ...] = ()
-    drops: tuple[Mapping[str, Any], ...] = ()
-    collateral: tuple[Mapping[str, Any], ...] = ()
-    relabels: tuple[Mapping[str, Any], ...] = ()
-    superseded: tuple[Mapping[str, Any], ...] = ()
-    exclusion: Mapping[str, Any] | None = None
-    in_corpus: bool = True
-
-    @property
-    def excluded(self) -> bool:
-        return self.exclusion is not None
-
-    @property
-    def replacement_candidate_id(self) -> str | None:
-        if self.exclusion is None:
-            return None
-        value = self.exclusion.get("replacement_candidate_id")
-        return value if isinstance(value, str) and value.strip() else None
-
-    @property
-    def dropped_entries(self) -> frozenset[int]:
-        return frozenset(_entries(self.drops))
-
-    @property
-    def collateral_entries(self) -> frozenset[int]:
-        return frozenset(_entries(self.collateral))
-
-    @property
-    def superseded_entries(self) -> frozenset[int]:
-        return frozenset(_entries(self.superseded))
-
-    @property
-    def final_packet_entries(self) -> frozenset[int]:
-        return frozenset(_entries(self.final_packet))
-
-
-def _entries(rows: Iterable[Mapping[str, Any]]) -> list[int]:
-    numbers: list[int] = []
-    for row in rows:
-        value = row.get("entry")
-        if isinstance(value, bool):
-            continue
-        if isinstance(value, int):
-            numbers.append(value)
-        elif isinstance(value, str) and value.strip().isdigit():
-            numbers.append(int(value.strip()))
-    return numbers
-
-
-def _mapping(value: Any) -> Mapping[str, Any] | None:
-    """Narrow untyped JSON to a string-keyed mapping, or ``None``."""
-
-    if isinstance(value, Mapping):
-        return cast("Mapping[str, Any]", value)
-    return None
-
-
-def _sequence(value: Any) -> tuple[Any, ...]:
-    """Narrow untyped JSON to a tuple of items, treating text as scalar."""
-
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    return tuple(cast("Sequence[Any]", value))
-
-
-def _rows(value: Any) -> tuple[Mapping[str, Any], ...]:
-    rows: list[Mapping[str, Any]] = []
-    for item in _sequence(value):
-        row = _mapping(item)
-        if row is not None:
-            rows.append(row)
-    return tuple(rows)
-
-
-def _text(source: Mapping[str, Any], field_name: str) -> str | None:
-    value = source.get(field_name)
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
-
-
-def parse_disposition(record: Mapping[str, Any]) -> Disposition:
-    """Read one owner disposition overlay record."""
-
-    state = _text(record, "execution_state") or "ready"
-    return Disposition(
-        candidate_id=_text(record, "candidate_id") or "",
-        decision=_text(record, "decision") or "",
-        execution_state=state,
-        execution_blocked_on=_text(record, "execution_blocked_on"),
-        final_packet=_rows(record.get("final_packet")),
-        drops=_rows(record.get("drops")),
-        collateral=_rows(record.get("collateral")),
-        relabels=_rows(record.get("relabels")),
-        superseded=_rows(record.get("superseded")),
-        exclusion=_mapping(record.get("exclusion")),
-        in_corpus=record.get("in_corpus", True) is not False,
-    )
-
-
-@dataclass(frozen=True, slots=True)
-class ConvergenceInputs:
-    """Every artifact the suite reads, already parsed."""
-
-    corpus: tuple[Mapping[str, Any], ...]
-    adjudication: tuple[Mapping[str, Any], ...]
-    dispositions: tuple[Disposition, ...]
-    parse_quality: Mapping[str, Any] | None = None
-    replacements: tuple[Mapping[str, Any], ...] | None = None
-    validation_views: Mapping[str, CandidateValidationView] = field(
-        default_factory=lambda: cast("dict[str, CandidateValidationView]", {})
-    )
-
-    @classmethod
-    def build(
-        cls,
-        *,
-        corpus: Iterable[Mapping[str, Any]],
-        adjudication: Iterable[Mapping[str, Any]],
-        dispositions: Iterable[Mapping[str, Any]],
-        parse_quality: Mapping[str, Any] | None = None,
-        replacements: Iterable[Mapping[str, Any]] | None = None,
-    ) -> ConvergenceInputs:
-        adjudication_rows = tuple(adjudication)
-        return cls(
-            corpus=tuple(corpus),
-            adjudication=adjudication_rows,
-            dispositions=tuple(parse_disposition(row) for row in dispositions),
-            parse_quality=parse_quality,
-            replacements=None if replacements is None else tuple(replacements),
-            validation_views=build_validation_views(adjudication_rows),
-        )
-
-    @property
-    def disposition_by_candidate(self) -> dict[str, Disposition]:
-        return {
-            disposition.candidate_id: disposition
-            for disposition in self.dispositions
-            if disposition.candidate_id
-        }
-
 
 def _candidate_id(row: Mapping[str, Any]) -> str:
-    return _text(row, "candidate_id") or ""
+    return text_of(row, "candidate_id") or ""
 
 
 def _required_entries(row: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
-    return _rows(row.get("required_entries"))
+    return rows_of(row.get("required_entries"))
 
 
 def _outstanding_entries(row: Mapping[str, Any]) -> frozenset[int]:
     """Docket entries the audit recorded as not yet held."""
 
-    return frozenset(_entries(_rows(row.get("missing_docs"))))
+    return frozenset(entries_of(rows_of(row.get("missing_docs"))))
 
 
 def _acquired_entries(view: CandidateValidationView | None) -> frozenset[int]:
@@ -380,16 +112,16 @@ def _effective_entries(
     if disposition is not None and disposition.final_packet:
         declared: list[tuple[int, str]] = []
         for document in disposition.final_packet:
-            role = _text(document, "role") or ""
-            for entry in _entries([document]):
+            role = text_of(document, "role") or ""
+            for entry in entries_of([document]):
                 declared.append((entry, role))
         return tuple(sorted(set(declared)))
 
     relabelled: dict[int, str] = {}
     if disposition is not None:
         for relabel in disposition.relabels:
-            for entry in _entries([relabel]):
-                to_role = _text(relabel, "to_role") or _text(relabel, "to")
+            for entry in entries_of([relabel]):
+                to_role = text_of(relabel, "to_role") or text_of(relabel, "to")
                 if to_role:
                     relabelled[entry] = to_role
 
@@ -401,10 +133,10 @@ def _effective_entries(
 
     pairs: list[tuple[int, str]] = []
     for required in _required_entries(row):
-        for entry in _entries([required]):
+        for entry in entries_of([required]):
             if entry in removed:
                 continue
-            role = relabelled.get(entry) or _text(required, "role") or ""
+            role = relabelled.get(entry) or text_of(required, "role") or ""
             pairs.append((entry, role))
     return tuple(sorted(set(pairs)))
 
@@ -449,10 +181,7 @@ def _invariant_1(inputs: ConvergenceInputs) -> InvariantResult:
                 InvariantFailure(
                     invariant=key,
                     candidate_id=candidate_id,
-                    detail=(
-                        "owner-excluded and its slot has no sourced replacement "
-                        "candidate"
-                    ),
+                    detail=dispositions[candidate_id].unsourced_detail(),
                 )
             )
         elif replacement not in validated_replacements:
@@ -586,10 +315,10 @@ def _invariant_4(inputs: ConvergenceInputs) -> InvariantResult:
             if role in TARGET_MOTION_ROLES
         }
         for required in _required_entries(row):
-            role = _text(required, "role") or ""
+            role = text_of(required, "role") or ""
             if role not in BRIEFING_ROLES:
                 continue
-            for entry in _entries([required]):
+            for entry in entries_of([required]):
                 if entry in excused:
                     continue
                 if entry in outstanding:
@@ -625,7 +354,7 @@ def _invariant_4(inputs: ConvergenceInputs) -> InvariantResult:
 
 def _link_targets(required: Mapping[str, Any]) -> list[int]:
     entries: list[int] = []
-    for item in _sequence(required.get("linked_motion_entries")):
+    for item in sequence_of(required.get("linked_motion_entries")):
         if isinstance(item, bool):
             continue
         if isinstance(item, int):
@@ -648,7 +377,7 @@ def _invariant_5(inputs: ConvergenceInputs) -> InvariantResult:
             continue
         effective = {entry for entry, _ in _effective_entries(row, disposition)}
         for superseded in disposition.superseded:
-            for entry in _entries([superseded]):
+            for entry in entries_of([superseded]):
                 checked += 1
                 if entry in effective:
                     failures.append(
@@ -717,12 +446,12 @@ def _parse_rejections(inputs: ConvergenceInputs) -> dict[tuple[str, str], str]:
     if payload is None:
         return rejections
     raw = payload.get("rejected") or payload.get("records") or payload.get("flags")
-    for record in _rows(raw):
-        candidate_id = _text(record, "candidate_id")
-        document_id = _text(record, "source_document_id")
+    for record in rows_of(raw):
+        candidate_id = text_of(record, "candidate_id")
+        document_id = text_of(record, "source_document_id")
         if candidate_id and document_id:
             rejections[(candidate_id, document_id)] = (
-                _text(record, "reason") or "rejected by the parse-quality sweep"
+                text_of(record, "reason") or "rejected by the parse-quality sweep"
             )
     return rejections
 
@@ -813,7 +542,7 @@ def _validated_replacement_ids(inputs: ConvergenceInputs) -> frozenset[str]:
         return frozenset()
     validated: set[str] = set()
     for record in inputs.replacements:
-        candidate_id = _text(record, "candidate_id")
+        candidate_id = text_of(record, "candidate_id")
         if candidate_id and record.get("fully_validated") is True:
             validated.add(candidate_id)
     return frozenset(validated)
@@ -827,7 +556,8 @@ def _invariant_8(inputs: ConvergenceInputs) -> InvariantResult:
         disposition for disposition in inputs.dispositions if disposition.excluded
     ]
     by_replacement = {
-        _text(record, "candidate_id"): record for record in (inputs.replacements or ())
+        text_of(record, "candidate_id"): record
+        for record in (inputs.replacements or ())
     }
     for disposition in excluded:
         replacement = disposition.replacement_candidate_id
@@ -836,9 +566,7 @@ def _invariant_8(inputs: ConvergenceInputs) -> InvariantResult:
                 InvariantFailure(
                     invariant=key,
                     candidate_id=disposition.candidate_id,
-                    detail=(
-                        "owner-excluded slot has no replacement candidate sourced yet"
-                    ),
+                    detail=disposition.unsourced_detail(),
                 )
             )
             continue
@@ -856,7 +584,7 @@ def _invariant_8(inputs: ConvergenceInputs) -> InvariantResult:
             )
             continue
         if record.get("fully_validated") is not True:
-            outstanding = _sequence(record.get("outstanding_documents"))
+            outstanding = sequence_of(record.get("outstanding_documents"))
             detail = "replacement is not fully validated"
             if outstanding:
                 detail = f"{detail}; outstanding {list(outstanding)}"
@@ -877,7 +605,7 @@ def _invariant_9(inputs: ConvergenceInputs) -> InvariantResult:
     checked = 0
     for row in inputs.adjudication:
         candidate_id = _candidate_id(row)
-        if _text(row, "decision_status") != "pending_human_adjudication":
+        if text_of(row, "decision_status") != "pending_human_adjudication":
             continue
         checked += 1
         if candidate_id not in dispositions:
@@ -890,7 +618,7 @@ def _invariant_9(inputs: ConvergenceInputs) -> InvariantResult:
             )
     for disposition in inputs.dispositions:
         checked += 1
-        if disposition.execution_state not in _EXECUTION_STATES:
+        if disposition.execution_state not in EXECUTION_STATES:
             failures.append(
                 InvariantFailure(
                     invariant=key,
@@ -959,7 +687,7 @@ def load_jsonl(payload: str) -> tuple[Mapping[str, Any], ...]:
     for line in payload.splitlines():
         if not line.strip():
             continue
-        row = _mapping(json.loads(line))
+        row = mapping_of(json.loads(line))
         if row is not None:
             records.append(row)
     return tuple(records)
@@ -972,12 +700,13 @@ def load_inputs(
     dispositions_text: str,
     parse_quality_text: str | None = None,
     replacements_text: str | None = None,
+    acquisitions_text: str | None = None,
 ) -> ConvergenceInputs:
     """Build :class:`ConvergenceInputs` from raw artifact text."""
 
     parse_quality: Mapping[str, Any] | None = None
     if parse_quality_text is not None:
-        parse_quality = _mapping(json.loads(parse_quality_text))
+        parse_quality = mapping_of(json.loads(parse_quality_text))
     replacements: tuple[Mapping[str, Any], ...] | None = None
     if replacements_text is not None:
         replacements = load_jsonl(replacements_text)
@@ -987,4 +716,7 @@ def load_inputs(
         dispositions=load_jsonl(dispositions_text),
         parse_quality=parse_quality,
         replacements=replacements,
+        acquisitions=(
+            None if acquisitions_text is None else load_jsonl(acquisitions_text)
+        ),
     )
