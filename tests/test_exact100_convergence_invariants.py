@@ -740,6 +740,39 @@ def test_acquisitions_do_not_displace_overlay_evidence() -> None:
     assert view.verdict_for_entry(9) == "match"
 
 
+def test_overlay_wins_even_when_the_two_artifacts_disagree_on_entry_type() -> None:
+    """The two artifacts come from different stages and may serialize differently.
+
+    A raw comparison would let the acquisition record slip in beside the
+    overlay's own row for the same entry and override its mismatch finding.
+    """
+
+    overlay = _adjudication_row(
+        statuses=[_validated_status(1, "complaint", verdict="mismatch")]
+    )
+    status = overlay["missing_document_status"][0]
+    status["entry"] = "1"
+    status["acquired_evidence"]["docket_entry_number"] = "1"
+    inputs = ConvergenceInputs.build(
+        corpus=[_corpus_row()],
+        adjudication=[overlay],
+        dispositions=[_disposition()],
+        parse_quality={"rejected": []},
+        replacements=[],
+        acquisitions=[_acquisition("70000001", 1, "complaint")],
+    )
+    view = inputs.validation_views["70000001"]
+    # The acquisition must be suppressed outright, not merely out-voted: the
+    # overlay row already covers entry 1, so nothing should be appended beside
+    # it. Asserting only on the verdict would still pass on the conservative
+    # aggregation even when the merge let a duplicate through.
+    at_entry_one = [
+        document for document in view.documents if document.entry_number == 1
+    ]
+    assert len(at_entry_one) == 1
+    assert view.verdict_for_entry(1) == "mismatch"
+
+
 def test_acquisitions_absent_leaves_adjudication_rows_untouched() -> None:
     inputs = ConvergenceInputs.build(
         corpus=[_corpus_row()],

@@ -32,7 +32,7 @@ that passes for lack of looking is worse than no gate.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
 from legalforecast.ingestion.adjudication_validation_view import (
@@ -88,6 +88,19 @@ def _outstanding_entries(row: Mapping[str, Any]) -> frozenset[int]:
     return frozenset(entries_of(rows_of(row.get("missing_docs"))))
 
 
+def _missing_docs_unreadable(row: Mapping[str, Any]) -> bool:
+    """Whether ``missing_docs`` is present but not a list of records.
+
+    An unreadable field must not read as "nothing is outstanding" -- that is
+    the silent pass this gate exists to prevent.
+    """
+
+    value = row.get("missing_docs")
+    if value is None:
+        return False
+    return not isinstance(value, Sequence) or isinstance(value, (str, bytes))
+
+
 def _acquired_entries(view: CandidateValidationView | None) -> frozenset[int]:
     if view is None:
         return frozenset()
@@ -109,7 +122,7 @@ def _effective_entries(
     A disposition that states an explicit ``final_packet`` overrides entirely.
     """
 
-    if disposition is not None and disposition.final_packet:
+    if disposition is not None and disposition.final_packet_declared:
         declared: list[tuple[int, str]] = []
         for document in disposition.final_packet:
             role = text_of(document, "role") or ""
@@ -166,6 +179,24 @@ def _invariant_1(inputs: ConvergenceInputs) -> InvariantResult:
         and disposition.excluded
     )
     validated_replacements = _validated_replacement_ids(inputs)
+    claimed: dict[str, list[str]] = {}
+    for candidate_id in excluded:
+        replacement = dispositions[candidate_id].replacement_candidate_id
+        if replacement:
+            claimed.setdefault(replacement, []).append(candidate_id)
+    for replacement, slots in sorted(claimed.items()):
+        if len(slots) > 1:
+            failures.append(
+                InvariantFailure(
+                    invariant=key,
+                    candidate_id=replacement,
+                    detail=(
+                        f"is claimed as the replacement for {len(slots)} slots "
+                        f"({', '.join(sorted(slots))}); one successor cannot fill "
+                        "more than one"
+                    ),
+                )
+            )
     eligible = len(seen) - len(
         [
             candidate_id
@@ -255,6 +286,17 @@ def _invariant_3(inputs: ConvergenceInputs) -> InvariantResult:
         if disposition is not None and disposition.excluded:
             continue
         view = inputs.validation_views.get(candidate_id)
+        if _missing_docs_unreadable(row):
+            failures.append(
+                InvariantFailure(
+                    invariant=key,
+                    candidate_id=candidate_id,
+                    detail=(
+                        "evidence_gap: missing_docs is present but unreadable, so "
+                        "which documents are outstanding cannot be determined"
+                    ),
+                )
+            )
         outstanding = _outstanding_entries(row) - _acquired_entries(view)
         effective = _effective_entries(row, disposition)
         for label, roles in (
@@ -332,7 +374,21 @@ def _invariant_4(inputs: ConvergenceInputs) -> InvariantResult:
                     )
                     continue
                 linked = set(_link_targets(required))
-                if target_entries and linked and not (linked & target_entries):
+                if not linked:
+                    failures.append(
+                        InvariantFailure(
+                            invariant=key,
+                            candidate_id=candidate_id,
+                            entry_number=entry,
+                            detail=(
+                                f"evidence_gap: the docketed {role} records no "
+                                "linkage to any motion, so its linkage to the "
+                                "target motion cannot be asserted"
+                            ),
+                        )
+                    )
+                    continue
+                if target_entries and not (linked & target_entries):
                     failures.append(
                         InvariantFailure(
                             invariant=key,

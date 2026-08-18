@@ -60,6 +60,46 @@ VERDICT_FIELDS: Final = ("byte_role_verdict", "verdict")
 #: Verdict meaning "the bytes carry the role they were selected for".
 MATCH_VERDICT: Final = "match"
 
+#: Sentinel for "this record has no usable docket entry number". Docket entry 0
+#: is legitimate, so ``None`` and ``0`` must never collapse together.
+_NO_ENTRY: Final = -(10**9)
+
+#: Role spellings that name the same document under different conventions. Two
+#: roles are comparable when they fall in the same group, so a validation
+#: recorded as ``target_motion`` still answers a query for the corpus spelling
+#: ``motion_to_dismiss_memorandum``.
+ROLE_GROUPS: Final = (
+    frozenset(
+        {
+            "target_motion",
+            "motion_to_dismiss",
+            "motion_to_dismiss_memorandum",
+            "motion_to_dismiss_notice",
+            "motion_for_judgment_on_the_pleadings",
+        }
+    ),
+    frozenset({"response", "opposition"}),
+    frozenset({"motion_memorandum", "memorandum", "brief"}),
+    frozenset({"complaint", "amended_complaint", "operative_pleading"}),
+)
+
+
+def roles_comparable(left: str | None, right: str | None) -> bool:
+    """Whether two role spellings can name the same document.
+
+    Deliberately narrow: it exists so a role-scoped lookup does not miss its own
+    document over a spelling difference, not to make unrelated roles
+    interchangeable. Unknown roles compare only to themselves.
+    """
+
+    if left is None or right is None:
+        return False
+    first = left.strip().lower()
+    second = right.strip().lower()
+    if first == second:
+        return True
+    return any(first in group and second in group for group in ROLE_GROUPS)
+
 
 def current_validation_verdict(validation: Mapping[str, Any] | None) -> str:
     """Return the canonical verdict for one byte-role validation record.
@@ -170,25 +210,44 @@ class CandidateValidationView:
     documents: tuple[DocumentValidation, ...]
     mismatches: tuple[MismatchResolution, ...]
 
-    def verdict_for_entry(self, entry_number: int) -> str:
+    def verdict_for_entry(self, entry_number: int, *, role: str | None = None) -> str:
         """Current verdict for a docket entry, or :data:`NOT_VALIDATED`.
 
-        When several documents share an entry number (a main document plus an
-        attachment), a ``match`` on any of them reports as ``match``; otherwise
-        the first recorded verdict is reported.
+        Pass ``role`` whenever the caller knows which document it is asking
+        about. One docket entry can carry a main filing and its attachments, and
+        without a role a ``match`` on any of them would answer for all of them --
+        so a required document that failed validation could read as validated
+        because an unrelated attachment at the same entry passed. That is the
+        one answer this view must never give.
+
+        Where a shared entry has no role-comparable document, the view declines
+        rather than attributing some other document's verdict to the role asked
+        about. Where the documents that do answer disagree, the conservative
+        verdict wins: only unanimous ``match`` reports as ``match``.
         """
 
-        verdicts = [
-            document.verdict
+        documents = [
+            document
             for document in self.documents
             if document.entry_number == entry_number
         ]
-        if not verdicts:
+        if not documents:
             return NOT_VALIDATED
-        if MATCH_VERDICT in verdicts:
+        if role is not None:
+            scoped = [
+                document
+                for document in documents
+                if roles_comparable(document.expected_role, role)
+            ]
+            if scoped:
+                documents = scoped
+            elif len(documents) > 1:
+                return NOT_VALIDATED
+        verdicts = [document.verdict for document in documents]
+        if all(verdict == MATCH_VERDICT for verdict in verdicts):
             return MATCH_VERDICT
         for verdict in verdicts:
-            if verdict != NOT_VALIDATED:
+            if verdict not in {MATCH_VERDICT, NOT_VALIDATED}:
                 return verdict
         return NOT_VALIDATED
 
@@ -335,29 +394,47 @@ def build_candidate_validation_view(row: Mapping[str, Any]) -> CandidateValidati
         _document_validation(candidate_id, status)
         for status in _as_rows(row.get("missing_document_status"))
     )
-    verdict_by_entry: dict[int, list[str]] = {}
+    verdict_by_entry: dict[int, list[tuple[str | None, str]]] = {}
     for document in documents:
         if document.entry_number is not None:
             verdict_by_entry.setdefault(document.entry_number, []).append(
-                document.verdict
+                (document.expected_role, document.verdict)
             )
 
     mismatches: list[MismatchResolution] = []
     for mismatch in _as_rows(row.get("byte_mismatches")):
         entry_number = _mismatch_entry_number(mismatch)
-        verdicts = verdict_by_entry.get(entry_number or -1, [])
-        if MATCH_VERDICT in verdicts:
+        selected_role = _text_field(mismatch, "selected_role")
+        recorded = verdict_by_entry.get(
+            _NO_ENTRY if entry_number is None else entry_number, []
+        )
+        # Supersession requires the later validation to be about the same
+        # document, and role comparability is the only evidence of that here.
+        # It must be positive: an unrelated document validating at the same
+        # entry is not a resolution of this finding. Failing to supersede
+        # leaves a stale finding open, which is recoverable; superseding
+        # wrongly deletes a real defect from the work list, which is not.
+        scoped = [
+            verdict
+            for role, verdict in recorded
+            if roles_comparable(role, selected_role)
+        ]
+        if scoped and all(verdict == MATCH_VERDICT for verdict in scoped):
             current = MATCH_VERDICT
         else:
             current = next(
-                (verdict for verdict in verdicts if verdict != NOT_VALIDATED),
+                (
+                    verdict
+                    for verdict in scoped
+                    if verdict not in {MATCH_VERDICT, NOT_VALIDATED}
+                ),
                 NOT_VALIDATED,
             )
         mismatches.append(
             MismatchResolution(
                 candidate_id=candidate_id,
                 entry_number=entry_number,
-                selected_role=_text_field(mismatch, "selected_role"),
+                selected_role=selected_role,
                 observed_role=_text_field(mismatch, "observed_role"),
                 recorded_verdict=_text_field(mismatch, "verdict"),
                 current_verdict=current,

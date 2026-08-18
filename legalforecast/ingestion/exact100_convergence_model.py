@@ -197,6 +197,9 @@ class Disposition:
     superseded: tuple[Mapping[str, Any], ...] = ()
     exclusion: Mapping[str, Any] | None = None
     in_corpus: bool = True
+    #: True when the record carried a ``final_packet`` key at all, so a
+    #: deliberately empty packet is distinguishable from an absent one.
+    final_packet_declared: bool = False
 
     @property
     def excluded(self) -> bool:
@@ -314,6 +317,7 @@ def parse_disposition(record: Mapping[str, Any]) -> Disposition:
         superseded=rows_of(record.get("superseded")),
         exclusion=mapping_of(record.get("exclusion")),
         in_corpus=record.get("in_corpus", True) is not False,
+        final_packet_declared="final_packet" in record,
     )
 
 
@@ -429,13 +433,17 @@ def _merge_acquisitions(
             merged.append(row)
             continue
         combined = dict(row)
-        known = {
-            status.get("entry")
-            for status in rows_of(row.get("missing_document_status"))
-        }
-        combined["missing_document_status"] = list(
-            rows_of(row.get("missing_document_status"))
-        ) + [status for status in additions if status["entry"] not in known]
+        existing = rows_of(row.get("missing_document_status"))
+        # Compare NORMALIZED entry numbers. The two artifacts come from
+        # different pipeline stages and nothing guarantees they serialize an
+        # entry number the same way; comparing raw values would let an
+        # acquisition record slip in beside the overlay's own row for the same
+        # entry, where its verdict could override the overlay's own finding.
+        # That is the exact opposite of this function's contract.
+        known = {entry for status in existing for entry in entries_of([status])}
+        combined["missing_document_status"] = list(existing) + [
+            status for status in additions if not (set(entries_of([status])) & known)
+        ]
         merged.append(combined)
     for candidate_id, additions in extra.items():
         if candidate_id in seen:
