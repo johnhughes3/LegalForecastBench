@@ -27734,6 +27734,40 @@ def _authenticate_ranked_reserve_precursor(
     )
 
 
+def _relocated_post_purchase_bytes(
+    path: Path,
+    *,
+    relocations: Mapping[str, tuple[Path, bytes]] | None,
+) -> bytes:
+    """Read one post-purchase authority input, honouring a verified relocation.
+
+    A completed run card commits the absolute paths its inputs occupied when it
+    ran, and the replay re-emits those exact strings, so a card that pinned an
+    ephemeral capture directory cannot be repaired by rewriting the path -- the
+    immutable-output gate would reject the rewritten card.  The already-verified
+    clearance relocation map supplies the other half: the same bytes, proven by
+    the digest the disclosure-clearance run card committed for that frozen path,
+    at a durable location.
+
+    Reading is still a real read of a real regular file, with the same
+    ``O_NOFOLLOW`` and single-link guarantees, and the bytes must equal the
+    authenticated payload.  Nothing here relaxes byte identity: it only allows an
+    authenticated file to answer for a frozen path that no longer exists.
+    """
+
+    relocation = (relocations or {}).get(os.path.abspath(path))
+    if relocation is None:
+        return read_unique_regular_file(path)
+    stable_path, authenticated_payload = relocation
+    payload = read_unique_regular_file(stable_path)
+    if payload != authenticated_payload:
+        raise ZeroCostSuccessorError(
+            "relocated post-purchase authority input differs from its "
+            f"authenticated bytes: {path}"
+        )
+    return payload
+
+
 def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
     target_root = cast(Path, args.target_cohort_root)
     result_path = cast(Path, args.ranked_reserve_result)
@@ -27928,7 +27962,9 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
         ) = None
         if supplied_post_purchase_paths:
             post_purchase_source_snapshots = {
-                path: read_unique_regular_file(path)
+                path: _relocated_post_purchase_bytes(
+                    path, relocations=verified_clearance_relocations
+                )
                 for name, path in supplied_post_purchase_paths.items()
                 if name != "replacement_controlled_private_root"
             }
@@ -28128,7 +28164,11 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
                 restriction_bytes, source=restriction_path
             ),
         )
-        _require_snapshot_unchanged(snapshots, label="zero-cost successor authority")
+        _require_snapshot_unchanged(
+            snapshots,
+            label="zero-cost successor authority",
+            relocations=verified_clearance_relocations,
+        )
         if (
             _authenticate_ranked_reserve_precursor(
                 projection=projection,
@@ -48310,11 +48350,25 @@ def _file_commitment_from_bytes(path: Path, payload: bytes) -> dict[str, str]:
     return {"path": str(path.resolve()), "sha256": _bytes_sha256(payload)}
 
 
-def _require_snapshot_unchanged(snapshots: Mapping[Path, bytes], *, label: str) -> None:
-    """Fail closed when an immutable input changed after its first read."""
+def _require_snapshot_unchanged(
+    snapshots: Mapping[Path, bytes],
+    *,
+    label: str,
+    relocations: Mapping[str, tuple[Path, bytes]] | None = None,
+) -> None:
+    """Fail closed when an immutable input changed after its first read.
 
+    A snapshot captured through a verified relocation is keyed by the frozen
+    path a run card committed, which may no longer exist.  The durable file is
+    the one that answered for it, so that is the file re-read here: the check
+    still proves the bytes behind this input did not move under the caller.
+    """
+
+    resolved = relocations or {}
     for path, expected in snapshots.items():
-        if _read_singly_linked_regular_input(path, label=label) != expected:
+        relocation = resolved.get(os.path.abspath(path))
+        read_path = path if relocation is None else relocation[0]
+        if _read_singly_linked_regular_input(read_path, label=label) != expected:
             raise CommandError(f"{label} changed during execution: {path}")
 
 
