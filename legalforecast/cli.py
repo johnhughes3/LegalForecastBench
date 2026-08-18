@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import copy
+import dataclasses
 import fcntl
 import hashlib
 import io
@@ -45555,6 +45556,12 @@ def _current_asyncio_task_id() -> int | None:
     return id(task) if task is not None else None
 
 
+_DerivedRelocations = dict[
+    str,
+    tuple[Mapping[str, tuple[Path, bytes]] | None, Mapping[str, Path] | None],
+]
+
+
 @dataclass
 class _VerifiedProjectionOperation:
     owner_thread_id: int
@@ -45562,6 +45569,12 @@ class _VerifiedProjectionOperation:
     byte_closures: dict[tuple[str, str, str], dict[str, bytes]]
     owner_task_id: int | None = None
     alive: bool = True
+    # Derived once per target root: this verification re-enters itself, and the
+    # derivation reads two run cards, so memoizing keeps a deep replay from
+    # re-deriving the same relocation at every level.
+    derived_relocations: _DerivedRelocations = dataclasses.field(
+        default_factory=lambda: cast(_DerivedRelocations, {})
+    )
 
     def is_live_owner(self) -> bool:
         return (
@@ -45574,6 +45587,7 @@ class _VerifiedProjectionOperation:
         self.alive = False
         self.cache.clear()
         self.byte_closures.clear()
+        self.derived_relocations.clear()
 
     def record_byte_closure(
         self,
@@ -45694,6 +45708,126 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
         _VERIFIED_PROJECTION_OPERATION.reset(token)
 
 
+def _derived_clearance_relocations(
+    target_root: Path,
+) -> tuple[Mapping[str, tuple[Path, bytes]] | None, Mapping[str, Path] | None]:
+    """Content-address one cohort policy whose committed capture root is gone.
+
+    A completed target-cohort run card commits the absolute paths its inputs
+    occupied, and the replay re-emits those exact strings, so a card that pinned
+    an ephemeral capture directory cannot be repaired by rewriting the path --
+    the immutable-output gate would reject the rewritten card.  The committed
+    digest is the authority here and the path is only a hint: the
+    disclosure-clearance run card this card names commits
+    ``source_commitments.cohort_policy`` as a ``{path, sha256}`` pair, so a
+    durable file whose bytes hash to that digest is the same authenticated
+    input, wherever it now lives.
+
+    This is deliberately narrow.  It engages only when the committed path does
+    not exist, accepts only bytes matching the committed digest, and requires
+    the stand-in to sit at the identical position under its own source root, so
+    the derived root mapping stays a pure relocation.  When nothing matches, it
+    returns nothing and the caller refuses exactly as before -- no candidate is
+    ever accepted on the strength of its location.
+    """
+
+    run_card_path = target_root / "run-cards/project-target-cohort.json"
+    if run_card_path.is_symlink() or not run_card_path.is_file():
+        return None, None
+    committed = _committed_cohort_policy_reference(run_card_path)
+    if committed is None:
+        return None, None
+    frozen_path, expected_sha256 = committed
+    if os.path.lexists(frozen_path):
+        return None, None
+    frozen_source_root = frozen_path.parents[1]
+    relative = frozen_path.relative_to(frozen_source_root)
+    mismatched: list[Path] = []
+    for stable_root in _stable_source_root_candidates(target_root):
+        stable_path = stable_root / relative
+        if stable_path.is_symlink() or not stable_path.is_file():
+            continue
+        payload = stable_path.read_bytes()
+        if _bytes_sha256(payload) != expected_sha256:
+            # The search list is deliberately liberal, so a file that merely
+            # shares the committed relative position proves nothing and is
+            # skipped rather than treated as a corrupted stand-in.
+            mismatched.append(stable_path)
+            continue
+        return (
+            {os.path.abspath(frozen_path): (stable_path, payload)},
+            {os.path.abspath(frozen_source_root): stable_root},
+        )
+    if mismatched:
+        raise CommandError(
+            "no durable copy of the committed cohort policy matches the digest "
+            f"its clearance run card committed: {frozen_path}"
+        )
+    return None, None
+
+
+def _committed_cohort_policy_reference(
+    run_card_path: Path,
+) -> tuple[Path, str] | None:
+    """Return the cohort policy path and digest the clearance card commits."""
+
+    run_card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            run_card_path, label="target projection run card"
+        ),
+        source=run_card_path,
+    )
+    raw_inputs = run_card.get("input_paths")
+    if (
+        not isinstance(raw_inputs, Sequence)
+        or isinstance(raw_inputs, (str, bytes))
+        or len(cast(Sequence[object], raw_inputs)) < 8
+    ):
+        return None
+    clearance_card_path = Path(str(cast(Sequence[object], raw_inputs)[7])).absolute()
+    if clearance_card_path.is_symlink() or not clearance_card_path.is_file():
+        return None
+    clearance_card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            clearance_card_path, label="zero-cost successor clearance run card"
+        ),
+        source=clearance_card_path,
+    )
+    sources = clearance_card.get("source_commitments")
+    if not isinstance(sources, Mapping):
+        return None
+    committed = cast(Mapping[str, object], sources).get("cohort_policy")
+    if not isinstance(committed, Mapping):
+        return None
+    reference = cast(Mapping[str, object], committed)
+    path_value = reference.get("path")
+    digest_value = reference.get("sha256")
+    if not isinstance(path_value, str) or not isinstance(digest_value, str):
+        return None
+    return Path(path_value).absolute(), digest_value
+
+
+def _stable_source_root_candidates(target_root: Path) -> tuple[Path, ...]:
+    """Return durable roots that may now hold a relocated committed input.
+
+    Location is only a search hint -- the digest decides -- so the candidate
+    list is allowed to be liberal: the ancestors of the artifact tree under
+    verification, plus the installed package's own repository root, which is
+    where the durable copies of these committed inputs live.
+    """
+
+    candidates: list[Path] = [Path(__file__).resolve().parents[1]]
+    candidates.extend(target_root.absolute().parents)
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for candidate in candidates:
+        key = os.path.abspath(candidate)
+        if key not in seen:
+            seen.add(key)
+            unique.append(candidate)
+    return tuple(unique)
+
+
 def _verify_completed_target_cohort_projection_in_operation(
     target_root: Path,
     *,
@@ -45704,6 +45838,19 @@ def _verify_completed_target_cohort_projection_in_operation(
 ) -> dict[str, object]:
     if not operation.is_live_owner():  # pragma: no cover - guarded by public entry
         raise RuntimeError("verified projection operation is not live for this thread")
+
+    if (
+        _verified_clearance_relocations is None
+        and _verified_clearance_source_roots is None
+    ):
+        memo_key = os.path.abspath(target_root)
+        if memo_key not in operation.derived_relocations:
+            operation.derived_relocations[memo_key] = _derived_clearance_relocations(
+                target_root
+            )
+        _verified_clearance_relocations, _verified_clearance_source_roots = (
+            operation.derived_relocations[memo_key]
+        )
 
     supporting_card_path = (
         target_root / "run-cards/project-exact100-supporting-document-successor.json"

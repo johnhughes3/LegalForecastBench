@@ -244,9 +244,11 @@ def test_normalizes_raw_parser_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     def fail_parse(*args: object, **kwargs: object) -> None:
         raise CourtListenerWebParseError("synthetic parser failure")
 
+    # Parsing now runs through the selected parser model, so the failure is
+    # injected at that facade rather than at a module-level import.
     monkeypatch.setattr(
-        "legalforecast.ingestion.docket_decision_text_source."
-        "parse_courtlistener_docket_html",
+        "legalforecast.ingestion.frozen_parser_model.loader."
+        "ParserModel.parse_docket_html",
         fail_parse,
     )
 
@@ -266,8 +268,17 @@ def test_normalizes_raw_parser_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     ("collaborator", "message"),
     (
-        ("screen_courtlistener_docket_for_mtd_decision", "MTD screen"),
-        ("link_mtd_dispositions", "motion linkage"),
+        # The strict screen is reached through the selected parser model; motion
+        # linkage is still a direct collaborator of the replay module.
+        (
+            "legalforecast.ingestion.frozen_parser_model.loader."
+            "ParserModel.screen_record",
+            "MTD screen",
+        ),
+        (
+            "legalforecast.ingestion.docket_decision_text_source.link_mtd_dispositions",
+            "motion linkage",
+        ),
     ),
 )
 def test_normalizes_screen_and_linkage_failures(
@@ -280,10 +291,7 @@ def test_normalizes_screen_and_linkage_failures(
     def fail_replay(*args: object, **kwargs: object) -> None:
         raise ValueError("synthetic collaborator failure")
 
-    monkeypatch.setattr(
-        f"legalforecast.ingestion.docket_decision_text_source.{collaborator}",
-        fail_replay,
-    )
+    monkeypatch.setattr(collaborator, fail_replay)
 
     with pytest.raises(DocketDecisionTextSourceError, match=message):
         replay_docket_decision_source_lineage(

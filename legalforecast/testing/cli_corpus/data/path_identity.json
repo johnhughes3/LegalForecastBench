@@ -238,6 +238,7 @@
     "legalforecast/ingestion/disclosure_review_authority.py",
     "legalforecast/ingestion/firecrawl_screening_identity.py",
     "legalforecast/ingestion/frozen_batch_firecrawl_observation.py",
+    "legalforecast/ingestion/frozen_parser_model/loader.py",
     "legalforecast/ingestion/rest_observation_policy_rebind.py",
     "legalforecast/multiharness/claude_agent_sdk.py",
     "legalforecast/multiharness/claude_code.py",
@@ -430,6 +431,10 @@
       "legalforecast/selection/contamination_filters.py",
       "legalforecast/selection/exclusion_ledger.py",
       "legalforecast/selection/motion_linkage.py"
+    ],
+    "legalforecast/ingestion/frozen_parser_model/registry.py": [
+      "legalforecast/ingestion/courtlistener_web.py",
+      "legalforecast/ingestion/mtd_acquisition_screen.py"
     ],
     "legalforecast/ingestion/rest_observation_policy_rebind.py": [
       "legalforecast/ingestion/courtlistener_acquisition.py"
