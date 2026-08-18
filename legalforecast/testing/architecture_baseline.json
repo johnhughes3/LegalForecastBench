@@ -3770,7 +3770,7 @@
       "legalforecast/document_need": 10,
       "legalforecast/evals": 20,
       "legalforecast/extraction": 4,
-      "legalforecast/ingestion": 163,
+      "legalforecast/ingestion": 164,
       "legalforecast/ingestion/attachment_page": 7,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/ingestion/frozen_parser_model": 2,
@@ -5129,7 +5129,7 @@
         "disposition_kind": "watch",
         "disposition_owner": "ingestion",
         "fan_in": 1,
-        "fan_out": 1,
+        "fan_out": 2,
         "flags": [
           "watch"
         ],
@@ -5137,9 +5137,9 @@
         "largest_symbol": "_invariant_7",
         "largest_symbol_lines": 79,
         "layer": "application",
-        "line_count": 990,
-        "nonblank_line_count": 876,
-        "top_level_definition_count": 31
+        "line_count": 722,
+        "nonblank_line_count": 661,
+        "top_level_definition_count": 20
       },
       "legalforecast/ingestion/exact100_reserve_extension.py": {
         "cycle_id": "",
@@ -9135,9 +9135,9 @@
         "largest_symbol": "test_brief_linked_to_a_different_motion_is_named",
         "largest_symbol_lines": 30,
         "layer": "test",
-        "line_count": 665,
-        "nonblank_line_count": 576,
-        "top_level_definition_count": 40
+        "line_count": 764,
+        "nonblank_line_count": 661,
+        "top_level_definition_count": 45
       },
       "tests/test_exact100_reserve_extension.py": {
         "cycle_id": "",
