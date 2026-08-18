@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import copy
+import dataclasses
 import fcntl
 import hashlib
 import io
@@ -27734,6 +27735,40 @@ def _authenticate_ranked_reserve_precursor(
     )
 
 
+def _relocated_post_purchase_bytes(
+    path: Path,
+    *,
+    relocations: Mapping[str, tuple[Path, bytes]] | None,
+) -> bytes:
+    """Read one post-purchase authority input, honouring a verified relocation.
+
+    A completed run card commits the absolute paths its inputs occupied when it
+    ran, and the replay re-emits those exact strings, so a card that pinned an
+    ephemeral capture directory cannot be repaired by rewriting the path -- the
+    immutable-output gate would reject the rewritten card.  The already-verified
+    clearance relocation map supplies the other half: the same bytes, proven by
+    the digest the disclosure-clearance run card committed for that frozen path,
+    at a durable location.
+
+    Reading is still a real read of a real regular file, with the same
+    ``O_NOFOLLOW`` and single-link guarantees, and the bytes must equal the
+    authenticated payload.  Nothing here relaxes byte identity: it only allows an
+    authenticated file to answer for a frozen path that no longer exists.
+    """
+
+    relocation = (relocations or {}).get(os.path.abspath(path))
+    if relocation is None:
+        return read_unique_regular_file(path)
+    stable_path, authenticated_payload = relocation
+    payload = read_unique_regular_file(stable_path)
+    if payload != authenticated_payload:
+        raise ZeroCostSuccessorError(
+            "relocated post-purchase authority input differs from its "
+            f"authenticated bytes: {path}"
+        )
+    return payload
+
+
 def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
     target_root = cast(Path, args.target_cohort_root)
     result_path = cast(Path, args.ranked_reserve_result)
@@ -27928,7 +27963,9 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
         ) = None
         if supplied_post_purchase_paths:
             post_purchase_source_snapshots = {
-                path: read_unique_regular_file(path)
+                path: _relocated_post_purchase_bytes(
+                    path, relocations=verified_clearance_relocations
+                )
                 for name, path in supplied_post_purchase_paths.items()
                 if name != "replacement_controlled_private_root"
             }
@@ -28128,7 +28165,11 @@ def _cmd_project_zero_cost_successor(args: argparse.Namespace) -> int:
                 restriction_bytes, source=restriction_path
             ),
         )
-        _require_snapshot_unchanged(snapshots, label="zero-cost successor authority")
+        _require_snapshot_unchanged(
+            snapshots,
+            label="zero-cost successor authority",
+            relocations=verified_clearance_relocations,
+        )
         if (
             _authenticate_ranked_reserve_precursor(
                 projection=projection,
@@ -28570,6 +28611,8 @@ def _verify_replacement_exclusion_card(
     output_path: Path,
     selection_path: Path,
     screened_cases_path: Path,
+    _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
+    _verified_clearance_source_roots: Mapping[str, Path] | None = None,
 ) -> tuple[JsonRecord, ...]:
     card_bytes = _read_singly_linked_regular_input(
         run_card_path, label="replacement successor exclusion run card"
@@ -28624,7 +28667,9 @@ def _verify_replacement_exclusion_card(
     }:
         raise CommandError("replacement successor exclusion output commitment changed")
     projection = verify_completed_target_cohort_projection_for_purchase_approval(
-        inputs[0].parent.parent
+        inputs[0].parent.parent,
+        _verified_clearance_relocations=_verified_clearance_relocations,
+        _verified_clearance_source_roots=_verified_clearance_source_roots,
     )
     verified_projection_bytes = cast(
         Mapping[str, bytes], projection["verified_artifact_bytes"]
@@ -44146,6 +44191,14 @@ def _replay_exact100_successor_replacement_v2_inputs(
         output_path=exclusion_path,
         selection_path=predecessor_root / "target-cohort-selection.jsonl",
         screened_cases_path=final153_snapshot / "screened-cases.jsonl",
+        _verified_clearance_relocations=cast(
+            Mapping[str, tuple[Path, bytes]] | None,
+            getattr(args, "_verified_clearance_relocations", None),
+        ),
+        _verified_clearance_source_roots=cast(
+            Mapping[str, Path] | None,
+            getattr(args, "_verified_clearance_source_roots", None),
+        ),
     )
 
     (
@@ -44800,6 +44853,8 @@ def _verify_materializer_projection(
             target_root=target_root,
             free_clearance_path=free_clearance_path,
             expected_target_count=expected_target_count,
+            _verified_clearance_relocations=_verified_clearance_relocations,
+            _verified_clearance_source_roots=_verified_clearance_source_roots,
         )
     if run_card_path.is_file() and not run_card_path.is_symlink():
         candidate_card = _projection_json_object(
@@ -45302,6 +45357,8 @@ def _verify_supporting_document_downstream_projection(
     free_clearance_path: Path,
     expected_target_count: int,
     _verified_byte_closure: dict[str, bytes] | None = None,
+    _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
+    _verified_clearance_source_roots: Mapping[str, Path] | None = None,
 ) -> dict[str, object]:
     """Replay one supporting-document successor for downstream consumers."""
 
@@ -45330,10 +45387,16 @@ def _verify_supporting_document_downstream_projection(
             ),
             source=v2_card_path,
         )
+        replay_args = _exact100_successor_v2_replay_args(v2_card)
+        # Same private-kwarg convention the zero-cost successor replay uses: a
+        # verified relocation travels on the replay namespace so it reaches the
+        # nested projection verifier without becoming ambient authority.
+        replay_args._verified_clearance_relocations = _verified_clearance_relocations
+        replay_args._verified_clearance_source_roots = _verified_clearance_source_roots
         return verify_exact100_successor_replacement_v2_projection(
             root,
             replay=_replay_exact100_successor_replacement_v2_inputs,
-            args=_exact100_successor_v2_replay_args(v2_card),
+            args=replay_args,
         )
 
     try:
@@ -45493,6 +45556,12 @@ def _current_asyncio_task_id() -> int | None:
     return id(task) if task is not None else None
 
 
+_DerivedRelocations = dict[
+    str,
+    tuple[Mapping[str, tuple[Path, bytes]] | None, Mapping[str, Path] | None],
+]
+
+
 @dataclass
 class _VerifiedProjectionOperation:
     owner_thread_id: int
@@ -45500,6 +45569,12 @@ class _VerifiedProjectionOperation:
     byte_closures: dict[tuple[str, str, str], dict[str, bytes]]
     owner_task_id: int | None = None
     alive: bool = True
+    # Derived once per target root: this verification re-enters itself, and the
+    # derivation reads two run cards, so memoizing keeps a deep replay from
+    # re-deriving the same relocation at every level.
+    derived_relocations: _DerivedRelocations = dataclasses.field(
+        default_factory=lambda: cast(_DerivedRelocations, {})
+    )
 
     def is_live_owner(self) -> bool:
         return (
@@ -45512,6 +45587,7 @@ class _VerifiedProjectionOperation:
         self.alive = False
         self.cache.clear()
         self.byte_closures.clear()
+        self.derived_relocations.clear()
 
     def record_byte_closure(
         self,
@@ -45632,6 +45708,126 @@ def verify_completed_target_cohort_projection_for_purchase_approval(
         _VERIFIED_PROJECTION_OPERATION.reset(token)
 
 
+def _derived_clearance_relocations(
+    target_root: Path,
+) -> tuple[Mapping[str, tuple[Path, bytes]] | None, Mapping[str, Path] | None]:
+    """Content-address one cohort policy whose committed capture root is gone.
+
+    A completed target-cohort run card commits the absolute paths its inputs
+    occupied, and the replay re-emits those exact strings, so a card that pinned
+    an ephemeral capture directory cannot be repaired by rewriting the path --
+    the immutable-output gate would reject the rewritten card.  The committed
+    digest is the authority here and the path is only a hint: the
+    disclosure-clearance run card this card names commits
+    ``source_commitments.cohort_policy`` as a ``{path, sha256}`` pair, so a
+    durable file whose bytes hash to that digest is the same authenticated
+    input, wherever it now lives.
+
+    This is deliberately narrow.  It engages only when the committed path does
+    not exist, accepts only bytes matching the committed digest, and requires
+    the stand-in to sit at the identical position under its own source root, so
+    the derived root mapping stays a pure relocation.  When nothing matches, it
+    returns nothing and the caller refuses exactly as before -- no candidate is
+    ever accepted on the strength of its location.
+    """
+
+    run_card_path = target_root / "run-cards/project-target-cohort.json"
+    if run_card_path.is_symlink() or not run_card_path.is_file():
+        return None, None
+    committed = _committed_cohort_policy_reference(run_card_path)
+    if committed is None:
+        return None, None
+    frozen_path, expected_sha256 = committed
+    if os.path.lexists(frozen_path):
+        return None, None
+    frozen_source_root = frozen_path.parents[1]
+    relative = frozen_path.relative_to(frozen_source_root)
+    mismatched: list[Path] = []
+    for stable_root in _stable_source_root_candidates(target_root):
+        stable_path = stable_root / relative
+        if stable_path.is_symlink() or not stable_path.is_file():
+            continue
+        payload = stable_path.read_bytes()
+        if _bytes_sha256(payload) != expected_sha256:
+            # The search list is deliberately liberal, so a file that merely
+            # shares the committed relative position proves nothing and is
+            # skipped rather than treated as a corrupted stand-in.
+            mismatched.append(stable_path)
+            continue
+        return (
+            {os.path.abspath(frozen_path): (stable_path, payload)},
+            {os.path.abspath(frozen_source_root): stable_root},
+        )
+    if mismatched:
+        raise CommandError(
+            "no durable copy of the committed cohort policy matches the digest "
+            f"its clearance run card committed: {frozen_path}"
+        )
+    return None, None
+
+
+def _committed_cohort_policy_reference(
+    run_card_path: Path,
+) -> tuple[Path, str] | None:
+    """Return the cohort policy path and digest the clearance card commits."""
+
+    run_card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            run_card_path, label="target projection run card"
+        ),
+        source=run_card_path,
+    )
+    raw_inputs = run_card.get("input_paths")
+    if (
+        not isinstance(raw_inputs, Sequence)
+        or isinstance(raw_inputs, (str, bytes))
+        or len(cast(Sequence[object], raw_inputs)) < 8
+    ):
+        return None
+    clearance_card_path = Path(str(cast(Sequence[object], raw_inputs)[7])).absolute()
+    if clearance_card_path.is_symlink() or not clearance_card_path.is_file():
+        return None
+    clearance_card = _projection_json_object(
+        _read_singly_linked_regular_input(
+            clearance_card_path, label="zero-cost successor clearance run card"
+        ),
+        source=clearance_card_path,
+    )
+    sources = clearance_card.get("source_commitments")
+    if not isinstance(sources, Mapping):
+        return None
+    committed = cast(Mapping[str, object], sources).get("cohort_policy")
+    if not isinstance(committed, Mapping):
+        return None
+    reference = cast(Mapping[str, object], committed)
+    path_value = reference.get("path")
+    digest_value = reference.get("sha256")
+    if not isinstance(path_value, str) or not isinstance(digest_value, str):
+        return None
+    return Path(path_value).absolute(), digest_value
+
+
+def _stable_source_root_candidates(target_root: Path) -> tuple[Path, ...]:
+    """Return durable roots that may now hold a relocated committed input.
+
+    Location is only a search hint -- the digest decides -- so the candidate
+    list is allowed to be liberal: the ancestors of the artifact tree under
+    verification, plus the installed package's own repository root, which is
+    where the durable copies of these committed inputs live.
+    """
+
+    candidates: list[Path] = [Path(__file__).resolve().parents[1]]
+    candidates.extend(target_root.absolute().parents)
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for candidate in candidates:
+        key = os.path.abspath(candidate)
+        if key not in seen:
+            seen.add(key)
+            unique.append(candidate)
+    return tuple(unique)
+
+
 def _verify_completed_target_cohort_projection_in_operation(
     target_root: Path,
     *,
@@ -45642,6 +45838,19 @@ def _verify_completed_target_cohort_projection_in_operation(
 ) -> dict[str, object]:
     if not operation.is_live_owner():  # pragma: no cover - guarded by public entry
         raise RuntimeError("verified projection operation is not live for this thread")
+
+    if (
+        _verified_clearance_relocations is None
+        and _verified_clearance_source_roots is None
+    ):
+        memo_key = os.path.abspath(target_root)
+        if memo_key not in operation.derived_relocations:
+            operation.derived_relocations[memo_key] = _derived_clearance_relocations(
+                target_root
+            )
+        _verified_clearance_relocations, _verified_clearance_source_roots = (
+            operation.derived_relocations[memo_key]
+        )
 
     supporting_card_path = (
         target_root / "run-cards/project-exact100-supporting-document-successor.json"
@@ -45658,7 +45867,14 @@ def _verify_completed_target_cohort_projection_in_operation(
             str(target_root.resolve()),
             _bytes_sha256(supporting_card_bytes),
         )
-        cached = operation.cache.get(cache_key)
+        # A relocated input is authenticated for one operation only, so a
+        # projection verified through one must never answer from, or populate,
+        # the shared cache -- exactly as the ranked-replay guard below requires.
+        supporting_cacheable = (
+            _verified_clearance_relocations is None
+            and _verified_clearance_source_roots is None
+        )
+        cached = operation.cache.get(cache_key) if supporting_cacheable else None
         if cached is not None:
             _require_snapshot_unchanged(
                 {Path(path): payload for path, payload in cached.snapshots},
@@ -45690,6 +45906,8 @@ def _verify_completed_target_cohort_projection_in_operation(
                     supporting_card, "selected_case_count"
                 ),
                 _verified_byte_closure=closure,
+                _verified_clearance_relocations=_verified_clearance_relocations,
+                _verified_clearance_source_roots=_verified_clearance_source_roots,
             )
         finally:
             _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.reset(absence_token)
@@ -45735,6 +45953,7 @@ def _verify_completed_target_cohort_projection_in_operation(
         _require_snapshot_unchanged(
             {Path(path): payload for path, payload in closure.items()},
             label="supporting-document projection artifact",
+            relocations=_verified_clearance_relocations,
         )
         _require_projection_absences_unchanged(
             absent_paths,
@@ -45750,11 +45969,12 @@ def _verify_completed_target_cohort_projection_in_operation(
         outer_absences = _VERIFIED_PROJECTION_ABSENCE_COLLECTOR.get()
         if outer_absences is not None:
             outer_absences.update(absent_paths)
-        operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
-            result=copy.deepcopy(result),
-            snapshots=tuple(sorted(closure.items())),
-            absent_paths=absent_paths,
-        )
+        if supporting_cacheable:
+            operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
+                result=copy.deepcopy(result),
+                snapshots=tuple(sorted(closure.items())),
+                absent_paths=absent_paths,
+            )
         return result
 
     run_card_path = target_root / "run-cards/project-target-cohort.json"
@@ -48310,11 +48530,25 @@ def _file_commitment_from_bytes(path: Path, payload: bytes) -> dict[str, str]:
     return {"path": str(path.resolve()), "sha256": _bytes_sha256(payload)}
 
 
-def _require_snapshot_unchanged(snapshots: Mapping[Path, bytes], *, label: str) -> None:
-    """Fail closed when an immutable input changed after its first read."""
+def _require_snapshot_unchanged(
+    snapshots: Mapping[Path, bytes],
+    *,
+    label: str,
+    relocations: Mapping[str, tuple[Path, bytes]] | None = None,
+) -> None:
+    """Fail closed when an immutable input changed after its first read.
 
+    A snapshot captured through a verified relocation is keyed by the frozen
+    path a run card committed, which may no longer exist.  The durable file is
+    the one that answered for it, so that is the file re-read here: the check
+    still proves the bytes behind this input did not move under the caller.
+    """
+
+    resolved = relocations or {}
     for path, expected in snapshots.items():
-        if _read_singly_linked_regular_input(path, label=label) != expected:
+        relocation = resolved.get(os.path.abspath(path))
+        read_path = path if relocation is None else relocation[0]
+        if _read_singly_linked_regular_input(read_path, label=label) != expected:
             raise CommandError(f"{label} changed during execution: {path}")
 
 

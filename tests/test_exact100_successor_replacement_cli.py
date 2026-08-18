@@ -787,9 +787,14 @@ def test_projection_verifier_reuses_only_one_byte_closed_root_per_operation(
 
     assert invocation_counts == Counter({outer_root: 1, original_root: 1})
     assert read_counts[original_artifact.absolute()] == 1
+    # Three verification reads plus one to derive the content-addressed
+    # relocation for a committed input whose capture directory may be gone.
+    # The derivation is memoized per target root, so re-entry does not add
+    # more; the property under test -- one byte-closed root per operation --
+    # is unchanged.
     assert (
         read_counts[(original_root / "run-cards/project-target-cohort.json").absolute()]
-        == 3
+        == 4
     )
 
     cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
@@ -1006,7 +1011,14 @@ def test_projection_verifier_rereads_replacement_ledger_in_existing_order(
         cli.verify_completed_target_cohort_projection_for_purchase_approval(outer_root)
 
     assert ledger_reads == [b"initial ledger", b"mutated ledger"]
+    # The first two reads derive the content-addressed relocation for a
+    # committed input whose capture directory may be gone; it is memoized per
+    # target root, so it happens once rather than at every re-entry. What this
+    # test guards is unchanged: the ledger is re-read in order on each replay
+    # rather than served from a cache.
     assert events == [
+        "target projection run card",
+        "zero-cost successor clearance run card",
         "target projection run card",
         "preparation config",
         "replacement purchase ledger",

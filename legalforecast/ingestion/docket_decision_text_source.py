@@ -19,17 +19,17 @@ from typing import Any, Final, cast
 from legalforecast.ingestion.canonical_json import canonical_json_value_bytes
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseJournal
 from legalforecast.ingestion.courtlistener_dates import parse_courtlistener_filed_date
-from legalforecast.ingestion.courtlistener_web import (
-    CourtListenerEntryRole,
-    CourtListenerWebDocketEntry,
-    CourtListenerWebDocketPage,
-    CourtListenerWebDocument,
-    CourtListenerWebParseError,
-    parse_courtlistener_docket_html,
-)
+from legalforecast.ingestion.courtlistener_web import CourtListenerEntryRole
 from legalforecast.ingestion.docket_sync import NormalizedDocketEntry
-from legalforecast.ingestion.mtd_acquisition_screen import (
-    screen_courtlistener_docket_for_mtd_decision,
+from legalforecast.ingestion.frozen_parser_model.loader import (
+    ParsedDocument,
+    ParsedEntry,
+    ParsedPage,
+    ParserModel,
+    load_parser_model,
+)
+from legalforecast.ingestion.frozen_parser_model.registry import (
+    parser_model_version_for_snapshot,
 )
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.screening_snapshot_union import (
@@ -66,14 +66,20 @@ _SOURCE_KIND: Final = "authenticated_docket_entry_text"
 _LINEAGE_ISSUER = object()
 _DISPOSITION_ISSUER = object()
 
+# Keyed by the role *value* rather than the enum member: a preserved parser
+# model defines its own ``CourtListenerEntryRole``, and ``Enum.__hash__`` hashes
+# the member name while ``StrEnum.__eq__`` compares the value, so a member from
+# one model is not a usable key in a map built from another model's members.
+# The values themselves are part of the frozen evidence and are asserted equal
+# across every pinned model.
 _ROLE_MAP: Final = {
-    CourtListenerEntryRole.MTD_NOTICE: DocumentRole.MTD_NOTICE,
-    CourtListenerEntryRole.MTD_MEMORANDUM: DocumentRole.MTD_MEMORANDUM,
-    CourtListenerEntryRole.OPPOSITION: DocumentRole.OPPOSITION,
-    CourtListenerEntryRole.REPLY: DocumentRole.REPLY,
-    CourtListenerEntryRole.EXHIBIT: DocumentRole.OTHER,
-    CourtListenerEntryRole.DECISION: DocumentRole.DECISION,
-    CourtListenerEntryRole.OTHER: DocumentRole.OTHER,
+    CourtListenerEntryRole.MTD_NOTICE.value: DocumentRole.MTD_NOTICE,
+    CourtListenerEntryRole.MTD_MEMORANDUM.value: DocumentRole.MTD_MEMORANDUM,
+    CourtListenerEntryRole.OPPOSITION.value: DocumentRole.OPPOSITION,
+    CourtListenerEntryRole.REPLY.value: DocumentRole.REPLY,
+    CourtListenerEntryRole.EXHIBIT.value: DocumentRole.OTHER,
+    CourtListenerEntryRole.DECISION.value: DocumentRole.DECISION,
+    CourtListenerEntryRole.OTHER.value: DocumentRole.OTHER,
 }
 
 
@@ -253,11 +259,22 @@ def replay_docket_decision_source_lineage(
         )
 
     _verify_decision_entry_is_public(decision_entry)
+    # A frozen snapshot's derived fields belong to the parser model that
+    # produced them.  The selector is keyed by the snapshot manifest digest the
+    # caller already authenticated against its own expected pin, so nothing in
+    # the snapshot payload can choose its own verifier, and byte identity is
+    # still required under whichever model is selected.
+    model = load_parser_model(
+        parser_model_version_for_snapshot(
+            _sha256(screening_snapshot.manifest_sha256, "snapshot manifest")
+        )
+    )
     page, basis, source_evidence = _reconstruct_source_page(
         screening_snapshot=screening_snapshot,
         evidence=evidence,
         snapshot_candidate_id=snapshot_candidate_id,
         docket_id=candidate_id,
+        model=model,
     )
     _verify_source_identity(
         basis=basis,
@@ -272,6 +289,7 @@ def replay_docket_decision_source_lineage(
         evidence=evidence,
         docket_id=candidate_id,
         anchor_date=anchor_date,
+        model=model,
     )
 
     manifest = screening_snapshot.manifest
@@ -1038,7 +1056,8 @@ def _reconstruct_source_page(
     evidence: Mapping[str, Any],
     snapshot_candidate_id: str,
     docket_id: str,
-) -> tuple[CourtListenerWebDocketPage, str, JsonRecord]:
+    model: ParserModel,
+) -> tuple[ParsedPage, str, JsonRecord]:
     raw_matches = tuple(
         artifact
         for artifact in screening_snapshot.raw_artifacts
@@ -1057,8 +1076,11 @@ def _reconstruct_source_page(
                 screening_snapshot.manifest.get("cycle_hash"),
                 "screening snapshot cycle hash",
             ),
+            model=model,
         )
-    return _canonical_rest_source_page(evidence=evidence, docket_id=docket_id)
+    return _canonical_rest_source_page(
+        evidence=evidence, docket_id=docket_id, model=model
+    )
 
 
 def _raw_html_source_page(
@@ -1067,7 +1089,8 @@ def _raw_html_source_page(
     evidence: Mapping[str, Any],
     docket_id: str,
     expected_target_cycle_hash: str,
-) -> tuple[CourtListenerWebDocketPage, str, JsonRecord]:
+    model: ParserModel,
+) -> tuple[ParsedPage, str, JsonRecord]:
     if not raw.content_authenticated or raw.content is None:
         raise DocketDecisionTextSourceError(
             "raw CourtListener HTML bytes are not authenticated"
@@ -1087,12 +1110,12 @@ def _raw_html_source_page(
         ) from exc
     strict_screen = _mapping(evidence.get("mtd_decision_screen"), "strict screen")
     try:
-        page = parse_courtlistener_docket_html(
+        page = model.parse_docket_html(
             raw_html,
             source_url=_required_string(strict_screen.get("source_url"), "source URL"),
             docket_id=docket_id,
         )
-    except CourtListenerWebParseError as exc:
+    except model.parse_error as exc:
         raise DocketDecisionTextSourceError(
             "raw CourtListener HTML cannot be replayed"
         ) from exc
@@ -1219,7 +1242,8 @@ def _canonical_rest_source_page(
     *,
     evidence: Mapping[str, Any],
     docket_id: str,
-) -> tuple[CourtListenerWebDocketPage, str, JsonRecord]:
+    model: ParserModel,
+) -> tuple[ParsedPage, str, JsonRecord]:
     if (
         evidence.get("provider") != "courtlistener-recap-rest-v4"
         or evidence.get("canonical_rest_screen_complete") is not True
@@ -1253,13 +1277,15 @@ def _canonical_rest_source_page(
         raise DocketDecisionTextSourceError(
             "REST reconstruction does not prove complete cursor exhaustion"
         )
-    entries = tuple(_entry_from_record(record) for record in selected_entries)
+    entries = tuple(
+        _entry_from_record(record, model=model) for record in selected_entries
+    )
     if [entry.to_record() for entry in entries] != list(selected_entries):
         raise DocketDecisionTextSourceError(
-            "REST entries do not round-trip under the production parser model"
+            f"REST entries do not round-trip under the {model.version} parser model"
         )
     strict_screen = _mapping(evidence.get("mtd_decision_screen"), "strict screen")
-    page = CourtListenerWebDocketPage(
+    page = model.page(
         docket_id=docket_id,
         source_url=_required_string(strict_screen.get("source_url"), "source URL"),
         title=_required_string(strict_screen.get("title"), "screen title"),
@@ -1320,10 +1346,11 @@ def _canonical_rest_source_page(
 
 def _rerun_semantic_screen_and_linkage(
     *,
-    page: CourtListenerWebDocketPage,
+    page: ParsedPage,
     evidence: Mapping[str, Any],
     docket_id: str,
     anchor_date: date,
+    model: ParserModel,
 ) -> None:
     candidate = _mapping(evidence.get("candidate"), "screen candidate")
     metadata = _mapping(candidate.get("metadata"), "screen candidate metadata")
@@ -1340,20 +1367,20 @@ def _rerun_semantic_screen_and_linkage(
     candidate_text = _required_string(metadata.get("case_name"), "case name")
     court_id = _required_string(metadata.get("court"), "court")
     try:
-        replayed_screen = screen_courtlistener_docket_for_mtd_decision(
+        replayed_screen = model.screen_record(
             page,
             candidate_text=candidate_text,
             court_id=court_id,
             decision_filed_on_or_after=anchor_date,
             decision_filed_on_or_before=decision_window_end,
-        ).to_record()
+        )
     except ValueError as exc:
         raise DocketDecisionTextSourceError(
-            "production MTD screen cannot be replayed"
+            f"{model.version} MTD screen cannot be replayed"
         ) from exc
     if replayed_screen != evidence.get("mtd_decision_screen"):
         raise DocketDecisionTextSourceError(
-            "production MTD screen does not reproduce the frozen strict decision"
+            f"{model.version} MTD screen does not reproduce the frozen strict decision"
         )
     normalized = tuple(
         NormalizedDocketEntry(
@@ -1363,7 +1390,7 @@ def _rerun_semantic_screen_and_linkage(
             entry_number=entry.entry_number,
             entry_text=entry.text,
             filed_at=entry.filed_at,
-            document_role=_ROLE_MAP[entry.role],
+            document_role=_ROLE_MAP[str(entry.role)],
             source_document_ids=tuple(
                 document.href
                 for document in entry.documents
@@ -1599,7 +1626,7 @@ def _verify_rest_selection_document_identity(
         )
 
 
-def _entry_from_record(record: Mapping[str, Any]) -> CourtListenerWebDocketEntry:
+def _entry_from_record(record: Mapping[str, Any], *, model: ParserModel) -> ParsedEntry:
     if set(record) != {
         "documents",
         "entry_number",
@@ -1616,7 +1643,7 @@ def _entry_from_record(record: Mapping[str, Any]) -> CourtListenerWebDocketEntry
     if not isinstance(documents_value, list):
         raise DocketDecisionTextSourceError("selected entry documents must be a list")
     documents = tuple(
-        _document_from_record(_mapping(value, "selected entry document"))
+        _document_from_record(_mapping(value, "selected entry document"), model=model)
         for value in cast(list[object], documents_value)
     )
     entry_number_value = record.get("entry_number")
@@ -1627,7 +1654,7 @@ def _entry_from_record(record: Mapping[str, Any]) -> CourtListenerWebDocketEntry
     filed_at_value = record.get("filed_at")
     if filed_at_value is not None and not isinstance(filed_at_value, str):
         raise DocketDecisionTextSourceError("selected entry date must be text or null")
-    return CourtListenerWebDocketEntry(
+    return model.entry(
         row_id=_required_string(record.get("row_id"), "selected row ID"),
         entry_number=entry_number_value,
         filed_at=filed_at_value,
@@ -1639,7 +1666,9 @@ def _entry_from_record(record: Mapping[str, Any]) -> CourtListenerWebDocketEntry
     )
 
 
-def _document_from_record(record: Mapping[str, Any]) -> CourtListenerWebDocument:
+def _document_from_record(
+    record: Mapping[str, Any], *, model: ParserModel
+) -> ParsedDocument:
     if set(record) != {
         "action_label",
         "description",
@@ -1655,7 +1684,7 @@ def _document_from_record(record: Mapping[str, Any]) -> CourtListenerWebDocument
     action_label = _optional_string(record.get("action_label"), "document action label")
     href = _optional_string(record.get("href"), "document href")
     pacer_only = _boolean(record.get("pacer_only"), "document PACER-only flag")
-    document = CourtListenerWebDocument(
+    document = model.document(
         kind=_required_string(record.get("kind"), "document kind"),
         description=_string(record.get("description"), "document description"),
         href=href,
