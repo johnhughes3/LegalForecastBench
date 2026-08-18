@@ -23,7 +23,7 @@ import json
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 import legalforecast.cli as cli
 import pytest
@@ -834,11 +834,31 @@ def test_superseding_reparse_that_clears_the_gate_is_recorded(
     assert manifest[0]["extracted_text"]["text_sha256"] == (
         hashlib.sha256(_COMPLAINT_MARKDOWN.encode("utf-8")).hexdigest()
     )
-    reused = json.loads(
-        (output_root / "run-cards" / "parse-documents.json").read_text(encoding="utf-8")
-    )["parser_execution"]["reused_live_mistral"]
+    run_card_path = output_root / "run-cards" / "parse-documents.json"
+    reused = json.loads(run_card_path.read_text(encoding="utf-8"))["parser_execution"][
+        "reused_live_mistral"
+    ]
     assert reused["reused_record_count"] == 0
     assert reused["parsed_gap_count"] == 1
+
+    # Resuming the completed run must recognise its own supersession.  The
+    # completed-run authenticator recomputes those two counts from the prior
+    # artifacts, so it has to partition by the same gate; otherwise every
+    # resume of a superseding run refuses as "reuse card differs" and pays for
+    # the conversion again.
+    manifest_path = output_root / "mistral-markdown-conversions.jsonl"
+    manifest_bytes = manifest_path.read_bytes()
+    run_card_bytes = run_card_path.read_bytes()
+
+    def _reject_second_conversion(*_args: object, **_kwargs: object) -> NoReturn:
+        raise AssertionError("completed parse reuse must not call the provider")
+
+    monkeypatch.setattr(cli, "convert_documents_to_markdown", _reject_second_conversion)
+
+    assert cli.main(argv) == 0
+
+    assert manifest_path.read_bytes() == manifest_bytes
+    assert run_card_path.read_bytes() == run_card_bytes
 
 
 def test_superseding_reparse_that_fails_the_gate_again_is_refused(
