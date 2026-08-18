@@ -30,6 +30,9 @@ ACQUISITION_RUN_CARD_V1 = SchemaIdentifier("legalforecast.acquisition_run_card.v
 ATTACHMENT_PAGE_AUTHORIZATION_V1 = SchemaIdentifier(
     "legalforecast.attachment_page_authorization.v1"
 )
+ATTACHMENT_PAGE_DISPATCH_JOURNAL_V1 = SchemaIdentifier(
+    "legalforecast.attachment_page_dispatch_journal.v1"
+)
 ATTACHMENT_PAGE_FETCH_PLAN_V1 = SchemaIdentifier(
     "legalforecast.attachment_page_fetch_plan.v1"
 )
@@ -362,6 +365,7 @@ MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1 = SchemaIdentifier(
 RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     ACQUISITION_RUN_CARD_V1,
     ATTACHMENT_PAGE_AUTHORIZATION_V1,
+    ATTACHMENT_PAGE_DISPATCH_JOURNAL_V1,
     ATTACHMENT_PAGE_FETCH_PLAN_V1,
     ATTACHMENT_PAGE_FETCH_RECEIPT_V1,
     CLEARANCE_REPLACEMENT_PLAN_V1,
