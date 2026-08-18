@@ -303,6 +303,7 @@
     "tests/test_disclosure_review_bundle_cli.py",
     "tests/test_docs_index_coverage.py",
     "tests/test_document_need_protocol.py",
+    "tests/test_document_repair_paid_clearance.py",
     "tests/test_downstream_rehearsal.py",
     "tests/test_exact100_initial_recovery_template.py",
     "tests/test_fake_codex_cli.py",
