@@ -57224,6 +57224,7 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
     # parse-quality thresholds, so only runs that can reach the live parser
     # (including reuse runs, which parse their gaps live) require the role.
     requires_live_document_role = not dry_run and fixture_markdown_dir is None
+    authenticated_document_roles: Mapping[tuple[str, str], str] = {}
     if requires_live_document_role:
         # An executed run always carries a verified materialization lineage, so
         # the authenticated role map is never optional on this path; treat a
@@ -57234,15 +57235,22 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
                 "live parsing requires a verified materialization lineage for "
                 "authenticated document roles"
             )
-        _require_authenticated_live_parse_plan_roles(
+        authenticated_document_roles = _require_authenticated_live_parse_plan_roles(
             request_records,
             manifest_records=materialization_lineage.manifest_records,
+            selection_records=selection_records,
         )
     requests = tuple(
         _mistral_markdown_request(
             record,
             output_root=output_root,
             require_document_role=requires_live_document_role,
+            authenticated_document_role=authenticated_document_roles.get(
+                (
+                    _required_str(record, "candidate_id"),
+                    _required_str(record, "source_document_id"),
+                )
+            ),
             captured_source_bytes=(
                 document_source_snapshots.get(
                     Path(_required_str(record, "input_path"))
@@ -70781,75 +70789,192 @@ def _live_parse_plan_document_role(
         ) from exc
 
 
-def _authenticated_live_parse_document_roles(
-    manifest_records: Sequence[Mapping[str, Any]],
-) -> dict[tuple[str, str], str]:
-    """Index the authenticated document role of every materialized document.
+def _manifest_record_defers_role_to_selection(record: Mapping[str, Any]) -> bool:
+    """Return whether this row's role is stated by the selection, not the manifest.
 
-    The manifest rows come from the replay-verified materialization lineage, so
-    they are the only role statement in the run that an operator cannot edit
-    between planning and parsing.
+    The purchased RECAP-fetch quarantine-recovery rows are the only rows in a
+    materialization manifest that omit ``document_role``: the recovery schema
+    has no such field, so the merge carries none.  Their role is nonetheless
+    authenticated — the target cohort selection states it for the same
+    ``(candidate_id, source_document_id)`` — so the live path sources it from
+    there instead of treating the row as role-less.
+
+    The signature is the full quarantine one rather than ``parser_eligible``
+    alone.  Two of the three recovery lanes never constrain ``parser_eligible``,
+    so narrowing on it by itself would let a row from another lane redirect its
+    role lookup to a different artifact.  Requiring all four properties matches
+    every role-less row in every materialization root on disk and no
+    role-bearing row in any of them.
+
+    None of these properties is operator-writable between planning and parsing:
+    the downstream lineage verifier re-derives ``document-downloads-merged.jsonl``
+    from the upstream recovery sources and refuses when the bytes differ
+    ("materialized manifest does not reproduce").
+    """
+
+    return (
+        "document_role" not in record
+        and record.get("parser_eligible") is False
+        and record.get("packet_eligible") is False
+        and record.get("recovery_origin") == "unknown_status_attempt"
+        and record.get("free_or_purchased") == "purchased"
+    )
+
+
+def _selection_document_roles(
+    selection_records: Sequence[Mapping[str, Any]],
+) -> dict[tuple[str, str], str]:
+    """Index the document roles the authenticated target selection states.
+
+    The selection travels in the same replay-verified lineage as the manifest —
+    ``verify_materialized_downstream_lineage`` byte-commits it — so a role read
+    from here is exactly as authenticated as one read from the manifest row.
     """
 
     roles: dict[tuple[str, str], str] = {}
+    for record in selection_records:
+        candidate_id = _required_str(record, "candidate_id")
+        documents = record.get("documents")
+        if not isinstance(documents, Sequence) or isinstance(documents, (str, bytes)):
+            continue
+        for document in cast(Sequence[object], documents):
+            if not isinstance(document, Mapping):
+                continue
+            entry = cast(Mapping[str, Any], document)
+            if "document_role" not in entry:
+                continue
+            key = (candidate_id, _required_str(entry, "source_document_id"))
+            role = _required_str(entry, "document_role")
+            if roles.setdefault(key, role) != role:
+                raise CommandError(
+                    "authenticated target selection has conflicting document_role: "
+                    f"{key[0]}/{key[1]}"
+                )
+    return roles
+
+
+@dataclass(frozen=True, slots=True)
+class _AuthenticatedLiveParseRoles:
+    """Every materialized document's authenticated role, and where it came from."""
+
+    #: ``(candidate_id, source_document_id)`` -> authenticated ``document_role``.
+    #: Never ``None``: a document with no authenticated role anywhere refuses.
+    roles: Mapping[tuple[str, str], str]
+    #: Keys whose role the manifest omitted and the selection supplied.  The
+    #: parse plan copies roles from the manifest, so these plan rows correctly
+    #: state no role and must not be required to.
+    selection_sourced: frozenset[tuple[str, str]]
+
+
+def _authenticated_live_parse_document_roles(
+    manifest_records: Sequence[Mapping[str, Any]],
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+) -> _AuthenticatedLiveParseRoles:
+    """Index the authenticated document role of every materialized document.
+
+    Both inputs come from the replay-verified materialization lineage, so
+    together they are the role statement in the run that an operator cannot edit
+    between planning and parsing.
+
+    The manifest is preferred wherever it states a role.  Only the purchased
+    RECAP-fetch quarantine-recovery rows omit one (see
+    ``_manifest_record_defers_role_to_selection``), and for those the role is
+    read from the authenticated selection instead.  A document with no role in
+    either artifact still refuses: that is the genuine "no authenticated role"
+    case, and it must not silently buy the unknown-role floor.
+    """
+
+    selection_roles = _selection_document_roles(selection_records)
+    roles: dict[tuple[str, str], str] = {}
+    selection_sourced: set[tuple[str, str]] = set()
     for record in manifest_records:
         candidate_id = _required_str(record, "candidate_id")
         source_document_id = _required_str(record, "source_document_id")
-        try:
-            role = _required_str(record, "document_role")
-        except ValueError as exc:
-            raise CommandError(
-                "authenticated materialization manifest record requires "
-                f"document_role: {candidate_id}/{source_document_id}"
-            ) from exc
         key = (candidate_id, source_document_id)
+        role: str
+        if _manifest_record_defers_role_to_selection(record):
+            selection_role = selection_roles.get(key)
+            if selection_role is None:
+                raise CommandError(
+                    "authenticated materialization manifest record requires "
+                    f"document_role: {candidate_id}/{source_document_id}"
+                )
+            role = selection_role
+            selection_sourced.add(key)
+        else:
+            try:
+                role = _required_str(record, "document_role")
+            except ValueError as exc:
+                raise CommandError(
+                    "authenticated materialization manifest record requires "
+                    f"document_role: {candidate_id}/{source_document_id}"
+                ) from exc
         if roles.setdefault(key, role) != role:
             raise CommandError(
                 "authenticated materialization manifest has conflicting "
                 f"document_role: {candidate_id}/{source_document_id}"
             )
-    return roles
+    return _AuthenticatedLiveParseRoles(
+        roles=roles, selection_sourced=frozenset(selection_sourced)
+    )
 
 
 def _require_authenticated_live_parse_plan_roles(
     request_records: Sequence[Mapping[str, Any]],
     *,
     manifest_records: Sequence[Mapping[str, Any]],
-) -> None:
-    """Bind every live parse-plan role to its authenticated manifest row.
+    selection_records: Sequence[Mapping[str, Any]],
+) -> Mapping[tuple[str, str], str]:
+    """Bind every live parse-plan role to its authenticated lineage row.
 
     Requiring ``document_role`` to be *present* only closes the fallback that
     ``assess_parsed_text`` applies to an unknown role.  A hand-edited plan can
     still relabel a materialized ``complaint`` as an ``order`` and buy the
     weaker outcome-role thresholds, so the live path additionally requires the
-    planned role to equal the role the materialization manifest authenticated
-    for that exact ``(candidate_id, source_document_id)``.  A plan row with no
-    authenticated manifest row at all has no role to be measured against and is
-    refused for the same reason.
+    planned role to equal the role the authenticated lineage stated for that
+    exact ``(candidate_id, source_document_id)``.  A plan row with no
+    authenticated row at all has no role to be measured against and is refused
+    for the same reason.
+
+    Where the role is selection-sourced the parse plan states none, because the
+    planner copies roles from the manifest row.  Those plan rows are not
+    required to carry one — but a plan that *asserts* a role there is refused,
+    since it would be choosing a threshold no artifact in the lineage stated.
+
+    Returns the authenticated role of every planned document, so the caller
+    measures each conversion against the lineage's role rather than the plan's.
     """
 
-    authenticated = _authenticated_live_parse_document_roles(manifest_records)
+    authenticated = _authenticated_live_parse_document_roles(
+        manifest_records, selection_records=selection_records
+    )
     for record in request_records:
         candidate_id = _required_str(record, "candidate_id")
         source_document_id = _required_str(record, "source_document_id")
-        planned_role = _live_parse_plan_document_role(
-            record,
-            candidate_id=candidate_id,
-            source_document_id=source_document_id,
-            required=True,
-        )
-        authenticated_role = authenticated.get((candidate_id, source_document_id))
+        key = (candidate_id, source_document_id)
+        authenticated_role = authenticated.roles.get(key)
         if authenticated_role is None:
             raise CommandError(
                 "live parse plan record is absent from the authenticated "
                 f"materialization manifest: {candidate_id}/{source_document_id}"
             )
+        selection_sourced = key in authenticated.selection_sourced
+        planned_role = _live_parse_plan_document_role(
+            record,
+            candidate_id=candidate_id,
+            source_document_id=source_document_id,
+            required=not selection_sourced,
+        )
+        if selection_sourced and planned_role is None:
+            continue
         if planned_role != authenticated_role:
             raise CommandError(
                 "live parse plan document_role differs from the authenticated "
                 f"materialization manifest: {candidate_id}/{source_document_id}: "
                 f"{planned_role} != {authenticated_role}"
             )
+    return authenticated.roles
 
 
 def _current_role_parse_quality_rejection(
@@ -70908,14 +71033,25 @@ def _mistral_markdown_request(
     output_root: Path,
     captured_source_bytes: bytes | None = None,
     require_document_role: bool = True,
+    authenticated_document_role: str | None = None,
 ) -> MistralMarkdownConversionRequest:
     candidate_id = _required_str(record, "candidate_id")
     source_document_id = _required_str(record, "source_document_id")
-    document_role = _live_parse_plan_document_role(
+    # The authenticated role, when the caller has one, is what the parse-quality
+    # thresholds must be read from: the plan is an ordinary file between planning
+    # and parsing, and for quarantine-recovery rows it legitimately states no
+    # role at all.  ``_require_authenticated_live_parse_plan_roles`` has already
+    # refused any plan row that disagrees with it.
+    planned_role = _live_parse_plan_document_role(
         record,
         candidate_id=candidate_id,
         source_document_id=source_document_id,
-        required=require_document_role,
+        required=require_document_role and authenticated_document_role is None,
+    )
+    document_role = (
+        authenticated_document_role
+        if authenticated_document_role is not None
+        else planned_role
     )
     markdown_output = _optional_str(record, "markdown_output_path")
     safe_document_id = safe_path_component(

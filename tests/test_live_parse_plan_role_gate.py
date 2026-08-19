@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, NoReturn, cast
@@ -40,10 +40,62 @@ from tests.test_acquisition_cli import (
 
 JsonRecord = dict[str, Any]
 _GENERATED_AT = "2026-05-17T12:00:00Z"
+_SELECTION_FILENAME = "target-cohort-selection.jsonl"
+# The properties a purchased RECAP-fetch quarantine-recovery row carries in
+# every materialization root on disk.  All four are required before a role-less
+# row is allowed to source its role from the selection.
+_QUARANTINE_SIGNATURE: JsonRecord = {
+    "parser_eligible": False,
+    "packet_eligible": False,
+    "recovery_origin": "unknown_status_attempt",
+    "free_or_purchased": "purchased",
+}
 
 
 class _ParserReached(Exception):
     """Sentinel that escapes ``main``'s CommandError/ValueError/OSError guards."""
+
+
+@dataclass(frozen=True)
+class _CompanionDocument:
+    """A second plan document, described independently of the first.
+
+    A real materialization root's manifest is *mixed*: role-bearing rows the
+    parser will measure sit beside purchased RECAP-fetch rows the manifest marks
+    ``parser_eligible: false``, which state no role anywhere upstream (bead
+    ``legalforecastbench-d5ml`` records the measured distribution).  A one-row
+    fixture cannot express that, so tests that care about the mixture add the
+    second document here.
+    """
+
+    source_document_id: str
+    plan_role: str | None
+    manifest_role: str | None
+    parser_eligible: bool | None = None
+    #: Role stated by the authenticated target selection, which is where the
+    #: quarantine-recovery rows' roles actually live.
+    selection_role: str | None = None
+    #: The remaining properties of the quarantine signature.  Set together with
+    #: ``parser_eligible=False`` to describe a genuine quarantine-recovery row.
+    quarantine_signature: bool = False
+
+
+def _clearance_record(
+    *, source_document_id: str, digest: str, byte_count: int
+) -> JsonRecord:
+    return {
+        "schema_version": "legalforecast.disclosure_clearance.v1",
+        "candidate_id": "cand-1",
+        "source_document_id": source_document_id,
+        "sha256": digest,
+        "byte_count": byte_count,
+        "status": "cleared",
+        "restriction_status": "public",
+        "restriction_evidence": ["controlled fixture review"],
+        "reviewer_id": "fixture-reviewer",
+        "controlled_store_provenance": "private-store://fixture/reviews",
+        "reviewed_at": _GENERATED_AT,
+    }
 
 
 def _parse_plan_fixture(
@@ -53,12 +105,23 @@ def _parse_plan_fixture(
     document_role: str | None,
     authenticated_role: str | None = "complaint",
     authenticated_document_id: str = "complaint",
+    authenticated_parser_eligible: bool | None = None,
+    authenticated_quarantine_signature: bool = False,
+    authenticated_selection_role: str | None = None,
+    companion: _CompanionDocument | None = None,
 ) -> tuple[Path, Path, Path]:
     """Build the smallest executable ``parse-documents`` invocation inputs.
 
     ``authenticated_role`` and ``authenticated_document_id`` describe the
     materialization manifest row the plan is measured against, so a test can
     contradict the plan (a relabelled role) or withhold the row entirely.
+    ``authenticated_parser_eligible`` and ``authenticated_quarantine_signature``
+    write the manifest's own recovery markers, which are what decide whether a
+    role-less row defers its role to the selection or is merely unauthenticated;
+    ``authenticated_selection_role`` writes the role the selection states.
+
+    A selection file is written only when some row supplies a selection role, so
+    tests that predate selection-sourced roles keep their exact prior inputs.
     """
 
     source_pdf = tmp_path / "source.pdf"
@@ -75,34 +138,6 @@ def _parse_plan_fixture(
     }
     if document_role is not None:
         request["document_role"] = document_role
-    requests_path = tmp_path / "parse-requests.jsonl"
-    _write_jsonl(requests_path, [request])
-
-    clearance_path = tmp_path / "parse-clearance.jsonl"
-    _write_jsonl(
-        clearance_path,
-        [
-            {
-                "schema_version": "legalforecast.disclosure_clearance.v1",
-                "candidate_id": "cand-1",
-                "source_document_id": "complaint",
-                "sha256": digest,
-                "byte_count": byte_count,
-                "status": "cleared",
-                "restriction_status": "public",
-                "restriction_evidence": ["controlled fixture review"],
-                "reviewer_id": "fixture-reviewer",
-                "controlled_store_provenance": "private-store://fixture/reviews",
-                "reviewed_at": _GENERATED_AT,
-            }
-        ],
-    )
-    _, materialization_card = _materialized_cli_unit_fixture(
-        monkeypatch, tmp_path, skip_packet_planner_replay=True
-    )
-    # ``_materialized_cli_unit_fixture`` writes an empty placeholder manifest and
-    # replays it as the verified lineage, so this is the authenticated statement
-    # of each materialized document's role.
     manifest_record: JsonRecord = {
         "candidate_id": "cand-1",
         "source_document_id": authenticated_document_id,
@@ -111,7 +146,85 @@ def _parse_plan_fixture(
     }
     if authenticated_role is not None:
         manifest_record["document_role"] = authenticated_role
-    _write_jsonl(tmp_path / "materialized-manifest.jsonl", [manifest_record])
+    if authenticated_parser_eligible is not None:
+        manifest_record["parser_eligible"] = authenticated_parser_eligible
+    if authenticated_quarantine_signature:
+        manifest_record.update(_QUARANTINE_SIGNATURE)
+    selection_documents: list[JsonRecord] = []
+    if authenticated_selection_role is not None:
+        selection_documents.append(
+            {
+                "source_document_id": authenticated_document_id,
+                "document_role": authenticated_selection_role,
+            }
+        )
+    request_records = [request]
+    clearance_records = [
+        _clearance_record(
+            source_document_id="complaint", digest=digest, byte_count=byte_count
+        )
+    ]
+    manifest_records = [manifest_record]
+
+    if companion is not None:
+        companion_pdf = tmp_path / f"{companion.source_document_id}.pdf"
+        companion_pdf.write_bytes(b"%PDF companion fixture")
+        companion_digest = hashlib.sha256(companion_pdf.read_bytes()).hexdigest()
+        companion_bytes = companion_pdf.stat().st_size
+        companion_request: JsonRecord = {
+            "candidate_id": "cand-1",
+            "source_document_id": companion.source_document_id,
+            "input_path": str(companion_pdf),
+            "expected_sha256": companion_digest,
+            "expected_byte_count": companion_bytes,
+        }
+        if companion.plan_role is not None:
+            companion_request["document_role"] = companion.plan_role
+        companion_manifest: JsonRecord = {
+            "candidate_id": "cand-1",
+            "source_document_id": companion.source_document_id,
+            "sha256": companion_digest,
+            "byte_count": companion_bytes,
+        }
+        if companion.manifest_role is not None:
+            companion_manifest["document_role"] = companion.manifest_role
+        if companion.parser_eligible is not None:
+            companion_manifest["parser_eligible"] = companion.parser_eligible
+        if companion.quarantine_signature:
+            companion_manifest.update(_QUARANTINE_SIGNATURE)
+        if companion.selection_role is not None:
+            selection_documents.append(
+                {
+                    "source_document_id": companion.source_document_id,
+                    "document_role": companion.selection_role,
+                }
+            )
+        request_records.append(companion_request)
+        clearance_records.append(
+            _clearance_record(
+                source_document_id=companion.source_document_id,
+                digest=companion_digest,
+                byte_count=companion_bytes,
+            )
+        )
+        manifest_records.append(companion_manifest)
+
+    requests_path = tmp_path / "parse-requests.jsonl"
+    _write_jsonl(requests_path, request_records)
+    clearance_path = tmp_path / "parse-clearance.jsonl"
+    _write_jsonl(clearance_path, clearance_records)
+    _, materialization_card = _materialized_cli_unit_fixture(
+        monkeypatch, tmp_path, skip_packet_planner_replay=True
+    )
+    # ``_materialized_cli_unit_fixture`` writes an empty placeholder manifest and
+    # replays it as the verified lineage, so this is the authenticated statement
+    # of each materialized document's role.
+    _write_jsonl(tmp_path / "materialized-manifest.jsonl", manifest_records)
+    if selection_documents:
+        _write_jsonl(
+            tmp_path / _SELECTION_FILENAME,
+            [{"candidate_id": "cand-1", "documents": selection_documents}],
+        )
     return requests_path, clearance_path, materialization_card
 
 
@@ -122,6 +235,7 @@ def _parse_documents_argv(
     materialization_card: Path,
     output_root: Path,
     fixture_markdown_dir: Path | None = None,
+    selection_path: Path | None = None,
 ) -> list[str]:
     argv = [
         "acquisition",
@@ -138,6 +252,8 @@ def _parse_documents_argv(
     ]
     if fixture_markdown_dir is not None:
         argv.extend(["--fixture-markdown-dir", str(fixture_markdown_dir)])
+    if selection_path is not None:
+        argv.extend(["--selection", str(selection_path)])
     return argv
 
 
@@ -250,6 +366,7 @@ def _refused_live_parse_plan(
 
     monkeypatch.setattr(cli, "convert_documents_to_markdown", _record_parser_call)
     output_root = tmp_path / "acquisition"
+    selection_path = tmp_path / _SELECTION_FILENAME
 
     assert (
         cli.main(
@@ -258,6 +375,7 @@ def _refused_live_parse_plan(
                 clearance_path=clearance_path,
                 materialization_card=materialization_card,
                 output_root=output_root,
+                selection_path=selection_path if selection_path.exists() else None,
             )
         )
         == 2
