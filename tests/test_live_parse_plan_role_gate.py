@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, NoReturn, cast
@@ -46,6 +46,41 @@ class _ParserReached(Exception):
     """Sentinel that escapes ``main``'s CommandError/ValueError/OSError guards."""
 
 
+@dataclass(frozen=True)
+class _CompanionDocument:
+    """A second plan document, described independently of the first.
+
+    Root 47's real shape is *mixed*: role-bearing rows the parser will measure
+    sit beside purchased RECAP-fetch rows the manifest marks
+    ``parser_eligible: false``, which state no role anywhere upstream.  A
+    one-row fixture cannot express that, so tests that care about the mixture
+    add the second document here.
+    """
+
+    source_document_id: str
+    plan_role: str | None
+    manifest_role: str | None
+    parser_eligible: bool | None = None
+
+
+def _clearance_record(
+    *, source_document_id: str, digest: str, byte_count: int
+) -> JsonRecord:
+    return {
+        "schema_version": "legalforecast.disclosure_clearance.v1",
+        "candidate_id": "cand-1",
+        "source_document_id": source_document_id,
+        "sha256": digest,
+        "byte_count": byte_count,
+        "status": "cleared",
+        "restriction_status": "public",
+        "restriction_evidence": ["controlled fixture review"],
+        "reviewer_id": "fixture-reviewer",
+        "controlled_store_provenance": "private-store://fixture/reviews",
+        "reviewed_at": _GENERATED_AT,
+    }
+
+
 def _parse_plan_fixture(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
@@ -53,12 +88,17 @@ def _parse_plan_fixture(
     document_role: str | None,
     authenticated_role: str | None = "complaint",
     authenticated_document_id: str = "complaint",
+    authenticated_parser_eligible: bool | None = None,
+    companion: _CompanionDocument | None = None,
 ) -> tuple[Path, Path, Path]:
     """Build the smallest executable ``parse-documents`` invocation inputs.
 
     ``authenticated_role`` and ``authenticated_document_id`` describe the
     materialization manifest row the plan is measured against, so a test can
     contradict the plan (a relabelled role) or withhold the row entirely.
+    ``authenticated_parser_eligible`` writes the manifest's own
+    ``parser_eligible`` flag, which is what decides whether a role-less row is
+    authenticated as outside the parser's reach or merely unauthenticated.
     """
 
     source_pdf = tmp_path / "source.pdf"
@@ -75,34 +115,6 @@ def _parse_plan_fixture(
     }
     if document_role is not None:
         request["document_role"] = document_role
-    requests_path = tmp_path / "parse-requests.jsonl"
-    _write_jsonl(requests_path, [request])
-
-    clearance_path = tmp_path / "parse-clearance.jsonl"
-    _write_jsonl(
-        clearance_path,
-        [
-            {
-                "schema_version": "legalforecast.disclosure_clearance.v1",
-                "candidate_id": "cand-1",
-                "source_document_id": "complaint",
-                "sha256": digest,
-                "byte_count": byte_count,
-                "status": "cleared",
-                "restriction_status": "public",
-                "restriction_evidence": ["controlled fixture review"],
-                "reviewer_id": "fixture-reviewer",
-                "controlled_store_provenance": "private-store://fixture/reviews",
-                "reviewed_at": _GENERATED_AT,
-            }
-        ],
-    )
-    _, materialization_card = _materialized_cli_unit_fixture(
-        monkeypatch, tmp_path, skip_packet_planner_replay=True
-    )
-    # ``_materialized_cli_unit_fixture`` writes an empty placeholder manifest and
-    # replays it as the verified lineage, so this is the authenticated statement
-    # of each materialized document's role.
     manifest_record: JsonRecord = {
         "candidate_id": "cand-1",
         "source_document_id": authenticated_document_id,
@@ -111,7 +123,61 @@ def _parse_plan_fixture(
     }
     if authenticated_role is not None:
         manifest_record["document_role"] = authenticated_role
-    _write_jsonl(tmp_path / "materialized-manifest.jsonl", [manifest_record])
+    if authenticated_parser_eligible is not None:
+        manifest_record["parser_eligible"] = authenticated_parser_eligible
+    request_records = [request]
+    clearance_records = [
+        _clearance_record(
+            source_document_id="complaint", digest=digest, byte_count=byte_count
+        )
+    ]
+    manifest_records = [manifest_record]
+
+    if companion is not None:
+        companion_pdf = tmp_path / f"{companion.source_document_id}.pdf"
+        companion_pdf.write_bytes(b"%PDF companion fixture")
+        companion_digest = hashlib.sha256(companion_pdf.read_bytes()).hexdigest()
+        companion_bytes = companion_pdf.stat().st_size
+        companion_request: JsonRecord = {
+            "candidate_id": "cand-1",
+            "source_document_id": companion.source_document_id,
+            "input_path": str(companion_pdf),
+            "expected_sha256": companion_digest,
+            "expected_byte_count": companion_bytes,
+        }
+        if companion.plan_role is not None:
+            companion_request["document_role"] = companion.plan_role
+        companion_manifest: JsonRecord = {
+            "candidate_id": "cand-1",
+            "source_document_id": companion.source_document_id,
+            "sha256": companion_digest,
+            "byte_count": companion_bytes,
+        }
+        if companion.manifest_role is not None:
+            companion_manifest["document_role"] = companion.manifest_role
+        if companion.parser_eligible is not None:
+            companion_manifest["parser_eligible"] = companion.parser_eligible
+        request_records.append(companion_request)
+        clearance_records.append(
+            _clearance_record(
+                source_document_id=companion.source_document_id,
+                digest=companion_digest,
+                byte_count=companion_bytes,
+            )
+        )
+        manifest_records.append(companion_manifest)
+
+    requests_path = tmp_path / "parse-requests.jsonl"
+    _write_jsonl(requests_path, request_records)
+    clearance_path = tmp_path / "parse-clearance.jsonl"
+    _write_jsonl(clearance_path, clearance_records)
+    _, materialization_card = _materialized_cli_unit_fixture(
+        monkeypatch, tmp_path, skip_packet_planner_replay=True
+    )
+    # ``_materialized_cli_unit_fixture`` writes an empty placeholder manifest and
+    # replays it as the verified lineage, so this is the authenticated statement
+    # of each materialized document's role.
+    _write_jsonl(tmp_path / "materialized-manifest.jsonl", manifest_records)
     return requests_path, clearance_path, materialization_card
 
 

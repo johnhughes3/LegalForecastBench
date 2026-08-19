@@ -57224,6 +57224,7 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
     # parse-quality thresholds, so only runs that can reach the live parser
     # (including reuse runs, which parse their gaps live) require the role.
     requires_live_document_role = not dry_run and fixture_markdown_dir is None
+    role_exempt_keys: frozenset[tuple[str, str]] = frozenset()
     if requires_live_document_role:
         # An executed run always carries a verified materialization lineage, so
         # the authenticated role map is never optional on this path; treat a
@@ -57238,11 +57239,17 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
             request_records,
             manifest_records=materialization_lineage.manifest_records,
         )
+        role_exempt_keys = _parse_role_exempt_manifest_keys(
+            materialization_lineage.manifest_records
+        )
     requests = tuple(
         _mistral_markdown_request(
             record,
             output_root=output_root,
             require_document_role=requires_live_document_role,
+            parser_role_exempt=_parse_request_is_role_exempt(
+                record, role_exempt_keys=role_exempt_keys
+            ),
             captured_source_bytes=(
                 document_source_snapshots.get(
                     Path(_required_str(record, "input_path"))
@@ -70781,33 +70788,95 @@ def _live_parse_plan_document_role(
         ) from exc
 
 
+def _manifest_record_is_parser_role_exempt(record: Mapping[str, Any]) -> bool:
+    """Return whether the manifest itself excludes this row from the parser.
+
+    ``parser_eligible: false`` is not an operator annotation.  The downstream
+    lineage verifier re-derives ``document-downloads-merged.jsonl`` from the
+    upstream recovery sources and refuses the run when the bytes differ
+    ("materialized manifest does not reproduce"), and the recovery validators
+    that produce those rows require the flag themselves — quarantine recovery
+    rows must be ``parser_eligible: false`` while resolved post-recovery rows
+    must be ``parser_eligible: true``.  So a row can only claim the exemption
+    when the authenticated lineage already said so.
+
+    Such rows (the purchased RECAP-fetch quarantine-recovery documents, which
+    are also ``packet_eligible: false``) carry no ``document_role`` anywhere
+    upstream: the recovery schema has no such field.  Requiring one of them
+    therefore refuses the whole run instead of protecting anything.  A row that
+    does state a role keeps it — the exemption scopes the *requirement*, never
+    the binding.
+    """
+
+    return record.get("parser_eligible") is False and "document_role" not in record
+
+
+def _parse_role_exempt_manifest_keys(
+    manifest_records: Sequence[Mapping[str, Any]],
+) -> frozenset[tuple[str, str]]:
+    """Index the authenticated keys that carry no parser role requirement."""
+
+    return frozenset(
+        (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "source_document_id"),
+        )
+        for record in manifest_records
+        if _manifest_record_is_parser_role_exempt(record)
+    )
+
+
+def _parse_request_is_role_exempt(
+    record: Mapping[str, Any],
+    *,
+    role_exempt_keys: frozenset[tuple[str, str]],
+) -> bool:
+    """Return whether this plan row's authenticated manifest row is exempt."""
+
+    return (
+        _required_str(record, "candidate_id"),
+        _required_str(record, "source_document_id"),
+    ) in role_exempt_keys
+
+
 def _authenticated_live_parse_document_roles(
     manifest_records: Sequence[Mapping[str, Any]],
-) -> dict[tuple[str, str], str]:
+) -> dict[tuple[str, str], str | None]:
     """Index the authenticated document role of every materialized document.
 
     The manifest rows come from the replay-verified materialization lineage, so
     they are the only role statement in the run that an operator cannot edit
     between planning and parsing.
+
+    A row the authenticated manifest marks ``parser_eligible: false`` maps to
+    ``None`` instead of refusing: see ``_manifest_record_is_parser_role_exempt``
+    for why those rows state no role and why the exemption cannot be forged.
+    Every other row must still state one, so the roles this map does publish are
+    exactly as authenticated as before.
     """
 
-    roles: dict[tuple[str, str], str] = {}
+    roles: dict[tuple[str, str], str | None] = {}
     for record in manifest_records:
         candidate_id = _required_str(record, "candidate_id")
         source_document_id = _required_str(record, "source_document_id")
-        try:
-            role = _required_str(record, "document_role")
-        except ValueError as exc:
-            raise CommandError(
-                "authenticated materialization manifest record requires "
-                f"document_role: {candidate_id}/{source_document_id}"
-            ) from exc
+        role: str | None
+        if _manifest_record_is_parser_role_exempt(record):
+            role = None
+        else:
+            try:
+                role = _required_str(record, "document_role")
+            except ValueError as exc:
+                raise CommandError(
+                    "authenticated materialization manifest record requires "
+                    f"document_role: {candidate_id}/{source_document_id}"
+                ) from exc
         key = (candidate_id, source_document_id)
-        if roles.setdefault(key, role) != role:
+        if key in roles and roles[key] != role:
             raise CommandError(
                 "authenticated materialization manifest has conflicting "
                 f"document_role: {candidate_id}/{source_document_id}"
             )
+        roles[key] = role
     return roles
 
 
@@ -70826,24 +70895,39 @@ def _require_authenticated_live_parse_plan_roles(
     for that exact ``(candidate_id, source_document_id)``.  A plan row with no
     authenticated manifest row at all has no role to be measured against and is
     refused for the same reason.
+
+    The requirement is scoped to what the manifest actually authenticated: a row
+    the manifest excludes from the parser states no role, so the plan must not
+    state one either.  A plan that asserts a role the authenticated manifest
+    never stated is refused — that is the same relabelling attack, arriving from
+    the other direction.
     """
 
     authenticated = _authenticated_live_parse_document_roles(manifest_records)
     for record in request_records:
         candidate_id = _required_str(record, "candidate_id")
         source_document_id = _required_str(record, "source_document_id")
-        planned_role = _live_parse_plan_document_role(
-            record,
-            candidate_id=candidate_id,
-            source_document_id=source_document_id,
-            required=True,
-        )
-        authenticated_role = authenticated.get((candidate_id, source_document_id))
-        if authenticated_role is None:
+        key = (candidate_id, source_document_id)
+        if key not in authenticated:
             raise CommandError(
                 "live parse plan record is absent from the authenticated "
                 f"materialization manifest: {candidate_id}/{source_document_id}"
             )
+        authenticated_role = authenticated[key]
+        planned_role = _live_parse_plan_document_role(
+            record,
+            candidate_id=candidate_id,
+            source_document_id=source_document_id,
+            required=authenticated_role is not None,
+        )
+        if authenticated_role is None:
+            if planned_role is not None:
+                raise CommandError(
+                    "live parse plan asserts a document_role the authenticated "
+                    "materialization manifest does not state: "
+                    f"{candidate_id}/{source_document_id}: {planned_role}"
+                )
+            continue
         if planned_role != authenticated_role:
             raise CommandError(
                 "live parse plan document_role differs from the authenticated "
@@ -70871,9 +70955,15 @@ def _current_role_parse_quality_rejection(
     missing ``document_role`` is a structural defect rather than a quality
     verdict — there is no threshold to measure against, so it fails closed here
     instead of being reported as something a re-parse could repair.
+
+    The one exception is a request the authenticated manifest itself marked
+    ``parser_eligible: false``: no upstream artifact states a role for those
+    documents, and nothing downstream consumes their Markdown (they are also
+    ``packet_eligible: false``), so they are assessed under the same unknown-role
+    floor they were converted under rather than refusing the run.
     """
 
-    if request.document_role is None:
+    if request.document_role is None and not request.parser_role_exempt:
         raise CommandError(
             f"{label} requires document_role: "
             f"{request.candidate_id}/{request.source_document_id}"
@@ -70908,6 +70998,7 @@ def _mistral_markdown_request(
     output_root: Path,
     captured_source_bytes: bytes | None = None,
     require_document_role: bool = True,
+    parser_role_exempt: bool = False,
 ) -> MistralMarkdownConversionRequest:
     candidate_id = _required_str(record, "candidate_id")
     source_document_id = _required_str(record, "source_document_id")
@@ -70915,7 +71006,7 @@ def _mistral_markdown_request(
         record,
         candidate_id=candidate_id,
         source_document_id=source_document_id,
-        required=require_document_role,
+        required=require_document_role and not parser_role_exempt,
     )
     markdown_output = _optional_str(record, "markdown_output_path")
     safe_document_id = safe_path_component(
@@ -70940,6 +71031,7 @@ def _mistral_markdown_request(
         expected_byte_count=_required_int(record, "expected_byte_count"),
         captured_source_bytes=captured_source_bytes,
         document_role=document_role,
+        parser_role_exempt=parser_role_exempt,
     )
 
 
