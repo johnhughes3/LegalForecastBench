@@ -55,6 +55,9 @@ docs/cohort-policy-*.json.lock
 
 # Beads / Dolt local runtime
 .beads/
+# Beads coordination lock. Untracked, it makes the runtime checkout "dirty" and
+# Stage A issuance refuses outright, with a message that never names the file.
+.beads.gate.lock
 .dolt/
 .beads-credential-key
 

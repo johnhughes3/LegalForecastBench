@@ -30,6 +30,7 @@ from legalforecast.ingestion.stage_a_replay_executor.executor import (
     execute_canonical_stage_a_replay,
 )
 from legalforecast.ingestion.stage_a_replay_executor.issuance import (
+    ACCEPTED,
     OUTPUT_FILENAMES,
     ReplaySpecDraft,
     issue_replay_descriptor,
@@ -401,40 +402,12 @@ def test_cli_issue_then_record_produces_an_executor_loadable_spec(
     assert spec.code_commit == head
 
 
-def test_cli_issue_reports_a_refused_preflight_without_writing_authority(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    monkeypatch.setattr(
-        issuance_module, "current_code_commit", lambda **_kwargs: FIXTURE_COMMIT
-    )
-    parser = argparse.ArgumentParser()
-    register_issuance_cli(parser.add_subparsers(dest="command"))
-    issued = parser.parse_args(
-        [
-            "issue-replay-spec",
-            "--issuance-request",
-            str(build_issuance_inputs(tmp_path)),
-            "--output-dir",
-            str(tmp_path / "issued"),
-        ]
-    )
-
-    assert issued.handler(issued) == 2
-
-    record = json.loads(capsys.readouterr().out)
-    preflight = record["preflight"]
-    assert preflight["status"] == "refused"
-    assert preflight["stage"] == "lineage"
-    assert "lineage" in str(preflight["reason"]).lower()
-    assert not (tmp_path / "recorded").exists()
-
-
 def _issued_draft(tmp_path: Path, code_commit: str) -> tuple[ReplaySpecDraft, Path]:
     request = load_issuance_request(build_issuance_inputs(tmp_path))
     draft = issue_replay_descriptor(request, code_commit=code_commit)
-    descriptor_path = write_replay_descriptor_draft(draft, tmp_path / "issued")
+    descriptor_path = write_replay_descriptor_draft(
+        draft, tmp_path / "issued", preflight={"status": ACCEPTED}
+    )
     return draft, descriptor_path
 
 

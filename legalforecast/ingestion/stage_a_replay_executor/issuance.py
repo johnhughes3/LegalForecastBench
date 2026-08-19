@@ -87,11 +87,26 @@ OUTPUT_FILENAMES: Mapping[str, str] = {
     "terminal_evidence_root": "terminal-evidence",
 }
 
+#: The owner-facing authorization instrument.  Named once so the withholding
+#: rule and the operator record cannot drift apart.
+APPROVAL_BLOCK_FILENAME = "approval-block.txt"
+
+#: Recorded preflight outcomes.  ``REFUSED`` is the only one that withholds the
+#: approval block; ``SKIPPED`` is the operator's deliberate ``--skip-preflight``
+#: bypass and is not a refusal.
+ACCEPTED = "accepted"
+REFUSED = "refused"
+SKIPPED = "skipped"
+
 _MAXIMUM_PROVIDER_ATTEMPTS = 3
 
 
 __all__ = (
+    "ACCEPTED",
+    "APPROVAL_BLOCK_FILENAME",
     "OUTPUT_FILENAMES",
+    "REFUSED",
+    "SKIPPED",
     "ReplaySpecDraft",
     "issue_replay_descriptor",
     "issue_replay_spec_command",
@@ -213,31 +228,52 @@ def issue_replay_spec_command(
     """
 
     draft = issue_replay_descriptor(load_issuance_request(issuance_request))
-    descriptor_path = write_replay_descriptor_draft(draft, output_dir)
+    preflight_record = _rehearsal_record(draft, preflight=preflight)
+    accepted = preflight_record["status"] != REFUSED
+    descriptor_path = write_replay_descriptor_draft(
+        draft, output_dir, preflight=preflight_record
+    )
     record: dict[str, object] = {
         "replay_descriptor_path": str(descriptor_path),
         "replay_descriptor_sha256": draft.descriptor_sha256,
         "candidate_ids": list(draft.candidate_ids),
         "estimated_cost_usd": format(draft.estimated_cost_usd, "f"),
         "hard_ceiling_usd": format(draft.hard_ceiling_usd, "f"),
-        "approval_text": draft.approval_text,
+        "preflight": preflight_record,
     }
+    if accepted:
+        record["approval_text"] = draft.approval_text
+        record["approval_block_path"] = str(output_dir / APPROVAL_BLOCK_FILENAME)
+    else:
+        # Withheld from the operator record as well, so no paste-ready approval
+        # text survives a refusal in a captured stdout log either.
+        record["approval_block_withheld"] = True
+    return record, accepted
+
+
+def _rehearsal_record(draft: ReplaySpecDraft, *, preflight: bool) -> dict[str, object]:
+    """Return the preflight block recorded in evidence and reported to stdout.
+
+    ``--skip-preflight`` is an operator's deliberate bypass and is recorded as
+    ``skipped``, not as a refusal: the point of the flag is that the operator
+    knows the referenced artifacts are absent.  Only a rehearsal that actually
+    ran and refused withholds the approval block.
+    """
+
     if not preflight:
-        record["preflight"] = {"status": "skipped"}
-        return record, True
+        return {"status": SKIPPED}
 
     from legalforecast.ingestion.stage_a_replay_executor.preflight import (
         preflight_replay_descriptor,
     )
 
     rehearsal = preflight_replay_descriptor(draft.descriptor)
-    record["preflight"] = {
-        "status": "accepted" if rehearsal.accepted else "refused",
+    return {
+        "status": ACCEPTED if rehearsal.accepted else REFUSED,
         "stage": rehearsal.stage,
         "reason": rehearsal.reason,
         "evidence": dict(rehearsal.evidence),
     }
-    return record, rehearsal.accepted
 
 
 def paste_ready_approval_text(
@@ -267,15 +303,36 @@ def paste_ready_approval_text(
     )
 
 
-def write_replay_descriptor_draft(draft: ReplaySpecDraft, output_dir: Path) -> Path:
-    """Persist the descriptor and its owner-facing approval block."""
+def write_replay_descriptor_draft(
+    draft: ReplaySpecDraft,
+    output_dir: Path,
+    *,
+    preflight: Mapping[str, object],
+) -> Path:
+    """Persist the descriptor, its evidence, and — unless refused — the block.
+
+    ``preflight`` is required rather than defaulted because the whole point of
+    this function is that the approval block is conditional on it.  A default
+    would let a caller re-open the hazard by omitting the argument.
+
+    On a refused rehearsal the approval block is withheld *and any block already
+    in this directory is removed*.  Issuing repeatedly into one output directory
+    is the normal operator loop, so leaving a previous run's clean block next to
+    a refusal would preserve exactly the trap this closes: a paste-ready
+    authorization instrument bound to a descriptor whose rehearsal refused.  The
+    descriptor itself still lands — it is inert without an approval, the
+    executor re-authenticates it from bytes anyway, and it is what the refusal
+    evidence refers to.
+    """
 
     output_dir.mkdir(parents=True, exist_ok=True)
     descriptor_path = output_dir / "replay-descriptor.json"
     descriptor_path.write_bytes(_canonical(draft.descriptor))
-    (output_dir / "approval-block.txt").write_text(
-        draft.approval_text + "\n", encoding="utf-8"
-    )
+    approval_path = output_dir / APPROVAL_BLOCK_FILENAME
+    if preflight.get("status") == REFUSED:
+        approval_path.unlink(missing_ok=True)
+    else:
+        approval_path.write_text(draft.approval_text + "\n", encoding="utf-8")
     (output_dir / "issuance-evidence.json").write_bytes(
         _canonical(
             {
@@ -284,6 +341,8 @@ def write_replay_descriptor_draft(draft: ReplaySpecDraft, output_dir: Path) -> P
                 "estimated_cost_usd": format(draft.estimated_cost_usd, "f"),
                 "hard_ceiling_usd": format(draft.hard_ceiling_usd, "f"),
                 "derivation": dict(draft.derivation),
+                "preflight": dict(preflight),
+                "approval_block_written": preflight.get("status") != REFUSED,
             }
         )
     )
