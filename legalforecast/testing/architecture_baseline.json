@@ -4970,10 +4970,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "_validate_verified_record",
-        "largest_symbol_lines": 189,
+        "largest_symbol_lines": 193,
         "layer": "application",
-        "line_count": 1689,
-        "nonblank_line_count": 1563,
+        "line_count": 1698,
+        "nonblank_line_count": 1572,
         "top_level_definition_count": 46
       },
       "legalforecast/ingestion/disclosure_clearance.py": {
