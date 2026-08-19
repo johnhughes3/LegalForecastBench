@@ -362,6 +362,7 @@
     "tests/test_official_provider_workflow.py",
     "tests/test_official_run_runbook.py",
     "tests/test_official_s3_workflow.py",
+    "tests/test_package_import_order.py",
     "tests/test_package_skeleton.py",
     "tests/test_packet_render_ci_workflow.py",
     "tests/test_policy_artifacts.py",
