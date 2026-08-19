@@ -458,6 +458,48 @@ def test_a_separately_docketed_brief_in_support_mints_as_briefing() -> None:
     assert _RECEIPT_ROLE_TO_DOCUMENT_ROLE["motion_memorandum"] == memorandum
 
 
+def test_a_brief_in_support_is_not_counted_as_the_target_motion() -> None:
+    """The corpus records the motion's own entry, never the brief's as well.
+
+    Selecting on the receipt spelling is what makes this possible: both halves
+    of the split share one corpus role, so the mapped role cannot tell them
+    apart, and a second entry here would strand the promotion at the readiness
+    gate, which counts exactly one target motion per case.
+    """
+
+    roles = (*_ROLES[:2], ("", "motion_memorandum", 6), *_ROLES[2:])
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+
+    replacement = mint_verified_owner_adjudicated_replacement(**inputs)
+
+    assert replacement.selection_row["target_motion_entry_numbers"] == [2]
+
+
+def test_a_packet_holding_only_a_brief_in_support_refuses() -> None:
+    """The brief satisfies the required roles, so the motion check must refuse."""
+
+    motion, *rest = _ROLES[1:]
+    roles = (_ROLES[0], ("", "motion_memorandum", motion[2]), *rest)
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError, match="needs a target motion document"
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+def test_a_packet_naming_two_target_motions_refuses() -> None:
+    """Two motions is a packet-construction error, not a shape to emit."""
+
+    roles = (*_ROLES[:2], ("", "motion_to_dismiss_notice", 6), *_ROLES[2:])
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError, match="more than one target motion"
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
 def test_purchased_documents_are_not_counted_as_free() -> None:
     replacement = _replacement("new1", "case000")
     purchased = sum(
