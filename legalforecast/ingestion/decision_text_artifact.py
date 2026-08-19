@@ -472,6 +472,10 @@ def _build_decision_text_records(
                 "first written disposition is absent from authenticated acquired "
                 f"artifacts: {candidate_id}/{source_document_id}"
             ) from exc
+        # Read the parser Markdown first so the binding check can be given the
+        # real bytes: a repair's provenance is only fully checkable against the
+        # text it published.
+        text, text_sha256 = _read_parser_markdown(parser, markdown_root=root, key=key)
         _validate_document_binding(
             key=key,
             selection_document=decision_document,
@@ -480,8 +484,8 @@ def _build_decision_text_records(
             restriction=restriction,
             parser=parser,
             parser_provenance=parser_provenance,
+            parser_markdown=text,
         )
-        text, text_sha256 = _read_parser_markdown(parser, markdown_root=root, key=key)
         entered_date = _decision_date(selection, candidate_id=candidate_id)
         extracted_text = _mapping(parser.get("extracted_text"), "extracted_text")
         output.append(
@@ -862,7 +866,11 @@ def _validate_verified_record(
     parser_config = _mapping(parser.get("parser_config"), "parser_config")
     repaired = is_embedded_text_layer_repair_record(parser)
     if repaired:
-        problem = embedded_text_layer_repair_problem(parser)
+        # Pass the real text.  Without it the shape is checked but the published
+        # digest is not, and a repair that changed nothing would be accepted
+        # here while the reuse lane and Stage A refuse it -- the same divergence
+        # between consumers this change exists to remove.
+        problem = embedded_text_layer_repair_problem(parser, markdown=text)
         if problem is not None:
             raise DecisionTextArtifactError(f"{problem}: {key}")
     elif (
@@ -1265,6 +1273,7 @@ def _validate_document_binding(
     restriction: Mapping[str, Any],
     parser: Mapping[str, Any],
     parser_provenance: str,
+    parser_markdown: str,
 ) -> None:
     if clearance.get("schema_version") != "legalforecast.disclosure_clearance.v1":
         raise DecisionTextArtifactError(f"unsupported clearance schema: {key}")
@@ -1311,7 +1320,7 @@ def _validate_document_binding(
     if parser_provenance == "live_mistral" and is_embedded_text_layer_repair_record(
         parser
     ):
-        problem = embedded_text_layer_repair_problem(parser)
+        problem = embedded_text_layer_repair_problem(parser, markdown=parser_markdown)
         if problem is not None:
             raise DecisionTextArtifactError(f"{problem}: {key}")
         expected_extraction_method = EMBEDDED_TEXT_LAYER_REPAIR_METHOD
