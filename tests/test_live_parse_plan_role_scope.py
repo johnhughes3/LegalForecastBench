@@ -27,7 +27,9 @@ asserts a role no artifact stated is still refused.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import legalforecast.cli as cli
 import pytest
@@ -281,10 +283,11 @@ def test_selection_sourced_role_still_regaps_thin_markdown(
 ) -> None:
     """Binding the real role is what keeps the pleading floor doing its work.
 
-    Under the unknown-role floor this Markdown is accepted and flows onward to
-    Stage A.  Under the ``motion_to_dismiss_memorandum`` floor the selection
-    authenticates, it is superseded and re-converted by the pinned parser, which
-    is the outcome the corpus needs.
+    This exercises the *reuse* lane: under the unknown-role floor the frozen
+    Markdown is reusable and flows onward to Stage A, while under the
+    ``motion_to_dismiss_memorandum`` floor the selection authenticates it moves
+    out of the reuse set and into the gap set.  The subsequent live conversion of
+    that gap is the caller's step and is not exercised here.
     """
 
     prior_card, prior_root, request = _prior_live_mistral_run(
@@ -375,3 +378,159 @@ def test_conflicting_selection_roles_are_refused() -> None:
         cli._authenticated_live_parse_document_roles(
             manifest, selection_records=selection
         )
+
+
+@pytest.mark.parametrize(
+    "role",
+    [
+        pytest.param("", id="empty"),
+        pytest.param("   ", id="blank"),
+        pytest.param(None, id="null"),
+        pytest.param(123, id="non-string"),
+    ],
+)
+def test_selection_document_role_must_be_a_usable_string(role: object) -> None:
+    """The selection is a role source, so it gets the manifest's own strictness.
+
+    A blank role is worse than an absent one: ``assess_parsed_text`` lowercases
+    and matches against the role tables, so ``"   "`` matches no pleading or
+    brief role and silently buys the outcome floor instead of the pleading one.
+    Every shape that does not name a role must fail closed here, exactly as the
+    plan-side parametrization requires of a plan row.
+    """
+
+    manifest = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "doc-1",
+            **_QUARANTINE_SIGNATURE,
+        }
+    ]
+    selection = [
+        {
+            "candidate_id": "cand-1",
+            "documents": [{"source_document_id": "doc-1", "document_role": role}],
+        }
+    ]
+
+    with pytest.raises(ValueError, match="document_role must be a non-empty string"):
+        cli._authenticated_live_parse_document_roles(
+            manifest, selection_records=selection
+        )
+
+
+@pytest.mark.parametrize("dropped", sorted(_QUARANTINE_SIGNATURE))
+def test_every_quarantine_signature_conjunct_is_required(dropped: str) -> None:
+    """Each property independently gates the redirect to the selection.
+
+    Testing only the fully-collapsed predicate would leave each conjunct free to
+    be dropped without any test noticing, and the conjuncts are not decoration:
+    ``parser_eligible`` alone is unconstrained by two of the three recovery
+    lanes, so a row from another lane could otherwise redirect its role lookup
+    to an artifact that was never meant to answer for it.
+    """
+
+    manifest_record: dict[str, Any] = {
+        "candidate_id": "cand-1",
+        "source_document_id": "doc-1",
+        **_QUARANTINE_SIGNATURE,
+    }
+    del manifest_record[dropped]
+    selection = [
+        {
+            "candidate_id": "cand-1",
+            "documents": [
+                {"source_document_id": "doc-1", "document_role": "complaint"}
+            ],
+        }
+    ]
+
+    with pytest.raises(
+        cli.CommandError,
+        match=(
+            "authenticated materialization manifest record requires "
+            "document_role: cand-1/doc-1"
+        ),
+    ):
+        cli._authenticated_live_parse_document_roles(
+            [manifest_record], selection_records=selection
+        )
+
+
+def test_selection_roles_are_read_from_the_verified_lineage_not_from_disk(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """The role must come from the lineage's copy of the selection.
+
+    Every other test here reads a selection file the unit fixture also replays
+    verbatim, so a regression that re-read the selection straight off disk —
+    skipping the replay-verified copy entirely — would satisfy all of them.  The
+    whole security argument for sourcing roles from the selection is that the
+    copy in hand is byte-committed by
+    ``verify_materialized_downstream_lineage``, so this test makes the two
+    copies disagree and pins that the lineage's wins.
+    """
+
+    requests_path, clearance_path, materialization_card = _parse_plan_fixture(
+        monkeypatch,
+        tmp_path,
+        document_role="complaint",
+        companion=_quarantine_companion(selection_role="complaint"),
+    )
+    # The file on disk says "complaint"; the verified lineage says "opposition".
+    verified_lineage = cli._verify_materialized_downstream_lineage
+
+    def _lineage_with_a_differing_selection(
+        **kwargs: object,
+    ) -> cli._VerifiedMaterializedDownstreamLineage:
+        return replace(
+            verified_lineage(**kwargs),  # pyright: ignore[reportArgumentType]
+            selection_records=(
+                {
+                    "candidate_id": "cand-1",
+                    "documents": [
+                        {
+                            "source_document_id": "recap-fetch-doc",
+                            "document_role": "opposition",
+                        }
+                    ],
+                },
+            ),
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_materialized_downstream_lineage",
+        _lineage_with_a_differing_selection,
+    )
+    parsed: list[tuple[MistralMarkdownConversionRequest, ...]] = []
+
+    def _capture_parser_call(
+        requests: tuple[MistralMarkdownConversionRequest, ...],
+        *,
+        config: object,
+    ) -> tuple[object, ...]:
+        del config
+        parsed.append(tuple(requests))
+        raise _ParserReached("captured live parser invocation")
+
+    monkeypatch.setattr(cli, "convert_documents_to_markdown", _capture_parser_call)
+
+    with pytest.raises(_ParserReached):
+        cli.main(
+            _parse_documents_argv(
+                requests_path=requests_path,
+                clearance_path=clearance_path,
+                materialization_card=materialization_card,
+                output_root=tmp_path / "acquisition",
+                selection_path=tmp_path / _SELECTION_FILENAME,
+            )
+        )
+
+    roles = {
+        request.source_document_id: request.document_role
+        for requests in parsed
+        for request in requests
+    }
+    assert roles["recap-fetch-doc"] == "opposition"
