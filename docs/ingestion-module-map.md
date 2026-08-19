@@ -210,9 +210,9 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`docket_decision_text_source.py`](../legalforecast/ingestion/docket_decision_text_source.py) | Authenticated audit-only decision-text lineage. |
 | [`docket_markdown.py`](../legalforecast/ingestion/docket_markdown.py) | Controlled docket packet and audit Markdown. |
 | [`docket_sync.py`](../legalforecast/ingestion/docket_sync.py) | Docket and filing retrieval normalization. |
+| [`embedded_text_layer_repair.py`](../legalforecast/ingestion/embedded_text_layer_repair.py) | Page-scoped recovery of converter-dropped pages from the PDF's own embedded text layer. |
 | [`fallback_retrieval.py`](../legalforecast/ingestion/fallback_retrieval.py) | Supplemental public-source retrieval diagnostics. |
 | [`free_document_downloader.py`](../legalforecast/ingestion/free_document_downloader.py) | Fixture-safe free CourtListener/RECAP downloads. |
-| [`embedded_text_layer_repair.py`](../legalforecast/ingestion/embedded_text_layer_repair.py) | Page-scoped recovery of converter-dropped pages from the PDF's own embedded text layer. |
 | [`live_parse_record_provenance.py`](../legalforecast/ingestion/live_parse_record_provenance.py) | The two conversion provenances a reused parse record may carry. |
 | [`mistral_markdown_parser.py`](../legalforecast/ingestion/mistral_markdown_parser.py) | Local conversion of acquired documents to Markdown. |
 | [`model_packet_assembly.py`](../legalforecast/ingestion/model_packet_assembly.py) | Final model packets from docket and parsed artifacts. |

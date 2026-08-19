@@ -410,7 +410,7 @@ def _embedded_text_layer_repair_record(
     """
 
     parser_config = embedded_text_layer_repair_parser_config(
-        repair, superseded_parser_revision=EXPECTED_PARSER_REVISION
+        repair, pinned_parser_revision=EXPECTED_PARSER_REVISION
     )
     assessment = assess_parsed_text(repair.markdown, request.document_role)
     if assessment.rejected:
@@ -588,14 +588,35 @@ def _run_verified_conversion(
         )
         return record, None
     source_pdf_bytes = source_bytes_for_request(request)
-    completeness = (
-        assess_text_layer_completeness(
-            source_pdf_bytes=source_pdf_bytes, markdown=markdown
+    if source_pdf_bytes is None:
+        # The parser has just read these bytes to convert them, so they are
+        # always available here.  If they are not, the completeness check
+        # cannot run, and publishing an unchecked conversion that is
+        # indistinguishable from a checked one is the exact ambiguity this gate
+        # exists to remove.  Refuse instead.
+        return (
+            _failure_record(
+                request,
+                input_path=input_path,
+                markdown_path=markdown_path,
+                metadata_path=metadata_path,
+                artifact_root=artifact_root,
+                parser_config=parser_config,
+                status=MistralMarkdownConversionStatus.FAILED,
+                quality_flags=("text_layer_source_unavailable",),
+                error_message=(
+                    "parser output could not be checked for text-layer "
+                    "completeness: committed source bytes are unavailable"
+                ),
+                stdout=result.stdout,
+                stderr=result.stderr,
+            ),
+            None,
         )
-        if source_pdf_bytes is not None
-        else None
+    completeness = assess_text_layer_completeness(
+        source_pdf_bytes=source_pdf_bytes, markdown=markdown
     )
-    if completeness is not None and completeness.rejected:
+    if completeness.rejected:
         record = _failure_record(
             request,
             input_path=input_path,

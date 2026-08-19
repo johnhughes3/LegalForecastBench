@@ -192,9 +192,10 @@ def test_a_repaired_conversion_never_starts_the_parser_subprocess(
     assert record.extracted_text.extraction_method == EMBEDDED_TEXT_LAYER_REPAIR_METHOD
     assert record.extracted_text.page_count == 2
     assert record.parser_config["repaired_page_numbers"] == [1]
-    assert record.parser_config["superseded_parser_revision"] == (
-        EXPECTED_PARSER_REVISION
-    )
+    assert record.parser_config["pinned_parser_revision"] == EXPECTED_PARSER_REVISION
+    # The repair must not claim what produced the conversion it supersedes: a
+    # repair can supersede another repair.
+    assert "superseded_engine" not in record.parser_config
 
 
 def test_the_repaired_record_is_reusable_and_names_its_own_method(
@@ -209,7 +210,7 @@ def test_the_repaired_record_is_reusable_and_names_its_own_method(
         "source_document_id": "468158052",
         "quality_flags": [],
         "parser_config": embedded_text_layer_repair_parser_config(
-            repair, superseded_parser_revision=EXPECTED_PARSER_REVISION
+            repair, pinned_parser_revision=EXPECTED_PARSER_REVISION
         ),
         "extracted_text": {
             "source_document_id": "468158052",
@@ -237,7 +238,7 @@ def test_a_repair_record_that_claims_a_provider_conversion_is_refused() -> None:
     )
     assert repair is not None
     config = embedded_text_layer_repair_parser_config(
-        repair, superseded_parser_revision=EXPECTED_PARSER_REVISION
+        repair, pinned_parser_revision=EXPECTED_PARSER_REVISION
     )
     record = {
         "status": "succeeded",
@@ -270,7 +271,7 @@ def test_a_repair_record_that_changed_nothing_is_refused() -> None:
     repair = plan_embedded_text_layer_repair(source_pdf_bytes=source, markdown=gutted)
     assert repair is not None
     config = embedded_text_layer_repair_parser_config(
-        repair, superseded_parser_revision=EXPECTED_PARSER_REVISION
+        repair, pinned_parser_revision=EXPECTED_PARSER_REVISION
     )
     record = {
         "status": "succeeded",
@@ -294,3 +295,79 @@ def test_a_repair_record_that_changed_nothing_is_refused() -> None:
     )
 
     assert problem == "repaired conversion did not change the superseded Markdown"
+
+
+def test_a_repair_of_a_repair_does_not_claim_a_provider_predecessor() -> None:
+    """The second hop must not assert that it superseded a provider conversion.
+
+    A repaired record is reusable, so it can itself be superseded later — after
+    a threshold or role change — and be repaired again.  Hardcoding the
+    predecessor's engine would make that second record state something false
+    about provenance, which is the ambiguity this module exists to remove.
+    """
+
+    source = _source()
+    repair = plan_embedded_text_layer_repair(
+        source_pdf_bytes=source, markdown=_gutted_markdown()
+    )
+    assert repair is not None
+    config = embedded_text_layer_repair_parser_config(
+        repair, pinned_parser_revision=EXPECTED_PARSER_REVISION
+    )
+
+    assert "superseded_engine" not in config
+    # The predecessor is named exactly, by digest, with no claim about origin.
+    assert config["superseded_text_sha256"] == repair.superseded_text_sha256
+    assert config["pinned_parser_revision"] == EXPECTED_PARSER_REVISION
+
+
+def test_a_repair_record_pinned_to_another_parser_generation_is_refused() -> None:
+    source = _source()
+    repair = plan_embedded_text_layer_repair(
+        source_pdf_bytes=source, markdown=_gutted_markdown()
+    )
+    assert repair is not None
+    record = {
+        "status": "succeeded",
+        "source_document_id": "468158052",
+        "quality_flags": [],
+        "parser_config": embedded_text_layer_repair_parser_config(
+            repair, pinned_parser_revision="0" * 40
+        ),
+        "extracted_text": {
+            "source_document_id": "468158052",
+            "extraction_method": EMBEDDED_TEXT_LAYER_REPAIR_METHOD,
+            "text_sha256": sha256_text(repair.markdown),
+            "page_count": 2,
+            "quality_flags": [],
+            "notes": repair.notes,
+        },
+    }
+
+    problem = embedded_text_layer_repair_record_problem(
+        record,
+        markdown=repair.markdown,
+        expected_parser_revision=EXPECTED_PARSER_REVISION,
+    )
+
+    assert problem is not None
+    assert "unclean" in problem
+
+
+def test_a_conversion_with_unattributable_pages_is_never_page_repaired() -> None:
+    """Loss the gate could not attribute to pages must not be spliced.
+
+    Splicing over a guess would republish unattributed text a second time, so
+    the repair refuses rather than improvising.
+    """
+
+    source = _source()
+    body = "\n\n".join(_BODY)
+    preamble = f"{body}\n\n##### Page 1\n\n---\n\n##### Page 2\n\n" + "\n\n".join(
+        _PAGE_TWO
+    )
+
+    assert (
+        plan_embedded_text_layer_repair(source_pdf_bytes=source, markdown=preamble)
+        is None
+    )

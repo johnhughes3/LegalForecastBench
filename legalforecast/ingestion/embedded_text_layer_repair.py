@@ -106,9 +106,18 @@ def plan_embedded_text_layer_repair(
 
 
 def embedded_text_layer_repair_parser_config(
-    repair: EmbeddedTextLayerRepair, *, superseded_parser_revision: str
+    repair: EmbeddedTextLayerRepair, *, pinned_parser_revision: str
 ) -> dict[str, Any]:
-    """Build the parser-config record a repaired conversion publishes."""
+    """Build the parser-config record a repaired conversion publishes.
+
+    ``pinned_parser_revision`` is the parser generation this repair was
+    produced under, not a claim about what produced the conversion being
+    superseded.  A repair can itself be superseded by a later repair — after a
+    threshold or role change — and asserting "the thing I replaced came from
+    the provider" would be false on that second hop.  The predecessor is
+    identified by ``superseded_text_sha256``, which is exact and needs no
+    claim about its origin.
+    """
 
     return {
         "engine": EMBEDDED_TEXT_LAYER_REPAIR_ENGINE,
@@ -116,8 +125,7 @@ def embedded_text_layer_repair_parser_config(
         "repair_revision": EMBEDDED_TEXT_LAYER_REPAIR_REVISION,
         "repaired_page_numbers": list(repair.repaired_page_numbers),
         "parsed_page_count": repair.parsed_page_count,
-        "superseded_engine": "mistral",
-        "superseded_parser_revision": superseded_parser_revision,
+        "pinned_parser_revision": pinned_parser_revision,
         "superseded_text_sha256": repair.superseded_text_sha256,
     }
 
@@ -144,8 +152,7 @@ def embedded_text_layer_repair_record_problem(
         config.get("engine") != EMBEDDED_TEXT_LAYER_REPAIR_ENGINE
         or config.get("extraction_method") != EMBEDDED_TEXT_LAYER_EXTRACTION_METHOD
         or config.get("repair_revision") != EMBEDDED_TEXT_LAYER_REPAIR_REVISION
-        or config.get("superseded_engine") != "mistral"
-        or config.get("superseded_parser_revision") != expected_parser_revision
+        or config.get("pinned_parser_revision") != expected_parser_revision
         or not _is_sha256(config.get("superseded_text_sha256"))
         or not isinstance(parsed_page_count, int)
         or isinstance(parsed_page_count, bool)

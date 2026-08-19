@@ -5631,10 +5631,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "_run_verified_conversion",
-        "largest_symbol_lines": 186,
+        "largest_symbol_lines": 207,
         "layer": "application",
-        "line_count": 1258,
-        "nonblank_line_count": 1134,
+        "line_count": 1279,
+        "nonblank_line_count": 1155,
         "top_level_definition_count": 45
       },
       "legalforecast/ingestion/model_packet_assembly.py": {

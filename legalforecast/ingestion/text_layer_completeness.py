@@ -51,6 +51,12 @@ MINIMUM_PAGE_TEXT_LAYER_CHARACTERS = 300
 #: separation this sits inside.
 MINIMUM_TEXT_LAYER_RETENTION_RATIO = 0.35
 
+#: A page the converter published as an image is exempt only while its own text
+#: layer is weak evidence.  Beyond twice the per-page floor the layer is
+#: substantial enough to demand accounting whatever the converter emitted, so
+#: an image reference can never buy an exemption for a page of real text.
+MAXIMUM_IMAGE_PAGE_TEXT_LAYER_CHARACTERS = 2 * MINIMUM_PAGE_TEXT_LAYER_CHARACTERS
+
 COMPLETENESS_BASIS_PAGE = "page"
 COMPLETENESS_BASIS_DOCUMENT = "document"
 
@@ -58,6 +64,11 @@ PAGE_VERDICT_ACCOUNTED = "accounted"
 PAGE_VERDICT_INCOMPLETE = "incomplete"
 PAGE_VERDICT_EXEMPT_THIN_LAYER = "exempt_thin_text_layer"
 PAGE_VERDICT_EXEMPT_IMAGE_PAGE = "exempt_image_page"
+
+PAGE_ATTRIBUTION_USABLE = "usable"
+PAGE_ATTRIBUTION_UNPAGINATED = "unpaginated"
+PAGE_ATTRIBUTION_MALFORMED = "malformed"
+PAGE_ATTRIBUTION_PREAMBLE = "preamble"
 
 _PAGE_SECTION_RE = re.compile(r"\s*#{1,6}\s*page\s+(\d+)\s*", re.IGNORECASE)
 _MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
@@ -125,26 +136,67 @@ def page_section_number(line: str) -> int | None:
 def markdown_page_sections(markdown: str) -> dict[int, str] | None:
     """Return Markdown text keyed by the page separator that introduced it.
 
-    Returns ``None`` when the separators cannot be trusted to attribute text to
-    pages — no separators at all, or a repeated page number.  Callers fall back
-    to a whole-document comparison rather than guessing an attribution.
+    Returns ``None`` when the separators cannot attribute text to pages.  See
+    :func:`attribute_markdown_pages` for the three distinct reasons that can
+    happen; they are not interchangeable, and callers that need to tell them
+    apart must use that function instead.
+    """
+
+    attribution, sections = attribute_markdown_pages(markdown)
+    return sections if attribution == PAGE_ATTRIBUTION_USABLE else None
+
+
+def attribute_markdown_pages(
+    markdown: str,
+) -> tuple[str, dict[int, str]]:
+    """Classify how far a conversion's page separators can be trusted.
+
+    Four outcomes, deliberately distinguished because they carry different
+    priors about whether text was lost:
+
+    ``usable``
+        Every separator is unique and every line belongs to one.
+
+    ``unpaginated``
+        No separators at all.  The converter never claimed to paginate, so a
+        whole-document comparison is the honest read.
+
+    ``malformed``
+        Separators are present but incoherent — a repeated page number.  The
+        converter *did* claim to paginate and produced something that cannot be
+        attributed, which is evidence of a defective conversion rather than of
+        a different output mode, so this is refused rather than downgraded to
+        the weaker whole-document comparison.
+
+    ``preamble``
+        Substantive text appears before the first separator, so some content
+        belongs to no page.  Attribution would be a guess, and a page-scoped
+        repair over that guess could duplicate the unattributed text, so this
+        falls back to the whole-document comparison and is never repaired.
     """
 
     sections: dict[int, list[str]] = {}
+    preamble: list[str] = []
     current: int | None = None
     for raw_line in markdown.splitlines():
         page_number = page_section_number(raw_line)
         if page_number is not None:
             if page_number in sections:
-                return None
+                return PAGE_ATTRIBUTION_MALFORMED, {}
             sections[page_number] = []
             current = page_number
             continue
-        if current is not None:
-            sections[current].append(raw_line)
+        if current is None:
+            preamble.append(raw_line)
+            continue
+        sections[current].append(raw_line)
     if not sections:
-        return None
-    return {number: "\n".join(lines) for number, lines in sections.items()}
+        return PAGE_ATTRIBUTION_UNPAGINATED, {}
+    if _comparable_characters("\n".join(preamble)) > 0:
+        return PAGE_ATTRIBUTION_PREAMBLE, {}
+    return PAGE_ATTRIBUTION_USABLE, {
+        number: "\n".join(lines) for number, lines in sections.items()
+    }
 
 
 def _comparable_characters(text: str) -> int:
@@ -162,12 +214,35 @@ def assess_text_layer_completeness(
     """
 
     extraction = extract_disclosure_pdf_pages(source_pdf_bytes)
+    if extraction.parsed_page_count == 0:
+        # No readable pages at all — an encrypted, damaged or unparseable PDF.
+        # There is no text layer to account for, so there is no evidence either
+        # way, and this check must not manufacture a verdict from its absence.
+        # The byte commitments and the parse-quality gate remain the controls.
+        return _assess_whole_document(
+            layer_texts=(), markdown=markdown, parsed_page_count=0
+        )
     layer_by_page = {page.page_number: page.text for page in extraction.pages}
-    sections = markdown_page_sections(markdown)
-    page_numbers_in_range = sections is not None and all(
-        1 <= number <= extraction.parsed_page_count for number in sections
-    )
-    if sections is None or not page_numbers_in_range:
+    attribution, sections = attribute_markdown_pages(markdown)
+    if attribution == PAGE_ATTRIBUTION_USABLE and any(
+        not 1 <= number <= extraction.parsed_page_count for number in sections
+    ):
+        # A separator naming a page the PDF does not have is the same class of
+        # incoherence as a repeated one: the converter claimed an attribution
+        # its own source contradicts.
+        attribution = PAGE_ATTRIBUTION_MALFORMED
+    if attribution == PAGE_ATTRIBUTION_MALFORMED:
+        return TextLayerCompletenessAssessment(
+            basis=COMPLETENESS_BASIS_PAGE,
+            parsed_page_count=extraction.parsed_page_count,
+            minimum_page_character_count=MINIMUM_PAGE_TEXT_LAYER_CHARACTERS,
+            minimum_retention_ratio=MINIMUM_TEXT_LAYER_RETENTION_RATIO,
+            pages=(),
+            incomplete_page_numbers=(),
+            accepted=False,
+            rejection_reasons=("text_layer_page_attribution_malformed",),
+        )
+    if attribution != PAGE_ATTRIBUTION_USABLE:
         ordered_pages = sorted(layer_by_page)
         return _assess_whole_document(
             layer_texts=tuple(layer_by_page[number] for number in ordered_pages),
@@ -185,7 +260,7 @@ def assess_text_layer_completeness(
                     page_number=page_number,
                     text_layer_character_count=layer_characters,
                     markdown_character_count=_comparable_characters(
-                        sections.get(page_number, "")
+                        _MARKDOWN_IMAGE_RE.sub(" ", sections.get(page_number, ""))
                     ),
                     retention_ratio=None,
                     verdict=PAGE_VERDICT_EXEMPT_THIN_LAYER,
@@ -193,8 +268,23 @@ def assess_text_layer_completeness(
             )
             continue
         section = sections.get(page_number, "")
-        markdown_characters = _comparable_characters(section)
-        if _MARKDOWN_IMAGE_RE.search(section) is not None:
+        # Image markup is the converter's own filename, not the document's
+        # text, so it is never counted as retained content — otherwise a page
+        # reduced to a picture reference would earn credit for the reference.
+        markdown_characters = _comparable_characters(
+            _MARKDOWN_IMAGE_RE.sub(" ", section)
+        )
+        if (
+            _MARKDOWN_IMAGE_RE.search(section) is not None
+            and markdown_characters < MINIMUM_PAGE_TEXT_LAYER_CHARACTERS
+            and layer_characters <= MAXIMUM_IMAGE_PAGE_TEXT_LAYER_CHARACTERS
+        ):
+            # The converter published this page AS an image: a picture and
+            # nothing substantive beside it.  A page that kept real text and
+            # also happens to carry a seal, a signature graphic or a letterhead
+            # logo is NOT exempt — it is measured like any other page, because
+            # an incidental image must never buy an exemption for missing body
+            # text.
             findings.append(
                 TextLayerPageFinding(
                     page_number=page_number,
@@ -273,8 +363,13 @@ def _assess_whole_document(
 __all__ = [
     "COMPLETENESS_BASIS_DOCUMENT",
     "COMPLETENESS_BASIS_PAGE",
+    "MAXIMUM_IMAGE_PAGE_TEXT_LAYER_CHARACTERS",
     "MINIMUM_PAGE_TEXT_LAYER_CHARACTERS",
     "MINIMUM_TEXT_LAYER_RETENTION_RATIO",
+    "PAGE_ATTRIBUTION_MALFORMED",
+    "PAGE_ATTRIBUTION_PREAMBLE",
+    "PAGE_ATTRIBUTION_UNPAGINATED",
+    "PAGE_ATTRIBUTION_USABLE",
     "PAGE_VERDICT_ACCOUNTED",
     "PAGE_VERDICT_EXEMPT_IMAGE_PAGE",
     "PAGE_VERDICT_EXEMPT_THIN_LAYER",
@@ -283,6 +378,7 @@ __all__ = [
     "TextLayerCompletenessAssessment",
     "TextLayerPageFinding",
     "assess_text_layer_completeness",
+    "attribute_markdown_pages",
     "markdown_page_sections",
     "page_section_number",
 ]
