@@ -8,11 +8,22 @@ therefore passed every gate: the provider returned success, no fallback banner
 was recorded, and the surviving header lines cleared the density floor.
 
 This module answers the missing question with evidence the repository already
-holds: where a PDF carries an embedded text layer, the published Markdown must
-account for it.  The comparison is deliberately coarse — presence of body text
-per page, not similarity — because a converter legitimately re-orders, re-wraps
-and re-styles text, and any similarity metric would either miss real losses or
-refuse honest conversions.
+holds: the PDF's own embedded text layer.  The comparison is deliberately
+coarse — presence of body text per page, not similarity — because a converter
+legitimately re-orders, re-wraps and re-styles text, and any similarity metric
+would either miss real losses or refuse honest conversions.
+
+**What it detects, stated honestly.**  Whole-page-body loss on pages whose text
+layer is body-dominated.  That is the defect class this was built for and the
+class the corpus measurement supports.  It is not a general guarantee that a
+conversion accounts for its source, and two limits follow directly from the
+coarseness above.  A page that keeps its caption, letterhead and attorney block
+while losing its body can retain enough characters to clear the floor, because
+those blocks count as retained content on both sides.  And partial loss within
+a page — a dropped sentence, even a dispositive one — is far above any floor a
+whole-page test can set.  Detecting either of those needs a different
+instrument, not a lower threshold here: lowering the floor would refuse honest
+conversions long before it caught them.
 
 Three exemptions keep the check honest rather than merely strict:
 

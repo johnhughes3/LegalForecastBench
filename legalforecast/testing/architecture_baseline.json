@@ -6675,8 +6675,8 @@
         "largest_symbol": "assess_text_layer_completeness",
         "largest_symbol_lines": 135,
         "layer": "application",
-        "line_count": 393,
-        "nonblank_line_count": 338,
+        "line_count": 404,
+        "nonblank_line_count": 348,
         "top_level_definition_count": 8
       },
       "legalforecast/ingestion/zero_cost_successor.py": {
@@ -9137,9 +9137,9 @@
         "largest_symbol": "_write_inputs",
         "largest_symbol_lines": 620,
         "layer": "test",
-        "line_count": 1657,
-        "nonblank_line_count": 1540,
-        "top_level_definition_count": 36
+        "line_count": 1705,
+        "nonblank_line_count": 1581,
+        "top_level_definition_count": 37
       },
       "tests/test_dev_check_recovery_vertical_slice.py": {
         "cycle_id": "",
