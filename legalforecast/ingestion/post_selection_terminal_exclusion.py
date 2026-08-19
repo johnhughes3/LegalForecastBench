@@ -19,6 +19,10 @@ from legalforecast.contracts import (
     EXACT100_ZERO_COST_RECOVERY_RUN_V2,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.live_parse_record_provenance import (
+    embedded_text_layer_repair_problem,
+    is_embedded_text_layer_repair_record,
+)
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.target_document_eligibility import (
@@ -232,7 +236,20 @@ def _verify_stipulated_target_evidence_for_test(  # pyright: ignore[reportUnused
         raise PostSelectionTerminalExclusionError(
             "stipulated target Markdown differs from the parser record"
         )
-    if (
+    if is_embedded_text_layer_repair_record(parser_record):
+        # The second accepted conversion provenance, pinned by the same
+        # authority the reuse lane uses rather than by a second opinion here.
+        problem = embedded_text_layer_repair_problem(
+            parser_record, markdown=markdown_bytes.decode("utf-8", errors="strict")
+        )
+        if (
+            problem is not None
+            or extracted_record.get("source_document_id") != source_document_id
+        ):
+            raise PostSelectionTerminalExclusionError(
+                "stipulated target parser record lacks a valid page-repair provenance"
+            )
+    elif (
         parser_config_record.get("engine") != "mistral"
         or parser_config_record.get("parser_revision") != EXPECTED_PARSER_REVISION
         or parser_config_record.get("expected_parser_revision")

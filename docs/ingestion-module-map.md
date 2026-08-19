@@ -210,14 +210,17 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`docket_decision_text_source.py`](../legalforecast/ingestion/docket_decision_text_source.py) | Authenticated audit-only decision-text lineage. |
 | [`docket_markdown.py`](../legalforecast/ingestion/docket_markdown.py) | Controlled docket packet and audit Markdown. |
 | [`docket_sync.py`](../legalforecast/ingestion/docket_sync.py) | Docket and filing retrieval normalization. |
+| [`embedded_text_layer_repair.py`](../legalforecast/ingestion/embedded_text_layer_repair.py) | Page-scoped recovery of converter-dropped pages from the PDF's own embedded text layer. |
 | [`fallback_retrieval.py`](../legalforecast/ingestion/fallback_retrieval.py) | Supplemental public-source retrieval diagnostics. |
 | [`free_document_downloader.py`](../legalforecast/ingestion/free_document_downloader.py) | Fixture-safe free CourtListener/RECAP downloads. |
+| [`live_parse_record_provenance.py`](../legalforecast/ingestion/live_parse_record_provenance.py) | The two conversion provenances a reused parse record may carry. |
 | [`mistral_markdown_parser.py`](../legalforecast/ingestion/mistral_markdown_parser.py) | Local conversion of acquired documents to Markdown. |
 | [`model_packet_assembly.py`](../legalforecast/ingestion/model_packet_assembly.py) | Final model packets from docket and parsed artifacts. |
 | [`operative_complaint.py`](../legalforecast/ingestion/operative_complaint.py) | Strict operative-complaint selection. |
 | [`packet_artifact_serialization.py`](../legalforecast/ingestion/packet_artifact_serialization.py) | Incremental, rollback-safe publication of packet artifact projections. |
 | [`packet_input_planner.py`](../legalforecast/ingestion/packet_input_planner.py) | Authenticated packet-build and private-store inputs. |
 | [`parse_quality.py`](../legalforecast/ingestion/parse_quality.py) | Provider-free substantive-text quality gate for parsed Markdown. |
+| [`text_layer_completeness.py`](../legalforecast/ingestion/text_layer_completeness.py) | Provider-free check that a conversion accounts for the source PDF's embedded text layer. |
 | [`packet_role_adjudication.py`](../legalforecast/ingestion/packet_role_adjudication.py) | Human role adjudication against parser evidence. |
 | [`public_packet_planner.py`](../legalforecast/ingestion/public_packet_planner.py) | Free public document download plans. |
 | [`purchased_document_recovery.py`](../legalforecast/ingestion/purchased_document_recovery.py) | Fee-acknowledged purchased-document recovery. |

@@ -15,6 +15,14 @@ from legalforecast.ingestion.disclosure_clearance import (
     DisclosureClearanceError,
     require_clearance_policy,
 )
+from legalforecast.ingestion.embedded_text_layer_repair import (
+    EMBEDDED_TEXT_LAYER_REPAIR_METHOD,
+)
+from legalforecast.ingestion.live_parse_record_provenance import (
+    embedded_text_layer_repair_problem,
+    is_embedded_text_layer_repair_record,
+    parse_record_pinned_parser_revision,
+)
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.unitization.review import (
     STRUCTURAL_ADD_FINALIZED_SCHEMA_VERSION,
@@ -464,6 +472,10 @@ def _build_decision_text_records(
                 "first written disposition is absent from authenticated acquired "
                 f"artifacts: {candidate_id}/{source_document_id}"
             ) from exc
+        # Read the parser Markdown first so the binding check can be given the
+        # real bytes: a repair's provenance is only fully checkable against the
+        # text it published.
+        text, text_sha256 = _read_parser_markdown(parser, markdown_root=root, key=key)
         _validate_document_binding(
             key=key,
             selection_document=decision_document,
@@ -472,10 +484,9 @@ def _build_decision_text_records(
             restriction=restriction,
             parser=parser,
             parser_provenance=parser_provenance,
+            parser_markdown=text,
         )
-        text, text_sha256 = _read_parser_markdown(parser, markdown_root=root, key=key)
         entered_date = _decision_date(selection, candidate_id=candidate_id)
-        parser_config = _mapping(parser.get("parser_config"), "parser_config")
         extracted_text = _mapping(parser.get("extracted_text"), "extracted_text")
         output.append(
             {
@@ -498,7 +509,7 @@ def _build_decision_text_records(
                 "markdown_sha256": text_sha256,
                 "extraction_method": _required_str(extracted_text, "extraction_method"),
                 "parser_revision": (
-                    _required_str(parser_config, "parser_revision")
+                    parse_record_pinned_parser_revision(parser) or ""
                     if parser_provenance == "live_mistral"
                     else "fixture_markdown"
                 ),
@@ -853,7 +864,16 @@ def _validate_verified_record(
             f"decision parser record has quality flags: {key}"
         )
     parser_config = _mapping(parser.get("parser_config"), "parser_config")
-    if (
+    repaired = is_embedded_text_layer_repair_record(parser)
+    if repaired:
+        # Pass the real text.  Without it the shape is checked but the published
+        # digest is not, and a repair that changed nothing would be accepted
+        # here while the reuse lane and Stage A refuse it -- the same divergence
+        # between consumers this change exists to remove.
+        problem = embedded_text_layer_repair_problem(parser, markdown=text)
+        if problem is not None:
+            raise DecisionTextArtifactError(f"{problem}: {key}")
+    elif (
         parser_config.get("engine") != "mistral"
         or parser_config.get("parser_revision") != EXPECTED_PARSER_REVISION
         or parser_config.get("expected_parser_revision") != EXPECTED_PARSER_REVISION
@@ -863,7 +883,7 @@ def _validate_verified_record(
             f"parser revision is not the pinned live Mistral revision: {key}"
         )
     extracted = _mapping(parser.get("extracted_text"), "extracted_text")
-    if extracted.get("extraction_method") != "mistral_parser_markdown":
+    if not repaired and extracted.get("extraction_method") != "mistral_parser_markdown":
         raise DecisionTextArtifactError(f"unexpected extraction method: {key}")
     if _required_str(extracted, "source_document_id") != document_id:
         raise DecisionTextArtifactError(f"extracted text identity mismatch: {key}")
@@ -871,7 +891,11 @@ def _validate_verified_record(
         extracted, "extraction_method"
     ):
         raise DecisionTextArtifactError(f"extraction method mismatch: {key}")
-    if _required_str(record, "parser_revision") != EXPECTED_PARSER_REVISION:
+    if (
+        _required_str(record, "parser_revision")
+        != parse_record_pinned_parser_revision(parser)
+        or _required_str(record, "parser_revision") != EXPECTED_PARSER_REVISION
+    ):
         raise DecisionTextArtifactError(f"decision text parser revision drift: {key}")
     parser_text, parser_text_sha256 = _read_parser_markdown(
         parser, markdown_root=markdown_root, key=key
@@ -1249,6 +1273,7 @@ def _validate_document_binding(
     restriction: Mapping[str, Any],
     parser: Mapping[str, Any],
     parser_provenance: str,
+    parser_markdown: str,
 ) -> None:
     if clearance.get("schema_version") != "legalforecast.disclosure_clearance.v1":
         raise DecisionTextArtifactError(f"unsupported clearance schema: {key}")
@@ -1292,7 +1317,14 @@ def _validate_document_binding(
             f"decision parser record has quality flags: {key}"
         )
     parser_config = _mapping(parser.get("parser_config"), "parser_config")
-    if parser_provenance == "live_mistral":
+    if parser_provenance == "live_mistral" and is_embedded_text_layer_repair_record(
+        parser
+    ):
+        problem = embedded_text_layer_repair_problem(parser, markdown=parser_markdown)
+        if problem is not None:
+            raise DecisionTextArtifactError(f"{problem}: {key}")
+        expected_extraction_method = EMBEDDED_TEXT_LAYER_REPAIR_METHOD
+    elif parser_provenance == "live_mistral":
         if (
             parser_config.get("engine") != "mistral"
             or parser_config.get("parser_revision") != EXPECTED_PARSER_REVISION

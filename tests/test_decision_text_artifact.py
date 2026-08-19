@@ -18,6 +18,11 @@ from legalforecast.ingestion.decision_text_artifact import (
     build_decision_text_records,
     verify_decision_text_artifact,
 )
+from legalforecast.ingestion.embedded_text_layer_repair import (
+    EMBEDDED_TEXT_LAYER_REPAIR_ENGINE,
+    EMBEDDED_TEXT_LAYER_REPAIR_METHOD,
+    EMBEDDED_TEXT_LAYER_REPAIR_REVISION,
+)
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.protocol.policy_artifacts import generate_labeling_policy
 from legalforecast.unitization.review import (
@@ -1404,6 +1409,39 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         + "\n",
         encoding="utf-8",
     )
+    if mutation in {"repaired_parse", "forged_repair", "noop_repair"}:
+        # A page-scoped embedded-text-layer repair is the second accepted
+        # conversion provenance.  The decision-text path is the one that
+        # motivated the repair -- the incident document is a decision -- so it
+        # must accept a valid repair record and refuse a forged one.
+        repaired_config = {
+            "engine": EMBEDDED_TEXT_LAYER_REPAIR_ENGINE,
+            "extraction_method": "pypdf_page_text_v2",
+            "repair_revision": EMBEDDED_TEXT_LAYER_REPAIR_REVISION,
+            "repaired_page_numbers": [1],
+            "parsed_page_count": 2,
+            "pinned_parser_revision": EXPECTED_PARSER_REVISION,
+            "superseded_text_sha256": hashlib.sha256(b"superseded").hexdigest(),
+        }
+        if mutation == "forged_repair":
+            repaired_config["repair_revision"] = "not-a-known-repair"
+        if mutation == "noop_repair":
+            # The shape is impeccable; the record simply claims to supersede
+            # the very bytes it published, i.e. it repaired nothing.  Only a
+            # check that sees the real Markdown can tell.
+            repaired_config["superseded_text_sha256"] = hashlib.sha256(
+                markdown.encode()
+            ).hexdigest()
+        parser_rows[0]["parser_config"] = repaired_config
+        parser_rows[0]["extracted_text"] = {
+            "source_document_id": "decision",
+            "extraction_method": EMBEDDED_TEXT_LAYER_REPAIR_METHOD,
+            "text_sha256": hashlib.sha256(markdown.encode()).hexdigest(),
+            "page_count": 2,
+            "quality_flags": [],
+            "notes": "pages 1 recovered from the PDF's embedded text layer",
+        }
+
     _write_jsonl(parser_manifest, parser_rows)
     _write_jsonl(
         parse_requests,
@@ -1586,3 +1624,108 @@ def _rewrite_parser_run_card_manifest_commitment(inputs: dict[str, Any]) -> None
         inputs["parser_manifest"]
     )
     path.write_text(json.dumps(run_card, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def test_build_decision_texts_accepts_a_page_repaired_conversion(
+    tmp_path: Path,
+) -> None:
+    """The decision path must accept the second conversion provenance.
+
+    The document that motivated the page repair is a decision whose disposition
+    sentence was dropped, so a repaired decision conversion that this path
+    refuses would leave the repair inert exactly where it was needed.
+    """
+
+    inputs = _write_inputs(tmp_path, mutation="repaired_parse")
+    output = tmp_path / "output"
+
+    assert main(_command(inputs, output)) == 0
+
+    rows = [
+        json.loads(line)
+        for line in (output / "decision-texts.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    assert rows
+    assert rows[0]["extraction_method"] == EMBEDDED_TEXT_LAYER_REPAIR_METHOD
+    assert rows[0]["parser_revision"] == EXPECTED_PARSER_REVISION
+
+
+def test_build_decision_texts_refuses_a_forged_page_repair(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    inputs = _write_inputs(tmp_path, mutation="forged_repair")
+
+    assert main(_command(inputs, tmp_path / "output")) == 2
+    assert "repair" in capsys.readouterr().err
+    assert not (tmp_path / "output" / "decision-texts.jsonl").exists()
+
+
+def test_verify_decision_text_artifact_accepts_a_page_repaired_conversion(
+    tmp_path: Path,
+) -> None:
+    """The verify path must accept the repair as well as the build path.
+
+    These are two separate provenance checks in this module, and a repair that
+    builds but does not verify would fail at Stage B instead of at build time.
+    """
+
+    inputs = _write_inputs(tmp_path, mutation="repaired_parse")
+    output = tmp_path / "output"
+    assert main(_command(inputs, output)) == 0
+
+    finalized_units_path = tmp_path / "finalized-prediction-units.jsonl"
+    finalized_units = [
+        {
+            "schema_version": "legalforecast.finalized_prediction_units.v1",
+            "status": "candidate_excluded",
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "raw_prediction_units_sha256": "1" * 64,
+            "unitization_review_queue_sha256": "2" * 64,
+            "prediction_units": [],
+            "exclusion": {
+                "reason": "test exclusion",
+                "adjudication_id": "test-adjudication",
+                "adjudication_sha256": "3" * 64,
+            },
+        }
+    ]
+    _write_jsonl(finalized_units_path, finalized_units)
+
+    verified = verify_decision_text_artifact(
+        decision_texts_path=output / "decision-texts.jsonl",
+        manifest_path=output / "decision-texts-manifest.json",
+        run_card_path=output / "run-cards/build-decision-texts.json",
+        selections=_read_jsonl(inputs["selection"]),
+        selection_path=inputs["selection"],
+        parser_records=_read_jsonl(inputs["parser_manifest"]),
+        parser_manifest_path=inputs["parser_manifest"],
+        finalized_unit_records=finalized_units,
+        finalized_units_path=finalized_units_path,
+        markdown_root=inputs["markdown_root"],
+    )
+
+    assert verified.records[0]["extraction_method"] == EMBEDDED_TEXT_LAYER_REPAIR_METHOD
+
+
+def test_build_decision_texts_refuses_a_repair_that_changed_nothing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A repair claiming to supersede its own bytes must be refused here too.
+
+    The shape of such a record is impeccable, so only a check given the real
+    published Markdown can catch it.  This is the case that proves the
+    decision-text path is held to the same standard as the reuse lane rather
+    than to a shape-only subset of it.
+    """
+
+    inputs = _write_inputs(tmp_path, mutation="noop_repair")
+
+    assert main(_command(inputs, tmp_path / "output")) == 2
+    assert "did not change the superseded Markdown" in capsys.readouterr().err
+    assert not (tmp_path / "output" / "decision-texts.jsonl").exists()

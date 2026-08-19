@@ -2287,3 +2287,154 @@ def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
         encoding="utf-8",
     )
+
+
+def _stage_a_page_repair_fixture(
+    tmp_path: Path, *, repair_revision: str, superseded_is_current: bool = False
+) -> tuple[list[dict[str, object]], ...]:
+    document_root = tmp_path / "documents"
+    markdown_root = tmp_path / "parse" / "markdown"
+    source = document_root / "cand-1" / "complaint.pdf"
+    markdown = markdown_root / "cand-1" / "complaint.md"
+    source.parent.mkdir(parents=True)
+    markdown.parent.mkdir(parents=True)
+    source.write_bytes(b"complaint bytes")
+    markdown.write_text(
+        "##### Page 1\n\nCOMPLAINT\n\n"
+        "Plaintiff alleges that the defendant breached the parties' written\n"
+        "supply agreement by refusing to deliver the goods it had promised.\n"
+        "Plaintiff seeks damages, interest and costs for the resulting losses,\n"
+        "together with such further relief as the court deems just and proper.\n",
+        encoding="utf-8",
+    )
+    source_sha = hashlib.sha256(source.read_bytes()).hexdigest()
+    text_sha = hashlib.sha256(markdown.read_bytes()).hexdigest()
+    downloads = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "local_path": "cand-1/complaint.pdf",
+            "sha256": source_sha,
+            "byte_count": source.stat().st_size,
+            "document_role": "complaint",
+        }
+    ]
+    requests = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "input_path": str(source),
+            "expected_sha256": source_sha,
+            "expected_byte_count": source.stat().st_size,
+            "markdown_output_path": "markdown/cand-1/complaint.md",
+        }
+    ]
+    parsed = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "status": "succeeded",
+            "markdown_path": "cand-1/complaint.md",
+            "parser_config": {
+                "engine": "embedded_text_layer_page_repair",
+                "extraction_method": "pypdf_page_text_v2",
+                "repair_revision": repair_revision,
+                "repaired_page_numbers": [1],
+                "parsed_page_count": 1,
+                "pinned_parser_revision": cli.EXPECTED_PARSER_REVISION,
+                "superseded_text_sha256": (
+                    text_sha
+                    if superseded_is_current
+                    else hashlib.sha256(b"superseded").hexdigest()
+                ),
+            },
+            "source_sha256": source_sha,
+            "source_byte_count": source.stat().st_size,
+            "quality_flags": [],
+            "extracted_text": {
+                "source_document_id": "complaint",
+                "extraction_method": "mistral_markdown_embedded_text_layer_page_repair",
+                "text_sha256": text_sha,
+                "page_count": 1,
+                "quality_flags": [],
+                "notes": "page 1 recovered from the PDF's embedded text layer",
+            },
+        }
+    ]
+    return downloads, requests, parsed
+
+
+def test_stage_a_lineage_accepts_a_page_repaired_conversion(tmp_path: Path) -> None:
+    """Stage A must admit the second accepted conversion provenance.
+
+    One repaired row refused here would refuse the whole corpus manifest, which
+    would leave the repair unable to reach any lineage it was built to unblock.
+    """
+
+    downloads, requests, parsed = _stage_a_page_repair_fixture(
+        tmp_path, repair_revision="text-layer-page-repair-v1"
+    )
+    markdown_root = tmp_path / "parse" / "markdown"
+    _, markdown_bytes = cli._stage_a_markdown_tree_snapshot(
+        parsed, markdown_root=markdown_root
+    )
+
+    cli._verify_stage_a_parse_records(
+        download_records=downloads,
+        request_records=requests,
+        parser_records=parsed,
+        document_root=tmp_path / "documents",
+        parser_output_root=tmp_path / "parse",
+        markdown_root=markdown_root,
+        markdown_bytes=markdown_bytes,
+    )
+
+
+def test_stage_a_lineage_refuses_a_forged_page_repair(tmp_path: Path) -> None:
+    downloads, requests, parsed = _stage_a_page_repair_fixture(
+        tmp_path, repair_revision="not-a-known-repair"
+    )
+    markdown_root = tmp_path / "parse" / "markdown"
+    _, markdown_bytes = cli._stage_a_markdown_tree_snapshot(
+        parsed, markdown_root=markdown_root
+    )
+
+    with pytest.raises(cli.CommandError, match="repair"):
+        cli._verify_stage_a_parse_records(
+            download_records=downloads,
+            request_records=requests,
+            parser_records=parsed,
+            document_root=tmp_path / "documents",
+            parser_output_root=tmp_path / "parse",
+            markdown_root=markdown_root,
+            markdown_bytes=markdown_bytes,
+        )
+
+
+def test_stage_a_lineage_refuses_a_repair_that_changed_nothing(tmp_path: Path) -> None:
+    """A repair claiming to supersede its own published bytes repaired nothing.
+
+    Its shape is impeccable, so this is the case that separates a check given
+    the real Markdown from a shape-only subset of one.
+    """
+
+    downloads, requests, parsed = _stage_a_page_repair_fixture(
+        tmp_path,
+        repair_revision="text-layer-page-repair-v1",
+        superseded_is_current=True,
+    )
+    markdown_root = tmp_path / "parse" / "markdown"
+    _, markdown_bytes = cli._stage_a_markdown_tree_snapshot(
+        parsed, markdown_root=markdown_root
+    )
+
+    with pytest.raises(cli.CommandError, match="did not change the superseded"):
+        cli._verify_stage_a_parse_records(
+            download_records=downloads,
+            request_records=requests,
+            parser_records=parsed,
+            document_root=tmp_path / "documents",
+            parser_output_root=tmp_path / "parse",
+            markdown_root=markdown_root,
+            markdown_bytes=markdown_bytes,
+        )

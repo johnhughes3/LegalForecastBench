@@ -19,6 +19,10 @@ from legalforecast.ingestion.frozen_parse_quality_regime import (
     replay_parse_quality_regime,
     resolve_parse_quality_regime,
 )
+from legalforecast.ingestion.live_parse_record_provenance import (
+    embedded_text_layer_repair_problem,
+    is_embedded_text_layer_repair_record,
+)
 from legalforecast.ingestion.parse_quality import (
     assess_parsed_text,
     enforce_role_thresholds_for_parser_config,
@@ -749,7 +753,11 @@ def verify_stage_a_parse_records(
         if not isinstance(extracted, Mapping):
             raise _c.CommandError(f"parser record lacks extracted text: {key}")
         extracted_record = cast(Mapping[str, object], extracted)
-        if extracted_record.get("extraction_method") != "mistral_parser_markdown":
+        repaired = is_embedded_text_layer_repair_record(parser)
+        if (
+            not repaired
+            and extracted_record.get("extraction_method") != "mistral_parser_markdown"
+        ):
             raise _c.CommandError(f"parser record is not live Mistral output: {key}")
         expected_text_sha = extracted_record.get("text_sha256")
         relative_markdown = parser_markdown.relative_to(
@@ -776,6 +784,17 @@ def verify_stage_a_parse_records(
             raise _c.CommandError(
                 f"parser Markdown is not UTF-8: {key[0]}/{key[1]}"
             ) from exc
+        if repaired:
+            # A page-scoped text-layer repair is the second accepted
+            # provenance.  It is held to the same pinning the reuse lane
+            # applies, so admitting it here relaxes nothing: a record claiming
+            # the repair method without the repair's committed shape is refused
+            # exactly as a malformed live-Mistral record is.  This runs before
+            # the pre-gate replay short-circuit below because a repair cannot
+            # exist in evidence frozen before the repair existed.
+            problem = embedded_text_layer_repair_problem(parser, markdown=markdown_text)
+            if problem is not None:
+                raise _c.CommandError(f"{problem}: {key}")
         if not regime.enforces_parse_quality:
             # Evidence produced before the gate existed replays under the regime
             # that produced it.  Every byte-identity check above already ran.
