@@ -11,17 +11,27 @@ import subprocess
 import tomllib
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from legalforecast.ingestion.embedded_text_layer_repair import (
+    EMBEDDED_TEXT_LAYER_REPAIR_METHOD,
+    EmbeddedTextLayerRepair,
+    embedded_text_layer_repair_parser_config,
+    plan_embedded_text_layer_repair,
+)
 from legalforecast.ingestion.parse_quality import (
     PARSE_QUALITY_REJECTION_FLAG,
     assess_parsed_text,
 )
 from legalforecast.ingestion.provenance import ExtractedTextArtifact, sha256_text
+from legalforecast.ingestion.text_layer_completeness import (
+    TEXT_LAYER_COMPLETENESS_REJECTION_FLAG,
+    assess_text_layer_completeness,
+)
 
 DEFAULT_PARSER_ROOT = Path("~/Development/tools/parser")
 DEFAULT_PARSER_TIMEOUT_SECONDS = 600
@@ -67,6 +77,11 @@ class MistralMarkdownConversionRequest:
     # Optional trailing field preserves positional compatibility with existing
     # callers while allowing role-aware quality thresholds for live manifests.
     document_role: str | None = None
+    # A verified page-scoped recovery of a conversion that dropped pages.  When
+    # present the parser subprocess is never started: the repair is a
+    # deterministic re-reading of source bytes this process already holds, so
+    # re-converting would spend a provider call to reproduce the same defect.
+    embedded_text_layer_repair: EmbeddedTextLayerRepair | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +187,95 @@ class SubprocessParserRunner:
         )
 
 
+def source_bytes_for_request(
+    request: MistralMarkdownConversionRequest,
+) -> bytes | None:
+    """Return the source PDF bytes this request is committed to, if available.
+
+    The caller-authenticated capture is preferred: it is what closes the TOCTOU
+    interval between authenticating a document and reading it again, and every
+    executed parse run has one, because executed parsing requires a
+    materialization run card and refuses any request the materialized snapshot
+    does not cover.
+
+    ``None`` means no committed bytes are readable here.  Reuse deliberately
+    tolerates a *relocated* source input — a prior run's manifest may name a
+    path that no longer exists — and an unverifiable file at that path is worse
+    evidence than none, so a digest mismatch also yields ``None``.  Checks built
+    on this must treat ``None`` as "no evidence", never as "verified clean".
+    """
+
+    if request.captured_source_bytes is not None:
+        return bytes(request.captured_source_bytes)
+    path = request.input_path.expanduser()
+    if not path.is_file() or path.is_symlink():
+        return None
+    payload = path.read_bytes()
+    if (
+        request.expected_sha256 is not None
+        and hashlib.sha256(payload).hexdigest() != request.expected_sha256
+    ):
+        return None
+    return payload
+
+
+def with_embedded_text_layer_repairs(
+    requests: tuple[MistralMarkdownConversionRequest, ...],
+    *,
+    superseded_markdown_by_key: Mapping[tuple[str, str, str, int], bytes],
+) -> tuple[MistralMarkdownConversionRequest, ...]:
+    """Attach a verified page-scoped repair to each request that has one.
+
+    A conversion superseded because it dropped pages cannot be repaired by
+    re-running the pinned parser: the same bytes through the same pinned
+    configuration reproduce the same defect, at provider cost.  The dropped
+    text is already held locally, so the repair recovers exactly those pages
+    from the PDF's own embedded layer.  Requests with no superseded conversion,
+    an empty text layer, or loss that cannot be attributed to pages are
+    returned unchanged and still convert live under the same gates.
+
+    ``superseded_markdown_by_key`` is keyed by the reuse identity — candidate,
+    document, source digest, source byte count — so a repair can only ever be
+    built from the conversion of the very same authenticated source bytes.
+    """
+
+    return tuple(
+        _with_embedded_text_layer_repair(request, superseded_markdown_by_key)
+        for request in requests
+    )
+
+
+def _with_embedded_text_layer_repair(
+    request: MistralMarkdownConversionRequest,
+    superseded_markdown_by_key: Mapping[tuple[str, str, str, int], bytes],
+) -> MistralMarkdownConversionRequest:
+    if request.expected_sha256 is None or request.expected_byte_count is None:
+        return request
+    superseded = superseded_markdown_by_key.get(
+        (
+            request.candidate_id,
+            request.source_document_id,
+            request.expected_sha256,
+            request.expected_byte_count,
+        )
+    )
+    if superseded is None:
+        return request
+    try:
+        markdown = superseded.decode("utf-8")
+    except UnicodeDecodeError:
+        return request
+    source_pdf_bytes = source_bytes_for_request(request)
+    if source_pdf_bytes is None:
+        return request
+    repair = plan_embedded_text_layer_repair(
+        source_pdf_bytes=source_pdf_bytes, markdown=markdown
+    )
+    if repair is None:
+        return request
+    return replace(request, embedded_text_layer_repair=repair)
+
+
 def convert_documents_to_markdown(
     requests: tuple[MistralMarkdownConversionRequest, ...],
     *,
@@ -247,6 +351,23 @@ def _convert_one(
 
     if request.captured_source_bytes is None:
         _verify_source_commitments(request, input_path)
+    if request.embedded_text_layer_repair is not None:
+        record = _embedded_text_layer_repair_record(
+            request,
+            repair=request.embedded_text_layer_repair,
+            input_path=input_path,
+            markdown_path=markdown_path,
+            metadata_path=metadata_path,
+            artifact_root=artifact_root,
+            extracted_at=extracted_at,
+        )
+        _validate_existing_output_path(markdown_path)
+        if record.status is MistralMarkdownConversionStatus.SUCCEEDED:
+            _write_unique_regular_file(
+                markdown_path, request.embedded_text_layer_repair.markdown.encode()
+            )
+        _write_metadata(metadata_path, record)
+        return record
     with _parser_input_snapshot(
         request, input_path=input_path, artifact_root=artifact_root
     ) as (parser_input_path, parser_input_directory_fd):
@@ -268,6 +389,66 @@ def _convert_one(
         _write_unique_regular_file(markdown_path, markdown_payload)
     _write_metadata(metadata_path, record)
     return record
+
+
+def _embedded_text_layer_repair_record(
+    request: MistralMarkdownConversionRequest,
+    *,
+    repair: EmbeddedTextLayerRepair,
+    input_path: Path,
+    markdown_path: Path,
+    metadata_path: Path,
+    artifact_root: Path,
+    extracted_at: datetime,
+) -> MistralMarkdownConversionRecord:
+    """Publish a page-scoped text-layer repair as its own conversion record.
+
+    The record names the repair method, the pages it recovered and the digest
+    of the conversion it supersedes, so no reader has to infer that these bytes
+    did not come from the provider.  It still has to clear the same role-aware
+    parse-quality gate a live conversion clears.
+    """
+
+    parser_config = embedded_text_layer_repair_parser_config(
+        repair, superseded_parser_revision=EXPECTED_PARSER_REVISION
+    )
+    assessment = assess_parsed_text(repair.markdown, request.document_role)
+    if assessment.rejected:
+        return _failure_record(
+            request,
+            input_path=input_path,
+            markdown_path=markdown_path,
+            metadata_path=metadata_path,
+            artifact_root=artifact_root,
+            parser_config=parser_config,
+            status=MistralMarkdownConversionStatus.FAILED,
+            quality_flags=(PARSE_QUALITY_REJECTION_FLAG,),
+            error_message=(
+                "embedded text-layer repair failed parse-quality gate: "
+                + ", ".join(assessment.rejection_reasons)
+            ),
+        )
+    return MistralMarkdownConversionRecord(
+        candidate_id=request.candidate_id,
+        source_document_id=request.source_document_id,
+        status=MistralMarkdownConversionStatus.SUCCEEDED,
+        input_path=_relative_or_absolute(input_path, artifact_root),
+        markdown_path=_relative_or_absolute(markdown_path, artifact_root),
+        metadata_path=_relative_or_absolute(metadata_path, artifact_root),
+        parser_config=parser_config,
+        quality_flags=(),
+        extracted_text=ExtractedTextArtifact(
+            source_document_id=request.source_document_id,
+            extracted_at=extracted_at,
+            extraction_method=EMBEDDED_TEXT_LAYER_REPAIR_METHOD,
+            text_sha256=sha256_text(repair.markdown),
+            page_count=repair.parsed_page_count,
+            quality_flags=(),
+            notes=repair.notes,
+        ),
+        source_sha256=request.expected_sha256,
+        source_byte_count=request.expected_byte_count,
+    )
 
 
 def _run_verified_conversion(
@@ -401,6 +582,32 @@ def _run_verified_conversion(
             error_message=(
                 "parser output failed parse-quality gate: "
                 + ", ".join(assessment.rejection_reasons)
+            ),
+            stdout=result.stdout,
+            stderr=result.stderr,
+        )
+        return record, None
+    source_pdf_bytes = source_bytes_for_request(request)
+    completeness = (
+        assess_text_layer_completeness(
+            source_pdf_bytes=source_pdf_bytes, markdown=markdown
+        )
+        if source_pdf_bytes is not None
+        else None
+    )
+    if completeness is not None and completeness.rejected:
+        record = _failure_record(
+            request,
+            input_path=input_path,
+            markdown_path=markdown_path,
+            metadata_path=metadata_path,
+            artifact_root=artifact_root,
+            parser_config=parser_config,
+            status=MistralMarkdownConversionStatus.FAILED,
+            quality_flags=(TEXT_LAYER_COMPLETENESS_REJECTION_FLAG,),
+            error_message=(
+                "parser output failed text-layer completeness gate: "
+                + ", ".join(completeness.rejection_reasons)
             ),
             stdout=result.stdout,
             stderr=result.stderr,

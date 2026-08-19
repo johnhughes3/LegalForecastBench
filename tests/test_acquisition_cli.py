@@ -6,7 +6,7 @@ import base64
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, NoReturn, cast
@@ -5838,3 +5838,199 @@ def test_convert_attorney_worksheet_cli_authenticates_packet_and_writes_outputs(
     assert card["evaluation_authorized"] is False
     assert card["freeze_authorized"] is False
     assert card["dispatch_authorized"] is False
+
+
+def _completeness_fixture_pdf(pages: tuple[tuple[str, ...], ...]) -> bytes:
+    from io import BytesIO
+
+    from reportlab.pdfgen.canvas import Canvas
+
+    output = BytesIO()
+    canvas = Canvas(output)
+    for lines in pages:
+        offset = 720
+        for line in lines:
+            canvas.drawString(72, offset, line)
+            offset -= 14
+        canvas.showPage()
+    canvas.save()
+    return output.getvalue()
+
+
+def test_live_mistral_reuse_repairs_a_dropped_page_without_a_provider_call(
+    tmp_path: Path,
+) -> None:
+    """A conversion that dropped a page is superseded and repaired locally.
+
+    This is the whole point of the pairing: the completeness gate turns a row
+    that passes every density threshold into a gap, and the gap is filled from
+    the PDF's own embedded text layer rather than by re-running the parser,
+    which would spend a provider call to reproduce the same defect.
+    """
+
+    body = (
+        "UNITED STATES DISTRICT COURT",
+        "SOUTHERN DISTRICT OF EXAMPLE",
+        "MOTION TO DISMISS UNDER RULES 12(b)(5) AND 12(b)(6)",
+        "COMES NOW Defendant Example Corporation, by counsel, and moves this",
+        "Court to dismiss the First Amended Complaint because it fails to state",
+        "a claim upon which relief can be granted under the governing standard.",
+        "WHEREFORE Defendant respectfully requests dismissal with prejudice and",
+        "such further relief as the Court deems just and proper in the premises.",
+    )
+    page_two = (
+        "SIGNED this day by counsel of record for the moving defendant, whose",
+        "name, bar number, address, telephone and electronic mail address are",
+        "set out below in the manner required by the local rules of this Court.",
+    )
+    source_bytes = _completeness_fixture_pdf((body, page_two))
+    digest = hashlib.sha256(source_bytes).hexdigest()
+    # The frozen conversion kept only page 1's two centred header lines.  It is
+    # dense enough to clear every parse-quality threshold for its role.
+    gutted = (
+        "##### Page 1\n\n# UNITED STATES DISTRICT COURT\n"
+        "SOUTHERN DISTRICT OF EXAMPLE\n\n---\n\n"
+        "##### Page 2\n\n" + "\n\n".join(page_two) + "\n\n---\n"
+    )
+    prior_root = tmp_path / "prior"
+    markdown_path = prior_root / "cand" / "doc.md"
+    markdown_path.parent.mkdir(parents=True, exist_ok=True)
+    markdown_path.write_text(gutted, encoding="utf-8")
+    prior_request = {
+        "candidate_id": "cand",
+        "source_document_id": "doc",
+        "input_path": "/old/doc.pdf",
+        "expected_sha256": digest,
+        "expected_byte_count": len(source_bytes),
+    }
+    prior_record = {
+        "candidate_id": "cand",
+        "source_document_id": "doc",
+        "status": "succeeded",
+        "input_path": "/old/doc.pdf",
+        "markdown_path": "cand/doc.md",
+        "metadata_path": "cand/doc.metadata.json",
+        "parser_config": {
+            "engine": "mistral",
+            "parser_root": "/parser",
+            "parser_revision": cli.EXPECTED_PARSER_REVISION,
+            "expected_parser_revision": cli.EXPECTED_PARSER_REVISION,
+            "timeout_seconds": 60,
+            "debug": False,
+            "command": [
+                "uv",
+                "run",
+                "parser-pdf",
+                "--file",
+                "/old/doc.pdf",
+                "--mistral",
+                "--no-ocr",
+            ],
+        },
+        "quality_flags": [],
+        "extracted_text": {
+            "source_document_id": "doc",
+            "extraction_method": "mistral_parser_markdown",
+            "text_sha256": hashlib.sha256(gutted.encode()).hexdigest(),
+            "quality_flags": [],
+        },
+        "source_sha256": digest,
+        "source_byte_count": len(source_bytes),
+        "stdout": "",
+        "stderr": "",
+        "error_message": None,
+    }
+    _write_json(markdown_path.with_suffix(".metadata.json"), prior_record)
+    requests_path = tmp_path / "prior-requests.jsonl"
+    manifest_path = tmp_path / "prior-manifest.jsonl"
+    _write_jsonl(requests_path, [prior_request])
+    _write_jsonl(manifest_path, [prior_record])
+    card_path = tmp_path / "prior-card.json"
+    _write_json(
+        card_path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "parse-documents",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "record_count": 1,
+            "source_commitments": {
+                "requests": {
+                    "path": str(requests_path),
+                    "sha256": cli._bytes_sha256(requests_path.read_bytes()),
+                }
+            },
+            "output_commitments": {
+                "parser_manifest": {
+                    "path": str(manifest_path),
+                    "sha256": cli._bytes_sha256(manifest_path.read_bytes()),
+                }
+            },
+            "parser_execution": {
+                "mode": "live_mistral",
+                "engine": "mistral",
+                "parser_revision": cli.EXPECTED_PARSER_REVISION,
+                "fixture_markdown": False,
+            },
+        },
+    )
+    output_root = tmp_path / "out"
+    # The current run materialises the same authenticated bytes under its own
+    # root, exactly as plan-parse-documents does.
+    current_source = tmp_path / "materialized" / "doc.pdf"
+    current_source.parent.mkdir(parents=True, exist_ok=True)
+    current_source.write_bytes(source_bytes)
+    request = cli.MistralMarkdownConversionRequest(
+        "cand",
+        "doc",
+        current_source,
+        output_root / "markdown" / "cand" / "doc.md",
+        digest,
+        len(source_bytes),
+        source_bytes,
+        "motion_to_dismiss_memorandum",
+    )
+
+    plan = cli._reuse_live_mistral_parse_outputs(
+        prior_run_card_path=card_path,
+        prior_markdown_root=prior_root,
+        requests=(request,),
+        output_root=output_root,
+    )
+
+    assert plan.records_by_key == {}
+    assert plan.superseded_keys == frozenset(
+        {("cand", "doc", digest, len(source_bytes))}
+    )
+    (gap,) = plan.gaps
+    assert gap.embedded_text_layer_repair is not None
+    assert gap.embedded_text_layer_repair.repaired_page_numbers == (1,)
+
+    class _RefusingRunner:
+        def run(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("a repaired gap must not start the parser")
+
+    (record,) = cli.convert_documents_to_markdown(
+        plan.gaps,
+        runner=_RefusingRunner(),
+        extracted_at=datetime(2026, 8, 19, tzinfo=UTC),
+    )
+    published = {
+        ("cand", "doc", digest, len(source_bytes)): {
+            **record.to_record(),
+            "source_sha256": digest,
+            "source_byte_count": len(source_bytes),
+        }
+    }
+
+    cli._require_superseded_gap_parse_meets_current_role(
+        superseded_keys=plan.superseded_keys,
+        records_by_key=published,
+        requests_by_key={("cand", "doc", digest, len(source_bytes)): gap},
+    )
+
+    repaired = request.markdown_output_path.read_text(encoding="utf-8")
+    assert "MOTION TO DISMISS UNDER RULES 12(b)(5) AND 12(b)(6)" in repaired
+    assert "COMES NOW Defendant Example Corporation" in repaired
+    assert page_two[0] in repaired

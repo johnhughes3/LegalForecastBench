@@ -9,9 +9,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
+# ``legalforecast.ingestion.provenance`` is imported from its defining submodule
+# rather than through the package: the ingestion package re-exports the Markdown
+# parser, which now reaches back into this package, so a package-attribute
+# import resolves against a partially initialised module.
 from legalforecast.extraction.normalize_text import normalize_extracted_text
 from legalforecast.extraction.ocr import OCREngine, OCRResult, run_ocr_fallback
-from legalforecast.ingestion import ExtractedTextArtifact, sha256_text
+from legalforecast.ingestion.provenance import ExtractedTextArtifact, sha256_text
 
 
 class PDFExtractionError(ValueError):

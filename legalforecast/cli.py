@@ -628,6 +628,9 @@ from legalforecast.ingestion.funnel_report import (
     FunnelReportError,
     build_acquisition_funnel_report,
 )
+from legalforecast.ingestion.live_parse_record_provenance import (
+    live_parse_record_provenance_problem,
+)
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
@@ -643,6 +646,8 @@ from legalforecast.ingestion.mistral_markdown_parser import (
     MistralMarkdownConversionStatus,
     MistralParserConfig,
     convert_documents_to_markdown,
+    source_bytes_for_request,
+    with_embedded_text_layer_repairs,
 )
 from legalforecast.ingestion.model_packet_assembly import (
     ModelPacketAssembly,
@@ -1044,6 +1049,9 @@ from legalforecast.ingestion.terminal_subset_promotion import (
     read_pinned_terminal_selection_docket_ids,
     read_verified_promotion_raw,
     verify_terminal_subset_promotion_source,
+)
+from legalforecast.ingestion.text_layer_completeness import (
+    assess_text_layer_completeness,
 )
 from legalforecast.ingestion.zero_cost_successor import (
     CONFIG_SCHEMA_VERSION as ZERO_COST_SUCCESSOR_CONFIG_SCHEMA,
@@ -70996,6 +71004,13 @@ def _current_role_parse_quality_rejection(
     missing ``document_role`` is a structural defect rather than a quality
     verdict — there is no threshold to measure against, so it fails closed here
     instead of being reported as something a re-parse could repair.
+
+    Density is only half the question.  A conversion that dropped a whole page's
+    body keeps its letterhead and its certificate of service, both of which are
+    dense, so it clears every threshold above while missing the filing's title,
+    its operative paragraph, or a decision's holding.  The completeness check
+    answers the other half against the source PDF's own bytes, and reuse is held
+    to both.
     """
 
     if request.document_role is None:
@@ -71004,9 +71019,17 @@ def _current_role_parse_quality_rejection(
             f"{request.candidate_id}/{request.source_document_id}"
         )
     assessment = assess_parsed_text(markdown, request.document_role)
-    if not assessment.rejected:
+    if assessment.rejected:
+        return ", ".join(assessment.rejection_reasons)
+    source_pdf_bytes = source_bytes_for_request(request)
+    if source_pdf_bytes is None:
         return None
-    return ", ".join(assessment.rejection_reasons)
+    completeness = assess_text_layer_completeness(
+        source_pdf_bytes=source_pdf_bytes, markdown=markdown
+    )
+    if completeness.rejected:
+        return ", ".join(completeness.rejection_reasons)
+    return None
 
 
 def _require_reused_markdown_meets_current_role(
@@ -71128,16 +71151,23 @@ def _reuse_live_mistral_parse_outputs(
         for key, value in authenticated.artifacts_by_key.items()
         if key in current_by_key and key not in superseded
     }
-    gaps = tuple(
-        request
-        for request in requests
-        if (
-            request.candidate_id,
-            request.source_document_id,
-            cast(str, request.expected_sha256),
-            cast(int, request.expected_byte_count),
-        )
-        not in reusable
+    gaps = with_embedded_text_layer_repairs(
+        tuple(
+            request
+            for request in requests
+            if (
+                request.candidate_id,
+                request.source_document_id,
+                cast(str, request.expected_sha256),
+                cast(int, request.expected_byte_count),
+            )
+            not in reusable
+        ),
+        superseded_markdown_by_key={
+            key: artifacts[1]
+            for key, artifacts in authenticated.artifacts_by_key.items()
+            if key in superseded
+        },
     )
     _require_fresh_parse_gap_destinations(gaps, output_root=output_root)
 
@@ -71567,53 +71597,11 @@ def _require_reuse_record_matches_current_output(
 def _require_reusable_live_mistral_record(
     record: Mapping[str, object], *, markdown: str
 ) -> None:
-    if record.get("status") != MistralMarkdownConversionStatus.SUCCEEDED.value:
-        raise CommandError("prior conversion did not succeed")
-    config = record.get("parser_config")
-    extracted = record.get("extracted_text")
-    if not isinstance(config, Mapping) or not isinstance(extracted, Mapping):
-        raise CommandError("prior conversion lacks live-Mistral parser provenance")
-    config_record = cast(Mapping[str, object], config)
-    extracted_record = cast(Mapping[str, object], extracted)
-    command = config_record.get("command")
-    if not isinstance(command, list):
-        raise CommandError("prior conversion has an unclean Mistral parser config")
-    command_objects = cast(list[object], command)
-    if not all(isinstance(value, str) for value in command_objects):
-        raise CommandError("prior conversion has an unclean Mistral parser config")
-    command_values = cast(list[str], command_objects)
-    if (
-        config_record.get("engine") != "mistral"
-        or config_record.get("parser_revision") != EXPECTED_PARSER_REVISION
-        or config_record.get("expected_parser_revision") != EXPECTED_PARSER_REVISION
-        or config_record.get("debug") is not False
-        or not isinstance(config_record.get("timeout_seconds"), int)
-        or isinstance(config_record.get("timeout_seconds"), bool)
-        or not isinstance(config_record.get("parser_root"), str)
-        or command_values[:3] != ["uv", "run", "parser-pdf"]
-        or len(command_values) != 7
-        or command_values[3] != "--file"
-        or not command_values[4]
-        or command_values[5:] != ["--mistral", "--no-ocr"]
-    ):
-        raise CommandError("prior conversion has an unclean Mistral parser config")
-    quality_flags = record.get("quality_flags")
-    extracted_flags = extracted_record.get("quality_flags")
-    if not isinstance(quality_flags, list):
-        raise CommandError("prior conversion Markdown text provenance mismatch")
-    quality_flag_objects = cast(list[object], quality_flags)
-    if not all(isinstance(flag, str) for flag in quality_flag_objects):
-        raise CommandError("prior conversion Markdown text provenance mismatch")
-    quality_flag_values = cast(list[str], quality_flag_objects)
-    if (
-        quality_flag_values
-        or extracted_flags != quality_flag_values
-        or extracted_record.get("source_document_id")
-        != record.get("source_document_id")
-        or extracted_record.get("extraction_method") != "mistral_parser_markdown"
-        or extracted_record.get("text_sha256") != sha256_text(markdown)
-    ):
-        raise CommandError("prior conversion Markdown text provenance mismatch")
+    """Admit only a pinned live-Mistral conversion or a pinned page repair."""
+
+    problem = live_parse_record_provenance_problem(record, markdown=markdown)
+    if problem is not None:
+        raise CommandError(problem)
 
 
 def _copy_reused_markdown_pair(

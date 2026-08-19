@@ -95,6 +95,64 @@ class ParseQualityAssessment:
         }
 
 
+def partition_boilerplate_lines(
+    text: str, *, certificate_tail_is_boilerplate: bool = True
+) -> tuple[list[str], list[str]]:
+    """Split text into (substantive, boilerplate) lines using one rule set.
+
+    The completeness comparison in
+    :mod:`legalforecast.ingestion.text_layer_completeness` must remove exactly
+    the same CM/ECF stamps and page separators from the PDF text layer that
+    this module removes from the published Markdown; measuring the two sides
+    under different rules would manufacture both false positives and false
+    negatives.  Exposing the partition rather than copying the regexes keeps a
+    single definition of "boilerplate" in the tree.
+
+    ``certificate_tail_is_boilerplate=False`` disables only the certificate-of-
+    service latch.  That rule discards every line after the certificate opener,
+    which makes it order-sensitive, and a PDF text layer is emitted in content-
+    stream order rather than the reading order the converter reconstructs.  A
+    comparison between the two must therefore not use it: an ordering
+    difference alone would otherwise read as dropped text.
+    """
+
+    substantive_lines: list[str] = []
+    boilerplate_lines: list[str] = []
+    certificate_started = False
+    page_header_pending = False
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if certificate_started:
+            boilerplate_lines.append(raw_line)
+            continue
+        if page_header_pending and _PAGE_ID_CONTINUATION_RE.fullmatch(line):
+            boilerplate_lines.append(raw_line)
+            page_header_pending = False
+            continue
+        if _is_boilerplate_line(line):
+            boilerplate_lines.append(raw_line)
+            page_header_pending = bool(_CASE_PAGE_HEADER_PENDING_RE.fullmatch(line))
+            continue
+        page_header_pending = False
+        if certificate_tail_is_boilerplate and _CERTIFICATE_START_RE.match(line):
+            certificate_started = True
+            boilerplate_lines.append(raw_line)
+            continue
+        substantive_lines.append(raw_line)
+    return substantive_lines, boilerplate_lines
+
+
+def substantive_alphanumeric_count(
+    text: str, *, certificate_tail_is_boilerplate: bool = True
+) -> int:
+    """Count alphanumeric characters outside recognised parse boilerplate."""
+
+    substantive_lines, _boilerplate = partition_boilerplate_lines(
+        text, certificate_tail_is_boilerplate=certificate_tail_is_boilerplate
+    )
+    return sum(character.isalnum() for line in substantive_lines for character in line)
+
+
 def assess_parsed_text(
     text: str,
     document_role: str | None = None,
@@ -110,30 +168,7 @@ def assess_parsed_text(
     """
 
     role = document_role.strip().lower() if document_role else None
-    lines = text.splitlines()
-    substantive_lines: list[str] = []
-    boilerplate_lines: list[str] = []
-    certificate_started = False
-    page_header_pending = False
-    for raw_line in lines:
-        line = raw_line.strip()
-        if certificate_started:
-            boilerplate_lines.append(raw_line)
-            continue
-        if page_header_pending and _PAGE_ID_CONTINUATION_RE.fullmatch(line):
-            boilerplate_lines.append(raw_line)
-            page_header_pending = False
-            continue
-        if _is_boilerplate_line(line):
-            boilerplate_lines.append(raw_line)
-            page_header_pending = bool(_CASE_PAGE_HEADER_PENDING_RE.fullmatch(line))
-            continue
-        page_header_pending = False
-        if _CERTIFICATE_START_RE.match(line):
-            certificate_started = True
-            boilerplate_lines.append(raw_line)
-            continue
-        substantive_lines.append(raw_line)
+    substantive_lines, boilerplate_lines = partition_boilerplate_lines(text)
 
     substantive_text = "\n".join(substantive_lines)
     substantive_character_count = sum(
@@ -213,4 +248,6 @@ __all__ = [
     "ParseQualityAssessment",
     "assess_parsed_text",
     "enforce_role_thresholds_for_parser_config",
+    "partition_boilerplate_lines",
+    "substantive_alphanumeric_count",
 ]
