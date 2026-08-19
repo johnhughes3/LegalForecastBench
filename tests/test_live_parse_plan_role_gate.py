@@ -50,11 +50,12 @@ class _ParserReached(Exception):
 class _CompanionDocument:
     """A second plan document, described independently of the first.
 
-    Root 47's real shape is *mixed*: role-bearing rows the parser will measure
-    sit beside purchased RECAP-fetch rows the manifest marks
-    ``parser_eligible: false``, which state no role anywhere upstream.  A
-    one-row fixture cannot express that, so tests that care about the mixture
-    add the second document here.
+    A real materialization root's manifest is *mixed*: role-bearing rows the
+    parser will measure sit beside purchased RECAP-fetch rows the manifest marks
+    ``parser_eligible: false``, which state no role anywhere upstream (bead
+    ``legalforecastbench-d5ml`` records the measured distribution).  A one-row
+    fixture cannot express that, so tests that care about the mixture add the
+    second document here.
     """
 
     source_document_id: str

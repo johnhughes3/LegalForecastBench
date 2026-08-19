@@ -1,14 +1,14 @@
 {
   "cli_metrics": {
     "command_handler_count": 165,
-    "command_handler_lines": 27016,
-    "line_count": 73405,
-    "nonblank_line_count": 70631,
+    "command_handler_lines": 27013,
+    "line_count": 73392,
+    "nonblank_line_count": 70620,
     "parser_line_count": 1774,
     "top_level_class_count": 19,
-    "top_level_definition_count": 1011,
+    "top_level_definition_count": 1010,
     "verifier_family_count": 163,
-    "verifier_family_lines": 12119
+    "verifier_family_lines": 12124
   },
   "compatibility": {
     "cli_import_files": [
@@ -1585,7 +1585,9 @@
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli._reuse_live_mistral_parse_outputs",
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli._reuse_live_mistral_parse_outputs",
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli._reuse_live_mistral_parse_outputs",
+      "tests/test_live_parse_plan_role_scope.py::legalforecast.cli._authenticated_live_parse_document_roles",
       "tests/test_live_parse_plan_role_scope.py::legalforecast.cli._mistral_markdown_request",
+      "tests/test_live_parse_plan_role_scope.py::legalforecast.cli._reuse_live_mistral_parse_outputs",
       "tests/test_live_parse_plan_role_scope.py::legalforecast.cli._reuse_live_mistral_parse_outputs",
       "tests/test_llm_labeling_cli.py::legalforecast.cli._StageAUnitizationLineage",
       "tests/test_llm_labeling_cli.py::legalforecast.cli._StageAUnitizationLineage",
@@ -2297,6 +2299,7 @@
       "legalforecast.cli._authenticate_current_v4_eligibility",
       "legalforecast.cli._authenticate_ranked_reserve_precursor",
       "legalforecast.cli._authenticated_clearance_lineage_inputs",
+      "legalforecast.cli._authenticated_live_parse_document_roles",
       "legalforecast.cli._authenticated_materialization_snapshot_manifest_path",
       "legalforecast.cli._authenticated_path_aliases",
       "legalforecast.cli._authenticated_pre_successor_purchase_snapshot",
@@ -3042,6 +3045,7 @@
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.main",
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.main",
       "tests/test_live_parse_plan_role_gate.py::legalforecast.cli.main",
+      "tests/test_live_parse_plan_role_scope.py::legalforecast.cli.CommandError",
       "tests/test_live_parse_plan_role_scope.py::legalforecast.cli.main",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.CommandError",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.CommandError",
@@ -3808,7 +3812,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 456,
+      "tests": 457,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -3902,9 +3906,9 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1774,
         "layer": "entrypoint",
-        "line_count": 73405,
-        "nonblank_line_count": 70631,
-        "top_level_definition_count": 1011
+        "line_count": 73392,
+        "nonblank_line_count": 70620,
+        "top_level_definition_count": 1010
       },
       "legalforecast/cli_commands/attachment_pages.py": {
         "cycle_id": "legalforecast/acquisition_completion_summary_cli.py,legalforecast/cli.py,legalforecast/cli_commands/attachment_pages.py,legalforecast/cli_commands/report.py,legalforecast/cli_commands/score.py,legalforecast/extraction/pdf_text.py,legalforecast/ingestion/__init__.py,legalforecast/ingestion/attachment_page/__init__.py,legalforecast/ingestion/attachment_page/authorization.py,legalforecast/ingestion/attachment_page/execute.py,legalforecast/ingestion/attachment_page/journal.py,legalforecast/ingestion/attachment_page/plan.py,legalforecast/ingestion/budgeted_docket_acquisition.py,legalforecast/ingestion/case_dev_provisional_frontier.py,legalforecast/ingestion/case_dev_purchase.py,legalforecast/ingestion/case_dev_ranked_selection.py,legalforecast/ingestion/case_dev_recap_batch.py,legalforecast/ingestion/clearance_replacement.py,legalforecast/ingestion/cohort_document_materializer.py,legalforecast/ingestion/corpus_completion_summary.py,legalforecast/ingestion/courtlistener_case_dev_bridge.py,legalforecast/ingestion/courtlistener_recap_fetch.py,legalforecast/ingestion/cycle_lineage_index.py,legalforecast/ingestion/cycle_manifest_template.py,legalforecast/ingestion/cycle_orchestrator.py,legalforecast/ingestion/cycle_path_metadata.py,legalforecast/ingestion/cycle_preflight_manifest.py,legalforecast/ingestion/decision_text_artifact.py,legalforecast/ingestion/disclosure_clearance.py,legalforecast/ingestion/disclosure_model_review.py,legalforecast/ingestion/disclosure_model_review_authority.py,legalforecast/ingestion/disclosure_review_bundle.py,legalforecast/ingestion/docket_decision_text_source.py,legalforecast/ingestion/document_repair_acquire.py,legalforecast/ingestion/document_repair_executor.py,legalforecast/ingestion/document_repair_purchase_approval.py,legalforecast/ingestion/document_repair_purchase_cli.py,legalforecast/ingestion/document_repair_resume.py,legalforecast/ingestion/document_repair_resume_cli.py,legalforecast/ingestion/downstream_lineage_verification.py,legalforecast/ingestion/downstream_rehearsal.py,legalforecast/ingestion/exact100_successor_replacement_v2_cli.py,legalforecast/ingestion/firecrawl_docket_recovery.py,legalforecast/ingestion/free_only_materialization.py,legalforecast/ingestion/free_support_memorandum_recovery.py,legalforecast/ingestion/frozen_parser_model/loader.py,legalforecast/ingestion/packet_build_replay.py,legalforecast/ingestion/packet_input_planner.py,legalforecast/ingestion/provenance_clearance.py,legalforecast/ingestion/purchase_approval.py,legalforecast/ingestion/purchase_spend_summary.py,legalforecast/ingestion/purchased_document_recovery.py,legalforecast/ingestion/ranked_reserve_replacement.py,legalforecast/ingestion/readiness_provenance.py,legalforecast/ingestion/recap_fetch_attempt_policy.py,legalforecast/ingestion/recap_fetch_broker_policy.py,legalforecast/ingestion/recap_fetch_quarantine_recovery.py,legalforecast/ingestion/recovered_public_replay.py,legalforecast/ingestion/replacement_purchase_approval.py,legalforecast/ingestion/resolved_post_recovery.py,legalforecast/ingestion/retained_cohort_extension.py,legalforecast/ingestion/stage_a_lineage_verification.py,legalforecast/ingestion/successor_rerun_impact.py,legalforecast/ingestion/successor_rerun_proposal.py,legalforecast/ingestion/supporting_document_successor_cli.py,legalforecast/ingestion/target_cohort_projection.py,legalforecast/ingestion/target_public_gap_refresh.py,legalforecast/ingestion/target_raw_docket_auxiliary_provenance.py,legalforecast/ingestion/target_raw_docket_recovery.py,legalforecast/ingestion/terminal_purchase_failure.py,legalforecast/ingestion/terminal_subset_promotion.py,legalforecast/ingestion/zero_cost_successor.py,legalforecast/labeling/llm_pipeline.py,legalforecast/labeling/official_paid_baton.py,legalforecast/labeling/unitizer_terminal.py",
@@ -9621,8 +9625,8 @@
         "largest_symbol": "_prior_live_mistral_run",
         "largest_symbol_lines": 120,
         "layer": "test",
-        "line_count": 955,
-        "nonblank_line_count": 832,
+        "line_count": 956,
+        "nonblank_line_count": 833,
         "top_level_definition_count": 26
       },
       "tests/test_llm_labeling_cli.py": {

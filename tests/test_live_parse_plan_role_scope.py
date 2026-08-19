@@ -227,3 +227,87 @@ def test_reuse_gate_accepts_a_parser_exempt_request_without_a_role(
     assert plan.superseded_keys == frozenset()
     assert list(plan.records_by_key) == [_reuse_key(exempt)]
     assert exempt.markdown_output_path.read_text(encoding="utf-8") == _WEAK_MARKDOWN
+
+
+# Only ECF page stamps survived this conversion: `_CASE_PAGE_HEADER_RE` and
+# `_PAGE_MARKER_RE` classify every line as boilerplate, leaving zero substantive
+# characters.  It is the exact shape of the real defect this lane exists to
+# reach (candidate 71942225, document 459533978: 1,922 bytes, 0 substantive
+# characters), and it is rejected at *every* floor including the unknown-role
+# one, whose minimum is 1 character and 1 line.
+_ECF_STAMP_ONLY_MARKDOWN = (
+    "##### Page 1\n\n"
+    "Case 2:25-cv-02154-DCF Document 3 Filed 11/20/25 Page 1 of 21 PageID #: 154\n\n"
+    "##### Page 2\n\n"
+    "Case 2:25-cv-02154-DCF Document 3 Filed 11/20/25 Page 2 of 21 PageID #: 155\n"
+)
+
+
+def test_parser_exempt_reused_markdown_with_no_substantive_text_is_regapped(
+    tmp_path: Path,
+) -> None:
+    """The exemption lowers the floor; it never removes the floor.
+
+    Without this, an implementation that returned early for every exempt request
+    — never calling ``assess_parsed_text`` at all — would satisfy every other
+    test here, because the Markdown they reuse clears the unknown-role floor
+    anyway.  A body-less conversion must still be superseded and re-parsed, or
+    the scoping would quietly convert a real corpus-completeness finding into a
+    silent acceptance for 174 rows per root.
+    """
+
+    prior_card, prior_root, request = _prior_live_mistral_run(
+        tmp_path, markdown=_ECF_STAMP_ONLY_MARKDOWN
+    )
+    exempt = replace(request, document_role=None, parser_role_exempt=True)
+
+    plan = cli._reuse_live_mistral_parse_outputs(
+        prior_run_card_path=prior_card,
+        prior_markdown_root=prior_root,
+        requests=(exempt,),
+        output_root=tmp_path / "successor",
+    )
+
+    assert plan.superseded_keys == frozenset({_reuse_key(exempt)})
+    assert [gap.source_document_id for gap in plan.gaps] == ["complaint"]
+    assert dict(plan.records_by_key) == {}
+    # The frozen artifact is never mutated, and nothing is published for it.
+    assert not exempt.markdown_output_path.exists()
+    assert (
+        prior_root.joinpath("cand-1", "complaint.md").read_text(encoding="utf-8")
+        == _ECF_STAMP_ONLY_MARKDOWN
+    )
+
+
+def test_conflicting_manifest_roles_are_refused_across_an_exemption(
+    tmp_path: Path,
+) -> None:
+    """Two manifest rows for one document may not disagree about its role.
+
+    The exempt arm maps a row to ``None``, so a duplicate key where one row is
+    exempt and the other states a role must still refuse rather than letting
+    whichever row is read last decide the threshold.
+    """
+
+    del tmp_path
+    manifest = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "parser_eligible": False,
+        },
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "complaint",
+            "document_role": "complaint",
+        },
+    ]
+
+    with pytest.raises(
+        cli.CommandError,
+        match=(
+            "authenticated materialization manifest has conflicting "
+            "document_role: cand-1/complaint"
+        ),
+    ):
+        cli._authenticated_live_parse_document_roles(manifest)

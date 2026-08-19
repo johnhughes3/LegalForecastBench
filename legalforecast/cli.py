@@ -57235,12 +57235,9 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
                 "live parsing requires a verified materialization lineage for "
                 "authenticated document roles"
             )
-        _require_authenticated_live_parse_plan_roles(
+        role_exempt_keys = _require_authenticated_live_parse_plan_roles(
             request_records,
             manifest_records=materialization_lineage.manifest_records,
-        )
-        role_exempt_keys = _parse_role_exempt_manifest_keys(
-            materialization_lineage.manifest_records
         )
     requests = tuple(
         _mistral_markdown_request(
@@ -70811,21 +70808,6 @@ def _manifest_record_is_parser_role_exempt(record: Mapping[str, Any]) -> bool:
     return record.get("parser_eligible") is False and "document_role" not in record
 
 
-def _parse_role_exempt_manifest_keys(
-    manifest_records: Sequence[Mapping[str, Any]],
-) -> frozenset[tuple[str, str]]:
-    """Index the authenticated keys that carry no parser role requirement."""
-
-    return frozenset(
-        (
-            _required_str(record, "candidate_id"),
-            _required_str(record, "source_document_id"),
-        )
-        for record in manifest_records
-        if _manifest_record_is_parser_role_exempt(record)
-    )
-
-
 def _parse_request_is_role_exempt(
     record: Mapping[str, Any],
     *,
@@ -70884,7 +70866,7 @@ def _require_authenticated_live_parse_plan_roles(
     request_records: Sequence[Mapping[str, Any]],
     *,
     manifest_records: Sequence[Mapping[str, Any]],
-) -> None:
+) -> frozenset[tuple[str, str]]:
     """Bind every live parse-plan role to its authenticated manifest row.
 
     Requiring ``document_role`` to be *present* only closes the fallback that
@@ -70901,6 +70883,10 @@ def _require_authenticated_live_parse_plan_roles(
     state one either.  A plan that asserts a role the authenticated manifest
     never stated is refused — that is the same relabelling attack, arriving from
     the other direction.
+
+    Returns the authenticated keys that carry no role requirement, so the caller
+    marks exactly those conversion requests exempt from one traversal of the
+    manifest rather than re-deriving the set from a second, independent pass.
     """
 
     authenticated = _authenticated_live_parse_document_roles(manifest_records)
@@ -70934,6 +70920,7 @@ def _require_authenticated_live_parse_plan_roles(
                 f"materialization manifest: {candidate_id}/{source_document_id}: "
                 f"{planned_role} != {authenticated_role}"
             )
+    return frozenset(key for key, role in authenticated.items() if role is None)
 
 
 def _current_role_parse_quality_rejection(
