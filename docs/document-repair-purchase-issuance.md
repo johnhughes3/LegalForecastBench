@@ -65,6 +65,42 @@ A separate initialization step therefore closes the window permanently: once the
 
 Corollary for scheduling: the TTY sitting and the paid execution are separate events, and the ledger path recorded at the sitting must still be absent when execution starts.
 
+## Resuming an interrupted execution
+
+An execution that dies partway leaves a ledger holding confirmed rows for what it bought and `planned` rows for what it did not. That ledger is the record of the spend, so it must not be deleted — deleting it restores authority mintability, which is the double-charge path. `acquisition resume-document-repair-purchase` continues from it instead.
+
+```bash
+legalforecast acquisition resume-document-repair-purchase \
+  <the same tranche source arguments the sitting used> \
+  --controlled-private-root "$PRIVATE_ROOT" \
+  --checkpoint "$PRIVATE_ROOT/purchase-approval-checkpoint.json" \
+  --approval-run-card "$PRIVATE_ROOT/run-cards/record-purchase-approval.json" \
+  --purchase-policy "$ROOT/approved-purchase-policy.json" \
+  --acquired-dir "$ROOT/acquired" \
+  --expected-request-sha256 "$REQUEST_SHA256" \
+  --expected-execution-sha256 "$EXECUTION_SHA256"
+```
+
+That is the **preflight**, and it is the default. It replays the recorded approval in full, requires the published policy to reproduce byte for byte from that verified approval, re-proves the already-acquired documents against the digests the interrupted run recorded, reads the ledger through the read-only snapshot path, and prints the plan. It changes no filesystem state and needs no provider credential.
+
+Dispatching needs `--execute`, `--request-ledger` (reuse the tranche's existing request-budget database), and two pins that must come from the interrupted run's **halt record**: `--expected-purchase-state-sha256` and `--expected-confirmed-document-ids`.
+
+Those two exist because the initialization receipt testifies only to the ledger's *initial* state. A ledger restored from an older copy of the same lineage, or edited to put a spent row back to `planned`, satisfies every other check while offering an already-bought document as buyable. The digest is compared while the process holds the ledger write lock, before anything is written; the document-id set is the same claim in a form a human can check line by line against the halt record, which a digest is not.
+
+Take both from evidence recorded when the run halted — **never** from a preflight of the ledger you are about to act on. A value read out of the artifact it authenticates cannot detect a rollback of that artifact, which is why the preflight deliberately does not print a ready-to-paste `--execute` line: it reports what the ledger reads *now*, for you to compare against the record.
+
+What a resume will and will not touch, by journal status:
+
+| status | action |
+| --- | --- |
+| `planned` | dispatched |
+| `confirmed` | carried forward from the bytes already on disk; no provider call |
+| `submitted`, `queued`, `unknown`, `failed` | refuses; recover the outcome by broker receipt or provider status first |
+
+Ordering, stop-on-unknown, receipt minting and the approved ceiling stay with `run_document_repair_execution`; the resume adds only the status partition and the carry-forward. The `--expected-*` pins are supplied on the command line rather than read from the tranche for the same reason `--source-lineage-sha256` is: a commitment read from the material it commits to proves nothing.
+
+Two limits worth knowing. A transport blip on the *free* verification GET that precedes each submission aborts the run before any charge, leaving the row `planned` — the command is re-runnable by construction. And the carried-forward documents are proved from the interrupted run's own unsigned progress log plus a re-hash of each file, so the acquired directory and its log are trusted as one unit; that check catches corruption and mismatch, not an actor able to rewrite both consistently.
+
 ## Frozen-field mapping
 
 The public approval body is fixed by `_validated_public_purchase_approval`, which admits *exactly* the project-target-cohort field names. A repair tranche therefore reuses those names, and its own lineage lives in `output_commitments`, the one free-form member:

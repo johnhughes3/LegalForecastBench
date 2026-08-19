@@ -223,6 +223,14 @@ def _paid_delivery_clearance_from_journal(
     return ("cleared", False, False)
 
 
+#: The clearance reader a resume must reuse. A carried-forward document proves
+#: its post-delivery clearance from the same journal evidence a live delivery
+#: does, so re-implementing this predicate on the resume path would be exactly
+#: the drift that made ``legalforecastbench-n3y7`` exclude every purchased
+#: document after the money was already spent.
+paid_delivery_clearance_from_journal = _paid_delivery_clearance_from_journal
+
+
 def _non_included(
     operation: ResolvedRepairOperation,
     *,

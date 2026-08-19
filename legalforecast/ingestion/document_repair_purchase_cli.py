@@ -144,6 +144,26 @@ def add_parsers(subparsers: Any) -> None:
 
 
 def _add_source_arguments(parser: argparse.ArgumentParser) -> None:
+    add_repair_source_arguments(
+        parser,
+        canonical_ledger_help=(
+            "Canonical purchase ledger this authority will bind. It must not yet "
+            "exist; the paid execution process initializes it."
+        ),
+    )
+
+
+def add_repair_source_arguments(
+    parser: argparse.ArgumentParser, *, canonical_ledger_help: str
+) -> None:
+    """Register the tranche inputs every repair purchase command reads.
+
+    Shared with the resume command so the two cannot drift on which paths make
+    up a tranche, what each one means, or how the externally supplied lineage
+    pin is justified. Only the canonical-ledger help differs, because issuance
+    requires that ledger absent and a resume requires it present.
+    """
+
     parser.add_argument(
         "--repair-execution-root",
         type=Path,
@@ -197,10 +217,7 @@ def _add_source_arguments(parser: argparse.ArgumentParser) -> None:
         "--canonical-ledger-path",
         type=Path,
         required=True,
-        help=(
-            "Canonical purchase ledger this authority will bind. It must not yet "
-            "exist; the paid execution process initializes it."
-        ),
+        help=canonical_ledger_help,
     )
 
 
