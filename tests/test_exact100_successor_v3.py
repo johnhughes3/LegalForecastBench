@@ -16,11 +16,13 @@ from legalforecast.ingestion.exact100_successor_v3.projector import (
     project_exact100_successor_replacement_v3,
 )
 from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
+    _RECEIPT_ROLE_TO_DOCUMENT_ROLE,
     OwnerAdjudicatedReplacementError,
     VerifiedOwnerAdjudicatedReplacement,
     mint_verified_owner_adjudicated_replacement,
     require_verified_owner_adjudicated_replacement,
 )
+from legalforecast.unitization.construct_units import StageADocumentRole
 from tests.exact100_successor_v3_fixtures import (
     _ROLES,
     _base,
@@ -426,6 +428,34 @@ def test_a_verdict_labelled_differently_but_meaning_the_same_role_is_accepted() 
     replacement = mint_verified_owner_adjudicated_replacement(**inputs)
 
     assert replacement.candidate_id == "new1"
+
+
+def test_a_separately_docketed_brief_in_support_mints_as_briefing() -> None:
+    """A brief in support on its own entry is briefing, not an unmapped label.
+
+    Both halves of the split carry the corpus memorandum role, so the packet
+    holds two.  The mapped role is asserted rather than mere acceptance: Stage A
+    refuses every other spelling and the model packet mounts only the complaint
+    family, the notice and the brief roles, so a mapping that satisfied this
+    module alone would drop the document out of the prompt.
+    """
+
+    roles = (*_ROLES[:2], ("", "motion_memorandum", 6), *_ROLES[2:])
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+    memorandum = StageADocumentRole.MTD_MEMORANDUM.value
+
+    documents = mint_verified_owner_adjudicated_replacement(**inputs).selection_row[
+        "documents"
+    ]
+
+    supporting = next(
+        item for item in documents if item["source_document_id"].endswith("6")
+    )
+    assert supporting["document_role"] == memorandum
+    assert supporting["model_visible"] is True
+    assert supporting["contains_target_outcome"] is False
+    assert [document["document_role"] for document in documents].count(memorandum) == 2
+    assert _RECEIPT_ROLE_TO_DOCUMENT_ROLE["motion_memorandum"] == memorandum
 
 
 def test_purchased_documents_are_not_counted_as_free() -> None:

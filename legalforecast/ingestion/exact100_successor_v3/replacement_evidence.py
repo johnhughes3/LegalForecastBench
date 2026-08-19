@@ -67,6 +67,16 @@ _RECEIPT_ROLE_TO_DOCUMENT_ROLE: Mapping[str, str] = MappingProxyType(
         "target_motion": DocumentRole.MTD_MEMORANDUM.value,
         "target_motion_opening_brief": DocumentRole.MTD_MEMORANDUM.value,
         "opening_memorandum": DocumentRole.MTD_MEMORANDUM.value,
+        # A brief in support, docketed separately from the motion it supports.
+        # The corpus already holds this shape: where the motion and its
+        # supporting brief sit on two entries, the case carries two
+        # ``motion_to_dismiss_memorandum`` documents, and the byte-role
+        # validator whose verdicts this mint consumes already normalises the
+        # receipt spelling ``motion_memorandum`` onto that same corpus role.
+        # Mapping it anywhere else would drop the document from the model
+        # packet: only the complaint family, the notice, and the three brief
+        # roles mount, and Stage A unitization refuses every other spelling.
+        "motion_memorandum": DocumentRole.MTD_MEMORANDUM.value,
         "motion_to_dismiss_memorandum": DocumentRole.MTD_MEMORANDUM.value,
         "motion_to_dismiss_notice": DocumentRole.MTD_NOTICE.value,
         "opposition": DocumentRole.OPPOSITION.value,
