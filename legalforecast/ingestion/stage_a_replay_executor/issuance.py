@@ -323,16 +323,25 @@ def write_replay_descriptor_draft(
     descriptor itself still lands — it is inert without an approval, the
     executor re-authenticates it from bytes anyway, and it is what the refusal
     evidence refers to.
+
+    **Write order is the guarantee, not just the branch.**  Any block already in
+    the directory is removed *first*, before a single new byte is written, and a
+    new block is written *last*, after the evidence that describes it.  A
+    descriptor is deterministic in the fields that fix its hash, so re-issuing
+    the same request produces the same ``descriptor_sha256`` — which means an
+    interruption between rewriting the descriptor and clearing the block would
+    otherwise leave a previous run's block still *validly* bound to the
+    descriptor sitting beside it.  With this order every interruption window
+    fails closed: the worst outcome is a missing block, which a re-run restores,
+    never a stale or evidence-less one.
     """
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    approval_path = output_dir / APPROVAL_BLOCK_FILENAME
+    _clear_approval_block(approval_path)
     descriptor_path = output_dir / "replay-descriptor.json"
     descriptor_path.write_bytes(_canonical(draft.descriptor))
-    approval_path = output_dir / APPROVAL_BLOCK_FILENAME
-    if preflight.get("status") == REFUSED:
-        approval_path.unlink(missing_ok=True)
-    else:
-        approval_path.write_text(draft.approval_text + "\n", encoding="utf-8")
+    withheld = preflight.get("status") == REFUSED
     (output_dir / "issuance-evidence.json").write_bytes(
         _canonical(
             {
@@ -342,11 +351,33 @@ def write_replay_descriptor_draft(
                 "hard_ceiling_usd": format(draft.hard_ceiling_usd, "f"),
                 "derivation": dict(draft.derivation),
                 "preflight": dict(preflight),
-                "approval_block_written": preflight.get("status") != REFUSED,
+                "approval_block_written": not withheld,
             }
         )
     )
+    if not withheld:
+        approval_path.write_text(draft.approval_text + "\n", encoding="utf-8")
     return descriptor_path
+
+
+def _clear_approval_block(approval_path: Path) -> None:
+    """Remove any existing approval block, refusing anything not a plain file.
+
+    Output directories are reused across runs by design, so this cannot refuse
+    merely because the path exists.  It refuses when the path is *not* a regular
+    file: a symlink here would make the subsequent write land wherever it
+    points, and a directory would surface as an opaque ``IsADirectoryError``
+    from ``unlink``.  Either way the issuer is no longer in control of the
+    authorization instrument, which is not a state it may write through.
+    """
+
+    if approval_path.is_symlink() or (
+        approval_path.exists() and not approval_path.is_file()
+    ):
+        raise StageAReplayExecutorError(
+            f"approval block path is not a regular file: {approval_path}"
+        )
+    approval_path.unlink(missing_ok=True)
 
 
 def _spend_block(
