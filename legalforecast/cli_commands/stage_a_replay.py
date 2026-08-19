@@ -117,7 +117,11 @@ def register_issuance(
             "and emit its SHA-256 with a paste-ready approval block naming that "
             "hash. Every fact the executor cross-checks against predecessor "
             "artifacts is derived, not re-entered. Issuance opens no provider "
-            "and grants no authority; the owner's signature does that."
+            "and grants no authority; the owner's signature does that. A "
+            "refused preflight withholds the approval block entirely and "
+            "deletes any block already in the output directory, so no "
+            "signable instrument is ever left next to a refusal; the refusal "
+            "is recorded in issuance-evidence.json, not only on stdout."
         ),
     )
     issue.add_argument(
@@ -142,7 +146,9 @@ def register_issuance(
         help=(
             "Skip the provider-free rehearsal of lineage, repair receipt, "
             "planning, and provider binding. Use only when the referenced "
-            "artifacts are deliberately absent."
+            "artifacts are deliberately absent. Skipping is recorded as "
+            "'skipped' and still emits the approval block; it is a deliberate "
+            "operator bypass, not a refusal."
         ),
     )
     issue.set_defaults(handler=run_issue)
