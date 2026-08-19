@@ -32,6 +32,61 @@ from legalforecast.ingestion.mistral_markdown_parser import (
 from legalforecast.ingestion.provenance import sha256_text
 
 
+def is_embedded_text_layer_repair_record(record: Mapping[str, object]) -> bool:
+    """Return whether a conversion record declares the page-repair provenance.
+
+    This is the single place that answers "which of the two provenances is
+    this?".  Every validator that used to compare ``extraction_method``
+    against one hardcoded string asks here instead, so the accepted set stays
+    a property of this module rather than something four files agree on by
+    coincidence.
+    """
+
+    extracted = record.get("extracted_text")
+    if not isinstance(extracted, Mapping):
+        return False
+    return (
+        cast(Mapping[str, object], extracted).get("extraction_method")
+        == EMBEDDED_TEXT_LAYER_REPAIR_METHOD
+    )
+
+
+def embedded_text_layer_repair_problem(
+    record: Mapping[str, object], *, markdown: str | None = None
+) -> str | None:
+    """Return why a repaired conversion record is unacceptable, or ``None``.
+
+    ``markdown=None`` checks the record's shape only, for callers that verify
+    the published bytes by their own route.
+    """
+
+    return embedded_text_layer_repair_record_problem(
+        record, markdown=markdown, expected_parser_revision=EXPECTED_PARSER_REVISION
+    )
+
+
+def parse_record_pinned_parser_revision(record: Mapping[str, object]) -> str | None:
+    """Return the pinned parser revision a conversion record is bound to.
+
+    Both provenances are bound to the same pinned parser generation; they name
+    it differently, because one *is* that parser's output and the other was
+    produced alongside it.  Callers that record the revision downstream read it
+    from here rather than guessing which key a record carries.
+    """
+
+    config = record.get("parser_config")
+    if not isinstance(config, Mapping):
+        return None
+    config_record = cast(Mapping[str, object], config)
+    key = (
+        "pinned_parser_revision"
+        if is_embedded_text_layer_repair_record(record)
+        else "parser_revision"
+    )
+    revision = config_record.get(key)
+    return revision if isinstance(revision, str) else None
+
+
 def live_parse_record_provenance_problem(
     record: Mapping[str, object], *, markdown: str
 ) -> str | None:
@@ -44,12 +99,8 @@ def live_parse_record_provenance_problem(
     if not isinstance(config, Mapping) or not isinstance(extracted, Mapping):
         return "prior conversion lacks live-Mistral parser provenance"
     extracted_record = cast(Mapping[str, object], extracted)
-    if extracted_record.get("extraction_method") == EMBEDDED_TEXT_LAYER_REPAIR_METHOD:
-        return embedded_text_layer_repair_record_problem(
-            record,
-            markdown=markdown,
-            expected_parser_revision=EXPECTED_PARSER_REVISION,
-        )
+    if is_embedded_text_layer_repair_record(record):
+        return embedded_text_layer_repair_problem(record, markdown=markdown)
     return _live_mistral_record_problem(
         record,
         config=cast(Mapping[str, object], config),
@@ -105,4 +156,9 @@ def _live_mistral_record_problem(
     return None
 
 
-__all__ = ["live_parse_record_provenance_problem"]
+__all__ = [
+    "embedded_text_layer_repair_problem",
+    "is_embedded_text_layer_repair_record",
+    "live_parse_record_provenance_problem",
+    "parse_record_pinned_parser_revision",
+]

@@ -11,6 +11,11 @@ from typing import Any
 
 import pytest
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.embedded_text_layer_repair import (
+    EMBEDDED_TEXT_LAYER_REPAIR_ENGINE,
+    EMBEDDED_TEXT_LAYER_REPAIR_METHOD,
+    EMBEDDED_TEXT_LAYER_REPAIR_REVISION,
+)
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     EXCLUSION_SCHEMA_VERSION,
@@ -59,7 +64,9 @@ def _selection() -> tuple[list[dict[str, Any]], bytes]:
     return records, b"".join(_bytes(record) for record in records)
 
 
-def _stipulated_inputs(markdown: bytes | None = None) -> dict[str, Any]:
+def _stipulated_inputs(
+    markdown: bytes | None = None, *, parse_provenance: str = "live_mistral"
+) -> dict[str, Any]:
     _, selection_bytes = _selection()
     source_document_bytes = b"%PDF authenticated source bytes"
     markdown = markdown or b"# [PROPOSED] STIPULATION FOR AND ORDER OF DISMISSAL\n"
@@ -92,6 +99,28 @@ def _stipulated_inputs(markdown: bytes | None = None) -> dict[str, Any]:
             "text_sha256": _sha(markdown),
         },
     }
+    if parse_provenance in {"page_repair", "forged_page_repair"}:
+        parser_record["parser_config"] = {
+            "engine": EMBEDDED_TEXT_LAYER_REPAIR_ENGINE,
+            "extraction_method": "pypdf_page_text_v2",
+            "repair_revision": (
+                "not-a-known-repair"
+                if parse_provenance == "forged_page_repair"
+                else EMBEDDED_TEXT_LAYER_REPAIR_REVISION
+            ),
+            "repaired_page_numbers": [1],
+            "parsed_page_count": 2,
+            "pinned_parser_revision": EXPECTED_PARSER_REVISION,
+            "superseded_text_sha256": _sha(b"superseded"),
+        }
+        parser_record["extracted_text"] = {
+            "source_document_id": "D001",
+            "extraction_method": EMBEDDED_TEXT_LAYER_REPAIR_METHOD,
+            "text_sha256": _sha(markdown),
+            "page_count": 2,
+            "quality_flags": [],
+            "notes": "page 1 recovered from the PDF's embedded text layer",
+        }
     parser_manifest_bytes = _bytes(parser_record)
     parser_run_card = {
         "schema_version": "legalforecast.acquisition_run_card.v1",
@@ -430,3 +459,27 @@ def test_terminal_authority_rejects_caller_constructed_or_changed_objects() -> N
     object.__setattr__(authority, "records_bytes", authority.records_bytes + b"\n")
     with pytest.raises(PostSelectionTerminalExclusionError, match="verified replay"):
         require_verified_post_selection_terminal_exclusions(authority)
+
+
+def test_stipulated_target_evidence_accepts_a_page_repaired_conversion() -> None:
+    """The second accepted conversion provenance must reach this path too.
+
+    A repair that the reuse lane admits but every downstream verifier refuses
+    would leave the corpus no better off than before the repair existed — it
+    would simply fail later.
+    """
+
+    evidence = _verify_stipulated_target_evidence_for_test(
+        **_stipulated_inputs(parse_provenance="page_repair")
+    )
+
+    require_verified_terminal_exclusion_evidence(evidence)
+
+
+def test_stipulated_target_evidence_refuses_a_forged_page_repair() -> None:
+    with pytest.raises(PostSelectionTerminalExclusionError) as excinfo:
+        _verify_stipulated_target_evidence_for_test(
+            **_stipulated_inputs(parse_provenance="forged_page_repair")
+        )
+
+    assert "page-repair provenance" in str(excinfo.value)

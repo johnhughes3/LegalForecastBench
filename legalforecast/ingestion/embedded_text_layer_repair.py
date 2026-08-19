@@ -140,7 +140,10 @@ def embedded_text_layer_repair_parser_config(
 
 
 def embedded_text_layer_repair_record_problem(
-    record: Mapping[str, object], *, markdown: str, expected_parser_revision: str
+    record: Mapping[str, object],
+    *,
+    markdown: str | None,
+    expected_parser_revision: str,
 ) -> str | None:
     """Return why a repaired conversion record is unacceptable, or ``None``.
 
@@ -183,16 +186,38 @@ def embedded_text_layer_repair_record_problem(
         or extracted.get("extraction_method") != EMBEDDED_TEXT_LAYER_REPAIR_METHOD
         or extracted.get("source_document_id") != record.get("source_document_id")
         or extracted.get("page_count") != parsed_page_count
-        or extracted.get("text_sha256") != sha256_text(markdown)
     ):
         return "repaired conversion Markdown text provenance mismatch"
-    if config.get("superseded_text_sha256") == sha256_text(markdown):
+    if markdown is None:
+        # The caller holds no Markdown here and checks the published digest by
+        # its own route.  Everything above is shape, and shape is what this
+        # function is for; refusing outright would force callers that cannot
+        # supply bytes to hand-roll the same checks.
+        return None
+    if not _same_digest(extracted.get("text_sha256"), sha256_text(markdown)):
+        return "repaired conversion Markdown text provenance mismatch"
+    if _same_digest(config.get("superseded_text_sha256"), sha256_text(markdown)):
         return "repaired conversion did not change the superseded Markdown"
     return None
 
 
 def _is_sha256(value: object) -> bool:
-    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"[0-9a-f]{64}", value.removeprefix("sha256:")) is not None
+    )
+
+
+def _same_digest(value: object, expected_hex: str) -> bool:
+    """Compare a digest field against a bare hex digest.
+
+    Records in this tree carry digests both bare and ``sha256:``-prefixed —
+    ``stage_a_lineage_verification`` already normalises the same way — so a
+    comparison that insisted on one spelling would refuse honest records for a
+    formatting difference.
+    """
+
+    return isinstance(value, str) and value.removeprefix("sha256:") == expected_hex
 
 
 def _splice_pages(
