@@ -67,11 +67,6 @@ class MistralMarkdownConversionRequest:
     # Optional trailing field preserves positional compatibility with existing
     # callers while allowing role-aware quality thresholds for live manifests.
     document_role: str | None = None
-    # True only when the *authenticated* materialization manifest marks this
-    # document ``parser_eligible: false``.  Those rows state no ``document_role``
-    # anywhere upstream, so the live path must be able to tell an authenticated
-    # role-less row apart from an unauthenticated one instead of refusing both.
-    parser_role_exempt: bool = False
 
 
 @dataclass(frozen=True, slots=True)
