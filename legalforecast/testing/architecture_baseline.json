@@ -2058,6 +2058,7 @@
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._stage_a_markdown_tree_snapshot",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._stage_a_markdown_tree_snapshot",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._stage_a_markdown_tree_snapshot",
+      "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._stage_a_markdown_tree_snapshot",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._validate_selection_run_card_commitment",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._validate_selection_run_card_commitment",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._validate_selection_run_card_commitment",
@@ -2084,6 +2085,7 @@
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verified_shared_provider_chain",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verified_successor_selection_card_from_projection",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_llm_label_provider_shard_run_card",
+      "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_parse_records",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_parse_records",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_parse_records",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verify_stage_a_parse_records",
@@ -3413,6 +3415,7 @@
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.CommandError",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.CommandError",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.CommandError",
+      "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.CommandError",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.EXPECTED_PARSER_REVISION",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.load_provider_cycle_caps",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli.load_provider_cycle_caps",
@@ -4235,8 +4238,8 @@
         "largest_symbol": "PDFTextExtractionResult",
         "largest_symbol_lines": 48,
         "layer": "domain",
-        "line_count": 257,
-        "nonblank_line_count": 205,
+        "line_count": 267,
+        "nonblank_line_count": 214,
         "top_level_definition_count": 16
       },
       "legalforecast/ingestion/__init__.py": {
@@ -9135,11 +9138,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "_write_inputs",
-        "largest_symbol_lines": 620,
+        "largest_symbol_lines": 627,
         "layer": "test",
-        "line_count": 1705,
-        "nonblank_line_count": 1581,
-        "top_level_definition_count": 37
+        "line_count": 1731,
+        "nonblank_line_count": 1602,
+        "top_level_definition_count": 38
       },
       "tests/test_dev_check_recovery_vertical_slice.py": {
         "cycle_id": "",
@@ -11055,9 +11058,9 @@
         "largest_symbol": "test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units",
         "largest_symbol_lines": 552,
         "layer": "test",
-        "line_count": 2407,
-        "nonblank_line_count": 2292,
-        "top_level_definition_count": 20
+        "line_count": 2440,
+        "nonblank_line_count": 2320,
+        "top_level_definition_count": 21
       },
       "tests/test_stage_a_prompt_ontology.py": {
         "cycle_id": "",

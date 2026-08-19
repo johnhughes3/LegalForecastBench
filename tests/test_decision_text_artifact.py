@@ -1409,7 +1409,7 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         + "\n",
         encoding="utf-8",
     )
-    if mutation in {"repaired_parse", "forged_repair"}:
+    if mutation in {"repaired_parse", "forged_repair", "noop_repair"}:
         # A page-scoped embedded-text-layer repair is the second accepted
         # conversion provenance.  The decision-text path is the one that
         # motivated the repair -- the incident document is a decision -- so it
@@ -1425,6 +1425,13 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         }
         if mutation == "forged_repair":
             repaired_config["repair_revision"] = "not-a-known-repair"
+        if mutation == "noop_repair":
+            # The shape is impeccable; the record simply claims to supersede
+            # the very bytes it published, i.e. it repaired nothing.  Only a
+            # check that sees the real Markdown can tell.
+            repaired_config["superseded_text_sha256"] = hashlib.sha256(
+                markdown.encode()
+            ).hexdigest()
         parser_rows[0]["parser_config"] = repaired_config
         parser_rows[0]["extracted_text"] = {
             "source_document_id": "decision",
@@ -1703,3 +1710,22 @@ def test_verify_decision_text_artifact_accepts_a_page_repaired_conversion(
     )
 
     assert verified.records[0]["extraction_method"] == EMBEDDED_TEXT_LAYER_REPAIR_METHOD
+
+
+def test_build_decision_texts_refuses_a_repair_that_changed_nothing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A repair claiming to supersede its own bytes must be refused here too.
+
+    The shape of such a record is impeccable, so only a check given the real
+    published Markdown can catch it.  This is the case that proves the
+    decision-text path is held to the same standard as the reuse lane rather
+    than to a shape-only subset of it.
+    """
+
+    inputs = _write_inputs(tmp_path, mutation="noop_repair")
+
+    assert main(_command(inputs, tmp_path / "output")) == 2
+    assert "did not change the superseded Markdown" in capsys.readouterr().err
+    assert not (tmp_path / "output" / "decision-texts.jsonl").exists()

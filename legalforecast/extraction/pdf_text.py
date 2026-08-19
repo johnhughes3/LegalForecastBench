@@ -11,6 +11,16 @@ from enum import StrEnum
 
 from legalforecast.extraction.normalize_text import normalize_extracted_text
 from legalforecast.extraction.ocr import OCREngine, OCRResult, run_ocr_fallback
+
+# The package-level import below is safe and should stay: ``disclosure_clearance``
+# is the only module under ``legalforecast/ingestion`` that reaches back into
+# this package, and it is imported lazily by its callers, so nothing forces
+# ``legalforecast.extraction`` to finish initialising before
+# ``legalforecast.ingestion`` does.  Switching this to a submodule import does
+# NOT help — importing a submodule still executes the package ``__init__`` — and
+# has already been tried and reverted once, because it broke importing
+# ``legalforecast.extraction`` first.  ``tests/test_package_import_order.py``
+# guards both directions.
 from legalforecast.ingestion import ExtractedTextArtifact, sha256_text
 
 

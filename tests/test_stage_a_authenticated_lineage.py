@@ -2290,7 +2290,7 @@ def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
 
 
 def _stage_a_page_repair_fixture(
-    tmp_path: Path, *, repair_revision: str
+    tmp_path: Path, *, repair_revision: str, superseded_is_current: bool = False
 ) -> tuple[list[dict[str, object]], ...]:
     document_root = tmp_path / "documents"
     markdown_root = tmp_path / "parse" / "markdown"
@@ -2342,7 +2342,11 @@ def _stage_a_page_repair_fixture(
                 "repaired_page_numbers": [1],
                 "parsed_page_count": 1,
                 "pinned_parser_revision": cli.EXPECTED_PARSER_REVISION,
-                "superseded_text_sha256": hashlib.sha256(b"superseded").hexdigest(),
+                "superseded_text_sha256": (
+                    text_sha
+                    if superseded_is_current
+                    else hashlib.sha256(b"superseded").hexdigest()
+                ),
             },
             "source_sha256": source_sha,
             "source_byte_count": source.stat().st_size,
@@ -2396,6 +2400,35 @@ def test_stage_a_lineage_refuses_a_forged_page_repair(tmp_path: Path) -> None:
     )
 
     with pytest.raises(cli.CommandError, match="repair"):
+        cli._verify_stage_a_parse_records(
+            download_records=downloads,
+            request_records=requests,
+            parser_records=parsed,
+            document_root=tmp_path / "documents",
+            parser_output_root=tmp_path / "parse",
+            markdown_root=markdown_root,
+            markdown_bytes=markdown_bytes,
+        )
+
+
+def test_stage_a_lineage_refuses_a_repair_that_changed_nothing(tmp_path: Path) -> None:
+    """A repair claiming to supersede its own published bytes repaired nothing.
+
+    Its shape is impeccable, so this is the case that separates a check given
+    the real Markdown from a shape-only subset of one.
+    """
+
+    downloads, requests, parsed = _stage_a_page_repair_fixture(
+        tmp_path,
+        repair_revision="text-layer-page-repair-v1",
+        superseded_is_current=True,
+    )
+    markdown_root = tmp_path / "parse" / "markdown"
+    _, markdown_bytes = cli._stage_a_markdown_tree_snapshot(
+        parsed, markdown_root=markdown_root
+    )
+
+    with pytest.raises(cli.CommandError, match="did not change the superseded"):
         cli._verify_stage_a_parse_records(
             download_records=downloads,
             request_records=requests,

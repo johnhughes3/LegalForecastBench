@@ -99,7 +99,7 @@ def _stipulated_inputs(
             "text_sha256": _sha(markdown),
         },
     }
-    if parse_provenance in {"page_repair", "forged_page_repair"}:
+    if parse_provenance in {"page_repair", "forged_page_repair", "noop_page_repair"}:
         parser_record["parser_config"] = {
             "engine": EMBEDDED_TEXT_LAYER_REPAIR_ENGINE,
             "extraction_method": "pypdf_page_text_v2",
@@ -111,7 +111,11 @@ def _stipulated_inputs(
             "repaired_page_numbers": [1],
             "parsed_page_count": 2,
             "pinned_parser_revision": EXPECTED_PARSER_REVISION,
-            "superseded_text_sha256": _sha(b"superseded"),
+            "superseded_text_sha256": (
+                _sha(markdown)
+                if parse_provenance == "noop_page_repair"
+                else _sha(b"superseded")
+            ),
         }
         parser_record["extracted_text"] = {
             "source_document_id": "D001",
@@ -480,6 +484,15 @@ def test_stipulated_target_evidence_refuses_a_forged_page_repair() -> None:
     with pytest.raises(PostSelectionTerminalExclusionError) as excinfo:
         _verify_stipulated_target_evidence_for_test(
             **_stipulated_inputs(parse_provenance="forged_page_repair")
+        )
+
+    assert "page-repair provenance" in str(excinfo.value)
+
+
+def test_stipulated_target_evidence_refuses_a_repair_that_changed_nothing() -> None:
+    with pytest.raises(PostSelectionTerminalExclusionError) as excinfo:
+        _verify_stipulated_target_evidence_for_test(
+            **_stipulated_inputs(parse_provenance="noop_page_repair")
         )
 
     assert "page-repair provenance" in str(excinfo.value)
