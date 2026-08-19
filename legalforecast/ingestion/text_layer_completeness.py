@@ -37,7 +37,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from legalforecast.ingestion.disclosure_clearance import extract_disclosure_pdf_pages
 from legalforecast.ingestion.parse_quality import substantive_alphanumeric_count
 
 TEXT_LAYER_COMPLETENESS_REJECTION_FLAG = "text_layer_incomplete"
@@ -212,6 +211,16 @@ def assess_text_layer_completeness(
     accepted here; the parse-quality gate and the byte commitments remain the
     controls for those documents.
     """
+
+    # Imported here rather than at module scope.  ``disclosure_clearance``
+    # reaches into ``legalforecast.extraction``, which imports back into the
+    # ``legalforecast.ingestion`` package, so a module-scope import would make
+    # importing either package first depend on the other having finished.  The
+    # repository already uses this remedy for the same reason (see
+    # ``stage_a_replay_executor/lineage.py``).
+    from legalforecast.ingestion.disclosure_clearance import (
+        extract_disclosure_pdf_pages,
+    )
 
     extraction = extract_disclosure_pdf_pages(source_pdf_bytes)
     if extraction.parsed_page_count == 0:

@@ -32,7 +32,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
-from legalforecast.ingestion.disclosure_clearance import extract_disclosure_pdf_pages
 from legalforecast.ingestion.provenance import sha256_text
 from legalforecast.ingestion.text_layer_completeness import (
     COMPLETENESS_BASIS_PAGE,
@@ -84,6 +83,16 @@ def plan_embedded_text_layer_repair(
     )
     if assessment.accepted or assessment.basis != COMPLETENESS_BASIS_PAGE:
         return None
+    # Imported here rather than at module scope.  ``disclosure_clearance``
+    # reaches into ``legalforecast.extraction``, which imports back into the
+    # ``legalforecast.ingestion`` package, so a module-scope import would make
+    # importing either package first depend on the other having finished.  The
+    # repository already uses this remedy for the same reason (see
+    # ``stage_a_replay_executor/lineage.py``).
+    from legalforecast.ingestion.disclosure_clearance import (
+        extract_disclosure_pdf_pages,
+    )
+
     extraction = extract_disclosure_pdf_pages(source_pdf_bytes)
     layer_by_page = {page.page_number: page.text for page in extraction.pages}
     incomplete = tuple(assessment.incomplete_page_numbers)
