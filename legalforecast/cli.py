@@ -32026,18 +32026,27 @@ def _materializer_successor_v2_free_sources(
                 clearance=supplemental_clearance_records,
             ),
         )
-    # Every successor generation keeps its free documents somewhere different --
-    # the v2 successor splits them across an inherited materialization tree and
-    # a historical packet tree, and later generations add their own roots.  The
-    # generic preparation root stands in for none of them, so a layout this
-    # function does not know refuses rather than materializing from a directory
-    # that will quietly be missing documents.
-    if run_card_record.get("schema_version") != str(
-        EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
-    ):
-        raise CommandError(
-            "consolidated recovery carries an unrecognized successor layout: "
-            f"{run_card_record.get('schema_version')}"
+    # Successor generations differ in where they keep free documents.  Some keep
+    # them under the generic preparation root and are listed as such; the v2
+    # successor splits them across an inherited materialization tree and a
+    # historical packet tree, and later generations add roots of their own.  The
+    # generic root stands in for none of the split layouts, so a schema that is
+    # neither listed as generic nor handled above refuses rather than
+    # materializing from a directory that will quietly be missing documents.
+    schema_version = run_card_record.get("schema_version")
+    if schema_version != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2):
+        if schema_version not in _GENERIC_FREE_LAYOUT_SCHEMAS:
+            raise CommandError(
+                "consolidated recovery carries an unrecognized successor layout: "
+                f"{schema_version}"
+            )
+        return (
+            DocumentSource(
+                phase="free",
+                document_root=preparation_root / "documents/free",
+                manifest=free_manifest,
+                clearance=free_clearance,
+            ),
         )
     if not isinstance(selection_path, Path) or not isinstance(artifact_bytes, Mapping):
         raise CommandError("consolidated recovery lacks exact100 v2 source authority")
@@ -41610,6 +41619,15 @@ _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
     SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION: (
         _SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION
     ),
+}
+# Supported successor layouts whose free documents genuinely live under the
+# generic preparation root.  Derived from the table above rather than listed
+# again, minus the two layouts that keep documents elsewhere and are handled by
+# their own branches, so a successor added to the table has to be classified
+# here as well instead of silently inheriting the generic root.
+_GENERIC_FREE_LAYOUT_SCHEMAS = frozenset(_SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA) - {
+    str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+    SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
 }
 _SUPPORTED_SUCCESSOR_STATE_SCHEMAS = frozenset(_SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA)
 
