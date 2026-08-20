@@ -16,6 +16,7 @@ import pytest
 from legalforecast.ingestion.exact100_successor_v3 import cli as v3_cli
 from legalforecast.ingestion.exact100_successor_v3.projector import (
     TerminalExclusionGroundV2,
+    is_owner_judgment_ground,
     mint_verified_exact100_v3_base,
     mint_verified_exact100_v3_terminal_exclusions,
     project_exact100_successor_replacement_v3,
@@ -251,9 +252,7 @@ def _exclusion(
         TerminalExclusionGroundV2.STIPULATED_INELIGIBLE
     ),
 ) -> dict[str, Any]:
-    detector = ground is not (
-        TerminalExclusionGroundV2.OWNER_ADJUDICATED_RULE_41_A_2_VOLUNTARY_DISMISSAL
-    )
+    detector = not is_owner_judgment_ground(ground)
     return {
         "candidate_id": candidate_id,
         "source_document_id": f"{candidate_id}-doc-2",

@@ -48,6 +48,7 @@ from legalforecast.ingestion.exact100_successor_v3.projector import (
     Exact100SuccessorReplacementV3,
     Exact100SuccessorReplacementV3Error,
     TerminalExclusionGroundV2,
+    is_owner_judgment_ground,
     methods_disclosure_text,
     mint_verified_exact100_v3_base,
     mint_verified_exact100_v3_terminal_exclusions,
@@ -733,8 +734,10 @@ def _owner_judgment_exclusion(path: Path) -> Mapping[str, Any]:
     payload = _read(path)
     record = _object(payload, path)
     ground = record.get("ground")
-    if ground != (
-        TerminalExclusionGroundV2.OWNER_ADJUDICATED_RULE_41_A_2_VOLUNTARY_DISMISSAL.value
+    if not isinstance(ground, str) or not any(
+        ground == candidate.value
+        for candidate in TerminalExclusionGroundV2
+        if is_owner_judgment_ground(candidate)
     ):
         raise Exact100SuccessorReplacementV3CliError(
             "owner-judgment exclusion carries an unsupported ground"
