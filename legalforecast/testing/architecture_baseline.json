@@ -1842,6 +1842,7 @@
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._cmd_consolidate_replacement_recovery",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._cmd_consolidate_replacement_recovery",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._cmd_consolidate_replacement_recovery",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._cmd_consolidate_replacement_recovery",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._consume_consolidated_resolved_capability",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._consume_consolidated_resolved_capability",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._consume_consolidated_resolved_capability",
@@ -1885,6 +1886,7 @@
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_clearance_lineage",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_clearance_lineage",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_clearance_lineage",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_consolidated_recovery",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_consolidated_recovery",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_consolidated_recovery",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_consolidated_recovery",
@@ -3268,6 +3270,7 @@
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION",
@@ -3838,7 +3841,7 @@
       "legalforecast/document_need": 10,
       "legalforecast/evals": 20,
       "legalforecast/extraction": 4,
-      "legalforecast/ingestion": 170,
+      "legalforecast/ingestion": 171,
       "legalforecast/ingestion/attachment_page": 7,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/ingestion/exact100_successor_v3": 5,
@@ -3855,7 +3858,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 462,
+      "tests": 463,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -9520,9 +9523,9 @@
         "largest_symbol": "test_two_documents_on_one_entry_name_one_target_motion",
         "largest_symbol_lines": 35,
         "layer": "test",
-        "line_count": 665,
-        "nonblank_line_count": 514,
-        "top_level_definition_count": 39
+        "line_count": 697,
+        "nonblank_line_count": 536,
+        "top_level_definition_count": 41
       },
       "tests/test_exact100_successor_v3_cli.py": {
         "cycle_id": "",
@@ -10869,9 +10872,9 @@
         "largest_symbol": "_prepare_fixture",
         "largest_symbol_lines": 330,
         "layer": "test",
-        "line_count": 2000,
-        "nonblank_line_count": 1817,
-        "top_level_definition_count": 38
+        "line_count": 2061,
+        "nonblank_line_count": 1871,
+        "top_level_definition_count": 39
       },
       "tests/test_replacement_recovery_source_producer.py": {
         "cycle_id": "",
