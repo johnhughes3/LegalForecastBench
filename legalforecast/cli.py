@@ -41620,15 +41620,28 @@ _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
         _SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION
     ),
 }
-# Supported successor layouts whose free documents genuinely live under the
-# generic preparation root.  Derived from the table above rather than listed
-# again, minus the two layouts that keep documents elsewhere and are handled by
-# their own branches, so a successor added to the table has to be classified
-# here as well instead of silently inheriting the generic root.
-_GENERIC_FREE_LAYOUT_SCHEMAS = frozenset(_SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA) - {
-    str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
-    SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
-}
+# Where each supported successor generation keeps its free documents. Both
+# halves are written out rather than one being derived from the other: deriving
+# would let a generation added to the attestation table INHERIT a
+# classification, and the inherited answer is the dangerous one -- a layout that
+# keeps documents elsewhere would silently acquire the generic preparation root
+# and materialize from a directory that does not hold them. Stated positively,
+# a new generation is unclassified until someone classifies it, and a test
+# pins the two sets as a partition of the attested ones.
+_GENERIC_FREE_LAYOUT_SCHEMAS = frozenset(
+    {
+        ZERO_COST_SUCCESSOR_STATE_SCHEMA,
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1),
+    }
+)
+#: Layouts that keep free documents outside the preparation root, each handled
+#: by its own branch above.
+_SPLIT_FREE_LAYOUT_SCHEMAS = frozenset(
+    {
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+        SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
+    }
+)
 _SUPPORTED_SUCCESSOR_STATE_SCHEMAS = frozenset(_SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA)
 
 

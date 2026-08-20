@@ -2870,3 +2870,67 @@ def test_verified_artifact_snapshot_merge_rejects_unequal_overlap() -> None:
             {"/tmp/source.json": b"B"},
             label="fixture",
         )
+
+
+def _unclassified_free_layouts(attested: object) -> set[str]:
+    """Attested successor layouts nobody has said where documents live for.
+
+    Anything this returns would reach the free-source resolver with no answer
+    to the only question it asks, so it is the hazard, not a style complaint.
+    """
+
+    return set(cast("dict[str, object]", attested)) - (
+        cli._GENERIC_FREE_LAYOUT_SCHEMAS | cli._SPLIT_FREE_LAYOUT_SCHEMAS
+    )
+
+
+def test_every_attested_successor_layout_is_classified() -> None:
+    """Adding a supported generation must force the free-layout decision.
+
+    Deriving one half from the other would let a new generation inherit a
+    classification instead of stating one, which is how a layout that keeps its
+    documents elsewhere quietly acquires the generic preparation root.
+    """
+
+    attested = set(cli._SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA)
+
+    assert cli._GENERIC_FREE_LAYOUT_SCHEMAS | cli._SPLIT_FREE_LAYOUT_SCHEMAS == attested
+    assert not (cli._GENERIC_FREE_LAYOUT_SCHEMAS & cli._SPLIT_FREE_LAYOUT_SCHEMAS)
+    assert _unclassified_free_layouts(cli._SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA) == (
+        set()
+    )
+
+
+def test_the_free_layout_fence_trips_on_an_unclassified_generation() -> None:
+    """A fence nobody has watched fail is not known to be a fence."""
+
+    grown = {
+        **cli._SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA,
+        "legalforecast.some_later_successor_state.v1": object(),
+    }
+
+    assert _unclassified_free_layouts(grown) == {
+        "legalforecast.some_later_successor_state.v1"
+    }
+
+
+def test_an_unclassified_attested_generation_is_refused_by_name(
+    tmp_path: Path,
+) -> None:
+    """The fence is a test; this is what the code does if one slips past it."""
+
+    record = {"candidate_id": "candidate-1", "source_document_id": "document-1"}
+
+    with pytest.raises(cli.CommandError, match="some_later_successor_state"):
+        cli._materializer_successor_v2_free_sources(
+            {
+                "run_card": {
+                    "schema_version": "legalforecast.some_later_successor_state.v1"
+                },
+                "free_manifest": (record,),
+                "free_clearance": (record,),
+                "purchased_manifest": (),
+            },
+            preparation_root=tmp_path / "preparation",
+            consolidated_recovery=True,
+        )
