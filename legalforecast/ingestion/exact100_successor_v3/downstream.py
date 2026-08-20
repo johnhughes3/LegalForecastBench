@@ -145,9 +145,11 @@ def verify_exact100_successor_replacement_v3_projection(
     # Everything the card commits that is not a surface file is a promoted
     # candidate's own document, and it is verified for exactly that reason.
     surface = set(OUTPUT_NAMES.values())
-    for relative in sorted(commitments):
-        if relative not in surface:
-            _committed_bytes(target_root, relative, commitments)
+    documents = {
+        relative: _committed_bytes(target_root, relative, commitments)
+        for relative in sorted(commitments)
+        if relative not in surface
+    }
 
     manifest = _jsonl(payloads["download_manifest"], OUTPUT_NAMES["download_manifest"])
     clearance = _jsonl(payloads["clearance"], OUTPUT_NAMES["clearance"])
@@ -185,6 +187,13 @@ def verify_exact100_successor_replacement_v3_projection(
         "verified_artifact_bytes": {
             str((target_root / relative).absolute()): payloads[name]
             for name, relative in OUTPUT_NAMES.items()
+        },
+        # Published separately from the cohort surface so a caller can hold the
+        # promoted evidence to the same intra-operation coherence checks as the
+        # surface files, rather than verifying it once and then forgetting it.
+        "verified_document_bytes": {
+            str((target_root / relative).absolute()): payload
+            for relative, payload in documents.items()
         },
     }
 
