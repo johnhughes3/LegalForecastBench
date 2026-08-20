@@ -59,6 +59,7 @@ from legalforecast.contracts import (
     DISCLOSURE_CLEARANCE_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
+    EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3,
     EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
@@ -30871,6 +30872,19 @@ def _verify_consolidation_target_ranked_precursor(
     raise ValueError("zero-cost successor ranked precursor schema is unsupported")
 
 
+#: Cohort generations a consolidation may be built against.  Written out rather
+#: than derived, so a later generation has to be admitted deliberately: the
+#: consolidation is what binds paid coverage to a selection, and a generation
+#: that slipped in by inheritance would be doing that unreviewed.  A test pins
+#: this against the generations the downstream verifier can actually read.
+_CONSOLIDATION_TARGET_COHORT_SCHEMAS: frozenset[str] = frozenset(
+    {
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3),
+    }
+)
+
+
 def _prepare_replacement_recovery_consolidation(
     args: argparse.Namespace,
     *,
@@ -31030,11 +31044,12 @@ def _prepare_replacement_recovery_consolidation(
             verify_completed_target_cohort_projection_for_purchase_approval(target_root)
         )
         target_card = cast(Mapping[str, object], target_projection["run_card"])
-        if target_card.get("schema_version") != str(
-            EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
+        if (
+            target_card.get("schema_version")
+            not in _CONSOLIDATION_TARGET_COHORT_SCHEMAS
         ):
             raise ValueError(
-                "target cohort root is not an authenticated exact100 v2 successor"
+                "target cohort root is not an authenticated exact100 successor"
             )
     elif sources[0].get("post_purchase_replay") is None:
         target_projection = (
@@ -46001,12 +46016,13 @@ def _verify_exact100_successor_v3_downstream_projection(
         result=copy.deepcopy(result),
         snapshots=tuple(sorted(verified_bytes.items())),
         # No path has to be ABSENT for a v3 root, so there is nothing to carry.
-        # An absence records a negative fact a projection depends on, and the
-        # only two producers repo-wide are the supporting-document successor's
-        # recovery and auxiliary-provenance plans, which a v3 root neither
-        # carries nor reaches.  A v3 root's contract is entirely positive: every
-        # path its card commits must exist and match.  Empty is the answer, not
-        # an omission.
+        # An absence records a negative fact a projection depends on.  Only two
+        # sites populate one:
+        #   ingestion/downstream_lineage_verification.py  absent_artifact_paths=
+        #   ingestion/case_dev_purchase.py                absent_paths=
+        # A v3 root reaches neither -- its contract is entirely positive: every
+        # path its card commits must exist and match.  Empty is the measured
+        # answer, not an omission.
         absent_paths=(),
     )
     return result
