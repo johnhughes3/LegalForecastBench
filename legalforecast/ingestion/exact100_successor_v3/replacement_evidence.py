@@ -30,6 +30,7 @@ records, and returns a sealed value or raises.
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -116,6 +117,17 @@ _AMBIGUOUS_BRIEF_RECEIPT_ROLES: frozenset[str] = frozenset({"opening_memorandum"
 # says the field's shape was agreed with this parser rather than guessed at --
 # a record still declaring itself pending is refused, because consuming one
 # would make the status decorative.
+# A replacement may be sourced by a deterministic walk of the ranked reserve
+# rather than by the owner picking it after the reserve horizon was exhausted.
+# The two stories are published differently, and the methods disclosure is
+# generated from the promotion record, so the sourcing has to be recorded where
+# it is decided -- on the owner's own disposition -- rather than inferred.
+# Absence is "owner adjudicated", which is what every root minted before this
+# claim existed carries and what its replay depends on.
+_RESERVE_DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+_RESERVE_DERIVATION_FIELDS = frozenset(
+    {"artifact_sha256", "reserve_rank", "selection_basis"}
+)
 _LINKAGE_AUTHORITY = "validator_asserted_docket_reading_not_byte_derived"
 _LINKAGE_BASES: frozenset[str] = frozenset(
     {"explicit_entry_reference", "title", "party_posture"}
@@ -172,6 +184,7 @@ class VerifiedOwnerAdjudicatedReplacement:
     field_provenance: Mapping[str, str]
     source_commitments: Mapping[str, str]
     commitment_sha256: str
+    reserve_derivation: Mapping[str, Any] | None
     _verification_seal: object = field(repr=False, compare=False)
 
 
@@ -205,6 +218,7 @@ def mint_verified_owner_adjudicated_replacement(
         raise OwnerAdjudicatedReplacementError(
             "an owner-adjudicated replacement cannot replace itself"
         )
+    reserve_derivation = _reserve_derivation_claim(owner_disposition)
     _require_owner_disposition(
         owner_disposition,
         candidate_id=candidate_id,
@@ -458,6 +472,9 @@ def mint_verified_owner_adjudicated_replacement(
         ("field_provenance", MappingProxyType(provenance)),
         ("source_commitments", MappingProxyType(commitments)),
         ("commitment_sha256", commitment),
+        # Sourcing, not evidence: deliberately outside the commitment, so
+        # recording it cannot move an already-minted root's digest.
+        ("reserve_derivation", reserve_derivation),
         ("_verification_seal", _SEAL),
     ):
         object.__setattr__(value, name, item)
@@ -540,6 +557,54 @@ def require_verified_owner_adjudicated_replacement(
         raise OwnerAdjudicatedReplacementError(
             "owner-adjudicated replacement changed after verified minting"
         )
+
+
+def _reserve_derivation_claim(
+    disposition: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    """The ranked-reserve sourcing claim an owner disposition may carry.
+
+    ``None`` means no claim, which reads as owner adjudication.  A claim that is
+    present but incomplete refuses rather than degrading to ``None``: the
+    published methods statement repeats whatever this returns, so a half-formed
+    sourcing claim is worse than none at all.
+    """
+
+    raw = disposition.get("reserve_derivation")
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise OwnerAdjudicatedReplacementError(
+            "owner disposition reserve derivation is not a record"
+        )
+    claim = cast(Mapping[str, Any], raw)
+    if frozenset(claim) != _RESERVE_DERIVATION_FIELDS:
+        raise OwnerAdjudicatedReplacementError(
+            "owner disposition reserve derivation fields differ from "
+            f"{sorted(_RESERVE_DERIVATION_FIELDS)}"
+        )
+    digest = claim.get("artifact_sha256")
+    if not isinstance(digest, str) or _RESERVE_DIGEST.fullmatch(digest) is None:
+        raise OwnerAdjudicatedReplacementError(
+            "owner disposition reserve derivation names no ranked reserve digest"
+        )
+    rank = claim.get("reserve_rank")
+    if type(rank) is not int or rank < 1:
+        raise OwnerAdjudicatedReplacementError(
+            "owner disposition reserve derivation carries no positive reserve rank"
+        )
+    basis = claim.get("selection_basis")
+    if not isinstance(basis, str) or not basis.strip():
+        raise OwnerAdjudicatedReplacementError(
+            "owner disposition reserve derivation states no selection basis"
+        )
+    return MappingProxyType(
+        {
+            "artifact_sha256": digest,
+            "reserve_rank": rank,
+            "selection_basis": basis,
+        }
+    )
 
 
 def _require_owner_disposition(

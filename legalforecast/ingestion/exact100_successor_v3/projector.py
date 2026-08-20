@@ -152,9 +152,16 @@ class PromotionProvenanceClass(StrEnum):
     Recorded on every promotion so a reader never has to infer it, and so the
     Cycle 1 methods disclosure can be derived from the artifacts rather than
     from a lane's memory.
+
+    The ranked reserve and the sealed wider-rank horizon are two different
+    ranking systems over overlapping candidates, so they get two classes rather
+    than one.  A candidate can sit in both at different ranks, and publishing
+    the reserve rank under the wider-rank label would state a rank that
+    candidate does not hold there.
     """
 
     WIDER_RANK_DERIVED = "wider_rank_derived"
+    RANKED_RESERVE_DERIVED = "ranked_reserve_derived"
     OWNER_ADJUDICATED = "owner_adjudicated"
 
 
@@ -544,7 +551,14 @@ def project_exact100_successor_replacement_v3(
             "schema_version": PROMOTION_SCHEMA_VERSION,
             "candidate_id": replacement.candidate_id,
             "replaces_candidate_id": replacement.replaces_candidate_id,
-            "provenance_class": PromotionProvenanceClass.OWNER_ADJUDICATED.value,
+            "provenance_class": (
+                PromotionProvenanceClass.RANKED_RESERVE_DERIVED.value
+                if replacement.reserve_derivation is not None
+                else PromotionProvenanceClass.OWNER_ADJUDICATED.value
+            ),
+            # No wider-rank claim is made by either class: an owner-adjudicated
+            # promotion came from outside that horizon, and a reserve-derived
+            # one holds a rank in a different system.
             "wider_rank": None,
             "exclusion_ground": exclusion_by_candidate[
                 replacement.replaces_candidate_id
@@ -556,6 +570,14 @@ def project_exact100_successor_replacement_v3(
             "required_document_sha256": dict(replacement.required_document_sha256),
             "identity_field_provenance": dict(replacement.field_provenance),
             "source_commitments": dict(replacement.source_commitments),
+            # Present only where a claim was made, so a promotion that makes
+            # none serializes exactly as it did before this field existed --
+            # which is what the already-minted roots' replay requires.
+            **(
+                {"reserve_derivation": dict(replacement.reserve_derivation)}
+                if replacement.reserve_derivation is not None
+                else {}
+            ),
         }
         for replacement in ordered
     )
@@ -656,6 +678,12 @@ def methods_disclosure_text(result: Exact100SuccessorReplacementV3) -> str:
 
     The disclosure is generated from the artifacts rather than written by hand
     so the report can never claim a promotion source the cohort does not carry.
+    Each sourcing family gets its own sentence: the owner-adjudication sentence
+    asserts the reserve horizon was exhausted, which is true of promotions made
+    after it was and false of one derived from a reserve that still had ranked
+    candidates in it.  The reserve sentence therefore never borrows it, and
+    never names the wider-rank horizon, because the rank it reports is held in
+    a different system.
     """
 
     owner_adjudicated = tuple(
@@ -664,26 +692,67 @@ def methods_disclosure_text(result: Exact100SuccessorReplacementV3) -> str:
         if record.get("provenance_class")
         == PromotionProvenanceClass.OWNER_ADJUDICATED.value
     )
-    if not owner_adjudicated:
+    reserve_derived = tuple(
+        record
+        for record in result.promotions
+        if record.get("provenance_class")
+        == PromotionProvenanceClass.RANKED_RESERVE_DERIVED.value
+    )
+    if not owner_adjudicated and not reserve_derived:
         return (
             "Every exact-100 replacement in this cohort was derived from the "
             "sealed wider-rank reserve horizon."
         )
-    pairs = ", ".join(
-        f"{cast(str, record['candidate_id'])} for "
-        f"{cast(str, record['replaces_candidate_id'])}"
-        for record in owner_adjudicated
-    )
-    count = len(owner_adjudicated)
-    noun = "replacement" if count == 1 else "replacements"
-    return (
-        f"{count} exact-100 {noun} entered the cohort by owner adjudication "
-        "rather than by derivation from the sealed wider-rank reserve horizon, "
-        "the reserve having been exhausted. Each carries a recorded owner "
-        "disposition, complete packet evidence, and byte-role validated "
-        f"documents ({pairs}). All remaining cohort members were selected and "
-        "replaced by the sealed ranking procedure described above."
-    )
+    sentences: list[str] = []
+    if owner_adjudicated:
+        pairs = ", ".join(
+            f"{cast(str, record['candidate_id'])} for "
+            f"{cast(str, record['replaces_candidate_id'])}"
+            for record in owner_adjudicated
+        )
+        count = len(owner_adjudicated)
+        noun = "replacement" if count == 1 else "replacements"
+        sentences.append(
+            f"{count} exact-100 {noun} entered the cohort by owner adjudication "
+            "rather than by derivation from the sealed wider-rank reserve "
+            "horizon, the reserve having been exhausted. Each carries a "
+            "recorded owner disposition, complete packet evidence, and "
+            f"byte-role validated documents ({pairs}). All remaining cohort "
+            "members were selected and replaced by the sealed ranking "
+            "procedure described above."
+        )
+    if reserve_derived:
+        pairs = ", ".join(
+            f"{cast(str, record['candidate_id'])} for "
+            f"{cast(str, record['replaces_candidate_id'])} at rank "
+            f"{_reserve_rank(record)}"
+            for record in reserve_derived
+        )
+        count = len(reserve_derived)
+        noun = "replacement" if count == 1 else "replacements"
+        sentences.append(
+            f"{count} exact-100 {noun} entered the cohort by deterministic "
+            "derivation from the ranked reserve, taken in ascending reserve "
+            "rank rather than by any judgment about case content "
+            f"({pairs}). Each promotion records the rank it was taken at, the "
+            "stated selection basis, and the digest of the ranked reserve "
+            "artifact it was drawn from."
+        )
+    return " ".join(sentences)
+
+
+def _reserve_rank(record: Mapping[str, Any]) -> int:
+    claim = record.get("reserve_derivation")
+    if not isinstance(claim, Mapping):
+        raise Exact100SuccessorReplacementV3Error(
+            "reserve-derived promotion records no reserve derivation"
+        )
+    rank = cast(Mapping[str, Any], claim).get("reserve_rank")
+    if type(rank) is not int:
+        raise Exact100SuccessorReplacementV3Error(
+            "reserve-derived promotion records no reserve rank"
+        )
+    return rank
 
 
 def _base_integrity_sha256(
