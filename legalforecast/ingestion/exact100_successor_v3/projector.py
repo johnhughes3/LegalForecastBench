@@ -44,6 +44,7 @@ from legalforecast.contracts import (
     EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V3,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3,
     EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V2,
+    EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V3,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.core_document_filter import filter_core_documents
@@ -59,6 +60,7 @@ CONFIG_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V3)
 STATE_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
 PROMOTION_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_PROMOTION_V3)
 EXCLUSION_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V2)
+EXCLUSION_SCHEMA_VERSION_V3 = str(EXACT100_SUCCESSOR_TERMINAL_EXCLUSION_V3)
 STAGE = "project-exact100-successor-replacement-v3"
 
 _TARGET_COUNT = 100
@@ -96,10 +98,12 @@ class TerminalExclusionGroundV2(StrEnum):
     """Terminal grounds admitted by v3, superseding the frozen v1 pair.
 
     The first two are the v1 grounds, carried forward verbatim so an exclusion
-    minted under v1 evidence keeps its meaning.  The third exists because the
-    eligibility detector cannot reach a plaintiff's own Rule 41(a)(2) voluntary
-    dismissal: it is not a stipulated dismissal and not an adversarial motion,
-    so only an owner judgment can classify it.
+    minted under v1 evidence keeps its meaning.  The rest exist because the
+    eligibility detector cannot reach them: a plaintiff's own Rule 41(a)(2)
+    voluntary dismissal is neither a stipulated dismissal nor an adversarial
+    motion, and a record that is substantively one-sided is a reading of what
+    was filed rather than a retrieval result.  Both are owner judgments, and
+    :data:`_OWNER_JUDGMENT_GROUNDS` is what records them as such.
     """
 
     STIPULATED_INELIGIBLE = "stipulated_ineligible"
@@ -107,6 +111,39 @@ class TerminalExclusionGroundV2(StrEnum):
     OWNER_ADJUDICATED_RULE_41_A_2_VOLUNTARY_DISMISSAL = (
         "owner_adjudicated_rule_41_a_2_voluntary_dismissal"
     )
+    OWNER_ADJUDICATED_ONE_SIDED_RECORD = "owner_adjudicated_one_sided_record"
+
+
+#: Grounds no detector can reach, because they are readings of a record rather
+#: than results of a retrieval.  Membership decides two things at once: whether
+#: the exclusion must bind the exact selection it was derived from, and which
+#: regime the record claims cleared it.  It is a set rather than a comparison
+#: against one member so that a ground added later cannot fall through to
+#: "detector" and quietly claim an eligibility replay it never had.
+_OWNER_JUDGMENT_GROUNDS: frozenset[TerminalExclusionGroundV2] = frozenset(
+    {
+        TerminalExclusionGroundV2.OWNER_ADJUDICATED_RULE_41_A_2_VOLUNTARY_DISMISSAL,
+        TerminalExclusionGroundV2.OWNER_ADJUDICATED_ONE_SIDED_RECORD,
+    }
+)
+#: Grounds introduced after v2 exclusion records had already been minted into the
+#: live chain.  A record carrying one of these stamps its own version, so the
+#: earlier records keep the version they were minted under and keep replaying,
+#: and one version identifier never comes to denote two vocabularies.
+_LATER_VOCABULARY_GROUNDS: frozenset[TerminalExclusionGroundV2] = frozenset(
+    {TerminalExclusionGroundV2.OWNER_ADJUDICATED_ONE_SIDED_RECORD}
+)
+
+
+def is_owner_judgment_ground(ground: TerminalExclusionGroundV2) -> bool:
+    """Whether only an owner's ruling can establish this ground.
+
+    Exposed because the same question is asked at the mint, at the CLI that
+    reads a recorded owner judgment, and in the test fixtures.  Three copies of
+    the predicate would have to move in lockstep; one does not.
+    """
+
+    return ground in _OWNER_JUDGMENT_GROUNDS
 
 
 class PromotionProvenanceClass(StrEnum):
@@ -344,9 +381,7 @@ def mint_verified_exact100_v3_terminal_exclusions(
             raise Exact100SuccessorReplacementV3Error(
                 "terminal exclusion lacks its owner authorization citation"
             )
-        detector_derived = ground is not (
-            TerminalExclusionGroundV2.OWNER_ADJUDICATED_RULE_41_A_2_VOLUNTARY_DISMISSAL
-        )
+        detector_derived = not is_owner_judgment_ground(ground)
         if detector_derived:
             if evidence_commitments.get("selection") != _sha(selection_bytes):
                 raise Exact100SuccessorReplacementV3Error(
@@ -357,7 +392,11 @@ def mint_verified_exact100_v3_terminal_exclusions(
                 "an owner-judgment exclusion must not claim detector evidence"
             )
         by_candidate[candidate_id] = {
-            "schema_version": EXCLUSION_SCHEMA_VERSION,
+            "schema_version": (
+                EXCLUSION_SCHEMA_VERSION_V3
+                if ground in _LATER_VOCABULARY_GROUNDS
+                else EXCLUSION_SCHEMA_VERSION
+            ),
             "candidate_id": candidate_id,
             "source_document_id": _text(entry, "source_document_id"),
             "ground": ground.value,
