@@ -459,6 +459,7 @@ def test_a_separately_docketed_brief_in_support_mints_as_briefing() -> None:
 
     roles = (*_ROLES[:2], ("", "motion_memorandum", 6), *_ROLES[2:])
     inputs = _replacement_inputs("new1", "case000", roles=roles)
+    inputs["byte_role_validation_by_id"]["new1-doc-6"]["linked_motion_entries"] = [2]
     memorandum = StageADocumentRole.MTD_MEMORANDUM.value
 
     documents = mint_verified_owner_adjudicated_replacement(**inputs).selection_row[
@@ -486,10 +487,38 @@ def test_a_brief_in_support_is_not_counted_as_the_target_motion() -> None:
 
     roles = (*_ROLES[:2], ("", "motion_memorandum", 6), *_ROLES[2:])
     inputs = _replacement_inputs("new1", "case000", roles=roles)
+    inputs["byte_role_validation_by_id"]["new1-doc-6"]["linked_motion_entries"] = [2]
 
     replacement = mint_verified_owner_adjudicated_replacement(**inputs)
 
     assert replacement.selection_row["target_motion_entry_numbers"] == [2]
+
+
+def test_a_brief_in_support_without_authenticated_motion_linkage_refuses() -> None:
+    """A genuine memorandum is not necessarily briefing for this motion."""
+
+    roles = (*_ROLES[:2], ("", "motion_memorandum", 6), *_ROLES[2:])
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError,
+        match="lacks authenticated target-motion linkage",
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+def test_a_brief_in_support_linked_to_another_motion_refuses() -> None:
+    """Linkage must name the packet's sole target, not merely some motion."""
+
+    roles = (*_ROLES[:2], ("", "motion_memorandum", 6), *_ROLES[2:])
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+    inputs["byte_role_validation_by_id"]["new1-doc-6"]["linked_motion_entries"] = [99]
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError,
+        match="does not link to the target motion entry 2",
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
 
 
 def test_a_packet_holding_only_a_brief_in_support_refuses() -> None:

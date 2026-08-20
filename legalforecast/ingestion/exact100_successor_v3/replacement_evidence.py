@@ -13,6 +13,8 @@ it only when every one of these holds:
 * every document's bytes hash to the digest its acquisition receipt recorded,
 * every document has a byte-role validation record, keyed by that same digest,
   whose verdict is an exact role match with no structural defect,
+* every separately docketed supporting brief has source-committed linkage to
+  the packet's sole target motion entry,
 * the mapped semantic roles cover every required packet role,
 * the owner disposition names this candidate as the replacement for this slot,
 * every synthesized selection-row field names the artifact it came from.
@@ -200,6 +202,7 @@ def mint_verified_owner_adjudicated_replacement(
     seen: set[str] = set()
     decision_entry_numbers: list[int] = []
     target_motion_entry_numbers: list[int] = []
+    supporting_brief_validations: list[tuple[str, Mapping[str, Any]]] = []
 
     for row in _ordered(documents):
         source_document_id = _text(row, "source_document_id")
@@ -236,13 +239,17 @@ def mint_verified_owner_adjudicated_replacement(
             entry_number=entry_number,
             source_document_id=source_document_id,
         )
+        validation_record = byte_role_validation_by_id.get(source_document_id)
         validation_class = _require_byte_role_validation(
-            byte_role_validation_by_id.get(source_document_id),
+            validation_record,
             source_document_id=source_document_id,
             digest=digest,
             byte_count=len(payload),
             receipt_role=receipt_role,
         )
+        if receipt_role in _SUPPORTING_BRIEF_RECEIPT_ROLES:
+            assert validation_record is not None  # Cleared by the verifier above.
+            supporting_brief_validations.append((source_document_id, validation_record))
         route = _route(row)
         is_decision = role == DocumentRole.DECISION.value
         if is_decision:
@@ -361,6 +368,12 @@ def mint_verified_owner_adjudicated_replacement(
         raise OwnerAdjudicatedReplacementError(
             "owner-adjudicated replacement names more than one target motion: "
             f"entries {target_entries}"
+        )
+    for source_document_id, validation in supporting_brief_validations:
+        _require_supporting_brief_linkage(
+            validation,
+            source_document_id=source_document_id,
+            target_entry=target_entries[0],
         )
 
     provenance = _validated_field_provenance(field_provenance)
@@ -615,6 +628,52 @@ def _require_docket_entry(
     if source_document_id not in identifiers:
         raise OwnerAdjudicatedReplacementError(
             f"docket entry {entry_number} does not carry {source_document_id}"
+        )
+
+
+def _require_supporting_brief_linkage(
+    validation: Mapping[str, Any],
+    *,
+    source_document_id: str,
+    target_entry: int,
+) -> None:
+    """Bind supporting briefing to the motion selected for this packet.
+
+    The receipt is only a pointer and cannot declare its own relationship.
+    Linkage therefore comes from the independently source-committed validation
+    input, which the evidence run card records and replay reauthenticates.  The
+    parser is kept separate so the notice/memorandum resolution lane can reuse
+    the same linkage vocabulary without changing this guard's fail-closed rule.
+    """
+
+    raw = validation.get("linked_motion_entries")
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)) or not raw:
+        raise OwnerAdjudicatedReplacementError(
+            "supporting brief lacks authenticated target-motion linkage: "
+            f"{source_document_id}"
+        )
+    linked: set[int] = set()
+    for item in cast(Sequence[object], raw):
+        if isinstance(item, bool):
+            linked.clear()
+            break
+        if isinstance(item, int) and item >= 0:
+            linked.add(item)
+            continue
+        if isinstance(item, str) and item.strip().isdigit():
+            linked.add(int(item.strip()))
+            continue
+        linked.clear()
+        break
+    if not linked:
+        raise OwnerAdjudicatedReplacementError(
+            "supporting brief lacks authenticated target-motion linkage: "
+            f"{source_document_id}"
+        )
+    if linked != {target_entry}:
+        raise OwnerAdjudicatedReplacementError(
+            f"supporting brief {source_document_id} does not link to the target "
+            f"motion entry {target_entry}: linked entries {sorted(linked)}"
         )
 
 
