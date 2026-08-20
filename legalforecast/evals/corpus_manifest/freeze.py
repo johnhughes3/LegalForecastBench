@@ -297,10 +297,12 @@ def _accepted_verdict(
 ) -> VerdictRecord | None:
     """Return the accepting verdict for a model-visible document, or refuse.
 
-    A verdict certifies that the bytes really carry the role claimed for them,
-    so the role the verdict store recorded must be compatible with the role the
-    selection claims.  That is the check that catches a document whose role was
-    adjudicated away from the one the corpus still names.
+    A verdict certifies what the BYTES are, so the selection's role must be
+    compatible with the role the verdict CERTIFIED — never with the role the
+    corpus claimed when the act ran.  Trusting the claim would compare the
+    corpus against its own earlier belief, and would let a stale claim rescue
+    a mislabel the bytes contradict.  This is the check that catches a document
+    whose role was adjudicated away from the one the corpus still names.
     """
 
     records = verdicts.get(document_id)
@@ -323,7 +325,7 @@ def _accepted_verdict(
             f"(found {', '.join(sorted({record.verdict for record in records}))})"
         )
         return None
-    roleless = [record for record in accepted if record.role is None]
+    roleless = [record for record in accepted if record.certified_role is None]
     if roleless:
         # C1: the verdict field fails closed but the role field used to fail
         # open here.  A verdict with no readable role certifies nothing about
@@ -339,19 +341,29 @@ def _accepted_verdict(
         )
         return None
     for record in accepted:
-        if record.role is None:  # pragma: no cover - refused above
+        if record.certified_role is None:  # pragma: no cover - refused above
             continue
-        compatible = VERDICT_ROLE_COMPATIBILITY.get(record.role)
+        compatible = VERDICT_ROLE_COMPATIBILITY.get(record.certified_role)
         if compatible is None:
             violations.append(
-                f"{label}: verdict store role '{record.role}' is unclassified; "
+                f"{label}: verdict store role '{record.certified_role}' is "
+                "unclassified; "
                 "map it before it can certify a packet role"
             )
             return None
         if role not in compatible:
             violations.append(
                 f"{label}: selection claims role '{role.value}' but the "
-                f"byte-role verdict certifies '{record.role}'"
+                f"byte-role verdict certifies '{record.certified_role}'"
+                + (
+                    ""
+                    if record.claimed_role in (None, record.certified_role)
+                    else (
+                        f" (the validation act recorded the corpus claim as "
+                        f"'{record.claimed_role}' at the time; correct the "
+                        "selection, not the verdict)"
+                    )
+                )
             )
             return None
     return accepted[0]

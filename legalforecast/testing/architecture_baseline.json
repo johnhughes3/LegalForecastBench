@@ -10371,9 +10371,9 @@
         "largest_symbol": "test_the_packet_builder_still_excludes_a_forcibly_mounted_decision",
         "largest_symbol_lines": 78,
         "layer": "test",
-        "line_count": 1157,
-        "nonblank_line_count": 941,
-        "top_level_definition_count": 56
+        "line_count": 1278,
+        "nonblank_line_count": 1039,
+        "top_level_definition_count": 60
       },
       "tests/test_pacer_gap_bridge_cli.py": {
         "cycle_id": "",
