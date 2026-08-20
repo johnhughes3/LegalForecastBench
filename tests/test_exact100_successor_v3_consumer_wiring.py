@@ -293,3 +293,34 @@ def test_a_v3_root_declares_no_required_absences(
 
     assert absences == set()
     assert "verified_artifact_absences" not in result
+
+
+def test_the_consolidation_admits_exactly_the_readable_cohort_generations() -> None:
+    """Consolidation binds paid coverage to a selection, so what it accepts is
+    a reviewed decision rather than an inherited one.
+
+    Pinning it against the generations the downstream verifier can actually read
+    catches both drifts: a generation admitted here that nothing can read, and a
+    readable one silently left out.
+    """
+
+    from legalforecast.contracts import (
+        EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
+        EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3,
+    )
+
+    assert cli._CONSOLIDATION_TARGET_COHORT_SCHEMAS == {
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3),
+    }
+
+
+def test_the_consolidation_gate_admits_a_v3_cohort_card() -> None:
+    """The gate named v2 alone, so a v3 cohort root was refused after passing
+    every authentication step above it."""
+
+    from legalforecast.ingestion.exact100_successor_v3.downstream import (
+        STATE_SCHEMA_VERSION,
+    )
+
+    assert STATE_SCHEMA_VERSION in cli._CONSOLIDATION_TARGET_COHORT_SCHEMAS

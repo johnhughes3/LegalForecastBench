@@ -2,13 +2,13 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 27017,
-    "line_count": 73549,
-    "nonblank_line_count": 70765,
+    "line_count": 73565,
+    "nonblank_line_count": 70779,
     "parser_line_count": 1774,
     "top_level_class_count": 20,
     "top_level_definition_count": 1012,
     "verifier_family_count": 164,
-    "verifier_family_lines": 12148
+    "verifier_family_lines": 12149
   },
   "compatibility": {
     "cli_import_files": [
@@ -1607,6 +1607,8 @@
       "tests/test_exact100_successor_replacement_cli.py::legalforecast.cli._verify_completed_target_cohort_projection_in_operation",
       "tests/test_exact100_successor_replacement_cli.py::legalforecast.cli._verify_completed_target_cohort_projection_in_operation",
       "tests/test_exact100_successor_replacement_cli.py::legalforecast.cli._verify_materializer_clearance_lineage",
+      "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._CONSOLIDATION_TARGET_COHORT_SCHEMAS",
+      "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._CONSOLIDATION_TARGET_COHORT_SCHEMAS",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._VERIFIED_PROJECTION_ABSENCE_COLLECTOR",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._VERIFIED_PROJECTION_ABSENCE_COLLECTOR",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._VERIFIED_PROJECTION_ABSENCE_COLLECTOR.reset",
@@ -2337,6 +2339,7 @@
       "tests/test_zero_cost_successor.py::legalforecast.cli._verify_zero_cost_successor_projection"
     ],
     "private_cli_targets": [
+      "legalforecast.cli._CONSOLIDATION_TARGET_COHORT_SCHEMAS",
       "legalforecast.cli._GENERIC_FREE_LAYOUT_SCHEMAS",
       "legalforecast.cli._MaterializerDocketDecisionAuthority",
       "legalforecast.cli._PACER_GAP_BRIDGE_SEMANTIC_REVISION",
@@ -4016,8 +4019,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1774,
         "layer": "entrypoint",
-        "line_count": 73549,
-        "nonblank_line_count": 70765,
+        "line_count": 73565,
+        "nonblank_line_count": 70779,
         "top_level_definition_count": 1012
       },
       "legalforecast/cli_commands/attachment_pages.py": {
