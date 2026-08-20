@@ -2,8 +2,8 @@
   "cli_metrics": {
     "command_handler_count": 165,
     "command_handler_lines": 27017,
-    "line_count": 73439,
-    "nonblank_line_count": 70661,
+    "line_count": 73457,
+    "nonblank_line_count": 70679,
     "parser_line_count": 1774,
     "top_level_class_count": 20,
     "top_level_definition_count": 1011,
@@ -1437,6 +1437,7 @@
       "tests/test_cohort_document_materializer.py::legalforecast.cli._materializer_successor_v2_free_sources",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._materializer_successor_v2_free_sources",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._materializer_successor_v2_free_sources",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli._materializer_successor_v2_free_sources",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._merge_verified_artifact_bytes",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._merge_verified_artifact_bytes",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._optional_materializer_artifact",
@@ -2864,6 +2865,7 @@
       "tests/test_cohort_document_materializer.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.FreeOnlyMaterializationError",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.argparse",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.argparse",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.argparse.Namespace",
@@ -3952,8 +3954,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1774,
         "layer": "entrypoint",
-        "line_count": 73439,
-        "nonblank_line_count": 70661,
+        "line_count": 73457,
+        "nonblank_line_count": 70679,
         "top_level_definition_count": 1011
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -8728,9 +8730,9 @@
         "largest_symbol": "test_consolidated_recovery_callers_replay_authenticated_base_selection",
         "largest_symbol_lines": 254,
         "layer": "test",
-        "line_count": 2846,
-        "nonblank_line_count": 2587,
-        "top_level_definition_count": 61
+        "line_count": 2872,
+        "nonblank_line_count": 2608,
+        "top_level_definition_count": 62
       },
       "tests/test_cohort_policy.py": {
         "cycle_id": "",

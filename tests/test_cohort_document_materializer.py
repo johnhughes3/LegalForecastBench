@@ -1138,6 +1138,32 @@ def test_consolidated_successor_v2_uses_two_authenticated_free_roots(
     assert [len(source.manifest) for source in sources] == [1, 5]
 
 
+def test_consolidated_recovery_keeps_the_generic_root_for_a_zero_cost_successor(
+    tmp_path: Path,
+) -> None:
+    """A supported successor with no split layout does live under that root.
+
+    The zero-cost successor keeps its free documents in the preparation root, so
+    refusing it breaks the v3 chain: replaying a stipulated exclusion walks the
+    Stage A lineage, which materializes through here.
+    """
+
+    record = {"candidate_id": "candidate-1", "source_document_id": "document-1"}
+    sources = cli._materializer_successor_v2_free_sources(
+        {
+            "run_card": {"schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA},
+            "free_manifest": (record,),
+            "free_clearance": (record,),
+            "purchased_manifest": (),
+        },
+        preparation_root=tmp_path / "preparation",
+        consolidated_recovery=True,
+    )
+
+    assert len(sources) == 1
+    assert sources[0].document_root == tmp_path / "preparation/documents/free"
+
+
 def test_consolidated_recovery_refuses_an_unrecognized_successor_layout(
     tmp_path: Path,
 ) -> None:
