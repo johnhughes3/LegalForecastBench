@@ -3855,7 +3855,7 @@
       "legalforecast/contracts": 4,
       "legalforecast/document_need": 10,
       "legalforecast/evals": 20,
-      "legalforecast/evals/corpus_manifest": 7,
+      "legalforecast/evals/corpus_manifest": 8,
       "legalforecast/extraction": 4,
       "legalforecast/ingestion": 171,
       "legalforecast/ingestion/attachment_page": 7,
@@ -4188,11 +4188,11 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "run_per_case_evaluation",
-        "largest_symbol_lines": 255,
+        "largest_symbol_lines": 256,
         "layer": "application",
-        "line_count": 2176,
-        "nonblank_line_count": 1964,
-        "top_level_definition_count": 91
+        "line_count": 2211,
+        "nonblank_line_count": 1995,
+        "top_level_definition_count": 92
       },
       "legalforecast/evals/provider_spend_control.py": {
         "cycle_id": "",
@@ -10360,20 +10360,20 @@
       },
       "tests/test_owner_signed_corpus_manifest.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "tests",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
         "fan_in": 0,
         "fan_out": 0,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_the_packet_builder_still_excludes_a_forcibly_mounted_decision",
         "largest_symbol_lines": 78,
         "layer": "test",
-        "line_count": 991,
-        "nonblank_line_count": 805,
-        "top_level_definition_count": 50
+        "line_count": 1157,
+        "nonblank_line_count": 941,
+        "top_level_definition_count": 56
       },
       "tests/test_pacer_gap_bridge_cli.py": {
         "cycle_id": "",

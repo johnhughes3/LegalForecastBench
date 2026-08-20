@@ -40,7 +40,7 @@ from legalforecast.ingestion.provenance import DocumentRole
 # packet roles it may certify; an unmapped spelling is a hard refusal, and a
 # spelling that certifies no packet role at all (a cover sheet is not a
 # pleading) maps to the empty set and therefore always refuses.
-_VERDICT_ROLE_COMPATIBILITY: Final[Mapping[str, frozenset[DocumentRole]]] = {
+VERDICT_ROLE_COMPATIBILITY: Final[Mapping[str, frozenset[DocumentRole]]] = {
     "amended_complaint": frozenset({DocumentRole.AMENDED_COMPLAINT}),
     "amended_reply": frozenset({DocumentRole.REPLY}),
     "complaint": frozenset({DocumentRole.COMPLAINT}),
@@ -48,6 +48,7 @@ _VERDICT_ROLE_COMPATIBILITY: Final[Mapping[str, frozenset[DocumentRole]]] = {
     "cover_sheet": frozenset(),
     "crossclaim": frozenset({DocumentRole.CROSSCLAIM}),
     "decision": frozenset({DocumentRole.DECISION}),
+    "docket_history": frozenset({DocumentRole.DOCKET_HISTORY}),
     "interpleader_complaint": frozenset({DocumentRole.INTERPLEADER_COMPLAINT}),
     "motion_memorandum": frozenset({DocumentRole.MTD_MEMORANDUM}),
     "motion_to_dismiss_memorandum": frozenset({DocumentRole.MTD_MEMORANDUM}),
@@ -57,9 +58,12 @@ _VERDICT_ROLE_COMPATIBILITY: Final[Mapping[str, frozenset[DocumentRole]]] = {
         {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}
     ),
     "opposition": frozenset({DocumentRole.OPPOSITION}),
+    "other_claim_bearing_filing": frozenset({DocumentRole.OTHER_CLAIM_BEARING}),
     "reply": frozenset({DocumentRole.REPLY}),
     "response": frozenset({DocumentRole.OPPOSITION}),
+    "supplemental_brief": frozenset({DocumentRole.SUPPLEMENTAL_BRIEF}),
     "surreply": frozenset({DocumentRole.SURREPLY}),
+    "third_party_complaint": frozenset({DocumentRole.THIRD_PARTY_COMPLAINT}),
     "target_motion": frozenset({DocumentRole.MTD_MEMORANDUM, DocumentRole.MTD_NOTICE}),
 }
 
@@ -319,10 +323,25 @@ def _accepted_verdict(
             f"(found {', '.join(sorted({record.verdict for record in records}))})"
         )
         return None
+    roleless = [record for record in accepted if record.role is None]
+    if roleless:
+        # C1: the verdict field fails closed but the role field used to fail
+        # open here.  A verdict with no readable role certifies nothing about
+        # WHICH role the bytes carry, so it cannot clear a document the model
+        # will read: the visibility partition only checks the role the corpus
+        # CLAIMS, and this cross-check is the only thing that checks the role
+        # the bytes actually have.  Audit-only documents are exempt because
+        # they never enter a packet under any role.
+        violations.append(
+            f"{label}: byte-role verdict in {roleless[0].source} carries no "
+            "readable role, so it cannot certify a model-visible document; "
+            "record the role it validated"
+        )
+        return None
     for record in accepted:
-        if record.role is None:
+        if record.role is None:  # pragma: no cover - refused above
             continue
-        compatible = _VERDICT_ROLE_COMPATIBILITY.get(record.role)
+        compatible = VERDICT_ROLE_COMPATIBILITY.get(record.role)
         if compatible is None:
             violations.append(
                 f"{label}: verdict store role '{record.role}' is unclassified; "

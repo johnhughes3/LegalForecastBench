@@ -203,12 +203,16 @@ def _verdict_rows_from_object(payload: object, *, source: Path) -> list[object]:
     if not isinstance(payload, Mapping):
         raise CorpusStoreError(f"verdict file must be an object or JSONL: {source}")
     record = cast("Mapping[str, Any]", payload)
-    for key in ("records", "verdicts", "adjudications"):
+    # Container keys are enumerated positively; the sixth-successor purchase
+    # gate spells its rows under "results".  An unknown container refuses
+    # rather than reporting an empty verdict set.
+    for key in ("records", "verdicts", "adjudications", "results"):
         rows = record.get(key)
         if isinstance(rows, list):
             return list(cast("list[object]", rows))
     raise CorpusStoreError(
-        f"verdict file has no records, verdicts, or adjudications list: {source}"
+        f"verdict file has no records, verdicts, adjudications, or results "
+        f"list: {source}"
     )
 
 

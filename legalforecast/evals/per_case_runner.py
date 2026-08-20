@@ -28,6 +28,7 @@ from legalforecast.evals.accounting import accounting_records_from_inspect_run
 from legalforecast.evals.inspect_task import (
     DEFAULT_TOOL_CALL_CAP,
     ConfiguredModelStubSolver,
+    InspectTaskSample,
     OfflineMockSolver,
     build_inspect_samples,
     run_inspect_fixture,
@@ -259,6 +260,12 @@ class ModelPacketObject:
     bucket: str | None = None
     cycle_id: str | None = None
     content_type: str | None = None
+    # Optional commitment to the exact prompt this packet must render.  When a
+    # manifest supplies it, the runner refuses on mismatch, so a run cannot
+    # silently execute a different prompt than the one an authorization
+    # committed to (for example by rendering with a different tool mode).
+    # Manifests that omit it keep the previous behaviour exactly.
+    prompt_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -446,6 +453,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 run_label=config.ablation,
                 use_docket_tool=config.use_docket_tool,
             )
+            _require_committed_prompt(samples, packet_object=packet_object)
             samples = _repeat_samples(samples, repeat_count=config.repeat_count)
             solver = _solver_for_config(
                 config,
@@ -1037,6 +1045,32 @@ def _validate_resumed_outputs(
             raise PerCaseRunnerError("resumed record solver_id does not match")
 
 
+def _require_committed_prompt(
+    samples: Sequence[InspectTaskSample],
+    *,
+    packet_object: ModelPacketObject,
+) -> None:
+    """Fail closed when a rendered prompt differs from its committed hash.
+
+    The commitment is optional, so manifests that do not carry one are
+    unaffected.  When one is present, this is what makes a prompt-affecting
+    run flag self-enforcing rather than a matter of operator memory.
+    """
+
+    expected = packet_object.prompt_sha256
+    if expected is None:
+        return
+    for sample in samples:
+        actual = sha256_text(sample.prompt)
+        if actual != expected:
+            raise PacketManifestError(
+                "rendered prompt does not match the prompt_sha256 committed "
+                f"for case_id={packet_object.case_id!r} "
+                f"ablation={packet_object.ablation!r}; the run would execute a "
+                "different prompt than the one authorized"
+            )
+
+
 def _select_packet_object(
     manifest: Mapping[str, Any],
     *,
@@ -1112,6 +1146,7 @@ def _packet_object_from_record(
         cycle_id=optional_str(record, "cycle_id")
         or _optional_manifest_cycle_id(manifest),
         content_type=optional_str(record, "content_type"),
+        prompt_sha256=optional_str(record, "prompt_sha256"),
     )
 
 
