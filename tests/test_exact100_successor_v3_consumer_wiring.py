@@ -169,3 +169,76 @@ def test_a_rewritten_run_card_is_not_answered_from_the_cache(
 
     # Re-authenticated rather than answered from the previous root's entry.
     assert replayed == [root, root]
+
+
+def test_a_cache_hit_still_covers_the_promoted_documents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The hit path must not check less than the miss path.
+
+    The miss path commitment-checks every promoted document. If the cached
+    reread covers only the cohort surface files, a document swapped between two
+    reads inside one operation is accepted on the second -- the narrow
+    intra-operation window this reread exists to close.
+    """
+
+    root = _v3_root(tmp_path)
+    replayed: list[Path] = []
+    monkeypatch.setattr(cli, "authenticate_exact100_successor_v3_root", _spy(replayed))
+    operation = _operation()
+    cli._verify_completed_target_cohort_projection_in_operation(
+        root, operation=operation
+    )
+
+    document = root / "owner-adjudicated-source/documents/case001/doc-1.pdf"
+    document.write_bytes(b"%PDF-1.7 substituted\n")
+
+    with pytest.raises(cli.CommandError, match="changed"):
+        cli._verify_completed_target_cohort_projection_in_operation(
+            root, operation=operation
+        )
+
+
+def test_the_read_joins_the_operation_byte_closure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every sibling branch feeds the operation-wide closure; so must this one.
+
+    The closure is what makes two reads of the same path inside one operation
+    have to agree. A branch that stays out of it is invisible to that check.
+    """
+
+    root = _v3_root(tmp_path)
+    monkeypatch.setattr(cli, "authenticate_exact100_successor_v3_root", _spy([]))
+    closure: dict[str, bytes] = {}
+    token = cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.set(closure)
+    try:
+        cli._verify_completed_target_cohort_projection_in_operation(
+            root, operation=_operation()
+        )
+    finally:
+        cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.reset(token)
+
+    assert any(path.endswith("target-cohort-selection.jsonl") for path in closure)
+    assert any(path.endswith("doc-1.pdf") for path in closure), (
+        "promoted documents must join the closure, not only the surface files"
+    )
+
+
+def test_a_conflicting_byte_in_the_closure_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Joining the closure is only useful if a disagreement actually raises."""
+
+    root = _v3_root(tmp_path)
+    monkeypatch.setattr(cli, "authenticate_exact100_successor_v3_root", _spy([]))
+    selection = root / "target-cohort-selection.jsonl"
+    closure = {str(selection.absolute()): b"a different earlier reading\n"}
+    token = cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.set(closure)
+    try:
+        with pytest.raises(cli.CommandError, match="closure conflicts"):
+            cli._verify_completed_target_cohort_projection_in_operation(
+                root, operation=_operation()
+            )
+    finally:
+        cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.reset(token)

@@ -45972,6 +45972,8 @@ def _verify_exact100_successor_v3_downstream_projection(
     )
     cached = operation.cache.get(cache_key)
     if cached is not None:
+        # The reread covers the promoted documents as well as the cohort
+        # surface, so a hit never checks less than the miss path did.
         _require_snapshot_unchanged(
             {Path(path): payload for path, payload in cached.snapshots},
             label="cached exact-100 successor v3 projection artifact",
@@ -45981,18 +45983,23 @@ def _verify_exact100_successor_v3_downstream_projection(
     result = v3_downstream.verify_exact100_successor_replacement_v3_projection(
         target_root, authenticate=authenticate_exact100_successor_v3_root
     )
-    snapshots = {
-        Path(path): payload
-        for path, payload in cast(
-            Mapping[str, bytes], result["verified_artifact_bytes"]
-        ).items()
+    verified_bytes = {
+        **cast(Mapping[str, bytes], result["verified_artifact_bytes"]),
+        **cast(Mapping[str, bytes], result["verified_document_bytes"]),
     }
+    snapshots = {Path(path): payload for path, payload in verified_bytes.items()}
+    # This re-read is also what joins the operation-wide byte closure: it goes
+    # through the singly-linked reader, which records each path and raises if
+    # another branch read the same one differently.  So the snapshot set has to
+    # span everything this branch verified -- surface files AND the promoted
+    # documents -- or the parts left out are invisible to that check and are
+    # never re-read on a cache hit either.
     _require_snapshot_unchanged(
         snapshots, label="exact-100 successor v3 projection artifact"
     )
     operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
         result=copy.deepcopy(result),
-        snapshots=tuple(sorted((str(k), v) for k, v in snapshots.items())),
+        snapshots=tuple(sorted(verified_bytes.items())),
         absent_paths=(),
     )
     return result
