@@ -3855,7 +3855,7 @@
       "legalforecast/contracts": 4,
       "legalforecast/document_need": 10,
       "legalforecast/evals": 20,
-      "legalforecast/evals/corpus_manifest": 6,
+      "legalforecast/evals/corpus_manifest": 7,
       "legalforecast/extraction": 4,
       "legalforecast/ingestion": 171,
       "legalforecast/ingestion/attachment_page": 7,
@@ -10371,9 +10371,9 @@
         "largest_symbol": "test_the_packet_builder_still_excludes_a_forcibly_mounted_decision",
         "largest_symbol_lines": 78,
         "layer": "test",
-        "line_count": 939,
-        "nonblank_line_count": 763,
-        "top_level_definition_count": 48
+        "line_count": 991,
+        "nonblank_line_count": 805,
+        "top_level_definition_count": 50
       },
       "tests/test_pacer_gap_bridge_cli.py": {
         "cycle_id": "",

@@ -18,6 +18,7 @@ from legalforecast.evals.corpus_manifest.commands import (
 )
 from legalforecast.evals.corpus_manifest.forecast_entry import (
     FORECAST_ABLATIONS,
+    REQUIRED_RUN_CASE_FLAGS,
     USE_DOCKET_TOOL,
     ManifestForecastError,
 )
@@ -37,11 +38,15 @@ from legalforecast.evals.corpus_manifest.stores import (
 )
 from legalforecast.evals.inspect_task import render_model_prompt
 from legalforecast.evals.packet_builder import PacketAblation, build_model_packet
+from legalforecast.evals.per_case_runner import (
+    _model_packet_from_record as _packet_from_record,
+)
 from legalforecast.ingestion import model_packet_assembly
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
     SourceDocumentProvenance,
+    sha256_text,
 )
 
 _GENERATED_AT = datetime(2026, 8, 20, 12, 0, tzinfo=UTC)
@@ -739,6 +744,53 @@ def test_build_emits_packet_objects_the_existing_runner_can_consume(
         packet_path = corpus["output"] / row["packet_object_key"]
         assert packet_path.is_file()
         assert row["packet_size_bytes"] == len(packet_path.read_bytes())
+
+
+def test_recorded_prompt_hashes_match_the_runner_flags_the_record_names(
+    corpus: dict[str, Path],
+) -> None:
+    """The committed prompt hash must be the one the named flags reproduce.
+
+    ``eval run-case`` defaults the docket tool on, so a hash rendered with it
+    off only describes the executed prompt when --no-docket-tool is passed.
+    This asserts the record names that flag and that the flag is load-bearing:
+    the tool-on rendering hashes differently.
+    """
+
+    frozen, _ = _freeze(corpus)
+    result = _build(corpus, str(frozen["manifest_sha256"]))
+    run_record = json.loads(Path(str(result["run_record"])).read_text("utf-8"))
+
+    assert run_record["required_eval_run_case_flags"] == list(REQUIRED_RUN_CASE_FLAGS)
+    assert "--no-docket-tool" in run_record["required_eval_run_case_flags"]
+
+    run_inputs = json.loads(Path(str(result["run_inputs_manifest"])).read_text("utf-8"))
+    row = run_inputs["model_packets"][0]
+    packet = _packet_from_record(
+        json.loads((corpus["output"] / row["packet_object_key"]).read_text("utf-8"))
+    )
+    committed = run_record["prompt_commitments"][
+        f"{row['candidate_id']}:{row['ablation']}"
+    ]
+    assert committed == sha256_text(
+        render_model_prompt(packet, use_docket_tool=USE_DOCKET_TOOL)
+    )
+    # The flag is load-bearing: the runner default renders a different prompt.
+    assert committed != sha256_text(render_model_prompt(packet, use_docket_tool=True))
+
+
+def test_run_inputs_manifest_does_not_reuse_the_manifest_schema_id(
+    corpus: dict[str, Path],
+) -> None:
+    """One schema id must not label two different byte shapes."""
+
+    frozen, _ = _freeze(corpus)
+    result = _build(corpus, str(frozen["manifest_sha256"]))
+
+    run_inputs = json.loads(Path(str(result["run_inputs_manifest"])).read_text("utf-8"))
+    assert "schema_version" not in run_inputs
+    # The runner's own validator needs exactly these two.
+    assert run_inputs["cycle_id"] and run_inputs["model_packets"]
 
 
 def test_build_refuses_when_markdown_bytes_drift_after_the_freeze(
