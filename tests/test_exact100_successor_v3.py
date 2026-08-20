@@ -520,7 +520,6 @@ def test_a_brief_in_support_linked_to_another_motion_refuses() -> None:
     ):
         mint_verified_owner_adjudicated_replacement(**inputs)
 
-
 def test_a_packet_holding_only_a_brief_in_support_refuses() -> None:
     """The brief satisfies the required roles, so the motion check must refuse."""
 
