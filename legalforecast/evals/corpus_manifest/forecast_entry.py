@@ -21,7 +21,6 @@ what a later lineage reconciliation needs to attach full provenance to the run.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -31,8 +30,14 @@ from typing import Any, Final, cast
 from legalforecast._json_io import read_jsonl_objects, write_json_object
 from legalforecast.contracts.commitments import RAW_BYTES_RAW_SHA256_V1
 from legalforecast.contracts.schemas import (
-    MANIFEST_MODE_FORECAST_RUN_RECORD_V1,
     OWNER_SIGNED_CORPUS_MANIFEST_V1,
+)
+from legalforecast.evals.corpus_manifest.records import (
+    isoformat_utc,
+    registry_record,
+    run_record,
+    slug,
+    write_indented_json,
 )
 from legalforecast.evals.corpus_manifest.schema import (
     CorpusManifest,
@@ -45,7 +50,6 @@ from legalforecast.evals.inspect_task import render_model_prompt
 from legalforecast.evals.model_registry import (
     earliest_eligible_decision_date,
     load_model_registry,
-    model_registry_entry_sha256,
     require_official_registry_entries,
 )
 from legalforecast.evals.packet_builder import (
@@ -79,6 +83,11 @@ MODEL_PACKET_KEY_PREFIX: Final[str] = "model-packets"
 # unbound bytes would put text outside the signed manifest in front of a model,
 # so the docket tool is switched off rather than fed.
 USE_DOCKET_TOOL: Final[bool] = False
+# ``eval run-case`` defaults the docket tool ON and exposes --no-docket-tool.
+# The prompt hashes this entry commits are rendered with the tool OFF, so they
+# only describe the executed prompts when the runner is invoked with this flag.
+# It is recorded in the run record rather than left to operator memory.
+REQUIRED_RUN_CASE_FLAGS: Final[tuple[str, ...]] = ("--no-docket-tool",)
 
 
 class ManifestForecastError(CorpusManifestError):
@@ -189,24 +198,27 @@ def build_manifest_mode_forecast(
             )
 
     run_inputs_path = request.output_dir / "run-inputs.json"
-    _write_indented_json(
+    write_indented_json(
         run_inputs_path,
         {
             "cycle_id": manifest.cycle_id,
-            "generated_at": _isoformat(request.generated_at),
+            "generated_at": isoformat_utc(request.generated_at),
             "model_packets": packet_rows,
-            "schema_version": str(OWNER_SIGNED_CORPUS_MANIFEST_V1),
         },
     )
 
     run_record_path = request.output_dir / "manifest-mode-run-record.json"
     write_json_object(
         run_record_path,
-        _run_record(
+        run_record(
             manifest=manifest,
             digest=digest,
-            request=request,
-            entries_record=_registry_record(entries),
+            generated_at=request.generated_at,
+            owner_signature=request.owner_signature.to_record(),
+            docket_tool_enabled=USE_DOCKET_TOOL,
+            ablations=[ablation.value for ablation in FORECAST_ABLATIONS],
+            required_run_case_flags=REQUIRED_RUN_CASE_FLAGS,
+            entries_record=registry_record(entries),
             prompt_commitments=prompt_commitments,
             packet_rows=packet_rows,
             release_anchor=release_anchor.isoformat(),
@@ -262,6 +274,10 @@ def _case_packet(
     texts: Mapping[str, str],
     generated_at: datetime,
 ) -> CasePacketSchema:
+    # Every manifest document enters the case packet — model-visible ones as
+    # mounted documents, audit-only ones as unmounted provenance the builder
+    # records as excluded.  The condition reads as a filter but admits all of
+    # them, because `texts` only ever holds model-visible documents.
     documents = tuple(
         _provenance(case, document, generated_at=generated_at)
         for document in case.documents
@@ -352,13 +368,13 @@ def _write_packet(
     object_key = "/".join(
         (
             MODEL_PACKET_KEY_PREFIX,
-            _slug(cycle_id),
-            _slug(case.case_id),
+            slug(cycle_id),
+            slug(case.case_id),
             f"{packet.ablation.value}.json",
         )
     )
     path = output_dir / object_key
-    payload = _write_indented_json(path, packet.to_record())
+    payload = write_indented_json(path, packet.to_record())
     digest = str(
         RAW_BYTES_RAW_SHA256_V1.commit(
             payload,
@@ -431,67 +447,3 @@ def _require_release_anchor(case: ManifestCase, *, release_anchor: object) -> No
             f"{case.candidate_id}: decision_date {case.decision_date} precedes "
             f"the evaluation-registry release anchor {release_anchor}"
         )
-
-
-def _registry_record(entries: Sequence[Any]) -> list[dict[str, str]]:
-    return [
-        {
-            "model_entry_sha256": model_registry_entry_sha256(entry),
-            "model_id": entry.model_id,
-            "provider": entry.provider,
-        }
-        for entry in entries
-    ]
-
-
-def _run_record(
-    *,
-    manifest: CorpusManifest,
-    digest: str,
-    request: ForecastBuildRequest,
-    entries_record: Sequence[Mapping[str, str]],
-    prompt_commitments: Mapping[str, str],
-    packet_rows: Sequence[Mapping[str, Any]],
-    release_anchor: str,
-    run_inputs_path: Path,
-) -> dict[str, Any]:
-    return {
-        "case_count": len(manifest.cases),
-        "cycle_id": manifest.cycle_id,
-        "docket_tool_enabled": USE_DOCKET_TOOL,
-        "entry_mode": "owner_signed_manifest",
-        "evaluation_models": list(entries_record),
-        "evaluation_release_anchor": release_anchor,
-        "generated_at": _isoformat(request.generated_at),
-        "manifest_sha256": digest,
-        "owner_signature_reference": request.owner_signature.to_record(),
-        "packet_ablations": [ablation.value for ablation in FORECAST_ABLATIONS],
-        "packet_count": len(packet_rows),
-        "prediction_units_source": manifest.prediction_units_source.to_record(),
-        "prompt_commitments": dict(prompt_commitments),
-        "provider_calls_made": 0,
-        "run_inputs_manifest": str(run_inputs_path),
-        "schema_version": str(MANIFEST_MODE_FORECAST_RUN_RECORD_V1),
-        "selection_source": manifest.selection_source.to_record(),
-    }
-
-
-def _write_indented_json(path: Path, payload: Mapping[str, Any]) -> bytes:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    path.write_bytes(encoded)
-    return encoded
-
-
-def _isoformat(value: datetime) -> str:
-    return value.isoformat().replace("+00:00", "Z")
-
-
-def _slug(value: str) -> str:
-    cleaned = "".join(
-        character if character.isalnum() or character in {"-", "_"} else "-"
-        for character in value
-    ).strip("-")
-    if not cleaned:
-        raise ManifestForecastError(f"cannot form a safe path component from {value!r}")
-    return cleaned
