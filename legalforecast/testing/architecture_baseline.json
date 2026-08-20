@@ -10439,9 +10439,9 @@
         "largest_symbol": "test_live_resume_requires_exact_raw_execution_policy_binding",
         "largest_symbol_lines": 77,
         "layer": "test",
-        "line_count": 1829,
-        "nonblank_line_count": 1670,
-        "top_level_definition_count": 43
+        "line_count": 1939,
+        "nonblank_line_count": 1760,
+        "top_level_definition_count": 47
       },
       "tests/test_plan_public_authenticated_snapshot_buffers.py": {
         "cycle_id": "",

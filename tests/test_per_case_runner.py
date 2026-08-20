@@ -15,6 +15,7 @@ from legalforecast.evals.inspect_task import (
     HarnessRequest,
     SolverKind,
     SolverResponse,
+    render_model_prompt,
 )
 from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.evals.packet_builder import (
@@ -104,6 +105,113 @@ def test_per_case_runner_verifies_packet_and_publishes_safe_outputs(
         )
         for path in uploaded_paths
     )
+
+
+def _committed_prompt_sha256(
+    packet_record: dict[str, object],
+    *,
+    use_docket_tool: bool = True,
+) -> str:
+    """Render the prompt exactly as the runner will, and hash it."""
+
+    packet = per_case_runner._model_packet_from_record(packet_record)
+    return sha256_text(render_model_prompt(packet, use_docket_tool=use_docket_tool))
+
+
+def test_per_case_runner_refuses_a_prompt_that_differs_from_its_commitment(
+    tmp_path: Path,
+) -> None:
+    """Drive the PRODUCTION entry, not the helper.
+
+    This pins the enforcement to its call site inside run_per_case_evaluation:
+    deleting that line makes this test go green-to-red, which calling the
+    helper directly never could.
+    """
+
+    packet_record = _packet_record()
+    store_root, manifest_path, _ = _write_store_fixture(
+        tmp_path,
+        packet_record=packet_record,
+        extra_packet_fields={"prompt_sha256": "0" * 64},
+    )
+
+    with pytest.raises(PacketManifestError, match="does not match the prompt_sha256"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                results_store_root=str(tmp_path / "results-store"),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "runner-output",
+                solver_id="offline:fixture",
+                mock_output=_mock_output(),
+            )
+        )
+
+
+def test_per_case_runner_runs_when_the_prompt_matches_its_commitment(
+    tmp_path: Path,
+) -> None:
+    """The committed-prompt path must still execute the authorized prompt."""
+
+    packet_record = _packet_record()
+    store_root, manifest_path, packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=packet_record,
+        extra_packet_fields={"prompt_sha256": _committed_prompt_sha256(packet_record)},
+    )
+
+    artifacts = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(tmp_path / "results-store"),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            solver_id="offline:fixture",
+            mock_output=_mock_output(),
+        )
+    )
+
+    assert artifacts.packet_sha256 == packet_sha256
+
+
+def test_per_case_runner_enforcement_runs_before_any_solver_call(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A refused prompt must cost nothing: no solver call, no output written."""
+
+    packet_record = _packet_record()
+    store_root, manifest_path, _ = _write_store_fixture(
+        tmp_path,
+        packet_record=packet_record,
+        extra_packet_fields={"prompt_sha256": "0" * 64},
+    )
+    output_dir = tmp_path / "runner-output"
+
+    def _fail_if_called(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("solver ran despite a refused prompt commitment")
+
+    monkeypatch.setattr(per_case_runner, "run_inspect_fixture", _fail_if_called)
+
+    with pytest.raises(PacketManifestError):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                results_store_root=str(tmp_path / "results-store"),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=output_dir,
+                solver_id="offline:fixture",
+                mock_output=_mock_output(),
+            )
+        )
+
+    assert not (output_dir / "runs.jsonl").exists()
 
 
 def test_per_case_runner_resumes_complete_durable_outputs_without_rerun(
@@ -1544,6 +1652,7 @@ def _write_store_fixture(
     packet_record: dict[str, object],
     manifest_sha256: str | None = None,
     hash_field: str = "sha256",
+    extra_packet_fields: Mapping[str, object] | None = None,
 ) -> tuple[Path, Path, str]:
     store_root = tmp_path / "packet-store"
     packet_key = "model-packets/cycle-1/case-1/full_packet.json"
@@ -1564,6 +1673,7 @@ def _write_store_fixture(
                     "size_bytes": packet_path.stat().st_size,
                     "content_type": "application/json",
                     "decision_date": packet_record.get("decision_date"),
+                    **dict(extra_packet_fields or {}),
                 }
             ],
         },
