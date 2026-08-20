@@ -125,6 +125,12 @@ OWNER_ADJUDICATED_REPLACEMENT_EVIDENCE_V1 = SchemaIdentifier(
 OWNER_ADJUDICATED_REPLACEMENT_PLAN_V1 = SchemaIdentifier(
     "legalforecast.owner_adjudicated_replacement_plan.v1"
 )
+OWNER_SIGNED_CORPUS_MANIFEST_V1 = SchemaIdentifier(
+    "legalforecast.owner_signed_corpus_manifest.v1"
+)
+MANIFEST_MODE_FORECAST_RUN_RECORD_V1 = SchemaIdentifier(
+    "legalforecast.manifest_mode_forecast_run_record.v1"
+)
 EXACT100_METHODS_DISCLOSURE_V1 = SchemaIdentifier(
     "legalforecast.exact100_methods_disclosure.v1"
 )
