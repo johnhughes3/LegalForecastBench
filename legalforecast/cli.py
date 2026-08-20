@@ -32026,16 +32026,18 @@ def _materializer_successor_v2_free_sources(
                 clearance=supplemental_clearance_records,
             ),
         )
+    # Every successor generation keeps its free documents somewhere different --
+    # the v2 successor splits them across an inherited materialization tree and
+    # a historical packet tree, and later generations add their own roots.  The
+    # generic preparation root stands in for none of them, so a layout this
+    # function does not know refuses rather than materializing from a directory
+    # that will quietly be missing documents.
     if run_card_record.get("schema_version") != str(
         EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
     ):
-        return (
-            DocumentSource(
-                phase="free",
-                document_root=preparation_root / "documents/free",
-                manifest=free_manifest,
-                clearance=free_clearance,
-            ),
+        raise CommandError(
+            "consolidated recovery carries an unrecognized successor layout: "
+            f"{run_card_record.get('schema_version')}"
         )
     if not isinstance(selection_path, Path) or not isinstance(artifact_bytes, Mapping):
         raise CommandError("consolidated recovery lacks exact100 v2 source authority")
