@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from legalforecast.cli_commands import corpus_manifest as _corpus_manifest
 from legalforecast.cli_commands import stage_a_replay as _stage_a_replay
 from legalforecast.evals.run_record_scoring import score_run_records
 from legalforecast.labeling import outcome_label_from_record
@@ -28,11 +29,14 @@ def register_stage_a_replay(
 
     Registration stays here rather than in the facade so the heavy executor
     loads lazily while production verifiers still contain reviewed CLI-facade
-    bridges during the command-slice migration.
+    bridges during the command-slice migration.  The owner-directed corpus
+    manifest commands register through the same hook for the same reason, and
+    so the facade's line count stays frozen.
     """
 
     _stage_a_replay.register(subparsers)
     _stage_a_replay.register_issuance(subparsers)
+    _corpus_manifest.register(subparsers)
 
 
 def register(

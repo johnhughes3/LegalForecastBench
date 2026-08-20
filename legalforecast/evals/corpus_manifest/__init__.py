@@ -1,0 +1,36 @@
+"""Owner-signed flat corpus manifest and the manifest-mode forecast entry.
+
+This package is the owner-directed parallel entry path for the Cycle 1 forecast
+run.  It exists because the lineage issuance chain is slow to gate, and the
+owner elected to authorize a run against one small signed manifest while the
+custody chain reconciles afterwards.
+
+It is **additive**.  Nothing here modifies the lineage issuance path, the Stage
+A replay issuer, or any existing preflight gate; the integrity substance the
+lineage path enforces is enforced here too, by reusing the same packet builder
+and the same registry eligibility functions rather than restating them.
+"""
+
+from __future__ import annotations
+
+from legalforecast.evals.corpus_manifest.schema import (
+    AUDIT_ONLY_DOCUMENT_ROLES,
+    MODEL_VISIBLE_DOCUMENT_ROLES,
+    CorpusManifest,
+    CorpusManifestError,
+    ManifestCase,
+    ManifestDocument,
+    load_signed_manifest,
+    manifest_digest,
+)
+
+__all__ = [
+    "AUDIT_ONLY_DOCUMENT_ROLES",
+    "MODEL_VISIBLE_DOCUMENT_ROLES",
+    "CorpusManifest",
+    "CorpusManifestError",
+    "ManifestCase",
+    "ManifestDocument",
+    "load_signed_manifest",
+    "manifest_digest",
+]
