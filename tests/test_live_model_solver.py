@@ -15,6 +15,7 @@ from legalforecast.evals.inspect_task import SolverKind
 from legalforecast.evals.live_model_solver import (
     ANTHROPIC_MESSAGES_URL,
     GEMINI_GENERATE_CONTENT_URL_TEMPLATE,
+    OPENAI_FALLBACK_SERVICE_TIER,
     OPENAI_FLEX_TIMEOUT_SECONDS,
     OPENAI_RESPONSES_URL,
     OPENAI_SERVICE_TIER,
@@ -64,6 +65,8 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert response.metadata["prompt_input_token_budget"] == "195904"
     assert response.metadata["temperature"] == "0"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
+    assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
+    assert "service_tier_fallback" not in response.metadata
     assert response.metadata["execution_backend"] == "inspect_ai"
     assert response.metadata["model_registry_sha256"] == "unrecorded"
     assert response.metadata["tool_policy"] == "controlled_docket_tool_only"
@@ -701,12 +704,12 @@ def test_solver_rejects_malformed_provider_output() -> None:
         solver.solve(_request("prompt"))
 
 
-def test_solver_retries_transient_provider_failures() -> None:
+def test_solver_retries_transient_provider_failures_without_leaving_flex() -> None:
     transport = _RetryTransport(
         (
             LiveModelProviderError(
-                "provider returned HTTP 503: temporarily unavailable",
-                status_code=503,
+                "provider returned HTTP 500: internal server error",
+                status_code=500,
             ),
             {
                 "model": "gpt-test-2026-05-14",
@@ -728,10 +731,52 @@ def test_solver_retries_transient_provider_failures() -> None:
     assert response.metadata is not None
     assert response.metadata["provider_attempt_count"] == "2"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
+    assert "service_tier_fallback" not in response.metadata
+    assert [_json_body(item)["service_tier"] for item in transport.requests] == [
+        OPENAI_SERVICE_TIER,
+        OPENAI_SERVICE_TIER,
+    ]
     assert len(transport.requests) == 2
     assert transport.timeouts == [
         OPENAI_FLEX_TIMEOUT_SECONDS,
         OPENAI_FLEX_TIMEOUT_SECONDS,
+    ]
+
+
+@pytest.mark.parametrize("status_code", (429, 503))
+def test_openai_flex_falls_back_to_standard_on_capacity_errors(
+    status_code: int,
+) -> None:
+    transport = _RetryTransport(
+        (
+            LiveModelProviderError(
+                f"provider returned HTTP {status_code}: resource unavailable",
+                status_code=status_code,
+            ),
+            {
+                "model": "gpt-test-2026-05-14",
+                "output_text": '{"predictions":[]}',
+                "usage": {"input_tokens": 1000, "output_tokens": 250},
+            },
+        )
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        retry_backoff_seconds=0,
+    )
+
+    response = solver.solve(_request("prompt"))
+
+    assert response.request_count == 2
+    assert response.metadata is not None
+    assert response.metadata["service_tier"] == OPENAI_FALLBACK_SERVICE_TIER
+    assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
+    assert response.metadata["service_tier_fallback"] == "flex_unavailable"
+    assert [_json_body(item)["service_tier"] for item in transport.requests] == [
+        OPENAI_SERVICE_TIER,
+        OPENAI_FALLBACK_SERVICE_TIER,
     ]
 
 
@@ -795,6 +840,7 @@ def test_solver_does_not_retry_nonrecoverable_credit_failures() -> None:
     with pytest.raises(LiveModelProviderError, match="insufficient_quota"):
         solver.solve(_request("prompt"))
     assert len(transport.requests) == 1
+    assert _json_body(transport.requests[0])["service_tier"] == OPENAI_SERVICE_TIER
 
 
 def test_solver_creates_attempt_handler_per_harness_request_and_settles() -> None:

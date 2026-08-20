@@ -39,7 +39,9 @@ GEMINI_GENERATE_CONTENT_URL_TEMPLATE = (
 )
 
 # Official OpenAI eval uses Flex processing: Batch-rate tokens, slower replies.
+# Retryable 429/503 on Flex fall back to standard (`default`) for remaining attempts.
 OPENAI_SERVICE_TIER = "flex"
+OPENAI_FALLBACK_SERVICE_TIER = "default"
 OPENAI_FLEX_TIMEOUT_SECONDS = 900.0
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_ATTEMPTS = 3
@@ -260,15 +262,19 @@ def complete_live_prompt(
         )
 
     api_key = _api_key(provider.api_key_env, environ)
-    provider_request = provider.build_request(
-        registry_entry, prompt, api_key, response_json_schema
-    )
     started = time.perf_counter()
-    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
-        lambda: (transport or _urlopen_json)(provider_request, timeout_seconds),
-        max_attempts=max_attempts,
-        retry_backoff_seconds=retry_backoff_seconds,
-        attempt_handler=attempt_handler,
+    payload, request_count, durable_attempt_ordinal, used_tier, fell_back = (
+        _call_live_http_provider(
+            registry_entry,
+            prompt,
+            api_key=api_key,
+            response_json_schema=response_json_schema,
+            transport=transport or _urlopen_json,
+            timeout_seconds=timeout_seconds,
+            max_attempts=max_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
+            attempt_handler=attempt_handler,
+        )
     )
     latency_ms = (time.perf_counter() - started) * 1000
     try:
@@ -318,7 +324,11 @@ def complete_live_prompt(
             "context_limit": str(registry_entry.context_limit),
             "max_output_tokens": str(registry_entry.max_output_tokens),
             **_sampling_policy_metadata(registry_entry),
-            **_openai_service_tier_metadata(registry_entry),
+            **_openai_service_tier_metadata(
+                registry_entry,
+                used_tier=used_tier,
+                fell_back=fell_back,
+            ),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
             "provider_attempt_count": str(request_count),
@@ -531,6 +541,8 @@ def _openai_request(
     prompt: str,
     api_key: str,
     response_json_schema: Mapping[str, object] | None,
+    *,
+    service_tier: str = OPENAI_SERVICE_TIER,
 ) -> urllib.request.Request:
     del response_json_schema
     payload: dict[str, object] = {
@@ -539,7 +551,7 @@ def _openai_request(
         "temperature": entry.temperature,
         "top_p": entry.top_p,
         "max_output_tokens": entry.max_output_tokens,
-        "service_tier": OPENAI_SERVICE_TIER,
+        "service_tier": service_tier,
         "tools": [],
     }
     return _json_request(
@@ -633,10 +645,25 @@ def _effective_timeout_seconds(
     return max(timeout_seconds, OPENAI_FLEX_TIMEOUT_SECONDS)
 
 
-def _openai_service_tier_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
+def _openai_service_tier_metadata(
+    entry: ModelRegistryEntry,
+    *,
+    used_tier: str | None = None,
+    fell_back: bool = False,
+) -> dict[str, str]:
     if not _is_openai_provider(entry):
         return {}
-    return {"service_tier": OPENAI_SERVICE_TIER}
+    metadata = {
+        "service_tier": used_tier or OPENAI_SERVICE_TIER,
+        "requested_service_tier": OPENAI_SERVICE_TIER,
+    }
+    if fell_back:
+        metadata["service_tier_fallback"] = "flex_unavailable"
+    return metadata
+
+
+def _is_openai_flex_unavailable(exc: LiveModelProviderError) -> bool:
+    return exc.status_code in {429, 503}
 
 
 def _gemini_request(
@@ -830,12 +857,68 @@ def _urlopen_json(
         ) from exc
 
 
+def _call_live_http_provider(
+    registry_entry: ModelRegistryEntry,
+    prompt: str,
+    *,
+    api_key: str,
+    response_json_schema: Mapping[str, object] | None,
+    transport: LiveModelTransport,
+    timeout_seconds: float,
+    max_attempts: int,
+    retry_backoff_seconds: float,
+    attempt_handler: ProviderAttemptHandler | None,
+) -> tuple[JsonRecord, int, int, str | None, bool]:
+    """POST one live HTTP provider call, with OpenAI Flex-to-standard fallback."""
+
+    if not _is_openai_provider(registry_entry):
+        provider_request = _provider_config(registry_entry.provider).build_request(
+            registry_entry, prompt, api_key, response_json_schema
+        )
+        payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
+            lambda: transport(provider_request, timeout_seconds),
+            max_attempts=max_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
+            attempt_handler=attempt_handler,
+        )
+        return payload, request_count, durable_attempt_ordinal, None, False
+
+    used_tier = OPENAI_SERVICE_TIER
+    fell_back = False
+
+    def openai_call() -> JsonRecord:
+        request = _openai_request(
+            registry_entry,
+            prompt,
+            api_key,
+            response_json_schema,
+            service_tier=used_tier,
+        )
+        return transport(request, timeout_seconds)
+
+    def on_retryable_error(exc: LiveModelProviderError) -> None:
+        nonlocal used_tier, fell_back
+        if used_tier == OPENAI_SERVICE_TIER and _is_openai_flex_unavailable(exc):
+            used_tier = OPENAI_FALLBACK_SERVICE_TIER
+            fell_back = True
+
+    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
+        openai_call,
+        max_attempts=max_attempts,
+        retry_backoff_seconds=retry_backoff_seconds,
+        attempt_handler=attempt_handler,
+        on_retryable_error=on_retryable_error,
+    )
+    return payload, request_count, durable_attempt_ordinal, used_tier, fell_back
+
+
 def _call_with_provider_retries(
     call: Callable[[], JsonRecord],
     *,
     max_attempts: int,
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None = None,
+    on_retryable_error: Callable[[LiveModelProviderError], None] | None = None,
 ) -> tuple[JsonRecord, int, int]:
     """Retry provider transport failures that are plausibly temporary."""
 
@@ -862,6 +945,8 @@ def _call_with_provider_retries(
         except LiveModelProviderError as exc:
             if attempt >= max_attempts or not _is_retryable_provider_error(exc):
                 raise
+            if on_retryable_error is not None:
+                on_retryable_error(exc)
             if retry_backoff_seconds:
                 time.sleep(retry_backoff_seconds * (2 ** (attempt - 1)))
     raise LiveModelProviderError("provider request retry loop exhausted")
