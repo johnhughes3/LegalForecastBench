@@ -546,7 +546,128 @@ def test_verdict_reader_reads_the_results_container_key(tmp_path: Path) -> None:
     index = index_verdicts((path,))
 
     assert index["doc-a"][0].verdict == "match"
-    assert index["doc-a"][0].role == "complaint"
+    assert index["doc-a"][0].certified_role == "complaint"
+
+
+def test_verdict_reader_certifies_the_expected_role_not_the_claimed_role(
+    tmp_path: Path,
+) -> None:
+    """The bulk validator records the claim and the certification separately.
+
+    ``manifest_role`` is what the corpus CLAIMED when the act ran;
+    ``expected_role`` is what the validator CERTIFIED the bytes to be, and
+    ``verdict: match`` is a statement about ``expected_role``.  Reading the
+    claim as if it were the certification makes the cross-check compare the
+    corpus against its own earlier belief, which certifies nothing.
+    """
+
+    path = tmp_path / "vb-byte-role-validation.json"
+    _write_json(
+        path,
+        {
+            "records": [
+                {
+                    "source_document_id": "doc-a",
+                    "verdict": "match",
+                    "manifest_role": "complaint",
+                    "expected_role": "amended_complaint",
+                    "validation_basis": "adjudicated_text",
+                }
+            ]
+        },
+    )
+
+    record = index_verdicts((path,))["doc-a"][0]
+
+    assert record.certified_role == "amended_complaint"
+    assert record.claimed_role == "complaint"
+
+
+def test_verdict_reader_never_certifies_from_a_claim_alone(tmp_path: Path) -> None:
+    """A record carrying only the claim certifies nothing and must refuse."""
+
+    path = tmp_path / "claim-only.json"
+    _write_json(
+        path,
+        {
+            "records": [
+                {
+                    "source_document_id": "doc-a",
+                    "verdict": "match",
+                    "manifest_role": "complaint",
+                }
+            ]
+        },
+    )
+
+    record = index_verdicts((path,))["doc-a"][0]
+
+    assert record.certified_role is None
+    assert record.claimed_role == "complaint"
+
+
+def test_freeze_trusts_the_certified_role_over_the_selection_claim(
+    corpus: dict[str, Path],
+) -> None:
+    """A selection relabelled to match the certification must freeze clean.
+
+    This is the shape of the 69066691 cure: the adjudicator certified the
+    bytes as an amended complaint, so relabelling the selection to agree is
+    the fix, and the freeze must then accept rather than flip the refusal to
+    the other side.
+    """
+
+    rows = [
+        json.loads(line)
+        for line in corpus["selection"].read_text(encoding="utf-8").splitlines()
+    ]
+    for document in rows[0]["documents"]:
+        if document["source_document_id"] == _complaint_id("cand-1"):
+            document["document_role"] = "amended_complaint"
+    _write_jsonl(corpus["selection"], rows)
+
+    verdicts = [
+        json.loads(line)
+        for line in corpus["verdicts"].read_text(encoding="utf-8").splitlines()
+    ]
+    for verdict in verdicts:
+        if verdict["source_document_id"] == _complaint_id("cand-1"):
+            # The bulk-validator shape: stale claim beside the certification.
+            verdict.pop("role")
+            verdict["manifest_role"] = "complaint"
+            verdict["expected_role"] = "amended_complaint"
+            verdict["validation_basis"] = "adjudicated_text"
+    _write_verdicts(corpus["verdicts"], verdicts)
+
+    record, accepted = _freeze(corpus)
+
+    assert accepted, record.get("blockers")
+
+
+def test_freeze_refuses_when_the_selection_contradicts_the_certified_role(
+    corpus: dict[str, Path],
+) -> None:
+    """The stale claim must never rescue a selection the bytes contradict."""
+
+    verdicts = [
+        json.loads(line)
+        for line in corpus["verdicts"].read_text(encoding="utf-8").splitlines()
+    ]
+    for verdict in verdicts:
+        if verdict["source_document_id"] == _complaint_id("cand-1"):
+            verdict.pop("role")
+            # The claim agrees with the selection; the certification does not.
+            verdict["manifest_role"] = "complaint"
+            verdict["expected_role"] = "amended_complaint"
+            verdict["validation_basis"] = "adjudicated_text"
+    _write_verdicts(corpus["verdicts"], verdicts)
+
+    record, accepted = _freeze(corpus)
+
+    assert not accepted
+    assert any(
+        "certifies 'amended_complaint'" in blocker for blocker in record["blockers"]
+    ), record["blockers"]
 
 
 def test_freeze_refuses_a_mismatch_verdict(corpus: dict[str, Path]) -> None:

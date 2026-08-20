@@ -36,6 +36,18 @@ VERDICT_FIELD_SPELLINGS: Final[tuple[str, ...]] = (
 )
 BASIS_FIELD_SPELLINGS: Final[tuple[str, ...]] = ("validation_basis", "basis")
 
+# The role a verdict CERTIFIES: what the validator determined the bytes
+# actually are, and what ``verdict: match`` is a statement about.  The union
+# head spells it ``role``; the bulk validator spells it ``expected_role``.
+# Enumerated positively so a new spelling must be classified by name.
+CERTIFIED_ROLE_SPELLINGS: Final[tuple[str, ...]] = ("expected_role", "role")
+
+# The role the corpus CLAIMED at validation time.  Deliberately NOT part of
+# CERTIFIED_ROLE_SPELLINGS: a claim certifies nothing, and treating it as
+# certification makes the cross-check compare the corpus against its own
+# earlier belief.  Retained for reporting and provenance only.
+CLAIMED_ROLE_SPELLINGS: Final[tuple[str, ...]] = ("manifest_role",)
+
 ACCEPTED_VERDICTS: Final[frozenset[str]] = frozenset({"match"})
 REFUSED_VERDICTS: Final[frozenset[str]] = frozenset({"mismatch", "not_held"})
 ADJUDICABLE_VERDICTS: Final[frozenset[str]] = frozenset({"unverifiable"})
@@ -63,13 +75,32 @@ class StoredDocument:
 
 @dataclass(frozen=True, slots=True)
 class VerdictRecord:
-    """One byte-role verdict as it already exists on disk."""
+    """One byte-role verdict as it already exists on disk.
+
+    Two roles are recorded, and every consumer must be explicit about which it
+    trusts:
+
+    * ``certified_role`` is what the validator determined the BYTES are.  The
+      verdict is a statement about this role, so this is the only role that
+      may gate anything.  The freeze's role cross-check trusts it over the
+      corpus, because certification exists precisely to overrule a claim.
+    * ``claimed_role`` is what the corpus asserted when the validation ran.  It
+      is provenance, never authority.  It may be stale — a corpus can be
+      corrected after the act was recorded — so a consumer that gates on it
+      would compare the corpus against its own earlier belief and would let a
+      stale claim rescue a mislabel the bytes contradict.
+
+    When the two disagree, the corpus is what needs correcting, and the
+    disagreement is surfaced against the CLAIM so an operator knows which
+    artifact to fix.
+    """
 
     source_document_id: str
     verdict: str
-    role: str | None
+    certified_role: str | None
     validation_basis: str | None
     source: str
+    claimed_role: str | None = None
 
     @property
     def is_accepted(self) -> bool:
@@ -243,19 +274,13 @@ def _verdict_record(
             f"{source.name}: unknown byte-role verdict '{verdict}' for "
             f"{document_id}; classify it before it can be admitted or refused"
         )
-    role = row.get("role")
-    if not isinstance(role, str):
-        role = (
-            row.get("manifest_role")
-            if isinstance(row.get("manifest_role"), str)
-            else None
-        )
     return VerdictRecord(
         source_document_id=document_id,
         verdict=verdict,
-        role=role,
+        certified_role=_first_string(row, CERTIFIED_ROLE_SPELLINGS),
         validation_basis=_first_string(row, BASIS_FIELD_SPELLINGS),
         source=source.name,
+        claimed_role=_first_string(row, CLAIMED_ROLE_SPELLINGS),
     )
 
 
