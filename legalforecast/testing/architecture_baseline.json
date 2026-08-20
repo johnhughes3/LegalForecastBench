@@ -5412,10 +5412,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "mint_verified_owner_adjudicated_replacement",
-        "largest_symbol_lines": 255,
+        "largest_symbol_lines": 262,
         "layer": "application",
-        "line_count": 781,
-        "nonblank_line_count": 704,
+        "line_count": 788,
+        "nonblank_line_count": 711,
         "top_level_definition_count": 23
       },
       "legalforecast/ingestion/exact100_successor_v3/replacement_evidence_cli.py": {
@@ -9516,12 +9516,12 @@
           "watch"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "test_a_separately_docketed_brief_in_support_mints_as_briefing",
-        "largest_symbol_lines": 26,
+        "largest_symbol": "test_two_documents_on_one_entry_name_one_target_motion",
+        "largest_symbol_lines": 35,
         "layer": "test",
-        "line_count": 544,
-        "nonblank_line_count": 415,
-        "top_level_definition_count": 35
+        "line_count": 651,
+        "nonblank_line_count": 501,
+        "top_level_definition_count": 39
       },
       "tests/test_exact100_successor_v3_cli.py": {
         "cycle_id": "",

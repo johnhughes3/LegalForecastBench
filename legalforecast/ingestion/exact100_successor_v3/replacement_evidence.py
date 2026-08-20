@@ -346,14 +346,21 @@ def mint_verified_owner_adjudicated_replacement(
     # this one has to refuse.  More than one target motion is refused for the
     # opposite reason: the corpus counts exactly one per case, and emitting two
     # would strand the promotion at the readiness gate instead of here.
-    if not target_motion_entry_numbers:
+    #
+    # The count is over distinct ENTRIES, not documents: one docket entry can
+    # carry a main document and its attachments, which are separate documents
+    # naming one motion.  Deduplicating here rather than only in the refusal is
+    # what keeps that shape from minting a row with a repeated entry, which the
+    # readiness gate counts as two target motions.
+    target_entries = sorted(set(target_motion_entry_numbers))
+    if not target_entries:
         raise OwnerAdjudicatedReplacementError(
             "owner-adjudicated replacement needs a target motion document"
         )
-    if len(target_motion_entry_numbers) > 1:
+    if len(target_entries) > 1:
         raise OwnerAdjudicatedReplacementError(
             "owner-adjudicated replacement names more than one target motion: "
-            f"entries {sorted(target_motion_entry_numbers)}"
+            f"entries {target_entries}"
         )
 
     provenance = _validated_field_provenance(field_provenance)
@@ -367,7 +374,7 @@ def mint_verified_owner_adjudicated_replacement(
         ),
         required_role_count=len(required_roles),
         decision_entry_numbers=sorted(decision_entry_numbers),
-        target_motion_entry_numbers=sorted(target_motion_entry_numbers),
+        target_motion_entry_numbers=target_entries,
     )
     document_tree = {
         f"documents/{candidate_id}/{key}.pdf": value
