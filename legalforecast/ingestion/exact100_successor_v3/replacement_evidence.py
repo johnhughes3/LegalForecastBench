@@ -108,6 +108,19 @@ _SUPPORTING_BRIEF_RECEIPT_ROLES: frozenset[str] = frozenset({"motion_memorandum"
 # motion.  Absence is the compatible reading on purpose, because every root
 # minted before linkage existed is replayed under this code.
 _AMBIGUOUS_BRIEF_RECEIPT_ROLES: frozenset[str] = frozenset({"opening_memorandum"})
+# A linkage claim is the one fact this validator consumes that is NOT derived
+# from the bytes it hashes: it is a reading of the docket, asserted by whoever
+# produced the validation.  So a record making the claim must disclose exactly
+# that, in these words, or the claim would read as though the digest vouched
+# for it.  The basis says how the reading was reached, and the schema status
+# says the field's shape was agreed with this parser rather than guessed at --
+# a record still declaring itself pending is refused, because consuming one
+# would make the status decorative.
+_LINKAGE_AUTHORITY = "validator_asserted_docket_reading_not_byte_derived"
+_LINKAGE_BASES: frozenset[str] = frozenset(
+    {"explicit_entry_reference", "title", "party_posture"}
+)
+_LINKAGE_SCHEMA_STATUSES: frozenset[str] = frozenset({"coordinated"})
 # Only one regime can clear a document's role: a per-document, quote-verified
 # byte-role verdict.  The free tranches' role findings are keyed by finding
 # topic and cite several documents per topic -- a disposition is quoted under
@@ -582,6 +595,19 @@ def _supporting_brief_linkage(
     if not entries or any(type(entry) is not int or entry < 0 for entry in entries):
         raise OwnerAdjudicatedReplacementError(
             "supporting brief linkage is not a list of docket entry numbers: "
+            f"{source_document_id}"
+        )
+    if record.get("linkage_authority") != _LINKAGE_AUTHORITY:
+        raise OwnerAdjudicatedReplacementError(
+            f"supporting brief linkage authority is not disclosed: {source_document_id}"
+        )
+    if record.get("linkage_basis") not in _LINKAGE_BASES:
+        raise OwnerAdjudicatedReplacementError(
+            f"supporting brief linkage basis is not recognised: {source_document_id}"
+        )
+    if record.get("linkage_schema_status") not in _LINKAGE_SCHEMA_STATUSES:
+        raise OwnerAdjudicatedReplacementError(
+            "supporting brief linkage schema status is not recognised: "
             f"{source_document_id}"
         )
     return frozenset(cast(list[int], entries))
