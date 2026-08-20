@@ -192,10 +192,16 @@ def build_manifest_mode_forecast(
                 cycle_id=manifest.cycle_id,
                 output_dir=request.output_dir,
             )
-            packet_rows.append(row)
-            prompt_commitments[f"{case.candidate_id}:{ablation.value}"] = sha256_text(
+            prompt_sha256 = sha256_text(
                 render_model_prompt(packet, use_docket_tool=USE_DOCKET_TOOL)
             )
+            # Carried on the packet row as well as the run record: the runner
+            # reads it from the manifest and refuses a prompt that does not
+            # match, which is what makes --no-docket-tool self-enforcing
+            # instead of a note the operator has to remember.
+            row["prompt_sha256"] = prompt_sha256
+            packet_rows.append(row)
+            prompt_commitments[f"{case.candidate_id}:{ablation.value}"] = prompt_sha256
 
     run_inputs_path = request.output_dir / "run-inputs.json"
     write_indented_json(

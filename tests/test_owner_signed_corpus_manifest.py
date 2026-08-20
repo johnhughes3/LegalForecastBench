@@ -22,6 +22,7 @@ from legalforecast.evals.corpus_manifest.forecast_entry import (
     USE_DOCKET_TOOL,
     ManifestForecastError,
 )
+from legalforecast.evals.corpus_manifest.freeze import VERDICT_ROLE_COMPATIBILITY
 from legalforecast.evals.corpus_manifest.schema import (
     AUDIT_ONLY_DOCUMENT_ROLES,
     MODEL_VISIBLE_DOCUMENT_ROLES,
@@ -36,8 +37,13 @@ from legalforecast.evals.corpus_manifest.stores import (
     CorpusStoreError,
     index_verdicts,
 )
-from legalforecast.evals.inspect_task import render_model_prompt
+from legalforecast.evals.inspect_task import build_inspect_samples, render_model_prompt
 from legalforecast.evals.packet_builder import PacketAblation, build_model_packet
+from legalforecast.evals.per_case_runner import (
+    PacketManifestError,
+    _packet_object_from_record,
+    _require_committed_prompt,
+)
 from legalforecast.evals.per_case_runner import (
     _model_packet_from_record as _packet_from_record,
 )
@@ -456,6 +462,93 @@ def test_freeze_refuses_a_document_whose_verdict_certifies_another_role(
     assert any("certifies 'cover_sheet'" in blocker for blocker in record["blockers"])
 
 
+@pytest.mark.parametrize("role_field", ["omitted", "null"])
+def test_freeze_refuses_a_roleless_verdict_on_a_model_visible_document(
+    corpus: dict[str, Path],
+    role_field: str,
+) -> None:
+    """The reviewer's C1 attack, as a regression test.
+
+    Relabel the outcome document as a model-visible role in the selection and
+    back it with a verdict carrying no readable role.  The visibility partition
+    cannot catch it (``reply`` is legitimately model-visible) and the verdict
+    exists and says ``match``, so the ROLE CROSS-CHECK is the only thing left
+    standing between a mislabelled corpus and outcome bytes in a packet.  A
+    roleless verdict must therefore refuse, not skip.
+    """
+
+    rows = [
+        json.loads(line)
+        for line in corpus["selection"].read_text(encoding="utf-8").splitlines()
+    ]
+    for document in rows[0]["documents"]:
+        if document["document_role"] == "decision":
+            document["document_role"] = "reply"
+            document["model_visible"] = True
+    _write_jsonl(corpus["selection"], rows)
+
+    verdicts = [
+        json.loads(line)
+        for line in corpus["verdicts"].read_text(encoding="utf-8").splitlines()
+    ]
+    attack: dict[str, Any] = {
+        "source_document_id": _decision_id("cand-1"),
+        "byte_role_verdict": "match",
+    }
+    if role_field == "null":
+        attack["role"] = None
+    verdicts.append(attack)
+    _write_verdicts(corpus["verdicts"], verdicts)
+
+    record, accepted = _freeze(corpus)
+
+    assert not accepted
+    assert any(
+        "no readable role" in blocker and _decision_id("cand-1") in blocker
+        for blocker in record["blockers"]
+    ), record["blockers"]
+    assert not corpus["manifest"].exists()
+
+
+def test_every_model_visible_role_is_reachable_from_some_verdict_spelling() -> None:
+    """Fence the second half of the partition.
+
+    Closing the roleless fail-open makes an unmapped packet role the next
+    silent blocker, so every role the manifest may mount must be certifiable by
+    at least one verdict-store spelling.
+    """
+
+    reachable: set[DocumentRole] = set()
+    for roles in VERDICT_ROLE_COMPATIBILITY.values():
+        reachable |= roles
+    assert MODEL_VISIBLE_DOCUMENT_ROLES <= reachable, sorted(
+        role.value for role in MODEL_VISIBLE_DOCUMENT_ROLES - reachable
+    )
+
+
+def test_verdict_reader_reads_the_results_container_key(tmp_path: Path) -> None:
+    """The sixth-successor purchase gate spells its rows under ``results``."""
+
+    path = tmp_path / "byte-role-validation.json"
+    _write_json(
+        path,
+        {
+            "results": [
+                {
+                    "source_document_id": "doc-a",
+                    "verdict": "match",
+                    "role": "complaint",
+                }
+            ]
+        },
+    )
+
+    index = index_verdicts((path,))
+
+    assert index["doc-a"][0].verdict == "match"
+    assert index["doc-a"][0].role == "complaint"
+
+
 def test_freeze_refuses_a_mismatch_verdict(corpus: dict[str, Path]) -> None:
     rows = [
         json.loads(line)
@@ -777,6 +870,79 @@ def test_recorded_prompt_hashes_match_the_runner_flags_the_record_names(
     )
     # The flag is load-bearing: the runner default renders a different prompt.
     assert committed != sha256_text(render_model_prompt(packet, use_docket_tool=True))
+
+
+def test_run_inputs_rows_carry_the_prompt_commitment_the_runner_enforces(
+    corpus: dict[str, Path],
+) -> None:
+    """The commitment must reach the manifest the runner reads, not just the record."""
+
+    frozen, _ = _freeze(corpus)
+    result = _build(corpus, str(frozen["manifest_sha256"]))
+
+    run_record = json.loads(Path(str(result["run_record"])).read_text("utf-8"))
+    run_inputs = json.loads(Path(str(result["run_inputs_manifest"])).read_text("utf-8"))
+    for row in run_inputs["model_packets"]:
+        committed = run_record["prompt_commitments"][
+            f"{row['candidate_id']}:{row['ablation']}"
+        ]
+        assert row["prompt_sha256"] == committed
+        # And the runner parses it off the record it actually reads.
+        assert (
+            _packet_object_from_record(row, manifest=run_inputs).prompt_sha256
+            == committed
+        )
+
+
+def test_runner_refuses_a_prompt_that_differs_from_its_commitment(
+    corpus: dict[str, Path],
+) -> None:
+    """Self-enforcement: a prompt rendered under other flags cannot execute.
+
+    This is what retires the operator-memory problem. The committed hash is
+    the tool-off rendering; the runner default renders with the tool on, and
+    that prompt is refused rather than silently executed.
+    """
+
+    frozen, _ = _freeze(corpus)
+    result = _build(corpus, str(frozen["manifest_sha256"]))
+    run_inputs = json.loads(Path(str(result["run_inputs_manifest"])).read_text("utf-8"))
+    row = run_inputs["model_packets"][0]
+    packet = _packet_from_record(
+        json.loads((corpus["output"] / row["packet_object_key"]).read_text("utf-8"))
+    )
+    packet_object = _packet_object_from_record(row, manifest=run_inputs)
+
+    committed_samples = build_inspect_samples(
+        (packet,), use_docket_tool=USE_DOCKET_TOOL
+    )
+    _require_committed_prompt(committed_samples, packet_object=packet_object)
+
+    wrong_samples = build_inspect_samples((packet,), use_docket_tool=True)
+    with pytest.raises(PacketManifestError, match="does not match the prompt_sha256"):
+        _require_committed_prompt(wrong_samples, packet_object=packet_object)
+
+
+def test_runner_prompt_enforcement_is_inert_without_a_commitment(
+    corpus: dict[str, Path],
+) -> None:
+    """Manifests that carry no commitment keep the previous behaviour exactly."""
+
+    frozen, _ = _freeze(corpus)
+    result = _build(corpus, str(frozen["manifest_sha256"]))
+    run_inputs = json.loads(Path(str(result["run_inputs_manifest"])).read_text("utf-8"))
+    row = dict(run_inputs["model_packets"][0])
+    row.pop("prompt_sha256")
+    packet = _packet_from_record(
+        json.loads((corpus["output"] / row["packet_object_key"]).read_text("utf-8"))
+    )
+    packet_object = _packet_object_from_record(row, manifest=run_inputs)
+
+    assert packet_object.prompt_sha256 is None
+    _require_committed_prompt(
+        build_inspect_samples((packet,), use_docket_tool=True),
+        packet_object=packet_object,
+    )
 
 
 def test_run_inputs_manifest_does_not_reuse_the_manifest_schema_id(
