@@ -1138,21 +1138,30 @@ def test_consolidated_successor_v2_uses_two_authenticated_free_roots(
     assert [len(source.manifest) for source in sources] == [1, 5]
 
 
-def test_consolidated_non_v2_keeps_the_preparation_free_root(tmp_path: Path) -> None:
-    record = {"candidate_id": "candidate-1", "source_document_id": "document-1"}
-    sources = cli._materializer_successor_v2_free_sources(
-        {
-            "run_card": {"schema_version": "legalforecast.other_successor.v1"},
-            "free_manifest": (record,),
-            "free_clearance": (record,),
-            "purchased_manifest": (),
-        },
-        preparation_root=tmp_path / "preparation",
-        consolidated_recovery=True,
-    )
+def test_consolidated_recovery_refuses_an_unrecognized_successor_layout(
+    tmp_path: Path,
+) -> None:
+    """An unknown successor layout is not a generic preparation root.
 
-    assert len(sources) == 1
-    assert sources[0].document_root == tmp_path / "preparation/documents/free"
+    Each successor generation keeps its free documents somewhere different, and
+    guessing the generic root for one this function does not know produces a
+    materialization silently missing documents rather than an error -- the one
+    place in this path that failed open instead of closed.
+    """
+
+    record = {"candidate_id": "candidate-1", "source_document_id": "document-1"}
+
+    with pytest.raises(cli.CommandError, match="unrecognized successor layout"):
+        cli._materializer_successor_v2_free_sources(
+            {
+                "run_card": {"schema_version": "legalforecast.other_successor.v1"},
+                "free_manifest": (record,),
+                "free_clearance": (record,),
+                "purchased_manifest": (),
+            },
+            preparation_root=tmp_path / "preparation",
+            consolidated_recovery=True,
+        )
 
 
 def test_consolidated_successor_v2_rejects_source_record_drift(
