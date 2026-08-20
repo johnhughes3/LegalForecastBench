@@ -3862,7 +3862,7 @@
       "tests/fixtures/container_runtime_worker": 1,
       "tests/fixtures/harvey_lab": 2,
       "tests/ingestion": 1,
-      "tests/stage_a_replay_executor": 9
+      "tests/stage_a_replay_executor": 10
     },
     "files": {
       "examples/adapters/claude-agent-sdk/adapter.py": {
@@ -5412,10 +5412,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "mint_verified_owner_adjudicated_replacement",
-        "largest_symbol_lines": 241,
+        "largest_symbol_lines": 262,
         "layer": "application",
-        "line_count": 747,
-        "nonblank_line_count": 670,
+        "line_count": 788,
+        "nonblank_line_count": 711,
         "top_level_definition_count": 23
       },
       "legalforecast/ingestion/exact100_successor_v3/replacement_evidence_cli.py": {
@@ -9505,6 +9505,23 @@
         "line_count": 532,
         "nonblank_line_count": 477,
         "top_level_definition_count": 19
+      },
+      "tests/test_exact100_successor_v3.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_two_documents_on_one_entry_name_one_target_motion",
+        "largest_symbol_lines": 35,
+        "layer": "test",
+        "line_count": 651,
+        "nonblank_line_count": 501,
+        "top_level_definition_count": 39
       },
       "tests/test_exact100_successor_v3_cli.py": {
         "cycle_id": "",

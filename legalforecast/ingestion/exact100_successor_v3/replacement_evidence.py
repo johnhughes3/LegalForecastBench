@@ -67,6 +67,16 @@ _RECEIPT_ROLE_TO_DOCUMENT_ROLE: Mapping[str, str] = MappingProxyType(
         "target_motion": DocumentRole.MTD_MEMORANDUM.value,
         "target_motion_opening_brief": DocumentRole.MTD_MEMORANDUM.value,
         "opening_memorandum": DocumentRole.MTD_MEMORANDUM.value,
+        # A brief in support, docketed separately from the motion it supports.
+        # The corpus already holds this shape: where the motion and its
+        # supporting brief sit on two entries, the case carries two
+        # ``motion_to_dismiss_memorandum`` documents, and the byte-role
+        # validator whose verdicts this mint consumes already normalises the
+        # receipt spelling ``motion_memorandum`` onto that same corpus role.
+        # Mapping it anywhere else would drop the document from the model
+        # packet: only the complaint family, the notice, and the three brief
+        # roles mount, and Stage A unitization refuses every other spelling.
+        "motion_memorandum": DocumentRole.MTD_MEMORANDUM.value,
         "motion_to_dismiss_memorandum": DocumentRole.MTD_MEMORANDUM.value,
         "motion_to_dismiss_notice": DocumentRole.MTD_NOTICE.value,
         "opposition": DocumentRole.OPPOSITION.value,
@@ -77,6 +87,16 @@ _RECEIPT_ROLE_TO_DOCUMENT_ROLE: Mapping[str, str] = MappingProxyType(
         "decision_audit_only": DocumentRole.DECISION.value,
     }
 )
+# Receipt roles naming briefing filed in support of the target motion rather
+# than the motion itself.  Both carry the corpus memorandum role, so the packet
+# holds two of them, but only the motion's own entry is the target motion: the
+# corpus records that single entry, and the packet planner reaches the
+# supporting brief on its own by unioning in every memorandum-role entry.  The
+# convergence model draws the same line, listing this spelling under briefing
+# and never under the target-motion roles.  Selecting on the receipt spelling
+# rather than the mapped role is deliberate -- the mapped role cannot tell the
+# two apart, and tranches spell the motion itself several ways.
+_SUPPORTING_BRIEF_RECEIPT_ROLES: frozenset[str] = frozenset({"motion_memorandum"})
 # Only one regime can clear a document's role: a per-document, quote-verified
 # byte-role verdict.  The free tranches' role findings are keyed by finding
 # topic and cite several documents per topic -- a disposition is quoted under
@@ -208,7 +228,8 @@ def mint_verified_owner_adjudicated_replacement(
             raise OwnerAdjudicatedReplacementError(
                 f"replacement document byte count differs: {source_document_id}"
             )
-        role = _mapped_role(_text(row, "document_role"))
+        receipt_role = _text(row, "document_role")
+        role = _mapped_role(receipt_role)
         entry_number = _entry_number(row)
         _require_docket_entry(
             docket_entries_by_number,
@@ -220,13 +241,16 @@ def mint_verified_owner_adjudicated_replacement(
             source_document_id=source_document_id,
             digest=digest,
             byte_count=len(payload),
-            receipt_role=_text(row, "document_role"),
+            receipt_role=receipt_role,
         )
         route = _route(row)
         is_decision = role == DocumentRole.DECISION.value
         if is_decision:
             decision_entry_numbers.append(entry_number)
-        if role in {DocumentRole.MTD_MEMORANDUM.value, DocumentRole.MTD_NOTICE.value}:
+        if (
+            role in {DocumentRole.MTD_MEMORANDUM.value, DocumentRole.MTD_NOTICE.value}
+            and receipt_role not in _SUPPORTING_BRIEF_RECEIPT_ROLES
+        ):
             target_motion_entry_numbers.append(entry_number)
         present_roles.add(_required_role(role))
         if _required_role(role) in _REQUIRED_BASE_ROLES or role == (
@@ -317,9 +341,26 @@ def mint_verified_owner_adjudicated_replacement(
         raise OwnerAdjudicatedReplacementError(
             "owner-adjudicated replacement needs exactly one disposition document"
         )
-    if not target_motion_entry_numbers:
+    # A packet carrying only a brief in support reaches here with the memorandum
+    # role present but no motion behind it, so the required-role check passes and
+    # this one has to refuse.  More than one target motion is refused for the
+    # opposite reason: the corpus counts exactly one per case, and emitting two
+    # would strand the promotion at the readiness gate instead of here.
+    #
+    # The count is over distinct ENTRIES, not documents: one docket entry can
+    # carry a main document and its attachments, which are separate documents
+    # naming one motion.  Deduplicating here rather than only in the refusal is
+    # what keeps that shape from minting a row with a repeated entry, which the
+    # readiness gate counts as two target motions.
+    target_entries = sorted(set(target_motion_entry_numbers))
+    if not target_entries:
         raise OwnerAdjudicatedReplacementError(
             "owner-adjudicated replacement needs a target motion document"
+        )
+    if len(target_entries) > 1:
+        raise OwnerAdjudicatedReplacementError(
+            "owner-adjudicated replacement names more than one target motion: "
+            f"entries {target_entries}"
         )
 
     provenance = _validated_field_provenance(field_provenance)
@@ -333,7 +374,7 @@ def mint_verified_owner_adjudicated_replacement(
         ),
         required_role_count=len(required_roles),
         decision_entry_numbers=sorted(decision_entry_numbers),
-        target_motion_entry_numbers=sorted(target_motion_entry_numbers),
+        target_motion_entry_numbers=target_entries,
     )
     document_tree = {
         f"documents/{candidate_id}/{key}.pdf": value

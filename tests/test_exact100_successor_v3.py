@@ -6,6 +6,9 @@ surface is covered by :mod:`tests.test_exact100_successor_v3_cli`.
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Mapping
+
 import pytest
 from legalforecast.ingestion.exact100_successor_v3.projector import (
     Exact100SuccessorReplacementV3Error,
@@ -16,11 +19,14 @@ from legalforecast.ingestion.exact100_successor_v3.projector import (
     project_exact100_successor_replacement_v3,
 )
 from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
+    _RECEIPT_ROLE_TO_DOCUMENT_ROLE,
+    _SUPPORTING_BRIEF_RECEIPT_ROLES,
     OwnerAdjudicatedReplacementError,
     VerifiedOwnerAdjudicatedReplacement,
     mint_verified_owner_adjudicated_replacement,
     require_verified_owner_adjudicated_replacement,
 )
+from legalforecast.unitization.construct_units import StageADocumentRole
 from tests.exact100_successor_v3_fixtures import (
     _ROLES,
     _base,
@@ -31,6 +37,19 @@ from tests.exact100_successor_v3_fixtures import (
     _replacement_inputs,
     _sha,
 )
+
+# Receipt spellings that name the target motion itself. Held here rather than in
+# the module because the point is to pin the map's motion family against silent
+# growth: a new spelling has to be classified in one set or the other, and this
+# copy is what makes an unclassified addition fail a test instead of defaulting
+# to "target motion".
+_TARGET_MOTION_SPELLINGS = {
+    "target_motion",
+    "target_motion_opening_brief",
+    "opening_memorandum",
+    "motion_to_dismiss_memorandum",
+    "motion_to_dismiss_notice",
+}
 
 # --------------------------------------------------------------------------
 # Replacement evidence
@@ -426,6 +445,166 @@ def test_a_verdict_labelled_differently_but_meaning_the_same_role_is_accepted() 
     replacement = mint_verified_owner_adjudicated_replacement(**inputs)
 
     assert replacement.candidate_id == "new1"
+
+
+def test_a_separately_docketed_brief_in_support_mints_as_briefing() -> None:
+    """A brief in support on its own entry is briefing, not an unmapped label.
+
+    Both halves of the split carry the corpus memorandum role, so the packet
+    holds two.  The mapped role is asserted rather than mere acceptance: Stage A
+    refuses every other spelling and the model packet mounts only the complaint
+    family, the notice and the brief roles, so a mapping that satisfied this
+    module alone would drop the document out of the prompt.
+    """
+
+    roles = (*_ROLES[:2], ("", "motion_memorandum", 6), *_ROLES[2:])
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+    memorandum = StageADocumentRole.MTD_MEMORANDUM.value
+
+    documents = mint_verified_owner_adjudicated_replacement(**inputs).selection_row[
+        "documents"
+    ]
+
+    supporting = next(
+        item for item in documents if item["source_document_id"].endswith("6")
+    )
+    assert supporting["document_role"] == memorandum
+    assert supporting["model_visible"] is True
+    assert supporting["contains_target_outcome"] is False
+    assert [document["document_role"] for document in documents].count(memorandum) == 2
+    assert _RECEIPT_ROLE_TO_DOCUMENT_ROLE["motion_memorandum"] == memorandum
+
+
+def test_a_brief_in_support_is_not_counted_as_the_target_motion() -> None:
+    """The corpus records the motion's own entry, never the brief's as well.
+
+    Selecting on the receipt spelling is what makes this possible: both halves
+    of the split share one corpus role, so the mapped role cannot tell them
+    apart, and a second entry here would strand the promotion at the readiness
+    gate, which counts exactly one target motion per case.
+    """
+
+    roles = (*_ROLES[:2], ("", "motion_memorandum", 6), *_ROLES[2:])
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+
+    replacement = mint_verified_owner_adjudicated_replacement(**inputs)
+
+    assert replacement.selection_row["target_motion_entry_numbers"] == [2]
+
+
+def test_a_packet_holding_only_a_brief_in_support_refuses() -> None:
+    """The brief satisfies the required roles, so the motion check must refuse."""
+
+    motion, *rest = _ROLES[1:]
+    roles = (_ROLES[0], ("", "motion_memorandum", motion[2]), *rest)
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError, match="needs a target motion document"
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+def test_a_packet_naming_two_target_motions_refuses() -> None:
+    """Two motions is a packet-construction error, not a shape to emit."""
+
+    roles = (*_ROLES[:2], ("", "motion_to_dismiss_notice", 6), *_ROLES[2:])
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError, match="more than one target motion"
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+def _unclassified_motion_spellings(mapping: Mapping[str, str]) -> set[str]:
+    """Receipt spellings that map to a motion role without being classified.
+
+    An unclassified spelling counts as the target motion by default, so this
+    returning anything is the silent hazard, not a style complaint.
+    """
+
+    motion_roles = {
+        StageADocumentRole.MTD_MEMORANDUM.value,
+        StageADocumentRole.MTD_NOTICE.value,
+    }
+    return {
+        receipt
+        for receipt, role in mapping.items()
+        if role in motion_roles
+        and receipt not in _TARGET_MOTION_SPELLINGS | _SUPPORTING_BRIEF_RECEIPT_ROLES
+    }
+
+
+def test_every_motion_family_receipt_spelling_is_classified() -> None:
+    """Map growth must force a target-motion / supporting-brief decision."""
+
+    motion_roles = {
+        StageADocumentRole.MTD_MEMORANDUM.value,
+        StageADocumentRole.MTD_NOTICE.value,
+    }
+    mtd_spellings = {
+        receipt
+        for receipt, role in _RECEIPT_ROLE_TO_DOCUMENT_ROLE.items()
+        if role in motion_roles
+    }
+
+    assert mtd_spellings == _TARGET_MOTION_SPELLINGS | _SUPPORTING_BRIEF_RECEIPT_ROLES
+    assert not _TARGET_MOTION_SPELLINGS & _SUPPORTING_BRIEF_RECEIPT_ROLES
+    assert _unclassified_motion_spellings(_RECEIPT_ROLE_TO_DOCUMENT_ROLE) == set()
+
+
+def test_the_classification_fence_trips_on_an_unclassified_motion_spelling() -> None:
+    """The fence has to fail on map growth, or it is not a fence.
+
+    Simulates a later tranche adding a motion-family spelling and leaving it
+    unclassified, which is the shape that would otherwise mint a brief-only
+    packet with the brief silently named as the target motion.
+    """
+
+    grown = {
+        **_RECEIPT_ROLE_TO_DOCUMENT_ROLE,
+        "brief_in_support": StageADocumentRole.MTD_MEMORANDUM.value,
+    }
+
+    assert _unclassified_motion_spellings(grown) == {"brief_in_support"}
+
+
+def test_two_documents_on_one_entry_name_one_target_motion() -> None:
+    """One docket entry can carry a main document and its attachments.
+
+    Those are separate documents naming a single motion, so the packet is
+    counted by distinct entry rather than by document -- and the emitted row
+    carries that entry once, because a repeated entry reads downstream as two
+    target motions.
+    """
+
+    roles = (*_ROLES[:2], ("", "target_motion_opening_brief", 2), *_ROLES[2:])
+    inputs = _replacement_inputs("new1", "case000", roles=roles)
+    inputs["documents"][2]["source_document_id"] = "new1-doc-2b"
+    inputs["document_bytes_by_id"]["new1-doc-2b"] = b"%PDF-1.7 synthetic attachment\n"
+    payload = inputs["document_bytes_by_id"]["new1-doc-2b"]
+    digest = hashlib.sha256(payload).hexdigest()
+    inputs["documents"][2]["sha256"] = digest
+    inputs["documents"][2]["byte_count"] = len(payload)
+    inputs["byte_role_validation_by_id"]["new1-doc-2b"] = {
+        "encrypted": False,
+        "pdf_byte_count": len(payload),
+        "pdf_sha256": digest,
+        "requested_role": "target_motion_opening_brief",
+        "role_verdict": "match",
+        "source_document_id": "new1-doc-2b",
+        "strict_parse": "pass",
+        "structural_defects": [],
+        "validation_class": "document_repair_byte_role_verdict",
+    }
+    inputs["docket_entries_by_number"][2]["recap_documents"].append(
+        {"id": "new1-doc-2b"}
+    )
+
+    replacement = mint_verified_owner_adjudicated_replacement(**inputs)
+
+    assert replacement.selection_row["target_motion_entry_numbers"] == [2]
 
 
 def test_purchased_documents_are_not_counted_as_free() -> None:
