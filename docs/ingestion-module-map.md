@@ -211,6 +211,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`docket_markdown.py`](../legalforecast/ingestion/docket_markdown.py) | Controlled docket packet and audit Markdown. |
 | [`docket_sync.py`](../legalforecast/ingestion/docket_sync.py) | Docket and filing retrieval normalization. |
 | [`embedded_text_layer_repair.py`](../legalforecast/ingestion/embedded_text_layer_repair.py) | Page-scoped recovery of converter-dropped pages from the PDF's own embedded text layer. |
+| [`external_billing_register.py`](../legalforecast/ingestion/external_billing_register.py) | Owner-ratified enumeration of documents billed outside the canonical purchase ledger, widening recorded purchase authority without touching the ledger or its schema. |
 | [`fallback_retrieval.py`](../legalforecast/ingestion/fallback_retrieval.py) | Supplemental public-source retrieval diagnostics. |
 | [`free_document_downloader.py`](../legalforecast/ingestion/free_document_downloader.py) | Fixture-safe free CourtListener/RECAP downloads. |
 | [`live_parse_record_provenance.py`](../legalforecast/ingestion/live_parse_record_provenance.py) | The two conversion provenances a reused parse record may carry. |
