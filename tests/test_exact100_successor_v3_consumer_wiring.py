@@ -242,3 +242,54 @@ def test_a_conflicting_byte_in_the_closure_is_refused(
             )
     finally:
         cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.reset(token)
+
+
+def test_a_conflicting_document_byte_in_the_closure_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A disagreement on a promoted DOCUMENT must raise, not just on a surface file.
+
+    Seeding a surface file proves the branch joins the closure at all, but it
+    passes even with the documents left out of the snapshot set -- so it cannot
+    tell whether the promoted evidence is subject to the coherence check. This
+    seeds the document path instead, which is the assertion the surface-file
+    version cannot make.
+    """
+
+    root = _v3_root(tmp_path)
+    monkeypatch.setattr(cli, "authenticate_exact100_successor_v3_root", _spy([]))
+    document = root / "owner-adjudicated-source/documents/case001/doc-1.pdf"
+    closure = {str(document.absolute()): b"%PDF-1.7 a different reading\n"}
+    token = cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.set(closure)
+    try:
+        with pytest.raises(cli.CommandError, match="closure conflicts"):
+            cli._verify_completed_target_cohort_projection_in_operation(
+                root, operation=_operation()
+            )
+    finally:
+        cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.reset(token)
+
+
+def test_a_v3_root_declares_no_required_absences(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nothing has to be missing for a v3 root, so the absence set is empty.
+
+    An absence records a negative fact a projection depends on. A v3 root's
+    contract is entirely positive -- every path its card commits must exist and
+    match -- so an empty set here is the measured answer rather than a gap.
+    """
+
+    root = _v3_root(tmp_path)
+    monkeypatch.setattr(cli, "authenticate_exact100_successor_v3_root", _spy([]))
+    absences: set[str] = set()
+    token = cli._VERIFIED_PROJECTION_ABSENCE_COLLECTOR.set(absences)
+    try:
+        result = cli._verify_completed_target_cohort_projection_in_operation(
+            root, operation=_operation()
+        )
+    finally:
+        cli._VERIFIED_PROJECTION_ABSENCE_COLLECTOR.reset(token)
+
+    assert absences == set()
+    assert "verified_artifact_absences" not in result
