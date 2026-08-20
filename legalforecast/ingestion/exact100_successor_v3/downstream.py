@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -61,9 +62,28 @@ OUTPUT_NAMES: Mapping[str, str] = {
 
 _PHASES = frozenset({"free", "purchased"})
 
-#: Called with the root under verification; must raise if the root does not
-#: replay to the run that claims to have produced it.
-Authenticate = Callable[[Path], Any]
+
+@dataclass(frozen=True, slots=True)
+class AuthenticatedV3Root:
+    """Receipt that a specific root was replayed, returned by the hook.
+
+    The hook returns a receipt rather than ``None`` so that "did not
+    authenticate" is a state this module can detect.  An unconstrained hook
+    accepts a no-op happily -- it type-checks, the tests pass, and publication
+    proceeds on a root nothing replayed -- and the receipt is what closes that.
+    Naming the root makes a receipt non-transferable between roots.
+    """
+
+    root: Path
+
+
+#: Called with the root under verification; must replay it and return an
+#: :class:`AuthenticatedV3Root` naming that same root, or raise.  Typed as
+#: returning ``object`` deliberately: the hook is injected across a trust
+#: boundary by callers this module does not type-check, so the return value is
+#: narrowed at runtime rather than assumed.  Annotating the contract instead
+#: would make that check look redundant and invite its removal.
+Authenticate = Callable[[Path], object]
 
 
 class Exact100SuccessorV3DownstreamError(ValueError):
@@ -105,7 +125,15 @@ def verify_exact100_successor_replacement_v3_projection(
 
     # Authentication first: nothing below should read a root that does not
     # replay, and no code path here can reach publication without this call.
-    authenticate(target_root)
+    # The receipt has to name this root -- a hook that returns nothing, or a
+    # receipt for some other root, has not authenticated the one being read.
+    receipt = authenticate(target_root)
+    if not isinstance(receipt, AuthenticatedV3Root) or (
+        receipt.root.resolve() != target_root.resolve()
+    ):
+        raise Exact100SuccessorV3DownstreamError(
+            f"v3 cohort root did not authenticate: {target_root}"
+        )
 
     commitments = _mapping(card.get("output_commitments"), "v3 output commitments")
     payloads = {
