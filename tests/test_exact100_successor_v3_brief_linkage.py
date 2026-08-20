@@ -64,7 +64,7 @@ def test_an_ambiguous_spelling_with_linkage_is_a_supporting_brief() -> None:
     """Declared linkage is what makes the document briefing rather than a motion."""
 
     inputs = _inputs_with_brief("opening_memorandum")
-    _brief_validation(inputs)["linked_motion_entries"] = [_MOTION_ENTRY]
+    _linked(inputs)
 
     replacement = mint_verified_owner_adjudicated_replacement(**inputs)
 
@@ -83,7 +83,7 @@ def test_linkage_naming_another_entry_refuses() -> None:
     """A brief that supports some other motion is not this packet's briefing."""
 
     inputs = _inputs_with_brief("opening_memorandum")
-    _brief_validation(inputs)["linked_motion_entries"] = [_MOTION_ENTRY + 40]
+    _linked(inputs, linked_motion_entries=[_MOTION_ENTRY + 40])
 
     with pytest.raises(
         OwnerAdjudicatedReplacementError, match="does not name the target motion"
@@ -95,10 +95,7 @@ def test_linkage_naming_the_motion_and_another_entry_refuses() -> None:
     """Naming the target motion is necessary but not sufficient: it must be exact."""
 
     inputs = _inputs_with_brief("opening_memorandum")
-    _brief_validation(inputs)["linked_motion_entries"] = [
-        _MOTION_ENTRY,
-        _MOTION_ENTRY + 40,
-    ]
+    _linked(inputs, linked_motion_entries=[_MOTION_ENTRY, _MOTION_ENTRY + 40])
 
     with pytest.raises(
         OwnerAdjudicatedReplacementError, match="does not name the target motion"
@@ -146,9 +143,100 @@ def test_an_unconditional_brief_with_linkage_is_still_checked() -> None:
     """Recording linkage on the unconditional spelling still has to be honest."""
 
     inputs = _inputs_with_brief("motion_memorandum")
-    _brief_validation(inputs)["linked_motion_entries"] = [_MOTION_ENTRY + 40]
+    _linked(inputs, linked_motion_entries=[_MOTION_ENTRY + 40])
 
     with pytest.raises(
         OwnerAdjudicatedReplacementError, match="does not name the target motion"
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+def _linked(inputs: dict[str, object], **overrides: object) -> dict[str, object]:
+    """Attach a complete linkage claim, then apply the overrides under test."""
+
+    record = _brief_validation(inputs)
+    record["linked_motion_entries"] = [_MOTION_ENTRY]
+    record["linkage_basis"] = "explicit_entry_reference"
+    record["linkage_authority"] = "validator_asserted_docket_reading_not_byte_derived"
+    record["linkage_schema_status"] = "coordinated"
+    record.update(overrides)
+    return record
+
+
+def test_a_complete_linkage_claim_is_accepted() -> None:
+    inputs = _inputs_with_brief("opening_memorandum")
+    _linked(inputs)
+
+    replacement = mint_verified_owner_adjudicated_replacement(**inputs)
+
+    assert replacement.selection_row["target_motion_entry_numbers"] == [_MOTION_ENTRY]
+
+
+def test_a_linkage_claim_pending_coordination_refuses() -> None:
+    """A field that says the schema is still being agreed is not agreement.
+
+    Consuming it would make the status decorative, and would let an artifact
+    written against a guess at this parser's shape pass as though coordinated.
+    """
+
+    inputs = _inputs_with_brief("opening_memorandum")
+    _linked(inputs, linkage_schema_status="coordinated_pending_eani")
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError,
+        match="linkage schema status is not recognised",
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+def test_a_linkage_claim_without_its_authority_disclosure_refuses() -> None:
+    """Linkage is a docket reading, and the record has to say so.
+
+    Every other fact this validator consumes is derived from the bytes it
+    hashes.  This one is not, and a claim that omits that distinction reads as
+    though the digest vouched for it.
+    """
+
+    inputs = _inputs_with_brief("opening_memorandum")
+    _linked(inputs).pop("linkage_authority")
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError, match="linkage authority is not disclosed"
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+def test_a_linkage_claim_asserting_byte_derived_authority_refuses() -> None:
+    inputs = _inputs_with_brief("opening_memorandum")
+    _linked(inputs, linkage_authority="byte_derived")
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError, match="linkage authority is not disclosed"
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+@pytest.mark.parametrize("basis", ["", "vibes", None])
+def test_a_linkage_claim_without_a_recognised_basis_refuses(basis: object) -> None:
+    inputs = _inputs_with_brief("opening_memorandum")
+    _linked(inputs, linkage_basis=basis)
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError, match="linkage basis is not recognised"
+    ):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+def test_the_disclosure_fields_are_only_required_where_linkage_is_claimed() -> None:
+    """Silence stays silence: no claim means no disclosure obligation.
+
+    Every root minted before linkage existed carries none of these fields, and
+    requiring them of a record that claims nothing would strand those roots.
+    """
+
+    inputs = _inputs_with_brief("opening_memorandum")
+
+    with pytest.raises(
+        OwnerAdjudicatedReplacementError, match="more than one target motion"
     ):
         mint_verified_owner_adjudicated_replacement(**inputs)

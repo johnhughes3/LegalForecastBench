@@ -5418,8 +5418,8 @@
         "largest_symbol": "mint_verified_owner_adjudicated_replacement",
         "largest_symbol_lines": 287,
         "layer": "application",
-        "line_count": 854,
-        "nonblank_line_count": 773,
+        "line_count": 880,
+        "nonblank_line_count": 799,
         "top_level_definition_count": 24
       },
       "legalforecast/ingestion/exact100_successor_v3/replacement_evidence_cli.py": {
