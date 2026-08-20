@@ -46000,6 +46000,13 @@ def _verify_exact100_successor_v3_downstream_projection(
     operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
         result=copy.deepcopy(result),
         snapshots=tuple(sorted(verified_bytes.items())),
+        # No path has to be ABSENT for a v3 root, so there is nothing to carry.
+        # An absence records a negative fact a projection depends on, and the
+        # only two producers repo-wide are the supporting-document successor's
+        # recovery and auxiliary-provenance plans, which a v3 root neither
+        # carries nor reaches.  A v3 root's contract is entirely positive: every
+        # path its card commits must exist and match.  Empty is the answer, not
+        # an omission.
         absent_paths=(),
     )
     return result
