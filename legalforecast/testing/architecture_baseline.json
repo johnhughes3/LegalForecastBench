@@ -5390,20 +5390,20 @@
       },
       "legalforecast/ingestion/exact100_successor_v3/projector.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "ingestion",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "LegalForecastBench-l8qv.15",
         "fan_in": 1,
         "fan_out": 4,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "project_exact100_successor_replacement_v3",
-        "largest_symbol_lines": 203,
+        "largest_symbol_lines": 218,
         "layer": "application",
-        "line_count": 946,
-        "nonblank_line_count": 837,
-        "top_level_definition_count": 32
+        "line_count": 1015,
+        "nonblank_line_count": 903,
+        "top_level_definition_count": 33
       },
       "legalforecast/ingestion/exact100_successor_v3/replacement_evidence.py": {
         "cycle_id": "",
@@ -5416,11 +5416,11 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "mint_verified_owner_adjudicated_replacement",
-        "largest_symbol_lines": 287,
+        "largest_symbol_lines": 291,
         "layer": "application",
-        "line_count": 880,
-        "nonblank_line_count": 799,
-        "top_level_definition_count": 24
+        "line_count": 945,
+        "nonblank_line_count": 860,
+        "top_level_definition_count": 25
       },
       "legalforecast/ingestion/exact100_successor_v3/replacement_evidence_cli.py": {
         "cycle_id": "",
