@@ -42,6 +42,9 @@ from legalforecast.contracts import (
     EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.exact100_successor_v3.downstream import (
+    AuthenticatedV3Root,
+)
 from legalforecast.ingestion.exact100_successor_v3.projector import (
     STAGE,
     STATE_SCHEMA_VERSION,
@@ -371,6 +374,17 @@ def _project(
             key = f"{_REPLACEMENT_DOCUMENT_ROOT}/{relative.removeprefix('documents/')}"
             documents[key] = payload
     return result, documents, anchor
+
+
+def authenticate_exact100_successor_v3_root(root: Path) -> AuthenticatedV3Root:
+    """Replay a v3 cohort root to the sealed head and receipt it.
+
+    The public entry downstream consumers bind, so the only authenticator is a
+    real replay rather than anything merely receipt-shaped.
+    """
+
+    _verified_predecessor(root)
+    return AuthenticatedV3Root(root=root)
 
 
 def _verified_predecessor(

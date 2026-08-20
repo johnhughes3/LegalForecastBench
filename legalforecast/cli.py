@@ -521,6 +521,13 @@ from legalforecast.ingestion.exact100_successor_semantic_repair import (
     VerifiedExact100SuccessorSemanticRepairs,
     _mint_verified_exact100_successor_semantic_repairs,  # pyright: ignore[reportPrivateUsage]
 )
+from legalforecast.ingestion.exact100_successor_v3 import downstream as v3_downstream
+from legalforecast.ingestion.exact100_successor_v3.cli import (
+    authenticate_exact100_successor_v3_root,
+)
+from legalforecast.ingestion.exact100_successor_v3.downstream import (
+    is_exact100_successor_v3_root,
+)
 from legalforecast.ingestion.exact100_successor_wider_rank import (
     VerifiedExact100SuccessorWiderRank,
     _mint_verified_exact100_successor_wider_rank,  # pyright: ignore[reportPrivateUsage]
@@ -45942,6 +45949,55 @@ def _stable_source_root_candidates(target_root: Path) -> tuple[Path, ...]:
     return tuple(unique)
 
 
+def _verify_exact100_successor_v3_downstream_projection(
+    target_root: Path, *, operation: _VerifiedProjectionOperation
+) -> dict[str, object]:
+    """Read a v3 cohort root through its own downstream verifier.
+
+    Authentication is the replay that recurses to the sealed cohort head, which
+    is expensive, so the verified result is memoized per root and per run-card
+    digest exactly as the supporting-document branch memoizes its own -- a
+    different card for the same path is a different key, so a re-minted root is
+    never answered from a stale entry.
+    """
+
+    card_path = target_root / v3_downstream.OUTPUT_NAMES["state"]
+    card_bytes = _read_singly_linked_regular_input(
+        card_path, label="exact-100 successor v3 state run card"
+    )
+    cache_key = (
+        v3_downstream.STATE_SCHEMA_VERSION,
+        str(target_root.resolve()),
+        _bytes_sha256(card_bytes),
+    )
+    cached = operation.cache.get(cache_key)
+    if cached is not None:
+        _require_snapshot_unchanged(
+            {Path(path): payload for path, payload in cached.snapshots},
+            label="cached exact-100 successor v3 projection artifact",
+        )
+        return copy.deepcopy(cached.result)
+
+    result = v3_downstream.verify_exact100_successor_replacement_v3_projection(
+        target_root, authenticate=authenticate_exact100_successor_v3_root
+    )
+    snapshots = {
+        Path(path): payload
+        for path, payload in cast(
+            Mapping[str, bytes], result["verified_artifact_bytes"]
+        ).items()
+    }
+    _require_snapshot_unchanged(
+        snapshots, label="exact-100 successor v3 projection artifact"
+    )
+    operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
+        result=copy.deepcopy(result),
+        snapshots=tuple(sorted((str(k), v) for k, v in snapshots.items())),
+        absent_paths=(),
+    )
+    return result
+
+
 def _verify_completed_target_cohort_projection_in_operation(
     target_root: Path,
     *,
@@ -46090,6 +46146,15 @@ def _verify_completed_target_cohort_projection_in_operation(
                 absent_paths=absent_paths,
             )
         return result
+
+    # A v3 cohort root has no target-cohort run card at all, so the read below
+    # fails on the missing file before any schema dispatch is reached.  The
+    # probe is therefore file existence, mirroring the supporting-document
+    # branch above, not a schema test on a card that does not exist.
+    if is_exact100_successor_v3_root(target_root):
+        return _verify_exact100_successor_v3_downstream_projection(
+            target_root, operation=operation
+        )
 
     run_card_path = target_root / "run-cards/project-target-cohort.json"
     run_card_bytes = _read_singly_linked_regular_input(
