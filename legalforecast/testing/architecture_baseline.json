@@ -3849,12 +3849,13 @@
       "examples/adapters/codex-cli": 1,
       "examples/adapters/openai-responses": 1,
       "legalforecast": 9,
-      "legalforecast/cli_commands": 5,
+      "legalforecast/cli_commands": 6,
       "legalforecast/config": 6,
       "legalforecast/config/cycles": 3,
       "legalforecast/contracts": 4,
       "legalforecast/document_need": 10,
       "legalforecast/evals": 20,
+      "legalforecast/evals/corpus_manifest": 6,
       "legalforecast/extraction": 4,
       "legalforecast/ingestion": 171,
       "legalforecast/ingestion/attachment_page": 7,
@@ -3873,7 +3874,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 465,
+      "tests": 466,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -4010,7 +4011,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-cwdv",
         "fan_in": 1,
-        "fan_out": 6,
+        "fan_out": 7,
         "flags": [
           "cycle"
         ],
@@ -4018,8 +4019,8 @@
         "largest_symbol": "run",
         "largest_symbol_lines": 57,
         "layer": "adapter",
-        "line_count": 112,
-        "nonblank_line_count": 95,
+        "line_count": 116,
+        "nonblank_line_count": 99,
         "top_level_definition_count": 3
       },
       "legalforecast/config/registry.py": {
@@ -4129,7 +4130,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 13,
+        "fan_in": 14,
         "fan_out": 3,
         "flags": [
           "watch"
@@ -5980,7 +5981,7 @@
         "cycle_id": "",
         "disposition_kind": "no-move",
         "disposition_owner": "legalforecast/ingestion/provenance.py",
-        "fan_in": 32,
+        "fan_in": 36,
         "fan_out": 2,
         "flags": [
           "authenticated-path"
@@ -10356,6 +10357,23 @@
         "line_count": 1557,
         "nonblank_line_count": 1408,
         "top_level_definition_count": 41
+      },
+      "tests/test_owner_signed_corpus_manifest.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_the_packet_builder_still_excludes_a_forcibly_mounted_decision",
+        "largest_symbol_lines": 78,
+        "layer": "test",
+        "line_count": 939,
+        "nonblank_line_count": 763,
+        "top_level_definition_count": 48
       },
       "tests/test_pacer_gap_bridge_cli.py": {
         "cycle_id": "",

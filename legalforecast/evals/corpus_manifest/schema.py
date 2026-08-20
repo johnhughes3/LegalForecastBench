@@ -22,6 +22,19 @@ from legalforecast._hashing import is_lowercase_sha256
 from legalforecast._json_io import read_json_object
 from legalforecast.contracts.commitments import MANIFEST_RAW_SHA256_V1
 from legalforecast.contracts.schemas import OWNER_SIGNED_CORPUS_MANIFEST_V1
+from legalforecast.evals.corpus_manifest.coercion import (
+    CorpusManifestError,
+    document_role,
+    mapping,
+    optional_int,
+    optional_int_sequence,
+    optional_str,
+    optional_str_sequence,
+    require_digest,
+    require_non_empty,
+    required_bool,
+    required_str,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 
 MANIFEST_DIGEST_FIELD: Final[str] = "manifest_sha256"
@@ -78,10 +91,6 @@ REQUIRED_TARGET_MOTION_ROLES: Final[frozenset[DocumentRole]] = frozenset(
 )
 
 
-class CorpusManifestError(ValueError):
-    """Raised when a corpus manifest is malformed, unbound, or unsafe."""
-
-
 def _require_total_role_partition() -> None:
     """Fail closed unless the two role halves partition ``DocumentRole``."""
 
@@ -122,10 +131,10 @@ class ManifestDocument:
     validation_basis: str | None = None
 
     def __post_init__(self) -> None:
-        _require_non_empty(self.source_document_id, "source_document_id")
-        _require_non_empty(self.pdf_path, "pdf_path")
-        _require_non_empty(self.source_url, "source_url")
-        _require_digest(self.pdf_sha256, "pdf_sha256")
+        require_non_empty(self.source_document_id, "source_document_id")
+        require_non_empty(self.pdf_path, "pdf_path")
+        require_non_empty(self.source_url, "source_url")
+        require_digest(self.pdf_sha256, "pdf_sha256")
         if self.model_visible:
             if self.document_role not in MODEL_VISIBLE_DOCUMENT_ROLES:
                 raise CorpusManifestError(
@@ -138,7 +147,7 @@ class ManifestDocument:
                     "markdown_path and markdown_sha256"
                 )
         if self.markdown_sha256 is not None:
-            _require_digest(self.markdown_sha256, "markdown_sha256")
+            require_digest(self.markdown_sha256, "markdown_sha256")
         if self.docket_entry_number is not None and self.docket_entry_number <= 0:
             raise CorpusManifestError("docket_entry_number must be positive")
 
@@ -164,17 +173,17 @@ class ManifestDocument:
         """Rebuild one document row, rejecting unknown roles."""
 
         return cls(
-            source_document_id=_required_str(record, "source_document_id"),
-            document_role=_document_role(record),
-            model_visible=_required_bool(record, "model_visible"),
-            pdf_path=_required_str(record, "pdf_path"),
-            pdf_sha256=_required_str(record, "pdf_sha256"),
-            source_url=_required_str(record, "source_url"),
-            markdown_path=_optional_str(record, "markdown_path"),
-            markdown_sha256=_optional_str(record, "markdown_sha256"),
-            docket_entry_number=_optional_int(record, "docket_entry_number"),
-            byte_role_verdict=_optional_str(record, "byte_role_verdict"),
-            validation_basis=_optional_str(record, "validation_basis"),
+            source_document_id=required_str(record, "source_document_id"),
+            document_role=document_role(record),
+            model_visible=required_bool(record, "model_visible"),
+            pdf_path=required_str(record, "pdf_path"),
+            pdf_sha256=required_str(record, "pdf_sha256"),
+            source_url=required_str(record, "source_url"),
+            markdown_path=optional_str(record, "markdown_path"),
+            markdown_sha256=optional_str(record, "markdown_sha256"),
+            docket_entry_number=optional_int(record, "docket_entry_number"),
+            byte_role_verdict=optional_str(record, "byte_role_verdict"),
+            validation_basis=optional_str(record, "validation_basis"),
         )
 
 
@@ -196,10 +205,10 @@ class ManifestCase:
     unresolved_audit_only_document_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        _require_non_empty(self.candidate_id, "candidate_id")
-        _require_non_empty(self.case_id, "case_id")
-        _require_non_empty(self.court, "court")
-        _require_non_empty(self.docket_number, "docket_number")
+        require_non_empty(self.candidate_id, "candidate_id")
+        require_non_empty(self.case_id, "case_id")
+        require_non_empty(self.court, "court")
+        require_non_empty(self.docket_number, "docket_number")
         if not self.documents:
             raise CorpusManifestError(f"{self.candidate_id}: no documents")
         seen: set[str] = set()
@@ -244,19 +253,19 @@ class ManifestCase:
             raise CorpusManifestError("case documents must be a list")
         documents = cast("Sequence[object]", raw_documents)
         return cls(
-            candidate_id=_required_str(record, "candidate_id"),
-            case_id=_required_str(record, "case_id"),
-            court=_required_str(record, "court"),
-            docket_number=_required_str(record, "docket_number"),
+            candidate_id=required_str(record, "candidate_id"),
+            case_id=required_str(record, "case_id"),
+            court=required_str(record, "court"),
+            docket_number=required_str(record, "docket_number"),
             documents=tuple(
-                ManifestDocument.from_record(_mapping(document))
+                ManifestDocument.from_record(mapping(document))
                 for document in documents
             ),
-            decision_date=_optional_str(record, "decision_date"),
+            decision_date=optional_str(record, "decision_date"),
             target_motion_entry_numbers=tuple(
-                _optional_int_sequence(record, "target_motion_entry_numbers")
+                optional_int_sequence(record, "target_motion_entry_numbers")
             ),
-            unresolved_audit_only_document_ids=_optional_str_sequence(
+            unresolved_audit_only_document_ids=optional_str_sequence(
                 record, "unresolved_audit_only_document_ids"
             ),
         )
@@ -270,8 +279,8 @@ class BoundSource:
     sha256: str
 
     def __post_init__(self) -> None:
-        _require_non_empty(self.path, "path")
-        _require_digest(self.sha256, "sha256")
+        require_non_empty(self.path, "path")
+        require_digest(self.sha256, "sha256")
 
     def to_record(self) -> dict[str, Any]:
         """Return the flat record for this bound source."""
@@ -283,8 +292,8 @@ class BoundSource:
         """Rebuild one bound source, requiring both halves."""
 
         return cls(
-            path=_required_str(record, "path"),
-            sha256=_required_str(record, "sha256"),
+            path=required_str(record, "path"),
+            sha256=required_str(record, "sha256"),
         )
 
 
@@ -299,8 +308,8 @@ class CorpusManifest:
     cases: tuple[ManifestCase, ...]
 
     def __post_init__(self) -> None:
-        _require_non_empty(self.cycle_id, "cycle_id")
-        _require_non_empty(self.generated_at, "generated_at")
+        require_non_empty(self.cycle_id, "cycle_id")
+        require_non_empty(self.generated_at, "generated_at")
         if not self.cases:
             raise CorpusManifestError("manifest must contain at least one case")
         seen: set[str] = set()
@@ -337,7 +346,7 @@ class CorpusManifest:
     def from_record(cls, record: Mapping[str, Any]) -> CorpusManifest:
         """Rebuild a manifest from its record, rejecting a wrong schema id."""
 
-        schema_version = _required_str(record, "schema_version")
+        schema_version = required_str(record, "schema_version")
         if schema_version != str(OWNER_SIGNED_CORPUS_MANIFEST_V1):
             raise CorpusManifestError(
                 f"unexpected manifest schema_version: {schema_version}"
@@ -347,15 +356,15 @@ class CorpusManifest:
             raise CorpusManifestError("manifest cases must be a list")
         cases = cast("Sequence[object]", raw_cases)
         return cls(
-            cycle_id=_required_str(record, "cycle_id"),
-            generated_at=_required_str(record, "generated_at"),
+            cycle_id=required_str(record, "cycle_id"),
+            generated_at=required_str(record, "generated_at"),
             selection_source=BoundSource.from_record(
-                _mapping(record.get("selection_source"))
+                mapping(record.get("selection_source"))
             ),
             prediction_units_source=BoundSource.from_record(
-                _mapping(record.get("prediction_units_source"))
+                mapping(record.get("prediction_units_source"))
             ),
-            cases=tuple(ManifestCase.from_record(_mapping(case)) for case in cases),
+            cases=tuple(ManifestCase.from_record(mapping(case)) for case in cases),
         )
 
 
@@ -410,95 +419,3 @@ def load_signed_manifest(path: Path, *, expected_digest: str) -> CorpusManifest:
             "operator; the signed manifest and the named digest disagree"
         )
     return CorpusManifest.from_record(record)
-
-
-def _document_role(record: Mapping[str, Any]) -> DocumentRole:
-    raw = _required_str(record, "document_role")
-    try:
-        return DocumentRole(raw)
-    except ValueError as exc:
-        raise CorpusManifestError(f"unknown document_role: {raw}") from exc
-
-
-def _mapping(value: object) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        raise CorpusManifestError("expected a JSON object")
-    return cast("Mapping[str, Any]", value)
-
-
-def _required_str(record: Mapping[str, Any], field_name: str) -> str:
-    value = record.get(field_name)
-    if not isinstance(value, str) or not value.strip():
-        raise CorpusManifestError(f"{field_name} is required")
-    return value
-
-
-def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
-    value = record.get(field_name)
-    if value is None:
-        return None
-    if not isinstance(value, str) or not value.strip():
-        raise CorpusManifestError(f"{field_name} must be a non-empty string or null")
-    return value
-
-
-def _required_bool(record: Mapping[str, Any], field_name: str) -> bool:
-    value = record.get(field_name)
-    if not isinstance(value, bool):
-        raise CorpusManifestError(f"{field_name} must be a boolean")
-    return value
-
-
-def _optional_int(record: Mapping[str, Any], field_name: str) -> int | None:
-    value = record.get(field_name)
-    if value is None:
-        return None
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise CorpusManifestError(f"{field_name} must be an integer or null")
-    return value
-
-
-def _optional_int_sequence(
-    record: Mapping[str, Any],
-    field_name: str,
-) -> tuple[int, ...]:
-    value = record.get(field_name)
-    if value is None:
-        return ()
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        raise CorpusManifestError(f"{field_name} must be a list of integers")
-    entries: list[int] = []
-    for item in cast("Sequence[object]", value):
-        if not isinstance(item, int) or isinstance(item, bool):
-            raise CorpusManifestError(f"{field_name} must be a list of integers")
-        entries.append(item)
-    return tuple(entries)
-
-
-def _optional_str_sequence(
-    record: Mapping[str, Any],
-    field_name: str,
-) -> tuple[str, ...]:
-    value = record.get(field_name)
-    if value is None:
-        return ()
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        raise CorpusManifestError(f"{field_name} must be a list of strings")
-    entries: list[str] = []
-    for item in cast("Sequence[object]", value):
-        if not isinstance(item, str) or not item.strip():
-            raise CorpusManifestError(f"{field_name} must be a list of strings")
-        entries.append(item)
-    return tuple(entries)
-
-
-def _require_non_empty(value: str, field_name: str) -> None:
-    if not value.strip():
-        raise CorpusManifestError(f"{field_name} is required")
-
-
-def _require_digest(value: str, field_name: str) -> None:
-    if not is_lowercase_sha256(value):
-        raise CorpusManifestError(
-            f"{field_name} must be 64 lowercase hexadecimal characters"
-        )

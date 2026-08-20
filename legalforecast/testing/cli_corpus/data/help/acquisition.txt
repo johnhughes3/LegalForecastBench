@@ -26,6 +26,12 @@ positional arguments:
     record-replay-authorization
                         Bind the owner's typed approval to one replay
                         descriptor.
+    freeze-corpus-manifest
+                        Freeze the corpus into one owner-signable manifest and
+                        digest.
+    build-manifest-forecast
+                        Build forecast packets and prompts from a signed
+                        corpus manifest.
     plan-attachment-pages
                         Authenticate docket entries whose PACER attachment
                         menu is missing.
