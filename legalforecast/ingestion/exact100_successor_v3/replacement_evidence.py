@@ -97,6 +97,17 @@ _RECEIPT_ROLE_TO_DOCUMENT_ROLE: Mapping[str, str] = MappingProxyType(
 # rather than the mapped role is deliberate -- the mapped role cannot tell the
 # two apart, and tranches spell the motion itself several ways.
 _SUPPORTING_BRIEF_RECEIPT_ROLES: frozenset[str] = frozenset({"motion_memorandum"})
+# Receipt spellings that name EITHER the motion or a brief in support of it,
+# depending on the tranche that produced them.  One tranche's document with this
+# spelling is its case's only motion; another's is the brief supporting a
+# separate ``target_motion`` entry.  The spelling cannot decide, and deciding it
+# wrongly damages evidence in both directions -- reading it as a brief empties
+# the first case's target list, and reading it as a motion gives the second case
+# two motions.  So the authenticated validation record decides: a record naming
+# the entries its document supports is a brief, and a record naming none is the
+# motion.  Absence is the compatible reading on purpose, because every root
+# minted before linkage existed is replayed under this code.
+_AMBIGUOUS_BRIEF_RECEIPT_ROLES: frozenset[str] = frozenset({"opening_memorandum"})
 # Only one regime can clear a document's role: a per-document, quote-verified
 # byte-role verdict.  The free tranches' role findings are keyed by finding
 # topic and cite several documents per topic -- a disposition is quoted under
@@ -200,6 +211,7 @@ def mint_verified_owner_adjudicated_replacement(
     seen: set[str] = set()
     decision_entry_numbers: list[int] = []
     target_motion_entry_numbers: list[int] = []
+    linked_briefs: list[tuple[str, frozenset[int]]] = []
 
     for row in _ordered(documents):
         source_document_id = _text(row, "source_document_id")
@@ -243,13 +255,26 @@ def mint_verified_owner_adjudicated_replacement(
             byte_count=len(payload),
             receipt_role=receipt_role,
         )
+        linked_entries = _supporting_brief_linkage(
+            byte_role_validation_by_id.get(source_document_id),
+            source_document_id=source_document_id,
+        )
+        if linked_entries is not None:
+            linked_briefs.append((source_document_id, linked_entries))
         route = _route(row)
         is_decision = role == DocumentRole.DECISION.value
         if is_decision:
             decision_entry_numbers.append(entry_number)
+        # An unconditional brief spelling is briefing whatever its record says.
+        # An ambiguous one is briefing only where the record declares what it
+        # supports; without that declaration it is the motion itself.
+        is_supporting_brief = receipt_role in _SUPPORTING_BRIEF_RECEIPT_ROLES or (
+            receipt_role in _AMBIGUOUS_BRIEF_RECEIPT_ROLES
+            and linked_entries is not None
+        )
         if (
             role in {DocumentRole.MTD_MEMORANDUM.value, DocumentRole.MTD_NOTICE.value}
-            and receipt_role not in _SUPPORTING_BRIEF_RECEIPT_ROLES
+            and not is_supporting_brief
         ):
             target_motion_entry_numbers.append(entry_number)
         present_roles.add(_required_role(role))
@@ -362,6 +387,17 @@ def mint_verified_owner_adjudicated_replacement(
             "owner-adjudicated replacement names more than one target motion: "
             f"entries {target_entries}"
         )
+    # A brief that declared what it supports has to have declared *this* motion.
+    # The check runs only where a claim was made: silence is what every root
+    # minted before linkage existed carries, and demanding linkage of those
+    # would make them unusable at the first projection that included them.
+    target_entry_set = frozenset(target_entries)
+    for source_document_id, linked in linked_briefs:
+        if linked != target_entry_set:
+            raise OwnerAdjudicatedReplacementError(
+                "supporting brief linkage does not name the target motion: "
+                f"{source_document_id}"
+            )
 
     provenance = _validated_field_provenance(field_provenance)
     commitments = _validated_commitments(source_commitments)
@@ -519,6 +555,36 @@ def _require_owner_disposition(
         raise OwnerAdjudicatedReplacementError(
             "owner disposition does not name the source of its owner text"
         )
+
+
+def _supporting_brief_linkage(
+    record: Mapping[str, Any] | None, *, source_document_id: str
+) -> frozenset[int] | None:
+    """The docket entries a validation record declares its document supports.
+
+    ``None`` means the record made no linkage claim, which is the reading every
+    root minted before linkage existed depends on.  A claim that is present but
+    unreadable refuses instead of degrading to ``None``: degrading would resolve
+    an ambiguous spelling to "target motion" and hand the packet a second motion,
+    which is precisely the confusion this field exists to settle.
+    """
+
+    if record is None:
+        return None
+    raw = record.get("linked_motion_entries")
+    if raw is None:
+        return None
+    entries = (
+        list(cast(Sequence[object], raw))
+        if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes))
+        else None
+    )
+    if not entries or any(type(entry) is not int or entry < 0 for entry in entries):
+        raise OwnerAdjudicatedReplacementError(
+            "supporting brief linkage is not a list of docket entry numbers: "
+            f"{source_document_id}"
+        )
+    return frozenset(cast(list[int], entries))
 
 
 def _require_byte_role_validation(
