@@ -38,6 +38,9 @@ GEMINI_GENERATE_CONTENT_URL_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
 
+# Official OpenAI eval uses Flex processing: Batch-rate tokens, slower replies.
+OPENAI_SERVICE_TIER = "flex"
+OPENAI_FLEX_TIMEOUT_SECONDS = 900.0
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF_SECONDS = 2.0
@@ -233,6 +236,7 @@ def complete_live_prompt(
         raise LiveModelConfigError(
             "live provider harness requires search_disabled=True"
         )
+    timeout_seconds = _effective_timeout_seconds(registry_entry, timeout_seconds)
     estimated_prompt_tokens, prompt_input_token_budget = _validate_prompt_token_budget(
         registry_entry,
         prompt,
@@ -314,6 +318,7 @@ def complete_live_prompt(
             "context_limit": str(registry_entry.context_limit),
             "max_output_tokens": str(registry_entry.max_output_tokens),
             **_sampling_policy_metadata(registry_entry),
+            **_openai_service_tier_metadata(registry_entry),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
             "provider_attempt_count": str(request_count),
@@ -534,6 +539,7 @@ def _openai_request(
         "temperature": entry.temperature,
         "top_p": entry.top_p,
         "max_output_tokens": entry.max_output_tokens,
+        "service_tier": OPENAI_SERVICE_TIER,
         "tools": [],
     }
     return _json_request(
@@ -610,6 +616,27 @@ def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
         "registry_top_p": _format_number(entry.top_p),
         "provider_sampling_policy": "provider_default",
     }
+
+
+def _is_openai_provider(entry: ModelRegistryEntry) -> bool:
+    return entry.provider.strip().lower() == "openai"
+
+
+def _effective_timeout_seconds(
+    entry: ModelRegistryEntry,
+    timeout_seconds: float,
+) -> float:
+    """Keep Flex OpenAI requests alive for the provider-documented window."""
+
+    if not _is_openai_provider(entry):
+        return timeout_seconds
+    return max(timeout_seconds, OPENAI_FLEX_TIMEOUT_SECONDS)
+
+
+def _openai_service_tier_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
+    if not _is_openai_provider(entry):
+        return {}
+    return {"service_tier": OPENAI_SERVICE_TIER}
 
 
 def _gemini_request(

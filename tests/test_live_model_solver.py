@@ -15,7 +15,9 @@ from legalforecast.evals.inspect_task import SolverKind
 from legalforecast.evals.live_model_solver import (
     ANTHROPIC_MESSAGES_URL,
     GEMINI_GENERATE_CONTENT_URL_TEMPLATE,
+    OPENAI_FLEX_TIMEOUT_SECONDS,
     OPENAI_RESPONSES_URL,
+    OPENAI_SERVICE_TIER,
     LiveModelConfigError,
     LiveModelProviderError,
     LiveModelResponseError,
@@ -61,6 +63,7 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert response.metadata["max_output_tokens"] == "4096"
     assert response.metadata["prompt_input_token_budget"] == "195904"
     assert response.metadata["temperature"] == "0"
+    assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert response.metadata["execution_backend"] == "inspect_ai"
     assert response.metadata["model_registry_sha256"] == "unrecorded"
     assert response.metadata["tool_policy"] == "controlled_docket_tool_only"
@@ -70,6 +73,7 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert captured.full_url == OPENAI_RESPONSES_URL
     assert captured.get_method() == "POST"
     assert captured.headers["Authorization"] == "Bearer openai-secret"
+    assert transport.timeouts == [OPENAI_FLEX_TIMEOUT_SECONDS]
     body = _json_body(captured)
     assert body == {
         "model": "gpt-test",
@@ -77,11 +81,32 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
         "temperature": 0,
         "top_p": 1,
         "max_output_tokens": 4096,
+        "service_tier": OPENAI_SERVICE_TIER,
         "tools": [],
     }
     assert body["input"].startswith("Controlled docket tool transcript:")
     assert "Predict the case outcome." in body["input"]
     assert "read_docket_entry_results" in body["input"]
+
+
+def test_openai_solver_keeps_caller_timeout_above_flex_floor() -> None:
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "usage": {"input_tokens": 10, "output_tokens": 2},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        timeout_seconds=1_200.0,
+    )
+
+    solver.solve(_request("Predict the case outcome."))
+
+    assert transport.timeouts == [1_200.0]
 
 
 def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
@@ -111,6 +136,8 @@ def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
     assert captured.full_url == ANTHROPIC_MESSAGES_URL
     assert captured.headers["X-api-key"] == "anthropic-secret"
     assert captured.headers["Anthropic-version"] == "2023-06-01"
+    assert transport.timeouts == [120.0]
+    assert "service_tier" not in response.metadata
     body = _json_body(captured)
     assert body == {
         "model": "claude-test",
@@ -371,6 +398,8 @@ def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:
         model="gemini-test"
     )
     assert captured.headers["X-goog-api-key"] == "gemini-secret"
+    assert transport.timeouts == [120.0]
+    assert "service_tier" not in response.metadata
     body = _json_body(captured)
     assert body == {
         "contents": [
@@ -698,7 +727,12 @@ def test_solver_retries_transient_provider_failures() -> None:
     assert response.request_count == 2
     assert response.metadata is not None
     assert response.metadata["provider_attempt_count"] == "2"
+    assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert len(transport.requests) == 2
+    assert transport.timeouts == [
+        OPENAI_FLEX_TIMEOUT_SECONDS,
+        OPENAI_FLEX_TIMEOUT_SECONDS,
+    ]
 
 
 @pytest.mark.parametrize(
@@ -891,13 +925,14 @@ def test_post_response_interrupt_marks_authorized_attempt_ambiguous_before_rerai
 class _FixtureTransport:
     payload: dict[str, Any]
     requests: list[urllib.request.Request] = field(default_factory=lambda: [])
+    timeouts: list[float] = field(default_factory=lambda: [])
 
     def __call__(
         self,
         request: urllib.request.Request,
         timeout_seconds: float,
     ) -> dict[str, Any]:
-        assert timeout_seconds == 120.0
+        self.timeouts.append(timeout_seconds)
         self.requests.append(request)
         return self.payload
 
@@ -910,13 +945,14 @@ class _FixtureTransport:
 class _RetryTransport:
     outcomes: tuple[dict[str, Any] | BaseException, ...]
     requests: list[urllib.request.Request] = field(default_factory=lambda: [])
+    timeouts: list[float] = field(default_factory=lambda: [])
 
     def __call__(
         self,
         request: urllib.request.Request,
         timeout_seconds: float,
     ) -> dict[str, Any]:
-        assert timeout_seconds == 120.0
+        self.timeouts.append(timeout_seconds)
         self.requests.append(request)
         outcome = self.outcomes[len(self.requests) - 1]
         if isinstance(outcome, BaseException):
