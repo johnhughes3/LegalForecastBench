@@ -123,6 +123,38 @@ def test_replacement_evidence_refuses_a_role_verdict_that_is_not_a_match() -> No
         mint_verified_owner_adjudicated_replacement(**inputs)
 
 
+def test_replacement_evidence_refuses_a_validation_carrying_no_verdict() -> None:
+    """A structural pass that never asked about the role is not a role verdict.
+
+    Some held validations record only that the bytes parsed -- no role verdict
+    at all -- and the mint refuses them.  That refusal is the contract working:
+    admitting them would mean inventing the role finding they never made, so the
+    fix belongs in a fresh validation act over the same bytes, not here.
+    """
+
+    inputs = _replacement_inputs("new1", "case000")
+    key = next(iter(inputs["byte_role_validation_by_id"]))
+    inputs["byte_role_validation_by_id"][key].pop("role_verdict")
+
+    with pytest.raises(OwnerAdjudicatedReplacementError, match="not an exact match"):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
+def test_a_validation_row_cannot_declare_its_own_regime() -> None:
+    """The regime is stamped by the loader, so a row claiming one proves nothing.
+
+    If an artifact could name its own validation class, any row could assert the
+    regime the mint requires without having been produced by it.
+    """
+
+    inputs = _replacement_inputs("new1", "case000")
+    key = next(iter(inputs["byte_role_validation_by_id"]))
+    inputs["byte_role_validation_by_id"][key]["validation_class"] = "self_asserted"
+
+    with pytest.raises(OwnerAdjudicatedReplacementError, match="validation regime"):
+        mint_verified_owner_adjudicated_replacement(**inputs)
+
+
 def test_replacement_evidence_refuses_an_unrecorded_validation_regime() -> None:
     inputs = _replacement_inputs("new1", "case000")
     key = next(iter(inputs["byte_role_validation_by_id"]))

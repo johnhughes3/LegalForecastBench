@@ -363,6 +363,67 @@ def _prepare_fixture(
     return args, allowed_pairs
 
 
+@pytest.mark.parametrize(
+    "redirected",
+    ["selection", "purchase_policy", "cohort_policy"],
+)
+def test_a_byte_identical_input_at_another_path_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, redirected: str
+) -> None:
+    """The consolidation binds its inputs by path identity, not by content.
+
+    A materializer holding the same selection bytes under a different path is
+    refused, so a consolidation can never be re-pointed at a copy of the
+    artifact it was built against. That is deliberate, and it is also what makes
+    a cohort root with a differently named selection need a fresh consolidation
+    rather than a re-labelled one -- worth pinning, because nothing asserted it.
+
+    The ledger is bound the same way but is not covered here: this fixture's
+    ledger is created through the journal rather than existing as a file to copy.
+    """
+
+    all_paid = {("base-case", "base-doc"), ("case-1", "doc-1"), ("case-2", "doc-2")}
+    omitted = {("case-2", "doc-2")}
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=all_paid,
+        pre_recovery_projection=True,
+        terminal_omission_pairs=omitted,
+    )
+
+    assert cli._cmd_consolidate_replacement_recovery(args) == 0
+    card_path = args.output_root / "run-cards" / "consolidate-replacement-recovery.json"
+    original = Path(getattr(args, redirected))
+    copied = tmp_path / f"identical-{redirected}{original.suffix}"
+    copied.write_bytes(original.read_bytes())
+    bound = {
+        "selection_path": args.selection,
+        "purchase_policy_path": args.purchase_policy,
+        "cohort_policy_path": args.cohort_policy,
+        "ledger_path": args.purchase_ledger,
+    }
+    bound[
+        {
+            "selection": "selection_path",
+            "purchase_policy": "purchase_policy_path",
+            "cohort_policy": "cohort_policy_path",
+            "purchase_ledger": "ledger_path",
+        }[redirected]
+    ] = copied
+
+    with pytest.raises(
+        cli.CommandError,
+        match="consolidated replacement recovery differs from materializer inputs",
+    ):
+        cli._verify_materializer_consolidated_recovery(
+            recovery_root=args.output_root,
+            run_card_path=card_path,
+            selected_document_keys=all_paid - omitted,
+            **bound,
+        )
+
+
 def test_pre_recovery_empty_manifest_uses_paid_gaps_minus_terminal_omissions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
