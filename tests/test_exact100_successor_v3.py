@@ -19,6 +19,7 @@ from legalforecast.ingestion.exact100_successor_v3.projector import (
     project_exact100_successor_replacement_v3,
 )
 from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
+    _AMBIGUOUS_BRIEF_RECEIPT_ROLES,
     _RECEIPT_ROLE_TO_DOCUMENT_ROLE,
     _SUPPORTING_BRIEF_RECEIPT_ROLES,
     OwnerAdjudicatedReplacementError,
@@ -46,10 +47,17 @@ from tests.exact100_successor_v3_fixtures import (
 _TARGET_MOTION_SPELLINGS = {
     "target_motion",
     "target_motion_opening_brief",
-    "opening_memorandum",
     "motion_to_dismiss_memorandum",
     "motion_to_dismiss_notice",
 }
+#: The three classifications together must cover the map's motion family, and
+#: must not overlap: the count assertion below is what makes that a partition
+#: rather than merely a cover.
+_CLASSIFIED_MOTION_SPELLINGS = (
+    _TARGET_MOTION_SPELLINGS
+    | _AMBIGUOUS_BRIEF_RECEIPT_ROLES
+    | _SUPPORTING_BRIEF_RECEIPT_ROLES
+)
 
 # --------------------------------------------------------------------------
 # Replacement evidence
@@ -531,13 +539,17 @@ def _unclassified_motion_spellings(mapping: Mapping[str, str]) -> set[str]:
     return {
         receipt
         for receipt, role in mapping.items()
-        if role in motion_roles
-        and receipt not in _TARGET_MOTION_SPELLINGS | _SUPPORTING_BRIEF_RECEIPT_ROLES
+        if role in motion_roles and receipt not in _CLASSIFIED_MOTION_SPELLINGS
     }
 
 
 def test_every_motion_family_receipt_spelling_is_classified() -> None:
-    """Map growth must force a target-motion / supporting-brief decision."""
+    """Map growth must force a decision among the three classifications.
+
+    A spelling is the motion, or briefing in support of it, or ambiguous between
+    the two and resolved by declared linkage.  Leaving a new one unclassified
+    silently makes it the motion, which is how a packet acquires a second one.
+    """
 
     motion_roles = {
         StageADocumentRole.MTD_MEMORANDUM.value,
@@ -549,8 +561,10 @@ def test_every_motion_family_receipt_spelling_is_classified() -> None:
         if role in motion_roles
     }
 
-    assert mtd_spellings == _TARGET_MOTION_SPELLINGS | _SUPPORTING_BRIEF_RECEIPT_ROLES
-    assert not _TARGET_MOTION_SPELLINGS & _SUPPORTING_BRIEF_RECEIPT_ROLES
+    assert mtd_spellings == _CLASSIFIED_MOTION_SPELLINGS
+    assert len(_TARGET_MOTION_SPELLINGS) + len(_AMBIGUOUS_BRIEF_RECEIPT_ROLES) + len(
+        _SUPPORTING_BRIEF_RECEIPT_ROLES
+    ) == len(_CLASSIFIED_MOTION_SPELLINGS)
     assert _unclassified_motion_spellings(_RECEIPT_ROLE_TO_DOCUMENT_ROLE) == set()
 
 

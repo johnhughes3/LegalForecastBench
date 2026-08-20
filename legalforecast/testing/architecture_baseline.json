@@ -5412,11 +5412,11 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "mint_verified_owner_adjudicated_replacement",
-        "largest_symbol_lines": 262,
+        "largest_symbol_lines": 287,
         "layer": "application",
-        "line_count": 788,
-        "nonblank_line_count": 711,
-        "top_level_definition_count": 23
+        "line_count": 854,
+        "nonblank_line_count": 773,
+        "top_level_definition_count": 24
       },
       "legalforecast/ingestion/exact100_successor_v3/replacement_evidence_cli.py": {
         "cycle_id": "",
@@ -9519,8 +9519,8 @@
         "largest_symbol": "test_two_documents_on_one_entry_name_one_target_motion",
         "largest_symbol_lines": 35,
         "layer": "test",
-        "line_count": 651,
-        "nonblank_line_count": 501,
+        "line_count": 665,
+        "nonblank_line_count": 514,
         "top_level_definition_count": 39
       },
       "tests/test_exact100_successor_v3_cli.py": {
