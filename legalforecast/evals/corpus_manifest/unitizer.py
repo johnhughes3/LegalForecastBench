@@ -328,6 +328,7 @@ def _output_path(args: argparse.Namespace, name: str, default: Path) -> Path:
     return Path(value) if value is not None else default
 
 
+# contract-ratchet: allow byte digest for the existing manifest input sidecar
 def _file_sha256(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -417,6 +418,7 @@ def _terminal_escalations(
     return result
 
 
+# contract-ratchet: allow byte digest for the existing terminal receipt sidecar
 def _sha256_bytes(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
@@ -443,6 +445,7 @@ def _write_stage_card(
         else (output_root / "logs" / "llm-unitize-manifest.jsonl")
     )
     card: dict[str, Any] = {
+        # contract-ratchet: allow additive manifest-mode run-card adapter
         "schema_version": "legalforecast.acquisition_run_card.v1",
         "stage": "llm-unitize-manifest",
         "status": "completed",
@@ -462,6 +465,7 @@ def _write_stage_card(
         log_path,
         [
             {
+                # contract-ratchet: allow additive manifest-mode stage-log adapter
                 "schema_version": "legalforecast.acquisition_stage_log.v1",
                 "event": "stage_completed",
                 "stage": "llm-unitize-manifest",
