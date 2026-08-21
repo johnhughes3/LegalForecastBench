@@ -5,16 +5,30 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
+from legalforecast.evals.corpus_manifest import unitizer as unitizer_module
 from legalforecast.evals.corpus_manifest.unitizer import (
+    AuthenticatedFinalizedOverlay,
+    ManifestUnitizerCommandError,
     ManifestUnitizerInputError,
+    PreparedManifestUnitizerInputs,
     _provider_account,
+    authenticate_finalized_overlay,
     prepare_manifest_unitizer_inputs,
 )
-from legalforecast.labeling.provider_journal import load_provider_cycle_caps
+from legalforecast.labeling.llm_pipeline import LlmBatchResult
+from legalforecast.labeling.provider_journal import (
+    load_provider_cycle_caps,
+    load_provider_cycle_caps_bytes,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+_UNITS_APPROVAL = "units: approved — ceiling USD 5.00 extends to the sixth fresh case"
+_PROMPT_CONTRACT = unitizer_module.STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
@@ -24,19 +38,20 @@ def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
     )
 
 
-def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
+def _fixture(tmp_path: Path, *, count: int = 2) -> tuple[Path, Path, Path]:
     selection_path = tmp_path / "selection.jsonl"
     store = tmp_path / "store"
     verdict_path = tmp_path / "verdicts.jsonl"
     verdicts: list[dict[str, object]] = []
     selection: list[dict[str, object]] = []
-    for number in (1, 2):
+    for number in range(1, count + 1):
         candidate = f"synthetic-candidate-{number}"
         complaint = f"{candidate}-complaint"
         motion = f"{candidate}-motion"
+        claim_role = "crossclaim" if number == 1 else "complaint"
         documents: list[dict[str, object]] = []
         for document_id, role, entry, text in (
-            (complaint, "complaint", 1, "Count I\nThe complaint alleges a claim."),
+            (complaint, claim_role, 1, "Count I\nThe complaint alleges a claim."),
             (
                 motion,
                 "motion_to_dismiss_memorandum",
@@ -68,6 +83,8 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
                     "source_document_id": document_id,
                     "document_role": role,
                     "model_visible": True,
+                    "is_predecision_material": True,
+                    "contains_target_outcome": False,
                     "docket_entry_number": entry,
                 }
             )
@@ -125,6 +142,12 @@ def test_prepare_manifest_unitizer_inputs_binds_exact_selection_and_bytes(
     ]
     assert len(prepared.parser_records) == 4
     assert len(prepared.markdown_bytes) == 4
+    assert all(
+        document["is_predecision_material"] is True
+        and document["contains_target_outcome"] is False
+        for row in prepared.selection_records
+        for document in row["documents"]
+    )
     assert (
         prepared.selection_sha256 == hashlib.sha256(selection.read_bytes()).hexdigest()
     )
@@ -150,3 +173,482 @@ def test_prepare_manifest_unitizer_inputs_trusts_certified_not_claimed_role(
             verdict_sources=(verdicts,),
             target_case_count=2,
         )
+
+
+def _canonical_sha256(record: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            record, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode()
+    ).hexdigest()
+
+
+def _write_text(path: Path, text: str) -> Path:
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def _prediction_unit(candidate_id: str, *, claim_document: str) -> dict[str, Any]:
+    return {
+        "unit_id": f"{candidate_id}-count-i",
+        "count": "Count I",
+        "claim_name": "synthetic claim",
+        "defendant_group": "Synthetic Defendant",
+        "challenged_by_motion": True,
+        "challenge_scope": "entire_claim",
+        "unit_confidence": 0.95,
+        "source_citations": [
+            {
+                "document_id": claim_document,
+                "docket_entry_number": 1,
+                "page": None,
+                "paragraph": None,
+                "excerpt": "Count I\nThe complaint alleges a claim.",
+            },
+            {
+                "document_id": f"{candidate_id}-motion",
+                "docket_entry_number": 2,
+                "page": None,
+                "paragraph": None,
+                "excerpt": "The motion challenges Count I.",
+            },
+        ],
+        "grouping": "individual",
+        "grouping_rationale": None,
+        "separable_subclaim": None,
+        "uncertainty_notes": None,
+        "should_score": True,
+    }
+
+
+def _overlay_fixture(
+    tmp_path: Path,
+    *,
+    fresh_ids: tuple[str, ...] | None = None,
+) -> tuple[
+    PreparedManifestUnitizerInputs,
+    Path,
+    Path,
+    tuple[str, ...],
+    dict[str, Any],
+]:
+    selection_path, store, verdicts = _fixture(tmp_path, count=100)
+    prepared = prepare_manifest_unitizer_inputs(
+        selection_path=selection_path,
+        document_store_roots=(store,),
+        verdict_sources=(verdicts,),
+        target_case_count=100,
+    )
+    if fresh_ids is None:
+        fresh_ids = tuple(f"synthetic-candidate-{number}" for number in range(95, 101))
+    retained: list[dict[str, Any]] = []
+    packet_unit_sha256: dict[str, str] = {}
+    for selection in prepared.selection_records:
+        candidate_id = str(selection["candidate_id"])
+        if candidate_id in fresh_ids:
+            continue
+        claim_document = f"{candidate_id}-complaint"
+        unit = _prediction_unit(candidate_id, claim_document=claim_document)
+        retained.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": selection["case_id"],
+                "prediction_units": [unit],
+            }
+        )
+        packet_unit_sha256[unit["unit_id"]] = _canonical_sha256(unit)
+
+    overlay_path = _write_text(
+        tmp_path / "finalized-overlay.jsonl",
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in retained),
+    )
+    source_paths = {
+        "base_prediction_units": _write_text(tmp_path / "base.jsonl", "base\n"),
+        "packet": _write_text(tmp_path / "packet.json", "packet\n"),
+        "owner_ruling_source": _write_text(tmp_path / "ruling.txt", "ruling\n"),
+        "worksheet_source": _write_text(tmp_path / "worksheet.json", "worksheet\n"),
+    }
+    overlay_sha256 = hashlib.sha256(overlay_path.read_bytes()).hexdigest()
+    packet_sha256 = hashlib.sha256(source_paths["packet"].read_bytes()).hexdigest()
+    integration = {
+        "artifact": "legalforecast.cycle1.stage51_finalized_units_integration.v1",
+        "output": str(overlay_path.resolve()),
+        "output_sha256": overlay_sha256,
+        "candidate_count": 94,
+        "unit_count": 94,
+        "scorable_unit_count": 94,
+        "base_prediction_units": str(source_paths["base_prediction_units"].resolve()),
+        "base_sha256": hashlib.sha256(
+            source_paths["base_prediction_units"].read_bytes()
+        ).hexdigest(),
+        "packet": str(source_paths["packet"].resolve()),
+        "packet_sha256": packet_sha256,
+        "owner_ruling_source": str(source_paths["owner_ruling_source"].resolve()),
+        "owner_ruling_sha256": hashlib.sha256(
+            source_paths["owner_ruling_source"].read_bytes()
+        ).hexdigest(),
+        "worksheet_source": str(source_paths["worksheet_source"].resolve()),
+        "worksheet_sha256": hashlib.sha256(
+            source_paths["worksheet_source"].read_bytes()
+        ).hexdigest(),
+        "packet_unit_sha256": packet_unit_sha256,
+        "synthetic-candidate-1_finalized_unit_sha256": packet_unit_sha256[
+            "synthetic-candidate-1-count-i"
+        ],
+    }
+    integration_path = _write_text(
+        tmp_path / "integration-manifest.json",
+        json.dumps(integration, sort_keys=True) + "\n",
+    )
+    return prepared, overlay_path, integration_path, fresh_ids, integration
+
+
+def _authenticate_fixture(
+    tmp_path: Path,
+) -> tuple[
+    AuthenticatedFinalizedOverlay,
+    PreparedManifestUnitizerInputs,
+    Path,
+    Path,
+    tuple[str, ...],
+    dict[str, Any],
+]:
+    prepared, overlay, integration_path, fresh_ids, integration = _overlay_fixture(
+        tmp_path
+    )
+    authenticated = authenticate_finalized_overlay(
+        finalized_units_path=overlay,
+        integration_manifest_path=integration_path,
+        prepared=prepared,
+        expected_selection_sha256=prepared.selection_sha256,
+        fresh_candidate_ids=fresh_ids,
+        owner_approval_reference="legalforecastbench-3ak.38",
+        stage51_packet_approval=(
+            f"stage51-terminal-units: approved — packet {integration['packet_sha256']}"
+        ),
+        units_spend_approval=_UNITS_APPROVAL,
+    )
+    return authenticated, prepared, overlay, integration_path, fresh_ids, integration
+
+
+def test_authenticate_finalized_overlay_accepts_exact_94_retained_and_6_fresh(
+    tmp_path: Path,
+) -> None:
+    authenticated, prepared, _, _, fresh_ids, _ = _authenticate_fixture(tmp_path)
+
+    assert len(authenticated.retained_records) == 94
+    assert len(authenticated.fresh_selection_records) == 6
+    assert [row["candidate_id"] for row in authenticated.retained_records] == [
+        row["candidate_id"]
+        for row in prepared.selection_records
+        if row["candidate_id"] not in fresh_ids
+    ]
+    assert [
+        row["candidate_id"] for row in authenticated.fresh_selection_records
+    ] == list(fresh_ids)
+
+
+@pytest.mark.parametrize("mutation", ("extra", "missing", "mismatched"))
+def test_authenticate_finalized_overlay_refuses_partition_tampering(
+    tmp_path: Path, mutation: str
+) -> None:
+    _, prepared, overlay, integration_path, fresh_ids, integration = (
+        _authenticate_fixture(tmp_path)
+    )
+    rows = [json.loads(line) for line in overlay.read_text().splitlines()]
+    if mutation == "extra":
+        candidate_id = "synthetic-extra"
+        unit = _prediction_unit(
+            candidate_id, claim_document="synthetic-candidate-1-complaint"
+        )
+        rows.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": "extra",
+                "prediction_units": [unit],
+            }
+        )
+        integration["candidate_count"] = 95
+        integration["unit_count"] = 95
+        integration["scorable_unit_count"] = 95
+        integration["packet_unit_sha256"][unit["unit_id"]] = _canonical_sha256(unit)
+    elif mutation == "missing":
+        rows.pop()
+        integration["candidate_count"] = 93
+        integration["unit_count"] = 93
+        integration["scorable_unit_count"] = 93
+        integration["packet_unit_sha256"].pop("synthetic-candidate-94-count-i")
+    else:
+        rows[0]["case_id"] = "wrong-case-id"
+    overlay.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    integration["output_sha256"] = hashlib.sha256(overlay.read_bytes()).hexdigest()
+    integration_path.write_text(json.dumps(integration, sort_keys=True) + "\n")
+
+    with pytest.raises(ManifestUnitizerCommandError):
+        authenticate_finalized_overlay(
+            finalized_units_path=overlay,
+            integration_manifest_path=integration_path,
+            prepared=prepared,
+            expected_selection_sha256=prepared.selection_sha256,
+            fresh_candidate_ids=fresh_ids,
+            owner_approval_reference="legalforecastbench-3ak.38",
+            stage51_packet_approval=(
+                "stage51-terminal-units: approved — packet "
+                f"{integration['packet_sha256']}"
+            ),
+            units_spend_approval=_UNITS_APPROVAL,
+        )
+
+
+def test_authenticate_finalized_overlay_rejects_outcome_or_predecision_drift(
+    tmp_path: Path,
+) -> None:
+    _, prepared, overlay, integration_path, fresh_ids, integration = (
+        _authenticate_fixture(tmp_path)
+    )
+    rows = [dict(row) for row in prepared.selection_records]
+    documents = [dict(document) for document in rows[0]["documents"]]
+    documents[0]["contains_target_outcome"] = True
+    rows[0]["documents"] = documents
+    tampered_prepared = PreparedManifestUnitizerInputs(
+        selection_records=tuple(rows),
+        parser_records=prepared.parser_records,
+        markdown_root=prepared.markdown_root,
+        markdown_bytes=prepared.markdown_bytes,
+        selection_sha256=prepared.selection_sha256,
+        document_commitments=prepared.document_commitments,
+    )
+    with pytest.raises(ManifestUnitizerCommandError, match="outcome-free"):
+        authenticate_finalized_overlay(
+            finalized_units_path=overlay,
+            integration_manifest_path=integration_path,
+            prepared=tampered_prepared,
+            expected_selection_sha256=prepared.selection_sha256,
+            fresh_candidate_ids=fresh_ids,
+            owner_approval_reference="legalforecastbench-3ak.38",
+            stage51_packet_approval=(
+                "stage51-terminal-units: approved — packet "
+                f"{integration['packet_sha256']}"
+            ),
+            units_spend_approval=_UNITS_APPROVAL,
+        )
+
+
+def test_citation_mismatch_requires_moving_case_to_fresh_set(
+    tmp_path: Path,
+) -> None:
+    alternate_fresh = tuple(
+        [
+            "synthetic-candidate-94",
+            *[f"synthetic-candidate-{number}" for number in range(96, 101)],
+        ]
+    )
+    _, _, _, _, fresh_ids, _ = _authenticate_fixture(tmp_path)
+    # Rebuild the authenticated partition with candidate 95 retained.  A
+    # stale citation in that retained record must fail closed; the adapter
+    # must not silently repair it by pointing at a different pleading.
+    alternate_root = tmp_path / "alternate"
+    alternate_root.mkdir()
+    (
+        alternate_prepared,
+        alternate_overlay,
+        alternate_manifest,
+        _,
+        alternate_integration,
+    ) = _overlay_fixture(alternate_root, fresh_ids=alternate_fresh)
+    rows = [json.loads(line) for line in alternate_overlay.read_text().splitlines()]
+    retained_95 = next(
+        row for row in rows if row["candidate_id"] == "synthetic-candidate-95"
+    )
+    retained_95["prediction_units"][0]["source_citations"][0]["excerpt"] = (
+        "Count I\nA different pleading was substituted."
+    )
+    alternate_overlay.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
+    )
+    alternate_integration["output_sha256"] = hashlib.sha256(
+        alternate_overlay.read_bytes()
+    ).hexdigest()
+    alternate_manifest.write_text(
+        json.dumps(alternate_integration, sort_keys=True) + "\n"
+    )
+
+    with pytest.raises(ManifestUnitizerCommandError, match="span or page changed"):
+        authenticate_finalized_overlay(
+            finalized_units_path=alternate_overlay,
+            integration_manifest_path=alternate_manifest,
+            prepared=alternate_prepared,
+            expected_selection_sha256=alternate_prepared.selection_sha256,
+            fresh_candidate_ids=alternate_fresh,
+            owner_approval_reference="legalforecastbench-3ak.38",
+            stage51_packet_approval=(
+                "stage51-terminal-units: approved — packet "
+                f"{alternate_integration['packet_sha256']}"
+            ),
+            units_spend_approval=_UNITS_APPROVAL,
+        )
+
+    # The same case is accepted only when the owner-approved fresh partition
+    # explicitly includes it (the default fixture has candidates 95-100 fresh).
+    assert "synthetic-candidate-95" in fresh_ids
+
+
+def test_authenticate_finalized_overlay_uses_one_markdown_snapshot(
+    tmp_path: Path,
+) -> None:
+    authenticated, prepared, overlay, integration_path, fresh_ids, integration = (
+        _authenticate_fixture(tmp_path)
+    )
+    # The on-disk source can change after preparation; authentication must use
+    # the exact bytes captured in ``prepared`` for the entire operation.
+    markdown_path = next(iter(prepared.markdown_bytes))
+    (prepared.markdown_root / markdown_path).write_text("TOCTOU replacement\n")
+
+    again = authenticate_finalized_overlay(
+        finalized_units_path=overlay,
+        integration_manifest_path=integration_path,
+        prepared=prepared,
+        expected_selection_sha256=prepared.selection_sha256,
+        fresh_candidate_ids=fresh_ids,
+        owner_approval_reference="legalforecastbench-3ak.38",
+        stage51_packet_approval=(
+            f"stage51-terminal-units: approved — packet {integration['packet_sha256']}"
+        ),
+        units_spend_approval=_UNITS_APPROVAL,
+    )
+    assert again == authenticated
+
+
+def test_manifest_unitizer_provider_receives_only_the_approved_six(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, prepared, overlay, integration_path, fresh_ids, integration = (
+        _authenticate_fixture(tmp_path)
+    )
+    calls: list[tuple[str, ...]] = []
+
+    class _Cap:
+        account = None
+
+    class _Caps:
+        def __init__(self) -> None:
+            self.cycle_id = "synthetic-cycle"
+            self.providers = {"synthetic": _Cap()}
+
+        @staticmethod
+        def cap_usd(provider: str) -> float:
+            assert provider == "synthetic"
+            return 5.0
+
+    class _RegistryEntry:
+        registry_key = "synthetic-model"
+        provider = "synthetic"
+
+    def fake_unitize(**kwargs: Any) -> LlmBatchResult:
+        selected = tuple(
+            str(row["candidate_id"]) for row in kwargs["selection_records"]
+        )
+        calls.append(selected)
+        return LlmBatchResult(
+            records=tuple(
+                {
+                    "candidate_id": candidate_id,
+                    "case_id": f"case-{candidate_id.rsplit('-', 1)[-1]}",
+                    "prediction_units": [],
+                }
+                for candidate_id in selected
+            ),
+            audit_records=tuple(
+                {
+                    "candidate_id": candidate_id,
+                    "status": "succeeded",
+                    "unitization_review_queue": [],
+                    "estimated_cost": 0.0,
+                }
+                for candidate_id in selected
+            ),
+        )
+
+    monkeypatch.setattr(
+        unitizer_module,
+        "load_provider_cycle_caps_bytes",
+        lambda payload, source: _Caps(),
+    )
+    monkeypatch.setattr(
+        unitizer_module,
+        "load_model_registry_bytes",
+        lambda payload: SimpleNamespace(entries=(_RegistryEntry(),)),
+    )
+    monkeypatch.setattr(
+        unitizer_module,
+        "verify_provider_journal_identity",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(unitizer_module, "llm_unitize_cases", fake_unitize)
+
+    args = SimpleNamespace(
+        output_root=tmp_path / "output",
+        selection=tmp_path / "selection-unused.jsonl",
+        document_store_roots=(),
+        verdict_sources=(),
+        target_case_count=100,
+        finalized_units=overlay,
+        finalized_integration_manifest=integration_path,
+        expected_selection_sha256=prepared.selection_sha256,
+        fresh_candidate_ids=fresh_ids,
+        owner_approval_reference="legalforecastbench-3ak.38",
+        stage51_packet_approval=(
+            f"stage51-terminal-units: approved — packet {integration['packet_sha256']}"
+        ),
+        units_spend_approval=_UNITS_APPROVAL,
+        model_registry=tmp_path / "registry.json",
+        model_key="synthetic-model",
+        provider_cycle_caps=tmp_path / "caps.json",
+        provider_journal=tmp_path / "journal.sqlite3",
+        local_provider_journal_only=True,
+        provider_attempt_namespace=_PROMPT_CONTRACT,
+        terminal_escalation=[],
+        execute=True,
+        continue_on_error=False,
+        resume=False,
+        prediction_units_output=None,
+        audit_output=None,
+        unitization_review_queue_output=None,
+        unitizer_terminal_review_queue_output=None,
+        run_card_output=None,
+        log_output=None,
+        timeout_seconds=1.0,
+    )
+    args.selection = tmp_path / "selection.jsonl"
+    args.selection.write_bytes(
+        b"".join(
+            json.dumps(row, sort_keys=True).encode() + b"\n"
+            for row in prepared.selection_records
+        )
+    )
+    args.document_store_roots = (tmp_path / "store",)
+    args.verdict_sources = (tmp_path / "verdicts.jsonl",)
+    # The execution adapter reads these paths before the patched authority loaders.
+    args.model_registry.write_text("[]")
+    args.provider_cycle_caps.write_text("{}")
+    args.provider_journal.write_bytes(b"journal")
+    unitizer_module.run_manifest_unitizer(args)
+
+    assert calls == [fresh_ids]
+
+
+def test_manifest_unitizer_defaults_accountless_caps_to_default() -> None:
+    caps = load_provider_cycle_caps_bytes(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.provider_cycle_caps.v1",
+                "cycle_id": "synthetic-cycle",
+                "providers": [
+                    {"provider": "synthetic", "cycle_reservation_cap_usd": "5.00"}
+                ],
+            }
+        ).encode(),
+        source="synthetic-caps.json",
+    )
+
+    assert _provider_account(caps, "synthetic") == "default"
