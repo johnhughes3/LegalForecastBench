@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -57,6 +58,7 @@ from legalforecast.labeling.unitizer_terminal import (
     UnitizerTerminalEscalationError,
     build_llm_stage_a_unitizer_terminal_escalation,
 )
+from legalforecast.unitization.schemas import prediction_unit_from_record
 
 JsonRecord = dict[str, Any]
 
@@ -79,6 +81,17 @@ class PreparedManifestUnitizerInputs:
     markdown_bytes: Mapping[str, bytes]
     selection_sha256: str
     document_commitments: Mapping[str, Mapping[str, str]]
+
+
+@dataclass(frozen=True, slots=True)
+class AuthenticatedFinalizedOverlay:
+    """Provider-free finalized units retained from the authenticated overlay."""
+
+    retained_records: tuple[JsonRecord, ...]
+    fresh_selection_records: tuple[JsonRecord, ...]
+    overlay_sha256: str
+    integration_manifest_sha256: str
+    fresh_candidate_ids: tuple[str, ...]
 
 
 def add_manifest_unitizer_arguments(parser: argparse.ArgumentParser) -> None:
@@ -109,6 +122,45 @@ def add_manifest_unitizer_arguments(parser: argparse.ArgumentParser) -> None:
         help="Existing byte-role verdict artifact; repeat for all certified verdicts.",
     )
     parser.add_argument("--target-case-count", type=int, default=100)
+    parser.add_argument(
+        "--finalized-units",
+        type=Path,
+        required=True,
+        help="Authenticated Stage-51 finalized-units overlay JSONL.",
+    )
+    parser.add_argument(
+        "--finalized-integration-manifest",
+        type=Path,
+        required=True,
+        help="Manifest binding the finalized overlay to its owner-reviewed sources.",
+    )
+    parser.add_argument(
+        "--expected-selection-sha256",
+        required=True,
+        help="Bare SHA-256 of the owner-corrected exact-100 selection.",
+    )
+    parser.add_argument(
+        "--fresh-candidate-id",
+        action="append",
+        required=True,
+        dest="fresh_candidate_ids",
+        help="Owner-approved fresh candidate; repeat exactly five times.",
+    )
+    parser.add_argument(
+        "--owner-approval-reference",
+        required=True,
+        help="Durable bead or record carrying the packet and spend approvals.",
+    )
+    parser.add_argument(
+        "--stage51-packet-approval",
+        required=True,
+        help="Verbatim Stage-51 packet approval naming the packet digest.",
+    )
+    parser.add_argument(
+        "--units-spend-approval",
+        required=True,
+        help="Verbatim owner approval extending the USD 5 ceiling to five cases.",
+    )
     parser.add_argument("--model-registry", type=Path, required=True)
     parser.add_argument("--model-key", required=True)
     parser.add_argument("--provider-cycle-caps", type=Path)
@@ -151,6 +203,16 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         verdict_sources=tuple(Path(path) for path in args.verdict_sources),
         target_case_count=int(args.target_case_count),
     )
+    overlay = authenticate_finalized_overlay(
+        finalized_units_path=Path(args.finalized_units),
+        integration_manifest_path=Path(args.finalized_integration_manifest),
+        prepared=prepared,
+        expected_selection_sha256=str(args.expected_selection_sha256),
+        fresh_candidate_ids=tuple(str(value) for value in args.fresh_candidate_ids),
+        owner_approval_reference=str(args.owner_approval_reference),
+        stage51_packet_approval=str(args.stage51_packet_approval),
+        units_spend_approval=str(args.units_spend_approval),
+    )
     prediction_units_path = _output_path(
         args, "prediction_units_output", output_root / "prediction-units.jsonl"
     )
@@ -171,6 +233,8 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         selection_path,
         *(Path(path) for path in args.document_store_roots),
         *(Path(path) for path in args.verdict_sources),
+        Path(args.finalized_units),
+        Path(args.finalized_integration_manifest),
         model_registry_path,
     )
     if not bool(args.execute):
@@ -182,6 +246,13 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
                     "dry_run": True,
                     "selection_count": len(prepared.selection_records),
                     "selection_sha256": prepared.selection_sha256,
+                    "retained_finalized_count": len(overlay.retained_records),
+                    "fresh_candidate_count": len(overlay.fresh_selection_records),
+                    "fresh_candidate_ids": list(overlay.fresh_candidate_ids),
+                    "finalized_overlay_sha256": overlay.overlay_sha256,
+                    "integration_manifest_sha256": (
+                        overlay.integration_manifest_sha256
+                    ),
                     "model_registry": str(model_registry_path),
                     "model_key": str(args.model_key),
                 }
@@ -196,7 +267,15 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
             output_paths=(prediction_units_path, review_queue_path),
             record_count=len(prepared.selection_records),
             paid=False,
-            extra={"selection_sha256": prepared.selection_sha256},
+            extra={
+                "selection_sha256": prepared.selection_sha256,
+                "retained_finalized_count": len(overlay.retained_records),
+                "fresh_candidate_count": len(overlay.fresh_selection_records),
+                "fresh_candidate_ids": list(overlay.fresh_candidate_ids),
+                "finalized_overlay_sha256": overlay.overlay_sha256,
+                "integration_manifest_sha256": overlay.integration_manifest_sha256,
+                "owner_approval_reference": str(args.owner_approval_reference),
+            },
             dry_run=True,
         )
         return
@@ -204,6 +283,10 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
     if not bool(args.local_provider_journal_only):
         raise ManifestUnitizerCommandError(
             "manifest-mode execution requires --local-provider-journal-only"
+        )
+    if bool(args.continue_on_error):
+        raise ManifestUnitizerCommandError(
+            "manifest-mode paid execution refuses --continue-on-error"
         )
     provider_caps_path = getattr(args, "provider_cycle_caps", None)
     provider_journal_value = getattr(args, "provider_journal", None)
@@ -236,6 +319,10 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
             "manifest-mode execution requires claim-ontology-v5"
         )
     terminal_paths = tuple(Path(path) for path in (args.terminal_escalation or ()))
+    if terminal_paths:
+        raise ManifestUnitizerCommandError(
+            "exact five-case execution does not admit terminal escalation receipts"
+        )
     terminal_escalations = _terminal_escalations(
         terminal_paths,
         prepared=prepared,
@@ -247,14 +334,14 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         provider_attempt_namespace=args.provider_attempt_namespace,
     )
     result = llm_unitize_cases(
-        selection_records=prepared.selection_records,
+        selection_records=overlay.fresh_selection_records,
         parser_records=prepared.parser_records,
         markdown_root=prepared.markdown_root,
         markdown_bytes=prepared.markdown_bytes,
         registry_entry=registry_entry,
         model_registry_sha256=model_registry_sha256,
         timeout_seconds=float(args.timeout_seconds),
-        continue_on_error=bool(args.continue_on_error),
+        continue_on_error=False,
         provider_journal_path=provider_journal_path,
         provider_cycle_caps_usd={
             registry_entry.provider: provider_caps.cap_usd(registry_entry.provider)
@@ -269,20 +356,58 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         terminal_escalations=terminal_escalations,
         provider_attempt_namespace=args.provider_attempt_namespace,
     )
-    expected_candidates = {
-        str(record["candidate_id"]) for record in prepared.selection_records
-    }
+    expected_candidates = set(overlay.fresh_candidate_ids)
     actual_candidates = {str(record["candidate_id"]) for record in result.records}
     if actual_candidates != expected_candidates or len(result.records) != len(
-        prepared.selection_records
+        overlay.fresh_selection_records
     ):
         raise ManifestUnitizerCommandError(
             "manifest-mode unitizer did not produce an exact selection-sized batch"
         )
-    write_jsonl_objects(prediction_units_path, result.records)
-    write_jsonl_objects(audit_path, result.audit_records)
+    fresh_records = {str(record["candidate_id"]): dict(record) for record in result.records}
+    retained_records = {
+        str(record["candidate_id"]): dict(record) for record in overlay.retained_records
+    }
+    merged_records = tuple(
+        retained_records.get(candidate_id) or fresh_records[candidate_id]
+        for candidate_id in (
+            str(record["candidate_id"]) for record in prepared.selection_records
+        )
+    )
+    retained_audits = tuple(
+        {
+            "stage": "llm-unitize-manifest",
+            "status": "retained_finalized",
+            "candidate_id": str(record["candidate_id"]),
+            "case_id": str(record["case_id"]),
+            "model_key": registry_entry.registry_key,
+            "model_registry_sha256": model_registry_sha256,
+            "provider_called": False,
+            "finalized_overlay_sha256": overlay.overlay_sha256,
+            "unit_count": len(cast(list[object], record["prediction_units"])),
+            "scorable_unit_count": len(cast(list[object], record["prediction_units"])),
+            "review_items": [],
+            "unitization_review_queue": [],
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "estimated_cost": 0.0,
+        }
+        for record in overlay.retained_records
+    )
+    fresh_audits = {str(record["candidate_id"]): dict(record) for record in result.audit_records}
+    retained_audits_by_candidate = {
+        str(record["candidate_id"]): record for record in retained_audits
+    }
+    merged_audits = tuple(
+        retained_audits_by_candidate.get(candidate_id) or fresh_audits[candidate_id]
+        for candidate_id in (
+            str(record["candidate_id"]) for record in prepared.selection_records
+        )
+    )
+    write_jsonl_objects(prediction_units_path, merged_records)
+    write_jsonl_objects(audit_path, merged_audits)
     write_jsonl_objects(
-        review_queue_path, unitization_review_queue_records(result.audit_records)
+        review_queue_path, unitization_review_queue_records(merged_audits)
     )
     write_jsonl_objects(terminal_queue_path, result.terminal_review_queue_records)
     _write_stage_card(
@@ -301,12 +426,18 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
             terminal_queue_path,
             provider_journal_path,
         ),
-        record_count=len(result.records),
-        paid=len(terminal_escalations) != len(expected_candidates),
+        record_count=len(merged_records),
+        paid=True,
         extra={
             "manifest_mode": True,
             "selection_sha256": prepared.selection_sha256,
             "selection_count": len(prepared.selection_records),
+            "retained_finalized_count": len(overlay.retained_records),
+            "fresh_candidate_count": len(overlay.fresh_selection_records),
+            "fresh_candidate_ids": list(overlay.fresh_candidate_ids),
+            "finalized_overlay_sha256": overlay.overlay_sha256,
+            "integration_manifest_sha256": overlay.integration_manifest_sha256,
+            "owner_approval_reference": str(args.owner_approval_reference),
             "document_commitments": dict(prepared.document_commitments),
             "model_execution": {
                 "model_key": registry_entry.registry_key,
@@ -332,7 +463,7 @@ def _output_path(args: argparse.Namespace, name: str, default: Path) -> Path:
 
 # contract-ratchet: allow byte digest for the existing manifest input sidecar
 def _file_sha256(path: Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _terminal_escalations(
