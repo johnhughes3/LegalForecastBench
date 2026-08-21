@@ -23,7 +23,7 @@ variable "state_bucket_name" {
 }
 
 variable "state_key_prefix" {
-  description = "Prefix containing only the two reviewed workflow-managed Terraform state keys."
+  description = "Prefix containing only the three reviewed workflow-managed Terraform state keys."
   type        = string
 
   validation {
@@ -124,6 +124,19 @@ variable "official_labeling_role_name" {
       var.official_labeling_role_name == "legalforecastbench-official-labeling-authority"
     )
     error_message = "official_labeling_role_name must remain the reviewed labeling role."
+  }
+}
+
+variable "official_eval_cell_role_name" {
+  description = "Exact official-eval provider-cell IAM role whose session maximum the reviewed apply may update."
+  type        = string
+  default     = "legalforecastbench-official-eval"
+
+  validation {
+    condition = (
+      var.official_eval_cell_role_name == "legalforecastbench-official-eval"
+    )
+    error_message = "official_eval_cell_role_name must remain the reviewed provider-cell role."
   }
 }
 
