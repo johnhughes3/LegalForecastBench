@@ -70,6 +70,7 @@ class StoredDocument:
     pdf_path: Path
     markdown_path: Path
     recorded_pdf_sha256: str
+    recorded_markdown_sha256: str
     quality_flags: tuple[str, ...]
 
 
@@ -147,12 +148,26 @@ def index_verdicts(sources: Iterable[Path]) -> dict[str, tuple[VerdictRecord, ..
     resolved silently by read order.
     """
 
-    index: dict[str, list[VerdictRecord]] = {}
+    captured: list[tuple[Path, bytes]] = []
     for source in sources:
         resolved = Path(source).expanduser()
-        if not resolved.exists():
-            raise CorpusStoreError(f"verdict source not found: {source}")
-        for record in _verdict_records(resolved):
+        if resolved.is_symlink() or not resolved.is_file():
+            raise CorpusStoreError(f"verdict source is not a regular file: {source}")
+        try:
+            captured.append((resolved, resolved.read_bytes()))
+        except OSError as exc:
+            raise CorpusStoreError(f"verdict source is unreadable: {source}") from exc
+    return index_verdict_payloads(captured)
+
+
+def index_verdict_payloads(
+    sources: Iterable[tuple[Path, bytes]],
+) -> dict[str, tuple[VerdictRecord, ...]]:
+    """Index verdicts from caller-captured immutable byte snapshots."""
+
+    index: dict[str, list[VerdictRecord]] = {}
+    for source, payload in sources:
+        for record in _verdict_records_from_bytes(source, payload):
             index.setdefault(record.source_document_id, []).append(record)
     return {key: tuple(value) for key, value in index.items()}
 
@@ -177,6 +192,15 @@ def _stored_document(sidecar: Path, *, root: Path) -> StoredDocument | None:
     recorded_sha256 = record.get("source_sha256")
     if not isinstance(recorded_sha256, str):
         raise CorpusStoreError(f"parser sidecar has no source_sha256: {sidecar}")
+    extracted_text_value = record.get("extracted_text")
+    if not isinstance(extracted_text_value, Mapping):
+        raise CorpusStoreError(f"parser sidecar has no extracted_text: {sidecar}")
+    extracted_text = cast("Mapping[str, Any]", extracted_text_value)
+    recorded_markdown_sha256 = extracted_text.get("text_sha256")
+    if not isinstance(recorded_markdown_sha256, str):
+        raise CorpusStoreError(
+            f"parser sidecar has no extracted_text.text_sha256: {sidecar}"
+        )
     candidate_id = record.get("candidate_id")
     return StoredDocument(
         source_document_id=document_id,
@@ -184,6 +208,7 @@ def _stored_document(sidecar: Path, *, root: Path) -> StoredDocument | None:
         pdf_path=Path(input_path),
         markdown_path=_resolve_markdown_path(markdown_path, sidecar=sidecar, root=root),
         recorded_pdf_sha256=recorded_sha256,
+        recorded_markdown_sha256=recorded_markdown_sha256,
         quality_flags=_quality_flags(record.get("quality_flags")),
     )
 
@@ -207,19 +232,29 @@ def _quality_flags(value: object) -> tuple[str, ...]:
     return tuple(item for item in cast("list[object]", value) if isinstance(item, str))
 
 
-def _verdict_records(source: Path) -> tuple[VerdictRecord, ...]:
-    if source.is_dir():
-        raise CorpusStoreError(f"verdict source must be a file: {source}")
+def _verdict_records_from_bytes(
+    source: Path, payload: bytes
+) -> tuple[VerdictRecord, ...]:
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CorpusStoreError(f"verdict source is not UTF-8: {source}") from exc
     rows: list[object]
     if source.suffix == ".jsonl":
-        rows = [
-            cast("object", json.loads(line))
-            for line in source.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
+        try:
+            rows = [
+                cast("object", json.loads(line))
+                for line in text.splitlines()
+                if line.strip()
+            ]
+        except json.JSONDecodeError as exc:
+            raise CorpusStoreError(f"invalid verdict JSONL: {source}") from exc
     else:
-        payload: object = json.loads(source.read_text(encoding="utf-8"))
-        rows = _verdict_rows_from_object(payload, source=source)
+        try:
+            decoded: object = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise CorpusStoreError(f"invalid verdict JSON: {source}") from exc
+        rows = _verdict_rows_from_object(decoded, source=source)
     records: list[VerdictRecord] = []
     for row in rows:
         if not isinstance(row, Mapping):

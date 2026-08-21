@@ -1,11 +1,12 @@
+# pyright: reportPrivateUsage=false
 """Provider-free tests for the manifest/document-store unitizer adapter."""
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -29,6 +30,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 _UNITS_APPROVAL = "units: approved — ceiling USD 5.00 extends to the sixth fresh case"
 _PROMPT_CONTRACT = unitizer_module.STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
+_FRESH_IDS = (
+    "69437817",
+    "69617129",
+    "70142291",
+    "71203930",
+    "71929529",
+    "72288139",
+)
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
@@ -38,14 +47,21 @@ def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
     )
 
 
-def _fixture(tmp_path: Path, *, count: int = 2) -> tuple[Path, Path, Path]:
+def _fixture(
+    tmp_path: Path,
+    *,
+    count: int = 2,
+    candidate_ids: tuple[str, ...] | None = None,
+) -> tuple[Path, Path, Path]:
     selection_path = tmp_path / "selection.jsonl"
     store = tmp_path / "store"
     verdict_path = tmp_path / "verdicts.jsonl"
     verdicts: list[dict[str, object]] = []
     selection: list[dict[str, object]] = []
-    for number in range(1, count + 1):
-        candidate = f"synthetic-candidate-{number}"
+    candidates = candidate_ids or tuple(
+        f"synthetic-candidate-{number}" for number in range(1, count + 1)
+    )
+    for number, candidate in enumerate(candidates, start=1):
         complaint = f"{candidate}-complaint"
         motion = f"{candidate}-motion"
         claim_role = "crossclaim" if number == 1 else "complaint"
@@ -74,6 +90,11 @@ def _fixture(tmp_path: Path, *, count: int = 2) -> tuple[Path, Path, Path]:
                         "input_path": str(pdf_path),
                         "markdown_path": markdown_path.name,
                         "source_sha256": hashlib.sha256(pdf_bytes).hexdigest(),
+                        "extracted_text": {
+                            "text_sha256": hashlib.sha256(
+                                markdown_path.read_bytes()
+                            ).hexdigest()
+                        },
                     }
                 ),
                 encoding="utf-8",
@@ -133,6 +154,9 @@ def test_prepare_manifest_unitizer_inputs_binds_exact_selection_and_bytes(
         selection_path=selection,
         document_store_roots=(store,),
         verdict_sources=(verdicts,),
+        expected_verdict_source_sha256=(
+            hashlib.sha256(verdicts.read_bytes()).hexdigest(),
+        ),
         target_case_count=2,
     )
 
@@ -157,6 +181,40 @@ def test_prepare_manifest_unitizer_inputs_binds_exact_selection_and_bytes(
     )
 
 
+def test_prepare_manifest_unitizer_inputs_refuses_markdown_digest_drift(
+    tmp_path: Path,
+) -> None:
+    selection, store, verdicts = _fixture(tmp_path)
+    markdown = next(store.rglob("*.md"))
+    markdown.write_text("tampered markdown", encoding="utf-8")
+
+    with pytest.raises(ManifestUnitizerInputError, match="text_sha256"):
+        prepare_manifest_unitizer_inputs(
+            selection_path=selection,
+            document_store_roots=(store,),
+            verdict_sources=(verdicts,),
+            expected_verdict_source_sha256=(
+                hashlib.sha256(verdicts.read_bytes()).hexdigest(),
+            ),
+            target_case_count=2,
+        )
+
+
+def test_prepare_manifest_unitizer_inputs_refuses_verdict_digest_drift(
+    tmp_path: Path,
+) -> None:
+    selection, store, verdicts = _fixture(tmp_path)
+
+    with pytest.raises(ManifestUnitizerInputError, match="verdict source digest"):
+        prepare_manifest_unitizer_inputs(
+            selection_path=selection,
+            document_store_roots=(store,),
+            verdict_sources=(verdicts,),
+            expected_verdict_source_sha256=("0" * 64,),
+            target_case_count=2,
+        )
+
+
 def test_prepare_manifest_unitizer_inputs_trusts_certified_not_claimed_role(
     tmp_path: Path,
 ) -> None:
@@ -171,6 +229,9 @@ def test_prepare_manifest_unitizer_inputs_trusts_certified_not_claimed_role(
             selection_path=selection,
             document_store_roots=(store,),
             verdict_sources=(verdicts,),
+            expected_verdict_source_sha256=(
+                hashlib.sha256(verdicts.read_bytes()).hexdigest(),
+            ),
             target_case_count=2,
         )
 
@@ -232,20 +293,30 @@ def _overlay_fixture(
     tuple[str, ...],
     dict[str, Any],
 ]:
-    selection_path, store, verdicts = _fixture(tmp_path, count=100)
+    current_candidates = (
+        *tuple(f"synthetic-candidate-{number}" for number in range(1, 95)),
+        *_FRESH_IDS,
+    )
+    selection_path, store, verdicts = _fixture(
+        tmp_path, candidate_ids=current_candidates
+    )
     prepared = prepare_manifest_unitizer_inputs(
         selection_path=selection_path,
         document_store_roots=(store,),
         verdict_sources=(verdicts,),
+        expected_verdict_source_sha256=(
+            hashlib.sha256(verdicts.read_bytes()).hexdigest(),
+        ),
         target_case_count=100,
     )
     if fresh_ids is None:
-        fresh_ids = tuple(f"synthetic-candidate-{number}" for number in range(95, 101))
+        fresh_ids = _FRESH_IDS
     selection_by_candidate = {
         str(row["candidate_id"]): row for row in prepared.selection_records
     }
     prior_candidates = [
-        *[f"synthetic-candidate-{number}" for number in range(1, 96)],
+        *[f"synthetic-candidate-{number}" for number in range(1, 95)],
+        "72288139",
         *[f"synthetic-predecessor-{number}" for number in range(1, 6)],
     ]
     retained: list[dict[str, Any]] = []
@@ -254,6 +325,10 @@ def _overlay_fixture(
         selection = selection_by_candidate.get(candidate_id)
         claim_document = f"{candidate_id}-complaint"
         unit = _prediction_unit(candidate_id, claim_document=claim_document)
+        if candidate_id == "72288139":
+            unit["source_citations"][0]["excerpt"] = (
+                "Count I\nThe superseded complaint alleged a different claim."
+            )
         retained.append(
             {
                 "candidate_id": candidate_id,
@@ -334,7 +409,6 @@ def _authenticate_fixture(
         expected_integration_manifest_sha256=hashlib.sha256(
             integration_path.read_bytes()
         ).hexdigest(),
-        fresh_candidate_ids=fresh_ids,
         owner_approval_reference="legalforecastbench-3ak.38",
         stage51_packet_approval=(
             f"stage51-terminal-units: approved — packet {integration['packet_sha256']}"
@@ -365,8 +439,8 @@ def test_authenticate_finalized_overlay_accepts_exact_94_retained_and_6_fresh(
 def test_authenticate_finalized_overlay_refuses_partition_tampering(
     tmp_path: Path, mutation: str
 ) -> None:
-    _, prepared, overlay, integration_path, fresh_ids, integration = (
-        _authenticate_fixture(tmp_path)
+    _, prepared, overlay, integration_path, _, integration = _authenticate_fixture(
+        tmp_path
     )
     rows = [json.loads(line) for line in overlay.read_text().splitlines()]
     if mutation == "extra":
@@ -407,7 +481,6 @@ def test_authenticate_finalized_overlay_refuses_partition_tampering(
             expected_integration_manifest_sha256=hashlib.sha256(
                 integration_path.read_bytes()
             ).hexdigest(),
-            fresh_candidate_ids=fresh_ids,
             owner_approval_reference="legalforecastbench-3ak.38",
             stage51_packet_approval=(
                 "stage51-terminal-units: approved — packet "
@@ -420,8 +493,8 @@ def test_authenticate_finalized_overlay_refuses_partition_tampering(
 def test_authenticate_finalized_overlay_rejects_outcome_or_predecision_drift(
     tmp_path: Path,
 ) -> None:
-    _, prepared, overlay, integration_path, fresh_ids, integration = (
-        _authenticate_fixture(tmp_path)
+    _, prepared, overlay, integration_path, _, integration = _authenticate_fixture(
+        tmp_path
     )
     rows = [dict(row) for row in prepared.selection_records]
     documents = [dict(document) for document in rows[0]["documents"]]
@@ -433,6 +506,7 @@ def test_authenticate_finalized_overlay_rejects_outcome_or_predecision_drift(
         markdown_root=prepared.markdown_root,
         markdown_bytes=prepared.markdown_bytes,
         selection_sha256=prepared.selection_sha256,
+        verdict_source_sha256=prepared.verdict_source_sha256,
         document_commitments=prepared.document_commitments,
     )
     with pytest.raises(ManifestUnitizerCommandError, match="outcome-free"):
@@ -445,7 +519,6 @@ def test_authenticate_finalized_overlay_rejects_outcome_or_predecision_drift(
             expected_integration_manifest_sha256=hashlib.sha256(
                 integration_path.read_bytes()
             ).hexdigest(),
-            fresh_candidate_ids=fresh_ids,
             owner_approval_reference="legalforecastbench-3ak.38",
             stage51_packet_approval=(
                 "stage51-terminal-units: approved — packet "
@@ -458,30 +531,22 @@ def test_authenticate_finalized_overlay_rejects_outcome_or_predecision_drift(
 def test_citation_mismatch_requires_moving_case_to_fresh_set(
     tmp_path: Path,
 ) -> None:
-    alternate_fresh = tuple(
-        [
-            "synthetic-candidate-94",
-            *[f"synthetic-candidate-{number}" for number in range(96, 101)],
-        ]
-    )
-    _, _, _, _, fresh_ids, _ = _authenticate_fixture(tmp_path)
-    # Rebuild the authenticated partition with candidate 95 retained.  A
-    # stale citation in that retained record must fail closed; the adapter
-    # must not silently repair it by pointing at a different pleading.
-    alternate_root = tmp_path / "alternate"
-    alternate_root.mkdir()
     (
+        _,
         alternate_prepared,
         alternate_overlay,
         alternate_manifest,
         _,
         alternate_integration,
-    ) = _overlay_fixture(alternate_root, fresh_ids=alternate_fresh)
+    ) = _authenticate_fixture(tmp_path)
+    # A second retained citation failure must not let the operator substitute
+    # a different sixth case.  The derived set is frozen to the disclosed five
+    # replacements plus 72288139.
     rows = [json.loads(line) for line in alternate_overlay.read_text().splitlines()]
-    retained_95 = next(
-        row for row in rows if row["candidate_id"] == "synthetic-candidate-95"
+    retained_94 = next(
+        row for row in rows if row["candidate_id"] == "synthetic-candidate-94"
     )
-    retained_95["prediction_units"][0]["source_citations"][0]["excerpt"] = (
+    retained_94["prediction_units"][0]["source_citations"][0]["excerpt"] = (
         "Count I\nA different pleading was substituted."
     )
     alternate_overlay.write_text(
@@ -494,7 +559,7 @@ def test_citation_mismatch_requires_moving_case_to_fresh_set(
         json.dumps(alternate_integration, sort_keys=True) + "\n"
     )
 
-    with pytest.raises(ManifestUnitizerCommandError, match="span or page changed"):
+    with pytest.raises(ManifestUnitizerCommandError, match="did not derive"):
         authenticate_finalized_overlay(
             finalized_units_path=alternate_overlay,
             integration_manifest_path=alternate_manifest,
@@ -506,7 +571,6 @@ def test_citation_mismatch_requires_moving_case_to_fresh_set(
             expected_integration_manifest_sha256=hashlib.sha256(
                 alternate_manifest.read_bytes()
             ).hexdigest(),
-            fresh_candidate_ids=alternate_fresh,
             owner_approval_reference="legalforecastbench-3ak.38",
             stage51_packet_approval=(
                 "stage51-terminal-units: approved — packet "
@@ -515,15 +579,11 @@ def test_citation_mismatch_requires_moving_case_to_fresh_set(
             units_spend_approval=_UNITS_APPROVAL,
         )
 
-    # The same case is accepted only when the owner-approved fresh partition
-    # explicitly includes it (the default fixture has candidates 95-100 fresh).
-    assert "synthetic-candidate-95" in fresh_ids
-
 
 def test_authenticate_finalized_overlay_uses_one_markdown_snapshot(
     tmp_path: Path,
 ) -> None:
-    authenticated, prepared, overlay, integration_path, fresh_ids, integration = (
+    authenticated, prepared, overlay, integration_path, _, integration = (
         _authenticate_fixture(tmp_path)
     )
     # The on-disk source can change after preparation; authentication must use
@@ -540,7 +600,6 @@ def test_authenticate_finalized_overlay_uses_one_markdown_snapshot(
         expected_integration_manifest_sha256=hashlib.sha256(
             integration_path.read_bytes()
         ).hexdigest(),
-        fresh_candidate_ids=fresh_ids,
         owner_approval_reference="legalforecastbench-3ak.38",
         stage51_packet_approval=(
             f"stage51-terminal-units: approved — packet {integration['packet_sha256']}"
@@ -575,10 +634,28 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
         registry_key = "synthetic-model"
         provider = "synthetic"
 
+    class _Registry:
+        entries = (_RegistryEntry(),)
+
+    def fake_load_caps(payload: bytes, *, source: Path | str) -> _Caps:
+        assert payload == b"{}"
+        assert source == args.provider_cycle_caps
+        return _Caps()
+
+    def fake_load_registry(payload: bytes) -> _Registry:
+        assert payload == b"[]"
+        return _Registry()
+
+    def fake_verify_identity(*args: object, **kwargs: object) -> None:
+        return None
+
     def fake_unitize(**kwargs: Any) -> LlmBatchResult:
         selected = tuple(
             str(row["candidate_id"]) for row in kwargs["selection_records"]
         )
+        authority = kwargs["provider_spend_authorities"]["synthetic"]
+        assert authority.cap_microusd == 5_000_000
+        assert authority.policy.max_billable_attempts == 3
         calls.append(selected)
         return LlmBatchResult(
             records=tuple(
@@ -603,25 +680,37 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
     monkeypatch.setattr(
         unitizer_module,
         "load_provider_cycle_caps_bytes",
-        lambda payload, source: _Caps(),
+        fake_load_caps,
     )
     monkeypatch.setattr(
         unitizer_module,
         "load_model_registry_bytes",
-        lambda payload: SimpleNamespace(entries=(_RegistryEntry(),)),
+        fake_load_registry,
     )
     monkeypatch.setattr(
         unitizer_module,
         "verify_provider_journal_identity",
-        lambda *args, **kwargs: None,
+        fake_verify_identity,
     )
+    monkeypatch.setattr(
+        unitizer_module,
+        "_LABELING_MODEL_REGISTRY_SHA256",
+        hashlib.sha256(b"[]").hexdigest(),
+    )
+    monkeypatch.setattr(
+        unitizer_module,
+        "_PROVIDER_CAPS_SHA256",
+        hashlib.sha256(b"{}").hexdigest(),
+    )
+    monkeypatch.setattr(unitizer_module, "_LABELING_MODEL_KEY", "synthetic-model")
     monkeypatch.setattr(unitizer_module, "llm_unitize_cases", fake_unitize)
 
-    args = SimpleNamespace(
+    args = argparse.Namespace(
         output_root=tmp_path / "output",
         selection=tmp_path / "selection-unused.jsonl",
         document_store_roots=(),
         verdict_sources=(),
+        expected_verdict_source_sha256=(),
         target_case_count=100,
         finalized_units=overlay,
         finalized_integration_manifest=integration_path,
@@ -632,7 +721,6 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
         expected_finalized_integration_manifest_sha256=hashlib.sha256(
             integration_path.read_bytes()
         ).hexdigest(),
-        fresh_candidate_ids=fresh_ids,
         owner_approval_reference="legalforecastbench-3ak.38",
         stage51_packet_approval=(
             f"stage51-terminal-units: approved — packet {integration['packet_sha256']}"
@@ -665,12 +753,26 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
     )
     args.document_store_roots = (tmp_path / "store",)
     args.verdict_sources = (tmp_path / "verdicts.jsonl",)
+    args.expected_verdict_source_sha256 = (
+        hashlib.sha256(args.verdict_sources[0].read_bytes()).hexdigest(),
+    )
     # The execution adapter reads these paths before the patched authority loaders.
     args.model_registry.write_text("[]")
     args.provider_cycle_caps.write_text("{}")
     args.provider_journal.write_bytes(b"journal")
+
+    args.execute = False
+    unitizer_module.run_manifest_unitizer(args)
+    assert calls == []
+
+    args.execute = True
     unitizer_module.run_manifest_unitizer(args)
 
+    assert calls == [fresh_ids]
+
+    args.model_key = "openai:gpt-5.6-sol"
+    with pytest.raises(ManifestUnitizerCommandError, match="labeling model"):
+        unitizer_module.run_manifest_unitizer(args)
     assert calls == [fresh_ids]
 
 
