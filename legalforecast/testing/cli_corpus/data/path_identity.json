@@ -322,6 +322,7 @@
     "tests/test_llm_label_provider_shards.py",
     "tests/test_local_cli_adapter_manifest.py",
     "tests/test_local_cli_contracts.py",
+    "tests/test_manifest_unitizer_inputs.py",
     "tests/test_methods_preprint.py",
     "tests/test_metric_propagation.py",
     "tests/test_model_registry.py",

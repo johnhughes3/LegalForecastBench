@@ -9,8 +9,12 @@ from pathlib import Path
 import pytest
 from legalforecast.evals.corpus_manifest.unitizer import (
     ManifestUnitizerInputError,
+    _provider_account,
     prepare_manifest_unitizer_inputs,
 )
+from legalforecast.labeling.provider_journal import load_provider_cycle_caps
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
@@ -92,6 +96,15 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     )
     _write_jsonl(verdict_path, verdicts)
     return selection_path, store, verdict_path
+
+
+def test_manifest_unitizer_uses_default_account_for_legacy_caps() -> None:
+    caps = load_provider_cycle_caps(
+        REPO_ROOT
+        / "model_registries/cycle-1-target-100-provider-caps-base-2026-07-28.json"
+    )
+
+    assert _provider_account(caps, "anthropic") == "default"
 
 
 def test_prepare_manifest_unitizer_inputs_binds_exact_selection_and_bytes(
