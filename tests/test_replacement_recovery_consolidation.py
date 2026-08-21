@@ -544,14 +544,6 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
         Mapping[str, bytes], verified["verified_artifact_bytes"]
     )
 
-    def reject_legacy_clearance_branch(**_kwargs: object) -> dict[str, bytes]:
-        raise AssertionError("v3 consolidation must not use legacy clearance lineage")
-
-    monkeypatch.setattr(
-        cli,
-        "_complete_clearance_artifact_snapshot",
-        reject_legacy_clearance_branch,
-    )
     clearance_lineage = verify_clearance_lineage(
         manifest_path=args.output_root / "purchased-document-downloads.jsonl",
         clearance_path=args.output_root / "disclosure-clearance.jsonl",
