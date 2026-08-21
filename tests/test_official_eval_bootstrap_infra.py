@@ -47,6 +47,10 @@ LABELING_ROLE_ARN = (
     f"arn:{PARTITION}:iam::{ACCOUNT_ID}:"
     "role/legalforecastbench-official-labeling-authority"
 )
+EVAL_CELL_ROLE_ARN = (
+    f"arn:{PARTITION}:iam::{ACCOUNT_ID}:role/legalforecastbench-official-eval"
+)
+EVAL_FAN_IN_ROLE_ARN = f"{EVAL_CELL_ROLE_ARN}-fan-in"
 
 
 def _terraform() -> str:
@@ -426,10 +430,12 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
         official_labeling_state_key=(
             "official-eval/official-labeling/terraform.tfstate"
         ),
+        official_eval_state_key="official-eval/official-eval/terraform.tfstate",
         kms_key_arn=KEY_ARN,
         kms_via_service="s3.us-east-1.amazonaws.com",
         provider_authority_table_arn=TABLE_ARN,
         official_labeling_role_arn=LABELING_ROLE_ARN,
+        official_eval_cell_role_arn=EVAL_CELL_ROLE_ARN,
     )
     statements = _statements(policy)
 
@@ -440,6 +446,7 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
         "UseExactStateKey",
         "ManageExactProviderAuthorityTable",
         "ManageExactOfficialLabelingRole",
+        "ManageExactOfficialEvalCellRole",
     }
     state = statements["ReadWriteExactRuntimeState"]
     assert state["Action"] == ["s3:GetObject", "s3:PutObject"]
@@ -447,6 +454,28 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
         not str(resource).endswith("bootstrap/terraform.tfstate")
         for resource in cast(list[object], state["Resource"])
     )
+    # The workflow offers three reviewed modules, so every reviewed state key --
+    # official-eval included -- must be readable, writable, and lockable, or the
+    # protected apply dies at `terraform init` before any resource authority is
+    # ever exercised.
+    assert state["Resource"] == [
+        f"{BUCKET_ARN}/official-eval/provider-authority/terraform.tfstate",
+        f"{BUCKET_ARN}/official-eval/official-labeling/terraform.tfstate",
+        f"{BUCKET_ARN}/official-eval/official-eval/terraform.tfstate",
+    ]
+    listing = statements["ListExactRuntimeState"]
+    assert listing["Condition"] == {
+        "StringEquals": {
+            "s3:prefix": [
+                "official-eval/provider-authority/terraform.tfstate",
+                "official-eval/provider-authority/terraform.tfstate.tflock",
+                "official-eval/official-labeling/terraform.tfstate",
+                "official-eval/official-labeling/terraform.tfstate.tflock",
+                "official-eval/official-eval/terraform.tfstate",
+                "official-eval/official-eval/terraform.tfstate.tflock",
+            ]
+        }
+    }
     locks = statements["ManageExactRuntimeStateLocks"]
     assert locks["Action"] == [
         "s3:GetObject",
@@ -499,8 +528,27 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     ]
     assert labeling["Resource"] == LABELING_ROLE_ARN
 
+    # The official-eval cell role already exists, and the only reviewed change to
+    # it is MaxSessionDuration. Import, refresh, and that one update need exactly
+    # these five actions; creating the role, rewriting its inline policies, or
+    # editing its trust policy stay denied, so drift remediation fails closed
+    # rather than being silently repaired by the routine operator.
+    eval_cell = statements["ManageExactOfficialEvalCellRole"]
+    assert eval_cell["Action"] == [
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:UpdateRole",
+    ]
+    assert eval_cell["Resource"] == EVAL_CELL_ROLE_ARN
+
     serialized = json.dumps(policy)
     for forbidden in (
+        # The fan-in role is deliberately outside the operator's authority: it
+        # keeps its own one-hour session and nothing in the reviewed change
+        # touches it.
+        EVAL_FAN_IN_ROLE_ARN,
         "iam:PassRole",
         "iam:CreateOpenIDConnectProvider",
         "iam:UpdateOpenIDConnectProviderThumbprint",

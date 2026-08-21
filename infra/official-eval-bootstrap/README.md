@@ -1,7 +1,7 @@
 # One-time official-evaluation AWS bootstrap
 
 This Terraform root owns the trust anchor consumed by `.github/workflows/official-provider-authority-infra.yaml`: one private versioned state bucket, one customer-managed KMS key and alias, the account-level GitHub Actions OIDC provider, and the exact environment-bound infrastructure operator role.
-The routine workflow cannot apply this root and its role has no permission to change its own trust or policy, administer the OIDC provider, bucket, KMS key, or bootstrap state, or broaden the two reviewed downstream roots.
+The routine workflow cannot apply this root and its role has no permission to change its own trust or policy, administer the OIDC provider, bucket, KMS key, or bootstrap state, or broaden the three reviewed downstream roots.
 
 Creating or importing this root does not authorize AWS work.
 The one-time apply requires separately authorized human/operator AWS credentials, independent review of the exact plan, and protected local state custody until remote migration is proven complete.

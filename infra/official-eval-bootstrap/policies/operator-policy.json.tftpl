@@ -12,7 +12,9 @@
             "${provider_authority_state_key}",
             "${provider_authority_state_key}.tflock",
             "${official_labeling_state_key}",
-            "${official_labeling_state_key}.tflock"
+            "${official_labeling_state_key}.tflock",
+            "${official_eval_state_key}",
+            "${official_eval_state_key}.tflock"
           ]
         }
       }
@@ -26,7 +28,8 @@
       ],
       "Resource": [
         "${state_bucket_arn}/${provider_authority_state_key}",
-        "${state_bucket_arn}/${official_labeling_state_key}"
+        "${state_bucket_arn}/${official_labeling_state_key}",
+        "${state_bucket_arn}/${official_eval_state_key}"
       ]
     },
     {
@@ -39,7 +42,8 @@
       ],
       "Resource": [
         "${state_bucket_arn}/${provider_authority_state_key}.tflock",
-        "${state_bucket_arn}/${official_labeling_state_key}.tflock"
+        "${state_bucket_arn}/${official_labeling_state_key}.tflock",
+        "${state_bucket_arn}/${official_eval_state_key}.tflock"
       ]
     },
     {
@@ -93,6 +97,18 @@
         "iam:UpdateRole"
       ],
       "Resource": "${official_labeling_role_arn}"
+    },
+    {
+      "Sid": "ManageExactOfficialEvalCellRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:UpdateRole"
+      ],
+      "Resource": "${official_eval_cell_role_arn}"
     }
   ]
 }

@@ -8,6 +8,7 @@ locals {
   github_provider_arn   = "arn:${local.partition}:iam::${local.account_id}:oidc-provider/token.actions.githubusercontent.com"
   provider_table_arn    = "arn:${local.partition}:dynamodb:${var.aws_region}:${local.account_id}:table/${var.provider_authority_table_name}"
   official_labeling_arn = "arn:${local.partition}:iam::${local.account_id}:role/${var.official_labeling_role_name}"
+  official_eval_arn     = "arn:${local.partition}:iam::${local.account_id}:role/${var.official_eval_cell_role_name}"
   kms_via_service       = "s3.${var.aws_region}.${local.dns_suffix}"
 
   provider_authority_state_key = (
@@ -15,6 +16,9 @@ locals {
   )
   official_labeling_state_key = (
     "${var.state_key_prefix}/official-labeling/terraform.tfstate"
+  )
+  official_eval_state_key = (
+    "${var.state_key_prefix}/official-eval/terraform.tfstate"
   )
   github_ref     = "refs/heads/main"
   github_subject = "repo:${var.github_repository}:environment:${var.github_environment}"
@@ -35,10 +39,12 @@ locals {
       state_bucket_arn             = local.state_bucket_arn
       provider_authority_state_key = local.provider_authority_state_key
       official_labeling_state_key  = local.official_labeling_state_key
+      official_eval_state_key      = local.official_eval_state_key
       kms_key_arn                  = aws_kms_key.terraform_state.arn
       kms_via_service              = local.kms_via_service
       provider_authority_table_arn = local.provider_table_arn
       official_labeling_role_arn   = local.official_labeling_arn
+      official_eval_cell_role_arn  = local.official_eval_arn
     },
   )
   kms_key_policy = templatefile(
