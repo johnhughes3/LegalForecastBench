@@ -68,8 +68,8 @@ jobs:
     # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
     runs-on: ubuntu-latest
     # Three 15-minute Flex attempts, retries, in-cell closure, and staging need
-    # three-hour headroom. OpenAI repeat samples remain rejected below until
-    # repeat fan-out is implemented. The cell role remains capped at one hour;
+    # three-hour headroom. Repeat samples remain rejected below until repeat
+    # fan-out is implemented. The cell role remains capped at one hour;
     # each AWS-use boundary below reacquires a fresh short-lived session.
     timeout-minutes: 180
     environment: legalforecastbench-official-eval
@@ -131,12 +131,12 @@ jobs:
             echo "execution_policy_sha256 must be lowercase SHA-256." >&2
             exit 1
           fi
-          if [[ "${PROVIDER}" == "openai" ]] && ! [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
+          if ! [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
             echo "repeat_count must be a positive integer." >&2
             exit 1
           fi
-          if [[ "${PROVIDER}" == "openai" ]] && (( REPEAT_COUNT > 1 )); then
-            echo "OpenAI repeat samples are not supported in one provider cell; use repeat_count=1 until repeat fan-out and AWS-session coordination land." >&2
+          if (( REPEAT_COUNT > 1 )); then
+            echo "Repeat samples are not supported in one provider cell; use repeat_count=1 until repeat fan-out and AWS-session coordination land." >&2
             exit 1
           fi
           retention_days="${ARTIFACT_RETENTION_DAYS}"
