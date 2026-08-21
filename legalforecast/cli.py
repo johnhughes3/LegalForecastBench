@@ -77,6 +77,11 @@ from legalforecast.evals.accounting import (
     OutputValidityStatus,
     accounting_records_from_inspect_run,
 )
+from legalforecast.evals.corpus_manifest.unitizer import (
+    ManifestUnitizerCommandError,
+    add_manifest_unitizer_arguments,
+    run_manifest_unitizer,
+)
 from legalforecast.evals.inspect_task import (
     OfflineMockSolver,
     build_inspect_samples,
@@ -2916,6 +2921,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use a registry-backed LLM to construct frozen Stage A units.",
     )
     _add_acquisition_llm_unitize_arguments(acquisition_llm_unitize)
+    acquisition_llm_unitize_manifest = acquisition_subparsers.add_parser(
+        "llm-unitize-manifest",
+        help=(
+            "Use existing authenticated document stores to construct Stage A "
+            "units without acquisition-lineage run cards."
+        ),
+    )
+    _add_acquisition_llm_unitize_manifest_arguments(acquisition_llm_unitize_manifest)
     acquisition_target_eligibility_audit = acquisition_subparsers.add_parser(
         "audit-stage-a-target-eligibility",
         help=(
@@ -9703,6 +9716,16 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         help="Per-provider-request timeout for the registry-backed LLM call.",
     )
     parser.set_defaults(handler=_cmd_acquisition_llm_unitize)
+
+
+def _add_acquisition_llm_unitize_manifest_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Add the additive document-store adapter for Stage A unitization."""
+
+    _add_acquisition_common_arguments(parser)
+    add_manifest_unitizer_arguments(parser)
+    parser.set_defaults(handler=_cmd_acquisition_llm_unitize_manifest)
 
 
 def _add_acquisition_target_document_eligibility_audit_arguments(
@@ -63837,6 +63860,14 @@ def _verified_stage_a_unitizer_terminal_escalations(
             {"path": str(path.resolve()), "sha256": _bytes_sha256(payload)},
         )
     return result
+
+
+def _cmd_acquisition_llm_unitize_manifest(args: argparse.Namespace) -> int:
+    try:
+        run_manifest_unitizer(args)
+    except ManifestUnitizerCommandError as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
 
 
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:

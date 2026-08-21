@@ -40805,6 +40805,340 @@
       "group_dest": "acquisition_command",
       "handler": {
         "module": "legalforecast.cli",
+        "name": "_cmd_acquisition_llm_unitize_manifest",
+        "qualname": "_cmd_acquisition_llm_unitize_manifest"
+      },
+      "logical_handler_id": "acquisition.llm-unitize-manifest",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "output_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--output-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
+          "dest": "execute",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--execute"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "log_output",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--log-output"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "run_card_output",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--run-card-output"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": true,
+          "dest": "resume",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--resume"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store_false",
+          "choices": null,
+          "default": true,
+          "dest": "resume",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--no-resume"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "selection",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--selection"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "append",
+          "choices": null,
+          "default": null,
+          "dest": "document_store_roots",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--document-store-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "append",
+          "choices": null,
+          "default": null,
+          "dest": "verdict_sources",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--verdict-source"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": 100,
+          "dest": "target_case_count",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--target-case-count"
+          ],
+          "required": false,
+          "type": "int"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "model_registry",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model-registry"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "model_key",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model-key"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "provider_cycle_caps",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--provider-cycle-caps"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "provider_journal",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--provider-journal"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
+          "dest": "local_provider_journal_only",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--local-provider-journal-only"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": [
+            "claim-ontology-v5"
+          ],
+          "default": null,
+          "dest": "provider_attempt_namespace",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--provider-attempt-namespace"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "append",
+          "choices": null,
+          "default": [],
+          "dest": "terminal_escalation",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--terminal-escalation"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "prediction_units_output",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--prediction-units-output"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "audit_output",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--audit-output"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "unitization_review_queue_output",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--unitization-review-queue-output"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "unitizer_terminal_review_queue_output",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--unitizer-terminal-review-queue-output"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
+          "dest": "continue_on_error",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--continue-on-error"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": 120.0,
+          "dest": "timeout_seconds",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--timeout-seconds"
+          ],
+          "required": false,
+          "type": "float"
+        }
+      ],
+      "path": [
+        "acquisition",
+        "llm-unitize-manifest"
+      ],
+      "registration_index": 197
+    },
+    {
+      "aliases": [],
+      "group_dest": "acquisition_command",
+      "handler": {
+        "module": "legalforecast.cli",
         "name": "_cmd_acquisition_target_document_eligibility_audit",
         "qualname": "_cmd_acquisition_target_document_eligibility_audit"
       },
@@ -41078,7 +41412,7 @@
         "acquisition",
         "audit-stage-a-target-eligibility"
       ],
-      "registration_index": 197
+      "registration_index": 198
     },
     {
       "aliases": [],
@@ -41597,7 +41931,7 @@
         "acquisition",
         "recover-llm-unitize-reconstruction"
       ],
-      "registration_index": 198
+      "registration_index": 199
     },
     {
       "aliases": [],
@@ -42116,7 +42450,7 @@
         "acquisition",
         "terminalize-llm-unitize-reconstruction"
       ],
-      "registration_index": 199
+      "registration_index": 200
     },
     {
       "aliases": [],
@@ -42435,7 +42769,7 @@
         "acquisition",
         "build-unitizer-terminal-review-bundle"
       ],
-      "registration_index": 200
+      "registration_index": 201
     },
     {
       "aliases": [],
@@ -42663,7 +42997,7 @@
         "acquisition",
         "build-successor-attorney-packet"
       ],
-      "registration_index": 201
+      "registration_index": 202
     },
     {
       "aliases": [],
@@ -42865,7 +43199,7 @@
         "acquisition",
         "convert-unitization-adjudication-worksheet"
       ],
-      "registration_index": 202
+      "registration_index": 203
     },
     {
       "aliases": [],
@@ -43254,7 +43588,7 @@
         "acquisition",
         "llm-review-stage-a"
       ],
-      "registration_index": 203
+      "registration_index": 204
     },
     {
       "aliases": [],
@@ -43565,7 +43899,7 @@
         "acquisition",
         "recover-llm-review-stage-a-reconstruction"
       ],
-      "registration_index": 204
+      "registration_index": 205
     },
     {
       "aliases": [],
@@ -43876,7 +44210,7 @@
         "acquisition",
         "terminalize-llm-review-stage-a-reconstruction"
       ],
-      "registration_index": 205
+      "registration_index": 206
     },
     {
       "aliases": [],
@@ -44091,7 +44425,7 @@
         "acquisition",
         "build-unitization-review-bundle"
       ],
-      "registration_index": 206
+      "registration_index": 207
     },
     {
       "aliases": [],
@@ -44228,7 +44562,7 @@
         "acquisition",
         "preflight-unitization-adjudication"
       ],
-      "registration_index": 207
+      "registration_index": 208
     },
     {
       "aliases": [],
@@ -44469,7 +44803,7 @@
         "acquisition",
         "apply-unitization-review"
       ],
-      "registration_index": 208
+      "registration_index": 209
     },
     {
       "aliases": [],
@@ -44762,7 +45096,7 @@
         "acquisition",
         "apply-unitizer-terminal-review"
       ],
-      "registration_index": 209
+      "registration_index": 210
     },
     {
       "aliases": [],
@@ -45271,7 +45605,7 @@
         "acquisition",
         "llm-label"
       ],
-      "registration_index": 210
+      "registration_index": 211
     },
     {
       "aliases": [],
@@ -45590,7 +45924,7 @@
         "acquisition",
         "plan-label-audit"
       ],
-      "registration_index": 211
+      "registration_index": 212
     },
     {
       "aliases": [],
@@ -45909,7 +46243,7 @@
         "acquisition",
         "apply-lawyer-review"
       ],
-      "registration_index": 212
+      "registration_index": 213
     },
     {
       "aliases": [],
@@ -46397,7 +46731,7 @@
         "acquisition",
         "plan-packet-inputs"
       ],
-      "registration_index": 213
+      "registration_index": 214
     },
     {
       "aliases": [],
@@ -46982,7 +47316,7 @@
         "acquisition",
         "build-packets"
       ],
-      "registration_index": 214
+      "registration_index": 215
     },
     {
       "aliases": [],
@@ -47887,7 +48221,7 @@
         "acquisition",
         "finalize-corpus"
       ],
-      "registration_index": 215
+      "registration_index": 216
     },
     {
       "aliases": [],
@@ -48154,7 +48488,7 @@
         "acquisition",
         "summarize-corpus"
       ],
-      "registration_index": 216
+      "registration_index": 217
     },
     {
       "aliases": [],
@@ -48317,7 +48651,7 @@
         "acquisition",
         "merge-artifacts"
       ],
-      "registration_index": 217
+      "registration_index": 218
     }
   ],
   "prog": "legalforecast",

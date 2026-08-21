@@ -419,6 +419,10 @@ positional arguments:
                         or recovery result after credentials are cleared.
     llm-unitize         Use a registry-backed LLM to construct frozen Stage A
                         units.
+    llm-unitize-manifest
+                        Use existing authenticated document stores to
+                        construct Stage A units without acquisition-lineage
+                        run cards.
     audit-stage-a-target-eligibility
                         Replay authenticated Stage A parse lineage and publish
                         the provider-free target-document eligibility audit.
