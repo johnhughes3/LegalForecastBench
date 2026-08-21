@@ -12,6 +12,16 @@ Each run uses a cycle ID, run-input manifest, locked labels, model registry, mod
 
 Model-visible docket and filing text is screened for target-outcome leakage before packet construction. Exclusions and redactions are recorded in acquisition and audit artifacts. Packets exclude the target written disposition.
 
+Cycle 1 limitation: before the synthetic-fixture rule was made explicit, a small
+set of real corpus candidate identifiers was already present in tracked public
+tests and documentation. The owner accepts that pre-existing corpus-membership
+exposure as a disclosed limitation; it is not evidence that the associated
+documents or labels were model-visible. The repository-wide candidate-ID fence
+(`tests/test_public_corpus_id_fence.py`) freezes the accepted inventory and
+rejects new numeric `candidate_id` literals. New fixtures and examples must use
+synthetic identifiers, and any intentional inventory change requires an
+explicitly reviewed baseline update.
+
 Published scores carry a contamination tier computed from the model's recorded training cutoff and the cohort's `eligibility_anchor`. Contamination-resistant scores are the default claim: the cutoff predates every scored decision. Preliminary (non-contamination-resistant) scores are allowed on a frozen cohort when a later-released model's cutoff overlaps that window; they are marked with an asterisk and a standard caveat. When a later resistant refresh covers the same model, the paired micro-Brier delta is published as drift. See [contamination-tier-reporting.md](contamination-tier-reporting.md). The overlay does not change authenticated aggregate bytes.
 
 ## Model Execution And Recovery
