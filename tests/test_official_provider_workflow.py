@@ -155,11 +155,22 @@ def test_provider_cell_preserves_frozen_dispatch_and_cycle_bindings() -> None:
     assert 'writer_id="${GITHUB_RUN_ID}-case-${PROVIDER}-${CELL_INDEX}"' in WORKFLOW
 
 
-def test_provider_cell_aws_session_matches_job_deadline() -> None:
+def test_provider_cell_aws_session_covers_job_deadline() -> None:
     iam = (ROOT / "infra" / "official-eval" / "iam.tf").read_text(encoding="utf-8")
-    assert "timeout-minutes: 180" in WORKFLOW
-    assert "max_session_duration = 10800" in iam
-    assert "role-duration-seconds: 10800" in WORKFLOW
+    assert "timeout-minutes: 55" in WORKFLOW
+    assert "max_session_duration = 3600" in iam
+    assert "role-duration-seconds:" not in WORKFLOW
+
+
+def test_provider_cell_rejects_openai_repeat_samples_before_authority() -> None:
+    boundary = WORKFLOW[
+        WORKFLOW.index("- name: Validate provider-cell boundary") : WORKFLOW.index(
+            "- name: Checkout trusted release"
+        )
+    ]
+    assert "REPEAT_COUNT: ${{ inputs.repeat_count }}" in boundary
+    assert "OpenAI repeat samples are not supported in one provider cell" in boundary
+    assert "Configure packet-read and result-write AWS authority" not in boundary
 
 
 def test_runs_transport_stays_private_without_weakening_receipt_finalization() -> None:

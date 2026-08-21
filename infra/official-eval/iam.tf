@@ -1,8 +1,7 @@
 resource "aws_iam_role" "cell" {
   name                 = var.name_prefix
   assume_role_policy   = local.cell_trust_policy_json
-  # The provider-cell workflow permits three-hour Flex/retry/repeat runs.
-  max_session_duration = 10800
+  max_session_duration = 3600
 }
 
 resource "aws_iam_role_policy" "cell_storage" {
