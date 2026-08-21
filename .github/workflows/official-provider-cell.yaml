@@ -67,9 +67,10 @@ jobs:
     # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
     # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
     runs-on: ubuntu-latest
-    # Flex attempts, retries, and in-cell repeat samples need three-hour
-    # headroom; the assumed role/session is pinned to the same value below.
-    timeout-minutes: 180
+    # Three 15-minute Flex attempts plus closure/staging headroom fit inside
+    # the existing one-hour AWS session. OpenAI repeat samples are rejected
+    # below until they are fanned out or given a coordinated longer session.
+    timeout-minutes: 55
     environment: legalforecastbench-official-eval
     permissions:
       contents: read
@@ -94,6 +95,7 @@ jobs:
           MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
           CELL_INDEX: ${{ inputs.cell_index }}
           PROVIDER: ${{ inputs.provider }}
+          REPEAT_COUNT: ${{ inputs.repeat_count }}
         run: |
           set -euo pipefail
           case "${PROVIDER}:${ENVIRONMENT_NAME}" in
@@ -126,6 +128,14 @@ jobs:
           fi
           if [[ ! "${EXECUTION_POLICY_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
             echo "execution_policy_sha256 must be lowercase SHA-256." >&2
+            exit 1
+          fi
+          if [[ "${PROVIDER}" == "openai" ]] && ! [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "repeat_count must be a positive integer." >&2
+            exit 1
+          fi
+          if [[ "${PROVIDER}" == "openai" ]] && (( REPEAT_COUNT > 1 )); then
+            echo "OpenAI repeat samples are not supported in one provider cell; use repeat_count=1 until repeat fan-out and AWS-session coordination land." >&2
             exit 1
           fi
           retention_days="${ARTIFACT_RETENTION_DAYS}"
@@ -237,8 +247,6 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-cell-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
-          # Match the three-hour provider-cell job deadline.
-          role-duration-seconds: 10800
 
       - name: Begin per-case cycle mutation
         id: begin_cycle_mutation
