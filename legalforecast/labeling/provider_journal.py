@@ -228,6 +228,12 @@ class ProviderJournalIdentity:
     canonical_path: str
 
 
+def _same_digest_identity(actual: str, expected: str) -> bool:
+    """Compare canonical and legacy bare SHA-256 identity spellings."""
+
+    return actual.removeprefix("sha256:") == expected.removeprefix("sha256:")
+
+
 def _provider_journal_durable_bytes(source: Path) -> tuple[bytes, dict[str, bytes]]:
     """Capture the journal database plus every durable sidecar it commits to.
 
@@ -364,8 +370,9 @@ def verify_provider_journal_identity(
         raise ProviderJournalReplayMismatchError(
             "provider journal cycle identity differs"
         )
-    if identity.provider_cycle_caps_sha256 != _nonempty_identity(
-        provider_cycle_caps_sha256, "provider_cycle_caps_sha256"
+    if not _same_digest_identity(
+        identity.provider_cycle_caps_sha256,
+        _nonempty_identity(provider_cycle_caps_sha256, "provider_cycle_caps_sha256"),
     ):
         raise ProviderJournalReplayMismatchError(
             "provider journal caps artifact identity differs"
@@ -1347,7 +1354,7 @@ class ProviderAttemptJournal:
                 raise ProviderJournalReplayMismatchError(
                     "provider journal cycle identity differs"
                 )
-            if actual[2] != expected[2]:
+            if not _same_digest_identity(str(actual[2]), str(expected[2])):
                 raise ProviderJournalReplayMismatchError(
                     "provider journal caps artifact identity differs"
                 )
