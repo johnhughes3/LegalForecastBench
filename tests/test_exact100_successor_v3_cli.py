@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 import pytest
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_v3 import cli as v3_cli
 from legalforecast.ingestion.exact100_successor_v3.replacement_evidence_cli import (
     OwnerAdjudicatedReplacementCliError,
@@ -325,6 +326,125 @@ def test_project_successor_v3_publishes_a_complete_successor_root(
     assert (output / _CARRIED_RELATIVE).read_bytes() == _CARRIED_BYTES
     disclosure = json.loads((output / "methods-disclosure.json").read_bytes())
     assert disclosure["owner_adjudicated_promotion_count"] == 1
+
+
+def _published_successor_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Produce one real synthetic v3 root for public-authentication tests."""
+
+    anchor = _anchor_root(tmp_path, monkeypatch)
+    evidence, _ = _issue_evidence_root(tmp_path, "new1", "case000")
+    output = tmp_path / "successor-1"
+    assert (
+        _run_project(
+            predecessor=anchor,
+            exclusion=_owner_judgment_file(tmp_path, "case000", "e0.json"),
+            evidence=evidence,
+            output=output,
+        )
+        == 0
+    )
+    return output
+
+
+def _rewrite_state_card(root: Path, card: dict[str, object]) -> None:
+    (root / v3_cli._OUTPUT_NAMES["state"]).write_bytes(  # pyright: ignore[reportPrivateUsage]
+        canonical_json_bytes(
+            card,
+            error_type=ValueError,
+            error_message="synthetic state card serialization failed",
+        )
+    )
+
+
+def test_public_authentication_refuses_methods_mutation_even_with_updated_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A self-updated methods commitment cannot replace replayed disclosure."""
+
+    root = _published_successor_root(tmp_path, monkeypatch)
+    methods_path = root / v3_cli._OUTPUT_NAMES["methods_disclosure"]  # pyright: ignore[reportPrivateUsage]
+    methods = json.loads(methods_path.read_bytes())
+    methods["disclosure_text"] += " tampered"
+    mutated_methods = canonical_json_bytes(
+        methods,
+        error_type=ValueError,
+        error_message="synthetic methods serialization failed",
+    )
+    methods_path.write_bytes(mutated_methods)
+
+    card_path = root / v3_cli._OUTPUT_NAMES["state"]  # pyright: ignore[reportPrivateUsage]
+    card = json.loads(card_path.read_bytes())
+    card["output_commitments"][v3_cli._OUTPUT_NAMES["methods_disclosure"]] = (  # pyright: ignore[reportPrivateUsage]
+        "sha256:" + hashlib.sha256(mutated_methods).hexdigest()
+    )
+    _rewrite_state_card(root, card)
+
+    with pytest.raises(
+        v3_cli.Exact100SuccessorReplacementV3CliError,
+        match="state differs from its replay",
+    ):
+        v3_cli.authenticate_exact100_successor_v3_root(root)
+
+
+def test_public_authentication_refuses_removed_promoted_document_commitment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _published_successor_root(tmp_path, monkeypatch)
+    card_path = root / v3_cli._OUTPUT_NAMES["state"]  # pyright: ignore[reportPrivateUsage]
+    card = json.loads(card_path.read_bytes())
+    promoted = sorted(
+        key
+        for key in card["output_commitments"]
+        if key.startswith("owner-adjudicated-source/documents/")
+    )
+    assert promoted
+    del card["output_commitments"][promoted[0]]
+    _rewrite_state_card(root, card)
+
+    with pytest.raises(
+        v3_cli.Exact100SuccessorReplacementV3CliError,
+        match="state differs from its replay",
+    ):
+        v3_cli.authenticate_exact100_successor_v3_root(root)
+
+
+def test_public_authentication_refuses_added_promoted_document_commitment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _published_successor_root(tmp_path, monkeypatch)
+    extra_relative = "owner-adjudicated-source/documents/new1/extra.pdf"
+    extra_payload = b"%PDF-1.7 synthetic extra promoted document\n"
+    _write(root / extra_relative, extra_payload)
+
+    card_path = root / v3_cli._OUTPUT_NAMES["state"]  # pyright: ignore[reportPrivateUsage]
+    card = json.loads(card_path.read_bytes())
+    card["output_commitments"][extra_relative] = (
+        "sha256:" + hashlib.sha256(extra_payload).hexdigest()
+    )
+    _rewrite_state_card(root, card)
+
+    with pytest.raises(
+        v3_cli.Exact100SuccessorReplacementV3CliError,
+        match="state differs from its replay",
+    ):
+        v3_cli.authenticate_exact100_successor_v3_root(root)
+
+
+def test_public_authentication_refuses_traversal_commitment_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _published_successor_root(tmp_path, monkeypatch)
+    traversal = "../outside-promoted-document.pdf"
+    card_path = root / v3_cli._OUTPUT_NAMES["state"]  # pyright: ignore[reportPrivateUsage]
+    card = json.loads(card_path.read_bytes())
+    card["output_commitments"][traversal] = "sha256:" + "a" * 64
+    _rewrite_state_card(root, card)
+
+    with pytest.raises(
+        v3_cli.Exact100SuccessorReplacementV3CliError,
+        match="state differs from its replay",
+    ):
+        v3_cli.authenticate_exact100_successor_v3_root(root)
 
 
 def test_a_second_swap_chains_from_the_first_v3_root(

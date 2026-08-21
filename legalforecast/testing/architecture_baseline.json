@@ -1,14 +1,14 @@
 {
   "cli_metrics": {
     "command_handler_count": 165,
-    "command_handler_lines": 27019,
-    "line_count": 73619,
-    "nonblank_line_count": 70833,
+    "command_handler_lines": 27038,
+    "line_count": 73828,
+    "nonblank_line_count": 71042,
     "parser_line_count": 1774,
     "top_level_class_count": 20,
     "top_level_definition_count": 1012,
     "verifier_family_count": 164,
-    "verifier_family_lines": 12167
+    "verifier_family_lines": 12216
   },
   "compatibility": {
     "cli_import_files": [
@@ -347,6 +347,7 @@
       "tests/test_cohort_document_materializer.py::legalforecast.cli._prepare_free_only_cohort_documents",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._read_singly_linked_regular_input",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._require_materializer_artifact",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli._require_materializer_artifact",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._require_snapshot_unchanged",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._select_materializer_projection_after_recovery",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._validate_materializer_writable_paths",
@@ -381,6 +382,7 @@
       "tests/test_cohort_document_materializer.py::legalforecast.cli.verify_case_dev_purchase_policy_cohort_binding",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.verify_case_dev_purchase_policy_cohort_binding",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.verify_cohort_policy",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.verify_free_only_materialization_authority",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.verify_free_only_materialization_authority",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.verify_free_only_materialization_authority",
@@ -485,6 +487,7 @@
       "tests/test_exact100_successor_replacement_cli.py::legalforecast.cli.validate_authenticated_clearance_lineage",
       "tests/test_exact100_successor_replacement_cli.py::legalforecast.cli.validate_review_receipt",
       "tests/test_exact100_successor_replacement_cli.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
+      "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli.authenticate_exact100_successor_v3_root",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli.authenticate_exact100_successor_v3_root",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli.authenticate_exact100_successor_v3_root",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli.authenticate_exact100_successor_v3_root",
@@ -728,6 +731,7 @@
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.verified_docket_decision_document_keys",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.verify_case_dev_purchase_policy",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.verify_case_dev_purchase_policy_cohort_binding",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
@@ -1465,6 +1469,8 @@
       "tests/test_cohort_document_materializer.py::legalforecast.cli._materializer_successor_v2_free_sources",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._materializer_successor_v2_free_sources",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._materializer_successor_v2_free_sources",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli._materializer_successor_v2_free_sources",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli._materializer_successor_v2_free_sources",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._merge_verified_artifact_bytes",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._merge_verified_artifact_bytes",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._optional_materializer_artifact",
@@ -1489,6 +1495,7 @@
       "tests/test_cohort_document_materializer.py::legalforecast.cli._verify_materialized_downstream_lineage",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._verify_materialized_downstream_lineage",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._verify_materialized_downstream_lineage",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli._verify_materializer_projection",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._verify_materializer_resume",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._write_jsonl",
       "tests/test_cohort_document_materializer.py::legalforecast.cli._write_jsonl",
@@ -1629,6 +1636,9 @@
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.set",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._VERIFIED_PROJECTION_BYTE_COLLECTOR.set",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._VerifiedProjectionOperation",
+      "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._VerifiedSuccessorSelectionCard",
+      "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._verified_successor_selection_card_from_projection",
+      "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._verify_completed_target_cohort_projection_in_operation",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._verify_completed_target_cohort_projection_in_operation",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._verify_completed_target_cohort_projection_in_operation",
       "tests/test_exact100_successor_v3_consumer_wiring.py::legalforecast.cli._verify_completed_target_cohort_projection_in_operation",
@@ -1932,6 +1942,11 @@
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._prepare_replacement_recovery_consolidation",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._prepare_replacement_recovery_consolidation",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._prepare_replacement_recovery_consolidation",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._prepare_replacement_recovery_consolidation",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._prepare_replacement_recovery_consolidation",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._prepare_replacement_recovery_consolidation",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._prepare_replacement_recovery_consolidation",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._prepare_replacement_recovery_consolidation",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._projection_jsonl_bytes",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._read_singly_linked_regular_input",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._read_singly_linked_regular_input",
@@ -2032,6 +2047,10 @@
       "tests/test_resolved_post_recovery.py::legalforecast.cli._publish_resolved_post_recovery_documents",
       "tests/test_resolved_post_recovery.py::legalforecast.cli._require_terminal_disposition_bundle",
       "tests/test_resolved_post_recovery.py::legalforecast.cli._require_terminal_disposition_bundle",
+      "tests/test_resolved_post_recovery.py::legalforecast.cli._verify_materializer_purchase_operations",
+      "tests/test_resolved_post_recovery.py::legalforecast.cli._verify_materializer_purchase_operations",
+      "tests/test_resolved_post_recovery.py::legalforecast.cli._verify_materializer_purchase_operations",
+      "tests/test_resolved_post_recovery.py::legalforecast.cli._verify_materializer_purchase_operations",
       "tests/test_resolved_post_recovery.py::legalforecast.cli._verify_materializer_purchase_operations",
       "tests/test_resolved_post_recovery.py::legalforecast.cli._verify_materializer_recovery",
       "tests/test_resolved_post_recovery.py::legalforecast.cli._verify_materializer_recovery",
@@ -2929,9 +2948,12 @@
       "tests/test_cohort_document_materializer.py::legalforecast.cli.CommandError",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.CommandError",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.CommandError",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli.CommandError",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.FreeOnlyMaterializationError",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.argparse",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.argparse",
@@ -3345,12 +3367,14 @@
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.POST_PURCHASE_REPLAY_RESULT_SCHEMA_VERSION",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V3",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.canonical_purchase_operation_sha256",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.read_case_dev_purchase_snapshot",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
       "tests/test_replacement_recovery_source_producer.py::legalforecast.cli.CommandError",
       "tests/test_replacement_recovery_source_producer.py::legalforecast.cli.CommandError",
       "tests/test_replacement_recovery_source_producer.py::legalforecast.cli.CommandError",
@@ -3387,6 +3411,8 @@
       "tests/test_replacement_successor_lineage.py::legalforecast.cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA",
       "tests/test_replacement_successor_lineage.py::legalforecast.cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA",
       "tests/test_replacement_successor_lineage.py::legalforecast.cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA",
+      "tests/test_resolved_post_recovery.py::legalforecast.cli.CommandError",
+      "tests/test_resolved_post_recovery.py::legalforecast.cli.CommandError",
       "tests/test_resolved_post_recovery.py::legalforecast.cli.CommandError",
       "tests/test_resolved_post_recovery.py::legalforecast.cli.CommandError",
       "tests/test_resolved_post_recovery.py::legalforecast.cli.CommandError",
@@ -4030,8 +4056,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1774,
         "layer": "entrypoint",
-        "line_count": 73619,
-        "nonblank_line_count": 70833,
+        "line_count": 73828,
+        "nonblank_line_count": 71042,
         "top_level_definition_count": 1012
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -5457,15 +5483,15 @@
         "fan_out": 8,
         "flags": [
           "cycle",
-          "watch"
+          "oversized"
         ],
         "lane_owner": "ingestion",
-        "largest_symbol": "run_project",
-        "largest_symbol_lines": 127,
+        "largest_symbol": "_replay_stipulated_exclusions",
+        "largest_symbol_lines": 97,
         "layer": "application",
-        "line_count": 989,
-        "nonblank_line_count": 890,
-        "top_level_definition_count": 30
+        "line_count": 1048,
+        "nonblank_line_count": 944,
+        "top_level_definition_count": 32
       },
       "legalforecast/ingestion/exact100_successor_v3/projector.py": {
         "cycle_id": "",
@@ -8807,9 +8833,9 @@
         "largest_symbol": "test_consolidated_recovery_callers_replay_authenticated_base_selection",
         "largest_symbol_lines": 254,
         "layer": "test",
-        "line_count": 2936,
-        "nonblank_line_count": 2655,
-        "top_level_definition_count": 66
+        "line_count": 3086,
+        "nonblank_line_count": 2783,
+        "top_level_definition_count": 70
       },
       "tests/test_cohort_policy.py": {
         "cycle_id": "",
@@ -9619,9 +9645,9 @@
         "largest_symbol": "test_a_second_swap_chains_from_the_first_v3_root",
         "largest_symbol_lines": 40,
         "layer": "test",
-        "line_count": 635,
-        "nonblank_line_count": 511,
-        "top_level_definition_count": 31
+        "line_count": 755,
+        "nonblank_line_count": 611,
+        "top_level_definition_count": 37
       },
       "tests/test_exact310_rest_rebind.py": {
         "cycle_id": "",
@@ -10968,9 +10994,9 @@
         "largest_symbol": "_prepare_fixture",
         "largest_symbol_lines": 334,
         "layer": "test",
-        "line_count": 2176,
-        "nonblank_line_count": 1970,
-        "top_level_definition_count": 42
+        "line_count": 2292,
+        "nonblank_line_count": 2069,
+        "top_level_definition_count": 47
       },
       "tests/test_replacement_recovery_source_producer.py": {
         "cycle_id": "",
@@ -11019,9 +11045,9 @@
         "largest_symbol": "test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage",
         "largest_symbol_lines": 1121,
         "layer": "test",
-        "line_count": 4421,
-        "nonblank_line_count": 4191,
-        "top_level_definition_count": 59
+        "line_count": 4514,
+        "nonblank_line_count": 4272,
+        "top_level_definition_count": 63
       },
       "tests/test_rest_observation_policy_rebind.py": {
         "cycle_id": "",

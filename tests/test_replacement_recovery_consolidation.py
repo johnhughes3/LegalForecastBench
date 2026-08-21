@@ -371,7 +371,7 @@ def _attach_external_billing_register(
     args: argparse.Namespace,
     monkeypatch: pytest.MonkeyPatch,
     *,
-    document_keys: set[tuple[str, str]],
+    document_commitments: Mapping[tuple[str, str], str],
 ) -> tuple[Path, list[bytes]]:
     """Put a synthetic register on the v3 production path.
 
@@ -389,7 +389,10 @@ def _attach_external_billing_register(
     def verify_register(payload: bytes) -> SimpleNamespace:
         observed_payloads.append(payload)
         assert payload == register_path.read_bytes()
-        return SimpleNamespace(document_keys=frozenset(document_keys))
+        return SimpleNamespace(
+            document_keys=frozenset(document_commitments),
+            commitment_map=lambda: dict(document_commitments),
+        )
 
     monkeypatch.setattr(cli, "verify_external_billing_register", verify_register)
     args.external_billing_register = register_path
@@ -417,7 +420,9 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
     register_path, observed_payloads = _attach_external_billing_register(
         args,
         monkeypatch,
-        document_keys={("case-2", "doc-2")},
+        document_commitments={
+            ("case-2", "doc-2"): hashlib.sha256(b"%PDF-1.4 tranche 2\n").hexdigest()
+        },
     )
 
     assert cli._cmd_consolidate_replacement_recovery(args) == 0
@@ -475,6 +480,117 @@ def test_omitting_register_preserves_canonical_ledger_only_coverage(
         ValueError,
         match="final active paid-gap scope differs from canonical ledger coverage",
     ):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_exact100_v3_target_without_register_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=selected)
+    args.target_cohort_root = Path(args.target_purchased_manifest).parent
+    args.target_purchased_manifest = None
+
+    with pytest.raises(ValueError, match="v3 target requires"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_external_register_with_legacy_target_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs={("base-case", "base-doc")},
+    )
+    register_path = _write_json(tmp_path / "register.json", {"fixture": True})
+    args.external_billing_register = register_path
+
+    with pytest.raises(ValueError, match="requires an authenticated exact100 v3"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_external_register_with_exact100_v2_target_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=selected)
+    register_path, _ = _attach_external_billing_register(
+        args,
+        monkeypatch,
+        document_commitments={},
+    )
+    original_verify = (
+        cli.verify_completed_target_cohort_projection_for_purchase_approval
+    )
+
+    def verify_v2(root: Path) -> dict[str, object]:
+        projection = dict(original_verify(root))
+        projection["run_card"] = {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2)
+        }
+        return projection
+
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        verify_v2,
+    )
+
+    assert args.external_billing_register == register_path
+    with pytest.raises(ValueError, match="supported only for an exact100 v3"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_external_register_cannot_overlap_canonical_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=selected)
+    _attach_external_billing_register(
+        args,
+        monkeypatch,
+        document_commitments={
+            ("case-2", "doc-2"): hashlib.sha256(b"%PDF-1.4 tranche 2\n").hexdigest()
+        },
+    )
+
+    with pytest.raises(ValueError, match="overlaps canonical ledger"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_external_register_binds_recovered_document_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=selected - {("case-2", "doc-2")},
+    )
+    _attach_external_billing_register(
+        args,
+        monkeypatch,
+        document_commitments={("case-2", "doc-2"): "d" * 64},
+    )
+
+    with pytest.raises(ValueError, match="register document bytes differ"):
         cli._prepare_replacement_recovery_consolidation(args)
 
 

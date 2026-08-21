@@ -82,9 +82,16 @@ class ExternalBillingRegisterError(ValueError):
 class VerifiedExternalBillingRegister:
     """One authenticated register, sealed after digest and field re-derivation."""
 
-    document_keys: frozenset[DocumentKey]
+    document_commitments: tuple[tuple[DocumentKey, str], ...]
     register_sha256: str
     billed_usd: str
+
+    @property
+    def document_keys(self) -> frozenset[DocumentKey]:
+        return frozenset(key for key, _digest in self.document_commitments)
+
+    def commitment_map(self) -> dict[DocumentKey, str]:
+        return dict(self.document_commitments)
 
 
 def verify_external_billing_register(
@@ -113,7 +120,7 @@ def verify_external_billing_register(
         raise ExternalBillingRegisterError(
             "external billing register enumerates no billed documents"
         )
-    keys: set[DocumentKey] = set()
+    commitments: dict[DocumentKey, str] = {}
     for row in cast(Sequence[object], rows):
         entry = _mapping(row, "external billing register record")
         if frozenset(entry) != _RECORD_FIELDS:
@@ -124,26 +131,25 @@ def verify_external_billing_register(
         key = (_text(entry, "candidate_id"), _text(entry, "source_document_id"))
         # Each row is an authority claim about one document, so two rows for one
         # document are two claims -- and nothing here could say which governs.
-        if key in keys:
+        if key in commitments:
             raise ExternalBillingRegisterError(
                 f"external billing register names {key[0]}/{key[1]} twice"
             )
         for field in (
             "authorizing_checkpoint_sha256",
             "authorizing_request_sha256",
-            "document_sha256",
         ):
             _hex_digest(entry, field)
+        commitments[key] = _hex_digest(entry, "document_sha256")
         _text(entry, "reviewer_id")
-        keys.add(key)
 
     totals = _mapping(record.get("totals"), "external billing register totals")
-    if totals.get("document_count") != len(keys):
+    if totals.get("document_count") != len(commitments):
         raise ExternalBillingRegisterError(
             "external billing register totals disagree with its own rows"
         )
     return VerifiedExternalBillingRegister(
-        document_keys=frozenset(keys),
+        document_commitments=tuple(sorted(commitments.items())),
         register_sha256=f"sha256:{digest}",
         billed_usd=_text(totals, "billed_usd"),
     )

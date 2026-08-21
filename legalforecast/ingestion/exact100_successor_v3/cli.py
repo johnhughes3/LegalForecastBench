@@ -234,7 +234,7 @@ def run_project(args: argparse.Namespace) -> int:
             )
     _validate_output_root(output_root)
 
-    first, first_documents, anchor = _project(
+    first, first_documents, anchor, anchor_root = _project(
         predecessor_root=predecessor_root,
         stipulated_roots=stipulated_roots,
         owner_exclusions=owner_exclusions,
@@ -243,7 +243,7 @@ def run_project(args: argparse.Namespace) -> int:
     # The whole authenticated surface is replayed a second time before anything
     # is published, so a concurrent edit to any input root cannot slip between
     # verification and the write.
-    second, second_documents, second_anchor = _project(
+    second, second_documents, second_anchor, second_anchor_root = _project(
         predecessor_root=predecessor_root,
         stipulated_roots=stipulated_roots,
         owner_exclusions=owner_exclusions,
@@ -253,66 +253,22 @@ def run_project(args: argparse.Namespace) -> int:
         _result_payloads(first) != _result_payloads(second)
         or first_documents != second_documents
         or anchor != second_anchor
+        or anchor_root.resolve() != second_anchor_root.resolve()
     ):
         raise Exact100SuccessorReplacementV3CliError(
             "v3 authenticated inputs changed during replay"
         )
 
-    payloads = _result_payloads(first)
-    payloads["methods_disclosure"] = _canonical(
-        {
-            "schema_version": str(EXACT100_METHODS_DISCLOSURE_V1),
-            "owner_adjudicated_promotion_count": sum(
-                1
-                for record in first.promotions
-                if record.get("provenance_class") == "owner_adjudicated"
-            ),
-            "promotions": [
-                {
-                    "candidate_id": record["candidate_id"],
-                    "replaces_candidate_id": record["replaces_candidate_id"],
-                    "provenance_class": record["provenance_class"],
-                }
-                for record in first.promotions
-            ],
-            "disclosure_text": methods_disclosure_text(first),
-        }
+    payloads = _publication_payloads(
+        result=first,
+        documents=first_documents,
+        anchor=anchor,
+        output_root=output_root,
+        predecessor_root=predecessor_root,
+        stipulated_roots=stipulated_roots,
+        owner_exclusions=owner_exclusions,
+        replacement_roots=replacement_roots,
     )
-    state = {
-        **first.state,
-        "stage": STAGE,
-        "dry_run": False,
-        "execute": True,
-        "record_count": len(first.selection),
-        "predecessor_anchor_sha256": anchor,
-        "input_paths": [str(path.absolute()) for path in inputs],
-        "input_roots": {
-            "predecessor_root": str(predecessor_root.absolute()),
-            "stipulated_evidence_roots": [
-                str(path.absolute()) for path in stipulated_roots
-            ],
-            "owner_judgment_exclusions": [
-                str(path.absolute()) for path in owner_exclusions
-            ],
-            "replacement_evidence_roots": [
-                str(path.absolute()) for path in replacement_roots
-            ],
-        },
-        "output_paths": [
-            str((output_root / relative).absolute())
-            for relative in _OUTPUT_NAMES.values()
-        ],
-        "output_commitments": {
-            **cast(Mapping[str, str], first.config["output_commitments"]),
-            _OUTPUT_NAMES["config"]: _sha(first.config_bytes),
-            _OUTPUT_NAMES["methods_disclosure"]: _sha(payloads["methods_disclosure"]),
-            **{
-                relative: _sha(payload)
-                for relative, payload in sorted(first_documents.items())
-            },
-        },
-    }
-    payloads["state"] = _canonical(state)
 
     for name, payload in payloads.items():
         _write_immutable(output_root / _OUTPUT_NAMES[name], payload)
@@ -345,12 +301,14 @@ def _project(
     owner_exclusions: Sequence[Path],
     replacement_roots: Sequence[Path],
     depth: int = 0,
-) -> tuple[Exact100SuccessorReplacementV3, dict[str, bytes], str]:
+) -> tuple[Exact100SuccessorReplacementV3, dict[str, bytes], str, Path]:
     if depth > _MAX_PREDECESSOR_CHAIN_DEPTH:
         raise Exact100SuccessorReplacementV3CliError(
             "v3 predecessor chain is longer than the supported depth"
         )
-    base, anchor, carried = _verified_predecessor(predecessor_root, depth=depth)
+    base, anchor, carried, anchor_root = _verified_predecessor(
+        predecessor_root, depth=depth
+    )
     exclusions: list[Mapping[str, Any]] = []
     for root in stipulated_roots:
         exclusions.extend(_replay_stipulated_exclusions(root, base.selection_bytes))
@@ -373,7 +331,7 @@ def _project(
             # exactly the layout the manifest's local_path resolves against.
             key = f"{_REPLACEMENT_DOCUMENT_ROOT}/{relative.removeprefix('documents/')}"
             documents[key] = payload
-    return result, documents, anchor
+    return result, documents, anchor, anchor_root
 
 
 def authenticate_exact100_successor_v3_root(root: Path) -> AuthenticatedV3Root:
@@ -383,13 +341,13 @@ def authenticate_exact100_successor_v3_root(root: Path) -> AuthenticatedV3Root:
     real replay rather than anything merely receipt-shaped.
     """
 
-    _verified_predecessor(root)
-    return AuthenticatedV3Root(root=root)
+    _base, _anchor, _carried, anchor_root = _verified_predecessor(root)
+    return AuthenticatedV3Root(root=root, anchor_root=anchor_root)
 
 
 def _verified_predecessor(
     root: Path, *, depth: int = 0
-) -> tuple[Any, str, dict[str, bytes]]:
+) -> tuple[Any, str, dict[str, bytes], Path]:
     """Authenticate the cohort head, whether it is the anchor or a v3 root."""
 
     anchor_card = root / "run-cards/project-exact100-supporting-document-successor.json"
@@ -405,7 +363,7 @@ def _verified_predecessor(
 
 def _verified_anchor_predecessor(
     root: Path, card_path: Path
-) -> tuple[Any, str, dict[str, bytes]]:
+) -> tuple[Any, str, dict[str, bytes], Path]:
     card_bytes = _read(card_path)
     digest = hashlib.sha256(card_bytes).hexdigest()
     if digest != _ANCHOR_RUN_CARD_SHA256:
@@ -452,6 +410,7 @@ def _verified_anchor_predecessor(
         base,
         digest,
         _carried_documents(root, _anchor_document_commitments(committed)),
+        root,
     )
 
 
@@ -483,7 +442,7 @@ def _anchor_document_commitments(committed: Mapping[str, Any]) -> dict[str, str]
 
 def _verified_chained_predecessor(
     root: Path, card_path: Path, *, depth: int = 0
-) -> tuple[Any, str, dict[str, bytes]]:
+) -> tuple[Any, str, dict[str, bytes], Path]:
     """Accept an earlier v3 root only by replaying the run that produced it.
 
     Checking a v3 card's self-declared digests would authenticate nothing: the
@@ -507,17 +466,34 @@ def _verified_chained_predecessor(
             "v3 predecessor run card does not chain to the sealed anchor"
         )
     recorded = _mapping(card.get("input_roots"), "v3 predecessor input roots")
-    replayed, replayed_documents, _anchor = _project(
-        predecessor_root=Path(_required_str(recorded, "predecessor_root")),
-        stipulated_roots=_path_list(recorded, "stipulated_evidence_roots"),
-        owner_exclusions=_path_list(recorded, "owner_judgment_exclusions"),
-        replacement_roots=_path_list(recorded, "replacement_evidence_roots"),
+    predecessor_root = Path(_required_str(recorded, "predecessor_root"))
+    stipulated_roots = _path_list(recorded, "stipulated_evidence_roots")
+    owner_exclusions = _path_list(recorded, "owner_judgment_exclusions")
+    replacement_roots = _path_list(recorded, "replacement_evidence_roots")
+    replayed, replayed_documents, anchor, anchor_root = _project(
+        predecessor_root=predecessor_root,
+        stipulated_roots=stipulated_roots,
+        owner_exclusions=owner_exclusions,
+        replacement_roots=replacement_roots,
         depth=depth + 1,
     )
-    expected = _result_payloads(replayed)
+    expected = _publication_payloads(
+        result=replayed,
+        documents=replayed_documents,
+        anchor=anchor,
+        output_root=root,
+        predecessor_root=predecessor_root,
+        stipulated_roots=stipulated_roots,
+        owner_exclusions=owner_exclusions,
+        replacement_roots=replacement_roots,
+    )
+    if card_bytes != expected["state"]:
+        raise Exact100SuccessorReplacementV3CliError(
+            "v3 predecessor state differs from its replay"
+        )
     payloads: dict[str, bytes] = {}
     for name, relative in _OUTPUT_NAMES.items():
-        if name in {"state", "methods_disclosure"}:
+        if name == "state":
             continue
         payload = _read(root / relative)
         if payload != expected[name]:
@@ -539,7 +515,7 @@ def _verified_chained_predecessor(
         payloads={name: payloads[name] for name in _COHORT_SURFACE_FILES},
         run_card_sha256=hashlib.sha256(card_bytes).hexdigest(),
     )
-    return base, _ANCHOR_RUN_CARD_SHA256, carried
+    return base, _ANCHOR_RUN_CARD_SHA256, carried, anchor_root
 
 
 def _mint_base(
@@ -848,6 +824,89 @@ def _result_payloads(result: Exact100SuccessorReplacementV3) -> dict[str, bytes]
         "terminal_exclusions": result.terminal_exclusions_bytes,
         "promotions": result.promotions_bytes,
     }
+
+
+def _methods_disclosure_payload(
+    result: Exact100SuccessorReplacementV3,
+) -> bytes:
+    return _canonical(
+        {
+            "schema_version": str(EXACT100_METHODS_DISCLOSURE_V1),
+            "owner_adjudicated_promotion_count": sum(
+                1
+                for record in result.promotions
+                if record.get("provenance_class") == "owner_adjudicated"
+            ),
+            "promotions": [
+                {
+                    "candidate_id": record["candidate_id"],
+                    "replaces_candidate_id": record["replaces_candidate_id"],
+                    "provenance_class": record["provenance_class"],
+                }
+                for record in result.promotions
+            ],
+            "disclosure_text": methods_disclosure_text(result),
+        }
+    )
+
+
+def _publication_payloads(
+    *,
+    result: Exact100SuccessorReplacementV3,
+    documents: Mapping[str, bytes],
+    anchor: str,
+    output_root: Path,
+    predecessor_root: Path,
+    stipulated_roots: Sequence[Path],
+    owner_exclusions: Sequence[Path],
+    replacement_roots: Sequence[Path],
+) -> dict[str, bytes]:
+    """Derive the complete public root exactly once for emission and replay."""
+
+    payloads = _result_payloads(result)
+    payloads["methods_disclosure"] = _methods_disclosure_payload(result)
+    inputs = (
+        predecessor_root,
+        *stipulated_roots,
+        *owner_exclusions,
+        *replacement_roots,
+    )
+    state = {
+        **result.state,
+        "stage": STAGE,
+        "dry_run": False,
+        "execute": True,
+        "record_count": len(result.selection),
+        "predecessor_anchor_sha256": anchor,
+        "input_paths": [str(path.absolute()) for path in inputs],
+        "input_roots": {
+            "predecessor_root": str(predecessor_root.absolute()),
+            "stipulated_evidence_roots": [
+                str(path.absolute()) for path in stipulated_roots
+            ],
+            "owner_judgment_exclusions": [
+                str(path.absolute()) for path in owner_exclusions
+            ],
+            "replacement_evidence_roots": [
+                str(path.absolute()) for path in replacement_roots
+            ],
+        },
+        "output_paths": [
+            str((output_root / relative).absolute())
+            for relative in _OUTPUT_NAMES.values()
+        ],
+        "output_commitments": {
+            **cast(Mapping[str, str], result.config["output_commitments"]),
+            _OUTPUT_NAMES["config"]: _sha(result.config_bytes),
+            _OUTPUT_NAMES["methods_disclosure"]: _sha(payloads["methods_disclosure"]),
+            **{
+                relative: _sha(payload)
+                for relative, payload in sorted(documents.items())
+            },
+        },
+    }
+    payloads["state"] = _canonical(state)
+    return payloads
 
 
 def _validate_output_root(

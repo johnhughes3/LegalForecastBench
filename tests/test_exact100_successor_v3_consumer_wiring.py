@@ -66,6 +66,35 @@ def test_reading_a_v3_root_invokes_the_real_replay(
     assert result["selection_path"] == root / "target-cohort-selection.jsonl"
 
 
+def test_reading_a_v3_root_mints_a_replay_backed_selection_capability(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A downstream projection must carry the opaque capability it consumed.
+
+    The materializer later requires this capability before publishing a
+    successor selection.  A plain mapping with the same fields is not enough:
+    only the v3 specialized replay path may mint the module-private token.
+    """
+
+    root = _v3_root(tmp_path)
+    monkeypatch.setattr(
+        cli,
+        "authenticate_exact100_successor_v3_root",
+        _spy([]),
+    )
+
+    projection = cli._verify_completed_target_cohort_projection_in_operation(
+        root, operation=_operation()
+    )
+
+    capability = projection.get("verified_successor_selection_card")
+    assert type(capability) is cli._VerifiedSuccessorSelectionCard
+    assert capability.is_replay_minted()
+    assert cli._verified_successor_selection_card_from_projection(projection) is (
+        capability
+    )
+
+
 def test_a_v3_root_is_recognised_before_the_missing_target_cohort_card(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

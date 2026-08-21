@@ -64,6 +64,7 @@ def test_a_complete_register_seals_its_document_keys() -> None:
     verified = _verify(_register())
 
     assert verified.document_keys == frozenset({("case000", "case000-doc-1")})
+    assert verified.commitment_map() == {("case000", "case000-doc-1"): "c" * 64}
     assert verified.register_sha256.startswith("sha256:")
     assert verified.billed_usd == "3.00"
 

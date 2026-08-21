@@ -61,8 +61,8 @@ def _payloads() -> dict[str, bytes]:
     )
     clearance = _jsonl(
         [
-            _manifest_row("case001", "doc-1", "free"),
-            _manifest_row("case002", "doc-2", "purchased"),
+            {"candidate_id": "case001", "source_document_id": "doc-1"},
+            {"candidate_id": "case002", "source_document_id": "doc-2"},
         ]
     )
     return {
@@ -160,7 +160,8 @@ def test_every_declared_output_is_published_as_verified_bytes(tmp_path: Path) ->
     published = verified["verified_artifact_bytes"]
 
     assert set(published) == {
-        str((root / relative).absolute()) for relative in OUTPUT_NAMES.values()
+        *(str((root / relative).absolute()) for relative in OUTPUT_NAMES.values()),
+        str((root / _DOCUMENT).absolute()),
     }
     assert published[str((root / _STATE_CARD).absolute())] == (
         (root / _STATE_CARD).read_bytes()
