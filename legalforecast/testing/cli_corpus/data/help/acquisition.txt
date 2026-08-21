@@ -32,6 +32,9 @@ positional arguments:
     build-manifest-forecast
                         Build forecast packets and prompts from a signed
                         corpus manifest.
+    stage-manifest-forecast
+                        Stage manifest-mode forecast inputs into immutable S3
+                        prefixes.
     plan-attachment-pages
                         Authenticate docket entries whose PACER attachment
                         menu is missing.

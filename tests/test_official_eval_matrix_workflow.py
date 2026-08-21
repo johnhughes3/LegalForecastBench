@@ -444,7 +444,9 @@ def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
     assert "python -m legalforecast.protocol.freeze verify" in BUILD_MATRIX_JOB
     assert '--bundle "${FREEZE_COMMITMENT_PATH}"' in BUILD_MATRIX_JOB
     assert '--cycle-id "${CYCLE_ID}"' in BUILD_MATRIX_JOB
-    assert '--root "."' in BUILD_MATRIX_JOB
+    assert '--root "${FREEZE_ROOT}"' in BUILD_MATRIX_JOB
+    assert "Download immutable manifest-run bundle" in BUILD_MATRIX_JOB
+    assert "manifest-run S3 prefix did not contain freeze.json" in BUILD_MATRIX_JOB
     assert '--artifact-path "manifest=' not in BUILD_MATRIX_JOB
     assert (
         "RUN_INPUT_MANIFEST_PATH:" not in BUILD_MATRIX_JOB[commitment_step:matrix_step]
