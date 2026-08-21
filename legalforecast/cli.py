@@ -47846,6 +47846,7 @@ def _verify_materializer_clearance_lineage(
     if run_card.get("schema_version") in {
         _REPLACEMENT_RECOVERY_CARD_SCHEMA,
         _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2,
+        _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3,
     }:
         expected_root = run_card_path.parents[1]
         restriction_path = expected_root / "restriction-evidence.jsonl"

@@ -489,6 +489,7 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
 ) -> None:
     """The same authenticated register widens issuance and replay coverage."""
 
+    verify_clearance_lineage = cli._verify_materializer_clearance_lineage
     selected = {
         ("base-case", "base-doc"),
         ("case-1", "doc-1"),
@@ -518,6 +519,28 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
     assert card["source_commitments"][str(register_path.resolve())].startswith(
         "sha256:"
     )
+
+    def reject_legacy_clearance_branch(**_kwargs: object) -> dict[str, bytes]:
+        raise AssertionError("v3 consolidation must not use legacy clearance lineage")
+
+    monkeypatch.setattr(
+        cli,
+        "_complete_clearance_artifact_snapshot",
+        reject_legacy_clearance_branch,
+    )
+    clearance_lineage = verify_clearance_lineage(
+        manifest_path=args.output_root / "purchased-document-downloads.jsonl",
+        clearance_path=args.output_root / "disclosure-clearance.jsonl",
+        run_card_path=card_path,
+    )
+    assert clearance_lineage["lineage_kind"] == "replacement_recovery_consolidation"
+    assert set(clearance_lineage["verified_artifact_bytes"]) == {
+        str(card_path.resolve()),
+        str((args.output_root / "purchased-document-downloads.jsonl").resolve()),
+        str((args.output_root / "disclosure-clearance.jsonl").resolve()),
+        str((args.output_root / "restriction-evidence.jsonl").resolve()),
+        str((args.output_root / "resolved-post-recovery-documents.jsonl").resolve()),
+    }
 
     verified = cli._verify_materializer_consolidated_recovery(
         recovery_root=args.output_root,
