@@ -791,3 +791,14 @@ def test_manifest_unitizer_defaults_accountless_caps_to_default() -> None:
     )
 
     assert _provider_account(caps, "synthetic") == "default"
+
+
+def test_citation_span_accepts_exact_terminal_newline() -> None:
+    markdown = "##### Page 9\n\nCount I\nThe complaint alleges a claim.\n"
+
+    assert unitizer_module._citation_span_pages(
+        markdown, "Count I\nThe complaint alleges a claim.\n"
+    ) == {9}
+    assert unitizer_module._citation_span_pages(
+        markdown, "Count I\nThe complaint alleges a claim."
+    ) == {9}

@@ -999,10 +999,11 @@ def _citation_span_pages(markdown: str, excerpt: str) -> set[int | None]:
     for start_index in range(len(lines)):
         for end_index in range(start_index + 1, min(len(lines), start_index + 12) + 1):
             selected = lines[start_index:end_index]
-            reconstructed = "".join(
+            reconstructed_with_ending = "".join(selected)
+            reconstructed_without_ending = "".join(
                 (*selected[:-1], _without_line_ending(selected[-1]))
             )
-            if reconstructed == excerpt:
+            if excerpt in (reconstructed_with_ending, reconstructed_without_ending):
                 pages.add(_nearest_page(lines, start_index))
     return pages
 
