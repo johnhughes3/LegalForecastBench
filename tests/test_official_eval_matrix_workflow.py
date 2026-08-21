@@ -584,14 +584,15 @@ def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> Non
         == (WORKFLOW + PROVIDER_WORKFLOW).count(
             "uses: aws-actions/configure-aws-credentials@"
         )
-        == 4
+        == 6
     )
     assert len(set(configure_aws_pins)) == 1
     assert "role-session-name: lfb-official-matrix-${{ github.run_id }}" in WORKFLOW
-    assert (
-        "role-session-name: lfb-cell-${{ inputs.provider }}-${{ github.run_id }}-"
-        "${{ github.run_attempt }}" in PROVIDER_WORKFLOW
-    )
+    for phase in ("begin", "eval", "finish"):
+        assert (
+            f"role-session-name: lfb-cell-{phase}-${{{{ inputs.provider }}}}-"
+            "${{ github.run_id }}-${{ github.run_attempt }}" in PROVIDER_WORKFLOW
+        )
     assert "role-session-name: lfb-official-aggregate-${{ github.run_id }}" in WORKFLOW
     assert (
         "role-session-name: lfb-finalize-shard-${{ github.run_id }}-${{ "

@@ -69,8 +69,8 @@ jobs:
     runs-on: ubuntu-latest
     # Three 15-minute Flex attempts, retries, in-cell closure, and staging need
     # three-hour headroom. OpenAI repeat samples remain rejected below until
-    # repeat fan-out is implemented; this window keeps the single-call path
-    # aligned with its assumed AWS role.
+    # repeat fan-out is implemented. The cell role remains capped at one hour;
+    # each AWS-use boundary below reacquires a fresh short-lived session.
     timeout-minutes: 180
     environment: legalforecastbench-official-eval
     permissions:
@@ -241,14 +241,14 @@ jobs:
             exit 1
           fi
 
-      - name: Configure packet-read and result-write AWS authority
+      - name: Configure AWS authority for cycle begin
         if: ${{ !inputs.dry_run }}
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lfb-cell-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
+          role-session-name: lfb-cell-begin-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
-          role-duration-seconds: 10800
+          role-duration-seconds: 3600
 
       - name: Begin per-case cycle mutation
         id: begin_cycle_mutation
@@ -266,6 +266,15 @@ jobs:
             --cycle-id "${CYCLE_ID}" \
             --writer-id "${writer_id}" \
             --run-attempt "${GITHUB_RUN_ATTEMPT}"
+
+      - name: Refresh AWS authority for case evaluation
+        if: ${{ !inputs.dry_run }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-cell-eval-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+          role-duration-seconds: 3600
 
       - name: Run isolated case evaluation
         if: ${{ !inputs.dry_run }}
@@ -331,6 +340,15 @@ jobs:
             --provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}" \
             --provider-authority-region "${AWS_REGION}" \
             "${resume_args[@]}"
+
+      - name: Refresh AWS authority for cycle finish
+        if: ${{ always() && !inputs.dry_run && steps.begin_cycle_mutation.outcome == 'success' }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-cell-finish-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+          role-duration-seconds: 3600
 
       - name: Finish per-case cycle mutation
         if: ${{ always() && !inputs.dry_run && steps.begin_cycle_mutation.outcome == 'success' }}
