@@ -67,7 +67,8 @@ jobs:
     # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
     # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
     runs-on: ubuntu-latest
-    # OpenAI Flex attempts can take up to 15 minutes; repeats and retries need headroom.
+    # Flex attempts, retries, and in-cell repeat samples need three-hour
+    # headroom; the assumed role/session is pinned to the same value below.
     timeout-minutes: 180
     environment: legalforecastbench-official-eval
     permissions:
@@ -236,6 +237,8 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-cell-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+          # Match the three-hour provider-cell job deadline.
+          role-duration-seconds: 10800
 
       - name: Begin per-case cycle mutation
         id: begin_cycle_mutation

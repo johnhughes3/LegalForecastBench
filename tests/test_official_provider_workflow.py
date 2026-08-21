@@ -155,6 +155,13 @@ def test_provider_cell_preserves_frozen_dispatch_and_cycle_bindings() -> None:
     assert 'writer_id="${GITHUB_RUN_ID}-case-${PROVIDER}-${CELL_INDEX}"' in WORKFLOW
 
 
+def test_provider_cell_aws_session_matches_job_deadline() -> None:
+    iam = (ROOT / "infra" / "official-eval" / "iam.tf").read_text(encoding="utf-8")
+    assert "timeout-minutes: 180" in WORKFLOW
+    assert "max_session_duration = 10800" in iam
+    assert "role-duration-seconds: 10800" in WORKFLOW
+
+
 def test_runs_transport_stays_private_without_weakening_receipt_finalization() -> None:
     stage = WORKFLOW[WORKFLOW.index("- name: Stage receipt-only completion artifact") :]
     assert "cell-completion.json accounting.jsonl metrics.json" in stage
