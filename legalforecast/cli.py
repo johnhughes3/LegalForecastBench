@@ -30612,9 +30612,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
 
     @dataclass(frozen=True, slots=True)
     class Capability:
+        run_card_bytes: bytes
         selection_bytes: bytes
         manifest_bytes: bytes
         clearance_bytes: bytes
+        restriction_bytes: bytes
         resolved_bytes: bytes
         purchase_operations_bytes: bytes
         purchase_policy_sha256: str
@@ -30634,9 +30636,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 )
             raw_inputs = cast(Mapping[str, object], raw)
             if set(raw_inputs) != {
+                "run_card_bytes",
                 "selection_records",
                 "manifest_records",
                 "clearance_records",
+                "restriction_bytes",
                 "resolved_records",
                 "purchase_operations",
                 "purchase_policy_sha256",
@@ -30647,6 +30651,8 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 )
             purchase_policy_sha256 = raw_inputs["purchase_policy_sha256"]
             external_document_commitments = raw_inputs["external_document_commitments"]
+            run_card_bytes = raw_inputs["run_card_bytes"]
+            restriction_bytes = raw_inputs["restriction_bytes"]
             if not isinstance(purchase_policy_sha256, str):
                 raise CommandError(
                     "consolidated recovery verifier emitted invalid policy authority"
@@ -30655,7 +30661,14 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 raise CommandError(
                     "consolidated recovery verifier emitted invalid external authority"
                 )
+            if not isinstance(run_card_bytes, bytes) or not isinstance(
+                restriction_bytes, bytes
+            ):
+                raise CommandError(
+                    "consolidated recovery verifier emitted invalid artifact authority"
+                )
             capability = Capability(
+                run_card_bytes=run_card_bytes,
                 selection_bytes=_projection_jsonl_bytes(
                     cast(
                         Sequence[Mapping[str, Any]],
@@ -30674,6 +30687,7 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                         raw_inputs["clearance_records"],
                     )
                 ),
+                restriction_bytes=restriction_bytes,
                 resolved_bytes=_projection_jsonl_bytes(
                     cast(
                         Sequence[Mapping[str, Any]],
@@ -30697,9 +30711,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 ),
             )
             fields = (
+                capability.run_card_bytes,
                 capability.selection_bytes,
                 capability.manifest_bytes,
                 capability.clearance_bytes,
+                capability.restriction_bytes,
                 capability.resolved_bytes,
                 capability.purchase_operations_bytes,
                 capability.purchase_policy_sha256,
@@ -30718,9 +30734,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
             )
         entry = registered.get(id(capability))
         fields = (
+            capability.run_card_bytes,
             capability.selection_bytes,
             capability.manifest_bytes,
             capability.clearance_bytes,
+            capability.restriction_bytes,
             capability.resolved_bytes,
             capability.purchase_operations_bytes,
             capability.purchase_policy_sha256,
@@ -30731,9 +30749,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 "consolidated resolved replay requires verifier-issued authority"
             )
         return {
+            "run_card_bytes": capability.run_card_bytes,
             "selection_bytes": capability.selection_bytes,
             "manifest_bytes": capability.manifest_bytes,
             "clearance_bytes": capability.clearance_bytes,
+            "restriction_bytes": capability.restriction_bytes,
             "resolved_bytes": capability.resolved_bytes,
             "purchase_operations_bytes": capability.purchase_operations_bytes,
             "purchase_policy_sha256": capability.purchase_policy_sha256,
@@ -42731,13 +42751,20 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 cast(Mapping[str, bytes], raw_recovery_bytes),
                 label="materialization recovery",
             )
+        consolidated_resolved_capability = recovery.get(
+            "consolidated_resolved_capability"
+        )
         purchased_clearance_lineage = _verify_materializer_clearance_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=purchased_clearance_path,
             run_card_path=purchased_clearance_card_path,
-        )
-        consolidated_resolved_capability = recovery.get(
-            "consolidated_resolved_capability"
+            captured_artifact_bytes=(
+                cast(Mapping[str, bytes], raw_recovery_bytes)
+                if consolidated_resolved_capability is not None
+                and isinstance(raw_recovery_bytes, Mapping)
+                else None
+            ),
+            consolidated_recovery_capability=consolidated_resolved_capability,
         )
         consolidated_authority: Mapping[str, object] | None = None
         if consolidated_resolved_capability is not None:
@@ -47000,9 +47027,11 @@ def _verify_materializer_consolidated_recovery(
         "target_projection": dict(replay.target_projection),
         "external_billing_document_commitments": register_commitments,
         "_consolidated_resolved_capability_inputs": {
+            "run_card_bytes": run_card_bytes,
             "selection_records": replay.target_projection["selection_records"],
             "manifest_records": manifest_records,
             "clearance_records": clearance_records,
+            "restriction_bytes": output_snapshots[restriction_path],
             "resolved_records": _projection_jsonl_records(
                 output_snapshots[resolved_path], source=resolved_path
             ),
@@ -47828,6 +47857,7 @@ def _verify_materializer_clearance_lineage(
     resolved_transition_prior_snapshot: CaseDevPurchaseSnapshot | None = None,
     recovery_authority_transition_capability: object | None = None,
     recovery_attempt_transition_capability: object | None = None,
+    consolidated_recovery_capability: object | None = None,
 ) -> dict[str, object]:
     _require_materializer_artifact(clearance_path, label="purchased clearance")
     validated_run_card_bytes = _require_materializer_artifact(
@@ -47843,9 +47873,11 @@ def _verify_materializer_clearance_lineage(
         else validated_run_card_bytes
     )
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
-    if run_card.get("schema_version") in {
+    schema_version = run_card.get("schema_version")
+    if schema_version in {
         _REPLACEMENT_RECOVERY_CARD_SCHEMA,
         _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2,
+        _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3,
     }:
         expected_root = run_card_path.parents[1]
         restriction_path = expected_root / "restriction-evidence.jsonl"
@@ -47856,6 +47888,31 @@ def _verify_materializer_clearance_lineage(
             restriction_path,
             resolved_path,
         )
+        if schema_version == _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3:
+            if (
+                captured_artifact_bytes is None
+                or consolidated_recovery_capability is None
+            ):
+                raise CommandError(
+                    "v3 clearance requires verifier-issued recovery snapshot"
+                )
+            authority = _consume_consolidated_resolved_capability(
+                consolidated_recovery_capability
+            )
+            authenticated_snapshots = {
+                run_card_path: authority["run_card_bytes"],
+                expected_paths[0]: authority["manifest_bytes"],
+                expected_paths[1]: authority["clearance_bytes"],
+                expected_paths[2]: authority["restriction_bytes"],
+                expected_paths[3]: authority["resolved_bytes"],
+            }
+            if any(
+                captured_artifact_bytes.get(os.path.abspath(path)) != payload
+                for path, payload in authenticated_snapshots.items()
+            ):
+                raise CommandError(
+                    "v3 clearance snapshot differs from authenticated recovery replay"
+                )
         if (
             manifest_path.resolve() != expected_paths[0].resolve()
             or clearance_path.resolve() != expected_paths[1].resolve()
@@ -47917,6 +47974,11 @@ def _verify_materializer_clearance_lineage(
                 snapshots[restriction_path], source=restriction_path
             ),
             "resolved_path": resolved_path,
+            **(
+                {"consolidated_resolved_capability": (consolidated_recovery_capability)}
+                if consolidated_recovery_capability is not None
+                else {}
+            ),
         }
     verified_snapshot = _complete_clearance_artifact_snapshot(
         run_card=run_card,

@@ -1,14 +1,14 @@
 {
   "cli_metrics": {
     "command_handler_count": 166,
-    "command_handler_lines": 27044,
-    "line_count": 73863,
-    "nonblank_line_count": 71072,
+    "command_handler_lines": 27051,
+    "line_count": 73925,
+    "nonblank_line_count": 71134,
     "parser_line_count": 1782,
     "top_level_class_count": 20,
     "top_level_definition_count": 1014,
     "verifier_family_count": 164,
-    "verifier_family_lines": 12216
+    "verifier_family_lines": 12251
   },
   "compatibility": {
     "cli_import_files": [
@@ -1968,6 +1968,7 @@
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_clearance_lineage",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_clearance_lineage",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_clearance_lineage",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_clearance_lineage",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_consolidated_recovery",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_consolidated_recovery",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli._verify_materializer_consolidated_recovery",
@@ -3371,6 +3372,8 @@
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
+      "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.CommandError",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
       "tests/test_replacement_recovery_consolidation.py::legalforecast.cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2",
@@ -4074,8 +4077,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1782,
         "layer": "entrypoint",
-        "line_count": 73863,
-        "nonblank_line_count": 71072,
+        "line_count": 73925,
+        "nonblank_line_count": 71134,
         "top_level_definition_count": 1014
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -11030,8 +11033,8 @@
         "largest_symbol": "_prepare_fixture",
         "largest_symbol_lines": 334,
         "layer": "test",
-        "line_count": 2535,
-        "nonblank_line_count": 2297,
+        "line_count": 2582,
+        "nonblank_line_count": 2341,
         "top_level_definition_count": 52
       },
       "tests/test_replacement_recovery_source_producer.py": {
