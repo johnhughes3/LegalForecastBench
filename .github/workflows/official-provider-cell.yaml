@@ -67,8 +67,10 @@ jobs:
     # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
     # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
     runs-on: ubuntu-latest
-    # OpenAI Flex attempts can take up to 15 minutes; repeats and retries need headroom.
-    timeout-minutes: 180
+    # Three 15-minute Flex attempts plus closure/staging headroom fit inside
+    # the existing one-hour AWS session. Repeat samples are dispatched as
+    # separate cells/resumes rather than extending one cell past that bound.
+    timeout-minutes: 55
     environment: legalforecastbench-official-eval
     permissions:
       contents: read
