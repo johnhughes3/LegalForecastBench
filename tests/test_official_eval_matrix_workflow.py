@@ -115,6 +115,22 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     )
 
 
+def test_openai_repeat_samples_fail_before_provider_matrix_emission() -> None:
+    provider_repeat_guard = BUILD_MATRIX_JOB[
+        BUILD_MATRIX_JOB.index(
+            "if (\n              repeat_count > 1"
+        ) : BUILD_MATRIX_JOB.index("          def safe_case_id_slug")
+    ]
+    assert "repeat_sample_case_ids" in provider_repeat_guard
+    assert 'provider_lane(model_key) == "openai"' in provider_repeat_guard
+    assert "OpenAI repeat samples are not supported in one provider-cell shard" in (
+        provider_repeat_guard
+    )
+    assert provider_repeat_guard.index("raise SystemExit") < BUILD_MATRIX_JOB.index(
+        "          include = []"
+    )
+
+
 def test_cycle_mutation_intent_brackets_every_result_writer() -> None:
     assert "  begin-cycle-mutation:" not in WORKFLOW
     assert "  finish-cycle-mutation:" not in WORKFLOW

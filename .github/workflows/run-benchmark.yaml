@@ -801,6 +801,16 @@ jobs:
                   return provider
               raise SystemExit(f"unsupported model provider: {provider}")
 
+          if (
+              repeat_count > 1
+              and repeat_sample_case_ids
+              and any(provider_lane(model_key) == "openai" for model_key in requested_model_keys)
+          ):
+              raise SystemExit(
+                  "OpenAI repeat samples are not supported in one provider-cell shard; "
+                  "use repeat_count=1 until repeat fan-out and AWS-session coordination land."
+              )
+
           def safe_case_id_slug(case_id):
               prefix = re.sub(r"[^A-Za-z0-9]+", "-", case_id).strip("-").lower()
               prefix = prefix[:48].rstrip("-") or "case"
