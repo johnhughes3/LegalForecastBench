@@ -241,18 +241,27 @@ def _overlay_fixture(
     )
     if fresh_ids is None:
         fresh_ids = tuple(f"synthetic-candidate-{number}" for number in range(95, 101))
+    selection_by_candidate = {
+        str(row["candidate_id"]): row for row in prepared.selection_records
+    }
+    prior_candidates = [
+        *[f"synthetic-candidate-{number}" for number in range(1, 96)],
+        *[f"synthetic-predecessor-{number}" for number in range(1, 6)],
+    ]
     retained: list[dict[str, Any]] = []
     packet_unit_sha256: dict[str, str] = {}
-    for selection in prepared.selection_records:
-        candidate_id = str(selection["candidate_id"])
-        if candidate_id in fresh_ids:
-            continue
+    for candidate_id in prior_candidates:
+        selection = selection_by_candidate.get(candidate_id)
         claim_document = f"{candidate_id}-complaint"
         unit = _prediction_unit(candidate_id, claim_document=claim_document)
         retained.append(
             {
                 "candidate_id": candidate_id,
-                "case_id": selection["case_id"],
+                "case_id": (
+                    selection["case_id"]
+                    if selection is not None
+                    else f"case-{candidate_id}"
+                ),
                 "prediction_units": [unit],
             }
         )
@@ -274,9 +283,9 @@ def _overlay_fixture(
         "artifact": "legalforecast.cycle1.stage51_finalized_units_integration.v1",
         "output": str(overlay_path.resolve()),
         "output_sha256": overlay_sha256,
-        "candidate_count": 94,
-        "unit_count": 94,
-        "scorable_unit_count": 94,
+        "candidate_count": 100,
+        "unit_count": 100,
+        "scorable_unit_count": 100,
         "base_prediction_units": str(source_paths["base_prediction_units"].resolve()),
         "base_sha256": hashlib.sha256(
             source_paths["base_prediction_units"].read_bytes()
@@ -321,6 +330,10 @@ def _authenticate_fixture(
         integration_manifest_path=integration_path,
         prepared=prepared,
         expected_selection_sha256=prepared.selection_sha256,
+        expected_overlay_sha256=hashlib.sha256(overlay.read_bytes()).hexdigest(),
+        expected_integration_manifest_sha256=hashlib.sha256(
+            integration_path.read_bytes()
+        ).hexdigest(),
         fresh_candidate_ids=fresh_ids,
         owner_approval_reference="legalforecastbench-3ak.38",
         stage51_packet_approval=(
@@ -390,6 +403,10 @@ def test_authenticate_finalized_overlay_refuses_partition_tampering(
             integration_manifest_path=integration_path,
             prepared=prepared,
             expected_selection_sha256=prepared.selection_sha256,
+            expected_overlay_sha256=hashlib.sha256(overlay.read_bytes()).hexdigest(),
+            expected_integration_manifest_sha256=hashlib.sha256(
+                integration_path.read_bytes()
+            ).hexdigest(),
             fresh_candidate_ids=fresh_ids,
             owner_approval_reference="legalforecastbench-3ak.38",
             stage51_packet_approval=(
@@ -424,6 +441,10 @@ def test_authenticate_finalized_overlay_rejects_outcome_or_predecision_drift(
             integration_manifest_path=integration_path,
             prepared=tampered_prepared,
             expected_selection_sha256=prepared.selection_sha256,
+            expected_overlay_sha256=hashlib.sha256(overlay.read_bytes()).hexdigest(),
+            expected_integration_manifest_sha256=hashlib.sha256(
+                integration_path.read_bytes()
+            ).hexdigest(),
             fresh_candidate_ids=fresh_ids,
             owner_approval_reference="legalforecastbench-3ak.38",
             stage51_packet_approval=(
@@ -479,6 +500,12 @@ def test_citation_mismatch_requires_moving_case_to_fresh_set(
             integration_manifest_path=alternate_manifest,
             prepared=alternate_prepared,
             expected_selection_sha256=alternate_prepared.selection_sha256,
+            expected_overlay_sha256=hashlib.sha256(
+                alternate_overlay.read_bytes()
+            ).hexdigest(),
+            expected_integration_manifest_sha256=hashlib.sha256(
+                alternate_manifest.read_bytes()
+            ).hexdigest(),
             fresh_candidate_ids=alternate_fresh,
             owner_approval_reference="legalforecastbench-3ak.38",
             stage51_packet_approval=(
@@ -509,6 +536,10 @@ def test_authenticate_finalized_overlay_uses_one_markdown_snapshot(
         integration_manifest_path=integration_path,
         prepared=prepared,
         expected_selection_sha256=prepared.selection_sha256,
+        expected_overlay_sha256=hashlib.sha256(overlay.read_bytes()).hexdigest(),
+        expected_integration_manifest_sha256=hashlib.sha256(
+            integration_path.read_bytes()
+        ).hexdigest(),
         fresh_candidate_ids=fresh_ids,
         owner_approval_reference="legalforecastbench-3ak.38",
         stage51_packet_approval=(
@@ -595,6 +626,12 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
         finalized_units=overlay,
         finalized_integration_manifest=integration_path,
         expected_selection_sha256=prepared.selection_sha256,
+        expected_finalized_units_sha256=hashlib.sha256(
+            overlay.read_bytes()
+        ).hexdigest(),
+        expected_finalized_integration_manifest_sha256=hashlib.sha256(
+            integration_path.read_bytes()
+        ).hexdigest(),
         fresh_candidate_ids=fresh_ids,
         owner_approval_reference="legalforecastbench-3ak.38",
         stage51_packet_approval=(
