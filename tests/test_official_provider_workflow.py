@@ -155,10 +155,15 @@ def test_provider_cell_preserves_frozen_dispatch_and_cycle_bindings() -> None:
     assert 'writer_id="${GITHUB_RUN_ID}-case-${PROVIDER}-${CELL_INDEX}"' in WORKFLOW
 
 
-def test_provider_cell_aws_session_covers_job_deadline() -> None:
+def test_provider_cell_iam_is_prepared_before_longer_session_request() -> None:
     iam = (ROOT / "infra" / "official-eval" / "iam.tf").read_text(encoding="utf-8")
     assert "timeout-minutes: 55" in WORKFLOW
-    assert "max_session_duration = 3600" in iam
+    cell_role = iam[
+        iam.index('resource "aws_iam_role" "cell"') : iam.index(
+            'resource "aws_iam_role_policy" "cell_storage"'
+        )
+    ]
+    assert "max_session_duration = 10800" in cell_role
     assert "role-duration-seconds:" not in WORKFLOW
 
 
