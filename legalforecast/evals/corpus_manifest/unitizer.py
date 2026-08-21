@@ -262,7 +262,9 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         provider_cycle_id=provider_caps.cycle_id,
         provider_cycle_caps_sha256=provider_caps_sha256,
         provider_accounts={
-            registry_entry.provider: provider_caps.account(registry_entry.provider)
+            registry_entry.provider: _provider_account(
+                provider_caps, registry_entry.provider
+            )
         },
         terminal_escalations=terminal_escalations,
         provider_attempt_namespace=args.provider_attempt_namespace,
@@ -392,7 +394,9 @@ def _terminal_escalations(
                 provider_cycle_cap_usd=provider_caps.cap_usd(registry_entry.provider),
                 provider_cycle_id=provider_caps.cycle_id,
                 provider_cycle_caps_sha256=provider_caps_sha256,
-                provider_account=provider_caps.account(registry_entry.provider),
+                provider_account=_provider_account(
+                    provider_caps, registry_entry.provider
+                ),
                 provider_attempt_namespace=provider_attempt_namespace,
             )
         except (
@@ -416,6 +420,17 @@ def _terminal_escalations(
             {"path": str(path.resolve()), "sha256": _sha256_bytes(payload)},
         )
     return result
+
+
+def _provider_account(provider_caps: ProviderCycleCaps, provider: str) -> str:
+    """Use the journal's legacy default account when caps predate aliases."""
+
+    cap = provider_caps.providers.get(provider)
+    if cap is None:
+        raise ManifestUnitizerCommandError(
+            f"provider cycle caps has no entry for {provider!r}"
+        )
+    return cap.account or "default"
 
 
 # contract-ratchet: allow byte digest for the existing terminal receipt sidecar
