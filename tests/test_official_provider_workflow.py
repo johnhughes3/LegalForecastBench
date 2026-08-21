@@ -155,11 +155,26 @@ def test_provider_cell_preserves_frozen_dispatch_and_cycle_bindings() -> None:
     assert 'writer_id="${GITHUB_RUN_ID}-case-${PROVIDER}-${CELL_INDEX}"' in WORKFLOW
 
 
-def test_provider_cell_aws_session_covers_job_deadline() -> None:
+def test_provider_cell_aws_session_covers_three_hour_job_deadline() -> None:
     iam = (ROOT / "infra" / "official-eval" / "iam.tf").read_text(encoding="utf-8")
-    assert "timeout-minutes: 55" in WORKFLOW
-    assert "max_session_duration = 3600" in iam
-    assert "role-duration-seconds:" not in WORKFLOW
+    timeout_match = re.search(r"(?m)^    timeout-minutes: (\d+)$", WORKFLOW)
+    role_duration_match = re.search(
+        r"(?m)^          role-duration-seconds: (\d+)$", WORKFLOW
+    )
+    cell_role = iam[
+        iam.index('resource "aws_iam_role" "cell"') : iam.index(
+            'resource "aws_iam_role_policy" "cell_storage"'
+        )
+    ]
+    max_session_match = re.search(r"(?m)^  max_session_duration = (\d+)$", cell_role)
+
+    assert timeout_match is not None
+    assert role_duration_match is not None
+    assert max_session_match is not None
+    timeout_seconds = int(timeout_match.group(1)) * 60
+    role_duration_seconds = int(role_duration_match.group(1))
+    max_session_seconds = int(max_session_match.group(1))
+    assert timeout_seconds == role_duration_seconds == max_session_seconds == 10800
 
 
 def test_provider_cell_rejects_openai_repeat_samples_before_authority() -> None:
