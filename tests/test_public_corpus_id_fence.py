@@ -12,7 +12,6 @@ import re
 import subprocess
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED_INVENTORY_SHA256 = (
     "81ab09035824dc74025fcc819f351e68cdf0b47ad1814b9653f0913d96e94a67"
