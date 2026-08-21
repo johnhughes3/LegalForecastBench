@@ -4249,9 +4249,9 @@
         "largest_symbol": "run_manifest_unitizer",
         "largest_symbol_lines": 184,
         "layer": "application",
-        "line_count": 740,
-        "nonblank_line_count": 693,
-        "top_level_definition_count": 15
+        "line_count": 1554,
+        "nonblank_line_count": 1469,
+        "top_level_definition_count": 29
       },
       "legalforecast/evals/inspect_task.py": {
         "cycle_id": "",
@@ -9981,6 +9981,24 @@
         "line_count": 811,
         "nonblank_line_count": 687,
         "top_level_definition_count": 39
+      },
+      "tests/test_manifest_unitizer_inputs.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_manifest_unitizer_provider_receives_only_the_approved_six",
+        "largest_symbol_lines": 165,
+        "layer": "test",
+        "line_count": 804,
+        "nonblank_line_count": 731,
+        "top_level_definition_count": 20
       },
       "tests/test_missing_document_successor.py": {
         "cycle_id": "",

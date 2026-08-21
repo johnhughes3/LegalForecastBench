@@ -1080,15 +1080,6 @@ def _command_required_string(record: Mapping[str, Any], field: str) -> str:
     return value
 
 
-def _provider_account(provider_caps: ProviderCycleCaps, provider: str) -> str:
-    cap = provider_caps.providers.get(provider.lower())
-    if cap is None:
-        raise ManifestUnitizerCommandError(
-            f"provider cycle caps artifact has no entry for {provider!r}"
-        )
-    return cap.account or "default"
-
-
 def _manifest_spend_authority_identity(
     *,
     prepared: PreparedManifestUnitizerInputs,
