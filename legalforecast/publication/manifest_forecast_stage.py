@@ -11,7 +11,6 @@ same commitment.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -26,6 +25,7 @@ from legalforecast.protocol.freeze import (
     FreezeBundle,
     FreezeProtocolError,
     FrozenArtifact,
+    sha256_file,
     verify_freeze_bundle,
     write_hash_bundle,
 )
@@ -322,7 +322,7 @@ def _packet_objects(
             ) from exc
         if not path.is_file():
             raise ManifestForecastStageError(f"packet file is missing: {path}")
-        if _sha256_file(path) != digest:
+        if sha256_file(path) != digest:
             raise ManifestForecastStageError(
                 f"packet bytes differ from run-inputs: {key}"
             )
@@ -402,7 +402,7 @@ def _local_object(bucket: str, key: str, path: Path, content_type: str) -> _Loca
         bucket=bucket,
         key=key,
         path=path,
-        sha256=_sha256_file(path),
+        sha256=sha256_file(path),
         size_bytes=path.stat().st_size,
         content_type=content_type,
     )
@@ -418,7 +418,7 @@ def _validate_s3_key(key: str) -> None:
 def _verify_source_snapshots(objects: Sequence[_LocalObject]) -> None:
     for obj in objects:
         if (
-            _sha256_file(obj.path) != obj.sha256
+            sha256_file(obj.path) != obj.sha256
             or obj.path.stat().st_size != obj.size_bytes
         ):
             raise ManifestForecastStageError(
@@ -512,17 +512,6 @@ def _verify_remote_object(obj: _LocalObject) -> None:
         raise ManifestForecastStageError(
             f"staged object hash metadata mismatch: {obj.key}"
         )
-
-
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    try:
-        with path.open("rb") as handle:
-            while chunk := handle.read(1024 * 1024):
-                digest.update(chunk)
-    except OSError as exc:
-        raise ManifestForecastStageError(f"cannot read staged source: {path}") from exc
-    return digest.hexdigest()
 
 
 def _content_type(path: Path) -> str:
