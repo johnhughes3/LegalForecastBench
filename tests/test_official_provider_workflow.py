@@ -155,10 +155,12 @@ def test_provider_cell_preserves_frozen_dispatch_and_cycle_bindings() -> None:
     assert 'writer_id="${GITHUB_RUN_ID}-case-${PROVIDER}-${CELL_INDEX}"' in WORKFLOW
 
 
-def test_provider_cell_aws_session_covers_three_hour_job_deadline() -> None:
+def test_provider_cell_refreshes_one_hour_aws_sessions_for_three_hour_deadline() -> (
+    None
+):
     iam = (ROOT / "infra" / "official-eval" / "iam.tf").read_text(encoding="utf-8")
     timeout_match = re.search(r"(?m)^    timeout-minutes: (\d+)$", WORKFLOW)
-    role_duration_match = re.search(
+    role_duration_matches = re.findall(
         r"(?m)^          role-duration-seconds: (\d+)$", WORKFLOW
     )
     cell_role = iam[
@@ -169,12 +171,17 @@ def test_provider_cell_aws_session_covers_three_hour_job_deadline() -> None:
     max_session_match = re.search(r"(?m)^  max_session_duration = (\d+)$", cell_role)
 
     assert timeout_match is not None
-    assert role_duration_match is not None
     assert max_session_match is not None
     timeout_seconds = int(timeout_match.group(1)) * 60
-    role_duration_seconds = int(role_duration_match.group(1))
+    role_duration_seconds = [int(value) for value in role_duration_matches]
     max_session_seconds = int(max_session_match.group(1))
-    assert timeout_seconds == role_duration_seconds == max_session_seconds == 10800
+    assert timeout_seconds == 10800
+    assert role_duration_seconds == [3600, 3600, 3600]
+    assert max_session_seconds == 3600
+    assert WORKFLOW.count("aws-actions/configure-aws-credentials@") == 3
+    assert "Configure AWS authority for cycle begin" in WORKFLOW
+    assert "Refresh AWS authority for case evaluation" in WORKFLOW
+    assert "Refresh AWS authority for cycle finish" in WORKFLOW
 
 
 def test_provider_cell_rejects_openai_repeat_samples_before_authority() -> None:
