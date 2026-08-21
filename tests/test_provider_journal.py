@@ -1661,6 +1661,30 @@ def test_journal_authentication_never_writes_to_the_canonical_journal(
     assert _tree_snapshot(tmp_path) == before
 
 
+def test_journal_identity_accepts_legacy_bare_caps_digest(tmp_path: Path) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path):
+        pass
+
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "UPDATE provider_journal_metadata "
+            "SET provider_cycle_caps_sha256 = ? WHERE singleton = 1",
+            ("frozen-caps",),
+        )
+
+    with _journal(path):
+        pass
+
+    identity = verify_provider_journal_identity(
+        path,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:frozen-caps",
+    )
+
+    assert identity.provider_cycle_caps_sha256 == "frozen-caps"
+
+
 def test_journal_snapshot_reads_uncheckpointed_wal_frames(tmp_path: Path) -> None:
     """A snapshot must see committed-but-unmerged WAL frames without merging
     them: reading the database file alone would silently authenticate stale
