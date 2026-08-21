@@ -499,6 +499,107 @@ def test_exact100_v3_target_without_register_refuses(
         cli._prepare_replacement_recovery_consolidation(args)
 
 
+def test_v3_chain_uses_authenticated_anchor_to_find_legacy_target(
+    tmp_path: Path,
+) -> None:
+    legacy_root = tmp_path / "legacy-zero-cost-target"
+    immediate_v3_predecessor = tmp_path / "immediate-v3-predecessor"
+    v2_projection: dict[str, object] = {
+        "run_card": {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+            "input_paths": [str(legacy_root)],
+        }
+    }
+    supporting_projection: dict[str, object] = {
+        "run_card": {
+            "schema_version": cli.SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
+        },
+        "base_v2_projection": v2_projection,
+    }
+    v3_projection: dict[str, object] = {
+        "run_card": {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3),
+            # This is deliberately not the legacy target. A multi-v3 chain's
+            # first card input names only the immediately preceding generation.
+            "input_paths": [str(immediate_v3_predecessor)],
+        },
+        "base_projection": supporting_projection,
+    }
+
+    assert cli._consolidation_legacy_target_root(v3_projection) == (
+        legacy_root.absolute()
+    )
+
+
+@pytest.mark.parametrize(
+    ("projection", "message"),
+    [
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+                }
+            },
+            "lacks authenticated anchor projection",
+        ),
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+                },
+                "base_projection": {"run_card": {"schema_version": "wrong-anchor"}},
+            },
+            "anchor is not a supporting-document successor",
+        ),
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+                },
+                "base_projection": {
+                    "run_card": {
+                        "schema_version": (
+                            cli.SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
+                        )
+                    }
+                },
+            },
+            "anchor lacks authenticated v2 base",
+        ),
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+                },
+                "base_projection": {
+                    "run_card": {
+                        "schema_version": (
+                            cli.SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
+                        )
+                    },
+                    "base_v2_projection": {"run_card": {"schema_version": "wrong-v2"}},
+                },
+            },
+            "does not terminate at a v2 successor",
+        ),
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+                    "input_paths": [],
+                }
+            },
+            "predecessor root is invalid",
+        ),
+    ],
+)
+def test_legacy_target_unwrap_refuses_malformed_authenticated_layers(
+    projection: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        cli._consolidation_legacy_target_root(projection)
+
+
 def test_external_register_with_legacy_target_refuses(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
