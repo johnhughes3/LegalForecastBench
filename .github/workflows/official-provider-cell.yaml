@@ -319,6 +319,7 @@ jobs:
             --ablation "${ABLATION}" \
             --output-dir "${output_dir}" \
             --backend live \
+            --no-docket-tool \
             --model-registry /tmp/lfb-provider-cell-inputs/lfb-model-registry.json \
             --model-key "${MODEL_KEY}" \
             --execution-policy /tmp/lfb-provider-cell-inputs/lfb-execution-policy.json \
