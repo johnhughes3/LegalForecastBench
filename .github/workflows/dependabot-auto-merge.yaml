@@ -1,119 +1,130 @@
-name: Dependabot Auto-Merge
+name: Dependabot auto-merge
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_run:
+    # PR-triggered workflows only. Each successful completion retriggers the
+    # check-run gate so auto-merge waits until every check on the head SHA is
+    # complete rather than merging on the first green job.
+    workflows:
+      - CI
+      - CodeQL
+      - Community Multi-Harness Validation
+    types: [completed]
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  pull-requests: read
 
 concurrency:
-  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: dependabot-auto-merge-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
 
 jobs:
-  enable-auto-merge:
+  auto-merge:
     if: >-
-      github.event.pull_request.user.login == 'dependabot[bot]' &&
-      github.repository == 'johnhughes3/LegalForecastBench' &&
-      github.event.pull_request.base.ref == 'main' &&
-      github.event.pull_request.draft == false
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.name != 'Dependabot auto-merge' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
     # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
+      actions: read
+      checks: read
       contents: write
       pull-requests: write
-
     steps:
-      - name: Classify verified Dependabot update
-        id: metadata
+      - name: Resolve Dependabot pull request
+        id: pr
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          echo "eligible=false" >>"${GITHUB_OUTPUT}"
-
-          commits="$(
-            gh api \
-              "repos/${REPOSITORY}/pulls/${PR_NUMBER}/commits?per_page=2" \
-              --jq '[.[] | {
-                author: (.author.login // ""),
-                verified: (.commit.verification.verified // false),
-                message: (.commit.message // "")
-              }]'
-          )"
-          if [[ "$(jq 'length' <<<"${commits}")" != "1" ]]; then
-            echo "A Dependabot auto-merge candidate must contain exactly one commit." >&2
-            exit 1
-          fi
-          first_commit="$(jq '.[0]' <<<"${commits}")"
-          author="$(jq -r '.author' <<<"${first_commit}")"
-          verified="$(jq -r '.verified' <<<"${first_commit}")"
-          if [[ "${author}" != "dependabot[bot]" || "${verified}" != "true" ]]; then
-            echo "The first pull request commit is not a verified Dependabot commit." >&2
-            exit 1
-          fi
-
-          mapfile -t update_types < <(
-            jq -r '.message' <<<"${first_commit}" |
-              sed -n 's/^[[:space:]]*update-type:[[:space:]]*//p'
-          )
-          eligible=true
-          if ((${#update_types[@]} == 0)); then
-            eligible=false
-            echo "::notice::Verified Dependabot commit has no update-type metadata; leaving auto-merge disabled."
-          else
-            for update_type in "${update_types[@]}"; do
-              case "${update_type}" in
-                version-update:semver-patch | version-update:semver-minor) ;;
-                version-update:semver-major) eligible=false ;;
-                *)
-                  eligible=false
-                  echo "::notice::Unknown Dependabot update type: ${update_type}; leaving auto-merge disabled."
-                  ;;
-              esac
-            done
-          fi
-          echo "eligible=${eligible}" >>"${GITHUB_OUTPUT}"
-
-      - name: Disable stale auto-merge for ineligible updates
-        if: always() && steps.metadata.outputs.eligible != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: |
-          set -euo pipefail
-
-          auto_merge_enabled="$(
-            gh pr view "${PR_URL}" \
-              --json autoMergeRequest \
-              --jq '.autoMergeRequest != null'
-          )"
-          if [[ "${auto_merge_enabled}" == "true" ]]; then
-            gh pr merge --disable-auto "${PR_URL}"
-          fi
-
-      - name: Enable auto-merge for patch and minor updates
-        if: steps.metadata.outputs.eligible == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-
-          allow_auto_merge="$(
-            gh api "repos/${REPOSITORY}" --jq '.allow_auto_merge'
-          )"
-          if [[ "${allow_auto_merge}" != "true" ]]; then
-            echo "::notice::Repository auto-merge is disabled; skipping. Enable Settings > General > Pull requests > Allow auto-merge to activate this workflow."
+          matches="$(gh api "repos/${REPO}/commits/${SHA}/pulls" \
+            --jq '[.[] | select(.user.login=="dependabot[bot]" and .state=="open" and .draft!=true and .base.ref=="main" and .head.sha=="'"${SHA}"'")]')"
+          count="$(printf '%s' "${matches}" | jq 'length')"
+          if [ "${count}" -ne 1 ]; then
+            echo "Expected exactly one open Dependabot PR for ${SHA} on main; found ${count}"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          num="$(printf '%s' "${matches}" | jq -r '.[0].number')"
+          echo "number=${num}" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
-          gh pr merge \
-            --auto \
-            --squash \
-            --match-head-commit "${PR_HEAD_SHA}" \
-            "${PR_URL}"
+      - name: Dependabot metadata
+        if: steps.pr.outputs.skip != 'true'
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pr-number: ${{ steps.pr.outputs.number }}
+
+      - name: Classify update-type
+        id: class
+        if: steps.pr.outputs.skip != 'true'
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+        run: |
+          set -euo pipefail
+          case "${UPDATE_TYPE}" in
+            version-update:semver-patch|version-update:semver-minor)
+              echo "eligible=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Skipping auto-merge for update-type='${UPDATE_TYPE}'"
+              echo "eligible=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Require every check on the head SHA to be complete and non-failing
+        id: gates
+        if: steps.pr.outputs.skip != 'true' && steps.class.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          json="$(gh api "repos/${REPO}/commits/${SHA}/check-runs" --paginate --jq '.check_runs[]' | jq -s '.')"
+          pending="$(printf '%s' "$json" | jq '[.[] | select(.status != "completed")] | length')"
+          python_ok="$(printf '%s' "$json" | jq '[.[] | select(.name=="Python quality gates" and .status=="completed" and .conclusion=="success")] | length')"
+          failed="$(printf '%s' "$json" | jq '[.[] | select(.status=="completed" and (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped"))] | length')"
+          if [ "$pending" -ne 0 ] || [ "$python_ok" -lt 1 ] || [ "$failed" -ne 0 ]; then
+            echo "Not merging: pending=${pending} python_ok=${python_ok} failed=${failed}"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+
+      - name: Disable stale auto-merge for ineligible updates
+        if: always() && steps.pr.outputs.skip != 'true' && (steps.class.outputs.eligible != 'true' || steps.gates.outputs.ok != 'true')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          set -euo pipefail
+          auto_merge_enabled="$(
+            gh pr view "$PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest != null'
+          )"
+          if [ "${auto_merge_enabled}" = "true" ]; then
+            gh pr merge --disable-auto --repo "$REPO" "$PR"
+          fi
+
+      - name: Enable auto-merge (squash)
+        if: steps.pr.outputs.skip != 'true' && steps.class.outputs.eligible == 'true' && steps.gates.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.pr.outputs.number }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          gh pr merge "$PR" --repo "$REPO" --auto --squash --match-head-commit "$SHA"

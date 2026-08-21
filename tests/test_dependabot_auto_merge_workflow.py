@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import textwrap
@@ -14,67 +15,82 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/dependabot-auto-merge.yaml").read_text(
     encoding="utf-8",
 )
+DEPENDABOT = (ROOT / ".github/dependabot.yml").read_text(encoding="utf-8")
+FETCH_METADATA_SHA = "25dd0e34f4fe68f24cc83900b1fe3fe149efef98"
 
-# The classifier tests execute the workflow's own bash snippet, which pipes
-# through jq.  Only `gh` is stubbed, so jq must come from the host.  GitHub
-# runners ship it; skip with a clear reason elsewhere rather than failing with
-# an opaque bash error.
 requires_jq = pytest.mark.skipif(
     shutil.which("jq") is None,
-    reason="jq is required to execute the workflow classifier snippet",
+    reason="jq is required to execute the workflow bash snippets",
 )
 
 
 @dataclass(frozen=True)
-class ClassifierResult:
+class SnippetResult:
     returncode: int
     stdout: str
     stderr: str
     github_output: str
 
 
-def _classification_script() -> str:
-    step = WORKFLOW.split(
-        "      - name: Classify verified Dependabot update\n",
-        maxsplit=1,
-    )[1]
-    run_block = step.split("        run: |\n", maxsplit=1)[1].split(
-        "\n      - name:",
-        maxsplit=1,
-    )[0]
+def _step_run(name: str) -> str:
+    marker = f"      - name: {name}\n"
+    assert marker in WORKFLOW, f"missing step {name!r}"
+    rest = WORKFLOW.split(marker, maxsplit=1)[1]
+    run_block = rest.split("        run: |\n", maxsplit=1)[1]
+    if "\n      - name:" in run_block:
+        run_block = run_block.split("\n      - name:", maxsplit=1)[0]
     return textwrap.dedent(run_block)
 
 
-def _run_classifier(
+_GH_STUB = r"""#!/usr/bin/env bash
+set -euo pipefail
+jq_filter=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --jq)
+      jq_filter="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [ -n "${jq_filter}" ]; then
+  printf '%s\n' "${FAKE_GH_JSON}" | jq -r "${jq_filter}"
+else
+  printf '%s\n' "${FAKE_GH_JSON}"
+fi
+"""
+
+
+def _run_snippet(
     tmp_path: Path,
     *,
-    commit_json: str,
-) -> ClassifierResult:
+    script: str,
+    env: dict[str, str],
+    gh_json: str = "",
+) -> SnippetResult:
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     fake_gh = fake_bin / "gh"
-    fake_gh.write_text(
-        "#!/usr/bin/env bash\nprintf '%s\\n' \"${FAKE_COMMIT_JSON}\"\n",
-        encoding="utf-8",
-    )
+    fake_gh.write_text(_GH_STUB, encoding="utf-8")
     fake_gh.chmod(0o755)
     github_output = tmp_path / "github-output"
-    env = {
-        **os.environ,
-        "FAKE_COMMIT_JSON": commit_json,
-        "GITHUB_OUTPUT": str(github_output),
-        "PATH": f"{fake_bin}:{os.environ['PATH']}",
-        "PR_NUMBER": "408",
-        "REPOSITORY": "johnhughes3/LegalForecastBench",
-    }
     result = subprocess.run(
-        ["bash", "-c", _classification_script()],
+        ["bash", "-c", script],
         check=False,
         capture_output=True,
-        env=env,
+        env={
+            **os.environ,
+            **env,
+            "FAKE_GH_JSON": gh_json,
+            "GITHUB_OUTPUT": str(github_output),
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        },
         text=True,
     )
-    return ClassifierResult(
+    return SnippetResult(
         returncode=result.returncode,
         stdout=result.stdout,
         stderr=result.stderr,
@@ -84,142 +100,102 @@ def _run_classifier(
     )
 
 
-def _commit_json(
-    *, message: str, author: str = "dependabot[bot]", verified: bool = True
-) -> str:
-    return json.dumps({"author": author, "verified": verified, "message": message})
+def test_dependabot_groups_restrict_minor_and_patch() -> None:
+    assert "package-ecosystem: github-actions" in DEPENDABOT
+    assert "package-ecosystem: pip" in DEPENDABOT
+    assert "github-actions-minor-patch:" in DEPENDABOT
+    assert "pip-minor-patch:" in DEPENDABOT
+    assert DEPENDABOT.count("update-types:") == 2
+    assert DEPENDABOT.count("- minor") == 2
+    assert DEPENDABOT.count("- patch") == 2
+    assert DEPENDABOT.count("open-pull-requests-limit: 5") == 2
+    assert "major" not in DEPENDABOT
 
 
-def _commits_json(*commits: str) -> str:
-    return f"[{','.join(commits)}]"
+def test_dependabot_auto_merge_workflow_uses_default_branch_workflow_run() -> None:
+    assert WORKFLOW.startswith("name: Dependabot auto-merge\n")
+    assert "workflow_run:" in WORKFLOW
+    assert "types: [completed]" in WORKFLOW
+    assert "- CI\n" in WORKFLOW
+    assert "- CodeQL\n" in WORKFLOW
+    assert "- Community Multi-Harness Validation\n" in WORKFLOW
+    assert "pull_request_target:" not in WORKFLOW
+    assert re.search(r"^on:\n  pull_request:", WORKFLOW, re.MULTILINE) is None
+    assert "github.event.workflow_run.event == 'pull_request'" in WORKFLOW
+    assert "github.event.workflow_run.conclusion == 'success'" in WORKFLOW
+    assert "github.event.workflow_run.name != 'Dependabot auto-merge'" in WORKFLOW
+    assert (
+        "github.event.workflow_run.head_repository.full_name == github.repository"
+        in WORKFLOW
+    )
+    assert "runs-on: ubuntu-latest" in WORKFLOW
+    assert "vars.CI_RUNNER" in WORKFLOW
+    assert "runs-on: ${{ vars.CI_RUNNER }}" not in WORKFLOW
+    assert "actions/checkout" not in WORKFLOW
+    assert "--admin" not in WORKFLOW
+    assert "gh pr merge --admin" not in WORKFLOW
 
 
 def test_dependabot_auto_merge_workflow_is_narrowly_privileged() -> None:
-    assert WORKFLOW.startswith("name: Dependabot Auto-Merge\n")
-    assert "pull_request:\n" in WORKFLOW
-    assert "pull_request_target:" not in WORKFLOW
-    assert "types: [opened, synchronize, reopened, ready_for_review]" in WORKFLOW
+    assert (
+        "permissions:\n"
+        "  actions: read\n"
+        "  checks: read\n"
+        "  contents: read\n"
+        "  pull-requests: read\n"
+    ) in WORKFLOW
     assert "contents: write" in WORKFLOW
     assert "pull-requests: write" in WORKFLOW
-    assert "actions/checkout" not in WORKFLOW
-    assert "uses:" not in WORKFLOW
+    assert WORKFLOW.index("contents: read") < WORKFLOW.index("contents: write")
+
+
+def test_dependabot_auto_merge_pins_fetch_metadata() -> None:
+    uses = re.findall(r"^\s*uses:\s*(\S+)\s*(?:#.*)?$", WORKFLOW, re.MULTILINE)
+    assert uses == [f"dependabot/fetch-metadata@{FETCH_METADATA_SHA}"]
+    assert "# v3.1.0" in WORKFLOW
+    assert "pr-number: ${{ steps.pr.outputs.number }}" in WORKFLOW
 
 
 def test_dependabot_auto_merge_workflow_gates_the_trusted_source() -> None:
-    assert "github.event.pull_request.user.login == 'dependabot[bot]'" in WORKFLOW
-    assert "github.repository == 'johnhughes3/LegalForecastBench'" in WORKFLOW
-    assert "github.event.pull_request.base.ref == 'main'" in WORKFLOW
-    assert "github.event.pull_request.draft == false" in WORKFLOW
-    assert "pulls/${PR_NUMBER}/commits?per_page=2" in WORKFLOW
-    assert ".author.login" in WORKFLOW
-    assert ".commit.verification.verified" in WORKFLOW
-    assert "must contain exactly one commit" in WORKFLOW
-    assert "not a verified Dependabot commit" in WORKFLOW
+    resolve = _step_run("Resolve Dependabot pull request")
+    assert 'select(.user.login=="dependabot[bot]"' in resolve
+    assert '.state=="open"' in resolve
+    assert ".draft!=true" in resolve
+    assert '.base.ref=="main"' in resolve
+    assert ".head.sha==" in resolve
+    assert '[ "${count}" -ne 1 ]' in resolve
+    assert "skip=true" in resolve
+    assert "skip=false" in resolve
 
 
 def test_dependabot_auto_merge_workflow_queues_only_non_major_updates() -> None:
-    assert "version-update:semver-patch" in WORKFLOW
-    assert "version-update:semver-minor" in WORKFLOW
-    assert "version-update:semver-major" in WORKFLOW
-    assert "eligible=false" in WORKFLOW
-    assert "steps.metadata.outputs.eligible == 'true'" in WORKFLOW
-    assert "Unknown Dependabot update type" in WORKFLOW
+    classify = _step_run("Classify update-type")
+    assert "version-update:semver-patch|version-update:semver-minor" in classify
+    assert "eligible=true" in classify
+    assert "eligible=false" in classify
+    assert "Skipping auto-merge for update-type=" in classify
+    assert "version-update:semver-major" not in classify.split("case", maxsplit=1)[1]
 
 
-@pytest.mark.parametrize(
-    ("update_type", "eligible"),
-    [
-        ("version-update:semver-patch", "true"),
-        ("version-update:semver-minor", "true"),
-        ("version-update:semver-major", "false"),
-    ],
-)
-@requires_jq
-def test_classifier_handles_legacy_update_type_trailers(
-    tmp_path: Path,
-    update_type: str,
-    eligible: str,
-) -> None:
-    result = _run_classifier(
-        tmp_path,
-        commit_json=_commits_json(
-            _commit_json(message=f"Bump dependency\n\nupdate-type: {update_type}")
-        ),
+def test_dependabot_auto_merge_workflow_requires_complete_non_failing_checks() -> None:
+    gates = _step_run(
+        "Require every check on the head SHA to be complete and non-failing"
     )
-
-    assert result.returncode == 0, result.stderr
-    assert result.github_output == f"eligible=false\neligible={eligible}\n"
-
-
-@requires_jq
-def test_classifier_marks_verified_uv_group_commit_without_trailers_ineligible(
-    tmp_path: Path,
-) -> None:
-    result = _run_classifier(
-        tmp_path,
-        commit_json=_commits_json(
-            _commit_json(
-                message=(
-                    "chore(deps): bump cryptography in the uv group\n\n"
-                    "updated-dependencies:\n- dependency-name: cryptography\n"
-                    "  dependency-version: 50.0.0\n  dependency-group: uv"
-                )
-            )
-        ),
+    assert 'gh api "repos/${REPO}/commits/${SHA}/check-runs" --paginate --jq' in gates
+    assert '.status != "completed"' in gates
+    assert 'name=="Python quality gates"' in gates
+    assert '.conclusion != "success"' in gates
+    assert '.conclusion != "neutral"' in gates
+    assert '.conclusion != "skipped"' in gates
+    assert "ok=false" in gates
+    assert "ok=true" in gates
+    assert "exit 0" in gates
+    merge = _step_run("Enable auto-merge (squash)")
+    assert (
+        'gh pr merge "$PR" --repo "$REPO" --auto --squash --match-head-commit "$SHA"'
+        in merge
     )
-
-    assert result.returncode == 0, result.stderr
-    assert result.github_output == "eligible=false\neligible=false\n"
-    assert "no update-type metadata; leaving auto-merge disabled" in result.stdout
-
-
-@requires_jq
-def test_classifier_marks_unknown_verified_update_type_ineligible(
-    tmp_path: Path,
-) -> None:
-    result = _run_classifier(
-        tmp_path,
-        commit_json=_commits_json(
-            _commit_json(
-                message="Bump dependency\n\nupdate-type: version-update:unknown",
-            )
-        ),
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert result.github_output == "eligible=false\neligible=false\n"
-    assert "Unknown Dependabot update type" in result.stdout
-
-
-@pytest.mark.parametrize(
-    "commit_json",
-    [
-        _commits_json(
-            _commit_json(
-                message="update-type: version-update:semver-patch", author="attacker"
-            )
-        ),
-        _commits_json(
-            _commit_json(
-                message="update-type: version-update:semver-patch", verified=False
-            )
-        ),
-        _commits_json(
-            _commit_json(message="update-type: version-update:semver-patch"),
-            _commit_json(message="update-type: version-update:semver-major"),
-        ),
-        "not-json",
-    ],
-)
-@requires_jq
-def test_classifier_rejects_untrusted_or_malformed_commit_evidence(
-    tmp_path: Path,
-    commit_json: str,
-) -> None:
-    result = _run_classifier(tmp_path, commit_json=commit_json)
-
-    assert result.returncode != 0
-    assert result.github_output == "eligible=false\n"
+    assert "--admin" not in merge
 
 
 def test_dependabot_auto_merge_workflow_disables_stale_ineligible_requests() -> None:
@@ -228,26 +204,205 @@ def test_dependabot_auto_merge_workflow_disables_stale_ineligible_requests() -> 
         maxsplit=1,
     )[1].split("\n      - name:", maxsplit=1)[0]
 
-    assert "if: always() && steps.metadata.outputs.eligible != 'true'" in disable_step
+    assert "if: always() && steps.pr.outputs.skip != 'true'" in disable_step
+    assert "steps.class.outputs.eligible != 'true'" in disable_step
+    assert "steps.gates.outputs.ok != 'true'" in disable_step
     assert "--json autoMergeRequest" in disable_step
     assert "--jq '.autoMergeRequest != null'" in disable_step
-    assert 'if [[ "${auto_merge_enabled}" == "true" ]]; then' in disable_step
-    assert 'gh pr merge --disable-auto "${PR_URL}"' in disable_step
+    assert 'gh pr merge --disable-auto --repo "$REPO" "$PR"' in disable_step
 
 
-def test_dependabot_auto_merge_workflow_skips_when_repo_setting_is_disabled() -> None:
-    merge_step = WORKFLOW.split(
-        "      - name: Enable auto-merge for patch and minor updates\n",
-        maxsplit=1,
-    )[1]
+@pytest.mark.parametrize(
+    ("update_type", "eligible"),
+    [
+        ("version-update:semver-patch", "true"),
+        ("version-update:semver-minor", "true"),
+        ("version-update:semver-major", "false"),
+        ("", "false"),
+        ("version-update:unknown", "false"),
+    ],
+)
+def test_classifier_auto_lands_only_explicit_patch_and_minor(
+    tmp_path: Path,
+    update_type: str,
+    eligible: str,
+) -> None:
+    result = _run_snippet(
+        tmp_path,
+        script=_step_run("Classify update-type"),
+        env={"UPDATE_TYPE": update_type},
+    )
 
-    assert "REPOSITORY: ${{ github.repository }}" in merge_step
-    assert "PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}" in merge_step
-    assert "set -euo pipefail" in merge_step
-    assert "--jq '.allow_auto_merge'" in merge_step
-    assert 'if [[ "${allow_auto_merge}" != "true" ]]; then' in merge_step
-    assert "::notice::Repository auto-merge is disabled; skipping." in merge_step
-    assert "exit 0" in merge_step
-    assert "|| true" not in merge_step
-    assert '--match-head-commit "${PR_HEAD_SHA}"' in merge_step
-    assert merge_step.index("if [[") < merge_step.index("gh pr merge \\")
+    assert result.returncode == 0, result.stderr
+    assert result.github_output == f"eligible={eligible}\n"
+    if eligible == "false":
+        assert f"Skipping auto-merge for update-type='{update_type}'" in result.stdout
+
+
+def _dependabot_pr(
+    *,
+    number: int,
+    sha: str,
+    login: str = "dependabot[bot]",
+    state: str = "open",
+    draft: bool = False,
+    base: str = "main",
+) -> dict[str, object]:
+    return {
+        "number": number,
+        "state": state,
+        "draft": draft,
+        "user": {"login": login},
+        "head": {"sha": sha},
+        "base": {"ref": base},
+    }
+
+
+@requires_jq
+def test_resolver_selects_open_dependabot_pr_for_exact_sha(tmp_path: Path) -> None:
+    sha = "a" * 40
+    payload = [
+        _dependabot_pr(number=12, sha=sha),
+        _dependabot_pr(number=13, sha=sha, login="someone-else"),
+        _dependabot_pr(number=14, sha=sha, base="release"),
+        _dependabot_pr(number=15, sha=sha, draft=True),
+    ]
+    result = _run_snippet(
+        tmp_path,
+        script=_step_run("Resolve Dependabot pull request"),
+        env={"REPO": "johnhughes3/LegalForecastBench", "SHA": sha},
+        gh_json=json.dumps(payload),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.github_output == "number=12\nskip=false\n"
+
+
+@requires_jq
+def test_resolver_skips_when_no_open_dependabot_pr_matches_sha(tmp_path: Path) -> None:
+    sha = "b" * 40
+    payload = [_dependabot_pr(number=14, sha=sha, state="closed")]
+    result = _run_snippet(
+        tmp_path,
+        script=_step_run("Resolve Dependabot pull request"),
+        env={"REPO": "johnhughes3/LegalForecastBench", "SHA": sha},
+        gh_json=json.dumps(payload),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.github_output == "skip=true\n"
+    assert f"Expected exactly one open Dependabot PR for {sha} on main; found 0" in (
+        result.stdout
+    )
+
+
+@requires_jq
+def test_resolver_skips_when_multiple_main_dependabot_prs_match(
+    tmp_path: Path,
+) -> None:
+    sha = "d" * 40
+    payload = [
+        _dependabot_pr(number=21, sha=sha),
+        _dependabot_pr(number=22, sha=sha),
+    ]
+    result = _run_snippet(
+        tmp_path,
+        script=_step_run("Resolve Dependabot pull request"),
+        env={"REPO": "johnhughes3/LegalForecastBench", "SHA": sha},
+        gh_json=json.dumps(payload),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.github_output == "skip=true\n"
+    assert f"Expected exactly one open Dependabot PR for {sha} on main; found 2" in (
+        result.stdout
+    )
+
+
+def _check(name: str, status: str, conclusion: str | None) -> dict[str, str | None]:
+    return {"name": name, "status": status, "conclusion": conclusion}
+
+
+PYTHON_OK = _check("Python quality gates", "completed", "success")
+
+
+@requires_jq
+@pytest.mark.parametrize(
+    ("check_runs", "ok", "notice"),
+    [
+        (
+            [_check("Analyze python", "in_progress", None)],
+            "false",
+            "Not merging: pending=1 python_ok=0 failed=0",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "in_progress", None)],
+            "false",
+            "Not merging: pending=1 python_ok=1 failed=0",
+        ),
+        (
+            [_check("Analyze python", "completed", "success")],
+            "false",
+            "Not merging: pending=0 python_ok=0 failed=0",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "failure")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "cancelled")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "timed_out")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "startup_failure")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "action_required")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "stale")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [
+                PYTHON_OK,
+                _check("Analyze python", "completed", "neutral"),
+                _check("CodeQL", "completed", "skipped"),
+            ],
+            "true",
+            None,
+        ),
+    ],
+)
+def test_gates_require_complete_non_failing_check_runs(
+    tmp_path: Path,
+    check_runs: list[dict[str, str | None]],
+    ok: str,
+    notice: str | None,
+) -> None:
+    payload = {"check_runs": check_runs}
+    result = _run_snippet(
+        tmp_path,
+        script=_step_run(
+            "Require every check on the head SHA to be complete and non-failing"
+        ),
+        env={"REPO": "johnhughes3/LegalForecastBench", "SHA": "c" * 40},
+        gh_json=json.dumps(payload),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.github_output == f"ok={ok}\n"
+    if notice is not None:
+        assert notice in result.stdout
