@@ -520,6 +520,30 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
         "sha256:"
     )
 
+    with pytest.raises(
+        cli.CommandError,
+        match="v3 clearance requires verifier-issued recovery snapshot",
+    ):
+        verify_clearance_lineage(
+            manifest_path=args.output_root / "purchased-document-downloads.jsonl",
+            clearance_path=args.output_root / "disclosure-clearance.jsonl",
+            run_card_path=card_path,
+        )
+
+    verified = cli._verify_materializer_consolidated_recovery(
+        recovery_root=args.output_root,
+        run_card_path=card_path,
+        selection_path=args.selection,
+        selected_document_keys=selected,
+        purchase_policy_path=args.purchase_policy,
+        cohort_policy_path=args.cohort_policy,
+        ledger_path=args.purchase_ledger,
+    )
+    capability = verified["consolidated_resolved_capability"]
+    verified_artifact_bytes = cast(
+        Mapping[str, bytes], verified["verified_artifact_bytes"]
+    )
+
     def reject_legacy_clearance_branch(**_kwargs: object) -> dict[str, bytes]:
         raise AssertionError("v3 consolidation must not use legacy clearance lineage")
 
@@ -532,6 +556,8 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
         manifest_path=args.output_root / "purchased-document-downloads.jsonl",
         clearance_path=args.output_root / "disclosure-clearance.jsonl",
         run_card_path=card_path,
+        captured_artifact_bytes=verified_artifact_bytes,
+        consolidated_recovery_capability=capability,
     )
     assert clearance_lineage["lineage_kind"] == "replacement_recovery_consolidation"
     assert set(clearance_lineage["verified_artifact_bytes"]) == {
@@ -542,15 +568,21 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
         str((args.output_root / "resolved-post-recovery-documents.jsonl").resolve()),
     }
 
-    verified = cli._verify_materializer_consolidated_recovery(
-        recovery_root=args.output_root,
-        run_card_path=card_path,
-        selection_path=args.selection,
-        selected_document_keys=selected,
-        purchase_policy_path=args.purchase_policy,
-        cohort_policy_path=args.cohort_policy,
-        ledger_path=args.purchase_ledger,
-    )
+    rebound_artifact_bytes = dict(verified_artifact_bytes)
+    rebound_artifact_bytes[
+        str((args.output_root / "disclosure-clearance.jsonl").resolve())
+    ] = b"{}\n"
+    with pytest.raises(
+        cli.CommandError,
+        match="v3 clearance snapshot differs from authenticated recovery replay",
+    ):
+        verify_clearance_lineage(
+            manifest_path=args.output_root / "purchased-document-downloads.jsonl",
+            clearance_path=args.output_root / "disclosure-clearance.jsonl",
+            run_card_path=card_path,
+            captured_artifact_bytes=rebound_artifact_bytes,
+            consolidated_recovery_capability=capability,
+        )
 
     assert {
         (row["candidate_id"], row["source_document_id"])
