@@ -160,7 +160,10 @@ def test_dependabot_auto_merge_workflow_gates_the_trusted_source() -> None:
     resolve = _step_run("Resolve Dependabot pull request")
     assert 'select(.user.login=="dependabot[bot]"' in resolve
     assert '.state=="open"' in resolve
+    assert ".draft!=true" in resolve
+    assert '.base.ref=="main"' in resolve
     assert ".head.sha==" in resolve
+    assert '[ "${count}" -ne 1 ]' in resolve
     assert "skip=true" in resolve
     assert "skip=false" in resolve
 
@@ -178,18 +181,35 @@ def test_dependabot_auto_merge_workflow_requires_complete_non_failing_checks() -
     gates = _step_run(
         "Require every check on the head SHA to be complete and non-failing"
     )
-    assert 'gh api "repos/${REPO}/commits/${SHA}/check-runs" --paginate' in gates
+    assert 'gh api "repos/${REPO}/commits/${SHA}/check-runs" --paginate --jq' in gates
     assert '.status != "completed"' in gates
-    assert 'conclusion=="failure"' in gates
-    assert 'conclusion=="cancelled"' in gates
-    assert 'conclusion=="timed_out"' in gates
-    assert 'conclusion=="startup_failure"' in gates
+    assert 'name=="Python quality gates"' in gates
+    assert '.conclusion != "success"' in gates
+    assert '.conclusion != "neutral"' in gates
+    assert '.conclusion != "skipped"' in gates
     assert "ok=false" in gates
     assert "ok=true" in gates
     assert "exit 0" in gates
     merge = _step_run("Enable auto-merge (squash)")
-    assert 'gh pr merge "$PR" --repo "$REPO" --auto --squash' in merge
+    assert (
+        'gh pr merge "$PR" --repo "$REPO" --auto --squash --match-head-commit "$SHA"'
+        in merge
+    )
     assert "--admin" not in merge
+
+
+def test_dependabot_auto_merge_workflow_disables_stale_ineligible_requests() -> None:
+    disable_step = WORKFLOW.split(
+        "      - name: Disable stale auto-merge for ineligible updates\n",
+        maxsplit=1,
+    )[1].split("\n      - name:", maxsplit=1)[0]
+
+    assert "if: always() && steps.pr.outputs.skip != 'true'" in disable_step
+    assert "steps.class.outputs.eligible != 'true'" in disable_step
+    assert "steps.gates.outputs.ok != 'true'" in disable_step
+    assert "--json autoMergeRequest" in disable_step
+    assert "--jq '.autoMergeRequest != null'" in disable_step
+    assert 'gh pr merge --disable-auto --repo "$REPO" "$PR"' in disable_step
 
 
 @pytest.mark.parametrize(
@@ -219,22 +239,33 @@ def test_classifier_auto_lands_only_explicit_patch_and_minor(
         assert f"Skipping auto-merge for update-type='{update_type}'" in result.stdout
 
 
+def _dependabot_pr(
+    *,
+    number: int,
+    sha: str,
+    login: str = "dependabot[bot]",
+    state: str = "open",
+    draft: bool = False,
+    base: str = "main",
+) -> dict[str, object]:
+    return {
+        "number": number,
+        "state": state,
+        "draft": draft,
+        "user": {"login": login},
+        "head": {"sha": sha},
+        "base": {"ref": base},
+    }
+
+
 @requires_jq
 def test_resolver_selects_open_dependabot_pr_for_exact_sha(tmp_path: Path) -> None:
     sha = "a" * 40
     payload = [
-        {
-            "number": 12,
-            "state": "open",
-            "user": {"login": "dependabot[bot]"},
-            "head": {"sha": sha},
-        },
-        {
-            "number": 13,
-            "state": "open",
-            "user": {"login": "someone-else"},
-            "head": {"sha": sha},
-        },
+        _dependabot_pr(number=12, sha=sha),
+        _dependabot_pr(number=13, sha=sha, login="someone-else"),
+        _dependabot_pr(number=14, sha=sha, base="release"),
+        _dependabot_pr(number=15, sha=sha, draft=True),
     ]
     result = _run_snippet(
         tmp_path,
@@ -250,13 +281,29 @@ def test_resolver_selects_open_dependabot_pr_for_exact_sha(tmp_path: Path) -> No
 @requires_jq
 def test_resolver_skips_when_no_open_dependabot_pr_matches_sha(tmp_path: Path) -> None:
     sha = "b" * 40
+    payload = [_dependabot_pr(number=14, sha=sha, state="closed")]
+    result = _run_snippet(
+        tmp_path,
+        script=_step_run("Resolve Dependabot pull request"),
+        env={"REPO": "johnhughes3/LegalForecastBench", "SHA": sha},
+        gh_json=json.dumps(payload),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.github_output == "skip=true\n"
+    assert f"Expected exactly one open Dependabot PR for {sha} on main; found 0" in (
+        result.stdout
+    )
+
+
+@requires_jq
+def test_resolver_skips_when_multiple_main_dependabot_prs_match(
+    tmp_path: Path,
+) -> None:
+    sha = "d" * 40
     payload = [
-        {
-            "number": 14,
-            "state": "closed",
-            "user": {"login": "dependabot[bot]"},
-            "head": {"sha": sha},
-        }
+        _dependabot_pr(number=21, sha=sha),
+        _dependabot_pr(number=22, sha=sha),
     ]
     result = _run_snippet(
         tmp_path,
@@ -267,7 +314,16 @@ def test_resolver_skips_when_no_open_dependabot_pr_matches_sha(tmp_path: Path) -
 
     assert result.returncode == 0, result.stderr
     assert result.github_output == "skip=true\n"
-    assert f"No open Dependabot PR for {sha}" in result.stdout
+    assert f"Expected exactly one open Dependabot PR for {sha} on main; found 2" in (
+        result.stdout
+    )
+
+
+def _check(name: str, status: str, conclusion: str | None) -> dict[str, str | None]:
+    return {"name": name, "status": status, "conclusion": conclusion}
+
+
+PYTHON_OK = _check("Python quality gates", "completed", "success")
 
 
 @requires_jq
@@ -275,35 +331,55 @@ def test_resolver_skips_when_no_open_dependabot_pr_matches_sha(tmp_path: Path) -
     ("check_runs", "ok", "notice"),
     [
         (
-            [{"status": "in_progress", "conclusion": None}],
+            [_check("Analyze python", "in_progress", None)],
             "false",
-            "Not merging: pending=1 failed=0",
+            "Not merging: pending=1 python_ok=0 failed=0",
         ),
         (
-            [{"status": "completed", "conclusion": "failure"}],
+            [PYTHON_OK, _check("Analyze python", "in_progress", None)],
             "false",
-            "Not merging: pending=0 failed=1",
+            "Not merging: pending=1 python_ok=1 failed=0",
         ),
         (
-            [{"status": "completed", "conclusion": "cancelled"}],
+            [_check("Analyze python", "completed", "success")],
             "false",
-            "Not merging: pending=0 failed=1",
+            "Not merging: pending=0 python_ok=0 failed=0",
         ),
         (
-            [{"status": "completed", "conclusion": "timed_out"}],
+            [PYTHON_OK, _check("Analyze python", "completed", "failure")],
             "false",
-            "Not merging: pending=0 failed=1",
+            "Not merging: pending=0 python_ok=1 failed=1",
         ),
         (
-            [{"status": "completed", "conclusion": "startup_failure"}],
+            [PYTHON_OK, _check("Analyze python", "completed", "cancelled")],
             "false",
-            "Not merging: pending=0 failed=1",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "timed_out")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "startup_failure")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "action_required")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
+        ),
+        (
+            [PYTHON_OK, _check("Analyze python", "completed", "stale")],
+            "false",
+            "Not merging: pending=0 python_ok=1 failed=1",
         ),
         (
             [
-                {"status": "completed", "conclusion": "success"},
-                {"status": "completed", "conclusion": "neutral"},
-                {"status": "completed", "conclusion": "skipped"},
+                PYTHON_OK,
+                _check("Analyze python", "completed", "neutral"),
+                _check("CodeQL", "completed", "skipped"),
             ],
             "true",
             None,

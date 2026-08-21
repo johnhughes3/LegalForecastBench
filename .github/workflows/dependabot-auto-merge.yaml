@@ -46,13 +46,15 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          num="$(gh api "repos/${REPO}/commits/${SHA}/pulls" \
-            --jq '[.[] | select(.user.login=="dependabot[bot]" and .state=="open" and .head.sha=="'"${SHA}"'")] | first | .number // empty')"
-          if [ -z "${num}" ]; then
-            echo "No open Dependabot PR for ${SHA}"
+          matches="$(gh api "repos/${REPO}/commits/${SHA}/pulls" \
+            --jq '[.[] | select(.user.login=="dependabot[bot]" and .state=="open" and .draft!=true and .base.ref=="main" and .head.sha=="'"${SHA}"'")]')"
+          count="$(printf '%s' "${matches}" | jq 'length')"
+          if [ "${count}" -ne 1 ]; then
+            echo "Expected exactly one open Dependabot PR for ${SHA} on main; found ${count}"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          num="$(printf '%s' "${matches}" | jq -r '.[0].number')"
           echo "number=${num}" >> "$GITHUB_OUTPUT"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
@@ -90,15 +92,31 @@ jobs:
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          json="$(gh api "repos/${REPO}/commits/${SHA}/check-runs" --paginate)"
-          pending="$(printf '%s' "$json" | jq '[.check_runs[] | select(.status != "completed")] | length')"
-          failed="$(printf '%s' "$json" | jq '[.check_runs[] | select(.status=="completed" and (.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out" or .conclusion=="startup_failure"))] | length')"
-          if [ "$pending" -ne 0 ] || [ "$failed" -ne 0 ]; then
-            echo "Not merging: pending=${pending} failed=${failed}"
+          json="$(gh api "repos/${REPO}/commits/${SHA}/check-runs" --paginate --jq '.check_runs[]' | jq -s '.')"
+          pending="$(printf '%s' "$json" | jq '[.[] | select(.status != "completed")] | length')"
+          python_ok="$(printf '%s' "$json" | jq '[.[] | select(.name=="Python quality gates" and .status=="completed" and .conclusion=="success")] | length')"
+          failed="$(printf '%s' "$json" | jq '[.[] | select(.status=="completed" and (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped"))] | length')"
+          if [ "$pending" -ne 0 ] || [ "$python_ok" -lt 1 ] || [ "$failed" -ne 0 ]; then
+            echo "Not merging: pending=${pending} python_ok=${python_ok} failed=${failed}"
             echo "ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "ok=true" >> "$GITHUB_OUTPUT"
+
+      - name: Disable stale auto-merge for ineligible updates
+        if: always() && steps.pr.outputs.skip != 'true' && (steps.class.outputs.eligible != 'true' || steps.gates.outputs.ok != 'true')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          set -euo pipefail
+          auto_merge_enabled="$(
+            gh pr view "$PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest != null'
+          )"
+          if [ "${auto_merge_enabled}" = "true" ]; then
+            gh pr merge --disable-auto --repo "$REPO" "$PR"
+          fi
 
       - name: Enable auto-merge (squash)
         if: steps.pr.outputs.skip != 'true' && steps.class.outputs.eligible == 'true' && steps.gates.outputs.ok == 'true'
@@ -106,6 +124,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR: ${{ steps.pr.outputs.number }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          gh pr merge "$PR" --repo "$REPO" --auto --squash
+          gh pr merge "$PR" --repo "$REPO" --auto --squash --match-head-commit "$SHA"
