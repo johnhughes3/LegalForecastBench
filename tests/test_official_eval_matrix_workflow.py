@@ -617,6 +617,7 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert '--case-id "${CASE_ID}"' in RUN_CASE_JOB
     assert '--ablation "${ABLATION}"' in RUN_CASE_JOB
     assert "--backend live" in RUN_CASE_JOB
+    assert "--no-docket-tool" in RUN_CASE_JOB
     assert (
         "--model-registry /tmp/lfb-provider-cell-inputs/lfb-model-registry.json"
         in RUN_CASE_JOB
