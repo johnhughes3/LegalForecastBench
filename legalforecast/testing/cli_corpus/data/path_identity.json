@@ -396,6 +396,8 @@
   ],
   "identity_checks": [
     "tests/test_acquisition_cli.py::callable-identity",
+    "tests/test_exact100_successor_v3_consumer_wiring.py::callable-identity",
+    "tests/test_exact100_successor_v3_consumer_wiring.py::callable-identity",
     "tests/test_llm_labeling_cli.py::callable-identity",
     "tests/test_llm_labeling_cli.py::callable-identity",
     "tests/test_llm_labeling_cli.py::callable-identity",
