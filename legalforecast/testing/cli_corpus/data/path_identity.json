@@ -372,6 +372,7 @@
     "tests/test_provider_authority_infra.py",
     "tests/test_provider_baselines.py",
     "tests/test_provider_spend_control.py",
+    "tests/test_public_corpus_id_fence.py",
     "tests/test_public_marker_clearance_policy.py",
     "tests/test_publication_governance.py",
     "tests/test_publish_package_workflow.py",
