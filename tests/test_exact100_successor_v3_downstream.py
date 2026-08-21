@@ -26,6 +26,7 @@ from typing import Any
 import pytest
 from legalforecast.ingestion.exact100_successor_v3.downstream import (
     OUTPUT_NAMES,
+    AuthenticatedV3Root,
     Exact100SuccessorV3DownstreamError,
     verify_exact100_successor_replacement_v3_projection,
 )
@@ -60,8 +61,8 @@ def _payloads() -> dict[str, bytes]:
     )
     clearance = _jsonl(
         [
-            _manifest_row("case001", "doc-1", "free"),
-            _manifest_row("case002", "doc-2", "purchased"),
+            {"candidate_id": "case001", "source_document_id": "doc-1"},
+            {"candidate_id": "case002", "source_document_id": "doc-2"},
         ]
     )
     return {
@@ -105,11 +106,18 @@ def _v3_root(tmp_path: Path, **card_overrides: Any) -> Path:
     return root
 
 
+def _ok(root: Path) -> AuthenticatedV3Root:
+    """A receipt naming the root actually handed to the hook."""
+
+    return AuthenticatedV3Root(root=root)
+
+
 def _verified(root: Path) -> dict[str, Any]:
     calls: list[Path] = []
 
-    def authenticate(target: Path) -> None:
+    def authenticate(target: Path) -> AuthenticatedV3Root:
         calls.append(target)
+        return AuthenticatedV3Root(root=target)
 
     result = verify_exact100_successor_replacement_v3_projection(
         root, authenticate=authenticate
@@ -152,7 +160,8 @@ def test_every_declared_output_is_published_as_verified_bytes(tmp_path: Path) ->
     published = verified["verified_artifact_bytes"]
 
     assert set(published) == {
-        str((root / relative).absolute()) for relative in OUTPUT_NAMES.values()
+        *(str((root / relative).absolute()) for relative in OUTPUT_NAMES.values()),
+        str((root / _DOCUMENT).absolute()),
     }
     assert published[str((root / _STATE_CARD).absolute())] == (
         (root / _STATE_CARD).read_bytes()
@@ -178,7 +187,7 @@ def test_a_root_without_the_v3_state_card_refuses(tmp_path: Path) -> None:
 
     with pytest.raises(Exact100SuccessorV3DownstreamError, match="carries no v3"):
         verify_exact100_successor_replacement_v3_projection(
-            root, authenticate=lambda _root: None
+            root, authenticate=lambda root: AuthenticatedV3Root(root=root)
         )
 
 
@@ -197,9 +206,7 @@ def test_a_card_that_is_not_a_completed_v3_projection_refuses(
     root = _v3_root(tmp_path, **{field: value})
 
     with pytest.raises(Exact100SuccessorV3DownstreamError, match="not a completed"):
-        verify_exact100_successor_replacement_v3_projection(
-            root, authenticate=lambda _root: None
-        )
+        verify_exact100_successor_replacement_v3_projection(root, authenticate=_ok)
 
 
 def test_an_output_that_differs_from_its_commitment_refuses(tmp_path: Path) -> None:
@@ -207,9 +214,7 @@ def test_an_output_that_differs_from_its_commitment_refuses(tmp_path: Path) -> N
     (root / "target-cohort-selection.jsonl").write_bytes(b"tampered\n")
 
     with pytest.raises(Exact100SuccessorV3DownstreamError, match="differs from"):
-        verify_exact100_successor_replacement_v3_projection(
-            root, authenticate=lambda _root: None
-        )
+        verify_exact100_successor_replacement_v3_projection(root, authenticate=_ok)
 
 
 def test_an_owner_adjudicated_document_that_differs_refuses(tmp_path: Path) -> None:
@@ -223,9 +228,7 @@ def test_an_owner_adjudicated_document_that_differs_refuses(tmp_path: Path) -> N
     (root / _DOCUMENT).write_bytes(b"%PDF-1.7 substituted\n")
 
     with pytest.raises(Exact100SuccessorV3DownstreamError, match="differs from"):
-        verify_exact100_successor_replacement_v3_projection(
-            root, authenticate=lambda _root: None
-        )
+        verify_exact100_successor_replacement_v3_projection(root, authenticate=_ok)
 
 
 def test_a_missing_committed_document_refuses(tmp_path: Path) -> None:
@@ -233,9 +236,7 @@ def test_a_missing_committed_document_refuses(tmp_path: Path) -> None:
     (root / _DOCUMENT).unlink()
 
     with pytest.raises(Exact100SuccessorV3DownstreamError, match="is missing"):
-        verify_exact100_successor_replacement_v3_projection(
-            root, authenticate=lambda _root: None
-        )
+        verify_exact100_successor_replacement_v3_projection(root, authenticate=_ok)
 
 
 def test_a_manifest_row_of_an_unknown_phase_refuses(tmp_path: Path) -> None:
@@ -256,9 +257,7 @@ def test_a_manifest_row_of_an_unknown_phase_refuses(tmp_path: Path) -> None:
     (root / _STATE_CARD).write_bytes(json.dumps(card, sort_keys=True).encode() + b"\n")
 
     with pytest.raises(Exact100SuccessorV3DownstreamError, match="invalid phase"):
-        verify_exact100_successor_replacement_v3_projection(
-            root, authenticate=lambda _root: None
-        )
+        verify_exact100_successor_replacement_v3_projection(root, authenticate=_ok)
 
 
 def test_authentication_failure_is_not_swallowed(tmp_path: Path) -> None:
@@ -270,4 +269,35 @@ def test_authentication_failure_is_not_swallowed(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="replay differs"):
         verify_exact100_successor_replacement_v3_projection(
             _v3_root(tmp_path), authenticate=refuse
+        )
+
+
+def test_a_callable_that_does_not_authenticate_cannot_publish(tmp_path: Path) -> None:
+    """The injected replay must prove it ran, not merely be callable.
+
+    An unconstrained hook takes a no-op happily: it type-checks, every test
+    passes, and publication proceeds on a root nothing replayed. So the hook
+    returns a receipt naming the root it authenticated, and a receipt for some
+    other root -- or none at all -- refuses.
+    """
+
+    root = _v3_root(tmp_path)
+
+    with pytest.raises(
+        Exact100SuccessorV3DownstreamError, match="did not authenticate"
+    ):
+        verify_exact100_successor_replacement_v3_projection(
+            root, authenticate=lambda _root: None
+        )
+
+
+def test_a_receipt_for_another_root_refuses(tmp_path: Path) -> None:
+    root = _v3_root(tmp_path)
+    other = tmp_path / "some-other-root"
+
+    with pytest.raises(
+        Exact100SuccessorV3DownstreamError, match="did not authenticate"
+    ):
+        verify_exact100_successor_replacement_v3_projection(
+            root, authenticate=lambda _root: AuthenticatedV3Root(root=other)
         )

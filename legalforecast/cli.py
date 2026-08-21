@@ -59,12 +59,14 @@ from legalforecast.contracts import (
     DISCLOSURE_CLEARANCE_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
+    EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3,
     EXACT100_SUCCESSOR_WIDER_RANK_LEDGER_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_RECONSTRUCTION_RECOVERY_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
     LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
     REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2,
+    REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V3,
     SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2,
     UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
     UNITIZATION_REVIEW_BUNDLE_V1,
@@ -521,6 +523,13 @@ from legalforecast.ingestion.exact100_successor_semantic_repair import (
     VerifiedExact100SuccessorSemanticRepairs,
     _mint_verified_exact100_successor_semantic_repairs,  # pyright: ignore[reportPrivateUsage]
 )
+from legalforecast.ingestion.exact100_successor_v3 import downstream as v3_downstream
+from legalforecast.ingestion.exact100_successor_v3.cli import (
+    authenticate_exact100_successor_v3_root,
+)
+from legalforecast.ingestion.exact100_successor_v3.downstream import (
+    is_exact100_successor_v3_root,
+)
 from legalforecast.ingestion.exact100_successor_wider_rank import (
     VerifiedExact100SuccessorWiderRank,
     _mint_verified_exact100_successor_wider_rank,  # pyright: ignore[reportPrivateUsage]
@@ -535,6 +544,9 @@ from legalforecast.ingestion.exact310_rest_rebind import (
     Exact310RestRebindError,
     execute_exact310_terminal_rest_rebind,
     plan_exact310_terminal_rest_rebind,
+)
+from legalforecast.ingestion.external_billing_register import (
+    verify_external_billing_register,
 )
 from legalforecast.ingestion.firecrawl_docket_recovery import (
     RANKED_FIRECRAWL_COMBINED_CREDIT_CEILING,
@@ -6427,6 +6439,16 @@ def _add_consolidate_replacement_recovery_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument(
+        "--external-billing-register",
+        type=Path,
+        default=None,
+        help=(
+            "Owner-ratified enumeration of documents billed under a separate "
+            "approved authority chain. Absent, coverage is the canonical "
+            "ledger alone."
+        ),
+    )
     parser.add_argument(
         "--tranche-index",
         type=Path,
@@ -29212,6 +29234,9 @@ _REPLACEMENT_RECOVERY_CARD_SCHEMA = (
 _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2 = str(
     REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2
 )
+_REPLACEMENT_RECOVERY_CARD_SCHEMA_V3 = str(
+    REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V3
+)
 _RECAP_FETCH_QUARANTINE_RECOVERY_CARD_SCHEMA = (
     "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
 )
@@ -30533,6 +30558,13 @@ class _ReplacementRecoveryConsolidation:
     terminal_omission_inputs: Mapping[str, str] | None
     docket_decision_partition: Mapping[str, object] | None
     target_projection: Mapping[str, object]
+    #: Set only when a consolidation drew on the owner-ratified register; it is
+    #: what makes the emitted card a v3 and gives its replay the same input.
+    external_billing_register_path: Path | None = None
+    external_billing_document_commitments: Mapping[tuple[str, str], str] = (
+        dataclasses.field(default_factory=dict[tuple[str, str], str])
+    )
+    target_schema_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -30556,6 +30588,7 @@ def _consolidated_resolved_capability_boundary() -> tuple[
         resolved_bytes: bytes
         purchase_operations_bytes: bytes
         purchase_policy_sha256: str
+        external_document_commitments: tuple[tuple[tuple[str, str], str], ...]
 
     registered: dict[int, tuple[Capability, tuple[object, ...]]] = {}
 
@@ -30577,14 +30610,20 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 "resolved_records",
                 "purchase_operations",
                 "purchase_policy_sha256",
+                "external_document_commitments",
             }:
                 raise CommandError(
                     "consolidated recovery verifier omitted resolved authority inputs"
                 )
             purchase_policy_sha256 = raw_inputs["purchase_policy_sha256"]
+            external_document_commitments = raw_inputs["external_document_commitments"]
             if not isinstance(purchase_policy_sha256, str):
                 raise CommandError(
                     "consolidated recovery verifier emitted invalid policy authority"
+                )
+            if not isinstance(external_document_commitments, Mapping):
+                raise CommandError(
+                    "consolidated recovery verifier emitted invalid external authority"
                 )
             capability = Capability(
                 selection_bytes=_projection_jsonl_bytes(
@@ -30618,6 +30657,14 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                     )
                 ),
                 purchase_policy_sha256=purchase_policy_sha256,
+                external_document_commitments=tuple(
+                    sorted(
+                        cast(
+                            Mapping[tuple[str, str], str],
+                            external_document_commitments,
+                        ).items()
+                    )
+                ),
             )
             fields = (
                 capability.selection_bytes,
@@ -30626,6 +30673,7 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 capability.resolved_bytes,
                 capability.purchase_operations_bytes,
                 capability.purchase_policy_sha256,
+                capability.external_document_commitments,
             )
             registered[id(capability)] = (capability, fields)
             result["consolidated_resolved_capability"] = capability
@@ -30646,6 +30694,7 @@ def _consolidated_resolved_capability_boundary() -> tuple[
             capability.resolved_bytes,
             capability.purchase_operations_bytes,
             capability.purchase_policy_sha256,
+            capability.external_document_commitments,
         )
         if entry is None or entry[0] is not capability or entry[1] != fields:
             raise CommandError(
@@ -30658,6 +30707,9 @@ def _consolidated_resolved_capability_boundary() -> tuple[
             "resolved_bytes": capability.resolved_bytes,
             "purchase_operations_bytes": capability.purchase_operations_bytes,
             "purchase_policy_sha256": capability.purchase_policy_sha256,
+            "external_document_commitments": dict(
+                capability.external_document_commitments
+            ),
         }
 
     return wrap, consume
@@ -30721,12 +30773,15 @@ def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
             prepared.source_snapshots.items(), key=lambda item: str(item[0])
         )
     }
-    target_root_mode = (
-        cast(Path | None, getattr(args, "target_cohort_root", None)) is not None
+    target_root_mode = prepared.target_schema_version is not None
+    v3_target_mode = prepared.target_schema_version == str(
+        EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3
     )
     run_card: JsonRecord = {
         "schema_version": (
-            _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
+            _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3
+            if v3_target_mode
+            else _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
             if target_root_mode
             else _REPLACEMENT_RECOVERY_CARD_SCHEMA
         ),
@@ -30748,7 +30803,13 @@ def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
         "provider_activity_requested": False,
         "provider_activity_executed": False,
         **(
-            {"target_projection_mode": "exact100_successor_replacement_v2"}
+            {
+                "target_projection_mode": (
+                    "exact100_successor_replacement_v3"
+                    if v3_target_mode
+                    else "exact100_successor_replacement_v2"
+                )
+            }
             if target_root_mode
             else {}
         ),
@@ -30864,6 +30925,70 @@ def _verify_consolidation_target_ranked_precursor(
     raise ValueError("zero-cost successor ranked precursor schema is unsupported")
 
 
+#: Cohort generations a consolidation may be built against.  Written out rather
+#: than derived, so a later generation has to be admitted deliberately: the
+#: consolidation is what binds paid coverage to a selection, and a generation
+#: that slipped in by inheritance would be doing that unreviewed.  A test pins
+#: this against the generations the downstream verifier can actually read.
+_CONSOLIDATION_TARGET_COHORT_SCHEMAS: frozenset[str] = frozenset(
+    {
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3),
+    }
+)
+
+
+def _consolidation_legacy_target_root(
+    target_projection: Mapping[str, object],
+) -> Path:
+    """Return the zero-cost target beneath an authenticated v2/v3 projection.
+
+    A v3 card's first input is only its immediately preceding v3 generation,
+    so walking card paths would strand any chain with more than one v3 hop.
+    The public verifier has already collapsed that chain to its authenticated
+    supporting-document anchor.  Unwrap only that verifier-issued structure,
+    then take the legacy root from the authenticated v2 card beneath it.
+    """
+
+    projection = target_projection
+    run_card = projection.get("run_card")
+    if not isinstance(run_card, Mapping):
+        raise ValueError("exact100 target projection lacks an authenticated run card")
+    card = cast(Mapping[str, object], run_card)
+    schema_version = card.get("schema_version")
+    if schema_version == str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3):
+        base = projection.get("base_projection")
+        if not isinstance(base, Mapping):
+            raise ValueError("exact100 v3 target lacks authenticated anchor projection")
+        projection = cast(Mapping[str, object], base)
+        run_card = projection.get("run_card")
+        if not isinstance(run_card, Mapping) or (
+            cast(Mapping[str, object], run_card).get("schema_version")
+            != SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
+        ):
+            raise ValueError(
+                "exact100 v3 target anchor is not a supporting-document successor"
+            )
+        base_v2 = projection.get("base_v2_projection")
+        if not isinstance(base_v2, Mapping):
+            raise ValueError("exact100 v3 target anchor lacks authenticated v2 base")
+        projection = cast(Mapping[str, object], base_v2)
+        run_card = projection.get("run_card")
+        if not isinstance(run_card, Mapping):
+            raise ValueError("exact100 v3 target v2 base lacks authenticated run card")
+        card = cast(Mapping[str, object], run_card)
+        schema_version = card.get("schema_version")
+    if schema_version != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2):
+        raise ValueError("exact100 target lineage does not terminate at a v2 successor")
+    raw_inputs = card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise ValueError("exact100 v2 target lacks predecessor lineage")
+    inputs = cast(Sequence[object], raw_inputs)
+    if not inputs or not isinstance(inputs[0], str) or not inputs[0]:
+        raise ValueError("exact100 v2 predecessor root is invalid")
+    return Path(inputs[0]).absolute()
+
+
 def _prepare_replacement_recovery_consolidation(
     args: argparse.Namespace,
     *,
@@ -30915,6 +31040,8 @@ def _prepare_replacement_recovery_consolidation(
     terminal_paths = tuple(
         path.absolute() for path in terminal_args if path is not None
     )
+    register_arg = cast(Path | None, getattr(args, "external_billing_register", None))
+    register_path = register_arg.absolute() if register_arg is not None else None
     direct_paths = (
         index_path,
         index_run_card_path,
@@ -30923,6 +31050,7 @@ def _prepare_replacement_recovery_consolidation(
         purchase_policy_path,
         cohort_policy_path,
         receipt_path,
+        *((register_path,) if register_path is not None else ()),
         *terminal_paths,
     )
     reusable_source_snapshots = {
@@ -31018,17 +31146,31 @@ def _prepare_replacement_recovery_consolidation(
     )
     selected_keys = _replacement_consolidation_selection_keys(selection_records)
     target_projection: dict[str, object] | None = None
+    target_schema_version: str | None = None
     if target_cohort_root_arg is not None:
         target_projection = (
             verify_completed_target_cohort_projection_for_purchase_approval(target_root)
         )
         target_card = cast(Mapping[str, object], target_projection["run_card"])
-        if target_card.get("schema_version") != str(
-            EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2
-        ):
+        raw_target_schema = target_card.get("schema_version")
+        if raw_target_schema not in _CONSOLIDATION_TARGET_COHORT_SCHEMAS:
             raise ValueError(
-                "target cohort root is not an authenticated exact100 v2 successor"
+                "target cohort root is not an authenticated exact100 successor"
             )
+        target_schema_version = cast(str, raw_target_schema)
+        if target_schema_version == str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3):
+            if register_path is None:
+                raise ValueError(
+                    "exact100 v3 target requires the ratified external billing register"
+                )
+        elif register_path is not None:
+            raise ValueError(
+                "external billing register is supported only for an exact100 v3 target"
+            )
+    elif register_path is not None:
+        raise ValueError(
+            "external billing register requires an authenticated exact100 v3 target"
+        )
     elif sources[0].get("post_purchase_replay") is None:
         target_projection = (
             verify_completed_target_cohort_projection_for_purchase_approval(target_root)
@@ -31069,6 +31211,20 @@ def _prepare_replacement_recovery_consolidation(
         )
         for operation in purchase_snapshot.operations
     }
+    # Recorded authority is the canonical ledger, OR an owner-ratified register
+    # naming documents billed under a separately approved chain. Absent a
+    # register nothing widens, so coverage is exactly what it was before.
+    register_commitments: dict[tuple[str, str], str] = {}
+    if register_path is not None:
+        register = verify_external_billing_register(snapshots[register_path])
+        register_commitments = register.commitment_map()
+        overlap = operation_keys & set(register_commitments)
+        if overlap:
+            raise ValueError(
+                "external billing register overlaps canonical ledger coverage: "
+                f"{sorted(overlap)[0]}"
+            )
+        operation_keys |= set(register_commitments)
     authenticated_purchased_keys = (
         {
             _materializer_record_key(record)
@@ -31321,19 +31477,8 @@ def _prepare_replacement_recovery_consolidation(
         legacy_target_root = target_root
         if target_cohort_root_arg is not None:
             if target_projection is None:
-                raise ValueError("exact100 v2 target projection was not authenticated")
-            v2_target_card = cast(Mapping[str, object], target_projection["run_card"])
-            v2_target_inputs = v2_target_card.get("input_paths")
-            if (
-                not isinstance(v2_target_inputs, Sequence)
-                or isinstance(v2_target_inputs, (str, bytes))
-                or not v2_target_inputs
-            ):
-                raise ValueError("exact100 v2 target lacks predecessor lineage")
-            predecessor_value = cast(Sequence[object], v2_target_inputs)[0]
-            if not isinstance(predecessor_value, str) or not predecessor_value:
-                raise ValueError("exact100 v2 predecessor root is invalid")
-            legacy_target_root = Path(predecessor_value).absolute()
+                raise ValueError("exact100 target projection was not authenticated")
+            legacy_target_root = _consolidation_legacy_target_root(target_projection)
         target_run_card_path = (
             legacy_target_root / "run-cards" / "project-target-cohort.json"
         )
@@ -31751,6 +31896,17 @@ def _prepare_replacement_recovery_consolidation(
         raise ValueError(
             "replacement recovery coverage differs from final active purchased cohort"
         )
+    for key in sorted(required_purchased_keys & set(register_commitments)):
+        record = manifest_by_key[key]
+        expected_sha256 = register_commitments[key]
+        relative = _required_str(record, "local_path")
+        payload = document_bytes.get(relative)
+        if (
+            _required_str(record, "sha256") != expected_sha256
+            or payload is None
+            or hashlib.sha256(payload).hexdigest() != expected_sha256
+        ):
+            raise ValueError(f"external billing register document bytes differ: {key}")
     ordered_keys = sorted(required_purchased_keys)
     return _ReplacementRecoveryConsolidation(
         input_paths=(
@@ -31767,6 +31923,10 @@ def _prepare_replacement_recovery_consolidation(
             ledger_path,
             controlled_private_root,
             receipt_path,
+            # Fixed slot 9 when present: everything above is read positionally
+            # and everything below is a variable-length tail, so a new input
+            # can only sit here -- and only under a card version that says so.
+            *((register_path,) if register_path is not None else ()),
             *tranche_input_paths,
         ),
         source_snapshots=snapshots,
@@ -31784,6 +31944,9 @@ def _prepare_replacement_recovery_consolidation(
         purchase_operations=tuple(purchase_snapshot.operations),
         purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
         purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        external_billing_register_path=register_path,
+        external_billing_document_commitments=register_commitments,
+        target_schema_version=target_schema_version,
         terminal_omission_inputs=(
             {
                 "snapshot_manifest": str(terminal_paths[0]),
@@ -32034,6 +32197,84 @@ def _materializer_successor_v2_free_sources(
     # neither listed as generic nor handled above refuses rather than
     # materializing from a directory that will quietly be missing documents.
     schema_version = run_card_record.get("schema_version")
+    if schema_version == str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3):
+        base_projection = projection.get("base_projection")
+        summary_path = projection.get("summary_path")
+        if not isinstance(base_projection, Mapping) or not isinstance(
+            summary_path, Path
+        ):
+            raise CommandError("exact100 v3 source authority lacks anchor projection")
+        inherited_sources = _materializer_successor_v2_free_sources(
+            cast(Mapping[str, object], base_projection),
+            preparation_root=preparation_root,
+            consolidated_recovery=consolidated_recovery,
+        )
+        base_free_keys = {
+            _materializer_record_key(record)
+            for record in cast(
+                Sequence[Mapping[str, Any]], base_projection["free_manifest"]
+            )
+        }
+        current_by_key = {
+            _materializer_record_key(record): record for record in free_manifest
+        }
+        clearance_by_key = {
+            _materializer_record_key(record): record for record in free_clearance
+        }
+        inherited_keys = set(current_by_key) & base_free_keys
+        promoted_keys = set(current_by_key) - base_free_keys
+        filtered_sources: list[DocumentSource] = []
+        covered_inherited: set[tuple[str, str]] = set()
+        for source in inherited_sources:
+            source_keys = {
+                _materializer_record_key(record) for record in source.manifest
+            } & inherited_keys
+            if not source_keys:
+                continue
+            covered_inherited |= source_keys
+            filtered_sources.append(
+                DocumentSource(
+                    phase="free",
+                    document_root=source.document_root,
+                    manifest=tuple(current_by_key[key] for key in sorted(source_keys)),
+                    clearance=tuple(
+                        clearance_by_key[key] for key in sorted(source_keys)
+                    ),
+                )
+            )
+        if covered_inherited != inherited_keys:
+            raise CommandError("exact100 v3 inherited free coverage differs")
+        if promoted_keys:
+            v3_root = summary_path.parent
+            document_root = v3_root / "owner-adjudicated-source/documents"
+            verified_bytes = projection.get("verified_artifact_bytes")
+            if not isinstance(verified_bytes, Mapping):
+                raise CommandError("exact100 v3 promoted source authority is missing")
+            for key in promoted_keys:
+                relative = Path(_required_str(current_by_key[key], "local_path"))
+                if relative.is_absolute() or ".." in relative.parts:
+                    raise CommandError("exact100 v3 promoted free path is unsafe")
+                source_path = document_root / relative
+                payload = cast(Mapping[str, object], verified_bytes).get(
+                    os.path.abspath(source_path)
+                )
+                if not isinstance(payload, bytes):
+                    raise CommandError(
+                        f"exact100 v3 promoted free document is unauthenticated: {key}"
+                    )
+            filtered_sources.append(
+                DocumentSource(
+                    phase="free",
+                    document_root=document_root,
+                    manifest=tuple(
+                        current_by_key[key] for key in sorted(promoted_keys)
+                    ),
+                    clearance=tuple(
+                        clearance_by_key[key] for key in sorted(promoted_keys)
+                    ),
+                )
+            )
+        return tuple(filtered_sources)
     if schema_version != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2):
         if schema_version not in _GENERIC_FREE_LAYOUT_SCHEMAS:
             raise CommandError(
@@ -41607,6 +41848,7 @@ _VERIFIED_SUCCESSOR_SELECTION_CARD_TOKEN = object()
 _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION = object()
 _EXACT100_SUCCESSOR_REPLAY_ATTESTATION = object()
 _EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION = object()
+_EXACT100_SUCCESSOR_V3_REPLAY_ATTESTATION = object()
 _SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION = object()
 _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
     ZERO_COST_SUCCESSOR_STATE_SCHEMA: _ZERO_COST_SUCCESSOR_REPLAY_ATTESTATION,
@@ -41615,6 +41857,9 @@ _SUCCESSOR_REPLAY_ATTESTATION_BY_SCHEMA = {
     ),
     str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2): (
         _EXACT100_SUCCESSOR_V2_REPLAY_ATTESTATION
+    ),
+    str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3): (
+        _EXACT100_SUCCESSOR_V3_REPLAY_ATTESTATION
     ),
     SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION: (
         _SUPPORTING_DOCUMENT_SUCCESSOR_REPLAY_ATTESTATION
@@ -41639,6 +41884,7 @@ _GENERIC_FREE_LAYOUT_SCHEMAS = frozenset(
 _SPLIT_FREE_LAYOUT_SCHEMAS = frozenset(
     {
         str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+        str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3),
         SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
     }
 )
@@ -42506,6 +42752,7 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
         consolidated_resolved_capability = recovery.get(
             "consolidated_resolved_capability"
         )
+        consolidated_authority: Mapping[str, object] | None = None
         if consolidated_resolved_capability is not None:
             if (
                 purchased_clearance_lineage.get("lineage_kind")
@@ -42515,6 +42762,9 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                     "consolidated resolved authority differs from clearance lineage"
                 )
             purchased_clearance_lineage["consolidated_resolved_capability"] = (
+                consolidated_resolved_capability
+            )
+            consolidated_authority = _consume_consolidated_resolved_capability(
                 consolidated_resolved_capability
             )
         raw_clearance_bytes = purchased_clearance_lineage.get("verified_artifact_bytes")
@@ -42584,6 +42834,14 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
         _verify_materializer_purchase_operations(
             operations,
             purchased_manifest=purchased_manifest,
+            external_document_commitments=(
+                cast(
+                    Mapping[tuple[str, str], str],
+                    consolidated_authority["external_document_commitments"],
+                )
+                if consolidated_authority is not None
+                else {}
+            ),
         )
         free_sources = _materializer_successor_v2_free_sources(
             projection,
@@ -44959,6 +45217,16 @@ def _verify_materializer_projection(
     _verified_projection_operation: _VerifiedProjectionOperation | None = None,
 ) -> dict[str, object]:
     run_card_path = target_root / "run-cards/project-target-cohort.json"
+    if is_exact100_successor_v3_root(target_root):
+        if (
+            free_clearance_path.resolve()
+            != (target_root / "disclosure-clearance.jsonl").resolve()
+            or expected_target_count != 100
+        ):
+            raise CommandError("exact100 v3 materializer inputs differ")
+        return verify_completed_target_cohort_projection_for_purchase_approval(
+            target_root
+        )
     supporting_card_path = (
         target_root / "run-cards/project-exact100-supporting-document-successor.json"
     )
@@ -45942,6 +46210,82 @@ def _stable_source_root_candidates(target_root: Path) -> tuple[Path, ...]:
     return tuple(unique)
 
 
+def _verify_exact100_successor_v3_downstream_projection(
+    target_root: Path, *, operation: _VerifiedProjectionOperation
+) -> dict[str, object]:
+    """Read a v3 cohort root through its own downstream verifier.
+
+    Authentication is the replay that recurses to the sealed cohort head, which
+    is expensive, so the verified result is memoized per root and per run-card
+    digest exactly as the supporting-document branch memoizes its own -- a
+    different card for the same path is a different key, so a re-minted root is
+    never answered from a stale entry.
+    """
+
+    card_path = target_root / v3_downstream.OUTPUT_NAMES["state"]
+    card_bytes = _read_singly_linked_regular_input(
+        card_path, label="exact-100 successor v3 state run card"
+    )
+    cache_key = (
+        v3_downstream.STATE_SCHEMA_VERSION,
+        str(target_root.resolve()),
+        _bytes_sha256(card_bytes),
+    )
+    cached = operation.cache.get(cache_key)
+    if cached is not None:
+        # The reread covers the promoted documents as well as the cohort
+        # surface, so a hit never checks less than the miss path did.
+        _require_snapshot_unchanged(
+            {Path(path): payload for path, payload in cached.snapshots},
+            label="cached exact-100 successor v3 projection artifact",
+        )
+        return copy.deepcopy(cached.result)
+
+    result = v3_downstream.verify_exact100_successor_replacement_v3_projection(
+        target_root, authenticate=authenticate_exact100_successor_v3_root
+    )
+    anchor_root = result.get("anchor_root")
+    if isinstance(anchor_root, Path):
+        result["base_projection"] = (
+            _verify_completed_target_cohort_projection_in_operation(
+                anchor_root,
+                operation=operation,
+            )
+        )
+    result = _mint_verified_successor_selection_card_from_projection(
+        result,
+        replay_attestation=_EXACT100_SUCCESSOR_V3_REPLAY_ATTESTATION,
+    )
+    verified_bytes = {
+        **cast(Mapping[str, bytes], result["verified_artifact_bytes"]),
+        **cast(Mapping[str, bytes], result["verified_document_bytes"]),
+    }
+    snapshots = {Path(path): payload for path, payload in verified_bytes.items()}
+    # This re-read is also what joins the operation-wide byte closure: it goes
+    # through the singly-linked reader, which records each path and raises if
+    # another branch read the same one differently.  So the snapshot set has to
+    # span everything this branch verified -- surface files AND the promoted
+    # documents -- or the parts left out are invisible to that check and are
+    # never re-read on a cache hit either.
+    _require_snapshot_unchanged(
+        snapshots, label="exact-100 successor v3 projection artifact"
+    )
+    operation.cache[cache_key] = _VerifiedProjectionCacheEntry(
+        result=copy.deepcopy(result),
+        snapshots=tuple(sorted(verified_bytes.items())),
+        # No path has to be ABSENT for a v3 root, so there is nothing to carry.
+        # An absence records a negative fact a projection depends on.  Only two
+        # sites populate one:
+        #   ingestion/downstream_lineage_verification.py  absent_artifact_paths=
+        #   ingestion/case_dev_purchase.py                absent_paths=
+        # A v3 root reaches neither -- its contract is entirely positive: every
+        # path its card commits must exist and match.  Empty is the measured
+        # answer, not an omission.
+        absent_paths=(),
+    )
+    return result
+
+
 def _verify_completed_target_cohort_projection_in_operation(
     target_root: Path,
     *,
@@ -46090,6 +46434,15 @@ def _verify_completed_target_cohort_projection_in_operation(
                 absent_paths=absent_paths,
             )
         return result
+
+    # A v3 cohort root has no target-cohort run card at all, so the read below
+    # fails on the missing file before any schema dispatch is reached.  The
+    # probe is therefore file existence, mirroring the supporting-document
+    # branch above, not a schema test on a card that does not exist.
+    if is_exact100_successor_v3_root(target_root):
+        return _verify_exact100_successor_v3_downstream_projection(
+            target_root, operation=operation
+        )
 
     run_card_path = target_root / "run-cards/project-target-cohort.json"
     run_card_bytes = _read_singly_linked_regular_input(
@@ -46322,12 +46675,19 @@ def _verify_materializer_consolidated_recovery(
     )
     card = _projection_json_object(run_card_bytes, source=run_card_path)
     schema_version = card.get("schema_version")
-    target_root_mode = schema_version == _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
+    # A v3 card binds an exact100-v3 target plus the owner-ratified register at
+    # fixed slot 9. The schema says the slot exists; input count never infers it.
+    register_mode = schema_version == _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3
+    target_root_mode = schema_version in {
+        _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2,
+        _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3,
+    }
     if (
         schema_version
         not in {
             _REPLACEMENT_RECOVERY_CARD_SCHEMA,
             _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2,
+            _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3,
         }
         or card.get("stage") != "consolidate-replacement-recovery"
         or card.get("status") != "completed"
@@ -46339,16 +46699,21 @@ def _verify_materializer_consolidated_recovery(
         or card.get("provider_activity_executed") is not False
     ):
         raise CommandError("invalid completed consolidated replacement recovery card")
-    if target_root_mode != (
-        card.get("target_projection_mode") == "exact100_successor_replacement_v2"
-    ):
+    expected_target_mode = (
+        "exact100_successor_replacement_v3"
+        if register_mode
+        else "exact100_successor_replacement_v2"
+        if target_root_mode
+        else None
+    )
+    if card.get("target_projection_mode") != expected_target_mode:
         raise CommandError("consolidated replacement recovery target mode differs")
     raw_inputs = card.get("input_paths")
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
         raise CommandError("consolidated replacement recovery lacks exact inputs")
     inputs = tuple(Path(str(path)) for path in cast(Sequence[object], raw_inputs))
     if (
-        len(inputs) < 9
+        len(inputs) < (10 if register_mode else 9)
         or inputs[2].resolve() != selection_path.resolve()
         or inputs[4].resolve() != purchase_policy_path.resolve()
         or inputs[5].resolve() != cohort_policy_path.resolve()
@@ -46416,6 +46781,7 @@ def _verify_materializer_consolidated_recovery(
         purchase_policy_path,
         cohort_policy_path,
         inputs[8],
+        *((inputs[9],) if register_mode else ()),
         *(
             tuple(terminal_input_paths.values())
             if terminal_input_paths is not None
@@ -46509,6 +46875,18 @@ def _verify_materializer_consolidated_recovery(
         )
         for operation in snapshot.operations
     }
+    register_commitments: dict[tuple[str, str], str] = {}
+    if register_mode:
+        register = verify_external_billing_register(
+            verified_bytes[os.path.abspath(inputs[9])]
+        )
+        register_commitments = register.commitment_map()
+        overlap = operation_keys & set(register_commitments)
+        if overlap:
+            raise CommandError(
+                "external billing register overlaps canonical ledger coverage"
+            )
+        operation_keys |= set(register_commitments)
     partition_omission_keys: set[tuple[str, str]] = set()
     if isinstance(raw_partition, Mapping):
         raw_omissions = cast(Mapping[str, object], raw_partition).get(
@@ -46535,6 +46913,11 @@ def _verify_materializer_consolidated_recovery(
         raise CommandError(
             "consolidated replacement recovery coverage differs from active cohort"
         )
+    for key in sorted(expected_keys & set(register_commitments)):
+        if _required_str(manifest_index[key], "sha256") != register_commitments[key]:
+            raise CommandError(
+                f"external billing register document bytes differ: {key}"
+            )
     for key, record in manifest_index.items():
         relative = Path(_required_str(record, "local_path"))
         payload = tree.get(relative.as_posix())
@@ -46559,6 +46942,10 @@ def _verify_materializer_consolidated_recovery(
             purchase_ledger=inputs[6],
             controlled_private_root=inputs[7],
             purchase_ledger_initialization_receipt=inputs[8],
+            # Without this the replay would compute coverage from the canonical
+            # ledger alone and refuse where the original run passed, so the
+            # byte-comparison below would never be reached.
+            external_billing_register=(inputs[9] if register_mode else None),
             snapshot_manifest=(
                 terminal_input_paths["snapshot_manifest"]
                 if terminal_input_paths is not None
@@ -46580,7 +46967,8 @@ def _verify_materializer_consolidated_recovery(
         },
     )
     if (
-        tuple(manifest_records) != replay.manifest_records
+        tuple(inputs) != replay.input_paths
+        or tuple(manifest_records) != replay.manifest_records
         or tuple(clearance_records) != replay.clearance_records
         or _projection_jsonl_records(
             output_snapshots[restriction_path], source=restriction_path
@@ -46623,6 +47011,7 @@ def _verify_materializer_consolidated_recovery(
         "resolved_path": resolved_path,
         "verified_artifact_bytes": verified_bytes,
         "target_projection": dict(replay.target_projection),
+        "external_billing_document_commitments": register_commitments,
         "_consolidated_resolved_capability_inputs": {
             "selection_records": replay.target_projection["selection_records"],
             "manifest_records": manifest_records,
@@ -46632,6 +47021,7 @@ def _verify_materializer_consolidated_recovery(
             ),
             "purchase_operations": snapshot.operations,
             "purchase_policy_sha256": policy.policy_sha256,
+            "external_document_commitments": register_commitments,
         },
     }
 
@@ -48217,6 +48607,7 @@ def _verify_materializer_purchase_operations(
     operations: Sequence[Mapping[str, Any]],
     *,
     purchased_manifest: Sequence[Mapping[str, Any]],
+    external_document_commitments: Mapping[tuple[str, str], str] | None = None,
 ) -> None:
     operation_index = _materializer_record_index(
         operations, label="purchase ledger operations"
@@ -48225,7 +48616,14 @@ def _verify_materializer_purchase_operations(
         key = _materializer_record_key(record)
         operation = operation_index.get(key)
         if operation is None:
-            raise CommandError(f"purchase ledger lacks recovered document: {key}")
+            expected_sha256 = (external_document_commitments or {}).get(key)
+            if expected_sha256 is None:
+                raise CommandError(f"purchase ledger lacks recovered document: {key}")
+            if _required_str(record, "sha256") != expected_sha256:
+                raise CommandError(
+                    f"external billing register document bytes differ: {key}"
+                )
+            continue
         operation_key = operation.get("operation_key")
         if not isinstance(operation_key, str) or not operation_key:
             raise CommandError(

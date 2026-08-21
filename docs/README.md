@@ -155,6 +155,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [recap-fetch-quarantine-recovery-v1.md](schemas/recap-fetch-quarantine-recovery-v1.md): the noncharging exact partition of recoverable purchase material and canonical terminal-unavailable operations.
 - [replacement-recovery-source-producer-v1.md](schemas/replacement-recovery-source-producer-v1.md): deterministic provider-free derivation of authenticated initial and successor recovery-source descriptors.
 - [replacement-recovery-consolidation-run-card-v2.md](schemas/replacement-recovery-consolidation-run-card-v2.md): provider-free consolidation of authenticated exact100-successor-v2 recovery without a caller-selected purchased sidecar.
+- [replacement-recovery-consolidation-run-card-v3.md](schemas/replacement-recovery-consolidation-run-card-v3.md): exact100-successor-v3 consolidation with owner-ratified, document-digest-bound external billing authority.
 
 **Disclosure review and clearance**
 

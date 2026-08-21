@@ -82,6 +82,9 @@ def _prepare_fixture(
             "selection_path": selection,
             "selection_records": selection_rows,
             "purchased_manifest": purchased_rows,
+            "run_card": {
+                "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+            },
             "verified_artifact_bytes": {
                 str(selection.resolve()): selection.read_bytes(),
                 str(purchased_manifest.resolve()): purchased_manifest.read_bytes(),
@@ -353,6 +356,7 @@ def _prepare_fixture(
         purchase_ledger=ledger,
         controlled_private_root=private_root,
         purchase_ledger_initialization_receipt=receipt_path,
+        external_billing_register=None,
         snapshot_manifest=(snapshot_manifest if pre_recovery_projection else None),
         purchase_result=(purchase_result if pre_recovery_projection else None),
         purchase_run_card=(purchase_run_card if pre_recovery_projection else None),
@@ -361,6 +365,334 @@ def _prepare_fixture(
         resume=False,
     )
     return args, allowed_pairs
+
+
+def _attach_external_billing_register(
+    args: argparse.Namespace,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    document_commitments: Mapping[tuple[str, str], str],
+) -> tuple[Path, list[bytes]]:
+    """Put a synthetic register on the v3 production path.
+
+    The register verifier's own tests pin exact-byte ratification.  This fixture
+    substitutes only that boundary so this suite can exercise how the
+    consolidation and materializer consume the verifier-issued document keys.
+    """
+
+    register_path = _write_json(
+        Path(args.output_root).parent / "external-billing-register.json",
+        {"fixture": "owner-ratified-register"},
+    ).absolute()
+    observed_payloads: list[bytes] = []
+
+    def verify_register(payload: bytes) -> SimpleNamespace:
+        observed_payloads.append(payload)
+        assert payload == register_path.read_bytes()
+        return SimpleNamespace(
+            document_keys=frozenset(document_commitments),
+            commitment_map=lambda: dict(document_commitments),
+        )
+
+    monkeypatch.setattr(cli, "verify_external_billing_register", verify_register)
+    args.external_billing_register = register_path
+    args.target_cohort_root = Path(args.target_purchased_manifest).parent
+    args.target_purchased_manifest = None
+    return register_path, observed_payloads
+
+
+def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same authenticated register widens issuance and replay coverage."""
+
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    canonical_ledger = selected - {("case-2", "doc-2")}
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=canonical_ledger,
+    )
+    register_path, observed_payloads = _attach_external_billing_register(
+        args,
+        monkeypatch,
+        document_commitments={
+            ("case-2", "doc-2"): hashlib.sha256(b"%PDF-1.4 tranche 2\n").hexdigest()
+        },
+    )
+
+    assert cli._cmd_consolidate_replacement_recovery(args) == 0
+    card_path = args.output_root / "run-cards/consolidate-replacement-recovery.json"
+    card = json.loads(card_path.read_text(encoding="utf-8"))
+    assert card["schema_version"] == str(
+        cli.REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V3
+    )
+    assert card["input_paths"][9] == str(register_path)
+    assert card["source_commitments"][str(register_path.resolve())].startswith(
+        "sha256:"
+    )
+
+    verified = cli._verify_materializer_consolidated_recovery(
+        recovery_root=args.output_root,
+        run_card_path=card_path,
+        selection_path=args.selection,
+        selected_document_keys=selected,
+        purchase_policy_path=args.purchase_policy,
+        cohort_policy_path=args.cohort_policy,
+        ledger_path=args.purchase_ledger,
+    )
+
+    assert {
+        (row["candidate_id"], row["source_document_id"])
+        for row in verified["manifest_records"]
+    } == selected
+    # Issuance, materializer coverage, and authenticated replay each consume
+    # the verifier output rather than silently falling back to ledger-only.
+    assert observed_payloads == [register_path.read_bytes()] * 3
+
+
+def test_omitting_register_preserves_canonical_ledger_only_coverage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No optional argument means no authority widening and no v3 emission."""
+
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=selected - {("case-2", "doc-2")},
+    )
+    monkeypatch.setattr(
+        cli,
+        "verify_external_billing_register",
+        lambda _payload: pytest.fail("register verifier called without CLI input"),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="final active paid-gap scope differs from canonical ledger coverage",
+    ):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_exact100_v3_target_without_register_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=selected)
+    args.target_cohort_root = Path(args.target_purchased_manifest).parent
+    args.target_purchased_manifest = None
+
+    with pytest.raises(ValueError, match="v3 target requires"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_v3_chain_uses_authenticated_anchor_to_find_legacy_target(
+    tmp_path: Path,
+) -> None:
+    legacy_root = tmp_path / "legacy-zero-cost-target"
+    immediate_v3_predecessor = tmp_path / "immediate-v3-predecessor"
+    v2_projection: dict[str, object] = {
+        "run_card": {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+            "input_paths": [str(legacy_root)],
+        }
+    }
+    supporting_projection: dict[str, object] = {
+        "run_card": {
+            "schema_version": cli.SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
+        },
+        "base_v2_projection": v2_projection,
+    }
+    v3_projection: dict[str, object] = {
+        "run_card": {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3),
+            # This is deliberately not the legacy target. A multi-v3 chain's
+            # first card input names only the immediately preceding generation.
+            "input_paths": [str(immediate_v3_predecessor)],
+        },
+        "base_projection": supporting_projection,
+    }
+
+    assert cli._consolidation_legacy_target_root(v3_projection) == (
+        legacy_root.absolute()
+    )
+
+
+@pytest.mark.parametrize(
+    ("projection", "message"),
+    [
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+                }
+            },
+            "lacks authenticated anchor projection",
+        ),
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+                },
+                "base_projection": {"run_card": {"schema_version": "wrong-anchor"}},
+            },
+            "anchor is not a supporting-document successor",
+        ),
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+                },
+                "base_projection": {
+                    "run_card": {
+                        "schema_version": (
+                            cli.SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
+                        )
+                    }
+                },
+            },
+            "anchor lacks authenticated v2 base",
+        ),
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+                },
+                "base_projection": {
+                    "run_card": {
+                        "schema_version": (
+                            cli.SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
+                        )
+                    },
+                    "base_v2_projection": {"run_card": {"schema_version": "wrong-v2"}},
+                },
+            },
+            "does not terminate at a v2 successor",
+        ),
+        (
+            {
+                "run_card": {
+                    "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2),
+                    "input_paths": [],
+                }
+            },
+            "predecessor root is invalid",
+        ),
+    ],
+)
+def test_legacy_target_unwrap_refuses_malformed_authenticated_layers(
+    projection: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        cli._consolidation_legacy_target_root(projection)
+
+
+def test_external_register_with_legacy_target_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs={("base-case", "base-doc")},
+    )
+    register_path = _write_json(tmp_path / "register.json", {"fixture": True})
+    args.external_billing_register = register_path
+
+    with pytest.raises(ValueError, match="requires an authenticated exact100 v3"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_external_register_with_exact100_v2_target_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=selected)
+    register_path, _ = _attach_external_billing_register(
+        args,
+        monkeypatch,
+        document_commitments={},
+    )
+    original_verify = (
+        cli.verify_completed_target_cohort_projection_for_purchase_approval
+    )
+
+    def verify_v2(root: Path) -> dict[str, object]:
+        projection = dict(original_verify(root))
+        projection["run_card"] = {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2)
+        }
+        return projection
+
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        verify_v2,
+    )
+
+    assert args.external_billing_register == register_path
+    with pytest.raises(ValueError, match="supported only for an exact100 v3"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_external_register_cannot_overlap_canonical_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(tmp_path, monkeypatch, ledger_pairs=selected)
+    _attach_external_billing_register(
+        args,
+        monkeypatch,
+        document_commitments={
+            ("case-2", "doc-2"): hashlib.sha256(b"%PDF-1.4 tranche 2\n").hexdigest()
+        },
+    )
+
+    with pytest.raises(ValueError, match="overlaps canonical ledger"):
+        cli._prepare_replacement_recovery_consolidation(args)
+
+
+def test_external_register_binds_recovered_document_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = {
+        ("base-case", "base-doc"),
+        ("case-1", "doc-1"),
+        ("case-2", "doc-2"),
+    }
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=selected - {("case-2", "doc-2")},
+    )
+    _attach_external_billing_register(
+        args,
+        monkeypatch,
+        document_commitments={("case-2", "doc-2"): "d" * 64},
+    )
+
+    with pytest.raises(ValueError, match="register document bytes differ"):
+        cli._prepare_replacement_recovery_consolidation(args)
 
 
 @pytest.mark.parametrize(

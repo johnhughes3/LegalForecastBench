@@ -1138,6 +1138,156 @@ def test_consolidated_successor_v2_uses_two_authenticated_free_roots(
     assert [len(source.manifest) for source in sources] == [1, 5]
 
 
+def _v3_split_source_projection(tmp_path: Path) -> dict[str, object]:
+    """Build a synthetic v3 projection with an inherited and promoted row."""
+
+    preparation_root = tmp_path / "preparation"
+    inherited_root = preparation_root / "documents/free"
+    inherited_root.mkdir(parents=True)
+    promoted_root = tmp_path / "v3" / "owner-adjudicated-source/documents"
+    promoted_root.mkdir(parents=True)
+
+    def record(
+        *, candidate_id: str, document_id: str, root: Path, local_path: str
+    ) -> dict[str, Any]:
+        payload = f"%PDF-1.4\n{candidate_id}/{document_id}\n%%EOF".encode()
+        path = root / local_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+        return {
+            "candidate_id": candidate_id,
+            "source_document_id": document_id,
+            "free_or_purchased": "free",
+            "local_path": local_path,
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "byte_count": len(payload),
+        }
+
+    retained = record(
+        candidate_id="retained",
+        document_id="anchor-retained",
+        root=inherited_root,
+        local_path="retained.pdf",
+    )
+    omitted = record(
+        candidate_id="omitted",
+        document_id="anchor-omitted",
+        root=inherited_root,
+        local_path="omitted.pdf",
+    )
+    promoted = record(
+        candidate_id="promoted",
+        document_id="new-document",
+        root=promoted_root,
+        local_path="promoted/new-document.pdf",
+    )
+    promoted_path = promoted_root / promoted["local_path"]
+
+    anchor_projection = {
+        "run_card": {"schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA},
+        "free_manifest": (retained, omitted),
+        "free_clearance": (retained, omitted),
+        "purchased_manifest": (),
+    }
+    return {
+        "run_card": {
+            "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+        },
+        "base_projection": anchor_projection,
+        "summary_path": tmp_path / "v3" / "projection-summary.json",
+        "free_manifest": (retained, promoted),
+        "free_clearance": (retained, promoted),
+        "purchased_manifest": (),
+        "verified_artifact_bytes": {
+            os.path.abspath(promoted_path): promoted_path.read_bytes()
+        },
+        "preparation_root": preparation_root,
+    }
+
+
+def test_consolidated_successor_v3_filters_anchor_sources_and_uses_owner_root(
+    tmp_path: Path,
+) -> None:
+    """v3 inherits only retained anchor keys and sources promotions from its
+    authenticated owner-adjudicated document tree.
+    """
+
+    projection = _v3_split_source_projection(tmp_path)
+    sources = cli._materializer_successor_v2_free_sources(
+        projection,
+        preparation_root=cast(Path, projection["preparation_root"]),
+        consolidated_recovery=True,
+    )
+
+    assert tuple(source.document_root for source in sources) == (
+        tmp_path / "preparation/documents/free",
+        tmp_path / "v3/owner-adjudicated-source/documents",
+    )
+    assert [
+        (record["candidate_id"], record["source_document_id"])
+        for record in sources[0].manifest
+    ] == [("retained", "anchor-retained")]
+    assert [
+        (record["candidate_id"], record["source_document_id"])
+        for record in sources[1].manifest
+    ] == [("promoted", "new-document")]
+
+
+def test_consolidated_successor_v3_refuses_unauthenticated_promoted_bytes(
+    tmp_path: Path,
+) -> None:
+    projection = _v3_split_source_projection(tmp_path)
+    projection["verified_artifact_bytes"] = {}
+
+    with pytest.raises(
+        cli.CommandError, match="promoted free document is unauthenticated"
+    ):
+        cli._materializer_successor_v2_free_sources(
+            projection,
+            preparation_root=cast(Path, projection["preparation_root"]),
+            consolidated_recovery=True,
+        )
+
+
+def test_materializer_v3_dispatch_does_not_fall_through_to_legacy_card(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The v3 arm must run before the absent legacy target-cohort card read."""
+
+    from tests.test_exact100_successor_v3_downstream import _v3_root
+
+    target_root = _v3_root(tmp_path)
+    assert not (target_root / "run-cards/project-target-cohort.json").exists()
+    seen: list[Path] = []
+    expected: dict[str, object] = {"schema": "v3"}
+
+    def verify_v3(root: Path) -> dict[str, object]:
+        seen.append(root)
+        return expected
+
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        verify_v3,
+    )
+
+    def legacy_artifact(*_args: object, **_kwargs: object) -> bytes:
+        raise AssertionError("v3 dispatch fell through to legacy artifact reads")
+
+    monkeypatch.setattr(cli, "_require_materializer_artifact", legacy_artifact)
+    result = cli._verify_materializer_projection(
+        target_root=target_root,
+        free_clearance_path=target_root / "disclosure-clearance.jsonl",
+        preparation_summary_path=tmp_path / "preparation-summary.json",
+        preparation_config_path=tmp_path / "preparation-config.json",
+        snapshot_manifest_path=tmp_path / "snapshot-manifest.json",
+        expected_target_count=100,
+    )
+
+    assert result == expected
+    assert seen == [target_root]
+
+
 def test_consolidated_recovery_keeps_the_generic_root_for_a_zero_cost_successor(
     tmp_path: Path,
 ) -> None:

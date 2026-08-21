@@ -3724,6 +3724,99 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             )
 
 
+def test_materializer_accepts_exact_external_document_commitment() -> None:
+    manifest = [
+        {
+            "candidate_id": "case-external",
+            "source_document_id": "doc-external",
+            "sha256": "a" * 64,
+        }
+    ]
+
+    # An externally completed purchase is intentionally absent from the local
+    # ledger.  The verifier-issued register commitment is the only authority
+    # that may fill that exact ledger gap.
+    cli._verify_materializer_purchase_operations(
+        [],
+        purchased_manifest=manifest,
+        external_document_commitments={
+            ("case-external", "doc-external"): "a" * 64,
+        },
+    )
+
+
+def test_materializer_rejects_external_document_commitment_byte_mismatch() -> None:
+    manifest = [
+        {
+            "candidate_id": "case-external",
+            "source_document_id": "doc-external",
+            "sha256": "a" * 64,
+        }
+    ]
+
+    with pytest.raises(
+        cli.CommandError, match="external billing register document bytes differ"
+    ):
+        cli._verify_materializer_purchase_operations(
+            [],
+            purchased_manifest=manifest,
+            external_document_commitments={
+                ("case-external", "doc-external"): "b" * 64,
+            },
+        )
+
+
+@pytest.mark.parametrize("commitments", [None, {}])
+def test_materializer_rejects_missing_external_register_authority(
+    commitments: Mapping[tuple[str, str], str] | None,
+) -> None:
+    manifest = [
+        {
+            "candidate_id": "case-external",
+            "source_document_id": "doc-external",
+            "sha256": "a" * 64,
+        }
+    ]
+
+    with pytest.raises(
+        cli.CommandError, match="purchase ledger lacks recovered document"
+    ):
+        cli._verify_materializer_purchase_operations(
+            [],
+            purchased_manifest=manifest,
+            external_document_commitments=commitments,
+        )
+
+
+def test_materializer_preserves_legacy_confirmed_ledger_validation() -> None:
+    source_url = "https://provider.example/doc-external.pdf"
+    manifest = [
+        {
+            "candidate_id": "case-ledger",
+            "source_document_id": "doc-ledger",
+            "source_url": source_url,
+            "sha256": "c" * 64,
+            "byte_count": 7,
+        }
+    ]
+    operations = [
+        {
+            "candidate_id": "case-ledger",
+            "source_document_id": "doc-ledger",
+            "operation_key": "operation-ledger",
+            "status": "confirmed",
+            "response": {"download_url": source_url},
+        }
+    ]
+
+    # A normal ledger-confirmed document continues to validate without an
+    # external register commitment.
+    cli._verify_materializer_purchase_operations(
+        operations,
+        purchased_manifest=manifest,
+    )
+
+
 def _inputs() -> dict[str, Any]:
     selection_document: dict[str, object] = {
         "source_document_id": "123",

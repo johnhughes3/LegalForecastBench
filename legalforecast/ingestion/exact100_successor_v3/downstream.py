@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -61,9 +62,29 @@ OUTPUT_NAMES: Mapping[str, str] = {
 
 _PHASES = frozenset({"free", "purchased"})
 
-#: Called with the root under verification; must raise if the root does not
-#: replay to the run that claims to have produced it.
-Authenticate = Callable[[Path], Any]
+
+@dataclass(frozen=True, slots=True)
+class AuthenticatedV3Root:
+    """Receipt that a specific root was replayed, returned by the hook.
+
+    The hook returns a receipt rather than ``None`` so that "did not
+    authenticate" is a state this module can detect.  An unconstrained hook
+    accepts a no-op happily -- it type-checks, the tests pass, and publication
+    proceeds on a root nothing replayed -- and the receipt is what closes that.
+    Naming the root makes a receipt non-transferable between roots.
+    """
+
+    root: Path
+    anchor_root: Path | None = None
+
+
+#: Called with the root under verification; must replay it and return an
+#: :class:`AuthenticatedV3Root` naming that same root, or raise.  Typed as
+#: returning ``object`` deliberately: the hook is injected across a trust
+#: boundary by callers this module does not type-check, so the return value is
+#: narrowed at runtime rather than assumed.  Annotating the contract instead
+#: would make that check look redundant and invite its removal.
+Authenticate = Callable[[Path], object]
 
 
 class Exact100SuccessorV3DownstreamError(ValueError):
@@ -105,7 +126,15 @@ def verify_exact100_successor_replacement_v3_projection(
 
     # Authentication first: nothing below should read a root that does not
     # replay, and no code path here can reach publication without this call.
-    authenticate(target_root)
+    # The receipt has to name this root -- a hook that returns nothing, or a
+    # receipt for some other root, has not authenticated the one being read.
+    receipt = authenticate(target_root)
+    if not isinstance(receipt, AuthenticatedV3Root) or (
+        receipt.root.resolve() != target_root.resolve()
+    ):
+        raise Exact100SuccessorV3DownstreamError(
+            f"v3 cohort root did not authenticate: {target_root}"
+        )
 
     commitments = _mapping(card.get("output_commitments"), "v3 output commitments")
     payloads = {
@@ -117,17 +146,36 @@ def verify_exact100_successor_replacement_v3_projection(
     # Everything the card commits that is not a surface file is a promoted
     # candidate's own document, and it is verified for exactly that reason.
     surface = set(OUTPUT_NAMES.values())
-    for relative in sorted(commitments):
-        if relative not in surface:
-            _committed_bytes(target_root, relative, commitments)
+    documents = {
+        relative: _committed_bytes(target_root, relative, commitments)
+        for relative in sorted(commitments)
+        if relative not in surface
+    }
 
     manifest = _jsonl(payloads["download_manifest"], OUTPUT_NAMES["download_manifest"])
     clearance = _jsonl(payloads["clearance"], OUTPUT_NAMES["clearance"])
-    for row in (*manifest, *clearance):
+    for row in manifest:
         if row.get("free_or_purchased") not in _PHASES:
             raise Exact100SuccessorV3DownstreamError(
                 "completed v3 successor manifest has invalid phase"
             )
+
+    manifest_by_key = _index(manifest, "v3 download manifest")
+    clearance_by_key = _index(clearance, "v3 disclosure clearance")
+    if set(clearance_by_key) != set(manifest_by_key):
+        raise Exact100SuccessorV3DownstreamError(
+            "completed v3 successor clearance coverage differs"
+        )
+    free_keys = {
+        key
+        for key, row in manifest_by_key.items()
+        if row.get("free_or_purchased") == "free"
+    }
+    purchased_keys = set(manifest_by_key) - free_keys
+    verified_document_bytes = {
+        str((target_root / relative).absolute()): payload
+        for relative, payload in documents.items()
+    }
 
     return {
         "run_card": card,
@@ -139,13 +187,17 @@ def verify_exact100_successor_replacement_v3_projection(
         "selection_bytes": payloads["selection"],
         "selection_records": _jsonl(payloads["selection"], OUTPUT_NAMES["selection"]),
         "free_manifest_path": target_root / OUTPUT_NAMES["download_manifest"],
-        "free_manifest": _phase(manifest, "free"),
-        "purchased_manifest": _phase(manifest, "purchased"),
+        "free_manifest": tuple(manifest_by_key[key] for key in sorted(free_keys)),
+        "purchased_manifest": tuple(
+            manifest_by_key[key] for key in sorted(purchased_keys)
+        ),
         "case_relevance": _jsonl(
             payloads["case_relevance"], OUTPUT_NAMES["case_relevance"]
         ),
-        "free_clearance": _phase(clearance, "free"),
-        "purchased_clearance": _phase(clearance, "purchased"),
+        "free_clearance": tuple(clearance_by_key[key] for key in sorted(free_keys)),
+        "purchased_clearance": tuple(
+            clearance_by_key[key] for key in sorted(purchased_keys)
+        ),
         "restriction_path": target_root / OUTPUT_NAMES["restriction"],
         "restriction_records": _jsonl(
             payloads["restriction"], OUTPUT_NAMES["restriction"]
@@ -157,14 +209,26 @@ def verify_exact100_successor_replacement_v3_projection(
         "verified_artifact_bytes": {
             str((target_root / relative).absolute()): payloads[name]
             for name, relative in OUTPUT_NAMES.items()
-        },
+        }
+        | verified_document_bytes,
+        "anchor_root": receipt.anchor_root,
+        # Published separately from the cohort surface so a caller can hold the
+        # promoted evidence to the same intra-operation coherence checks as the
+        # surface files, rather than verifying it once and then forgetting it.
+        "verified_document_bytes": verified_document_bytes,
     }
 
 
-def _phase(
-    rows: Sequence[Mapping[str, Any]], phase: str
-) -> tuple[Mapping[str, Any], ...]:
-    return tuple(row for row in rows if row.get("free_or_purchased") == phase)
+def _index(
+    rows: Sequence[Mapping[str, Any]], label: str
+) -> dict[tuple[str, str], Mapping[str, Any]]:
+    result: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for row in rows:
+        key = (_text(row, "candidate_id"), _text(row, "source_document_id"))
+        if key in result:
+            raise Exact100SuccessorV3DownstreamError(f"{label} repeats {key}")
+        result[key] = row
+    return result
 
 
 def _committed_bytes(
@@ -172,6 +236,11 @@ def _committed_bytes(
 ) -> bytes:
     """Read one committed file and re-derive its digest from the bytes read."""
 
+    relative_path = Path(relative)
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise Exact100SuccessorV3DownstreamError(
+            f"v3 output commitment path is unsafe: {relative}"
+        )
     expected = commitments.get(relative)
     if not isinstance(expected, str) or not expected:
         raise Exact100SuccessorV3DownstreamError(
