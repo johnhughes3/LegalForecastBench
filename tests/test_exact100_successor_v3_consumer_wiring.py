@@ -300,8 +300,12 @@ def test_the_consolidation_admits_exactly_the_readable_cohort_generations() -> N
     a reviewed decision rather than an inherited one.
 
     Pinning it against the generations the downstream verifier can actually read
-    catches both drifts: a generation admitted here that nothing can read, and a
-    readable one silently left out.
+    catches a generation admitted here that nothing downstream can read. The
+    reverse -- a readable generation left out -- is caught for v3 only, by the
+    tie to that module's declared schema version below; a later generation's
+    module could be readable and omitted here without tripping anything.
+    Generalising that (deriving the expected side from each downstream module's
+    declared version) is deferred, not done.
     """
 
     from legalforecast.contracts import (

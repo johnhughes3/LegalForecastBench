@@ -66,6 +66,7 @@ from legalforecast.contracts import (
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
     LLM_UNITIZATION_RECONSTRUCTION_RECOVERY_V1,
     REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2,
+    REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V3,
     SUCCESSOR_ATTORNEY_PACKET_MANIFEST_V2,
     UNITIZATION_REVIEW_BUNDLE_MANIFEST_V1,
     UNITIZATION_REVIEW_BUNDLE_V1,
@@ -543,6 +544,9 @@ from legalforecast.ingestion.exact310_rest_rebind import (
     Exact310RestRebindError,
     execute_exact310_terminal_rest_rebind,
     plan_exact310_terminal_rest_rebind,
+)
+from legalforecast.ingestion.external_billing_register import (
+    verify_external_billing_register,
 )
 from legalforecast.ingestion.firecrawl_docket_recovery import (
     RANKED_FIRECRAWL_COMBINED_CREDIT_CEILING,
@@ -6435,6 +6439,16 @@ def _add_consolidate_replacement_recovery_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument(
+        "--external-billing-register",
+        type=Path,
+        default=None,
+        help=(
+            "Owner-ratified enumeration of documents billed under a separate "
+            "approved authority chain. Absent, coverage is the canonical "
+            "ledger alone."
+        ),
+    )
     parser.add_argument(
         "--tranche-index",
         type=Path,
@@ -29220,6 +29234,9 @@ _REPLACEMENT_RECOVERY_CARD_SCHEMA = (
 _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2 = str(
     REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2
 )
+_REPLACEMENT_RECOVERY_CARD_SCHEMA_V3 = str(
+    REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V3
+)
 _RECAP_FETCH_QUARANTINE_RECOVERY_CARD_SCHEMA = (
     "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"
 )
@@ -30541,6 +30558,9 @@ class _ReplacementRecoveryConsolidation:
     terminal_omission_inputs: Mapping[str, str] | None
     docket_decision_partition: Mapping[str, object] | None
     target_projection: Mapping[str, object]
+    #: Set only when a consolidation drew on the owner-ratified register; it is
+    #: what makes the emitted card a v3 and gives its replay the same input.
+    external_billing_register_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -30734,7 +30754,9 @@ def _cmd_consolidate_replacement_recovery(args: argparse.Namespace) -> int:
     )
     run_card: JsonRecord = {
         "schema_version": (
-            _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
+            _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3
+            if prepared.external_billing_register_path is not None
+            else _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
             if target_root_mode
             else _REPLACEMENT_RECOVERY_CARD_SCHEMA
         ),
@@ -30936,6 +30958,8 @@ def _prepare_replacement_recovery_consolidation(
     terminal_paths = tuple(
         path.absolute() for path in terminal_args if path is not None
     )
+    register_arg = cast(Path | None, getattr(args, "external_billing_register", None))
+    register_path = register_arg.absolute() if register_arg is not None else None
     direct_paths = (
         index_path,
         index_run_card_path,
@@ -30944,6 +30968,7 @@ def _prepare_replacement_recovery_consolidation(
         purchase_policy_path,
         cohort_policy_path,
         receipt_path,
+        *((register_path,) if register_path is not None else ()),
         *terminal_paths,
     )
     reusable_source_snapshots = {
@@ -31091,6 +31116,12 @@ def _prepare_replacement_recovery_consolidation(
         )
         for operation in purchase_snapshot.operations
     }
+    # Recorded authority is the canonical ledger, OR an owner-ratified register
+    # naming documents billed under a separately approved chain. Absent a
+    # register nothing widens, so coverage is exactly what it was before.
+    if register_path is not None:
+        register = verify_external_billing_register(snapshots[register_path])
+        operation_keys |= set(register.document_keys)
     authenticated_purchased_keys = (
         {
             _materializer_record_key(record)
@@ -31789,6 +31820,10 @@ def _prepare_replacement_recovery_consolidation(
             ledger_path,
             controlled_private_root,
             receipt_path,
+            # Fixed slot 9 when present: everything above is read positionally
+            # and everything below is a variable-length tail, so a new input
+            # can only sit here -- and only under a card version that says so.
+            *((register_path,) if register_path is not None else ()),
             *tranche_input_paths,
         ),
         source_snapshots=snapshots,
@@ -31806,6 +31841,7 @@ def _prepare_replacement_recovery_consolidation(
         purchase_operations=tuple(purchase_snapshot.operations),
         purchase_committed_amount_usd=purchase_snapshot.committed_amount_usd,
         purchase_state_sha256=purchase_snapshot.purchase_state_sha256,
+        external_billing_register_path=register_path,
         terminal_omission_inputs=(
             {
                 "snapshot_manifest": str(terminal_paths[0]),
@@ -46417,12 +46453,20 @@ def _verify_materializer_consolidated_recovery(
     )
     card = _projection_json_object(run_card_bytes, source=run_card_path)
     schema_version = card.get("schema_version")
-    target_root_mode = schema_version == _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
+    # A v3 card is a v2 consolidation that also drew on the owner-ratified
+    # register, so it is target-root mode too and carries one extra input at a
+    # fixed slot.  The version is what says the slot is there; nothing infers it
+    # from the input count.
+    register_mode = schema_version == _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3
+    target_root_mode = register_mode or (
+        schema_version == _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2
+    )
     if (
         schema_version
         not in {
             _REPLACEMENT_RECOVERY_CARD_SCHEMA,
             _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2,
+            _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3,
         }
         or card.get("stage") != "consolidate-replacement-recovery"
         or card.get("status") != "completed"
@@ -46443,7 +46487,7 @@ def _verify_materializer_consolidated_recovery(
         raise CommandError("consolidated replacement recovery lacks exact inputs")
     inputs = tuple(Path(str(path)) for path in cast(Sequence[object], raw_inputs))
     if (
-        len(inputs) < 9
+        len(inputs) < (10 if register_mode else 9)
         or inputs[2].resolve() != selection_path.resolve()
         or inputs[4].resolve() != purchase_policy_path.resolve()
         or inputs[5].resolve() != cohort_policy_path.resolve()
@@ -46511,6 +46555,7 @@ def _verify_materializer_consolidated_recovery(
         purchase_policy_path,
         cohort_policy_path,
         inputs[8],
+        *((inputs[9],) if register_mode else ()),
         *(
             tuple(terminal_input_paths.values())
             if terminal_input_paths is not None
@@ -46604,6 +46649,11 @@ def _verify_materializer_consolidated_recovery(
         )
         for operation in snapshot.operations
     }
+    if register_mode:
+        register = verify_external_billing_register(
+            verified_bytes[os.path.abspath(inputs[9])]
+        )
+        operation_keys |= set(register.document_keys)
     partition_omission_keys: set[tuple[str, str]] = set()
     if isinstance(raw_partition, Mapping):
         raw_omissions = cast(Mapping[str, object], raw_partition).get(
@@ -46654,6 +46704,10 @@ def _verify_materializer_consolidated_recovery(
             purchase_ledger=inputs[6],
             controlled_private_root=inputs[7],
             purchase_ledger_initialization_receipt=inputs[8],
+            # Without this the replay would compute coverage from the canonical
+            # ledger alone and refuse where the original run passed, so the
+            # byte-comparison below would never be reached.
+            external_billing_register=(inputs[9] if register_mode else None),
             snapshot_manifest=(
                 terminal_input_paths["snapshot_manifest"]
                 if terminal_input_paths is not None
