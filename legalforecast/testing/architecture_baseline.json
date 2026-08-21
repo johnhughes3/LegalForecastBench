@@ -6979,7 +6979,7 @@
         "largest_symbol": "ProviderAttemptJournal",
         "largest_symbol_lines": 1088,
         "layer": "application",
-        "line_count": 1782,
+        "line_count": 1789,
         "nonblank_line_count": 1623,
         "top_level_definition_count": 32
       },
@@ -10703,7 +10703,7 @@
         "largest_symbol": "test_journal_terminalizes_invalid_reconstruction_without_losing_accounting",
         "largest_symbol_lines": 57,
         "layer": "test",
-        "line_count": 1788,
+        "line_count": 1812,
         "nonblank_line_count": 1565,
         "top_level_definition_count": 55
       },
