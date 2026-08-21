@@ -860,6 +860,13 @@ from legalforecast.ingestion.replacement_recovery_source import (
     derive_resolved_source_coordinates,
     normalize_post_purchase_replay_descriptor,
 )
+from legalforecast.ingestion.replacement_recovery_v3_register import (
+    consolidation_legacy_target_root as _consolidation_legacy_target_root,
+)
+from legalforecast.ingestion.replacement_recovery_v3_register import (
+    merge_authenticated_v3_register_gap,
+    verified_register_commitments,
+)
 from legalforecast.ingestion.resolved_post_recovery import (
     RECOVERY_CHAIN_VALIDATION_FAILED,
     RESOLVED_POST_RECOVERY_SCHEMA_VERSION_V4,
@@ -30938,57 +30945,6 @@ _CONSOLIDATION_TARGET_COHORT_SCHEMAS: frozenset[str] = frozenset(
 )
 
 
-def _consolidation_legacy_target_root(
-    target_projection: Mapping[str, object],
-) -> Path:
-    """Return the zero-cost target beneath an authenticated v2/v3 projection.
-
-    A v3 card's first input is only its immediately preceding v3 generation,
-    so walking card paths would strand any chain with more than one v3 hop.
-    The public verifier has already collapsed that chain to its authenticated
-    supporting-document anchor.  Unwrap only that verifier-issued structure,
-    then take the legacy root from the authenticated v2 card beneath it.
-    """
-
-    projection = target_projection
-    run_card = projection.get("run_card")
-    if not isinstance(run_card, Mapping):
-        raise ValueError("exact100 target projection lacks an authenticated run card")
-    card = cast(Mapping[str, object], run_card)
-    schema_version = card.get("schema_version")
-    if schema_version == str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3):
-        base = projection.get("base_projection")
-        if not isinstance(base, Mapping):
-            raise ValueError("exact100 v3 target lacks authenticated anchor projection")
-        projection = cast(Mapping[str, object], base)
-        run_card = projection.get("run_card")
-        if not isinstance(run_card, Mapping) or (
-            cast(Mapping[str, object], run_card).get("schema_version")
-            != SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION
-        ):
-            raise ValueError(
-                "exact100 v3 target anchor is not a supporting-document successor"
-            )
-        base_v2 = projection.get("base_v2_projection")
-        if not isinstance(base_v2, Mapping):
-            raise ValueError("exact100 v3 target anchor lacks authenticated v2 base")
-        projection = cast(Mapping[str, object], base_v2)
-        run_card = projection.get("run_card")
-        if not isinstance(run_card, Mapping):
-            raise ValueError("exact100 v3 target v2 base lacks authenticated run card")
-        card = cast(Mapping[str, object], run_card)
-        schema_version = card.get("schema_version")
-    if schema_version != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2):
-        raise ValueError("exact100 target lineage does not terminate at a v2 successor")
-    raw_inputs = card.get("input_paths")
-    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
-        raise ValueError("exact100 v2 target lacks predecessor lineage")
-    inputs = cast(Sequence[object], raw_inputs)
-    if not inputs or not isinstance(inputs[0], str) or not inputs[0]:
-        raise ValueError("exact100 v2 predecessor root is invalid")
-    return Path(inputs[0]).absolute()
-
-
 def _prepare_replacement_recovery_consolidation(
     args: argparse.Namespace,
     *,
@@ -31216,14 +31172,11 @@ def _prepare_replacement_recovery_consolidation(
     # register nothing widens, so coverage is exactly what it was before.
     register_commitments: dict[tuple[str, str], str] = {}
     if register_path is not None:
-        register = verify_external_billing_register(snapshots[register_path])
-        register_commitments = register.commitment_map()
-        overlap = operation_keys & set(register_commitments)
-        if overlap:
-            raise ValueError(
-                "external billing register overlaps canonical ledger coverage: "
-                f"{sorted(overlap)[0]}"
-            )
+        register_commitments = verified_register_commitments(
+            snapshots[register_path],
+            canonical_operation_keys=operation_keys,
+            verify=verify_external_billing_register,
+        )
         operation_keys |= set(register_commitments)
     authenticated_purchased_keys = (
         {
@@ -31889,6 +31842,17 @@ def _prepare_replacement_recovery_consolidation(
             _merge_replacement_consolidation_record(
                 resolved_by_key, key, dict(record), label="resolved document"
             )
+    if target_schema_version == str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3):
+        merge_authenticated_v3_register_gap(
+            target_root=target_root,
+            target_projection=target_projection,
+            register_commitments=register_commitments,
+            required_purchased_keys=required_purchased_keys,
+            manifest_by_key=manifest_by_key,
+            clearance_by_key=clearance_by_key,
+            restriction_by_key=restriction_by_key,
+            document_bytes=document_bytes,
+        )
     if (
         set(manifest_by_key) != required_purchased_keys
         or set(clearance_by_key) != required_purchased_keys

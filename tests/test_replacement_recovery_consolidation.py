@@ -396,9 +396,92 @@ def _attach_external_billing_register(
 
     monkeypatch.setattr(cli, "verify_external_billing_register", verify_register)
     args.external_billing_register = register_path
-    args.target_cohort_root = Path(args.target_purchased_manifest).parent
-    args.target_purchased_manifest = None
+    if args.target_purchased_manifest is not None:
+        args.target_cohort_root = Path(args.target_purchased_manifest).parent
+        args.target_purchased_manifest = None
     return register_path, observed_payloads
+
+
+def _attach_promoted_v3_document(
+    args: argparse.Namespace,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    verified_payload: bytes | None = None,
+) -> tuple[tuple[str, str], bytes]:
+    """Add a purchased v3 document absent from every historical recovery."""
+
+    promoted_key = ("case-2", "doc-2")
+    payload = b"%PDF-1.4 authenticated v3 promotion\n"
+    digest = hashlib.sha256(payload).hexdigest()
+    selection_rows = [
+        json.loads(line)
+        for line in args.selection.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    selection_rows.append(
+        {
+            "candidate_id": promoted_key[0],
+            "documents": [{"source_document_id": promoted_key[1]}],
+        }
+    )
+    _write_jsonl(args.selection, selection_rows)
+    target_root = Path(args.output_root).parent / "exact100-v3"
+    local_path = Path(promoted_key[0]) / f"{promoted_key[1]}.pdf"
+    source_path = (
+        target_root / "owner-adjudicated-source" / "documents" / local_path
+    ).absolute()
+    source_path.parent.mkdir(parents=True)
+    source_path.write_bytes(payload)
+    promoted_manifest = {
+        "candidate_id": promoted_key[0],
+        "source_document_id": promoted_key[1],
+        "local_path": str(local_path),
+        "sha256": digest,
+        "byte_count": len(payload),
+        "free_or_purchased": "purchased",
+    }
+    promoted_clearance = {
+        **promoted_manifest,
+        "status": "cleared",
+    }
+    inherited_manifest = [
+        json.loads(line)
+        for line in Path(args.target_purchased_manifest)
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line
+    ]
+    monkeypatch.setattr(
+        cli,
+        "verify_completed_target_cohort_projection_for_purchase_approval",
+        lambda _root: {
+            "run_card": {
+                "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+            },
+            "selection_path": args.selection,
+            "selection_records": selection_rows,
+            "purchased_manifest": [*inherited_manifest, promoted_manifest],
+            "purchased_clearance": [promoted_clearance],
+            "restriction_records": [
+                {
+                    "candidate_id": promoted_key[0],
+                    "source_document_id": promoted_key[1],
+                    "restriction_status": "public",
+                }
+            ],
+            "verified_artifact_bytes": {
+                str(args.selection.resolve()): args.selection.read_bytes(),
+            },
+            "verified_document_bytes": {
+                str(source_path): (
+                    payload if verified_payload is None else verified_payload
+                )
+            },
+        },
+    )
+    args.target_cohort_root = target_root
+    args.target_purchased_manifest = None
+    return promoted_key, payload
 
 
 def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
@@ -453,6 +536,65 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
     # Issuance, materializer coverage, and authenticated replay each consume
     # the verifier output rather than silently falling back to ledger-only.
     assert observed_payloads == [register_path.read_bytes()] * 3
+
+
+def test_v3_register_gap_uses_authenticated_target_records_and_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    historical = {("base-case", "base-doc"), ("case-1", "doc-1")}
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=historical,
+        successor_count=1,
+    )
+    promoted_key, payload = _attach_promoted_v3_document(args, monkeypatch)
+    _attach_external_billing_register(
+        args,
+        monkeypatch,
+        document_commitments={promoted_key: hashlib.sha256(payload).hexdigest()},
+    )
+
+    prepared = cli._prepare_replacement_recovery_consolidation(args)
+
+    assert {
+        (row["candidate_id"], row["source_document_id"])
+        for row in prepared.manifest_records
+    } == historical | {promoted_key}
+    promoted = next(
+        row
+        for row in prepared.manifest_records
+        if (row["candidate_id"], row["source_document_id"]) == promoted_key
+    )
+    assert promoted["local_path"] == (
+        f"sha256/{hashlib.sha256(payload).hexdigest()[:2]}/"
+        f"{hashlib.sha256(payload).hexdigest()}.pdf"
+    )
+    assert prepared.document_bytes[promoted["local_path"]] == payload
+    assert len(prepared.restriction_records) == 1
+
+
+def test_v3_register_gap_rejects_mismatched_authenticated_target_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    historical = {("base-case", "base-doc"), ("case-1", "doc-1")}
+    args, _ = _prepare_fixture(
+        tmp_path,
+        monkeypatch,
+        ledger_pairs=historical,
+        successor_count=1,
+    )
+    promoted_key, payload = _attach_promoted_v3_document(
+        args, monkeypatch, verified_payload=b"different authenticated bytes"
+    )
+    _attach_external_billing_register(
+        args,
+        monkeypatch,
+        document_commitments={promoted_key: hashlib.sha256(payload).hexdigest()},
+    )
+
+    with pytest.raises(ValueError, match="target document bytes differ"):
+        cli._prepare_replacement_recovery_consolidation(args)
 
 
 def test_omitting_register_preserves_canonical_ledger_only_coverage(

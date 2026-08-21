@@ -240,6 +240,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`opinion_backed_disposition.py`](../legalforecast/ingestion/opinion_backed_disposition.py) | Public opinions bound to resolved docket entries. |
 | [`opinion_docket_gap_planner.py`](../legalforecast/ingestion/opinion_docket_gap_planner.py) | Refresh plans for opinion-backed docket gaps. |
 | [`opinion_recap_resolver.py`](../legalforecast/ingestion/opinion_recap_resolver.py) | Strict opinion-lead to RECAP identity resolution. |
+| [`replacement_recovery_v3_register.py`](../legalforecast/ingestion/replacement_recovery_v3_register.py) | Register-authorized v3 promotion bytes for replacement-recovery consolidation. |
 | [`resolved_post_recovery.py`](../legalforecast/ingestion/resolved_post_recovery.py) | Public lineage after unknown-status recovery. |
 
 ## 9. Disclosure review and provenance clearance
