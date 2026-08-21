@@ -184,14 +184,19 @@ def test_provider_cell_refreshes_one_hour_aws_sessions_for_three_hour_deadline()
     assert "Refresh AWS authority for cycle finish" in WORKFLOW
 
 
-def test_provider_cell_rejects_openai_repeat_samples_before_authority() -> None:
+def test_provider_cell_rejects_repeat_samples_for_every_provider_before_authority() -> (
+    None
+):
     boundary = WORKFLOW[
         WORKFLOW.index("- name: Validate provider-cell boundary") : WORKFLOW.index(
             "- name: Checkout trusted release"
         )
     ]
     assert "REPEAT_COUNT: ${{ inputs.repeat_count }}" in boundary
-    assert "OpenAI repeat samples are not supported in one provider cell" in boundary
+    assert 'if ! [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ ]]; then' in boundary
+    assert "if (( REPEAT_COUNT > 1 )); then" in boundary
+    assert "Repeat samples are not supported in one provider cell" in boundary
+    assert '[[ "${PROVIDER}" == "openai" ]]' not in boundary
     assert "Configure packet-read and result-write AWS authority" not in boundary
 
 
