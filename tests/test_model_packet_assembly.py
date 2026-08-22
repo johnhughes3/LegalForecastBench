@@ -3,6 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from legalforecast.evals.packet_builder import (
+    PacketAblation,
+    PacketText,
+    build_model_packet,
+)
 from legalforecast.ingestion.docket_markdown import (
     ControlledDocketMarkdownEntry,
     DocketMarkdownMetadata,
@@ -15,6 +20,7 @@ from legalforecast.ingestion.model_packet_assembly import (
 )
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
+    CasePacketSchema,
     DocumentRole,
     SourceDocumentProvenance,
     sha256_text,
@@ -198,6 +204,69 @@ def test_assembler_keeps_audit_only_documents_out_of_model_visibility() -> None:
     assert all(
         document.source_document_id not in {"audit-decision", "unavailable-core"}
         for document in assembly.model_packet.documents
+    )
+
+
+def test_packet_builder_mounts_candidate_shaped_claim_pleadings() -> None:
+    """Full packets retain certified claim pleadings but never outcomes."""
+
+    candidate_id = "71212565"
+    documents = (
+        _document(f"{candidate_id}-complaint", DocumentRole.COMPLAINT, 1),
+        _document("457379277", DocumentRole.INTERPLEADER_COMPLAINT, 12),
+        _document("461086928", DocumentRole.CROSSCLAIM, 23),
+        _document(f"{candidate_id}-mtd-memorandum", DocumentRole.MTD_MEMORANDUM, 30),
+        _document(f"{candidate_id}-decision", DocumentRole.DECISION, 31),
+        _document(f"{candidate_id}-order", DocumentRole.ORDER, 32),
+    )
+    case_packet = CasePacketSchema(
+        candidate_id=candidate_id,
+        case_id=candidate_id,
+        court="S.D.N.Y.",
+        docket_number="1:26-cv-1",
+        generated_at=_GENERATED_AT,
+        documents=documents,
+    )
+    texts = tuple(
+        PacketText(
+            source_document_id=document.source_document_id,
+            text=f"{document.document_role.value} text",
+        )
+        for document in documents
+    )
+
+    full_packet = build_model_packet(
+        case_packet=case_packet,
+        prediction_units=(_unit(),),
+        texts=texts,
+        ablation=PacketAblation.FULL_PACKET,
+    )
+    assert {document.source_document_id for document in full_packet.documents} == {
+        f"{candidate_id}-complaint",
+        "457379277",
+        "461086928",
+        f"{candidate_id}-mtd-memorandum",
+    }
+    assert {document.document_role for document in full_packet.documents} == {
+        DocumentRole.COMPLAINT,
+        DocumentRole.INTERPLEADER_COMPLAINT,
+        DocumentRole.CROSSCLAIM,
+        DocumentRole.MTD_MEMORANDUM,
+    }
+    assert set(full_packet.excluded_document_ids) == {
+        f"{candidate_id}-decision",
+        f"{candidate_id}-order",
+    }
+
+    metadata_only = build_model_packet(
+        case_packet=case_packet,
+        prediction_units=(_unit(),),
+        texts=texts,
+        ablation=PacketAblation.METADATA_ONLY,
+    )
+    assert metadata_only.documents == ()
+    assert metadata_only.excluded_document_ids == tuple(
+        document.source_document_id for document in documents
     )
 
 

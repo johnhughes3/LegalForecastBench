@@ -32,6 +32,8 @@ _ALWAYS_VISIBLE_ROLES = frozenset(
     {
         DocumentRole.COMPLAINT,
         DocumentRole.AMENDED_COMPLAINT,
+        DocumentRole.CROSSCLAIM,
+        DocumentRole.INTERPLEADER_COMPLAINT,
         DocumentRole.MTD_NOTICE,
         DocumentRole.DOCKET_HISTORY,
     }
