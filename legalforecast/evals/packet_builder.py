@@ -32,6 +32,8 @@ _ALWAYS_VISIBLE_ROLES = frozenset(
     {
         DocumentRole.COMPLAINT,
         DocumentRole.AMENDED_COMPLAINT,
+        DocumentRole.CROSSCLAIM,
+        DocumentRole.INTERPLEADER_COMPLAINT,
         DocumentRole.MTD_NOTICE,
         DocumentRole.DOCKET_HISTORY,
     }
@@ -328,6 +330,8 @@ def _is_relevant_to_target_motion(
     if provenance.document_role in {
         DocumentRole.COMPLAINT,
         DocumentRole.AMENDED_COMPLAINT,
+        DocumentRole.CROSSCLAIM,
+        DocumentRole.INTERPLEADER_COMPLAINT,
         DocumentRole.DOCKET_HISTORY,
     }:
         return True
