@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -9,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from legalforecast.evals.corpus_manifest import beads_observation as evidence
 from legalforecast.evals.corpus_manifest import execution_decisions as module
 
 
@@ -34,11 +36,11 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     }
     entries = tuple(
         SimpleNamespace(
-            provider="provider",
-            model_id=f"model-{i}",
-            registry_key=f"provider:model-{i}",
+            provider=key.split(":", 1)[0],
+            model_id=key.split(":", 1)[1],
+            registry_key=key,
         )
-        for i in range(4)
+        for key in sorted(evidence.SUCCESSOR_REGISTRY_KEYS)
     )
     monkeypatch.setattr(
         module,
@@ -57,7 +59,15 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         lambda _payload: SimpleNamespace(entries=entries),
     )
     monkeypatch.setattr(
+        evidence,
+        "load_model_registry_bytes",
+        lambda _payload: SimpleNamespace(entries=entries),
+    )
+    monkeypatch.setattr(
         module, "require_official_registry_entries", lambda value: value
+    )
+    monkeypatch.setattr(
+        evidence, "require_official_registry_entries", lambda value: value
     )
     monkeypatch.setattr(
         module,
@@ -93,7 +103,7 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
     owner = tmp_path / "owner-manifest.json"
     _write(owner, {"cycle_id": cycle_id, "manifest_sha256": manifest_digest})
-    registry = tmp_path / "model-registry.json"
+    registry = tmp_path / evidence.SUCCESSOR_REGISTRY_PATH
     _write(registry, [])
     caps = tmp_path / "provider-caps.json"
     _write(caps, {})
@@ -154,55 +164,78 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         forecast / "run-inputs.json", {"cycle_id": cycle_id, "model_packets": packets}
     )
 
-    beads = tmp_path / "beads-observation.json"
-    _write(
-        beads,
+    raw_beads = tmp_path / "bd-comments.json"
+    comments = [
         {
-            "schema_version": module._BEADS_SCHEMA,
-            "cycle_id": cycle_id,
-            "observed_at": "2026-01-03T00:00:00Z",
-            "bead_id": "legalforecastbench-test",
-            "manifest_sha256": manifest_digest,
-            "model_registry_path": str(registry),
-            "raw_observation_sha256": "d" * 64,
-            "spend": {"ceiling_usd": 10, "estimate_usd": 1},
-            "lines": {
-                name: {
-                    "text": text,
-                    "sha256": _sha(text.encode()),
-                }
-                for name, text in module._expected_beads_lines(
-                    manifest_digest=manifest_digest,
-                    model_registry=registry,
-                    ceiling_usd=10,
-                    estimate_usd=1,
-                ).items()
-            },
-            "lifecycle": {
-                "production_labeling_started_at": "2026-01-02T00:00:00Z",
-                "cohort_policy_published_at": "2026-01-01T00:00:00Z",
-                "batch_002_started_at": "2026-01-02T00:00:00Z",
-            },
-        },
+            "id": f"comment-{index}",
+            "issue_id": evidence.COORDINATION_BEAD_ID,
+            "author": evidence.OWNER_AUTHOR,
+            "text": text,
+            "created_at": f"2026-01-0{index}T00:00:00Z",
+        }
+        for index, text in enumerate(
+            (
+                (
+                    f"I approve corpus manifest {manifest_digest} as the frozen "
+                    "Cycle 1 "
+                    "forecast corpus."
+                ),
+                evidence.CONTAMINATION_LINE,
+                (
+                    "I approve up to USD 10.00 of provider spend for the Cycle 1 "
+                    "forecast run, estimated USD 1.00, across the four models in `"
+                    + evidence.SUCCESSOR_REGISTRY_PATH
+                    + "`."
+                ),
+                (
+                    "execution-lifecycle: "
+                    "production_labeling_started_at=2026-01-02T00:00:00Z; "
+                    "cohort_policy_published_at=2026-01-01T00:00:00Z; "
+                    "batch_002_started_at=2026-01-02T00:00:00Z"
+                ),
+            ),
+            start=1,
+        )
+    ]
+    _write(raw_beads, comments)
+    beads = tmp_path / "beads-observation.json"
+    module.issue_beads_observation(
+        raw_observation=raw_beads,
+        model_registry=registry,
+        output=beads,
     )
     freeze = tmp_path / "freeze-inputs"
-    no_baselines = _write(
-        freeze / "no-baselines.json",
-        {
-            "schema_version": "legalforecast.no_baselines.v1",
-            "cycle_id": cycle_id,
-            "status": "unavailable",
+    freeze_payloads: dict[str, bytes] = {}
+    for name, value in (
+        ("prompt-contract.json", {"role": "prompt"}),
+        ("scorer-contract.json", {"role": "scorer"}),
+        ("harness-contract.json", {"role": "harness"}),
+        (
+            "no-baselines.json",
+            {
+                "schema_version": "legalforecast.no_baselines.v1",
+                "cycle_id": cycle_id,
+                "status": "unavailable",
+            },
+        ),
+        ("complete-exclusion-ledger.jsonl", {"candidate_id": "excluded"}),
+    ):
+        freeze_payloads[name] = _write(freeze / name, value)
+    card = {
+        "status": "completed",
+        "cycle_id": cycle_id,
+        "provider_calls_made": 0,
+        "output_commitments": {
+            name: _sha(payload) for name, payload in freeze_payloads.items()
         },
+    }
+    freeze_payloads["run-cards/issue-manifest-freeze-inputs.json"] = _write(
+        freeze / "run-cards/issue-manifest-freeze-inputs.json", card
     )
-    _write(
-        freeze / "run-cards/issue-manifest-freeze-inputs.json",
-        {
-            "status": "completed",
-            "cycle_id": cycle_id,
-            "provider_calls_made": 0,
-            "output_commitments": {"no-baselines.json": _sha(no_baselines)},
-        },
-    )
+
+    def freeze_verifier(_root: Path) -> SimpleNamespace:
+        return SimpleNamespace(payloads=freeze_payloads, run_card=card)
+
     return {
         "owner": owner,
         "forecast": forecast,
@@ -213,6 +246,7 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "observation": observation,
         "beads": beads,
         "freeze": freeze,
+        "freeze_verifier": freeze_verifier,
         "output": tmp_path / "execution-decisions",
     }
 
@@ -229,6 +263,7 @@ def _issue(fixture: dict[str, Any]) -> module.ExecutionDecisionsBuild:
         beads_observation=fixture["beads"],
         freeze_inputs_root=fixture["freeze"],
         output_root=fixture["output"],
+        verify_freeze_inputs=fixture["freeze_verifier"],
     )
 
 
@@ -239,7 +274,9 @@ def test_issue_and_verify_derives_four_by_two_policy(fixture: dict[str, Any]) ->
     assert policy["labeling_policy_sha256"] == _sha(fixture["labeling"].read_bytes())
     assert len(policy["shard_schedule"]["shards"]) == 8
     assert policy["repeat_policy"] == {"case_ids": [], "count": 1}
-    verified = module.verify_execution_decisions(fixture["output"])
+    verified = module.verify_execution_decisions(
+        fixture["output"], verify_freeze_inputs=fixture["freeze_verifier"]
+    )
     assert verified.decisions == build.decisions
 
 
@@ -254,14 +291,16 @@ def test_packet_drift_is_rejected(fixture: dict[str, Any]) -> None:
     packet = next(fixture["forecast"].glob("model-packets/*.json"))
     packet.write_bytes(b"changed\n")
     with pytest.raises(module.ExecutionDecisionsError, match="packet changed"):
-        module.verify_execution_decisions(fixture["output"])
+        module.verify_execution_decisions(
+            fixture["output"], verify_freeze_inputs=fixture["freeze_verifier"]
+        )
 
 
 def test_observation_extra_line_is_rejected(fixture: dict[str, Any]) -> None:
     value = json.loads(fixture["beads"].read_text())
-    value["lines"]["extra"] = {"text": "x", "sha256": _sha(b"x")}
+    value["extra"] = {"text": "x", "sha256": _sha(b"x")}
     _write(fixture["beads"], value)
-    with pytest.raises(module.ExecutionDecisionsError, match="lines are not exact"):
+    with pytest.raises(module.ExecutionDecisionsError, match="fields are not exact"):
         _issue(fixture)
 
 
@@ -269,32 +308,13 @@ def test_raw_beads_observation_issuer_binds_exact_lines(
     fixture: dict[str, Any], tmp_path: Path
 ) -> None:
     raw = tmp_path / "bd-show.json"
-    expected_lines = module._expected_beads_lines(
-        manifest_digest="a" * 64,
-        model_registry=fixture["registry"],
-        ceiling_usd=10,
-        estimate_usd=1,
-    )
-    raw_bytes = _write(
-        raw,
-        {"comments": list(expected_lines.values())},
-    )
+    wrapper_record = json.loads(fixture["beads"].read_bytes())
+    raw.write_bytes(base64.b64decode(wrapper_record["raw_observation_base64"]))
     output = tmp_path / "beads-wrapper.json"
     wrapper = module.issue_beads_observation(
         raw_observation=raw,
-        raw_sha256=_sha(raw_bytes),
-        cycle_id="cycle-1",
-        manifest_digest="a" * 64,
         model_registry=fixture["registry"],
-        bead_id="legalforecastbench-test",
-        lifecycle={
-            "production_labeling_started_at": "2026-01-02T00:00:00Z",
-            "cohort_policy_published_at": "2026-01-01T00:00:00Z",
-            "batch_002_started_at": "2026-01-02T00:00:00Z",
-        },
-        ceiling_usd=10,
-        estimate_usd=1,
         output=output,
     )
-    assert wrapper["raw_observation_sha256"] == _sha(raw_bytes)
+    assert wrapper["raw_observation_sha256"] == _sha(raw.read_bytes())
     assert output.exists()

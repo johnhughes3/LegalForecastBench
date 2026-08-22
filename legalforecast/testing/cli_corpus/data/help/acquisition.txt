@@ -43,9 +43,6 @@ positional arguments:
     verify-manifest-forecast-bundle
                         Replay and verify a labels-deferred manifest forecast
                         bundle.
-    attach-manifest-forecast-labels
-                        Authenticate Stage B labels and derive label-bound
-                        forecast receipts.
     issue-manifest-execution-decisions
                         Issue provider-free authenticated execution decisions
                         and policy.
