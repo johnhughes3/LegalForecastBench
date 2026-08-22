@@ -283,7 +283,6 @@ def verify_bundle(
         ("run_record_path", "run record", run_record_bytes),
         ("run_inputs_path", "run inputs", run_inputs_bytes),
     ):
-        path = Path(_required_text(forecast, key))
         if _sha(payload) != _required_sha(forecast, key.replace("_path", "_sha256")):
             raise ManifestForecastBundleError(f"{label} bytes changed")
     run_record = _json_object(run_record_bytes, "run record")
