@@ -245,6 +245,18 @@ class VerifiedCompleteSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class PublishedSnapshotRecoveryEvidence:
+    """Exact stored bytes needed to republish one missing snapshot root."""
+
+    snapshot_id: str
+    batch_id: str
+    registered_path: Path
+    manifest: Mapping[str, Any]
+    manifest_bytes: bytes
+    payloads: Mapping[str, bytes]
+
+
+@dataclass(frozen=True, slots=True)
 class FirecrawlAttempt:
     """One permanently reserved Firecrawl request attempt."""
 
@@ -2210,6 +2222,262 @@ class CycleAcquisitionStore:
             )
         return tuple(snapshots)
 
+    def published_snapshot_recovery_evidence(
+        self,
+        snapshot_id: str,
+    ) -> PublishedSnapshotRecoveryEvidence:
+        """Recover exact historical payloads from one committed snapshot row.
+
+        This is a read-only evidence projector, not a publisher. It preserves
+        the stored canonical manifest text byte-for-byte, adds only the LF that
+        :meth:`export_snapshot` originally wrote, and admits a historical
+        observations prefix only when its stored row, byte, and digest
+        commitments all match. Every other payload must match in full.
+        """
+
+        if not self._read_only:
+            raise CycleAcquisitionStoreError(
+                "published snapshot recovery requires a read-only cycle store"
+            )
+        if _SAFE_SNAPSHOT_ID.fullmatch(snapshot_id) is None:
+            raise ValueError("snapshot_id contains unsafe characters")
+        row = self._connection.execute(
+            "SELECT * FROM snapshots WHERE snapshot_id = ?", (snapshot_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"unknown published snapshot: {snapshot_id}")
+        if int(row["complete"]) != 1:
+            raise SnapshotVerificationError("stored snapshot is not complete")
+
+        stored_manifest_json = str(row["manifest_json"])
+        try:
+            parsed = cast(object, json.loads(stored_manifest_json))
+        except json.JSONDecodeError as error:
+            raise SnapshotVerificationError(
+                "stored snapshot manifest is invalid"
+            ) from error
+        if not isinstance(parsed, dict):
+            raise SnapshotVerificationError("stored snapshot manifest is not an object")
+        manifest = cast(dict[str, Any], parsed)
+        if _canonical_json(manifest) != stored_manifest_json:
+            raise SnapshotVerificationError(
+                "stored snapshot manifest is not exact canonical publisher bytes"
+            )
+        manifest_bytes = f"{stored_manifest_json}\n".encode()
+
+        batch_id = str(row["batch_id"])
+        if manifest.get("schema_version") != SCHEMA_VERSION:
+            raise SnapshotVerificationError("stored snapshot schema version mismatch")
+        if manifest.get("snapshot_id") != snapshot_id:
+            raise SnapshotVerificationError("stored snapshot manifest ID mismatch")
+        if manifest.get("batch_id") != batch_id:
+            raise SnapshotVerificationError("stored snapshot manifest batch mismatch")
+        if manifest.get("complete") is not True:
+            raise SnapshotVerificationError("stored snapshot manifest is not complete")
+        if manifest.get("saturated") is not True:
+            raise SnapshotVerificationError(
+                "stored published cohort snapshot is not saturated"
+            )
+        if any(
+            field in manifest
+            for field in (
+                "provisional_frontier",
+                "final_cohort_eligible",
+                "full_source_terminal",
+            )
+        ):
+            raise SnapshotVerificationError(
+                "stored published cohort snapshot is provisional"
+            )
+        if manifest.get("created_at") != row["created_at"]:
+            raise SnapshotVerificationError(
+                "stored snapshot creation time differs from its registry row"
+            )
+
+        policy = self.cycle_policy
+        recomputed_policy_hash = _sha256_text(
+            _canonical_json({"schema_version": SCHEMA_VERSION, "policy": policy})
+        )
+        if recomputed_policy_hash != self.cycle_hash:
+            raise SnapshotVerificationError("cycle-store policy hash mismatch")
+        if manifest.get("cycle_hash") != self.cycle_hash:
+            raise SnapshotVerificationError("stored snapshot cycle hash mismatch")
+        batch_row = self._connection.execute(
+            "SELECT cycle_hash FROM batches WHERE batch_id = ?", (batch_id,)
+        ).fetchone()
+        if batch_row is None or str(batch_row["cycle_hash"]) != self.cycle_hash:
+            raise SnapshotVerificationError("stored snapshot batch cycle mismatch")
+        if manifest.get("batch_digest") != self.batch_digest(batch_id):
+            raise SnapshotVerificationError("stored snapshot batch digest mismatch")
+
+        registered_path = Path(str(row["path"]))
+        if (
+            not registered_path.is_absolute()
+            or registered_path != Path(os.path.abspath(registered_path))
+            or registered_path.name != snapshot_id
+        ):
+            raise SnapshotVerificationError(
+                "stored snapshot registered path is invalid"
+            )
+
+        commitments = _snapshot_file_commitments(manifest)
+        matching_payloads: list[dict[str, bytes]] = []
+        for terminal_mode in (False, True):
+            projected = self._snapshot_payloads(
+                batch_id,
+                use_batch_terminal_observations=terminal_mode,
+            )
+            observations = _committed_jsonl_prefix(
+                projected["observations.jsonl"],
+                commitments["observations.jsonl"],
+            )
+            candidate = {**projected, "observations.jsonl": observations}
+            if all(
+                _payload_matches_commitment(candidate[filename], commitments[filename])
+                for filename in _SNAPSHOT_FILES
+            ):
+                matching_payloads.append(candidate)
+        if not matching_payloads:
+            raise SnapshotVerificationError(
+                "current store cannot reproduce every committed payload and "
+                "historical observation prefix"
+            )
+        payloads = matching_payloads[0]
+        if any(candidate != payloads for candidate in matching_payloads[1:]):
+            raise SnapshotVerificationError(
+                "stored snapshot recovery projection is ambiguous"
+            )
+        return PublishedSnapshotRecoveryEvidence(
+            snapshot_id=snapshot_id,
+            batch_id=batch_id,
+            registered_path=registered_path,
+            manifest=MappingProxyType(dict(manifest)),
+            manifest_bytes=manifest_bytes,
+            payloads=MappingProxyType(dict(payloads)),
+        )
+
+    def rebind_recovered_published_snapshot_path(
+        self,
+        snapshot_id: str,
+        recovered_path: str | Path,
+        *,
+        expected_manifest_sha256: str,
+    ) -> Path:
+        """Rebind one missing snapshot path in a disposable writable store.
+
+        Callers must first byte-copy the authenticated store and invoke this
+        method only on that private copy. The old registered path must be absent;
+        the replacement must independently verify and carry the exact manifest
+        bytes already committed by the store. No payload or timestamp is
+        regenerated.
+        """
+
+        if self._read_only:
+            raise CycleAcquisitionStoreError(
+                "snapshot path rebind requires a writable disposable store copy"
+            )
+        if _SAFE_SNAPSHOT_ID.fullmatch(snapshot_id) is None:
+            raise ValueError("snapshot_id contains unsafe characters")
+        if re.fullmatch(r"[0-9a-f]{64}", expected_manifest_sha256) is None:
+            raise ValueError(
+                "expected snapshot manifest SHA-256 must be 64 lowercase hex digits"
+            )
+        row = self._connection.execute(
+            "SELECT * FROM snapshots WHERE snapshot_id = ?", (snapshot_id,)
+        ).fetchone()
+        if row is None or int(row["complete"]) != 1:
+            raise SnapshotVerificationError(
+                "snapshot path rebind requires a committed complete snapshot"
+            )
+        old_path = Path(str(row["path"]))
+        if (
+            not old_path.is_absolute()
+            or old_path != Path(os.path.abspath(old_path))
+            or old_path.name != snapshot_id
+        ):
+            raise SnapshotVerificationError(
+                "stored snapshot registered path is invalid"
+            )
+        if os.path.lexists(old_path):
+            raise SnapshotVerificationError(
+                "registered snapshot path still exists; recovery rebind is forbidden"
+            )
+        target = Path(recovered_path)
+        if not target.is_absolute() or target != Path(os.path.abspath(target)):
+            raise SnapshotVerificationError(
+                "recovered snapshot path must be absolute and normalized"
+            )
+        try:
+            target_metadata = target.lstat()
+        except OSError as error:
+            raise SnapshotVerificationError(
+                "recovered snapshot path is unavailable"
+            ) from error
+        if not stat.S_ISDIR(target_metadata.st_mode):
+            raise SnapshotVerificationError(
+                "recovered snapshot path must be a non-symlink directory"
+            )
+
+        stored_manifest_json = str(row["manifest_json"])
+        stored_manifest_bytes = f"{stored_manifest_json}\n".encode()
+        manifest_path = target / "manifest.json"
+        manifest_bytes = _read_unique_regular_bytes(
+            manifest_path, label="recovered snapshot manifest"
+        )
+        if (
+            manifest_bytes != stored_manifest_bytes
+            or hashlib.sha256(manifest_bytes).hexdigest() != expected_manifest_sha256
+        ):
+            raise SnapshotVerificationError(
+                "recovered snapshot manifest differs from the store commitment"
+            )
+        manifest = verify_snapshot(
+            target,
+            expected_cycle_hash=self.cycle_hash,
+            expected_batch_digest=self.batch_digest(str(row["batch_id"])),
+            require_complete=True,
+            require_saturated=True,
+        )
+        try:
+            parsed_stored = cast(object, json.loads(stored_manifest_json))
+        except json.JSONDecodeError as error:
+            raise SnapshotVerificationError(
+                "stored snapshot manifest is invalid"
+            ) from error
+        if not isinstance(parsed_stored, dict) or manifest != parsed_stored:
+            raise SnapshotVerificationError(
+                "recovered snapshot differs from the registered manifest"
+            )
+        commitments = _snapshot_file_commitments(manifest)
+        for filename in _SNAPSHOT_FILES:
+            payload = _read_unique_regular_bytes(
+                target / filename, label=f"recovered snapshot {filename}"
+            )
+            if not _payload_matches_commitment(payload, commitments[filename]):
+                raise SnapshotVerificationError(
+                    f"recovered snapshot payload changed: {filename}"
+                )
+        if (
+            _read_unique_regular_bytes(
+                manifest_path, label="recovered snapshot manifest"
+            )
+            != stored_manifest_bytes
+        ):
+            raise SnapshotVerificationError(
+                "recovered snapshot manifest changed before path rebind"
+            )
+
+        with self._transaction():
+            cursor = self._connection.execute(
+                "UPDATE snapshots SET path = ? WHERE snapshot_id = ? AND path = ?",
+                (str(target), snapshot_id, str(old_path)),
+            )
+            if cursor.rowcount != 1:
+                raise SnapshotVerificationError(
+                    "snapshot registry changed before path rebind"
+                )
+        return target
+
     def export_snapshot(
         self,
         destination: str | Path,
@@ -2980,6 +3248,73 @@ class _Transaction:
         traceback: TracebackType | None,
     ) -> None:
         self._connection.execute("COMMIT" if exc_type is None else "ROLLBACK")
+
+
+def _snapshot_file_commitments(
+    manifest: Mapping[str, object],
+) -> dict[str, Mapping[str, object]]:
+    raw_files = manifest.get("files")
+    if not isinstance(raw_files, Mapping):
+        raise SnapshotVerificationError("stored snapshot file manifest is incomplete")
+    files = cast(Mapping[str, object], raw_files)
+    if set(files) != set(_SNAPSHOT_FILES):
+        raise SnapshotVerificationError("stored snapshot file manifest is incomplete")
+    commitments: dict[str, Mapping[str, object]] = {}
+    for filename in _SNAPSHOT_FILES:
+        raw_commitment = files[filename]
+        if not isinstance(raw_commitment, Mapping):
+            raise SnapshotVerificationError(
+                f"stored snapshot commitment is invalid: {filename}"
+            )
+        commitment = cast(Mapping[str, object], raw_commitment)
+        sha256 = commitment.get("sha256")
+        byte_count = commitment.get("byte_count")
+        row_count = commitment.get("row_count")
+        if not isinstance(sha256, str) or re.fullmatch(r"[0-9a-f]{64}", sha256) is None:
+            raise SnapshotVerificationError(
+                f"stored snapshot commitment has invalid SHA-256: {filename}"
+            )
+        if (
+            not isinstance(byte_count, int)
+            or isinstance(byte_count, bool)
+            or byte_count < 0
+            or not isinstance(row_count, int)
+            or isinstance(row_count, bool)
+            or row_count < 0
+        ):
+            raise SnapshotVerificationError(
+                f"stored snapshot commitment has invalid counts: {filename}"
+            )
+        if set(commitment) != {"sha256", "byte_count", "row_count"}:
+            raise SnapshotVerificationError(
+                f"stored snapshot commitment has unexpected fields: {filename}"
+            )
+        commitments[filename] = commitment
+    return commitments
+
+
+def _committed_jsonl_prefix(
+    payload: bytes,
+    commitment: Mapping[str, object],
+) -> bytes:
+    row_count = cast(int, commitment["row_count"])
+    lines = payload.splitlines(keepends=True)
+    if len(lines) < row_count or any(not line.endswith(b"\n") for line in lines):
+        raise SnapshotVerificationError(
+            "current observations cannot supply the committed observation prefix"
+        )
+    return b"".join(lines[:row_count])
+
+
+def _payload_matches_commitment(
+    payload: bytes,
+    commitment: Mapping[str, object],
+) -> bool:
+    return (
+        len(payload) == commitment["byte_count"]
+        and payload.count(b"\n") == commitment["row_count"]
+        and hashlib.sha256(payload).hexdigest() == commitment["sha256"]
+    )
 
 
 def verify_snapshot(

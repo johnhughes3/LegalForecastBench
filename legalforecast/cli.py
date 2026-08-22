@@ -269,6 +269,11 @@ from legalforecast.ingestion.cohort_policy import (
     verify_observation_manifest,
     write_cohort_policy,
 )
+from legalforecast.ingestion.cohort_snapshot_recovery import (
+    PublishedSnapshotRecoveryError,
+    prepare_disposable_store_for_recovered_snapshot,
+    recover_published_snapshot_from_store_commitment,
+)
 from legalforecast.ingestion.core_document_filter import (
     CoreDocumentFilterResult,
     filter_core_documents,
@@ -2447,6 +2452,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Append complete cycle-store snapshots to the observation manifest.",
     )
     _add_export_cohort_observations_arguments(acquisition_export_cohort_observations)
+    acquisition_recover_published_snapshot = acquisition_subparsers.add_parser(
+        "recover-published-snapshot-from-store-commitment",
+        help=(
+            "Provider-free create-only recovery of exact published snapshot "
+            "bytes from an authenticated cycle-store commitment."
+        ),
+    )
+    _add_recover_published_snapshot_arguments(acquisition_recover_published_snapshot)
+    acquisition_prepare_snapshot_recovery_store = acquisition_subparsers.add_parser(
+        "prepare-disposable-snapshot-recovery-store",
+        help=(
+            "Create a private cycle-store copy and rebind only its recovered "
+            "published-snapshot path for cohort observation export."
+        ),
+    )
+    _add_prepare_snapshot_recovery_store_arguments(
+        acquisition_prepare_snapshot_recovery_store
+    )
     acquisition_verify_cohort_observations = acquisition_subparsers.add_parser(
         "verify-cohort-observations",
         help="Verify the append-only cohort observation hash chain.",
@@ -6954,6 +6977,65 @@ def _add_export_cohort_observations_arguments(parser: argparse.ArgumentParser) -
     parser.add_argument("--policy", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.set_defaults(handler=_cmd_export_cohort_observations)
+
+
+def _add_recover_published_snapshot_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Immutable CycleAcquisitionStore SQLite file to authenticate.",
+    )
+    parser.add_argument(
+        "--expected-store-sha256",
+        required=True,
+        help="Externally pinned lowercase SHA-256 of the exact SQLite file.",
+    )
+    parser.add_argument(
+        "--snapshot-id",
+        required=True,
+        help="Exact complete saturated snapshot ID already committed by the store.",
+    )
+    parser.add_argument(
+        "--expected-manifest-sha256",
+        required=True,
+        help=(
+            "Externally pinned SHA-256 of stored manifest_json bytes plus the "
+            "publisher-mandated trailing LF."
+        ),
+    )
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        required=True,
+        help=(
+            "New snapshot directory published create-only. Its parent must "
+            "already exist and contain no symlink ancestors."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_recover_published_snapshot)
+
+
+def _add_prepare_snapshot_recovery_store_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument("--expected-store-sha256", required=True)
+    parser.add_argument("--snapshot-id", required=True)
+    parser.add_argument("--recovered-snapshot-root", type=Path, required=True)
+    parser.add_argument("--expected-manifest-sha256", required=True)
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        required=True,
+        help=(
+            "New create-only directory for cycle-acquisition.sqlite3 and its "
+            "lock; its parent must already exist."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_prepare_snapshot_recovery_store)
 
 
 def _add_verify_cohort_observations_arguments(parser: argparse.ArgumentParser) -> None:
@@ -33085,6 +33167,66 @@ def _cmd_export_cohort_observations(args: argparse.Namespace) -> int:
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_recover_published_snapshot(args: argparse.Namespace) -> int:
+    try:
+        result = recover_published_snapshot_from_store_commitment(
+            cycle_store=cast(Path, args.cycle_store),
+            expected_store_sha256=cast(str, args.expected_store_sha256),
+            snapshot_id=cast(str, args.snapshot_id),
+            expected_manifest_sha256=cast(str, args.expected_manifest_sha256),
+            output_root=cast(Path, args.output_root),
+        )
+    except PublishedSnapshotRecoveryError as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "batch_id": result.batch_id,
+                "cycle_hash": result.cycle_hash,
+                "manifest_sha256": result.manifest_sha256,
+                "output_root": str(result.path),
+                "payload_sha256": result.payload_sha256,
+                "recovered_observation_row_count": (
+                    result.recovered_observation_row_count
+                ),
+                "snapshot_id": result.snapshot_id,
+                "store_sha256": result.store_sha256,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _cmd_prepare_snapshot_recovery_store(args: argparse.Namespace) -> int:
+    try:
+        result = prepare_disposable_store_for_recovered_snapshot(
+            cycle_store=cast(Path, args.cycle_store),
+            expected_store_sha256=cast(str, args.expected_store_sha256),
+            snapshot_id=cast(str, args.snapshot_id),
+            recovered_snapshot_root=cast(Path, args.recovered_snapshot_root),
+            expected_manifest_sha256=cast(str, args.expected_manifest_sha256),
+            output_root=cast(Path, args.output_root),
+        )
+    except PublishedSnapshotRecoveryError as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "cycle_store": str(result.cycle_store),
+                "disposable_store_sha256": result.disposable_store_sha256,
+                "manifest_sha256": result.manifest_sha256,
+                "output_root": str(result.root),
+                "recovered_snapshot_path": str(result.recovered_snapshot_path),
+                "snapshot_id": result.snapshot_id,
+                "source_store_sha256": result.source_store_sha256,
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

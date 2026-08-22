@@ -104,6 +104,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 **Discovery and screening**
 
 - [courtlistener-discovery-snapshot-v1.md](schemas/courtlistener-discovery-snapshot-v1.md): hash-bound provider-page transcripts and provider-free saturated snapshot materialization.
+- [published-snapshot-store-recovery-v1.md](schemas/published-snapshot-store-recovery-v1.md): create-only reconstruction of a missing published cohort snapshot from authenticated cycle-store commitments, plus a disposable path-rebound store copy for observation export.
 - [courtlistener-recap-fetch-broker-v1.md](schemas/courtlistener-recap-fetch-broker-v1.md): why raw PACER credentials never reach this repository, and the broker identity policy that replaces them.
 - [firecrawl-screening-implementation-v1.md](schemas/firecrawl-screening-implementation-v1.md): the Firecrawl-specific screening, replay, and promotion path.
 - [frozen-batch-firecrawl-observation-v1.md](schemas/frozen-batch-firecrawl-observation-v1.md): the frozen-batch Firecrawl observation run record.

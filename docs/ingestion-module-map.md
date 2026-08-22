@@ -122,6 +122,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | --- | --- |
 | [`case_mix_optimizer.py`](../legalforecast/ingestion/case_mix_optimizer.py) | Exact cost selection under intersecting caps. |
 | [`cohort_policy.py`](../legalforecast/ingestion/cohort_policy.py) | Immutable precommitments and append-only observations. |
+| [`cohort_snapshot_recovery.py`](../legalforecast/ingestion/cohort_snapshot_recovery.py) | Create-only exact recovery of missing published snapshots and disposable path-rebound store copies. |
 | [`document_repair_clearance.py`](../legalforecast/ingestion/document_repair_clearance.py) | Fail-closed public-clearance resolution for free and paid repair results. |
 | [`document_repair_errors.py`](../legalforecast/ingestion/document_repair_errors.py) | Shared fail-closed document-repair execution error. |
 | [`exact100_convergence_invariants.py`](../legalforecast/ingestion/exact100_convergence_invariants.py) | The nine final exact-100 corpus convergence invariants, each failure naming the case and document that blocks it. |
