@@ -255,6 +255,14 @@ positional arguments:
     export-cohort-observations
                         Append complete cycle-store snapshots to the
                         observation manifest.
+    recover-published-snapshot-from-store-commitment
+                        Provider-free create-only recovery of exact published
+                        snapshot bytes from an authenticated cycle-store
+                        commitment.
+    prepare-disposable-snapshot-recovery-store
+                        Create a private cycle-store copy and rebind only its
+                        recovered published-snapshot path for cohort
+                        observation export.
     verify-cohort-observations
                         Verify the append-only cohort observation hash chain.
     fetch-firecrawl-dockets

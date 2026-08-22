@@ -23794,6 +23794,215 @@
       "group_dest": "acquisition_command",
       "handler": {
         "module": "legalforecast.cli",
+        "name": "_cmd_recover_published_snapshot",
+        "qualname": "_cmd_recover_published_snapshot"
+      },
+      "logical_handler_id": "acquisition.recover-published-snapshot-from-store-commitment",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "cycle_store",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--cycle-store"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_store_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-store-sha256"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "snapshot_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--snapshot-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_manifest_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-manifest-sha256"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "output_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--output-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        }
+      ],
+      "path": [
+        "acquisition",
+        "recover-published-snapshot-from-store-commitment"
+      ],
+      "registration_index": 142
+    },
+    {
+      "aliases": [],
+      "group_dest": "acquisition_command",
+      "handler": {
+        "module": "legalforecast.cli",
+        "name": "_cmd_prepare_snapshot_recovery_store",
+        "qualname": "_cmd_prepare_snapshot_recovery_store"
+      },
+      "logical_handler_id": "acquisition.prepare-disposable-snapshot-recovery-store",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "cycle_store",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--cycle-store"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_store_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-store-sha256"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "snapshot_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--snapshot-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "recovered_snapshot_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--recovered-snapshot-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_manifest_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-manifest-sha256"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "output_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--output-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        }
+      ],
+      "path": [
+        "acquisition",
+        "prepare-disposable-snapshot-recovery-store"
+      ],
+      "registration_index": 143
+    },
+    {
+      "aliases": [],
+      "group_dest": "acquisition_command",
+      "handler": {
+        "module": "legalforecast.cli",
         "name": "_cmd_verify_cohort_observations",
         "qualname": "_cmd_verify_cohort_observations"
       },
@@ -23846,7 +24055,7 @@
         "acquisition",
         "verify-cohort-observations"
       ],
-      "registration_index": 142
+      "registration_index": 144
     },
     {
       "aliases": [],
@@ -24087,7 +24296,7 @@
         "acquisition",
         "fetch-firecrawl-dockets"
       ],
-      "registration_index": 143
+      "registration_index": 145
     },
     {
       "aliases": [],
@@ -24393,7 +24602,7 @@
         "acquisition",
         "screen-firecrawl-dockets"
       ],
-      "registration_index": 144
+      "registration_index": 146
     },
     {
       "aliases": [],
@@ -24764,7 +24973,7 @@
         "acquisition",
         "replay-screening-snapshots"
       ],
-      "registration_index": 145
+      "registration_index": 147
     },
     {
       "aliases": [],
@@ -25213,7 +25422,7 @@
         "acquisition",
         "promote-terminal-firecrawl-subset"
       ],
-      "registration_index": 146
+      "registration_index": 148
     },
     {
       "aliases": [],
@@ -25571,7 +25780,7 @@
         "acquisition",
         "promote-terminal-rest-priority-subset"
       ],
-      "registration_index": 147
+      "registration_index": 149
     },
     {
       "aliases": [],
@@ -25708,7 +25917,7 @@
         "acquisition",
         "quarantine-orphan-snapshot"
       ],
-      "registration_index": 148
+      "registration_index": 150
     },
     {
       "aliases": [],
@@ -26134,7 +26343,7 @@
         "acquisition",
         "bridge-pacer-gaps"
       ],
-      "registration_index": 149
+      "registration_index": 151
     },
     {
       "aliases": [],
@@ -26518,7 +26727,7 @@
         "acquisition",
         "rebase-pacer-gap-checkpoints"
       ],
-      "registration_index": 150
+      "registration_index": 152
     },
     {
       "aliases": [],
@@ -26655,7 +26864,7 @@
         "acquisition",
         "filter-core-documents"
       ],
-      "registration_index": 151
+      "registration_index": 153
     },
     {
       "aliases": [],
@@ -26870,7 +27079,7 @@
         "acquisition",
         "plan"
       ],
-      "registration_index": 152
+      "registration_index": 154
     },
     {
       "aliases": [],
@@ -27233,7 +27442,7 @@
         "acquisition",
         "prepare-target-cohort"
       ],
-      "registration_index": 153
+      "registration_index": 155
     },
     {
       "aliases": [],
@@ -27396,7 +27605,7 @@
         "acquisition",
         "materialize-target-cohort-frontier"
       ],
-      "registration_index": 154
+      "registration_index": 156
     },
     {
       "aliases": [],
@@ -27718,7 +27927,7 @@
         "acquisition",
         "prepare-target-100"
       ],
-      "registration_index": 155
+      "registration_index": 157
     },
     {
       "aliases": [],
@@ -28128,7 +28337,7 @@
         "acquisition",
         "project-target-cohort"
       ],
-      "registration_index": 156
+      "registration_index": 158
     },
     {
       "aliases": [],
@@ -28447,7 +28656,7 @@
         "acquisition",
         "extend-target-cohort"
       ],
-      "registration_index": 157
+      "registration_index": 159
     },
     {
       "aliases": [],
@@ -28847,7 +29056,7 @@
         "acquisition",
         "plan-public-downloads"
       ],
-      "registration_index": 158
+      "registration_index": 160
     },
     {
       "aliases": [],
@@ -29036,7 +29245,7 @@
         "acquisition",
         "plan-opinion-docket-gaps"
       ],
-      "registration_index": 159
+      "registration_index": 161
     },
     {
       "aliases": [],
@@ -29212,7 +29421,7 @@
         "acquisition",
         "download-free"
       ],
-      "registration_index": 160
+      "registration_index": 162
     },
     {
       "aliases": [],
@@ -29470,7 +29679,7 @@
         "acquisition",
         "purchase-missing"
       ],
-      "registration_index": 161
+      "registration_index": 163
     },
     {
       "aliases": [],
@@ -29844,7 +30053,7 @@
         "acquisition",
         "purchase-missing-recap-fetch"
       ],
-      "registration_index": 162
+      "registration_index": 164
     },
     {
       "aliases": [],
@@ -30270,7 +30479,7 @@
         "acquisition",
         "recover-recap-fetch-quarantine"
       ],
-      "registration_index": 163
+      "registration_index": 165
     },
     {
       "aliases": [],
@@ -30524,7 +30733,7 @@
         "acquisition",
         "plan-docket-live-fetches"
       ],
-      "registration_index": 164
+      "registration_index": 166
     },
     {
       "aliases": [],
@@ -30713,7 +30922,7 @@
         "acquisition",
         "execute-docket-live-fetches"
       ],
-      "registration_index": 165
+      "registration_index": 167
     },
     {
       "aliases": [],
@@ -30928,7 +31137,7 @@
         "acquisition",
         "recover-purchased"
       ],
-      "registration_index": 166
+      "registration_index": 168
     },
     {
       "aliases": [],
@@ -31078,7 +31287,7 @@
         "acquisition",
         "merge-download-manifests"
       ],
-      "registration_index": 167
+      "registration_index": 169
     },
     {
       "aliases": [],
@@ -31462,7 +31671,7 @@
         "acquisition",
         "materialize-cohort-documents"
       ],
-      "registration_index": 168
+      "registration_index": 170
     },
     {
       "aliases": [],
@@ -31644,7 +31853,7 @@
         "acquisition",
         "bind-acquisition-component"
       ],
-      "registration_index": 169
+      "registration_index": 171
     },
     {
       "aliases": [],
@@ -31781,7 +31990,7 @@
         "acquisition",
         "assemble-cycle-acquisition"
       ],
-      "registration_index": 170
+      "registration_index": 172
     },
     {
       "aliases": [],
@@ -31996,7 +32205,7 @@
         "acquisition",
         "prepare-disclosure-review"
       ],
-      "registration_index": 171
+      "registration_index": 173
     },
     {
       "aliases": [],
@@ -32344,7 +32553,7 @@
         "acquisition",
         "plan-disclosure-provenance"
       ],
-      "registration_index": 172
+      "registration_index": 174
     },
     {
       "aliases": [],
@@ -32416,7 +32625,7 @@
         "acquisition",
         "preflight-disclosure-review-signer"
       ],
-      "registration_index": 173
+      "registration_index": 175
     },
     {
       "aliases": [],
@@ -32605,7 +32814,7 @@
         "acquisition",
         "record-disclosure-review-decisions"
       ],
-      "registration_index": 174
+      "registration_index": 176
     },
     {
       "aliases": [],
@@ -32820,7 +33029,7 @@
         "acquisition",
         "build-disclosure-review-bundle"
       ],
-      "registration_index": 175
+      "registration_index": 177
     },
     {
       "aliases": [],
@@ -33074,7 +33283,7 @@
         "acquisition",
         "seal-disclosure-review-bundle"
       ],
-      "registration_index": 176
+      "registration_index": 178
     },
     {
       "aliases": [],
@@ -33328,7 +33537,7 @@
         "acquisition",
         "clear-disclosures"
       ],
-      "registration_index": 177
+      "registration_index": 179
     },
     {
       "aliases": [],
@@ -33595,7 +33804,7 @@
         "acquisition",
         "clear-provenance-disclosures"
       ],
-      "registration_index": 178
+      "registration_index": 180
     },
     {
       "aliases": [],
@@ -34083,7 +34292,7 @@
         "acquisition",
         "finalize-provenance-quarantine"
       ],
-      "registration_index": 179
+      "registration_index": 181
     },
     {
       "aliases": [],
@@ -34324,7 +34533,7 @@
         "acquisition",
         "review-disclosure-exceptions"
       ],
-      "registration_index": 180
+      "registration_index": 182
     },
     {
       "aliases": [],
@@ -34721,7 +34930,7 @@
         "acquisition",
         "resolve-post-recovery-documents"
       ],
-      "registration_index": 181
+      "registration_index": 183
     },
     {
       "aliases": [],
@@ -35043,7 +35252,7 @@
         "acquisition",
         "plan-parse-documents"
       ],
-      "registration_index": 182
+      "registration_index": 184
     },
     {
       "aliases": [],
@@ -35401,7 +35610,7 @@
         "acquisition",
         "parse-documents"
       ],
-      "registration_index": 183
+      "registration_index": 185
     },
     {
       "aliases": [],
@@ -35837,7 +36046,7 @@
         "acquisition",
         "rehearse-downstream"
       ],
-      "registration_index": 184
+      "registration_index": 186
     },
     {
       "aliases": [],
@@ -36273,7 +36482,7 @@
         "acquisition",
         "rehearsal-build-decision-texts"
       ],
-      "registration_index": 185
+      "registration_index": 187
     },
     {
       "aliases": [],
@@ -36709,7 +36918,7 @@
         "acquisition",
         "rehearsal-stage-a-unitize"
       ],
-      "registration_index": 186
+      "registration_index": 188
     },
     {
       "aliases": [],
@@ -37145,7 +37354,7 @@
         "acquisition",
         "rehearsal-stage-a-review"
       ],
-      "registration_index": 187
+      "registration_index": 189
     },
     {
       "aliases": [],
@@ -37581,7 +37790,7 @@
         "acquisition",
         "rehearsal-stage-a-apply"
       ],
-      "registration_index": 188
+      "registration_index": 190
     },
     {
       "aliases": [],
@@ -38017,7 +38226,7 @@
         "acquisition",
         "rehearsal-stage-b-label"
       ],
-      "registration_index": 189
+      "registration_index": 191
     },
     {
       "aliases": [],
@@ -38453,7 +38662,7 @@
         "acquisition",
         "rehearsal-stage-b-apply"
       ],
-      "registration_index": 190
+      "registration_index": 192
     },
     {
       "aliases": [],
@@ -38889,7 +39098,7 @@
         "acquisition",
         "rehearsal-plan-packet-inputs"
       ],
-      "registration_index": 191
+      "registration_index": 193
     },
     {
       "aliases": [],
@@ -39325,7 +39534,7 @@
         "acquisition",
         "rehearsal-build-packets"
       ],
-      "registration_index": 192
+      "registration_index": 194
     },
     {
       "aliases": [],
@@ -39553,7 +39762,7 @@
         "acquisition",
         "finalize-rehearsal-corpus"
       ],
-      "registration_index": 193
+      "registration_index": 195
     },
     {
       "aliases": [],
@@ -39846,7 +40055,7 @@
         "acquisition",
         "build-decision-texts"
       ],
-      "registration_index": 194
+      "registration_index": 196
     },
     {
       "aliases": [],
@@ -40030,7 +40239,7 @@
         "acquisition",
         "build-paid-labeling-source"
       ],
-      "registration_index": 195
+      "registration_index": 197
     },
     {
       "aliases": [],
@@ -40279,7 +40488,7 @@
         "acquisition",
         "assemble-paid-labeling-baton"
       ],
-      "registration_index": 196
+      "registration_index": 198
     },
     {
       "aliases": [],
@@ -40463,7 +40672,7 @@
         "acquisition",
         "open-paid-labeling-baton"
       ],
-      "registration_index": 197
+      "registration_index": 199
     },
     {
       "aliases": [],
@@ -40677,7 +40886,7 @@
         "acquisition",
         "seal-paid-labeling-result"
       ],
-      "registration_index": 198
+      "registration_index": 200
     },
     {
       "aliases": [],
@@ -41170,7 +41379,7 @@
         "acquisition",
         "llm-unitize"
       ],
-      "registration_index": 199
+      "registration_index": 201
     },
     {
       "aliases": [],
@@ -41936,7 +42145,7 @@
         "acquisition",
         "llm-unitize-manifest"
       ],
-      "registration_index": 200
+      "registration_index": 202
     },
     {
       "aliases": [],
@@ -42216,7 +42425,7 @@
         "acquisition",
         "audit-stage-a-target-eligibility"
       ],
-      "registration_index": 201
+      "registration_index": 203
     },
     {
       "aliases": [],
@@ -42735,7 +42944,7 @@
         "acquisition",
         "recover-llm-unitize-reconstruction"
       ],
-      "registration_index": 202
+      "registration_index": 204
     },
     {
       "aliases": [],
@@ -43254,7 +43463,7 @@
         "acquisition",
         "terminalize-llm-unitize-reconstruction"
       ],
-      "registration_index": 203
+      "registration_index": 205
     },
     {
       "aliases": [],
@@ -43573,7 +43782,7 @@
         "acquisition",
         "build-unitizer-terminal-review-bundle"
       ],
-      "registration_index": 204
+      "registration_index": 206
     },
     {
       "aliases": [],
@@ -43801,7 +44010,7 @@
         "acquisition",
         "build-successor-attorney-packet"
       ],
-      "registration_index": 205
+      "registration_index": 207
     },
     {
       "aliases": [],
@@ -44003,7 +44212,7 @@
         "acquisition",
         "convert-unitization-adjudication-worksheet"
       ],
-      "registration_index": 206
+      "registration_index": 208
     },
     {
       "aliases": [],
@@ -44392,7 +44601,7 @@
         "acquisition",
         "llm-review-stage-a"
       ],
-      "registration_index": 207
+      "registration_index": 209
     },
     {
       "aliases": [],
@@ -44703,7 +44912,7 @@
         "acquisition",
         "recover-llm-review-stage-a-reconstruction"
       ],
-      "registration_index": 208
+      "registration_index": 210
     },
     {
       "aliases": [],
@@ -45014,7 +45223,7 @@
         "acquisition",
         "terminalize-llm-review-stage-a-reconstruction"
       ],
-      "registration_index": 209
+      "registration_index": 211
     },
     {
       "aliases": [],
@@ -45229,7 +45438,7 @@
         "acquisition",
         "build-unitization-review-bundle"
       ],
-      "registration_index": 210
+      "registration_index": 212
     },
     {
       "aliases": [],
@@ -45366,7 +45575,7 @@
         "acquisition",
         "preflight-unitization-adjudication"
       ],
-      "registration_index": 211
+      "registration_index": 213
     },
     {
       "aliases": [],
@@ -45607,7 +45816,7 @@
         "acquisition",
         "apply-unitization-review"
       ],
-      "registration_index": 212
+      "registration_index": 214
     },
     {
       "aliases": [],
@@ -45900,7 +46109,7 @@
         "acquisition",
         "apply-unitizer-terminal-review"
       ],
-      "registration_index": 213
+      "registration_index": 215
     },
     {
       "aliases": [],
@@ -46409,7 +46618,7 @@
         "acquisition",
         "llm-label"
       ],
-      "registration_index": 214
+      "registration_index": 216
     },
     {
       "aliases": [],
@@ -46728,7 +46937,7 @@
         "acquisition",
         "plan-label-audit"
       ],
-      "registration_index": 215
+      "registration_index": 217
     },
     {
       "aliases": [],
@@ -47047,7 +47256,7 @@
         "acquisition",
         "apply-lawyer-review"
       ],
-      "registration_index": 216
+      "registration_index": 218
     },
     {
       "aliases": [],
@@ -47535,7 +47744,7 @@
         "acquisition",
         "plan-packet-inputs"
       ],
-      "registration_index": 217
+      "registration_index": 219
     },
     {
       "aliases": [],
@@ -48120,7 +48329,7 @@
         "acquisition",
         "build-packets"
       ],
-      "registration_index": 218
+      "registration_index": 220
     },
     {
       "aliases": [],
@@ -49025,7 +49234,7 @@
         "acquisition",
         "finalize-corpus"
       ],
-      "registration_index": 219
+      "registration_index": 221
     },
     {
       "aliases": [],
@@ -49292,7 +49501,7 @@
         "acquisition",
         "summarize-corpus"
       ],
-      "registration_index": 220
+      "registration_index": 222
     },
     {
       "aliases": [],
@@ -49455,7 +49664,7 @@
         "acquisition",
         "merge-artifacts"
       ],
-      "registration_index": 221
+      "registration_index": 223
     }
   ],
   "prog": "legalforecast",
