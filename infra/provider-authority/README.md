@@ -1,15 +1,27 @@
 # Shared provider authority table
 
-This table-only Terraform module owns the optional DynamoDB authority shared by distributed paid labeling and later official evaluation.
+This table-only Terraform module owns the optional DynamoDB authority shared by distributed paid labeling and later official evaluation, plus one disposable DynamoDB canary used only by the provider-free permission smoke.
 The canonical Cycle 1 replacement-corpus continuation instead uses one local SQLite provider journal with `--local-provider-journal-only`; it does not require this table.
 When the distributed path is selected, Stage A/B uses the table to reserve and reconcile provider spend against one frozen provider/account ceiling.
 
-The module creates one DynamoDB table and does not create IAM roles, does not create S3 resources, and does not configure GitHub environments or provider credentials.
+The module creates the shared authority table and a distinct smoke canary table; it does not create IAM roles, does not create S3 resources, and does not configure GitHub environments or provider credentials.
 The distinct paid-labeling role in `infra/official-labeling` receives exact-table data-plane access separately.
 
 The stable table name preserves the identity expected by the reviewed paid-labeling configuration.
 The table has string partition key `authority_key`, string sort key `record_key`, on-demand capacity, deletion protection, point-in-time recovery, server-side encryption, and TTL on `expires_at`.
 Terraform also refuses destructive replacement through `prevent_destroy`.
+
+## Disposable authority-smoke canary
+
+The module also provisions `aws_dynamodb_table.outside_authority_canary` with the fixed name `legalforecastbench-official-labeling-authority-smoke-canary` and exports its exact name as the sensitive `outside_authority_table_name` output.
+The canary is on-demand, encrypted, and TTL-enabled on `expires_at`; it has no point-in-time recovery, deletion protection, or `prevent_destroy` because it contains only negative-control smoke data and must be removable after the smoke.
+Its tags identify it as a `disposable-canary` negative control.
+Neither `infra/official-labeling` nor `infra/official-eval` references this table: their policies continue to name only the shared authority-table ARN.
+The protected provider-authority Terraform workflow includes both table resource addresses in its closed plan/import contract, so an existing canary may be imported by its fixed name or a new one may be created by the reviewed plan.
+
+After the separately authorized apply, decrypt the protected Terraform-output handoff only on the trusted operator machine, read `outside_authority_table_name`, and set `LFB_OUTSIDE_AUTHORITY_TABLE` in the protected authority-smoke environment through the approved server-side configuration path.
+The fixed reviewed canary name is intentionally a public code contract; keep the protected Terraform-output handoff, account-specific ARN, account ID, state, and protected environment values private, and do not copy them into repository artifacts.
+After the smoke receipt is retained, remove the disposable canary with a separately reviewed Terraform plan; do not remove the durable shared authority table.
 
 ## Protected Terraform operator procedure
 

@@ -17,6 +17,20 @@ variable "table_name" {
   }
 }
 
+variable "outside_authority_table_name" {
+  description = "Stable disposable canary table name used only as the denied-resource target for the provider-free authority smoke."
+  type        = string
+  default     = "legalforecastbench-official-labeling-authority-smoke-canary"
+
+  validation {
+    condition = (
+      var.outside_authority_table_name ==
+      "legalforecastbench-official-labeling-authority-smoke-canary"
+    )
+    error_message = "outside_authority_table_name must remain the reviewed disposable authority-smoke canary name."
+  }
+}
+
 variable "tags" {
   description = "Additional non-sensitive AWS resource tags."
   type        = map(string)

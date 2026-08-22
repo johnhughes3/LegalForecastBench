@@ -1,15 +1,16 @@
 locals {
-  account_id            = data.aws_caller_identity.current.account_id
-  partition             = data.aws_partition.current.partition
-  dns_suffix            = data.aws_partition.current.dns_suffix
-  state_bucket_arn      = "arn:${local.partition}:s3:::${var.state_bucket_name}"
-  account_root_arn      = "arn:${local.partition}:iam::${local.account_id}:root"
-  operator_role_arn     = aws_iam_role.operator.arn
-  github_provider_arn   = "arn:${local.partition}:iam::${local.account_id}:oidc-provider/token.actions.githubusercontent.com"
-  provider_table_arn    = "arn:${local.partition}:dynamodb:${var.aws_region}:${local.account_id}:table/${var.provider_authority_table_name}"
-  official_labeling_arn = "arn:${local.partition}:iam::${local.account_id}:role/${var.official_labeling_role_name}"
-  official_eval_arn     = "arn:${local.partition}:iam::${local.account_id}:role/${var.official_eval_cell_role_name}"
-  kms_via_service       = "s3.${var.aws_region}.${local.dns_suffix}"
+  account_id                = data.aws_caller_identity.current.account_id
+  partition                 = data.aws_partition.current.partition
+  dns_suffix                = data.aws_partition.current.dns_suffix
+  state_bucket_arn          = "arn:${local.partition}:s3:::${var.state_bucket_name}"
+  account_root_arn          = "arn:${local.partition}:iam::${local.account_id}:root"
+  operator_role_arn         = aws_iam_role.operator.arn
+  github_provider_arn       = "arn:${local.partition}:iam::${local.account_id}:oidc-provider/token.actions.githubusercontent.com"
+  provider_table_arn        = "arn:${local.partition}:dynamodb:${var.aws_region}:${local.account_id}:table/${var.provider_authority_table_name}"
+  provider_canary_table_arn = "arn:${local.partition}:dynamodb:${var.aws_region}:${local.account_id}:table/${var.outside_authority_table_name}"
+  official_labeling_arn     = "arn:${local.partition}:iam::${local.account_id}:role/${var.official_labeling_role_name}"
+  official_eval_arn         = "arn:${local.partition}:iam::${local.account_id}:role/${var.official_eval_cell_role_name}"
+  kms_via_service           = "s3.${var.aws_region}.${local.dns_suffix}"
 
   provider_authority_state_key = (
     "${var.state_key_prefix}/provider-authority/terraform.tfstate"
@@ -43,6 +44,7 @@ locals {
       kms_key_arn                  = aws_kms_key.terraform_state.arn
       kms_via_service              = local.kms_via_service
       provider_authority_table_arn = local.provider_table_arn
+      outside_authority_table_arn  = local.provider_canary_table_arn
       official_labeling_role_arn   = local.official_labeling_arn
       official_eval_cell_role_arn  = local.official_eval_arn
     },
