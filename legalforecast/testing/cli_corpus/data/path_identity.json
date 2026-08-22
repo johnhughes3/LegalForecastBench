@@ -335,6 +335,7 @@
     "tests/test_llm_label_provider_shards.py",
     "tests/test_local_cli_adapter_manifest.py",
     "tests/test_local_cli_contracts.py",
+    "tests/test_manifest_cost_projector.py",
     "tests/test_manifest_freeze_inputs.py",
     "tests/test_manifest_unitizer_inputs.py",
     "tests/test_methods_preprint.py",

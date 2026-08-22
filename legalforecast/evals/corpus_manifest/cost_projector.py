@@ -5,67 +5,37 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import os
 import re
-import stat
 from collections.abc import Mapping
-from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
-from pathlib import Path
-from typing import Any, Final, cast
+from typing import TYPE_CHECKING, Any, Final, cast
 
 from legalforecast.contracts.schemas import MANIFEST_COST_PROJECTION_RECEIPT_V1
+from legalforecast.evals.corpus_manifest.cost_projector_contract import (
+    ManifestCostProjectionError,
+    ManifestCostProjectionRequest,
+    packet_object_key_from_row,
+    packet_sha256_from_row,
+    required_nonnegative_int,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.protocol.manifest import hash_payload
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
     require_repeat_case_coverage,
 )
 
-PRICE_UNITS_PER_TOKEN: Final = Decimal(1_000_000)
+if TYPE_CHECKING:
+    from legalforecast.evals.corpus_manifest.cost_projector_auth import (
+        AuthenticatedManifestCostInputs,
+    )
+
+PRICE_UNITS_PER_TOKEN: Final = 1_000_000
 LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS: Final = 272_000
 SUPPORTED_ABLATIONS: Final = frozenset(
-    {
-        "full_packet",
-        "metadata_only",
-        "briefs_only_redacted",
-        "judge_removed",
-        "no_briefs",
-    }
+    "full_packet metadata_only briefs_only_redacted judge_removed no_briefs".split()
 )
 PROVIDER_LANES: Final = ("openai", "anthropic", "gemini")
-_SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
 _USD: Final = re.compile(r"[0-9]+(?:\.[0-9]+)?\Z")
-_SIX_PLACES: Final = Decimal("0.000001")
-
-
-class ManifestCostProjectionError(ValueError):
-    """Raised when cost inputs or issuance fail closed."""
-
-
-@dataclass(frozen=True, slots=True)
-class ManifestCostProjectionRequest:
-    """Inputs to one deterministic provider-free cost projection."""
-
-    run_input_manifest: Path
-    model_registry: Path
-    cycle_id: str
-    model_keys: tuple[str, ...]
-    ablations: tuple[str, ...]
-    repeat_count: int
-    repeat_sample_case_ids: tuple[str, ...]
-    max_projected_model_cost_usd: str | None
-    matrix_limit: int
-    output: Path
-
-    def __post_init__(self) -> None:
-        if not self.cycle_id.strip():
-            raise ManifestCostProjectionError("cycle_id is required")
-        if not 1 <= self.repeat_count <= 10:
-            raise ManifestCostProjectionError(
-                "repeat_count must be an integer from 1 through 10"
-            )
-        if self.matrix_limit < 1:
-            raise ManifestCostProjectionError("matrix_limit must be positive")
 
 
 def issue_manifest_cost_projection(
@@ -73,45 +43,47 @@ def issue_manifest_cost_projection(
 ) -> dict[str, Any]:
     """Project exact workflow costs and create-only publish a canonical receipt."""
 
-    if request.output.exists() or request.output.is_symlink():
-        raise ManifestCostProjectionError(
-            f"output already exists; refusing create-only issuance: {request.output}"
-        )
-    manifest_bytes = _read_regular(request.run_input_manifest, "run-input manifest")
-    registry_bytes = _read_regular(request.model_registry, "model registry")
-    receipt = build_manifest_cost_projection(
-        request,
-        manifest_bytes=manifest_bytes,
-        registry_bytes=registry_bytes,
+    from legalforecast.evals.corpus_manifest.cost_projector_auth import (
+        require_inputs_unchanged,
     )
+    from legalforecast.evals.corpus_manifest.cost_projector_io import (
+        verify_receipt_self_hash,
+        write_create_only,
+    )
+
+    authenticated = authenticate_manifest_cost_inputs(request)
+    receipt = build_manifest_cost_projection(request, authenticated=authenticated)
+    verify_receipt_self_hash(receipt, error_type=ManifestCostProjectionError)
     payload = canonical_json_bytes(
         receipt,
         error_type=ManifestCostProjectionError,
         error_message="manifest cost projection receipt is not canonical JSON",
     )
-    snapshots = {
-        request.run_input_manifest: manifest_bytes,
-        request.model_registry: registry_bytes,
-    }
-    _require_inputs_unchanged(snapshots)
-    _write_create_only(request.output, payload)
-    _require_inputs_unchanged(snapshots)
+    require_inputs_unchanged(authenticated.snapshots)
+    write_create_only(request.output, payload, error_type=ManifestCostProjectionError)
     return receipt
+
+
+def authenticate_manifest_cost_inputs(
+    request: ManifestCostProjectionRequest,
+) -> AuthenticatedManifestCostInputs:
+    """Authenticate the complete issued freeze and every manifest packet byte."""
+
+    from legalforecast.evals.corpus_manifest.cost_projector_auth import (
+        authenticate_manifest_cost_inputs as authenticate,
+    )
+
+    return authenticate(request)
 
 
 def build_manifest_cost_projection(
     request: ManifestCostProjectionRequest,
     *,
-    manifest_bytes: bytes,
-    registry_bytes: bytes,
+    authenticated: AuthenticatedManifestCostInputs,
 ) -> dict[str, Any]:
-    """Build one receipt from already-snapshotted raw input bytes."""
+    """Build one receipt from a fully authenticated manifest forecast."""
 
-    manifest = _json_value(manifest_bytes, "run-input manifest")
-    registry_records = _json_value(registry_bytes, "model registry")
-    if not isinstance(manifest, dict):
-        raise ManifestCostProjectionError("run-input manifest must be a JSON object")
-    manifest_record = cast(dict[str, object], manifest)
+    manifest_record = authenticated.run_inputs
     if manifest_record.get("cycle_id") != request.cycle_id:
         raise ManifestCostProjectionError(
             "run-input manifest cycle_id does not match dispatch input"
@@ -122,7 +94,7 @@ def build_manifest_cost_projection(
             "run-input manifest must contain model_packets list"
         )
     packets = cast(list[object], raw_packets)
-    registry_by_key = _registry_by_key(registry_records)
+    registry_by_key = _registry_by_key(authenticated.registry_records)
     requested_model_keys = _requested_values(request.model_keys, "model_keys")
     missing_model_keys = [
         key for key in requested_model_keys if key not in registry_by_key
@@ -167,7 +139,7 @@ def build_manifest_cost_projection(
 
     include: list[dict[str, Any]] = []
     long_context_packets: list[dict[str, Any]] = []
-    projected_cost = Decimal(0)
+    projected_cost = 0.0
     seen_packet_rows: set[tuple[str, str]] = set()
     case_ids: list[str] = []
     seen_case_ids: set[str] = set()
@@ -190,19 +162,16 @@ def build_manifest_cost_projection(
             raise ManifestCostProjectionError(
                 f"duplicate packet row for ablation: {case_id}"
             )
-        packet_object_key = (
-            packet.get("packet_object_key")
-            or packet.get("object_key")
-            or packet.get("key")
-        )
-        if not isinstance(packet_object_key, str) or not packet_object_key.startswith(
-            "model-packets/"
-        ):
+        packet_object_key = packet_object_key_from_row(packet)
+        packet_sha256 = packet_sha256_from_row(packet)
+        packet_payload = authenticated.packet_payloads.get(packet_object_key)
+        if packet_payload is None:
             raise ManifestCostProjectionError(
-                "each matrix row requires model-packets/ packet_object_key"
+                f"authenticated packet bytes are missing: {packet_object_key}"
             )
-        packet_sha256 = _packet_sha256(packet)
-        input_tokens = packet_input_tokens(packet)
+        input_tokens = packet_input_tokens(
+            packet, authenticated_packet_size=len(packet_payload)
+        )
         if input_tokens > LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS:
             long_context_packets.append(
                 {
@@ -274,10 +243,7 @@ def build_manifest_cost_projection(
     receipt: dict[str, Any] = {
         "schema_version": str(MANIFEST_COST_PROJECTION_RECEIPT_V1),
         "cycle_id": request.cycle_id,
-        "input_commitments": {
-            "run_input_manifest": _raw_commitment(manifest_bytes),
-            "model_registry": _raw_commitment(registry_bytes),
-        },
+        "input_commitments": dict(authenticated.input_commitments),
         "requested_model_keys": requested_model_keys,
         "requested_ablations": requested_ablations,
         "case_ids": case_ids,
@@ -307,26 +273,35 @@ def build_manifest_cost_projection(
     for provider in PROVIDER_LANES:
         receipt[f"{provider}_count"] = provider_counts[provider]
         receipt[f"{provider}_matrix"] = provider_matrices[provider]
+    receipt["receipt_sha256"] = hash_payload(receipt)
     return receipt
 
 
-def packet_input_tokens(packet: Mapping[str, Any]) -> int:
+def packet_input_tokens(
+    packet: Mapping[str, Any], *, authenticated_packet_size: int | None = None
+) -> int:
     """Return tokens using the frozen workflow field fallback order."""
 
-    for field_name in (
-        "estimated_input_tokens",
-        "input_tokens",
-        "prompt_tokens",
-        "estimated_prompt_tokens",
-        "packet_token_count",
-        "token_count",
-    ):
+    token_fields = (
+        "estimated_input_tokens input_tokens prompt_tokens "
+        "estimated_prompt_tokens packet_token_count token_count"
+    )
+    for field_name in token_fields.split():
         value = packet.get(field_name)
         if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
             return value
     packet_size_bytes = packet.get("packet_size_bytes")
     if isinstance(packet_size_bytes, int) and packet_size_bytes >= 0:
+        if (
+            authenticated_packet_size is not None
+            and packet_size_bytes != authenticated_packet_size
+        ):
+            raise ManifestCostProjectionError(
+                "packet_size_bytes differs from authenticated packet bytes"
+            )
         return math.ceil(packet_size_bytes / 4)
+    if authenticated_packet_size is not None:
+        return math.ceil(authenticated_packet_size / 4)
     raise ManifestCostProjectionError(
         "each matrix row requires packet token counts or packet_size_bytes "
         "for cost projection"
@@ -335,14 +310,14 @@ def packet_input_tokens(packet: Mapping[str, Any]) -> int:
 
 def projected_cost_for_row(
     *, input_tokens: int, registry_record: Mapping[str, Any]
-) -> Decimal:
+) -> float:
     """Apply the frozen 1,000,000-token input-plus-max-output formula."""
 
-    input_price = _required_nonnegative_decimal(registry_record, "input_token_price")
-    output_price = _required_nonnegative_decimal(registry_record, "output_token_price")
-    max_output_tokens = _required_nonnegative_int(registry_record, "max_output_tokens")
+    input_price = _required_nonnegative_float(registry_record, "input_token_price")
+    output_price = _required_nonnegative_float(registry_record, "output_token_price")
+    max_output_tokens = required_nonnegative_int(registry_record, "max_output_tokens")
     return (
-        Decimal(input_tokens) * input_price + Decimal(max_output_tokens) * output_price
+        input_tokens * input_price + max_output_tokens * output_price
     ) / PRICE_UNITS_PER_TOKEN
 
 
@@ -397,60 +372,21 @@ def _requested_values(
     return normalized
 
 
-def _packet_sha256(packet: Mapping[str, Any]) -> str:
-    sha256_value = packet.get("sha256")
-    packet_sha256_value = packet.get("packet_sha256")
-    for field_name, value in (
-        ("sha256", sha256_value),
-        ("packet_sha256", packet_sha256_value),
-    ):
-        if value is not None and (
-            not isinstance(value, str) or _SHA256.fullmatch(value) is None
-        ):
-            raise ManifestCostProjectionError(
-                f"each matrix row {field_name} must be a lowercase SHA-256"
-            )
-    if sha256_value is None and packet_sha256_value is None:
-        raise ManifestCostProjectionError(
-            "each matrix row requires sha256 or packet_sha256"
-        )
-    if (
-        sha256_value is not None
-        and packet_sha256_value is not None
-        and sha256_value != packet_sha256_value
-    ):
-        raise ManifestCostProjectionError(
-            "matrix row has conflicting sha256 and packet_sha256"
-        )
-    return cast(str, sha256_value or packet_sha256_value)
-
-
-def _required_nonnegative_decimal(
-    record: Mapping[str, Any], field_name: str
-) -> Decimal:
+def _required_nonnegative_float(record: Mapping[str, Any], field_name: str) -> float:
     value = record.get(field_name)
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ManifestCostProjectionError(
             f"model registry {field_name} must be non-negative"
         )
-    decimal = Decimal(str(value))
-    if not decimal.is_finite() or decimal < 0:
+    number = float(value)
+    if not math.isfinite(number) or number < 0:
         raise ManifestCostProjectionError(
             f"model registry {field_name} must be non-negative"
         )
-    return decimal
+    return number
 
 
-def _required_nonnegative_int(record: Mapping[str, Any], field_name: str) -> int:
-    value = record.get(field_name)
-    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        raise ManifestCostProjectionError(
-            f"model registry {field_name} must be a non-negative integer"
-        )
-    return value
-
-
-def _optional_ceiling(raw: str | None) -> Decimal | None:
+def _optional_ceiling(raw: str | None) -> float | None:
     if raw is None:
         return None
     text = raw.strip()
@@ -459,68 +395,17 @@ def _optional_ceiling(raw: str | None) -> Decimal | None:
             "max_projected_model_cost_usd must be a non-negative decimal amount"
         )
     try:
-        value = Decimal(text)
-    except InvalidOperation as exc:
+        value = float(text)
+    except ValueError as exc:
         raise ManifestCostProjectionError(
             "max_projected_model_cost_usd must be a non-negative decimal amount"
         ) from exc
-    if not value.is_finite() or value < 0:
+    if not math.isfinite(value) or value < 0:
         raise ManifestCostProjectionError(
             "max_projected_model_cost_usd must be a non-negative decimal amount"
         )
     return value
 
 
-def _format_usd(value: Decimal) -> str:
-    return format(value.quantize(_SIX_PLACES), "f")
-
-
-def _raw_commitment(payload: bytes) -> dict[str, int | str]:
-    return {
-        "sha256": hashlib.sha256(payload).hexdigest(),
-        "size_bytes": len(payload),
-    }
-
-
-def _json_value(payload: bytes, label: str) -> object:
-    try:
-        return json.loads(payload)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ManifestCostProjectionError(f"{label} must be valid UTF-8 JSON") from exc
-
-
-def _read_regular(path: Path, label: str) -> bytes:
-    try:
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-    except OSError as exc:
-        raise ManifestCostProjectionError(f"{label} is unreadable: {path}") from exc
-    try:
-        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
-            raise ManifestCostProjectionError(f"{label} is not a regular file: {path}")
-        with os.fdopen(descriptor, "rb", closefd=False) as stream:
-            return stream.read()
-    finally:
-        os.close(descriptor)
-
-
-def _require_inputs_unchanged(snapshots: Mapping[Path, bytes]) -> None:
-    for path, expected in snapshots.items():
-        if _read_regular(path, "cost projection source recheck") != expected:
-            raise ManifestCostProjectionError(f"input changed during issuance: {path}")
-
-
-def _write_create_only(path: Path, payload: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    except OSError as exc:
-        raise ManifestCostProjectionError(
-            f"cannot create cost projection receipt: {path}"
-        ) from exc
-    try:
-        with os.fdopen(descriptor, "wb", closefd=False) as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-    finally:
-        os.close(descriptor)
+def _format_usd(value: float) -> str:
+    return f"{value:.6f}"

@@ -740,15 +740,26 @@ jobs:
           ABLATIONS: ${{ inputs.ablations }}
           COST_PROJECTION_RECEIPT_PATH: /tmp/lfb-manifest-cost-projection.json
           CYCLE_ID: ${{ inputs.cycle_id }}
+          FREEZE_BUNDLE_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
+          FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
+          MANIFEST_RUN_ROOT: ${{ steps.validate.outputs.freeze_root }}
           MATRIX_LIMIT: "256"
           MAX_PROJECTED_MODEL_COST_USD: ${{ inputs.max_projected_model_cost_usd }}
           MODEL_KEYS: ${{ inputs.model_keys }}
-          MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
-          RUN_INPUT_MANIFEST_PATH: /tmp/lfb-run-inputs-frozen.json
         run: |
           set -euo pipefail
+          if [[ "${MANIFEST_RUN_ROOT}" == "." ]]; then
+            echo "manifest cost projection requires an immutable manifest-run bundle" >&2
+            exit 1
+          fi
+          amendment_bundles=()
+          while IFS= read -r bundle_path; do
+            amendment_bundles+=("${bundle_path}")
+          done < <(find "${FREEZE_ROOT}/amendments" -maxdepth 1 -type f -name '*.freeze.json' -print 2>/dev/null | sort)
+          FREEZE_AMENDMENT_BUNDLES="$(printf '%s\n' "${amendment_bundles[@]}")"
+          export FREEZE_AMENDMENT_BUNDLES
           python - <<'PY'
           import os
 

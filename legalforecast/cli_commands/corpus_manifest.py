@@ -333,15 +333,36 @@ def register(
         "project-manifest-cost",
         help="Issue a provider-free official manifest cost projection.",
         description=(
-            "Read an authenticated manifest forecast run-input file and frozen "
-            "model registry locally, build the exact official provider matrices "
-            "and cost projection, and create-only emit a canonical receipt with "
-            "raw input commitments. This command uses no provider or AWS service "
-            "and never mutates packet inputs."
+            "Verify a complete issued manifest freeze plus its local manifest-run "
+            "root, authenticate the signed owner manifest, exact frozen registry, "
+            "run record, run inputs, and every packet byte, then build the exact "
+            "official provider matrices and create-only emit a self-hashed receipt. "
+            "This command uses no provider or AWS service and never mutates inputs."
         ),
     )
-    cost.add_argument("--run-input-manifest", type=Path, required=True)
-    cost.add_argument("--model-registry", type=Path, required=True)
+    cost.add_argument("--freeze-bundle", type=Path, required=True)
+    cost.add_argument(
+        "--freeze-root",
+        type=Path,
+        required=True,
+        help="Root resolving every relative artifact path in the freeze bundle.",
+    )
+    cost.add_argument(
+        "--manifest-run-root",
+        type=Path,
+        required=True,
+        help=(
+            "Root containing run-inputs.json, manifest-mode-run-record.json, and "
+            "model-packets/."
+        ),
+    )
+    cost.add_argument(
+        "--amendment-bundle",
+        type=Path,
+        action="append",
+        default=[],
+        help="Freeze amendment ancestor; repeat for the complete chain.",
+    )
     cost.add_argument("--cycle-id", required=True)
     cost.add_argument(
         "--model-key",
@@ -543,8 +564,10 @@ def run_project_manifest_cost(args: argparse.Namespace) -> int:
 
     request_type = _MANIFEST_COST_REQUEST.load()
     request = request_type(
-        run_input_manifest=cast(Path, args.run_input_manifest),
-        model_registry=cast(Path, args.model_registry),
+        freeze_bundle=cast(Path, args.freeze_bundle),
+        freeze_root=cast(Path, args.freeze_root),
+        manifest_run_root=cast(Path, args.manifest_run_root),
+        amendment_bundles=tuple(cast("Sequence[Path]", args.amendment_bundle)),
         cycle_id=cast(str, args.cycle_id),
         model_keys=tuple(cast("Sequence[str]", args.model_keys)),
         ablations=tuple(cast("Sequence[str]", args.ablations)),

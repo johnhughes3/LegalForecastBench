@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
@@ -22,8 +21,14 @@ def issue_manifest_cost_projection_from_workflow_environment(
     """Delegate the official workflow environment to the shared issuer."""
 
     request = ManifestCostProjectionRequest(
-        run_input_manifest=Path(_required_env(environment, "RUN_INPUT_MANIFEST_PATH")),
-        model_registry=Path(_required_env(environment, "MODEL_REGISTRY_PATH")),
+        freeze_bundle=Path(_required_env(environment, "FREEZE_BUNDLE_PATH")),
+        freeze_root=Path(_required_env(environment, "FREEZE_ROOT")),
+        manifest_run_root=Path(_required_env(environment, "MANIFEST_RUN_ROOT")),
+        amendment_bundles=tuple(
+            Path(value)
+            for value in environment.get("FREEZE_AMENDMENT_BUNDLES", "").splitlines()
+            if value.strip()
+        ),
         cycle_id=_required_env(environment, "CYCLE_ID"),
         model_keys=tuple(_split_csv(_required_env(environment, "MODEL_KEYS"))),
         ablations=tuple(_split_csv(_required_env(environment, "ABLATIONS"))),
@@ -98,9 +103,9 @@ def _append_step_summary(path: Path, receipt: Mapping[str, Any]) -> None:
     lines = [
         "## Official evaluation cost preflight",
         "",
-        f"- Projected model cost: ${Decimal(projected):.2f}",
+        f"- Projected model cost: ${float(projected):.2f}",
         "- Recommended max_projected_model_cost_usd (2x projection): "
-        f"${Decimal(ceiling):.2f}",
+        f"${float(ceiling):.2f}",
         "- The dispatch ceiling is an early-warning control, not a provider "
         "or account cap.",
     ]
