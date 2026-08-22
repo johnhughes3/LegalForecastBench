@@ -5772,7 +5772,7 @@
         "largest_symbol_lines": 106,
         "layer": "adapter",
         "line_count": 459,
-        "nonblank_line_count": 422,
+        "nonblank_line_count": 421,
         "top_level_definition_count": 14
       },
       "legalforecast/ingestion/exact310_rest_rebind.py": {
@@ -6241,8 +6241,8 @@
         "largest_symbol": "validate_terminal_recovery_evidence",
         "largest_symbol_lines": 172,
         "layer": "application",
-        "line_count": 982,
-        "nonblank_line_count": 901,
+        "line_count": 988,
+        "nonblank_line_count": 907,
         "top_level_definition_count": 29
       },
       "legalforecast/ingestion/provenance.py": {
