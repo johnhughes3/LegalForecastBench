@@ -13,6 +13,8 @@ import pytest
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_replacement import (
     CONFIG_SCHEMA_VERSION,
+    PREDECESSOR_COVERAGE_SCHEMA_V1,
+    PREDECESSOR_COVERAGE_SCHEMA_V2,
     STATE_SCHEMA_VERSION,
     Exact100SuccessorReplacementError,
     VerifiedExact100Predecessor,
@@ -568,6 +570,108 @@ def test_predecessor_mint_requires_exact_selected_artifact_coverage(
             core_filter_results_bytes=output_bytes["core-filter-results.jsonl"],
             all_output_bytes=output_bytes,
         )
+
+
+def _paid_recovery_gap_payload() -> dict[str, Any]:
+    inputs = _fixture()
+    selection = [_selection_row(f"C{number:03d}") for number in range(1, 101)]
+    gap_id = "C003-unacquired"
+    selection[2]["documents"].append(
+        {
+            "source_document_id": gap_id,
+            "document_role": "motion_to_dismiss_memorandum",
+            "courtlistener_docket_entry_id": "entry-C003-unacquired",
+            "requires_paid_recovery": True,
+            "availability_status": "unavailable",
+        }
+    )
+    artifacts = {
+        name: [dict(row) for row in rows]
+        for name, rows in inputs["predecessor_artifacts"].items()
+    }
+    relevance = next(
+        row for row in artifacts["case_relevance"] if row["candidate_id"] == "C003"
+    )
+    relevance["documents"] = [
+        *list(relevance["documents"]),
+        {"source_document_id": gap_id},
+    ]
+    selection_bytes = _jsonl(selection)
+    output_bytes = dict(inputs["predecessor_output_bytes"])
+    output_bytes["target-cohort-selection.jsonl"] = selection_bytes
+    output_bytes["case-relevance.jsonl"] = _jsonl(artifacts["case_relevance"])
+    projection = dict(inputs["predecessor"].projection)
+    projection["output_commitments"] = {
+        name: _sha(payload) for name, payload in output_bytes.items()
+    }
+    return {
+        "projection": projection,
+        "projection_bytes": _bytes(projection),
+        "selection_bytes": selection_bytes,
+        "output_bytes": output_bytes,
+    }
+
+
+def _mint_from_payload(
+    payload: dict[str, Any], *, predecessor_coverage_schema: str
+) -> VerifiedExact100Predecessor:
+    output_bytes = payload["output_bytes"]
+    return _mint_verified_exact100_predecessor(
+        projection=payload["projection"],
+        projection_bytes=payload["projection_bytes"],
+        selection_bytes=payload["selection_bytes"],
+        case_relevance_bytes=output_bytes["case-relevance.jsonl"],
+        download_manifest_bytes=output_bytes["document-downloads-merged.jsonl"],
+        disclosure_clearance_bytes=output_bytes["disclosure-clearance.jsonl"],
+        restriction_evidence_bytes=output_bytes["restriction-evidence.jsonl"],
+        core_filter_results_bytes=output_bytes["core-filter-results.jsonl"],
+        all_output_bytes=output_bytes,
+        predecessor_coverage_schema=predecessor_coverage_schema,
+    )
+
+
+def test_v1_predecessor_mint_rejects_paid_recovery_gaps() -> None:
+    payload = _paid_recovery_gap_payload()
+
+    with pytest.raises(
+        Exact100SuccessorReplacementError,
+        match="download manifest document coverage is incomplete",
+    ):
+        _mint_from_payload(
+            payload, predecessor_coverage_schema=PREDECESSOR_COVERAGE_SCHEMA_V1
+        )
+
+
+def test_v2_predecessor_mint_accepts_authenticated_paid_recovery_gaps() -> None:
+    payload = _paid_recovery_gap_payload()
+
+    predecessor = _mint_from_payload(
+        payload, predecessor_coverage_schema=PREDECESSOR_COVERAGE_SCHEMA_V2
+    )
+
+    assert any(
+        document.get("source_document_id") == "C003-unacquired"
+        for row in predecessor.selection
+        if row["candidate_id"] == "C003"
+        for document in row["documents"]
+    )
+    assert not any(
+        row.get("source_document_id") == "C003-unacquired"
+        for row in predecessor.download_manifest
+    )
+
+
+def test_v1_require_verified_rejects_v2_minted_paid_recovery_gaps() -> None:
+    payload = _paid_recovery_gap_payload()
+    predecessor = _mint_from_payload(
+        payload, predecessor_coverage_schema=PREDECESSOR_COVERAGE_SCHEMA_V2
+    )
+
+    with pytest.raises(
+        Exact100SuccessorReplacementError,
+        match="download manifest document coverage is incomplete",
+    ):
+        require_verified_exact100_predecessor(predecessor)
 
 
 def test_replacement_rejects_caller_constructed_authorities() -> None:

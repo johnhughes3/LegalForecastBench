@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from legalforecast.contracts import (
+    EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V1,
+    EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V2,
     EXACT100_SUCCESSOR_PROMOTION_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
@@ -25,6 +27,8 @@ JsonRecord = dict[str, Any]
 CONFIG_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1)
 STATE_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1)
 PROMOTION_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_PROMOTION_V1)
+PREDECESSOR_COVERAGE_SCHEMA_V1 = str(EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V1)
+PREDECESSOR_COVERAGE_SCHEMA_V2 = str(EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V2)
 
 _TARGET_COUNT = 100
 _PREDECESSOR_SCHEMA_VERSION = str(ZERO_COST_SUCCESSOR_CONFIG_V1)
@@ -324,6 +328,7 @@ def _mint_verified_exact100_predecessor(  # pyright: ignore[reportUnusedFunction
     restriction_evidence_bytes: bytes,
     core_filter_results_bytes: bytes,
     all_output_bytes: Mapping[str, bytes],
+    predecessor_coverage_schema: str = PREDECESSOR_COVERAGE_SCHEMA_V1,
 ) -> VerifiedExact100Predecessor:
     """Authenticate the predecessor surface from replayed producer bytes.
 
@@ -390,7 +395,18 @@ def _mint_verified_exact100_predecessor(  # pyright: ignore[reportUnusedFunction
         name: tuple(_jsonl_records(payload, f"predecessor {name}"))
         for name, payload in artifact_bytes.items()
     }
-    _require_exact_predecessor_artifact_coverage(selection, **artifacts)
+    if predecessor_coverage_schema == PREDECESSOR_COVERAGE_SCHEMA_V2:
+        from legalforecast.ingestion.exact100_successor_predecessor_coverage_v2 import (
+            require_predecessor_artifact_coverage_v2,
+        )
+
+        require_predecessor_artifact_coverage_v2(selection, **artifacts)
+    elif predecessor_coverage_schema == PREDECESSOR_COVERAGE_SCHEMA_V1:
+        _require_exact_predecessor_artifact_coverage(selection, **artifacts)
+    else:
+        raise Exact100SuccessorReplacementError(
+            "predecessor coverage schema is not a closed successor coverage contract"
+        )
     value = object.__new__(VerifiedExact100Predecessor)
     for name, item in (
         ("projection", dict(projection)),
@@ -676,15 +692,7 @@ def _require_exact_predecessor_artifact_coverage(
     restriction_evidence: Sequence[Mapping[str, Any]],
     core_filter_results: Sequence[Mapping[str, Any]],
 ) -> None:
-    """Require exact selected-candidate/document coverage on consumed evidence.
-
-    The zero-cost predecessor may keep unacquired selected documents as
-    authenticated paid-recovery gaps (``requires_paid_recovery is True`` and
-    ``availability_status == "unavailable"``). Those identities must remain on
-    selection and case relevance, but they are absent from the pre-recovery
-    download manifest, clearance, and restriction surfaces. Acquired documents
-    still require exact one-row coverage on those three artifacts.
-    """
+    """Require exact selected-candidate/document coverage on consumed evidence."""
 
     selected_by_candidate = {_candidate_id(row): row for row in selection}
     selected_ids = set(selected_by_candidate)
@@ -709,7 +717,6 @@ def _require_exact_predecessor_artifact_coverage(
             )
     for candidate_id, selection_row in selected_by_candidate.items():
         document_ids = _document_ids_from_selection(selection_row, "selection")
-        acquired_ids = document_ids - _paid_recovery_gap_ids(selection_row, "selection")
         relevance_rows = _candidate_rows(case_relevance, candidate_id)
         if (
             _document_ids_from_selection(relevance_rows[0], "case relevance")
@@ -724,7 +731,7 @@ def _require_exact_predecessor_artifact_coverage(
             ("restriction evidence", restriction_evidence),
         ):
             if not _has_exact_document_coverage(
-                _candidate_rows(records, candidate_id), acquired_ids
+                _candidate_rows(records, candidate_id), document_ids
             ):
                 raise Exact100SuccessorReplacementError(
                     f"predecessor {label} document coverage is incomplete"
@@ -762,33 +769,6 @@ def _document_ids_from_selection(record: Mapping[str, Any], label: str) -> set[s
             f"predecessor {label} documents are invalid"
         )
     return document_ids
-
-
-def _paid_recovery_gap_ids(record: Mapping[str, Any], label: str) -> set[str]:
-    """Return selected document ids that are authenticated unpaid recovery gaps."""
-
-    documents = record.get("documents")
-    if not isinstance(documents, Sequence) or isinstance(documents, (str, bytes)):
-        raise Exact100SuccessorReplacementError(
-            f"predecessor {label} documents are invalid"
-        )
-    gaps: set[str] = set()
-    for document in cast(Sequence[object], documents):
-        if not isinstance(document, Mapping):
-            raise Exact100SuccessorReplacementError(
-                f"predecessor {label} documents are invalid"
-            )
-        typed = cast(Mapping[str, object], document)
-        requires_paid = typed.get("requires_paid_recovery")
-        availability = typed.get("availability_status")
-        is_gap = requires_paid is True and availability == "unavailable"
-        if (requires_paid is True or availability == "unavailable") is not is_gap:
-            raise Exact100SuccessorReplacementError(
-                "predecessor selection has inconsistent paid-recovery gap markers"
-            )
-        if is_gap:
-            gaps.add(_required_text(typed, "source_document_id"))
-    return gaps
 
 
 def _nonpromotable_reason(

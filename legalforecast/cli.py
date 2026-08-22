@@ -495,6 +495,9 @@ from legalforecast.ingestion.exact100_stipulated_parser_lineage import (
     require_stipulated_source_matches_predecessor_download,
 )
 from legalforecast.ingestion.exact100_successor_replacement import (
+    PREDECESSOR_COVERAGE_SCHEMA_V2 as EXACT100_PREDECESSOR_COVERAGE_SCHEMA_V2,
+)
+from legalforecast.ingestion.exact100_successor_replacement import (
     PREDECESSOR_OUTPUT_NAMES as EXACT100_PREDECESSOR_OUTPUT_NAMES,
 )
 from legalforecast.ingestion.exact100_successor_replacement import (
@@ -44150,6 +44153,7 @@ def _replay_exact100_successor_inputs(
         ],
         core_filter_results_bytes=predecessor_output_bytes["core-filter-results.jsonl"],
         all_output_bytes=predecessor_output_bytes,
+        predecessor_coverage_schema=EXACT100_PREDECESSOR_COVERAGE_SCHEMA_V2,
     )
 
     predecessor_card = cast(Mapping[str, object], verified_predecessor["run_card"])

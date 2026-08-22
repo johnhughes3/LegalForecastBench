@@ -129,6 +129,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`exact100_convergence_model.py`](../legalforecast/ingestion/exact100_convergence_model.py) | Failure, result, disposition, and input types the convergence invariants speak. |
 | [`exact100_reserve_extension.py`](../legalforecast/ingestion/exact100_reserve_extension.py) | Provider-free reserve extension for an authenticated exact-100 successor. |
 | [`exact100_stipulated_parser_lineage.py`](../legalforecast/ingestion/exact100_stipulated_parser_lineage.py) | Predecessor download-manifest binding for stipulated exact-100 exclusions after authenticated parser-lineage replay. |
+| [`exact100_successor_predecessor_coverage_v2.py`](../legalforecast/ingestion/exact100_successor_predecessor_coverage_v2.py) | Versioned predecessor coverage that omits authenticated paid-recovery gaps from manifest, clearance, and restriction evidence. |
 | [`exact100_successor_replacement.py`](../legalforecast/ingestion/exact100_successor_replacement.py) | Provider-free exact-100 successor projection from replay-verified terminal exclusions and frozen-rank promotions. |
 | [`exact100_successor_replacement_cli.py`](../legalforecast/ingestion/exact100_successor_replacement_cli.py) | Closed exact-100 successor command and materializer replay adapter. |
 | [`exact100_successor_replacement_v2.py`](../legalforecast/ingestion/exact100_successor_replacement_v2.py) | Versioned exact-100 successor projection over complete materialization and wider-rank authority. |
