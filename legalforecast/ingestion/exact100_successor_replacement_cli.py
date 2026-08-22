@@ -20,9 +20,11 @@ from legalforecast.ingestion.exact100_successor_replacement import (
     VerifiedSuccessorPromotionPool,
     project_exact100_successor_replacement,
 )
+from legalforecast.ingestion.exact100_terminal_recovery_authority_v3.authority import (
+    authorize_persisted_terminal_recovery_evidence_v3,
+)
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     VerifiedTerminalExclusionEvidence,
-    authorize_persisted_terminal_recovery_evidence,
     verify_post_selection_terminal_exclusions,
 )
 
@@ -423,7 +425,7 @@ def _recovery(
         raise Exact100SuccessorReplacementCliError(
             "fresh terminal recovery replay did not authorize the persisted root"
         ) from exc
-    return authorize_persisted_terminal_recovery_evidence(
+    return authorize_persisted_terminal_recovery_evidence_v3(
         live_evidence=live_evidence,
         selection_bytes=selection,
         request=request,
