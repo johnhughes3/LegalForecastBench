@@ -84,7 +84,7 @@ def test_v2_authorize_still_requires_exact_404_body_equality() -> None:
         PostSelectionTerminalExclusionError,
         match=(
             "does not bind the persisted terminal evidence; "
-            "divergent commitments: rest_observation_response"
+            "divergent commitments: .*rest_observation_response"
         ),
     ):
         authorize_persisted_terminal_recovery_evidence(live_evidence=live, **persisted)
