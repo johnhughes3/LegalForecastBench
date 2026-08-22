@@ -156,19 +156,22 @@ def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
     assert "Use the benchmark packet." in body["messages"][0]["content"]
 
 
-def test_sonnet_5_omits_sampling_controls_but_preserves_registry_policy() -> None:
+@pytest.mark.parametrize("model_id", ("claude-sonnet-5", "claude-opus-4-8"))
+def test_anthropic_thinking_models_omit_sampling_controls_but_preserve_registry_policy(
+    model_id: str,
+) -> None:
     transport = _FixtureTransport(
         {
-            "model": "claude-sonnet-5",
-            "content": [{"type": "text", "text": '{"sonnet_5":true}'}],
+            "model": model_id,
+            "content": [{"type": "text", "text": '{"thinking_model":true}'}],
             "usage": {"input_tokens": 200, "output_tokens": 40},
         }
     )
     solver = LiveModelSolver(
         registry_entry=_registry_entry(
             "anthropic",
-            "claude-sonnet-5",
-            model_version_or_snapshot="claude-sonnet-5",
+            model_id,
+            model_version_or_snapshot=model_id,
         ),
         model_registry_sha256="cycle-1-registry-sha256",
         transport=transport,
@@ -181,12 +184,14 @@ def test_sonnet_5_omits_sampling_controls_but_preserves_registry_policy() -> Non
     assert "temperature" not in body
     assert "top_p" not in body
     assert "top_k" not in body
+    assert body["tools"] == []
     assert response.metadata is not None
     assert "temperature" not in response.metadata
     assert "top_p" not in response.metadata
     assert response.metadata["registry_temperature"] == "0"
     assert response.metadata["registry_top_p"] == "1"
     assert response.metadata["provider_sampling_policy"] == "provider_default"
+    assert response.metadata["served_model_version"] == model_id
     assert response.metadata["model_registry_sha256"] == "cycle-1-registry-sha256"
 
 
