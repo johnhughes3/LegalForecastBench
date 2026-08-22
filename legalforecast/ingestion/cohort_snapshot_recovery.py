@@ -518,6 +518,7 @@ def _require_named_identity(
         )
 
 
+# contract-ratchet: allow descriptor-bound raw-byte immutability check, not a codec
 def _sha256_fd_stable(descriptor: int, *, label: str) -> str:
     return hashlib.sha256(_read_fd_stable(descriptor, label=label)).hexdigest()
 
