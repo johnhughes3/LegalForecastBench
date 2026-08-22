@@ -3,6 +3,15 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+from legalforecast.ingestion.courtlistener_recap_fetch import (
+    CourtListenerRecapFetchError,
+    DirectCourtListenerRecapFetchConfig,
+)
+from legalforecast.ingestion.infisical_systemd_launcher import (
+    _ALLOWED_SANDBOX_PATHS,
+)
+
 ROOT = Path(__file__).parents[1]
 
 REQUIRED_LOOP = (
@@ -66,6 +75,28 @@ def _stage_key_arrays(docs: str, path: str) -> tuple[tuple[str, ...], tuple[str,
         tuple(match.group("required").split()),
         tuple(match.group("forbidden").split()),
     )
+
+
+def _provider_layout_rows(
+    docs: str,
+) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
+    table = docs.split(
+        "| Source role | Exact path | Exact names | Checked-in consumers |", 1
+    )[1]
+    rows = []
+    for match in re.finditer(
+        r"^\| (?P<role>[^|]+) \| `(?P<path>[^`]+)` \| (?P<names>[^|]+) \|",
+        table,
+        flags=re.MULTILINE,
+    ):
+        rows.append(
+            (
+                match.group("role"),
+                match.group("path"),
+                tuple(re.findall(r"`([A-Z0-9_]+)`", match.group("names"))),
+            )
+        )
+    return tuple(rows)
 
 
 def test_acquisition_systemd_docs_require_status_and_receipt_gates() -> None:
@@ -141,7 +172,7 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
             FORBIDDEN_LOOP,
         ),
         (
-            ("COURTLISTENER_API_TOKEN",),
+            ("COURTLISTENER_API_TOKEN", "PACER_USERNAME", "PACER_PASSWORD"),
             acquisition_forbidden,
             REQUIRED_LOOP,
             FORBIDDEN_LOOP,
@@ -222,7 +253,11 @@ def test_acquisition_systemd_docs_make_direct_target100_purchase_canonical() -> 
 
     assert "canonical checked-in target-100 path" in docs
     assert "`--direct-courtlistener-purchase`" in docs
-    assert "Direct recovery requires only `COURTLISTENER_API_TOKEN`" in docs
+    assert (
+        "Direct unknown-outcome recovery uses the same three direct-purchase "
+        "credentials" in docs
+    )
+    assert "token-only" not in docs
     assert "optional broker transport" in docs
     assert "does not weaken or replace" in docs
     assert "transport-specific preflights are not exact-inventory" in docs
@@ -268,6 +303,84 @@ def test_acquisition_systemd_docs_require_exact_recap_fetch_client_view() -> Non
     assert 'print -- "$name=present"' in launcher_view
     assert "purchase-missing-recap-fetch" in runbook_view
     assert "must not use dependent references or folder imports" in runbook_view
+
+
+def test_acquisition_systemd_docs_record_source_owned_provider_layout() -> None:
+    docs = (ROOT / "docs" / "acquisition-systemd-launcher.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "## Provider-placement reconciliation" in docs
+    assert "viewSecretValue=false" in docs
+    expected_rows = (
+        (
+            "Acquisition stage",
+            "/agents/sandbox/legalforecastbench/acquisition",
+            (
+                "ANTHROPIC_API_KEY",
+                "CASE_DEV_API_KEY",
+                "COURTLISTENER_API_TOKEN",
+                "FIRECRAWL_API_KEY",
+                "GEMINI_API_KEY",
+                "MISTRAL_API_KEY",
+                "OPENAI_API_KEY",
+                "PACER_PASSWORD",
+                "PACER_USERNAME",
+            ),
+        ),
+        (
+            "Parser view",
+            "/agents/sandbox/legalforecastbench/parser",
+            ("MISTRAL_API_KEY",),
+        ),
+        (
+            "Labeling view",
+            "/agents/sandbox/legalforecastbench/labeling",
+            ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY"),
+        ),
+        (
+            "Optional broker-client view",
+            "/agents/sandbox/legalforecastbench/recap-fetch-broker-client",
+            (
+                "RECAP_FETCH_BROKER_URL",
+                "RECAP_FETCH_BROKER_MACHINE_ID",
+                "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK",
+                "RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON",
+                "RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256",
+            ),
+        ),
+    )
+    assert _provider_layout_rows(docs) == expected_rows
+    assert set(_ALLOWED_SANDBOX_PATHS) == {row[1] for row in expected_rows}
+    assert "/agents/sandbox/legalforecastbench-acquisition" not in docs
+    assert "/agents/sandbox/legalforecastbench/acquisition/case-dev" not in docs
+    assert "/agents/sandbox/legalforecastbench/acquisition/courtlistener" not in docs
+    assert "/agents/sandbox/legalforecastbench/acquisition/firecrawl" not in docs
+    assert "provider-reconciliation blocker" not in docs
+    assert "token-only" not in docs
+    assert "MISTRAL_API_KEY" in docs
+    assert "OPENAI_API_KEY" in docs
+    assert "ANTHROPIC_API_KEY" in docs
+    assert "GEMINI_API_KEY" in docs
+    assert "create, move, copy, rotate, or delete" in docs
+    assert not re.search(r"(?:secret_value|secretValue)\s*[:=]", docs)
+
+
+def test_direct_purchase_runtime_requires_token_and_both_pacer_credentials() -> None:
+    with pytest.raises(
+        CourtListenerRecapFetchError,
+        match="PACER_USERNAME, PACER_PASSWORD",
+    ):
+        DirectCourtListenerRecapFetchConfig.from_env(
+            {"COURTLISTENER_API_TOKEN": "token"}
+        )
+    with pytest.raises(CourtListenerRecapFetchError, match="PACER_PASSWORD"):
+        DirectCourtListenerRecapFetchConfig.from_env(
+            {
+                "COURTLISTENER_API_TOKEN": "token",
+                "PACER_USERNAME": "user",
+            }
+        )
 
 
 def test_recap_fetch_transient_unit_is_isolated_and_inspected_before_cleanup() -> None:
