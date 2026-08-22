@@ -9,7 +9,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from enum import StrEnum
@@ -454,12 +454,23 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             if config.backend is PerCaseExecutionBackend.FIXTURE:
                 _require_committed_prompt(samples, packet_object=packet_object)
             samples = _repeat_samples(samples, repeat_count=config.repeat_count)
+
+            def observe_openai_service_tier(request: Any, tier: str) -> None:
+                sample = request.sample
+                log(
+                    "openai_service_tier_observed",
+                    sample_id=sample.sample_id,
+                    repeat_index=_sample_repeat_index(sample.sample_id),
+                    observed_service_tier=tier,
+                )
+
             solver = _solver_for_config(
                 config,
                 registry_entry=registry_entry,
                 model_registry_sha256=model_registry_sha256,
                 cycle_id=cycle_id,
                 verified_execution_policy=verified_execution_policy,
+                openai_service_tier_observer=observe_openai_service_tier,
             )
             run = run_inspect_fixture(
                 samples,
@@ -1719,6 +1730,7 @@ def _solver_for_config(
     model_registry_sha256: str | None,
     cycle_id: str | None,
     verified_execution_policy: _VerifiedExecutionPolicy | None = None,
+    openai_service_tier_observer: Callable[[Any, str], None] | None = None,
 ) -> Any:
     if config.backend is PerCaseExecutionBackend.FIXTURE:
         if registry_entry is None:
@@ -1824,6 +1836,7 @@ def _solver_for_config(
         timeout_seconds=config.timeout_seconds,
         max_attempts=frozen_attempt_policy.max_billable_attempts,
         attempt_handler_factory=attempt_handler_factory,
+        openai_service_tier_observer=openai_service_tier_observer,
     )
 
 

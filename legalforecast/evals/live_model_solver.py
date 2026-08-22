@@ -137,6 +137,7 @@ class ProviderAttemptHandler(Protocol):
 
 
 ProviderAttemptHandlerFactory = Callable[[HarnessRequest], ProviderAttemptHandler]
+OpenAIServiceTierObserver = Callable[[HarnessRequest, str], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +152,7 @@ class LiveModelSolver:
     max_attempts: int = DEFAULT_MAX_ATTEMPTS
     retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS
     attempt_handler_factory: ProviderAttemptHandlerFactory | None = None
+    openai_service_tier_observer: OpenAIServiceTierObserver | None = None
 
     def __post_init__(self) -> None:
         if not self.registry_entry.network_disabled:
@@ -195,6 +197,7 @@ class LiveModelSolver:
             if self.attempt_handler_factory is not None
             else None
         )
+        tier_observer = self.openai_service_tier_observer
         return complete_live_prompt(
             self.registry_entry,
             prompt,
@@ -205,6 +208,11 @@ class LiveModelSolver:
             max_attempts=self.max_attempts,
             retry_backoff_seconds=self.retry_backoff_seconds,
             attempt_handler=attempt_handler,
+            openai_service_tier_observer=(
+                None
+                if tier_observer is None
+                else lambda tier: tier_observer(request, tier)
+            ),
         )
 
     def _transport(
@@ -228,6 +236,7 @@ def complete_live_prompt(
     retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
     attempt_handler: ProviderAttemptHandler | None = None,
     response_json_schema: Mapping[str, object] | None = None,
+    openai_service_tier_observer: Callable[[str], None] | None = None,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
 
@@ -316,6 +325,8 @@ def complete_live_prompt(
             actual_cost_usd=estimated_cost,
             raw_output=raw_output,
         )
+    if openai_service_tier_observer is not None and _is_openai_provider(registry_entry):
+        openai_service_tier_observer(_observed_openai_service_tier(payload))
     return SolverResponse(
         raw_output=raw_output,
         request_count=request_count,
@@ -335,7 +346,6 @@ def complete_live_prompt(
             **_sampling_policy_metadata(registry_entry),
             **_openai_service_tier_metadata(
                 registry_entry,
-                payload=payload,
                 used_tier=used_tier,
                 fell_back=fell_back,
             ),
@@ -664,7 +674,6 @@ def _effective_timeout_seconds(
 def _openai_service_tier_metadata(
     entry: ModelRegistryEntry,
     *,
-    payload: JsonRecord | None = None,
     used_tier: str | None = None,
     fell_back: bool = False,
 ) -> dict[str, str]:
@@ -673,7 +682,6 @@ def _openai_service_tier_metadata(
     metadata = {
         "service_tier": used_tier or OPENAI_SERVICE_TIER,
         "requested_service_tier": OPENAI_SERVICE_TIER,
-        "observed_service_tier": _observed_openai_service_tier(payload),
     }
     if fell_back:
         metadata["service_tier_fallback"] = "flex_unavailable"

@@ -31,6 +31,7 @@ from legalforecast.evals.tools import ControlledDocketEntry, ControlledDocketToo
 
 
 def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
+    observed_tiers: list[str] = []
     transport = _FixtureTransport(
         {
             "model": "gpt-test-2026-05-14",
@@ -43,6 +44,7 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
         registry_entry=_registry_entry("openai", "gpt-test"),
         transport=transport,
         environ={"OPENAI_API_KEY": "openai-secret"},
+        openai_service_tier_observer=lambda _request, tier: observed_tiers.append(tier),
     )
 
     request = _request("Predict the case outcome.")
@@ -68,7 +70,8 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert response.metadata["temperature"] == "0"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
-    assert response.metadata["observed_service_tier"] == OPENAI_SERVICE_TIER
+    assert "observed_service_tier" not in response.metadata
+    assert observed_tiers == [OPENAI_SERVICE_TIER]
     assert "service_tier_fallback" not in response.metadata
     assert response.metadata["execution_backend"] == "inspect_ai"
     assert response.metadata["model_registry_sha256"] == "unrecorded"
@@ -809,7 +812,7 @@ def test_solver_retries_transient_provider_failures_without_leaving_flex() -> No
     assert response.metadata is not None
     assert response.metadata["provider_attempt_count"] == "2"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
-    assert response.metadata["observed_service_tier"] == OPENAI_SERVICE_TIER
+    assert "observed_service_tier" not in response.metadata
     assert "service_tier_fallback" not in response.metadata
     assert [_json_body(item)["service_tier"] for item in transport.requests] == [
         OPENAI_SERVICE_TIER,
@@ -826,6 +829,7 @@ def test_solver_retries_transient_provider_failures_without_leaving_flex() -> No
 def test_openai_flex_falls_back_to_standard_on_capacity_errors(
     status_code: int,
 ) -> None:
+    observed_tiers: list[str] = []
     transport = _RetryTransport(
         (
             LiveModelProviderError(
@@ -845,6 +849,7 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
         transport=transport,
         environ={"OPENAI_API_KEY": "openai-secret"},
         retry_backoff_seconds=0,
+        openai_service_tier_observer=lambda _request, tier: observed_tiers.append(tier),
     )
 
     response = solver.solve(_request("prompt"))
@@ -853,7 +858,8 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
     assert response.metadata is not None
     assert response.metadata["service_tier"] == OPENAI_FALLBACK_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
-    assert response.metadata["observed_service_tier"] == OPENAI_FALLBACK_SERVICE_TIER
+    assert "observed_service_tier" not in response.metadata
+    assert observed_tiers == [OPENAI_FALLBACK_SERVICE_TIER]
     assert response.metadata["service_tier_fallback"] == "flex_unavailable"
     assert [_json_body(item)["service_tier"] for item in transport.requests] == [
         OPENAI_SERVICE_TIER,
