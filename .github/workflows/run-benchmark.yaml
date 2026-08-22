@@ -43,7 +43,10 @@ on:
         default: openai:gpt-5.4-mini,anthropic:claude-sonnet-4-6
         type: string
       freeze_bundle_path:
-        description: Optional committed current freeze bundle path; defaults to manifests/<cycle_id>.freeze.json.
+        description: >-
+          Current freeze bundle path. Use a committed manifests/*.freeze.json
+          path or an immutable s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json
+          bridge URI; defaults to manifests/<cycle_id>.freeze.json.
         required: false
         default: ""
         type: string
@@ -164,6 +167,7 @@ jobs:
       frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
       execution_policy_sha256: ${{ steps.dispatch.outputs.execution_policy_sha256 }}
       freeze_bundle_path: ${{ steps.validate.outputs.freeze_bundle_path }}
+      freeze_root: ${{ steps.validate.outputs.freeze_root }}
       labels_sha256: ${{ steps.freeze_labels.outputs.labels_sha256 }}
       matrix: ${{ steps.matrix.outputs.matrix }}
       max_parallel: ${{ steps.validate.outputs.max_parallel }}
@@ -276,9 +280,19 @@ jobs:
             freeze_bundle_path="manifests/${CYCLE_ID_INPUT}.freeze.json"
           fi
           case "${freeze_bundle_path}" in
-            manifests/*.freeze.json) ;;
+            manifests/*.freeze.json)
+              freeze_root="."
+              ;;
+            s3://*)
+              if [[ ! "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]]; then
+                echo "freeze_bundle_path must use the immutable manifest-run S3 prefix contract." >&2
+                exit 1
+              fi
+              freeze_bundle_path="/tmp/lfb-manifest-run/freeze.json"
+              freeze_root="/tmp/lfb-manifest-run"
+              ;;
             *)
-              echo "freeze_bundle_path must be a committed manifests/*.freeze.json path." >&2
+              echo "freeze_bundle_path must be a committed manifests/*.freeze.json path or an immutable manifest-run S3 URI." >&2
               exit 1
               ;;
           esac
@@ -363,17 +377,38 @@ jobs:
           {
             echo "artifact_retention_days=${ARTIFACT_RETENTION_DAYS_INPUT}"
             echo "freeze_bundle_path=${freeze_bundle_path}"
+            echo "freeze_root=${freeze_root}"
             echo "max_parallel=${MAX_PARALLEL_INPUT}"
             echo "release_sha=${release_sha}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Configure AWS OIDC credentials
-        if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.model_registry_uri, 'manifests/') || startsWith(inputs.labels_uri, 's3://') || startsWith(inputs.labels_uri, 'manifests/') }}
+        if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.model_registry_uri, 'manifests/') || startsWith(inputs.labels_uri, 's3://') || startsWith(inputs.labels_uri, 'manifests/') || startsWith(inputs.freeze_bundle_path, 's3://') }}
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-official-matrix-${{ github.run_id }}
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+
+      - name: Download immutable manifest-run bundle
+        if: ${{ startsWith(inputs.freeze_bundle_path, 's3://') }}
+        shell: bash
+        env:
+          FREEZE_BUNDLE_URI: ${{ inputs.freeze_bundle_path }}
+        run: |
+          set -euo pipefail
+          root="/tmp/lfb-manifest-run"
+          rm -rf "${root}"
+          mkdir -p "${root}"
+          location="${FREEZE_BUNDLE_URI#s3://}"
+          bucket="${location%%/*}"
+          key="${location#*/}"
+          prefix="${key%/freeze.json}"
+          aws s3 sync "s3://${bucket}/${prefix}/" "${root}/" --only-show-errors
+          [[ -f "${root}/freeze.json" ]] || {
+            echo "manifest-run S3 prefix did not contain freeze.json" >&2
+            exit 1
+          }
 
       - name: Download run-input manifest
         shell: bash
@@ -554,6 +589,7 @@ jobs:
         env:
           CYCLE_ID: ${{ inputs.cycle_id }}
           FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
+          FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
           LABELS_PATH: /tmp/lfb-labels.jsonl
           MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
         run: |
@@ -563,15 +599,17 @@ jobs:
             exit 1
           fi
           amendment_args=()
-          while IFS= read -r bundle_path; do
-            if [[ "${bundle_path}" != "${FREEZE_COMMITMENT_PATH}" ]]; then
-              amendment_args+=(--amendment-bundle "${bundle_path}")
-            fi
-          done < <(find manifests -type f -name '*.freeze.json' -print | sort)
+          if [[ "${FREEZE_ROOT}" == "." ]]; then
+            while IFS= read -r bundle_path; do
+              if [[ "${bundle_path}" != "${FREEZE_COMMITMENT_PATH}" ]]; then
+                amendment_args+=(--amendment-bundle "${bundle_path}")
+              fi
+            done < <(find manifests -type f -name '*.freeze.json' -print | sort)
+          fi
           python -m legalforecast.protocol.freeze verify \
             --bundle "${FREEZE_COMMITMENT_PATH}" \
             --cycle-id "${CYCLE_ID}" \
-            --root "." \
+            --root "${FREEZE_ROOT}" \
             --artifact-path "labels=${LABELS_PATH}" \
             --artifact-path "model_registry=${MODEL_REGISTRY_PATH}" \
             "${amendment_args[@]}"
@@ -584,6 +622,7 @@ jobs:
           CONCURRENCY_GROUP: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
+          FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
           MODEL_KEYS: ${{ inputs.model_keys }}
           MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
           PRIOR_DISPATCHES_JSON: ${{ inputs.prior_dispatches_json }}
@@ -596,10 +635,14 @@ jobs:
           WORKFLOW_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
-          candidate_args=()
-          while IFS= read -r bundle_path; do
-            candidate_args+=(--candidate-freeze-bundle "${bundle_path}")
-          done < <(find manifests -type f -name '*.freeze.json' -print | sort)
+          candidate_args=(--candidate-freeze-bundle "${FREEZE_COMMITMENT_PATH}")
+          if [[ "${FREEZE_ROOT}" == "." ]]; then
+            while IFS= read -r bundle_path; do
+              if [[ "${bundle_path}" != "${FREEZE_COMMITMENT_PATH}" ]]; then
+                candidate_args+=(--candidate-freeze-bundle "${bundle_path}")
+              fi
+            done < <(find manifests -type f -name '*.freeze.json' -print | sort)
+          fi
           model_key_args=()
           IFS=',' read -ra requested_provider_keys <<< "${MODEL_KEYS}"
           for raw_key in "${requested_provider_keys[@]}"; do
@@ -628,7 +671,7 @@ jobs:
           python -m legalforecast.publication.dispatch_provenance \
             --current-freeze-bundle "${FREEZE_COMMITMENT_PATH}" \
             "${candidate_args[@]}" \
-            --root . \
+            --root "${FREEZE_ROOT}" \
             --current-model-registry "${MODEL_REGISTRY_PATH}" \
             --prior-dispatches-json "${PRIOR_DISPATCHES_JSON}" \
             --workflow-run-id "${WORKFLOW_RUN_ID}" \
@@ -659,6 +702,8 @@ jobs:
           if len(paths) != 1:
               raise SystemExit("freeze must declare exactly one execution_policy artifact")
           source = Path(paths[0])
+          if not source.is_absolute():
+              source = Path(os.environ["FREEZE_ROOT"]) / source
           target = Path("/tmp/lfb-execution-policy.json")
           target.write_bytes(source.read_bytes())
           release_provenance = {

@@ -22,6 +22,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol, cast
 
+from legalforecast.publication.manifest_forecast_stage import (
+    add_manifest_forecast_stage_arguments,
+    run_manifest_forecast_stage,
+)
+
 
 class _FreezeCommand(Protocol):
     def __call__(
@@ -183,6 +188,20 @@ def register(
         help="Directory receiving the packet store, run inputs, and run record.",
     )
     build.set_defaults(handler=run_build)
+
+    stage = subparsers.add_parser(
+        "stage-manifest-forecast",
+        help="Stage manifest-mode forecast inputs into immutable S3 prefixes.",
+        description=(
+            "Authenticate the manifest forecast output and the complete frozen "
+            "artifact bundle, then write them under the immutable "
+            "cycle-1/manifest-runs/<manifest-digest>/ prefix. No provider call "
+            "is made. Existing S3 objects are accepted only when their bytes "
+            "match the same commitments."
+        ),
+    )
+    add_manifest_forecast_stage_arguments(stage)
+    stage.set_defaults(handler=run_manifest_forecast_stage)
 
 
 def run_freeze(args: argparse.Namespace) -> int:
