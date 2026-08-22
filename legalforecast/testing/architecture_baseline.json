@@ -4247,7 +4247,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "contracts",
-        "fan_in": 21,
+        "fan_in": 22,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -4256,8 +4256,8 @@
         "largest_symbol": "SchemaIdentifier",
         "largest_symbol_lines": 13,
         "layer": "domain",
-        "line_count": 541,
-        "nonblank_line_count": 530,
+        "line_count": 542,
+        "nonblank_line_count": 531,
         "top_level_definition_count": 1
       },
       "legalforecast/document_need/cycle_config.py": {
@@ -7928,7 +7928,7 @@
         "disposition_kind": "watch",
         "disposition_owner": "protocol",
         "fan_in": 9,
-        "fan_out": 2,
+        "fan_out": 3,
         "flags": [
           "watch"
         ],
@@ -7936,8 +7936,8 @@
         "largest_symbol": "_validated_execution_policy",
         "largest_symbol_lines": 250,
         "layer": "domain",
-        "line_count": 846,
-        "nonblank_line_count": 733,
+        "line_count": 847,
+        "nonblank_line_count": 734,
         "top_level_definition_count": 41
       },
       "legalforecast/publication/accounting.py": {
