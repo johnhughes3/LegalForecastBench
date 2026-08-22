@@ -242,12 +242,14 @@ def test_packet_builder_mounts_candidate_shaped_claim_pleadings() -> None:
         )
         for document in documents
     )
+    target_docket_entry_numbers = (30,)
 
     full_packet = build_model_packet(
         case_packet=case_packet,
         prediction_units=(_unit(),),
         texts=texts,
         ablation=PacketAblation.FULL_PACKET,
+        target_docket_entry_numbers=target_docket_entry_numbers,
     )
     assert {document.source_document_id for document in full_packet.documents} == {
         f"{candidate_id}-complaint",
@@ -271,6 +273,7 @@ def test_packet_builder_mounts_candidate_shaped_claim_pleadings() -> None:
         prediction_units=(_unit(),),
         texts=texts,
         ablation=PacketAblation.METADATA_ONLY,
+        target_docket_entry_numbers=target_docket_entry_numbers,
     )
     assert metadata_only.documents == ()
     assert metadata_only.excluded_document_ids == tuple(
