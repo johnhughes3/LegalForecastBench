@@ -60,12 +60,9 @@ class _FreezeInputsBuild(Protocol):
     run_card: dict[str, object]
 
 
-class _IssueFreezeInputsCommand(Protocol):
-    def __call__(self, **kwargs: Any) -> _FreezeInputsBuild: ...
-
-
-class _VerifyFreezeInputsCommand(Protocol):
-    def __call__(self, **kwargs: Any) -> _FreezeInputsBuild: ...
+class _FreezeInputsCommand(Protocol):
+    def __call__(self, **kwargs: Any) -> _FreezeInputsBuild:
+        raise NotImplementedError
 
 
 _FREEZE = importlib.metadata.EntryPoint(
@@ -252,6 +249,7 @@ def register(
     issue_inputs.add_argument("--release-sha", required=True)
     issue_inputs.add_argument("--repository-root", type=Path, required=True)
     issue_inputs.add_argument("--owner-manifest", type=Path, required=True)
+    issue_inputs.add_argument("--model-registry", type=Path, required=True)
     issue_inputs.add_argument("--forecast-output-dir", type=Path, required=True)
     issue_inputs.add_argument("--screened-pool", type=Path, required=True)
     issue_inputs.add_argument("--historical-exclusion-ledger", type=Path, required=True)
@@ -334,12 +332,13 @@ def run_build(args: argparse.Namespace) -> int:
 def run_issue_freeze_inputs(args: argparse.Namespace) -> int:
     """Issue the six generic freeze inputs without provider activity."""
 
-    issue = cast(_IssueFreezeInputsCommand, _ISSUE_FREEZE_INPUTS.load())
+    issue = cast(_FreezeInputsCommand, _ISSUE_FREEZE_INPUTS.load())
     build = issue(
         cycle_id=cast(str, args.cycle_id),
         release_sha=cast(str, args.release_sha),
         repository_root=cast(Path, args.repository_root),
         owner_manifest=cast(Path, args.owner_manifest),
+        model_registry=cast(Path, args.model_registry),
         forecast_output_dir=cast(Path, args.forecast_output_dir),
         screened_pool=cast(Path, args.screened_pool),
         historical_exclusion_ledger=cast(Path, args.historical_exclusion_ledger),
@@ -359,7 +358,7 @@ def run_issue_freeze_inputs(args: argparse.Namespace) -> int:
 def run_verify_freeze_inputs(args: argparse.Namespace) -> int:
     """Replay one completed generic freeze-input issuance."""
 
-    verify = cast(_VerifyFreezeInputsCommand, _VERIFY_FREEZE_INPUTS.load())
+    verify = cast(_FreezeInputsCommand, _VERIFY_FREEZE_INPUTS.load())
     build = verify(
         output_root=cast(Path, args.output_root),
         legacy_historical_authenticator=_HISTORICAL_EXCLUSION_AUTHENTICATOR.load(),

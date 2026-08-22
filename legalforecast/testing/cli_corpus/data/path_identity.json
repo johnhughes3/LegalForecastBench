@@ -189,6 +189,19 @@
         "legalforecast/ingestion/screening_union_policy_rebind.py",
         "legalforecast/ingestion/strict_screen_evidence.py"
       ]
+    },
+    {
+      "file": "tests/test_manifest_freeze_inputs.py",
+      "kind": "source-paths",
+      "name": "_RUNTIME_PATHS",
+      "paths": [
+        "legalforecast/cli.py",
+        "legalforecast/evals/corpus_manifest/forecast_entry.py",
+        "legalforecast/evals/inspect_task.py",
+        "legalforecast/evals/per_case_runner.py",
+        "legalforecast/evals/live_model_solver.py",
+        "legalforecast/publication/official_aggregate.py"
+      ]
     }
   ],
   "dynamic_imports": {
@@ -322,6 +335,7 @@
     "tests/test_llm_label_provider_shards.py",
     "tests/test_local_cli_adapter_manifest.py",
     "tests/test_local_cli_contracts.py",
+    "tests/test_manifest_freeze_inputs.py",
     "tests/test_manifest_unitizer_inputs.py",
     "tests/test_methods_preprint.py",
     "tests/test_metric_propagation.py",
@@ -413,6 +427,14 @@
     "legalforecast/contracts/ratchet.py": [
       "legalforecast/contracts/ratchet.py",
       "legalforecast/contracts/schemas.py"
+    ],
+    "legalforecast/evals/corpus_manifest/freeze_inputs.py": [
+      "legalforecast/cli.py",
+      "legalforecast/evals/corpus_manifest/forecast_entry.py",
+      "legalforecast/evals/inspect_task.py",
+      "legalforecast/evals/live_model_solver.py",
+      "legalforecast/evals/per_case_runner.py",
+      "legalforecast/publication/official_aggregate.py"
     ],
     "legalforecast/ingestion/firecrawl_screening_identity.py": [
       "legalforecast/cli.py",
@@ -565,6 +587,14 @@
     ],
     "tests/test_local_cli_adapter_manifest.py": [
       "legalforecast/cli.py"
+    ],
+    "tests/test_manifest_freeze_inputs.py": [
+      "legalforecast/cli.py",
+      "legalforecast/evals/corpus_manifest/forecast_entry.py",
+      "legalforecast/evals/inspect_task.py",
+      "legalforecast/evals/live_model_solver.py",
+      "legalforecast/evals/per_case_runner.py",
+      "legalforecast/publication/official_aggregate.py"
     ],
     "tests/test_rest_observation_policy_rebind.py": [
       "legalforecast/ingestion/courtlistener_acquisition.py"

@@ -10142,6 +10142,19 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "model_registry",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model-registry"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "forecast_output_dir",
           "metavar": null,
           "nargs": null,

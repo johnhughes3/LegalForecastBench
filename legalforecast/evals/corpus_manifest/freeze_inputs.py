@@ -33,11 +33,21 @@ from legalforecast.contracts.schemas import (
 from legalforecast.evals.corpus_manifest.forecast_entry import (
     _case_packet,
     _model_packet,
-    _prediction_units,
-    _verified_case_texts,
+    _prediction_units_from_bytes,
+    _require_release_anchor,
+    _verified_case_texts_from_bytes,
 )
-from legalforecast.evals.corpus_manifest.schema import load_signed_manifest
+from legalforecast.evals.corpus_manifest.freeze_input_surfaces import (
+    snapshot_verified_artifacts,
+)
+from legalforecast.evals.corpus_manifest.records import registry_record
+from legalforecast.evals.corpus_manifest.schema import load_signed_manifest_bytes
 from legalforecast.evals.inspect_task import render_model_prompt
+from legalforecast.evals.model_registry import (
+    earliest_eligible_decision_date,
+    load_model_registry_bytes,
+    require_official_registry_entries,
+)
 from legalforecast.evals.per_case_runner import _model_packet_from_record
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_v3.cli import (
@@ -69,6 +79,7 @@ _RUNTIME_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
     ),
     "scorer": ("legalforecast/publication/official_aggregate.py",),
     "harness": (
+        "legalforecast/cli.py",
         "legalforecast/evals/per_case_runner.py",
         "legalforecast/evals/live_model_solver.py",
         ".github/workflows/run-benchmark.yaml",
@@ -77,7 +88,7 @@ _RUNTIME_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
 }
 
 HistoricalExclusionAuthenticator = Callable[
-    [Path, Path, Path], Sequence[Mapping[str, Any]]
+    [Path, Path, Path, bytes, bytes, bytes], Sequence[Mapping[str, Any]]
 ]
 V2Authenticator = Callable[[Path], Mapping[str, Any]]
 V3Authenticator = Callable[[Path], Mapping[str, Any]]
@@ -99,6 +110,7 @@ class ManifestFreezeInputsRequest:
     release_sha: str
     repository_root: Path
     owner_manifest: Path
+    model_registry: Path
     forecast_output_dir: Path
     screened_pool: Path
     historical_exclusion_ledger: Path
@@ -133,6 +145,7 @@ def issue_manifest_freeze_inputs_command(
     release_sha: str,
     repository_root: Path,
     owner_manifest: Path,
+    model_registry: Path,
     forecast_output_dir: Path,
     screened_pool: Path,
     historical_exclusion_ledger: Path,
@@ -159,6 +172,7 @@ def issue_manifest_freeze_inputs_command(
             release_sha=release_sha,
             repository_root=repository_root,
             owner_manifest=owner_manifest,
+            model_registry=model_registry,
             forecast_output_dir=forecast_output_dir,
             screened_pool=screened_pool,
             historical_exclusion_ledger=historical_exclusion_ledger,
@@ -249,6 +263,7 @@ def verify_manifest_freeze_inputs(
         release_sha=_required_str(card, "release_sha"),
         repository_root=Path(_required_str(inputs, "repository_root")),
         owner_manifest=Path(_required_str(inputs, "owner_manifest")),
+        model_registry=Path(_required_str(inputs, "model_registry")),
         forecast_output_dir=Path(_required_str(inputs, "forecast_output_dir")),
         screened_pool=Path(_required_str(inputs, "screened_pool")),
         historical_exclusion_ledger=Path(
@@ -408,10 +423,14 @@ def _prompt_replay(
     run_record_bytes = _snapshot(run_record_path, snapshots, "manifest run record")
     run_inputs_bytes = _snapshot(run_inputs_path, snapshots, "run-inputs manifest")
     manifest_bytes = _snapshot(request.owner_manifest, snapshots, "owner manifest")
+    registry_bytes = _snapshot(request.model_registry, snapshots, "model registry")
     run_record = _json_object(run_record_bytes, run_record_path)
     run_inputs = _json_object(run_inputs_bytes, run_inputs_path)
     digest = _required_sha(run_record, "manifest_sha256")
-    manifest = load_signed_manifest(request.owner_manifest, expected_digest=digest)
+    manifest = load_signed_manifest_bytes(manifest_bytes, expected_digest=digest)
+    registry = load_model_registry_bytes(registry_bytes)
+    entries = require_official_registry_entries(registry.entries)
+    release_anchor = earliest_eligible_decision_date(entries)
     if (
         manifest.cycle_id != request.cycle_id
         or run_inputs.get("cycle_id") != request.cycle_id
@@ -423,6 +442,7 @@ def _prompt_replay(
     expected_approval = (
         f"I approve corpus manifest {digest} as the frozen Cycle 1 forecast corpus."
     )
+    bead_id = _required_str(signature, "bead_id")
     if _required_str(signature, "approval_line") != expected_approval:
         raise ManifestFreezeInputsError("owner manifest approval line is not verbatim")
     if (
@@ -438,6 +458,16 @@ def _prompt_replay(
         raise ManifestFreezeInputsError(
             "manifest run record is not the 100x2 no-tool build"
         )
+    if (
+        run_record.get("evaluation_models") != registry_record(entries)
+        or run_record.get("evaluation_release_anchor") != release_anchor.isoformat()
+        or run_record.get("prediction_units_source")
+        != manifest.prediction_units_source.to_record()
+        or run_record.get("selection_source") != manifest.selection_source.to_record()
+    ):
+        raise ManifestFreezeInputsError(
+            "manifest run record differs from authenticated registry or sources"
+        )
     generated_at_text = _required_str(run_record, "generated_at")
     if run_inputs.get("generated_at") != generated_at_text:
         raise ManifestFreezeInputsError("run-inputs generated_at differs")
@@ -449,22 +479,24 @@ def _prompt_replay(
         raise ManifestFreezeInputsError("manifest run generated_at lacks timezone")
 
     units_path = Path(manifest.prediction_units_source.path)
-    _snapshot(units_path, snapshots, "manifest prediction units")
-    units = _prediction_units(manifest)
+    units_bytes = _snapshot(units_path, snapshots, "manifest prediction units")
+    units = _prediction_units_from_bytes(manifest, units_bytes)
     cases = {case.candidate_id: case for case in manifest.cases}
     case_inputs: dict[str, tuple[Mapping[str, str], Any]] = {}
     for case in manifest.cases:
+        _require_release_anchor(case, release_anchor=release_anchor)
+        document_bytes: dict[str, bytes] = {}
         for document in case.model_visible_documents:
             if document.markdown_path is None:
                 raise ManifestFreezeInputsError(
                     f"{case.candidate_id}: visible document lacks markdown path"
                 )
-            _snapshot(
+            document_bytes[document.source_document_id] = _snapshot(
                 Path(document.markdown_path),
                 snapshots,
                 f"manifest markdown {case.candidate_id}/{document.source_document_id}",
             )
-        texts = _verified_case_texts(case)
+        texts = _verified_case_texts_from_bytes(case, document_bytes)
         case_inputs[case.candidate_id] = (
             texts,
             _case_packet(case, texts=texts, generated_at=generated_at),
@@ -552,6 +584,13 @@ def _prompt_replay(
         {
             "manifest_sha256": digest,
             "owner_manifest_bytes_sha256": _sha(manifest_bytes),
+            "model_registry_sha256": _sha(registry_bytes),
+            "owner_signature_reference": {
+                "approval_line": expected_approval,
+                "bead_id": bead_id,
+            },
+            "evaluation_models": registry_record(entries),
+            "evaluation_release_anchor": release_anchor.isoformat(),
             "run_inputs_sha256": _sha(run_inputs_bytes),
             "run_record_sha256": _sha(run_record_bytes),
             "packet_count": 200,
@@ -574,17 +613,14 @@ def _exclusion_payload(
     screened_bytes = _snapshot(request.screened_pool, snapshots, "screened pool")
     screened_rows = _jsonl(screened_bytes, request.screened_pool)
     screened_ids = frozenset(_screened_candidate_id(row) for row in screened_rows)
-    if len(screened_ids) != 153 or len(selected_ids & screened_ids) != 96:
+    if (
+        len(screened_rows) != 153
+        or len(screened_ids) != 153
+        or len(selected_ids & screened_ids) != 96
+    ):
         raise ManifestFreezeInputsError(
             "Cycle 1 screened/selected partition must be 153 and 96"
         )
-    historical = tuple(
-        authenticate_historical(
-            request.historical_exclusion_run_card,
-            request.historical_exclusion_ledger,
-            request.screened_pool,
-        )
-    )
     historical_card_bytes = _snapshot(
         request.historical_exclusion_run_card,
         snapshots,
@@ -595,14 +631,35 @@ def _exclusion_payload(
         snapshots,
         "historical exclusion ledger",
     )
+    if not historical_card_bytes:
+        raise ManifestFreezeInputsError("historical exclusion run card is empty")
+    historical = tuple(
+        authenticate_historical(
+            request.historical_exclusion_run_card,
+            request.historical_exclusion_ledger,
+            request.screened_pool,
+            historical_card_bytes,
+            historical_ledger_bytes,
+            screened_bytes,
+        )
+    )
+    _snapshot(
+        request.historical_exclusion_run_card,
+        snapshots,
+        "historical exclusion run card",
+    )
+    _snapshot(
+        request.historical_exclusion_ledger,
+        snapshots,
+        "historical exclusion ledger",
+    )
+    _snapshot(request.screened_pool, snapshots, "screened pool")
     if tuple(_jsonl(historical_ledger_bytes, request.historical_exclusion_ledger)) != (
         historical
     ):
         raise ManifestFreezeInputsError(
             "historical exclusion bytes differ from authenticated rows"
         )
-    if not historical_card_bytes:
-        raise ManifestFreezeInputsError("historical exclusion run card is empty")
     if len(historical) != 53:
         raise ManifestFreezeInputsError("historical exclusion ledger must have 53 rows")
     retained = tuple(
@@ -615,9 +672,25 @@ def _exclusion_payload(
     terminal_records: list[Mapping[str, Any]] = []
     v2 = authenticate_v2(request.v2_root)
     terminal_records.extend(_terminal_records(request.v2_root, v2, snapshots))
+    final_v3: Mapping[str, Any] | None = None
     for root in request.v3_roots:
-        terminal_records.extend(
-            _terminal_records(root, authenticate_v3(root), snapshots)
+        final_v3 = authenticate_v3(root)
+        terminal_records.extend(_terminal_records(root, final_v3, snapshots))
+    if final_v3 is None:
+        raise ManifestFreezeInputsError("final v3 successor projection is missing")
+    final_selection = _record_sequence(
+        final_v3.get("selection_records"), "final v3 selection_records"
+    )
+    final_selected_ids = tuple(
+        _required_str(row, "candidate_id") for row in final_selection
+    )
+    if (
+        len(final_selected_ids) != 100
+        or len(set(final_selected_ids)) != 100
+        or frozenset(final_selected_ids) != selected_ids
+    ):
+        raise ManifestFreezeInputsError(
+            "final v3 authenticated selection differs from signed manifest"
         )
     if len(terminal_records) != 6:
         raise ManifestFreezeInputsError("successor roots must supply six terminal rows")
@@ -657,12 +730,23 @@ def _legacy_authenticators(
     """Adapt the established CLI-facade replays without importing the facade."""
 
     def authenticate_historical(
-        run_card_path: Path, output_path: Path, screened_cases_path: Path
+        run_card_path: Path,
+        output_path: Path,
+        screened_cases_path: Path,
+        run_card_bytes: bytes,
+        output_bytes: bytes,
+        screened_cases_bytes: bytes,
     ) -> Sequence[Mapping[str, Any]]:
-        card = _json_object(
-            _read_regular(run_card_path, "historical exclusion run card"),
-            run_card_path,
-        )
+        card = _json_object(run_card_bytes, run_card_path)
+        for path, expected, label in (
+            (run_card_path, run_card_bytes, "historical exclusion run card"),
+            (output_path, output_bytes, "historical exclusion ledger"),
+            (screened_cases_path, screened_cases_bytes, "screened pool"),
+        ):
+            if _read_regular(path, label) != expected:
+                raise ManifestFreezeInputsError(
+                    f"{label} changed before authenticated replay"
+                )
         raw_inputs = _string_sequence(card.get("input_paths"), "historical inputs")
         if len(raw_inputs) < 2:
             raise ManifestFreezeInputsError(
@@ -702,17 +786,18 @@ def _terminal_records(
     snapshots: dict[Path, bytes],
 ) -> tuple[Mapping[str, Any], ...]:
     path = root / "successor-terminal-exclusions.jsonl"
-    verified = _mapping(
-        projection.get("verified_artifact_bytes"), "verified_artifact_bytes"
+    verified = snapshot_verified_artifacts(
+        root,
+        projection,
+        snapshots,
+        snapshot=_snapshot,
+        error_type=ManifestFreezeInputsError,
     )
     payload = verified.get(str(path.absolute()))
     if not isinstance(payload, bytes):
         raise ManifestFreezeInputsError(
             f"authenticated root lacks terminal bytes: {root}"
         )
-    actual = _snapshot(path, snapshots, "successor terminal exclusions")
-    if actual != payload:
-        raise ManifestFreezeInputsError(f"successor terminal bytes changed: {root}")
     return _jsonl(payload, path)
 
 
@@ -745,6 +830,7 @@ def _request_input_paths(request: ManifestFreezeInputsRequest) -> dict[str, Any]
     return {
         "repository_root": str(request.repository_root.absolute()),
         "owner_manifest": str(request.owner_manifest.absolute()),
+        "model_registry": str(request.model_registry.absolute()),
         "forecast_output_dir": str(request.forecast_output_dir.absolute()),
         "screened_pool": str(request.screened_pool.absolute()),
         "historical_exclusion_ledger": str(

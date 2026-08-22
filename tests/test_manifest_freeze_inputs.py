@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from legalforecast.evals.corpus_manifest import freeze_inputs as freeze_inputs_module
 from legalforecast.evals.corpus_manifest.commands import (
     build_manifest_forecast_command,
 )
@@ -24,19 +25,27 @@ from legalforecast.evals.corpus_manifest.freeze_inputs import (
     issue_manifest_freeze_inputs,
     verify_manifest_freeze_inputs,
 )
+from legalforecast.evals.corpus_manifest.records import registry_record
 from legalforecast.evals.corpus_manifest.schema import (
     BoundSource,
     CorpusManifest,
     ManifestCase,
     ManifestDocument,
+    load_signed_manifest_bytes,
 )
 from legalforecast.evals.inspect_task import render_model_prompt
+from legalforecast.evals.model_registry import (
+    earliest_eligible_decision_date,
+    load_model_registry_bytes,
+    require_official_registry_entries,
+)
 from legalforecast.evals.per_case_runner import _model_packet_from_record
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 
 _ROOT = Path(__file__).resolve().parents[1]
 _GENERATED_AT = datetime(2026, 8, 22, 8, 0, tzinfo=UTC)
 _RUNTIME_PATHS = (
+    "legalforecast/cli.py",
     "legalforecast/evals/corpus_manifest/forecast_entry.py",
     "legalforecast/evals/inspect_task.py",
     "legalforecast/evals/per_case_runner.py",
@@ -164,6 +173,7 @@ class _Fixture:
         selected = [f"candidate-{index:03d}" for index in range(96)] + [
             f"outside-{index}" for index in range(4)
         ]
+        self.selected = selected
         unit_rows = [_unit_row(candidate) for candidate in selected]
         _write_jsonl(self.units, unit_rows)
         _write_jsonl(
@@ -225,11 +235,12 @@ class _Fixture:
             ),
             cases=tuple(cases),
         )
+        self.corpus_manifest = manifest
         _write_json(self.manifest, manifest.to_signed_record())
         digest = manifest.digest()
-        registry = self.root / "registry.json"
+        self.registry = self.root / "registry.json"
         _write_json(
-            registry,
+            self.registry,
             [
                 {
                     "provider": "synthetic-provider",
@@ -261,7 +272,7 @@ class _Fixture:
                 f"I approve corpus manifest {digest} as the frozen Cycle 1 "
                 "forecast corpus."
             ),
-            model_registry=registry,
+            model_registry=self.registry,
             output_dir=self.forecast,
             generated_at=_GENERATED_AT,
         )
@@ -313,6 +324,10 @@ class _Fixture:
             (self.v2_root, *self.v3_roots), distributions, strict=True
         ):
             _write_jsonl(root / "successor-terminal-exclusions.jsonl", rows)
+            _write_jsonl(
+                root / "target-cohort-selection.jsonl",
+                [{"candidate_id": candidate} for candidate in self.selected],
+            )
 
     def request(self, **changes: Any) -> ManifestFreezeInputsRequest:
         request = ManifestFreezeInputsRequest(
@@ -320,6 +335,7 @@ class _Fixture:
             release_sha=self.release_sha,
             repository_root=self.repository,
             owner_manifest=self.manifest,
+            model_registry=self.registry,
             forecast_output_dir=self.forecast,
             screened_pool=self.screened,
             historical_exclusion_ledger=self.historical_ledger,
@@ -331,14 +347,32 @@ class _Fixture:
         return replace(request, **changes)
 
     def authenticate_historical(
-        self, _card: Path, _ledger: Path, _screened: Path
+        self,
+        _card: Path,
+        _ledger: Path,
+        _screened: Path,
+        card_bytes: bytes,
+        ledger_bytes: bytes,
+        screened_bytes: bytes,
     ) -> list[dict[str, Any]]:
+        assert card_bytes == self.historical_card.read_bytes()
+        assert ledger_bytes == self.historical_ledger.read_bytes()
+        assert screened_bytes == self.screened.read_bytes()
         return self.historical_rows
 
     @staticmethod
     def authenticate_successor(root: Path) -> dict[str, Any]:
-        path = root / "successor-terminal-exclusions.jsonl"
-        return {"verified_artifact_bytes": {str(path.absolute()): path.read_bytes()}}
+        terminal = root / "successor-terminal-exclusions.jsonl"
+        selection = root / "target-cohort-selection.jsonl"
+        return {
+            "selection_records": tuple(
+                json.loads(line) for line in selection.read_text().splitlines()
+            ),
+            "verified_artifact_bytes": {
+                str(terminal.absolute()): terminal.read_bytes(),
+                str(selection.absolute()): selection.read_bytes(),
+            },
+        }
 
     def issue(self) -> None:
         issue_manifest_freeze_inputs(
@@ -368,6 +402,13 @@ def test_issue_and_verify_replay_all_outputs(fixture: _Fixture) -> None:
     assert build.run_card["selected_candidate_count"] == 100
     assert build.run_card["excluded_candidate_count"] == 57
     assert build.run_card["provider_calls_made"] == 0
+    assert build.run_card["input_paths"]["model_registry"] == str(
+        fixture.registry.absolute()
+    )
+    assert build.run_card["input_commitments"][
+        str((fixture.v3_roots[-1] / "target-cohort-selection.jsonl").absolute())
+    ]
+    assert build.run_card["output_commitments"]["prompt-contract.json"]
     assert set(
         path.relative_to(fixture.output).as_posix()
         for path in fixture.output.rglob("*")
@@ -406,6 +447,47 @@ def test_issue_refuses_paraphrased_owner_manifest_approval(fixture: _Fixture) ->
     )
     _write_json(path, record)
     with pytest.raises(ManifestFreezeInputsError, match="not verbatim"):
+        fixture.issue()
+
+
+def test_issue_refuses_missing_owner_signature_bead(fixture: _Fixture) -> None:
+    path = fixture.forecast / "manifest-mode-run-record.json"
+    record = json.loads(path.read_bytes())
+    record["owner_signature_reference"].pop("bead_id")
+    _write_json(path, record)
+
+    with pytest.raises(ManifestFreezeInputsError, match="bead_id"):
+        fixture.issue()
+
+
+def test_issue_replays_registry_release_anchor(fixture: _Fixture) -> None:
+    records = json.loads(fixture.registry.read_bytes())
+    for record in records:
+        record["release_timestamp"] = "2027-01-01T00:00:00Z"
+    _write_json(fixture.registry, records)
+    entries = require_official_registry_entries(
+        load_model_registry_bytes(fixture.registry.read_bytes()).entries
+    )
+    run_record_path = fixture.forecast / "manifest-mode-run-record.json"
+    run_record = json.loads(run_record_path.read_bytes())
+    run_record["evaluation_models"] = registry_record(entries)
+    run_record["evaluation_release_anchor"] = earliest_eligible_decision_date(
+        entries
+    ).isoformat()
+    _write_json(run_record_path, run_record)
+
+    with pytest.raises(ValueError, match="precedes the evaluation-registry"):
+        fixture.issue()
+
+
+def test_issue_refuses_model_registry_different_from_run_record(
+    fixture: _Fixture,
+) -> None:
+    records = json.loads(fixture.registry.read_bytes())
+    records[0]["display_name"] = "Different authenticated model"
+    _write_json(fixture.registry, records)
+
+    with pytest.raises(ManifestFreezeInputsError, match="authenticated registry"):
         fixture.issue()
 
 
@@ -457,6 +539,29 @@ def test_issue_refuses_incomplete_historical_ledger(fixture: _Fixture) -> None:
         fixture.issue()
 
 
+def test_issue_refuses_historical_bytes_changed_during_authentication(
+    fixture: _Fixture,
+) -> None:
+    def mutate_historical(
+        _card: Path,
+        _ledger: Path,
+        _screened: Path,
+        _card_bytes: bytes,
+        _ledger_bytes: bytes,
+        _screened_bytes: bytes,
+    ) -> list[dict[str, Any]]:
+        _write_json(fixture.historical_card, {"mutated": True})
+        return fixture.historical_rows
+
+    with pytest.raises(ManifestFreezeInputsError, match="changed during replay"):
+        issue_manifest_freeze_inputs(
+            fixture.request(),
+            authenticate_historical=mutate_historical,
+            authenticate_v2=fixture.authenticate_successor,
+            authenticate_v3=fixture.authenticate_successor,
+        )
+
+
 def test_issue_refuses_selected_terminal_exclusion(fixture: _Fixture) -> None:
     path = fixture.v3_roots[-1] / "successor-terminal-exclusions.jsonl"
     row = json.loads(path.read_text(encoding="utf-8"))
@@ -464,6 +569,80 @@ def test_issue_refuses_selected_terminal_exclusion(fixture: _Fixture) -> None:
     _write_jsonl(path, [row])
     with pytest.raises(ManifestFreezeInputsError, match="do not reconcile"):
         fixture.issue()
+
+
+def test_issue_refuses_authenticated_successor_surface_changed_after_replay(
+    fixture: _Fixture,
+) -> None:
+    def mutate_surface(root: Path) -> dict[str, Any]:
+        projection = fixture.authenticate_successor(root)
+        if root == fixture.v3_roots[-1]:
+            selection = root / "target-cohort-selection.jsonl"
+            selection.write_bytes(selection.read_bytes() + b"\n")
+        return projection
+
+    with pytest.raises(ManifestFreezeInputsError, match="successor bytes changed"):
+        issue_manifest_freeze_inputs(
+            fixture.request(),
+            authenticate_historical=fixture.authenticate_historical,
+            authenticate_v2=mutate_surface,
+            authenticate_v3=mutate_surface,
+        )
+
+
+def test_issue_refuses_final_successor_selection_different_from_manifest(
+    fixture: _Fixture,
+) -> None:
+    selection = fixture.v3_roots[-1] / "target-cohort-selection.jsonl"
+    _write_jsonl(
+        selection,
+        [{"candidate_id": candidate} for candidate in fixture.selected[:-1]],
+    )
+
+    with pytest.raises(ManifestFreezeInputsError, match="selection differs"):
+        fixture.issue()
+
+
+def test_prediction_units_are_parsed_from_the_captured_bytes(fixture: _Fixture) -> None:
+    captured = fixture.units.read_bytes()
+    _write_jsonl(fixture.units, [_unit_row("attacker-candidate")])
+
+    units = freeze_inputs_module._prediction_units_from_bytes(
+        fixture.corpus_manifest,
+        captured,
+    )
+
+    assert set(units) == set(fixture.selected)
+
+
+def test_manifest_and_markdown_are_parsed_from_captured_bytes(
+    fixture: _Fixture,
+) -> None:
+    manifest_bytes = fixture.manifest.read_bytes()
+    manifest = load_signed_manifest_bytes(
+        manifest_bytes,
+        expected_digest=fixture.corpus_manifest.digest(),
+    )
+    case = manifest.cases[0]
+    captured_markdown = {
+        document.source_document_id: Path(document.markdown_path).read_bytes()
+        for document in case.model_visible_documents
+        if document.markdown_path is not None
+    }
+    fixture.manifest.write_text("{}", encoding="utf-8")
+    for document in case.model_visible_documents:
+        assert document.markdown_path is not None
+        Path(document.markdown_path).write_text("attacker text", encoding="utf-8")
+
+    texts = freeze_inputs_module._verified_case_texts_from_bytes(
+        case,
+        captured_markdown,
+    )
+
+    assert tuple(case.candidate_id for case in manifest.cases) == tuple(
+        case.candidate_id for case in fixture.corpus_manifest.cases
+    )
+    assert all("Synthetic" in text for text in texts.values())
 
 
 @pytest.mark.parametrize("root_index", [0, 3])

@@ -4234,8 +4234,8 @@
         "largest_symbol": "SchemaIdentifier",
         "largest_symbol_lines": 13,
         "layer": "domain",
-        "line_count": 510,
-        "nonblank_line_count": 499,
+        "line_count": 511,
+        "nonblank_line_count": 500,
         "top_level_definition_count": 1
       },
       "legalforecast/document_need/cycle_config.py": {
@@ -4294,17 +4294,17 @@
         "disposition_kind": "watch",
         "disposition_owner": "evals",
         "fan_in": 0,
-        "fan_out": 10,
+        "fan_out": 13,
         "flags": [
           "relative-path",
           "watch"
         ],
         "lane_owner": "evals",
         "largest_symbol": "_prompt_replay",
-        "largest_symbol_lines": 160,
+        "largest_symbol_lines": 184,
         "layer": "application",
-        "line_count": 905,
-        "nonblank_line_count": 824,
+        "line_count": 992,
+        "nonblank_line_count": 911,
         "top_level_definition_count": 31
       },
       "legalforecast/evals/corpus_manifest/stage51_r2.py": {
@@ -10139,6 +10139,24 @@
         "line_count": 811,
         "nonblank_line_count": 687,
         "top_level_definition_count": 39
+      },
+      "tests/test_manifest_freeze_inputs.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "_Fixture",
+        "largest_symbol_lines": 231,
+        "layer": "test",
+        "line_count": 678,
+        "nonblank_line_count": 596,
+        "top_level_definition_count": 28
       },
       "tests/test_manifest_unitizer_inputs.py": {
         "cycle_id": "",
