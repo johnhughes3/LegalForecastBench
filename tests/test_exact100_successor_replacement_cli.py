@@ -1513,7 +1513,7 @@ def test_successor_accepts_fresh_404_when_persisted_404_bytes_differ(
 
 
 def test_successor_rejects_saved_404_after_fresh_nonterminal_observation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
@@ -1529,7 +1529,7 @@ def test_successor_rejects_saved_404_after_fresh_nonterminal_observation(
     )
 
     assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 2
-    assert not output.exists()
+    assert not output.exists() and "did not authorize the persisted root" in capsys.readouterr().err  # noqa: E501  # fmt: skip
 
 
 def test_successor_materializer_rejects_tampered_immutable_output(
