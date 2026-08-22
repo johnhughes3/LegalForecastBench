@@ -6034,3 +6034,12 @@ def test_live_mistral_reuse_repairs_a_dropped_page_without_a_provider_call(
     assert "MOTION TO DISMISS UNDER RULES 12(b)(5) AND 12(b)(6)" in repaired
     assert "COMES NOW Defendant Example Corporation" in repaired
     assert page_two[0] in repaired
+
+
+def test_manifest_execution_decisions_cli_has_no_beads_observation_option(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit, match="0"):
+        main(["acquisition", "issue-manifest-execution-decisions-v2", "--help"])
+
+    assert "--beads-observation" not in capsys.readouterr().out

@@ -19,6 +19,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [labeling-protocol.md](labeling-protocol.md): the unit-resolution and edge-case codebook used to label frozen prediction units.
 - [official-run-runbook.md](official-run-runbook.md): operator checklist for protected official cycles — freeze, dispatch, recovery, aggregation, and site rendering.
 - [Official-run gate pack](official-run-gate-pack.md): exact protected infrastructure, workflow, provider-smoke, rehearsal, and sign-off sequence for the first official cycle.
+- [Cycle 1 manifest provider-free freeze v2](cycle-1-manifest-provider-free-freeze-v2.md): create-only issuance and replay of the labels-deferred manifest decisions, execution policy, and bundle without provider, AWS, scoring, or publication activity.
 - [GitHub → AWS OIDC trust claims](github-aws-oidc-trust-claims.md): the verified condition-key surface behind the official roles' trust policies, and the two false review claims it retires.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
 - [Publication governance](publication-governance.md): public evidence tiers, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
@@ -196,6 +197,8 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 **Evaluation policy**
 
 - [evaluation-policy-artifacts-v1.md](schemas/evaluation-policy-artifacts-v1.md): how decisions made before labeling or acquisition are separated from facts observed later.
+- [evaluation-policy-artifacts-v2.md](schemas/evaluation-policy-artifacts-v2.md): additive truthful lifecycle semantics, journal-derived production start, and authenticated manifest execution decisions; v1 remains unchanged.
+- [manifest-forecast-bundle-v2.md](schemas/manifest-forecast-bundle-v2.md): the exact labels-deferred, non-scoreable, non-publishable manifest forecast commitment and provider-free run card.
 
 **Multi-harness**
 

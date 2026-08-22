@@ -14,9 +14,11 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast._datetime import format_utc_iso_z
+from legalforecast.contracts.schemas import EXECUTION_POLICY_V2
 
 LABELING_POLICY_SCHEMA_VERSION = "legalforecast.labeling_policy.v1"
 EXECUTION_POLICY_SCHEMA_VERSION = "legalforecast.execution_policy.v1"
+EXECUTION_POLICY_V2_SCHEMA_VERSION = str(EXECUTION_POLICY_V2)
 LABEL_AUDIT_SAMPLE_FRACTION = 0.05
 LABEL_AUDIT_MINIMUM_SAMPLE_SIZE = 20
 LABEL_AUDIT_MINIMUM_PER_STRATUM = 5
@@ -124,8 +126,19 @@ def labeling_policy_content(artifact: Mapping[str, Any]) -> Mapping[str, Any]:
 def generate_execution_policy(decisions: Mapping[str, Any]) -> dict[str, Any]:
     """Validate and commit the at-freeze execution decisions."""
 
-    policy = _validated_execution_policy(decisions)
+    policy = _validated_execution_policy(
+        decisions, schema_version=EXECUTION_POLICY_SCHEMA_VERSION
+    )
     return _artifact(EXECUTION_POLICY_SCHEMA_VERSION, policy)
+
+
+def generate_execution_policy_v2(decisions: Mapping[str, Any]) -> dict[str, Any]:
+    """Commit deferred execution decisions without obsolete lifecycle claims."""
+
+    policy = _validated_execution_policy(
+        decisions, schema_version=EXECUTION_POLICY_V2_SCHEMA_VERSION
+    )
+    return _artifact(EXECUTION_POLICY_V2_SCHEMA_VERSION, policy)
 
 
 def verify_execution_policy(
@@ -134,12 +147,41 @@ def verify_execution_policy(
     expected_cycle_id: str | None = None,
     expected_sha256: str | None = None,
 ) -> str:
-    """Verify the at-freeze execution policy and its content commitment."""
+    """Verify the legacy v1 execution policy and its content commitment."""
 
-    policy, actual = _verify_artifact(
-        artifact, schema_version=EXECUTION_POLICY_SCHEMA_VERSION
+    return _verify_execution_policy_for_schema(
+        artifact,
+        schema_version=EXECUTION_POLICY_SCHEMA_VERSION,
+        expected_cycle_id=expected_cycle_id,
+        expected_sha256=expected_sha256,
     )
-    validated = _validated_execution_policy(policy)
+
+
+def verify_execution_policy_v2(
+    artifact: Mapping[str, Any],
+    *,
+    expected_cycle_id: str | None = None,
+    expected_sha256: str | None = None,
+) -> str:
+    """Verify the labels-deferred v2 policy and its content commitment."""
+
+    return _verify_execution_policy_for_schema(
+        artifact,
+        schema_version=EXECUTION_POLICY_V2_SCHEMA_VERSION,
+        expected_cycle_id=expected_cycle_id,
+        expected_sha256=expected_sha256,
+    )
+
+
+def _verify_execution_policy_for_schema(
+    artifact: Mapping[str, Any],
+    *,
+    schema_version: str,
+    expected_cycle_id: str | None,
+    expected_sha256: str | None,
+) -> str:
+    policy, actual = _verify_artifact(artifact, schema_version=schema_version)
+    validated = _validated_execution_policy(policy, schema_version=schema_version)
     if expected_cycle_id is not None and validated["cycle_id"] != expected_cycle_id:
         raise PolicyArtifactError("execution policy cycle_id must match expected cycle")
     if expected_sha256 is not None and actual != _sha(
@@ -157,10 +199,25 @@ def write_execution_policy(path: str | Path, artifact: Mapping[str, Any]) -> Non
 
 
 def execution_policy_content(artifact: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Return validated execution-policy content for cross-artifact checks."""
+    """Return validated legacy v1 policy content for runtime consumers."""
 
     verify_execution_policy(artifact)
-    return _validated_execution_policy(cast(Mapping[str, Any], artifact["policy"]))
+    return _validated_execution_policy(
+        cast(Mapping[str, Any], artifact["policy"]),
+        schema_version=EXECUTION_POLICY_SCHEMA_VERSION,
+    )
+
+
+def execution_policy_v2_content(
+    artifact: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Return validated labels-deferred v2 policy content."""
+
+    verify_execution_policy_v2(artifact)
+    return _validated_execution_policy(
+        cast(Mapping[str, Any], artifact["policy"]),
+        schema_version=EXECUTION_POLICY_V2_SCHEMA_VERSION,
+    )
 
 
 def execution_repeat_policy(artifact: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -340,7 +397,9 @@ def find_values(value: Any, field_name: str) -> tuple[Any, ...]:
     return tuple(found)
 
 
-def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
+def _validated_execution_policy(
+    raw: Mapping[str, Any], *, schema_version: str
+) -> dict[str, Any]:
     policy = cast(dict[str, Any], json.loads(_canonical(raw)))
     _exact_keys(
         policy,
@@ -373,16 +432,13 @@ def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
         _sha(policy.get(field), field)
 
     lifecycle = _object(policy.get("lifecycle"), "lifecycle")
-    _exact_keys(
-        lifecycle,
-        {
-            "labeling_policy_published_at",
-            "production_labeling_started_at",
-            "cohort_policy_published_at",
-            "batch_002_started_at",
-        },
-        "lifecycle",
-    )
+    lifecycle_fields = {
+        "labeling_policy_published_at",
+        "production_labeling_started_at",
+    }
+    if schema_version == EXECUTION_POLICY_SCHEMA_VERSION:
+        lifecycle_fields.update({"cohort_policy_published_at", "batch_002_started_at"})
+    _exact_keys(lifecycle, lifecycle_fields, "lifecycle")
     labeling_published = _parse_timestamp(
         lifecycle.get("labeling_policy_published_at"),
         "labeling_policy_published_at",
@@ -391,16 +447,20 @@ def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
         lifecycle.get("production_labeling_started_at"),
         "production_labeling_started_at",
     )
-    cohort_published = _parse_timestamp(
-        lifecycle.get("cohort_policy_published_at"), "cohort_policy_published_at"
-    )
-    batch_started = _parse_timestamp(
-        lifecycle.get("batch_002_started_at"), "batch_002_started_at"
-    )
     if labeling_published > labeling_started:
         raise PolicyArtifactError("labeling policy was not published before labeling")
-    if cohort_published > batch_started:
-        raise PolicyArtifactError("cohort policy was not published before Batch 002")
+    if schema_version == EXECUTION_POLICY_SCHEMA_VERSION:
+        cohort_published = _parse_timestamp(
+            lifecycle.get("cohort_policy_published_at"),
+            "cohort_policy_published_at",
+        )
+        batch_started = _parse_timestamp(
+            lifecycle.get("batch_002_started_at"), "batch_002_started_at"
+        )
+        if cohort_published > batch_started:
+            raise PolicyArtifactError(
+                "cohort policy was not published before Batch 002"
+            )
 
     shards = _object(policy.get("shard_schedule"), "shard_schedule")
     _exact_keys(
