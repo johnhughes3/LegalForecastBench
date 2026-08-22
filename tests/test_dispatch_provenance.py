@@ -6,7 +6,10 @@ from pathlib import Path
 
 import pytest
 from legalforecast.protocol.manifest import hash_payload
-from legalforecast.protocol.policy_artifacts import generate_execution_policy
+from legalforecast.protocol.policy_artifacts import (
+    generate_execution_policy,
+    generate_execution_policy_v2,
+)
 from legalforecast.publication.dispatch_provenance import (
     DispatchProvenanceError,
     build_dispatch_provenance,
@@ -239,6 +242,27 @@ def test_frozen_policy_builds_exact_workflow_concurrency_group(
     assert len(groups) == 8
     assert len({group.casefold() for group in groups}) == 8
     assert _workflow_group(("fixture:model-a",), ("full_packet",)) in groups
+
+
+def test_legacy_dispatch_rejects_deferred_execution_policy_v2(
+    tmp_path: Path,
+) -> None:
+    _write_sharded_bundle(tmp_path)
+    v1 = json.loads((tmp_path / "execution-policy.json").read_text(encoding="utf-8"))
+    decisions = dict(v1["policy"])
+    decisions["lifecycle"] = {
+        "labeling_policy_published_at": "2026-07-12T20:00:00Z",
+        "production_labeling_started_at": "2026-07-13T00:00:00Z",
+    }
+    v2 = generate_execution_policy_v2(decisions)
+
+    with pytest.raises(DispatchProvenanceError, match="schema version"):
+        build_shard_concurrency_group(
+            execution_policy_artifact=v2,
+            workflow_ref="refs/heads/main",
+            model_key="fixture:model-a",
+            ablation="full_packet",
+        )
 
 
 @pytest.mark.parametrize(
