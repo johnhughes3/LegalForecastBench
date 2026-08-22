@@ -454,10 +454,17 @@ def verify_parse_request_bytes(request: Mapping[str, object]) -> None:
 def require_cleared_parse_requests(
     requests: Sequence[Mapping[str, object]],
     clearance_records: Sequence[Mapping[str, object]],
+    *,
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     """Independently bind parser requests to the reviewed clearance artifact."""
 
-    index = _validated_clearance_index(clearance_records)
+    index = _validated_clearance_index(
+        clearance_records,
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
+    )
     request_keys = {_document_key(request) for request in requests}
     if set(index) != request_keys:
         raise DisclosureClearanceError(
@@ -481,10 +488,17 @@ def require_cleared_parse_requests(
 def require_cleared_parser_records(
     parser_records: Sequence[Mapping[str, object]],
     clearance_records: Sequence[Mapping[str, object]],
+    *,
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     """Require finalized parser artifacts to remain hash-bound to clearance."""
 
-    index = _validated_clearance_index(clearance_records)
+    index = _validated_clearance_index(
+        clearance_records,
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
+    )
     parser_keys = {_document_key(record) for record in parser_records}
     if set(index) != parser_keys:
         raise DisclosureClearanceError(
@@ -509,12 +523,15 @@ def require_cleared_artifact_keys(
     clearance_records: Sequence[Mapping[str, object]],
     *,
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     """Validate terminal clearance coverage when source bytes are not an input."""
 
     required = set(required_keys)
     index = _validated_clearance_index(
-        clearance_records, paid_delivery_capability=paid_delivery_capability
+        clearance_records,
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
     )
     if set(index) != required:
         raise DisclosureClearanceError(
@@ -526,6 +543,7 @@ def _validated_clearance_index(
     clearance_records: Sequence[Mapping[str, object]],
     *,
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> dict[tuple[str, str], Mapping[str, object]]:
     index = _unique_index(clearance_records, "clearance")
     for key, row in index.items():
@@ -540,6 +558,7 @@ def _validated_clearance_index(
             key=key,
             label="parser document",
             paid_delivery_capability=paid_delivery_capability,
+            free_public_download_capability=free_public_download_capability,
         )
     return index
 

@@ -57652,6 +57652,11 @@ def _cmd_acquisition_plan_parse_documents_cached(args: argparse.Namespace) -> in
                 if materialization_lineage is not None
                 else None
             ),
+            free_public_download_capability=(
+                materialization_lineage.free_public_download_capability
+                if materialization_lineage is not None
+                else None
+            ),
         )
         if needs_resolved_lineage and not is_materialized:
             _require_resolved_post_recovery_dispatch(
@@ -57937,7 +57942,20 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
         )
     if not dry_run:
         try:
-            require_cleared_parse_requests(request_records, clearance_records)
+            require_cleared_parse_requests(
+                request_records,
+                clearance_records,
+                paid_delivery_capability=(
+                    materialization_lineage.paid_delivery_capability
+                    if materialization_lineage is not None
+                    else None
+                ),
+                free_public_download_capability=(
+                    materialization_lineage.free_public_download_capability
+                    if materialization_lineage is not None
+                    else None
+                ),
+            )
             if needs_resolved_lineage:
                 parse_clearance_kwargs = _clearance_kwargs
                 if is_materialized and materialization_lineage is not None:
@@ -67185,7 +67203,20 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         )
     else:
         try:
-            require_cleared_parser_records(parser_records, clearance_records)
+            require_cleared_parser_records(
+                parser_records,
+                clearance_records,
+                paid_delivery_capability=(
+                    materialization_lineage.paid_delivery_capability
+                    if materialization_lineage is not None
+                    else None
+                ),
+                free_public_download_capability=(
+                    materialization_lineage.free_public_download_capability
+                    if materialization_lineage is not None
+                    else None
+                ),
+            )
             if needs_resolved_lineage and not is_materialized:
                 _require_resolved_post_recovery_dispatch(
                     selection_records=records,
@@ -67775,6 +67806,12 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             materialization_run_card_path=typed_materialization_card,
             document_root=typed_document_root,
             markdown_root=typed_markdown_root,
+            paid_delivery_capability=(
+                verified_materialization.paid_delivery_capability
+            ),
+            free_public_download_capability=(
+                verified_materialization.free_public_download_capability
+            ),
         )
         _require_materializer_artifact(
             typed_unitization_audit,
@@ -68260,6 +68297,8 @@ def _verify_parser_packet_authority(
     materialization_run_card_path: Path,
     document_root: Path,
     markdown_root: Path,
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     """Replay parse planning and bind Markdown to materialized source bytes."""
 
@@ -68389,7 +68428,12 @@ def _verify_parser_packet_authority(
         ):
             raise CommandError(f"parse request Markdown destination mismatch: {key}")
         verify_parse_request_bytes(request)
-    require_cleared_parse_requests(request_records, clearance_records)
+    require_cleared_parse_requests(
+        request_records,
+        clearance_records,
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
+    )
 
     parser_by_key = {
         (
@@ -69099,6 +69143,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     completion_summary_inputs: dict[str, tuple[Path, bytes]] = {}
     completion_summary_commitments: JsonRecord = {}
     if not dry_run:
+        if verified_materialization is None:
+            raise AssertionError("executed finalization lacks materialization lineage")
         typed_packet_input_card = cast(Path, packet_input_run_card_path)
         typed_packet_build_card = cast(Path, packet_build_run_card_path)
         typed_download_manifest = cast(Path, download_manifest_path)
@@ -69173,6 +69219,12 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             materialization_run_card_path=typed_materialization_card,
             document_root=typed_document_root,
             markdown_root=markdown_root,
+            paid_delivery_capability=(
+                verified_materialization.paid_delivery_capability
+            ),
+            free_public_download_capability=(
+                verified_materialization.free_public_download_capability
+            ),
         )
     target_clean_cases = cast(int, args.target_clean_cases)
     discovery_reconciliation: SnapshotReconciliation | None = None
@@ -69194,6 +69246,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     else:
         if packet_plan_replay is None or packet_build_replay is None:
             raise AssertionError("executed finalization lacks verified packet replay")
+        if verified_materialization is None:
+            raise AssertionError("executed finalization lacks materialization lineage")
         if llm_unitization_run_card_path is None:
             raise CommandError(
                 "finalize-corpus requires --llm-unitization-run-card with --execute"
@@ -69341,7 +69395,16 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             dict(record) for record in packet_plan_replay.clearance_records
         ]
         try:
-            require_cleared_parser_records(parser_records, clearance_records)
+            require_cleared_parser_records(
+                parser_records,
+                clearance_records,
+                paid_delivery_capability=(
+                    verified_materialization.paid_delivery_capability
+                ),
+                free_public_download_capability=(
+                    verified_materialization.free_public_download_capability
+                ),
+            )
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
         prediction_unit_records = [

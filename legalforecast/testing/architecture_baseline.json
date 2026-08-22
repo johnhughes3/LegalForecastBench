@@ -1,14 +1,14 @@
 {
   "cli_metrics": {
     "command_handler_count": 168,
-    "command_handler_lines": 27117,
-    "line_count": 74240,
-    "nonblank_line_count": 71437,
+    "command_handler_lines": 27178,
+    "line_count": 74308,
+    "nonblank_line_count": 71505,
     "parser_line_count": 1800,
     "top_level_class_count": 20,
     "top_level_definition_count": 1019,
     "verifier_family_count": 164,
-    "verifier_family_lines": 12303
+    "verifier_family_lines": 12310
   },
   "compatibility": {
     "cli_import_files": [
@@ -2836,6 +2836,7 @@
       "tests/test_acquisition_cli.py::legalforecast.cli.build_parser",
       "tests/test_acquisition_cli.py::legalforecast.cli.convert_documents_to_markdown",
       "tests/test_acquisition_cli.py::legalforecast.cli.convert_documents_to_markdown",
+      "tests/test_acquisition_cli.py::legalforecast.cli.disclosure_clearance_module",
       "tests/test_acquisition_cli.py::legalforecast.cli.generate_cohort_policy",
       "tests/test_acquisition_cli.py::legalforecast.cli.load_model_registry",
       "tests/test_acquisition_cli.py::legalforecast.cli.main",
@@ -2994,6 +2995,7 @@
       "tests/test_cohort_document_materializer.py::legalforecast.cli.argparse",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.argparse.Namespace",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.argparse.Namespace",
+      "tests/test_cohort_document_materializer.py::legalforecast.cli.disclosure_clearance_module",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.main",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.main",
       "tests/test_cohort_document_materializer.py::legalforecast.cli.main",
@@ -3848,6 +3850,7 @@
       "legalforecast.cli.canonical_purchase_operation_sha256",
       "legalforecast.cli.canonical_purchase_state_sha256",
       "legalforecast.cli.convert_documents_to_markdown",
+      "legalforecast.cli.disclosure_clearance_module",
       "legalforecast.cli.exception_review_worksheet_v3",
       "legalforecast.cli.fcntl",
       "legalforecast.cli.fcntl.LOCK_EX",
@@ -4123,8 +4126,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1800,
         "layer": "entrypoint",
-        "line_count": 74240,
-        "nonblank_line_count": 71437,
+        "line_count": 74308,
+        "nonblank_line_count": 71505,
         "top_level_definition_count": 1019
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -5287,8 +5290,8 @@
         "largest_symbol": "_require_clearance_provenance",
         "largest_symbol_lines": 166,
         "layer": "application",
-        "line_count": 1414,
-        "nonblank_line_count": 1271,
+        "line_count": 1433,
+        "nonblank_line_count": 1290,
         "top_level_definition_count": 50
       },
       "legalforecast/ingestion/disclosure_model_review.py": {
@@ -5517,10 +5520,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "verify_materialized_downstream_lineage",
-        "largest_symbol_lines": 999,
+        "largest_symbol_lines": 1004,
         "layer": "application",
-        "line_count": 1113,
-        "nonblank_line_count": 1087,
+        "line_count": 1119,
+        "nonblank_line_count": 1093,
         "top_level_definition_count": 6
       },
       "legalforecast/ingestion/downstream_rehearsal.py": {
@@ -8713,8 +8716,8 @@
         "largest_symbol": "test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets",
         "largest_symbol_lines": 672,
         "layer": "test",
-        "line_count": 6036,
-        "nonblank_line_count": 5690,
+        "line_count": 6066,
+        "nonblank_line_count": 5720,
         "top_level_definition_count": 90
       },
       "tests/test_attachment_page_execute.py": {
@@ -9091,8 +9094,8 @@
         "largest_symbol": "test_free_only_cli_materializes_and_replays_without_paid_artifacts",
         "largest_symbol_lines": 258,
         "layer": "test",
-        "line_count": 3191,
-        "nonblank_line_count": 2878,
+        "line_count": 3198,
+        "nonblank_line_count": 2885,
         "top_level_definition_count": 71
       },
       "tests/test_cohort_policy.py": {
@@ -9576,9 +9579,9 @@
         "largest_symbol": "test_mixed_provenance_clearance_reaches_every_downstream_gate",
         "largest_symbol_lines": 155,
         "layer": "test",
-        "line_count": 799,
-        "nonblank_line_count": 700,
-        "top_level_definition_count": 31
+        "line_count": 870,
+        "nonblank_line_count": 767,
+        "top_level_definition_count": 32
       },
       "tests/test_disclosure_model_review.py": {
         "cycle_id": "",

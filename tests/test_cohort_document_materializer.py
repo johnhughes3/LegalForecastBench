@@ -1295,6 +1295,13 @@ def test_consolidated_successor_v3_filters_anchor_sources_and_uses_owner_root(
         (record["candidate_id"], record["source_document_id"])
         for record in sources[1].manifest
     ] == [("promoted", "new-document")]
+    expected_capability = vars(cli.disclosure_clearance_module)[
+        "_FREE_PUBLIC_DOWNLOAD_AUTHORITY"
+    ]
+    assert all(
+        source.free_public_download_capability is expected_capability
+        for source in sources
+    )
 
 
 def test_consolidated_successor_v3_refuses_unauthenticated_promoted_bytes(

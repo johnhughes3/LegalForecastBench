@@ -33,6 +33,7 @@ class VerifiedMaterializedDownstreamLineage:
     recovered_public_capability: object | None = None
     consolidated_recovery_capability: object | None = None
     paid_delivery_capability: object | None = None
+    free_public_download_capability: object | None = None
     fresh_ledger_namespace: Path | None = None
     docket_decision_authority: Any = None
     verified_successor_selection_card: Any = None
@@ -152,6 +153,7 @@ def verify_materialized_downstream_lineage(
     _materializer_successor_v2_free_sources = (
         _cli_ns._materializer_successor_v2_free_sources
     )
+    _v3_free_public_download_capability = _cli_ns._v3_free_public_download_capability
     _materializer_tree_snapshot = _cli_ns._materializer_tree_snapshot
     _merge_verified_artifact_bytes = _cli_ns._merge_verified_artifact_bytes
     _prepare_free_only_cohort_documents = _cli_ns._prepare_free_only_cohort_documents
@@ -843,6 +845,9 @@ def verify_materialized_downstream_lineage(
             preparation_root=preparation_root,
             consolidated_recovery=preverified_recovery is not None,
         )
+        free_public_download_capability = _v3_free_public_download_capability(
+            projection
+        )
         materialization = prepare_cohort_document_materialization(
             (
                 *free_sources,
@@ -1105,6 +1110,7 @@ def verify_materialized_downstream_lineage(
             "_verified_consolidated_recovery_capability"
         ),
         paid_delivery_capability=purchased_lineage.get("paid_delivery_capability"),
+        free_public_download_capability=free_public_download_capability,
         docket_decision_authority=docket_decision_descriptor,
         verified_successor_selection_card=(
             _verified_successor_selection_card_from_projection(projection)

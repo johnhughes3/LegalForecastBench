@@ -60,6 +60,7 @@ def _materialized_cli_unit_fixture(
     tmp_path: Path,
     *,
     skip_packet_planner_replay: bool = False,
+    free_public_download_capability: object | None = None,
 ) -> tuple[Path, Path]:
     """Isolate downstream semantics; real lineage is covered by target-100 E2E."""
 
@@ -117,6 +118,7 @@ def _materialized_cli_unit_fixture(
             ),
             resolved_records=(),
             document_tree={},
+            free_public_download_capability=free_public_download_capability,
         )
 
     monkeypatch.setattr(
@@ -2017,9 +2019,11 @@ def test_download_free_live_public_source_requires_explicit_flag(
     assert records[0]["reused_existing"] is False
 
 
+@pytest.mark.parametrize("v3_free_public_download", [False, True])
 def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
+    v3_free_public_download: bool,
 ) -> None:
     output_root = tmp_path / "acquisition"
     manifest_path = tmp_path / "free-document-downloads.jsonl"
@@ -2051,7 +2055,33 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
     )
     clearance_path = tmp_path / "clearance.jsonl"
     _write_clearance(manifest_path, clearance_path)
-    _, materialization_card = _materialized_cli_unit_fixture(monkeypatch, tmp_path)
+    free_public_download_capability: object | None = None
+    if v3_free_public_download:
+        [clearance] = _read_jsonl(clearance_path)
+        clearance.update(
+            {
+                "clearance_basis": "courtlistener_public_download",
+                "free_or_purchased": "free",
+                "restriction_evidence": [
+                    "courtlistener_public_download_record_checked",
+                    "document_repair_byte_role_validation_match",
+                ],
+                "is_private": False,
+                "is_sealed": False,
+                "reviewer_id": None,
+                "controlled_store_provenance": None,
+                "reviewed_at": None,
+            }
+        )
+        _write_jsonl(clearance_path, [clearance])
+        free_public_download_capability = vars(cli.disclosure_clearance_module)[
+            "_FREE_PUBLIC_DOWNLOAD_AUTHORITY"
+        ]
+    _, materialization_card = _materialized_cli_unit_fixture(
+        monkeypatch,
+        tmp_path,
+        free_public_download_capability=free_public_download_capability,
+    )
 
     assert (
         main(
