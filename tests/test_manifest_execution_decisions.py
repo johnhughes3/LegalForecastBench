@@ -167,8 +167,16 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             "raw_observation_sha256": "d" * 64,
             "spend": {"ceiling_usd": 10, "estimate_usd": 1},
             "lines": {
-                name: {"text": name, "sha256": _sha(name.encode())}
-                for name in ("manifest", "contamination", "final_provider_spend")
+                name: {
+                    "text": text,
+                    "sha256": _sha(text.encode()),
+                }
+                for name, text in module._expected_beads_lines(
+                    manifest_digest=manifest_digest,
+                    model_registry=registry,
+                    ceiling_usd=10,
+                    estimate_usd=1,
+                ).items()
             },
             "lifecycle": {
                 "production_labeling_started_at": "2026-01-02T00:00:00Z",
@@ -261,15 +269,15 @@ def test_raw_beads_observation_issuer_binds_exact_lines(
     fixture: dict[str, Any], tmp_path: Path
 ) -> None:
     raw = tmp_path / "bd-show.json"
+    expected_lines = module._expected_beads_lines(
+        manifest_digest="a" * 64,
+        model_registry=fixture["registry"],
+        ceiling_usd=10,
+        estimate_usd=1,
+    )
     raw_bytes = _write(
         raw,
-        {
-            "comments": [
-                "manifest approval",
-                "contamination approval",
-                "provider spend approval",
-            ]
-        },
+        {"comments": list(expected_lines.values())},
     )
     output = tmp_path / "beads-wrapper.json"
     wrapper = module.issue_beads_observation(
@@ -279,11 +287,6 @@ def test_raw_beads_observation_issuer_binds_exact_lines(
         manifest_digest="a" * 64,
         model_registry=fixture["registry"],
         bead_id="legalforecastbench-test",
-        required_lines={
-            "manifest": "manifest approval",
-            "contamination": "contamination approval",
-            "final_provider_spend": "provider spend approval",
-        },
         lifecycle={
             "production_labeling_started_at": "2026-01-02T00:00:00Z",
             "cohort_policy_published_at": "2026-01-01T00:00:00Z",

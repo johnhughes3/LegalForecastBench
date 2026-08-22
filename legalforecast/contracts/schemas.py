@@ -173,6 +173,9 @@ MANIFEST_FORECAST_BOUND_RECEIPT_V1 = SchemaIdentifier(
 MANIFEST_EXECUTION_DECISIONS_V1 = SchemaIdentifier(
     "legalforecast.manifest_execution_decisions.v1"
 )
+MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V1 = SchemaIdentifier(
+    "legalforecast.execution_decisions_beads_observation.v1"
+)
 MANIFEST_FREEZE_RUNTIME_CONTRACT_V1 = SchemaIdentifier(
     "legalforecast.manifest_freeze_runtime_contract.v1"
 )
