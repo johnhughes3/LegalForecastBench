@@ -15,6 +15,7 @@ from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     require_official_registry_entries,
 )
+from legalforecast.immutable_io import ImmutableIOError, read_single_link_file
 
 COORDINATION_BEAD_ID: Final = "legalforecastbench-3ak.38"
 OWNER_AUTHOR: Final = "John Hughes"
@@ -41,11 +42,6 @@ _SPEND_APPROVAL: Final = re.compile(
     r"spend for the Cycle 1 forecast run, estimated USD "
     r"(?P<estimate>[0-9]+(?:\.[0-9]{1,2})?), across the four models in `?"
     r"(?P<registry>[^`]+?)`?\.\Z"
-)
-_LIFECYCLE_LINE: Final = re.compile(
-    r"execution-lifecycle: production_labeling_started_at=(?P<labeling>[^;]+); "
-    r"cohort_policy_published_at=(?P<cohort>[^;]+); "
-    r"batch_002_started_at=(?P<batch>[^;]+)\Z"
 )
 
 
@@ -92,11 +88,6 @@ def parse_authentic_beads_comments(
     contamination_candidates = [
         comment for comment in comments if comment["text"] == CONTAMINATION_LINE
     ]
-    lifecycle_candidates = [
-        (comment, match)
-        for comment in comments
-        if (match := _LIFECYCLE_LINE.fullmatch(comment["text"])) is not None
-    ]
     if not manifest_candidates:
         raise BeadsObservationError(
             "raw Beads observation lacks a digest-bound manifest approval"
@@ -109,10 +100,6 @@ def parse_authentic_beads_comments(
         raise BeadsObservationError(
             "raw Beads observation lacks exact contamination replacement ruling"
         )
-    if not lifecycle_candidates:
-        raise BeadsObservationError(
-            "raw Beads observation lacks authenticated execution lifecycle"
-        )
     manifest_comment, manifest_match = max(
         manifest_candidates, key=lambda item: item[0]["created_at"]
     )
@@ -122,20 +109,10 @@ def parse_authentic_beads_comments(
     contamination_comment = max(
         contamination_candidates, key=lambda item: item["created_at"]
     )
-    lifecycle_comment, lifecycle_match = max(
-        lifecycle_candidates, key=lambda item: item[0]["created_at"]
-    )
     ceiling = _money(spend_match.group("ceiling"), "ceiling_usd")
     estimate = _money(spend_match.group("estimate"), "estimate_usd")
     if estimate > ceiling:
         raise BeadsObservationError("Beads spend estimate exceeds ceiling")
-    lifecycle_values = {
-        "production_labeling_started_at": lifecycle_match.group("labeling"),
-        "cohort_policy_published_at": lifecycle_match.group("cohort"),
-        "batch_002_started_at": lifecycle_match.group("batch"),
-    }
-    for name, value in lifecycle_values.items():
-        _timestamp(value, name)
     return {
         "manifest": {
             **_comment_evidence(manifest_comment),
@@ -147,10 +124,6 @@ def parse_authentic_beads_comments(
             "registry_path": SUCCESSOR_REGISTRY_PATH,
             "ceiling_usd": f"{ceiling:.2f}",
             "estimate_usd": f"{estimate:.2f}",
-        },
-        "lifecycle": {
-            **_comment_evidence(lifecycle_comment),
-            "values": lifecycle_values,
         },
     }
 
@@ -197,12 +170,10 @@ def _money(value: str, name: str) -> Decimal:
 
 
 def _read_regular(path: Path, label: str) -> bytes:
-    if path.is_symlink() or not path.is_file():
-        raise BeadsObservationError(f"{label} must be a regular file: {path}")
     try:
-        return path.read_bytes()
-    except OSError as exc:
-        raise BeadsObservationError(f"cannot read {label}: {path}") from exc
+        return read_single_link_file(path, label=label)
+    except ImmutableIOError as exc:
+        raise BeadsObservationError(str(exc)) from exc
 
 
 def _required_text(record: Mapping[str, Any], name: str) -> str:
