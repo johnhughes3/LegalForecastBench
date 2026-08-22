@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
+import importlib
 import json
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping
@@ -14,6 +15,7 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion import recovered_public_replay as replay_module
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
+from legalforecast.ingestion.disclosure_clearance import require_clearance_policy
 
 
 def _write_json(path: Path, value: object) -> Path:
@@ -29,6 +31,104 @@ def _write_jsonl(path: Path, values: list[dict[str, object]]) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def _admission_jsonl(values: list[dict[str, object]]) -> bytes:
+    return "".join(
+        f"{json.dumps(value, sort_keys=True, allow_nan=False)}\n" for value in values
+    ).encode()
+
+
+def test_authenticated_v3_admits_real_legacy_paid_delivery_shape() -> None:
+    manifest = {
+        "candidate_id": "69437817",
+        "source_document_id": "485898136",
+        "free_or_purchased": "purchased",
+        "local_path": "sha256/9b/document.pdf",
+        "sha256": "9" * 64,
+        "byte_count": 260864,
+    }
+    clearance = {
+        **manifest,
+        "clearance_basis": "paid_delivery",
+        "status": "cleared",
+    }
+    restriction = {
+        "candidate_id": "69437817",
+        "source_document_id": "485898136",
+        "is_private": False,
+        "is_sealed": False,
+        "restriction_status": "public",
+        "restriction_evidence": [
+            "document_repair_paid_delivery_clearance",
+            "document_repair_byte_role_validation_match",
+        ],
+    }
+    admit = getattr(
+        importlib.import_module(
+            "legalforecast.ingestion.replacement_recovery_v3_register"
+        ),
+        "admit_authenticated_v3_register_clearance_rows",
+        None,
+    )
+    assert callable(admit)
+    admitted = admit(
+        manifest_records=[manifest],
+        clearance_records=[clearance],
+        restriction_records=[restriction],
+        authenticated_clearance_bytes=_admission_jsonl([clearance]),
+        authenticated_restriction_bytes=_admission_jsonl([restriction]),
+        external_document_commitments={("69437817", "485898136"): "9" * 64},
+    )
+    assert admitted[0]["schema_version"] == "legalforecast.disclosure_clearance.v1"
+    assert admitted[0]["restriction_status"] == "public"
+    require_clearance_policy(
+        admitted[0], key=("69437817", "485898136"), label="document"
+    )
+
+
+def test_authenticated_v3_paid_delivery_admission_rejects_mutated_bytes() -> None:
+    manifest = {
+        "candidate_id": "case-1",
+        "source_document_id": "doc-1",
+        "free_or_purchased": "purchased",
+        "local_path": "document.pdf",
+        "sha256": "a" * 64,
+        "byte_count": 1,
+    }
+    clearance = {
+        **manifest,
+        "clearance_basis": "paid_delivery",
+        "status": "cleared",
+    }
+    restriction = {
+        "candidate_id": "case-1",
+        "source_document_id": "doc-1",
+        "is_private": False,
+        "is_sealed": False,
+        "restriction_status": "public",
+        "restriction_evidence": [
+            "document_repair_paid_delivery_clearance",
+            "document_repair_byte_role_validation_match",
+        ],
+    }
+    with pytest.raises(ValueError, match="differs from authenticated bytes"):
+        admit = getattr(
+            importlib.import_module(
+                "legalforecast.ingestion.replacement_recovery_v3_register"
+            ),
+            "admit_authenticated_v3_register_clearance_rows",
+            None,
+        )
+        assert callable(admit)
+        admit(
+            manifest_records=[manifest],
+            clearance_records=[clearance],
+            restriction_records=[restriction],
+            authenticated_clearance_bytes=b"mutated\n",
+            authenticated_restriction_bytes=_admission_jsonl([restriction]),
+            external_document_commitments={("case-1", "doc-1"): "a" * 64},
+        )
 
 
 def _prepare_fixture(

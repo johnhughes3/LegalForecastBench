@@ -874,6 +874,9 @@ from legalforecast.ingestion.replacement_recovery_source import (
     normalize_post_purchase_replay_descriptor,
 )
 from legalforecast.ingestion.replacement_recovery_v3_register import (
+    admit_authenticated_v3_register_lineage as _admit_v3,
+)
+from legalforecast.ingestion.replacement_recovery_v3_register import (
     consolidation_legacy_target_root as _consolidation_legacy_target_root,
 )
 from legalforecast.ingestion.replacement_recovery_v3_register import (
@@ -42913,6 +42916,7 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 else {}
             ),
         )
+        _admit_v3(recovery, purchased_clearance_lineage, consolidated_authority)
         free_sources = _materializer_successor_v2_free_sources(
             projection,
             preparation_root=preparation_root,

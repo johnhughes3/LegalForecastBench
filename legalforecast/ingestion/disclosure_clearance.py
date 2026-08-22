@@ -51,6 +51,10 @@ _PROVENANCE_REST_PUBLIC_EVIDENCE = frozenset(
         "courtlistener_rest_public_download_url_allowlisted",
     }
 )
+PAID_DELIVERY_RESTRICTION_EVIDENCE = (
+    "document_repair_paid_delivery_clearance",
+    "document_repair_byte_role_validation_match",
+)
 _POSITIVE_RESTRICTION_EVIDENCE = re.compile(
     r"(?:^|_)(?:sealed|private|restricted|under_seal)(?:_true|$)"
 )
@@ -547,6 +551,21 @@ def _require_clearance_restriction(
     row: Mapping[str, object], *, key: tuple[str, str], label: str
 ) -> None:
     basis = row.get("clearance_basis")
+    if basis == "paid_delivery":
+        evidence_value = row.get("restriction_evidence")
+        if (
+            row.get("free_or_purchased") != "purchased"
+            or row.get("restriction_status") != "public"
+            or row.get("is_private") is True
+            or row.get("is_sealed") is True
+            or not isinstance(evidence_value, (list, tuple))
+            or tuple(cast(Sequence[object], evidence_value))
+            != PAID_DELIVERY_RESTRICTION_EVIDENCE
+        ):
+            raise DisclosureClearanceError(
+                f"paid-delivery {label} lacks exact public evidence: {key}"
+            )
+        return
     if basis == "john_exception_review":
         status = _required_str(row, "restriction_status")
         evidence_value = row.get("restriction_evidence")
@@ -711,6 +730,17 @@ def _require_clearance_provenance(
     row: Mapping[str, object], *, key: tuple[str, str]
 ) -> None:
     basis = row.get("clearance_basis")
+    if basis == "paid_delivery":
+        if (
+            row.get("free_or_purchased") != "purchased"
+            or row.get("reviewed_at") is not None
+            or row.get("reviewer_id") is not None
+            or row.get("controlled_store_provenance") is not None
+        ):
+            raise DisclosureClearanceError(
+                f"paid-delivery clearance has invalid provenance: {key}"
+            )
+        return
     recovered_model_review = (
         basis == "authenticated_model_exception_review"
         and isinstance(row.get("recovered_public_lineage"), Mapping)

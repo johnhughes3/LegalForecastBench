@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol, cast
@@ -11,12 +12,39 @@ from legalforecast.contracts import (
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3,
 )
+from legalforecast.ingestion.disclosure_clearance import (
+    PAID_DELIVERY_RESTRICTION_EVIDENCE,
+    SCHEMA_VERSION,
+)
 from legalforecast.ingestion.supporting_document_successor import (
     SCHEMA_VERSION as SUPPORTING_DOCUMENT_SUCCESSOR_SCHEMA_VERSION,
 )
 
 DocumentKey = tuple[str, str]
 JsonRecord = dict[str, Any]
+
+_LEGACY_PAID_CLEARANCE_FIELDS = frozenset(
+    {
+        "byte_count",
+        "candidate_id",
+        "clearance_basis",
+        "free_or_purchased",
+        "local_path",
+        "sha256",
+        "source_document_id",
+        "status",
+    }
+)
+_PAID_RESTRICTION_FIELDS = frozenset(
+    {
+        "candidate_id",
+        "is_private",
+        "is_sealed",
+        "restriction_evidence",
+        "restriction_status",
+        "source_document_id",
+    }
+)
 
 
 class _Register(Protocol):
@@ -176,6 +204,177 @@ def merge_authenticated_v3_register_gap(
         key = _key(record)
         if key in missing_manifest:
             restriction_by_key[key].append(record)
+
+
+def admit_authenticated_v3_register_clearance_rows(
+    *,
+    manifest_records: Sequence[Mapping[str, Any]],
+    clearance_records: Sequence[Mapping[str, Any]],
+    restriction_records: Sequence[Mapping[str, Any]],
+    authenticated_clearance_bytes: object,
+    authenticated_restriction_bytes: object,
+    external_document_commitments: Mapping[DocumentKey, str],
+) -> tuple[JsonRecord, ...]:
+    """Admit the historical paid-delivery clearance shape for v3 only.
+
+    The v3 consolidation capability authenticates the exact clearance and
+    restriction bytes before this helper is called.  We nevertheless compare
+    those bytes again at the admission boundary so that callers cannot turn a
+    caller-supplied mapping into authority.  Only the register-backed rows
+    lacking the canonical schema are enriched, and the enrichment is an
+    invocation-local copy; the frozen root-60 artifact is never rewritten.
+    """
+
+    if not isinstance(authenticated_clearance_bytes, bytes) or not isinstance(
+        authenticated_restriction_bytes, bytes
+    ):
+        raise ValueError("v3 clearance admission requires authenticated bytes")
+    clearance_bytes = authenticated_clearance_bytes
+    restriction_bytes = authenticated_restriction_bytes
+    if _jsonl_bytes(clearance_records) != clearance_bytes:
+        raise ValueError("v3 clearance admission differs from authenticated bytes")
+    if _jsonl_bytes(restriction_records) != restriction_bytes:
+        raise ValueError("v3 restriction admission differs from authenticated bytes")
+
+    manifest_by_key = _index(
+        manifest_records, label="authenticated v3 purchased manifest"
+    )
+    clearance_by_key = _index(
+        clearance_records, label="authenticated v3 purchased clearance"
+    )
+    restriction_by_key = _index(
+        restriction_records, label="authenticated v3 purchased restriction"
+    )
+    register_keys = set(external_document_commitments)
+    if not register_keys <= set(manifest_by_key) or not register_keys <= set(
+        clearance_by_key
+    ):
+        raise ValueError("v3 register commitments lack matching clearance coverage")
+
+    for key, clearance in clearance_by_key.items():
+        if "schema_version" not in clearance:
+            if key not in register_keys:
+                raise ValueError(
+                    f"v3 clearance row lacks schema outside register coverage: {key}"
+                )
+            if frozenset(clearance) != _LEGACY_PAID_CLEARANCE_FIELDS:
+                raise ValueError(
+                    f"v3 register-backed legacy clearance shape differs: {key}"
+                )
+            if (
+                clearance.get("clearance_basis") != "paid_delivery"
+                or clearance.get("free_or_purchased") != "purchased"
+                or clearance.get("status") != "cleared"
+            ):
+                raise ValueError(
+                    "v3 register-backed legacy clearance is not paid and cleared: "
+                    f"{key}"
+                )
+
+            manifest = manifest_by_key[key]
+            if (
+                any(
+                    clearance.get(field) != manifest.get(field)
+                    for field in (
+                        "candidate_id",
+                        "source_document_id",
+                        "free_or_purchased",
+                        "local_path",
+                        "sha256",
+                        "byte_count",
+                    )
+                )
+                or manifest.get("free_or_purchased") != "purchased"
+            ):
+                raise ValueError(
+                    f"v3 register-backed clearance differs from manifest: {key}"
+                )
+            expected_sha256 = external_document_commitments.get(key)
+            if (
+                not isinstance(expected_sha256, str)
+                or clearance.get("sha256") != expected_sha256
+            ):
+                raise ValueError(
+                    f"v3 register-backed clearance differs from register: {key}"
+                )
+
+            restriction = restriction_by_key.get(key)
+            if restriction is None or (
+                frozenset(restriction) != _PAID_RESTRICTION_FIELDS
+            ):
+                raise ValueError(
+                    "v3 register-backed clearance lacks exact restriction evidence: "
+                    f"{key}"
+                )
+            if (
+                restriction.get("is_private") is not False
+                or restriction.get("is_sealed") is not False
+                or restriction.get("restriction_status") != "public"
+                or restriction.get("restriction_evidence")
+                != list(PAID_DELIVERY_RESTRICTION_EVIDENCE)
+            ):
+                raise ValueError(
+                    "v3 register-backed restriction is not exact public evidence: "
+                    f"{key}"
+                )
+
+    admitted: list[JsonRecord] = []
+    for record in clearance_records:
+        row = dict(record)
+        if "schema_version" not in row:
+            key = _key(row)
+            restriction = restriction_by_key[key]
+            row.update(
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "is_private": restriction["is_private"],
+                    "is_sealed": restriction["is_sealed"],
+                    "restriction_status": restriction["restriction_status"],
+                    "restriction_evidence": list(
+                        cast(Sequence[str], restriction["restriction_evidence"])
+                    ),
+                }
+            )
+        admitted.append(row)
+    return tuple(admitted)
+
+
+def admit_authenticated_v3_register_lineage(
+    recovery: Mapping[str, object],
+    clearance_lineage: MutableMapping[str, object],
+    consolidated_authority: Mapping[str, object] | None,
+) -> None:
+    """Apply v3-only clearance admission after all raw capability checks."""
+
+    if consolidated_authority is None:
+        return
+    clearance_lineage["clearance_records"] = (
+        admit_authenticated_v3_register_clearance_rows(
+            manifest_records=cast(
+                Sequence[Mapping[str, Any]], recovery["manifest_records"]
+            ),
+            clearance_records=cast(
+                Sequence[Mapping[str, Any]], clearance_lineage["clearance_records"]
+            ),
+            restriction_records=cast(
+                Sequence[Mapping[str, Any]],
+                clearance_lineage["restriction_records"],
+            ),
+            authenticated_clearance_bytes=consolidated_authority["clearance_bytes"],
+            authenticated_restriction_bytes=consolidated_authority["restriction_bytes"],
+            external_document_commitments=cast(
+                Mapping[DocumentKey, str],
+                consolidated_authority["external_document_commitments"],
+            ),
+        )
+    )
+
+
+def _jsonl_bytes(records: Sequence[Mapping[str, Any]]) -> bytes:
+    return "".join(
+        f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
+        for record in records
+    ).encode("utf-8")
 
 
 def _index(raw_records: object, *, label: str) -> dict[DocumentKey, JsonRecord]:
