@@ -210,11 +210,19 @@ def test_assembler_keeps_audit_only_documents_out_of_model_visibility() -> None:
 def test_packet_builder_mounts_candidate_shaped_claim_pleadings() -> None:
     """Full packets retain certified claim pleadings but never outcomes."""
 
-    candidate_id = "71212565"
+    candidate_id = "candidate-synthetic-pleading"
     documents = (
         _document(f"{candidate_id}-complaint", DocumentRole.COMPLAINT, 1),
-        _document("457379277", DocumentRole.INTERPLEADER_COMPLAINT, 12),
-        _document("461086928", DocumentRole.CROSSCLAIM, 23),
+        _document(
+            "document-synthetic-interpleader",
+            DocumentRole.INTERPLEADER_COMPLAINT,
+            12,
+        ),
+        _document(
+            "document-synthetic-crossclaim",
+            DocumentRole.CROSSCLAIM,
+            23,
+        ),
         _document(f"{candidate_id}-mtd-memorandum", DocumentRole.MTD_MEMORANDUM, 30),
         _document(f"{candidate_id}-decision", DocumentRole.DECISION, 31),
         _document(f"{candidate_id}-order", DocumentRole.ORDER, 32),
@@ -243,8 +251,8 @@ def test_packet_builder_mounts_candidate_shaped_claim_pleadings() -> None:
     )
     assert {document.source_document_id for document in full_packet.documents} == {
         f"{candidate_id}-complaint",
-        "457379277",
-        "461086928",
+        "document-synthetic-interpleader",
+        "document-synthetic-crossclaim",
         f"{candidate_id}-mtd-memorandum",
     }
     assert {document.document_role for document in full_packet.documents} == {
