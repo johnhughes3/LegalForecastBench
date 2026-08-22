@@ -41108,6 +41108,22 @@
         },
         {
           "action": "store",
+          "choices": [
+            "finalized-v1",
+            "stage51-r2-proposal-v1"
+          ],
+          "default": "finalized-v1",
+          "dest": "stage51_authority_mode",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--stage51-authority-mode"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
           "choices": null,
           "default": null,
           "dest": "finalized_units",
@@ -41116,7 +41132,7 @@
           "option_strings": [
             "--finalized-units"
           ],
-          "required": true,
+          "required": false,
           "type": "pathlib.Path"
         },
         {
@@ -41129,7 +41145,7 @@
           "option_strings": [
             "--finalized-integration-manifest"
           ],
-          "required": true,
+          "required": false,
           "type": "pathlib.Path"
         },
         {
@@ -41155,7 +41171,7 @@
           "option_strings": [
             "--expected-finalized-units-sha256"
           ],
-          "required": true,
+          "required": false,
           "type": null
         },
         {
@@ -41168,7 +41184,124 @@
           "option_strings": [
             "--expected-finalized-integration-manifest-sha256"
           ],
-          "required": true,
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "stage51_proposal_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--stage51-proposal-root"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_stage51_selection_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-stage51-selection-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_stage51_overlay_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-stage51-overlay-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_stage51_packet_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-stage51-packet-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_stage51_validation_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-stage51-validation-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_stage51_semantic_diff_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-stage51-semantic-diff-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_stage51_inventory_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-stage51-inventory-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_stage51_checksums_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-stage51-checksums-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_stage51_integration_proposal_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-stage51-integration-proposal-sha256"
+          ],
+          "required": false,
           "type": null
         },
         {
@@ -41182,6 +41315,188 @@
             "--owner-approval-reference"
           ],
           "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "owner_approval_source",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--owner-approval-source"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_owner_approval_source_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-owner-approval-source-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fresh_five_selection",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fresh-five-selection"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_fresh_five_selection_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-fresh-five-selection-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fresh_five_units",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fresh-five-units"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_fresh_five_units_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-fresh-five-units-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fresh_five_audit",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fresh-five-audit"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_fresh_five_audit_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-fresh-five-audit-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fresh_five_run_card",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fresh-five-run-card"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_fresh_five_run_card_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-fresh-five-run-card-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fresh_five_review_queue",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fresh-five-review-queue"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_fresh_five_review_queue_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-fresh-five-review-queue-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fresh_five_terminal_review_queue",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fresh-five-terminal-review-queue"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_fresh_five_terminal_review_queue_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-fresh-five-terminal-review-queue-sha256"
+          ],
+          "required": false,
           "type": null
         },
         {

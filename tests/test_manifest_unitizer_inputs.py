@@ -6,11 +6,17 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pytest
 from legalforecast.evals.corpus_manifest import unitizer as unitizer_module
+from legalforecast.evals.corpus_manifest.stage51_r2 import (
+    _file_commitment,
+    _preflight_r2_outputs,
+    _write_jsonl_output,
+)
 from legalforecast.evals.corpus_manifest.unitizer import (
     AuthenticatedFinalizedOverlay,
     ManifestUnitizerCommandError,
@@ -20,6 +26,8 @@ from legalforecast.evals.corpus_manifest.unitizer import (
     authenticate_finalized_overlay,
     prepare_manifest_unitizer_inputs,
 )
+from legalforecast.evals.corpus_manifest.unitizer_publication import _write_stage_card
+from legalforecast.evals.corpus_manifest.unitizer_shared import _citation_span_pages
 from legalforecast.labeling.llm_pipeline import LlmBatchResult
 from legalforecast.labeling.provider_journal import (
     load_provider_cycle_caps,
@@ -29,6 +37,9 @@ from legalforecast.labeling.provider_journal import (
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 _UNITS_APPROVAL = "units: approved — ceiling USD 5.00 extends to the sixth fresh case"
+_R2_UNITS_APPROVAL = (
+    "units: approved — ceiling USD 5.00 extends to the fifth fresh case"
+)
 _PROMPT_CONTRACT = unitizer_module.STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
 _FRESH_IDS = tuple(f"synthetic-fresh-{number}" for number in range(1, 7))
 
@@ -472,6 +483,8 @@ def test_authenticate_finalized_overlay_accepts_exact_94_retained_and_6_fresh(
 
     assert len(authenticated.retained_records) == 94
     assert len(authenticated.fresh_selection_records) == 6
+    assert authenticated.reprocessed_records == ()
+    assert authenticated.reprocessed_candidate_ids == ()
     assert [row["candidate_id"] for row in authenticated.retained_records] == [
         row["candidate_id"]
         for row in prepared.selection_records
@@ -480,6 +493,30 @@ def test_authenticate_finalized_overlay_accepts_exact_94_retained_and_6_fresh(
     assert [
         row["candidate_id"] for row in authenticated.fresh_selection_records
     ] == list(fresh_ids)
+
+
+def test_finalized_v1_rejects_the_disjoint_r2_five_case_approval(
+    tmp_path: Path,
+) -> None:
+    prepared, overlay, integration_path, _, integration = _overlay_fixture(tmp_path)
+
+    with pytest.raises(ManifestUnitizerCommandError, match="USD 5 line"):
+        authenticate_finalized_overlay(
+            finalized_units_path=overlay,
+            integration_manifest_path=integration_path,
+            prepared=prepared,
+            expected_selection_sha256=prepared.selection_sha256,
+            expected_overlay_sha256=hashlib.sha256(overlay.read_bytes()).hexdigest(),
+            expected_integration_manifest_sha256=hashlib.sha256(
+                integration_path.read_bytes()
+            ).hexdigest(),
+            owner_approval_reference="legalforecastbench-3ak.38",
+            stage51_packet_approval=(
+                "stage51-terminal-units: approved — packet "
+                f"{integration['packet_sha256']}"
+            ),
+            units_spend_approval=_R2_UNITS_APPROVAL,
+        )
 
 
 @pytest.mark.parametrize("mutation", ("extra", "missing", "mismatched"))
@@ -783,6 +820,11 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
     )
     monkeypatch.setattr(unitizer_module, "_LABELING_MODEL_KEY", "synthetic-model")
     monkeypatch.setattr(unitizer_module, "llm_unitize_cases", fake_unitize)
+    monkeypatch.setattr(
+        unitizer_module,
+        "_adopt_authenticated_unitization_replays",
+        lambda **_: pytest.fail("finalized-v1 must not adopt historical replay"),
+    )
 
     args = argparse.Namespace(
         output_root=tmp_path / "output",
@@ -877,6 +919,9 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
     execute_metadata = json.loads(metadata_path.read_text())
     assert execute_metadata["authoritative"] is False
     assert execute_metadata["provider_spend_cap_usd"] == 5.0
+    execute_run_card = json.loads(run_card_path.read_text())
+    assert execute_run_card["paid_activity_requested"] is True
+    assert execute_run_card["paid_activity_executed"] is True
 
     args.model_key = "openai:gpt-5.6-sol"
     with pytest.raises(ManifestUnitizerCommandError, match="labeling model"):
@@ -901,12 +946,173 @@ def test_manifest_unitizer_defaults_accountless_caps_to_default() -> None:
     assert _provider_account(caps, "synthetic") == "default"
 
 
+def test_r2_stage_card_is_create_only_and_binds_authority_sidecar(
+    tmp_path: Path,
+) -> None:
+    authenticated, prepared, _, _, fresh_ids, integration = _authenticate_fixture(
+        tmp_path
+    )
+    r2_fresh_ids = fresh_ids[:5]
+    approval = _write_text(
+        tmp_path / "approval.json",
+        json.dumps(
+            {
+                "reference": "legalforecastbench-3ak.38",
+                "packet": (
+                    "stage51-terminal-units: approved — packet "
+                    f"{integration['packet_sha256']}"
+                ),
+                "spend": _R2_UNITS_APPROVAL,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    approval_commitment = _file_commitment(approval, "owner_approval_observation")
+    r2_overlay = replace(
+        authenticated,
+        fresh_selection_records=authenticated.fresh_selection_records[:5],
+        fresh_candidate_ids=r2_fresh_ids,
+        authority_mode=unitizer_module._R2_AUTHORITY_MODE,
+        authority_input_commitments=(approval_commitment,),
+    )
+    output_root = tmp_path / "r2-output"
+    output_paths = (
+        output_root / "prediction-units.jsonl",
+        output_root / "llm-unitization-audit.jsonl",
+        output_root / "unitization-review-queue.jsonl",
+        output_root / "unitizer-terminal-review-queue.jsonl",
+    )
+    for path in output_paths:
+        _write_jsonl_output(path, [], immutable=True)
+    replay_audits = tuple(
+        {
+            "candidate_id": candidate_id,
+            "case_id": f"case-{candidate_id}",
+            "provider_prompt_sha256": "sha256:" + "1" * 64,
+            "raw_output_sha256": "sha256:" + "2" * 64,
+            "historical_provider_attempt_ordinal": index,
+            "input_tokens": 10,
+            "output_tokens": 20,
+            "estimated_cost": 0.01,
+            "unit_count": 1,
+            "scorable_unit_count": 1,
+            "metadata": {
+                "provider_response_sha256": "3" * 64,
+                "normalized_response_sha256": "4" * 64,
+            },
+        }
+        for index, candidate_id in enumerate(r2_fresh_ids, start=1)
+    )
+    args = argparse.Namespace(
+        run_card_output=None,
+        log_output=None,
+        resume=False,
+        owner_approval_reference="legalforecastbench-3ak.38",
+        stage51_packet_approval=(
+            f"stage51-terminal-units: approved — packet {integration['packet_sha256']}"
+        ),
+        units_spend_approval=_R2_UNITS_APPROVAL,
+        provider_journal=tmp_path / "provider-attempts.sqlite3",
+    )
+
+    _write_stage_card(
+        args,
+        output_root=output_root,
+        input_paths=(approval,),
+        output_paths=output_paths,
+        record_count=100,
+        paid=False,
+        extra={"selection_sha256": prepared.selection_sha256},
+        dry_run=False,
+        immutable=True,
+        authority_overlay=r2_overlay,
+        prepared=prepared,
+        replay_audits=replay_audits,
+    )
+
+    run_card_path = output_root / "run-cards" / "llm-unitize-manifest.json"
+    authority_path = (
+        output_root / "run-cards" / "llm-unitize-manifest.r2-authority.json"
+    )
+    run_card = json.loads(run_card_path.read_text())
+    authority = json.loads(authority_path.read_text())
+    assert set(run_card) == {
+        "schema_version",
+        "stage",
+        "status",
+        "dry_run",
+        "execute",
+        "resume",
+        "record_count",
+        "input_paths",
+        "output_paths",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "generated_at",
+    }
+    assert str(authority_path) in run_card["output_paths"]
+    assert authority["schema_version"] == (
+        "legalforecast.cycle1.manifest_unitizer_r2_authority.v1"
+    )
+    assert authority["selection"]["candidate_order"] == [
+        row["candidate_id"] for row in prepared.selection_records
+    ]
+    assert [
+        row["candidate_id"] for row in authority["journal_reconstruction"]["candidates"]
+    ] == list(r2_fresh_ids)
+    assert authority["provider_called"] is False
+    assert authority["historical_replay_only"] is True
+    assert authority["journal_mutated"] is False
+    assert authority["owner_approval"]["observation_role"] == (
+        "hash-pinned observational evidence; not identity authentication"
+    )
+
+    with pytest.raises(ManifestUnitizerCommandError, match="already exists"):
+        _write_stage_card(
+            args,
+            output_root=output_root,
+            input_paths=(approval,),
+            output_paths=output_paths,
+            record_count=100,
+            paid=False,
+            extra={"selection_sha256": prepared.selection_sha256},
+            dry_run=False,
+            immutable=True,
+            authority_overlay=r2_overlay,
+            prepared=prepared,
+            replay_audits=replay_audits,
+        )
+
+
+def test_r2_preflight_refuses_input_alias_and_existing_output(tmp_path: Path) -> None:
+    input_path = _write_text(tmp_path / "input.json", "{}\n")
+    args = argparse.Namespace(run_card_output=None, log_output=None)
+
+    with pytest.raises(ManifestUnitizerCommandError, match="aliases"):
+        _preflight_r2_outputs(
+            args,
+            output_root=tmp_path / "output",
+            input_paths=(input_path,),
+            primary_outputs=(input_path,),
+        )
+
+    existing = _write_text(tmp_path / "existing.jsonl", "")
+    with pytest.raises(ManifestUnitizerCommandError, match="already exists"):
+        _preflight_r2_outputs(
+            args,
+            output_root=tmp_path / "other-output",
+            input_paths=(input_path,),
+            primary_outputs=(existing,),
+        )
+
+
 def test_citation_span_accepts_exact_terminal_newline() -> None:
     markdown = "##### Page 9\n\nCount I\nThe complaint alleges a claim.\n"
 
-    assert unitizer_module._citation_span_pages(
+    assert _citation_span_pages(
         markdown, "Count I\nThe complaint alleges a claim.\n"
     ) == {9}
-    assert unitizer_module._citation_span_pages(
+    assert _citation_span_pages(
         markdown, "Count I\nThe complaint alleges a claim."
     ) == {9}
