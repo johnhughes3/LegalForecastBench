@@ -52,8 +52,7 @@ from legalforecast.evals.response_verification import (
 )
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 from legalforecast.path_safety import safe_path_component
-from legalforecast.protocol.freeze import sha256_file
-from legalforecast.protocol.manifest import hash_payload
+from legalforecast.protocol.freeze import hash_freeze_payload, sha256_file
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
     execution_repeat_policy,
@@ -68,7 +67,6 @@ from legalforecast.unitization.schemas import (
 )
 
 JsonRecord = dict[str, Any]
-
 MODEL_PACKET_PREFIX = "model-packets/"
 RESULT_PREFIXES = ("run-cards/", "manifests/", "metrics/", "reports/")
 DENIED_PACKET_PREFIXES = (
@@ -933,7 +931,9 @@ def _cell_completion_record(
         "repeat_policy_sha256": repeat_policy.sha256,
         "execution_policy_sha256": repeat_policy.execution_policy_sha256,
         "objects": normalized_commitments,
-        "result_commitment_sha256": hash_payload({"objects": normalized_commitments}),
+        "result_commitment_sha256": hash_freeze_payload(
+            {"objects": normalized_commitments}
+        ),
     }
 
 
@@ -1614,7 +1614,7 @@ def _verified_repeat_policy_for_config(
         return _RepeatPolicyBinding(
             case_ids=tuple(cast(list[str], synthetic["case_ids"])),
             count=config.repeat_count,
-            sha256=hash_payload(synthetic),
+            sha256=hash_freeze_payload(synthetic),
             execution_policy_sha256=None,
         )
     try:
@@ -2173,7 +2173,7 @@ def _run_id(
         "solver_id": solver_id,
         "repeat_policy_sha256": _normalize_sha256(repeat_policy_sha256),
     }
-    digest = hash_payload(identity)[:32]
+    digest = hash_freeze_payload(identity)[:32]
     return safe_path_component(
         f"{_slug(case_id)}-{_slug(ablation)}-{_slug(solver_id)}-{digest}",
         field_name="run_id",
