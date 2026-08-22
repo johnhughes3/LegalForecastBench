@@ -107,6 +107,74 @@ def test_per_case_runner_verifies_packet_and_publishes_safe_outputs(
     )
 
 
+def test_per_case_runner_records_observed_openai_tier_only_in_runner_log(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    output_dir = tmp_path / "runner-output"
+
+    class ObservedTierSolver:
+        solver_id = "offline:fixture"
+        solver_kind = SolverKind.INSPECT_AI
+
+        def __init__(self, observer: Any) -> None:
+            self.observer = observer
+
+        def solve(self, request: HarnessRequest) -> SolverResponse:
+            self.observer(request, "flex")
+            return SolverResponse(raw_output=_mock_output())
+
+    def fake_solver_for_config(
+        *_args: Any,
+        openai_service_tier_observer: Any,
+        **_kwargs: Any,
+    ) -> ObservedTierSolver:
+        return ObservedTierSolver(openai_service_tier_observer)
+
+    monkeypatch.setattr(per_case_runner, "_solver_for_config", fake_solver_for_config)
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=output_dir,
+            solver_id="offline:fixture",
+            mock_output=_mock_output(),
+        )
+    )
+
+    runs_text = (output_dir / "runs.jsonl").read_text(encoding="utf-8")
+    accounting_text = (output_dir / "accounting.jsonl").read_text(encoding="utf-8")
+    metrics_text = (output_dir / "metrics.json").read_text(encoding="utf-8")
+    assert "observed_service_tier" not in runs_text
+    assert "observed_service_tier" not in accounting_text
+    assert "observed_service_tier" not in metrics_text
+
+    log_records = _read_jsonl(output_dir / "runner-log.jsonl")
+    tier_records = [
+        record
+        for record in log_records
+        if record["event"] == "openai_service_tier_observed"
+    ]
+    assert tier_records == [
+        {
+            "ablation": "full_packet",
+            "case_id": "case-1",
+            "event": "openai_service_tier_observed",
+            "observed_service_tier": "flex",
+            "repeat_index": 1,
+            "sample_id": "cand-1",
+            "schema_version": "legalforecast.per_case_runner_log.v1",
+            "timestamp": tier_records[0]["timestamp"],
+        }
+    ]
+
+
 def _committed_prompt_sha256(
     packet_record: dict[str, object],
     *,
