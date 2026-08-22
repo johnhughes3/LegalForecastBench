@@ -60,7 +60,9 @@ SuccessorInputReplay = Callable[
     [Path], tuple[VerifiedExact100Predecessor, VerifiedSuccessorPromotionPool]
 ]
 TerminalRecoveryReplay = Callable[[bytes, bytes], VerifiedTerminalExclusionEvidence]
-StipulatedEligibilityReplay = Callable[[Path, bytes], VerifiedTerminalExclusionEvidence]
+StipulatedEligibilityReplay = Callable[
+    [Path, bytes, bytes], VerifiedTerminalExclusionEvidence
+]
 
 
 def add_parser(
@@ -291,6 +293,9 @@ def _build(
             predecessor.selection_bytes,
             snapshots,
             stipulated_replay=stipulated_replay,
+            predecessor_download_manifest_bytes=_predecessor_download_manifest_bytes(
+                predecessor
+            ),
         )
         for root in stipulated_roots
     )
@@ -321,6 +326,9 @@ def _build(
                 second_predecessor.selection_bytes,
                 snapshots,
                 stipulated_replay=stipulated_replay,
+                predecessor_download_manifest_bytes=_predecessor_download_manifest_bytes(
+                    second_predecessor
+                ),
             )
             for root in stipulated_roots
         ),
@@ -433,12 +441,19 @@ def _recovery(
     )
 
 
+def _predecessor_download_manifest_bytes(
+    predecessor: VerifiedExact100Predecessor,
+) -> bytes:
+    return b"".join(_bytes(dict(row)) for row in predecessor.download_manifest)
+
+
 def _stipulated(
     root: Path,
     selection: bytes,
     snapshots: dict[Path, bytes],
     *,
     stipulated_replay: StipulatedEligibilityReplay | None,
+    predecessor_download_manifest_bytes: bytes,
 ) -> VerifiedTerminalExclusionEvidence:
     """Mint one stipulated exclusion only from an authenticated audit replay."""
 
@@ -449,7 +464,7 @@ def _stipulated(
         )
     _root_payloads(root, _STIPULATED_AUDIT_FILES, snapshots)
     try:
-        return stipulated_replay(root, selection)
+        return stipulated_replay(root, selection, predecessor_download_manifest_bytes)
     except ValueError as exc:
         raise Exact100SuccessorReplacementCliError(
             "authenticated stipulated eligibility replay did not authorize the "

@@ -298,6 +298,15 @@ def _completed_authenticated_stipulated_audit(
     return audit_root, selection.read_bytes()
 
 
+def _audit_predecessor_manifest_bytes(root: Path) -> bytes:
+    card = json.loads(
+        (root / "run-cards/audit-stage-a-target-eligibility.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    return Path(str(card["input_paths"][2])).read_bytes()
+
+
 def _stipulated_evidence(
     root: Path,
     *,
@@ -1692,9 +1701,12 @@ def test_successor_accepts_stipulated_root_only_after_authenticated_callback(
     calls: list[bytes] = []
 
     def replay(
-        root_arg: Path, selection_bytes: bytes
+        root_arg: Path,
+        selection_bytes: bytes,
+        predecessor_download_manifest_bytes: bytes,
     ) -> VerifiedTerminalExclusionEvidence:
         assert root_arg == root
+        assert predecessor_download_manifest_bytes
         calls.append(selection_bytes)
         return _mint_terminal_evidence(
             candidate_id="C001",
@@ -1764,7 +1776,9 @@ def test_stipulated_eligibility_replay_rejects_selection_mismatch(
     )
 
     with pytest.raises(ValueError, match="selection differs from exact100 predecessor"):
-        cli._replay_exact100_stipulated_eligibility(root, b"sealed predecessor")
+        cli._replay_exact100_stipulated_eligibility(
+            root, b"sealed predecessor", b"{}\n"
+        )
 
 
 def test_production_stipulated_replay_accepts_completed_authenticated_audit(
@@ -1775,13 +1789,17 @@ def test_production_stipulated_replay_accepts_completed_authenticated_audit(
     root, selection_bytes = _completed_authenticated_stipulated_audit(
         tmp_path, monkeypatch
     )
+    predecessor_manifest = _audit_predecessor_manifest_bytes(root)
 
-    evidence = cli._replay_exact100_stipulated_eligibility(root, selection_bytes)
+    evidence = cli._replay_exact100_stipulated_eligibility(
+        root, selection_bytes, predecessor_manifest
+    )
     successor_evidence = successor_cli._stipulated(
         root,
         selection_bytes,
         {},
         stipulated_replay=cli._replay_exact100_stipulated_eligibility,
+        predecessor_download_manifest_bytes=predecessor_manifest,
     )
 
     assert evidence.reason is TerminalExclusionReason.STIPULATED_INELIGIBLE
@@ -1793,7 +1811,10 @@ def test_production_stipulated_replay_accepts_completed_authenticated_audit(
     elsewhere.mkdir()
     monkeypatch.chdir(elsewhere)
     assert (
-        cli._replay_exact100_stipulated_eligibility(root, selection_bytes) == evidence
+        cli._replay_exact100_stipulated_eligibility(
+            root, selection_bytes, predecessor_manifest
+        )
+        == evidence
     )
 
 
@@ -1840,7 +1861,9 @@ def test_production_stipulated_replay_rejects_fabricated_card_after_root_read(
     )
 
     with pytest.raises(ValueError, match=r"target selection|selection"):
-        cli._replay_exact100_stipulated_eligibility(fabricated, selection_bytes)
+        cli._replay_exact100_stipulated_eligibility(
+            fabricated, selection_bytes, _audit_predecessor_manifest_bytes(root)
+        )
 
 
 def test_production_replay_derives_both_capabilities_from_verified_snapshots(
