@@ -21,13 +21,14 @@ what a later lineage reconciliation needs to attach full provenance to the run.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Final, cast
 
-from legalforecast._json_io import read_jsonl_objects, write_json_object
+from legalforecast._json_io import write_json_object
 from legalforecast.contracts.commitments import RAW_BYTES_RAW_SHA256_V1
 from legalforecast.contracts.schemas import (
     OWNER_SIGNED_CORPUS_MANIFEST_V1,
@@ -244,7 +245,7 @@ def build_manifest_mode_forecast(
 def _verified_case_texts(case: ManifestCase) -> dict[str, str]:
     """Read every model-visible markdown file, refusing any byte drift."""
 
-    texts: dict[str, str] = {}
+    document_bytes: dict[str, bytes] = {}
     for document in case.model_visible_documents:
         if document.markdown_path is None or document.markdown_sha256 is None:
             raise ManifestForecastError(
@@ -259,6 +260,24 @@ def _verified_case_texts(case: ManifestCase) -> dict[str, str]:
                 f"{case.candidate_id}/{document.source_document_id}: "
                 f"markdown is unreadable at freeze-recorded path {path.name}"
             ) from exc
+        document_bytes[document.source_document_id] = payload
+    return _verified_case_texts_from_bytes(case, document_bytes)
+
+
+def _verified_case_texts_from_bytes(
+    case: ManifestCase,
+    document_bytes: Mapping[str, bytes],
+) -> dict[str, str]:
+    """Verify and decode exactly the markdown bytes captured by the caller."""
+
+    texts: dict[str, str] = {}
+    for document in case.model_visible_documents:
+        payload = document_bytes.get(document.source_document_id)
+        if payload is None or document.markdown_sha256 is None:
+            raise ManifestForecastError(
+                f"{case.candidate_id}/{document.source_document_id}: "
+                "model-visible document has no captured markdown"
+            )
         digest = str(
             RAW_BYTES_RAW_SHA256_V1.commit(
                 payload,
@@ -412,6 +431,16 @@ def _prediction_units(
         raise ManifestForecastError(
             f"prediction units are unreadable at the bound path {path.name}"
         ) from exc
+    return _prediction_units_from_bytes(manifest, payload)
+
+
+def _prediction_units_from_bytes(
+    manifest: CorpusManifest,
+    payload: bytes,
+) -> dict[str, tuple[PredictionUnit, ...]]:
+    """Verify and parse exactly the unit bytes captured by the caller."""
+
+    path = Path(manifest.prediction_units_source.path)
     digest = str(
         RAW_BYTES_RAW_SHA256_V1.commit(
             payload,
@@ -422,14 +451,25 @@ def _prediction_units(
         raise ManifestForecastError(
             "prediction unit bytes differ from the digest the owner signed"
         )
-    records = read_jsonl_objects(
-        path,
-        error_factory=ManifestForecastError,
-        missing_message=lambda missing: f"prediction units not found: {missing}",
-        non_object_message=lambda bad, line: (
-            f"prediction unit row {line} in {bad} is not an object"
-        ),
-    )
+    records: list[dict[str, Any]] = []
+    try:
+        lines = payload.decode("utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise ManifestForecastError(f"prediction units are not UTF-8: {path}") from exc
+    for line_number, line in enumerate(lines, start=1):
+        if not line.strip():
+            continue
+        try:
+            value: object = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ManifestForecastError(
+                f"prediction unit row {line_number} in {path} is invalid JSON"
+            ) from exc
+        if not isinstance(value, dict):
+            raise ManifestForecastError(
+                f"prediction unit row {line_number} in {path} is not an object"
+            )
+        records.append(cast(dict[str, Any], value))
     units: dict[str, tuple[PredictionUnit, ...]] = {}
     for record in records:
         candidate_id = record.get("candidate_id")

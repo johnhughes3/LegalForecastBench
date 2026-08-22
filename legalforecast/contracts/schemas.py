@@ -158,6 +158,13 @@ OWNER_SIGNED_CORPUS_MANIFEST_V1 = SchemaIdentifier(
 MANIFEST_MODE_FORECAST_RUN_RECORD_V1 = SchemaIdentifier(
     "legalforecast.manifest_mode_forecast_run_record.v1"
 )
+MANIFEST_FREEZE_RUNTIME_CONTRACT_V1 = SchemaIdentifier(
+    "legalforecast.manifest_freeze_runtime_contract.v1"
+)
+MANIFEST_FREEZE_INPUTS_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.manifest_freeze_inputs_run_card.v1"
+)
+NO_BASELINES_V1 = SchemaIdentifier("legalforecast.no_baselines.v1")
 EXACT100_METHODS_DISCLOSURE_V1 = SchemaIdentifier(
     "legalforecast.exact100_methods_disclosure.v1"
 )

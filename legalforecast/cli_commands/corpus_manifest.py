@@ -20,7 +20,7 @@ import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 from legalforecast.publication.manifest_forecast_stage import (
     add_manifest_forecast_stage_arguments,
@@ -56,6 +56,15 @@ class _BuildCommand(Protocol):
     ) -> dict[str, object]: ...
 
 
+class _FreezeInputsBuild(Protocol):
+    run_card: dict[str, object]
+
+
+class _FreezeInputsCommand(Protocol):
+    def __call__(self, **kwargs: Any) -> _FreezeInputsBuild:
+        raise NotImplementedError
+
+
 _FREEZE = importlib.metadata.EntryPoint(
     name="owner-signed-corpus-manifest-freeze",
     value="legalforecast.evals.corpus_manifest.commands:freeze_corpus_manifest_command",
@@ -66,6 +75,42 @@ _BUILD = importlib.metadata.EntryPoint(
     value=(
         "legalforecast.evals.corpus_manifest.commands:build_manifest_forecast_command"
     ),
+    group="legalforecast.internal",
+)
+_ISSUE_FREEZE_INPUTS = importlib.metadata.EntryPoint(
+    name="manifest-freeze-inputs-issue",
+    value=(
+        "legalforecast.evals.corpus_manifest.freeze_inputs:"
+        "issue_manifest_freeze_inputs_command"
+    ),
+    group="legalforecast.internal",
+)
+_VERIFY_FREEZE_INPUTS = importlib.metadata.EntryPoint(
+    name="manifest-freeze-inputs-verify",
+    value=(
+        "legalforecast.evals.corpus_manifest.freeze_inputs:"
+        "verify_manifest_freeze_inputs_command"
+    ),
+    group="legalforecast.internal",
+)
+_HISTORICAL_EXCLUSION_AUTHENTICATOR = importlib.metadata.EntryPoint(
+    name="manifest-freeze-historical-exclusion-authenticator",
+    value="legalforecast.cli:_verify_replacement_exclusion_card",
+    group="legalforecast.internal",
+)
+_V2_VERIFIER = importlib.metadata.EntryPoint(
+    name="manifest-freeze-v2-verifier",
+    value="legalforecast.cli:verify_exact100_successor_replacement_v2_projection",
+    group="legalforecast.internal",
+)
+_V2_REPLAY_ARGS = importlib.metadata.EntryPoint(
+    name="manifest-freeze-v2-replay-args",
+    value="legalforecast.cli:_exact100_successor_v2_replay_args",
+    group="legalforecast.internal",
+)
+_V2_REPLAY = importlib.metadata.EntryPoint(
+    name="manifest-freeze-v2-replay",
+    value="legalforecast.cli:_replay_exact100_successor_replacement_v2_inputs",
     group="legalforecast.internal",
 )
 
@@ -189,6 +234,47 @@ def register(
     )
     build.set_defaults(handler=run_build)
 
+    issue_inputs = subparsers.add_parser(
+        "issue-manifest-freeze-inputs",
+        help="Issue authenticated generic inputs for a manifest freeze bundle.",
+        description=(
+            "Replay the signed 100-case manifest forecast, all 200 prompt "
+            "commitments, the reviewed release bytes, and the complete "
+            "screened/excluded partition. Create-only emit the three runtime "
+            "contracts, Cycle 1 no-baselines sentinel, 57-row exclusion "
+            "ledger, and completed run card. This command calls no provider."
+        ),
+    )
+    issue_inputs.add_argument("--cycle-id", required=True)
+    issue_inputs.add_argument("--release-sha", required=True)
+    issue_inputs.add_argument("--repository-root", type=Path, required=True)
+    issue_inputs.add_argument("--owner-manifest", type=Path, required=True)
+    issue_inputs.add_argument("--model-registry", type=Path, required=True)
+    issue_inputs.add_argument("--forecast-output-dir", type=Path, required=True)
+    issue_inputs.add_argument("--screened-pool", type=Path, required=True)
+    issue_inputs.add_argument("--historical-exclusion-ledger", type=Path, required=True)
+    issue_inputs.add_argument(
+        "--historical-exclusion-run-card", type=Path, required=True
+    )
+    issue_inputs.add_argument("--v2-root", type=Path, required=True)
+    issue_inputs.add_argument(
+        "--v3-root",
+        type=Path,
+        action="append",
+        required=True,
+        dest="v3_roots",
+        help="Authenticated successor v3 root; repeat exactly three times.",
+    )
+    issue_inputs.add_argument("--output-root", type=Path, required=True)
+    issue_inputs.set_defaults(handler=run_issue_freeze_inputs)
+
+    verify_inputs = subparsers.add_parser(
+        "verify-manifest-freeze-inputs",
+        help="Replay and verify issued manifest freeze inputs.",
+    )
+    verify_inputs.add_argument("--output-root", type=Path, required=True)
+    verify_inputs.set_defaults(handler=run_verify_freeze_inputs)
+
     stage = subparsers.add_parser(
         "stage-manifest-forecast",
         help="Stage manifest-mode forecast inputs into immutable S3 prefixes.",
@@ -240,4 +326,45 @@ def run_build(args: argparse.Namespace) -> int:
             sort_keys=True,
         )
     )
+    return 0
+
+
+def run_issue_freeze_inputs(args: argparse.Namespace) -> int:
+    """Issue the six generic freeze inputs without provider activity."""
+
+    issue = cast(_FreezeInputsCommand, _ISSUE_FREEZE_INPUTS.load())
+    build = issue(
+        cycle_id=cast(str, args.cycle_id),
+        release_sha=cast(str, args.release_sha),
+        repository_root=cast(Path, args.repository_root),
+        owner_manifest=cast(Path, args.owner_manifest),
+        model_registry=cast(Path, args.model_registry),
+        forecast_output_dir=cast(Path, args.forecast_output_dir),
+        screened_pool=cast(Path, args.screened_pool),
+        historical_exclusion_ledger=cast(Path, args.historical_exclusion_ledger),
+        historical_exclusion_run_card=cast(Path, args.historical_exclusion_run_card),
+        v2_root=cast(Path, args.v2_root),
+        v3_roots=tuple(cast("Sequence[Path]", args.v3_roots)),
+        output_root=cast(Path, args.output_root),
+        legacy_historical_authenticator=_HISTORICAL_EXCLUSION_AUTHENTICATOR.load(),
+        legacy_v2_verifier=_V2_VERIFIER.load(),
+        legacy_v2_replay_args=_V2_REPLAY_ARGS.load(),
+        legacy_v2_replay=_V2_REPLAY.load(),
+    )
+    print(json.dumps(build.run_card, indent=2, sort_keys=True))
+    return 0
+
+
+def run_verify_freeze_inputs(args: argparse.Namespace) -> int:
+    """Replay one completed generic freeze-input issuance."""
+
+    verify = cast(_FreezeInputsCommand, _VERIFY_FREEZE_INPUTS.load())
+    build = verify(
+        output_root=cast(Path, args.output_root),
+        legacy_historical_authenticator=_HISTORICAL_EXCLUSION_AUTHENTICATOR.load(),
+        legacy_v2_verifier=_V2_VERIFIER.load(),
+        legacy_v2_replay_args=_V2_REPLAY_ARGS.load(),
+        legacy_v2_replay=_V2_REPLAY.load(),
+    )
+    print(json.dumps(build.run_card, indent=2, sort_keys=True))
     return 0

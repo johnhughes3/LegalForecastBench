@@ -13,13 +13,13 @@ admit or exclude it.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, cast
 
 from legalforecast._hashing import is_lowercase_sha256
-from legalforecast._json_io import read_json_object
 from legalforecast.contracts.commitments import MANIFEST_RAW_SHA256_V1
 from legalforecast.contracts.schemas import OWNER_SIGNED_CORPUS_MANIFEST_V1
 from legalforecast.evals.corpus_manifest.coercion import (
@@ -393,16 +393,29 @@ def load_signed_manifest(path: Path, *, expected_digest: str) -> CorpusManifest:
     neither a re-signed file nor a stale command line can be used alone.
     """
 
+    try:
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise CorpusManifestError(f"manifest not found: {path}") from exc
+    return load_signed_manifest_bytes(payload, expected_digest=expected_digest)
+
+
+def load_signed_manifest_bytes(
+    payload: bytes, *, expected_digest: str
+) -> CorpusManifest:
+    """Load and authenticate one caller-captured manifest byte snapshot."""
+
     if not is_lowercase_sha256(expected_digest):
         raise CorpusManifestError(
             "expected manifest digest must be 64 lowercase hexadecimal characters"
         )
-    record = read_json_object(
-        path,
-        error_factory=CorpusManifestError,
-        missing_message=lambda missing: f"manifest not found: {missing}",
-        non_object_message=lambda bad: f"manifest must be a JSON object: {bad}",
-    )
+    try:
+        value: object = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CorpusManifestError("manifest must be valid UTF-8 JSON") from exc
+    if not isinstance(value, Mapping):
+        raise CorpusManifestError("manifest must be a JSON object")
+    record = dict(cast(Mapping[str, Any], value))
     embedded = record.get(MANIFEST_DIGEST_FIELD)
     if not isinstance(embedded, str) or not is_lowercase_sha256(embedded):
         raise CorpusManifestError(
