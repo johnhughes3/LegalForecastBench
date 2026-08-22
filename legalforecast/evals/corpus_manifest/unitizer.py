@@ -22,8 +22,10 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast._json_io import write_jsonl_objects
 from legalforecast.contracts import (
     ARTIFACT_JSON_VALUE_V1,
+    CYCLE1_MANIFEST_UNITIZER_SPEND_AUTHORITY_V1,
     CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_V1,
 )
 from legalforecast.evals.corpus_manifest.freeze import (
@@ -52,7 +54,6 @@ from legalforecast.evals.corpus_manifest.unitizer_replay import (
 )
 from legalforecast.evals.corpus_manifest.unitizer_shared import (
     _CYCLE1_FRESH_CANDIDATE_IDS,
-    _CYCLE1_REPROCESSED_CANDIDATE_IDS,
     _FINALIZED_V1_AUTHORITY_MODE,
     _LABELING_MODEL_KEY,
     _LABELING_MODEL_REGISTRY_SHA256,
@@ -77,10 +78,16 @@ from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     load_model_registry_bytes,
 )
+from legalforecast.evals.provider_spend_control import (
+    FrozenAttemptPolicy,
+    SqliteProviderSpendAuthority,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.labeling.llm_pipeline import (
     STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
     LlmBatchResult,
+    LlmPipelineError,
+    llm_unitize_cases,
     unitization_review_queue_records,
 )
 from legalforecast.labeling.provider_journal import (
@@ -89,7 +96,14 @@ from legalforecast.labeling.provider_journal import (
     load_provider_cycle_caps_bytes,
     verify_provider_journal_identity,
 )
+from legalforecast.labeling.unitizer_terminal import (
+    LlmStageAUnitizerTerminalEscalation,
+    UnitizerTerminalEscalationError,
+    build_llm_stage_a_unitizer_terminal_escalation,
+)
 from legalforecast.unitization.schemas import prediction_unit_from_record
+
+_UNITS_SPEND_CAP_MICROUSD = 5_000_000
 
 
 def add_manifest_unitizer_arguments(parser: argparse.ArgumentParser) -> None:
@@ -228,7 +242,10 @@ def add_manifest_unitizer_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--units-spend-approval",
         required=True,
-        help="Verbatim owner approval extending the USD 5 ceiling to five fresh cases.",
+        help=(
+            "Verbatim owner approval for the selected Stage-51 authority mode's "
+            "USD 5 unitization ceiling."
+        ),
     )
     parser.add_argument("--model-registry", type=Path, required=True)
     parser.add_argument("--model-key", required=True)
@@ -334,9 +351,16 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         output_root / "unitizer-terminal-review-queue.jsonl",
     )
     immutable_publication = overlay.authority_mode == _R2_AUTHORITY_MODE
-    authority_input_paths = tuple(
-        Path(str(commitment["path"]))
-        for commitment in overlay.authority_input_commitments
+    authority_input_paths = (
+        tuple(
+            Path(str(commitment["path"]))
+            for commitment in overlay.authority_input_commitments
+        )
+        if immutable_publication
+        else (
+            Path(args.finalized_units),
+            Path(args.finalized_integration_manifest),
+        )
     )
     input_paths = (
         selection_path,
@@ -374,6 +398,59 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         else None
     )
     if not bool(args.execute):
+        if not immutable_publication:
+            write_jsonl_objects(
+                prediction_units_path,
+                [
+                    {
+                        "stage": "llm-unitize-manifest",
+                        "dry_run": True,
+                        "selection_count": len(prepared.selection_records),
+                        "selection_sha256": prepared.selection_sha256,
+                        "retained_finalized_count": len(overlay.retained_records),
+                        "fresh_candidate_count": len(overlay.fresh_selection_records),
+                        "fresh_candidate_ids": list(overlay.fresh_candidate_ids),
+                        "finalized_overlay_sha256": overlay.overlay_sha256,
+                        "integration_manifest_sha256": (
+                            overlay.integration_manifest_sha256
+                        ),
+                        "model_registry": str(model_registry_path),
+                        "model_registry_sha256": model_registry_sha256,
+                        "model_key": registry_entry.registry_key,
+                        "provider_cycle_caps_sha256": provider_caps_sha256,
+                        "provider_journal": str(provider_journal_path),
+                        "verdict_source_sha256": list(prepared.verdict_source_sha256),
+                    }
+                ],
+            )
+            write_jsonl_objects(review_queue_path, [])
+            write_jsonl_objects(terminal_queue_path, [])
+            _write_stage_card(
+                args,
+                output_root=output_root,
+                input_paths=input_paths,
+                output_paths=(prediction_units_path, review_queue_path),
+                record_count=len(prepared.selection_records),
+                paid=False,
+                extra={
+                    "selection_sha256": prepared.selection_sha256,
+                    "retained_finalized_count": len(overlay.retained_records),
+                    "fresh_candidate_count": len(overlay.fresh_selection_records),
+                    "fresh_candidate_ids": list(overlay.fresh_candidate_ids),
+                    "finalized_overlay_sha256": overlay.overlay_sha256,
+                    "integration_manifest_sha256": (
+                        overlay.integration_manifest_sha256
+                    ),
+                    "owner_approval_reference": str(args.owner_approval_reference),
+                    "model_registry_sha256": model_registry_sha256,
+                    "model_key": registry_entry.registry_key,
+                    "provider_cycle_caps_sha256": provider_caps_sha256,
+                    "provider_journal": str(provider_journal_path),
+                    "verdict_source_sha256": list(prepared.verdict_source_sha256),
+                },
+                dry_run=True,
+            )
+            return
         if immutable_publication:
             _recheck_r2_runtime_inputs(
                 args,
@@ -458,16 +535,91 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
 
     terminal_paths = _validated_terminal_paths(args)
     expected_candidates = set(overlay.fresh_candidate_ids)
-    result = replay_result or _reconstruct_authenticated_fresh_replays(
-        args,
-        overlay=overlay,
-        prepared=prepared,
-        registry_entry=registry_entry,
-        model_registry_sha256=model_registry_sha256,
-        provider_caps=provider_caps,
-        provider_caps_sha256=provider_caps_sha256,
-        provider_journal_path=provider_journal_path,
-    )
+    terminal_escalations: dict[
+        str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]
+    ] = {}
+    spend_authority_path: Path | None = None
+    spend_authority_identity: str | None = None
+    if immutable_publication:
+        if replay_result is None:
+            raise ManifestUnitizerCommandError(
+                "Stage-51 r2 execution lacks its provider-free replay result"
+            )
+        result = replay_result
+    else:
+        terminal_escalations = _terminal_escalations(
+            terminal_paths,
+            prepared=prepared,
+            registry_entry=registry_entry,
+            model_registry_sha256=model_registry_sha256,
+            provider_journal_path=provider_journal_path,
+            provider_caps=provider_caps,
+            provider_caps_sha256=provider_caps_sha256,
+            provider_attempt_namespace=args.provider_attempt_namespace,
+        )
+        fresh_parser_records = tuple(
+            record
+            for record in prepared.parser_records
+            if str(record["candidate_id"]) in expected_candidates
+        )
+        fresh_markdown_paths = {
+            str(record["markdown_path"]) for record in fresh_parser_records
+        }
+        fresh_markdown_bytes = {
+            path: payload
+            for path, payload in prepared.markdown_bytes.items()
+            if path in fresh_markdown_paths
+        }
+        provider_account = _provider_account(provider_caps, registry_entry.provider)
+        spend_authority_identity = _manifest_spend_authority_identity(
+            prepared=prepared,
+            overlay=overlay,
+            model_registry_sha256=model_registry_sha256,
+            provider_caps_sha256=provider_caps_sha256,
+            provider_journal_path=provider_journal_path,
+            provider=registry_entry.provider,
+            provider_account=provider_account,
+        )
+        spend_authority_path = output_root / "provider-spend-authority.sqlite3"
+        spend_authority = SqliteProviderSpendAuthority(
+            spend_authority_path,
+            authority_identity_sha256=spend_authority_identity,
+            cycle_id=provider_caps.cycle_id,
+            provider=registry_entry.provider,
+            account=provider_account,
+            cap_microusd=_UNITS_SPEND_CAP_MICROUSD,
+            policy=FrozenAttemptPolicy(
+                reservation_ledger_sha256=spend_authority_identity,
+                max_billable_attempts=3,
+                failure_threshold=3,
+                failure_window_seconds=86_400,
+            ),
+        )
+        try:
+            result = llm_unitize_cases(
+                selection_records=overlay.fresh_selection_records,
+                parser_records=fresh_parser_records,
+                markdown_root=prepared.markdown_root,
+                markdown_bytes=fresh_markdown_bytes,
+                registry_entry=registry_entry,
+                model_registry_sha256=model_registry_sha256,
+                timeout_seconds=float(args.timeout_seconds),
+                continue_on_error=False,
+                provider_journal_path=provider_journal_path,
+                provider_cycle_caps_usd={
+                    registry_entry.provider: provider_caps.cap_usd(
+                        registry_entry.provider
+                    )
+                },
+                provider_cycle_id=provider_caps.cycle_id,
+                provider_cycle_caps_sha256=provider_caps_sha256,
+                provider_accounts={registry_entry.provider: provider_account},
+                provider_spend_authorities={registry_entry.provider: spend_authority},
+                terminal_escalations=terminal_escalations,
+                provider_attempt_namespace=args.provider_attempt_namespace,
+            )
+        finally:
+            spend_authority.close()
     actual_candidates = {str(record["candidate_id"]) for record in result.records}
     if actual_candidates != expected_candidates or len(result.records) != len(
         overlay.fresh_selection_records
@@ -594,6 +746,22 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         prediction_units_path.read_bytes()
     ).hexdigest()
     audit_sha256 = hashlib.sha256(audit_path.read_bytes()).hexdigest()
+    stage_output_paths = (
+        prediction_units_path,
+        audit_path,
+        review_queue_path,
+        terminal_queue_path,
+    )
+    if not immutable_publication:
+        if spend_authority_path is None or spend_authority_identity is None:
+            raise ManifestUnitizerCommandError(
+                "finalized-v1 execution lacks its provider spend authority"
+            )
+        stage_output_paths = (
+            *stage_output_paths,
+            provider_journal_path,
+            spend_authority_path,
+        )
     _write_stage_card(
         args,
         output_root=output_root,
@@ -601,14 +769,9 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
             *input_paths,
             *terminal_paths,
         ),
-        output_paths=(
-            prediction_units_path,
-            audit_path,
-            review_queue_path,
-            terminal_queue_path,
-        ),
+        output_paths=stage_output_paths,
         record_count=len(merged_records),
-        paid=False,
+        paid=not immutable_publication,
         extra={
             "manifest_mode": True,
             "selection_sha256": prepared.selection_sha256,
@@ -616,8 +779,16 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
             "retained_finalized_count": len(overlay.retained_records),
             "fresh_candidate_count": len(overlay.fresh_selection_records),
             "fresh_candidate_ids": list(overlay.fresh_candidate_ids),
-            "reprocessed_candidate_count": len(overlay.reprocessed_records),
-            "reprocessed_candidate_ids": list(overlay.reprocessed_candidate_ids),
+            **(
+                {
+                    "reprocessed_candidate_count": len(overlay.reprocessed_records),
+                    "reprocessed_candidate_ids": list(
+                        overlay.reprocessed_candidate_ids
+                    ),
+                }
+                if immutable_publication
+                else {}
+            ),
             "finalized_overlay_sha256": overlay.overlay_sha256,
             "integration_manifest_sha256": overlay.integration_manifest_sha256,
             "owner_approval_reference": str(args.owner_approval_reference),
@@ -625,6 +796,16 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
             "units_spend_approval": str(args.units_spend_approval),
             "prediction_units_sha256": prediction_units_sha256,
             "audit_sha256": audit_sha256,
+            **(
+                {
+                    "provider_spend_authority": str(spend_authority_path),
+                    "provider_spend_authority_identity_sha256": (
+                        spend_authority_identity
+                    ),
+                }
+                if not immutable_publication
+                else {}
+            ),
             "provider_spend_cap_usd": 5.0,
             "document_commitments": dict(prepared.document_commitments),
             "model_execution": {
@@ -638,13 +819,19 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
                 "outcome_bytes_mounted": False,
             },
             "result_cost_usd": result.total_estimated_cost,
-            "provider_execution": {
-                "provider_called": False,
-                "historical_replay_only": True,
-                "authority_ordinals_created": False,
-                "new_paid_activity": False,
-            },
-            "terminal_escalation_count": 0,
+            **(
+                {
+                    "provider_execution": {
+                        "provider_called": False,
+                        "historical_replay_only": True,
+                        "authority_ordinals_created": False,
+                        "new_paid_activity": False,
+                    }
+                }
+                if immutable_publication
+                else {}
+            ),
+            "terminal_escalation_count": len(terminal_escalations),
         },
         dry_run=False,
         immutable=immutable_publication,
@@ -676,9 +863,15 @@ def _validated_terminal_paths(args: argparse.Namespace) -> tuple[Path, ...]:
         )
     terminal_paths = tuple(Path(path) for path in (args.terminal_escalation or ()))
     if terminal_paths:
-        raise ManifestUnitizerCommandError(
-            "manifest replay execution does not admit terminal escalation receipts"
+        mode = str(
+            getattr(args, "stage51_authority_mode", _FINALIZED_V1_AUTHORITY_MODE)
         )
+        message = (
+            "manifest replay execution does not admit terminal escalation receipts"
+            if mode == _R2_AUTHORITY_MODE
+            else "exact six-case execution does not admit terminal escalation receipts"
+        )
+        raise ManifestUnitizerCommandError(message)
     return terminal_paths
 
 
@@ -1002,25 +1195,14 @@ def authenticate_finalized_overlay(
             )
         except ManifestUnitizerCommandError as exc:
             invalid_retained[candidate_id] = str(exc)
-    if invalid_retained:
-        raise ManifestUnitizerCommandError(
-            "authenticated overlay retains changed material that is not a valid "
-            "finalized unit; consume the corrected Stage-51 overlay before "
-            f"unitization: {invalid_retained!r}"
-        )
-    fresh_set = missing_from_overlay
+    fresh_set = missing_from_overlay | set(invalid_retained)
     if fresh_set != set(_CYCLE1_FRESH_CANDIDATE_IDS):
         raise ManifestUnitizerCommandError(
             "authenticated selection/overlay validation did not derive the frozen "
-            f"Cycle 1 five-case fresh set; derived={sorted(fresh_set)!r}"
+            f"Cycle 1 six-case set; derived={sorted(fresh_set)!r}, "
+            f"invalid_retained={invalid_retained!r}"
         )
-    reprocessed_ids = set(_CYCLE1_REPROCESSED_CANDIDATE_IDS)
-    if not reprocessed_ids <= selection_overlay_intersection:
-        raise ManifestUnitizerCommandError(
-            "authenticated overlay does not contain the required changed-material "
-            f"reprocessing set: {sorted(reprocessed_ids)!r}"
-        )
-    retained_ids = selection_overlay_intersection - fresh_set - reprocessed_ids
+    retained_ids = selection_overlay_intersection - fresh_set
     if len(retained_ids) != 94:
         raise ManifestUnitizerCommandError(
             "authenticated overlay does not contain exactly 94 retained cases"
@@ -1033,17 +1215,13 @@ def authenticate_finalized_overlay(
 
     retained_records: list[JsonRecord] = []
     fresh_records: list[JsonRecord] = []
-    reprocessed_records: list[JsonRecord] = []
     for selection in prepared.selection_records:
         candidate_id = str(selection["candidate_id"])
         if candidate_id in fresh_set:
             fresh_records.append(dict(selection))
             continue
         retained = overlay_by_candidate[candidate_id]
-        if candidate_id in reprocessed_ids:
-            reprocessed_records.append(retained)
-        else:
-            retained_records.append(retained)
+        retained_records.append(retained)
     _verify_manifest_unit_hashes(manifest, overlay_by_candidate)
     return AuthenticatedFinalizedOverlay(
         retained_records=tuple(retained_records),
@@ -1051,10 +1229,6 @@ def authenticate_finalized_overlay(
         overlay_sha256=overlay_sha256,
         integration_manifest_sha256=integration_sha256,
         fresh_candidate_ids=fresh_ids,
-        reprocessed_records=tuple(reprocessed_records),
-        reprocessed_candidate_ids=tuple(
-            str(record["candidate_id"]) for record in reprocessed_records
-        ),
     )
 
 
@@ -1289,6 +1463,126 @@ def _verify_manifest_unit_hashes(
         raise ManifestUnitizerCommandError(
             "integration manifest sole-unit commitment changed"
         )
+
+
+def _manifest_spend_authority_identity(
+    *,
+    prepared: PreparedManifestUnitizerInputs,
+    overlay: AuthenticatedFinalizedOverlay,
+    model_registry_sha256: str,
+    provider_caps_sha256: str,
+    provider_journal_path: Path,
+    provider: str,
+    provider_account: str,
+) -> str:
+    payload = {
+        "artifact": str(CYCLE1_MANIFEST_UNITIZER_SPEND_AUTHORITY_V1),
+        "cap_microusd": _UNITS_SPEND_CAP_MICROUSD,
+        "fresh_candidate_ids": list(overlay.fresh_candidate_ids),
+        "integration_manifest_sha256": overlay.integration_manifest_sha256,
+        "model_registry_sha256": model_registry_sha256,
+        "provider": provider,
+        "provider_account": provider_account,
+        "provider_caps_sha256": provider_caps_sha256,
+        "provider_journal": str(provider_journal_path),
+        "selection_sha256": prepared.selection_sha256,
+        "verdict_source_sha256": list(prepared.verdict_source_sha256),
+        "finalized_overlay_sha256": overlay.overlay_sha256,
+    }
+    canonical = ARTIFACT_JSON_VALUE_V1.encode(payload)
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _terminal_escalations(
+    paths: Sequence[Path],
+    *,
+    prepared: PreparedManifestUnitizerInputs,
+    registry_entry: ModelRegistryEntry,
+    model_registry_sha256: str,
+    provider_journal_path: Path,
+    provider_caps: ProviderCycleCaps,
+    provider_caps_sha256: str,
+    provider_attempt_namespace: str,
+) -> dict[str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]]:
+    selections = {str(row["candidate_id"]): row for row in prepared.selection_records}
+    result: dict[
+        str, tuple[LlmStageAUnitizerTerminalEscalation, Mapping[str, Any]]
+    ] = {}
+    for path in sorted(paths, key=lambda value: str(value.resolve())):
+        if path.is_symlink() or not path.is_file():
+            raise ManifestUnitizerCommandError(
+                f"terminal receipt is not a regular file: {path}"
+            )
+        payload = path.read_bytes()
+        try:
+            raw = json.loads(payload.decode("utf-8"))
+            if not isinstance(raw, Mapping):
+                raise ValueError("receipt must be an object")
+            record = cast(Mapping[str, Any], raw)
+            escalation = LlmStageAUnitizerTerminalEscalation(
+                candidate_id=str(record["candidate_id"]),
+                case_id=str(record["case_id"]),
+                unitizer_model_key=str(record["unitizer_model_key"]),
+                model_registry_sha256=str(record["model_registry_sha256"]),
+                provider_attempt_namespace=str(record["provider_attempt_namespace"]),
+                prompt=str(record["prompt"]),
+                prompt_sha256=str(record["prompt_sha256"]),
+                predecision_source_commitments=tuple(
+                    dict(cast(Mapping[str, Any], item))
+                    for item in cast(
+                        Sequence[object], record["predecision_source_commitments"]
+                    )
+                ),
+                failed_attempts=tuple(
+                    dict(cast(Mapping[str, Any], item))
+                    for item in cast(Sequence[object], record["failed_attempts"])
+                ),
+                schema_version=str(record["schema_version"]),
+            )
+            candidate_id = escalation.candidate_id
+            selection = selections[candidate_id]
+            expected = build_llm_stage_a_unitizer_terminal_escalation(
+                selection_record=selection,
+                parser_records=prepared.parser_records,
+                markdown_root=prepared.markdown_root,
+                markdown_bytes=prepared.markdown_bytes,
+                registry_entry=registry_entry,
+                model_registry_sha256=model_registry_sha256,
+                provider_journal_path=provider_journal_path,
+                provider_cycle_cap_usd=provider_caps.cap_usd(registry_entry.provider),
+                provider_cycle_id=provider_caps.cycle_id,
+                provider_cycle_caps_sha256=provider_caps_sha256,
+                provider_account=_provider_account(
+                    provider_caps, registry_entry.provider
+                ),
+                provider_attempt_namespace=provider_attempt_namespace,
+            )
+        except (
+            KeyError,
+            TypeError,
+            ValueError,
+            LlmPipelineError,
+            UnitizerTerminalEscalationError,
+        ) as exc:
+            raise ManifestUnitizerCommandError(
+                f"terminal receipt cannot be authenticated: {path}"
+            ) from exc
+        if expected.to_record() != dict(record):
+            raise ManifestUnitizerCommandError(f"terminal receipt changed: {path}")
+        if candidate_id in result:
+            raise ManifestUnitizerCommandError(
+                f"duplicate terminal receipt: {candidate_id}"
+            )
+        result[candidate_id] = (
+            escalation,
+            {"path": str(path.resolve()), "sha256": _sha256_bytes(payload)},
+        )
+    return result
+
+
+# contract-ratchet: allow byte digest for the existing terminal receipt sidecar
+def _sha256_bytes(payload: bytes) -> str:
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 def _provider_account(provider_caps: ProviderCycleCaps, provider: str) -> str:

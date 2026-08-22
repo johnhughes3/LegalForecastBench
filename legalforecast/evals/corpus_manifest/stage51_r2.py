@@ -30,13 +30,13 @@ from legalforecast.ingestion.cohort_document_materializer import (
 from legalforecast.unitization.schemas import prediction_unit_from_record
 
 from .unitizer_shared import (
-    _CYCLE1_FRESH_CANDIDATE_IDS,
     _CYCLE1_REPROCESSED_CANDIDATE_IDS,
     _LABELING_MODEL_KEY,
     _R2_AUTHORITY_MODE,
     _R2_FILES,
+    _R2_FRESH_CANDIDATE_IDS,
     _R2_PACKET_CANDIDATE_IDS,
-    _UNITS_SPEND_APPROVAL,
+    _R2_UNITS_SPEND_APPROVAL,
     AuthenticatedFinalizedOverlay,
     JsonRecord,
     ManifestUnitizerCommandError,
@@ -260,7 +260,7 @@ def authenticate_stage51_r2_proposal(
         raise ManifestUnitizerCommandError(
             "Stage-51 packet approval does not name the authenticated r2 packet"
         )
-    if _normalized_approval(str(args.units_spend_approval)) != _UNITS_SPEND_APPROVAL:
+    if _normalized_approval(str(args.units_spend_approval)) != _R2_UNITS_SPEND_APPROVAL:
         raise ManifestUnitizerCommandError(
             "units spend approval does not match the owner-approved USD 5 line"
         )
@@ -277,7 +277,7 @@ def authenticate_stage51_r2_proposal(
         approval_payload,
         owner_approval_reference=str(args.owner_approval_reference),
         packet_approval=packet_approval,
-        spend_approval=_UNITS_SPEND_APPROVAL,
+        spend_approval=_R2_UNITS_SPEND_APPROVAL,
     )
     commitments.append(
         _file_commitment(approval_path, "owner_approval_observation", approval_payload)
@@ -305,7 +305,7 @@ def authenticate_stage51_r2_proposal(
         len(selection_ids) != 100
         or len(overlay_ids) != 100
         or len(intersection) != 95
-        or fresh_set != set(_CYCLE1_FRESH_CANDIDATE_IDS)
+        or fresh_set != set(_R2_FRESH_CANDIDATE_IDS)
         or len(overlay_ids - selection_ids) != 5
     ):
         raise ManifestUnitizerCommandError(
@@ -856,7 +856,7 @@ def _authenticate_fresh_five_evidence(
     expected_selection = tuple(
         dict(record)
         for record in prepared.selection_records
-        if str(record["candidate_id"]) in _CYCLE1_FRESH_CANDIDATE_IDS
+        if str(record["candidate_id"]) in _R2_FRESH_CANDIDATE_IDS
     )
     if selection_records != expected_selection:
         raise ManifestUnitizerCommandError(

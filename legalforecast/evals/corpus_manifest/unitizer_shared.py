@@ -16,9 +16,15 @@ from legalforecast.unitization.schemas import prediction_unit_from_record
 JsonRecord = dict[str, Any]
 
 _UNITS_SPEND_APPROVAL = (
+    "units: approved — ceiling USD 5.00 extends to the sixth fresh case"
+)
+_R2_UNITS_SPEND_APPROVAL = (
     "units: approved — ceiling USD 5.00 extends to the fifth fresh case"
 )
 _CYCLE1_FRESH_CANDIDATE_IDS = frozenset(
+    {"69437817", "69617129", "70142291", "71203930", "71929529", "72288139"}
+)
+_R2_FRESH_CANDIDATE_IDS = frozenset(
     {"69437817", "69617129", "70142291", "71203930", "71929529"}
 )
 _CYCLE1_REPROCESSED_CANDIDATE_IDS = frozenset({"72288139"})
@@ -92,8 +98,8 @@ class AuthenticatedFinalizedOverlay:
     overlay_sha256: str
     integration_manifest_sha256: str
     fresh_candidate_ids: tuple[str, ...]
-    reprocessed_records: tuple[JsonRecord, ...]
-    reprocessed_candidate_ids: tuple[str, ...]
+    reprocessed_records: tuple[JsonRecord, ...] = ()
+    reprocessed_candidate_ids: tuple[str, ...] = ()
     authority_mode: str = _FINALIZED_V1_AUTHORITY_MODE
     authority_input_commitments: tuple[JsonRecord, ...] = ()
     expected_fresh_records: tuple[JsonRecord, ...] = ()
