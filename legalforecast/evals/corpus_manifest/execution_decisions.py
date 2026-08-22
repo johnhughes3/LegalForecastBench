@@ -12,19 +12,21 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import re
-import tempfile
+import sqlite3
+import subprocess
 from collections.abc import Callable, Mapping
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Final, cast
 
 from legalforecast.contracts.schemas import (
-    MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V1,
-    MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V1,
-    MANIFEST_EXECUTION_DECISIONS_V1,
+    MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V2,
+    MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V2,
+    MANIFEST_EXECUTION_DECISIONS_V2,
     MANIFEST_MODE_FORECAST_RUN_RECORD_V1,
     NO_BASELINES_V1,
 )
@@ -47,27 +49,49 @@ from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     require_official_registry_entries,
 )
+from legalforecast.immutable_io import (
+    ImmutableIOError,
+    publish_tree_create_only,
+    read_single_link_file,
+    write_file_create_only,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.cohort_policy import (
     verify_cohort_policy,
     verify_observation_manifest,
 )
-from legalforecast.labeling.provider_journal import load_provider_cycle_caps_bytes
+from legalforecast.labeling.provider_journal import (
+    ProviderJournalError,
+    load_provider_cycle_caps_bytes,
+    open_provider_journal_snapshot,
+    provider_journal_durable_bytes,
+    verify_provider_journal_identity,
+)
 from legalforecast.protocol.policy_artifacts import (
     OFFICIAL_SHARD_ABLATIONS,
-    generate_execution_policy,
+    generate_execution_policy_v2,
     verify_execution_policy,
     verify_labeling_policy,
 )
 
 _SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
-_DECISIONS_NAME: Final = "execution-decisions.json"
-_POLICY_NAME: Final = "execution-policy.json"
-_RUN_CARD_NAME: Final = "run-cards/issue-manifest-execution-decisions.json"
+_DECISIONS_NAME: Final = "execution-decisions-v2.json"
+_POLICY_NAME: Final = "execution-policy-v2.json"
+_RUN_CARD_NAME: Final = "run-cards/issue-manifest-execution-decisions-v2.json"
 _NO_BASELINES_NAME: Final = "no-baselines.json"
-_BEADS_SCHEMA: Final = str(MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V1)
+_BEADS_SCHEMA: Final = str(MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V2)
 _OFFICIAL_CASE_COUNT: Final = 100
 _ABLATIONS: Final = tuple(OFFICIAL_SHARD_ABLATIONS)
+_CURRENT_COHORT_OBSERVATION_SHA256: Final = (
+    "033b1ed3a90be2f78ecb3387fc49df419c39868cf55d65eee5f262c1cc282721"
+)
+_CURRENT_COHORT_POLICY_SHA256: Final = (
+    "d9bb6b40bf4914ed94e17b66b5ba2cfd2a0051dbb8dc1947269fe65886806216"
+)
+_CANONICAL_PROVIDER_JOURNAL_SUFFIX: Final = (
+    "cycle-1/target-100-production-v4-ranked-reserve/paid-labeling/"
+    "provider-attempts.sqlite3"
+)
 _POLICY_FIELDS: Final = frozenset(
     {
         "cycle_id",
@@ -104,15 +128,12 @@ class ExecutionDecisionsBuild:
 
 def issue_beads_observation(
     *,
-    raw_observation: Path,
     model_registry: Path,
     output: Path,
 ) -> Mapping[str, Any]:
-    """Issue a replayable wrapper from authentic ``bd comments --json`` bytes."""
+    """Capture live ``bd comments --json`` bytes and issue their replay wrapper."""
 
-    if output.exists():
-        raise ExecutionDecisionsError(f"output already exists: {output}")
-    payload = _read_regular(raw_observation, "raw Beads observation")
+    payload = _capture_beads_comments()
     registry_bytes = _read_regular(model_registry, "successor model registry")
     evidence = _parse_authentic_beads_comments(
         payload,
@@ -139,16 +160,12 @@ def issue_beads_observation(
         model_registry=model_registry,
         model_registry_bytes=registry_bytes,
     )
-    if _read_regular(raw_observation, "raw Beads observation") != payload:
-        raise ExecutionDecisionsError("raw Beads observation changed during issuance")
     if _read_regular(model_registry, "successor model registry") != registry_bytes:
         raise ExecutionDecisionsError("model registry changed during issuance")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "wb") as handle:
-        handle.write(encoded)
-    if _read_regular(raw_observation, "raw Beads observation") != payload:
-        raise ExecutionDecisionsError("raw Beads observation changed during issuance")
+    try:
+        write_file_create_only(output, encoded)
+    except ImmutableIOError as exc:
+        raise ExecutionDecisionsError(str(exc)) from exc
     if _read_regular(model_registry, "successor model registry") != registry_bytes:
         raise ExecutionDecisionsError("model registry changed during issuance")
     return wrapper
@@ -160,6 +177,8 @@ def issue_execution_decisions(
     forecast_output_dir: Path,
     model_registry: Path,
     provider_cycle_caps: Path,
+    labeling_provider_cycle_caps: Path,
+    provider_journal: Path,
     labeling_policy: Path,
     cohort_policy: Path,
     cohort_observation_manifest: Path,
@@ -170,13 +189,13 @@ def issue_execution_decisions(
 ) -> ExecutionDecisionsBuild:
     """Derive and create-only publish the official Cycle 1 decisions/policy."""
 
-    if output_root.exists():
-        raise ExecutionDecisionsError(f"output already exists: {output_root}")
     build = _build(
         owner_manifest=owner_manifest,
         forecast_output_dir=forecast_output_dir,
         model_registry=model_registry,
         provider_cycle_caps=provider_cycle_caps,
+        labeling_provider_cycle_caps=labeling_provider_cycle_caps,
+        provider_journal=provider_journal,
         labeling_policy=labeling_policy,
         cohort_policy=cohort_policy,
         cohort_observation_manifest=cohort_observation_manifest,
@@ -205,8 +224,8 @@ def verify_execution_decisions(
     ):
         raise ExecutionDecisionsError("execution-decision run card is not canonical")
     if (
-        card.get("schema_version") != str(MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V1)
-        or card.get("stage") != "issue-manifest-execution-decisions"
+        card.get("schema_version") != str(MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V2)
+        or card.get("stage") != "issue-manifest-execution-decisions-v2"
         or card.get("status") != "completed"
         or card.get("provider_calls_made") != 0
         or card.get("paid_activity_executed") is not False
@@ -220,6 +239,10 @@ def verify_execution_decisions(
         forecast_output_dir=Path(_required_text(inputs, "forecast_output_dir")),
         model_registry=Path(_required_text(inputs, "model_registry")),
         provider_cycle_caps=Path(_required_text(inputs, "provider_cycle_caps")),
+        labeling_provider_cycle_caps=Path(
+            _required_text(inputs, "labeling_provider_cycle_caps")
+        ),
+        provider_journal=Path(_required_text(inputs, "provider_journal")),
         labeling_policy=Path(_required_text(inputs, "labeling_policy")),
         cohort_policy=Path(_required_text(inputs, "cohort_policy")),
         cohort_observation_manifest=Path(
@@ -261,6 +284,8 @@ def _build(
     forecast_output_dir: Path,
     model_registry: Path,
     provider_cycle_caps: Path,
+    labeling_provider_cycle_caps: Path,
+    provider_journal: Path,
     labeling_policy: Path,
     cohort_policy: Path,
     cohort_observation_manifest: Path,
@@ -285,6 +310,7 @@ def _build(
         raise ExecutionDecisionsError(
             "official execution requires exactly four registry entries"
         )
+    _require_successor_registry_safety(entries)
     registry_keys = tuple(sorted(entry.registry_key for entry in entries))
 
     forecast = _verify_forecast(
@@ -308,6 +334,23 @@ def _build(
     caps_sha = _sha(caps_bytes)
     attempt_policy = dict(caps.execution_attempt_policy(caps_sha))
 
+    labeling_caps_bytes = _snapshot(
+        labeling_provider_cycle_caps,
+        snapshots,
+        "labeling provider cycle caps",
+    )
+    labeling_caps = load_provider_cycle_caps_bytes(
+        labeling_caps_bytes, source=labeling_provider_cycle_caps
+    )
+    if labeling_caps.cycle_id != cycle_id_text:
+        raise ExecutionDecisionsError("labeling provider cycle caps cycle_id differs")
+    journal = _authenticate_provider_journal(
+        provider_journal,
+        cycle_id=labeling_caps.cycle_id,
+        provider_cycle_caps_sha256=_sha(labeling_caps_bytes),
+        snapshots=snapshots,
+    )
+
     labeling_bytes = _snapshot(labeling_policy, snapshots, "labeling policy")
     labeling = _json_object(labeling_bytes, "labeling policy")
     verify_labeling_policy(labeling, expected_cycle_id=cycle_id_text)
@@ -316,7 +359,11 @@ def _build(
 
     cohort_bytes = _snapshot(cohort_policy, snapshots, "cohort policy")
     cohort = _json_object(cohort_bytes, "cohort policy")
-    verify_cohort_policy(cohort)
+    cohort_policy_sha = verify_cohort_policy(cohort)
+    if cohort_policy_sha != _CURRENT_COHORT_POLICY_SHA256:
+        raise ExecutionDecisionsError(
+            "cohort policy is not the verified current v3 policy"
+        )
     cohort_content = _mapping(cohort.get("policy"), "cohort policy")
     if cohort_content.get("cycle_id") != cycle_id_text:
         raise ExecutionDecisionsError("cohort policy cycle_id differs")
@@ -327,6 +374,10 @@ def _build(
     observation = _observation_records(observation_bytes)
     verify_observation_manifest(observation, policy_artifact=cohort)
     observation_sha = _sha(observation_bytes)
+    if observation_sha != _CURRENT_COHORT_OBSERVATION_SHA256:
+        raise ExecutionDecisionsError(
+            "cohort observation manifest is not the verified current v3 bytes"
+        )
 
     beads_bytes = _snapshot(beads_observation, snapshots, "Beads observation")
     beads = _verify_beads_observation(
@@ -335,10 +386,15 @@ def _build(
         model_registry=model_registry,
         model_registry_bytes=registry_bytes,
     )
+    _require_provider_caps_and_owner_limit(
+        entries=entries,
+        attempt_policy=attempt_policy,
+        beads=beads,
+    )
     labeling_time = _parse_timestamp(labeling_published, "labeling policy published_at")
+    labeling_started = _required_text(journal, "earliest_reserved_at")
     labeling_started_time = _parse_timestamp(
-        _required_text(beads["lifecycle"], "production_labeling_started_at"),
-        "production_labeling_started_at",
+        labeling_started, "production_labeling_started_at"
     )
     if labeling_time > labeling_started_time:
         raise ExecutionDecisionsError(
@@ -350,6 +406,12 @@ def _build(
         snapshots,
         cycle_id=cycle_id_text,
         verifier=verify_freeze_inputs,
+        owner_manifest=owner_manifest,
+        model_registry=model_registry,
+        forecast_output_dir=forecast_output_dir,
+        owner_manifest_sha256=_sha(owner_bytes),
+        model_registry_sha256=_sha(registry_bytes),
+        forecast=forecast,
     )
     no_baselines_bytes = freeze_payloads[_NO_BASELINES_NAME]
     no_baselines = _json_object(no_baselines_bytes, "no-baselines sentinel")
@@ -371,7 +433,7 @@ def _build(
         "cohort_observation_manifest_sha256": observation_sha,
         "lifecycle": {
             "labeling_policy_published_at": labeling_published,
-            **beads["lifecycle"],
+            "production_labeling_started_at": labeling_started,
         },
         "shard_schedule": {
             "shard_count": len(registry_keys) * len(_ABLATIONS),
@@ -403,6 +465,8 @@ def _build(
             "run_inputs_sha256": forecast["run_inputs_sha256"],
             "model_registry_sha256": _sha(registry_bytes),
             "provider_cycle_caps_sha256": caps_sha,
+            "labeling_provider_cycle_caps_sha256": _sha(labeling_caps_bytes),
+            "provider_journal": journal,
             "labeling_policy_sha256": _sha(labeling_bytes),
             "cohort_policy_sha256": _sha(cohort_bytes),
             "cohort_observation_manifest_sha256": observation_sha,
@@ -421,18 +485,18 @@ def _build(
     policy_decisions = {
         key: value for key, value in decisions.items() if key in _POLICY_FIELDS
     }
-    execution_policy = generate_execution_policy(policy_decisions)
+    execution_policy = generate_execution_policy_v2(policy_decisions)
     payloads = {
         _DECISIONS_NAME: canonical_json_bytes(
-            {"schema_version": str(MANIFEST_EXECUTION_DECISIONS_V1), **decisions},
+            {"schema_version": str(MANIFEST_EXECUTION_DECISIONS_V2), **decisions},
             error_type=ExecutionDecisionsError,
             error_message="execution decisions are not canonical JSON",
         ),
         _POLICY_NAME: _policy_bytes(execution_policy),
     }
     run_card = {
-        "schema_version": str(MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V1),
-        "stage": "issue-manifest-execution-decisions",
+        "schema_version": str(MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V2),
+        "stage": "issue-manifest-execution-decisions-v2",
         "status": "completed",
         "cycle_id": cycle_id_text,
         "provider_calls_made": 0,
@@ -442,6 +506,8 @@ def _build(
             "forecast_output_dir": str(forecast_output_dir),
             "model_registry": str(model_registry),
             "provider_cycle_caps": str(provider_cycle_caps),
+            "labeling_provider_cycle_caps": str(labeling_provider_cycle_caps),
+            "provider_journal": str(provider_journal),
             "labeling_policy": str(labeling_policy),
             "cohort_policy": str(cohort_policy),
             "cohort_observation_manifest": str(cohort_observation_manifest),
@@ -464,12 +530,171 @@ def _build(
         error_message="execution-decision run card is not canonical JSON",
     )
     return ExecutionDecisionsBuild(
-        decisions={"schema_version": str(MANIFEST_EXECUTION_DECISIONS_V1), **decisions},
+        decisions={"schema_version": str(MANIFEST_EXECUTION_DECISIONS_V2), **decisions},
         execution_policy=execution_policy,
         run_card=run_card,
         payloads=payloads,
         input_snapshots=snapshots,
     )
+
+
+def _capture_beads_comments() -> bytes:
+    try:
+        completed = subprocess.run(
+            ["bd", "comments", _COORDINATION_BEAD_ID, "--json"],
+            check=False,
+            capture_output=True,
+        )
+    except OSError as exc:
+        raise ExecutionDecisionsError(
+            "cannot execute live bd comments capture"
+        ) from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.decode("utf-8", errors="replace").strip()
+        raise ExecutionDecisionsError(
+            f"live bd comments capture failed: {detail or completed.returncode}"
+        )
+    if not completed.stdout:
+        raise ExecutionDecisionsError("live bd comments capture returned no bytes")
+    return completed.stdout
+
+
+def _authenticate_provider_journal(
+    path: Path,
+    *,
+    cycle_id: str,
+    provider_cycle_caps_sha256: str,
+    snapshots: dict[Path, bytes],
+) -> dict[str, Any]:
+    if not path.resolve().as_posix().endswith(_CANONICAL_PROVIDER_JOURNAL_SUFFIX):
+        raise ExecutionDecisionsError(
+            "provider journal is not the canonical labeling journal"
+        )
+    try:
+        durable_before = dict(provider_journal_durable_bytes(path))
+        with closing(open_provider_journal_snapshot(path)) as snapshot:
+            identity = verify_provider_journal_identity(
+                path,
+                cycle_id=cycle_id,
+                provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+                snapshot=snapshot,
+            )
+            attempt_count = int(
+                snapshot.execute("SELECT COUNT(*) FROM provider_attempts").fetchone()[0]
+            )
+            row = snapshot.execute(
+                "SELECT logical_call_key, attempt_ordinal, stage, candidate_id, "
+                "model_key, provider, account, prompt_sha256, "
+                "model_registry_sha256, status, reserved_at, completed_at "
+                "FROM provider_attempts ORDER BY reserved_at, logical_call_key, "
+                "attempt_ordinal LIMIT 1"
+            ).fetchone()
+        durable_after = dict(provider_journal_durable_bytes(path))
+    except (OSError, ProviderJournalError, sqlite3.Error) as exc:
+        raise ExecutionDecisionsError(
+            f"provider journal authentication failed: {exc}"
+        ) from exc
+    if durable_after != durable_before:
+        raise ExecutionDecisionsError("provider journal changed during authentication")
+    if attempt_count <= 0 or row is None:
+        raise ExecutionDecisionsError(
+            "provider journal contains no durable reservations"
+        )
+    earliest = {name: row[name] for name in row.keys()}
+    reserved_at = earliest.get("reserved_at")
+    if not isinstance(reserved_at, str):
+        raise ExecutionDecisionsError(
+            "provider journal earliest reservation lacks timestamp"
+        )
+    _parse_timestamp(reserved_at, "provider journal earliest reserved_at")
+    for name, payload in durable_before.items():
+        snapshots[path.parent / name] = payload
+    return {
+        "schema_version": identity.schema_version,
+        "cycle_id": identity.cycle_id,
+        "provider_cycle_caps_sha256": provider_cycle_caps_sha256,
+        "canonical_path": identity.canonical_path,
+        "durable_files": {
+            name: {"sha256": _sha(payload), "size_bytes": len(payload)}
+            for name, payload in sorted(durable_before.items())
+        },
+        "attempt_count": attempt_count,
+        "earliest_reserved_at": reserved_at,
+        "earliest_reservation": earliest,
+    }
+
+
+def _require_successor_registry_safety(entries: tuple[Any, ...]) -> None:
+    from legalforecast.evals.corpus_manifest.beads_observation import (
+        SUCCESSOR_REGISTRY_KEYS,
+    )
+
+    if frozenset(entry.registry_key for entry in entries) != SUCCESSOR_REGISTRY_KEYS:
+        raise ExecutionDecisionsError(
+            "model registry does not contain the successor set"
+        )
+    unsafe = sorted(
+        entry.registry_key
+        for entry in entries
+        if entry.network_disabled is not True
+        or entry.search_disabled is not True
+        or entry.temperature != 0.0
+        or entry.top_p != 1.0
+        or entry.tool_policy.value != "controlled_docket_tool_only"
+    )
+    if unsafe:
+        raise ExecutionDecisionsError(
+            f"successor model registry has unsafe execution settings: {unsafe}"
+        )
+
+
+def _require_provider_caps_and_owner_limit(
+    *,
+    entries: tuple[Any, ...],
+    attempt_policy: Mapping[str, Any],
+    beads: Mapping[str, Any],
+) -> None:
+    raw_caps = attempt_policy.get("provider_account_caps")
+    if not isinstance(raw_caps, list):
+        raise ExecutionDecisionsError("provider attempt caps are not an array")
+    caps = [
+        _mapping(value, "provider account cap")
+        for value in cast(list[object], raw_caps)
+    ]
+    registry_providers = {entry.provider.lower() for entry in entries}
+    cap_providers = {_required_text(cap, "provider").lower() for cap in caps}
+    if cap_providers != registry_providers or len(caps) != len(cap_providers):
+        raise ExecutionDecisionsError(
+            "provider attempt caps do not exactly cover registry providers"
+        )
+    total_microusd = 0
+    for cap in caps:
+        amount = cap.get("cap_microusd")
+        if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
+            raise ExecutionDecisionsError("provider cap_microusd must be positive")
+        total_microusd += amount
+    ceiling = _money(_required_text(beads, "ceiling_usd"), "ceiling_usd")
+    estimate = _money(_required_text(beads, "estimate_usd"), "estimate_usd")
+    if estimate > ceiling:
+        raise ExecutionDecisionsError("provider estimate exceeds owner ceiling")
+    if Decimal(total_microusd) / Decimal(1_000_000) > ceiling:
+        raise ExecutionDecisionsError("provider caps exceed owner-approved ceiling")
+
+
+def _money(value: str, name: str) -> Decimal:
+    try:
+        amount = Decimal(value)
+    except InvalidOperation as exc:
+        raise ExecutionDecisionsError(f"{name} must be decimal USD") from exc
+    exponent = amount.as_tuple().exponent
+    if (
+        not amount.is_finite()
+        or amount < 0
+        or not isinstance(exponent, int)
+        or exponent < -2
+    ):
+        raise ExecutionDecisionsError(f"{name} must be non-negative cents")
+    return amount
 
 
 def _verify_complete_freeze_inputs(
@@ -478,6 +703,12 @@ def _verify_complete_freeze_inputs(
     *,
     cycle_id: str,
     verifier: Callable[[Path], Any],
+    owner_manifest: Path,
+    model_registry: Path,
+    forecast_output_dir: Path,
+    owner_manifest_sha256: str,
+    model_registry_sha256: str,
+    forecast: Mapping[str, Any],
 ) -> dict[str, bytes]:
     """Replay the complete generic issuer and bind every published byte."""
 
@@ -507,6 +738,17 @@ def _verify_complete_freeze_inputs(
         raise ExecutionDecisionsError(
             "generic freeze verifier returned an incomplete result"
         )
+    input_paths = _mapping(run_card_map.get("input_paths"), "freeze input_paths")
+    for name, expected in (
+        ("owner_manifest", owner_manifest),
+        ("model_registry", model_registry),
+        ("forecast_output_dir", forecast_output_dir),
+    ):
+        actual = Path(_required_text(input_paths, name))
+        if actual.resolve() != expected.resolve():
+            raise ExecutionDecisionsError(
+                f"generic freeze run card {name} is not cross-bound"
+            )
     verified: dict[str, bytes] = {}
     resolved_root = root.resolve()
     for name in sorted(expected_names):
@@ -524,6 +766,22 @@ def _verify_complete_freeze_inputs(
                 f"generic freeze verifier bytes differ: {name}"
             )
         verified[name] = payload
+    prompt = _json_object(verified["prompt-contract.json"], "prompt contract")
+    replay = _mapping(prompt.get("prompt_replay"), "prompt replay")
+    expected_replay = {
+        "owner_manifest_bytes_sha256": owner_manifest_sha256,
+        "model_registry_sha256": model_registry_sha256,
+        "run_inputs_sha256": forecast["run_inputs_sha256"],
+        "run_record_sha256": forecast["run_record_sha256"],
+        "packet_count": _OFFICIAL_CASE_COUNT * len(_ABLATIONS),
+        "candidate_count": _OFFICIAL_CASE_COUNT,
+        "prompt_commitments": forecast["prompt_commitments"],
+    }
+    for name, expected in expected_replay.items():
+        if replay.get(name) != expected:
+            raise ExecutionDecisionsError(
+                f"generic freeze prompt replay {name} is not cross-bound"
+            )
     return verified
 
 
@@ -537,18 +795,21 @@ def _verify_forecast(
     registry_keys: tuple[str, ...],
     registry_entries: tuple[Any, ...],
     prediction_units_source: Mapping[str, Any],
-) -> dict[str, str]:
+) -> dict[str, Any]:
     record_path = root / "manifest-mode-run-record.json"
     inputs_path = root / "run-inputs.json"
     record_bytes = _snapshot(record_path, snapshots, "manifest forecast run record")
     inputs_bytes = _snapshot(inputs_path, snapshots, "manifest forecast run inputs")
     record = _json_object(record_bytes, "manifest forecast run record")
     inputs = _json_object(inputs_bytes, "manifest forecast run inputs")
+    generated_at = _required_text(record, "generated_at")
+    _parse_timestamp(generated_at, "manifest forecast generated_at")
     if (
         record.get("schema_version") != str(MANIFEST_MODE_FORECAST_RUN_RECORD_V1)
         or record.get("manifest_sha256") != manifest_digest
         or record.get("cycle_id") != cycle_id
         or inputs.get("cycle_id") != cycle_id
+        or inputs.get("generated_at") != generated_at
         or record.get("entry_mode") != "owner_signed_manifest"
         or record.get("case_count") != len(expected_case_ids)
         or record.get("packet_count") != len(expected_case_ids) * len(_ABLATIONS)
@@ -635,6 +896,8 @@ def _verify_forecast(
     return {
         "run_inputs_sha256": _sha(inputs_bytes),
         "run_record_sha256": _sha(record_bytes),
+        "prompt_commitments": dict(sorted(prompt_commitments.items())),
+        "generated_at": generated_at,
     }
 
 
@@ -712,23 +975,6 @@ def _verify_beads_observation(
     if contamination.get("text") != _CONTAMINATION_LINE:
         raise ExecutionDecisionsError("Beads contamination ruling differs")
     spend = _mapping(evidence.get("final_provider_spend"), "spend evidence")
-    lifecycle = _mapping(evidence.get("lifecycle"), "Beads lifecycle evidence")
-    lifecycle_values = _mapping(lifecycle.get("values"), "Beads lifecycle values")
-    lifecycle_times = {
-        name: _parse_timestamp(_required_text(lifecycle_values, name), name)
-        for name in (
-            "production_labeling_started_at",
-            "cohort_policy_published_at",
-            "batch_002_started_at",
-        )
-    }
-    if (
-        lifecycle_times["cohort_policy_published_at"]
-        > lifecycle_times["batch_002_started_at"]
-    ):
-        raise ExecutionDecisionsError(
-            "cohort policy was not published before Batch 002"
-        )
     return {
         "line_sha256": {
             name: _required_sha(_mapping(evidence[name], name), "text_sha256")
@@ -736,10 +982,8 @@ def _verify_beads_observation(
                 "manifest",
                 "contamination",
                 "final_provider_spend",
-                "lifecycle",
             )
         },
-        "lifecycle": dict(lifecycle_values),
         "bead_id": _COORDINATION_BEAD_ID,
         "raw_observation_sha256": _required_sha(record, "raw_observation_sha256"),
         "ceiling_usd": _required_text(spend, "ceiling_usd"),
@@ -773,27 +1017,10 @@ def _policy_bytes(policy: Mapping[str, Any]) -> bytes:
 
 
 def _publish_create_only(root: Path, payloads: Mapping[str, bytes]) -> None:
-    if root.exists():
-        raise ExecutionDecisionsError(f"output already exists: {root}")
-    root.parent.mkdir(parents=True, exist_ok=True)
-    temporary = Path(tempfile.mkdtemp(prefix=f".{root.name}.", dir=str(root.parent)))
     try:
-        for name, payload in payloads.items():
-            target = temporary / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(fd, "wb") as handle:
-                handle.write(payload)
-        os.replace(temporary, root)
-    except BaseException:
-        if temporary.exists():
-            for path in sorted(temporary.rglob("*"), reverse=True):
-                if path.is_file() or path.is_symlink():
-                    path.unlink()
-                elif path.is_dir():
-                    path.rmdir()
-            temporary.rmdir()
-        raise
+        publish_tree_create_only(root, payloads)
+    except ImmutableIOError as exc:
+        raise ExecutionDecisionsError(str(exc)) from exc
 
 
 def _snapshot(path: Path, snapshots: dict[Path, bytes], label: str) -> bytes:
@@ -809,12 +1036,10 @@ def _require_unchanged(snapshots: Mapping[Path, bytes]) -> None:
 
 
 def _read_regular(path: Path, label: str) -> bytes:
-    if path.is_symlink() or not path.is_file():
-        raise ExecutionDecisionsError(f"{label} must be a regular file: {path}")
     try:
-        return path.read_bytes()
-    except OSError as exc:
-        raise ExecutionDecisionsError(f"cannot read {label}: {path}") from exc
+        return read_single_link_file(path, label=label)
+    except ImmutableIOError as exc:
+        raise ExecutionDecisionsError(str(exc)) from exc
 
 
 def _json_object(payload: bytes, label: str) -> dict[str, Any]:

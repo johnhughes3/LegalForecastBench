@@ -310,7 +310,7 @@ def register(
     verify_inputs.set_defaults(handler=run_verify_freeze_inputs)
 
     issue_bundle = subparsers.add_parser(
-        "issue-manifest-forecast-bundle",
+        "issue-manifest-forecast-bundle-v2",
         help="Issue a create-only labels-deferred manifest forecast bundle.",
         description=(
             "Bind the authenticated generic freeze inputs, owner-signed manifest "
@@ -331,27 +331,32 @@ def register(
     issue_bundle.set_defaults(handler=run_issue_bundle)
 
     verify_bundle = subparsers.add_parser(
-        "verify-manifest-forecast-bundle",
+        "verify-manifest-forecast-bundle-v2",
         help="Replay and verify a labels-deferred manifest forecast bundle.",
     )
     verify_bundle.add_argument("--output-root", type=Path, required=True)
     verify_bundle.set_defaults(handler=run_verify_bundle)
 
     issue_decisions = subparsers.add_parser(
-        "issue-manifest-execution-decisions",
+        "issue-manifest-execution-decisions-v2",
         help="Issue provider-free authenticated execution decisions and policy.",
         description=(
             "Derive the Cycle 1 execution decisions from the signed manifest, "
             "no-docket forecast, official model registry, provider caps, "
             "labeling/cohort artifacts, observation chain, and a fresh Beads "
-            "observation. Create-only emit execution-decisions.json, the "
-            "generated execution-policy.json, and a run card."
+            "observation and canonical labeling journal. Create-only emit "
+            "execution-decisions-v2.json, execution-policy-v2.json, and a v2 "
+            "run card. No lifecycle timestamp is accepted from the operator."
         ),
     )
     issue_decisions.add_argument("--owner-manifest", type=Path, required=True)
     issue_decisions.add_argument("--forecast-output-dir", type=Path, required=True)
     issue_decisions.add_argument("--model-registry", type=Path, required=True)
     issue_decisions.add_argument("--provider-cycle-caps", type=Path, required=True)
+    issue_decisions.add_argument(
+        "--labeling-provider-cycle-caps", type=Path, required=True
+    )
+    issue_decisions.add_argument("--provider-journal", type=Path, required=True)
     issue_decisions.add_argument("--labeling-policy", type=Path, required=True)
     issue_decisions.add_argument("--cohort-policy", type=Path, required=True)
     issue_decisions.add_argument(
@@ -363,17 +368,16 @@ def register(
     issue_decisions.set_defaults(handler=run_issue_execution_decisions)
 
     verify_decisions = subparsers.add_parser(
-        "verify-manifest-execution-decisions",
+        "verify-manifest-execution-decisions-v2",
         help="Replay and verify issued execution decisions and policy.",
     )
     verify_decisions.add_argument("--output-root", type=Path, required=True)
     verify_decisions.set_defaults(handler=run_verify_execution_decisions)
 
     issue_beads = subparsers.add_parser(
-        "issue-manifest-execution-decisions-beads-observation",
-        help="Issue a hash-pinned provider-free Beads observation wrapper.",
+        "issue-manifest-execution-decisions-beads-observation-v2",
+        help="Capture live Beads comments and issue a hash-pinned wrapper.",
     )
-    issue_beads.add_argument("--raw-observation", type=Path, required=True)
     issue_beads.add_argument("--model-registry", type=Path, required=True)
     issue_beads.add_argument("--output", type=Path, required=True)
     issue_beads.set_defaults(handler=run_issue_beads_observation)
@@ -533,6 +537,8 @@ def run_issue_execution_decisions(args: argparse.Namespace) -> int:
         forecast_output_dir=cast(Path, args.forecast_output_dir),
         model_registry=cast(Path, args.model_registry),
         provider_cycle_caps=cast(Path, args.provider_cycle_caps),
+        labeling_provider_cycle_caps=cast(Path, args.labeling_provider_cycle_caps),
+        provider_journal=cast(Path, args.provider_journal),
         labeling_policy=cast(Path, args.labeling_policy),
         cohort_policy=cast(Path, args.cohort_policy),
         cohort_observation_manifest=cast(Path, args.cohort_observation_manifest),
@@ -558,11 +564,10 @@ def run_verify_execution_decisions(args: argparse.Namespace) -> int:
 
 
 def run_issue_beads_observation(args: argparse.Namespace) -> int:
-    """Issue a Beads wrapper from a hash-pinned raw observation."""
+    """Capture live Beads comments and issue their hash-pinned wrapper."""
 
     issue = _ISSUE_BEADS_OBSERVATION.load()
     result = issue(
-        raw_observation=cast(Path, args.raw_observation),
         model_registry=cast(Path, args.model_registry),
         output=cast(Path, args.output),
     )

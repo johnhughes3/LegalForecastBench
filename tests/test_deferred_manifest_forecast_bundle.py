@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from legalforecast.cli_commands import corpus_manifest as cli_module
 from legalforecast.evals.corpus_manifest import deferred_bundle as module
 from legalforecast.evals.corpus_manifest.deferred_bundle import (
     ManifestForecastBundleError,
@@ -117,6 +119,7 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             "docket_tool_enabled": False,
             "required_eval_run_case_flags": ["--no-docket-tool"],
             "schema_version": "legalforecast.manifest_mode_forecast_run_record.v1",
+            "generated_at": "2026-01-03T00:00:00Z",
             "entry_mode": "owner_signed_manifest",
             "case_count": 1,
             "packet_count": 1,
@@ -137,6 +140,7 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         forecast / "run-inputs.json",
         {
             "cycle_id": "cycle-1",
+            "generated_at": "2026-01-03T00:00:00Z",
             "model_packets": [
                 {
                     "candidate_id": "case-1",
@@ -180,13 +184,37 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         for path in freeze.rglob("*")
         if path.is_file()
     }
+    prompt_replay = {
+        "owner_manifest_bytes_sha256": _sha(manifest.read_bytes()),
+        "model_registry_sha256": _sha(registry.read_bytes()),
+        "run_record_sha256": _sha(
+            (forecast / "manifest-mode-run-record.json").read_bytes()
+        ),
+        "run_inputs_sha256": _sha((forecast / "run-inputs.json").read_bytes()),
+        "packet_count": 1,
+        "candidate_count": 1,
+        "prompt_commitments": {"case-1:full_packet": "b" * 64},
+    }
+    freeze_payloads["prompt-contract.json"] = _write(
+        freeze / "prompt-contract.json", {"prompt_replay": prompt_replay}
+    )
+    freeze_card = json.loads(
+        (freeze / "run-cards/issue-manifest-freeze-inputs.json").read_text()
+    )
+    freeze_card["input_paths"] = {
+        "owner_manifest": str(manifest),
+        "model_registry": str(registry),
+        "forecast_output_dir": str(forecast),
+    }
+    _write(freeze / "run-cards/issue-manifest-freeze-inputs.json", freeze_card)
+    freeze_payloads["run-cards/issue-manifest-freeze-inputs.json"] = (
+        freeze / "run-cards/issue-manifest-freeze-inputs.json"
+    ).read_bytes()
 
     def freeze_verifier(_root: Path) -> SimpleNamespace:
         return SimpleNamespace(
             payloads=freeze_payloads,
-            run_card=json.loads(
-                (freeze / "run-cards/issue-manifest-freeze-inputs.json").read_text()
-            ),
+            run_card=freeze_card,
         )
 
     return {
@@ -236,3 +264,120 @@ def test_issue_verify_and_toctou(fixture: dict[str, Any]) -> None:
             fixture["output"],  # type: ignore[arg-type]
             verify_freeze_inputs=fixture["freeze_verifier"],
         )
+
+
+def _rewrite_rehashed_bundle(
+    fixture: dict[str, Any], mutation: dict[str, object]
+) -> None:
+    bundle_path = fixture["output"] / "bundle-v2.json"
+    bundle = json.loads(bundle_path.read_bytes())
+    bundle.update(mutation)
+    without_digest = dict(bundle)
+    without_digest.pop("bundle_sha256", None)
+    bundle["bundle_sha256"] = _sha(
+        (
+            json.dumps(without_digest, sort_keys=True, separators=(",", ":")) + "\n"
+        ).encode()
+    )
+    _write(bundle_path, bundle)
+    card_path = fixture["output"] / "run-cards/manifest-forecast-bundle-v2.json"
+    card = json.loads(card_path.read_bytes())
+    card["bundle_sha256"] = bundle["bundle_sha256"]
+    _write(card_path, card)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ({"scoreable": True}, "labels-deferred"),
+        ({"publishable": True}, "labels-deferred"),
+        ({"provider_calls_made": 1}, "labels-deferred"),
+        ({"labels_state": "attached"}, "labels-deferred"),
+        ({"labels_sha256": "c" * 64}, "labels-deferred"),
+        ({"unexpected": "field"}, "fields are not exact"),
+    ],
+)
+def test_rehashed_semantic_bundle_mutations_are_rejected(
+    fixture: dict[str, Any], mutation: dict[str, object], message: str
+) -> None:
+    _issue(fixture)
+    _rewrite_rehashed_bundle(fixture, mutation)
+
+    with pytest.raises(ManifestForecastBundleError, match=message):
+        verify_bundle(
+            fixture["output"],
+            verify_freeze_inputs=fixture["freeze_verifier"],
+        )
+
+
+@pytest.mark.parametrize(
+    "packet_mutation",
+    [
+        {"nested": {"labels": [1]}},
+        {"nested": [{"contains_target_outcome": True}]},
+        {"outcome_label": "granted"},
+    ],
+)
+def test_nested_outcome_material_is_rejected(
+    fixture: dict[str, Any], packet_mutation: dict[str, object]
+) -> None:
+    packet = next(fixture["forecast"].glob("model-packets/*.json"))
+    value = json.loads(packet.read_bytes())
+    value.update(packet_mutation)
+    _write(packet, value)
+
+    with pytest.raises(ManifestForecastBundleError, match="outcome"):
+        _issue(fixture)
+
+
+def test_bundle_issue_is_create_only(fixture: dict[str, Any]) -> None:
+    _issue(fixture)
+    with pytest.raises(ManifestForecastBundleError, match="already exists"):
+        _issue(fixture)
+
+
+def test_bundle_issue_rejects_symlink_input(fixture: dict[str, Any]) -> None:
+    policy = fixture["policy"]
+    target = policy.with_name("policy-target.json")
+    policy.rename(target)
+    policy.symlink_to(target)
+
+    with pytest.raises(
+        ManifestForecastBundleError, match="cannot read execution policy"
+    ):
+        _issue(fixture)
+
+
+def test_bundle_verifier_rejects_hardlinked_output(fixture: dict[str, Any]) -> None:
+    _issue(fixture)
+    bundle = fixture["output"] / "bundle-v2.json"
+    hardlink = fixture["output"] / "bundle-hardlink.json"
+    os.link(bundle, hardlink)
+
+    with pytest.raises(ManifestForecastBundleError, match="one link"):
+        verify_bundle(
+            fixture["output"],
+            verify_freeze_inputs=fixture["freeze_verifier"],
+        )
+
+
+def test_verify_bundle_cli_passes_one_output_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "bundle"
+    calls: list[Path] = []
+
+    def verify(root: Path, *, verify_freeze_inputs: object) -> dict[str, object]:
+        calls.append(root)
+        assert verify_freeze_inputs is cli_module._verify_freeze_inputs_complete
+        return {"verified": True}
+
+    monkeypatch.setattr(
+        cli_module, "_VERIFY_BUNDLE", SimpleNamespace(load=lambda: verify)
+    )
+
+    assert cli_module.run_verify_bundle(SimpleNamespace(output_root=output_root)) == 0
+    assert calls == [output_root]
+    assert json.loads(capsys.readouterr().out) == {"verified": True}

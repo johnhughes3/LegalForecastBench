@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import inspect
 import json
+import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -12,6 +14,11 @@ from typing import Any
 import pytest
 from legalforecast.evals.corpus_manifest import beads_observation as evidence
 from legalforecast.evals.corpus_manifest import execution_decisions as module
+from legalforecast.labeling.provider_journal import (
+    PROVIDER_JOURNAL_SCHEMA_VERSION,
+    ProviderAttemptJournal,
+    ProviderCallIdentity,
+)
 
 
 def _sha(payload: bytes) -> str:
@@ -39,6 +46,11 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             provider=key.split(":", 1)[0],
             model_id=key.split(":", 1)[1],
             registry_key=key,
+            network_disabled=True,
+            search_disabled=True,
+            temperature=0.0,
+            top_p=1.0,
+            tool_policy=SimpleNamespace(value="controlled_docket_tool_only"),
         )
         for key in sorted(evidence.SUCCESSOR_REGISTRY_KEYS)
     )
@@ -77,7 +89,11 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         ],
     )
     monkeypatch.setattr(module, "verify_labeling_policy", lambda *args, **kwargs: "ok")
-    monkeypatch.setattr(module, "verify_cohort_policy", lambda *args, **kwargs: "ok")
+    monkeypatch.setattr(
+        module,
+        "verify_cohort_policy",
+        lambda *args, **kwargs: module._CURRENT_COHORT_POLICY_SHA256,
+    )
     monkeypatch.setattr(
         module, "verify_observation_manifest", lambda *args, **kwargs: "last"
     )
@@ -91,7 +107,16 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
                 "authority_resource_identity_sha256": "b" * 64,
                 "ledger_scope_fields": ["cycle_id", "provider", "account"],
                 "provider_account_caps": [
-                    {"provider": "provider", "account": "acct", "cap_microusd": 1}
+                    {
+                        "provider": "openai",
+                        "account": "openai-primary",
+                        "cap_microusd": 4_000_000,
+                    },
+                    {
+                        "provider": "anthropic",
+                        "account": "anthropic-primary",
+                        "cap_microusd": 4_000_000,
+                    },
                 ],
                 "reservation_ledger_sha256": ledger,
                 "max_billable_attempts": 1,
@@ -107,12 +132,26 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     _write(registry, [])
     caps = tmp_path / "provider-caps.json"
     _write(caps, {})
+    labeling_caps = tmp_path / "labeling-provider-caps.json"
+    _write(labeling_caps, {})
+    provider_journal = tmp_path / "provider-attempts.sqlite3"
     labeling = tmp_path / "labeling-policy.json"
     _write(labeling, {"policy": {"published_at": "2026-01-01T00:00:00Z"}})
     cohort = tmp_path / "cohort-policy.json"
     _write(cohort, {"policy": {"cycle_id": cycle_id}})
     observation = tmp_path / "cohort-observation.jsonl"
     observation.write_bytes(b"{}\n")
+    monkeypatch.setattr(
+        module, "_CURRENT_COHORT_OBSERVATION_SHA256", _sha(observation.read_bytes())
+    )
+    monkeypatch.setattr(
+        module,
+        "_authenticate_provider_journal",
+        lambda *_args, **_kwargs: {
+            "earliest_reserved_at": "2026-01-02T00:00:00Z",
+            "attempt_count": 1,
+        },
+    )
 
     forecast = tmp_path / "forecast"
     packets: list[dict[str, Any]] = []
@@ -135,6 +174,7 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             prompt_commitments[f"{case.candidate_id}:{ablation}"] = prompt_sha
     run_record = {
         "schema_version": "legalforecast.manifest_mode_forecast_run_record.v1",
+        "generated_at": "2026-01-03T00:00:00Z",
         "manifest_sha256": manifest_digest,
         "cycle_id": cycle_id,
         "entry_mode": "owner_signed_manifest",
@@ -161,7 +201,12 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     }
     _write(forecast / "manifest-mode-run-record.json", run_record)
     _write(
-        forecast / "run-inputs.json", {"cycle_id": cycle_id, "model_packets": packets}
+        forecast / "run-inputs.json",
+        {
+            "cycle_id": cycle_id,
+            "generated_at": "2026-01-03T00:00:00Z",
+            "model_packets": packets,
+        },
     )
 
     raw_beads = tmp_path / "bd-comments.json"
@@ -187,20 +232,14 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
                     + evidence.SUCCESSOR_REGISTRY_PATH
                     + "`."
                 ),
-                (
-                    "execution-lifecycle: "
-                    "production_labeling_started_at=2026-01-02T00:00:00Z; "
-                    "cohort_policy_published_at=2026-01-01T00:00:00Z; "
-                    "batch_002_started_at=2026-01-02T00:00:00Z"
-                ),
             ),
             start=1,
         )
     ]
     _write(raw_beads, comments)
+    monkeypatch.setattr(module, "_capture_beads_comments", raw_beads.read_bytes)
     beads = tmp_path / "beads-observation.json"
     module.issue_beads_observation(
-        raw_observation=raw_beads,
         model_registry=registry,
         output=beads,
     )
@@ -232,6 +271,31 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     freeze_payloads["run-cards/issue-manifest-freeze-inputs.json"] = _write(
         freeze / "run-cards/issue-manifest-freeze-inputs.json", card
     )
+    prompt_replay = {
+        "owner_manifest_bytes_sha256": _sha(owner.read_bytes()),
+        "model_registry_sha256": _sha(registry.read_bytes()),
+        "run_inputs_sha256": _sha((forecast / "run-inputs.json").read_bytes()),
+        "run_record_sha256": _sha(
+            (forecast / "manifest-mode-run-record.json").read_bytes()
+        ),
+        "packet_count": len(packets),
+        "candidate_count": len(cases),
+        "prompt_commitments": prompt_commitments,
+    }
+    freeze_payloads["prompt-contract.json"] = _write(
+        freeze / "prompt-contract.json", {"prompt_replay": prompt_replay}
+    )
+    card["input_paths"] = {
+        "owner_manifest": str(owner),
+        "model_registry": str(registry),
+        "forecast_output_dir": str(forecast),
+    }
+    card["output_commitments"]["prompt-contract.json"] = _sha(
+        freeze_payloads["prompt-contract.json"]
+    )
+    freeze_payloads["run-cards/issue-manifest-freeze-inputs.json"] = _write(
+        freeze / "run-cards/issue-manifest-freeze-inputs.json", card
+    )
 
     def freeze_verifier(_root: Path) -> SimpleNamespace:
         return SimpleNamespace(payloads=freeze_payloads, run_card=card)
@@ -241,6 +305,8 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "forecast": forecast,
         "registry": registry,
         "caps": caps,
+        "labeling_caps": labeling_caps,
+        "provider_journal": provider_journal,
         "labeling": labeling,
         "cohort": cohort,
         "observation": observation,
@@ -257,6 +323,8 @@ def _issue(fixture: dict[str, Any]) -> module.ExecutionDecisionsBuild:
         forecast_output_dir=fixture["forecast"],
         model_registry=fixture["registry"],
         provider_cycle_caps=fixture["caps"],
+        labeling_provider_cycle_caps=fixture["labeling_caps"],
+        provider_journal=fixture["provider_journal"],
         labeling_policy=fixture["labeling"],
         cohort_policy=fixture["cohort"],
         cohort_observation_manifest=fixture["observation"],
@@ -304,7 +372,7 @@ def test_observation_extra_line_is_rejected(fixture: dict[str, Any]) -> None:
         _issue(fixture)
 
 
-def test_raw_beads_observation_issuer_binds_exact_lines(
+def test_live_beads_observation_issuer_binds_exact_lines(
     fixture: dict[str, Any], tmp_path: Path
 ) -> None:
     raw = tmp_path / "bd-show.json"
@@ -312,9 +380,513 @@ def test_raw_beads_observation_issuer_binds_exact_lines(
     raw.write_bytes(base64.b64decode(wrapper_record["raw_observation_base64"]))
     output = tmp_path / "beads-wrapper.json"
     wrapper = module.issue_beads_observation(
-        raw_observation=raw,
         model_registry=fixture["registry"],
         output=output,
     )
     assert wrapper["raw_observation_sha256"] == _sha(raw.read_bytes())
     assert output.exists()
+
+
+def _raw_comments(fixture: dict[str, Any]) -> list[dict[str, str]]:
+    wrapper = json.loads(fixture["beads"].read_bytes())
+    return json.loads(base64.b64decode(wrapper["raw_observation_base64"]))
+
+
+def test_live_beads_capture_failure_is_domain_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=2, stdout=b"", stderr=b"Dolt unavailable"
+        ),
+    )
+
+    with pytest.raises(module.ExecutionDecisionsError, match="Dolt unavailable"):
+        module._capture_beads_comments()
+
+
+def test_beads_issuer_has_no_raw_observation_parameter() -> None:
+    assert (
+        "raw_observation"
+        not in inspect.signature(module.issue_beads_observation).parameters
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda rows: rows[0].update(issue_id="wrong"), "issue_id differs"),
+        (
+            lambda rows: [row.update(author="not-owner") for row in rows],
+            "no owner comments",
+        ),
+        (
+            lambda rows: rows.pop(0),
+            "lacks a digest-bound manifest approval",
+        ),
+        (
+            lambda rows: rows.pop(1),
+            "lacks exact contamination replacement ruling",
+        ),
+        (
+            lambda rows: rows.pop(2),
+            "lacks final successor-registry spend approval",
+        ),
+    ],
+)
+def test_beads_parser_rejects_wrong_or_missing_authority(
+    fixture: dict[str, Any], mutation: Any, message: str
+) -> None:
+    comments = _raw_comments(fixture)
+    mutation(comments)
+
+    with pytest.raises(module.ExecutionDecisionsError, match=message):
+        module._parse_authentic_beads_comments(
+            json.dumps(comments).encode(),
+            model_registry=fixture["registry"],
+            model_registry_bytes=fixture["registry"].read_bytes(),
+        )
+
+
+def test_unrelated_lifecycle_comment_is_not_execution_evidence(
+    fixture: dict[str, Any], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    comments = _raw_comments(fixture)
+    comments.append(
+        {
+            "id": "comment-lifecycle",
+            "issue_id": evidence.COORDINATION_BEAD_ID,
+            "author": evidence.OWNER_AUTHOR,
+            "text": "lifecycle: labeling began at a caller-supplied timestamp",
+            "created_at": "2026-01-09T00:00:00Z",
+        }
+    )
+    monkeypatch.setattr(
+        module, "_capture_beads_comments", lambda: json.dumps(comments).encode()
+    )
+
+    wrapper = module.issue_beads_observation(
+        model_registry=fixture["registry"],
+        output=tmp_path / "lifecycle-irrelevant.json",
+    )
+
+    assert set(wrapper["evidence"]) == {
+        "manifest",
+        "contamination",
+        "final_provider_spend",
+    }
+
+
+def test_rehashed_forged_beads_evidence_is_rejected(fixture: dict[str, Any]) -> None:
+    wrapper = json.loads(fixture["beads"].read_bytes())
+    forged = (
+        "I approve corpus manifest "
+        + "f" * 64
+        + " as the frozen Cycle 1 forecast corpus."
+    )
+    wrapper["evidence"]["manifest"]["text"] = forged
+    wrapper["evidence"]["manifest"]["text_sha256"] = _sha(forged.encode())
+    _write(fixture["beads"], wrapper)
+
+    with pytest.raises(module.ExecutionDecisionsError, match="does not replay"):
+        _issue(fixture)
+
+
+def test_execution_decisions_reject_unsafe_registry(
+    fixture: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entries = module.load_model_registry_bytes(b"").entries
+    entries[0].network_disabled = False
+    monkeypatch.setattr(
+        module,
+        "load_model_registry_bytes",
+        lambda _payload: SimpleNamespace(entries=entries),
+    )
+
+    with pytest.raises(module.ExecutionDecisionsError, match="unsafe execution"):
+        _issue(fixture)
+
+
+def test_execution_decisions_reject_incomplete_provider_caps(
+    fixture: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        module,
+        "load_provider_cycle_caps_bytes",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            cycle_id="cycle-1",
+            execution_attempt_policy=lambda _digest: {
+                "provider_account_caps": [
+                    {
+                        "provider": "openai",
+                        "account": "openai-primary",
+                        "cap_microusd": 1_000_000,
+                    }
+                ]
+            },
+        ),
+    )
+
+    with pytest.raises(module.ExecutionDecisionsError, match="exactly cover"):
+        _issue(fixture)
+
+
+def test_execution_decisions_reject_labeling_caps_for_another_cycle(
+    fixture: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = 0
+
+    def load_caps(*_args: Any, **_kwargs: Any) -> SimpleNamespace:
+        nonlocal calls
+        calls += 1
+        cycle_id = "cycle-1" if calls == 1 else "cycle-2"
+        return SimpleNamespace(
+            cycle_id=cycle_id,
+            execution_attempt_policy=lambda digest: {
+                "authority_backend": "dynamodb",
+                "authority_resource_identity_sha256": "b" * 64,
+                "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                "provider_account_caps": [],
+                "reservation_ledger_sha256": digest,
+                "max_billable_attempts": 1,
+                "failure_threshold": 1,
+                "failure_window_seconds": 1,
+            },
+        )
+
+    monkeypatch.setattr(module, "load_provider_cycle_caps_bytes", load_caps)
+
+    with pytest.raises(
+        module.ExecutionDecisionsError, match=r"labeling provider.*cycle"
+    ):
+        _issue(fixture)
+
+
+def test_execution_decisions_reject_caps_above_owner_ceiling(
+    fixture: dict[str, Any], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    comments = _raw_comments(fixture)
+    comments[2]["text"] = (
+        "I approve up to USD 5.00 of provider spend for the Cycle 1 forecast run, "
+        "estimated USD 1.00, across the four models in `"
+        + evidence.SUCCESSOR_REGISTRY_PATH
+        + "`."
+    )
+    monkeypatch.setattr(
+        module, "_capture_beads_comments", lambda: json.dumps(comments).encode()
+    )
+    limited = tmp_path / "limited-beads.json"
+    module.issue_beads_observation(
+        model_registry=fixture["registry"],
+        output=limited,
+    )
+    fixture["beads"] = limited
+
+    with pytest.raises(module.ExecutionDecisionsError, match="caps exceed"):
+        _issue(fixture)
+
+
+@pytest.mark.parametrize(
+    ("reserved_at", "message"),
+    [
+        ("2026-01-02T00:00:00", "timezone-aware"),
+        ("2025-12-31T00:00:00Z", "not published before"),
+    ],
+)
+def test_execution_decisions_reject_invalid_journal_lifecycle(
+    fixture: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    reserved_at: str,
+    message: str,
+) -> None:
+    monkeypatch.setattr(
+        module,
+        "_authenticate_provider_journal",
+        lambda *_args, **_kwargs: {
+            "earliest_reserved_at": reserved_at,
+            "attempt_count": 1,
+        },
+    )
+
+    with pytest.raises(module.ExecutionDecisionsError, match=message):
+        _issue(fixture)
+
+
+def test_execution_decisions_reject_noncurrent_observation(
+    fixture: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(module, "_CURRENT_COHORT_OBSERVATION_SHA256", "f" * 64)
+
+    with pytest.raises(module.ExecutionDecisionsError, match="current v3 bytes"):
+        _issue(fixture)
+
+
+def test_execution_decisions_reject_noncurrent_cohort_policy(
+    fixture: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    accepted = module._CURRENT_COHORT_POLICY_SHA256
+    monkeypatch.setattr(module, "_CURRENT_COHORT_POLICY_SHA256", "f" * 64)
+    monkeypatch.setattr(module, "verify_cohort_policy", lambda *_args: accepted)
+
+    with pytest.raises(module.ExecutionDecisionsError, match="current v3 policy"):
+        _issue(fixture)
+
+
+def test_execution_decisions_reject_freeze_prompt_replay_drift(
+    fixture: dict[str, Any],
+) -> None:
+    prompt = fixture["freeze"] / "prompt-contract.json"
+    value = json.loads(prompt.read_bytes())
+    value["prompt_replay"]["packet_count"] = 199
+    _write(prompt, value)
+    payloads = {
+        str(path.relative_to(fixture["freeze"])): path.read_bytes()
+        for path in fixture["freeze"].rglob("*")
+        if path.is_file()
+    }
+    card = json.loads(
+        (fixture["freeze"] / "run-cards/issue-manifest-freeze-inputs.json").read_bytes()
+    )
+    fixture["freeze_verifier"] = lambda _root: SimpleNamespace(
+        payloads=payloads, run_card=card
+    )
+
+    with pytest.raises(module.ExecutionDecisionsError, match="packet_count"):
+        _issue(fixture)
+
+
+def test_execution_decisions_reject_symlink_input(fixture: dict[str, Any]) -> None:
+    labeling = fixture["labeling"]
+    target = labeling.with_name("labeling-target.json")
+    labeling.rename(target)
+    labeling.symlink_to(target)
+
+    with pytest.raises(
+        module.ExecutionDecisionsError, match="cannot read labeling policy"
+    ):
+        _issue(fixture)
+
+
+def _canonical_journal_path(tmp_path: Path) -> Path:
+    return (
+        tmp_path
+        / "cycle-1/target-100-production-v4-ranked-reserve/paid-labeling"
+        / "provider-attempts.sqlite3"
+    )
+
+
+def _reserve_journal_attempt(
+    path: Path,
+    *,
+    candidate_id: str,
+    caps_sha256: str,
+    reserved_at: str,
+) -> None:
+    with ProviderAttemptJournal(
+        path,
+        identity=ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id=candidate_id,
+            model_key="openai:gpt-5.6-sol",
+            prompt=f"prompt for {candidate_id}",
+            model_registry_sha256="b" * 64,
+        ),
+        provider="openai",
+        reservation_usd=0.01,
+        cycle_cap_usd=1.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=caps_sha256,
+    ) as journal:
+        journal.run_attempt(1, lambda: {"candidate_id": candidate_id})
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET reserved_at = ? WHERE candidate_id = ?",
+            (reserved_at, candidate_id),
+        )
+
+
+def test_provider_journal_authentication_selects_earliest_reservation(
+    tmp_path: Path,
+) -> None:
+    path = _canonical_journal_path(tmp_path)
+    caps_sha256 = "c" * 64
+    _reserve_journal_attempt(
+        path,
+        candidate_id="later",
+        caps_sha256=caps_sha256,
+        reserved_at="2026-01-03T00:00:00Z",
+    )
+    _reserve_journal_attempt(
+        path,
+        candidate_id="earlier",
+        caps_sha256=caps_sha256,
+        reserved_at="2026-01-02T00:00:00Z",
+    )
+    snapshots: dict[Path, bytes] = {}
+
+    authenticated = module._authenticate_provider_journal(
+        path,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=caps_sha256,
+        snapshots=snapshots,
+    )
+
+    assert authenticated["attempt_count"] == 2
+    assert authenticated["earliest_reserved_at"] == "2026-01-02T00:00:00Z"
+    assert authenticated["earliest_reservation"]["candidate_id"] == "earlier"
+    assert path in snapshots
+
+
+def test_provider_journal_authentication_commits_live_wal(
+    tmp_path: Path,
+) -> None:
+    path = _canonical_journal_path(tmp_path)
+    caps_sha256 = "c" * 64
+    journal = ProviderAttemptJournal(
+        path,
+        identity=ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id="wal-row",
+            model_key="openai:gpt-5.6-sol",
+            prompt="prompt",
+            model_registry_sha256="b" * 64,
+        ),
+        provider="openai",
+        reservation_usd=0.01,
+        cycle_cap_usd=1.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=caps_sha256,
+    )
+    try:
+        journal.run_attempt(1, lambda: {"ok": True})
+        authenticated = module._authenticate_provider_journal(
+            path,
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256=caps_sha256,
+            snapshots={},
+        )
+    finally:
+        journal.close()
+
+    assert authenticated["attempt_count"] == 1
+    assert "provider-attempts.sqlite3-wal" in authenticated["durable_files"]
+
+
+def test_provider_journal_authentication_rejects_empty_journal(
+    tmp_path: Path,
+) -> None:
+    path = _canonical_journal_path(tmp_path)
+    caps_sha256 = "c" * 64
+    with ProviderAttemptJournal(
+        path,
+        identity=ProviderCallIdentity(
+            stage="llm-unitize",
+            candidate_id="empty",
+            model_key="openai:gpt-5.6-sol",
+            prompt="prompt",
+            model_registry_sha256="b" * 64,
+        ),
+        provider="openai",
+        reservation_usd=0.01,
+        cycle_cap_usd=1.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=caps_sha256,
+    ):
+        pass
+
+    with pytest.raises(module.ExecutionDecisionsError, match="no durable reservations"):
+        module._authenticate_provider_journal(
+            path,
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256=caps_sha256,
+            snapshots={},
+        )
+
+
+@pytest.mark.parametrize(
+    ("column", "value", "message"),
+    [
+        ("schema_version", "wrong.v1", "schema identity differs"),
+        ("cycle_id", "cycle-2", "cycle identity differs"),
+        ("provider_cycle_caps_sha256", "d" * 64, "caps artifact identity differs"),
+        (
+            "canonical_path",
+            "/wrong/provider-attempts.sqlite3",
+            "canonical path differs",
+        ),
+    ],
+)
+def test_provider_journal_authentication_rejects_wrong_identity(
+    tmp_path: Path, column: str, value: str, message: str
+) -> None:
+    path = _canonical_journal_path(tmp_path)
+    caps_sha256 = "c" * 64
+    _reserve_journal_attempt(
+        path,
+        candidate_id="candidate",
+        caps_sha256=caps_sha256,
+        reserved_at="2026-01-02T00:00:00Z",
+    )
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            f"UPDATE provider_journal_metadata SET {column} = ? WHERE singleton = 1",
+            (value,),
+        )
+
+    with pytest.raises(module.ExecutionDecisionsError, match=message):
+        module._authenticate_provider_journal(
+            path,
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256=caps_sha256,
+            snapshots={},
+        )
+
+
+def test_provider_journal_authentication_rejects_noncanonical_path(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(module.ExecutionDecisionsError, match="not the canonical"):
+        module._authenticate_provider_journal(
+            tmp_path / "provider-attempts.sqlite3",
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256="c" * 64,
+            snapshots={},
+        )
+
+
+def test_provider_journal_authentication_wraps_sql_errors(tmp_path: Path) -> None:
+    path = _canonical_journal_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "CREATE TABLE provider_journal_metadata ("
+            "singleton INTEGER, schema_version TEXT, cycle_id TEXT, "
+            "provider_cycle_caps_sha256 TEXT, canonical_path TEXT)"
+        )
+        connection.execute(
+            "INSERT INTO provider_journal_metadata VALUES (1, ?, ?, ?, ?)",
+            (
+                PROVIDER_JOURNAL_SCHEMA_VERSION,
+                "cycle-1",
+                "c" * 64,
+                str(path.resolve()),
+            ),
+        )
+
+    with pytest.raises(
+        module.ExecutionDecisionsError, match="provider journal authentication failed"
+    ):
+        module._authenticate_provider_journal(
+            path,
+            cycle_id="cycle-1",
+            provider_cycle_caps_sha256="c" * 64,
+            snapshots={},
+        )
+
+
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity", "sNaN"])
+def test_money_rejects_nonfinite_values(value: str) -> None:
+    with pytest.raises(module.ExecutionDecisionsError, match="non-negative cents"):
+        module._money(value, "amount")

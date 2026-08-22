@@ -11,18 +11,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
-import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Final, cast
 
 from legalforecast.contracts.schemas import (
-    MANIFEST_FORECAST_BUNDLE_RUN_CARD_V1,
-    MANIFEST_FORECAST_BUNDLE_V1,
+    MANIFEST_FORECAST_BUNDLE_RUN_CARD_V2,
+    MANIFEST_FORECAST_BUNDLE_V2,
     MANIFEST_MODE_FORECAST_RUN_RECORD_V1,
     NO_BASELINES_V1,
 )
@@ -32,20 +30,62 @@ from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     require_official_registry_entries,
 )
+from legalforecast.immutable_io import (
+    ImmutableIOError,
+    publish_tree_create_only,
+    read_single_link_file,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.labeling.provider_journal import load_provider_cycle_caps_bytes
 from legalforecast.protocol.policy_artifacts import (
+    EXECUTION_POLICY_V2_SCHEMA_VERSION,
     OFFICIAL_SHARD_ABLATIONS,
     verify_execution_policy,
 )
 
 _SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
-_BUNDLE_NAME: Final = "bundle.json"
-_RUN_CARD_NAME: Final = "run-cards/manifest-forecast-bundle.json"
+_BUNDLE_NAME: Final = "bundle-v2.json"
+_RUN_CARD_NAME: Final = "run-cards/manifest-forecast-bundle-v2.json"
 _OFFICIAL_CASE_COUNT: Final = 100
 _OFFICIAL_MODEL_COUNT: Final = 4
 _OWNER_APPROVAL_TEMPLATE: Final = (
     "I approve corpus manifest {digest} as the frozen Cycle 1 forecast corpus."
+)
+_BUNDLE_FIELDS: Final = frozenset(
+    {
+        "schema_version",
+        "cycle_id",
+        "generated_at",
+        "labels_state",
+        "labels_sha256",
+        "scoreable",
+        "publishable",
+        "provider_calls_made",
+        "owner_manifest",
+        "forecast_inputs",
+        "generic_freeze_inputs",
+        "model_registry",
+        "provider_cycle_caps",
+        "execution_policy",
+        "execution_constraints",
+        "repeat_policy",
+        "shard_schedule",
+        "provider_attempt_policy",
+        "prediction_unit_identities",
+        "bundle_sha256",
+    }
+)
+_RUN_CARD_FIELDS: Final = frozenset(
+    {
+        "schema_version",
+        "stage",
+        "status",
+        "cycle_id",
+        "provider_calls_made",
+        "paid_activity_executed",
+        "bundle_sha256",
+        "input_commitments",
+    }
 )
 
 
@@ -73,14 +113,9 @@ def issue_bundle(
     execution_policy: Path,
     output_root: Path,
     verify_freeze_inputs: Callable[[Path], Any],
-    generated_at: datetime | None = None,
 ) -> ManifestForecastBundleBuild:
     """Issue one create-only bundle from authenticated provider-free inputs."""
 
-    if output_root.exists():
-        raise ManifestForecastBundleError(
-            f"bundle output already exists; refusing overwrite: {output_root}"
-        )
     if not cycle_id.strip():
         raise ManifestForecastBundleError("cycle_id is required")
     snapshots: dict[Path, bytes] = {}
@@ -120,6 +155,17 @@ def issue_bundle(
     packet_commitments, prompt_commitments = _forecast_commitments(
         run_inputs, forecast_output_dir, snapshots
     )
+    _require_freeze_cross_binding(
+        freeze,
+        owner_manifest=owner_manifest,
+        model_registry=model_registry,
+        forecast_output_dir=forecast_output_dir,
+        owner_manifest_sha256=_sha(owner_bytes),
+        model_registry_sha256=_sha(registry_bytes),
+        run_record_sha256=_sha(forecast_record_bytes),
+        run_inputs_sha256=_sha(run_inputs_bytes),
+        prompt_commitments=prompt_commitments,
+    )
     registry_entries, policy = _authenticate_runtime_inputs(
         registry_bytes,
         caps_bytes,
@@ -135,13 +181,14 @@ def issue_bundle(
         manifest.prediction_units_source.to_record(),
     )
     unit_identities = _prediction_unit_identities(units_source, snapshots)
-    generated = generated_at or datetime.now(UTC)
-    if generated.tzinfo is None:
-        raise ManifestForecastBundleError("generated_at must be timezone-aware")
+    generated_at = _required_text(run_record, "generated_at")
+    _parse_timestamp(generated_at, "generated_at")
+    if run_inputs.get("generated_at") != generated_at:
+        raise ManifestForecastBundleError("run-inputs generated_at differs")
     core: dict[str, Any] = {
-        "schema_version": str(MANIFEST_FORECAST_BUNDLE_V1),
+        "schema_version": str(MANIFEST_FORECAST_BUNDLE_V2),
         "cycle_id": cycle_id,
-        "generated_at": generated.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+        "generated_at": generated_at,
         "labels_state": "deferred",
         "labels_sha256": None,
         "scoreable": False,
@@ -193,8 +240,8 @@ def issue_bundle(
         _BUNDLE_NAME: _canonical(core),
         _RUN_CARD_NAME: _canonical(
             {
-                "schema_version": str(MANIFEST_FORECAST_BUNDLE_RUN_CARD_V1),
-                "stage": "issue-manifest-forecast-bundle",
+                "schema_version": str(MANIFEST_FORECAST_BUNDLE_RUN_CARD_V2),
+                "stage": "issue-manifest-forecast-bundle-v2",
                 "status": "completed",
                 "cycle_id": cycle_id,
                 "provider_calls_made": 0,
@@ -224,7 +271,11 @@ def verify_bundle(
     card_path = output_root / _RUN_CARD_NAME
     bundle_bytes = _read_regular(bundle_path, "manifest forecast bundle")
     bundle = _json_object(bundle_bytes, "manifest forecast bundle")
-    if bundle.get("schema_version") != str(MANIFEST_FORECAST_BUNDLE_V1):
+    if frozenset(bundle) != _BUNDLE_FIELDS:
+        raise ManifestForecastBundleError(
+            "manifest forecast bundle fields are not exact"
+        )
+    if bundle.get("schema_version") != str(MANIFEST_FORECAST_BUNDLE_V2):
         raise ManifestForecastBundleError("unsupported manifest forecast bundle schema")
     if bundle_bytes != _canonical(bundle):
         raise ManifestForecastBundleError("manifest forecast bundle is not canonical")
@@ -235,12 +286,32 @@ def verify_bundle(
         raise ManifestForecastBundleError("bundle digest does not match content")
     card_bytes = _read_regular(card_path, "bundle run card")
     card = _json_object(card_bytes, "bundle run card")
+    if frozenset(card) != _RUN_CARD_FIELDS:
+        raise ManifestForecastBundleError("bundle run card fields are not exact")
     cycle_id = _required_text(bundle, "cycle_id")
+    _parse_timestamp(_required_text(bundle, "generated_at"), "generated_at")
+    if (
+        bundle.get("labels_state") != "deferred"
+        or bundle.get("labels_sha256") is not None
+        or bundle.get("scoreable") is not False
+        or bundle.get("publishable") is not False
+        or bundle.get("provider_calls_made") != 0
+        or bundle.get("execution_constraints")
+        != {
+            "docket_tool": False,
+            "search": False,
+            "tools": [],
+            "outcome_labels_visible": False,
+        }
+    ):
+        raise ManifestForecastBundleError(
+            "issued bundle must remain private, provider-free, and labels-deferred"
+        )
     if card_bytes != _canonical(card):
         raise ManifestForecastBundleError("bundle run card is not canonical")
     if (
-        card.get("schema_version") != str(MANIFEST_FORECAST_BUNDLE_RUN_CARD_V1)
-        or card.get("stage") != "issue-manifest-forecast-bundle"
+        card.get("schema_version") != str(MANIFEST_FORECAST_BUNDLE_RUN_CARD_V2)
+        or card.get("stage") != "issue-manifest-forecast-bundle-v2"
         or card.get("status") != "completed"
         or card.get("cycle_id") != cycle_id
         or card.get("provider_calls_made") != 0
@@ -283,13 +354,16 @@ def verify_bundle(
         ("run_record_path", "run record", run_record_bytes),
         ("run_inputs_path", "run inputs", run_inputs_bytes),
     ):
-        path = Path(_required_text(forecast, key))
         if _sha(payload) != _required_sha(forecast, key.replace("_path", "_sha256")):
             raise ManifestForecastBundleError(f"{label} bytes changed")
     run_record = _json_object(run_record_bytes, "run record")
     run_inputs = _json_object(run_inputs_bytes, "run inputs")
     _require_cycle(run_record, cycle_id, "manifest forecast run record")
     _require_cycle(run_inputs, cycle_id, "manifest run inputs")
+    if run_record.get("generated_at") != bundle.get("generated_at") or run_inputs.get(
+        "generated_at"
+    ) != bundle.get("generated_at"):
+        raise ManifestForecastBundleError("bundle timestamp is not forecast-bound")
     owner_value = _mapping(bundle["owner_manifest"], "owner_manifest")
     owner_bytes = snapshots[Path(_required_text(owner_value, "path"))]
     manifest_sha = _required_sha(owner_value, "manifest_sha256")
@@ -328,6 +402,17 @@ def verify_bundle(
     packet_sha256, prompt_sha256 = _forecast_commitments(
         run_inputs, run_record_path.parent, snapshots
     )
+    _require_freeze_cross_binding(
+        freeze,
+        owner_manifest=Path(_required_text(owner_value, "path")),
+        model_registry=Path(_required_text(registry_value, "path")),
+        forecast_output_dir=run_record_path.parent,
+        owner_manifest_sha256=_sha(owner_bytes),
+        model_registry_sha256=_sha(registry_bytes),
+        run_record_sha256=_sha(run_record_bytes),
+        run_inputs_sha256=_sha(run_inputs_bytes),
+        prompt_commitments=prompt_sha256,
+    )
     if packet_sha256 != forecast.get("packet_sha256"):
         raise ManifestForecastBundleError("packet commitments changed")
     if prompt_sha256 != forecast.get("prompt_sha256"):
@@ -348,11 +433,6 @@ def verify_bundle(
     replayed_freeze = freeze
     if dict(replayed_freeze) != dict(freeze_record):
         raise ManifestForecastBundleError("generic freeze input commitments changed")
-    if (
-        bundle.get("labels_state") != "deferred"
-        or bundle.get("labels_sha256") is not None
-    ):
-        raise ManifestForecastBundleError("issued bundle must remain labels-deferred")
     _require_snapshots_unchanged(snapshots)
     return bundle
 
@@ -425,11 +505,62 @@ def _read_freeze_inputs(
         raise ManifestForecastBundleError(
             "generic freeze no-baselines sentinel is not authenticated"
         )
+    input_paths = _mapping(run_card_map.get("input_paths"), "freeze input_paths")
+    prompt_contract = _json_object(
+        snapshots[(root / "prompt-contract.json").resolve()], "prompt contract"
+    )
+    prompt_replay = _mapping(
+        prompt_contract.get("prompt_replay"), "freeze prompt_replay"
+    )
     return {
         "root": str(root),
         "run_card_sha256": outputs["run-cards/issue-manifest-freeze-inputs.json"],
         "outputs": outputs,
+        "input_paths": {
+            name: _required_text(input_paths, name)
+            for name in ("owner_manifest", "model_registry", "forecast_output_dir")
+        },
+        "prompt_replay": dict(prompt_replay),
     }
+
+
+def _require_freeze_cross_binding(
+    freeze: Mapping[str, Any],
+    *,
+    owner_manifest: Path,
+    model_registry: Path,
+    forecast_output_dir: Path,
+    owner_manifest_sha256: str,
+    model_registry_sha256: str,
+    run_record_sha256: str,
+    run_inputs_sha256: str,
+    prompt_commitments: Mapping[str, str],
+) -> None:
+    paths = _mapping(freeze.get("input_paths"), "freeze input_paths")
+    for name, expected in (
+        ("owner_manifest", owner_manifest),
+        ("model_registry", model_registry),
+        ("forecast_output_dir", forecast_output_dir),
+    ):
+        if Path(_required_text(paths, name)).resolve() != expected.resolve():
+            raise ManifestForecastBundleError(
+                f"generic freeze {name} is not bundle-bound"
+            )
+    replay = _mapping(freeze.get("prompt_replay"), "freeze prompt_replay")
+    expected_values: dict[str, object] = {
+        "owner_manifest_bytes_sha256": owner_manifest_sha256,
+        "model_registry_sha256": model_registry_sha256,
+        "run_record_sha256": run_record_sha256,
+        "run_inputs_sha256": run_inputs_sha256,
+        "packet_count": _OFFICIAL_CASE_COUNT * len(OFFICIAL_SHARD_ABLATIONS),
+        "candidate_count": _OFFICIAL_CASE_COUNT,
+        "prompt_commitments": dict(sorted(prompt_commitments.items())),
+    }
+    for name, expected in expected_values.items():
+        if replay.get(name) != expected:
+            raise ManifestForecastBundleError(
+                f"generic freeze prompt replay {name} is not bundle-bound"
+            )
 
 
 def _load_manifest(payload: bytes, manifest_sha: str) -> Any:
@@ -461,6 +592,7 @@ def _require_official_forecast_record(
         run_record.get("manifest_sha256") != manifest_sha
         or run_record.get("cycle_id") != manifest.cycle_id
         or run_inputs.get("cycle_id") != manifest.cycle_id
+        or run_inputs.get("generated_at") != run_record.get("generated_at")
         or run_record.get("schema_version") != str(MANIFEST_MODE_FORECAST_RUN_RECORD_V1)
         or run_record.get("entry_mode") != "owner_signed_manifest"
         or run_record.get("case_count") != _OFFICIAL_CASE_COUNT
@@ -474,6 +606,7 @@ def _require_official_forecast_record(
         raise ManifestForecastBundleError(
             "manifest forecast is not the authenticated 100x2 no-tool input"
         )
+    _parse_timestamp(_required_text(run_record, "generated_at"), "generated_at")
     signature = _mapping(
         run_record.get("owner_signature_reference"), "owner_signature_reference"
     )
@@ -555,10 +688,42 @@ def _authenticate_runtime_inputs(
         raise ManifestForecastBundleError(
             "execution policy is not a verified policy artifact"
         ) from exc
+    if policy.get("schema_version") != EXECUTION_POLICY_V2_SCHEMA_VERSION:
+        raise ManifestForecastBundleError(
+            "deferred bundle requires execution policy v2"
+        )
     policy_content = _mapping(policy.get("policy"), "execution policy policy")
     if policy_content.get("attempt_policy") != expected_attempt_policy:
         raise ManifestForecastBundleError(
             "execution policy does not bind the provider caps authority"
+        )
+    from legalforecast.evals.corpus_manifest.beads_observation import (
+        SUCCESSOR_REGISTRY_KEYS,
+    )
+
+    if frozenset(entry.registry_key for entry in entries) != SUCCESSOR_REGISTRY_KEYS:
+        raise ManifestForecastBundleError(
+            "model registry does not contain the successor set"
+        )
+    if any(
+        entry.network_disabled is not True
+        or entry.search_disabled is not True
+        or entry.temperature != 0.0
+        or entry.top_p != 1.0
+        or entry.tool_policy.value != "controlled_docket_tool_only"
+        for entry in entries
+    ):
+        raise ManifestForecastBundleError("model registry execution safety differs")
+    caps_providers = {
+        _required_text(cap, "provider").lower()
+        for cap in _records(
+            expected_attempt_policy.get("provider_account_caps"),
+            "provider_account_caps",
+        )
+    }
+    if caps_providers != {entry.provider.lower() for entry in entries}:
+        raise ManifestForecastBundleError(
+            "provider caps do not exactly cover successor providers"
         )
     return registry_entries, policy_content
 
@@ -670,6 +835,7 @@ def _forecast_commitments(
                 "packet object escapes forecast root"
             ) from exc
         packet_payload = _snapshot(path, snapshots, f"packet {key}")
+        _reject_outcome_leakage(_json_object(packet_payload, f"packet {key}"))
         packet_sha = _required_sha(packet, "packet_sha256")
         if _sha(packet_payload) != packet_sha:
             raise ManifestForecastBundleError(f"packet commitment mismatch: {key}")
@@ -711,31 +877,10 @@ def _unit_identities(rows: Sequence[Mapping[str, Any]]) -> set[str]:
 
 
 def _publish_create_only(root: Path, payloads: Mapping[str, bytes]) -> None:
-    if root.exists():
-        raise ManifestForecastBundleError(f"output already exists: {root}")
-    root.parent.mkdir(parents=True, exist_ok=True)
-    temporary = Path(tempfile.mkdtemp(prefix=f".{root.name}.", dir=str(root.parent)))
     try:
-        for name, payload in payloads.items():
-            target = temporary / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            try:
-                with os.fdopen(fd, "wb") as handle:
-                    handle.write(payload)
-            except BaseException:
-                os.close(fd)
-                raise
-        os.replace(temporary, root)
-    except BaseException:
-        if temporary.exists():
-            for path in sorted(temporary.rglob("*"), reverse=True):
-                if path.is_file() or path.is_symlink():
-                    path.unlink()
-                elif path.is_dir():
-                    path.rmdir()
-            temporary.rmdir()
-        raise
+        publish_tree_create_only(root, payloads)
+    except ImmutableIOError as exc:
+        raise ManifestForecastBundleError(str(exc)) from exc
 
 
 def _snapshot(path: Path, snapshots: dict[Path, bytes], label: str) -> bytes:
@@ -751,12 +896,10 @@ def _require_snapshots_unchanged(snapshots: Mapping[Path, bytes]) -> None:
 
 
 def _read_regular(path: Path, label: str) -> bytes:
-    if path.is_symlink() or not path.is_file():
-        raise ManifestForecastBundleError(f"{label} must be a regular file: {path}")
     try:
-        return path.read_bytes()
-    except OSError as exc:
-        raise ManifestForecastBundleError(f"cannot read {label}: {path}") from exc
+        return read_single_link_file(path, label=label)
+    except ImmutableIOError as exc:
+        raise ManifestForecastBundleError(str(exc)) from exc
 
 
 def _json_object(payload: bytes, label: str) -> dict[str, Any]:
@@ -829,3 +972,31 @@ def _canonical_value(value: object, label: str) -> object:
 def _require_cycle(record: Mapping[str, Any], cycle_id: str, label: str) -> None:
     if record.get("cycle_id") != cycle_id:
         raise ManifestForecastBundleError(f"{label} cycle_id differs")
+
+
+def _parse_timestamp(value: str, label: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ManifestForecastBundleError(f"{label} must be ISO-8601") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ManifestForecastBundleError(f"{label} must be timezone-aware")
+    return parsed
+
+
+def _reject_outcome_leakage(value: object) -> None:
+    if isinstance(value, Mapping):
+        for key, child in cast(Mapping[object, object], value).items():
+            lowered = str(key).lower()
+            if lowered in {"outcome", "outcome_label", "labels", "disposition"}:
+                raise ManifestForecastBundleError(
+                    f"forecast packet contains outcome field: {key}"
+                )
+            if lowered == "contains_target_outcome" and child is True:
+                raise ManifestForecastBundleError(
+                    "forecast packet contains target outcome material"
+                )
+            _reject_outcome_leakage(child)
+    elif isinstance(value, list):
+        for child in cast(list[object], value):
+            _reject_outcome_leakage(child)

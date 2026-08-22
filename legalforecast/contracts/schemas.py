@@ -173,6 +173,21 @@ MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V1 = SchemaIdentifier(
 MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V1 = SchemaIdentifier(
     "legalforecast.execution_decisions_beads_observation.v1"
 )
+MANIFEST_FORECAST_BUNDLE_V2 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle.v2"
+)
+MANIFEST_FORECAST_BUNDLE_RUN_CARD_V2 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle_run_card.v2"
+)
+MANIFEST_EXECUTION_DECISIONS_V2 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions.v2"
+)
+MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V2 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions_run_card.v2"
+)
+MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V2 = SchemaIdentifier(
+    "legalforecast.execution_decisions_beads_observation.v2"
+)
 MANIFEST_FREEZE_RUNTIME_CONTRACT_V1 = SchemaIdentifier(
     "legalforecast.manifest_freeze_runtime_contract.v1"
 )
