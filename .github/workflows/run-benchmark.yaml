@@ -44,9 +44,9 @@ on:
         type: string
       freeze_bundle_path:
         description: >-
-          Current freeze bundle path. Use a committed manifests/*.freeze.json
-          path or an immutable s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json
-          bridge URI; defaults to manifests/<cycle_id>.freeze.json.
+          Current authenticated manifest-run freeze bundle. Use only an immutable
+          s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI;
+          the cost projector requires the corresponding downloaded manifest-run root.
         required: false
         default: ""
         type: string
@@ -283,12 +283,10 @@ jobs:
           fi
           freeze_bundle_path="${FREEZE_BUNDLE_PATH_INPUT//[[:space:]]/}"
           if [[ -z "${freeze_bundle_path}" ]]; then
-            freeze_bundle_path="manifests/${CYCLE_ID_INPUT}.freeze.json"
+            echo "freeze_bundle_path is required; use an immutable s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI." >&2
+            exit 1
           fi
           case "${freeze_bundle_path}" in
-            manifests/*.freeze.json)
-              freeze_root="."
-              ;;
             s3://*)
               if [[ ! "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]]; then
                 echo "freeze_bundle_path must use the immutable manifest-run S3 prefix contract." >&2
@@ -298,7 +296,7 @@ jobs:
               freeze_root="/tmp/lfb-manifest-run"
               ;;
             *)
-              echo "freeze_bundle_path must be a committed manifests/*.freeze.json path or an immutable manifest-run S3 URI." >&2
+              echo "freeze_bundle_path must be an immutable manifest-run S3 URI; committed manifests/*.freeze.json paths do not provide an authenticated manifest-run root." >&2
               exit 1
               ;;
           esac

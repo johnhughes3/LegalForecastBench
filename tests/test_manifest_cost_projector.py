@@ -29,6 +29,7 @@ from legalforecast.evals.corpus_manifest import (
     cost_projector_workflow as workflow_module,
 )
 from legalforecast.evals.corpus_manifest.cost_projector import (
+    PROVIDER_LANES,
     ManifestCostProjectionError,
     ManifestCostProjectionRequest,
     build_manifest_cost_projection,
@@ -952,6 +953,7 @@ def test_workflow_adapter_uses_authenticated_manifest_root_and_emits_outputs(
 ) -> None:
     captured: list[ManifestCostProjectionRequest] = []
     receipt: dict[str, Any] = {
+        "shard_only": True,
         "matrix": {"include": []},
         "case_count": 100,
         "packet_count": 200,
@@ -1008,3 +1010,67 @@ def test_workflow_adapter_uses_authenticated_manifest_root_and_emits_outputs(
     )
     assert "projected_model_cost_usd=0.328147\n" in github_output.read_text()
     assert "Projected model cost: $0.33" in summary.read_text()
+
+
+def test_workflow_adapter_omits_matrix_rows_from_aggregate_github_outputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    huge_matrix = {"include": [{"case_id": f"case-{index}"} for index in range(800)]}
+    receipt: dict[str, Any] = {
+        "shard_only": False,
+        "matrix": huge_matrix,
+        "case_count": 100,
+        "packet_count": 200,
+        "cell_count": 8,
+        "matrix_row_count": 800,
+        "shard_matrix_row_count": 100,
+        "request_count": 800,
+        "attempt_count": 800,
+        "model_count": 4,
+        "long_context_surcharge_packet_count": 0,
+        "long_context_surcharge_packets": [],
+        "long_context_surcharge_packets_json": "[]",
+        "projected_model_cost_usd": "40.510000",
+        "recommended_max_projected_model_cost_usd": "81.020000",
+    }
+    for provider in PROVIDER_LANES:
+        receipt[f"{provider}_count"] = 800 if provider == "openai" else 0
+        receipt[f"{provider}_matrix"] = huge_matrix
+    monkeypatch.setattr(
+        workflow_module,
+        "issue_manifest_cost_projection",
+        lambda _request: receipt,
+    )
+    github_output = tmp_path / "github-output"
+    summary = tmp_path / "summary"
+    root = tmp_path / "manifest-root"
+
+    issue_manifest_cost_projection_from_workflow_environment(
+        {
+            "ABLATIONS": "full_packet,metadata_only",
+            "COST_PROJECTION_RECEIPT_PATH": str(tmp_path / "receipt.json"),
+            "CYCLE_ID": "cycle-1",
+            "FREEZE_AMENDMENT_BUNDLES": "",
+            "FREEZE_BUNDLE_PATH": str(root / "freeze.json"),
+            "FREEZE_ROOT": str(root),
+            "GITHUB_OUTPUT": str(github_output),
+            "GITHUB_STEP_SUMMARY": str(summary),
+            "MANIFEST_RUN_ROOT": str(root),
+            "MATRIX_LIMIT": "800",
+            "MAX_PROJECTED_MODEL_COST_USD": "81.020000",
+            "MODEL_KEYS": (
+                "openai:gpt-5.6-sol,openai:gpt-5.6-terra,"
+                "openai:gpt-5.6-luna,anthropic:claude-sonnet-5"
+            ),
+            "REPEAT_COUNT": "1",
+            "REPEAT_SAMPLE_CASE_IDS": "",
+            "SHARD_ONLY": "false",
+        }
+    )
+
+    output = github_output.read_text()
+    assert "matrix=" not in output
+    assert "_matrix=" not in output
+    assert "openai_count=800\n" in output
+    assert "matrix_row_count=800\n" in output
+    assert len(output) < 5000

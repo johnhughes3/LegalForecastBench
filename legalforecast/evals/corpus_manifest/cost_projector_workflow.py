@@ -78,19 +78,24 @@ def _split_csv(raw: str) -> list[str]:
 
 
 def _append_github_outputs(path: Path, receipt: Mapping[str, Any]) -> None:
-    lines = [
-        "matrix="
-        + json.dumps(receipt["matrix"], ensure_ascii=False, separators=(",", ":"))
-    ]
+    shard_only = receipt.get("shard_only") is True
+    lines: list[str] = []
     for provider in PROVIDER_LANES:
         lines.append(f"{provider}_count={receipt[f'{provider}_count']}")
-        lines.append(
-            f"{provider}_matrix="
-            + json.dumps(
-                receipt[f"{provider}_matrix"],
-                ensure_ascii=False,
-                separators=(",", ":"),
+        if shard_only:
+            lines.append(
+                f"{provider}_matrix="
+                + json.dumps(
+                    receipt[f"{provider}_matrix"],
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
             )
+    if shard_only:
+        lines.insert(
+            0,
+            "matrix="
+            + json.dumps(receipt["matrix"], ensure_ascii=False, separators=(",", ":")),
         )
     for name in (
         "case_count",

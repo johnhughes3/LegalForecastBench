@@ -519,6 +519,27 @@ def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None
         "Non-dry-run official evaluation requires "
         "max_projected_model_cost_usd" in WORKFLOW
     )
+
+
+def test_manifest_cost_projection_requires_immutable_manifest_run_uri() -> None:
+    freeze_input = WORKFLOW.split("      freeze_bundle_path:", maxsplit=1)[1].split(
+        "      prior_dispatches_json:", maxsplit=1
+    )[0]
+    assert "immutable" in freeze_input
+    assert "manifest-run root" in freeze_input
+    assert "committed manifests/*.freeze.json" not in freeze_input
+    assert 'freeze_bundle_path="manifests/${CYCLE_ID_INPUT}.freeze.json"' not in (
+        BUILD_MATRIX_JOB
+    )
+    assert (
+        "freeze_bundle_path is required; use an immutable s3://.../cycle-1/"
+        in BUILD_MATRIX_JOB
+    )
+    assert (
+        "committed manifests/*.freeze.json paths do not provide an authenticated "
+        "manifest-run root" in BUILD_MATRIX_JOB
+    )
+    assert 'freeze_root="/tmp/lfb-manifest-run"' in BUILD_MATRIX_JOB
     assert "issue_manifest_cost_projection_from_workflow_environment" in WORKFLOW
 
 
