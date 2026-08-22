@@ -258,10 +258,9 @@ class ModelPacketObject:
     bucket: str | None = None
     cycle_id: str | None = None
     content_type: str | None = None
-    # Optional commitment to the exact prompt this packet must render.  When a
-    # manifest supplies it, the runner refuses on mismatch, so a run cannot
-    # silently execute a different prompt than the one an authorization
-    # committed to (for example by rendering with a different tool mode).
+    # Optional commitment to the exact provider prompt for this packet.  Live
+    # runs enforce it after solver-controlled context transformations; fixture
+    # runs enforce it against their rendered prompt before solver execution.
     # Manifests that omit it keep the previous behaviour exactly.
     prompt_sha256: str | None = None
 
@@ -450,8 +449,10 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 max_tool_calls=config.max_tool_calls,
                 run_label=config.ablation,
                 use_docket_tool=config.use_docket_tool,
+                committed_prompt_sha256=packet_object.prompt_sha256,
             )
-            _require_committed_prompt(samples, packet_object=packet_object)
+            if config.backend is PerCaseExecutionBackend.FIXTURE:
+                _require_committed_prompt(samples, packet_object=packet_object)
             samples = _repeat_samples(samples, repeat_count=config.repeat_count)
             solver = _solver_for_config(
                 config,

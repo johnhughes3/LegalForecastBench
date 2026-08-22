@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -181,6 +182,14 @@ class LiveModelSolver:
             request,
             tool_policy=self.registry_entry.tool_policy,
         )
+        expected_prompt_sha256 = request.sample.committed_prompt_sha256
+        if expected_prompt_sha256 is not None:
+            actual_prompt_sha256 = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+            if actual_prompt_sha256 != expected_prompt_sha256:
+                raise LiveModelConfigError(
+                    "actual provider prompt does not match the manifest "
+                    "prompt_sha256 commitment"
+                )
         attempt_handler = (
             self.attempt_handler_factory(request)
             if self.attempt_handler_factory is not None
@@ -496,7 +505,10 @@ def _prompt_with_controlled_docket_context(
     *,
     tool_policy: ToolPolicy,
 ) -> str:
-    if tool_policy is not ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY:
+    if (
+        tool_policy is not ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY
+        or not request.sample.use_docket_tool
+    ):
         return request.sample.prompt
 
     listed = request.docket_tool.list_available_docket_entries()

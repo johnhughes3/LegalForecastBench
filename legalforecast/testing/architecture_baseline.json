@@ -4389,8 +4389,8 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 130,
         "layer": "application",
-        "line_count": 1324,
-        "nonblank_line_count": 1150,
+        "line_count": 1336,
+        "nonblank_line_count": 1162,
         "top_level_definition_count": 66
       },
       "legalforecast/evals/output_parser.py": {
@@ -4421,10 +4421,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "run_per_case_evaluation",
-        "largest_symbol_lines": 256,
+        "largest_symbol_lines": 258,
         "layer": "application",
-        "line_count": 2211,
-        "nonblank_line_count": 1996,
+        "line_count": 2212,
+        "nonblank_line_count": 1997,
         "top_level_definition_count": 92
       },
       "legalforecast/evals/provider_spend_control.py": {
@@ -10049,9 +10049,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 72,
         "layer": "test",
-        "line_count": 1151,
-        "nonblank_line_count": 1001,
-        "top_level_definition_count": 38
+        "line_count": 1230,
+        "nonblank_line_count": 1068,
+        "top_level_definition_count": 40
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",
@@ -10742,9 +10742,9 @@
         "largest_symbol": "test_live_resume_requires_exact_raw_execution_policy_binding",
         "largest_symbol_lines": 77,
         "layer": "test",
-        "line_count": 1939,
-        "nonblank_line_count": 1760,
-        "top_level_definition_count": 47
+        "line_count": 1975,
+        "nonblank_line_count": 1790,
+        "top_level_definition_count": 48
       },
       "tests/test_plan_public_authenticated_snapshot_buffers.py": {
         "cycle_id": "",
