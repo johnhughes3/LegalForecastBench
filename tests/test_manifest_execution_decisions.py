@@ -328,7 +328,6 @@ def _issue(fixture: dict[str, Any]) -> module.ExecutionDecisionsBuild:
         labeling_policy=fixture["labeling"],
         cohort_policy=fixture["cohort"],
         cohort_observation_manifest=fixture["observation"],
-        beads_observation=fixture["beads"],
         freeze_inputs_root=fixture["freeze"],
         output_root=fixture["output"],
         verify_freeze_inputs=fixture["freeze_verifier"],
@@ -337,6 +336,8 @@ def _issue(fixture: dict[str, Any]) -> module.ExecutionDecisionsBuild:
 
 def test_issue_and_verify_derives_four_by_two_policy(fixture: dict[str, Any]) -> None:
     build = _issue(fixture)
+    assert (fixture["output"] / "beads-observation-v2.json").is_file()
+    assert "beads_observation" not in build.run_card["input_paths"]
     assert build.decisions["allow_no_baselines"] is True
     policy = build.execution_policy["policy"]
     assert policy["labeling_policy_sha256"] == _sha(fixture["labeling"].read_bytes())
@@ -365,11 +366,15 @@ def test_packet_drift_is_rejected(fixture: dict[str, Any]) -> None:
 
 
 def test_observation_extra_line_is_rejected(fixture: dict[str, Any]) -> None:
-    value = json.loads(fixture["beads"].read_text())
+    _issue(fixture)
+    published = fixture["output"] / "beads-observation-v2.json"
+    value = json.loads(published.read_text())
     value["extra"] = {"text": "x", "sha256": _sha(b"x")}
-    _write(fixture["beads"], value)
+    _write(published, value)
     with pytest.raises(module.ExecutionDecisionsError, match="fields are not exact"):
-        _issue(fixture)
+        module.verify_execution_decisions(
+            fixture["output"], verify_freeze_inputs=fixture["freeze_verifier"]
+        )
 
 
 def test_live_beads_observation_issuer_binds_exact_lines(
@@ -411,6 +416,13 @@ def test_beads_issuer_has_no_raw_observation_parameter() -> None:
     assert (
         "raw_observation"
         not in inspect.signature(module.issue_beads_observation).parameters
+    )
+
+
+def test_critical_issuer_has_no_beads_observation_parameter() -> None:
+    assert (
+        "beads_observation"
+        not in inspect.signature(module.issue_execution_decisions).parameters
     )
 
 
@@ -480,7 +492,9 @@ def test_unrelated_lifecycle_comment_is_not_execution_evidence(
 
 
 def test_rehashed_forged_beads_evidence_is_rejected(fixture: dict[str, Any]) -> None:
-    wrapper = json.loads(fixture["beads"].read_bytes())
+    _issue(fixture)
+    published = fixture["output"] / "beads-observation-v2.json"
+    wrapper = json.loads(published.read_bytes())
     forged = (
         "I approve corpus manifest "
         + "f" * 64
@@ -488,10 +502,12 @@ def test_rehashed_forged_beads_evidence_is_rejected(fixture: dict[str, Any]) -> 
     )
     wrapper["evidence"]["manifest"]["text"] = forged
     wrapper["evidence"]["manifest"]["text_sha256"] = _sha(forged.encode())
-    _write(fixture["beads"], wrapper)
+    _write(published, wrapper)
 
     with pytest.raises(module.ExecutionDecisionsError, match="does not replay"):
-        _issue(fixture)
+        module.verify_execution_decisions(
+            fixture["output"], verify_freeze_inputs=fixture["freeze_verifier"]
+        )
 
 
 def test_execution_decisions_reject_unsafe_registry(
@@ -577,13 +593,6 @@ def test_execution_decisions_reject_caps_above_owner_ceiling(
     monkeypatch.setattr(
         module, "_capture_beads_comments", lambda: json.dumps(comments).encode()
     )
-    limited = tmp_path / "limited-beads.json"
-    module.issue_beads_observation(
-        model_registry=fixture["registry"],
-        output=limited,
-    )
-    fixture["beads"] = limited
-
     with pytest.raises(module.ExecutionDecisionsError, match="caps exceed"):
         _issue(fixture)
 

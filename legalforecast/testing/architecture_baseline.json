@@ -4153,8 +4153,8 @@
         "largest_symbol": "register",
         "largest_symbol_lines": 246,
         "layer": "adapter",
-        "line_count": 575,
-        "nonblank_line_count": 517,
+        "line_count": 574,
+        "nonblank_line_count": 516,
         "top_level_definition_count": 15
       },
       "legalforecast/cli_commands/report.py": {
@@ -4339,11 +4339,11 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "_build",
-        "largest_symbol_lines": 258,
+        "largest_symbol_lines": 265,
         "layer": "application",
-        "line_count": 1092,
-        "nonblank_line_count": 1014,
-        "top_level_definition_count": 28
+        "line_count": 1116,
+        "nonblank_line_count": 1036,
+        "top_level_definition_count": 29
       },
       "legalforecast/evals/corpus_manifest/freeze_inputs.py": {
         "cycle_id": "",
@@ -7936,9 +7936,9 @@
         "largest_symbol": "_validated_execution_policy",
         "largest_symbol_lines": 250,
         "layer": "domain",
-        "line_count": 814,
-        "nonblank_line_count": 707,
-        "top_level_definition_count": 39
+        "line_count": 846,
+        "nonblank_line_count": 733,
+        "top_level_definition_count": 41
       },
       "legalforecast/publication/accounting.py": {
         "cycle_id": "",
@@ -8759,9 +8759,9 @@
         "largest_symbol": "test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets",
         "largest_symbol_lines": 672,
         "layer": "test",
-        "line_count": 6036,
-        "nonblank_line_count": 5690,
-        "top_level_definition_count": 90
+        "line_count": 6045,
+        "nonblank_line_count": 5696,
+        "top_level_definition_count": 91
       },
       "tests/test_attachment_page_execute.py": {
         "cycle_id": "",
@@ -9709,9 +9709,9 @@
         "largest_symbol": "_write_sharded_bundle",
         "largest_symbol_lines": 96,
         "layer": "test",
-        "line_count": 697,
-        "nonblank_line_count": 640,
-        "top_level_definition_count": 18
+        "line_count": 721,
+        "nonblank_line_count": 661,
+        "top_level_definition_count": 19
       },
       "tests/test_docket_decision_text_source.py": {
         "cycle_id": "",
@@ -10260,9 +10260,9 @@
         "largest_symbol": "fixture",
         "largest_symbol_lines": 282,
         "layer": "test",
-        "line_count": 892,
-        "nonblank_line_count": 796,
-        "top_level_definition_count": 33
+        "line_count": 901,
+        "nonblank_line_count": 804,
+        "top_level_definition_count": 34
       },
       "tests/test_manifest_freeze_inputs.py": {
         "cycle_id": "",
@@ -10937,9 +10937,9 @@
         "largest_symbol": "test_policy_generator_and_verifier_clis_round_trip",
         "largest_symbol_lines": 115,
         "layer": "test",
-        "line_count": 644,
-        "nonblank_line_count": 557,
-        "top_level_definition_count": 27
+        "line_count": 680,
+        "nonblank_line_count": 590,
+        "top_level_definition_count": 28
       },
       "tests/test_protocol_freeze.py": {
         "cycle_id": "",

@@ -146,9 +146,39 @@ def verify_execution_policy(
     expected_cycle_id: str | None = None,
     expected_sha256: str | None = None,
 ) -> str:
-    """Verify the at-freeze execution policy and its content commitment."""
+    """Verify the legacy v1 execution policy and its content commitment."""
 
-    schema_version = _execution_policy_schema_version(artifact)
+    return _verify_execution_policy_for_schema(
+        artifact,
+        schema_version=EXECUTION_POLICY_SCHEMA_VERSION,
+        expected_cycle_id=expected_cycle_id,
+        expected_sha256=expected_sha256,
+    )
+
+
+def verify_execution_policy_v2(
+    artifact: Mapping[str, Any],
+    *,
+    expected_cycle_id: str | None = None,
+    expected_sha256: str | None = None,
+) -> str:
+    """Verify the labels-deferred v2 policy and its content commitment."""
+
+    return _verify_execution_policy_for_schema(
+        artifact,
+        schema_version=EXECUTION_POLICY_V2_SCHEMA_VERSION,
+        expected_cycle_id=expected_cycle_id,
+        expected_sha256=expected_sha256,
+    )
+
+
+def _verify_execution_policy_for_schema(
+    artifact: Mapping[str, Any],
+    *,
+    schema_version: str,
+    expected_cycle_id: str | None,
+    expected_sha256: str | None,
+) -> str:
     policy, actual = _verify_artifact(artifact, schema_version=schema_version)
     validated = _validated_execution_policy(policy, schema_version=schema_version)
     if expected_cycle_id is not None and validated["cycle_id"] != expected_cycle_id:
@@ -168,12 +198,24 @@ def write_execution_policy(path: str | Path, artifact: Mapping[str, Any]) -> Non
 
 
 def execution_policy_content(artifact: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Return validated execution-policy content for cross-artifact checks."""
+    """Return validated legacy v1 policy content for runtime consumers."""
 
     verify_execution_policy(artifact)
     return _validated_execution_policy(
         cast(Mapping[str, Any], artifact["policy"]),
-        schema_version=_execution_policy_schema_version(artifact),
+        schema_version=EXECUTION_POLICY_SCHEMA_VERSION,
+    )
+
+
+def execution_policy_v2_content(
+    artifact: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Return validated labels-deferred v2 policy content."""
+
+    verify_execution_policy_v2(artifact)
+    return _validated_execution_policy(
+        cast(Mapping[str, Any], artifact["policy"]),
+        schema_version=EXECUTION_POLICY_V2_SCHEMA_VERSION,
     )
 
 
@@ -604,16 +646,6 @@ def _validated_execution_policy(
         raise PolicyArtifactError("prediction unit count must derive from frozen_units")
     _true(cadence.get("reject_operator_mismatch"), "reject_operator_mismatch")
     return policy
-
-
-def _execution_policy_schema_version(artifact: Mapping[str, Any]) -> str:
-    schema_version = artifact.get("schema_version")
-    if schema_version not in {
-        EXECUTION_POLICY_SCHEMA_VERSION,
-        EXECUTION_POLICY_V2_SCHEMA_VERSION,
-    }:
-        raise PolicyArtifactError("unsupported policy artifact schema version")
-    return cast(str, schema_version)
 
 
 def _verify_label_audit(audit: Mapping[str, Any]) -> None:

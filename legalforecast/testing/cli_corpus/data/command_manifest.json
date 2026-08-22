@@ -10625,19 +10625,6 @@
           "action": "store",
           "choices": null,
           "default": null,
-          "dest": "beads_observation",
-          "metavar": null,
-          "nargs": null,
-          "option_strings": [
-            "--beads-observation"
-          ],
-          "required": true,
-          "type": "pathlib.Path"
-        },
-        {
-          "action": "store",
-          "choices": null,
-          "default": null,
           "dest": "freeze_inputs_root",
           "metavar": null,
           "nargs": null,

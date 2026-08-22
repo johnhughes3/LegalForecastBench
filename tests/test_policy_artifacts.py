@@ -8,13 +8,20 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.evals import per_case_runner
+from legalforecast.evals.per_case_runner import (
+    PerCaseRunnerConfig,
+    PerCaseRunnerError,
+)
 from legalforecast.labeling.provider_journal import load_provider_cycle_caps
 from legalforecast.protocol.freeze import cli_freeze
 from legalforecast.protocol.policy_artifacts import (
     EXECUTION_POLICY_SCHEMA_VERSION,
     EXECUTION_POLICY_V2_SCHEMA_VERSION,
     PolicyArtifactError,
+    execution_policy_content,
     execution_policy_runtime_binding,
+    execution_policy_v2_content,
     execution_repeat_policy_sha256,
     generate_execution_policy,
     generate_execution_policy_v2,
@@ -22,6 +29,7 @@ from legalforecast.protocol.policy_artifacts import (
     require_dispatch_policy_match,
     require_repeat_case_coverage,
     verify_execution_policy,
+    verify_execution_policy_v2,
     verify_labeling_policy,
     write_labeling_policy,
 )
@@ -105,7 +113,35 @@ def test_execution_policy_v2_authenticates_only_truthful_lifecycle_facts() -> No
         "labeling_policy_published_at": "2026-07-28T22:58:15Z",
         "production_labeling_started_at": "2026-08-08T02:26:44.047896+00:00",
     }
-    assert verify_execution_policy(artifact) == artifact["policy_sha256"]
+    assert verify_execution_policy_v2(artifact) == artifact["policy_sha256"]
+    assert execution_policy_v2_content(artifact) == artifact["policy"]
+    with pytest.raises(PolicyArtifactError, match="schema version"):
+        verify_execution_policy(artifact)
+    with pytest.raises(PolicyArtifactError, match="schema version"):
+        execution_policy_content(artifact)
+
+
+def test_legacy_per_case_runtime_rejects_execution_policy_v2(
+    tmp_path: Path,
+) -> None:
+    artifact = generate_execution_policy_v2(_execution_decisions_v2())
+    policy_path = tmp_path / "execution-policy-v2.json"
+    policy_path.write_text(json.dumps(artifact), encoding="utf-8")
+    config = PerCaseRunnerConfig(
+        manifest_uri=str(tmp_path / "manifest.json"),
+        case_id="case-1",
+        ablation="full_packet",
+        output_dir=tmp_path / "output",
+        mock_output="{}",
+        execution_policy_uri=str(policy_path),
+    )
+
+    with pytest.raises(
+        PerCaseRunnerError, match=r"invalid frozen execution policy.*schema version"
+    ):
+        per_case_runner._verified_repeat_policy_for_config(
+            config, expected_cycle_id="cycle-1"
+        )
 
 
 @pytest.mark.parametrize(

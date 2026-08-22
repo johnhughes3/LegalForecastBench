@@ -345,8 +345,9 @@ def register(
             "no-docket forecast, official model registry, provider caps, "
             "labeling/cohort artifacts, observation chain, and a fresh Beads "
             "observation and canonical labeling journal. Create-only emit "
-            "execution-decisions-v2.json, execution-policy-v2.json, and a v2 "
-            "run card. No lifecycle timestamp is accepted from the operator."
+            "execution-decisions-v2.json, execution-policy-v2.json, the "
+            "authenticated Beads wrapper, and a v2 run card. No lifecycle "
+            "timestamp is accepted from the operator."
         ),
     )
     issue_decisions.add_argument("--owner-manifest", type=Path, required=True)
@@ -362,7 +363,6 @@ def register(
     issue_decisions.add_argument(
         "--cohort-observation-manifest", type=Path, required=True
     )
-    issue_decisions.add_argument("--beads-observation", type=Path, required=True)
     issue_decisions.add_argument("--freeze-inputs-root", type=Path, required=True)
     issue_decisions.add_argument("--output-root", type=Path, required=True)
     issue_decisions.set_defaults(handler=run_issue_execution_decisions)
@@ -542,7 +542,6 @@ def run_issue_execution_decisions(args: argparse.Namespace) -> int:
         labeling_policy=cast(Path, args.labeling_policy),
         cohort_policy=cast(Path, args.cohort_policy),
         cohort_observation_manifest=cast(Path, args.cohort_observation_manifest),
-        beads_observation=cast(Path, args.beads_observation),
         freeze_inputs_root=cast(Path, args.freeze_inputs_root),
         output_root=cast(Path, args.output_root),
         verify_freeze_inputs=_verify_freeze_inputs_complete,

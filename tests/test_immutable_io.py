@@ -51,6 +51,19 @@ def test_create_only_tree_publishes_exact_members(tmp_path: Path) -> None:
         immutable_io.publish_tree_create_only(root, {"other.json": b"x\n"})
 
 
+def test_create_only_tree_rejects_missing_parent_without_mutation(
+    tmp_path: Path,
+) -> None:
+    missing_parent = tmp_path / "missing"
+
+    with pytest.raises(immutable_io.ImmutableIOError, match="output parent is unsafe"):
+        immutable_io.publish_tree_create_only(
+            missing_parent / "published", {"a.json": b"a\n"}
+        )
+
+    assert not missing_parent.exists()
+
+
 def test_create_only_tree_cleans_staging_directory_after_lost_race(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -83,6 +96,34 @@ def test_create_only_write_rejects_symlinked_parent(tmp_path: Path) -> None:
         immutable_io.write_file_create_only(linked_parent / "output.json", b"{}\n")
 
     assert not (actual / "output.json").exists()
+
+
+def test_create_only_write_rejects_missing_parent_without_mutation(
+    tmp_path: Path,
+) -> None:
+    missing_parent = tmp_path / "missing"
+
+    with pytest.raises(immutable_io.ImmutableIOError, match="output parent is unsafe"):
+        immutable_io.write_file_create_only(missing_parent / "output.json", b"{}\n")
+
+    assert not missing_parent.exists()
+
+
+def test_create_only_tree_rejects_symlinked_parent_without_mutation(
+    tmp_path: Path,
+) -> None:
+    actual = tmp_path / "actual"
+    actual.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(actual, target_is_directory=True)
+
+    with pytest.raises(immutable_io.ImmutableIOError, match="output parent is unsafe"):
+        immutable_io.publish_tree_create_only(
+            linked_parent / "published", {"nested/a.json": b"a\n"}
+        )
+
+    assert not (actual / "published").exists()
+    assert list(actual.iterdir()) == []
 
 
 @pytest.mark.parametrize("name", ["../escape", "/absolute", "a/../../escape"])
