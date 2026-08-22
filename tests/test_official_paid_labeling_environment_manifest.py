@@ -62,7 +62,7 @@ def test_every_environment_is_human_reviewed_and_main_only() -> None:
     branch_policy = cast(dict[str, object], protection["deployment_branch_policy"])
 
     assert protection["required_reviewers"] == [
-        {"type": "User", "login": "johnhughes3"}
+        {"type": "User", "login": "johnjhughes"}
     ]
     assert protection["prevent_self_review"] is False
     assert branch_policy == {

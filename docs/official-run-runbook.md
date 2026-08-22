@@ -865,7 +865,7 @@ Before its first plan, a separately authorized operator must establish and prote
 
 The one-time bootstrap root for the bucket, KMS key and alias, account-level GitHub OIDC provider, and exact environment-bound operator role is defined in `infra/official-eval-bootstrap`.
 Follow its import-first protected-local-state runbook, verify the live controls, and migrate that state into its separate encrypted backend key before configuring this workflow; the routine operator role cannot manage the bootstrap root or read its state.
-The environment must admit only `main` and require `johnhughes3`; self-review prevention remains disabled because that sole reviewer may also dispatch the operation.
+The environment must admit only `main` and require `johnjhughes`; self-review prevention remains disabled because that sole reviewer may also dispatch the operation.
 The operator role must trust only `repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-provider-authority-infra` with audience `sts.amazonaws.com`.
 That environment contains the one secret `LFB_INFRA_PLAN_AGE_IDENTITY` and only these variables:
 
@@ -1031,7 +1031,7 @@ Provision these exact protected environments:
 
 The canonical machine-readable setup contract is `infra/official-labeling/github-environments.json`.
 It defines exactly these six environments, their main-only protection and required human reviewer, exact OIDC subjects, and closed secret and variable inventories.
-Because `johnhughes3` is the sole reviewer and may also dispatch an official run, self-review prevention remains disabled; enabling it without a second authorized reviewer would deadlock every deployment.
+Because `johnjhughes` is the sole reviewer and may also dispatch an official run, self-review prevention remains disabled; enabling it without a second authorized reviewer would deadlock every deployment.
 Environment creation, protection, variables, and secrets are separately authorized GitHub administration actions; the manifest is declarative evidence and does not perform those actions.
 
 Each environment must require a human reviewer and use a deployment branch policy that admits only `main`, with no tag or side-branch deployment.
