@@ -31,9 +31,7 @@ if TYPE_CHECKING:
 
 PRICE_UNITS_PER_TOKEN: Final = 1_000_000
 LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS: Final = 272_000
-SUPPORTED_ABLATIONS: Final = frozenset(
-    "full_packet metadata_only briefs_only_redacted judge_removed no_briefs".split()
-)
+AUTHENTICATED_MANIFEST_ABLATIONS: Final = frozenset({"full_packet", "metadata_only"})
 PROVIDER_LANES: Final = ("openai", "anthropic", "gemini")
 _USD: Final = re.compile(r"[0-9]+(?:\.[0-9]+)?\Z")
 
@@ -59,8 +57,17 @@ def issue_manifest_cost_projection(
         error_type=ManifestCostProjectionError,
         error_message="manifest cost projection receipt is not canonical JSON",
     )
-    require_inputs_unchanged(authenticated.snapshots)
-    write_create_only(request.output, payload, error_type=ManifestCostProjectionError)
+
+    def verify_sources() -> None:
+        require_inputs_unchanged(authenticated.snapshots)
+
+    write_create_only(
+        request.output,
+        payload,
+        error_type=ManifestCostProjectionError,
+        before_commit=verify_sources,
+        after_commit=verify_sources,
+    )
     return receipt
 
 
@@ -104,10 +111,18 @@ def build_manifest_cost_projection(
             f"model_keys missing from registry: {missing_model_keys}"
         )
     requested_ablations = _requested_values(request.ablations, "ablations")
-    unsupported_ablations = sorted(set(requested_ablations) - SUPPORTED_ABLATIONS)
+    unsupported_ablations = sorted(
+        set(requested_ablations) - AUTHENTICATED_MANIFEST_ABLATIONS
+    )
     if unsupported_ablations:
         raise ManifestCostProjectionError(
             f"unsupported ablations: {unsupported_ablations}"
+        )
+    if request.shard_only and (
+        len(requested_model_keys) != 1 or len(requested_ablations) != 1
+    ):
+        raise ManifestCostProjectionError(
+            "shard-only projection requires exactly one model-key/ablation pair"
         )
     repeat_sample_case_ids = sorted(
         {
@@ -140,6 +155,7 @@ def build_manifest_cost_projection(
     include: list[dict[str, Any]] = []
     long_context_packets: list[dict[str, Any]] = []
     projected_cost = 0.0
+    attempt_count = 0
     seen_packet_rows: set[tuple[str, str]] = set()
     case_ids: list[str] = []
     seen_case_ids: set[str] = set()
@@ -150,13 +166,20 @@ def build_manifest_cost_projection(
             raise ManifestCostProjectionError("model_packets entries must be objects")
         packet = cast(dict[str, Any], raw_packet)
         ablation = packet.get("ablation", "full_packet")
-        if ablation not in requested_ablation_set:
-            continue
         if not isinstance(ablation, str):
             raise ManifestCostProjectionError("each matrix row requires ablation")
+        if ablation not in AUTHENTICATED_MANIFEST_ABLATIONS:
+            raise ManifestCostProjectionError(
+                f"authenticated packet row has unexpected ablation: {ablation}"
+            )
         case_id = packet.get("case_id")
         if not isinstance(case_id, str) or not case_id:
             raise ManifestCostProjectionError("each matrix row requires case_id")
+        if case_id not in seen_case_ids:
+            seen_case_ids.add(case_id)
+            case_ids.append(case_id)
+        if ablation not in requested_ablation_set:
+            continue
         packet_row_key = (case_id, ablation)
         if packet_row_key in seen_packet_rows:
             raise ManifestCostProjectionError(
@@ -183,11 +206,9 @@ def build_manifest_cost_projection(
                 }
             )
         seen_packet_rows.add(packet_row_key)
-        if case_id not in seen_case_ids:
-            seen_case_ids.add(case_id)
-            case_ids.append(case_id)
         row_repeat_count = request.repeat_count if case_id in repeat_case_set else 1
         for model_key in requested_model_keys:
+            attempt_count += row_repeat_count
             projected_cost += row_repeat_count * projected_cost_for_row(
                 input_tokens=input_tokens,
                 registry_record=registry_by_key[model_key],
@@ -209,6 +230,11 @@ def build_manifest_cost_projection(
 
     if not include:
         raise ManifestCostProjectionError("run-input manifest produced an empty matrix")
+    expected_packet_rows = len(seen_case_ids) * len(requested_ablations)
+    if len(seen_packet_rows) != expected_packet_rows:
+        raise ManifestCostProjectionError(
+            "requested packet matrix is incomplete for the authenticated case set"
+        )
     if len(include) > request.matrix_limit:
         raise ManifestCostProjectionError(
             f"matrix has {len(include)} rows; GitHub limit is {request.matrix_limit}"
@@ -240,6 +266,15 @@ def build_manifest_cost_projection(
     long_context_json = json.dumps(
         long_context_packets, ensure_ascii=False, separators=(",", ":")
     )
+    cell_count = len(requested_model_keys) * len(requested_ablations)
+    shard_matrix_row_count = max(
+        sum(
+            row["model_key"] == model_key and row["ablation"] == ablation
+            for row in include
+        )
+        for model_key in requested_model_keys
+        for ablation in requested_ablations
+    )
     receipt: dict[str, Any] = {
         "schema_version": str(MANIFEST_COST_PROJECTION_RECEIPT_V1),
         "cycle_id": request.cycle_id,
@@ -250,6 +285,7 @@ def build_manifest_cost_projection(
         "repeat_sample_case_ids": repeat_sample_case_ids,
         "repeat_count": request.repeat_count,
         "matrix_limit": request.matrix_limit,
+        "shard_only": request.shard_only,
         "max_projected_model_cost_usd": (
             request.max_projected_model_cost_usd.strip()
             if requested_ceiling is not None
@@ -259,7 +295,13 @@ def build_manifest_cost_projection(
         "matrix": {"include": include},
         "provider_counts": provider_counts,
         "provider_matrices": provider_matrices,
-        "case_count": len(seen_packet_rows),
+        "case_count": len(seen_case_ids),
+        "packet_count": len(packets),
+        "cell_count": cell_count,
+        "matrix_row_count": len(include),
+        "shard_matrix_row_count": shard_matrix_row_count,
+        "request_count": len(include),
+        "attempt_count": attempt_count,
         "model_count": len(requested_model_keys),
         "long_context_surcharge_packet_count": len(long_context_packets),
         "long_context_surcharge_packets": long_context_packets,
@@ -311,11 +353,36 @@ def packet_input_tokens(
 def projected_cost_for_row(
     *, input_tokens: int, registry_record: Mapping[str, Any]
 ) -> float:
-    """Apply the frozen 1,000,000-token input-plus-max-output formula."""
+    """Apply frozen pricing, including any registry long-context surcharge."""
 
     input_price = _required_nonnegative_float(registry_record, "input_token_price")
     output_price = _required_nonnegative_float(registry_record, "output_token_price")
     max_output_tokens = required_nonnegative_int(registry_record, "max_output_tokens")
+    surcharge = registry_record.get("long_context_surcharge")
+    if surcharge is not None:
+        if not isinstance(surcharge, Mapping):
+            raise ManifestCostProjectionError(
+                "model registry long_context_surcharge must be an object"
+            )
+        surcharge_record = cast(Mapping[str, Any], surcharge)
+        threshold = required_nonnegative_int(
+            surcharge_record,
+            "threshold_input_tokens",
+            label="model registry long_context_surcharge",
+        )
+        input_multiplier = _required_nonnegative_float(
+            surcharge_record, "input_price_multiplier"
+        )
+        output_multiplier = _required_nonnegative_float(
+            surcharge_record, "output_price_multiplier"
+        )
+        if threshold < 1 or input_multiplier < 1 or output_multiplier < 1:
+            raise ManifestCostProjectionError(
+                "model registry long_context_surcharge fields must be positive"
+            )
+        if input_tokens > threshold:
+            input_price *= input_multiplier
+            output_price *= output_multiplier
     return (
         input_tokens * input_price + max_output_tokens * output_price
     ) / PRICE_UNITS_PER_TOKEN

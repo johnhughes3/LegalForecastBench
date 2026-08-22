@@ -20,6 +20,18 @@ from legalforecast.evals.corpus_manifest.cost_projector_contract import (
     packet_sha256_from_row,
     required_nonnegative_int,
 )
+from legalforecast.evals.corpus_manifest.cost_projector_contract import (
+    raw_commitment as _raw_commitment,
+)
+from legalforecast.evals.corpus_manifest.cost_projector_contract import (
+    require_exact_amendment_chain as _require_exact_amendment_chain,
+)
+from legalforecast.evals.corpus_manifest.cost_projector_contract import (
+    required_mapping as _mapping,
+)
+from legalforecast.evals.corpus_manifest.cost_projector_contract import (
+    required_sha256 as _required_sha256,
+)
 from legalforecast.evals.corpus_manifest.cost_projector_io import normalized_absolute
 from legalforecast.evals.corpus_manifest.records import registry_record
 from legalforecast.evals.corpus_manifest.schema import load_signed_manifest_bytes
@@ -40,6 +52,7 @@ from legalforecast.protocol.freeze import (
 
 _EXPECTED_PACKET_COUNT = 200
 _EXPECTED_CASE_COUNT = 100
+_EXPECTED_ABLATIONS = frozenset({"full_packet", "metadata_only"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +83,10 @@ def authenticate_manifest_cost_inputs(
         _bounded_path(path, root=freeze_root, label="freeze amendment bundle")
         for path in request.amendment_bundles
     )
+    if len(set(amendment_bundles)) != len(amendment_bundles):
+        raise ManifestCostProjectionError(
+            "freeze amendment bundle list contains duplicate paths"
+        )
     freeze_bytes = _snapshot(freeze_bundle, snapshots, "freeze bundle")
     amendment_bytes = [
         _snapshot(path, snapshots, "freeze amendment bundle")
@@ -81,6 +98,11 @@ def authenticate_manifest_cost_inputs(
             cycle_id=request.cycle_id,
             root_path=freeze_root,
             amendment_bundle_paths=amendment_bundles,
+        )
+        _require_exact_amendment_chain(
+            bundle,
+            amendment_bundles=amendment_bundles,
+            freeze_root=freeze_root,
         )
     except (FreezeProtocolError, OSError, ValueError) as exc:
         raise ManifestCostProjectionError(
@@ -133,7 +155,7 @@ def authenticate_manifest_cost_inputs(
     run_inputs = _json_object(run_input_bytes, "manifest run-inputs")
     run_record = _json_object(run_record_bytes, "manifest run record")
     prompt_replay = _mapping(prompt.get("prompt_replay"), "prompt contract replay")
-    _verify_manifest_chain(
+    signed_case_ids = _verify_manifest_chain(
         request=request,
         prompt=prompt,
         prompt_replay=prompt_replay,
@@ -180,7 +202,8 @@ def authenticate_manifest_cost_inputs(
     packet_commitments: list[dict[str, int | str]] = []
     seen_keys: set[str] = set()
     seen_pairs: set[tuple[str, str]] = set()
-    seen_cases: set[str] = set()
+    candidate_cases: dict[str, str] = {}
+    case_candidates: dict[str, str] = {}
     for raw_packet in packets:
         if not isinstance(raw_packet, Mapping):
             raise ManifestCostProjectionError("model_packets entries must be objects")
@@ -210,14 +233,30 @@ def authenticate_manifest_cost_inputs(
                     f"packet {field_name} differs from run-inputs: {key}"
                 )
         candidate_id = _required_string(packet, "candidate_id", "matrix row")
+        case_id = _required_string(packet, "case_id", "matrix row")
         ablation = _required_string(packet, "ablation", "matrix row")
+        if ablation not in _EXPECTED_ABLATIONS:
+            raise ManifestCostProjectionError(
+                "manifest run must contain the exact 100x2 packet matrix; "
+                f"unexpected ablation: {ablation}"
+            )
+        prior_case = candidate_cases.setdefault(candidate_id, case_id)
+        prior_candidate = case_candidates.setdefault(case_id, candidate_id)
+        if prior_case != case_id or prior_candidate != candidate_id:
+            raise ManifestCostProjectionError(
+                "manifest run candidate_id and case_id mapping is not one-to-one"
+            )
+        if signed_case_ids.get(candidate_id) != case_id:
+            raise ManifestCostProjectionError(
+                "manifest packet candidate_id/case_id is not authorized by the signed "
+                "owner manifest"
+            )
         pair = (candidate_id, ablation)
         if pair in seen_pairs:
             raise ManifestCostProjectionError(
                 f"duplicate candidate/ablation packet: {pair}"
             )
         seen_pairs.add(pair)
-        seen_cases.add(candidate_id)
         packet_payloads[key] = payload
         packet_commitments.append(
             {
@@ -226,10 +265,27 @@ def authenticate_manifest_cost_inputs(
                 "size_bytes": expected_size,
             }
         )
+    expected_pairs = {
+        (candidate_id, ablation)
+        for candidate_id in signed_case_ids
+        for ablation in _EXPECTED_ABLATIONS
+    }
+    prompt_commitments = _mapping(
+        prompt_replay.get("prompt_commitments"), "prompt replay prompt_commitments"
+    )
+    expected_prompt_keys = {
+        f"{candidate_id}:{ablation}" for candidate_id, ablation in expected_pairs
+    }
+    if seen_pairs != expected_pairs or set(prompt_commitments) != expected_prompt_keys:
+        raise ManifestCostProjectionError(
+            "manifest run must contain the exact 100x2 packet matrix"
+        )
     if (
         prompt_replay.get("packet_count") != _EXPECTED_PACKET_COUNT
         or prompt_replay.get("candidate_count") != _EXPECTED_CASE_COUNT
-        or len(seen_cases) != _EXPECTED_CASE_COUNT
+        or len(candidate_cases) != _EXPECTED_CASE_COUNT
+        or len(case_candidates) != _EXPECTED_CASE_COUNT
+        or candidate_cases != signed_case_ids
     ):
         raise ManifestCostProjectionError(
             "frozen prompt contract packet matrix differs from manifest run"
@@ -266,13 +322,6 @@ def require_inputs_unchanged(snapshots: Mapping[Path, bytes]) -> None:
             raise ManifestCostProjectionError(f"input changed during issuance: {path}")
 
 
-def _raw_commitment(payload: bytes) -> dict[str, int | str]:
-    return {
-        "sha256": hashlib.sha256(payload).hexdigest(),
-        "size_bytes": len(payload),
-    }
-
-
 def _json_value(payload: bytes, label: str) -> object:
     try:
         return json.loads(payload)
@@ -299,27 +348,10 @@ def _json_array(payload: bytes, label: str) -> list[Mapping[str, Any]]:
     return records
 
 
-def _mapping(value: object, label: str) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        raise ManifestCostProjectionError(f"{label} must be an object")
-    return cast(Mapping[str, Any], value)
-
-
 def _required_string(record: Mapping[str, Any], field_name: str, label: str) -> str:
     value = record.get(field_name)
     if not isinstance(value, str) or not value.strip():
         raise ManifestCostProjectionError(f"{label} requires {field_name}")
-    return value
-
-
-def _required_sha256(record: Mapping[str, Any], field_name: str, label: str) -> str:
-    value = _required_string(record, field_name, label)
-    if len(value) != 64 or any(
-        character not in "0123456789abcdef" for character in value
-    ):
-        raise ManifestCostProjectionError(
-            f"{label} {field_name} must be a lowercase SHA-256"
-        )
     return value
 
 
@@ -334,7 +366,7 @@ def _verify_manifest_chain(
     run_record_bytes: bytes,
     run_inputs: Mapping[str, Any],
     run_record: Mapping[str, Any],
-) -> None:
+) -> dict[str, str]:
     if (
         prompt.get("schema_version") != str(MANIFEST_FREEZE_RUNTIME_CONTRACT_V1)
         or prompt.get("artifact_role") != "prompt"
@@ -413,6 +445,12 @@ def _verify_manifest_chain(
         raise ManifestCostProjectionError(
             "manifest run inputs differ from the frozen manifest run record"
         )
+    signed_case_ids = {case.candidate_id: case.case_id for case in manifest.cases}
+    if len(signed_case_ids) != _EXPECTED_CASE_COUNT:
+        raise ManifestCostProjectionError(
+            "signed owner manifest must contain exactly 100 candidate/case mappings"
+        )
+    return signed_case_ids
 
 
 def _bounded_path(path: Path, *, root: Path, label: str) -> Path:

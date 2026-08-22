@@ -30,7 +30,7 @@ on:
       shard_only:
         description: Run exactly one frozen model-key/ablation shard without aggregating or publishing.
         required: true
-        default: true
+        default: false
         type: boolean
       model_registry_uri:
         description: Frozen model registry s3:// URI, manifests/ key, or checked-out JSON path.
@@ -163,6 +163,12 @@ jobs:
     outputs:
       artifact_retention_days: ${{ steps.validate.outputs.artifact_retention_days }}
       case_count: ${{ steps.matrix.outputs.case_count }}
+      packet_count: ${{ steps.matrix.outputs.packet_count }}
+      cell_count: ${{ steps.matrix.outputs.cell_count }}
+      matrix_row_count: ${{ steps.matrix.outputs.matrix_row_count }}
+      shard_matrix_row_count: ${{ steps.matrix.outputs.shard_matrix_row_count }}
+      request_count: ${{ steps.matrix.outputs.request_count }}
+      attempt_count: ${{ steps.matrix.outputs.attempt_count }}
       dispatch_run_attempt: ${{ steps.dispatch.outputs.workflow_run_attempt }}
       frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
       execution_policy_sha256: ${{ steps.dispatch.outputs.execution_policy_sha256 }}
@@ -325,6 +331,17 @@ jobs:
           if [[ "${DRY_RUN_INPUT}" != "true" && "${SHARD_ONLY_INPUT}" != "true" ]]; then
             echo "Non-dry-run official evaluation requires shard_only=true; canonical aggregation occurs only through immutable shard receipts and provider-free fan-in." >&2
             exit 1
+          fi
+          if [[ "${SHARD_ONLY_INPUT}" == "true" ]]; then
+            IFS=',' read -ra requested_model_keys <<< "${MODEL_KEYS}"
+            model_key_count=0
+            for raw_key in "${requested_model_keys[@]}"; do
+              [[ -n "${raw_key//[[:space:]]/}" ]] && ((model_key_count += 1))
+            done
+            if (( model_key_count != 1 || ${#seen_ablations[@]} != 1 )); then
+              echo "shard_only=true requires exactly one model-key and one ablation; each official shard must contain 100 rows under the 256-row limit." >&2
+              exit 1
+            fi
           fi
           if ! [[ "${MAX_PARALLEL_INPUT}" =~ ^[0-9]+$ ]] || (( MAX_PARALLEL_INPUT < 1 || MAX_PARALLEL_INPUT > 64 )); then
             echo "max_parallel must be an integer from 1 through 64." >&2
@@ -743,11 +760,12 @@ jobs:
           FREEZE_BUNDLE_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
           FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
           MANIFEST_RUN_ROOT: ${{ steps.validate.outputs.freeze_root }}
-          MATRIX_LIMIT: "256"
+          MATRIX_LIMIT: ${{ inputs.shard_only && '256' || '800' }}
           MAX_PROJECTED_MODEL_COST_USD: ${{ inputs.max_projected_model_cost_usd }}
           MODEL_KEYS: ${{ inputs.model_keys }}
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
+          SHARD_ONLY: ${{ inputs.shard_only }}
         run: |
           set -euo pipefail
           if [[ "${MANIFEST_RUN_ROOT}" == "." ]]; then
@@ -767,7 +785,24 @@ jobs:
               issue_manifest_cost_projection_from_workflow_environment,
           )
 
-          issue_manifest_cost_projection_from_workflow_environment(os.environ)
+          receipt = issue_manifest_cost_projection_from_workflow_environment(os.environ)
+          if os.environ["SHARD_ONLY"] == "true":
+              expected = {
+                  "case_count": 100,
+                  "packet_count": 200,
+                  "cell_count": 1,
+                  "matrix_row_count": 100,
+                  "shard_matrix_row_count": 100,
+                  "request_count": 100,
+                  "model_count": 1,
+                  "matrix_limit": 256,
+              }
+              actual = {name: receipt.get(name) for name in expected}
+              if actual != expected:
+                  raise SystemExit(
+                      "official shard projection must contain exactly one 100-row "
+                      f"cell under the 256-row limit: {actual}"
+                  )
           PY
 
       - name: Upload dispatch provenance

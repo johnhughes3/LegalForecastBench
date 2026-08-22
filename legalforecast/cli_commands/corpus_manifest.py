@@ -387,7 +387,19 @@ def register(
         help="Case receiving repeat_count evaluations; repeatable.",
     )
     cost.add_argument("--max-projected-model-cost-usd")
-    cost.add_argument("--matrix-limit", type=int, default=256)
+    cost.add_argument(
+        "--matrix-limit",
+        type=int,
+        default=800,
+        help="Maximum aggregate matrix rows (default: 800).",
+    )
+    cost.add_argument(
+        "--shard-only",
+        action="store_true",
+        help=(
+            "Require exactly one model/ablation cell; permits the 256-row shard limit."
+        ),
+    )
     cost.add_argument("--output", type=Path, required=True)
     cost.set_defaults(handler=run_project_manifest_cost)
 
@@ -579,6 +591,7 @@ def run_project_manifest_cost(args: argparse.Namespace) -> int:
             str | None, args.max_projected_model_cost_usd
         ),
         matrix_limit=cast(int, args.matrix_limit),
+        shard_only=cast(bool, args.shard_only),
         output=cast(Path, args.output),
     )
     issue = cast(_CostProjectionCommand, _PROJECT_MANIFEST_COST.load())

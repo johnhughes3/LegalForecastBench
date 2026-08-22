@@ -2,17 +2,94 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, cast
 
+from legalforecast.protocol.freeze import (
+    FreezeBundle,
+    FreezeProtocolError,
+    load_freeze_bundle,
+)
+
 _SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
+AGGREGATE_MATRIX_LIMIT: Final = 800
+OFFICIAL_SHARD_MATRIX_LIMIT: Final = 256
 
 
 class ManifestCostProjectionError(ValueError):
     """Raised when cost inputs or issuance fail closed."""
+
+
+def raw_commitment(payload: bytes) -> dict[str, int | str]:
+    """Commit exact input bytes by digest and length."""
+
+    return {
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "size_bytes": len(payload),
+    }
+
+
+def required_sha256(record: Mapping[str, Any], field_name: str, label: str) -> str:
+    """Return one required lowercase SHA-256 field."""
+
+    value = record.get(field_name)
+    if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+        raise ManifestCostProjectionError(
+            f"{label} {field_name} must be a lowercase SHA-256"
+        )
+    return value
+
+
+def required_mapping(value: object, label: str) -> Mapping[str, Any]:
+    """Return one required object mapping."""
+
+    if not isinstance(value, Mapping):
+        raise ManifestCostProjectionError(f"{label} must be an object")
+    return cast(Mapping[str, Any], value)
+
+
+def require_exact_amendment_chain(
+    bundle: FreezeBundle,
+    *,
+    amendment_bundles: Sequence[Path],
+    freeze_root: Path,
+) -> None:
+    """Require supplied ancestors to equal the complete referenced chain."""
+
+    ancestors: dict[str, FreezeBundle] = {}
+    for path in amendment_bundles:
+        ancestor = load_freeze_bundle(path, root_path=freeze_root)
+        if ancestor.bundle_sha256 in ancestors:
+            raise FreezeProtocolError(
+                "freeze amendment bundle list contains duplicate bundle commitments"
+            )
+        ancestors[ancestor.bundle_sha256] = ancestor
+
+    referenced: set[str] = set()
+    current = bundle
+    while current.amends_bundle_sha256 is not None:
+        parent_hash = current.amends_bundle_sha256
+        parent = ancestors.get(parent_hash)
+        if parent is None:
+            raise FreezeProtocolError(
+                "amendment ancestor bundle is missing from the exact committed chain: "
+                f"{parent_hash}"
+            )
+        if parent_hash in referenced:
+            raise FreezeProtocolError("freeze amendment chain contains a cycle")
+        referenced.add(parent_hash)
+        current = parent
+
+    extras = sorted(set(ancestors) - referenced)
+    if extras:
+        raise FreezeProtocolError(
+            "unreferenced amendment bundles are not part of the exact committed chain: "
+            f"{extras}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +107,7 @@ class ManifestCostProjectionRequest:
     repeat_sample_case_ids: tuple[str, ...]
     max_projected_model_cost_usd: str | None
     matrix_limit: int
+    shard_only: bool
     output: Path
 
     def __post_init__(self) -> None:
@@ -41,6 +119,14 @@ class ManifestCostProjectionRequest:
             )
         if self.matrix_limit < 1:
             raise ManifestCostProjectionError("matrix_limit must be positive")
+        if not self.shard_only and self.matrix_limit < AGGREGATE_MATRIX_LIMIT:
+            raise ManifestCostProjectionError(
+                "aggregate matrix_limit must be at least 800 rows"
+            )
+        if self.shard_only and self.matrix_limit > OFFICIAL_SHARD_MATRIX_LIMIT:
+            raise ManifestCostProjectionError(
+                "shard-only matrix_limit must not exceed 256 rows"
+            )
 
 
 def packet_sha256_from_row(packet: Mapping[str, Any]) -> str:

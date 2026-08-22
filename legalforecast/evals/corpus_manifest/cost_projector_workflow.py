@@ -40,6 +40,7 @@ def issue_manifest_cost_projection_from_workflow_environment(
             environment.get("MAX_PROJECTED_MODEL_COST_USD", "").strip() or None
         ),
         matrix_limit=_environment_int(environment, "MATRIX_LIMIT"),
+        shard_only=_environment_bool(environment, "SHARD_ONLY"),
         output=Path(_required_env(environment, "COST_PROJECTION_RECEIPT_PATH")),
     )
     receipt = issue_manifest_cost_projection(request)
@@ -65,6 +66,13 @@ def _environment_int(environment: Mapping[str, str], name: str) -> int:
         raise ManifestCostProjectionError(f"{name} must be an integer") from exc
 
 
+def _environment_bool(environment: Mapping[str, str], name: str) -> bool:
+    raw = _required_env(environment, name)
+    if raw not in {"true", "false"}:
+        raise ManifestCostProjectionError(f"{name} must be true or false")
+    return raw == "true"
+
+
 def _split_csv(raw: str) -> list[str]:
     return [value.strip() for value in raw.split(",") if value.strip()]
 
@@ -86,6 +94,12 @@ def _append_github_outputs(path: Path, receipt: Mapping[str, Any]) -> None:
         )
     for name in (
         "case_count",
+        "packet_count",
+        "cell_count",
+        "matrix_row_count",
+        "shard_matrix_row_count",
+        "request_count",
+        "attempt_count",
         "model_count",
         "long_context_surcharge_packet_count",
         "long_context_surcharge_packets_json",

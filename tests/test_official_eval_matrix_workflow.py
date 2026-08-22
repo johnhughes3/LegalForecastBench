@@ -93,8 +93,17 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
         in WORKFLOW
     )
     assert "fail-fast: false" in WORKFLOW
-    assert 'MATRIX_LIMIT: "256"' in WORKFLOW
+    assert "MATRIX_LIMIT: ${{ inputs.shard_only && '256' || '800' }}" in WORKFLOW
     assert "ABLATIONS: ${{ inputs.ablations }}" in WORKFLOW
+    assert "SHARD_ONLY: ${{ inputs.shard_only }}" in WORKFLOW
+    assert (
+        "shard_only=true requires exactly one model-key and one ablation; "
+        "each official shard must contain 100 rows under the 256-row limit." in WORKFLOW
+    )
+    assert '"matrix_row_count": 100' in WORKFLOW
+    assert '"shard_matrix_row_count": 100' in WORKFLOW
+    assert '"packet_count": 200' in WORKFLOW
+    assert '"matrix_limit": 256' in WORKFLOW
     assert "issue_manifest_cost_projection_from_workflow_environment" in WORKFLOW
     assert "/tmp/lfb-manifest-cost-projection.json" in WORKFLOW
     assert "def packet_input_tokens" not in BUILD_MATRIX_JOB
@@ -163,7 +172,7 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
     shard_input = WORKFLOW.split("      shard_only:", maxsplit=1)[1].split(
         "      model_registry_uri:", maxsplit=1
     )[0]
-    assert "default: true" in shard_input
+    assert "default: false" in shard_input
     assert "SHARD_ONLY_INPUT: ${{ inputs.shard_only }}" in BUILD_MATRIX_JOB
     assert (
         "Non-dry-run official evaluation requires shard_only=true; "

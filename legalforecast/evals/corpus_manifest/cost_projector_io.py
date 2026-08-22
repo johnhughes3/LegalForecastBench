@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import secrets
 import stat
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -32,9 +32,14 @@ def verify_receipt_self_hash(
 
 
 def write_create_only(
-    path: Path, payload: bytes, *, error_type: type[ValueError]
+    path: Path,
+    payload: bytes,
+    *,
+    error_type: type[ValueError],
+    before_commit: Callable[[], None],
+    after_commit: Callable[[], None],
 ) -> None:
-    """Stage and atomically install one receipt without replacing a peer."""
+    """Stage, recheck sources, and create-only install one verified receipt."""
 
     output = normalized_absolute(path)
     if output.name in {"", ".", ".."}:
@@ -42,7 +47,8 @@ def write_create_only(
     parent_fd = _open_directory_no_symlinks(output.parent, error_type=error_type)
     temporary = f".{output.name}.{secrets.token_hex(12)}.partial"
     temporary_fd: int | None = None
-    linked = False
+    temporary_identity: tuple[int, int] | None = None
+    committed = False
     try:
         try:
             os.stat(output.name, dir_fd=parent_fd, follow_symlinks=False)
@@ -60,6 +66,7 @@ def write_create_only(
             | getattr(os, "O_NOFOLLOW", 0)
         )
         temporary_fd = os.open(temporary, flags, 0o600, dir_fd=parent_fd)
+        temporary_identity = _file_identity(os.fstat(temporary_fd))
         _write_all(temporary_fd, payload, error_type=error_type)
         os.fsync(temporary_fd)
         metadata = os.fstat(temporary_fd)
@@ -70,18 +77,10 @@ def write_create_only(
             or _read_descriptor(temporary_fd) != payload
         ):
             raise error_type("staged cost projection receipt failed byte verification")
-        confirmation_fd = _open_directory_no_symlinks(
-            output.parent, error_type=error_type
+        _require_requested_parent_identity(
+            output.parent, parent_fd=parent_fd, error_type=error_type
         )
-        try:
-            if _directory_identity(
-                parent_fd, error_type=error_type
-            ) != _directory_identity(confirmation_fd, error_type=error_type):
-                raise error_type(
-                    "cost projection output parent changed before installation"
-                )
-        finally:
-            os.close(confirmation_fd)
+        before_commit()
         try:
             os.link(
                 temporary,
@@ -94,7 +93,26 @@ def write_create_only(
             raise error_type(
                 f"output appeared concurrently; refusing create-only issuance: {path}"
             ) from exc
-        linked = True
+        try:
+            after_commit()
+            _require_staged_receipt(
+                temporary_fd, payload=payload, error_type=error_type
+            )
+            _require_requested_output_identity(
+                output,
+                parent_fd=parent_fd,
+                expected=os.fstat(temporary_fd),
+                error_type=error_type,
+            )
+        except Exception:
+            _unlink_expected_output(
+                output.name,
+                parent_fd=parent_fd,
+                expected=os.fstat(temporary_fd),
+                error_type=error_type,
+            )
+            raise
+        committed = True
     except OSError as exc:
         raise error_type(f"cannot create cost projection receipt: {path}") from exc
     finally:
@@ -104,13 +122,14 @@ def write_create_only(
                 os.close(temporary_fd)
             except OSError as exc:
                 cleanup_error = exc
-        try:
-            os.unlink(temporary, dir_fd=parent_fd)
-        except FileNotFoundError:
-            pass
-        except OSError as exc:
-            cleanup_error = cleanup_error or exc
-        if linked:
+        if temporary_identity is not None:
+            try:
+                _unlink_expected_entry(
+                    temporary, parent_fd=parent_fd, expected=temporary_identity
+                )
+            except OSError as exc:
+                cleanup_error = cleanup_error or exc
+        if committed:
             try:
                 os.fsync(parent_fd)
             except OSError:
@@ -119,10 +138,89 @@ def write_create_only(
             os.close(parent_fd)
         except OSError as exc:
             cleanup_error = cleanup_error or exc
-        if cleanup_error is not None and not linked:
+        if cleanup_error is not None and not committed:
             raise error_type(
                 f"cannot clean staged cost projection receipt: {path}"
             ) from cleanup_error
+
+
+def _require_requested_parent_identity(
+    path: Path, *, parent_fd: int, error_type: type[ValueError]
+) -> None:
+    confirmation_fd = _open_directory_no_symlinks(path, error_type=error_type)
+    try:
+        if _directory_identity(parent_fd, error_type=error_type) != _directory_identity(
+            confirmation_fd, error_type=error_type
+        ):
+            raise error_type(
+                "cost projection output parent changed before installation"
+            )
+    finally:
+        _close_descriptor(confirmation_fd)
+
+
+def _require_requested_output_identity(
+    output: Path,
+    *,
+    parent_fd: int,
+    expected: os.stat_result,
+    error_type: type[ValueError],
+) -> None:
+    confirmation_fd = _open_directory_no_symlinks(output.parent, error_type=error_type)
+    try:
+        if _directory_identity(parent_fd, error_type=error_type) != _directory_identity(
+            confirmation_fd, error_type=error_type
+        ):
+            raise error_type("cost projection output parent changed after installation")
+        actual = os.stat(output.name, dir_fd=confirmation_fd, follow_symlinks=False)
+        if _file_identity(actual) != _file_identity(expected):
+            raise error_type("cost projection output path changed after installation")
+    except FileNotFoundError as exc:
+        raise error_type(
+            "cost projection output path disappeared after installation"
+        ) from exc
+    finally:
+        _close_descriptor(confirmation_fd)
+
+
+def _require_staged_receipt(
+    descriptor: int, *, payload: bytes, error_type: type[ValueError]
+) -> None:
+    metadata = os.fstat(descriptor)
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 2
+        or metadata.st_size != len(payload)
+        or _read_descriptor(descriptor) != payload
+        or _file_identity(os.fstat(descriptor)) != _file_identity(metadata)
+    ):
+        raise error_type("installed cost projection receipt failed byte verification")
+
+
+def _unlink_expected_output(
+    name: str,
+    *,
+    parent_fd: int,
+    expected: os.stat_result,
+    error_type: type[ValueError],
+) -> None:
+    try:
+        _unlink_expected_entry(
+            name, parent_fd=parent_fd, expected=_file_identity(expected)
+        )
+    except OSError as exc:
+        raise error_type("cannot roll back unverified cost projection receipt") from exc
+
+
+def _unlink_expected_entry(
+    name: str, *, parent_fd: int, expected: tuple[int, int]
+) -> None:
+    try:
+        actual = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return
+    if _file_identity(actual) == expected:
+        os.unlink(name, dir_fd=parent_fd)
 
 
 def _open_directory_no_symlinks(path: Path, *, error_type: type[ValueError]) -> int:
@@ -138,12 +236,12 @@ def _open_directory_no_symlinks(path: Path, *, error_type: type[ValueError]) -> 
         descriptor = os.open(absolute.anchor, flags)
         for component in absolute.parts[1:]:
             next_descriptor = os.open(component, flags, dir_fd=descriptor)
-            os.close(descriptor)
+            _close_descriptor(descriptor)
             descriptor = next_descriptor
         return descriptor
     except OSError as exc:
         if descriptor is not None:
-            os.close(descriptor)
+            _close_descriptor(descriptor)
         raise error_type(
             f"cost projection output parent is unsafe or missing: {path}"
         ) from exc
@@ -151,11 +249,22 @@ def _open_directory_no_symlinks(path: Path, *, error_type: type[ValueError]) -> 
 
 def _directory_identity(
     descriptor: int, *, error_type: type[ValueError]
-) -> tuple[int, int, int]:
+) -> tuple[int, int]:
     metadata = os.fstat(descriptor)
     if not stat.S_ISDIR(metadata.st_mode):
         raise error_type("cost projection output parent is not a directory")
-    return metadata.st_dev, metadata.st_ino, metadata.st_mode
+    return metadata.st_dev, metadata.st_ino
+
+
+def _file_identity(metadata: os.stat_result) -> tuple[int, int]:
+    return metadata.st_dev, metadata.st_ino
+
+
+def _close_descriptor(descriptor: int) -> None:
+    try:
+        os.close(descriptor)
+    except OSError:
+        pass
 
 
 def _write_all(

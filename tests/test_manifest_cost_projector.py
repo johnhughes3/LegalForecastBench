@@ -60,6 +60,13 @@ SUCCESSOR_REGISTRY = (
     / "model_registries"
     / "cycle-1-2026-06-30-claude-opus-4-8-successor-2026-08-21.json"
 )
+SUCCESSOR_MODEL_KEYS = (
+    "openai:gpt-5.6-sol",
+    "openai:gpt-5.6-terra",
+    "openai:gpt-5.6-luna",
+    "anthropic:claude-opus-4-8",
+)
+OFFICIAL_PACKET_ABLATIONS = ("full_packet", "metadata_only")
 
 
 def _json_bytes(value: object) -> bytes:
@@ -134,6 +141,8 @@ def _request(
     repeat_count: int = 1,
     repeat_sample_case_ids: tuple[str, ...] = (),
     max_projected_model_cost_usd: str | None = None,
+    matrix_limit: int = 256,
+    shard_only: bool = True,
 ) -> ManifestCostProjectionRequest:
     tmp_path.mkdir(parents=True, exist_ok=True)
     return ManifestCostProjectionRequest(
@@ -147,7 +156,8 @@ def _request(
         repeat_count=repeat_count,
         repeat_sample_case_ids=repeat_sample_case_ids,
         max_projected_model_cost_usd=max_projected_model_cost_usd,
-        matrix_limit=256,
+        matrix_limit=matrix_limit,
+        shard_only=shard_only,
         output=tmp_path / "cost-projection.json",
     )
 
@@ -312,6 +322,8 @@ def test_projector_multiplies_repeat_cost_and_partitions_provider_matrices(
         model_keys=("anthropic:model-a", "gemini:model-b"),
         repeat_count=3,
         repeat_sample_case_ids=("case-repeat",),
+        matrix_limit=800,
+        shard_only=False,
     )
 
     assert receipt["projected_model_cost_usd"] == "0.010300"
@@ -321,6 +333,12 @@ def test_projector_multiplies_repeat_cost_and_partitions_provider_matrices(
         "openai": 0,
     }
     assert receipt["case_count"] == 2
+    assert receipt["packet_count"] == 2
+    assert receipt["cell_count"] == 2
+    assert receipt["matrix_row_count"] == 4
+    assert receipt["shard_matrix_row_count"] == 2
+    assert receipt["request_count"] == 4
+    assert receipt["attempt_count"] == 8
     assert receipt["model_count"] == 2
     assert {row["repeat_count"] for row in receipt["matrix"]["include"]} == {1, 3}
 
@@ -333,6 +351,53 @@ def test_projector_preserves_long_context_warning_boundary(
 
     assert receipt["long_context_surcharge_packet_count"] == warning_count
     assert len(receipt["long_context_surcharge_packets"]) == warning_count
+
+
+def test_projector_applies_terra_long_context_surcharge_strictly_after_boundary(
+    tmp_path: Path,
+) -> None:
+    terra = [
+        {
+            "input_token_price": 2.5,
+            "max_output_tokens": 16_000,
+            "model_id": "gpt-5.6-terra",
+            "output_token_price": 15.0,
+            "provider": "gemini",
+            "long_context_surcharge": {
+                "input_price_multiplier": 2.0,
+                "output_price_multiplier": 1.5,
+                "threshold_input_tokens": 272_000,
+            },
+        }
+    ]
+
+    at_boundary = _build(
+        tmp_path / "at-boundary",
+        [_packet_row("case-long", input_tokens=272_000)],
+        registry=terra,
+        model_keys=("gemini:gpt-5.6-terra",),
+    )
+    over_boundary = _build(
+        tmp_path / "over-boundary",
+        [_packet_row("case-long", input_tokens=272_001)],
+        registry=terra,
+        model_keys=("gemini:gpt-5.6-terra",),
+    )
+
+    assert at_boundary["projected_model_cost_usd"] == "0.920000"
+    assert over_boundary["projected_model_cost_usd"] == "1.720005"
+
+
+def test_projector_does_not_surcharge_registry_without_long_context_term(
+    tmp_path: Path,
+) -> None:
+    receipt = _build(
+        tmp_path,
+        [_packet_row("case-long", input_tokens=272_001)],
+        model_keys=("anthropic:model-a",),
+    )
+
+    assert receipt["projected_model_cost_usd"] == "0.544202"
 
 
 def test_projector_receipt_has_canonical_self_hash(tmp_path: Path) -> None:
@@ -379,6 +444,35 @@ def test_input_drift_before_install_leaves_no_receipt(
         issue_manifest_cost_projection(request)
 
     assert not request.output.exists()
+
+
+def test_source_mutation_after_final_prelink_recheck_rolls_back_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.json"
+    source.write_bytes(b"original")
+    request = _request(tmp_path)
+    authenticated = _authenticated(
+        [_packet_row("case-1")], snapshots={source: b"original"}
+    )
+    monkeypatch.setattr(
+        projector_module,
+        "authenticate_manifest_cost_inputs",
+        lambda _request: authenticated,
+    )
+    original_link = io_module.os.link
+
+    def racing_link(*args: object, **kwargs: object) -> None:
+        source.write_bytes(b"changed-after-prelink-recheck")
+        original_link(*args, **kwargs)
+
+    monkeypatch.setattr(io_module.os, "link", racing_link)
+
+    with pytest.raises(ManifestCostProjectionError, match="input changed"):
+        issue_manifest_cost_projection(request)
+
+    assert not request.output.exists()
+    assert list(tmp_path.glob(".*.partial")) == []
 
 
 def test_staged_write_failure_leaves_no_final_or_partial_receipt(
@@ -485,8 +579,43 @@ def test_symlinked_output_ancestor_never_writes_through_link(
     assert not (real_parent / "receipt.json").exists()
 
 
-def _authenticated_chain(
+def test_output_parent_swap_after_link_unlinks_from_pinned_parent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output_parent = tmp_path / "requested-parent"
+    output_parent.mkdir()
+    detached_parent = tmp_path / "detached-parent"
+    request = replace(
+        _request(tmp_path / "request"), output=output_parent / "receipt.json"
+    )
+    monkeypatch.setattr(
+        projector_module,
+        "authenticate_manifest_cost_inputs",
+        lambda _request: _authenticated([_packet_row("case-1")]),
+    )
+    original_link = io_module.os.link
+
+    def racing_link(*args: object, **kwargs: object) -> None:
+        original_link(*args, **kwargs)
+        output_parent.rename(detached_parent)
+        output_parent.mkdir()
+
+    monkeypatch.setattr(io_module.os, "link", racing_link)
+
+    with pytest.raises(ManifestCostProjectionError, match="output parent changed"):
+        issue_manifest_cost_projection(request)
+
+    assert not request.output.exists()
+    assert not (detached_parent / request.output.name).exists()
+    assert list(detached_parent.glob(".*.partial")) == []
+
+
+def _authenticated_chain(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    packet_ablations: tuple[str, str] = OFFICIAL_PACKET_ABLATIONS,
+    packet_identity_mode: str = "signed",
 ) -> tuple[ManifestCostProjectionRequest, list[Path]]:
     root = tmp_path / "freeze-root"
     root.mkdir()
@@ -508,9 +637,16 @@ def _authenticated_chain(
     packet_paths: list[Path] = []
     prompt_commitments: dict[str, str] = {}
     for index in range(100):
-        candidate_id = f"candidate-{index:03d}"
-        case_id = f"case-{index:03d}"
-        for ablation in ("full_packet", "metadata_only"):
+        if packet_identity_mode == "foreign":
+            candidate_id = f"foreign-candidate-{index:03d}"
+            case_id = f"foreign-case-{index:03d}"
+        else:
+            candidate_id = f"candidate-{index:03d}"
+            case_index = (
+                (index + 1) % 100 if packet_identity_mode == "mismatch" else index
+            )
+            case_id = f"case-{case_index:03d}"
+        for ablation in packet_ablations:
             row, payload = _packet_row(
                 case_id,
                 ablation=ablation,
@@ -614,7 +750,16 @@ def _authenticated_chain(
     monkeypatch.setattr(
         auth_module,
         "load_signed_manifest_bytes",
-        lambda *_a, **_k: SimpleNamespace(cycle_id="cycle-1"),
+        lambda *_a, **_k: SimpleNamespace(
+            cycle_id="cycle-1",
+            cases=tuple(
+                SimpleNamespace(
+                    candidate_id=f"candidate-{index:03d}",
+                    case_id=f"case-{index:03d}",
+                )
+                for index in range(100)
+            ),
+        ),
     )
     return (
         ManifestCostProjectionRequest(
@@ -628,7 +773,8 @@ def _authenticated_chain(
             repeat_count=1,
             repeat_sample_case_ids=(),
             max_projected_model_cost_usd=None,
-            matrix_limit=256,
+            matrix_limit=800,
+            shard_only=False,
             output=root / "receipt.json",
         ),
         packet_paths,
@@ -647,6 +793,96 @@ def test_complete_frozen_manifest_chain_authenticates_every_packet(
     assert authenticated.input_commitments["model_registry"]["sha256"] == (
         hashlib.sha256(SUCCESSOR_REGISTRY.read_bytes()).hexdigest()
     )
+
+
+def test_authenticated_packet_matrix_rejects_unexpected_ablation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request, _packet_paths = _authenticated_chain(
+        tmp_path,
+        monkeypatch,
+        packet_ablations=("full_packet", "unexpected"),
+    )
+
+    with pytest.raises(ManifestCostProjectionError, match="exact 100x2 packet matrix"):
+        authenticate_manifest_cost_inputs(request)
+
+
+@pytest.mark.parametrize("packet_identity_mode", ["foreign", "mismatch"])
+def test_authenticated_packet_matrix_requires_signed_manifest_case_mapping(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    packet_identity_mode: str,
+) -> None:
+    request, _packet_paths = _authenticated_chain(
+        tmp_path, monkeypatch, packet_identity_mode=packet_identity_mode
+    )
+
+    with pytest.raises(ManifestCostProjectionError, match="signed owner manifest"):
+        authenticate_manifest_cost_inputs(request)
+
+
+def test_aggregate_projection_has_eight_cells_and_800_requests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request, _packet_paths = _authenticated_chain(tmp_path, monkeypatch)
+    authenticated = authenticate_manifest_cost_inputs(request)
+
+    receipt = build_manifest_cost_projection(
+        replace(
+            request,
+            model_keys=SUCCESSOR_MODEL_KEYS,
+            ablations=OFFICIAL_PACKET_ABLATIONS,
+            matrix_limit=800,
+            shard_only=False,
+        ),
+        authenticated=authenticated,
+    )
+
+    assert receipt["case_count"] == 100
+    assert receipt["packet_count"] == 200
+    assert receipt["cell_count"] == 8
+    assert receipt["matrix_row_count"] == 800
+    assert receipt["shard_matrix_row_count"] == 100
+    assert receipt["request_count"] == 800
+    assert len(receipt["matrix"]["include"]) == 800
+
+
+@pytest.mark.parametrize(
+    ("model_key", "ablation"),
+    [
+        (model_key, ablation)
+        for model_key in SUCCESSOR_MODEL_KEYS
+        for ablation in OFFICIAL_PACKET_ABLATIONS
+    ],
+)
+def test_each_official_shard_has_exactly_100_matrix_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    model_key: str,
+    ablation: str,
+) -> None:
+    request, _packet_paths = _authenticated_chain(tmp_path, monkeypatch)
+    authenticated = authenticate_manifest_cost_inputs(request)
+
+    receipt = build_manifest_cost_projection(
+        replace(
+            request,
+            model_keys=(model_key,),
+            ablations=(ablation,),
+            matrix_limit=256,
+            shard_only=True,
+        ),
+        authenticated=authenticated,
+    )
+
+    assert receipt["case_count"] == 100
+    assert receipt["packet_count"] == 200
+    assert receipt["cell_count"] == 1
+    assert receipt["matrix_row_count"] == 100
+    assert receipt["shard_matrix_row_count"] == 100
+    assert receipt["request_count"] == 100
+    assert len(receipt["matrix"]["include"]) == 100
 
 
 @pytest.mark.parametrize("mutation", ["missing", "substituted"])
@@ -718,6 +954,12 @@ def test_workflow_adapter_uses_authenticated_manifest_root_and_emits_outputs(
     receipt: dict[str, Any] = {
         "matrix": {"include": []},
         "case_count": 100,
+        "packet_count": 200,
+        "cell_count": 1,
+        "matrix_row_count": 100,
+        "shard_matrix_row_count": 100,
+        "request_count": 100,
+        "attempt_count": 100,
         "model_count": 1,
         "long_context_surcharge_packet_count": 0,
         "long_context_surcharge_packets": [],
@@ -753,6 +995,7 @@ def test_workflow_adapter_uses_authenticated_manifest_root_and_emits_outputs(
             "MODEL_KEYS": "openai:gpt-5.6-terra",
             "REPEAT_COUNT": "1",
             "REPEAT_SAMPLE_CASE_IDS": "",
+            "SHARD_ONLY": "true",
         }
     )
 
