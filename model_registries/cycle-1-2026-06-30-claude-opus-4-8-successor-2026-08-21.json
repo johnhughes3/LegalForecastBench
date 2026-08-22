@@ -91,31 +91,6 @@
   },
   {
     "context_limit": 1000000,
-    "display_name": "Claude Sonnet 5",
-    "input_token_price": 2.0,
-    "known_cutoff_publicity_caveats": [
-      "Anthropic reports a January 2026 training-data cutoff but does not disclose an exact date, so the structured exact-date field remains unknown.",
-      "Anthropic 4.6-generation and later dateless model IDs are pinned snapshots, not evergreen aliases.",
-      "The recorded $2/$10 introductory pricing applies through August 31, 2026; standard $3/$15 pricing starts September 1, 2026."
-    ],
-    "max_output_tokens": 16000,
-    "model_id": "claude-sonnet-5",
-    "model_version_or_snapshot": "claude-sonnet-5",
-    "network_disabled": true,
-    "output_token_price": 10.0,
-    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing, introductory pricing through 2026-08-31, checked 2026-07-11",
-    "provider": "anthropic",
-    "provider_training_cutoff": null,
-    "provider_training_cutoff_status": "unknown",
-    "release_timestamp": "2026-06-30T00:00:00Z",
-    "release_timestamp_source": "https://www.anthropic.com/news/claude-sonnet-5, Claude API and Claude Platform launch on 2026-06-30, checked 2026-07-11",
-    "search_disabled": true,
-    "temperature": 0.0,
-    "tool_policy": "controlled_docket_tool_only",
-    "top_p": 1.0
-  },
-  {
-    "context_limit": 1000000,
     "display_name": "Claude Opus 4.8",
     "input_token_price": 5.0,
     "known_cutoff_publicity_caveats": [
