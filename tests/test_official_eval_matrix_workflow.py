@@ -447,6 +447,9 @@ def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
     assert '--root "${FREEZE_ROOT}"' in BUILD_MATRIX_JOB
     assert "Download immutable manifest-run bundle" in BUILD_MATRIX_JOB
     assert "manifest-run S3 prefix did not contain freeze.json" in BUILD_MATRIX_JOB
+    assert 'find "${FREEZE_ROOT}/amendments"' in BUILD_MATRIX_JOB
+    assert "--amendment-bundle" in BUILD_MATRIX_JOB
+    assert "--candidate-freeze-bundle" in BUILD_MATRIX_JOB
     assert '--artifact-path "manifest=' not in BUILD_MATRIX_JOB
     assert (
         "RUN_INPUT_MANIFEST_PATH:" not in BUILD_MATRIX_JOB[commitment_step:matrix_step]

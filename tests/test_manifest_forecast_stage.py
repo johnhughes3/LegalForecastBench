@@ -10,10 +10,13 @@ from legalforecast.protocol.freeze import (
     FreezeBundle,
     FrozenArtifact,
     FrozenArtifactName,
+    load_freeze_bundle,
+    write_hash_bundle,
 )
 from legalforecast.publication.manifest_forecast_stage import (
     ManifestForecastStageConfig,
     ManifestForecastStageError,
+    _freeze_chain_objects,
     stage_manifest_forecast,
 )
 
@@ -63,7 +66,7 @@ def _fixture(tmp_path: Path) -> tuple[ManifestForecastStageConfig, FreezeBundle]
     )
     _write_json(
         output / "manifest-mode-run-record.json",
-        {"manifest_digest": "a" * 64},
+        {"manifest_sha256": "a" * 64},
     )
     bundle = FreezeBundle(
         cycle_id="cycle-1",
@@ -136,3 +139,41 @@ def test_stage_manifest_forecast_rejects_packet_path_escape(
 
     with pytest.raises(ManifestForecastStageError, match="unsafe S3 key"):
         stage_manifest_forecast(config)
+
+
+def test_freeze_chain_rewrites_amendment_pointer_and_stages_ancestor(
+    tmp_path: Path,
+) -> None:
+    _config, parent = _fixture(tmp_path)
+    current = FreezeBundle(
+        cycle_id=parent.cycle_id,
+        freeze_timestamp=parent.freeze_timestamp,
+        artifacts=parent.artifacts,
+        amends_bundle_sha256=parent.bundle_sha256,
+    )
+    parent_path = tmp_path / "parent.freeze.json"
+    write_hash_bundle(parent_path, parent)
+
+    current_objects, staged_current_path, amendment_objects, staged_paths = (
+        _freeze_chain_objects(
+            bundle=current,
+            amendment_paths=(parent_path,),
+            artifact_root=tmp_path / "artifacts",
+            results_bucket="results-bucket",
+            prefix="cycle-1/manifest-runs/" + "a" * 64,
+        )
+    )
+    try:
+        staged_current = load_freeze_bundle(staged_current_path)
+        staged_parent_path = next(
+            obj.path for obj in amendment_objects if obj.key.endswith(".freeze.json")
+        )
+        staged_parent = load_freeze_bundle(staged_parent_path)
+
+        assert staged_current.amends_bundle_sha256 == staged_parent.bundle_sha256
+        assert staged_current.amends_bundle_sha256 != parent.bundle_sha256
+        assert current_objects
+        assert len(staged_paths) == 2
+    finally:
+        for path in staged_paths:
+            path.unlink(missing_ok=True)
