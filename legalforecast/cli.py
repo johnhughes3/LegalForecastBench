@@ -60678,6 +60678,16 @@ def _cmd_acquisition_build_decision_texts_cached(args: argparse.Namespace) -> in
                 input_commitments=commitments,
                 docket_decision_authority=authority,
                 purchase_journal=journal,
+                paid_delivery_capability=(
+                    verified_materialization.paid_delivery_capability
+                    if verified_materialization is not None
+                    else None
+                ),
+                free_public_download_capability=(
+                    verified_materialization.free_public_download_capability
+                    if verified_materialization is not None
+                    else None
+                ),
             ),
         )
     except DecisionTextArtifactError as exc:
@@ -60756,10 +60766,17 @@ def _verify_decision_text_artifact_with_materialization(
         ),
         source=decision_texts_path,
     )
-    if not any(
+    has_authenticated_docket_source = any(
         record.get("source_provenance") == "authenticated_docket_entry_text"
         for record in decision_records
-    ):
+    )
+    requires_clearance_capability = any(
+        isinstance(record.get("clearance"), Mapping)
+        and cast(Mapping[str, object], record["clearance"]).get("clearance_basis")
+        in {"courtlistener_public_download", "paid_delivery"}
+        for record in decision_records
+    )
+    if not has_authenticated_docket_source and not requires_clearance_capability:
         return verify_decision_text_artifact(
             decision_texts_path=decision_texts_path,
             manifest_path=manifest_path,
@@ -60801,7 +60818,7 @@ def _verify_decision_text_artifact_with_materialization(
         )
     if not materialization_cards:
         raise CommandError(
-            "decision text artifact declares authenticated docket entries but its "
+            "decision text artifact requires materialization authority but its "
             "run card has no materialization lineage"
         )
     materialization_card_path = materialization_cards[0]
@@ -60846,6 +60863,10 @@ def _verify_decision_text_artifact_with_materialization(
                 finalized_unit_records=finalized_unit_records,
                 finalized_units_path=finalized_units_path,
                 markdown_root=markdown_root,
+                paid_delivery_capability=verified.paid_delivery_capability,
+                free_public_download_capability=(
+                    verified.free_public_download_capability
+                ),
                 docket_decision_authority=authority,
                 purchase_journal=journal,
             ),

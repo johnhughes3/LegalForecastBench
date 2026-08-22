@@ -15,6 +15,7 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion import case_dev_purchase as purchase_module
 from legalforecast.ingestion import cohort_document_materializer as materializer_module
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
 from legalforecast.ingestion.cohort_document_materializer import (
     CohortDocumentMaterializationError,
@@ -589,11 +590,28 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
         "byte_count": len(payload),
         "status": "cleared",
         "restriction_status": "public",
-        "restriction_evidence": ["courtlistener_public_download_record_checked"],
-        "reviewer_id": "reviewer:john",
-        "controlled_store_provenance": "private-store://cycle-1/clearance",
-        "reviewed_at": "2026-07-27T12:00:00Z",
+        "restriction_evidence": [
+            "courtlistener_public_download_record_checked",
+            "document_repair_byte_role_validation_match",
+        ],
+        "reviewer_id": None,
+        "controlled_store_provenance": None,
+        "reviewed_at": None,
         "free_or_purchased": "free",
+        "clearance_basis": "courtlistener_public_download",
+        "is_private": False,
+        "is_sealed": False,
+    }
+    restriction_record = {
+        "candidate_id": "candidate-1",
+        "source_document_id": "motion-1",
+        "restriction_status": "public",
+        "restriction_evidence": [
+            "courtlistener_public_download_record_checked",
+            "document_repair_byte_role_validation_match",
+        ],
+        "is_private": False,
+        "is_sealed": False,
     }
     preparation_summary = preparation / "target-cohort-preparation-summary.json"
     preparation_config = preparation / "target-cohort-config.json"
@@ -640,10 +658,20 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     free_manifest.write_text(
         json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
     )
-    free_clearance.write_text(
-        json.dumps(clearance, sort_keys=True) + "\n", encoding="utf-8"
+    free_clearance.write_bytes(
+        canonical_json_bytes(
+            clearance,
+            error_type=ValueError,
+            error_message="test clearance is not canonical",
+        )
     )
-    restriction.write_text("\n", encoding="utf-8")
+    restriction.write_bytes(
+        canonical_json_bytes(
+            restriction_record,
+            error_type=ValueError,
+            error_message="test restriction is not canonical",
+        )
+    )
     projected_purchased_manifest: list[Mapping[str, object]] = []
     projection_paths = (
         selection,
@@ -664,7 +692,20 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     )
 
     def verified_projection(**_kwargs: object) -> dict[str, object]:
+        clearance_bytes = canonical_json_bytes(
+            clearance,
+            error_type=ValueError,
+            error_message="test clearance is not canonical",
+        )
+        restriction_bytes = canonical_json_bytes(
+            restriction_record,
+            error_type=ValueError,
+            error_message="test restriction is not canonical",
+        )
         return {
+            "run_card": {
+                "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+            },
             "summary_path": projection_summary,
             "run_card_path": projection_card,
             "selection_path": selection,
@@ -674,7 +715,11 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
             "purchased_manifest": projected_purchased_manifest,
             "free_clearance": (clearance,),
             "restriction_path": restriction,
-            "restriction_records": (),
+            "restriction_records": (restriction_record,),
+            "authenticated_clearance_records": (clearance,),
+            "authenticated_clearance_bytes": clearance_bytes,
+            "authenticated_restriction_bytes": restriction_bytes,
+            "clearance_path": free_clearance,
             "selected_document_keys": {("candidate-1", "motion-1")},
             "verified_artifact_bytes": {
                 os.path.abspath(path): path.read_bytes() for path in projection_paths
@@ -682,6 +727,9 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
         }
 
     monkeypatch.setattr(cli, "_verify_materializer_projection", verified_projection)
+    monkeypatch.setattr(
+        cli, "_verified_successor_selection_card_from_projection", lambda _value: None
+    )
     admission_calls: list[tuple[object, ...]] = []
     original_admit_v3_free = cli._admit_v3_free
 
@@ -767,6 +815,10 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     )
     assert len(replay.manifest_records) == 1
     assert replay.resolved_records == ()
+    assert (
+        replay.free_public_download_capability
+        is vars(cli.disclosure_clearance_module)["_FREE_PUBLIC_DOWNLOAD_AUTHORITY"]
+    )
     assert any(
         path.name == "materialize-cohort-documents.json" for path in final_snapshots
     )

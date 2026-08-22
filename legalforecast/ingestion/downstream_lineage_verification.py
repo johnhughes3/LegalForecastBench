@@ -401,6 +401,10 @@ def verify_materialized_downstream_lineage(
             source_commitments=publication.source_commitments,
             output_commitments=output_commitments,
             dry_run=False,
+            paid_delivery_capability=publication.paid_delivery_capability,
+            free_public_download_capability=(
+                publication.free_public_download_capability
+            ),
             authority_mode="free_only",
         )
         selection_records = tuple(
@@ -452,6 +456,9 @@ def verify_materialized_downstream_lineage(
             resolved_lineage_selection_records=selection_records,
             resolved_records=(),
             document_tree=document_tree_snapshot,
+            free_public_download_capability=(
+                publication.free_public_download_capability
+            ),
             fresh_ledger_namespace=ledger_path.resolve(),
             verified_successor_selection_card=(
                 publication.verified_successor_selection_card
