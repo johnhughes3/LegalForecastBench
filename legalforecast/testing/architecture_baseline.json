@@ -7659,9 +7659,9 @@
         "largest_symbol": "_verify_policy_artifact_links",
         "largest_symbol_lines": 100,
         "layer": "domain",
-        "line_count": 1278,
-        "nonblank_line_count": 1119,
-        "top_level_definition_count": 54
+        "line_count": 1285,
+        "nonblank_line_count": 1122,
+        "top_level_definition_count": 55
       },
       "legalforecast/protocol/manifest.py": {
         "cycle_id": "",
