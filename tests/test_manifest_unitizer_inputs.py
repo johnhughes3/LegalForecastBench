@@ -6,11 +6,17 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pytest
 from legalforecast.evals.corpus_manifest import unitizer as unitizer_module
+from legalforecast.evals.corpus_manifest.stage51_r2 import (
+    _file_commitment,
+    _preflight_r2_outputs,
+    _write_jsonl_output,
+)
 from legalforecast.evals.corpus_manifest.unitizer import (
     AuthenticatedFinalizedOverlay,
     ManifestUnitizerCommandError,
@@ -20,6 +26,8 @@ from legalforecast.evals.corpus_manifest.unitizer import (
     authenticate_finalized_overlay,
     prepare_manifest_unitizer_inputs,
 )
+from legalforecast.evals.corpus_manifest.unitizer_publication import _write_stage_card
+from legalforecast.evals.corpus_manifest.unitizer_shared import _citation_span_pages
 from legalforecast.labeling.llm_pipeline import LlmBatchResult
 from legalforecast.labeling.provider_journal import (
     load_provider_cycle_caps,
@@ -28,15 +36,21 @@ from legalforecast.labeling.provider_journal import (
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-_UNITS_APPROVAL = "units: approved — ceiling USD 5.00 extends to the sixth fresh case"
+_UNITS_APPROVAL = "units: approved — ceiling USD 5.00 extends to the fifth fresh case"
 _PROMPT_CONTRACT = unitizer_module.STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
-_FRESH_IDS = tuple(f"synthetic-fresh-{number}" for number in range(1, 7))
+_FRESH_IDS = tuple(f"synthetic-fresh-{number}" for number in range(1, 6))
+_CHANGED_ID = "synthetic-changed-material"
 
 
 @pytest.fixture(autouse=True)
 def _use_synthetic_frozen_fresh_ids(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         unitizer_module, "_CYCLE1_FRESH_CANDIDATE_IDS", frozenset(_FRESH_IDS)
+    )
+    monkeypatch.setattr(
+        unitizer_module,
+        "_CYCLE1_REPROCESSED_CANDIDATE_IDS",
+        frozenset({_CHANGED_ID}),
     )
 
 
@@ -295,6 +309,7 @@ def _overlay_fixture(
 ]:
     current_candidates = (
         *tuple(f"synthetic-candidate-{number}" for number in range(1, 95)),
+        _CHANGED_ID,
         *_FRESH_IDS,
     )
     selection_path, store, verdicts = _fixture(
@@ -316,7 +331,7 @@ def _overlay_fixture(
     }
     prior_candidates = [
         *[f"synthetic-candidate-{number}" for number in range(1, 95)],
-        _FRESH_IDS[-1],
+        _CHANGED_ID,
         *[f"synthetic-predecessor-{number}" for number in range(1, 6)],
     ]
     retained: list[dict[str, Any]] = []
@@ -324,10 +339,6 @@ def _overlay_fixture(
         selection = selection_by_candidate.get(candidate_id)
         claim_document = f"{candidate_id}-complaint"
         unit = _prediction_unit(candidate_id, claim_document=claim_document)
-        if candidate_id == _FRESH_IDS[-1]:
-            unit["source_citations"][0]["excerpt"] = (
-                "Count I\nThe superseded complaint alleged a different claim."
-            )
         retained.append(
             {
                 "candidate_id": candidate_id,
@@ -465,17 +476,19 @@ def _authenticate_fixture(
     return authenticated, prepared, overlay, integration_path, fresh_ids, integration
 
 
-def test_authenticate_finalized_overlay_accepts_exact_94_retained_and_6_fresh(
+def test_authenticate_finalized_overlay_accepts_exact_94_retained_5_fresh_1_reprocessed(
     tmp_path: Path,
 ) -> None:
     authenticated, prepared, _, _, fresh_ids, _ = _authenticate_fixture(tmp_path)
 
     assert len(authenticated.retained_records) == 94
-    assert len(authenticated.fresh_selection_records) == 6
+    assert len(authenticated.fresh_selection_records) == 5
+    assert len(authenticated.reprocessed_records) == 1
+    assert authenticated.reprocessed_candidate_ids == (_CHANGED_ID,)
     assert [row["candidate_id"] for row in authenticated.retained_records] == [
         row["candidate_id"]
         for row in prepared.selection_records
-        if row["candidate_id"] not in fresh_ids
+        if row["candidate_id"] not in fresh_ids and row["candidate_id"] != _CHANGED_ID
     ]
     assert [
         row["candidate_id"] for row in authenticated.fresh_selection_records
@@ -618,9 +631,8 @@ def test_citation_mismatch_requires_moving_case_to_fresh_set(
         _,
         alternate_integration,
     ) = _authenticate_fixture(tmp_path)
-    # A second retained citation failure must not let the operator substitute
-    # a different sixth case.  The derived set is frozen to the disclosed five
-    # replacements plus the sixth changed-materials case.
+    # A changed retained citation requires the corrected Stage-51 overlay; it
+    # must not be silently converted into an owner-authorized fresh case.
     rows = [json.loads(line) for line in alternate_overlay.read_text().splitlines()]
     retained_94 = next(
         row for row in rows if row["candidate_id"] == "synthetic-candidate-94"
@@ -688,7 +700,7 @@ def test_authenticate_finalized_overlay_uses_one_markdown_snapshot(
     assert again == authenticated
 
 
-def test_manifest_unitizer_provider_receives_only_the_approved_six(
+def test_manifest_unitizer_replays_only_the_approved_five(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _, prepared, overlay, integration_path, fresh_ids, integration = (
@@ -728,13 +740,10 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
     def fake_verify_identity(*args: object, **kwargs: object) -> None:
         return None
 
-    def fake_unitize(**kwargs: Any) -> LlmBatchResult:
+    def fake_adopt(**kwargs: Any) -> LlmBatchResult:
         selected = tuple(
             str(row["candidate_id"]) for row in kwargs["selection_records"]
         )
-        authority = kwargs["provider_spend_authorities"]["synthetic"]
-        assert authority.cap_microusd == 5_000_000
-        assert authority.policy.max_billable_attempts == 3
         calls.append(selected)
         return LlmBatchResult(
             records=tuple(
@@ -782,7 +791,11 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
         hashlib.sha256(b"{}").hexdigest(),
     )
     monkeypatch.setattr(unitizer_module, "_LABELING_MODEL_KEY", "synthetic-model")
-    monkeypatch.setattr(unitizer_module, "llm_unitize_cases", fake_unitize)
+    monkeypatch.setattr(
+        unitizer_module,
+        "_adopt_authenticated_unitization_replays",
+        fake_adopt,
+    )
 
     args = argparse.Namespace(
         output_root=tmp_path / "output",
@@ -877,6 +890,15 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
     execute_metadata = json.loads(metadata_path.read_text())
     assert execute_metadata["authoritative"] is False
     assert execute_metadata["provider_spend_cap_usd"] == 5.0
+    assert execute_metadata["provider_execution"] == {
+        "provider_called": False,
+        "historical_replay_only": True,
+        "authority_ordinals_created": False,
+        "new_paid_activity": False,
+    }
+    execute_run_card = json.loads(run_card_path.read_text())
+    assert execute_run_card["paid_activity_requested"] is False
+    assert execute_run_card["paid_activity_executed"] is False
 
     args.model_key = "openai:gpt-5.6-sol"
     with pytest.raises(ManifestUnitizerCommandError, match="labeling model"):
@@ -901,12 +923,170 @@ def test_manifest_unitizer_defaults_accountless_caps_to_default() -> None:
     assert _provider_account(caps, "synthetic") == "default"
 
 
+def test_r2_stage_card_is_create_only_and_binds_authority_sidecar(
+    tmp_path: Path,
+) -> None:
+    authenticated, prepared, _, _, fresh_ids, integration = _authenticate_fixture(
+        tmp_path
+    )
+    approval = _write_text(
+        tmp_path / "approval.json",
+        json.dumps(
+            {
+                "reference": "legalforecastbench-3ak.38",
+                "packet": (
+                    "stage51-terminal-units: approved — packet "
+                    f"{integration['packet_sha256']}"
+                ),
+                "spend": _UNITS_APPROVAL,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    approval_commitment = _file_commitment(approval, "owner_approval_observation")
+    r2_overlay = replace(
+        authenticated,
+        authority_mode=unitizer_module._R2_AUTHORITY_MODE,
+        authority_input_commitments=(approval_commitment,),
+    )
+    output_root = tmp_path / "r2-output"
+    output_paths = (
+        output_root / "prediction-units.jsonl",
+        output_root / "llm-unitization-audit.jsonl",
+        output_root / "unitization-review-queue.jsonl",
+        output_root / "unitizer-terminal-review-queue.jsonl",
+    )
+    for path in output_paths:
+        _write_jsonl_output(path, [], immutable=True)
+    replay_audits = tuple(
+        {
+            "candidate_id": candidate_id,
+            "case_id": f"case-{candidate_id}",
+            "provider_prompt_sha256": "sha256:" + "1" * 64,
+            "raw_output_sha256": "sha256:" + "2" * 64,
+            "historical_provider_attempt_ordinal": index,
+            "input_tokens": 10,
+            "output_tokens": 20,
+            "estimated_cost": 0.01,
+            "unit_count": 1,
+            "scorable_unit_count": 1,
+            "metadata": {
+                "provider_response_sha256": "3" * 64,
+                "normalized_response_sha256": "4" * 64,
+            },
+        }
+        for index, candidate_id in enumerate(fresh_ids, start=1)
+    )
+    args = argparse.Namespace(
+        run_card_output=None,
+        log_output=None,
+        resume=False,
+        owner_approval_reference="legalforecastbench-3ak.38",
+        stage51_packet_approval=(
+            f"stage51-terminal-units: approved — packet {integration['packet_sha256']}"
+        ),
+        units_spend_approval=_UNITS_APPROVAL,
+        provider_journal=tmp_path / "provider-attempts.sqlite3",
+    )
+
+    _write_stage_card(
+        args,
+        output_root=output_root,
+        input_paths=(approval,),
+        output_paths=output_paths,
+        record_count=100,
+        paid=False,
+        extra={"selection_sha256": prepared.selection_sha256},
+        dry_run=False,
+        immutable=True,
+        authority_overlay=r2_overlay,
+        prepared=prepared,
+        replay_audits=replay_audits,
+    )
+
+    run_card_path = output_root / "run-cards" / "llm-unitize-manifest.json"
+    authority_path = (
+        output_root / "run-cards" / "llm-unitize-manifest.r2-authority.json"
+    )
+    run_card = json.loads(run_card_path.read_text())
+    authority = json.loads(authority_path.read_text())
+    assert set(run_card) == {
+        "schema_version",
+        "stage",
+        "status",
+        "dry_run",
+        "execute",
+        "resume",
+        "record_count",
+        "input_paths",
+        "output_paths",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "generated_at",
+    }
+    assert str(authority_path) in run_card["output_paths"]
+    assert authority["schema_version"] == (
+        "legalforecast.cycle1.manifest_unitizer_r2_authority.v1"
+    )
+    assert authority["selection"]["candidate_order"] == [
+        row["candidate_id"] for row in prepared.selection_records
+    ]
+    assert [
+        row["candidate_id"] for row in authority["journal_reconstruction"]["candidates"]
+    ] == list(fresh_ids)
+    assert authority["provider_called"] is False
+    assert authority["historical_replay_only"] is True
+    assert authority["journal_mutated"] is False
+    assert authority["owner_approval"]["observation_role"] == (
+        "hash-pinned observational evidence; not identity authentication"
+    )
+
+    with pytest.raises(ManifestUnitizerCommandError, match="already exists"):
+        _write_stage_card(
+            args,
+            output_root=output_root,
+            input_paths=(approval,),
+            output_paths=output_paths,
+            record_count=100,
+            paid=False,
+            extra={"selection_sha256": prepared.selection_sha256},
+            dry_run=False,
+            immutable=True,
+            authority_overlay=r2_overlay,
+            prepared=prepared,
+            replay_audits=replay_audits,
+        )
+
+
+def test_r2_preflight_refuses_input_alias_and_existing_output(tmp_path: Path) -> None:
+    input_path = _write_text(tmp_path / "input.json", "{}\n")
+    args = argparse.Namespace(run_card_output=None, log_output=None)
+
+    with pytest.raises(ManifestUnitizerCommandError, match="aliases"):
+        _preflight_r2_outputs(
+            args,
+            output_root=tmp_path / "output",
+            input_paths=(input_path,),
+            primary_outputs=(input_path,),
+        )
+
+    existing = _write_text(tmp_path / "existing.jsonl", "")
+    with pytest.raises(ManifestUnitizerCommandError, match="already exists"):
+        _preflight_r2_outputs(
+            args,
+            output_root=tmp_path / "other-output",
+            input_paths=(input_path,),
+            primary_outputs=(existing,),
+        )
+
+
 def test_citation_span_accepts_exact_terminal_newline() -> None:
     markdown = "##### Page 9\n\nCount I\nThe complaint alleges a claim.\n"
 
-    assert unitizer_module._citation_span_pages(
+    assert _citation_span_pages(
         markdown, "Count I\nThe complaint alleges a claim.\n"
     ) == {9}
-    assert unitizer_module._citation_span_pages(
+    assert _citation_span_pages(
         markdown, "Count I\nThe complaint alleges a claim."
     ) == {9}

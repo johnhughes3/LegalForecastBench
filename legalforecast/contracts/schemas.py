@@ -70,6 +70,9 @@ CYCLE_PREFLIGHT_REPORT_V2 = SchemaIdentifier("legalforecast.cycle_preflight_repo
 CYCLE1_MANIFEST_UNITIZER_SPEND_AUTHORITY_V1 = SchemaIdentifier(
     "legalforecast.cycle1.manifest_unitizer_spend_authority.v1"
 )
+CYCLE1_MANIFEST_UNITIZER_R2_AUTHORITY_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.manifest_unitizer_r2_authority.v1"
+)
 CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_V1 = SchemaIdentifier(
     "legalforecast.cycle1.stage51_finalized_units_integration.v1"
 )
