@@ -4240,18 +4240,18 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
         "fan_in": 1,
-        "fan_out": 8,
+        "fan_out": 11,
         "flags": [
           "cycle",
-          "watch"
+          "oversized"
         ],
         "lane_owner": "evals",
         "largest_symbol": "run_manifest_unitizer",
-        "largest_symbol_lines": 184,
+        "largest_symbol_lines": 361,
         "layer": "application",
-        "line_count": 740,
-        "nonblank_line_count": 693,
-        "top_level_definition_count": 15
+        "line_count": 1771,
+        "nonblank_line_count": 1674,
+        "top_level_definition_count": 32
       },
       "legalforecast/evals/inspect_task.py": {
         "cycle_id": "",
@@ -4325,7 +4325,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
-        "fan_in": 6,
+        "fan_in": 7,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -7771,10 +7771,10 @@
         ],
         "lane_owner": "publication",
         "largest_symbol": "_build_stage_result",
-        "largest_symbol_lines": 78,
+        "largest_symbol_lines": 91,
         "layer": "application",
-        "line_count": 533,
-        "nonblank_line_count": 478,
+        "line_count": 645,
+        "nonblank_line_count": 587,
         "top_level_definition_count": 20
       },
       "legalforecast/publication/metric_propagation.py": {
@@ -9982,6 +9982,24 @@
         "nonblank_line_count": 687,
         "top_level_definition_count": 39
       },
+      "tests/test_manifest_unitizer_inputs.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_manifest_unitizer_provider_receives_only_the_approved_six",
+        "largest_symbol_lines": 194,
+        "layer": "test",
+        "line_count": 912,
+        "nonblank_line_count": 833,
+        "top_level_definition_count": 22
+      },
       "tests/test_missing_document_successor.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -10395,8 +10413,8 @@
         "largest_symbol": "test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row",
         "largest_symbol_lines": 65,
         "layer": "test",
-        "line_count": 750,
-        "nonblank_line_count": 690,
+        "line_count": 753,
+        "nonblank_line_count": 693,
         "top_level_definition_count": 23
       },
       "tests/test_official_paid_labeling_baton.py": {
@@ -10516,8 +10534,8 @@
         "largest_symbol": "test_the_packet_builder_still_excludes_a_forcibly_mounted_decision",
         "largest_symbol_lines": 78,
         "layer": "test",
-        "line_count": 1278,
-        "nonblank_line_count": 1039,
+        "line_count": 1284,
+        "nonblank_line_count": 1045,
         "top_level_definition_count": 60
       },
       "tests/test_pacer_gap_bridge_cli.py": {

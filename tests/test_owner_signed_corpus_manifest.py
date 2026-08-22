@@ -6,6 +6,7 @@ file is derived from a real corpus artifact, and no test touches a provider.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -173,6 +174,11 @@ def _write_store(root: Path, *, candidate_id: str, texts: dict[str, str]) -> Non
                 "input_path": str(pdf_path),
                 "markdown_path": f"{candidate_id}/{document_id}.md",
                 "source_sha256": "0" * 64,
+                "extracted_text": {
+                    "text_sha256": hashlib.sha256(
+                        markdown_path.read_bytes()
+                    ).hexdigest()
+                },
                 "quality_flags": [],
             },
         )
