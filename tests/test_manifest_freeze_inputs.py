@@ -163,6 +163,7 @@ class _Fixture:
         self.historical_ledger = root / "historical-exclusions.jsonl"
         self.historical_card = root / "historical-card.json"
         self.v2_root = root / "v2"
+        self.anchor_root = root / "v3-anchor"
         self.v3_roots = (root / "v3-a", root / "v3-b", root / "v3-c")
         self.output = root / "freeze-inputs"
         self.historical_rows: list[dict[str, Any]] = []
@@ -328,6 +329,45 @@ class _Fixture:
                 root / "target-cohort-selection.jsonl",
                 [{"candidate_id": candidate} for candidate in self.selected],
             )
+        anchor_card = (
+            self.anchor_root
+            / "run-cards/project-exact100-supporting-document-successor.json"
+        )
+        _write_json(
+            anchor_card,
+            {
+                "schema_version": (
+                    "legalforecast.exact100_supporting_document_successor.v1"
+                ),
+                "stage": "project-exact100-supporting-document-successor",
+                "status": "completed",
+                "selected_case_count": 100,
+                "input_paths": [str(self.v2_root.absolute())],
+                "input_commitments": {
+                    "v2_selection_sha256": (
+                        "sha256:"
+                        + hashlib.sha256(
+                            (
+                                self.v2_root / "target-cohort-selection.jsonl"
+                            ).read_bytes()
+                        ).hexdigest()
+                    )
+                },
+            },
+        )
+        anchor_digest = hashlib.sha256(anchor_card.read_bytes()).hexdigest()
+        for root, predecessor in zip(
+            self.v3_roots,
+            (self.anchor_root, *self.v3_roots[:-1]),
+            strict=True,
+        ):
+            _write_json(
+                root / "run-cards/project-exact100-successor-replacement-v3.json",
+                {
+                    "predecessor_anchor_sha256": anchor_digest,
+                    "input_roots": {"predecessor_root": str(predecessor.absolute())},
+                },
+            )
 
     def request(self, **changes: Any) -> ManifestFreezeInputsRequest:
         request = ManifestFreezeInputsRequest(
@@ -364,7 +404,9 @@ class _Fixture:
     def authenticate_successor(root: Path) -> dict[str, Any]:
         terminal = root / "successor-terminal-exclusions.jsonl"
         selection = root / "target-cohort-selection.jsonl"
-        return {
+        projection: dict[str, Any] = {
+            "selection_path": selection,
+            "selection_bytes": selection.read_bytes(),
             "selection_records": tuple(
                 json.loads(line) for line in selection.read_text().splitlines()
             ),
@@ -373,6 +415,15 @@ class _Fixture:
                 str(selection.absolute()): selection.read_bytes(),
             },
         }
+        card = root / "run-cards/project-exact100-successor-replacement-v3.json"
+        if card.exists():
+            projection["anchor_root"] = root.parent / "v3-anchor"
+            projection["run_card_path"] = card
+            projection["run_card_bytes"] = card.read_bytes()
+            projection["verified_artifact_bytes"][str(card.absolute())] = (
+                card.read_bytes()
+            )
+        return projection
 
     def issue(self) -> None:
         issue_manifest_freeze_inputs(
@@ -588,6 +639,101 @@ def test_issue_refuses_authenticated_successor_surface_changed_after_replay(
             authenticate_v2=mutate_surface,
             authenticate_v3=mutate_surface,
         )
+
+
+def test_issue_refuses_v3_root_outside_final_predecessor_chain(
+    fixture: _Fixture,
+) -> None:
+    card = (
+        fixture.v3_roots[1] / "run-cards/project-exact100-successor-replacement-v3.json"
+    )
+    state = json.loads(card.read_bytes())
+    state["input_roots"]["predecessor_root"] = str(fixture.v2_root.absolute())
+    _write_json(card, state)
+
+    with pytest.raises(ManifestFreezeInputsError, match="predecessor chain"):
+        fixture.issue()
+
+
+def test_issue_refuses_reordered_authenticated_v3_roots(fixture: _Fixture) -> None:
+    with pytest.raises(ManifestFreezeInputsError, match="predecessor chain"):
+        issue_manifest_freeze_inputs(
+            fixture.request(
+                v3_roots=(
+                    fixture.v3_roots[0],
+                    fixture.v3_roots[2],
+                    fixture.v3_roots[1],
+                )
+            ),
+            authenticate_historical=fixture.authenticate_historical,
+            authenticate_v2=fixture.authenticate_successor,
+            authenticate_v3=fixture.authenticate_successor,
+        )
+
+
+def test_issue_refuses_v3_anchor_not_binding_authenticated_v2_selection(
+    fixture: _Fixture,
+) -> None:
+    anchor_card = (
+        fixture.anchor_root
+        / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    record = json.loads(anchor_card.read_bytes())
+    record["input_commitments"]["v2_selection_sha256"] = "sha256:" + "0" * 64
+    _write_json(anchor_card, record)
+    anchor_digest = hashlib.sha256(anchor_card.read_bytes()).hexdigest()
+    for root in fixture.v3_roots:
+        card = root / "run-cards/project-exact100-successor-replacement-v3.json"
+        state = json.loads(card.read_bytes())
+        state["predecessor_anchor_sha256"] = anchor_digest
+        _write_json(card, state)
+
+    with pytest.raises(ManifestFreezeInputsError, match="bind the supplied v2"):
+        fixture.issue()
+
+
+def test_legacy_historical_adapter_consumes_captured_bytes_during_aba(
+    fixture: _Fixture,
+) -> None:
+    selection = fixture.root / "historical-selection.jsonl"
+    _write_jsonl(selection, [{"candidate_id": "synthetic"}])
+    _write_json(
+        fixture.historical_card,
+        {"input_paths": [str(fixture.root / "unused"), str(selection)]},
+    )
+    card_bytes = fixture.historical_card.read_bytes()
+    ledger_bytes = fixture.historical_ledger.read_bytes()
+    screened_bytes = fixture.screened.read_bytes()
+
+    def legacy(**kwargs: Any) -> list[dict[str, Any]]:
+        assert kwargs["_captured_run_card_bytes"] == card_bytes
+        assert kwargs["_captured_output_bytes"] == ledger_bytes
+        assert kwargs["_captured_screened_cases_bytes"] == screened_bytes
+        _write_json(fixture.historical_card, {"attacker": True})
+        fixture.historical_ledger.write_text("attacker\n", encoding="utf-8")
+        fixture.screened.write_text("attacker\n", encoding="utf-8")
+        fixture.historical_card.write_bytes(card_bytes)
+        fixture.historical_ledger.write_bytes(ledger_bytes)
+        fixture.screened.write_bytes(screened_bytes)
+        return fixture.historical_rows
+
+    authenticate, _authenticate_v2 = freeze_inputs_module._legacy_authenticators(
+        legacy_historical_authenticator=legacy,
+        legacy_v2_verifier=lambda *_args, **_kwargs: {},
+        legacy_v2_replay_args=lambda _card: object(),
+        legacy_v2_replay=lambda _args: object(),
+    )
+
+    assert tuple(
+        authenticate(
+            fixture.historical_card,
+            fixture.historical_ledger,
+            fixture.screened,
+            card_bytes,
+            ledger_bytes,
+            screened_bytes,
+        )
+    ) == tuple(fixture.historical_rows)
 
 
 def test_issue_refuses_final_successor_selection_different_from_manifest(

@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Final, cast
 
 from legalforecast.contracts.schemas import (
+    EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1,
     MANIFEST_FREEZE_INPUTS_RUN_CARD_V1,
     MANIFEST_FREEZE_RUNTIME_CONTRACT_V1,
     MANIFEST_MODE_FORECAST_RUN_RECORD_V1,
@@ -87,9 +88,6 @@ _RUNTIME_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
     ),
 }
 
-HistoricalExclusionAuthenticator = Callable[
-    [Path, Path, Path, bytes, bytes, bytes], Sequence[Mapping[str, Any]]
-]
 V2Authenticator = Callable[[Path], Mapping[str, Any]]
 V3Authenticator = Callable[[Path], Mapping[str, Any]]
 LegacyHistoricalAuthenticator = Callable[..., Sequence[Mapping[str, Any]]]
@@ -100,6 +98,11 @@ LegacyV2Replay = Callable[[Any], Any]
 
 class ManifestFreezeInputsError(ValueError):
     """Raised when generic manifest freeze inputs cannot be authenticated."""
+
+
+HistoricalExclusionAuthenticator = Callable[
+    [Path, Path, Path, bytes, bytes, bytes], Sequence[Mapping[str, Any]]
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -672,10 +675,81 @@ def _exclusion_payload(
     terminal_records: list[Mapping[str, Any]] = []
     v2 = authenticate_v2(request.v2_root)
     terminal_records.extend(_terminal_records(request.v2_root, v2, snapshots))
+    v2_selection_path = request.v2_root / "target-cohort-selection.jsonl"
+    v2_selection_bytes = snapshots.get(v2_selection_path.absolute())
+    if not isinstance(v2_selection_bytes, bytes):
+        raise ManifestFreezeInputsError(
+            "authenticated v2 projection lacks its selection receipt"
+        )
     final_v3: Mapping[str, Any] | None = None
+    expected_predecessor: Path | None = None
+    authenticated_anchor: Path | None = None
+    anchor_digest: str | None = None
     for root in request.v3_roots:
         final_v3 = authenticate_v3(root)
         terminal_records.extend(_terminal_records(root, final_v3, snapshots))
+        card_path = root / "run-cards/project-exact100-successor-replacement-v3.json"
+        card_bytes = snapshots.get(card_path.absolute())
+        if not isinstance(card_bytes, bytes):
+            raise ManifestFreezeInputsError(
+                "authenticated v3 projection lacks its run-card receipt"
+            )
+        card = _json_object(card_bytes, card_path)
+        receipt_anchor = final_v3.get("anchor_root")
+        if not isinstance(receipt_anchor, Path) or (
+            authenticated_anchor is not None
+            and receipt_anchor.absolute() != authenticated_anchor.absolute()
+        ):
+            raise ManifestFreezeInputsError(
+                "supplied v3 roots do not share one authenticated anchor"
+            )
+        authenticated_anchor = receipt_anchor
+        recorded_anchor_digest = _required_sha(card, "predecessor_anchor_sha256")
+        if anchor_digest is not None and recorded_anchor_digest != anchor_digest:
+            raise ManifestFreezeInputsError(
+                "supplied v3 roots disagree on predecessor anchor commitment"
+            )
+        anchor_digest = recorded_anchor_digest
+        input_roots = _mapping(card.get("input_roots"), "authenticated v3 input_roots")
+        predecessor = Path(_required_str(input_roots, "predecessor_root"))
+        required_predecessor = expected_predecessor or authenticated_anchor
+        if predecessor.absolute() != required_predecessor.absolute():
+            raise ManifestFreezeInputsError(
+                "supplied v3 roots are not one authenticated predecessor chain"
+            )
+        expected_predecessor = root
+    if authenticated_anchor is None or anchor_digest is None:
+        raise ManifestFreezeInputsError("authenticated v3 anchor receipt is missing")
+    anchor_card_path = (
+        authenticated_anchor
+        / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    anchor_card_bytes = _snapshot(
+        anchor_card_path, snapshots, "authenticated v3 anchor run card"
+    )
+    anchor_card = _json_object(anchor_card_bytes, anchor_card_path)
+    anchor_inputs = _string_sequence(
+        anchor_card.get("input_paths"), "authenticated v3 anchor inputs"
+    )
+    anchor_commitments = _mapping(
+        anchor_card.get("input_commitments"),
+        "authenticated v3 anchor input commitments",
+    )
+    if (
+        _sha(anchor_card_bytes) != anchor_digest
+        or anchor_card.get("schema_version")
+        != str(EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1)
+        or anchor_card.get("stage") != "project-exact100-supporting-document-successor"
+        or anchor_card.get("status") != "completed"
+        or anchor_card.get("selected_case_count") != 100
+        or not anchor_inputs
+        or Path(anchor_inputs[0]).absolute() != request.v2_root.absolute()
+        or anchor_commitments.get("v2_selection_sha256")
+        != f"sha256:{_sha(v2_selection_bytes)}"
+    ):
+        raise ManifestFreezeInputsError(
+            "authenticated v3 anchor does not bind the supplied v2 root"
+        )
     if final_v3 is None:
         raise ManifestFreezeInputsError("final v3 successor projection is missing")
     final_selection = _record_sequence(
@@ -752,12 +826,16 @@ def _legacy_authenticators(
             raise ManifestFreezeInputsError(
                 "historical exclusion run card lacks selection path"
             )
-        return legacy_historical_authenticator(
+        records = legacy_historical_authenticator(
             run_card_path=run_card_path,
             output_path=output_path,
             selection_path=Path(raw_inputs[1]),
             screened_cases_path=screened_cases_path,
+            _captured_run_card_bytes=run_card_bytes,
+            _captured_output_bytes=output_bytes,
+            _captured_screened_cases_bytes=screened_cases_bytes,
         )
+        return records
 
     def authenticate_v2(root: Path) -> Mapping[str, Any]:
         card_path = root / "run-cards/project-target-cohort.json"

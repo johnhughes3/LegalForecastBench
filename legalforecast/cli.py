@@ -28693,9 +28693,49 @@ def _verify_replacement_exclusion_card(
     screened_cases_path: Path,
     _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
     _verified_clearance_source_roots: Mapping[str, Path] | None = None,
+    _captured_run_card_bytes: bytes | None = None,
+    _captured_output_bytes: bytes | None = None,
+    _captured_screened_cases_bytes: bytes | None = None,
 ) -> tuple[JsonRecord, ...]:
-    card_bytes = _read_singly_linked_regular_input(
-        run_card_path, label="replacement successor exclusion run card"
+    captured = (
+        _captured_run_card_bytes,
+        _captured_output_bytes,
+        _captured_screened_cases_bytes,
+    )
+    if any(payload is not None for payload in captured) and not all(
+        payload is not None for payload in captured
+    ):
+        raise CommandError(
+            "replacement successor exclusion captured inputs must be complete"
+        )
+    if _captured_run_card_bytes is not None:
+        for path, expected, label in (
+            (
+                run_card_path,
+                _captured_run_card_bytes,
+                "replacement successor exclusion run card",
+            ),
+            (
+                output_path,
+                cast(bytes, _captured_output_bytes),
+                "replacement successor exclusions",
+            ),
+            (
+                screened_cases_path,
+                cast(bytes, _captured_screened_cases_bytes),
+                "replacement screened cases",
+            ),
+        ):
+            if _read_singly_linked_regular_input(path, label=label) != expected:
+                raise CommandError(
+                    "replacement successor exclusion captured input changed"
+                )
+    card_bytes = (
+        _captured_run_card_bytes
+        if _captured_run_card_bytes is not None
+        else _read_singly_linked_regular_input(
+            run_card_path, label="replacement successor exclusion run card"
+        )
     )
     card = _projection_json_object(card_bytes, source=run_card_path)
     if (
@@ -28726,9 +28766,13 @@ def _verify_replacement_exclusion_card(
             "replacement successor exclusion card lacks source commitments"
         )
     captured_inputs: dict[str, bytes] = {}
-    for path in inputs:
-        payload = _read_singly_linked_regular_input(
-            path, label="replacement successor exclusion input"
+    for index, path in enumerate(inputs):
+        payload = (
+            _captured_screened_cases_bytes
+            if index == 3 and _captured_screened_cases_bytes is not None
+            else _read_singly_linked_regular_input(
+                path, label="replacement successor exclusion input"
+            )
         )
         if cast(Mapping[str, object], source_commitments).get(
             str(path.resolve())
@@ -28739,8 +28783,12 @@ def _verify_replacement_exclusion_card(
         captured_inputs[os.path.abspath(path)] = payload
     if card.get("output_paths") != [str(output_path)]:
         raise CommandError("replacement successor exclusion output path differs")
-    output_bytes = _read_singly_linked_regular_input(
-        output_path, label="replacement successor exclusions"
+    output_bytes = (
+        _captured_output_bytes
+        if _captured_output_bytes is not None
+        else _read_singly_linked_regular_input(
+            output_path, label="replacement successor exclusions"
+        )
     )
     if card.get("output_commitments") != {
         str(output_path.resolve()): _bytes_sha256(output_bytes)

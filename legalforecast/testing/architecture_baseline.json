@@ -2,13 +2,13 @@
   "cli_metrics": {
     "command_handler_count": 166,
     "command_handler_lines": 27051,
-    "line_count": 74000,
-    "nonblank_line_count": 71207,
+    "line_count": 74048,
+    "nonblank_line_count": 71255,
     "parser_line_count": 1782,
     "top_level_class_count": 20,
     "top_level_definition_count": 1014,
     "verifier_family_count": 164,
-    "verifier_family_lines": 12251
+    "verifier_family_lines": 12299
   },
   "compatibility": {
     "cli_import_files": [
@@ -4000,7 +4000,7 @@
       "legalforecast/contracts": 4,
       "legalforecast/document_need": 10,
       "legalforecast/evals": 20,
-      "legalforecast/evals/corpus_manifest": 14,
+      "legalforecast/evals/corpus_manifest": 15,
       "legalforecast/extraction": 4,
       "legalforecast/ingestion": 174,
       "legalforecast/ingestion/attachment_page": 7,
@@ -4114,8 +4114,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1782,
         "layer": "entrypoint",
-        "line_count": 74000,
-        "nonblank_line_count": 71207,
+        "line_count": 74048,
+        "nonblank_line_count": 71255,
         "top_level_definition_count": 1014
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -4291,20 +4291,20 @@
       },
       "legalforecast/evals/corpus_manifest/freeze_inputs.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "evals",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.5",
         "fan_in": 0,
         "fan_out": 13,
         "flags": [
           "relative-path",
-          "watch"
+          "oversized"
         ],
         "lane_owner": "evals",
-        "largest_symbol": "_prompt_replay",
-        "largest_symbol_lines": 184,
+        "largest_symbol": "_exclusion_payload",
+        "largest_symbol_lines": 188,
         "layer": "application",
-        "line_count": 992,
-        "nonblank_line_count": 911,
+        "line_count": 1070,
+        "nonblank_line_count": 987,
         "top_level_definition_count": 31
       },
       "legalforecast/evals/corpus_manifest/stage51_r2.py": {
@@ -10152,11 +10152,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "_Fixture",
-        "largest_symbol_lines": 231,
+        "largest_symbol_lines": 282,
         "layer": "test",
-        "line_count": 678,
-        "nonblank_line_count": 596,
-        "top_level_definition_count": 28
+        "line_count": 824,
+        "nonblank_line_count": 729,
+        "top_level_definition_count": 32
       },
       "tests/test_manifest_unitizer_inputs.py": {
         "cycle_id": "",
