@@ -113,6 +113,40 @@ _V2_REPLAY = importlib.metadata.EntryPoint(
     value="legalforecast.cli:_replay_exact100_successor_replacement_v2_inputs",
     group="legalforecast.internal",
 )
+_ISSUE_BUNDLE = importlib.metadata.EntryPoint(
+    name="manifest-forecast-bundle-issue",
+    value=("legalforecast.evals.corpus_manifest.deferred_bundle:issue_bundle"),
+    group="legalforecast.internal",
+)
+_VERIFY_BUNDLE = importlib.metadata.EntryPoint(
+    name="manifest-forecast-bundle-verify",
+    value=("legalforecast.evals.corpus_manifest.deferred_bundle:verify_bundle"),
+    group="legalforecast.internal",
+)
+_ISSUE_EXECUTION_DECISIONS = importlib.metadata.EntryPoint(
+    name="manifest-execution-decisions-issue",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_decisions:"
+        "issue_execution_decisions"
+    ),
+    group="legalforecast.internal",
+)
+_VERIFY_EXECUTION_DECISIONS = importlib.metadata.EntryPoint(
+    name="manifest-execution-decisions-verify",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_decisions:"
+        "verify_execution_decisions"
+    ),
+    group="legalforecast.internal",
+)
+_ISSUE_BEADS_OBSERVATION = importlib.metadata.EntryPoint(
+    name="manifest-execution-decisions-beads-observation-issue",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_decisions:"
+        "issue_beads_observation"
+    ),
+    group="legalforecast.internal",
+)
 
 
 def register(
@@ -275,6 +309,75 @@ def register(
     verify_inputs.add_argument("--output-root", type=Path, required=True)
     verify_inputs.set_defaults(handler=run_verify_freeze_inputs)
 
+    issue_bundle = subparsers.add_parser(
+        "issue-manifest-forecast-bundle",
+        help="Issue a create-only labels-deferred manifest forecast bundle.",
+        description=(
+            "Bind the authenticated generic freeze inputs, owner-signed manifest "
+            "forecast packets, successor registry, provider caps, execution "
+            "policy, and the schedule derived from that verified policy. This "
+            "command is provider-free; any later provider receipts remain "
+            "private, non-scoreable, and non-publishable."
+        ),
+    )
+    issue_bundle.add_argument("--cycle-id", required=True)
+    issue_bundle.add_argument("--freeze-inputs-root", type=Path, required=True)
+    issue_bundle.add_argument("--owner-manifest", type=Path, required=True)
+    issue_bundle.add_argument("--forecast-output-dir", type=Path, required=True)
+    issue_bundle.add_argument("--model-registry", type=Path, required=True)
+    issue_bundle.add_argument("--provider-cycle-caps", type=Path, required=True)
+    issue_bundle.add_argument("--execution-policy", type=Path, required=True)
+    issue_bundle.add_argument("--output-root", type=Path, required=True)
+    issue_bundle.set_defaults(handler=run_issue_bundle)
+
+    verify_bundle = subparsers.add_parser(
+        "verify-manifest-forecast-bundle",
+        help="Replay and verify a labels-deferred manifest forecast bundle.",
+    )
+    verify_bundle.add_argument("--output-root", type=Path, required=True)
+    verify_bundle.set_defaults(handler=run_verify_bundle)
+
+    issue_decisions = subparsers.add_parser(
+        "issue-manifest-execution-decisions",
+        help="Issue provider-free authenticated execution decisions and policy.",
+        description=(
+            "Derive the Cycle 1 execution decisions from the signed manifest, "
+            "no-docket forecast, official model registry, provider caps, "
+            "labeling/cohort artifacts, observation chain, and a fresh Beads "
+            "observation. Create-only emit execution-decisions.json, the "
+            "generated execution-policy.json, and a run card."
+        ),
+    )
+    issue_decisions.add_argument("--owner-manifest", type=Path, required=True)
+    issue_decisions.add_argument("--forecast-output-dir", type=Path, required=True)
+    issue_decisions.add_argument("--model-registry", type=Path, required=True)
+    issue_decisions.add_argument("--provider-cycle-caps", type=Path, required=True)
+    issue_decisions.add_argument("--labeling-policy", type=Path, required=True)
+    issue_decisions.add_argument("--cohort-policy", type=Path, required=True)
+    issue_decisions.add_argument(
+        "--cohort-observation-manifest", type=Path, required=True
+    )
+    issue_decisions.add_argument("--beads-observation", type=Path, required=True)
+    issue_decisions.add_argument("--freeze-inputs-root", type=Path, required=True)
+    issue_decisions.add_argument("--output-root", type=Path, required=True)
+    issue_decisions.set_defaults(handler=run_issue_execution_decisions)
+
+    verify_decisions = subparsers.add_parser(
+        "verify-manifest-execution-decisions",
+        help="Replay and verify issued execution decisions and policy.",
+    )
+    verify_decisions.add_argument("--output-root", type=Path, required=True)
+    verify_decisions.set_defaults(handler=run_verify_execution_decisions)
+
+    issue_beads = subparsers.add_parser(
+        "issue-manifest-execution-decisions-beads-observation",
+        help="Issue a hash-pinned provider-free Beads observation wrapper.",
+    )
+    issue_beads.add_argument("--raw-observation", type=Path, required=True)
+    issue_beads.add_argument("--model-registry", type=Path, required=True)
+    issue_beads.add_argument("--output", type=Path, required=True)
+    issue_beads.set_defaults(handler=run_issue_beads_observation)
+
     stage = subparsers.add_parser(
         "stage-manifest-forecast",
         help="Stage manifest-mode forecast inputs into immutable S3 prefixes.",
@@ -367,4 +470,101 @@ def run_verify_freeze_inputs(args: argparse.Namespace) -> int:
         legacy_v2_replay=_V2_REPLAY.load(),
     )
     print(json.dumps(build.run_card, indent=2, sort_keys=True))
+    return 0
+
+
+def _verify_freeze_inputs_complete(output_root: Path) -> _FreezeInputsBuild:
+    """Replay the complete generic-freeze issuer with its authentic verifiers."""
+
+    verify = cast(_FreezeInputsCommand, _VERIFY_FREEZE_INPUTS.load())
+    return verify(
+        output_root=output_root,
+        legacy_historical_authenticator=_HISTORICAL_EXCLUSION_AUTHENTICATOR.load(),
+        legacy_v2_verifier=_V2_VERIFIER.load(),
+        legacy_v2_replay_args=_V2_REPLAY_ARGS.load(),
+        legacy_v2_replay=_V2_REPLAY.load(),
+    )
+
+
+def run_issue_bundle(args: argparse.Namespace) -> int:
+    """Issue the additive labels-deferred forecast bundle without providers."""
+
+    issue = _ISSUE_BUNDLE.load()
+    result = issue(
+        cycle_id=args.cycle_id,
+        freeze_inputs_root=args.freeze_inputs_root,
+        owner_manifest=args.owner_manifest,
+        forecast_output_dir=args.forecast_output_dir,
+        model_registry=args.model_registry,
+        provider_cycle_caps=args.provider_cycle_caps,
+        execution_policy=args.execution_policy,
+        output_root=cast(Path, args.output_root),
+        verify_freeze_inputs=_verify_freeze_inputs_complete,
+    )
+    print(json.dumps(dict(result.bundle), indent=2, sort_keys=True))
+    return 0
+
+
+def run_verify_bundle(args: argparse.Namespace) -> int:
+    """Verify the bundle and all of its committed source bytes."""
+
+    verify = _VERIFY_BUNDLE.load()
+    print(
+        json.dumps(
+            dict(
+                verify(
+                    args.output_root,
+                    verify_freeze_inputs=_verify_freeze_inputs_complete,
+                )
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def run_issue_execution_decisions(args: argparse.Namespace) -> int:
+    """Issue execution decisions and the derived policy without providers."""
+
+    issue = _ISSUE_EXECUTION_DECISIONS.load()
+    result = issue(
+        owner_manifest=cast(Path, args.owner_manifest),
+        forecast_output_dir=cast(Path, args.forecast_output_dir),
+        model_registry=cast(Path, args.model_registry),
+        provider_cycle_caps=cast(Path, args.provider_cycle_caps),
+        labeling_policy=cast(Path, args.labeling_policy),
+        cohort_policy=cast(Path, args.cohort_policy),
+        cohort_observation_manifest=cast(Path, args.cohort_observation_manifest),
+        beads_observation=cast(Path, args.beads_observation),
+        freeze_inputs_root=cast(Path, args.freeze_inputs_root),
+        output_root=cast(Path, args.output_root),
+        verify_freeze_inputs=_verify_freeze_inputs_complete,
+    )
+    print(json.dumps(dict(result.run_card), indent=2, sort_keys=True))
+    return 0
+
+
+def run_verify_execution_decisions(args: argparse.Namespace) -> int:
+    """Replay one completed execution-decision issuance."""
+
+    verify = _VERIFY_EXECUTION_DECISIONS.load()
+    result = verify(
+        cast(Path, args.output_root),
+        verify_freeze_inputs=_verify_freeze_inputs_complete,
+    )
+    print(json.dumps(dict(result.run_card), indent=2, sort_keys=True))
+    return 0
+
+
+def run_issue_beads_observation(args: argparse.Namespace) -> int:
+    """Issue a Beads wrapper from a hash-pinned raw observation."""
+
+    issue = _ISSUE_BEADS_OBSERVATION.load()
+    result = issue(
+        raw_observation=cast(Path, args.raw_observation),
+        model_registry=cast(Path, args.model_registry),
+        output=cast(Path, args.output),
+    )
+    print(json.dumps(dict(result), indent=2, sort_keys=True))
     return 0

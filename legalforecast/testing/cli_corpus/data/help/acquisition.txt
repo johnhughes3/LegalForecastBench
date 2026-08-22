@@ -37,6 +37,21 @@ positional arguments:
                         freeze bundle.
     verify-manifest-freeze-inputs
                         Replay and verify issued manifest freeze inputs.
+    issue-manifest-forecast-bundle
+                        Issue a create-only labels-deferred manifest forecast
+                        bundle.
+    verify-manifest-forecast-bundle
+                        Replay and verify a labels-deferred manifest forecast
+                        bundle.
+    issue-manifest-execution-decisions
+                        Issue provider-free authenticated execution decisions
+                        and policy.
+    verify-manifest-execution-decisions
+                        Replay and verify issued execution decisions and
+                        policy.
+    issue-manifest-execution-decisions-beads-observation
+                        Issue a hash-pinned provider-free Beads observation
+                        wrapper.
     stage-manifest-forecast
                         Stage manifest-mode forecast inputs into immutable S3
                         prefixes.
