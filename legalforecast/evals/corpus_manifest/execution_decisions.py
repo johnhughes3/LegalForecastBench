@@ -70,13 +70,14 @@ from legalforecast.labeling.provider_journal import (
 from legalforecast.protocol.policy_artifacts import (
     OFFICIAL_SHARD_ABLATIONS,
     generate_execution_policy_v2,
-    verify_execution_policy,
+    verify_execution_policy_v2,
     verify_labeling_policy,
 )
 
 _SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
 _DECISIONS_NAME: Final = "execution-decisions-v2.json"
 _POLICY_NAME: Final = "execution-policy-v2.json"
+_BEADS_OBSERVATION_NAME: Final = "beads-observation-v2.json"
 _RUN_CARD_NAME: Final = "run-cards/issue-manifest-execution-decisions-v2.json"
 _NO_BASELINES_NAME: Final = "no-baselines.json"
 _BEADS_SCHEMA: Final = str(MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V2)
@@ -135,28 +136,14 @@ def issue_beads_observation(
 
     payload = _capture_beads_comments()
     registry_bytes = _read_regular(model_registry, "successor model registry")
-    evidence = _parse_authentic_beads_comments(
+    wrapper, encoded = _encode_beads_observation(
         payload,
         model_registry=model_registry,
         model_registry_bytes=registry_bytes,
     )
-    wrapper = {
-        "schema_version": _BEADS_SCHEMA,
-        "issue_id": _COORDINATION_BEAD_ID,
-        "model_registry_path": _SUCCESSOR_REGISTRY_PATH,
-        "model_registry_sha256": _sha(registry_bytes),
-        "raw_observation_sha256": _sha(payload),
-        "raw_observation_base64": base64.b64encode(payload).decode("ascii"),
-        "evidence": evidence,
-    }
-    encoded = canonical_json_bytes(
-        wrapper,
-        error_type=ExecutionDecisionsError,
-        error_message="Beads observation is not canonical JSON",
-    )
     _verify_beads_observation(
         encoded,
-        manifest_digest=str(evidence["manifest"]["manifest_sha256"]),
+        manifest_digest=str(wrapper["evidence"]["manifest"]["manifest_sha256"]),
         model_registry=model_registry,
         model_registry_bytes=registry_bytes,
     )
@@ -182,7 +169,6 @@ def issue_execution_decisions(
     labeling_policy: Path,
     cohort_policy: Path,
     cohort_observation_manifest: Path,
-    beads_observation: Path,
     freeze_inputs_root: Path,
     output_root: Path,
     verify_freeze_inputs: Callable[[Path], Any],
@@ -199,7 +185,7 @@ def issue_execution_decisions(
         labeling_policy=labeling_policy,
         cohort_policy=cohort_policy,
         cohort_observation_manifest=cohort_observation_manifest,
-        beads_observation=beads_observation,
+        beads_observation_bytes=None,
         freeze_inputs_root=freeze_inputs_root,
         verify_freeze_inputs=verify_freeze_inputs,
     )
@@ -234,6 +220,9 @@ def verify_execution_decisions(
             "execution-decision run card is not provider-free"
         )
     inputs = _mapping(card.get("input_paths"), "run-card input_paths")
+    beads_observation_bytes = _read_regular(
+        output_root / _BEADS_OBSERVATION_NAME, "Beads observation"
+    )
     build = _build(
         owner_manifest=Path(_required_text(inputs, "owner_manifest")),
         forecast_output_dir=Path(_required_text(inputs, "forecast_output_dir")),
@@ -248,7 +237,7 @@ def verify_execution_decisions(
         cohort_observation_manifest=Path(
             _required_text(inputs, "cohort_observation_manifest")
         ),
-        beads_observation=Path(_required_text(inputs, "beads_observation")),
+        beads_observation_bytes=beads_observation_bytes,
         freeze_inputs_root=Path(_required_text(inputs, "freeze_inputs_root")),
         verify_freeze_inputs=verify_freeze_inputs,
     )
@@ -273,7 +262,7 @@ def verify_execution_decisions(
         raise ExecutionDecisionsError("execution policy bytes do not reproduce")
     decisions = _json_object(decisions_bytes, "execution decisions")
     policy = _json_object(policy_bytes, "execution policy")
-    verify_execution_policy(policy, expected_cycle_id=decisions["cycle_id"])
+    verify_execution_policy_v2(policy, expected_cycle_id=decisions["cycle_id"])
     _require_unchanged(build.input_snapshots)
     return build
 
@@ -289,7 +278,7 @@ def _build(
     labeling_policy: Path,
     cohort_policy: Path,
     cohort_observation_manifest: Path,
-    beads_observation: Path,
+    beads_observation_bytes: bytes | None,
     freeze_inputs_root: Path,
     verify_freeze_inputs: Callable[[Path], Any],
 ) -> ExecutionDecisionsBuild:
@@ -379,7 +368,14 @@ def _build(
             "cohort observation manifest is not the verified current v3 bytes"
         )
 
-    beads_bytes = _snapshot(beads_observation, snapshots, "Beads observation")
+    if beads_observation_bytes is None:
+        _, beads_bytes = _encode_beads_observation(
+            _capture_beads_comments(),
+            model_registry=model_registry,
+            model_registry_bytes=registry_bytes,
+        )
+    else:
+        beads_bytes = beads_observation_bytes
     beads = _verify_beads_observation(
         beads_bytes,
         manifest_digest=cycle_id,
@@ -493,6 +489,7 @@ def _build(
             error_message="execution decisions are not canonical JSON",
         ),
         _POLICY_NAME: _policy_bytes(execution_policy),
+        _BEADS_OBSERVATION_NAME: beads_bytes,
     }
     run_card = {
         "schema_version": str(MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V2),
@@ -511,7 +508,6 @@ def _build(
             "labeling_policy": str(labeling_policy),
             "cohort_policy": str(cohort_policy),
             "cohort_observation_manifest": str(cohort_observation_manifest),
-            "beads_observation": str(beads_observation),
             "freeze_inputs_root": str(freeze_inputs_root),
         },
         "input_commitments": {
@@ -557,6 +553,34 @@ def _capture_beads_comments() -> bytes:
     if not completed.stdout:
         raise ExecutionDecisionsError("live bd comments capture returned no bytes")
     return completed.stdout
+
+
+def _encode_beads_observation(
+    payload: bytes,
+    *,
+    model_registry: Path,
+    model_registry_bytes: bytes,
+) -> tuple[dict[str, Any], bytes]:
+    evidence = _parse_authentic_beads_comments(
+        payload,
+        model_registry=model_registry,
+        model_registry_bytes=model_registry_bytes,
+    )
+    wrapper = {
+        "schema_version": _BEADS_SCHEMA,
+        "issue_id": _COORDINATION_BEAD_ID,
+        "model_registry_path": _SUCCESSOR_REGISTRY_PATH,
+        "model_registry_sha256": _sha(model_registry_bytes),
+        "raw_observation_sha256": _sha(payload),
+        "raw_observation_base64": base64.b64encode(payload).decode("ascii"),
+        "evidence": evidence,
+    }
+    encoded = canonical_json_bytes(
+        wrapper,
+        error_type=ExecutionDecisionsError,
+        error_message="Beads observation is not canonical JSON",
+    )
+    return wrapper, encoded
 
 
 def _authenticate_provider_journal(

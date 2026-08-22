@@ -1,18 +1,8 @@
 # Cycle 1 manifest provider-free freeze v2
 
-This run card issues and verifies the replacement manifest execution commitments without provider, AWS, dispatch, scoring, or publication activity. All output locations must be new: the issuers are create-only and will not replace an existing file or directory.
+This run card issues and verifies the replacement manifest execution commitments without provider, AWS, dispatch, scoring, or publication activity. Every output parent directory must already exist, and all output locations must be new: the issuers are create-only and will not replace an existing file or directory.
 
-First capture the live coordination comments into an authenticated replay wrapper:
-
-```bash
-uv run legalforecast acquisition issue-manifest-execution-decisions-beads-observation-v2 \
-  --model-registry "$MODEL_REGISTRY" \
-  --output "$BEADS_OBSERVATION"
-```
-
-The command itself runs `bd comments legalforecastbench-3ak.38 --json`. There is no argument for caller-supplied comment JSON.
-
-Issue and replay-verify the execution decisions and additive policy v2:
+Issue and replay-verify the execution decisions and additive policy v2. The critical issuer itself runs `bd comments legalforecastbench-3ak.38 --json` and publishes the authenticated replay wrapper inside the output tree; it does not accept a caller-supplied Beads observation.
 
 ```bash
 uv run legalforecast acquisition issue-manifest-execution-decisions-v2 \
@@ -25,7 +15,6 @@ uv run legalforecast acquisition issue-manifest-execution-decisions-v2 \
   --labeling-policy "$LABELING_POLICY" \
   --cohort-policy "$COHORT_POLICY" \
   --cohort-observation-manifest "$COHORT_OBSERVATION" \
-  --beads-observation "$BEADS_OBSERVATION" \
   --freeze-inputs-root "$GENERIC_FREEZE_ROOT" \
   --output-root "$EXECUTION_DECISIONS_ROOT"
 

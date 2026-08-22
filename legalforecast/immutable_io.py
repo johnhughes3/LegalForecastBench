@@ -35,7 +35,6 @@ def publish_tree_create_only(root: Path, payloads: Mapping[str, bytes]) -> None:
 
     if not payloads:
         raise ImmutableIOError("create-only tree must contain at least one file")
-    root.parent.mkdir(parents=True, exist_ok=True)
     try:
         parent_fd = _open_directory_path_no_follow(root.parent)
     except OSError as exc:
@@ -78,7 +77,6 @@ def publish_tree_create_only(root: Path, payloads: Mapping[str, bytes]) -> None:
 def write_file_create_only(path: Path, payload: bytes) -> None:
     """Durably create one file through an anchored parent without replacement."""
 
-    path.parent.mkdir(parents=True, exist_ok=True)
     try:
         parent_fd = _open_directory_path_no_follow(path.parent)
     except OSError as exc:

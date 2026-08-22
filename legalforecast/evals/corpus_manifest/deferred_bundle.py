@@ -40,7 +40,7 @@ from legalforecast.labeling.provider_journal import load_provider_cycle_caps_byt
 from legalforecast.protocol.policy_artifacts import (
     EXECUTION_POLICY_V2_SCHEMA_VERSION,
     OFFICIAL_SHARD_ABLATIONS,
-    verify_execution_policy,
+    verify_execution_policy_v2,
 )
 
 _SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
@@ -683,7 +683,7 @@ def _authenticate_runtime_inputs(
         ) from exc
     policy = _json_object(policy_bytes, "execution policy")
     try:
-        verify_execution_policy(policy, expected_cycle_id=cycle_id)
+        verify_execution_policy_v2(policy, expected_cycle_id=cycle_id)
     except (ValueError, TypeError, RuntimeError) as exc:
         raise ManifestForecastBundleError(
             "execution policy is not a verified policy artifact"
