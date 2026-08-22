@@ -489,6 +489,11 @@ from legalforecast.ingestion.downstream_rehearsal import (
     run_fixture_structural_review,
     run_fixture_unitization,
 )
+from legalforecast.ingestion.exact100_stipulated_parser_lineage import (
+    StipulatedParserLineageError,
+    parser_record_for_document,
+    require_stipulated_source_matches_predecessor_download,
+)
 from legalforecast.ingestion.exact100_successor_replacement import (
     PREDECESSOR_OUTPUT_NAMES as EXACT100_PREDECESSOR_OUTPUT_NAMES,
 )
@@ -43840,25 +43845,34 @@ def _replay_exact100_terminal_recovery(
 
 
 def _replay_exact100_stipulated_eligibility(
-    root: Path, selection_bytes: bytes
+    root: Path,
+    selection_bytes: bytes,
+    predecessor_download_manifest_bytes: bytes,
 ) -> VerifiedTerminalExclusionEvidence:
     """Translate the CLI verifier failure into the sealed callback contract."""
 
     try:
-        return _replay_exact100_stipulated_eligibility_unchecked(root, selection_bytes)
+        return _replay_exact100_stipulated_eligibility_unchecked(
+            root, selection_bytes, predecessor_download_manifest_bytes
+        )
     except CommandError as exc:
         raise ValueError(str(exc)) from exc
 
 
 def _replay_exact100_stipulated_eligibility_unchecked(
-    root: Path, selection_bytes: bytes
+    root: Path,
+    selection_bytes: bytes,
+    predecessor_download_manifest_bytes: bytes,
 ) -> VerifiedTerminalExclusionEvidence:
     """Mint one stipulated exclusion from a completed authenticated audit root.
 
     The root supplies only the persisted audit surface and its completed-card
     path.  Authority comes from replaying the complete materialization and
-    parser lineage named by that card, and from requiring its selection bytes
-    to equal the sealed exact-100 predecessor selection.
+    parser lineage named by that card, requiring its selection bytes to equal
+    the sealed exact-100 predecessor selection, and requiring the ineligible
+    document's parser source commitment to equal the predecessor download
+    manifest.  A caller-owned, internally hash-consistent parser/Markdown tree
+    is not predecessor authority.
     """
 
     if root.is_symlink() or not root.is_dir():
@@ -43983,10 +43997,25 @@ def _replay_exact100_stipulated_eligibility_unchecked(
             "stipulated eligibility audit must contain exactly one ineligible target"
         )
     record = audit.ineligible_records[0]
+    candidate_id = _required_str(record, "candidate_id")
+    source_document_id = _required_str(record, "source_document_id")
+    try:
+        require_stipulated_source_matches_predecessor_download(
+            candidate_id=candidate_id,
+            source_document_id=source_document_id,
+            parser_record=parser_record_for_document(
+                lineage.parser_records,
+                candidate_id=candidate_id,
+                source_document_id=source_document_id,
+            ),
+            predecessor_download_manifest_bytes=predecessor_download_manifest_bytes,
+        )
+    except StipulatedParserLineageError as exc:
+        raise CommandError(str(exc)) from exc
     evidence = _mint_stipulated_terminal_evidence_from_verified_eligibility_audit(
         audit=audit,
-        candidate_id=_required_str(record, "candidate_id"),
-        source_document_id=_required_str(record, "source_document_id"),
+        candidate_id=candidate_id,
+        source_document_id=source_document_id,
     )
     _require_stage_a_parse_lineage_unchanged(lineage)
     if (
@@ -44425,11 +44454,12 @@ def _replay_exact100_successor_replacement_v2_inputs(
         ),
         surface="materialization_run_card",
     )
+    materialization_manifest_bytes = _read_singly_linked_regular_input(
+        materialization_manifest_path,
+        label="exact100 v2 materialization authority manifest",
+    )
     _require_exact100_v2_authority_payload(
-        _read_singly_linked_regular_input(
-            materialization_manifest_path,
-            label="exact100 v2 materialization authority manifest",
-        ),
+        materialization_manifest_bytes,
         surface="materialization_manifest",
     )
     verified_materialization = _verify_materialized_downstream_lineage(
@@ -44700,7 +44730,9 @@ def _replay_exact100_successor_replacement_v2_inputs(
         )
 
     terminal_evidence = _replay_exact100_stipulated_eligibility_unchecked(
-        stipulated_root, predecessor_selection_bytes
+        stipulated_root,
+        predecessor_selection_bytes,
+        materialization_manifest_bytes,
     )
     terminal = verify_post_selection_terminal_exclusions(
         selection_bytes=predecessor_selection_bytes,

@@ -42,6 +42,11 @@ from legalforecast.contracts import (
     EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.ingestion.exact100_stipulated_parser_lineage import (
+    StipulatedParserLineageError,
+    parser_record_for_document,
+    require_stipulated_source_matches_predecessor_download,
+)
 from legalforecast.ingestion.exact100_successor_v3.downstream import (
     AuthenticatedV3Root,
 )
@@ -310,8 +315,17 @@ def _project(
         predecessor_root, depth=depth
     )
     exclusions: list[Mapping[str, Any]] = []
+    predecessor_download_manifest_bytes = b"".join(
+        _canonical(dict(row)) for row in base.download_manifest
+    )
     for root in stipulated_roots:
-        exclusions.extend(_replay_stipulated_exclusions(root, base.selection_bytes))
+        exclusions.extend(
+            _replay_stipulated_exclusions(
+                root,
+                base.selection_bytes,
+                predecessor_download_manifest_bytes,
+            )
+        )
     for path in owner_exclusions:
         exclusions.append(_owner_judgment_exclusion(path))
     terminal = mint_verified_exact100_v3_terminal_exclusions(
@@ -607,7 +621,9 @@ def _carried_documents(root: Path, committed: Mapping[str, str]) -> dict[str, by
 
 
 def _replay_stipulated_exclusions(
-    root: Path, selection_bytes: bytes
+    root: Path,
+    selection_bytes: bytes,
+    predecessor_download_manifest_bytes: bytes,
 ) -> tuple[Mapping[str, Any], ...]:
     """Mint one exclusion per ineligible target in an authenticated audit root.
 
@@ -620,6 +636,11 @@ def _replay_stipulated_exclusions(
     than v1's frozen-predecessor generation.  A freshly minted audit is
     persisted under today's detector, so replaying it under the frozen
     contemporaneous regime would re-derive a different ineligible set and refuse.
+
+    After that reconstruction, each ineligible document's parser source
+    commitment must equal the unique predecessor download-manifest row.  A
+    parallel, internally hash-consistent parser tree is not predecessor
+    authority.
     """
 
     from legalforecast.ingestion.stage_a_lineage_verification import (
@@ -687,6 +708,24 @@ def _replay_stipulated_exclusions(
         raise Exact100SuccessorReplacementV3CliError(
             "stipulated eligibility audit contains no ineligible target"
         )
+    try:
+        for record in audit.ineligible_records:
+            candidate_id = _required_str(record, "candidate_id")
+            source_document_id = _required_str(record, "source_document_id")
+            require_stipulated_source_matches_predecessor_download(
+                candidate_id=candidate_id,
+                source_document_id=source_document_id,
+                parser_record=parser_record_for_document(
+                    lineage.parser_records,
+                    candidate_id=candidate_id,
+                    source_document_id=source_document_id,
+                ),
+                predecessor_download_manifest_bytes=(
+                    predecessor_download_manifest_bytes
+                ),
+            )
+    except StipulatedParserLineageError as exc:
+        raise Exact100SuccessorReplacementV3CliError(str(exc)) from exc
     citation = _stipulated_audit_citation(card_bytes)
     return tuple(
         {
