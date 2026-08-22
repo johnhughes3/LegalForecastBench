@@ -1496,7 +1496,7 @@ def test_saved_recovery_root_alone_cannot_mint_successor_authority(
         successor_cli.run(args)
 
 
-def test_successor_rejects_self_consistent_fabricated_recovery_root(
+def test_successor_accepts_fresh_404_when_persisted_404_bytes_differ(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
@@ -1508,8 +1508,8 @@ def test_successor_rejects_self_consistent_fabricated_recovery_root(
     output = tmp_path / "successor"
     monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
 
-    assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 2
-    assert not output.exists()
+    assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 0
+    assert (output / "successor-terminal-exclusions.jsonl").is_file()
 
 
 def test_successor_rejects_saved_404_after_fresh_nonterminal_observation(

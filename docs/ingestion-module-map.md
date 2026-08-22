@@ -143,6 +143,8 @@ Use this page to find code, not as a second API specification. Module docstrings
 | [`exact100_successor_wider_rank.py`](../legalforecast/ingestion/exact100_successor_wider_rank.py) | Deterministic authenticated ranking of the complete nonselected successor horizon. |
 | [`exact100_zero_cost_recovery.py`](../legalforecast/ingestion/exact100_zero_cost_recovery.py) | One-record CourtListener-only public/terminal recovery for the stipulated exact-100 memorandum. |
 | [`exact100_zero_cost_recovery_cli.py`](../legalforecast/ingestion/exact100_zero_cost_recovery_cli.py) | Immutable CLI publication and resume verification for bounded exact-100 recovery. |
+| [`exact100_terminal_recovery_authority_v3/__init__.py`](../legalforecast/ingestion/exact100_terminal_recovery_authority_v3/__init__.py) | Reading order for the v3 fresh-terminal recovery authority proof. |
+| [`exact100_terminal_recovery_authority_v3/authority.py`](../legalforecast/ingestion/exact100_terminal_recovery_authority_v3/authority.py) | In-process v3 proof: same tuple and 404 semantics without binding 404 body bytes. |
 | [`frozen_parse_quality_regime.py`](../legalforecast/ingestion/frozen_parse_quality_regime.py) | Authenticated parse-manifest-digest to parse-quality regime selection for frozen predecessor replays. |
 | [`frozen_parser_model/loader.py`](../legalforecast/ingestion/frozen_parser_model/loader.py) | Digest-verified loader and one facade for the current or a preserved CourtListener parser model. |
 | [`frozen_parser_model/registry.py`](../legalforecast/ingestion/frozen_parser_model/registry.py) | Authenticated snapshot-digest to parser-model selection, and the pinned preserved-source identities. |

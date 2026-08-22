@@ -39,6 +39,10 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerServerError,
     CourtListenerUnavailableError,
 )
+from legalforecast.ingestion.exact100_terminal_recovery_authority_v3.authority import (
+    VerifiedExact100TerminalRecoveryAuthorityV3,
+    mint_exact100_terminal_recovery_authority_v3,
+)
 from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadError,
     FreeDocumentDownloadRecord,
@@ -107,6 +111,7 @@ class Exact100ZeroCostRecoveryResult:
     public_document_manifest_bytes: bytes | None = None
     public_download: FreeDocumentDownloadRecord | None = None
     terminal_evidence: VerifiedTerminalExclusionEvidence | None = None
+    terminal_authority_v3: VerifiedExact100TerminalRecoveryAuthorityV3 | None = None
 
     @property
     def terminal_exclusion_authority(self) -> bool:
@@ -365,7 +370,17 @@ def _execute_terminal_recovery_with_verifier(  # pyright: ignore[reportUnusedFun
             bytes, result.rest_observation_response_bytes
         ),
     )
-    return replace(result, terminal_evidence=terminal_evidence)
+    terminal_authority_v3 = mint_exact100_terminal_recovery_authority_v3(
+        selection_bytes=result.request.selection_bytes,
+        request=result.request.record,
+        request_bytes=result.request.record_bytes,
+        observation_status_code=404,
+    )
+    return replace(
+        result,
+        terminal_evidence=terminal_evidence,
+        terminal_authority_v3=terminal_authority_v3,
+    )
 
 
 def _unavailable_result(
