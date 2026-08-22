@@ -406,9 +406,6 @@ def register(
     issue_beads.add_argument("--manifest-digest", required=True)
     issue_beads.add_argument("--model-registry", type=Path, required=True)
     issue_beads.add_argument("--bead-id", required=True)
-    issue_beads.add_argument("--manifest-line", required=True)
-    issue_beads.add_argument("--contamination-line", required=True)
-    issue_beads.add_argument("--final-provider-spend-line", required=True)
     issue_beads.add_argument("--production-labeling-started-at", required=True)
     issue_beads.add_argument("--cohort-policy-published-at", required=True)
     issue_beads.add_argument("--batch-002-started-at", required=True)
@@ -609,11 +606,6 @@ def run_issue_beads_observation(args: argparse.Namespace) -> int:
         manifest_digest=cast(str, args.manifest_digest),
         model_registry=cast(Path, args.model_registry),
         bead_id=cast(str, args.bead_id),
-        required_lines={
-            "manifest": cast(str, args.manifest_line),
-            "contamination": cast(str, args.contamination_line),
-            "final_provider_spend": cast(str, args.final_provider_spend_line),
-        },
         lifecycle={
             "production_labeling_started_at": cast(
                 str, args.production_labeling_started_at

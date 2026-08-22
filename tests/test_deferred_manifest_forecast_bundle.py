@@ -220,11 +220,12 @@ def test_deferred_receipt_cannot_contain_labels(
             "bundle_sha256": bundle["bundle_sha256"],
             "candidate_id": "case-1",
             "ablation": "full_packet",
+            "model_key": "fixture:model-1",
             "packet_sha256": next(
                 iter(bundle["forecast_inputs"]["packet_sha256"].values())
             ),  # type: ignore[index]
             "actual_provider_prompt_sha256": "b" * 64,
-            "repeat_index": 0,
+            "repeat_index": 1,
             "labels_state": "deferred",
             "scoreable": False,
             "publishable": False,
@@ -254,6 +255,29 @@ def test_deferred_receipt_mapping_cannot_bypass_bundle_replay(
         )
 
 
+def test_expected_receipt_keys_cover_official_models_and_one_based_repeats() -> None:
+    prompts = {
+        f"case-{case}:{ablation}": "a" * 64
+        for case in range(100)
+        for ablation in ("full_packet", "no_docket_tool")
+    }
+    schedule = [
+        {"model_key": f"provider:model-{model}", "ablation": ablation}
+        for model in range(4)
+        for ablation in ("full_packet", "no_docket_tool")
+    ]
+    keys = module._expected_receipt_keys(
+        {
+            "forecast_inputs": {"prompt_sha256": prompts},
+            "repeat_policy": {"case_ids": [], "count": 1},
+            "shard_schedule": schedule,
+        }
+    )
+    assert len(keys) == 800
+    assert {key[1] for key in keys} == {f"provider:model-{model}" for model in range(4)}
+    assert {key[3] for key in keys} == {1}
+
+
 def test_attach_labels_derives_fresh_bound_receipts(
     fixture: dict[str, Any], tmp_path: Path
 ) -> None:
@@ -266,11 +290,12 @@ def test_attach_labels_derives_fresh_bound_receipts(
                 "bundle_sha256": bundle["bundle_sha256"],
                 "candidate_id": "case-1",
                 "ablation": "full_packet",
+                "model_key": "fixture:model-1",
                 "packet_sha256": next(
                     iter(bundle["forecast_inputs"]["packet_sha256"].values())
                 ),  # type: ignore[index]
                 "actual_provider_prompt_sha256": "b" * 64,
-                "repeat_index": 0,
+                "repeat_index": 1,
                 "labels_state": "deferred",
                 "scoreable": False,
                 "publishable": False,
@@ -294,7 +319,7 @@ def test_attach_labels_derives_fresh_bound_receipts(
         ],
     )
     decisions = tmp_path / "decision-texts.jsonl"
-    _write_jsonl(
+    decision_bytes = _write_jsonl(
         decisions,
         [
             {
@@ -310,7 +335,11 @@ def test_attach_labels_derives_fresh_bound_receipts(
         {
             "stage": "llm-label",
             "status": "completed",
-            "output_commitments": {"labels": _sha(label_bytes)},
+            "output_commitments": {
+                "labels": _sha(label_bytes),
+                "decision_texts": _sha(decision_bytes),
+                "finalized_units": _sha(fixture["units"].read_bytes()),
+            },
         },
     )
     result = attach_labels(
@@ -363,7 +392,11 @@ def test_attach_rejects_nonverbatim_or_incomplete_labels(
         {
             "stage": "llm-label",
             "status": "completed",
-            "output_commitments": {"labels": _sha(label_bytes)},
+            "output_commitments": {
+                "labels": _sha(label_bytes),
+                "decision_texts": _sha(decisions.read_bytes()),
+                "finalized_units": _sha(fixture["units"].read_bytes()),
+            },
         },
     )
     deferred = tmp_path / "deferred.jsonl"
