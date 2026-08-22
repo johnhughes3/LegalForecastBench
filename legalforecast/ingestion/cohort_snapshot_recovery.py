@@ -409,6 +409,8 @@ def prepare_disposable_store_for_recovered_snapshot(
                         allowed_names=copy_names,
                     )
                 except (OSError, PublishedSnapshotRecoveryError):
+                    # Preserve the original failure; cleanup is best-effort and
+                    # never permits publication into an occupied destination.
                     pass
             os.close(output_parent_fd)
         if recovered_fd is not None:

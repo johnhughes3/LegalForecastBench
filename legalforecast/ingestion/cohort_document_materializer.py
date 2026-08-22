@@ -187,6 +187,7 @@ class DocumentSource:
     document_root: Path
     manifest: Sequence[Mapping[str, Any]]
     clearance: Sequence[Mapping[str, Any]]
+    paid_delivery_capability: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,6 +257,7 @@ def prepare_cohort_document_materialization(
                 source.manifest,
                 document_root=root,
                 clearance_records=source.clearance,
+                paid_delivery_capability=source.paid_delivery_capability,
             )
         except DisclosureClearanceError as exc:
             raise CohortDocumentMaterializationError(str(exc)) from exc

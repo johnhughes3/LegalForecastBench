@@ -879,6 +879,9 @@ from legalforecast.ingestion.replacement_recovery_source import (
     normalize_post_purchase_replay_descriptor,
 )
 from legalforecast.ingestion.replacement_recovery_v3_register import (
+    admit_authenticated_v3_register_lineage as _admit_v3,
+)
+from legalforecast.ingestion.replacement_recovery_v3_register import (
     consolidation_legacy_target_root as _consolidation_legacy_target_root,
 )
 from legalforecast.ingestion.replacement_recovery_v3_register import (
@@ -42326,6 +42329,7 @@ class _MaterializationPublication:
     authority_recheck: Callable[[], None] | None = None
     docket_decision_partition: Mapping[str, object] | None = None
     verified_successor_selection_card: _VerifiedSuccessorSelectionCard | None = None
+    paid_delivery_capability: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -43055,6 +43059,7 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 else {}
             ),
         )
+        _admit_v3(recovery, purchased_clearance_lineage, consolidated_authority)
         free_sources = _materializer_successor_v2_free_sources(
             projection,
             preparation_root=preparation_root,
@@ -43072,6 +43077,9 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                     clearance=cast(
                         Sequence[Mapping[str, Any]],
                         purchased_clearance_lineage["clearance_records"],
+                    ),
+                    paid_delivery_capability=purchased_clearance_lineage.get(
+                        "paid_delivery_capability"
                     ),
                 ),
             ),
@@ -43235,6 +43243,9 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 recheck_docket_decision_authority
                 if docket_decision_descriptor is not None
                 else None
+            ),
+            paid_delivery_capability=purchased_clearance_lineage.get(
+                "paid_delivery_capability"
             ),
             docket_decision_partition=(
                 docket_decision_descriptor.partition
@@ -43607,6 +43618,7 @@ def _publish_materialized_cohort_documents(
             source_commitments=publication.source_commitments,
             output_commitments=output_commitments,
             dry_run=dry_run,
+            paid_delivery_capability=publication.paid_delivery_capability,
             authority_mode=publication.authority_mode,
             docket_decision_partition=publication.docket_decision_partition,
         )
@@ -43636,6 +43648,7 @@ def _publish_materialized_cohort_documents(
                 materialization.manifest,
                 document_root=publication.document_root,
                 clearance_records=materialization.clearance,
+                paid_delivery_capability=publication.paid_delivery_capability,
             )
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
@@ -49097,6 +49110,7 @@ def _verify_materializer_resume(
     source_commitments: Mapping[str, object],
     output_commitments: Mapping[str, object],
     dry_run: bool,
+    paid_delivery_capability: object | None = None,
     authority_mode: str | None = None,
     docket_decision_partition: Mapping[str, object] | None = None,
 ) -> None:
@@ -49178,6 +49192,7 @@ def _verify_materializer_resume(
             materialization.manifest,
             document_root=document_root,
             clearance_records=materialization.clearance,
+            paid_delivery_capability=paid_delivery_capability,
         )
     except DisclosureClearanceError as exc:
         raise CommandError(str(exc)) from exc
