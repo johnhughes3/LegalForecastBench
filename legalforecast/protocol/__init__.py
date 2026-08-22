@@ -29,9 +29,11 @@ from legalforecast.protocol.manifest import (
 )
 from legalforecast.protocol.policy_artifacts import (
     EXECUTION_POLICY_SCHEMA_VERSION,
+    EXECUTION_POLICY_V2_SCHEMA_VERSION,
     LABELING_POLICY_SCHEMA_VERSION,
     PolicyArtifactError,
     generate_execution_policy,
+    generate_execution_policy_v2,
     generate_labeling_policy,
     labeling_policy_content,
     require_dispatch_policy_match,
@@ -43,6 +45,7 @@ from legalforecast.protocol.policy_artifacts import (
 
 __all__ = [
     "EXECUTION_POLICY_SCHEMA_VERSION",
+    "EXECUTION_POLICY_V2_SCHEMA_VERSION",
     "LABELING_POLICY_SCHEMA_VERSION",
     "MANIFEST_SCHEMA_VERSION",
     "CandidateManifestRecord",
@@ -61,6 +64,7 @@ __all__ = [
     "detect_freeze_drift",
     "freeze_cycle",
     "generate_execution_policy",
+    "generate_execution_policy_v2",
     "generate_labeling_policy",
     "hash_payload",
     "hash_record",
