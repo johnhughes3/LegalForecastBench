@@ -421,6 +421,7 @@ def _build(
             },
             "beads_line_sha256": beads["line_sha256"],
             "no_baselines_sha256": _sha(no_baselines_bytes),
+            "request_count": len(manifest.cases) * len(registry_keys) * len(_ABLATIONS),
         },
     }
     policy_decisions = {
