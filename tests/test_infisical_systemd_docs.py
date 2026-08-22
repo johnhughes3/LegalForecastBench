@@ -172,7 +172,7 @@ def test_acquisition_systemd_docs_require_referenced_stage_views() -> None:
             FORBIDDEN_LOOP,
         ),
         (
-            ("COURTLISTENER_API_TOKEN", "PACER_USERNAME", "PACER_PASSWORD"),
+            ("COURTLISTENER_API_TOKEN",),
             acquisition_forbidden,
             REQUIRED_LOOP,
             FORBIDDEN_LOOP,
@@ -253,11 +253,7 @@ def test_acquisition_systemd_docs_make_direct_target100_purchase_canonical() -> 
 
     assert "canonical checked-in target-100 path" in docs
     assert "`--direct-courtlistener-purchase`" in docs
-    assert (
-        "Direct unknown-outcome recovery uses the same three direct-purchase "
-        "credentials" in docs
-    )
-    assert "token-only" not in docs
+    assert "Direct recovery requires only `COURTLISTENER_API_TOKEN`" in docs
     assert "optional broker transport" in docs
     assert "does not weaken or replace" in docs
     assert "transport-specific preflights are not exact-inventory" in docs
@@ -357,7 +353,7 @@ def test_acquisition_systemd_docs_record_source_owned_provider_layout() -> None:
     assert "/agents/sandbox/legalforecastbench/acquisition/courtlistener" not in docs
     assert "/agents/sandbox/legalforecastbench/acquisition/firecrawl" not in docs
     assert "provider-reconciliation blocker" not in docs
-    assert "token-only" not in docs
+    assert "Direct recovery requires only `COURTLISTENER_API_TOKEN`" in docs
     assert "MISTRAL_API_KEY" in docs
     assert "OPENAI_API_KEY" in docs
     assert "ANTHROPIC_API_KEY" in docs
