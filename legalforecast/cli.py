@@ -131,6 +131,7 @@ from legalforecast.ingestion import (
     source_document_provenance_from_record,
 )
 from legalforecast.ingestion import courtlistener_recap_purchase as rp
+from legalforecast.ingestion import disclosure_clearance as disclosure_clearance_module
 from legalforecast.ingestion import (
     downstream_lineage_verification as _downstream_lineage,
 )
@@ -877,6 +878,9 @@ from legalforecast.ingestion.replacement_recovery_source import (
     derive_recovery_source_coordinates,
     derive_resolved_source_coordinates,
     normalize_post_purchase_replay_descriptor,
+)
+from legalforecast.ingestion.replacement_recovery_v3_register import (
+    admit_authenticated_v3_free_projection as _admit_v3_free,
 )
 from legalforecast.ingestion.replacement_recovery_v3_register import (
     admit_authenticated_v3_register_lineage as _admit_v3,
@@ -32220,26 +32224,36 @@ def _require_materializer_source_record_match(
         raise CommandError(f"{label} is not a free document: {key}")
 
 
+def _v3_free_public_download_capability(
+    projection: Mapping[str, object],
+) -> object | None:
+    """Return the private free-download capability for an authenticated v3 root."""
+
+    run_card = projection.get("run_card")
+    if not isinstance(run_card, Mapping) or (
+        cast(Mapping[str, object], run_card).get("schema_version")
+        != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+    ):
+        return None
+    return vars(disclosure_clearance_module)["_FREE_PUBLIC_DOWNLOAD_AUTHORITY"]
+
+
 def _materializer_successor_v2_free_sources(
     projection: Mapping[str, object],
     *,
     preparation_root: Path,
     consolidated_recovery: bool,
 ) -> tuple[DocumentSource, ...]:
-    """Return the exact free roots for a consolidated exact-100 v2 successor.
+    """Return exact free roots for successor layouts."""
 
-    The v2 successor keeps inherited documents in the predecessor's
-    content-addressed materialization tree, while its one promoted candidate
-    remains in the authenticated historical public-packet tree.  A generic
-    preparation root cannot safely stand in for either layout.
-    """
-
+    free_public_download_capability = _v3_free_public_download_capability(projection)
     free_manifest = tuple(
         cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
     )
     free_clearance = _materializer_free_clearance_records(
         projection, consolidated_recovery=consolidated_recovery
     )
+    free_clearance = _admit_v3_free(projection, free_manifest, free_clearance)
     if not consolidated_recovery:
         return (
             DocumentSource(
@@ -32247,6 +32261,7 @@ def _materializer_successor_v2_free_sources(
                 document_root=preparation_root / "documents/free",
                 manifest=free_manifest,
                 clearance=free_clearance,
+                free_public_download_capability=free_public_download_capability,
             ),
         )
 
@@ -32260,6 +32275,7 @@ def _materializer_successor_v2_free_sources(
                 document_root=preparation_root / "documents/free",
                 manifest=free_manifest,
                 clearance=free_clearance,
+                free_public_download_capability=free_public_download_capability,
             ),
         )
     run_card_record = cast(Mapping[str, object], run_card)
@@ -32335,6 +32351,7 @@ def _materializer_successor_v2_free_sources(
                 document_root=supplemental_root,
                 manifest=supplemental_records,
                 clearance=supplemental_clearance_records,
+                free_public_download_capability=free_public_download_capability,
             ),
         )
     # Successor generations differ in where they keep free documents.  Some keep
@@ -32388,6 +32405,7 @@ def _materializer_successor_v2_free_sources(
                     clearance=tuple(
                         clearance_by_key[key] for key in sorted(source_keys)
                     ),
+                    free_public_download_capability=free_public_download_capability,
                 )
             )
         if covered_inherited != inherited_keys:
@@ -32420,6 +32438,7 @@ def _materializer_successor_v2_free_sources(
                     clearance=tuple(
                         clearance_by_key[key] for key in sorted(promoted_keys)
                     ),
+                    free_public_download_capability=free_public_download_capability,
                 )
             )
         return tuple(filtered_sources)
@@ -32435,6 +32454,7 @@ def _materializer_successor_v2_free_sources(
                 document_root=preparation_root / "documents/free",
                 manifest=free_manifest,
                 clearance=free_clearance,
+                free_public_download_capability=free_public_download_capability,
             ),
         )
     if not isinstance(selection_path, Path) or not isinstance(artifact_bytes, Mapping):
@@ -42330,6 +42350,7 @@ class _MaterializationPublication:
     docket_decision_partition: Mapping[str, object] | None = None
     verified_successor_selection_card: _VerifiedSuccessorSelectionCard | None = None
     paid_delivery_capability: object | None = None
+    free_public_download_capability: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -43247,6 +43268,9 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             paid_delivery_capability=purchased_clearance_lineage.get(
                 "paid_delivery_capability"
             ),
+            free_public_download_capability=_v3_free_public_download_capability(
+                projection
+            ),
             docket_decision_partition=(
                 docket_decision_descriptor.partition
                 if docket_decision_descriptor is not None
@@ -43375,14 +43399,20 @@ def _prepare_free_only_cohort_documents(
                 set[tuple[str, str]], projection["selected_document_keys"]
             ),
         )
+        free_clearance = _admit_v3_free(
+            projection,
+            free_manifest,
+            cast(Sequence[Mapping[str, Any]], projection["free_clearance"]),
+        )
         materialization = prepare_cohort_document_materialization(
             (
                 DocumentSource(
                     phase="free",
                     document_root=preparation_root / "documents/free",
                     manifest=free_manifest,
-                    clearance=cast(
-                        Sequence[Mapping[str, Any]], projection["free_clearance"]
+                    clearance=free_clearance,
+                    free_public_download_capability=_v3_free_public_download_capability(
+                        projection
                     ),
                 ),
             ),
@@ -43417,9 +43447,7 @@ def _prepare_free_only_cohort_documents(
         _build_materializer_derivations(
             materialization=materialization,
             free_manifest=free_manifest,
-            free_clearance=cast(
-                Sequence[Mapping[str, Any]], projection["free_clearance"]
-            ),
+            free_clearance=free_clearance,
             purchased_manifest=(),
             purchased_clearance=(),
             resolved_records=(),
@@ -43502,6 +43530,7 @@ def _prepare_free_only_cohort_documents(
         },
         authority_mode="free_only",
         authority_recheck=recheck_authority,
+        free_public_download_capability=_v3_free_public_download_capability(projection),
         verified_successor_selection_card=(
             _verified_successor_selection_card_from_projection(projection)
         ),
@@ -43619,6 +43648,7 @@ def _publish_materialized_cohort_documents(
             output_commitments=output_commitments,
             dry_run=dry_run,
             paid_delivery_capability=publication.paid_delivery_capability,
+            free_public_download_capability=publication.free_public_download_capability,
             authority_mode=publication.authority_mode,
             docket_decision_partition=publication.docket_decision_partition,
         )
@@ -43649,6 +43679,9 @@ def _publish_materialized_cohort_documents(
                 document_root=publication.document_root,
                 clearance_records=materialization.clearance,
                 paid_delivery_capability=publication.paid_delivery_capability,
+                free_public_download_capability=(
+                    publication.free_public_download_capability
+                ),
             )
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
@@ -49111,6 +49144,7 @@ def _verify_materializer_resume(
     output_commitments: Mapping[str, object],
     dry_run: bool,
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
     authority_mode: str | None = None,
     docket_decision_partition: Mapping[str, object] | None = None,
 ) -> None:
@@ -49193,6 +49227,7 @@ def _verify_materializer_resume(
             document_root=document_root,
             clearance_records=materialization.clearance,
             paid_delivery_capability=paid_delivery_capability,
+            free_public_download_capability=free_public_download_capability,
         )
     except DisclosureClearanceError as exc:
         raise CommandError(str(exc)) from exc
@@ -57612,6 +57647,16 @@ def _cmd_acquisition_plan_parse_documents_cached(args: argparse.Namespace) -> in
             records,
             document_root=document_root,
             clearance_records=clearance_records,
+            paid_delivery_capability=(
+                materialization_lineage.paid_delivery_capability
+                if materialization_lineage is not None
+                else None
+            ),
+            free_public_download_capability=(
+                materialization_lineage.free_public_download_capability
+                if materialization_lineage is not None
+                else None
+            ),
         )
         if needs_resolved_lineage and not is_materialized:
             _require_resolved_post_recovery_dispatch(
@@ -57897,7 +57942,20 @@ def _cmd_acquisition_parse_documents_cached(args: argparse.Namespace) -> int:
         )
     if not dry_run:
         try:
-            require_cleared_parse_requests(request_records, clearance_records)
+            require_cleared_parse_requests(
+                request_records,
+                clearance_records,
+                paid_delivery_capability=(
+                    materialization_lineage.paid_delivery_capability
+                    if materialization_lineage is not None
+                    else None
+                ),
+                free_public_download_capability=(
+                    materialization_lineage.free_public_download_capability
+                    if materialization_lineage is not None
+                    else None
+                ),
+            )
             if needs_resolved_lineage:
                 parse_clearance_kwargs = _clearance_kwargs
                 if is_materialized and materialization_lineage is not None:
@@ -60620,6 +60678,16 @@ def _cmd_acquisition_build_decision_texts_cached(args: argparse.Namespace) -> in
                 input_commitments=commitments,
                 docket_decision_authority=authority,
                 purchase_journal=journal,
+                paid_delivery_capability=(
+                    verified_materialization.paid_delivery_capability
+                    if verified_materialization is not None
+                    else None
+                ),
+                free_public_download_capability=(
+                    verified_materialization.free_public_download_capability
+                    if verified_materialization is not None
+                    else None
+                ),
             ),
         )
     except DecisionTextArtifactError as exc:
@@ -60698,10 +60766,17 @@ def _verify_decision_text_artifact_with_materialization(
         ),
         source=decision_texts_path,
     )
-    if not any(
+    has_authenticated_docket_source = any(
         record.get("source_provenance") == "authenticated_docket_entry_text"
         for record in decision_records
-    ):
+    )
+    requires_clearance_capability = any(
+        isinstance(record.get("clearance"), Mapping)
+        and cast(Mapping[str, object], record["clearance"]).get("clearance_basis")
+        in {"courtlistener_public_download", "paid_delivery"}
+        for record in decision_records
+    )
+    if not has_authenticated_docket_source and not requires_clearance_capability:
         return verify_decision_text_artifact(
             decision_texts_path=decision_texts_path,
             manifest_path=manifest_path,
@@ -60743,7 +60818,7 @@ def _verify_decision_text_artifact_with_materialization(
         )
     if not materialization_cards:
         raise CommandError(
-            "decision text artifact declares authenticated docket entries but its "
+            "decision text artifact requires materialization authority but its "
             "run card has no materialization lineage"
         )
     materialization_card_path = materialization_cards[0]
@@ -60788,6 +60863,10 @@ def _verify_decision_text_artifact_with_materialization(
                 finalized_unit_records=finalized_unit_records,
                 finalized_units_path=finalized_units_path,
                 markdown_root=markdown_root,
+                paid_delivery_capability=verified.paid_delivery_capability,
+                free_public_download_capability=(
+                    verified.free_public_download_capability
+                ),
                 docket_decision_authority=authority,
                 purchase_journal=journal,
             ),
@@ -67145,7 +67224,20 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         )
     else:
         try:
-            require_cleared_parser_records(parser_records, clearance_records)
+            require_cleared_parser_records(
+                parser_records,
+                clearance_records,
+                paid_delivery_capability=(
+                    materialization_lineage.paid_delivery_capability
+                    if materialization_lineage is not None
+                    else None
+                ),
+                free_public_download_capability=(
+                    materialization_lineage.free_public_download_capability
+                    if materialization_lineage is not None
+                    else None
+                ),
+            )
             if needs_resolved_lineage and not is_materialized:
                 _require_resolved_post_recovery_dispatch(
                     selection_records=records,
@@ -67735,6 +67827,12 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             materialization_run_card_path=typed_materialization_card,
             document_root=typed_document_root,
             markdown_root=typed_markdown_root,
+            paid_delivery_capability=(
+                verified_materialization.paid_delivery_capability
+            ),
+            free_public_download_capability=(
+                verified_materialization.free_public_download_capability
+            ),
         )
         _require_materializer_artifact(
             typed_unitization_audit,
@@ -68220,6 +68318,8 @@ def _verify_parser_packet_authority(
     materialization_run_card_path: Path,
     document_root: Path,
     markdown_root: Path,
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     """Replay parse planning and bind Markdown to materialized source bytes."""
 
@@ -68349,7 +68449,12 @@ def _verify_parser_packet_authority(
         ):
             raise CommandError(f"parse request Markdown destination mismatch: {key}")
         verify_parse_request_bytes(request)
-    require_cleared_parse_requests(request_records, clearance_records)
+    require_cleared_parse_requests(
+        request_records,
+        clearance_records,
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
+    )
 
     parser_by_key = {
         (
@@ -69059,6 +69164,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     completion_summary_inputs: dict[str, tuple[Path, bytes]] = {}
     completion_summary_commitments: JsonRecord = {}
     if not dry_run:
+        if verified_materialization is None:
+            raise AssertionError("executed finalization lacks materialization lineage")
         typed_packet_input_card = cast(Path, packet_input_run_card_path)
         typed_packet_build_card = cast(Path, packet_build_run_card_path)
         typed_download_manifest = cast(Path, download_manifest_path)
@@ -69133,6 +69240,12 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             materialization_run_card_path=typed_materialization_card,
             document_root=typed_document_root,
             markdown_root=markdown_root,
+            paid_delivery_capability=(
+                verified_materialization.paid_delivery_capability
+            ),
+            free_public_download_capability=(
+                verified_materialization.free_public_download_capability
+            ),
         )
     target_clean_cases = cast(int, args.target_clean_cases)
     discovery_reconciliation: SnapshotReconciliation | None = None
@@ -69154,6 +69267,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     else:
         if packet_plan_replay is None or packet_build_replay is None:
             raise AssertionError("executed finalization lacks verified packet replay")
+        if verified_materialization is None:
+            raise AssertionError("executed finalization lacks materialization lineage")
         if llm_unitization_run_card_path is None:
             raise CommandError(
                 "finalize-corpus requires --llm-unitization-run-card with --execute"
@@ -69301,7 +69416,16 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             dict(record) for record in packet_plan_replay.clearance_records
         ]
         try:
-            require_cleared_parser_records(parser_records, clearance_records)
+            require_cleared_parser_records(
+                parser_records,
+                clearance_records,
+                paid_delivery_capability=(
+                    verified_materialization.paid_delivery_capability
+                ),
+                free_public_download_capability=(
+                    verified_materialization.free_public_download_capability
+                ),
+            )
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
         prediction_unit_records = [

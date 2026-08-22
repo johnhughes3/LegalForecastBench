@@ -198,10 +198,17 @@ def verify_exact100_successor_replacement_v3_projection(
         "purchased_clearance": tuple(
             clearance_by_key[key] for key in sorted(purchased_keys)
         ),
+        # Keep the verifier-owned full rows/bytes available to the materializer
+        # admission boundary.  The phase-partitioned rows above are a derived
+        # view and cannot authenticate a legacy subset on their own.
+        "authenticated_clearance_records": tuple(clearance),
+        "authenticated_clearance_bytes": payloads["clearance"],
+        "clearance_path": target_root / OUTPUT_NAMES["clearance"],
         "restriction_path": target_root / OUTPUT_NAMES["restriction"],
         "restriction_records": _jsonl(
             payloads["restriction"], OUTPUT_NAMES["restriction"]
         ),
+        "authenticated_restriction_bytes": payloads["restriction"],
         "selected_document_keys": {
             (_text(row, "candidate_id"), _text(row, "source_document_id"))
             for row in manifest

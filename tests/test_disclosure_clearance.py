@@ -5,6 +5,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
+from legalforecast.ingestion import disclosure_clearance as disclosure_clearance_module
 from legalforecast.ingestion.disclosure_clearance import (
     PDF_SCAN_SCHEMA_VERSION,
     PDF_SCAN_SCHEMA_VERSION_V1,
@@ -749,6 +750,74 @@ def test_mixed_provenance_clearance_reaches_every_downstream_gate(
             require_cleared_parser_records(
                 parser_records, [*clearances[:2], forged_exception]
             )
+
+
+def test_free_public_download_capability_reaches_parser_downstream_gates() -> None:
+    digest = "a" * 64
+    clearance = {
+        "schema_version": "legalforecast.disclosure_clearance.v1",
+        "candidate_id": "candidate-free",
+        "source_document_id": "document-free",
+        "sha256": digest,
+        "byte_count": 12,
+        "status": "cleared",
+        "restriction_status": "public",
+        "restriction_evidence": [
+            "courtlistener_public_download_record_checked",
+            "document_repair_byte_role_validation_match",
+        ],
+        "is_private": False,
+        "is_sealed": False,
+        "free_or_purchased": "free",
+        "clearance_basis": "courtlistener_public_download",
+    }
+    request = {
+        "candidate_id": "candidate-free",
+        "source_document_id": "document-free",
+        "expected_sha256": digest,
+        "expected_byte_count": 12,
+    }
+    parser_record = {
+        "candidate_id": "candidate-free",
+        "source_document_id": "document-free",
+        "source_sha256": digest,
+        "source_byte_count": 12,
+    }
+    capability = vars(disclosure_clearance_module)["_FREE_PUBLIC_DOWNLOAD_AUTHORITY"]
+
+    for supplied in (None, object()):
+        with pytest.raises(
+            DisclosureClearanceError, match="lacks authenticated lineage"
+        ):
+            require_cleared_parse_requests(
+                [request],
+                [clearance],
+                free_public_download_capability=supplied,
+            )
+        with pytest.raises(
+            DisclosureClearanceError, match="lacks authenticated lineage"
+        ):
+            require_cleared_parser_records(
+                [parser_record],
+                [clearance],
+                free_public_download_capability=supplied,
+            )
+
+    require_cleared_parse_requests(
+        [request],
+        [clearance],
+        free_public_download_capability=capability,
+    )
+    require_cleared_parser_records(
+        [parser_record],
+        [clearance],
+        free_public_download_capability=capability,
+    )
+    require_cleared_artifact_keys(
+        [("candidate-free", "document-free")],
+        [clearance],
+        free_public_download_capability=capability,
+    )
 
 
 def test_clearance_rejects_symlinked_document_root(tmp_path: Path) -> None:
