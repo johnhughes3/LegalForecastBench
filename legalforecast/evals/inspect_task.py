@@ -60,6 +60,7 @@ class InspectTaskSample:
     max_tool_calls: int = DEFAULT_TOOL_CALL_CAP
     run_label: str | None = None
     use_docket_tool: bool = True
+    committed_prompt_sha256: str | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.sample_id, "sample_id")
@@ -320,6 +321,7 @@ def build_inspect_samples(
     max_tool_calls: int = DEFAULT_TOOL_CALL_CAP,
     run_label: str | None = None,
     use_docket_tool: bool = True,
+    committed_prompt_sha256: str | None = None,
 ) -> tuple[InspectTaskSample, ...]:
     """Build deterministic local samples from frozen model packets."""
 
@@ -336,6 +338,7 @@ def build_inspect_samples(
                 max_tool_calls=max_tool_calls,
                 run_label=run_label,
                 use_docket_tool=use_docket_tool,
+                committed_prompt_sha256=committed_prompt_sha256,
             )
         )
     if not samples:

@@ -178,6 +178,42 @@ def test_per_case_runner_runs_when_the_prompt_matches_its_commitment(
     assert artifacts.packet_sha256 == packet_sha256
 
 
+def test_per_case_runner_carries_manifest_commitment_to_solver_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The manifest digest must reach the sample passed to the production solver."""
+
+    packet_record = _packet_record()
+    committed = _committed_prompt_sha256(packet_record)
+    store_root, manifest_path, _ = _write_store_fixture(
+        tmp_path,
+        packet_record=packet_record,
+        extra_packet_fields={"prompt_sha256": committed},
+    )
+    original_runner = per_case_runner.run_inspect_fixture
+
+    def checked_runner(samples: Any, solvers: Any) -> Any:
+        assert len(samples) == 1
+        assert samples[0].committed_prompt_sha256 == committed
+        return original_runner(samples, solvers)
+
+    monkeypatch.setattr(per_case_runner, "run_inspect_fixture", checked_runner)
+
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(tmp_path / "results-store"),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            solver_id="offline:fixture",
+            mock_output=_mock_output(),
+        )
+    )
+
+
 def test_per_case_runner_enforcement_runs_before_any_solver_call(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

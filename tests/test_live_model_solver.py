@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import socket
@@ -90,6 +91,75 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert body["input"].startswith("Controlled docket tool transcript:")
     assert "Predict the case outcome." in body["input"]
     assert "read_docket_entry_results" in body["input"]
+
+
+def test_openai_solver_refuses_actual_payload_that_differs_from_commitment() -> None:
+    """The manifest commitment must gate the post-transformation HTTP prompt."""
+
+    attempt_handler_requests: list[Any] = []
+
+    def record_attempt_handler_request(request: Any) -> Any:
+        attempt_handler_requests.append(request)
+        raise AssertionError("spend handler constructed for a refused prompt")
+
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        attempt_handler_factory=record_attempt_handler_request,
+    )
+    prompt = "Predict the case outcome."
+
+    with pytest.raises(
+        LiveModelConfigError,
+        match="actual provider prompt does not match",
+    ):
+        solver.solve(
+            _request(
+                prompt,
+                committed_prompt_sha256=hashlib.sha256(
+                    prompt.encode("utf-8")
+                ).hexdigest(),
+            )
+        )
+
+    assert transport.requests == []
+    assert attempt_handler_requests == []
+
+
+def test_openai_solver_no_docket_sends_exact_committed_prompt() -> None:
+    """The official --no-docket-tool mode must preserve the frozen prompt bytes."""
+
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+    )
+    prompt = "Predict the case outcome without docket tools."
+    request = _request(
+        prompt,
+        use_docket_tool=False,
+        committed_prompt_sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+    )
+
+    solver.solve(request)
+
+    assert _json_body(transport.only_request())["input"] == prompt
+    assert request.docket_tool.call_count == 0
 
 
 def test_openai_solver_keeps_caller_timeout_above_flex_floor() -> None:
@@ -1071,7 +1141,12 @@ class _UrlResponse:
         return json.dumps(self.payload).encode("utf-8")
 
 
-def _request(prompt: str) -> Any:
+def _request(
+    prompt: str,
+    *,
+    use_docket_tool: bool = True,
+    committed_prompt_sha256: str | None = None,
+) -> Any:
     docket_tool = ControlledDocketTool(
         case_id="case-test",
         entries=(
@@ -1086,7 +1161,11 @@ def _request(prompt: str) -> Any:
         max_tool_calls=3,
     )
     return SimpleNamespace(
-        sample=SimpleNamespace(prompt=prompt),
+        sample=SimpleNamespace(
+            prompt=prompt,
+            use_docket_tool=use_docket_tool,
+            committed_prompt_sha256=committed_prompt_sha256,
+        ),
         docket_tool=docket_tool,
     )
 
