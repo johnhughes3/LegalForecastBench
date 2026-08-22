@@ -827,9 +827,10 @@ def _forecast_commitments(
             raise ManifestForecastBundleError(
                 "packet object key is outside model-packets"
             )
-        path = (forecast_root / key).resolve()
+        path = forecast_root / key
+        resolved_path = path.resolve()
         try:
-            path.relative_to(forecast_root.resolve())
+            resolved_path.relative_to(forecast_root.resolve())
         except ValueError as exc:
             raise ManifestForecastBundleError(
                 "packet object escapes forecast root"

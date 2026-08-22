@@ -365,6 +365,28 @@ def test_packet_drift_is_rejected(fixture: dict[str, Any]) -> None:
         )
 
 
+@pytest.mark.parametrize("verify_existing", [False, True])
+def test_execution_decisions_reject_symlink_packet_for_issue_and_verification(
+    fixture: dict[str, Any], verify_existing: bool
+) -> None:
+    if verify_existing:
+        _issue(fixture)
+    packet = next(fixture["forecast"].glob("model-packets/*.json"))
+    target = packet.with_name("packet-target.json")
+    packet.rename(target)
+    packet.symlink_to(target.name)
+
+    with pytest.raises(
+        module.ExecutionDecisionsError, match="cannot read forecast packet"
+    ):
+        if verify_existing:
+            module.verify_execution_decisions(
+                fixture["output"], verify_freeze_inputs=fixture["freeze_verifier"]
+            )
+        else:
+            _issue(fixture)
+
+
 def test_observation_extra_line_is_rejected(fixture: dict[str, Any]) -> None:
     _issue(fixture)
     published = fixture["output"] / "beads-observation-v2.json"
@@ -753,7 +775,7 @@ def test_provider_journal_authentication_commits_live_wal(
 ) -> None:
     path = _canonical_journal_path(tmp_path)
     caps_sha256 = "c" * 64
-    journal = ProviderAttemptJournal(
+    with ProviderAttemptJournal(
         path,
         identity=ProviderCallIdentity(
             stage="llm-unitize",
@@ -767,8 +789,7 @@ def test_provider_journal_authentication_commits_live_wal(
         cycle_cap_usd=1.0,
         cycle_id="cycle-1",
         provider_cycle_caps_sha256=caps_sha256,
-    )
-    try:
+    ) as journal:
         journal.run_attempt(1, lambda: {"ok": True})
         authenticated = module._authenticate_provider_journal(
             path,
@@ -776,8 +797,6 @@ def test_provider_journal_authentication_commits_live_wal(
             provider_cycle_caps_sha256=caps_sha256,
             snapshots={},
         )
-    finally:
-        journal.close()
 
     assert authenticated["attempt_count"] == 1
     assert "provider-attempts.sqlite3-wal" in authenticated["durable_files"]

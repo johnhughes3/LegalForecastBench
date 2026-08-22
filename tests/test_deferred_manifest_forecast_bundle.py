@@ -348,6 +348,27 @@ def test_bundle_issue_rejects_symlink_input(fixture: dict[str, Any]) -> None:
         _issue(fixture)
 
 
+@pytest.mark.parametrize("verify_existing", [False, True])
+def test_bundle_rejects_symlink_packet_for_issue_and_verification(
+    fixture: dict[str, Any], verify_existing: bool
+) -> None:
+    if verify_existing:
+        _issue(fixture)
+    packet = next(fixture["forecast"].glob("model-packets/*.json"))
+    target = packet.with_name("packet-target.json")
+    packet.rename(target)
+    packet.symlink_to(target.name)
+
+    with pytest.raises(ManifestForecastBundleError, match="cannot read packet"):
+        if verify_existing:
+            verify_bundle(
+                fixture["output"],
+                verify_freeze_inputs=fixture["freeze_verifier"],
+            )
+        else:
+            _issue(fixture)
+
+
 def test_bundle_verifier_rejects_hardlinked_output(fixture: dict[str, Any]) -> None:
     _issue(fixture)
     bundle = fixture["output"] / "bundle-v2.json"
