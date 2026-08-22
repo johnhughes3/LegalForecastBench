@@ -4249,8 +4249,8 @@
         "largest_symbol": "run_manifest_unitizer",
         "largest_symbol_lines": 361,
         "layer": "application",
-        "line_count": 1764,
-        "nonblank_line_count": 1667,
+        "line_count": 1771,
+        "nonblank_line_count": 1674,
         "top_level_definition_count": 32
       },
       "legalforecast/evals/inspect_task.py": {
