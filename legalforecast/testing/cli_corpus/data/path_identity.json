@@ -597,6 +597,16 @@
       "legalforecast/evals/per_case_runner.py",
       "legalforecast/publication/official_aggregate.py"
     ],
+    "tests/test_official_eval_matrix_workflow.py": [
+      "legalforecast/evals/corpus_manifest/cost_projector.py",
+      "legalforecast/evals/corpus_manifest/cost_projector_workflow.py"
+    ],
+    "tests/test_official_provider_workflow.py": [
+      "legalforecast/evals/corpus_manifest/cost_projector.py"
+    ],
+    "tests/test_private_store_export.py": [
+      "legalforecast/evals/corpus_manifest/cost_projector.py"
+    ],
     "tests/test_rest_observation_policy_rebind.py": [
       "legalforecast/ingestion/courtlistener_acquisition.py"
     ],
