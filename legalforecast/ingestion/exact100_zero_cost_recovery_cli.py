@@ -286,31 +286,30 @@ def _resume_if_complete(
 def _verify_terminal_resume(
     *, output_root: Path, selection_bytes: bytes, request_bytes: bytes
 ) -> None:
+    """Read each saved terminal artifact once before parsing and validation."""
+
     request_path = output_root / "recovery-request.json"
+    receipt_path = output_root / "recovery-receipt.json"
+    run_card_path = output_root / "recovery-run-card.json"
+    observation_path = output_root / "rest-observation.json"
     if _read(request_path) != request_bytes:
         raise Exact100ZeroCostRecoveryCliError(
             "saved recovery request binds different immutable inputs"
         )
+    receipt_bytes = _read(receipt_path)
+    run_card_bytes = _read(run_card_path)
+    observation_bytes = _read(observation_path)
     try:
         validate_terminal_recovery_evidence(
             selection_bytes=selection_bytes,
-            request=_object(_read(request_path), request_path),
+            request=_object(request_bytes, request_path),
             request_bytes=request_bytes,
-            receipt=_object(
-                _read(output_root / "recovery-receipt.json"),
-                output_root / "recovery-receipt.json",
-            ),
-            receipt_bytes=_read(output_root / "recovery-receipt.json"),
-            run_card=_object(
-                _read(output_root / "recovery-run-card.json"),
-                output_root / "recovery-run-card.json",
-            ),
-            run_card_bytes=_read(output_root / "recovery-run-card.json"),
-            rest_observation=_object(
-                _read(output_root / "rest-observation.json"),
-                output_root / "rest-observation.json",
-            ),
-            rest_observation_bytes=_read(output_root / "rest-observation.json"),
+            receipt=_object(receipt_bytes, receipt_path),
+            receipt_bytes=receipt_bytes,
+            run_card=_object(run_card_bytes, run_card_path),
+            run_card_bytes=run_card_bytes,
+            rest_observation=_object(observation_bytes, observation_path),
+            rest_observation_bytes=observation_bytes,
             rest_observation_transcript_bytes=_read(
                 output_root / "rest-observation-transcript.jsonl"
             ),
@@ -318,6 +317,7 @@ def _verify_terminal_resume(
                 output_root / "rest-observation-response.bin"
             ),
         )
+    # One read per artifact: parsed mappings reuse the bytes locals above.
     except PostSelectionTerminalExclusionError as exc:
         raise Exact100ZeroCostRecoveryCliError(
             "saved terminal recovery output is invalid"

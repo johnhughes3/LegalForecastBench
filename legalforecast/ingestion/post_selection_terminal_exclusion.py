@@ -586,8 +586,14 @@ def authorize_persisted_terminal_recovery_evidence(
         != "completed_courtlistener_rest_noncharging_recovery"
         or live_evidence.evidence_commitments != expected_commitments
     ):
+        divergent = sorted(
+            key
+            for key in expected_commitments
+            if live_evidence.evidence_commitments.get(key) != expected_commitments[key]
+        )
         raise PostSelectionTerminalExclusionError(
             "live recovery authority does not bind the persisted terminal evidence"
+            + (f"; divergent commitments: {', '.join(divergent)}" if divergent else "")
         )
     return live_evidence
 
