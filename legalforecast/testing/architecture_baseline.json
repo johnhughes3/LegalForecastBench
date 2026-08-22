@@ -8408,8 +8408,8 @@
         "largest_symbol": "_resolve_import_command",
         "largest_symbol_lines": 54,
         "layer": "entrypoint",
-        "line_count": 511,
-        "nonblank_line_count": 460,
+        "line_count": 523,
+        "nonblank_line_count": 472,
         "top_level_definition_count": 17
       },
       "scripts/probe_claude_code_native_containment.py": {
@@ -10515,11 +10515,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_operator_policy_cannot_broaden_its_bootstrap_authority",
-        "largest_symbol_lines": 142,
+        "largest_symbol_lines": 159,
         "layer": "test",
-        "line_count": 700,
-        "nonblank_line_count": 636,
-        "top_level_definition_count": 15
+        "line_count": 740,
+        "nonblank_line_count": 672,
+        "top_level_definition_count": 16
       },
       "tests/test_official_eval_infra.py": {
         "cycle_id": "",
