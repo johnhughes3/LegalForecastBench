@@ -10261,9 +10261,9 @@
         "largest_symbol": "_authenticated_chain",
         "largest_symbol_lines": 169,
         "layer": "test",
-        "line_count": 1010,
-        "nonblank_line_count": 876,
-        "top_level_definition_count": 38
+        "line_count": 1076,
+        "nonblank_line_count": 938,
+        "top_level_definition_count": 39
       },
       "tests/test_manifest_execution_decisions.py": {
         "cycle_id": "",
@@ -10731,9 +10731,9 @@
         "largest_symbol": "test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row",
         "largest_symbol_lines": 65,
         "layer": "test",
-        "line_count": 742,
-        "nonblank_line_count": 682,
-        "top_level_definition_count": 23
+        "line_count": 763,
+        "nonblank_line_count": 701,
+        "top_level_definition_count": 24
       },
       "tests/test_official_paid_labeling_baton.py": {
         "cycle_id": "",
