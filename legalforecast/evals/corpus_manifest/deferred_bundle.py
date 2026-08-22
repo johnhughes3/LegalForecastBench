@@ -1,11 +1,10 @@
 """Authenticated, labels-deferred manifest forecast bundles.
 
 This module is deliberately additive.  It does not alter the ordinary freeze,
-shard-receipt, fan-in, or scoring contracts.  A bundle is an immutable bridge
-around the timing gap between a blinded forecast and authenticated Stage B
-labels.  Provider evidence can be recorded against a bundle, but those
-receipts are explicitly non-scoreable until :func:`attach_labels` derives a
-new record from an authenticated label lineage.
+shard-receipt, fan-in, or scoring contracts. The output is issuance groundwork
+only: it is not a dispatch artifact, provider receipt, scoring input, or
+publication input. Those bridges remain separate until their production
+producers and authentic verifiers ship together.
 """
 
 from __future__ import annotations
@@ -15,17 +14,15 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final, cast
 
 from legalforecast.contracts.schemas import (
-    MANIFEST_FORECAST_BOUND_RECEIPT_V1,
+    MANIFEST_FORECAST_BUNDLE_RUN_CARD_V1,
     MANIFEST_FORECAST_BUNDLE_V1,
-    MANIFEST_FORECAST_DEFERRED_RECEIPT_V1,
-    MANIFEST_FORECAST_LABEL_ATTACHMENT_V1,
     MANIFEST_MODE_FORECAST_RUN_RECORD_V1,
     NO_BASELINES_V1,
 )
@@ -45,9 +42,6 @@ from legalforecast.protocol.policy_artifacts import (
 _SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
 _BUNDLE_NAME: Final = "bundle.json"
 _RUN_CARD_NAME: Final = "run-cards/manifest-forecast-bundle.json"
-_ATTACHMENT_NAME: Final = "label-attachment.json"
-_BOUND_RECEIPTS_NAME: Final = "bound-receipts.jsonl"
-_DEFERRED_RECEIPTS_NAME: Final = "deferred-receipts.jsonl"
 _OFFICIAL_CASE_COUNT: Final = 100
 _OFFICIAL_MODEL_COUNT: Final = 4
 _OWNER_APPROVAL_TEMPLATE: Final = (
@@ -56,11 +50,7 @@ _OWNER_APPROVAL_TEMPLATE: Final = (
 
 
 class ManifestForecastBundleError(ValueError):
-    """Raised when an authenticated bundle or label attachment is invalid."""
-
-
-class DeferredReceiptError(ManifestForecastBundleError):
-    """Raised when a deferred receipt is not bound to the bundle."""
+    """Raised when an authenticated deferred bundle is invalid."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,14 +62,6 @@ class ManifestForecastBundleBuild:
     input_snapshots: Mapping[Path, bytes]
 
 
-@dataclass(frozen=True, slots=True)
-class LabelAttachmentBuild:
-    """Create-only label attachment and newly derived receipt records."""
-
-    attachment: Mapping[str, Any]
-    bound_receipts: tuple[Mapping[str, Any], ...]
-
-
 def issue_bundle(
     *,
     cycle_id: str,
@@ -89,10 +71,8 @@ def issue_bundle(
     model_registry: Path,
     provider_cycle_caps: Path,
     execution_policy: Path,
-    repeat_policy: Mapping[str, Any],
-    shard_schedule: Sequence[Mapping[str, Any]],
-    journal_namespace: str,
     output_root: Path,
+    verify_freeze_inputs: Callable[[Path], Any],
     generated_at: datetime | None = None,
 ) -> ManifestForecastBundleBuild:
     """Issue one create-only bundle from authenticated provider-free inputs."""
@@ -101,11 +81,14 @@ def issue_bundle(
         raise ManifestForecastBundleError(
             f"bundle output already exists; refusing overwrite: {output_root}"
         )
-    if not cycle_id.strip() or not journal_namespace.strip():
-        raise ManifestForecastBundleError("cycle_id and journal_namespace are required")
+    if not cycle_id.strip():
+        raise ManifestForecastBundleError("cycle_id is required")
     snapshots: dict[Path, bytes] = {}
     freeze = _read_freeze_inputs(
-        freeze_inputs_root, snapshots, expected_cycle_id=cycle_id
+        freeze_inputs_root,
+        snapshots,
+        expected_cycle_id=cycle_id,
+        verifier=verify_freeze_inputs,
     )
     owner_bytes = _snapshot(owner_manifest, snapshots, "owner manifest")
     forecast_record_path = forecast_output_dir / "manifest-mode-run-record.json"
@@ -143,10 +126,8 @@ def issue_bundle(
         policy_bytes,
         cycle_id=cycle_id,
     )
-    _require_policy_bindings(
-        policy,
-        repeat_policy=repeat_policy,
-        shard_schedule=shard_schedule,
+    repeat_policy, shard_schedule = _official_policy_bindings(
+        policy, registry_entries=registry_entries
     )
     units_source = run_record.get("prediction_units_source")
     _require_prediction_units_source(
@@ -200,11 +181,11 @@ def issue_bundle(
             "tools": [],
             "outcome_labels_visible": False,
         },
-        "repeat_policy": _canonical_value(repeat_policy, "repeat_policy"),
-        "shard_schedule": [
-            _canonical_value(row, "shard_schedule row") for row in shard_schedule
-        ],
-        "journal_namespace": journal_namespace,
+        "repeat_policy": repeat_policy,
+        "shard_schedule": shard_schedule,
+        "provider_attempt_policy": _canonical_value(
+            policy["attempt_policy"], "attempt_policy"
+        ),
         "prediction_unit_identities": sorted(unit_identities),
     }
     core["bundle_sha256"] = _sha(_canonical(core))
@@ -212,7 +193,7 @@ def issue_bundle(
         _BUNDLE_NAME: _canonical(core),
         _RUN_CARD_NAME: _canonical(
             {
-                "schema_version": str(MANIFEST_FORECAST_BUNDLE_V1),
+                "schema_version": str(MANIFEST_FORECAST_BUNDLE_RUN_CARD_V1),
                 "stage": "issue-manifest-forecast-bundle",
                 "status": "completed",
                 "cycle_id": cycle_id,
@@ -234,7 +215,9 @@ def issue_bundle(
     return ManifestForecastBundleBuild(core, payloads, snapshots)
 
 
-def verify_bundle(output_root: Path) -> Mapping[str, Any]:
+def verify_bundle(
+    output_root: Path, *, verify_freeze_inputs: Callable[[Path], Any]
+) -> Mapping[str, Any]:
     """Verify a previously issued bundle and every bound input byte."""
 
     bundle_path = output_root / _BUNDLE_NAME
@@ -243,6 +226,8 @@ def verify_bundle(output_root: Path) -> Mapping[str, Any]:
     bundle = _json_object(bundle_bytes, "manifest forecast bundle")
     if bundle.get("schema_version") != str(MANIFEST_FORECAST_BUNDLE_V1):
         raise ManifestForecastBundleError("unsupported manifest forecast bundle schema")
+    if bundle_bytes != _canonical(bundle):
+        raise ManifestForecastBundleError("manifest forecast bundle is not canonical")
     claimed = _required_sha(bundle, "bundle_sha256")
     without = dict(bundle)
     del without["bundle_sha256"]
@@ -250,19 +235,33 @@ def verify_bundle(output_root: Path) -> Mapping[str, Any]:
         raise ManifestForecastBundleError("bundle digest does not match content")
     card_bytes = _read_regular(card_path, "bundle run card")
     card = _json_object(card_bytes, "bundle run card")
-    if card.get("status") != "completed" or card.get("provider_calls_made") != 0:
+    cycle_id = _required_text(bundle, "cycle_id")
+    if card_bytes != _canonical(card):
+        raise ManifestForecastBundleError("bundle run card is not canonical")
+    if (
+        card.get("schema_version") != str(MANIFEST_FORECAST_BUNDLE_RUN_CARD_V1)
+        or card.get("stage") != "issue-manifest-forecast-bundle"
+        or card.get("status") != "completed"
+        or card.get("cycle_id") != cycle_id
+        or card.get("provider_calls_made") != 0
+        or card.get("paid_activity_executed") is not False
+    ):
         raise ManifestForecastBundleError(
             "bundle run card is not a completed provider-free issuance"
         )
     if card.get("bundle_sha256") != claimed:
         raise ManifestForecastBundleError("bundle run card digest differs")
     snapshots: dict[Path, bytes] = {}
-    cycle_id = _required_text(bundle, "cycle_id")
     freeze_record = _mapping(
         bundle.get("generic_freeze_inputs"), "generic_freeze_inputs"
     )
     freeze_root = Path(_required_text(freeze_record, "root"))
-    freeze = _read_freeze_inputs(freeze_root, snapshots, expected_cycle_id=cycle_id)
+    freeze = _read_freeze_inputs(
+        freeze_root,
+        snapshots,
+        expected_cycle_id=cycle_id,
+        verifier=verify_freeze_inputs,
+    )
     for section in (
         "owner_manifest",
         "model_registry",
@@ -317,11 +316,15 @@ def verify_bundle(output_root: Path) -> Mapping[str, Any]:
         run_record.get("prediction_units_source"),
         manifest.prediction_units_source.to_record(),
     )
-    _require_policy_bindings(
-        policy,
-        repeat_policy=bundle.get("repeat_policy"),
-        shard_schedule=bundle.get("shard_schedule"),
+    repeat_policy, shard_schedule = _official_policy_bindings(
+        policy, registry_entries=registry_entries
     )
+    if bundle.get("repeat_policy") != repeat_policy:
+        raise ManifestForecastBundleError("bundle repeat policy changed")
+    if bundle.get("shard_schedule") != shard_schedule:
+        raise ManifestForecastBundleError("bundle shard schedule changed")
+    if bundle.get("provider_attempt_policy") != policy.get("attempt_policy"):
+        raise ManifestForecastBundleError("bundle provider attempt policy changed")
     packet_sha256, prompt_sha256 = _forecast_commitments(
         run_inputs, run_record_path.parent, snapshots
     )
@@ -332,7 +335,7 @@ def verify_bundle(output_root: Path) -> Mapping[str, Any]:
     source = _mapping(
         run_record.get("prediction_units_source"), "prediction_units_source"
     )
-    source_path = Path(_required_text(source, "path"))
+    _required_text(source, "path")
     unit_identities = _prediction_unit_identities(source, snapshots)
     if sorted(unit_identities) != bundle.get("prediction_unit_identities"):
         raise ManifestForecastBundleError("prediction-unit commitments changed")
@@ -345,213 +348,13 @@ def verify_bundle(output_root: Path) -> Mapping[str, Any]:
     replayed_freeze = freeze
     if dict(replayed_freeze) != dict(freeze_record):
         raise ManifestForecastBundleError("generic freeze input commitments changed")
-    del source_path
     if (
         bundle.get("labels_state") != "deferred"
         or bundle.get("labels_sha256") is not None
     ):
         raise ManifestForecastBundleError("issued bundle must remain labels-deferred")
+    _require_snapshots_unchanged(snapshots)
     return bundle
-
-
-def write_deferred_receipts(
-    *,
-    bundle: Mapping[str, Any] | Path,
-    receipts: Sequence[Mapping[str, Any]],
-    output: Path,
-) -> tuple[Mapping[str, Any], ...]:
-    """Validate and create-only write private, non-scoreable receipts."""
-
-    if not isinstance(bundle, Path):
-        raise DeferredReceiptError(
-            "deferred receipts require a bundle path so all authenticated "
-            "inputs can be replayed"
-        )
-    bundle_record = verify_bundle(bundle)
-    if output.exists():
-        raise DeferredReceiptError(f"deferred receipt output already exists: {output}")
-    bound = _validate_deferred_rows(bundle_record, receipts)
-    _write_jsonl_create_only(output, bound)
-    return bound
-
-
-def _validate_deferred_rows(
-    bundle_record: Mapping[str, Any], receipts: Sequence[Mapping[str, Any]]
-) -> tuple[Mapping[str, Any], ...]:
-    """Validate deferred rows against a fully replayed bundle."""
-
-    bundle_sha = _required_sha(bundle_record, "bundle_sha256")
-    prompt_map = _mapping(
-        _mapping(bundle_record["forecast_inputs"], "forecast_inputs").get(
-            "prompt_sha256"
-        ),
-        "prompt_sha256",
-    )
-    packet_map = _mapping(
-        _mapping(bundle_record["forecast_inputs"], "forecast_inputs").get(
-            "packet_sha256"
-        ),
-        "packet_sha256",
-    )
-    bound: list[Mapping[str, Any]] = []
-    seen: set[tuple[str, str, str, int]] = set()
-    expected = _expected_receipt_keys(bundle_record)
-    for raw in receipts:
-        row = dict(raw)
-        if row.get("labels_state") != "deferred":
-            raise DeferredReceiptError("receipt labels_state must be deferred")
-        if row.get("scoreable") is not False or row.get("publishable") is not False:
-            raise DeferredReceiptError(
-                "deferred receipt must be non-scoreable and non-publishable"
-            )
-        if row.get("bundle_sha256") != bundle_sha:
-            raise DeferredReceiptError("receipt bundle digest differs")
-        identity = (
-            f"{_required_text(row, 'candidate_id')}:{_required_text(row, 'ablation')}"
-        )
-        model_key = _required_text(row, "model_key")
-        prompt_sha = _required_sha(row, "actual_provider_prompt_sha256")
-        packet_sha = _required_sha(row, "packet_sha256")
-        if (
-            prompt_map.get(identity) != prompt_sha
-            or packet_map.get(identity) != packet_sha
-        ):
-            raise DeferredReceiptError(f"receipt identity is not in bundle: {identity}")
-        _reject_label_lineage(row)
-        repeat_index = _positive_int(row, "repeat_index")
-        key = (identity, model_key, prompt_sha, repeat_index)
-        if key in seen:
-            raise DeferredReceiptError(
-                f"duplicate deferred receipt: {identity} / {model_key}"
-            )
-        seen.add(key)
-        row["schema_version"] = str(MANIFEST_FORECAST_DEFERRED_RECEIPT_V1)
-        expected_resume = _resume_identity(
-            bundle_record,
-            model_key=model_key,
-            packet_sha=packet_sha,
-            prompt_sha=prompt_sha,
-            repeat_index=repeat_index,
-        )
-        supplied_resume = row.get("resume_identity_sha256")
-        if supplied_resume is not None and supplied_resume != expected_resume:
-            raise DeferredReceiptError("receipt resume identity differs")
-        row["resume_identity_sha256"] = expected_resume
-        bound.append(row)
-    if seen != expected:
-        missing = sorted(expected - seen)
-        extra = sorted(seen - expected)
-        raise DeferredReceiptError(
-            f"deferred receipt coverage differs (missing={missing}, extra={extra})"
-        )
-    return tuple(bound)
-
-
-def attach_labels(
-    *,
-    bundle: Path,
-    deferred_receipts: Path,
-    labels: Path,
-    decision_texts: Path,
-    finalized_units: Path,
-    label_run_card: Path,
-    output_root: Path,
-) -> LabelAttachmentBuild:
-    """Authenticate Stage B lineage and derive fresh label-bound receipts."""
-
-    if output_root.exists():
-        raise ManifestForecastBundleError(
-            f"label attachment output already exists: {output_root}"
-        )
-    bundle_record = verify_bundle(bundle)
-    snapshots = {
-        path: _read_regular(path, path.name)
-        for path in (
-            deferred_receipts,
-            labels,
-            decision_texts,
-            finalized_units,
-            label_run_card,
-        )
-    }
-    receipts = _jsonl(snapshots[deferred_receipts], deferred_receipts)
-    receipts = list(_validate_deferred_rows(bundle_record, receipts))
-    label_rows = _jsonl(snapshots[labels], labels)
-    decision_rows = _jsonl(snapshots[decision_texts], decision_texts)
-    unit_rows = _jsonl(snapshots[finalized_units], finalized_units)
-    card = _json_object(snapshots[label_run_card], "label run card")
-    if (
-        card.get("stage") not in ("llm-label", "label")
-        or card.get("status") != "completed"
-    ):
-        raise ManifestForecastBundleError(
-            "labels must come from a completed authenticated label run"
-        )
-    for name, path in (
-        ("labels", labels),
-        ("decision_texts", decision_texts),
-        ("finalized_units", finalized_units),
-    ):
-        _require_card_commitment(card, name, _sha(snapshots[path]))
-    expected_units = set(bundle_record.get("prediction_unit_identities", []))
-    final_units = _unit_identities(unit_rows)
-    label_units = _unique_label_identities(label_rows)
-    if final_units != expected_units or label_units != expected_units:
-        raise ManifestForecastBundleError(
-            "finalized units and labels do not exactly cover bundle units"
-        )
-    _validate_decision_evidence(label_rows, decision_rows)
-    _validate_label_lineage(label_rows, unit_rows, decision_rows)
-    _require_snapshots_unchanged(snapshots)
-    attachment_core: dict[str, Any] = {
-        "schema_version": str(MANIFEST_FORECAST_LABEL_ATTACHMENT_V1),
-        "cycle_id": bundle_record["cycle_id"],
-        "bundle_sha256": bundle_record["bundle_sha256"],
-        "deferred_receipts_sha256": _sha(snapshots[deferred_receipts]),
-        "labels_sha256": _sha(snapshots[labels]),
-        "decision_texts_sha256": _sha(snapshots[decision_texts]),
-        "finalized_units_sha256": _sha(snapshots[finalized_units]),
-        "label_run_card_sha256": _sha(snapshots[label_run_card]),
-        "coverage": sorted(expected_units),
-        "status": "completed",
-    }
-    attachment_core["attachment_sha256"] = _sha(_canonical(attachment_core))
-    bound_receipts = tuple(
-        _derive_bound_receipt(row, attachment_core) for row in receipts
-    )
-    payloads = {
-        _ATTACHMENT_NAME: _canonical(attachment_core),
-        _BOUND_RECEIPTS_NAME: _jsonl_bytes(bound_receipts),
-    }
-    _publish_create_only(output_root, payloads)
-    _require_snapshots_unchanged(snapshots)
-    return LabelAttachmentBuild(attachment_core, bound_receipts)
-
-
-def _derive_bound_receipt(
-    deferred: Mapping[str, Any], attachment: Mapping[str, Any]
-) -> Mapping[str, Any]:
-    provider_evidence = dict(deferred)
-    for key in (
-        "labels_state",
-        "scoreable",
-        "publishable",
-        "schema_version",
-        "resume_identity_sha256",
-    ):
-        provider_evidence.pop(key, None)
-    result = {
-        "schema_version": str(MANIFEST_FORECAST_BOUND_RECEIPT_V1),
-        "labels_state": "bound",
-        "scoreable": True,
-        "publishable": False,
-        "bundle_sha256": attachment["bundle_sha256"],
-        "label_attachment_sha256": attachment["attachment_sha256"],
-        "labels_sha256": attachment["labels_sha256"],
-        "provider_evidence": provider_evidence,
-    }
-    result["receipt_sha256"] = _sha(_canonical(result))
-    return result
 
 
 def _read_freeze_inputs(
@@ -559,23 +362,42 @@ def _read_freeze_inputs(
     snapshots: dict[Path, bytes],
     *,
     expected_cycle_id: str | None = None,
+    verifier: Callable[[Path], Any],
 ) -> Mapping[str, Any]:
-    card_path = root / "run-cards/issue-manifest-freeze-inputs.json"
-    card_bytes = _snapshot(card_path, snapshots, "generic freeze run card")
-    card = _json_object(card_bytes, "generic freeze run card")
-    if card.get("status") != "completed" or card.get("provider_calls_made") != 0:
+    try:
+        build = verifier(root)
+    except Exception as exc:
         raise ManifestForecastBundleError(
-            "generic freeze inputs are not completed/provider-free"
+            "generic freeze inputs fail complete replay verification"
+        ) from exc
+    payloads = getattr(build, "payloads", None)
+    run_card = getattr(build, "run_card", None)
+    if not isinstance(payloads, Mapping) or not isinstance(run_card, Mapping):
+        raise ManifestForecastBundleError(
+            "generic freeze verifier returned an incomplete result"
         )
-    if expected_cycle_id is not None and card.get("cycle_id") != expected_cycle_id:
+    payload_map = cast(Mapping[str, object], payloads)
+    run_card_map = cast(Mapping[str, Any], run_card)
+    expected_names = {
+        "prompt-contract.json",
+        "scorer-contract.json",
+        "harness-contract.json",
+        "no-baselines.json",
+        "complete-exclusion-ledger.jsonl",
+        "run-cards/issue-manifest-freeze-inputs.json",
+    }
+    if set(payload_map) != expected_names:
+        raise ManifestForecastBundleError(
+            "generic freeze verifier output inventory is not exact"
+        )
+    if (
+        expected_cycle_id is not None
+        and run_card_map.get("cycle_id") != expected_cycle_id
+    ):
         raise ManifestForecastBundleError("generic freeze run card cycle_id differs")
-    output_commitments = _mapping(
-        card.get("output_commitments"), "generic freeze output commitments"
-    )
     outputs: dict[str, str] = {}
-    saw_no_baselines = False
-    for name, claimed in output_commitments.items():
-        path = (root / str(name)).resolve()
+    for name in sorted(expected_names):
+        path = (root / name).resolve()
         try:
             path.relative_to(root.resolve())
         except ValueError as exc:
@@ -583,31 +405,29 @@ def _read_freeze_inputs(
                 "generic freeze input escapes its output root"
             ) from exc
         payload = _snapshot(path, snapshots, f"generic freeze input {name}")
-        if _sha(payload) != str(claimed):
-            raise ManifestForecastBundleError(f"generic freeze input changed: {name}")
-        if name == "no-baselines.json":
-            no_baselines = _json_object(payload, "no-baselines sentinel")
-            if (
-                no_baselines.get("schema_version") != str(NO_BASELINES_V1)
-                or no_baselines.get("status") != "unavailable"
-                or (
-                    expected_cycle_id is not None
-                    and no_baselines.get("cycle_id") != expected_cycle_id
-                )
-            ):
-                raise ManifestForecastBundleError(
-                    "generic freeze no-baselines sentinel is not authenticated"
-                )
-            saw_no_baselines = True
-
-        outputs[str(name)] = _sha(payload)
-    if not saw_no_baselines:
+        expected = payload_map[name]
+        if not isinstance(expected, bytes) or payload != expected:
+            raise ManifestForecastBundleError(
+                f"generic freeze verifier bytes differ: {name}"
+            )
+        outputs[name] = _sha(payload)
+    no_baselines = _json_object(
+        snapshots[(root / "no-baselines.json").resolve()], "no-baselines sentinel"
+    )
+    if (
+        no_baselines.get("schema_version") != str(NO_BASELINES_V1)
+        or no_baselines.get("status") != "unavailable"
+        or (
+            expected_cycle_id is not None
+            and no_baselines.get("cycle_id") != expected_cycle_id
+        )
+    ):
         raise ManifestForecastBundleError(
-            "generic freeze inputs lack the authenticated no-baselines sentinel"
+            "generic freeze no-baselines sentinel is not authenticated"
         )
     return {
         "root": str(root),
-        "run_card_sha256": _sha(card_bytes),
+        "run_card_sha256": outputs["run-cards/issue-manifest-freeze-inputs.json"],
         "outputs": outputs,
     }
 
@@ -743,26 +563,58 @@ def _authenticate_runtime_inputs(
     return registry_entries, policy_content
 
 
-def _require_policy_bindings(
-    policy: Mapping[str, Any],
-    *,
-    repeat_policy: object,
-    shard_schedule: object,
-) -> None:
-    """Reject operator schedule inputs that differ from the verified policy."""
+def _official_policy_bindings(
+    policy: Mapping[str, Any], *, registry_entries: Sequence[Mapping[str, str]]
+) -> tuple[Mapping[str, Any], list[Mapping[str, str]]]:
+    """Derive the exact 800-cell official schedule from verified policy bytes."""
 
-    expected_repeat = policy.get("repeat_policy")
-    expected_shards = _mapping(policy.get("shard_schedule"), "shard_schedule").get(
-        "shards"
-    )
-    if _canonical_value(repeat_policy, "repeat_policy") != expected_repeat:
+    if policy.get("cycle_series") != "official":
         raise ManifestForecastBundleError(
-            "repeat policy does not match the verified execution policy"
+            "execution policy cycle_series must be official"
         )
-    if _canonical_value(shard_schedule, "shard_schedule") != expected_shards:
+    if policy.get("allow_no_baselines") is not True:
         raise ManifestForecastBundleError(
-            "shard schedule does not match the verified execution policy"
+            "execution policy must allow the authenticated no-baselines sentinel"
         )
+    repeat = _mapping(policy.get("repeat_policy"), "repeat_policy")
+    if dict(repeat) != {"case_ids": [], "count": 1}:
+        raise ManifestForecastBundleError(
+            "official manifest forecast repeat policy must be empty/count=1"
+        )
+    schedule = _mapping(policy.get("shard_schedule"), "shard_schedule")
+    raw_shards = schedule.get("shards")
+    if not isinstance(raw_shards, list):
+        raise ManifestForecastBundleError("shard schedule must contain shards")
+    shards = [
+        dict(_mapping(row, "shard schedule row"))
+        for row in cast(list[object], raw_shards)
+    ]
+    registry_keys = {
+        f"{_required_text(row, 'provider')}:{_required_text(row, 'model_id')}"
+        for row in registry_entries
+    }
+    expected = {
+        (key, ablation)
+        for key in registry_keys
+        for ablation in OFFICIAL_SHARD_ABLATIONS
+    }
+    observed = {
+        (_required_text(row, "model_key"), _required_text(row, "ablation"))
+        for row in shards
+    }
+    if (
+        len(registry_keys) != _OFFICIAL_MODEL_COUNT
+        or observed != expected
+        or len(shards) != len(expected)
+        or schedule.get("shard_count") != len(expected)
+        or schedule.get("dispatch_unit") != "model_key_ablation"
+    ):
+        raise ManifestForecastBundleError(
+            "execution policy must bind the exact four-model by two-ablation schedule"
+        )
+    return dict(repeat), [
+        {"model_key": key, "ablation": ablation} for key, ablation in sorted(observed)
+    ]
 
 
 def _require_prediction_units_source(
@@ -834,153 +686,6 @@ def _forecast_commitments(
     )
 
 
-def _expected_receipt_keys(
-    bundle: Mapping[str, Any],
-) -> set[tuple[str, str, str, int]]:
-    forecast = _mapping(bundle.get("forecast_inputs"), "forecast_inputs")
-    prompt_map = _mapping(forecast.get("prompt_sha256"), "prompt_sha256")
-    repeat_policy = _mapping(bundle.get("repeat_policy"), "repeat_policy")
-    raw_count = repeat_policy.get("count", repeat_policy.get("repeat_count", 1))
-    if not isinstance(raw_count, int) or isinstance(raw_count, bool) or raw_count < 1:
-        raise DeferredReceiptError("repeat policy count must be a positive integer")
-    schedule = bundle.get("shard_schedule")
-    if not isinstance(schedule, list) or not schedule:
-        raise DeferredReceiptError("shard schedule must contain model identities")
-    shards: set[tuple[str, str]] = set()
-    for raw_shard in cast(list[object], schedule):
-        shard = _mapping(raw_shard, "shard schedule row")
-        shards.add(
-            (
-                _required_text(shard, "model_key"),
-                _required_text(shard, "ablation"),
-            )
-        )
-    return {
-        (str(identity), model_key, str(prompt_sha), repeat_index)
-        for identity, prompt_sha in prompt_map.items()
-        for model_key, ablation in shards
-        if str(identity).endswith(f":{ablation}")
-        for repeat_index in range(1, raw_count + 1)
-    }
-
-
-def _resume_identity(
-    bundle: Mapping[str, Any],
-    *,
-    model_key: str,
-    packet_sha: str,
-    prompt_sha: str,
-    repeat_index: int,
-) -> str:
-    return _sha(
-        _canonical(
-            {
-                "bundle_sha256": _required_sha(bundle, "bundle_sha256"),
-                "packet_sha256": packet_sha,
-                "actual_provider_prompt_sha256": prompt_sha,
-                "model_key": model_key,
-                "model_registry_sha256": _required_sha(
-                    _mapping(bundle["model_registry"], "model_registry"), "sha256"
-                ),
-                "provider_cycle_caps_sha256": _required_sha(
-                    _mapping(bundle["provider_cycle_caps"], "provider_cycle_caps"),
-                    "sha256",
-                ),
-                "execution_policy_sha256": _required_sha(
-                    _mapping(bundle["execution_policy"], "execution_policy"),
-                    "sha256",
-                ),
-                "repeat_policy": bundle["repeat_policy"],
-                "journal_namespace": bundle["journal_namespace"],
-                "repeat_index": repeat_index,
-            }
-        )
-    )
-
-
-_LABEL_LINEAGE_KEYS = frozenset(
-    {
-        "label",
-        "labels",
-        "outcome",
-        "disposition",
-        "gold_label",
-        "ground_truth",
-        "human_label",
-        "label_source",
-        "label_lineage",
-    }
-)
-
-
-def _reject_label_lineage(row: Mapping[str, Any]) -> None:
-    """Reject outcome-bearing fields anywhere in a deferred provider receipt."""
-
-    def visit(value: object) -> None:
-        if isinstance(value, Mapping):
-            mapping_value = cast(Mapping[str, object], value)
-            for key, child in mapping_value.items():
-                if key.lower() in _LABEL_LINEAGE_KEYS:
-                    raise DeferredReceiptError(
-                        "deferred receipt contains outcome or label bytes"
-                    )
-                visit(child)
-        elif isinstance(value, list):
-            for child in cast(list[object], value):
-                visit(child)
-
-    visit(row)
-
-
-def _unique_label_identities(rows: Sequence[Mapping[str, Any]]) -> set[str]:
-    identities: set[str] = set()
-    for row in rows:
-        identity = _label_identity(row)
-        if identity in identities:
-            raise ManifestForecastBundleError(f"duplicate label identity: {identity}")
-        identities.add(identity)
-    return identities
-
-
-def _validate_label_lineage(
-    labels: Sequence[Mapping[str, Any]],
-    finalized_units: Sequence[Mapping[str, Any]],
-    decisions: Sequence[Mapping[str, Any]],
-) -> None:
-    """Require Stage B artifacts to remain outcome-hidden from the model path."""
-
-    for collection, name in (
-        (labels, "label"),
-        (finalized_units, "finalized unit"),
-        (decisions, "decision text"),
-    ):
-        for row in collection:
-            if row.get("model_visible") is True:
-                raise ManifestForecastBundleError(f"{name} is model-visible")
-            source = row.get("source")
-            if isinstance(source, str) and source.lower() in {
-                "model",
-                "llm",
-                "hand-authored",
-                "hand_authored",
-                "manual",
-            }:
-                raise ManifestForecastBundleError(f"{name} has unauthenticated lineage")
-            if (
-                row.get("hand_authored") is True
-                or row.get("generated_by_model") is True
-            ):
-                raise ManifestForecastBundleError(f"{name} has unauthenticated lineage")
-    for row in decisions:
-        if (
-            "is_first_written_disposition" in row
-            and row.get("is_first_written_disposition") is not True
-        ):
-            raise ManifestForecastBundleError(
-                "decision text is not first-written disposition evidence"
-            )
-
-
 def _unit_identities(rows: Sequence[Mapping[str, Any]]) -> set[str]:
     identities: set[str] = set()
     for row in rows:
@@ -1003,49 +708,6 @@ def _unit_identities(rows: Sequence[Mapping[str, Any]]) -> set[str]:
                 )
             identities.add(identity)
     return identities
-
-
-def _label_identity(row: Mapping[str, Any]) -> str:
-    return f"{_required_text(row, 'candidate_id')}:{_required_text(row, 'unit_id')}"
-
-
-def _validate_decision_evidence(
-    labels: Sequence[Mapping[str, Any]], decisions: Sequence[Mapping[str, Any]]
-) -> None:
-    texts: dict[str, list[str]] = {}
-    for row in decisions:
-        candidate = _required_text(row, "candidate_id")
-        text = _required_text(row, "text")
-        if row.get("is_first_written_disposition") is not True:
-            raise ManifestForecastBundleError(
-                "decision text is not first-written disposition evidence"
-            )
-        texts.setdefault(candidate, []).append(text)
-    for label in labels:
-        candidate = _required_text(label, "candidate_id")
-        evidence = label.get("disposition_evidence", label)
-        evidence_map = _mapping(evidence, "label disposition evidence")
-        excerpt = evidence_map.get("disposition_excerpt", evidence_map.get("excerpt"))
-        if not isinstance(excerpt, str) or not excerpt.strip():
-            raise ManifestForecastBundleError(
-                "label lacks verbatim disposition excerpt"
-            )
-        if not any(excerpt in text for text in texts.get(candidate, [])):
-            raise ManifestForecastBundleError(
-                f"disposition excerpt is not verbatim evidence: {candidate}"
-            )
-
-
-def _require_card_commitment(card: Mapping[str, Any], name: str, digest: str) -> None:
-    output = card.get("output_commitments")
-    if not isinstance(output, Mapping) or name not in output:
-        raise ManifestForecastBundleError(f"label run card lacks {name} commitment")
-    output_map = cast(Mapping[str, Any], output)
-    claimed: object = output_map[name]
-    if isinstance(claimed, Mapping):
-        claimed = cast(Mapping[str, object], claimed).get("sha256")
-    if claimed != digest:
-        raise ManifestForecastBundleError(f"label run card {name} commitment differs")
 
 
 def _publish_create_only(root: Path, payloads: Mapping[str, bytes]) -> None:
@@ -1074,15 +736,6 @@ def _publish_create_only(root: Path, payloads: Mapping[str, bytes]) -> None:
                     path.rmdir()
             temporary.rmdir()
         raise
-
-
-def _write_jsonl_create_only(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    if path.exists():
-        raise DeferredReceiptError(f"output already exists: {path}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "wb") as handle:
-        handle.write(_jsonl_bytes(rows))
 
 
 def _snapshot(path: Path, snapshots: dict[Path, bytes], label: str) -> bytes:
@@ -1153,13 +806,6 @@ def _required_sha(record: Mapping[str, Any], name: str) -> str:
     return value
 
 
-def _positive_int(record: Mapping[str, Any], name: str) -> int:
-    value = record.get(name)
-    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
-        raise DeferredReceiptError(f"{name} must be a positive integer")
-    return value
-
-
 def _sha(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
@@ -1178,10 +824,6 @@ def _canonical(value: object) -> bytes:
 def _canonical_value(value: object, label: str) -> object:
     _canonical(value)
     return json.loads(_canonical(value))
-
-
-def _jsonl_bytes(rows: Sequence[Mapping[str, Any]]) -> bytes:
-    return b"".join(_canonical(row) for row in rows)
 
 
 def _require_cycle(record: Mapping[str, Any], cycle_id: str, label: str) -> None:

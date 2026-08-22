@@ -123,11 +123,6 @@ _VERIFY_BUNDLE = importlib.metadata.EntryPoint(
     value=("legalforecast.evals.corpus_manifest.deferred_bundle:verify_bundle"),
     group="legalforecast.internal",
 )
-_ATTACH_LABELS = importlib.metadata.EntryPoint(
-    name="manifest-forecast-labels-attach",
-    value=("legalforecast.evals.corpus_manifest.deferred_bundle:attach_labels"),
-    group="legalforecast.internal",
-)
 _ISSUE_EXECUTION_DECISIONS = importlib.metadata.EntryPoint(
     name="manifest-execution-decisions-issue",
     value=(
@@ -320,9 +315,9 @@ def register(
         description=(
             "Bind the authenticated generic freeze inputs, owner-signed manifest "
             "forecast packets, successor registry, provider caps, execution "
-            "policy, and repeat/shard schedule. This command is provider-free; "
-            "the resulting receipts remain private and non-scoreable until "
-            "authenticated Stage B labels are attached."
+            "policy, and the schedule derived from that verified policy. This "
+            "command is provider-free; any later provider receipts remain "
+            "private, non-scoreable, and non-publishable."
         ),
     )
     issue_bundle.add_argument("--cycle-id", required=True)
@@ -332,9 +327,6 @@ def register(
     issue_bundle.add_argument("--model-registry", type=Path, required=True)
     issue_bundle.add_argument("--provider-cycle-caps", type=Path, required=True)
     issue_bundle.add_argument("--execution-policy", type=Path, required=True)
-    issue_bundle.add_argument("--repeat-policy", type=Path, required=True)
-    issue_bundle.add_argument("--shard-schedule", type=Path, required=True)
-    issue_bundle.add_argument("--journal-namespace", required=True)
     issue_bundle.add_argument("--output-root", type=Path, required=True)
     issue_bundle.set_defaults(handler=run_issue_bundle)
 
@@ -344,25 +336,6 @@ def register(
     )
     verify_bundle.add_argument("--output-root", type=Path, required=True)
     verify_bundle.set_defaults(handler=run_verify_bundle)
-
-    attach_labels = subparsers.add_parser(
-        "attach-manifest-forecast-labels",
-        help="Authenticate Stage B labels and derive label-bound forecast receipts.",
-        description=(
-            "Verify decision-text, finalized-unit, and completed llm-label "
-            "lineage, require exact unit coverage and verbatim disposition "
-            "evidence, then create a fresh label attachment and fresh bound "
-            "receipts. Deferred provider evidence is never mutated."
-        ),
-    )
-    attach_labels.add_argument("--bundle", type=Path, required=True)
-    attach_labels.add_argument("--deferred-receipts", type=Path, required=True)
-    attach_labels.add_argument("--labels", type=Path, required=True)
-    attach_labels.add_argument("--decision-texts", type=Path, required=True)
-    attach_labels.add_argument("--finalized-units", type=Path, required=True)
-    attach_labels.add_argument("--label-run-card", type=Path, required=True)
-    attach_labels.add_argument("--output-root", type=Path, required=True)
-    attach_labels.set_defaults(handler=run_attach_labels)
 
     issue_decisions = subparsers.add_parser(
         "issue-manifest-execution-decisions",
@@ -401,16 +374,7 @@ def register(
         help="Issue a hash-pinned provider-free Beads observation wrapper.",
     )
     issue_beads.add_argument("--raw-observation", type=Path, required=True)
-    issue_beads.add_argument("--raw-sha256", required=True)
-    issue_beads.add_argument("--cycle-id", required=True)
-    issue_beads.add_argument("--manifest-digest", required=True)
     issue_beads.add_argument("--model-registry", type=Path, required=True)
-    issue_beads.add_argument("--bead-id", required=True)
-    issue_beads.add_argument("--production-labeling-started-at", required=True)
-    issue_beads.add_argument("--cohort-policy-published-at", required=True)
-    issue_beads.add_argument("--batch-002-started-at", required=True)
-    issue_beads.add_argument("--ceiling-usd", type=float, required=True)
-    issue_beads.add_argument("--estimate-usd", type=float, required=True)
     issue_beads.add_argument("--output", type=Path, required=True)
     issue_beads.set_defaults(handler=run_issue_beads_observation)
 
@@ -509,11 +473,17 @@ def run_verify_freeze_inputs(args: argparse.Namespace) -> int:
     return 0
 
 
-def _read_json_path(path: Path) -> object:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"cannot read JSON input: {path}") from exc
+def _verify_freeze_inputs_complete(output_root: Path) -> _FreezeInputsBuild:
+    """Replay the complete generic-freeze issuer with its authentic verifiers."""
+
+    verify = cast(_FreezeInputsCommand, _VERIFY_FREEZE_INPUTS.load())
+    return verify(
+        output_root=output_root,
+        legacy_historical_authenticator=_HISTORICAL_EXCLUSION_AUTHENTICATOR.load(),
+        legacy_v2_verifier=_V2_VERIFIER.load(),
+        legacy_v2_replay_args=_V2_REPLAY_ARGS.load(),
+        legacy_v2_replay=_V2_REPLAY.load(),
+    )
 
 
 def run_issue_bundle(args: argparse.Namespace) -> int:
@@ -528,14 +498,8 @@ def run_issue_bundle(args: argparse.Namespace) -> int:
         model_registry=args.model_registry,
         provider_cycle_caps=args.provider_cycle_caps,
         execution_policy=args.execution_policy,
-        repeat_policy=cast(
-            dict[str, Any], _read_json_path(cast(Path, args.repeat_policy))
-        ),
-        shard_schedule=cast(
-            list[dict[str, Any]], _read_json_path(cast(Path, args.shard_schedule))
-        ),
-        journal_namespace=cast(str, args.journal_namespace),
         output_root=cast(Path, args.output_root),
+        verify_freeze_inputs=_verify_freeze_inputs_complete,
     )
     print(json.dumps(dict(result.bundle), indent=2, sort_keys=True))
     return 0
@@ -545,24 +509,18 @@ def run_verify_bundle(args: argparse.Namespace) -> int:
     """Verify the bundle and all of its committed source bytes."""
 
     verify = _VERIFY_BUNDLE.load()
-    print(json.dumps(dict(verify(args.output_root)), indent=2, sort_keys=True))
-    return 0
-
-
-def run_attach_labels(args: argparse.Namespace) -> int:
-    """Attach authenticated labels and derive fresh bound receipts."""
-
-    attach = _ATTACH_LABELS.load()
-    result = attach(
-        bundle=cast(Path, args.bundle),
-        deferred_receipts=cast(Path, args.deferred_receipts),
-        labels=cast(Path, args.labels),
-        decision_texts=cast(Path, args.decision_texts),
-        finalized_units=cast(Path, args.finalized_units),
-        label_run_card=cast(Path, args.label_run_card),
-        output_root=cast(Path, args.output_root),
+    print(
+        json.dumps(
+            dict(
+                verify(
+                    args.output_root,
+                    verify_freeze_inputs=_verify_freeze_inputs_complete,
+                )
+            ),
+            indent=2,
+            sort_keys=True,
+        )
     )
-    print(json.dumps(dict(result.attachment), indent=2, sort_keys=True))
     return 0
 
 
@@ -581,6 +539,7 @@ def run_issue_execution_decisions(args: argparse.Namespace) -> int:
         beads_observation=cast(Path, args.beads_observation),
         freeze_inputs_root=cast(Path, args.freeze_inputs_root),
         output_root=cast(Path, args.output_root),
+        verify_freeze_inputs=_verify_freeze_inputs_complete,
     )
     print(json.dumps(dict(result.run_card), indent=2, sort_keys=True))
     return 0
@@ -590,7 +549,10 @@ def run_verify_execution_decisions(args: argparse.Namespace) -> int:
     """Replay one completed execution-decision issuance."""
 
     verify = _VERIFY_EXECUTION_DECISIONS.load()
-    result = verify(cast(Path, args.output_root))
+    result = verify(
+        cast(Path, args.output_root),
+        verify_freeze_inputs=_verify_freeze_inputs_complete,
+    )
     print(json.dumps(dict(result.run_card), indent=2, sort_keys=True))
     return 0
 
@@ -601,20 +563,7 @@ def run_issue_beads_observation(args: argparse.Namespace) -> int:
     issue = _ISSUE_BEADS_OBSERVATION.load()
     result = issue(
         raw_observation=cast(Path, args.raw_observation),
-        raw_sha256=cast(str, args.raw_sha256),
-        cycle_id=cast(str, args.cycle_id),
-        manifest_digest=cast(str, args.manifest_digest),
         model_registry=cast(Path, args.model_registry),
-        bead_id=cast(str, args.bead_id),
-        lifecycle={
-            "production_labeling_started_at": cast(
-                str, args.production_labeling_started_at
-            ),
-            "cohort_policy_published_at": cast(str, args.cohort_policy_published_at),
-            "batch_002_started_at": cast(str, args.batch_002_started_at),
-        },
-        ceiling_usd=cast(float, args.ceiling_usd),
-        estimate_usd=cast(float, args.estimate_usd),
         output=cast(Path, args.output),
     )
     print(json.dumps(dict(result), indent=2, sort_keys=True))

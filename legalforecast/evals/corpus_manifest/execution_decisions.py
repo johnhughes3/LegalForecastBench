@@ -9,13 +9,13 @@ No policy value is accepted from an operator on the command line.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
-import math
 import os
 import re
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -23,9 +23,23 @@ from typing import Any, Final, cast
 
 from legalforecast.contracts.schemas import (
     MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V1,
+    MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V1,
     MANIFEST_EXECUTION_DECISIONS_V1,
     MANIFEST_MODE_FORECAST_RUN_RECORD_V1,
     NO_BASELINES_V1,
+)
+from legalforecast.evals.corpus_manifest.beads_observation import (
+    CONTAMINATION_LINE as _CONTAMINATION_LINE,
+)
+from legalforecast.evals.corpus_manifest.beads_observation import (
+    COORDINATION_BEAD_ID as _COORDINATION_BEAD_ID,
+)
+from legalforecast.evals.corpus_manifest.beads_observation import (
+    SUCCESSOR_REGISTRY_PATH as _SUCCESSOR_REGISTRY_PATH,
+)
+from legalforecast.evals.corpus_manifest.beads_observation import (
+    BeadsObservationError,
+    parse_authentic_beads_comments,
 )
 from legalforecast.evals.corpus_manifest.records import registry_record
 from legalforecast.evals.corpus_manifest.schema import load_signed_manifest_bytes
@@ -91,78 +105,52 @@ class ExecutionDecisionsBuild:
 def issue_beads_observation(
     *,
     raw_observation: Path,
-    raw_sha256: str,
-    cycle_id: str,
-    manifest_digest: str,
     model_registry: Path,
-    bead_id: str,
-    lifecycle: Mapping[str, str],
-    ceiling_usd: float,
-    estimate_usd: float,
     output: Path,
 ) -> Mapping[str, Any]:
-    """Issue a Beads observation wrapper from hash-pinned raw ``bd`` JSON."""
+    """Issue a replayable wrapper from authentic ``bd comments --json`` bytes."""
 
     if output.exists():
         raise ExecutionDecisionsError(f"output already exists: {output}")
     payload = _read_regular(raw_observation, "raw Beads observation")
-    if _sha(payload) != _required_digest(raw_sha256, "raw_sha256"):
-        raise ExecutionDecisionsError("raw Beads observation hash differs")
-    if not bead_id.strip():
-        raise ExecutionDecisionsError("bead_id must be non-empty")
-    expected_lines = _expected_beads_lines(
-        manifest_digest=manifest_digest,
+    registry_bytes = _read_regular(model_registry, "successor model registry")
+    evidence = _parse_authentic_beads_comments(
+        payload,
         model_registry=model_registry,
-        ceiling_usd=ceiling_usd,
-        estimate_usd=estimate_usd,
+        model_registry_bytes=registry_bytes,
     )
-    observed_lines = _collect_lines(payload)
-    line_records: dict[str, dict[str, str]] = {}
-    for name, expected in expected_lines.items():
-        if expected not in observed_lines:
-            raise ExecutionDecisionsError(
-                f"raw Beads observation lacks exact {name} line"
-            )
-        line_records[name] = {"text": expected, "sha256": _sha(expected.encode())}
-    if set(lifecycle) != {
-        "production_labeling_started_at",
-        "cohort_policy_published_at",
-        "batch_002_started_at",
-    }:
-        raise ExecutionDecisionsError("Beads lifecycle fields are not exact")
-    for name, value in lifecycle.items():
-        _timestamp(value, name)
     wrapper = {
         "schema_version": _BEADS_SCHEMA,
-        "cycle_id": cycle_id,
-        "observed_at": datetime.now().astimezone().isoformat(),
-        "bead_id": bead_id,
-        "manifest_sha256": manifest_digest,
-        "model_registry_path": str(model_registry),
-        "spend": {"ceiling_usd": ceiling_usd, "estimate_usd": estimate_usd},
-        "lines": line_records,
-        "lifecycle": dict(lifecycle),
+        "issue_id": _COORDINATION_BEAD_ID,
+        "model_registry_path": _SUCCESSOR_REGISTRY_PATH,
+        "model_registry_sha256": _sha(registry_bytes),
         "raw_observation_sha256": _sha(payload),
+        "raw_observation_base64": base64.b64encode(payload).decode("ascii"),
+        "evidence": evidence,
     }
-    _verify_beads_observation(
-        canonical_json_bytes(
-            wrapper,
-            error_type=ExecutionDecisionsError,
-            error_message="Beads observation is not canonical JSON",
-        ),
-        cycle_id=cycle_id,
-        manifest_digest=manifest_digest,
-        model_registry=model_registry,
-    )
     encoded = canonical_json_bytes(
         wrapper,
         error_type=ExecutionDecisionsError,
         error_message="Beads observation is not canonical JSON",
     )
+    _verify_beads_observation(
+        encoded,
+        manifest_digest=str(evidence["manifest"]["manifest_sha256"]),
+        model_registry=model_registry,
+        model_registry_bytes=registry_bytes,
+    )
+    if _read_regular(raw_observation, "raw Beads observation") != payload:
+        raise ExecutionDecisionsError("raw Beads observation changed during issuance")
+    if _read_regular(model_registry, "successor model registry") != registry_bytes:
+        raise ExecutionDecisionsError("model registry changed during issuance")
     output.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as handle:
         handle.write(encoded)
+    if _read_regular(raw_observation, "raw Beads observation") != payload:
+        raise ExecutionDecisionsError("raw Beads observation changed during issuance")
+    if _read_regular(model_registry, "successor model registry") != registry_bytes:
+        raise ExecutionDecisionsError("model registry changed during issuance")
     return wrapper
 
 
@@ -178,6 +166,7 @@ def issue_execution_decisions(
     beads_observation: Path,
     freeze_inputs_root: Path,
     output_root: Path,
+    verify_freeze_inputs: Callable[[Path], Any],
 ) -> ExecutionDecisionsBuild:
     """Derive and create-only publish the official Cycle 1 decisions/policy."""
 
@@ -193,6 +182,7 @@ def issue_execution_decisions(
         cohort_observation_manifest=cohort_observation_manifest,
         beads_observation=beads_observation,
         freeze_inputs_root=freeze_inputs_root,
+        verify_freeze_inputs=verify_freeze_inputs,
     )
     _require_unchanged(build.input_snapshots)
     _publish_create_only(output_root, build.payloads)
@@ -200,13 +190,27 @@ def issue_execution_decisions(
     return build
 
 
-def verify_execution_decisions(output_root: Path) -> ExecutionDecisionsBuild:
+def verify_execution_decisions(
+    output_root: Path, *, verify_freeze_inputs: Callable[[Path], Any]
+) -> ExecutionDecisionsBuild:
     """Rebuild and verify a previously issued decisions/policy tree."""
 
     card_path = output_root / _RUN_CARD_NAME
     card_bytes = _read_regular(card_path, "execution-decision run card")
     card = _json_object(card_bytes, "execution-decision run card")
-    if card.get("status") != "completed" or card.get("provider_calls_made") != 0:
+    if card_bytes != canonical_json_bytes(
+        card,
+        error_type=ExecutionDecisionsError,
+        error_message="execution-decision run card is not canonical JSON",
+    ):
+        raise ExecutionDecisionsError("execution-decision run card is not canonical")
+    if (
+        card.get("schema_version") != str(MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V1)
+        or card.get("stage") != "issue-manifest-execution-decisions"
+        or card.get("status") != "completed"
+        or card.get("provider_calls_made") != 0
+        or card.get("paid_activity_executed") is not False
+    ):
         raise ExecutionDecisionsError(
             "execution-decision run card is not provider-free"
         )
@@ -223,17 +227,14 @@ def verify_execution_decisions(output_root: Path) -> ExecutionDecisionsBuild:
         ),
         beads_observation=Path(_required_text(inputs, "beads_observation")),
         freeze_inputs_root=Path(_required_text(inputs, "freeze_inputs_root")),
+        verify_freeze_inputs=verify_freeze_inputs,
     )
     if card_bytes != build.payloads[_RUN_CARD_NAME]:
         raise ExecutionDecisionsError("execution-decision run card does not reproduce")
-    decisions = _json_object(
-        _read_regular(output_root / _DECISIONS_NAME, "execution decisions"),
-        "execution decisions",
+    decisions_bytes = _read_regular(
+        output_root / _DECISIONS_NAME, "execution decisions"
     )
-    policy = _json_object(
-        _read_regular(output_root / _POLICY_NAME, "execution policy"),
-        "execution policy",
-    )
+    policy_bytes = _read_regular(output_root / _POLICY_NAME, "execution policy")
     expected_output_commitments = {
         name: _sha(payload)
         for name, payload in build.payloads.items()
@@ -243,10 +244,12 @@ def verify_execution_decisions(output_root: Path) -> ExecutionDecisionsBuild:
         raise ExecutionDecisionsError(
             "execution-decision output commitments do not reproduce"
         )
-    if decisions != dict(build.decisions):
-        raise ExecutionDecisionsError("execution decisions do not reproduce")
-    if policy != dict(build.execution_policy):
-        raise ExecutionDecisionsError("execution policy does not reproduce")
+    if decisions_bytes != build.payloads[_DECISIONS_NAME]:
+        raise ExecutionDecisionsError("execution decision bytes do not reproduce")
+    if policy_bytes != build.payloads[_POLICY_NAME]:
+        raise ExecutionDecisionsError("execution policy bytes do not reproduce")
+    decisions = _json_object(decisions_bytes, "execution decisions")
+    policy = _json_object(policy_bytes, "execution policy")
     verify_execution_policy(policy, expected_cycle_id=decisions["cycle_id"])
     _require_unchanged(build.input_snapshots)
     return build
@@ -263,6 +266,7 @@ def _build(
     cohort_observation_manifest: Path,
     beads_observation: Path,
     freeze_inputs_root: Path,
+    verify_freeze_inputs: Callable[[Path], Any],
 ) -> ExecutionDecisionsBuild:
     snapshots: dict[Path, bytes] = {}
     owner_bytes = _snapshot(owner_manifest, snapshots, "owner manifest")
@@ -327,9 +331,9 @@ def _build(
     beads_bytes = _snapshot(beads_observation, snapshots, "Beads observation")
     beads = _verify_beads_observation(
         beads_bytes,
-        cycle_id=cycle_id_text,
         manifest_digest=cycle_id,
         model_registry=model_registry,
+        model_registry_bytes=registry_bytes,
     )
     labeling_time = _parse_timestamp(labeling_published, "labeling policy published_at")
     labeling_started_time = _parse_timestamp(
@@ -341,10 +345,13 @@ def _build(
             "labeling policy was not published before labeling started"
         )
 
-    no_baselines_path = freeze_inputs_root / _NO_BASELINES_NAME
-    no_baselines_bytes = _snapshot(
-        no_baselines_path, snapshots, "no-baselines sentinel"
+    freeze_payloads = _verify_complete_freeze_inputs(
+        freeze_inputs_root,
+        snapshots,
+        cycle_id=cycle_id_text,
+        verifier=verify_freeze_inputs,
     )
+    no_baselines_bytes = freeze_payloads[_NO_BASELINES_NAME]
     no_baselines = _json_object(no_baselines_bytes, "no-baselines sentinel")
     if (
         no_baselines.get("schema_version") != str(NO_BASELINES_V1)
@@ -352,24 +359,6 @@ def _build(
         or no_baselines.get("status") != "unavailable"
     ):
         raise ExecutionDecisionsError("no-baselines sentinel is not authenticated")
-    freeze_card_path = (
-        freeze_inputs_root / "run-cards/issue-manifest-freeze-inputs.json"
-    )
-    freeze_card_bytes = _snapshot(
-        freeze_card_path, snapshots, "generic freeze-input run card"
-    )
-    freeze_card = _json_object(freeze_card_bytes, "generic freeze-input run card")
-    freeze_outputs = _mapping(
-        freeze_card.get("output_commitments"),
-        "generic freeze-input output commitments",
-    )
-    if (
-        freeze_card.get("status") != "completed"
-        or freeze_card.get("cycle_id") != cycle_id_text
-        or freeze_card.get("provider_calls_made") != 0
-        or freeze_outputs.get(_NO_BASELINES_NAME) != _sha(no_baselines_bytes)
-    ):
-        raise ExecutionDecisionsError("generic freeze inputs are not authenticated")
 
     decisions: dict[str, Any] = {
         "cycle_id": cycle_id_text,
@@ -442,7 +431,7 @@ def _build(
         _POLICY_NAME: _policy_bytes(execution_policy),
     }
     run_card = {
-        "schema_version": str(MANIFEST_EXECUTION_DECISIONS_V1),
+        "schema_version": str(MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V1),
         "stage": "issue-manifest-execution-decisions",
         "status": "completed",
         "cycle_id": cycle_id_text,
@@ -481,6 +470,61 @@ def _build(
         payloads=payloads,
         input_snapshots=snapshots,
     )
+
+
+def _verify_complete_freeze_inputs(
+    root: Path,
+    snapshots: dict[Path, bytes],
+    *,
+    cycle_id: str,
+    verifier: Callable[[Path], Any],
+) -> dict[str, bytes]:
+    """Replay the complete generic issuer and bind every published byte."""
+
+    try:
+        build = verifier(root)
+    except Exception as exc:
+        raise ExecutionDecisionsError(
+            "generic freeze inputs fail complete replay verification"
+        ) from exc
+    payloads = getattr(build, "payloads", None)
+    run_card = getattr(build, "run_card", None)
+    expected_names = {
+        "prompt-contract.json",
+        "scorer-contract.json",
+        "harness-contract.json",
+        _NO_BASELINES_NAME,
+        "complete-exclusion-ledger.jsonl",
+        "run-cards/issue-manifest-freeze-inputs.json",
+    }
+    if not isinstance(payloads, Mapping) or not isinstance(run_card, Mapping):
+        raise ExecutionDecisionsError(
+            "generic freeze verifier returned an incomplete result"
+        )
+    payload_map = cast(Mapping[str, object], payloads)
+    run_card_map = cast(Mapping[str, Any], run_card)
+    if set(payload_map) != expected_names or run_card_map.get("cycle_id") != cycle_id:
+        raise ExecutionDecisionsError(
+            "generic freeze verifier returned an incomplete result"
+        )
+    verified: dict[str, bytes] = {}
+    resolved_root = root.resolve()
+    for name in sorted(expected_names):
+        path = (root / name).resolve()
+        try:
+            path.relative_to(resolved_root)
+        except ValueError as exc:
+            raise ExecutionDecisionsError(
+                "generic freeze input escapes its output root"
+            ) from exc
+        payload = _snapshot(path, snapshots, f"generic freeze input {name}")
+        expected = payload_map[name]
+        if not isinstance(expected, bytes) or payload != expected:
+            raise ExecutionDecisionsError(
+                f"generic freeze verifier bytes differ: {name}"
+            )
+        verified[name] = payload
+    return verified
 
 
 def _verify_forecast(
@@ -618,77 +662,66 @@ def _observation_records(payload: bytes) -> tuple[dict[str, Any], ...]:
 def _verify_beads_observation(
     payload: bytes,
     *,
-    cycle_id: str,
     manifest_digest: str,
     model_registry: Path,
+    model_registry_bytes: bytes | None = None,
 ) -> dict[str, Any]:
     record = _json_object(payload, "Beads observation")
     if set(record) != {
         "schema_version",
-        "cycle_id",
-        "observed_at",
-        "bead_id",
-        "manifest_sha256",
+        "issue_id",
         "model_registry_path",
+        "model_registry_sha256",
         "raw_observation_sha256",
-        "spend",
-        "lines",
-        "lifecycle",
+        "raw_observation_base64",
+        "evidence",
     }:
         raise ExecutionDecisionsError("Beads observation fields are not exact")
     if (
         record.get("schema_version") != _BEADS_SCHEMA
-        or record.get("cycle_id") != cycle_id
-        or record.get("manifest_sha256") != manifest_digest
-        or record.get("model_registry_path") != str(model_registry)
+        or record.get("issue_id") != _COORDINATION_BEAD_ID
+        or record.get("model_registry_path") != _SUCCESSOR_REGISTRY_PATH
     ):
-        raise ExecutionDecisionsError("Beads observation schema or cycle differs")
-    _required_sha(record, "raw_observation_sha256")
-    _required_text(record, "bead_id")
-    observed_at = _required_text(record, "observed_at")
-    _timestamp(observed_at, "observed_at")
-    spend = _mapping(record.get("spend"), "Beads spend")
-    if set(spend) != {"ceiling_usd", "estimate_usd"}:
-        raise ExecutionDecisionsError("Beads spend fields are not exact")
-    ceiling = _required_number(spend, "ceiling_usd")
-    estimate = _required_number(spend, "estimate_usd")
-    if ceiling < 0 or estimate < 0 or estimate > ceiling:
-        raise ExecutionDecisionsError("Beads spend estimate exceeds ceiling")
-    lines = _mapping(record.get("lines"), "Beads observation lines")
-    if set(lines) != {"manifest", "contamination", "final_provider_spend"}:
-        raise ExecutionDecisionsError("Beads observation lines are not exact")
-    line_hashes: dict[str, str] = {}
-    for name in ("manifest", "contamination", "final_provider_spend"):
-        line = _mapping(lines.get(name), f"Beads {name} line")
-        text = _required_text(line, "text")
-        digest = _required_sha(line, "sha256")
-        expected = _expected_beads_lines(
-            manifest_digest=manifest_digest,
-            model_registry=model_registry,
-            ceiling_usd=ceiling,
-            estimate_usd=estimate,
-        )[name]
-        if text != expected:
-            raise ExecutionDecisionsError(f"Beads {name} line is not exact")
-        if _sha(text.encode()) != digest:
-            raise ExecutionDecisionsError(f"Beads {name} line hash differs")
-        line_hashes[name] = digest
-    lifecycle = _mapping(record.get("lifecycle"), "Beads lifecycle")
-    if set(lifecycle) != {
-        "production_labeling_started_at",
-        "cohort_policy_published_at",
-        "batch_002_started_at",
-    }:
-        raise ExecutionDecisionsError("Beads lifecycle fields are not exact")
-    lifecycle_times: dict[str, datetime] = {}
-    for name in (
-        "production_labeling_started_at",
-        "cohort_policy_published_at",
-        "batch_002_started_at",
-    ):
-        value = _required_text(lifecycle, name)
-        _timestamp(value, name)
-        lifecycle_times[name] = _parse_timestamp(value, name)
+        raise ExecutionDecisionsError("Beads observation schema or issue differs")
+    registry_payload = model_registry_bytes or _read_regular(
+        model_registry, "successor model registry"
+    )
+    if _sha(registry_payload) != _required_sha(record, "model_registry_sha256"):
+        raise ExecutionDecisionsError("Beads model registry digest differs")
+    raw_b64 = _required_text(record, "raw_observation_base64")
+    try:
+        raw = base64.b64decode(raw_b64, validate=True)
+    except (ValueError, TypeError) as exc:
+        raise ExecutionDecisionsError(
+            "Beads raw observation is not canonical base64"
+        ) from exc
+    if _sha(raw) != _required_sha(record, "raw_observation_sha256"):
+        raise ExecutionDecisionsError("Beads raw observation digest differs")
+    replayed = _parse_authentic_beads_comments(
+        raw,
+        model_registry=model_registry,
+        model_registry_bytes=registry_payload,
+    )
+    evidence = _mapping(record.get("evidence"), "Beads evidence")
+    if dict(evidence) != replayed:
+        raise ExecutionDecisionsError("Beads evidence does not replay from raw bytes")
+    manifest = _mapping(evidence.get("manifest"), "manifest evidence")
+    if manifest.get("manifest_sha256") != manifest_digest:
+        raise ExecutionDecisionsError("Beads manifest approval digest differs")
+    contamination = _mapping(evidence.get("contamination"), "contamination evidence")
+    if contamination.get("text") != _CONTAMINATION_LINE:
+        raise ExecutionDecisionsError("Beads contamination ruling differs")
+    spend = _mapping(evidence.get("final_provider_spend"), "spend evidence")
+    lifecycle = _mapping(evidence.get("lifecycle"), "Beads lifecycle evidence")
+    lifecycle_values = _mapping(lifecycle.get("values"), "Beads lifecycle values")
+    lifecycle_times = {
+        name: _parse_timestamp(_required_text(lifecycle_values, name), name)
+        for name in (
+            "production_labeling_started_at",
+            "cohort_policy_published_at",
+            "batch_002_started_at",
+        )
+    }
     if (
         lifecycle_times["cohort_policy_published_at"]
         > lifecycle_times["batch_002_started_at"]
@@ -697,36 +730,39 @@ def _verify_beads_observation(
             "cohort policy was not published before Batch 002"
         )
     return {
-        "line_sha256": line_hashes,
-        "lifecycle": dict(lifecycle),
-        "bead_id": _required_text(record, "bead_id"),
+        "line_sha256": {
+            name: _required_sha(_mapping(evidence[name], name), "text_sha256")
+            for name in (
+                "manifest",
+                "contamination",
+                "final_provider_spend",
+                "lifecycle",
+            )
+        },
+        "lifecycle": dict(lifecycle_values),
+        "bead_id": _COORDINATION_BEAD_ID,
         "raw_observation_sha256": _required_sha(record, "raw_observation_sha256"),
-        "ceiling_usd": ceiling,
-        "estimate_usd": estimate,
+        "ceiling_usd": _required_text(spend, "ceiling_usd"),
+        "estimate_usd": _required_text(spend, "estimate_usd"),
     }
 
 
-def _expected_beads_lines(
+def _parse_authentic_beads_comments(
+    payload: bytes,
     *,
-    manifest_digest: str,
     model_registry: Path,
-    ceiling_usd: float,
-    estimate_usd: float,
-) -> dict[str, str]:
-    return {
-        "manifest": (
-            f"I approve corpus manifest {manifest_digest} as the frozen Cycle 1 "
-            "forecast corpus."
-        ),
-        "contamination": (
-            "I confirm the Cycle 1 manifest forecast has no outcome contamination."
-        ),
-        "final_provider_spend": (
-            f"I approve provider spend estimate USD {_format_usd(estimate_usd)} "
-            f"under ceiling USD {_format_usd(ceiling_usd)} for model registry "
-            f"{model_registry}."
-        ),
-    }
+    model_registry_bytes: bytes | None = None,
+) -> dict[str, Any]:
+    """Translate the focused Beads parser's error into this issuer's domain."""
+
+    try:
+        return parse_authentic_beads_comments(
+            payload,
+            model_registry=model_registry,
+            model_registry_bytes=model_registry_bytes,
+        )
+    except BeadsObservationError as exc:
+        raise ExecutionDecisionsError(str(exc)) from exc
 
 
 def _policy_bytes(policy: Mapping[str, Any]) -> bytes:
@@ -817,60 +853,8 @@ def _required_sha(record: Mapping[str, Any], name: str) -> str:
     return value
 
 
-def _required_digest(value: str, name: str) -> str:
-    if _SHA256.fullmatch(value) is None:
-        raise ExecutionDecisionsError(f"{name} must be a lowercase SHA-256 digest")
-    return value
-
-
-def _required_number(record: Mapping[str, Any], name: str) -> float:
-    value = record.get(name)
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ExecutionDecisionsError(f"{name} must be a number")
-    number = float(value)
-    if not math.isfinite(number):
-        raise ExecutionDecisionsError(f"{name} must be finite")
-    return number
-
-
-def _format_usd(value: float) -> str:
-    if not math.isfinite(value) or value < 0:
-        raise ExecutionDecisionsError("USD amount must be finite and non-negative")
-    return f"{value:.2f}"
-
-
 def _sha(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
-
-
-def _collect_lines(payload: bytes) -> frozenset[str]:
-    try:
-        loaded: object = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ExecutionDecisionsError("raw Beads observation is not JSON") from exc
-    lines: list[str] = []
-
-    def collect(value: object) -> None:
-        if isinstance(value, str):
-            lines.extend(line.strip() for line in value.splitlines() if line.strip())
-        elif isinstance(value, list):
-            for item in cast(list[object], value):
-                collect(item)
-        elif isinstance(value, Mapping):
-            for item in cast(Mapping[object, object], value).values():
-                collect(item)
-
-    collect(loaded)
-    return frozenset(lines)
-
-
-def _timestamp(value: str, name: str) -> None:
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise ExecutionDecisionsError(f"{name} must be ISO-8601") from exc
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        raise ExecutionDecisionsError(f"{name} must be timezone-aware")
 
 
 def _parse_timestamp(value: str, name: str) -> datetime:
