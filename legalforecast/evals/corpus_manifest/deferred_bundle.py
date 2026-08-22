@@ -26,6 +26,8 @@ from legalforecast.contracts.schemas import (
     MANIFEST_FORECAST_BUNDLE_V1,
     MANIFEST_FORECAST_DEFERRED_RECEIPT_V1,
     MANIFEST_FORECAST_LABEL_ATTACHMENT_V1,
+    MANIFEST_MODE_FORECAST_RUN_RECORD_V1,
+    NO_BASELINES_V1,
 )
 from legalforecast.evals.corpus_manifest.records import registry_record
 from legalforecast.evals.corpus_manifest.schema import load_signed_manifest_bytes
@@ -392,7 +394,7 @@ def _validate_deferred_rows(
         "packet_sha256",
     )
     bound: list[Mapping[str, Any]] = []
-    seen: set[tuple[str, str, int]] = set()
+    seen: set[tuple[str, str, str, int]] = set()
     expected = _expected_receipt_keys(bundle_record)
     for raw in receipts:
         row = dict(raw)
@@ -407,6 +409,7 @@ def _validate_deferred_rows(
         identity = (
             f"{_required_text(row, 'candidate_id')}:{_required_text(row, 'ablation')}"
         )
+        model_key = _required_text(row, "model_key")
         prompt_sha = _required_sha(row, "actual_provider_prompt_sha256")
         packet_sha = _required_sha(row, "packet_sha256")
         if (
@@ -415,16 +418,20 @@ def _validate_deferred_rows(
         ):
             raise DeferredReceiptError(f"receipt identity is not in bundle: {identity}")
         _reject_label_lineage(row)
-        key = (identity, prompt_sha, _nonnegative_int(row, "repeat_index"))
+        repeat_index = _positive_int(row, "repeat_index")
+        key = (identity, model_key, prompt_sha, repeat_index)
         if key in seen:
-            raise DeferredReceiptError(f"duplicate deferred receipt: {identity}")
+            raise DeferredReceiptError(
+                f"duplicate deferred receipt: {identity} / {model_key}"
+            )
         seen.add(key)
         row["schema_version"] = str(MANIFEST_FORECAST_DEFERRED_RECEIPT_V1)
         expected_resume = _resume_identity(
             bundle_record,
+            model_key=model_key,
             packet_sha=packet_sha,
             prompt_sha=prompt_sha,
-            repeat_index=key[2],
+            repeat_index=repeat_index,
         )
         supplied_resume = row.get("resume_identity_sha256")
         if supplied_resume is not None and supplied_resume != expected_resume:
@@ -480,7 +487,12 @@ def attach_labels(
         raise ManifestForecastBundleError(
             "labels must come from a completed authenticated label run"
         )
-    _require_card_commitment(card, "labels", _sha(snapshots[labels]))
+    for name, path in (
+        ("labels", labels),
+        ("decision_texts", decision_texts),
+        ("finalized_units", finalized_units),
+    ):
+        _require_card_commitment(card, name, _sha(snapshots[path]))
     expected_units = set(bundle_record.get("prediction_unit_identities", []))
     final_units = _unit_identities(unit_rows)
     label_units = _unique_label_identities(label_rows)
@@ -490,6 +502,7 @@ def attach_labels(
         )
     _validate_decision_evidence(label_rows, decision_rows)
     _validate_label_lineage(label_rows, unit_rows, decision_rows)
+    _require_snapshots_unchanged(snapshots)
     attachment_core: dict[str, Any] = {
         "schema_version": str(MANIFEST_FORECAST_LABEL_ATTACHMENT_V1),
         "cycle_id": bundle_record["cycle_id"],
@@ -511,6 +524,7 @@ def attach_labels(
         _BOUND_RECEIPTS_NAME: _jsonl_bytes(bound_receipts),
     }
     _publish_create_only(output_root, payloads)
+    _require_snapshots_unchanged(snapshots)
     return LabelAttachmentBuild(attachment_core, bound_receipts)
 
 
@@ -574,7 +588,7 @@ def _read_freeze_inputs(
         if name == "no-baselines.json":
             no_baselines = _json_object(payload, "no-baselines sentinel")
             if (
-                no_baselines.get("schema_version") != "legalforecast.no_baselines.v1"
+                no_baselines.get("schema_version") != str(NO_BASELINES_V1)
                 or no_baselines.get("status") != "unavailable"
                 or (
                     expected_cycle_id is not None
@@ -627,8 +641,7 @@ def _require_official_forecast_record(
         run_record.get("manifest_sha256") != manifest_sha
         or run_record.get("cycle_id") != manifest.cycle_id
         or run_inputs.get("cycle_id") != manifest.cycle_id
-        or run_record.get("schema_version")
-        != "legalforecast.manifest_mode_forecast_run_record.v1"
+        or run_record.get("schema_version") != str(MANIFEST_MODE_FORECAST_RUN_RECORD_V1)
         or run_record.get("entry_mode") != "owner_signed_manifest"
         or run_record.get("case_count") != _OFFICIAL_CASE_COUNT
         or run_record.get("packet_count")
@@ -821,23 +834,40 @@ def _forecast_commitments(
     )
 
 
-def _expected_receipt_keys(bundle: Mapping[str, Any]) -> set[tuple[str, str, int]]:
+def _expected_receipt_keys(
+    bundle: Mapping[str, Any],
+) -> set[tuple[str, str, str, int]]:
     forecast = _mapping(bundle.get("forecast_inputs"), "forecast_inputs")
     prompt_map = _mapping(forecast.get("prompt_sha256"), "prompt_sha256")
     repeat_policy = _mapping(bundle.get("repeat_policy"), "repeat_policy")
     raw_count = repeat_policy.get("count", repeat_policy.get("repeat_count", 1))
     if not isinstance(raw_count, int) or isinstance(raw_count, bool) or raw_count < 1:
         raise DeferredReceiptError("repeat policy count must be a positive integer")
+    schedule = bundle.get("shard_schedule")
+    if not isinstance(schedule, list) or not schedule:
+        raise DeferredReceiptError("shard schedule must contain model identities")
+    shards: set[tuple[str, str]] = set()
+    for raw_shard in cast(list[object], schedule):
+        shard = _mapping(raw_shard, "shard schedule row")
+        shards.add(
+            (
+                _required_text(shard, "model_key"),
+                _required_text(shard, "ablation"),
+            )
+        )
     return {
-        (str(identity), str(prompt_sha), repeat_index)
+        (str(identity), model_key, str(prompt_sha), repeat_index)
         for identity, prompt_sha in prompt_map.items()
-        for repeat_index in range(raw_count)
+        for model_key, ablation in shards
+        if str(identity).endswith(f":{ablation}")
+        for repeat_index in range(1, raw_count + 1)
     }
 
 
 def _resume_identity(
     bundle: Mapping[str, Any],
     *,
+    model_key: str,
     packet_sha: str,
     prompt_sha: str,
     repeat_index: int,
@@ -848,6 +878,7 @@ def _resume_identity(
                 "bundle_sha256": _required_sha(bundle, "bundle_sha256"),
                 "packet_sha256": packet_sha,
                 "actual_provider_prompt_sha256": prompt_sha,
+                "model_key": model_key,
                 "model_registry_sha256": _required_sha(
                     _mapping(bundle["model_registry"], "model_registry"), "sha256"
                 ),
@@ -1122,10 +1153,10 @@ def _required_sha(record: Mapping[str, Any], name: str) -> str:
     return value
 
 
-def _nonnegative_int(record: Mapping[str, Any], name: str) -> int:
-    value = record.get(name, 0)
-    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        raise DeferredReceiptError(f"{name} must be a non-negative integer")
+def _positive_int(record: Mapping[str, Any], name: str) -> int:
+    value = record.get(name)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise DeferredReceiptError(f"{name} must be a positive integer")
     return value
 
 

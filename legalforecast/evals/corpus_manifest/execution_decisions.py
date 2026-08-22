@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import tempfile
@@ -21,6 +22,7 @@ from pathlib import Path
 from typing import Any, Final, cast
 
 from legalforecast.contracts.schemas import (
+    MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V1,
     MANIFEST_EXECUTION_DECISIONS_V1,
     MANIFEST_MODE_FORECAST_RUN_RECORD_V1,
     NO_BASELINES_V1,
@@ -49,7 +51,7 @@ _DECISIONS_NAME: Final = "execution-decisions.json"
 _POLICY_NAME: Final = "execution-policy.json"
 _RUN_CARD_NAME: Final = "run-cards/issue-manifest-execution-decisions.json"
 _NO_BASELINES_NAME: Final = "no-baselines.json"
-_BEADS_SCHEMA: Final = "legalforecast.execution_decisions_beads_observation.v1"
+_BEADS_SCHEMA: Final = str(MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V1)
 _OFFICIAL_CASE_COUNT: Final = 100
 _ABLATIONS: Final = tuple(OFFICIAL_SHARD_ABLATIONS)
 _POLICY_FIELDS: Final = frozenset(
@@ -94,7 +96,6 @@ def issue_beads_observation(
     manifest_digest: str,
     model_registry: Path,
     bead_id: str,
-    required_lines: Mapping[str, str],
     lifecycle: Mapping[str, str],
     ceiling_usd: float,
     estimate_usd: float,
@@ -109,11 +110,15 @@ def issue_beads_observation(
         raise ExecutionDecisionsError("raw Beads observation hash differs")
     if not bead_id.strip():
         raise ExecutionDecisionsError("bead_id must be non-empty")
-    if set(required_lines) != {"manifest", "contamination", "final_provider_spend"}:
-        raise ExecutionDecisionsError("required Beads lines are not exact")
+    expected_lines = _expected_beads_lines(
+        manifest_digest=manifest_digest,
+        model_registry=model_registry,
+        ceiling_usd=ceiling_usd,
+        estimate_usd=estimate_usd,
+    )
     observed_lines = _collect_lines(payload)
     line_records: dict[str, dict[str, str]] = {}
-    for name, expected in required_lines.items():
+    for name, expected in expected_lines.items():
         if expected not in observed_lines:
             raise ExecutionDecisionsError(
                 f"raw Beads observation lacks exact {name} line"
@@ -421,6 +426,7 @@ def _build(
             },
             "beads_line_sha256": beads["line_sha256"],
             "no_baselines_sha256": _sha(no_baselines_bytes),
+            "request_count": len(manifest.cases) * len(registry_keys) * len(_ABLATIONS),
         },
     }
     policy_decisions = {
@@ -656,6 +662,14 @@ def _verify_beads_observation(
         line = _mapping(lines.get(name), f"Beads {name} line")
         text = _required_text(line, "text")
         digest = _required_sha(line, "sha256")
+        expected = _expected_beads_lines(
+            manifest_digest=manifest_digest,
+            model_registry=model_registry,
+            ceiling_usd=ceiling,
+            estimate_usd=estimate,
+        )[name]
+        if text != expected:
+            raise ExecutionDecisionsError(f"Beads {name} line is not exact")
         if _sha(text.encode()) != digest:
             raise ExecutionDecisionsError(f"Beads {name} line hash differs")
         line_hashes[name] = digest
@@ -689,6 +703,29 @@ def _verify_beads_observation(
         "raw_observation_sha256": _required_sha(record, "raw_observation_sha256"),
         "ceiling_usd": ceiling,
         "estimate_usd": estimate,
+    }
+
+
+def _expected_beads_lines(
+    *,
+    manifest_digest: str,
+    model_registry: Path,
+    ceiling_usd: float,
+    estimate_usd: float,
+) -> dict[str, str]:
+    return {
+        "manifest": (
+            f"I approve corpus manifest {manifest_digest} as the frozen Cycle 1 "
+            "forecast corpus."
+        ),
+        "contamination": (
+            "I confirm the Cycle 1 manifest forecast has no outcome contamination."
+        ),
+        "final_provider_spend": (
+            f"I approve provider spend estimate USD {_format_usd(estimate_usd)} "
+            f"under ceiling USD {_format_usd(ceiling_usd)} for model registry "
+            f"{model_registry}."
+        ),
     }
 
 
@@ -790,7 +827,16 @@ def _required_number(record: Mapping[str, Any], name: str) -> float:
     value = record.get(name)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ExecutionDecisionsError(f"{name} must be a number")
-    return float(value)
+    number = float(value)
+    if not math.isfinite(number):
+        raise ExecutionDecisionsError(f"{name} must be finite")
+    return number
+
+
+def _format_usd(value: float) -> str:
+    if not math.isfinite(value) or value < 0:
+        raise ExecutionDecisionsError("USD amount must be finite and non-negative")
+    return f"{value:.2f}"
 
 
 def _sha(payload: bytes) -> str:
