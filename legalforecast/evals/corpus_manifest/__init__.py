@@ -13,6 +13,23 @@ and the same registry eligibility functions rather than restating them.
 
 from __future__ import annotations
 
+from legalforecast.evals.corpus_manifest.deferred_bundle import (
+    DeferredReceiptError,
+    LabelAttachmentBuild,
+    ManifestForecastBundleBuild,
+    ManifestForecastBundleError,
+    attach_labels,
+    issue_bundle,
+    verify_bundle,
+    write_deferred_receipts,
+)
+from legalforecast.evals.corpus_manifest.execution_decisions import (
+    ExecutionDecisionsBuild,
+    ExecutionDecisionsError,
+    issue_beads_observation,
+    issue_execution_decisions,
+    verify_execution_decisions,
+)
 from legalforecast.evals.corpus_manifest.schema import (
     AUDIT_ONLY_DOCUMENT_ROLES,
     MODEL_VISIBLE_DOCUMENT_ROLES,
@@ -29,8 +46,21 @@ __all__ = [
     "MODEL_VISIBLE_DOCUMENT_ROLES",
     "CorpusManifest",
     "CorpusManifestError",
+    "DeferredReceiptError",
+    "ExecutionDecisionsBuild",
+    "ExecutionDecisionsError",
+    "LabelAttachmentBuild",
     "ManifestCase",
     "ManifestDocument",
+    "ManifestForecastBundleBuild",
+    "ManifestForecastBundleError",
+    "attach_labels",
+    "issue_beads_observation",
+    "issue_bundle",
+    "issue_execution_decisions",
     "load_signed_manifest",
     "manifest_digest",
+    "verify_bundle",
+    "verify_execution_decisions",
+    "write_deferred_receipts",
 ]

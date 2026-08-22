@@ -158,6 +158,21 @@ OWNER_SIGNED_CORPUS_MANIFEST_V1 = SchemaIdentifier(
 MANIFEST_MODE_FORECAST_RUN_RECORD_V1 = SchemaIdentifier(
     "legalforecast.manifest_mode_forecast_run_record.v1"
 )
+MANIFEST_FORECAST_BUNDLE_V1 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle.v1"
+)
+MANIFEST_FORECAST_LABEL_ATTACHMENT_V1 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_label_attachment.v1"
+)
+MANIFEST_FORECAST_DEFERRED_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_deferred_receipt.v1"
+)
+MANIFEST_FORECAST_BOUND_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bound_receipt.v1"
+)
+MANIFEST_EXECUTION_DECISIONS_V1 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions.v1"
+)
 MANIFEST_FREEZE_RUNTIME_CONTRACT_V1 = SchemaIdentifier(
     "legalforecast.manifest_freeze_runtime_contract.v1"
 )
