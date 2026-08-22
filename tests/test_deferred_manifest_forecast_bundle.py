@@ -3,17 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from legalforecast.evals.corpus_manifest import deferred_bundle as module
 from legalforecast.evals.corpus_manifest.deferred_bundle import (
-    DeferredReceiptError,
     ManifestForecastBundleError,
-    attach_labels,
     issue_bundle,
     verify_bundle,
-    write_deferred_receipts,
 )
 
 
@@ -163,15 +161,34 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         lambda *_args, **_kwargs: (
             [{"provider": "fixture", "model_id": "model-1"}],
             {
-                "repeat_policy": {"count": 1, "case_ids": ["case-1"]},
+                "cycle_series": "official",
+                "allow_no_baselines": True,
+                "repeat_policy": {"count": 1, "case_ids": []},
                 "shard_schedule": {
+                    "shard_count": 1,
+                    "dispatch_unit": "model_key_ablation",
                     "shards": [
                         {"model_key": "fixture:model-1", "ablation": "full_packet"}
-                    ]
+                    ],
                 },
+                "attempt_policy": {"authority_backend": "fixture"},
             },
         ),
     )
+    freeze_payloads = {
+        str(path.relative_to(freeze)): path.read_bytes()
+        for path in freeze.rglob("*")
+        if path.is_file()
+    }
+
+    def freeze_verifier(_root: Path) -> SimpleNamespace:
+        return SimpleNamespace(
+            payloads=freeze_payloads,
+            run_card=json.loads(
+                (freeze / "run-cards/issue-manifest-freeze-inputs.json").read_text()
+            ),
+        )
+
     return {
         "freeze": freeze,
         "manifest": manifest,
@@ -181,6 +198,7 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "policy": policy,
         "units": units,
         "output": tmp_path / "bundle",
+        "freeze_verifier": freeze_verifier,
     }
 
 
@@ -193,10 +211,8 @@ def _issue(fixture: dict[str, Any]) -> dict[str, Any]:
         model_registry=fixture["registry"],  # type: ignore[arg-type]
         provider_cycle_caps=fixture["caps"],  # type: ignore[arg-type]
         execution_policy=fixture["policy"],  # type: ignore[arg-type]
-        repeat_policy={"count": 1, "case_ids": ["case-1"]},
-        shard_schedule=[{"model_key": "fixture:model-1", "ablation": "full_packet"}],
-        journal_namespace="cycle-1/manifest/a" + "a" * 20,
         output_root=fixture["output"],  # type: ignore[arg-type]
+        verify_freeze_inputs=fixture["freeze_verifier"],
     )
     return dict(build.bundle)
 
@@ -205,209 +221,18 @@ def test_issue_verify_and_toctou(fixture: dict[str, Any]) -> None:
     bundle = _issue(fixture)
     assert bundle["labels_state"] == "deferred"
     assert bundle["scoreable"] is False
-    assert verify_bundle(fixture["output"]) == bundle  # type: ignore[arg-type]
+    assert not hasattr(module, "write_deferred_receipts")
+    assert not hasattr(module, "attach_labels")
+    assert (
+        verify_bundle(
+            fixture["output"],  # type: ignore[arg-type]
+            verify_freeze_inputs=fixture["freeze_verifier"],
+        )
+        == bundle
+    )
     fixture["policy"].write_bytes(b'{"cycle_id":"cycle-1","changed":true}\n')  # type: ignore[union-attr]
     with pytest.raises(ManifestForecastBundleError, match="bytes changed"):
-        verify_bundle(fixture["output"])  # type: ignore[arg-type]
-
-
-def test_deferred_receipt_cannot_contain_labels(
-    fixture: dict[str, Any], tmp_path: Path
-) -> None:
-    bundle = _issue(fixture)
-    receipts = [
-        {
-            "bundle_sha256": bundle["bundle_sha256"],
-            "candidate_id": "case-1",
-            "ablation": "full_packet",
-            "model_key": "fixture:model-1",
-            "packet_sha256": next(
-                iter(bundle["forecast_inputs"]["packet_sha256"].values())
-            ),  # type: ignore[index]
-            "actual_provider_prompt_sha256": "b" * 64,
-            "repeat_index": 1,
-            "labels_state": "deferred",
-            "scoreable": False,
-            "publishable": False,
-            "label": "leak",
-        }
-    ]
-    with pytest.raises(DeferredReceiptError, match="outcome or label"):
-        write_deferred_receipts(
-            bundle=fixture["output"],  # type: ignore[arg-type]
-            receipts=receipts,
-            output=tmp_path / "receipts.jsonl",
-        )
-
-
-def test_deferred_receipt_mapping_cannot_bypass_bundle_replay(
-    tmp_path: Path,
-) -> None:
-    with pytest.raises(DeferredReceiptError, match="bundle path"):
-        write_deferred_receipts(
-            bundle={
-                "schema_version": "legalforecast.manifest_forecast_bundle.v1",
-                "labels_state": "deferred",
-                "bundle_sha256": "a" * 64,
-            },
-            receipts=[],
-            output=tmp_path / "receipts.jsonl",
-        )
-
-
-def test_expected_receipt_keys_cover_official_models_and_one_based_repeats() -> None:
-    prompts = {
-        f"case-{case}:{ablation}": "a" * 64
-        for case in range(100)
-        for ablation in ("full_packet", "no_docket_tool")
-    }
-    schedule = [
-        {"model_key": f"provider:model-{model}", "ablation": ablation}
-        for model in range(4)
-        for ablation in ("full_packet", "no_docket_tool")
-    ]
-    keys = module._expected_receipt_keys(
-        {
-            "forecast_inputs": {"prompt_sha256": prompts},
-            "repeat_policy": {"case_ids": [], "count": 1},
-            "shard_schedule": schedule,
-        }
-    )
-    assert len(keys) == 800
-    assert {key[1] for key in keys} == {f"provider:model-{model}" for model in range(4)}
-    assert {key[3] for key in keys} == {1}
-
-
-def test_attach_labels_derives_fresh_bound_receipts(
-    fixture: dict[str, Any], tmp_path: Path
-) -> None:
-    bundle = _issue(fixture)
-    deferred = tmp_path / "deferred.jsonl"
-    write_deferred_receipts(
-        bundle=fixture["output"],  # type: ignore[arg-type]
-        receipts=[
-            {
-                "bundle_sha256": bundle["bundle_sha256"],
-                "candidate_id": "case-1",
-                "ablation": "full_packet",
-                "model_key": "fixture:model-1",
-                "packet_sha256": next(
-                    iter(bundle["forecast_inputs"]["packet_sha256"].values())
-                ),  # type: ignore[index]
-                "actual_provider_prompt_sha256": "b" * 64,
-                "repeat_index": 1,
-                "labels_state": "deferred",
-                "scoreable": False,
-                "publishable": False,
-                "provider_response_sha256": "d" * 64,
-            }
-        ],
-        output=deferred,
-    )
-    labels = tmp_path / "labels.jsonl"
-    label_bytes = _write_jsonl(
-        labels,
-        [
-            {
-                "candidate_id": "case-1",
-                "unit_id": "unit-1",
-                "disposition": "DENY",
-                "disposition_evidence": {
-                    "disposition_excerpt": "The motion is denied."
-                },
-            }
-        ],
-    )
-    decisions = tmp_path / "decision-texts.jsonl"
-    decision_bytes = _write_jsonl(
-        decisions,
-        [
-            {
-                "candidate_id": "case-1",
-                "text": "The motion is denied.",
-                "is_first_written_disposition": True,
-            }
-        ],
-    )
-    card = tmp_path / "llm-label-card.json"
-    _write(
-        card,
-        {
-            "stage": "llm-label",
-            "status": "completed",
-            "output_commitments": {
-                "labels": _sha(label_bytes),
-                "decision_texts": _sha(decision_bytes),
-                "finalized_units": _sha(fixture["units"].read_bytes()),
-            },
-        },
-    )
-    result = attach_labels(
-        bundle=fixture["output"],  # type: ignore[arg-type]
-        deferred_receipts=deferred,
-        labels=labels,
-        decision_texts=decisions,
-        finalized_units=fixture["units"],  # type: ignore[arg-type]
-        label_run_card=card,
-        output_root=tmp_path / "attached",
-    )
-    assert result.attachment["labels_sha256"] == _sha(label_bytes)
-    assert result.bound_receipts[0]["labels_state"] == "bound"
-    assert result.bound_receipts[0]["scoreable"] is True
-    assert (
-        result.bound_receipts[0]["provider_evidence"]["provider_response_sha256"]
-        == "d" * 64
-    )
-
-
-def test_attach_rejects_nonverbatim_or_incomplete_labels(
-    fixture: dict[str, Any], tmp_path: Path
-) -> None:
-    _issue(fixture)
-    labels = tmp_path / "labels.jsonl"
-    label_bytes = _write_jsonl(
-        labels,
-        [
-            {
-                "candidate_id": "case-1",
-                "unit_id": "unit-1",
-                "disposition_evidence": {"disposition_excerpt": "not present"},
-            }
-        ],
-    )
-    decisions = tmp_path / "decision-texts.jsonl"
-    _write_jsonl(
-        decisions,
-        [
-            {
-                "candidate_id": "case-1",
-                "text": "The motion is denied.",
-                "is_first_written_disposition": True,
-            }
-        ],
-    )
-    card = tmp_path / "card.json"
-    _write(
-        card,
-        {
-            "stage": "llm-label",
-            "status": "completed",
-            "output_commitments": {
-                "labels": _sha(label_bytes),
-                "decision_texts": _sha(decisions.read_bytes()),
-                "finalized_units": _sha(fixture["units"].read_bytes()),
-            },
-        },
-    )
-    deferred = tmp_path / "deferred.jsonl"
-    _write_jsonl(deferred, [])
-    with pytest.raises(DeferredReceiptError, match="coverage differs"):
-        attach_labels(
-            bundle=fixture["output"],  # type: ignore[arg-type]
-            deferred_receipts=deferred,
-            labels=labels,
-            decision_texts=decisions,
-            finalized_units=fixture["units"],  # type: ignore[arg-type]
-            label_run_card=card,
-            output_root=tmp_path / "attached",
+        verify_bundle(
+            fixture["output"],  # type: ignore[arg-type]
+            verify_freeze_inputs=fixture["freeze_verifier"],
         )
