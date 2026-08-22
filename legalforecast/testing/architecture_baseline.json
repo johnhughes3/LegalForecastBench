@@ -4243,7 +4243,7 @@
         "fan_out": 8,
         "flags": [
           "cycle",
-          "watch"
+          "oversized"
         ],
         "lane_owner": "evals",
         "largest_symbol": "run_manifest_unitizer",
@@ -10534,8 +10534,8 @@
         "largest_symbol": "test_the_packet_builder_still_excludes_a_forcibly_mounted_decision",
         "largest_symbol_lines": 78,
         "layer": "test",
-        "line_count": 1278,
-        "nonblank_line_count": 1039,
+        "line_count": 1284,
+        "nonblank_line_count": 1045,
         "top_level_definition_count": 60
       },
       "tests/test_pacer_gap_bridge_cli.py": {
