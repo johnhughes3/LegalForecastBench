@@ -57647,6 +57647,11 @@ def _cmd_acquisition_plan_parse_documents_cached(args: argparse.Namespace) -> in
             records,
             document_root=document_root,
             clearance_records=clearance_records,
+            paid_delivery_capability=(
+                materialization_lineage.paid_delivery_capability
+                if materialization_lineage is not None
+                else None
+            ),
         )
         if needs_resolved_lineage and not is_materialized:
             _require_resolved_post_recovery_dispatch(

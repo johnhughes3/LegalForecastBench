@@ -5517,10 +5517,10 @@
         ],
         "lane_owner": "ingestion",
         "largest_symbol": "verify_materialized_downstream_lineage",
-        "largest_symbol_lines": 979,
+        "largest_symbol_lines": 999,
         "layer": "application",
-        "line_count": 1092,
-        "nonblank_line_count": 1066,
+        "line_count": 1113,
+        "nonblank_line_count": 1087,
         "top_level_definition_count": 6
       },
       "legalforecast/ingestion/downstream_rehearsal.py": {
