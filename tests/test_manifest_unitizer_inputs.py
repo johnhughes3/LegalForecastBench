@@ -320,7 +320,6 @@ def _overlay_fixture(
         *[f"synthetic-predecessor-{number}" for number in range(1, 6)],
     ]
     retained: list[dict[str, Any]] = []
-    packet_unit_sha256: dict[str, str] = {}
     for candidate_id in prior_candidates:
         selection = selection_by_candidate.get(candidate_id)
         claim_document = f"{candidate_id}-complaint"
@@ -340,17 +339,63 @@ def _overlay_fixture(
                 "prediction_units": [unit],
             }
         )
-        packet_unit_sha256[unit["unit_id"]] = _canonical_sha256(unit)
+
+    base_records = json.loads(json.dumps(retained))
+    base_by_candidate = {row["candidate_id"]: row for row in base_records}
+    overlay_by_candidate = {row["candidate_id"]: row for row in retained}
+    packet_candidate_ids = tuple(
+        f"synthetic-candidate-{number}" for number in range(1, 4)
+    )
+    sole_candidate_id = "synthetic-candidate-4"
+    packet_candidates: list[dict[str, Any]] = []
+    packet_unit_sha256: dict[str, str] = {}
+    for candidate_id in packet_candidate_ids:
+        replacement = json.loads(
+            json.dumps(base_by_candidate[candidate_id]["prediction_units"][0])
+        )
+        replacement["uncertainty_notes"] = "Owner-approved packet replacement."
+        overlay_by_candidate[candidate_id]["prediction_units"] = [replacement]
+        digest = _canonical_sha256(replacement)
+        packet_unit_sha256[replacement["unit_id"]] = digest
+        packet_candidates.append(
+            {
+                "candidate_id": candidate_id,
+                "prediction_units": [replacement],
+                "prediction_unit_sha256": {replacement["unit_id"]: digest},
+            }
+        )
+    sole_unit = json.loads(
+        json.dumps(base_by_candidate[sole_candidate_id]["prediction_units"][0])
+    )
+    sole_unit["uncertainty_notes"] = "Owner-approved sole-unit replacement."
+    overlay_by_candidate[sole_candidate_id]["prediction_units"] = [sole_unit]
 
     overlay_path = _write_text(
         tmp_path / "finalized-overlay.jsonl",
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in retained),
     )
+    packet = {
+        "candidate_order": list(packet_candidate_ids),
+        "candidates": packet_candidates,
+    }
+    worksheet = (
+        "candidate_id\tdecision_status\tfinalized_units_json\n"
+        f"{sole_candidate_id}\tfinal\t"
+        f"{json.dumps([sole_unit], separators=(',', ':'))}\n"
+    )
     source_paths = {
-        "base_prediction_units": _write_text(tmp_path / "base.jsonl", "base\n"),
-        "packet": _write_text(tmp_path / "packet.json", "packet\n"),
-        "owner_ruling_source": _write_text(tmp_path / "ruling.txt", "ruling\n"),
-        "worksheet_source": _write_text(tmp_path / "worksheet.json", "worksheet\n"),
+        "base_prediction_units": _write_text(
+            tmp_path / "base.jsonl",
+            "".join(json.dumps(row, sort_keys=True) + "\n" for row in base_records),
+        ),
+        "packet": _write_text(
+            tmp_path / "packet.json", json.dumps(packet, sort_keys=True) + "\n"
+        ),
+        "owner_ruling_source": _write_text(
+            tmp_path / "ruling.txt",
+            f"{sole_candidate_id}: approved as the sole frozen prediction unit.\n",
+        ),
+        "worksheet_source": _write_text(tmp_path / "worksheet.tsv", worksheet),
     }
     overlay_sha256 = hashlib.sha256(overlay_path.read_bytes()).hexdigest()
     packet_sha256 = hashlib.sha256(source_paths["packet"].read_bytes()).hexdigest()
@@ -375,10 +420,12 @@ def _overlay_fixture(
         "worksheet_sha256": hashlib.sha256(
             source_paths["worksheet_source"].read_bytes()
         ).hexdigest(),
+        "replaced_candidates": {
+            **{candidate_id: 1 for candidate_id in packet_candidate_ids},
+            sole_candidate_id: 1,
+        },
         "packet_unit_sha256": packet_unit_sha256,
-        "synthetic-candidate-1_finalized_unit_sha256": packet_unit_sha256[
-            "synthetic-candidate-1-count-i"
-        ],
+        f"{sole_candidate_id}_finalized_unit_sha256": _canonical_sha256(sole_unit),
     }
     integration_path = _write_text(
         tmp_path / "integration-manifest.json",
@@ -458,13 +505,11 @@ def test_authenticate_finalized_overlay_refuses_partition_tampering(
         integration["candidate_count"] = 95
         integration["unit_count"] = 95
         integration["scorable_unit_count"] = 95
-        integration["packet_unit_sha256"][unit["unit_id"]] = _canonical_sha256(unit)
     elif mutation == "missing":
         rows.pop()
         integration["candidate_count"] = 93
         integration["unit_count"] = 93
         integration["scorable_unit_count"] = 93
-        integration["packet_unit_sha256"].pop("synthetic-candidate-94-count-i")
     else:
         rows[0]["case_id"] = "wrong-case-id"
     overlay.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
@@ -472,6 +517,40 @@ def test_authenticate_finalized_overlay_refuses_partition_tampering(
     integration_path.write_text(json.dumps(integration, sort_keys=True) + "\n")
 
     with pytest.raises(ManifestUnitizerCommandError):
+        authenticate_finalized_overlay(
+            finalized_units_path=overlay,
+            integration_manifest_path=integration_path,
+            prepared=prepared,
+            expected_selection_sha256=prepared.selection_sha256,
+            expected_overlay_sha256=hashlib.sha256(overlay.read_bytes()).hexdigest(),
+            expected_integration_manifest_sha256=hashlib.sha256(
+                integration_path.read_bytes()
+            ).hexdigest(),
+            owner_approval_reference="legalforecastbench-3ak.38",
+            stage51_packet_approval=(
+                "stage51-terminal-units: approved — packet "
+                f"{integration['packet_sha256']}"
+            ),
+            units_spend_approval=_UNITS_APPROVAL,
+        )
+
+
+def test_authenticate_finalized_overlay_rejects_rehashed_retained_unit_drift(
+    tmp_path: Path,
+) -> None:
+    _, prepared, overlay, integration_path, _, integration = _authenticate_fixture(
+        tmp_path
+    )
+    rows = [json.loads(line) for line in overlay.read_text().splitlines()]
+    retained = next(
+        row for row in rows if row["candidate_id"] == "synthetic-candidate-10"
+    )
+    retained["prediction_units"][0]["claim_name"] = "Operator-mutated claim"
+    overlay.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    integration["output_sha256"] = hashlib.sha256(overlay.read_bytes()).hexdigest()
+    integration_path.write_text(json.dumps(integration, sort_keys=True) + "\n")
+
+    with pytest.raises(ManifestUnitizerCommandError, match="not derived"):
         authenticate_finalized_overlay(
             finalized_units_path=overlay,
             integration_manifest_path=integration_path,
@@ -559,7 +638,7 @@ def test_citation_mismatch_requires_moving_case_to_fresh_set(
         json.dumps(alternate_integration, sort_keys=True) + "\n"
     )
 
-    with pytest.raises(ManifestUnitizerCommandError, match="did not derive"):
+    with pytest.raises(ManifestUnitizerCommandError, match="not derived"):
         authenticate_finalized_overlay(
             finalized_units_path=alternate_overlay,
             integration_manifest_path=alternate_manifest,
@@ -764,11 +843,40 @@ def test_manifest_unitizer_provider_receives_only_the_approved_six(
     args.execute = False
     unitizer_module.run_manifest_unitizer(args)
     assert calls == []
+    run_card_path = args.output_root / "run-cards" / "llm-unitize-manifest.json"
+    metadata_path = (
+        args.output_root / "run-cards" / "llm-unitize-manifest.metadata.json"
+    )
+    frozen_run_card_fields = {
+        "schema_version",
+        "stage",
+        "status",
+        "dry_run",
+        "execute",
+        "resume",
+        "record_count",
+        "input_paths",
+        "output_paths",
+        "paid_activity_requested",
+        "paid_activity_executed",
+        "generated_at",
+    }
+    assert set(json.loads(run_card_path.read_text())) == frozen_run_card_fields
+    dry_run_metadata = json.loads(metadata_path.read_text())
+    assert dry_run_metadata["authoritative"] is False
+    assert (
+        dry_run_metadata["finalized_overlay_sha256"]
+        == hashlib.sha256(overlay.read_bytes()).hexdigest()
+    )
 
     args.execute = True
     unitizer_module.run_manifest_unitizer(args)
 
     assert calls == [fresh_ids]
+    assert set(json.loads(run_card_path.read_text())) == frozen_run_card_fields
+    execute_metadata = json.loads(metadata_path.read_text())
+    assert execute_metadata["authoritative"] is False
+    assert execute_metadata["provider_spend_cap_usd"] == 5.0
 
     args.model_key = "openai:gpt-5.6-sol"
     with pytest.raises(ManifestUnitizerCommandError, match="labeling model"):

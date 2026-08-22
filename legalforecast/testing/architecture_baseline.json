@@ -4240,18 +4240,18 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
         "fan_in": 1,
-        "fan_out": 8,
+        "fan_out": 11,
         "flags": [
           "cycle",
           "oversized"
         ],
         "lane_owner": "evals",
         "largest_symbol": "run_manifest_unitizer",
-        "largest_symbol_lines": 184,
+        "largest_symbol_lines": 361,
         "layer": "application",
-        "line_count": 1554,
-        "nonblank_line_count": 1469,
-        "top_level_definition_count": 29
+        "line_count": 1764,
+        "nonblank_line_count": 1667,
+        "top_level_definition_count": 32
       },
       "legalforecast/evals/inspect_task.py": {
         "cycle_id": "",
@@ -4325,7 +4325,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
-        "fan_in": 6,
+        "fan_in": 7,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -7771,10 +7771,10 @@
         ],
         "lane_owner": "publication",
         "largest_symbol": "_build_stage_result",
-        "largest_symbol_lines": 78,
+        "largest_symbol_lines": 91,
         "layer": "application",
-        "line_count": 533,
-        "nonblank_line_count": 478,
+        "line_count": 645,
+        "nonblank_line_count": 587,
         "top_level_definition_count": 20
       },
       "legalforecast/publication/metric_propagation.py": {
@@ -9994,11 +9994,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_manifest_unitizer_provider_receives_only_the_approved_six",
-        "largest_symbol_lines": 165,
+        "largest_symbol_lines": 194,
         "layer": "test",
-        "line_count": 804,
-        "nonblank_line_count": 731,
-        "top_level_definition_count": 20
+        "line_count": 912,
+        "nonblank_line_count": 833,
+        "top_level_definition_count": 22
       },
       "tests/test_missing_document_successor.py": {
         "cycle_id": "",
@@ -10413,8 +10413,8 @@
         "largest_symbol": "test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row",
         "largest_symbol_lines": 65,
         "layer": "test",
-        "line_count": 750,
-        "nonblank_line_count": 690,
+        "line_count": 753,
+        "nonblank_line_count": 693,
         "top_level_definition_count": 23
       },
       "tests/test_official_paid_labeling_baton.py": {

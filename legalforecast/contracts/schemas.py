@@ -67,6 +67,12 @@ CYCLE_GROUPED_LABEL_AUDIT_PACKET_V1 = SchemaIdentifier(
     "legalforecast.case_grouped_label_audit_packet.v1"
 )
 CYCLE_PREFLIGHT_REPORT_V2 = SchemaIdentifier("legalforecast.cycle_preflight_report.v2")
+CYCLE1_MANIFEST_UNITIZER_SPEND_AUTHORITY_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.manifest_unitizer_spend_authority.v1"
+)
+CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_finalized_units_integration.v1"
+)
 CLEARANCE_REPLACEMENT_PLAN_V1 = SchemaIdentifier(
     "legalforecast.clearance_replacement_plan.v1"
 )

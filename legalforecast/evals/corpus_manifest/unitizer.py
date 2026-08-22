@@ -11,7 +11,9 @@ Markdown bytes without requiring a parser run card.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
+import io
 import json
 import os
 import re
@@ -24,6 +26,11 @@ from typing import Any, cast
 from legalforecast._json_io import (
     write_json_object,
     write_jsonl_objects,
+)
+from legalforecast.contracts import (
+    ARTIFACT_JSON_VALUE_V1,
+    CYCLE1_MANIFEST_UNITIZER_SPEND_AUTHORITY_V1,
+    CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_V1,
 )
 from legalforecast.evals.corpus_manifest.freeze import (
     VERDICT_ROLE_COMPATIBILITY,
@@ -667,9 +674,7 @@ def authenticate_finalized_overlay(
         raise ManifestUnitizerCommandError(
             "integration manifest digest differs from the approved digest"
         )
-    if manifest.get("artifact") != (
-        "legalforecast.cycle1.stage51_finalized_units_integration.v1"
-    ):
+    if manifest.get("artifact") != str(CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_V1):
         raise ManifestUnitizerCommandError("unsupported finalized integration manifest")
     if manifest.get("output_sha256") != overlay_sha256:
         raise ManifestUnitizerCommandError(
@@ -683,7 +688,7 @@ def authenticate_finalized_overlay(
         raise ManifestUnitizerCommandError(
             "integration manifest output path differs from the finalized overlay"
         )
-    _verify_integration_sources(manifest)
+    integration_sources = _verify_integration_sources(manifest)
     packet_sha256 = _manifest_digest(manifest, "packet_sha256")
     expected_packet_approval = (
         f"stage51-terminal-units: approved — packet {packet_sha256}"
@@ -710,9 +715,14 @@ def authenticate_finalized_overlay(
         units = cast(list[object], raw_units)
         overlay_by_candidate[candidate_id] = dict(record)
         unit_count += len(units)
-        scorable_unit_count += sum(
-            prediction_unit_from_record(unit).should_score for unit in units
-        )
+        try:
+            scorable_unit_count += sum(
+                prediction_unit_from_record(unit).should_score for unit in units
+            )
+        except (TypeError, ValueError) as exc:
+            raise ManifestUnitizerCommandError(
+                f"{candidate_id}: finalized prediction unit is invalid: {exc}"
+            ) from exc
     if manifest.get("candidate_count") != len(overlay_records):
         raise ManifestUnitizerCommandError(
             "integration manifest candidate count differs from the overlay"
@@ -725,6 +735,11 @@ def authenticate_finalized_overlay(
         raise ManifestUnitizerCommandError(
             "integration manifest scorable count differs from the overlay"
         )
+    _verify_finalized_overlay_derivation(
+        manifest,
+        overlay_by_candidate=overlay_by_candidate,
+        integration_sources=integration_sources,
+    )
 
     selection_by_candidate = {
         str(record["candidate_id"]): record for record in prepared.selection_records
@@ -796,7 +811,7 @@ def authenticate_finalized_overlay(
     )
 
 
-def _verify_integration_sources(manifest: Mapping[str, Any]) -> None:
+def _verify_integration_sources(manifest: Mapping[str, Any]) -> dict[str, bytes]:
     source_pairs = [
         ("base_prediction_units", "base_sha256"),
         ("packet", "packet_sha256"),
@@ -822,6 +837,7 @@ def _verify_integration_sources(manifest: Mapping[str, Any]) -> None:
             (worksheet_fields[0], "worksheet_sha256"),
         )
     )
+    payloads: dict[str, bytes] = {}
     for path_field, digest_field in source_pairs:
         path_value = manifest.get(path_field)
         if not isinstance(path_value, str) or not path_value.strip():
@@ -835,6 +851,197 @@ def _verify_integration_sources(manifest: Mapping[str, Any]) -> None:
             raise ManifestUnitizerCommandError(
                 f"integration manifest source changed: {path_field}"
             )
+        payloads[path_field] = payload
+    return payloads
+
+
+def _verify_finalized_overlay_derivation(
+    manifest: Mapping[str, Any],
+    *,
+    overlay_by_candidate: Mapping[str, JsonRecord],
+    integration_sources: Mapping[str, bytes],
+) -> None:
+    base_records = _jsonl_records_from_bytes(
+        integration_sources["base_prediction_units"],
+        label="base prediction units",
+        error_factory=ManifestUnitizerCommandError,
+    )
+    base_by_candidate = _records_by_candidate(
+        base_records, label="base prediction units"
+    )
+    if set(base_by_candidate) != set(overlay_by_candidate):
+        raise ManifestUnitizerCommandError(
+            "finalized overlay candidate set differs from the authenticated base"
+        )
+
+    replaced_value_raw = manifest.get("replaced_candidates")
+    if not isinstance(replaced_value_raw, Mapping) or not replaced_value_raw:
+        raise ManifestUnitizerCommandError(
+            "integration manifest lacks replaced candidate counts"
+        )
+    replaced_value = cast(Mapping[object, object], replaced_value_raw)
+    replaced_counts: dict[str, int] = {}
+    for candidate_id, raw_count in replaced_value.items():
+        if type(raw_count) is not int or raw_count <= 0:
+            raise ManifestUnitizerCommandError(
+                "integration manifest has an invalid replaced candidate count"
+            )
+        replaced_counts[str(candidate_id)] = raw_count
+
+    sole_fields = [
+        str(field)
+        for field in manifest
+        if str(field).endswith("_finalized_unit_sha256")
+    ]
+    if len(sole_fields) != 1:
+        raise ManifestUnitizerCommandError(
+            "integration manifest must bind one sole finalized unit"
+        )
+    sole_candidate_id = sole_fields[0].removesuffix("_finalized_unit_sha256")
+
+    packet_units = _packet_replacement_units(integration_sources["packet"])
+    packet_candidate_ids = set(packet_units)
+    if packet_candidate_ids | {sole_candidate_id} != set(replaced_counts):
+        raise ManifestUnitizerCommandError(
+            "integration replacement sources do not cover the replaced candidates"
+        )
+
+    expected_packet_hashes = {
+        str(unit["unit_id"]): hashlib.sha256(
+            ARTIFACT_JSON_VALUE_V1.encode(dict(unit))
+        ).hexdigest()
+        for units in packet_units.values()
+        for unit in units
+    }
+    if manifest.get("packet_unit_sha256") != expected_packet_hashes:
+        raise ManifestUnitizerCommandError(
+            "integration manifest packet commitments differ from the approved packet"
+        )
+
+    worksheet_field = next(
+        field
+        for field in integration_sources
+        if field.startswith("worksheet_") and field.endswith("_source")
+    )
+    sole_units = _worksheet_finalized_units(
+        integration_sources[worksheet_field], candidate_id=sole_candidate_id
+    )
+    replacements = {**packet_units, sole_candidate_id: sole_units}
+    for candidate_id, expected_count in replaced_counts.items():
+        replacement_units = replacements[candidate_id]
+        if len(replacement_units) != expected_count:
+            raise ManifestUnitizerCommandError(
+                f"{candidate_id}: replacement unit count differs from the manifest"
+            )
+
+    for candidate_id, base_record in base_by_candidate.items():
+        expected_record = dict(base_record)
+        if candidate_id in replacements:
+            expected_record["prediction_units"] = replacements[candidate_id]
+        if overlay_by_candidate[candidate_id] != expected_record:
+            raise ManifestUnitizerCommandError(
+                f"{candidate_id}: finalized overlay is not derived from the "
+                "authenticated base and approved replacement sources"
+            )
+
+
+def _records_by_candidate(
+    records: Sequence[JsonRecord], *, label: str
+) -> dict[str, JsonRecord]:
+    by_candidate: dict[str, JsonRecord] = {}
+    for record in records:
+        candidate_id = _command_required_string(record, "candidate_id")
+        if candidate_id in by_candidate:
+            raise ManifestUnitizerCommandError(
+                f"{label} repeats candidate {candidate_id}"
+            )
+        by_candidate[candidate_id] = dict(record)
+    return by_candidate
+
+
+def _packet_replacement_units(payload: bytes) -> dict[str, list[JsonRecord]]:
+    try:
+        raw = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ManifestUnitizerCommandError(
+            "approved replacement packet is invalid JSON"
+        ) from exc
+    if not isinstance(raw, Mapping):
+        raise ManifestUnitizerCommandError(
+            "approved replacement packet lacks candidates"
+        )
+    raw_mapping = cast(Mapping[str, object], raw)
+    raw_candidates = raw_mapping.get("candidates")
+    if not isinstance(raw_candidates, list):
+        raise ManifestUnitizerCommandError(
+            "approved replacement packet lacks candidates"
+        )
+    result: dict[str, list[JsonRecord]] = {}
+    for raw_candidate in cast(list[object], raw_candidates):
+        if not isinstance(raw_candidate, Mapping):
+            raise ManifestUnitizerCommandError(
+                "approved replacement packet has an invalid candidate"
+            )
+        candidate = cast(Mapping[str, Any], raw_candidate)
+        candidate_id = _command_required_string(candidate, "candidate_id")
+        raw_units = candidate.get("prediction_units")
+        if candidate_id in result or not isinstance(raw_units, list) or not raw_units:
+            raise ManifestUnitizerCommandError(
+                "approved replacement packet has invalid prediction units"
+            )
+        units: list[JsonRecord] = []
+        for raw_unit in cast(list[object], raw_units):
+            if not isinstance(raw_unit, Mapping):
+                raise ManifestUnitizerCommandError(
+                    "approved replacement packet has an invalid prediction unit"
+                )
+            unit = dict(cast(Mapping[str, Any], raw_unit))
+            prediction_unit_from_record(unit)
+            units.append(unit)
+        result[candidate_id] = units
+    return result
+
+
+def _worksheet_finalized_units(
+    payload: bytes, *, candidate_id: str
+) -> list[JsonRecord]:
+    try:
+        text = payload.decode("utf-8")
+        rows = list(csv.DictReader(io.StringIO(text), delimiter="\t"))
+    except (UnicodeDecodeError, csv.Error) as exc:
+        raise ManifestUnitizerCommandError(
+            "finalized worksheet cannot be parsed"
+        ) from exc
+    matches = [
+        row
+        for row in rows
+        if row.get("candidate_id") == candidate_id
+        and row.get("decision_status") == "final"
+    ]
+    if len(matches) != 1:
+        raise ManifestUnitizerCommandError(
+            "finalized worksheet must contain one final sole-unit row"
+        )
+    try:
+        raw_units = json.loads(matches[0]["finalized_units_json"])
+    except (KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise ManifestUnitizerCommandError(
+            "finalized worksheet sole-unit JSON is invalid"
+        ) from exc
+    if not isinstance(raw_units, list) or not raw_units:
+        raise ManifestUnitizerCommandError(
+            "finalized worksheet sole-unit JSON must be a nonempty list"
+        )
+    units: list[JsonRecord] = []
+    for raw_unit in cast(list[object], raw_units):
+        if not isinstance(raw_unit, Mapping):
+            raise ManifestUnitizerCommandError(
+                "finalized worksheet contains an invalid prediction unit"
+            )
+        unit = dict(cast(Mapping[str, Any], raw_unit))
+        prediction_unit_from_record(unit)
+        units.append(unit)
+    return units
 
 
 def _verify_manifest_unit_hashes(
@@ -858,7 +1065,11 @@ def _verify_manifest_unit_hashes(
         )
     for unit_id, digest in expected.items():
         unit = units_by_id.get(str(unit_id))
-        if unit is None or digest != _canonical_record_sha256(unit):
+        if (
+            unit is None
+            or digest
+            != hashlib.sha256(ARTIFACT_JSON_VALUE_V1.encode(dict(unit))).hexdigest()
+        ):
             raise ManifestUnitizerCommandError(
                 f"integration manifest unit commitment changed: {unit_id}"
             )
@@ -878,7 +1089,13 @@ def _verify_manifest_unit_hashes(
         list[JsonRecord],
         overlay_by_candidate.get(sole_candidate_id, {}).get("prediction_units", []),
     )
-    if len(sole_units) != 1 or _canonical_record_sha256(sole_units[0]) != sole_digest:
+    if (
+        len(sole_units) != 1
+        or hashlib.sha256(
+            ARTIFACT_JSON_VALUE_V1.encode(dict(sole_units[0]))
+        ).hexdigest()
+        != sole_digest
+    ):
         raise ManifestUnitizerCommandError(
             "integration manifest sole-unit commitment changed"
         )
@@ -1033,13 +1250,6 @@ def _normalized_approval(value: str) -> str:
     return " ".join(value.split())
 
 
-def _canonical_record_sha256(record: Mapping[str, Any]) -> str:
-    payload = json.dumps(
-        dict(record), sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
-
-
 def _read_regular_input(path: Path, label: str) -> bytes:
     if path.is_symlink() or not path.is_file():
         raise ManifestUnitizerCommandError(f"{label} is not a regular file: {path}")
@@ -1091,7 +1301,7 @@ def _manifest_spend_authority_identity(
     provider_account: str,
 ) -> str:
     payload = {
-        "artifact": "legalforecast.cycle1.manifest_unitizer_spend_authority.v1",
+        "artifact": str(CYCLE1_MANIFEST_UNITIZER_SPEND_AUTHORITY_V1),
         "cap_microusd": _UNITS_SPEND_CAP_MICROUSD,
         "fresh_candidate_ids": list(overlay.fresh_candidate_ids),
         "integration_manifest_sha256": overlay.integration_manifest_sha256,
@@ -1104,9 +1314,7 @@ def _manifest_spend_authority_identity(
         "verdict_source_sha256": list(prepared.verdict_source_sha256),
         "finalized_overlay_sha256": overlay.overlay_sha256,
     }
-    canonical = json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).encode("utf-8")
+    canonical = ARTIFACT_JSON_VALUE_V1.encode(payload)
     return hashlib.sha256(canonical).hexdigest()
 
 
@@ -1234,6 +1442,16 @@ def _write_stage_card(
         if args.log_output
         else (output_root / "logs" / "llm-unitize-manifest.jsonl")
     )
+    metadata_path = output_root / "run-cards" / "llm-unitize-manifest.metadata.json"
+    write_json_object(
+        metadata_path,
+        {
+            "authoritative": False,
+            "stage": "llm-unitize-manifest",
+            "run_card_path": str(run_card),
+            **dict(extra),
+        },
+    )
     card: dict[str, Any] = {
         # contract-ratchet: allow additive manifest-mode run-card adapter
         "schema_version": "legalforecast.acquisition_run_card.v1",
@@ -1244,11 +1462,10 @@ def _write_stage_card(
         "resume": bool(args.resume),
         "record_count": record_count,
         "input_paths": [str(path) for path in input_paths],
-        "output_paths": [str(path) for path in output_paths],
+        "output_paths": [str(path) for path in (*output_paths, metadata_path)],
         "paid_activity_requested": paid,
         "paid_activity_executed": paid,
         "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        **dict(extra),
     }
     write_json_object(run_card, card)
     write_jsonl_objects(
