@@ -2,7 +2,7 @@
   "schema_version": "legalforecast.official_eval_github_environments.v1",
   "repository": "johnhughes3/LegalForecastBench",
   "common_protection": {
-    "required_reviewers": [{"type": "User", "login": "johnhughes3"}],
+    "required_reviewers": [{"type": "User", "login": "johnjhughes"}],
     "prevent_self_review": false,
     "deployment_branch_policy": {
       "protected_branches": false,

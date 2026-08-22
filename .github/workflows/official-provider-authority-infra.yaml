@@ -208,7 +208,7 @@ jobs:
             ([.protection_rules[] | select(
               .type == "required_reviewers" and
               .prevent_self_review == false and
-              ([.reviewers[].reviewer.login] == ["johnhughes3"])
+              ([.reviewers[].reviewer.login] == ["johnjhughes"])
             )] | length) == 1
           ' <<<"${environment_json}" >/dev/null
           branch_policies="$(
