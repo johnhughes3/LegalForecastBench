@@ -30,14 +30,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 _UNITS_APPROVAL = "units: approved — ceiling USD 5.00 extends to the sixth fresh case"
 _PROMPT_CONTRACT = unitizer_module.STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT
-_FRESH_IDS = (
-    "69437817",
-    "69617129",
-    "70142291",
-    "71203930",
-    "71929529",
-    "72288139",
-)
+_FRESH_IDS = tuple(f"synthetic-fresh-{number}" for number in range(1, 7))
+
+
+@pytest.fixture(autouse=True)
+def _use_synthetic_frozen_fresh_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        unitizer_module, "_CYCLE1_FRESH_CANDIDATE_IDS", frozenset(_FRESH_IDS)
+    )
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
@@ -316,7 +316,7 @@ def _overlay_fixture(
     }
     prior_candidates = [
         *[f"synthetic-candidate-{number}" for number in range(1, 95)],
-        "72288139",
+        _FRESH_IDS[-1],
         *[f"synthetic-predecessor-{number}" for number in range(1, 6)],
     ]
     retained: list[dict[str, Any]] = []
@@ -325,7 +325,7 @@ def _overlay_fixture(
         selection = selection_by_candidate.get(candidate_id)
         claim_document = f"{candidate_id}-complaint"
         unit = _prediction_unit(candidate_id, claim_document=claim_document)
-        if candidate_id == "72288139":
+        if candidate_id == _FRESH_IDS[-1]:
             unit["source_citations"][0]["excerpt"] = (
                 "Count I\nThe superseded complaint alleged a different claim."
             )
@@ -541,7 +541,7 @@ def test_citation_mismatch_requires_moving_case_to_fresh_set(
     ) = _authenticate_fixture(tmp_path)
     # A second retained citation failure must not let the operator substitute
     # a different sixth case.  The derived set is frozen to the disclosed five
-    # replacements plus 72288139.
+    # replacements plus the sixth changed-materials case.
     rows = [json.loads(line) for line in alternate_overlay.read_text().splitlines()]
     retained_94 = next(
         row for row in rows if row["candidate_id"] == "synthetic-candidate-94"
