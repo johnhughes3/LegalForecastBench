@@ -612,10 +612,13 @@ def _anthropic_requires_provider_default_sampling(
 ) -> bool:
     """Return whether Anthropic requires omitted sampling controls for this model."""
 
-    return entry.provider.strip().lower() == "anthropic" and "claude-sonnet-5" in {
-        _canonical_model_version(entry.model_id),
-        _canonical_model_version(entry.model_version_or_snapshot),
-    }
+    return entry.provider.strip().lower() == "anthropic" and bool(
+        {
+            _canonical_model_version(entry.model_id),
+            _canonical_model_version(entry.model_version_or_snapshot),
+        }
+        & {"claude-sonnet-5", "claude-opus-4-8"}
+    )
 
 
 def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:

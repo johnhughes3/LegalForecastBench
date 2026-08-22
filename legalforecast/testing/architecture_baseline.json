@@ -4290,8 +4290,8 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 130,
         "layer": "application",
-        "line_count": 1321,
-        "nonblank_line_count": 1147,
+        "line_count": 1324,
+        "nonblank_line_count": 1150,
         "top_level_definition_count": 66
       },
       "legalforecast/evals/output_parser.py": {
@@ -9933,8 +9933,8 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 72,
         "layer": "test",
-        "line_count": 1146,
-        "nonblank_line_count": 996,
+        "line_count": 1151,
+        "nonblank_line_count": 1001,
         "top_level_definition_count": 38
       },
       "tests/test_live_parse_plan_role_gate.py": {
