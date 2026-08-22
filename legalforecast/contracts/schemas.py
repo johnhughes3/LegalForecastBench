@@ -159,6 +159,9 @@ OWNER_SIGNED_CORPUS_MANIFEST_V1 = SchemaIdentifier(
 MANIFEST_MODE_FORECAST_RUN_RECORD_V1 = SchemaIdentifier(
     "legalforecast.manifest_mode_forecast_run_record.v1"
 )
+MANIFEST_COST_PROJECTION_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.manifest_cost_projection_receipt.v1"
+)
 MANIFEST_FORECAST_BUNDLE_V1 = SchemaIdentifier(
     "legalforecast.manifest_forecast_bundle.v1"
 )

@@ -93,21 +93,21 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
         in WORKFLOW
     )
     assert "fail-fast: false" in WORKFLOW
-    assert 'MATRIX_LIMIT: "256"' in WORKFLOW
+    assert "MATRIX_LIMIT: ${{ inputs.shard_only && '256' || '800' }}" in WORKFLOW
     assert "ABLATIONS: ${{ inputs.ablations }}" in WORKFLOW
-    assert "requested_ablations = [" in WORKFLOW
-    assert "requested_ablation_set = set(requested_ablations)" in WORKFLOW
-    repeat_coverage_check = BUILD_MATRIX_JOB.index("require_repeat_case_coverage(")
-    assert repeat_coverage_check < BUILD_MATRIX_JOB.index("for packet in packets:")
-    assert "requested_ablations=requested_ablations" in BUILD_MATRIX_JOB
-    assert "duplicate packet row for ablation" in WORKFLOW
-    assert "model_keys missing from registry" in WORKFLOW
-    assert "run-input manifest produced an empty matrix" in WORKFLOW
-    assert 'packet_object_key.startswith("model-packets/")' in WORKFLOW
-    assert 'packet.get("packet_sha256")' in BUILD_MATRIX_JOB
-    assert '"packet_sha256": packet_sha256' in BUILD_MATRIX_JOB
-    assert '"model_key": model_key' in WORKFLOW
-    assert '"model_key_slug": re.sub' in WORKFLOW
+    assert "SHARD_ONLY: ${{ inputs.shard_only }}" in WORKFLOW
+    assert (
+        "shard_only=true requires exactly one model-key and one ablation; "
+        "each official shard must contain 100 rows under the 256-row limit." in WORKFLOW
+    )
+    assert '"matrix_row_count": 100' in WORKFLOW
+    assert '"shard_matrix_row_count": 100' in WORKFLOW
+    assert '"packet_count": 200' in WORKFLOW
+    assert '"matrix_limit": 256' in WORKFLOW
+    assert "issue_manifest_cost_projection_from_workflow_environment" in WORKFLOW
+    assert "/tmp/lfb-manifest-cost-projection.json" in WORKFLOW
+    assert "def packet_input_tokens" not in BUILD_MATRIX_JOB
+    assert "def projected_cost_for_row" not in BUILD_MATRIX_JOB
     assert "model_count: ${{ steps.matrix.outputs.model_count }}" in WORKFLOW
     assert (
         "projected_model_cost_usd: ${{ steps.matrix.outputs.projected_model_cost_usd }}"
@@ -116,18 +116,13 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
 
 
 def test_openai_repeat_samples_fail_before_provider_matrix_emission() -> None:
-    provider_repeat_guard = BUILD_MATRIX_JOB[
-        BUILD_MATRIX_JOB.index(
-            "if (\n              repeat_count > 1"
-        ) : BUILD_MATRIX_JOB.index("          def safe_case_id_slug")
-    ]
-    assert "repeat_sample_case_ids" in provider_repeat_guard
-    assert 'provider_lane(model_key) == "openai"' in provider_repeat_guard
+    projector = (
+        ROOT / "legalforecast/evals/corpus_manifest/cost_projector.py"
+    ).read_text(encoding="utf-8")
+    assert "repeat_count > 1" in projector
+    assert 'provider_lane(model_key) == "openai"' in projector
     assert "OpenAI repeat samples are not supported in one provider-cell shard" in (
-        provider_repeat_guard
-    )
-    assert provider_repeat_guard.index("raise SystemExit") < BUILD_MATRIX_JOB.index(
-        "          include = []"
+        projector
     )
 
 
@@ -177,7 +172,7 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
     shard_input = WORKFLOW.split("      shard_only:", maxsplit=1)[1].split(
         "      model_registry_uri:", maxsplit=1
     )[0]
-    assert "default: true" in shard_input
+    assert "default: false" in shard_input
     assert "SHARD_ONLY_INPUT: ${{ inputs.shard_only }}" in BUILD_MATRIX_JOB
     assert (
         "Non-dry-run official evaluation requires shard_only=true; "
@@ -498,6 +493,12 @@ def test_official_eval_matrix_workflow_rebuilds_frozen_manifest_for_aggregate() 
 
 
 def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None:
+    projector = (
+        ROOT / "legalforecast/evals/corpus_manifest/cost_projector.py"
+    ).read_text(encoding="utf-8")
+    workflow_adapter = (
+        ROOT / "legalforecast/evals/corpus_manifest/cost_projector_workflow.py"
+    ).read_text(encoding="utf-8")
     assert (
         "max_projected_model_cost_usd must be a non-negative decimal amount."
         in WORKFLOW
@@ -506,38 +507,53 @@ def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None
         "MAX_PROJECTED_MODEL_COST_USD: "
         "${{ inputs.max_projected_model_cost_usd }}" in WORKFLOW
     )
-    assert "PRICE_UNITS_PER_TOKEN = 1_000_000" in WORKFLOW
-    assert "def packet_input_tokens(packet):" in WORKFLOW
-    assert '"packet_size_bytes"' in WORKFLOW
-    assert "def projected_cost_for_row" in WORKFLOW
-    assert (
-        "projected_model_cost += row_repeat_count * projected_cost_for_row" in WORKFLOW
-    )
-    assert "projected model cost $" in WORKFLOW
+    assert "PRICE_UNITS_PER_TOKEN" not in BUILD_MATRIX_JOB
+    assert "def packet_input_tokens" not in BUILD_MATRIX_JOB
+    assert "def projected_cost_for_row" not in BUILD_MATRIX_JOB
+    assert "projected model cost $" in projector
     assert "required for live runs" in WORKFLOW
-    assert "early-warning dispatch ceiling" in WORKFLOW
-    assert "not a provider or account cap" in WORKFLOW
+    assert "early-warning ceiling" in projector
+    assert "not a provider " in workflow_adapter
+    assert "or account cap" in workflow_adapter
     assert (
         "Non-dry-run official evaluation requires "
         "max_projected_model_cost_usd" in WORKFLOW
     )
-    assert "recommended_dispatch_ceiling = projected_model_cost * 2" in WORKFLOW
-    assert "budget > recommended_dispatch_ceiling" in WORKFLOW
-    assert "exceeds the 2x projected early-warning ceiling" in WORKFLOW
-    assert (
-        'output.write(f"projected_model_cost_usd={projected_model_cost:.6f}' in WORKFLOW
+
+
+def test_manifest_cost_projection_requires_immutable_manifest_run_uri() -> None:
+    freeze_input = WORKFLOW.split("      freeze_bundle_path:", maxsplit=1)[1].split(
+        "      prior_dispatches_json:", maxsplit=1
+    )[0]
+    assert "immutable" in freeze_input
+    assert "manifest-run root" in freeze_input
+    assert "committed manifests/*.freeze.json" not in freeze_input
+    assert 'freeze_bundle_path="manifests/${CYCLE_ID_INPUT}.freeze.json"' not in (
+        BUILD_MATRIX_JOB
     )
-    assert '"recommended_max_projected_model_cost_usd="' in WORKFLOW
-    assert 'f"{recommended_dispatch_ceiling:.6f}\\n"' in WORKFLOW
+    assert (
+        "freeze_bundle_path is required; use an immutable s3://.../cycle-1/"
+        in BUILD_MATRIX_JOB
+    )
+    assert (
+        "committed manifests/*.freeze.json paths do not provide an authenticated "
+        "manifest-run root" in BUILD_MATRIX_JOB
+    )
+    assert 'freeze_root="/tmp/lfb-manifest-run"' in BUILD_MATRIX_JOB
+    assert "issue_manifest_cost_projection_from_workflow_environment" in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_flags_long_context_surcharge_packets() -> None:
-    assert "LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS = 272_000" in WORKFLOW
-    assert "long_context_surcharge_packets = []" in WORKFLOW
-    assert "input_tokens > LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS" in WORKFLOW
-    assert '"estimated_input_tokens": input_tokens' in WORKFLOW
-    assert "Long-context surcharge packet warning" in WORKFLOW
-    assert "GITHUB_STEP_SUMMARY" in WORKFLOW
+    projector = (
+        ROOT / "legalforecast/evals/corpus_manifest/cost_projector.py"
+    ).read_text(encoding="utf-8")
+    workflow_adapter = (
+        ROOT / "legalforecast/evals/corpus_manifest/cost_projector_workflow.py"
+    ).read_text(encoding="utf-8")
+    assert "LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS" in projector
+    assert "272_000" in projector
+    assert "Long-context surcharge packet warning" in workflow_adapter
+    assert "GITHUB_STEP_SUMMARY" in workflow_adapter
     assert "long_context_surcharge_packet_count" in WORKFLOW
     assert "long_context_surcharge_packets_json" in WORKFLOW
 
@@ -546,13 +562,7 @@ def test_official_eval_matrix_workflow_marks_repeat_sampling_subset() -> None:
     assert "repeat_count must be an integer from 1 through 10." in WORKFLOW
     assert "REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}" in WORKFLOW
     assert "REPEAT_COUNT: ${{ inputs.repeat_count }}" in WORKFLOW
-    assert "repeat_sample_case_ids = {" in WORKFLOW
-    assert (
-        "row_repeat_count = (\n"
-        "                  repeat_count if case_id in repeat_sample_case_ids else 1\n"
-        "              )" in WORKFLOW
-    )
-    assert '"repeat_count": row_repeat_count' in WORKFLOW
+    assert "issue_manifest_cost_projection_from_workflow_environment" in WORKFLOW
     assert '--repeat-count "${REPEAT_COUNT}"' in RUN_CASE_JOB
     assert "repeat_count: ${{ matrix.repeat_count }}" in WORKFLOW
 

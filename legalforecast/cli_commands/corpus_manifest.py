@@ -65,6 +65,10 @@ class _FreezeInputsCommand(Protocol):
         raise NotImplementedError
 
 
+class _CostProjectionCommand(Protocol):
+    def __call__(self, request: Any) -> dict[str, Any]: ...
+
+
 _FREEZE = importlib.metadata.EntryPoint(
     name="owner-signed-corpus-manifest-freeze",
     value="legalforecast.evals.corpus_manifest.commands:freeze_corpus_manifest_command",
@@ -90,6 +94,22 @@ _VERIFY_FREEZE_INPUTS = importlib.metadata.EntryPoint(
     value=(
         "legalforecast.evals.corpus_manifest.freeze_inputs:"
         "verify_manifest_freeze_inputs_command"
+    ),
+    group="legalforecast.internal",
+)
+_PROJECT_MANIFEST_COST = importlib.metadata.EntryPoint(
+    name="manifest-cost-projector",
+    value=(
+        "legalforecast.evals.corpus_manifest.cost_projector:"
+        "issue_manifest_cost_projection"
+    ),
+    group="legalforecast.internal",
+)
+_MANIFEST_COST_REQUEST = importlib.metadata.EntryPoint(
+    name="manifest-cost-projector-request",
+    value=(
+        "legalforecast.evals.corpus_manifest.cost_projector:"
+        "ManifestCostProjectionRequest"
     ),
     group="legalforecast.internal",
 )
@@ -309,6 +329,80 @@ def register(
     verify_inputs.add_argument("--output-root", type=Path, required=True)
     verify_inputs.set_defaults(handler=run_verify_freeze_inputs)
 
+    cost = subparsers.add_parser(
+        "project-manifest-cost",
+        help="Issue a provider-free official manifest cost projection.",
+        description=(
+            "Verify a complete issued manifest freeze plus its local manifest-run "
+            "root, authenticate the signed owner manifest, exact frozen registry, "
+            "run record, run inputs, and every packet byte, then build the exact "
+            "official provider matrices and create-only emit a self-hashed receipt. "
+            "This command uses no provider or AWS service and never mutates inputs."
+        ),
+    )
+    cost.add_argument("--freeze-bundle", type=Path, required=True)
+    cost.add_argument(
+        "--freeze-root",
+        type=Path,
+        required=True,
+        help="Root resolving every relative artifact path in the freeze bundle.",
+    )
+    cost.add_argument(
+        "--manifest-run-root",
+        type=Path,
+        required=True,
+        help=(
+            "Root containing run-inputs.json, manifest-mode-run-record.json, and "
+            "model-packets/."
+        ),
+    )
+    cost.add_argument(
+        "--amendment-bundle",
+        type=Path,
+        action="append",
+        default=[],
+        help="Freeze amendment ancestor; repeat for the complete chain.",
+    )
+    cost.add_argument("--cycle-id", required=True)
+    cost.add_argument(
+        "--model-key",
+        action="append",
+        required=True,
+        dest="model_keys",
+        help="Requested provider:model_id registry key; repeatable.",
+    )
+    cost.add_argument(
+        "--ablation",
+        action="append",
+        required=True,
+        dest="ablations",
+        help="Requested packet ablation; repeatable.",
+    )
+    cost.add_argument("--repeat-count", type=int, default=1)
+    cost.add_argument(
+        "--repeat-sample-case-id",
+        action="append",
+        default=[],
+        dest="repeat_sample_case_ids",
+        help="Case receiving repeat_count evaluations; repeatable.",
+    )
+    cost.add_argument("--max-projected-model-cost-usd")
+    cost.add_argument(
+        "--matrix-limit",
+        type=int,
+        default=800,
+        help="Maximum aggregate matrix rows (default: 800).",
+    )
+    cost.add_argument(
+        "--shard-only",
+        action="store_true",
+        help=(
+            "Require exactly one model/ablation cell; permits the 256-row shard limit."
+        ),
+    )
+    cost.add_argument("--output", type=Path, required=True)
+    cost.set_defaults(handler=run_project_manifest_cost)
+
     issue_bundle = subparsers.add_parser(
         "issue-manifest-forecast-bundle-v2",
         help="Issue a create-only labels-deferred manifest forecast bundle.",
@@ -474,6 +568,35 @@ def run_verify_freeze_inputs(args: argparse.Namespace) -> int:
         legacy_v2_replay=_V2_REPLAY.load(),
     )
     print(json.dumps(build.run_card, indent=2, sort_keys=True))
+    return 0
+
+
+def run_project_manifest_cost(args: argparse.Namespace) -> int:
+    """Issue the shared provider-free manifest cost receipt."""
+
+    request_type = _MANIFEST_COST_REQUEST.load()
+    request = request_type(
+        freeze_bundle=cast(Path, args.freeze_bundle),
+        freeze_root=cast(Path, args.freeze_root),
+        manifest_run_root=cast(Path, args.manifest_run_root),
+        amendment_bundles=tuple(cast("Sequence[Path]", args.amendment_bundle)),
+        cycle_id=cast(str, args.cycle_id),
+        model_keys=tuple(cast("Sequence[str]", args.model_keys)),
+        ablations=tuple(cast("Sequence[str]", args.ablations)),
+        repeat_count=cast(int, args.repeat_count),
+        repeat_sample_case_ids=tuple(
+            cast("Sequence[str]", args.repeat_sample_case_ids)
+        ),
+        max_projected_model_cost_usd=cast(
+            str | None, args.max_projected_model_cost_usd
+        ),
+        matrix_limit=cast(int, args.matrix_limit),
+        shard_only=cast(bool, args.shard_only),
+        output=cast(Path, args.output),
+    )
+    issue = cast(_CostProjectionCommand, _PROJECT_MANIFEST_COST.load())
+    receipt = issue(request)
+    print(json.dumps(receipt, indent=2, sort_keys=True))
     return 0
 
 

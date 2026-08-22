@@ -37,6 +37,9 @@ positional arguments:
                         freeze bundle.
     verify-manifest-freeze-inputs
                         Replay and verify issued manifest freeze inputs.
+    project-manifest-cost
+                        Issue a provider-free official manifest cost
+                        projection.
     issue-manifest-forecast-bundle-v2
                         Issue a create-only labels-deferred manifest forecast
                         bundle.
