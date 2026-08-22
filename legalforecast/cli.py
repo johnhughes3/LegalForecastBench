@@ -495,6 +495,9 @@ from legalforecast.ingestion.exact100_stipulated_parser_lineage import (
     require_stipulated_source_matches_predecessor_download,
 )
 from legalforecast.ingestion.exact100_successor_replacement import (
+    PREDECESSOR_COVERAGE_SCHEMA_V2 as EXACT100_PREDECESSOR_COVERAGE_SCHEMA_V2,
+)
+from legalforecast.ingestion.exact100_successor_replacement import (
     PREDECESSOR_OUTPUT_NAMES as EXACT100_PREDECESSOR_OUTPUT_NAMES,
 )
 from legalforecast.ingestion.exact100_successor_replacement import (
@@ -44150,6 +44153,7 @@ def _replay_exact100_successor_inputs(
         ],
         core_filter_results_bytes=predecessor_output_bytes["core-filter-results.jsonl"],
         all_output_bytes=predecessor_output_bytes,
+        predecessor_coverage_schema=EXACT100_PREDECESSOR_COVERAGE_SCHEMA_V2,
     )
 
     predecessor_card = cast(Mapping[str, object], verified_predecessor["run_card"])
@@ -44219,28 +44223,67 @@ def _replay_exact100_successor_inputs(
     )
     ranked_reserve_path = original_root / "target-cohort-ranked-reserve.jsonl"
     ranked_reserve_bytes = original_bytes(ranked_reserve_path, "ranked reserve")
-    core_filter_results_bytes = b"".join(
-        canonical_json_bytes(result.to_record())
-        for result in filter_core_documents(
-            _projection_jsonl_records(
-                case_relevance_bytes, source=original_inputs["case_relevance"]
-            )
+    stored_core_filter_path = original_root / "core-filter-results.jsonl"
+    stored_core_filter_bytes = original_bytes(
+        stored_core_filter_path, "core-filter results"
+    )
+    filtered_results = filter_core_documents(
+        _projection_jsonl_records(
+            case_relevance_bytes, source=original_inputs["case_relevance"]
         )
     )
-    if core_filter_results_bytes != original_bytes(
-        original_root / "core-filter-results.jsonl", "core-filter results"
+    filtered_records: dict[str, JsonRecord] = {}
+    for result in filtered_results:
+        record = result.to_record()
+        filtered_records[str(record["candidate_id"])] = record
+    stored_core_filter = _projection_jsonl_records(
+        stored_core_filter_bytes, source=stored_core_filter_path
+    )
+    try:
+        reproduced_core_filter = [
+            filtered_records[str(row["candidate_id"])] for row in stored_core_filter
+        ]
+    except KeyError as exc:
+        raise CommandError(
+            "original target core-filter results do not reproduce"
+        ) from exc
+    if _projection_jsonl_bytes(reproduced_core_filter) != _projection_jsonl_bytes(
+        stored_core_filter
     ):
         raise CommandError("original target core-filter results do not reproduce")
+
+    def canonical_jsonl(payload: bytes, *, source: Path) -> bytes:
+        return b"".join(
+            canonical_json_bytes(record)
+            for record in _projection_jsonl_records(payload, source=source)
+        )
+
     original_summary_path = cast(Path, original["summary_path"])
     original_run_card_path = cast(Path, original["run_card_path"])
     promotion_pool = _mint_verified_successor_promotion_pool(
-        ranked_reserve_bytes=ranked_reserve_bytes,
-        source_selection_bytes=source_selection_bytes,
-        case_relevance_bytes=case_relevance_bytes,
-        download_manifest_bytes=download_manifest_bytes,
-        disclosure_clearance_bytes=disclosure_clearance_bytes,
-        restriction_evidence_bytes=restriction_evidence_bytes,
-        core_filter_results_bytes=core_filter_results_bytes,
+        ranked_reserve_bytes=canonical_jsonl(
+            ranked_reserve_bytes, source=ranked_reserve_path
+        ),
+        source_selection_bytes=canonical_jsonl(
+            source_selection_bytes, source=original_inputs["selection"]
+        ),
+        case_relevance_bytes=canonical_jsonl(
+            case_relevance_bytes, source=original_inputs["case_relevance"]
+        ),
+        download_manifest_bytes=canonical_jsonl(
+            download_manifest_bytes, source=original_inputs["download_manifest"]
+        ),
+        disclosure_clearance_bytes=canonical_jsonl(
+            disclosure_clearance_bytes,
+            source=original_inputs["disclosure_clearance"],
+        ),
+        restriction_evidence_bytes=canonical_jsonl(
+            restriction_evidence_bytes,
+            source=original_inputs["restriction_evidence"],
+        ),
+        core_filter_results_bytes=b"".join(
+            canonical_json_bytes(record) for record in filtered_records.values()
+        ),
         producer_config_bytes=original_bytes(
             original_summary_path, "target projection summary"
         ),

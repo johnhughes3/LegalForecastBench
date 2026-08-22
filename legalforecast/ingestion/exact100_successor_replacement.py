@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from legalforecast.contracts import (
+    EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V1,
+    EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V2,
     EXACT100_SUCCESSOR_PROMOTION_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1,
@@ -25,6 +27,8 @@ JsonRecord = dict[str, Any]
 CONFIG_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V1)
 STATE_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V1)
 PROMOTION_SCHEMA_VERSION = str(EXACT100_SUCCESSOR_PROMOTION_V1)
+PREDECESSOR_COVERAGE_SCHEMA_V1 = str(EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V1)
+PREDECESSOR_COVERAGE_SCHEMA_V2 = str(EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V2)
 
 _TARGET_COUNT = 100
 _PREDECESSOR_SCHEMA_VERSION = str(ZERO_COST_SUCCESSOR_CONFIG_V1)
@@ -324,6 +328,7 @@ def _mint_verified_exact100_predecessor(  # pyright: ignore[reportUnusedFunction
     restriction_evidence_bytes: bytes,
     core_filter_results_bytes: bytes,
     all_output_bytes: Mapping[str, bytes],
+    predecessor_coverage_schema: str = PREDECESSOR_COVERAGE_SCHEMA_V1,
 ) -> VerifiedExact100Predecessor:
     """Authenticate the predecessor surface from replayed producer bytes.
 
@@ -390,7 +395,18 @@ def _mint_verified_exact100_predecessor(  # pyright: ignore[reportUnusedFunction
         name: tuple(_jsonl_records(payload, f"predecessor {name}"))
         for name, payload in artifact_bytes.items()
     }
-    _require_exact_predecessor_artifact_coverage(selection, **artifacts)
+    if predecessor_coverage_schema == PREDECESSOR_COVERAGE_SCHEMA_V2:
+        from legalforecast.ingestion.exact100_successor_predecessor_coverage_v2 import (
+            require_predecessor_artifact_coverage_v2,
+        )
+
+        require_predecessor_artifact_coverage_v2(selection, **artifacts)
+    elif predecessor_coverage_schema == PREDECESSOR_COVERAGE_SCHEMA_V1:
+        _require_exact_predecessor_artifact_coverage(selection, **artifacts)
+    else:
+        raise Exact100SuccessorReplacementError(
+            "predecessor coverage schema is not a closed successor coverage contract"
+        )
     value = object.__new__(VerifiedExact100Predecessor)
     for name, item in (
         ("projection", dict(projection)),
@@ -793,12 +809,7 @@ def _nonpromotable_reason(
     core = _candidate_rows(core_filter_results, candidate_id)
     if not _has_exact_document_coverage(manifest, document_ids):
         return "download_manifest_incomplete"
-    if any(
-        row.get("availability_status") != "available"
-        or row.get("requires_paid_recovery") is True
-        or row.get("free_or_purchased") == "purchased"
-        for row in manifest
-    ):
+    if any(_nonzero_cost_or_unavailable_manifest_row(row) for row in manifest):
         return "nonzero_cost_or_unavailable_document"
     if not _has_exact_document_coverage(clearance, document_ids) or any(
         row.get("status") != "cleared" for row in clearance
@@ -810,11 +821,7 @@ def _nonpromotable_reason(
         for row in restrictions
     ):
         return "restriction_evidence_incomplete"
-    if len(core) != 1 or any(
-        row.get("missing_core_document_count", 0) != 0
-        or row.get("core_documents_complete") is not True
-        for row in core
-    ):
+    if len(core) != 1 or any(_core_documents_incomplete(row) for row in core):
         return "core_documents_incomplete"
     return None
 
@@ -825,6 +832,40 @@ def _has_exact_document_coverage(
     """Require exactly one artifact row for every selected document."""
 
     return len(rows) == len(document_ids) and _document_ids(rows) == document_ids
+
+
+def _nonzero_cost_or_unavailable_manifest_row(row: Mapping[str, Any]) -> bool:
+    """True when a manifest row is purchased, unpaid, or explicitly unavailable."""
+
+    if row.get("free_or_purchased") == "purchased":
+        return True
+    if row.get("requires_paid_recovery") is True:
+        return True
+    if row.get("free_or_purchased") == "free":
+        return row.get("availability_status") not in {None, "available"}
+    return row.get("availability_status") != "available"
+
+
+def _core_documents_incomplete(row: Mapping[str, Any]) -> bool:
+    """True when core-filter evidence does not prove complete core documents.
+
+    Hand-built fixtures stamp ``core_documents_complete``. Live
+    ``filter_core_documents`` records instead stamp ``core_missing_documents``
+    and ``excluded``.
+    """
+
+    complete = row.get("core_documents_complete")
+    if complete is True:
+        return row.get("missing_core_document_count", 0) != 0
+    if complete is False:
+        return True
+    if "core_missing_documents" in row or "purchase_document_ids" in row:
+        return (
+            bool(row.get("core_missing_documents"))
+            or row.get("excluded") is True
+            or row.get("missing_operative_complaint") is True
+        )
+    return True
 
 
 def _replace_candidate_rows(
