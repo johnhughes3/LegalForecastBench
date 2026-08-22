@@ -16,6 +16,7 @@ from legalforecast.ingestion import recovered_public_replay as replay_module
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
 from legalforecast.ingestion.disclosure_clearance import require_clearance_policy
 from legalforecast.ingestion.replacement_recovery_v3_register import (
+    admit_authenticated_v3_free_clearance_rows,
     admit_authenticated_v3_register_clearance_rows,
     admit_authenticated_v3_register_lineage,
 )
@@ -40,6 +41,229 @@ def _admission_jsonl(values: list[dict[str, object]]) -> bytes:
     return "".join(
         f"{json.dumps(value, sort_keys=True, allow_nan=False)}\n" for value in values
     ).encode()
+
+
+def _v3_admission_jsonl(values: list[dict[str, object]]) -> bytes:
+    return b"".join(
+        (
+            json.dumps(
+                value,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+            + b"\n"
+        )
+        for value in values
+    )
+
+
+def _legacy_free_admission_fixture() -> tuple[
+    dict[str, object], dict[str, object], dict[str, object]
+]:
+    manifest = {
+        "candidate_id": "case-free",
+        "source_document_id": "document-free",
+        "free_or_purchased": "free",
+        "local_path": "case-free/document-free.pdf",
+        "sha256": "f" * 64,
+        "byte_count": 625640,
+    }
+    clearance = {
+        "byte_count": 625640,
+        "candidate_id": "case-free",
+        "clearance_basis": "courtlistener_public_download",
+        "free_or_purchased": "free",
+        "sha256": "f" * 64,
+        "source_document_id": "document-free",
+        "status": "cleared",
+    }
+    restriction = {
+        "candidate_id": "case-free",
+        "is_private": False,
+        "is_sealed": False,
+        "restriction_evidence": [
+            "courtlistener_public_download_record_checked",
+            "document_repair_byte_role_validation_match",
+        ],
+        "restriction_status": "public",
+        "source_document_id": "document-free",
+    }
+    return manifest, clearance, restriction
+
+
+def test_authenticated_v3_admits_exact_legacy_free_public_download_shape() -> None:
+    manifest, clearance, restriction = _legacy_free_admission_fixture()
+    authenticated_clearance = [clearance]
+    authenticated_restriction = [restriction]
+
+    admitted = admit_authenticated_v3_free_clearance_rows(
+        manifest_records=[manifest],
+        clearance_records=[clearance],
+        restriction_records=authenticated_restriction,
+        authenticated_clearance_records=authenticated_clearance,
+        authenticated_clearance_bytes=_v3_admission_jsonl(authenticated_clearance),
+        authenticated_restriction_bytes=_v3_admission_jsonl(authenticated_restriction),
+    )
+
+    assert admitted == (
+        {
+            **clearance,
+            "schema_version": "legalforecast.disclosure_clearance.v1",
+            "is_private": False,
+            "is_sealed": False,
+            "restriction_status": "public",
+            "restriction_evidence": [
+                "courtlistener_public_download_record_checked",
+                "document_repair_byte_role_validation_match",
+            ],
+        },
+    )
+    assert "schema_version" not in clearance
+    assert restriction == {
+        "candidate_id": "case-free",
+        "is_private": False,
+        "is_sealed": False,
+        "restriction_evidence": [
+            "courtlistener_public_download_record_checked",
+            "document_repair_byte_role_validation_match",
+        ],
+        "restriction_status": "public",
+        "source_document_id": "document-free",
+    }
+
+
+def test_authenticated_v3_free_admission_preserves_canonical_free_rows() -> None:
+    manifest, legacy_clearance, legacy_restriction = _legacy_free_admission_fixture()
+    canonical_manifest = {
+        **manifest,
+        "candidate_id": "case-canonical",
+        "source_document_id": "document-canonical",
+        "local_path": "case-canonical/document-canonical.pdf",
+        "sha256": "c" * 64,
+        "byte_count": 12,
+    }
+    canonical_clearance = {
+        "schema_version": "legalforecast.disclosure_clearance.v1",
+        "candidate_id": "case-canonical",
+        "source_document_id": "document-canonical",
+        "free_or_purchased": "free",
+        "local_path": canonical_manifest["local_path"],
+        "sha256": "c" * 64,
+        "byte_count": 12,
+        "status": "cleared",
+        "clearance_basis": "affirmative_public_provenance",
+        "restriction_status": "public",
+        "restriction_evidence": ["courtlistener_public_download_record_checked"],
+    }
+    canonical_restriction = {
+        "candidate_id": "case-canonical",
+        "source_document_id": "document-canonical",
+        "is_private": False,
+        "is_sealed": False,
+        "restriction_status": "public",
+        "restriction_evidence": ["courtlistener_public_download_record_checked"],
+    }
+    clearances = [legacy_clearance, canonical_clearance]
+    restrictions = [legacy_restriction, canonical_restriction]
+
+    admitted = admit_authenticated_v3_free_clearance_rows(
+        manifest_records=[manifest, canonical_manifest],
+        clearance_records=clearances,
+        restriction_records=restrictions,
+        authenticated_clearance_records=clearances,
+        authenticated_clearance_bytes=_v3_admission_jsonl(clearances),
+        authenticated_restriction_bytes=_v3_admission_jsonl(restrictions),
+    )
+
+    assert admitted[1] == canonical_clearance
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda row: row.update(free_or_purchased="purchased"), "free"),
+        (lambda row: row.update(clearance_basis="paid_delivery"), "basis"),
+        (lambda row: row.update(status="quarantined"), "cleared"),
+        (
+            lambda row: row.update(extra="not-authenticated"),
+            "exact legacy clearance shape",
+        ),
+        (lambda row: row.pop("sha256"), "exact legacy clearance shape"),
+    ],
+)
+def test_authenticated_v3_free_admission_rejects_legacy_clearance_drift(
+    mutation: Callable[[dict[str, object]], None], message: str
+) -> None:
+    manifest, clearance, restriction = _legacy_free_admission_fixture()
+    mutation(clearance)
+    with pytest.raises(ValueError, match=message):
+        admit_authenticated_v3_free_clearance_rows(
+            manifest_records=[manifest],
+            clearance_records=[clearance],
+            restriction_records=[restriction],
+            authenticated_clearance_records=[clearance],
+            authenticated_clearance_bytes=_v3_admission_jsonl([clearance]),
+            authenticated_restriction_bytes=_v3_admission_jsonl([restriction]),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("is_private", None, "exact restriction"),
+        ("is_sealed", "false", "exact restriction"),
+        ("restriction_status", "restricted", "exact public evidence"),
+        (
+            "restriction_evidence",
+            ["courtlistener_public_download_record_checked"],
+            "exact public evidence",
+        ),
+        ("extra", True, "exact restriction"),
+    ],
+)
+def test_authenticated_v3_free_admission_rejects_restriction_drift(
+    field: str, value: object, message: str
+) -> None:
+    manifest, clearance, restriction = _legacy_free_admission_fixture()
+    restriction[field] = value
+    with pytest.raises(ValueError, match=message):
+        admit_authenticated_v3_free_clearance_rows(
+            manifest_records=[manifest],
+            clearance_records=[clearance],
+            restriction_records=[restriction],
+            authenticated_clearance_records=[clearance],
+            authenticated_clearance_bytes=_v3_admission_jsonl([clearance]),
+            authenticated_restriction_bytes=_v3_admission_jsonl([restriction]),
+        )
+
+
+def test_authenticated_v3_free_admission_requires_verifier_owned_bytes() -> None:
+    manifest, clearance, restriction = _legacy_free_admission_fixture()
+    with pytest.raises(ValueError, match="authenticated bytes"):
+        admit_authenticated_v3_free_clearance_rows(
+            manifest_records=[manifest],
+            clearance_records=[clearance],
+            restriction_records=[restriction],
+            authenticated_clearance_records=[clearance],
+            authenticated_clearance_bytes=None,
+            authenticated_restriction_bytes=_v3_admission_jsonl([restriction]),
+        )
+
+
+def test_authenticated_v3_free_admission_rejects_authenticated_row_mismatch() -> None:
+    manifest, clearance, restriction = _legacy_free_admission_fixture()
+    altered = {**clearance, "byte_count": 1}
+    with pytest.raises(ValueError, match="authenticated"):
+        admit_authenticated_v3_free_clearance_rows(
+            manifest_records=[manifest],
+            clearance_records=[altered],
+            restriction_records=[restriction],
+            authenticated_clearance_records=[clearance],
+            authenticated_clearance_bytes=_v3_admission_jsonl([clearance]),
+            authenticated_restriction_bytes=_v3_admission_jsonl([restriction]),
+        )
 
 
 def test_authenticated_v3_admits_real_legacy_paid_delivery_shape() -> None:

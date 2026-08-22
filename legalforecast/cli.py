@@ -879,6 +879,9 @@ from legalforecast.ingestion.replacement_recovery_source import (
     normalize_post_purchase_replay_descriptor,
 )
 from legalforecast.ingestion.replacement_recovery_v3_register import (
+    admit_authenticated_v3_free_projection as _admit_v3_free,
+)
+from legalforecast.ingestion.replacement_recovery_v3_register import (
     admit_authenticated_v3_register_lineage as _admit_v3,
 )
 from legalforecast.ingestion.replacement_recovery_v3_register import (
@@ -32226,13 +32229,7 @@ def _materializer_successor_v2_free_sources(
     preparation_root: Path,
     consolidated_recovery: bool,
 ) -> tuple[DocumentSource, ...]:
-    """Return the exact free roots for a consolidated exact-100 v2 successor.
-
-    The v2 successor keeps inherited documents in the predecessor's
-    content-addressed materialization tree, while its one promoted candidate
-    remains in the authenticated historical public-packet tree.  A generic
-    preparation root cannot safely stand in for either layout.
-    """
+    """Return exact free roots for successor layouts."""
 
     free_manifest = tuple(
         cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
@@ -32240,6 +32237,7 @@ def _materializer_successor_v2_free_sources(
     free_clearance = _materializer_free_clearance_records(
         projection, consolidated_recovery=consolidated_recovery
     )
+    free_clearance = _admit_v3_free(projection, free_manifest, free_clearance)
     if not consolidated_recovery:
         return (
             DocumentSource(

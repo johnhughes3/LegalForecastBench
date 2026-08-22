@@ -1183,6 +1183,45 @@ def _v3_split_source_projection(tmp_path: Path) -> dict[str, object]:
     )
     promoted_path = promoted_root / promoted["local_path"]
 
+    def clearance_for(document: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            "byte_count": document["byte_count"],
+            "candidate_id": document["candidate_id"],
+            "clearance_basis": "courtlistener_public_download",
+            "free_or_purchased": "free",
+            "sha256": document["sha256"],
+            "source_document_id": document["source_document_id"],
+            "status": "cleared",
+        }
+
+    def restriction_for(document: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            "candidate_id": document["candidate_id"],
+            "is_private": False,
+            "is_sealed": False,
+            "restriction_evidence": [
+                "courtlistener_public_download_record_checked",
+                "document_repair_byte_role_validation_match",
+            ],
+            "restriction_status": "public",
+            "source_document_id": document["source_document_id"],
+        }
+
+    def jsonl_bytes(rows: Sequence[Mapping[str, Any]]) -> bytes:
+        return "".join(
+            json.dumps(
+                dict(row),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+            + "\n"
+            for row in rows
+        ).encode()
+
+    clearance = (clearance_for(retained), clearance_for(promoted))
+    restrictions = (restriction_for(retained), restriction_for(promoted))
+
     anchor_projection = {
         "run_card": {"schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA},
         "free_manifest": (retained, omitted),
@@ -1196,10 +1235,22 @@ def _v3_split_source_projection(tmp_path: Path) -> dict[str, object]:
         "base_projection": anchor_projection,
         "summary_path": tmp_path / "v3" / "projection-summary.json",
         "free_manifest": (retained, promoted),
-        "free_clearance": (retained, promoted),
+        "free_clearance": clearance,
         "purchased_manifest": (),
+        "restriction_records": restrictions,
+        "authenticated_clearance_records": clearance,
+        "authenticated_clearance_bytes": jsonl_bytes(clearance),
+        "authenticated_restriction_bytes": jsonl_bytes(restrictions),
+        "clearance_path": tmp_path / "v3" / "disclosure-clearance.jsonl",
+        "restriction_path": tmp_path / "v3" / "restriction-evidence.jsonl",
         "verified_artifact_bytes": {
-            os.path.abspath(promoted_path): promoted_path.read_bytes()
+            os.path.abspath(promoted_path): promoted_path.read_bytes(),
+            os.path.abspath(
+                tmp_path / "v3" / "disclosure-clearance.jsonl"
+            ): jsonl_bytes(clearance),
+            os.path.abspath(
+                tmp_path / "v3" / "restriction-evidence.jsonl"
+            ): jsonl_bytes(restrictions),
         },
         "preparation_root": preparation_root,
     }
@@ -1237,7 +1288,14 @@ def test_consolidated_successor_v3_refuses_unauthenticated_promoted_bytes(
     tmp_path: Path,
 ) -> None:
     projection = _v3_split_source_projection(tmp_path)
-    projection["verified_artifact_bytes"] = {}
+    projection["verified_artifact_bytes"] = {
+        os.path.abspath(cast(Path, projection["clearance_path"])): projection[
+            "authenticated_clearance_bytes"
+        ],
+        os.path.abspath(cast(Path, projection["restriction_path"])): projection[
+            "authenticated_restriction_bytes"
+        ],
+    }
 
     with pytest.raises(
         cli.CommandError, match="promoted free document is unauthenticated"
