@@ -76,6 +76,18 @@ CYCLE1_MANIFEST_UNITIZER_R2_AUTHORITY_V1 = SchemaIdentifier(
 CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_V1 = SchemaIdentifier(
     "legalforecast.cycle1.stage51_finalized_units_integration.v1"
 )
+CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_PROPOSAL_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_terminal_units_final_integration_proposal.v1"
+)
+CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_VALIDATION_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_terminal_units_final_proposal_validation.v1"
+)
+CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_DIFF_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_terminal_units_final_proposal_diff.v1"
+)
+CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_SHA_INVENTORY_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_terminal_units_final_proposal_sha_inventory.v1"
+)
 CLEARANCE_REPLACEMENT_PLAN_V1 = SchemaIdentifier(
     "legalforecast.clearance_replacement_plan.v1"
 )

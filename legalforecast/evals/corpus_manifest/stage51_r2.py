@@ -14,7 +14,14 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast._json_io import write_json_object, write_jsonl_objects
-from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
+from legalforecast.contracts import (
+    ACQUISITION_RUN_CARD_V1,
+    ARTIFACT_CANONICAL_JSON_V1,
+    CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_PROPOSAL_V1,
+    CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_DIFF_V1,
+    CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_SHA_INVENTORY_V1,
+    CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_VALIDATION_V1,
+)
 from legalforecast.ingestion.cohort_document_materializer import (
     CohortDocumentMaterializationError,
     prepare_non_symlink_directory,
@@ -513,9 +520,7 @@ def _verify_r2_integration_record(
     packet_sha256: str,
 ) -> None:
     expected_scalars: dict[str, object] = {
-        "artifact": (
-            "legalforecast.cycle1.stage51_terminal_units_final_integration_proposal.v1"
-        ),
+        "artifact": (str(CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_PROPOSAL_V1)),
         "authoritative": False,
         "integration_ready": False,
         "owner_digest_approval_status": "PENDING",
@@ -569,9 +574,7 @@ def _verify_r2_validation_record(
     record: Mapping[str, Any], *, packet_sha256: str
 ) -> None:
     expected = {
-        "artifact": (
-            "legalforecast.cycle1.stage51_terminal_units_final_proposal_validation.v1"
-        ),
+        "artifact": (str(CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_VALIDATION_V1)),
         "authoritative": False,
         "status": "PASS; provider-free validation only",
         "canonical_packet_sha256": packet_sha256,
@@ -623,8 +626,7 @@ def _verify_r2_semantic_diff(
     overlay_by_candidate: Mapping[str, JsonRecord],
 ) -> None:
     if (
-        record.get("artifact")
-        != "legalforecast.cycle1.stage51_terminal_units_final_proposal_diff.v1"
+        record.get("artifact") != str(CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_DIFF_V1)
         or record.get("authoritative") is not False
         or record.get("status")
         != "PASS; provider-free semantic and byte-preservation comparison"
@@ -683,7 +685,7 @@ def _verify_r2_inventory(
 ) -> set[Path]:
     if (
         record.get("artifact")
-        != "legalforecast.cycle1.stage51_terminal_units_final_proposal_sha_inventory.v1"
+        != str(CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_SHA_INVENTORY_V1)
         or record.get("status")
         != "provider-free exact-byte inventory; non-authoritative"
         or record.get("canonical_packet_sha256") != packet_sha256
@@ -916,7 +918,7 @@ def _authenticate_fresh_five_evidence(
             )
     card = _json_object_from_bytes(payloads["run_card"], "fresh-five run card")
     if (
-        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        card.get("schema_version") != str(ACQUISITION_RUN_CARD_V1)
         or card.get("stage") != "llm-unitize-manifest"
         or card.get("status") != "completed"
         or card.get("record_count") != 5
