@@ -335,6 +335,7 @@ def complete_live_prompt(
             **_sampling_policy_metadata(registry_entry),
             **_openai_service_tier_metadata(
                 registry_entry,
+                payload=payload,
                 used_tier=used_tier,
                 fell_back=fell_back,
             ),
@@ -663,6 +664,7 @@ def _effective_timeout_seconds(
 def _openai_service_tier_metadata(
     entry: ModelRegistryEntry,
     *,
+    payload: JsonRecord | None = None,
     used_tier: str | None = None,
     fell_back: bool = False,
 ) -> dict[str, str]:
@@ -671,10 +673,20 @@ def _openai_service_tier_metadata(
     metadata = {
         "service_tier": used_tier or OPENAI_SERVICE_TIER,
         "requested_service_tier": OPENAI_SERVICE_TIER,
+        "observed_service_tier": _observed_openai_service_tier(payload),
     }
     if fell_back:
         metadata["service_tier_fallback"] = "flex_unavailable"
     return metadata
+
+
+def _observed_openai_service_tier(payload: JsonRecord | None) -> str:
+    if payload is None:
+        return "unreported"
+    value = payload.get("service_tier")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return "unreported"
 
 
 def _is_openai_flex_unavailable(exc: LiveModelProviderError) -> bool:
