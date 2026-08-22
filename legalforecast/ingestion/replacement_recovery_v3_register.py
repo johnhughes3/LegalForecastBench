@@ -15,6 +15,7 @@ from legalforecast.contracts import (
 from legalforecast.ingestion import disclosure_clearance
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.disclosure_clearance import (
+    FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE,
     PAID_DELIVERY_RESTRICTION_EVIDENCE,
     SCHEMA_VERSION,
 )
@@ -67,10 +68,6 @@ _PUBLIC_RESTRICTION_FIELDS = frozenset(
         "restriction_status",
         "source_document_id",
     }
-)
-_FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE = (
-    "courtlistener_public_download_record_checked",
-    "document_repair_byte_role_validation_match",
 )
 
 
@@ -479,7 +476,7 @@ def admit_authenticated_v3_free_clearance_rows(
                 )
             if restriction.get("restriction_status") != "public" or restriction.get(
                 "restriction_evidence"
-            ) != list(_FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE):
+            ) != list(FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE):
                 raise ValueError(
                     f"v3 free clearance lacks exact public evidence: {key}"
                 )

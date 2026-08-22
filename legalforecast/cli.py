@@ -131,6 +131,7 @@ from legalforecast.ingestion import (
     source_document_provenance_from_record,
 )
 from legalforecast.ingestion import courtlistener_recap_purchase as rp
+from legalforecast.ingestion import disclosure_clearance as disclosure_clearance_module
 from legalforecast.ingestion import (
     downstream_lineage_verification as _downstream_lineage,
 )
@@ -32223,6 +32224,20 @@ def _require_materializer_source_record_match(
         raise CommandError(f"{label} is not a free document: {key}")
 
 
+def _v3_free_public_download_capability(
+    projection: Mapping[str, object],
+) -> object | None:
+    """Return the private free-download capability for an authenticated v3 root."""
+
+    run_card = projection.get("run_card")
+    if not isinstance(run_card, Mapping) or (
+        cast(Mapping[str, object], run_card).get("schema_version")
+        != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+    ):
+        return None
+    return vars(disclosure_clearance_module)["_FREE_PUBLIC_DOWNLOAD_AUTHORITY"]
+
+
 def _materializer_successor_v2_free_sources(
     projection: Mapping[str, object],
     *,
@@ -32231,6 +32246,7 @@ def _materializer_successor_v2_free_sources(
 ) -> tuple[DocumentSource, ...]:
     """Return exact free roots for successor layouts."""
 
+    free_public_download_capability = _v3_free_public_download_capability(projection)
     free_manifest = tuple(
         cast(Sequence[Mapping[str, Any]], projection["free_manifest"])
     )
@@ -32245,6 +32261,7 @@ def _materializer_successor_v2_free_sources(
                 document_root=preparation_root / "documents/free",
                 manifest=free_manifest,
                 clearance=free_clearance,
+                free_public_download_capability=free_public_download_capability,
             ),
         )
 
@@ -32258,6 +32275,7 @@ def _materializer_successor_v2_free_sources(
                 document_root=preparation_root / "documents/free",
                 manifest=free_manifest,
                 clearance=free_clearance,
+                free_public_download_capability=free_public_download_capability,
             ),
         )
     run_card_record = cast(Mapping[str, object], run_card)
@@ -32333,6 +32351,7 @@ def _materializer_successor_v2_free_sources(
                 document_root=supplemental_root,
                 manifest=supplemental_records,
                 clearance=supplemental_clearance_records,
+                free_public_download_capability=free_public_download_capability,
             ),
         )
     # Successor generations differ in where they keep free documents.  Some keep
@@ -32386,6 +32405,7 @@ def _materializer_successor_v2_free_sources(
                     clearance=tuple(
                         clearance_by_key[key] for key in sorted(source_keys)
                     ),
+                    free_public_download_capability=free_public_download_capability,
                 )
             )
         if covered_inherited != inherited_keys:
@@ -32418,6 +32438,7 @@ def _materializer_successor_v2_free_sources(
                     clearance=tuple(
                         clearance_by_key[key] for key in sorted(promoted_keys)
                     ),
+                    free_public_download_capability=free_public_download_capability,
                 )
             )
         return tuple(filtered_sources)
@@ -32433,6 +32454,7 @@ def _materializer_successor_v2_free_sources(
                 document_root=preparation_root / "documents/free",
                 manifest=free_manifest,
                 clearance=free_clearance,
+                free_public_download_capability=free_public_download_capability,
             ),
         )
     if not isinstance(selection_path, Path) or not isinstance(artifact_bytes, Mapping):
@@ -42328,6 +42350,7 @@ class _MaterializationPublication:
     docket_decision_partition: Mapping[str, object] | None = None
     verified_successor_selection_card: _VerifiedSuccessorSelectionCard | None = None
     paid_delivery_capability: object | None = None
+    free_public_download_capability: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -43245,6 +43268,9 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
             paid_delivery_capability=purchased_clearance_lineage.get(
                 "paid_delivery_capability"
             ),
+            free_public_download_capability=_v3_free_public_download_capability(
+                projection
+            ),
             docket_decision_partition=(
                 docket_decision_descriptor.partition
                 if docket_decision_descriptor is not None
@@ -43373,14 +43399,20 @@ def _prepare_free_only_cohort_documents(
                 set[tuple[str, str]], projection["selected_document_keys"]
             ),
         )
+        free_clearance = _admit_v3_free(
+            projection,
+            free_manifest,
+            cast(Sequence[Mapping[str, Any]], projection["free_clearance"]),
+        )
         materialization = prepare_cohort_document_materialization(
             (
                 DocumentSource(
                     phase="free",
                     document_root=preparation_root / "documents/free",
                     manifest=free_manifest,
-                    clearance=cast(
-                        Sequence[Mapping[str, Any]], projection["free_clearance"]
+                    clearance=free_clearance,
+                    free_public_download_capability=_v3_free_public_download_capability(
+                        projection
                     ),
                 ),
             ),
@@ -43415,9 +43447,7 @@ def _prepare_free_only_cohort_documents(
         _build_materializer_derivations(
             materialization=materialization,
             free_manifest=free_manifest,
-            free_clearance=cast(
-                Sequence[Mapping[str, Any]], projection["free_clearance"]
-            ),
+            free_clearance=free_clearance,
             purchased_manifest=(),
             purchased_clearance=(),
             resolved_records=(),
@@ -43500,6 +43530,7 @@ def _prepare_free_only_cohort_documents(
         },
         authority_mode="free_only",
         authority_recheck=recheck_authority,
+        free_public_download_capability=_v3_free_public_download_capability(projection),
         verified_successor_selection_card=(
             _verified_successor_selection_card_from_projection(projection)
         ),
@@ -43617,6 +43648,7 @@ def _publish_materialized_cohort_documents(
             output_commitments=output_commitments,
             dry_run=dry_run,
             paid_delivery_capability=publication.paid_delivery_capability,
+            free_public_download_capability=publication.free_public_download_capability,
             authority_mode=publication.authority_mode,
             docket_decision_partition=publication.docket_decision_partition,
         )
@@ -43647,6 +43679,9 @@ def _publish_materialized_cohort_documents(
                 document_root=publication.document_root,
                 clearance_records=materialization.clearance,
                 paid_delivery_capability=publication.paid_delivery_capability,
+                free_public_download_capability=(
+                    publication.free_public_download_capability
+                ),
             )
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
@@ -49109,6 +49144,7 @@ def _verify_materializer_resume(
     output_commitments: Mapping[str, object],
     dry_run: bool,
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
     authority_mode: str | None = None,
     docket_decision_partition: Mapping[str, object] | None = None,
 ) -> None:
@@ -49191,6 +49227,7 @@ def _verify_materializer_resume(
             document_root=document_root,
             clearance_records=materialization.clearance,
             paid_delivery_capability=paid_delivery_capability,
+            free_public_download_capability=free_public_download_capability,
         )
     except DisclosureClearanceError as exc:
         raise CommandError(str(exc)) from exc

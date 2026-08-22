@@ -12,8 +12,13 @@ from typing import Any, cast
 
 import legalforecast.cli as cli
 import pytest
+from legalforecast.ingestion import disclosure_clearance as disclosure_clearance_module
 from legalforecast.ingestion import recovered_public_replay as replay_module
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
+from legalforecast.ingestion.cohort_document_materializer import (
+    DocumentSource,
+    prepare_cohort_document_materialization,
+)
 from legalforecast.ingestion.disclosure_clearance import require_clearance_policy
 from legalforecast.ingestion.replacement_recovery_v3_register import (
     admit_authenticated_v3_free_clearance_rows,
@@ -132,6 +137,58 @@ def test_authenticated_v3_admits_exact_legacy_free_public_download_shape() -> No
         "restriction_status": "public",
         "source_document_id": "document-free",
     }
+
+
+def test_authenticated_v3_free_rows_use_private_materializer_capability(
+    tmp_path: Path,
+) -> None:
+    manifest, clearance, restriction = _legacy_free_admission_fixture()
+    payload = b"authenticated-free-document"
+    manifest["local_path"] = "document-free.pdf"
+    manifest["sha256"] = hashlib.sha256(payload).hexdigest()
+    manifest["byte_count"] = len(payload)
+    clearance["sha256"] = manifest["sha256"]
+    clearance["byte_count"] = manifest["byte_count"]
+    admitted = admit_authenticated_v3_free_clearance_rows(
+        manifest_records=[manifest],
+        clearance_records=[clearance],
+        restriction_records=[restriction],
+        authenticated_clearance_records=[clearance],
+        authenticated_clearance_bytes=_v3_admission_jsonl([clearance]),
+        authenticated_restriction_bytes=_v3_admission_jsonl([restriction]),
+    )
+    document_root = tmp_path / "documents"
+    document_root.mkdir()
+    (document_root / "document-free.pdf").write_bytes(payload)
+    with pytest.raises(ValueError, match="free public-download document lacks"):
+        prepare_cohort_document_materialization(
+            (
+                DocumentSource(
+                    phase="free",
+                    document_root=document_root,
+                    manifest=(manifest,),
+                    clearance=admitted,
+                ),
+            ),
+            selected_document_keys={("case-free", "document-free")},
+            output_root=tmp_path / "without-capability",
+        )
+    materialization = prepare_cohort_document_materialization(
+        (
+            DocumentSource(
+                phase="free",
+                document_root=document_root,
+                manifest=(manifest,),
+                clearance=admitted,
+                free_public_download_capability=vars(disclosure_clearance_module)[
+                    "_FREE_PUBLIC_DOWNLOAD_AUTHORITY"
+                ],
+            ),
+        ),
+        selected_document_keys={("case-free", "document-free")},
+        output_root=tmp_path / "with-capability",
+    )
+    assert len(materialization.documents) == 1
 
 
 def test_authenticated_v3_free_admission_preserves_canonical_free_rows() -> None:

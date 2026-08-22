@@ -682,6 +682,18 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
         }
 
     monkeypatch.setattr(cli, "_verify_materializer_projection", verified_projection)
+    admission_calls: list[tuple[object, ...]] = []
+    original_admit_v3_free = cli._admit_v3_free
+
+    def admit_v3_free(
+        projection: Mapping[str, object],
+        manifest_records: Sequence[Mapping[str, Any]],
+        clearance_records: Sequence[Mapping[str, Any]],
+    ) -> tuple[Mapping[str, Any], ...]:
+        admission_calls.append((projection, manifest_records, clearance_records))
+        return original_admit_v3_free(projection, manifest_records, clearance_records)
+
+    monkeypatch.setattr(cli, "_admit_v3_free", admit_v3_free)
     approval = SimpleNamespace(
         decision="free_only",
         request=SimpleNamespace(
@@ -744,6 +756,7 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     assert card["authority_mode"] == "free_only"
     assert card["purchased_document_count"] == 0
     assert not ledger.exists()
+    assert len(admission_calls) == 1
     replay = cli._verify_materialized_downstream_lineage(
         run_card_path=run_card,
         manifest_path=output / "document-downloads-merged.jsonl",

@@ -188,6 +188,7 @@ class DocumentSource:
     manifest: Sequence[Mapping[str, Any]]
     clearance: Sequence[Mapping[str, Any]]
     paid_delivery_capability: object | None = None
+    free_public_download_capability: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -258,6 +259,7 @@ def prepare_cohort_document_materialization(
                 document_root=root,
                 clearance_records=source.clearance,
                 paid_delivery_capability=source.paid_delivery_capability,
+                free_public_download_capability=source.free_public_download_capability,
             )
         except DisclosureClearanceError as exc:
             raise CohortDocumentMaterializationError(str(exc)) from exc
