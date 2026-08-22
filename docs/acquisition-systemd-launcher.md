@@ -138,3 +138,28 @@ uv run scripts/smoke_infisical_systemd_exit_status.py \
 ```
 
 This smoke makes zero provider calls and performs no acquisition, purchase, evaluation, freeze, or dispatch action.
+
+## Provider-placement reconciliation
+
+This document is the checked-in source contract, not a live Infisical
+inventory. A fresh name-only provider read must use the sanctioned metadata
+helper with `viewSecretValue=false`, preserve hidden metadata, and never print
+values. A failed provider read does not prove that an expected folder is absent.
+
+The source-owned expected layout is:
+
+| Source role | Exact path | Exact names | Checked-in consumers |
+| --- | --- | --- | --- |
+| Acquisition stage | `/agents/sandbox/legalforecastbench/acquisition` | `ANTHROPIC_API_KEY`, `CASE_DEV_API_KEY`, `COURTLISTENER_API_TOKEN`, `FIRECRAWL_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `OPENAI_API_KEY`, `PACER_PASSWORD`, `PACER_USERNAME` | Flat acquisition environment and canonical dependent-reference source used by the acquisition clients, parser, and labeling stages; direct CourtListener purchase requires the CourtListener token plus both PACER credentials, while unknown recovery requires only the token. |
+| Parser view | `/agents/sandbox/legalforecastbench/parser` | `MISTRAL_API_KEY` | The parser stage. |
+| Labeling view | `/agents/sandbox/legalforecastbench/labeling` | `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY` | The labeling stage. |
+| Optional broker-client view | `/agents/sandbox/legalforecastbench/recap-fetch-broker-client` | `RECAP_FETCH_BROKER_URL`, `RECAP_FETCH_BROKER_MACHINE_ID`, `RECAP_FETCH_BROKER_PRIVATE_KEY_JWK`, `RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON`, `RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256` | Only the separately activated RECAP Fetch broker transport. Terraform owns the empty folder before activation. |
+
+The retained secure-gate census is historical and unverified. It reported the
+flat acquisition path and the three stage views above, but provider presence,
+current ownership, and dependent-reference state still require a fresh
+metadata-only inventory. This source reconciliation is not permission to
+create, move, copy, rotate, or delete credentials. Such provider mutations
+require the protected owner workflow and a reviewed value-free credential
+audit. The same rule applies to any extra names or folders found outside this
+source-owned layout.
