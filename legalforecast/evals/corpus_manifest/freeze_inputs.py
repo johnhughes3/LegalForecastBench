@@ -28,6 +28,7 @@ from legalforecast.contracts.schemas import (
     MANIFEST_FREEZE_INPUTS_RUN_CARD_V1,
     MANIFEST_FREEZE_RUNTIME_CONTRACT_V1,
     MANIFEST_MODE_FORECAST_RUN_RECORD_V1,
+    NO_BASELINES_V1,
 )
 from legalforecast.evals.corpus_manifest.forecast_entry import (
     _case_packet,
@@ -317,7 +318,7 @@ def build_manifest_freeze_inputs(
         _OUTPUTS["harness"]: contracts["harness"],
         _OUTPUTS["baselines"]: canonical_json_bytes(
             {
-                "schema_version": "legalforecast.no_baselines.v1",
+                "schema_version": str(NO_BASELINES_V1),
                 "cycle_id": request.cycle_id,
                 "status": "unavailable",
                 "reason": "No frozen historical baseline corpus exists for Cycle 1.",

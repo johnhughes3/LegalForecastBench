@@ -164,6 +164,7 @@ MANIFEST_FREEZE_RUNTIME_CONTRACT_V1 = SchemaIdentifier(
 MANIFEST_FREEZE_INPUTS_RUN_CARD_V1 = SchemaIdentifier(
     "legalforecast.manifest_freeze_inputs_run_card.v1"
 )
+NO_BASELINES_V1 = SchemaIdentifier("legalforecast.no_baselines.v1")
 EXACT100_METHODS_DISCLOSURE_V1 = SchemaIdentifier(
     "legalforecast.exact100_methods_disclosure.v1"
 )
