@@ -2546,6 +2546,40 @@ def test_materializer_accepts_consecutive_free_sources_and_sums_counts(
     assert prepared.summary["purchased_document_count"] == 0
 
 
+def test_materializer_accepts_successor_chain_free_sources_before_purchased(
+    tmp_path: Path,
+) -> None:
+    free_sources: list[DocumentSource] = []
+    selected_keys: set[tuple[str, str]] = set()
+    for index in range(4):
+        source_root = tmp_path / f"free-{index}"
+        source_root.mkdir()
+        source, key = _source(
+            source_root,
+            phase="free",
+            candidate_id=f"candidate-{index}",
+            document_id=f"document-{index}",
+        )
+        free_sources.append(source)
+        selected_keys.add(key)
+    purchased, purchased_key = _source(
+        tmp_path,
+        phase="purchased",
+        candidate_id="candidate-purchased",
+        document_id="document-purchased",
+    )
+    selected_keys.add(purchased_key)
+
+    prepared = prepare_cohort_document_materialization(
+        (*free_sources, purchased),
+        selected_document_keys=selected_keys,
+        output_root=tmp_path / "output",
+    )
+
+    assert prepared.summary["free_document_count"] == 4
+    assert prepared.summary["purchased_document_count"] == 1
+
+
 def test_materializer_rejects_purchased_only_source(tmp_path: Path) -> None:
     purchased, purchased_key = _source(
         tmp_path,

@@ -221,15 +221,19 @@ def prepare_cohort_document_materialization(
     """Validate immutable source lineages and prepare a single parse-ready root."""
 
     phases = tuple(source.phase for source in sources)
-    if phases not in {
-        ("free",),
-        ("free", "free"),
-        ("free", "purchased"),
-        ("free", "free", "purchased"),
-    }:
+    # Successor chains can accumulate one authenticated free root per
+    # generation. Preserve the ordering invariant (a non-empty free prefix,
+    # optionally followed by exactly one purchased root) without imposing an
+    # artificial limit on the number of free roots.
+    if (
+        not phases
+        or phases[0] != "free"
+        or any(phase != "free" for phase in phases[:-1])
+        or phases[-1] not in {"free", "purchased"}
+    ):
         raise CohortDocumentMaterializationError(
-            "document sources must be ordered exactly as free, free/free, "
-            "free/purchased, or free/free/purchased"
+            "document sources must be ordered exactly as free sources, "
+            "optionally followed by purchased"
         )
     output = output_root.absolute()
     document_output_root = output / "documents"
