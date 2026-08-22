@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
-import importlib
 import json
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping
@@ -16,6 +15,9 @@ import pytest
 from legalforecast.ingestion import recovered_public_replay as replay_module
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
 from legalforecast.ingestion.disclosure_clearance import require_clearance_policy
+from legalforecast.ingestion.replacement_recovery_v3_register import (
+    admit_authenticated_v3_register_clearance_rows,
+)
 
 
 def _write_json(path: Path, value: object) -> Path:
@@ -41,8 +43,8 @@ def _admission_jsonl(values: list[dict[str, object]]) -> bytes:
 
 def test_authenticated_v3_admits_real_legacy_paid_delivery_shape() -> None:
     manifest = {
-        "candidate_id": "69437817",
-        "source_document_id": "485898136",
+        "candidate_id": "case-1",
+        "source_document_id": "document-1",
         "free_or_purchased": "purchased",
         "local_path": "sha256/9b/document.pdf",
         "sha256": "9" * 64,
@@ -54,8 +56,8 @@ def test_authenticated_v3_admits_real_legacy_paid_delivery_shape() -> None:
         "status": "cleared",
     }
     restriction = {
-        "candidate_id": "69437817",
-        "source_document_id": "485898136",
+        "candidate_id": "case-1",
+        "source_document_id": "document-1",
         "is_private": False,
         "is_sealed": False,
         "restriction_status": "public",
@@ -64,26 +66,18 @@ def test_authenticated_v3_admits_real_legacy_paid_delivery_shape() -> None:
             "document_repair_byte_role_validation_match",
         ],
     }
-    admit = getattr(
-        importlib.import_module(
-            "legalforecast.ingestion.replacement_recovery_v3_register"
-        ),
-        "admit_authenticated_v3_register_clearance_rows",
-        None,
-    )
-    assert callable(admit)
-    admitted = admit(
+    admitted = admit_authenticated_v3_register_clearance_rows(
         manifest_records=[manifest],
         clearance_records=[clearance],
         restriction_records=[restriction],
         authenticated_clearance_bytes=_admission_jsonl([clearance]),
         authenticated_restriction_bytes=_admission_jsonl([restriction]),
-        external_document_commitments={("69437817", "485898136"): "9" * 64},
+        external_document_commitments={("case-1", "document-1"): "9" * 64},
     )
     assert admitted[0]["schema_version"] == "legalforecast.disclosure_clearance.v1"
     assert admitted[0]["restriction_status"] == "public"
     require_clearance_policy(
-        admitted[0], key=("69437817", "485898136"), label="document"
+        admitted[0], key=("case-1", "document-1"), label="document"
     )
 
 
@@ -113,15 +107,7 @@ def test_authenticated_v3_paid_delivery_admission_rejects_mutated_bytes() -> Non
         ],
     }
     with pytest.raises(ValueError, match="differs from authenticated bytes"):
-        admit = getattr(
-            importlib.import_module(
-                "legalforecast.ingestion.replacement_recovery_v3_register"
-            ),
-            "admit_authenticated_v3_register_clearance_rows",
-            None,
-        )
-        assert callable(admit)
-        admit(
+        admit_authenticated_v3_register_clearance_rows(
             manifest_records=[manifest],
             clearance_records=[clearance],
             restriction_records=[restriction],
