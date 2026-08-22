@@ -448,7 +448,10 @@ def test_promotion_pool_requires_explicit_availability_and_core_completion(
     inputs = _fixture()
     artifacts = {name: list(rows) for name, rows in inputs["reserve_artifacts"].items()}
     row = next(row for row in artifacts[artifact_name] if row["candidate_id"] == "R2")
-    row.pop(field_name)
+    if field_name == "availability_status":
+        row[field_name] = "unavailable"
+    else:
+        row.pop(field_name)
 
     pool = _mint_verified_successor_promotion_pool(
         ranked_reserve_bytes=_jsonl(inputs["reserve"]),

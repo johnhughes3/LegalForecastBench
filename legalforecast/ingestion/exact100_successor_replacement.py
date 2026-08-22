@@ -676,7 +676,15 @@ def _require_exact_predecessor_artifact_coverage(
     restriction_evidence: Sequence[Mapping[str, Any]],
     core_filter_results: Sequence[Mapping[str, Any]],
 ) -> None:
-    """Require exact selected-candidate/document coverage on consumed evidence."""
+    """Require exact selected-candidate/document coverage on consumed evidence.
+
+    The zero-cost predecessor may keep unacquired selected documents as
+    authenticated paid-recovery gaps (``requires_paid_recovery is True`` and
+    ``availability_status == "unavailable"``). Those identities must remain on
+    selection and case relevance, but they are absent from the pre-recovery
+    download manifest, clearance, and restriction surfaces. Acquired documents
+    still require exact one-row coverage on those three artifacts.
+    """
 
     selected_by_candidate = {_candidate_id(row): row for row in selection}
     selected_ids = set(selected_by_candidate)
@@ -701,6 +709,7 @@ def _require_exact_predecessor_artifact_coverage(
             )
     for candidate_id, selection_row in selected_by_candidate.items():
         document_ids = _document_ids_from_selection(selection_row, "selection")
+        acquired_ids = document_ids - _paid_recovery_gap_ids(selection_row, "selection")
         relevance_rows = _candidate_rows(case_relevance, candidate_id)
         if (
             _document_ids_from_selection(relevance_rows[0], "case relevance")
@@ -715,7 +724,7 @@ def _require_exact_predecessor_artifact_coverage(
             ("restriction evidence", restriction_evidence),
         ):
             if not _has_exact_document_coverage(
-                _candidate_rows(records, candidate_id), document_ids
+                _candidate_rows(records, candidate_id), acquired_ids
             ):
                 raise Exact100SuccessorReplacementError(
                     f"predecessor {label} document coverage is incomplete"
@@ -753,6 +762,33 @@ def _document_ids_from_selection(record: Mapping[str, Any], label: str) -> set[s
             f"predecessor {label} documents are invalid"
         )
     return document_ids
+
+
+def _paid_recovery_gap_ids(record: Mapping[str, Any], label: str) -> set[str]:
+    """Return selected document ids that are authenticated unpaid recovery gaps."""
+
+    documents = record.get("documents")
+    if not isinstance(documents, Sequence) or isinstance(documents, (str, bytes)):
+        raise Exact100SuccessorReplacementError(
+            f"predecessor {label} documents are invalid"
+        )
+    gaps: set[str] = set()
+    for document in cast(Sequence[object], documents):
+        if not isinstance(document, Mapping):
+            raise Exact100SuccessorReplacementError(
+                f"predecessor {label} documents are invalid"
+            )
+        typed = cast(Mapping[str, object], document)
+        requires_paid = typed.get("requires_paid_recovery")
+        availability = typed.get("availability_status")
+        is_gap = requires_paid is True and availability == "unavailable"
+        if (requires_paid is True or availability == "unavailable") is not is_gap:
+            raise Exact100SuccessorReplacementError(
+                "predecessor selection has inconsistent paid-recovery gap markers"
+            )
+        if is_gap:
+            gaps.add(_required_text(typed, "source_document_id"))
+    return gaps
 
 
 def _nonpromotable_reason(
@@ -793,12 +829,7 @@ def _nonpromotable_reason(
     core = _candidate_rows(core_filter_results, candidate_id)
     if not _has_exact_document_coverage(manifest, document_ids):
         return "download_manifest_incomplete"
-    if any(
-        row.get("availability_status") != "available"
-        or row.get("requires_paid_recovery") is True
-        or row.get("free_or_purchased") == "purchased"
-        for row in manifest
-    ):
+    if any(_nonzero_cost_or_unavailable_manifest_row(row) for row in manifest):
         return "nonzero_cost_or_unavailable_document"
     if not _has_exact_document_coverage(clearance, document_ids) or any(
         row.get("status") != "cleared" for row in clearance
@@ -810,11 +841,7 @@ def _nonpromotable_reason(
         for row in restrictions
     ):
         return "restriction_evidence_incomplete"
-    if len(core) != 1 or any(
-        row.get("missing_core_document_count", 0) != 0
-        or row.get("core_documents_complete") is not True
-        for row in core
-    ):
+    if len(core) != 1 or any(_core_documents_incomplete(row) for row in core):
         return "core_documents_incomplete"
     return None
 
@@ -825,6 +852,40 @@ def _has_exact_document_coverage(
     """Require exactly one artifact row for every selected document."""
 
     return len(rows) == len(document_ids) and _document_ids(rows) == document_ids
+
+
+def _nonzero_cost_or_unavailable_manifest_row(row: Mapping[str, Any]) -> bool:
+    """True when a manifest row is purchased, unpaid, or explicitly unavailable."""
+
+    if row.get("free_or_purchased") == "purchased":
+        return True
+    if row.get("requires_paid_recovery") is True:
+        return True
+    if row.get("free_or_purchased") == "free":
+        return row.get("availability_status") not in {None, "available"}
+    return row.get("availability_status") != "available"
+
+
+def _core_documents_incomplete(row: Mapping[str, Any]) -> bool:
+    """True when core-filter evidence does not prove complete core documents.
+
+    Hand-built fixtures stamp ``core_documents_complete``. Live
+    ``filter_core_documents`` records instead stamp ``core_missing_documents``
+    and ``excluded``.
+    """
+
+    complete = row.get("core_documents_complete")
+    if complete is True:
+        return row.get("missing_core_document_count", 0) != 0
+    if complete is False:
+        return True
+    if "core_missing_documents" in row or "purchase_document_ids" in row:
+        return (
+            bool(row.get("core_missing_documents"))
+            or row.get("excluded") is True
+            or row.get("missing_operative_complaint") is True
+        )
+    return True
 
 
 def _replace_candidate_rows(
