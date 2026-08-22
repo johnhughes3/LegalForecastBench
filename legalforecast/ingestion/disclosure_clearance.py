@@ -34,6 +34,7 @@ SCHEMA_VERSION = "legalforecast.disclosure_clearance.v1"
 REVIEW_RECEIPT_SCHEMA_VERSION = "legalforecast.disclosure_review_receipt.v2"
 PDF_SCAN_SCHEMA_VERSION_V1 = "legalforecast.disclosure_pdf_scan.v1"
 PDF_SCAN_SCHEMA_VERSION = "legalforecast.disclosure_pdf_scan.v2"
+_PAID_DELIVERY_AUTHORITY = object()
 _CLEAR = "cleared"
 _QUARANTINED = "quarantined"
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
@@ -372,6 +373,7 @@ def require_cleared_documents(
     *,
     document_root: Path,
     clearance_records: Sequence[Mapping[str, object]],
+    paid_delivery_capability: object | None = None,
 ) -> tuple[ClearedDocumentEvidence, ...]:
     """Require exact artifact coverage and return invocation-scoped file evidence."""
 
@@ -391,7 +393,12 @@ def require_cleared_documents(
             raise DisclosureClearanceError(f"unsupported clearance schema: {key}")
         if clearance.get("status") != _CLEAR:
             raise DisclosureClearanceError(f"document lacks clearance: {key}")
-        require_clearance_policy(clearance, key=key, label="document")
+        require_clearance_policy(
+            clearance,
+            key=key,
+            label="document",
+            paid_delivery_capability=paid_delivery_capability,
+        )
         path = _safe_document_path(document_root, _required_str(document, "local_path"))
         data, device, inode = _read_document_with_identity(path, key)
         digest = hashlib.sha256(data).hexdigest()
@@ -493,11 +500,15 @@ def require_cleared_parser_records(
 def require_cleared_artifact_keys(
     required_keys: Iterable[tuple[str, str]],
     clearance_records: Sequence[Mapping[str, object]],
+    *,
+    paid_delivery_capability: object | None = None,
 ) -> None:
     """Validate terminal clearance coverage when source bytes are not an input."""
 
     required = set(required_keys)
-    index = _validated_clearance_index(clearance_records)
+    index = _validated_clearance_index(
+        clearance_records, paid_delivery_capability=paid_delivery_capability
+    )
     if set(index) != required:
         raise DisclosureClearanceError(
             "clearance artifact does not exactly cover parser documents"
@@ -506,6 +517,8 @@ def require_cleared_artifact_keys(
 
 def _validated_clearance_index(
     clearance_records: Sequence[Mapping[str, object]],
+    *,
+    paid_delivery_capability: object | None = None,
 ) -> dict[tuple[str, str], Mapping[str, object]]:
     index = _unique_index(clearance_records, "clearance")
     for key, row in index.items():
@@ -515,17 +528,33 @@ def _validated_clearance_index(
             )
         _digest(row, "sha256")
         _positive_int(row, "byte_count")
-        require_clearance_policy(row, key=key, label="parser document")
+        require_clearance_policy(
+            row,
+            key=key,
+            label="parser document",
+            paid_delivery_capability=paid_delivery_capability,
+        )
     return index
 
 
 def require_clearance_policy(
-    row: Mapping[str, object], *, key: tuple[str, str], label: str
+    row: Mapping[str, object],
+    *,
+    key: tuple[str, str],
+    label: str,
+    paid_delivery_capability: object | None = None,
 ) -> None:
     """Validate one clearance row under the canonical downstream policy."""
 
-    _require_clearance_restriction(row, key=key, label=label)
-    _require_clearance_provenance(row, key=key)
+    _require_clearance_restriction(
+        row,
+        key=key,
+        label=label,
+        paid_delivery_capability=paid_delivery_capability,
+    )
+    _require_clearance_provenance(
+        row, key=key, paid_delivery_capability=paid_delivery_capability
+    )
 
 
 def _require_public_restriction(
@@ -548,16 +577,24 @@ def _require_public_restriction(
 
 
 def _require_clearance_restriction(
-    row: Mapping[str, object], *, key: tuple[str, str], label: str
+    row: Mapping[str, object],
+    *,
+    key: tuple[str, str],
+    label: str,
+    paid_delivery_capability: object | None = None,
 ) -> None:
     basis = row.get("clearance_basis")
     if basis == "paid_delivery":
         evidence_value = row.get("restriction_evidence")
+        if paid_delivery_capability is not _PAID_DELIVERY_AUTHORITY:
+            raise DisclosureClearanceError(
+                f"paid-delivery {label} lacks authenticated lineage: {key}"
+            )
         if (
             row.get("free_or_purchased") != "purchased"
             or row.get("restriction_status") != "public"
-            or row.get("is_private") is True
-            or row.get("is_sealed") is True
+            or row.get("is_private") is not False
+            or row.get("is_sealed") is not False
             or not isinstance(evidence_value, (list, tuple))
             or tuple(cast(Sequence[object], evidence_value))
             != PAID_DELIVERY_RESTRICTION_EVIDENCE
@@ -727,13 +764,19 @@ def _require_direct_queue_delivery_lineage(
 
 
 def _require_clearance_provenance(
-    row: Mapping[str, object], *, key: tuple[str, str]
+    row: Mapping[str, object],
+    *,
+    key: tuple[str, str],
+    paid_delivery_capability: object | None = None,
 ) -> None:
     basis = row.get("clearance_basis")
     if basis == "paid_delivery":
+        if paid_delivery_capability is not _PAID_DELIVERY_AUTHORITY:
+            raise DisclosureClearanceError(
+                f"paid-delivery clearance lacks authenticated lineage: {key}"
+            )
         if (
-            row.get("free_or_purchased") != "purchased"
-            or row.get("reviewed_at") is not None
+            row.get("reviewed_at") is not None
             or row.get("reviewer_id") is not None
             or row.get("controlled_store_provenance") is not None
         ):

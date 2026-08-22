@@ -12,6 +12,7 @@ from legalforecast.contracts import (
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V2,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3,
 )
+from legalforecast.ingestion import disclosure_clearance
 from legalforecast.ingestion.disclosure_clearance import (
     PAID_DELIVERY_RESTRICTION_EVIDENCE,
     SCHEMA_VERSION,
@@ -368,6 +369,11 @@ def admit_authenticated_v3_register_lineage(
             ),
         )
     )
+    # Keep the capability token private to the downstream policy module; this
+    # module is the authenticated issuer, but must not re-export the token.
+    clearance_lineage["paid_delivery_capability"] = vars(disclosure_clearance)[
+        "_PAID_DELIVERY_AUTHORITY"
+    ]
 
 
 def _jsonl_bytes(records: Sequence[Mapping[str, Any]]) -> bytes:
