@@ -43,6 +43,10 @@ TABLE_ARN = (
     f"arn:{PARTITION}:dynamodb:{REGION}:{ACCOUNT_ID}:"
     "table/legalforecastbench-official-eval-provider-authority"
 )
+CANARY_TABLE_ARN = (
+    f"arn:{PARTITION}:dynamodb:{REGION}:{ACCOUNT_ID}:"
+    "table/legalforecastbench-official-labeling-authority-smoke-canary"
+)
 LABELING_ROLE_ARN = (
     f"arn:{PARTITION}:iam::{ACCOUNT_ID}:"
     "role/legalforecastbench-official-labeling-authority"
@@ -434,6 +438,7 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
         kms_key_arn=KEY_ARN,
         kms_via_service="s3.us-east-1.amazonaws.com",
         provider_authority_table_arn=TABLE_ARN,
+        outside_authority_table_arn=CANARY_TABLE_ARN,
         official_labeling_role_arn=LABELING_ROLE_ARN,
         official_eval_cell_role_arn=EVAL_CELL_ROLE_ARN,
     )
@@ -445,6 +450,7 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
         "ManageExactRuntimeStateLocks",
         "UseExactStateKey",
         "ManageExactProviderAuthorityTable",
+        "ManageExactAuthoritySmokeCanary",
         "ManageExactOfficialLabelingRole",
         "ManageExactOfficialEvalCellRole",
     }
@@ -512,6 +518,22 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
         "dynamodb:UpdateTimeToLive",
     ]
     assert table["Resource"] == TABLE_ARN
+
+    canary = statements["ManageExactAuthoritySmokeCanary"]
+    assert canary["Action"] == [
+        "dynamodb:CreateTable",
+        "dynamodb:DeleteTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive",
+    ]
+    assert canary["Resource"] == CANARY_TABLE_ARN
 
     labeling = statements["ManageExactOfficialLabelingRole"]
     assert labeling["Action"] == [
@@ -600,7 +622,9 @@ def test_kms_key_waits_for_the_operator_role_and_matches_bucket_key_context() ->
     )
     key_policy = (POLICY_ROOT / "kms-key-policy.json.tftpl").read_text(encoding="utf-8")
 
-    assert "operator_role_arn     = aws_iam_role.operator.arn" in locals_text
+    assert re.search(
+        r"operator_role_arn\s+=\s+aws_iam_role\.operator\.arn", locals_text
+    )
     assert "bucket_key_enabled = true" in storage
     assert (
         '"kms:EncryptionContext:aws:s3:arn": "${state_bucket_arn}"' in operator_policy
@@ -610,6 +634,23 @@ def test_kms_key_waits_for_the_operator_role_and_matches_bucket_key_context() ->
         '${state_bucket_arn}/*"'
         not in operator_policy.split('"Sid": "UseExactStateKey"', maxsplit=1)[1]
     )
+
+
+def test_operator_canary_name_is_pinned_and_its_arn_is_derived() -> None:
+    variables = (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8")
+    locals_text = (INFRA_ROOT / "locals.tf").read_text(encoding="utf-8")
+    policy = (POLICY_ROOT / "operator-policy.json.tftpl").read_text(encoding="utf-8")
+
+    assert (
+        'default     = "legalforecastbench-official-labeling-authority-smoke-canary"'
+        in variables
+    )
+    assert "var.outside_authority_table_name ==" in variables
+    assert "local.provider_canary_table_arn" in locals_text
+    assert (
+        "outside_authority_table_arn  = local.provider_canary_table_arn" in locals_text
+    )
+    assert '"Resource": "${outside_authority_table_arn}"' in policy
 
 
 def test_runbook_is_import_first_and_migrates_verified_local_state() -> None:

@@ -59,6 +59,14 @@ def test_import_ids_are_derived_from_one_closed_module_address_mapping() -> None
         )
         == "legalforecastbench-official-eval-provider-authority"
     )
+    assert (
+        contract.resolve_import_id(
+            "provider-authority",
+            "aws_dynamodb_table.outside_authority_canary",
+            protected,
+        )
+        == "legalforecastbench-official-labeling-authority-smoke-canary"
+    )
     assert contract.resolve_import_id(
         "official-labeling", "aws_iam_role_policy.labeling", protected
     ) == (

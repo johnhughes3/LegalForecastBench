@@ -259,10 +259,13 @@ def test_hcl_security_checks_ignore_non_live_decoys() -> None:
     )
 
 
-def test_module_creates_only_the_shared_provider_authority_table() -> None:
+def test_module_creates_shared_authority_and_smoke_canary_tables_only() -> None:
     blocks = _direct_blocks(_hcl_tokens(_terraform()))
     resources = {block.labels for block in blocks if block.kind == "resource"}
-    assert resources == {("aws_dynamodb_table", "provider_authority")}
+    assert resources == {
+        ("aws_dynamodb_table", "provider_authority"),
+        ("aws_dynamodb_table", "outside_authority_canary"),
+    }
 
 
 def test_table_has_exact_runtime_key_schema() -> None:
@@ -270,9 +273,9 @@ def test_table_has_exact_runtime_key_schema() -> None:
 
     assert re.search(r'\bhash_key\s*=\s*"authority_key"', terraform)
     assert re.search(r'\brange_key\s*=\s*"record_key"', terraform)
-    assert terraform.count('name = "authority_key"') == 1
-    assert terraform.count('name = "record_key"') == 1
-    assert terraform.count('type = "S"') == 2
+    assert terraform.count('name = "authority_key"') == 2
+    assert terraform.count('name = "record_key"') == 2
+    assert terraform.count('type = "S"') == 4
     assert "global_secondary_index" not in terraform
     assert "local_secondary_index" not in terraform
 
@@ -328,6 +331,62 @@ def test_table_name_and_public_identity_are_stable() -> None:
     assert 'output "provider_authority_resource_identity_sha256"' in outputs
     assert "sha256(aws_dynamodb_table.provider_authority.arn)" in outputs
 
+    assert 'variable "outside_authority_table_name"' in variables
+    assert (
+        'default     = "legalforecastbench-official-labeling-authority-smoke-canary"'
+        in variables
+    )
+    assert "var.outside_authority_table_name ==" in variables
+    canary_name = _required_block(
+        output_blocks,
+        "output",
+        ("outside_authority_table_name",),
+    )
+    assert _has_true_assignment(canary_name, "sensitive")
+
+
+def test_smoke_canary_is_disposable_ttl_bound_and_not_granted_to_runtime_roles() -> (
+    None
+):
+    terraform = _terraform()
+    blocks = _direct_blocks(_hcl_tokens(terraform))
+    canary = _required_block(
+        blocks,
+        "resource",
+        ("aws_dynamodb_table", "outside_authority_canary"),
+    )
+    canary_blocks = _direct_blocks(canary.body)
+    lifecycle = _required_block(canary_blocks, "lifecycle")
+    precondition = _required_block(_direct_blocks(lifecycle.body), "precondition")
+
+    assert re.search(
+        r"\bname\s*=\s*var\.outside_authority_table_name",
+        terraform,
+    )
+    assert 'billing_mode = "PAY_PER_REQUEST"' in terraform
+    assert "deletion_protection_enabled = false" in terraform
+    assert 'attribute_name = "expires_at"' in terraform
+    assert _has_true_assignment(
+        _required_block(canary_blocks, "server_side_encryption"), "enabled"
+    )
+    assert _has_true_assignment(_required_block(canary_blocks, "ttl"), "enabled")
+    assert "point_in_time_recovery" not in canary.body
+    assert _has_true_assignment(precondition, "condition") is False
+    assert "outside_authority_table_name != var.table_name" in terraform
+    assert 'Lifecycle = "disposable-canary"' in terraform
+
+    for role_path in (
+        ROOT / "infra" / "official-labeling" / "iam.tf",
+        ROOT
+        / "infra"
+        / "official-eval"
+        / "policies"
+        / "cell-provider-authority-policy.json.tftpl",
+    ):
+        role_text = role_path.read_text(encoding="utf-8")
+        assert "outside_authority" not in role_text
+        assert "official-labeling-authority-smoke-canary" not in role_text
+
 
 def test_module_has_pinned_tooling_and_no_remote_backend() -> None:
     versions = (INFRA_ROOT / "versions.tf").read_text(encoding="utf-8")
@@ -372,6 +431,12 @@ def test_docs_keep_table_provisioning_separate_from_eval_infrastructure() -> Non
     assert "*.tfvars.json" in gitignore
     assert "does not create IAM roles" in readme
     assert "does not create S3" in readme
+    assert "outside_authority_table_name" in readme
+    assert "LFB_OUTSIDE_AUTHORITY_TABLE" in readme
+    assert "disposable-canary" in readme
+    assert "both table resource addresses" in readme
     assert "`infra/provider-authority`" in runbook
     assert "Stage A/B" in runbook
     assert "separately authorized Terraform apply" in runbook
+    assert "outside_authority_table_name" in runbook
+    assert "LFB_OUTSIDE_AUTHORITY_TABLE" in runbook
