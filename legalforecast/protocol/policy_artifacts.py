@@ -14,10 +14,11 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast._datetime import format_utc_iso_z
+from legalforecast.contracts.schemas import EXECUTION_POLICY_V2
 
 LABELING_POLICY_SCHEMA_VERSION = "legalforecast.labeling_policy.v1"
 EXECUTION_POLICY_SCHEMA_VERSION = "legalforecast.execution_policy.v1"
-EXECUTION_POLICY_V2_SCHEMA_VERSION = "legalforecast.execution_policy.v2"
+EXECUTION_POLICY_V2_SCHEMA_VERSION = str(EXECUTION_POLICY_V2)
 LABEL_AUDIT_SAMPLE_FRACTION = 0.05
 LABEL_AUDIT_MINIMUM_SAMPLE_SIZE = 20
 LABEL_AUDIT_MINIMUM_PER_STRATUM = 5
