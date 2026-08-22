@@ -82,7 +82,10 @@ def test_v2_authorize_still_requires_exact_404_body_equality() -> None:
 
     with pytest.raises(
         PostSelectionTerminalExclusionError,
-        match="does not bind the persisted terminal evidence",
+        match=(
+            r"does not bind the persisted terminal evidence; "
+            r"divergent commitments: .*rest_observation_response"
+        ),
     ):
         authorize_persisted_terminal_recovery_evidence(live_evidence=live, **persisted)
 
