@@ -43,7 +43,6 @@ from tests.recovered_public_capability_helpers import (
 from tests.test_exact100_successor_replacement import (
     _fixture,
     _jsonl,
-    _selection_row,
 )
 from tests.test_target_cohort_projection import (
     _completed_two_case_projection,
@@ -403,11 +402,10 @@ def _recovery_evidence(root: Path, *, candidate_id: str = "C001") -> Path:
         "recap_fetch_permitted": False,
         "selection_sha256": "deferred",
     }
-    # The sealed predecessor binds the selection at replay time.  Populate the
-    # request below once the fixture's deterministic selection is available.
-    selection = b"".join(
-        _bytes(_selection_row(f"C{number:03d}")) for number in range(1, 101)
-    )
+    # The sealed predecessor binds the selection at replay time. Hash the
+    # shared fixture's selection bytes so recovery requests stay aligned with
+    # the successor fixture's 100-row shape.
+    selection = _fixture()["selection_bytes"]
     request["selection_sha256"] = _sha(selection)
     request_bytes = _bytes(request)
     transcript = {
@@ -679,7 +677,6 @@ def test_successor_cli_replays_sealed_input_and_materializer_projection(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
 
@@ -1504,7 +1501,6 @@ def test_successor_rejects_self_consistent_fabricated_recovery_root(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "fabricated-recovery")
     _rewrite_recovery_response_self_consistently(
         evidence, response_bytes=_bytes({"detail": "fabricated terminal response"})
@@ -1521,7 +1517,6 @@ def test_successor_rejects_saved_404_after_fresh_nonterminal_observation(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "saved-404")
     output = tmp_path / "successor"
     monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
@@ -1543,7 +1538,6 @@ def test_successor_materializer_rejects_tampered_immutable_output(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     monkeypatch.setattr(
@@ -1563,7 +1557,6 @@ def test_successor_state_rejects_invalid_input_path_shape(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
@@ -1620,7 +1613,6 @@ def test_successor_rejects_unexpected_output_before_replay(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     output.mkdir()
@@ -1663,7 +1655,6 @@ def test_successor_cli_rejects_self_consistent_invented_stipulated_pdf(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _stipulated_evidence(
         tmp_path / "invented-stipulated",
         source_document=b"invented PDF bytes with a fabricated dismissal",
@@ -1690,7 +1681,6 @@ def test_successor_accepts_stipulated_root_only_after_authenticated_callback(
 
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     root = tmp_path / "completed-eligibility-audit"
     root.joinpath("run-cards").mkdir(parents=True)
     root.joinpath("target-document-eligibility-audit.jsonl").write_bytes(b"audit\n")
