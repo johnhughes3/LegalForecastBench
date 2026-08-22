@@ -25,6 +25,7 @@ from legalforecast.protocol.freeze import (
     FreezeBundle,
     FreezeProtocolError,
     FrozenArtifact,
+    load_freeze_bundle,
     sha256_file,
     verify_freeze_bundle,
     write_hash_bundle,
@@ -50,6 +51,7 @@ class ManifestForecastStageConfig:
     manifest_digest: str
     results_bucket: str
     packet_bucket: str
+    amendment_bundles: tuple[Path, ...] = ()
     dry_run: bool = False
 
     def __post_init__(self) -> None:
@@ -110,6 +112,7 @@ def stage_manifest_forecast(
         bundle = verify_freeze_bundle(
             config.freeze_bundle,
             root_path=artifact_root,
+            amendment_bundle_paths=config.amendment_bundles,
         )
     except (FreezeProtocolError, OSError, ValueError) as exc:
         raise ManifestForecastStageError(f"freeze bundle is not valid: {exc}") from exc
@@ -117,9 +120,9 @@ def stage_manifest_forecast(
     run_record = _load_object(
         output_dir / "manifest-mode-run-record.json", "run record"
     )
-    if run_record.get("manifest_digest") != config.manifest_digest:
+    if run_record.get("manifest_sha256") != config.manifest_digest:
         raise ManifestForecastStageError(
-            "run record manifest_digest does not match --manifest-digest"
+            "run record manifest_sha256 does not match --manifest-digest"
         )
     run_inputs_path = output_dir / "run-inputs.json"
     run_inputs = _load_object(run_inputs_path, "run-inputs manifest")
@@ -130,8 +133,14 @@ def stage_manifest_forecast(
     packet_objects = _packet_objects(
         output_dir, run_inputs, bucket=config.packet_bucket
     )
-    freeze_objects, staged_bundle_path = _freeze_objects(
-        bundle,
+    (
+        freeze_objects,
+        staged_bundle_path,
+        amendment_objects,
+        staged_bundle_paths,
+    ) = _freeze_chain_objects(
+        bundle=bundle,
+        amendment_paths=config.amendment_bundles,
         artifact_root=artifact_root,
         results_bucket=config.results_bucket,
         prefix=_prefix(config.manifest_digest),
@@ -144,10 +153,12 @@ def stage_manifest_forecast(
             run_inputs_path=run_inputs_path,
             packet_objects=packet_objects,
             freeze_objects=freeze_objects,
+            amendment_objects=amendment_objects,
             staged_bundle_path=staged_bundle_path,
         )
     finally:
-        staged_bundle_path.unlink(missing_ok=True)
+        for path in staged_bundle_paths:
+            path.unlink(missing_ok=True)
 
 
 def _build_stage_result(
@@ -157,6 +168,7 @@ def _build_stage_result(
     run_inputs_path: Path,
     packet_objects: Sequence[_LocalObject],
     freeze_objects: Sequence[_LocalObject],
+    amendment_objects: Sequence[_LocalObject],
     staged_bundle_path: Path,
 ) -> ManifestForecastStageResult:
     prefix = _prefix(config.manifest_digest)
@@ -193,7 +205,15 @@ def _build_stage_result(
         )
         for obj in packet_objects
     ]
-    all_objects = [*result_objects, *packet_objects_for_results, *packet_objects]
+    amendment_bundle_objects = [
+        obj for obj in amendment_objects if obj.key.endswith(".freeze.json")
+    ]
+    all_objects = [
+        *result_objects,
+        *amendment_objects,
+        *packet_objects_for_results,
+        *packet_objects,
+    ]
     _verify_source_snapshots(all_objects)
 
     stage_record = {
@@ -203,6 +223,10 @@ def _build_stage_result(
         "freeze_bundle": f"s3://{config.results_bucket}/{prefix}/freeze.json",
         "run_input_manifest": f"s3://{config.results_bucket}/{prefix}/run-inputs.json",
         "packet_count": len(packet_objects),
+        "amendment_count": len(amendment_bundle_objects),
+        "amendment_bundles": [
+            f"s3://{obj.bucket}/{obj.key}" for obj in amendment_bundle_objects
+        ],
         "objects": [
             {
                 "bucket": obj.bucket,
@@ -247,6 +271,16 @@ def add_manifest_forecast_stage_arguments(
     parser.add_argument("--results-bucket", required=True)
     parser.add_argument("--packet-bucket", required=True)
     parser.add_argument(
+        "--amendment-bundle",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Ancestor freeze bundle path; repeat for the complete amendment "
+            "chain when the current freeze amends an earlier bundle."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate and print the upload plan without writing to S3.",
@@ -264,6 +298,7 @@ def run_manifest_forecast_stage(args: argparse.Namespace) -> int:
             manifest_digest=cast(str, args.manifest_digest),
             results_bucket=cast(str, args.results_bucket),
             packet_bucket=cast(str, args.packet_bucket),
+            amendment_bundles=tuple(cast(list[Path], args.amendment_bundle)),
             dry_run=bool(args.dry_run),
         )
     )
@@ -339,13 +374,101 @@ def _packet_objects(
     return objects
 
 
+def _freeze_chain_objects(
+    *,
+    bundle: FreezeBundle,
+    amendment_paths: Sequence[Path],
+    artifact_root: Path,
+    results_bucket: str,
+    prefix: str,
+) -> tuple[list[_LocalObject], Path, list[_LocalObject], list[Path]]:
+    """Rewrite and stage a freeze plus its authenticated amendment chain."""
+
+    try:
+        ancestors = {
+            loaded.bundle_sha256: loaded
+            for path in amendment_paths
+            for loaded in (load_freeze_bundle(path, root_path=artifact_root),)
+        }
+    except (FreezeProtocolError, OSError, ValueError) as exc:
+        raise ManifestForecastStageError(
+            f"amendment bundle is not valid: {exc}"
+        ) from exc
+
+    current_to_root = [bundle]
+    seen = {bundle.bundle_sha256}
+    current = bundle
+    while current.amends_bundle_sha256 is not None:
+        parent_hash = current.amends_bundle_sha256
+        parent = ancestors.get(parent_hash)
+        if parent is None:
+            raise ManifestForecastStageError(
+                "amendment ancestor bundle is missing from the supplied chain: "
+                f"{parent_hash}"
+            )
+        if parent_hash in seen:
+            raise ManifestForecastStageError("freeze amendment chain contains a cycle")
+        seen.add(parent_hash)
+        current_to_root.append(parent)
+        current = parent
+    if set(ancestors) != seen - {bundle.bundle_sha256}:
+        raise ManifestForecastStageError(
+            "supplied amendment bundles include an unreferenced ancestor"
+        )
+
+    rewritten_hashes: dict[str, str] = {}
+    staged_paths: list[Path] = []
+    amendment_objects: list[_LocalObject] = []
+    current_objects: list[_LocalObject] = []
+    current_bundle_path: Path | None = None
+    for source in reversed(current_to_root):
+        is_current = source is bundle
+        artifact_prefix = (
+            "artifacts"
+            if is_current
+            else f"amendments/{source.bundle_sha256}/artifacts"
+        )
+        staged_bundle, objects, staged_path = _freeze_objects(
+            source,
+            artifact_root=artifact_root,
+            results_bucket=results_bucket,
+            prefix=prefix,
+            artifact_prefix=artifact_prefix,
+            amends_bundle_sha256=(
+                rewritten_hashes.get(source.amends_bundle_sha256)
+                if source.amends_bundle_sha256 is not None
+                else None
+            ),
+        )
+        staged_paths.append(staged_path)
+        rewritten_hashes[source.bundle_sha256] = staged_bundle.bundle_sha256
+        if is_current:
+            current_objects = objects
+            current_bundle_path = staged_path
+        else:
+            amendment_objects.extend(objects)
+            amendment_objects.append(
+                _local_object(
+                    results_bucket,
+                    f"{prefix}/amendments/{source.bundle_sha256}.freeze.json",
+                    staged_path,
+                    "application/json",
+                )
+            )
+    if current_bundle_path is None:
+        raise ManifestForecastStageError("freeze chain did not contain current bundle")
+    return current_objects, current_bundle_path, amendment_objects, staged_paths
+
+
 def _freeze_objects(
     bundle: FreezeBundle,
     *,
     artifact_root: Path,
     results_bucket: str,
     prefix: str,
-) -> tuple[list[_LocalObject], Path]:
+    artifact_prefix: str,
+    amends_bundle_sha256: str | None,
+) -> tuple[FreezeBundle, list[_LocalObject], Path]:
     staged_artifacts: list[FrozenArtifact] = []
     objects: list[_LocalObject] = []
     used_keys: set[str] = set()
@@ -359,7 +482,7 @@ def _freeze_objects(
             ) from exc
         if not relative.parts or ".." in relative.parts:
             raise ManifestForecastStageError(f"unsafe frozen artifact path: {relative}")
-        staged_relative = Path("artifacts") / relative
+        staged_relative = Path(artifact_prefix) / relative
         key = f"{prefix}/{staged_relative.as_posix()}"
         if key in used_keys:
             raise ManifestForecastStageError(f"duplicate staged artifact key: {key}")
@@ -384,7 +507,7 @@ def _freeze_objects(
         cycle_id=bundle.cycle_id,
         freeze_timestamp=bundle.freeze_timestamp,
         artifacts=tuple(staged_artifacts),
-        amends_bundle_sha256=bundle.amends_bundle_sha256,
+        amends_bundle_sha256=amends_bundle_sha256,
     )
     with tempfile.TemporaryDirectory(prefix="lfb-manifest-stage-") as directory:
         path = Path(directory) / "freeze.json"
@@ -393,7 +516,7 @@ def _freeze_objects(
         os.close(descriptor)
         persistent = Path(name)
         persistent.write_bytes(path.read_bytes())
-    return objects, persistent
+    return staged_bundle, objects, persistent
 
 
 def _local_object(bucket: str, key: str, path: Path, content_type: str) -> _LocalObject:

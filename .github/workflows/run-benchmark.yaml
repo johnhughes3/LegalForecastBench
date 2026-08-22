@@ -605,6 +605,10 @@ jobs:
                 amendment_args+=(--amendment-bundle "${bundle_path}")
               fi
             done < <(find manifests -type f -name '*.freeze.json' -print | sort)
+          else
+            while IFS= read -r bundle_path; do
+              amendment_args+=(--amendment-bundle "${bundle_path}")
+            done < <(find "${FREEZE_ROOT}/amendments" -type f -name '*.freeze.json' -print 2>/dev/null | sort)
           fi
           python -m legalforecast.protocol.freeze verify \
             --bundle "${FREEZE_COMMITMENT_PATH}" \
@@ -642,6 +646,10 @@ jobs:
                 candidate_args+=(--candidate-freeze-bundle "${bundle_path}")
               fi
             done < <(find manifests -type f -name '*.freeze.json' -print | sort)
+          else
+            while IFS= read -r bundle_path; do
+              candidate_args+=(--candidate-freeze-bundle "${bundle_path}")
+            done < <(find "${FREEZE_ROOT}/amendments" -type f -name '*.freeze.json' -print 2>/dev/null | sort)
           fi
           model_key_args=()
           IFS=',' read -ra requested_provider_keys <<< "${MODEL_KEYS}"
