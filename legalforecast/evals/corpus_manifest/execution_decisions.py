@@ -896,9 +896,10 @@ def _verify_forecast(
         key = _required_text(packet, "packet_object_key")
         if not key.startswith("model-packets/"):
             raise ExecutionDecisionsError("forecast packet path is unsafe")
-        packet_path = (root / key).resolve()
+        packet_path = root / key
+        resolved_packet_path = packet_path.resolve()
         try:
-            packet_path.relative_to(root.resolve())
+            resolved_packet_path.relative_to(root.resolve())
         except ValueError as exc:
             raise ExecutionDecisionsError(
                 "forecast packet escapes output root"

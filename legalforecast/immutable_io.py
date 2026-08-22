@@ -70,6 +70,7 @@ def publish_tree_create_only(root: Path, payloads: Mapping[str, bytes]) -> None:
             try:
                 shutil.rmtree(temporary_name, dir_fd=parent_fd)
             except FileNotFoundError:
+                # The staging tree was already absent, so cleanup is complete.
                 pass
         os.close(parent_fd)
 
@@ -126,6 +127,7 @@ def _descend_or_create(parent_fd: int, name: str) -> int:
     try:
         os.mkdir(name, 0o700, dir_fd=parent_fd)
     except FileExistsError:
+        # The no-follow directory open below validates the existing component.
         pass
     child_fd = _open_directory_at(parent_fd, name)
     os.fsync(parent_fd)

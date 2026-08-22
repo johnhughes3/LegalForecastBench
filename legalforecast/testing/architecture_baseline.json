@@ -4324,8 +4324,8 @@
         "largest_symbol": "verify_bundle",
         "largest_symbol_lines": 173,
         "layer": "application",
-        "line_count": 1002,
-        "nonblank_line_count": 928,
+        "line_count": 1003,
+        "nonblank_line_count": 929,
         "top_level_definition_count": 30
       },
       "legalforecast/evals/corpus_manifest/execution_decisions.py": {
@@ -4341,8 +4341,8 @@
         "largest_symbol": "_build",
         "largest_symbol_lines": 265,
         "layer": "application",
-        "line_count": 1116,
-        "nonblank_line_count": 1036,
+        "line_count": 1117,
+        "nonblank_line_count": 1037,
         "top_level_definition_count": 29
       },
       "legalforecast/evals/corpus_manifest/freeze_inputs.py": {
@@ -10260,9 +10260,9 @@
         "largest_symbol": "fixture",
         "largest_symbol_lines": 282,
         "layer": "test",
-        "line_count": 901,
-        "nonblank_line_count": 804,
-        "top_level_definition_count": 34
+        "line_count": 920,
+        "nonblank_line_count": 820,
+        "top_level_definition_count": 35
       },
       "tests/test_manifest_freeze_inputs.py": {
         "cycle_id": "",
