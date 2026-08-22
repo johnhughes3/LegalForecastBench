@@ -30,11 +30,6 @@ from tests.purchase_approval_fixtures import (
     sha256_uri,
 )
 from tests.test_docket_decision_text_source import _terminal_failure_authority
-from tests.test_target_100_acquisition import (
-    _fixture_pdf_text,
-    _target_100_fixture,
-    _write_authenticated_reviews,
-)
 from tests.test_target_cohort_projection import _write_provenance_clearance
 
 _POOL_COUNT = 105
@@ -191,7 +186,7 @@ def _completed_original_projection(
     root.mkdir(parents=True)
     preparation = root / "preparation"
     snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
-        _target_100_fixture(root / "fixture", case_count=_POOL_COUNT)
+        t100._target_100_fixture(root / "fixture", case_count=_POOL_COUNT)
     )
     documents = json.loads(fixture_documents.read_text(encoding="utf-8"))
     for index in range(_POOL_COUNT):
@@ -199,7 +194,7 @@ def _completed_original_projection(
         if docket_id in _PAID_RESERVE_DOCKETS:
             continue
         documents[f"https://storage.courtlistener.com/{docket_id}-mtd.pdf"] = (
-            _fixture_pdf_text("Motion to Dismiss")
+            t100._fixture_pdf_text("Motion to Dismiss")
         )
     fixture_documents.write_text(json.dumps(documents), encoding="utf-8")
     recorded = [
@@ -240,7 +235,7 @@ def _completed_original_projection(
     )
     free_manifest = preparation / "03c-merged-downloads/document-downloads-merged.jsonl"
     free_restrictions = preparation / "06-clearance-inputs/restriction-evidence.jsonl"
-    review = _write_authenticated_reviews(
+    review = t100._write_authenticated_reviews(
         root / "free-review",
         manifest_path=free_manifest,
         document_root=preparation / "documents/free",
