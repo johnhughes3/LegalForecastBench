@@ -522,7 +522,6 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     canary = statements["ManageExactAuthoritySmokeCanary"]
     assert canary["Action"] == [
         "dynamodb:CreateTable",
-        "dynamodb:DeleteTable",
         "dynamodb:DescribeContinuousBackups",
         "dynamodb:DescribeTable",
         "dynamodb:DescribeTimeToLive",

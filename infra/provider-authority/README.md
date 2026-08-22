@@ -21,7 +21,7 @@ The protected provider-authority Terraform workflow includes both table resource
 
 After the separately authorized apply, decrypt the protected Terraform-output handoff only on the trusted operator machine, read `outside_authority_table_name`, and set `LFB_OUTSIDE_AUTHORITY_TABLE` in the protected authority-smoke environment through the approved server-side configuration path.
 The fixed reviewed canary name is intentionally a public code contract; keep the protected Terraform-output handoff, account-specific ARN, account ID, state, and protected environment values private, and do not copy them into repository artifacts.
-After the smoke receipt is retained, remove the disposable canary with a separately reviewed Terraform plan; do not remove the durable shared authority table.
+The current protected Terraform workflow rejects destructive plan actions, so this lane intentionally leaves the declared canary in place after the smoke. Retain it until a separately reviewed disposal operation is available; do not delete it manually, mutate Terraform state, or remove the durable shared authority table.
 
 ## Protected Terraform operator procedure
 
