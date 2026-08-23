@@ -53,10 +53,11 @@ class LongContextSurcharge:
 class ModelRegistryEntry:
     """One frozen model/run configuration used by all benchmark components.
 
-    ``temperature`` and ``top_p`` remain required for byte-compatible parsing
-    of existing frozen registries. They are legacy provenance only: live
-    provider requests omit sampling controls, and execution policy does not
-    treat these fields as active settings.
+    ``temperature`` and ``top_p`` are optional legacy provenance fields. They
+    remain readable and are round-tripped when present so existing frozen
+    registry bytes and their hashes stay stable. New registries should omit
+    them: live provider requests use provider-default sampling and execution
+    policy does not treat these fields as active settings.
     """
 
     provider: str
@@ -64,8 +65,6 @@ class ModelRegistryEntry:
     display_name: str
     model_version_or_snapshot: str
     provider_training_cutoff_status: TrainingCutoffStatus
-    temperature: float
-    top_p: float
     max_output_tokens: int
     network_disabled: bool
     search_disabled: bool
@@ -74,6 +73,8 @@ class ModelRegistryEntry:
     pricing_source: str
     input_token_price: float
     output_token_price: float
+    temperature: float | None = None
+    top_p: float | None = None
     release_timestamp: datetime | None = None
     release_timestamp_source: str | None = None
     provider_training_cutoff: date | None = None
@@ -106,8 +107,10 @@ class ModelRegistryEntry:
                 "provider_training_cutoff must be omitted unless cutoff status is known"
             )
 
-        _require_non_negative(self.temperature, "temperature")
-        _require_between(self.top_p, "top_p", lower=0, upper=1)
+        if self.temperature is not None:
+            _require_non_negative(self.temperature, "temperature")
+        if self.top_p is not None:
+            _require_between(self.top_p, "top_p", lower=0, upper=1)
         _require_positive_int(self.max_output_tokens, "max_output_tokens")
         _require_positive_int(self.context_limit, "context_limit")
         _require_non_negative(self.input_token_price, "input_token_price")
@@ -149,8 +152,6 @@ class ModelRegistryEntry:
                 if self.provider_training_cutoff is not None
                 else None
             ),
-            "temperature": self.temperature,
-            "top_p": self.top_p,
             "max_output_tokens": self.max_output_tokens,
             "network_disabled": self.network_disabled,
             "search_disabled": self.search_disabled,
@@ -161,6 +162,10 @@ class ModelRegistryEntry:
             "output_token_price": self.output_token_price,
             "known_cutoff_publicity_caveats": list(self.known_cutoff_publicity_caveats),
         }
+        if self.temperature is not None:
+            record["temperature"] = self.temperature
+        if self.top_p is not None:
+            record["top_p"] = self.top_p
         if self.long_context_surcharge is not None:
             record["long_context_surcharge"] = self.long_context_surcharge.to_record()
         return record
@@ -180,8 +185,6 @@ class ModelRegistryEntry:
                 _required_str(record, "provider_training_cutoff_status")
             ),
             provider_training_cutoff=_optional_date(record, "provider_training_cutoff"),
-            temperature=_required_number(record, "temperature"),
-            top_p=_required_number(record, "top_p"),
             max_output_tokens=_required_int(record, "max_output_tokens"),
             network_disabled=_required_bool(record, "network_disabled"),
             search_disabled=_required_bool(record, "search_disabled"),
@@ -194,6 +197,8 @@ class ModelRegistryEntry:
                 record, "known_cutoff_publicity_caveats"
             ),
             long_context_surcharge=_optional_long_context_surcharge(record),
+            temperature=_optional_number(record, "temperature"),
+            top_p=_optional_number(record, "top_p"),
         )
 
 
@@ -351,6 +356,15 @@ def _required_int(record: Mapping[str, Any], field_name: str) -> int:
 
 def _required_number(record: Mapping[str, Any], field_name: str) -> float:
     value = _required(record, field_name)
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a number")
+    return float(value)
+
+
+def _optional_number(record: Mapping[str, Any], field_name: str) -> float | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ValueError(f"{field_name} must be a number")
     return float(value)

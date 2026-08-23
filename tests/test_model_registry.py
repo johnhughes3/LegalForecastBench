@@ -72,6 +72,20 @@ def test_model_registry_entry_round_trips_plan_fields() -> None:
     json.dumps(record)
 
 
+def test_registry_allows_provider_default_sampling_without_legacy_fields() -> None:
+    record = _registry_record()
+    del record["temperature"]
+    del record["top_p"]
+
+    entry = ModelRegistryEntry.from_record(record)
+
+    assert entry.temperature is None
+    assert entry.top_p is None
+    serialized = entry.to_record()
+    assert "temperature" not in serialized
+    assert "top_p" not in serialized
+
+
 def test_model_registry_entry_round_trips_long_context_surcharge() -> None:
     record = _registry_record()
     record["long_context_surcharge"] = {
