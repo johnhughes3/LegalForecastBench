@@ -27,6 +27,7 @@ from legalforecast.evals.provider_spend_control import (
     SqliteProviderSpendAuthority,
 )
 from legalforecast.evals.response_verification import (
+    output_statuses_from_run_records,
     response_verification_summary_from_run_records,
 )
 
@@ -166,6 +167,11 @@ def run(args: argparse.Namespace) -> int:
     ):
         raise LocalLunaRunnerError("Luna registry safety fields differ")
     rows = _select_rows(run_inputs, args.packet)
+    if args.shard_count <= 0:
+        raise LocalLunaRunnerError("shard_count must be positive")
+    if args.shard_index < 0 or args.shard_index >= args.shard_count:
+        raise LocalLunaRunnerError("shard_index must be in [0, shard_count)")
+    rows = rows[args.shard_index :: args.shard_count]
     if args.max_calls is not None:
         rows = rows[: args.max_calls]
     if not rows:
@@ -197,6 +203,8 @@ def run(args: argparse.Namespace) -> int:
         "prior_reserved_microusd": prior_reserved_microusd,
         "packet_count": len(rows),
         "packets": [f"{row['case_id']}:{row['ablation']}" for row in rows],
+        "shard_count": args.shard_count,
+        "shard_index": args.shard_index,
         "owner_comment_ids": sorted(approvals.values()),
         "dry_run": bool(args.dry_run),
     }
@@ -284,6 +292,10 @@ def run(args: argparse.Namespace) -> int:
             )
             records = run_inspect_fixture(samples, (solver,)).to_records()
             verification = response_verification_summary_from_run_records(records)
+            output_statuses = {
+                digest: status.to_record()
+                for digest, status in output_statuses_from_run_records(records).items()
+            }
             record = {
                 "schema_version": "legalforecast.local_luna_result.v1",
                 "identity": identity,
@@ -291,6 +303,7 @@ def run(args: argparse.Namespace) -> int:
                 "packet_sha256": row["packet_sha256"],
                 "prompt_sha256": row["prompt_sha256"],
                 "response_verification": verification,
+                "output_statuses": output_statuses,
                 "runs": records,
             }
             flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
@@ -313,6 +326,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--packet", action="append", default=[])
     parser.add_argument("--max-calls", type=int)
     parser.add_argument("--prior-reserved-microusd", type=int, default=0)
+    parser.add_argument("--shard-count", type=int, default=1)
+    parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--dry-run", action="store_true")
     return run(parser.parse_args(argv))
 
