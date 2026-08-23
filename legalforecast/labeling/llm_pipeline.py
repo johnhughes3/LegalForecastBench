@@ -5297,6 +5297,8 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
             )
         return fuzzy
     start = source_positions[offset]
+    if _omits_unqualified_pdf_line_number(text, start):
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
     end_offset = offset + len(normalized_excerpt) - 1
     end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
     return text[start:end].strip()
@@ -5531,7 +5533,7 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
         index += 1
 
     if not removed_line_number:
-        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+        return None
     untrimmed_text = "".join(normalized_chars)
     leading_space_count = len(untrimmed_text) - len(untrimmed_text.lstrip())
     normalized_text = untrimmed_text.strip()
@@ -5540,7 +5542,7 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
     ]
     offset = normalized_text.find(normalized_excerpt)
     if offset < 0:
-        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+        return None
     start = source_positions[offset]
     end_offset = offset + len(normalized_excerpt) - 1
     end = source_positions[min(end_offset, len(source_positions) - 1)] + 1

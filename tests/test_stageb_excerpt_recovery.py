@@ -249,7 +249,7 @@ def test_stage_b_reconstruction_recovers_citation_provider_free(
         ),
         (
             "21 The motion is denied because the claim survives.",
-            "The motion is denied because the claim survives.",
+            "The motion is denied because the claim   survives.",
         ),
         (
             "For the following reasons, the Court GRANTS Defendant's motion.",
@@ -273,3 +273,23 @@ def test_stage_b_excerpt_recovery_rejects_non_exact_remainder(
         match="supporting_excerpt does not appear in decision text",
     ):
         cast(Any, llm_pipeline)._coerced_excerpt(decision_text, response_excerpt)
+
+
+def test_stage_b_excerpt_recovery_falls_back_after_unrelated_numbered_lines() -> None:
+    decision_text = (
+        "21 This numbered paragraph is unrelated to the requested citation.\n"
+        "22 This consecutive numbered paragraph is also unrelated.\n"
+        "The authenticated decision explains that jurisdiction remains proper "
+        "because the complaint invokes federal law."
+    )
+    response_excerpt = (
+        "The authenticated decision explains that jurisdiction remains proper "
+        "because the complaint invokes federal statute."
+    )
+
+    assert cast(Any, llm_pipeline)._coerced_excerpt(
+        decision_text, response_excerpt
+    ) == (
+        "The authenticated decision explains that jurisdiction remains proper "
+        "because the complaint invokes federal law."
+    )
