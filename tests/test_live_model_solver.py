@@ -96,6 +96,53 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert "read_docket_entry_results" in body["input"]
 
 
+def test_complete_live_prompt_applies_retry_output_token_bound_to_request() -> None:
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "service_tier": OPENAI_SERVICE_TIER,
+            "usage": {"input_tokens": 100, "output_tokens": 50},
+        }
+    )
+
+    response = complete_live_prompt(
+        _registry_entry("openai", "gpt-test"),
+        "Retry this exact prompt.",
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        transport=transport,
+        max_output_tokens_override=1234,
+    )
+
+    assert response.metadata is not None
+    assert response.metadata["max_output_tokens"] == "1234"
+    assert _json_body(transport.only_request())["max_output_tokens"] == 1234
+
+
+def test_complete_live_prompt_rejects_retry_output_bound_above_registry() -> None:
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "service_tier": OPENAI_SERVICE_TIER,
+            "usage": {"input_tokens": 100, "output_tokens": 50},
+        }
+    )
+
+    with pytest.raises(
+        LiveModelConfigError,
+        match="cannot exceed registry max_output_tokens",
+    ):
+        complete_live_prompt(
+            _registry_entry("openai", "gpt-test"),
+            "Retry this exact prompt.",
+            environ={"OPENAI_API_KEY": "openai-secret"},
+            transport=transport,
+            max_output_tokens_override=4097,
+        )
+    assert transport.requests == []
+
+
 def test_openai_solver_refuses_actual_payload_that_differs_from_commitment() -> None:
     """The manifest commitment must gate the post-transformation HTTP prompt."""
 

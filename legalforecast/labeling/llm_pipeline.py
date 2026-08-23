@@ -30,12 +30,14 @@ from legalforecast.evals.live_model_solver import (
     DEFAULT_MAX_ATTEMPTS,
     LiveModelTransport,
     complete_live_prompt,
+    estimated_prompt_tokens,
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.evals.provider_spend_attempt_handler import (
     CompositeProviderAttemptHandler,
     ProviderSpendAttemptHandler,
     conservative_reservation_microusd,
+    max_output_tokens_for_reservation_cap,
 )
 from legalforecast.evals.provider_spend_control import (
     AdditionalAttemptPermit,
@@ -3351,6 +3353,25 @@ def _llm_label_one_model(
                 max_attempts=max_provider_attempts,
             ),
         )
+        max_output_tokens_override: int | None = None
+        if additional_attempt_permit is not None:
+            try:
+                max_output_tokens_override = max_output_tokens_for_reservation_cap(
+                    context_limit=registry_entry.context_limit,
+                    max_output_tokens=registry_entry.max_output_tokens,
+                    input_tokens=estimated_prompt_tokens(prompt),
+                    input_token_price=registry_entry.input_token_price,
+                    output_token_price=registry_entry.output_token_price,
+                    reservation_cap_microusd=(
+                        additional_attempt_permit.reservation_cap_microusd
+                    ),
+                    long_context_surcharge=registry_entry.long_context_surcharge,
+                )
+            except ValueError as exc:
+                raise LlmPipelineError(
+                    "additional-attempt reservation cap cannot bound the exact "
+                    "provider request"
+                ) from exc
         response = complete_live_prompt(
             registry_entry,
             prompt,
@@ -3359,6 +3380,7 @@ def _llm_label_one_model(
             environ=environ,
             timeout_seconds=timeout_seconds,
             max_attempts=max_attempts,
+            max_output_tokens_override=max_output_tokens_override,
             attempt_handler=_combined_attempt_handler(
                 journal=journal,
                 authorities=provider_spend_authorities,

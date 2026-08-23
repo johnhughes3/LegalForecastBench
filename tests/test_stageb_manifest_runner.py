@@ -1783,7 +1783,7 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
         "provider_sampling_policy": "provider_default",
         "tools_enabled": False,
         "error_type": "LlmResponseValidationError",
-        "error_message": "supporting excerpt was not authenticated",
+        "error_message": runner.ADDITIONAL_ATTEMPT_FAILURE_MESSAGE,
     }
     failure_path.write_text(json.dumps(failure_payload), encoding="utf-8")
     before = failure_path.read_bytes()
@@ -1870,6 +1870,59 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
         "terminal",
         runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
     ]
+
+
+@pytest.mark.parametrize(
+    ("error_type", "error_message"),
+    [
+        ("TimeoutError", "provider request timed out"),
+        ("LlmResponseValidationError", "provider response was not valid JSON"),
+        ("LlmResponseValidationError", "supporting excerpt was not authenticated"),
+    ],
+)
+def test_retry_rejects_nonapproved_failure_receipt(
+    tmp_path: Path,
+    error_type: str,
+    error_message: str,
+) -> None:
+    failure_path = tmp_path / "failed.json"
+    failure_path.write_text(
+        json.dumps(
+            {
+                "schema_version": str(runner.STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
+                "status": "failed",
+                "candidate_id": runner.ADDITIONAL_ATTEMPT_CANDIDATE,
+                "case_id": "case-1",
+                "provider": "openai",
+                "model_key": runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+                "model_registry_sha256": "registry",
+                "raw_prediction_units_sha256": "raw",
+                "raw_candidate_envelope_sha256": "envelope",
+                "decision_texts_sha256": "decision",
+                "provider_sampling_policy": "provider_default",
+                "tools_enabled": False,
+                "error_type": error_type,
+                "error_message": error_message,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        runner.StageBManifestError,
+        match="not the approved citation-validation failure",
+    ):
+        runner._existing_failure_result(  # pyright: ignore[reportPrivateUsage]
+            failure_path,
+            candidate_id=runner.ADDITIONAL_ATTEMPT_CANDIDATE,
+            provider="openai",
+            model_key=runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+            raw_sha256="raw",
+            raw_candidate_envelope_sha256="envelope",
+            decision_sha256="decision",
+            registry_sha256="registry",
+            selection={"case_id": "case-1"},
+        )
 
 
 def test_run_dispatches_merge_plan_and_execute_modes(

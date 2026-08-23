@@ -138,6 +138,10 @@ ADDITIONAL_ATTEMPT_APPROVAL_TEXT = (
 )
 ADDITIONAL_ATTEMPT_MAX_TOTAL = 2
 ADDITIONAL_ATTEMPT_RESERVATION_CAP_MICROUSD = 50_000
+ADDITIONAL_ATTEMPT_FAILURE_TYPE = "LlmResponseValidationError"
+ADDITIONAL_ATTEMPT_FAILURE_MESSAGE = (
+    "supporting_excerpt does not appear in decision text"
+)
 
 # The replacement rows are not covered by the retired decision-text artifact.
 # These source-byte commitments are the authenticated bridge for the exact five
@@ -1509,11 +1513,13 @@ def _existing_failure_result(
             raise StageBManifestError(
                 f"existing failed result identity differs: {path}/{key}"
             )
-    if not isinstance(value.get("error_type"), str) or not isinstance(
-        value.get("error_message"), str
+    if (
+        value.get("error_type") != ADDITIONAL_ATTEMPT_FAILURE_TYPE
+        or value.get("error_message") != ADDITIONAL_ATTEMPT_FAILURE_MESSAGE
     ):
         raise StageBManifestError(
-            f"existing failed result evidence is incomplete: {path}"
+            f"existing failed result is not the approved citation-validation "
+            f"failure: {path}"
         )
     return dict(value)
 
@@ -1599,7 +1605,7 @@ def _execute_provider(
     effective_owner_comment_ids = (
         tuple(owner_comment_ids)
         if owner_comment_ids is not None
-        else _owner_approval_ids()
+        else (_owner_approval_ids() if additional_attempt_candidate is not None else ())
     )
     with SqliteProviderSpendAuthority(
         authority_path,

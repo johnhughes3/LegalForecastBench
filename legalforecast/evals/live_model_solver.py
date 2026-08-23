@@ -13,7 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Protocol, cast
@@ -236,6 +236,7 @@ def complete_live_prompt(
     retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
     attempt_handler: ProviderAttemptHandler | None = None,
     response_json_schema: Mapping[str, object] | None = None,
+    max_output_tokens_override: int | None = None,
     openai_service_tier_observer: Callable[[str], None] | None = None,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
@@ -255,6 +256,22 @@ def complete_live_prompt(
     if not registry_entry.search_disabled:
         raise LiveModelConfigError(
             "live provider harness requires search_disabled=True"
+        )
+    if max_output_tokens_override is not None:
+        if (
+            type(max_output_tokens_override) is not int
+            or max_output_tokens_override <= 0
+        ):
+            raise LiveModelConfigError(
+                "max_output_tokens_override must be a positive integer"
+            )
+        if max_output_tokens_override > registry_entry.max_output_tokens:
+            raise LiveModelConfigError(
+                "max_output_tokens_override cannot exceed registry max_output_tokens"
+            )
+        registry_entry = replace(
+            registry_entry,
+            max_output_tokens=max_output_tokens_override,
         )
     timeout_seconds = _effective_timeout_seconds(registry_entry, timeout_seconds)
     estimated_prompt_tokens, prompt_input_token_budget = _validate_prompt_token_budget(

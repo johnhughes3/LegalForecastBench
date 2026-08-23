@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -11,6 +12,7 @@ from legalforecast.evals.provider_spend_attempt_handler import (
     CompositeProviderAttemptHandler,
     ProviderSpendAttemptHandler,
     conservative_reservation_microusd,
+    max_output_tokens_for_reservation_cap,
 )
 from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
 from legalforecast.labeling.provider_journal import (
@@ -237,6 +239,33 @@ def test_conservative_reservation_uses_surcharge_above_long_context_boundary() -
         )
         == 1_421_445
     )
+
+
+def test_retry_output_bound_fits_reservation_cap() -> None:
+    output_bound = max_output_tokens_for_reservation_cap(
+        context_limit=40_000,
+        max_output_tokens=20_000,
+        input_tokens=100,
+        input_token_price=0.75,
+        output_token_price=4.5,
+        reservation_cap_microusd=50_000,
+    )
+
+    assert output_bound == 11_094
+    assert math.ceil(100 * 0.75 + output_bound * 4.5) <= 50_000
+    assert math.ceil(100 * 0.75 + (output_bound + 1) * 4.5) > 50_000
+
+
+def test_retry_output_bound_rejects_prompt_that_exhausts_cap() -> None:
+    with pytest.raises(ValueError, match="cannot cover the conservative prompt"):
+        max_output_tokens_for_reservation_cap(
+            context_limit=40_000,
+            max_output_tokens=20_000,
+            input_tokens=100,
+            input_token_price=0.75,
+            output_token_price=4.5,
+            reservation_cap_microusd=50,
+        )
 
 
 @pytest.mark.parametrize("max_output_tokens", [200_000, 200_001])

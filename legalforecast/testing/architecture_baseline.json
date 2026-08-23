@@ -4473,10 +4473,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "complete_live_prompt",
-        "largest_symbol_lines": 132,
+        "largest_symbol_lines": 149,
         "layer": "application",
-        "line_count": 1332,
-        "nonblank_line_count": 1159,
+        "line_count": 1349,
+        "nonblank_line_count": 1176,
         "top_level_definition_count": 65
       },
       "legalforecast/evals/output_parser.py": {
@@ -4577,8 +4577,8 @@
         "largest_symbol": "_execute_provider",
         "largest_symbol_lines": 385,
         "layer": "application",
-        "line_count": 2662,
-        "nonblank_line_count": 2551,
+        "line_count": 2668,
+        "nonblank_line_count": 2557,
         "top_level_definition_count": 38
       },
       "legalforecast/extraction/pdf_text.py": {
@@ -7191,8 +7191,8 @@
         "largest_symbol": "llm_label_cases",
         "largest_symbol_lines": 371,
         "layer": "application",
-        "line_count": 6512,
-        "nonblank_line_count": 6114,
+        "line_count": 6534,
+        "nonblank_line_count": 6136,
         "top_level_definition_count": 131
       },
       "legalforecast/labeling/official_paid_baton.py": {
@@ -10221,9 +10221,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1238,
-        "nonblank_line_count": 1076,
-        "top_level_definition_count": 40
+        "line_count": 1285,
+        "nonblank_line_count": 1116,
+        "top_level_definition_count": 42
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",
@@ -11123,9 +11123,9 @@
         "largest_symbol": "RecordingAuthority",
         "largest_symbol_lines": 72,
         "layer": "test",
-        "line_count": 656,
-        "nonblank_line_count": 543,
-        "top_level_definition_count": 26
+        "line_count": 685,
+        "nonblank_line_count": 567,
+        "top_level_definition_count": 28
       },
       "tests/test_provider_spend_control.py": {
         "cycle_id": "",
@@ -11228,7 +11228,7 @@
         "largest_symbol_lines": 427,
         "layer": "test",
         "line_count": 3835,
-        "nonblank_line_count": 3585,
+        "nonblank_line_count": 3601,
         "top_level_definition_count": 50
       },
       "tests/test_purchased_document_recovery.py": {
@@ -11725,9 +11725,9 @@
         "largest_symbol": "test_full_provider_shard_rejects_adjudication_hash_not_bound_to_journal",
         "largest_symbol_lines": 169,
         "layer": "test",
-        "line_count": 2298,
-        "nonblank_line_count": 2136,
-        "top_level_definition_count": 44
+        "line_count": 2351,
+        "nonblank_line_count": 2186,
+        "top_level_definition_count": 45
       },
       "tests/test_static_result_sites.py": {
         "cycle_id": "",
