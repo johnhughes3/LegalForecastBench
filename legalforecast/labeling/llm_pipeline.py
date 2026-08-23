@@ -5240,8 +5240,287 @@ def _repair_unescaped_json_string_quotes(text: str) -> str | None:
     return "".join(repaired) if changed else None
 
 
+_MARKDOWN_ESCAPABLE_PUNCTUATION = frozenset(r"!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
+_MARKDOWN_EMPHASIS_MARKERS = ("**", "__", "*", "_")
+
+
+@dataclass(frozen=True)
+class _MappedRenderedText:
+    """Normalized rendered text plus intervals into its authenticated source."""
+
+    text: str
+    source_starts: tuple[int, ...]
+    source_ends: tuple[int, ...]
+    emphasis_pairs: tuple[tuple[int, int, int, int], ...]
+    changed: bool
+
+
+def _qualified_pdf_line_prefixes(text: str) -> dict[int, tuple[int, int]]:
+    """Return only consecutive PDF line-number prefixes eligible for removal."""
+
+    prefixes: list[tuple[int, int, int, int]] = []
+    offset = 0
+    for line_number, line in enumerate(text.split("\n")):
+        match = re.match(r"([0-9]{1,3})(?=[ \t])", line)
+        if match is not None:
+            prefixes.append(
+                (
+                    line_number,
+                    int(match.group(1)),
+                    offset,
+                    offset + match.end(),
+                )
+            )
+        offset += len(line) + 1
+
+    qualified: dict[int, tuple[int, int]] = {}
+    run: list[tuple[int, int, int, int]] = []
+    for prefix in prefixes:
+        if run and (prefix[0] != run[-1][0] + 1 or prefix[1] != run[-1][1] + 1):
+            if len(run) >= 2:
+                qualified.update((item[2], (item[2], item[3])) for item in run)
+            run = []
+        run.append(prefix)
+    if len(run) >= 2:
+        qualified.update((item[2], (item[2], item[3])) for item in run)
+    return qualified
+
+
+def _markdown_escape_positions(text: str) -> dict[int, int]:
+    """Map recognized Markdown backslash escapes to their punctuation byte."""
+
+    escapes: dict[int, int] = {}
+    index = 0
+    while index + 1 < len(text):
+        if text[index] == "\\" and text[index + 1] in _MARKDOWN_ESCAPABLE_PUNCTUATION:
+            escapes[index] = index + 1
+            index += 2
+        else:
+            index += 1
+    return escapes
+
+
+def _markdown_emphasis_pairs(
+    text: str,
+    escaped_positions: Mapping[int, int],
+) -> tuple[tuple[int, int, int, int], ...] | None:
+    """Find balanced, otherwise-valid Markdown emphasis marker pairs.
+
+    This is deliberately a small presentation recognizer, not a Markdown
+    parser.  A marker is eligible only when it is a one- or two-character run,
+    is not escaped, and surrounds non-whitespace prose.  Any malformed run or
+    unmatched marker disables this recovery rather than guessing at semantics.
+    """
+
+    escaped = set(escaped_positions)
+    escaped.update(escaped_positions.values())
+    pairs: list[tuple[int, int, int, int]] = []
+    for marker in _MARKDOWN_EMPHASIS_MARKERS:
+        runs: list[tuple[int, int]] = []
+        index = 0
+        while index < len(text):
+            if index in escaped or not text.startswith(marker, index):
+                index += 1
+                continue
+            if index > 0 and text[index - 1] == "\\":
+                index += len(marker)
+                continue
+            if marker == "*" and (
+                text.startswith("**", index) or (index > 0 and text[index - 1] == "*")
+            ):
+                index += 1
+                continue
+            if marker == "_" and (
+                text.startswith("__", index) or (index > 0 and text[index - 1] == "_")
+            ):
+                index += 1
+                continue
+            if (index > 0 and text[index - 1] == marker[0]) or (
+                index + len(marker) < len(text)
+                and text[index + len(marker)] == marker[0]
+            ):
+                return None
+            runs.append((index, index + len(marker)))
+            index += len(marker)
+        if len(runs) % 2:
+            return None
+        for opening, closing in zip(runs[::2], runs[1::2], strict=True):
+            opening_start, opening_end = opening
+            closing_start, closing_end = closing
+            body = text[opening_end:closing_start]
+            if not body.strip() or not any(char.isalnum() for char in body):
+                return None
+            before_open = text[opening_start - 1] if opening_start else ""
+            after_open = text[opening_end] if opening_end < len(text) else ""
+            before_close = text[closing_start - 1] if closing_start else ""
+            after_close = text[closing_end] if closing_end < len(text) else ""
+            if not after_open or after_open.isspace() or not before_close:
+                return None
+            if before_close.isspace() or (not before_open and not after_open):
+                return None
+            if marker in {"_", "__"} and before_open.isalnum() and after_open.isalnum():
+                return None
+            if (
+                marker in {"_", "__"}
+                and before_close.isalnum()
+                and after_close.isalnum()
+            ):
+                return None
+            pairs.append((opening_start, opening_end, closing_start, closing_end))
+    return tuple(pairs)
+
+
+def _trim_mapped_rendered_text(value: _MappedRenderedText) -> _MappedRenderedText:
+    start = len(value.text) - len(value.text.lstrip())
+    end = len(value.text.rstrip())
+    return _MappedRenderedText(
+        text=value.text[start:end],
+        source_starts=value.source_starts[start:end],
+        source_ends=value.source_ends[start:end],
+        emphasis_pairs=value.emphasis_pairs,
+        changed=value.changed,
+    )
+
+
+def _normalize_rendered_markdown(
+    text: str,
+    *,
+    remove_line_prefixes: bool,
+) -> _MappedRenderedText:
+    """Normalize only authenticated Markdown/PDF presentation syntax."""
+
+    escaped_positions = _markdown_escape_positions(text)
+    emphasis_pairs = _markdown_emphasis_pairs(text, escaped_positions)
+    if emphasis_pairs is None:
+        emphasis_pairs = ()
+    removed_emphasis_positions = {
+        position
+        for opening, opening_end, _, _ in emphasis_pairs
+        for position in range(opening, opening_end)
+    }
+    removed_emphasis_positions.update(
+        position
+        for _, _, closing, closing_end in emphasis_pairs
+        for position in range(closing, closing_end)
+    )
+    qualified_prefixes = (
+        _qualified_pdf_line_prefixes(text) if remove_line_prefixes else {}
+    )
+    normalized: list[str] = []
+    source_starts: list[int] = []
+    source_ends: list[int] = []
+    index = 0
+    pending_prefix_start: int | None = None
+    while index < len(text):
+        prefix = qualified_prefixes.get(index)
+        if prefix is not None:
+            pending_prefix_start = prefix[0]
+            index = prefix[1]
+            while index < len(text) and text[index] in " \t":
+                index += 1
+            continue
+        if index in removed_emphasis_positions:
+            index += 1
+            continue
+        escaped_character = escaped_positions.get(index)
+        if escaped_character is not None:
+            normalized.append(text[escaped_character])
+            source_starts.append(index)
+            source_ends.append(escaped_character + 1)
+            index = escaped_character + 1
+            pending_prefix_start = None
+            continue
+        character = text[index]
+        if character.isspace():
+            whitespace_start = index
+            index += 1
+            while index < len(text) and text[index].isspace():
+                index += 1
+            if normalized and normalized[-1] == " ":
+                source_ends[-1] = index
+            else:
+                normalized.append(" ")
+                source_starts.append(
+                    pending_prefix_start
+                    if pending_prefix_start is not None
+                    else whitespace_start
+                )
+                source_ends.append(index)
+            pending_prefix_start = None
+            continue
+        normalized.append(character)
+        source_starts.append(
+            pending_prefix_start if pending_prefix_start is not None else index
+        )
+        source_ends.append(index + 1)
+        pending_prefix_start = None
+        index += 1
+    return _trim_mapped_rendered_text(
+        _MappedRenderedText(
+            text="".join(normalized),
+            source_starts=tuple(source_starts),
+            source_ends=tuple(source_ends),
+            emphasis_pairs=emphasis_pairs,
+            changed=bool(
+                escaped_positions or removed_emphasis_positions or qualified_prefixes
+            ),
+        )
+    )
+
+
+def _word_boundary_match(text: str, excerpt: str, offset: int) -> bool:
+    if not excerpt:
+        return False
+
+    def word(character: str) -> bool:
+        return character.isalnum() or character == "_"
+
+    before = text[offset - 1] if offset else ""
+    after_offset = offset + len(excerpt)
+    after = text[after_offset] if after_offset < len(text) else ""
+    return not (
+        (word(excerpt[0]) and word(before)) or (word(excerpt[-1]) and word(after))
+    )
+
+
+def _coerced_excerpt_from_rendered_markdown(text: str, excerpt: str) -> str | None:
+    """Recover exact prose omitted from rendered Markdown presentation syntax.
+
+    The matcher accepts only qualified consecutive PDF line prefixes, balanced
+    emphasis delimiters, recognized Markdown backslash escapes, and whitespace
+    representation.  It returns the original authenticated source slice, so a
+    successful recovery never manufactures or rewrites evidence.
+    """
+
+    source = _normalize_rendered_markdown(text, remove_line_prefixes=True)
+    if not source.changed:
+        return None
+    target = _normalize_rendered_markdown(excerpt.strip(), remove_line_prefixes=False)
+    if not target.text:
+        return None
+    search_start = 0
+    while True:
+        offset = source.text.find(target.text, search_start)
+        if offset < 0:
+            return None
+        if _word_boundary_match(source.text, target.text, offset):
+            last = offset + len(target.text) - 1
+            start = source.source_starts[offset]
+            end = source.source_ends[last]
+            for opening, opening_end, closing, closing_end in source.emphasis_pairs:
+                if source.source_starts[offset] == opening_end:
+                    start = opening
+                if source.source_ends[last] == closing:
+                    end = closing_end
+            return text[start:end].strip()
+        search_start = offset + 1
+
+
 def _coerced_excerpt(text: str, excerpt: str) -> str:
     stripped = excerpt.strip()
+    rendered_markdown_recovery = _coerced_excerpt_from_rendered_markdown(text, stripped)
+    if rendered_markdown_recovery is not None:
+        return rendered_markdown_recovery
     exact_offset = text.find(stripped)
     if exact_offset >= 0 and _omits_unqualified_pdf_line_number(text, exact_offset):
         raise LlmPipelineError("supporting_excerpt does not appear in decision text")
