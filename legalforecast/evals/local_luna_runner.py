@@ -142,16 +142,16 @@ def run(args: argparse.Namespace) -> int:
     registry_path = Path(args.registry).resolve()
     packet_root = Path(args.packet_root).resolve()
     output_root = Path(args.output_root).resolve()
-    prior_reserved_microusd = args.prior_reserved_microusd
+    prior_committed_microusd = args.prior_committed_microusd
     if (
-        isinstance(prior_reserved_microusd, bool)
-        or prior_reserved_microusd < 0
-        or prior_reserved_microusd >= CAP_MICROUSD
+        isinstance(prior_committed_microusd, bool)
+        or prior_committed_microusd < 0
+        or prior_committed_microusd >= CAP_MICROUSD
     ):
         raise LocalLunaRunnerError(
-            "prior_reserved_microusd must be between zero and the owner ceiling"
+            "prior_committed_microusd must be between zero and the owner ceiling"
         )
-    effective_cap_microusd = CAP_MICROUSD - prior_reserved_microusd
+    effective_cap_microusd = CAP_MICROUSD - prior_committed_microusd
     run_inputs, run_record = _load_inputs(run_inputs_path, run_record_path)
     approvals = _owner_approvals()
     registry_bytes = registry_path.read_bytes()
@@ -183,7 +183,7 @@ def run(args: argparse.Namespace) -> int:
                 "manifest": MANIFEST_DIGEST,
                 "model_key": MODEL_KEY,
                 "owner_cap_microusd": CAP_MICROUSD,
-                "prior_reserved_microusd": prior_reserved_microusd,
+                "prior_committed_microusd": prior_committed_microusd,
                 "registry_sha256": _sha(registry_bytes),
                 "run_inputs_sha256": _sha(run_inputs_path.read_bytes()),
             },
@@ -200,7 +200,7 @@ def run(args: argparse.Namespace) -> int:
         "run_record_sha256": _sha(run_record_path.read_bytes()),
         "cap_microusd": effective_cap_microusd,
         "owner_cap_microusd": CAP_MICROUSD,
-        "prior_reserved_microusd": prior_reserved_microusd,
+        "prior_committed_microusd": prior_committed_microusd,
         "packet_count": len(rows),
         "packets": [f"{row['case_id']}:{row['ablation']}" for row in rows],
         "shard_count": args.shard_count,
@@ -223,7 +223,7 @@ def run(args: argparse.Namespace) -> int:
         failure_window_seconds=86_400,
     )
     with SqliteProviderSpendAuthority(
-        output_root / "provider-spend.sqlite3",
+        output_root / f"provider-spend-{prior_committed_microusd}.sqlite3",
         authority_identity_sha256=authority_identity,
         cycle_id=cast(str, run_record["cycle_id"]),
         provider="openai",
@@ -239,8 +239,10 @@ def run(args: argparse.Namespace) -> int:
                 if (
                     not isinstance(existing, Mapping)
                     or cast(Mapping[str, object], existing).get("identity") != identity
-                    or cast(Mapping[str, object], existing).get("plan_identity_sha256")
-                    != authority_identity
+                    or cast(Mapping[str, object], existing).get("packet_sha256")
+                    != row["packet_sha256"]
+                    or cast(Mapping[str, object], existing).get("prompt_sha256")
+                    != row["prompt_sha256"]
                 ):
                     raise LocalLunaRunnerError(
                         f"existing result identity differs: {result_path}"
@@ -325,7 +327,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--packet", action="append", default=[])
     parser.add_argument("--max-calls", type=int)
-    parser.add_argument("--prior-reserved-microusd", type=int, default=0)
+    parser.add_argument(
+        "--prior-committed-microusd",
+        "--prior-reserved-microusd",
+        dest="prior_committed_microusd",
+        type=int,
+        default=0,
+    )
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--dry-run", action="store_true")
