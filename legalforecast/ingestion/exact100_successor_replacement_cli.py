@@ -20,9 +20,11 @@ from legalforecast.ingestion.exact100_successor_replacement import (
     VerifiedSuccessorPromotionPool,
     project_exact100_successor_replacement,
 )
+from legalforecast.ingestion.exact100_terminal_recovery_authority_v3.authority import (
+    authorize_persisted_terminal_recovery_evidence_v3,
+)
 from legalforecast.ingestion.post_selection_terminal_exclusion import (
     VerifiedTerminalExclusionEvidence,
-    authorize_persisted_terminal_recovery_evidence,
     verify_post_selection_terminal_exclusions,
 )
 
@@ -60,7 +62,9 @@ SuccessorInputReplay = Callable[
     [Path], tuple[VerifiedExact100Predecessor, VerifiedSuccessorPromotionPool]
 ]
 TerminalRecoveryReplay = Callable[[bytes, bytes], VerifiedTerminalExclusionEvidence]
-StipulatedEligibilityReplay = Callable[[Path, bytes], VerifiedTerminalExclusionEvidence]
+StipulatedEligibilityReplay = Callable[
+    [Path, bytes, bytes], VerifiedTerminalExclusionEvidence
+]
 
 
 def add_parser(
@@ -291,6 +295,9 @@ def _build(
             predecessor.selection_bytes,
             snapshots,
             stipulated_replay=stipulated_replay,
+            predecessor_download_manifest_bytes=_predecessor_download_manifest_bytes(
+                predecessor
+            ),
         )
         for root in stipulated_roots
     )
@@ -321,6 +328,9 @@ def _build(
                 second_predecessor.selection_bytes,
                 snapshots,
                 stipulated_replay=stipulated_replay,
+                predecessor_download_manifest_bytes=_predecessor_download_manifest_bytes(
+                    second_predecessor
+                ),
             )
             for root in stipulated_roots
         ),
@@ -415,7 +425,7 @@ def _recovery(
         raise Exact100SuccessorReplacementCliError(
             "fresh terminal recovery replay did not authorize the persisted root"
         ) from exc
-    return authorize_persisted_terminal_recovery_evidence(
+    return authorize_persisted_terminal_recovery_evidence_v3(
         live_evidence=live_evidence,
         selection_bytes=selection,
         request=request,
@@ -433,12 +443,19 @@ def _recovery(
     )
 
 
+def _predecessor_download_manifest_bytes(
+    predecessor: VerifiedExact100Predecessor,
+) -> bytes:
+    return b"".join(_bytes(dict(row)) for row in predecessor.download_manifest)
+
+
 def _stipulated(
     root: Path,
     selection: bytes,
     snapshots: dict[Path, bytes],
     *,
     stipulated_replay: StipulatedEligibilityReplay | None,
+    predecessor_download_manifest_bytes: bytes,
 ) -> VerifiedTerminalExclusionEvidence:
     """Mint one stipulated exclusion only from an authenticated audit replay."""
 
@@ -449,7 +466,7 @@ def _stipulated(
         )
     _root_payloads(root, _STIPULATED_AUDIT_FILES, snapshots)
     try:
-        return stipulated_replay(root, selection)
+        return stipulated_replay(root, selection, predecessor_download_manifest_bytes)
     except ValueError as exc:
         raise Exact100SuccessorReplacementCliError(
             "authenticated stipulated eligibility replay did not authorize the "

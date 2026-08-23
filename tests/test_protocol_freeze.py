@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -34,6 +36,18 @@ from legalforecast.protocol.policy_artifacts import (
 )
 
 FREEZE_TIMESTAMP = datetime(2026, 5, 14, 12, 5, tzinfo=UTC)
+
+
+def test_freeze_module_cli_can_initialize_from_a_fresh_process() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "legalforecast.protocol.freeze", "verify", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "legalforecast freeze verify" in result.stdout
 
 
 def test_freeze_hashes_are_deterministic(tmp_path: Path) -> None:

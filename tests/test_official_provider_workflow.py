@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import hashlib
 import re
-import textwrap
-from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+
+from legalforecast.evals.corpus_manifest.cost_projector import (
+    PROVIDER_LANES,
+    provider_lane,
+    safe_case_id_slug,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github" / "workflows" / "official-provider-cell.yaml").read_text(
@@ -14,15 +16,19 @@ WORKFLOW = (ROOT / ".github" / "workflows" / "official-provider-cell.yaml").read
 DISPATCHER = (ROOT / ".github" / "workflows" / "run-benchmark.yaml").read_text(
     encoding="utf-8"
 )
+PROJECTOR = (ROOT / "legalforecast/evals/corpus_manifest/cost_projector.py").read_text(
+    encoding="utf-8"
+)
 S3_VALIDATION = (
     ROOT / ".github" / "workflows" / "official-s3-access-validation.yaml"
 ).read_text(encoding="utf-8")
 
 
 def test_dispatcher_partitions_the_matrix_into_exact_provider_lanes() -> None:
-    assert 'for provider in ("openai", "anthropic", "gemini")' in DISPATCHER
-    assert 'if provider_lane(row["model_key"]) == provider' in DISPATCHER
-    assert 'if provider in {"google", "gemini"}:' in DISPATCHER
+    assert PROVIDER_LANES == ("openai", "anthropic", "gemini")
+    assert provider_lane("google:model") == "gemini"
+    assert provider_lane("gemini:model") == "gemini"
+    assert "issue_manifest_cost_projection_from_workflow_environment" in DISPATCHER
     for provider in ("openai", "anthropic", "gemini"):
         assert f"  run-{provider}:" in DISPATCHER
         assert (
@@ -56,31 +62,16 @@ def test_dry_run_never_enters_a_provider_bearing_environment() -> None:
 
 
 def test_case_id_slug_is_safe_deterministic_and_collision_resistant() -> None:
-    function_source = (
-        "def safe_case_id_slug"
-        + DISPATCHER.split("          def safe_case_id_slug", maxsplit=1)[1].split(
-            "          def packet_input_tokens", maxsplit=1
-        )[0]
-    )
-    namespace: dict[str, object] = {"hashlib": hashlib, "re": re}
-    exec(textwrap.dedent(function_source), namespace)
-    slugger = cast(Callable[[str], str], namespace["safe_case_id_slug"])
-
     malicious = "../../Case: *?[artifact]\\name\n"
-    slug = slugger(malicious)
-    assert slug == slugger(malicious)
+    slug = safe_case_id_slug(malicious)
+    assert slug == safe_case_id_slug(malicious)
     assert re.fullmatch(r"[a-z0-9][a-z0-9-]{0,47}-[0-9a-f]{12}", slug)
     assert ".." not in slug
     assert not any(character in slug for character in "/\\:*?[]\n")
-    assert slugger("same/prefix") != slugger("same:prefix")
-    assert slugger("..") != slugger("/")
-    matrix_row_source = DISPATCHER[
-        DISPATCHER.index("                  include.append(") : DISPATCHER.index(
-            "          limit = int(os.environ", DISPATCHER.index("include.append(")
-        )
-    ]
-    assert '"case_id": case_id' in matrix_row_source
-    assert '"case_id_slug": safe_case_id_slug(case_id)' in matrix_row_source
+    assert safe_case_id_slug("same/prefix") != safe_case_id_slug("same:prefix")
+    assert safe_case_id_slug("..") != safe_case_id_slug("/")
+    assert '"case_id": case_id' in PROJECTOR
+    assert '"case_id_slug": safe_case_id_slug(case_id)' in PROJECTOR
     assert "CASE_ID: ${{ inputs.case_id }}" in WORKFLOW
     assert "case_id_slug: ${{ matrix.case_id_slug }}" in DISPATCHER
     assert "CASE_ID_SLUG: ${{ inputs.case_id_slug }}" in WORKFLOW

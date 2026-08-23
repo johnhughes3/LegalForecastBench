@@ -34,15 +34,9 @@ _PACKAGES = (
     "legalforecast.ingestion.mistral_markdown_parser",
     "legalforecast.ingestion.text_layer_completeness",
     "legalforecast.labeling",
+    "legalforecast.protocol",
     "legalforecast.selection",
 )
-
-#: ``legalforecast.protocol`` cannot be imported first on ``main`` either --
-#: ``protocol/__init__`` imports ``protocol.manifest``, which imports back
-#: through the package.  That is a pre-existing cycle, unrelated to any change
-#: in this file's lane, so it is recorded here rather than silently omitted or
-#: opportunistically fixed.  Tracked as legalforecastbench-19cs.
-_KNOWN_UNIMPORTABLE_FIRST = ("legalforecast.protocol",)
 
 
 def _import_first(module: str) -> subprocess.CompletedProcess[str]:
@@ -63,13 +57,3 @@ def test_module_imports_first_in_a_fresh_interpreter(module: str) -> None:
     assert completed.returncode == 0, (
         f"{module} cannot be imported first:\n{completed.stderr}"
     )
-
-
-@pytest.mark.parametrize("module", _KNOWN_UNIMPORTABLE_FIRST)
-def test_the_recorded_pre_existing_cycle_is_still_exactly_that(module: str) -> None:
-    """Pin the known defect so fixing it is noticed rather than absorbed."""
-
-    completed = _import_first(module)
-
-    assert completed.returncode != 0
-    assert "circular import" in completed.stderr

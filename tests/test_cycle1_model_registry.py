@@ -10,12 +10,18 @@ from legalforecast.cli import main
 from legalforecast.evals.model_registry import (
     earliest_eligible_decision_date,
     load_model_registry,
+    model_registry_entry_sha256,
     require_official_registry_entries,
 )
 from legalforecast.unitization.review import apply_unitization_reviews
 
 ROOT = Path(__file__).resolve().parents[1]
 CYCLE_1_REGISTRY = ROOT / "model_registries" / "cycle-1-2026-06-30.json"
+SUCCESSOR_REGISTRY = (
+    ROOT
+    / "model_registries"
+    / "cycle-1-2026-06-30-claude-opus-4-8-successor-2026-08-21.json"
+)
 JsonRecord = dict[str, Any]
 GENERATED_AT = "2026-07-11T12:00:00Z"
 
@@ -51,6 +57,46 @@ def test_cycle_1_registry_is_official_and_anchors_on_june_30() -> None:
     assert all(entry.pricing_source for entry in entries)
     assert all(entry.input_token_price > 0 for entry in entries)
     assert all(entry.output_token_price > 0 for entry in entries)
+
+
+def test_opus_4_8_successor_replaces_sonnet_without_expanding_matrix() -> None:
+    frozen = load_model_registry(CYCLE_1_REGISTRY)
+    successor = load_model_registry(SUCCESSOR_REGISTRY)
+
+    assert len(successor.entries) == 4
+    assert {entry.registry_key for entry in successor.entries} == {
+        "anthropic:claude-opus-4-8",
+        "openai:gpt-5.6-luna",
+        "openai:gpt-5.6-sol",
+        "openai:gpt-5.6-terra",
+    }
+    assert "anthropic:claude-sonnet-5" not in {
+        entry.registry_key for entry in successor.entries
+    }
+    for model_id in ("gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"):
+        assert model_registry_entry_sha256(
+            successor.get("openai", model_id)
+        ) == model_registry_entry_sha256(frozen.get("openai", model_id))
+
+
+def test_opus_4_8_successor_preserves_corpus_dates_and_release_anchor() -> None:
+    successor = load_model_registry(SUCCESSOR_REGISTRY)
+    entries = require_official_registry_entries(successor.entries)
+    cohort_policy = json.loads(
+        (ROOT / "docs/cohort-policy-cycle-1-target-100-2026-07-25.json").read_text(
+            encoding="utf-8"
+        )
+    )["policy"]
+    opus = successor.get("anthropic", "claude-opus-4-8")
+
+    assert opus.release_timestamp is not None
+    assert opus.release_timestamp.date() == date(2026, 5, 28)
+    assert earliest_eligible_decision_date(entries) == date(2026, 6, 26)
+    assert cohort_policy["eligibility_anchor"] == "2026-06-30"
+    assert cohort_policy["stop_rule"]["search_window_end"] == "2026-07-23"
+    assert date.fromisoformat(cohort_policy["eligibility_anchor"]) >= (
+        earliest_eligible_decision_date(entries)
+    )
 
 
 def test_cycle_1_registry_records_provider_limits_and_current_prices() -> None:

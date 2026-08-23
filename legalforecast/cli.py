@@ -269,6 +269,11 @@ from legalforecast.ingestion.cohort_policy import (
     verify_observation_manifest,
     write_cohort_policy,
 )
+from legalforecast.ingestion.cohort_snapshot_recovery import (
+    PublishedSnapshotRecoveryError,
+    prepare_disposable_store_for_recovered_snapshot,
+    recover_published_snapshot_from_store_commitment,
+)
 from legalforecast.ingestion.core_document_filter import (
     CoreDocumentFilterResult,
     filter_core_documents,
@@ -488,6 +493,14 @@ from legalforecast.ingestion.downstream_rehearsal import (
     run_fixture_stage_b,
     run_fixture_structural_review,
     run_fixture_unitization,
+)
+from legalforecast.ingestion.exact100_stipulated_parser_lineage import (
+    StipulatedParserLineageError,
+    parser_record_for_document,
+    require_stipulated_source_matches_predecessor_download,
+)
+from legalforecast.ingestion.exact100_successor_replacement import (
+    PREDECESSOR_COVERAGE_SCHEMA_V2 as EXACT100_PREDECESSOR_COVERAGE_SCHEMA_V2,
 )
 from legalforecast.ingestion.exact100_successor_replacement import (
     PREDECESSOR_OUTPUT_NAMES as EXACT100_PREDECESSOR_OUTPUT_NAMES,
@@ -864,6 +877,9 @@ from legalforecast.ingestion.replacement_recovery_source import (
     derive_recovery_source_coordinates,
     derive_resolved_source_coordinates,
     normalize_post_purchase_replay_descriptor,
+)
+from legalforecast.ingestion.replacement_recovery_v3_register import (
+    admit_authenticated_v3_register_lineage as _admit_v3,
 )
 from legalforecast.ingestion.replacement_recovery_v3_register import (
     consolidation_legacy_target_root as _consolidation_legacy_target_root,
@@ -2436,6 +2452,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Append complete cycle-store snapshots to the observation manifest.",
     )
     _add_export_cohort_observations_arguments(acquisition_export_cohort_observations)
+    acquisition_recover_published_snapshot = acquisition_subparsers.add_parser(
+        "recover-published-snapshot-from-store-commitment",
+        help=(
+            "Provider-free create-only recovery of exact published snapshot "
+            "bytes from an authenticated cycle-store commitment."
+        ),
+    )
+    _add_recover_published_snapshot_arguments(acquisition_recover_published_snapshot)
+    acquisition_prepare_snapshot_recovery_store = acquisition_subparsers.add_parser(
+        "prepare-disposable-snapshot-recovery-store",
+        help=(
+            "Create a private cycle-store copy and rebind only its recovered "
+            "published-snapshot path for cohort observation export."
+        ),
+    )
+    _add_prepare_snapshot_recovery_store_arguments(
+        acquisition_prepare_snapshot_recovery_store
+    )
     acquisition_verify_cohort_observations = acquisition_subparsers.add_parser(
         "verify-cohort-observations",
         help="Verify the append-only cohort observation hash chain.",
@@ -6943,6 +6977,65 @@ def _add_export_cohort_observations_arguments(parser: argparse.ArgumentParser) -
     parser.add_argument("--policy", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.set_defaults(handler=_cmd_export_cohort_observations)
+
+
+def _add_recover_published_snapshot_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Immutable CycleAcquisitionStore SQLite file to authenticate.",
+    )
+    parser.add_argument(
+        "--expected-store-sha256",
+        required=True,
+        help="Externally pinned lowercase SHA-256 of the exact SQLite file.",
+    )
+    parser.add_argument(
+        "--snapshot-id",
+        required=True,
+        help="Exact complete saturated snapshot ID already committed by the store.",
+    )
+    parser.add_argument(
+        "--expected-manifest-sha256",
+        required=True,
+        help=(
+            "Externally pinned SHA-256 of stored manifest_json bytes plus the "
+            "publisher-mandated trailing LF."
+        ),
+    )
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        required=True,
+        help=(
+            "New snapshot directory published create-only. Its parent must "
+            "already exist and contain no symlink ancestors."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_recover_published_snapshot)
+
+
+def _add_prepare_snapshot_recovery_store_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument("--expected-store-sha256", required=True)
+    parser.add_argument("--snapshot-id", required=True)
+    parser.add_argument("--recovered-snapshot-root", type=Path, required=True)
+    parser.add_argument("--expected-manifest-sha256", required=True)
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        required=True,
+        help=(
+            "New create-only directory for cycle-acquisition.sqlite3 and its "
+            "lock; its parent must already exist."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_prepare_snapshot_recovery_store)
 
 
 def _add_verify_cohort_observations_arguments(parser: argparse.ArgumentParser) -> None:
@@ -28685,9 +28778,49 @@ def _verify_replacement_exclusion_card(
     screened_cases_path: Path,
     _verified_clearance_relocations: (Mapping[str, tuple[Path, bytes]] | None) = None,
     _verified_clearance_source_roots: Mapping[str, Path] | None = None,
+    _captured_run_card_bytes: bytes | None = None,
+    _captured_output_bytes: bytes | None = None,
+    _captured_screened_cases_bytes: bytes | None = None,
 ) -> tuple[JsonRecord, ...]:
-    card_bytes = _read_singly_linked_regular_input(
-        run_card_path, label="replacement successor exclusion run card"
+    captured = (
+        _captured_run_card_bytes,
+        _captured_output_bytes,
+        _captured_screened_cases_bytes,
+    )
+    if any(payload is not None for payload in captured) and not all(
+        payload is not None for payload in captured
+    ):
+        raise CommandError(
+            "replacement successor exclusion captured inputs must be complete"
+        )
+    if _captured_run_card_bytes is not None:
+        for path, expected, label in (
+            (
+                run_card_path,
+                _captured_run_card_bytes,
+                "replacement successor exclusion run card",
+            ),
+            (
+                output_path,
+                cast(bytes, _captured_output_bytes),
+                "replacement successor exclusions",
+            ),
+            (
+                screened_cases_path,
+                cast(bytes, _captured_screened_cases_bytes),
+                "replacement screened cases",
+            ),
+        ):
+            if _read_singly_linked_regular_input(path, label=label) != expected:
+                raise CommandError(
+                    "replacement successor exclusion captured input changed"
+                )
+    card_bytes = (
+        _captured_run_card_bytes
+        if _captured_run_card_bytes is not None
+        else _read_singly_linked_regular_input(
+            run_card_path, label="replacement successor exclusion run card"
+        )
     )
     card = _projection_json_object(card_bytes, source=run_card_path)
     if (
@@ -28718,9 +28851,13 @@ def _verify_replacement_exclusion_card(
             "replacement successor exclusion card lacks source commitments"
         )
     captured_inputs: dict[str, bytes] = {}
-    for path in inputs:
-        payload = _read_singly_linked_regular_input(
-            path, label="replacement successor exclusion input"
+    for index, path in enumerate(inputs):
+        payload = (
+            _captured_screened_cases_bytes
+            if index == 3 and _captured_screened_cases_bytes is not None
+            else _read_singly_linked_regular_input(
+                path, label="replacement successor exclusion input"
+            )
         )
         if cast(Mapping[str, object], source_commitments).get(
             str(path.resolve())
@@ -28731,8 +28868,12 @@ def _verify_replacement_exclusion_card(
         captured_inputs[os.path.abspath(path)] = payload
     if card.get("output_paths") != [str(output_path)]:
         raise CommandError("replacement successor exclusion output path differs")
-    output_bytes = _read_singly_linked_regular_input(
-        output_path, label="replacement successor exclusions"
+    output_bytes = (
+        _captured_output_bytes
+        if _captured_output_bytes is not None
+        else _read_singly_linked_regular_input(
+            output_path, label="replacement successor exclusions"
+        )
     )
     if card.get("output_commitments") != {
         str(output_path.resolve()): _bytes_sha256(output_bytes)
@@ -30612,9 +30753,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
 
     @dataclass(frozen=True, slots=True)
     class Capability:
+        run_card_bytes: bytes
         selection_bytes: bytes
         manifest_bytes: bytes
         clearance_bytes: bytes
+        restriction_bytes: bytes
         resolved_bytes: bytes
         purchase_operations_bytes: bytes
         purchase_policy_sha256: str
@@ -30634,9 +30777,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 )
             raw_inputs = cast(Mapping[str, object], raw)
             if set(raw_inputs) != {
+                "run_card_bytes",
                 "selection_records",
                 "manifest_records",
                 "clearance_records",
+                "restriction_bytes",
                 "resolved_records",
                 "purchase_operations",
                 "purchase_policy_sha256",
@@ -30647,6 +30792,8 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 )
             purchase_policy_sha256 = raw_inputs["purchase_policy_sha256"]
             external_document_commitments = raw_inputs["external_document_commitments"]
+            run_card_bytes = raw_inputs["run_card_bytes"]
+            restriction_bytes = raw_inputs["restriction_bytes"]
             if not isinstance(purchase_policy_sha256, str):
                 raise CommandError(
                     "consolidated recovery verifier emitted invalid policy authority"
@@ -30655,7 +30802,14 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 raise CommandError(
                     "consolidated recovery verifier emitted invalid external authority"
                 )
+            if not isinstance(run_card_bytes, bytes) or not isinstance(
+                restriction_bytes, bytes
+            ):
+                raise CommandError(
+                    "consolidated recovery verifier emitted invalid artifact authority"
+                )
             capability = Capability(
+                run_card_bytes=run_card_bytes,
                 selection_bytes=_projection_jsonl_bytes(
                     cast(
                         Sequence[Mapping[str, Any]],
@@ -30674,6 +30828,7 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                         raw_inputs["clearance_records"],
                     )
                 ),
+                restriction_bytes=restriction_bytes,
                 resolved_bytes=_projection_jsonl_bytes(
                     cast(
                         Sequence[Mapping[str, Any]],
@@ -30697,9 +30852,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 ),
             )
             fields = (
+                capability.run_card_bytes,
                 capability.selection_bytes,
                 capability.manifest_bytes,
                 capability.clearance_bytes,
+                capability.restriction_bytes,
                 capability.resolved_bytes,
                 capability.purchase_operations_bytes,
                 capability.purchase_policy_sha256,
@@ -30718,9 +30875,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
             )
         entry = registered.get(id(capability))
         fields = (
+            capability.run_card_bytes,
             capability.selection_bytes,
             capability.manifest_bytes,
             capability.clearance_bytes,
+            capability.restriction_bytes,
             capability.resolved_bytes,
             capability.purchase_operations_bytes,
             capability.purchase_policy_sha256,
@@ -30731,9 +30890,11 @@ def _consolidated_resolved_capability_boundary() -> tuple[
                 "consolidated resolved replay requires verifier-issued authority"
             )
         return {
+            "run_card_bytes": capability.run_card_bytes,
             "selection_bytes": capability.selection_bytes,
             "manifest_bytes": capability.manifest_bytes,
             "clearance_bytes": capability.clearance_bytes,
+            "restriction_bytes": capability.restriction_bytes,
             "resolved_bytes": capability.resolved_bytes,
             "purchase_operations_bytes": capability.purchase_operations_bytes,
             "purchase_policy_sha256": capability.purchase_policy_sha256,
@@ -33006,6 +33167,66 @@ def _cmd_export_cohort_observations(args: argparse.Namespace) -> int:
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_recover_published_snapshot(args: argparse.Namespace) -> int:
+    try:
+        result = recover_published_snapshot_from_store_commitment(
+            cycle_store=cast(Path, args.cycle_store),
+            expected_store_sha256=cast(str, args.expected_store_sha256),
+            snapshot_id=cast(str, args.snapshot_id),
+            expected_manifest_sha256=cast(str, args.expected_manifest_sha256),
+            output_root=cast(Path, args.output_root),
+        )
+    except PublishedSnapshotRecoveryError as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "batch_id": result.batch_id,
+                "cycle_hash": result.cycle_hash,
+                "manifest_sha256": result.manifest_sha256,
+                "output_root": str(result.path),
+                "payload_sha256": result.payload_sha256,
+                "recovered_observation_row_count": (
+                    result.recovered_observation_row_count
+                ),
+                "snapshot_id": result.snapshot_id,
+                "store_sha256": result.store_sha256,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _cmd_prepare_snapshot_recovery_store(args: argparse.Namespace) -> int:
+    try:
+        result = prepare_disposable_store_for_recovered_snapshot(
+            cycle_store=cast(Path, args.cycle_store),
+            expected_store_sha256=cast(str, args.expected_store_sha256),
+            snapshot_id=cast(str, args.snapshot_id),
+            recovered_snapshot_root=cast(Path, args.recovered_snapshot_root),
+            expected_manifest_sha256=cast(str, args.expected_manifest_sha256),
+            output_root=cast(Path, args.output_root),
+        )
+    except PublishedSnapshotRecoveryError as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "cycle_store": str(result.cycle_store),
+                "disposable_store_sha256": result.disposable_store_sha256,
+                "manifest_sha256": result.manifest_sha256,
+                "output_root": str(result.root),
+                "recovered_snapshot_path": str(result.recovered_snapshot_path),
+                "snapshot_id": result.snapshot_id,
+                "source_store_sha256": result.source_store_sha256,
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -42108,6 +42329,7 @@ class _MaterializationPublication:
     authority_recheck: Callable[[], None] | None = None
     docket_decision_partition: Mapping[str, object] | None = None
     verified_successor_selection_card: _VerifiedSuccessorSelectionCard | None = None
+    paid_delivery_capability: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42731,13 +42953,20 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 cast(Mapping[str, bytes], raw_recovery_bytes),
                 label="materialization recovery",
             )
+        consolidated_resolved_capability = recovery.get(
+            "consolidated_resolved_capability"
+        )
         purchased_clearance_lineage = _verify_materializer_clearance_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=purchased_clearance_path,
             run_card_path=purchased_clearance_card_path,
-        )
-        consolidated_resolved_capability = recovery.get(
-            "consolidated_resolved_capability"
+            captured_artifact_bytes=(
+                cast(Mapping[str, bytes], raw_recovery_bytes)
+                if consolidated_resolved_capability is not None
+                and isinstance(raw_recovery_bytes, Mapping)
+                else None
+            ),
+            consolidated_recovery_capability=consolidated_resolved_capability,
         )
         consolidated_authority: Mapping[str, object] | None = None
         if consolidated_resolved_capability is not None:
@@ -42830,6 +43059,7 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 else {}
             ),
         )
+        _admit_v3(recovery, purchased_clearance_lineage, consolidated_authority)
         free_sources = _materializer_successor_v2_free_sources(
             projection,
             preparation_root=preparation_root,
@@ -42847,6 +43077,9 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                     clearance=cast(
                         Sequence[Mapping[str, Any]],
                         purchased_clearance_lineage["clearance_records"],
+                    ),
+                    paid_delivery_capability=purchased_clearance_lineage.get(
+                        "paid_delivery_capability"
                     ),
                 ),
             ),
@@ -43010,6 +43243,9 @@ def _cmd_acquisition_materialize_cohort_documents_cached(
                 recheck_docket_decision_authority
                 if docket_decision_descriptor is not None
                 else None
+            ),
+            paid_delivery_capability=purchased_clearance_lineage.get(
+                "paid_delivery_capability"
             ),
             docket_decision_partition=(
                 docket_decision_descriptor.partition
@@ -43382,6 +43618,7 @@ def _publish_materialized_cohort_documents(
             source_commitments=publication.source_commitments,
             output_commitments=output_commitments,
             dry_run=dry_run,
+            paid_delivery_capability=publication.paid_delivery_capability,
             authority_mode=publication.authority_mode,
             docket_decision_partition=publication.docket_decision_partition,
         )
@@ -43411,6 +43648,7 @@ def _publish_materialized_cohort_documents(
                 materialization.manifest,
                 document_root=publication.document_root,
                 clearance_records=materialization.clearance,
+                paid_delivery_capability=publication.paid_delivery_capability,
             )
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
@@ -43813,25 +44051,34 @@ def _replay_exact100_terminal_recovery(
 
 
 def _replay_exact100_stipulated_eligibility(
-    root: Path, selection_bytes: bytes
+    root: Path,
+    selection_bytes: bytes,
+    predecessor_download_manifest_bytes: bytes,
 ) -> VerifiedTerminalExclusionEvidence:
     """Translate the CLI verifier failure into the sealed callback contract."""
 
     try:
-        return _replay_exact100_stipulated_eligibility_unchecked(root, selection_bytes)
+        return _replay_exact100_stipulated_eligibility_unchecked(
+            root, selection_bytes, predecessor_download_manifest_bytes
+        )
     except CommandError as exc:
         raise ValueError(str(exc)) from exc
 
 
 def _replay_exact100_stipulated_eligibility_unchecked(
-    root: Path, selection_bytes: bytes
+    root: Path,
+    selection_bytes: bytes,
+    predecessor_download_manifest_bytes: bytes,
 ) -> VerifiedTerminalExclusionEvidence:
     """Mint one stipulated exclusion from a completed authenticated audit root.
 
     The root supplies only the persisted audit surface and its completed-card
     path.  Authority comes from replaying the complete materialization and
-    parser lineage named by that card, and from requiring its selection bytes
-    to equal the sealed exact-100 predecessor selection.
+    parser lineage named by that card, requiring its selection bytes to equal
+    the sealed exact-100 predecessor selection, and requiring the ineligible
+    document's parser source commitment to equal the predecessor download
+    manifest.  A caller-owned, internally hash-consistent parser/Markdown tree
+    is not predecessor authority.
     """
 
     if root.is_symlink() or not root.is_dir():
@@ -43956,10 +44203,25 @@ def _replay_exact100_stipulated_eligibility_unchecked(
             "stipulated eligibility audit must contain exactly one ineligible target"
         )
     record = audit.ineligible_records[0]
+    candidate_id = _required_str(record, "candidate_id")
+    source_document_id = _required_str(record, "source_document_id")
+    try:
+        require_stipulated_source_matches_predecessor_download(
+            candidate_id=candidate_id,
+            source_document_id=source_document_id,
+            parser_record=parser_record_for_document(
+                lineage.parser_records,
+                candidate_id=candidate_id,
+                source_document_id=source_document_id,
+            ),
+            predecessor_download_manifest_bytes=predecessor_download_manifest_bytes,
+        )
+    except StipulatedParserLineageError as exc:
+        raise CommandError(str(exc)) from exc
     evidence = _mint_stipulated_terminal_evidence_from_verified_eligibility_audit(
         audit=audit,
-        candidate_id=_required_str(record, "candidate_id"),
-        source_document_id=_required_str(record, "source_document_id"),
+        candidate_id=candidate_id,
+        source_document_id=source_document_id,
     )
     _require_stage_a_parse_lineage_unchanged(lineage)
     if (
@@ -44094,6 +44356,7 @@ def _replay_exact100_successor_inputs(
         ],
         core_filter_results_bytes=predecessor_output_bytes["core-filter-results.jsonl"],
         all_output_bytes=predecessor_output_bytes,
+        predecessor_coverage_schema=EXACT100_PREDECESSOR_COVERAGE_SCHEMA_V2,
     )
 
     predecessor_card = cast(Mapping[str, object], verified_predecessor["run_card"])
@@ -44163,28 +44426,67 @@ def _replay_exact100_successor_inputs(
     )
     ranked_reserve_path = original_root / "target-cohort-ranked-reserve.jsonl"
     ranked_reserve_bytes = original_bytes(ranked_reserve_path, "ranked reserve")
-    core_filter_results_bytes = b"".join(
-        canonical_json_bytes(result.to_record())
-        for result in filter_core_documents(
-            _projection_jsonl_records(
-                case_relevance_bytes, source=original_inputs["case_relevance"]
-            )
+    stored_core_filter_path = original_root / "core-filter-results.jsonl"
+    stored_core_filter_bytes = original_bytes(
+        stored_core_filter_path, "core-filter results"
+    )
+    filtered_results = filter_core_documents(
+        _projection_jsonl_records(
+            case_relevance_bytes, source=original_inputs["case_relevance"]
         )
     )
-    if core_filter_results_bytes != original_bytes(
-        original_root / "core-filter-results.jsonl", "core-filter results"
+    filtered_records: dict[str, JsonRecord] = {}
+    for result in filtered_results:
+        record = result.to_record()
+        filtered_records[str(record["candidate_id"])] = record
+    stored_core_filter = _projection_jsonl_records(
+        stored_core_filter_bytes, source=stored_core_filter_path
+    )
+    try:
+        reproduced_core_filter = [
+            filtered_records[str(row["candidate_id"])] for row in stored_core_filter
+        ]
+    except KeyError as exc:
+        raise CommandError(
+            "original target core-filter results do not reproduce"
+        ) from exc
+    if _projection_jsonl_bytes(reproduced_core_filter) != _projection_jsonl_bytes(
+        stored_core_filter
     ):
         raise CommandError("original target core-filter results do not reproduce")
+
+    def canonical_jsonl(payload: bytes, *, source: Path) -> bytes:
+        return b"".join(
+            canonical_json_bytes(record)
+            for record in _projection_jsonl_records(payload, source=source)
+        )
+
     original_summary_path = cast(Path, original["summary_path"])
     original_run_card_path = cast(Path, original["run_card_path"])
     promotion_pool = _mint_verified_successor_promotion_pool(
-        ranked_reserve_bytes=ranked_reserve_bytes,
-        source_selection_bytes=source_selection_bytes,
-        case_relevance_bytes=case_relevance_bytes,
-        download_manifest_bytes=download_manifest_bytes,
-        disclosure_clearance_bytes=disclosure_clearance_bytes,
-        restriction_evidence_bytes=restriction_evidence_bytes,
-        core_filter_results_bytes=core_filter_results_bytes,
+        ranked_reserve_bytes=canonical_jsonl(
+            ranked_reserve_bytes, source=ranked_reserve_path
+        ),
+        source_selection_bytes=canonical_jsonl(
+            source_selection_bytes, source=original_inputs["selection"]
+        ),
+        case_relevance_bytes=canonical_jsonl(
+            case_relevance_bytes, source=original_inputs["case_relevance"]
+        ),
+        download_manifest_bytes=canonical_jsonl(
+            download_manifest_bytes, source=original_inputs["download_manifest"]
+        ),
+        disclosure_clearance_bytes=canonical_jsonl(
+            disclosure_clearance_bytes,
+            source=original_inputs["disclosure_clearance"],
+        ),
+        restriction_evidence_bytes=canonical_jsonl(
+            restriction_evidence_bytes,
+            source=original_inputs["restriction_evidence"],
+        ),
+        core_filter_results_bytes=b"".join(
+            canonical_json_bytes(record) for record in filtered_records.values()
+        ),
         producer_config_bytes=original_bytes(
             original_summary_path, "target projection summary"
         ),
@@ -44398,11 +44700,12 @@ def _replay_exact100_successor_replacement_v2_inputs(
         ),
         surface="materialization_run_card",
     )
+    materialization_manifest_bytes = _read_singly_linked_regular_input(
+        materialization_manifest_path,
+        label="exact100 v2 materialization authority manifest",
+    )
     _require_exact100_v2_authority_payload(
-        _read_singly_linked_regular_input(
-            materialization_manifest_path,
-            label="exact100 v2 materialization authority manifest",
-        ),
+        materialization_manifest_bytes,
         surface="materialization_manifest",
     )
     verified_materialization = _verify_materialized_downstream_lineage(
@@ -44673,7 +44976,9 @@ def _replay_exact100_successor_replacement_v2_inputs(
         )
 
     terminal_evidence = _replay_exact100_stipulated_eligibility_unchecked(
-        stipulated_root, predecessor_selection_bytes
+        stipulated_root,
+        predecessor_selection_bytes,
+        materialization_manifest_bytes,
     )
     terminal = verify_post_selection_terminal_exclusions(
         selection_bytes=predecessor_selection_bytes,
@@ -47000,9 +47305,11 @@ def _verify_materializer_consolidated_recovery(
         "target_projection": dict(replay.target_projection),
         "external_billing_document_commitments": register_commitments,
         "_consolidated_resolved_capability_inputs": {
+            "run_card_bytes": run_card_bytes,
             "selection_records": replay.target_projection["selection_records"],
             "manifest_records": manifest_records,
             "clearance_records": clearance_records,
+            "restriction_bytes": output_snapshots[restriction_path],
             "resolved_records": _projection_jsonl_records(
                 output_snapshots[resolved_path], source=resolved_path
             ),
@@ -47828,6 +48135,7 @@ def _verify_materializer_clearance_lineage(
     resolved_transition_prior_snapshot: CaseDevPurchaseSnapshot | None = None,
     recovery_authority_transition_capability: object | None = None,
     recovery_attempt_transition_capability: object | None = None,
+    consolidated_recovery_capability: object | None = None,
 ) -> dict[str, object]:
     _require_materializer_artifact(clearance_path, label="purchased clearance")
     validated_run_card_bytes = _require_materializer_artifact(
@@ -47843,9 +48151,11 @@ def _verify_materializer_clearance_lineage(
         else validated_run_card_bytes
     )
     run_card = _projection_json_object(run_card_bytes, source=run_card_path)
-    if run_card.get("schema_version") in {
+    schema_version = run_card.get("schema_version")
+    if schema_version in {
         _REPLACEMENT_RECOVERY_CARD_SCHEMA,
         _REPLACEMENT_RECOVERY_CARD_SCHEMA_V2,
+        _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3,
     }:
         expected_root = run_card_path.parents[1]
         restriction_path = expected_root / "restriction-evidence.jsonl"
@@ -47856,6 +48166,31 @@ def _verify_materializer_clearance_lineage(
             restriction_path,
             resolved_path,
         )
+        if schema_version == _REPLACEMENT_RECOVERY_CARD_SCHEMA_V3:
+            if (
+                captured_artifact_bytes is None
+                or consolidated_recovery_capability is None
+            ):
+                raise CommandError(
+                    "v3 clearance requires verifier-issued recovery snapshot"
+                )
+            authority = _consume_consolidated_resolved_capability(
+                consolidated_recovery_capability
+            )
+            authenticated_snapshots = {
+                run_card_path: authority["run_card_bytes"],
+                expected_paths[0]: authority["manifest_bytes"],
+                expected_paths[1]: authority["clearance_bytes"],
+                expected_paths[2]: authority["restriction_bytes"],
+                expected_paths[3]: authority["resolved_bytes"],
+            }
+            if any(
+                captured_artifact_bytes.get(os.path.abspath(path)) != payload
+                for path, payload in authenticated_snapshots.items()
+            ):
+                raise CommandError(
+                    "v3 clearance snapshot differs from authenticated recovery replay"
+                )
         if (
             manifest_path.resolve() != expected_paths[0].resolve()
             or clearance_path.resolve() != expected_paths[1].resolve()
@@ -47917,6 +48252,11 @@ def _verify_materializer_clearance_lineage(
                 snapshots[restriction_path], source=restriction_path
             ),
             "resolved_path": resolved_path,
+            **(
+                {"consolidated_resolved_capability": (consolidated_recovery_capability)}
+                if consolidated_recovery_capability is not None
+                else {}
+            ),
         }
     verified_snapshot = _complete_clearance_artifact_snapshot(
         run_card=run_card,
@@ -48770,6 +49110,7 @@ def _verify_materializer_resume(
     source_commitments: Mapping[str, object],
     output_commitments: Mapping[str, object],
     dry_run: bool,
+    paid_delivery_capability: object | None = None,
     authority_mode: str | None = None,
     docket_decision_partition: Mapping[str, object] | None = None,
 ) -> None:
@@ -48851,6 +49192,7 @@ def _verify_materializer_resume(
             materialization.manifest,
             document_root=document_root,
             clearance_records=materialization.clearance,
+            paid_delivery_capability=paid_delivery_capability,
         )
     except DisclosureClearanceError as exc:
         raise CommandError(str(exc)) from exc

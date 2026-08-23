@@ -114,6 +114,19 @@ variable "provider_authority_table_name" {
   }
 }
 
+variable "outside_authority_table_name" {
+  description = "Exact disposable DynamoDB canary managed by the provider-authority Terraform root for the provider-free permission smoke."
+  type        = string
+  default     = "legalforecastbench-official-labeling-authority-smoke-canary"
+
+  validation {
+    condition = (
+      var.outside_authority_table_name == "legalforecastbench-official-labeling-authority-smoke-canary"
+    )
+    error_message = "outside_authority_table_name must remain the reviewed disposable authority-smoke canary name."
+  }
+}
+
 variable "official_labeling_role_name" {
   description = "Exact IAM role managed by the official-labeling Terraform root."
   type        = string

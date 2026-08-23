@@ -40,6 +40,7 @@ def test_workflow_is_exact_main_external_authority_only() -> None:
         "aws-actions/configure-aws-credentials@",
         '.type == "required_reviewers"',
         ".prevent_self_review == false",
+        '([.reviewers[].reviewer.login] == ["johnjhughes"])',
         "/deployment-branch-policies?per_page=100",
         '([.[].branch_policies[].name] == ["main"])',
     )
@@ -170,6 +171,8 @@ def test_runbook_and_toolchain_define_the_reviewed_boundary() -> None:
         'age --version)" = "v1.3.1"',
         "jq -cn --arg role",
         "Do not switch to `jq -cnS`",
+        "require `johnjhughes`",
+        "Because `johnjhughes` is the sole reviewer",
     )
     assert "terraform_version: 1.13.5" in _text()
     assert "keep paid labeling blocked" not in runbook

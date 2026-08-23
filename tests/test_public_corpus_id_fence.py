@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED_INVENTORY_SHA256 = (
-    "81ab09035824dc74025fcc819f351e68cdf0b47ad1814b9653f0913d96e94a67"
+    "0988a4c1d20d7e27f3a894d59d2a9dfa8e11cb6084a6afaabc9cbc7fb6edcd3a"
 )
 NUMERIC_CANDIDATE_ID = re.compile(rb"candidate[_-]?id[^0-9]{0,8}[0-9]{7,12}")
 

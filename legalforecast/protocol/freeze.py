@@ -15,7 +15,6 @@ from typing import Any, cast
 
 from legalforecast._datetime import format_utc_iso_z
 from legalforecast._hashing import is_lowercase_sha256
-from legalforecast.protocol.manifest import hash_payload
 
 _CHUNK_SIZE = 1024 * 1024
 
@@ -26,6 +25,14 @@ class FreezeProtocolError(ValueError):
 
 class MissingFreezeArtifactError(FreezeProtocolError):
     """Raised when a required freeze artifact path is absent."""
+
+
+def hash_freeze_payload(payload: Any) -> str:
+    """Hash a freeze record without importing the manifest package eagerly."""
+
+    from legalforecast.protocol.manifest import hash_payload
+
+    return hash_payload(payload)
 
 
 class FrozenArtifactName(StrEnum):
@@ -152,7 +159,7 @@ class FreezeBundle:
 
     @property
     def bundle_sha256(self) -> str:
-        return hash_payload(self.to_record(include_bundle_hash=False))
+        return hash_freeze_payload(self.to_record(include_bundle_hash=False))
 
     def artifact(self, name: FrozenArtifactName) -> FrozenArtifact:
         for artifact in self.artifacts:
@@ -205,7 +212,7 @@ class FreezeBundle:
         if self.amends_bundle_sha256 is not None:
             record["amends_bundle_sha256"] = self.amends_bundle_sha256
         if include_bundle_hash:
-            record["hash_bundle_sha256"] = hash_payload(record)
+            record["hash_bundle_sha256"] = hash_freeze_payload(record)
         return record
 
 
@@ -1033,7 +1040,7 @@ def _verify_bundle_commitment_hash(record: Mapping[str, Any]) -> None:
     _require_sha256(expected_bundle_sha256, "hash_bundle_sha256")
     record_without_hash = dict(record)
     del record_without_hash["hash_bundle_sha256"]
-    if hash_payload(record_without_hash) != expected_bundle_sha256:
+    if hash_freeze_payload(record_without_hash) != expected_bundle_sha256:
         raise FreezeProtocolError(
             "pre-run freeze commitment hash_bundle_sha256 mismatch"
         )

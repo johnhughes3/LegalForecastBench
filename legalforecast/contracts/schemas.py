@@ -67,6 +67,27 @@ CYCLE_GROUPED_LABEL_AUDIT_PACKET_V1 = SchemaIdentifier(
     "legalforecast.case_grouped_label_audit_packet.v1"
 )
 CYCLE_PREFLIGHT_REPORT_V2 = SchemaIdentifier("legalforecast.cycle_preflight_report.v2")
+CYCLE1_MANIFEST_UNITIZER_SPEND_AUTHORITY_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.manifest_unitizer_spend_authority.v1"
+)
+CYCLE1_MANIFEST_UNITIZER_R2_AUTHORITY_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.manifest_unitizer_r2_authority.v1"
+)
+CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_finalized_units_integration.v1"
+)
+CYCLE1_STAGE51_FINALIZED_UNITS_INTEGRATION_PROPOSAL_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_terminal_units_final_integration_proposal.v1"
+)
+CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_VALIDATION_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_terminal_units_final_proposal_validation.v1"
+)
+CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_DIFF_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_terminal_units_final_proposal_diff.v1"
+)
+CYCLE1_STAGE51_FINALIZED_UNITS_PROPOSAL_SHA_INVENTORY_V1 = SchemaIdentifier(
+    "legalforecast.cycle1.stage51_terminal_units_final_proposal_sha_inventory.v1"
+)
 CLEARANCE_REPLACEMENT_PLAN_V1 = SchemaIdentifier(
     "legalforecast.clearance_replacement_plan.v1"
 )
@@ -74,6 +95,7 @@ DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1 = SchemaIdentifier(
     "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
 )
 DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v1")
+EXECUTION_POLICY_V2 = SchemaIdentifier("legalforecast.execution_policy.v2")
 SUPPORTING_DOCUMENT_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.supporting_document_restriction_evidence.v1"
 )
@@ -119,6 +141,12 @@ EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V3 = SchemaIdentifier(
 EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3 = SchemaIdentifier(
     "legalforecast.exact100_successor_replacement_state.v3"
 )
+EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V1 = SchemaIdentifier(
+    "legalforecast.exact100_successor_predecessor_coverage.v1"
+)
+EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V2 = SchemaIdentifier(
+    "legalforecast.exact100_successor_predecessor_coverage.v2"
+)
 OWNER_ADJUDICATED_REPLACEMENT_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.owner_adjudicated_replacement_evidence.v1"
 )
@@ -131,6 +159,46 @@ OWNER_SIGNED_CORPUS_MANIFEST_V1 = SchemaIdentifier(
 MANIFEST_MODE_FORECAST_RUN_RECORD_V1 = SchemaIdentifier(
     "legalforecast.manifest_mode_forecast_run_record.v1"
 )
+MANIFEST_COST_PROJECTION_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.manifest_cost_projection_receipt.v1"
+)
+MANIFEST_FORECAST_BUNDLE_V1 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle.v1"
+)
+MANIFEST_FORECAST_BUNDLE_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle_run_card.v1"
+)
+MANIFEST_EXECUTION_DECISIONS_V1 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions.v1"
+)
+MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions_run_card.v1"
+)
+MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V1 = SchemaIdentifier(
+    "legalforecast.execution_decisions_beads_observation.v1"
+)
+MANIFEST_FORECAST_BUNDLE_V2 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle.v2"
+)
+MANIFEST_FORECAST_BUNDLE_RUN_CARD_V2 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle_run_card.v2"
+)
+MANIFEST_EXECUTION_DECISIONS_V2 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions.v2"
+)
+MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V2 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions_run_card.v2"
+)
+MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V2 = SchemaIdentifier(
+    "legalforecast.execution_decisions_beads_observation.v2"
+)
+MANIFEST_FREEZE_RUNTIME_CONTRACT_V1 = SchemaIdentifier(
+    "legalforecast.manifest_freeze_runtime_contract.v1"
+)
+MANIFEST_FREEZE_INPUTS_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.manifest_freeze_inputs_run_card.v1"
+)
+NO_BASELINES_V1 = SchemaIdentifier("legalforecast.no_baselines.v1")
 EXACT100_METHODS_DISCLOSURE_V1 = SchemaIdentifier(
     "legalforecast.exact100_methods_disclosure.v1"
 )
@@ -178,6 +246,9 @@ EXACT100_ZERO_COST_RECOVERY_RUN_V1 = SchemaIdentifier(
 )
 EXACT100_ZERO_COST_RECOVERY_RUN_V2 = SchemaIdentifier(
     "legalforecast.exact100_zero_cost_recovery_run.v2"
+)
+EXACT100_ZERO_COST_RECOVERY_TERMINAL_AUTHORITY_V3 = SchemaIdentifier(
+    "legalforecast.exact100_zero_cost_recovery_terminal_authority.v3"
 )
 EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_V1 = SchemaIdentifier(
     "legalforecast.exact100_zero_cost_recovery_rest_observation.v1"
@@ -419,6 +490,8 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     EXACT100_SUCCESSOR_PROMOTION_V3,
     EXACT100_SUCCESSOR_REPLACEMENT_CONFIG_V3,
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3,
+    EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V1,
+    EXACT100_SUCCESSOR_PREDECESSOR_COVERAGE_V2,
     OWNER_ADJUDICATED_REPLACEMENT_EVIDENCE_V1,
     OWNER_ADJUDICATED_REPLACEMENT_PLAN_V1,
     EXACT100_METHODS_DISCLOSURE_V1,
@@ -430,6 +503,7 @@ RECOVERY_VERTICAL_SLICE_SCHEMAS = (
     EXACT100_ZERO_COST_RECOVERY_REQUEST_V2,
     EXACT100_ZERO_COST_RECOVERY_RUN_V1,
     EXACT100_ZERO_COST_RECOVERY_RUN_V2,
+    EXACT100_ZERO_COST_RECOVERY_TERMINAL_AUTHORITY_V3,
     EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_V1,
     EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_TRANSCRIPT_V1,
     FIRECRAWL_PROVIDER_CONTRACT_DEFECT_AUTHORIZATION_V1,

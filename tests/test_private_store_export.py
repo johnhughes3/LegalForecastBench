@@ -204,8 +204,11 @@ def test_missing_packet_ablation_uses_official_workflow_default(
     assert packet_object_key.endswith("/full_packet.json")
 
     workflow = Path(".github/workflows/run-benchmark.yaml").read_text(encoding="utf-8")
+    projector = Path("legalforecast/evals/corpus_manifest/cost_projector.py").read_text(
+        encoding="utf-8"
+    )
     assert "default: full_packet,metadata_only" in workflow
-    assert 'packet.get("ablation", "full_packet")' in workflow
+    assert 'packet.get("ablation", "full_packet")' in projector
 
 
 def test_private_store_export_module_main_writes_report(

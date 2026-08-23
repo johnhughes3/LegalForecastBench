@@ -82,6 +82,23 @@
       "Resource": "${provider_authority_table_arn}"
     },
     {
+      "Sid": "ManageExactAuthoritySmokeCanary",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive"
+      ],
+      "Resource": "${outside_authority_table_arn}"
+    },
+    {
       "Sid": "ManageExactOfficialLabelingRole",
       "Effect": "Allow",
       "Action": [

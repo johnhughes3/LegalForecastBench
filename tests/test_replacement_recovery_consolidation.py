@@ -14,6 +14,11 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion import recovered_public_replay as replay_module
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
+from legalforecast.ingestion.disclosure_clearance import require_clearance_policy
+from legalforecast.ingestion.replacement_recovery_v3_register import (
+    admit_authenticated_v3_register_clearance_rows,
+    admit_authenticated_v3_register_lineage,
+)
 
 
 def _write_json(path: Path, value: object) -> Path:
@@ -29,6 +34,137 @@ def _write_jsonl(path: Path, values: list[dict[str, object]]) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def _admission_jsonl(values: list[dict[str, object]]) -> bytes:
+    return "".join(
+        f"{json.dumps(value, sort_keys=True, allow_nan=False)}\n" for value in values
+    ).encode()
+
+
+def test_authenticated_v3_admits_real_legacy_paid_delivery_shape() -> None:
+    manifest = {
+        "candidate_id": "case-1",
+        "source_document_id": "document-1",
+        "free_or_purchased": "purchased",
+        "local_path": "sha256/9b/document.pdf",
+        "sha256": "9" * 64,
+        "byte_count": 260864,
+    }
+    clearance = {
+        **manifest,
+        "clearance_basis": "paid_delivery",
+        "status": "cleared",
+    }
+    restriction = {
+        "candidate_id": "case-1",
+        "source_document_id": "document-1",
+        "is_private": False,
+        "is_sealed": False,
+        "restriction_status": "public",
+        "restriction_evidence": [
+            "document_repair_paid_delivery_clearance",
+            "document_repair_byte_role_validation_match",
+        ],
+    }
+    clearance_lineage: dict[str, object] = {
+        "clearance_records": [clearance],
+        "restriction_records": [restriction],
+    }
+    admit_authenticated_v3_register_lineage(
+        {"manifest_records": [manifest]},
+        clearance_lineage,
+        {
+            "clearance_bytes": _admission_jsonl([clearance]),
+            "restriction_bytes": _admission_jsonl([restriction]),
+            "external_document_commitments": {("case-1", "document-1"): "9" * 64},
+        },
+    )
+    admitted = cast(list[dict[str, object]], clearance_lineage["clearance_records"])
+    assert admitted[0]["schema_version"] == "legalforecast.disclosure_clearance.v1"
+    assert admitted[0]["restriction_status"] == "public"
+    with pytest.raises(ValueError, match="authenticated lineage"):
+        require_clearance_policy(
+            admitted[0], key=("case-1", "document-1"), label="document"
+        )
+    require_clearance_policy(
+        admitted[0],
+        key=("case-1", "document-1"),
+        label="document",
+        paid_delivery_capability=clearance_lineage["paid_delivery_capability"],
+    )
+
+
+def test_authenticated_v3_paid_delivery_admission_rejects_mutated_bytes() -> None:
+    manifest = {
+        "candidate_id": "case-1",
+        "source_document_id": "doc-1",
+        "free_or_purchased": "purchased",
+        "local_path": "document.pdf",
+        "sha256": "a" * 64,
+        "byte_count": 1,
+    }
+    clearance = {
+        **manifest,
+        "clearance_basis": "paid_delivery",
+        "status": "cleared",
+    }
+    restriction = {
+        "candidate_id": "case-1",
+        "source_document_id": "doc-1",
+        "is_private": False,
+        "is_sealed": False,
+        "restriction_status": "public",
+        "restriction_evidence": [
+            "document_repair_paid_delivery_clearance",
+            "document_repair_byte_role_validation_match",
+        ],
+    }
+    with pytest.raises(ValueError, match="differs from authenticated bytes"):
+        admit_authenticated_v3_register_clearance_rows(
+            manifest_records=[manifest],
+            clearance_records=[clearance],
+            restriction_records=[restriction],
+            authenticated_clearance_bytes=b"mutated\n",
+            authenticated_restriction_bytes=_admission_jsonl([restriction]),
+            external_document_commitments={("case-1", "doc-1"): "a" * 64},
+        )
+
+
+def test_authenticated_v3_rejects_unregistered_paid_delivery_lookalike() -> None:
+    manifest = {
+        "candidate_id": "case-standalone",
+        "source_document_id": "document-standalone",
+        "free_or_purchased": "purchased",
+        "local_path": "document.pdf",
+        "sha256": "b" * 64,
+        "byte_count": 1,
+    }
+    clearance = {
+        **manifest,
+        "clearance_basis": "paid_delivery",
+        "status": "cleared",
+    }
+    restriction = {
+        "candidate_id": "case-standalone",
+        "source_document_id": "document-standalone",
+        "is_private": False,
+        "is_sealed": False,
+        "restriction_status": "public",
+        "restriction_evidence": [
+            "document_repair_paid_delivery_clearance",
+            "document_repair_byte_role_validation_match",
+        ],
+    }
+    with pytest.raises(ValueError, match="outside register coverage"):
+        admit_authenticated_v3_register_clearance_rows(
+            manifest_records=[manifest],
+            clearance_records=[clearance],
+            restriction_records=[restriction],
+            authenticated_clearance_bytes=_admission_jsonl([clearance]),
+            authenticated_restriction_bytes=_admission_jsonl([restriction]),
+            external_document_commitments={},
+        )
 
 
 def _prepare_fixture(
@@ -489,6 +625,7 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
 ) -> None:
     """The same authenticated register widens issuance and replay coverage."""
 
+    verify_clearance_lineage = cli._verify_materializer_clearance_lineage
     selected = {
         ("base-case", "base-doc"),
         ("case-1", "doc-1"),
@@ -519,6 +656,16 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
         "sha256:"
     )
 
+    with pytest.raises(
+        cli.CommandError,
+        match="v3 clearance requires verifier-issued recovery snapshot",
+    ):
+        verify_clearance_lineage(
+            manifest_path=args.output_root / "purchased-document-downloads.jsonl",
+            clearance_path=args.output_root / "disclosure-clearance.jsonl",
+            run_card_path=card_path,
+        )
+
     verified = cli._verify_materializer_consolidated_recovery(
         recovery_root=args.output_root,
         run_card_path=card_path,
@@ -528,6 +675,42 @@ def test_register_coverage_uses_v3_fixed_slot_and_replays_into_materializer(
         cohort_policy_path=args.cohort_policy,
         ledger_path=args.purchase_ledger,
     )
+    capability = verified["consolidated_resolved_capability"]
+    verified_artifact_bytes = cast(
+        Mapping[str, bytes], verified["verified_artifact_bytes"]
+    )
+
+    clearance_lineage = verify_clearance_lineage(
+        manifest_path=args.output_root / "purchased-document-downloads.jsonl",
+        clearance_path=args.output_root / "disclosure-clearance.jsonl",
+        run_card_path=card_path,
+        captured_artifact_bytes=verified_artifact_bytes,
+        consolidated_recovery_capability=capability,
+    )
+    assert clearance_lineage["lineage_kind"] == "replacement_recovery_consolidation"
+    assert set(clearance_lineage["verified_artifact_bytes"]) == {
+        str(card_path.resolve()),
+        str((args.output_root / "purchased-document-downloads.jsonl").resolve()),
+        str((args.output_root / "disclosure-clearance.jsonl").resolve()),
+        str((args.output_root / "restriction-evidence.jsonl").resolve()),
+        str((args.output_root / "resolved-post-recovery-documents.jsonl").resolve()),
+    }
+
+    rebound_artifact_bytes = dict(verified_artifact_bytes)
+    rebound_artifact_bytes[
+        str((args.output_root / "disclosure-clearance.jsonl").resolve())
+    ] = b"{}\n"
+    with pytest.raises(
+        cli.CommandError,
+        match="v3 clearance snapshot differs from authenticated recovery replay",
+    ):
+        verify_clearance_lineage(
+            manifest_path=args.output_root / "purchased-document-downloads.jsonl",
+            clearance_path=args.output_root / "disclosure-clearance.jsonl",
+            run_card_path=card_path,
+            captured_artifact_bytes=rebound_artifact_bytes,
+            consolidated_recovery_capability=capability,
+        )
 
     assert {
         (row["candidate_id"], row["source_document_id"])

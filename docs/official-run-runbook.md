@@ -865,7 +865,7 @@ Before its first plan, a separately authorized operator must establish and prote
 
 The one-time bootstrap root for the bucket, KMS key and alias, account-level GitHub OIDC provider, and exact environment-bound operator role is defined in `infra/official-eval-bootstrap`.
 Follow its import-first protected-local-state runbook, verify the live controls, and migrate that state into its separate encrypted backend key before configuring this workflow; the routine operator role cannot manage the bootstrap root or read its state.
-The environment must admit only `main` and require `johnhughes3`; self-review prevention remains disabled because that sole reviewer may also dispatch the operation.
+The environment must admit only `main` and require `johnjhughes`; self-review prevention remains disabled because that sole reviewer may also dispatch the operation.
 The operator role must trust only `repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-provider-authority-infra` with audience `sts.amazonaws.com`.
 That environment contains the one secret `LFB_INFRA_PLAN_AGE_IDENTITY` and only these variables:
 
@@ -884,6 +884,7 @@ That environment contains the one secret `LFB_INFRA_PLAN_AGE_IDENTITY` and only 
 It contains no provider key, baton identity, AWS access key, evaluation role, freeze authority, or dispatch credential.
 The packet and result bucket variables are exact protected Terraform inputs, not credentials; the workflow commits to them without publishing their names.
 The exact provider-authority table must already be represented in that remote state through a reviewed import if it exists.
+The bootstrap operator policy also grants the exact fixed canary resource `legalforecastbench-official-labeling-authority-smoke-canary` the Terraform management actions required to create, inspect, and update that disposable negative-control table; its separate statement does not broaden either runtime role's data-plane policy. Disposal is a separately reviewed follow-up because the current protected plan contract rejects destructive actions.
 Secure-gate must separately allow only the required infrastructure and evaluation environment names, variable names, and secret names in `infra/official-eval/github-environments.json`.
 The paid-labeling environments remain governed separately by `infra/official-labeling/github-environments.json`.
 Do not add AWS access keys, provider keys, environment-creation API calls, state-backend creation, IAM self-bootstrap, evaluation, freeze, or workflow-dispatch authority to this path.
@@ -1030,7 +1031,7 @@ Provision these exact protected environments:
 
 The canonical machine-readable setup contract is `infra/official-labeling/github-environments.json`.
 It defines exactly these six environments, their main-only protection and required human reviewer, exact OIDC subjects, and closed secret and variable inventories.
-Because `johnhughes3` is the sole reviewer and may also dispatch an official run, self-review prevention remains disabled; enabling it without a second authorized reviewer would deadlock every deployment.
+Because `johnjhughes` is the sole reviewer and may also dispatch an official run, self-review prevention remains disabled; enabling it without a second authorized reviewer would deadlock every deployment.
 Environment creation, protection, variables, and secrets are separately authorized GitHub administration actions; the manifest is declarative evidence and does not perform those actions.
 
 Each environment must require a human reviewer and use a deployment branch policy that admits only `main`, with no tag or side-branch deployment.
@@ -1121,7 +1122,10 @@ Provisioning and the live provider-free permission smoke are external checkpoint
 Until both are recorded, keep only the distributed protected-workflow path blocked; committed code and static tests alone do not satisfy that operational evidence.
 This checkpoint does not block the canonical Cycle 1 local-journal Stage A or Stage B stages.
 Run the smoke through `.github/workflows/official-paid-labeling-authority-smoke.yaml` in `legalforecastbench-official-labeling-authority-smoke`.
-Set `LFB_OUTSIDE_AUTHORITY_TABLE` to a real, distinct disposable canary table so an `AccessDenied` result proves the exact-table resource boundary rather than merely encountering a missing table.
+The provider-authority Terraform module provisions the distinct `aws_dynamodb_table.outside_authority_canary` and exports its exact protected `outside_authority_table_name` output for this purpose.
+After a separately authorized `provider-authority` apply, read that output only from the encrypted Terraform-output handoff on the trusted operator machine and set `LFB_OUTSIDE_AUTHORITY_TABLE` through the protected environment configuration path.
+Never substitute the shared `LFB_PROVIDER_AUTHORITY_TABLE`, a nonexistent name, or a guessed table name: an `AccessDenied` result against the real canary proves the exact-table resource boundary.
+The canary is deliberately on-demand, encrypted, and TTL-enabled but has no point-in-time recovery, deletion protection, or `prevent_destroy`; retain the smoke receipt and leave the declared canary in place until a separately reviewed disposal operation is available. Do not manually delete it or mutate Terraform state, and always preserve the durable shared authority table.
 The smoke first requires DynamoDB TTL to be enabled on the exact `expires_at` attribute, then writes only TTL-bounded sentinel rows, makes no provider call, suppresses denial diagnostics that can contain AWS account details, and uploads only the release SHA, public table-identity hash, and boolean allow/deny results.
 
 After the protected authority-smoke workflow succeeds, download its raw `authority-smoke.json` artifact without recreating or reformatting it and record the exact artifact SHA-256 plus the full reviewed main release SHA.

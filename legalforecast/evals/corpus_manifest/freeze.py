@@ -251,6 +251,15 @@ def _manifest_document(
     )
     if markdown_sha256 is None and model_visible:
         return None
+    if (
+        model_visible
+        and markdown_sha256 != stored.recorded_markdown_sha256.removeprefix("sha256:")
+    ):
+        violations.append(
+            f"{label}: Markdown bytes differ from the parser sidecar "
+            "extracted_text.text_sha256"
+        )
+        return None
 
     verdict = None
     if model_visible:

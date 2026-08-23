@@ -20,12 +20,20 @@ from legalforecast.contracts import (
 )
 
 PROVIDER_AUTHORITY_TABLE = "legalforecastbench-official-eval-provider-authority"
+OUTSIDE_AUTHORITY_CANARY_TABLE = (
+    "legalforecastbench-official-labeling-authority-smoke-canary"
+)
 LABELING_ROLE = "legalforecastbench-official-labeling-authority"
 EVAL_CELL_ROLE = "legalforecastbench-official-eval"
 EVAL_FAN_IN_ROLE = f"{EVAL_CELL_ROLE}-fan-in"
 
 PLAN_ADDRESSES: dict[str, frozenset[str]] = {
-    "provider-authority": frozenset({"aws_dynamodb_table.provider_authority"}),
+    "provider-authority": frozenset(
+        {
+            "aws_dynamodb_table.provider_authority",
+            "aws_dynamodb_table.outside_authority_canary",
+        }
+    ),
     "official-labeling": frozenset(
         {"aws_iam_role.labeling", "aws_iam_role_policy.labeling"}
     ),
@@ -100,6 +108,10 @@ def resolve_import_id(
         "aws_dynamodb_table.provider_authority"
     ):
         return PROVIDER_AUTHORITY_TABLE
+    if module == "provider-authority" and address == (
+        "aws_dynamodb_table.outside_authority_canary"
+    ):
+        return OUTSIDE_AUTHORITY_CANARY_TABLE
     if module == "official-labeling":
         if address == "aws_iam_role.labeling":
             return LABELING_ROLE

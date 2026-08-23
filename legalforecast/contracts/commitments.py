@@ -16,7 +16,6 @@ from legalforecast.ingestion.canonical_json import (
     canonical_json_bytes,
     canonical_json_value_bytes,
 )
-from legalforecast.protocol.manifest import canonical_json as manifest_canonical_json
 
 from .schemas import (
     RAW_BYTES_CODEC_V1,
@@ -68,7 +67,12 @@ def _artifact_value_bytes(value: object) -> bytes:
 
 def _manifest_bytes(value: object) -> bytes:
     try:
-        return manifest_canonical_json(value).encode("utf-8")
+        # Import lazily so ``python -m legalforecast.protocol.freeze`` can
+        # initialize the protocol package without recursing through the
+        # ingestion package's contracts exports.
+        from legalforecast.protocol.manifest import canonical_json
+
+        return canonical_json(value).encode("utf-8")
     except (TypeError, UnicodeError, ValueError) as exc:
         raise CommitmentEncodingError(
             "value is invalid for manifest canonical JSON v1"

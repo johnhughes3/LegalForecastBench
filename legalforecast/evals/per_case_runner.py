@@ -9,7 +9,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from enum import StrEnum
@@ -52,8 +52,7 @@ from legalforecast.evals.response_verification import (
 )
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 from legalforecast.path_safety import safe_path_component
-from legalforecast.protocol.freeze import sha256_file
-from legalforecast.protocol.manifest import hash_payload
+from legalforecast.protocol.freeze import hash_freeze_payload, sha256_file
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
     execution_repeat_policy,
@@ -68,7 +67,6 @@ from legalforecast.unitization.schemas import (
 )
 
 JsonRecord = dict[str, Any]
-
 MODEL_PACKET_PREFIX = "model-packets/"
 RESULT_PREFIXES = ("run-cards/", "manifests/", "metrics/", "reports/")
 DENIED_PACKET_PREFIXES = (
@@ -260,10 +258,9 @@ class ModelPacketObject:
     bucket: str | None = None
     cycle_id: str | None = None
     content_type: str | None = None
-    # Optional commitment to the exact prompt this packet must render.  When a
-    # manifest supplies it, the runner refuses on mismatch, so a run cannot
-    # silently execute a different prompt than the one an authorization
-    # committed to (for example by rendering with a different tool mode).
+    # Optional commitment to the exact provider prompt for this packet.  Live
+    # runs enforce it after solver-controlled context transformations; fixture
+    # runs enforce it against their rendered prompt before solver execution.
     # Manifests that omit it keep the previous behaviour exactly.
     prompt_sha256: str | None = None
 
@@ -452,15 +449,28 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 max_tool_calls=config.max_tool_calls,
                 run_label=config.ablation,
                 use_docket_tool=config.use_docket_tool,
+                committed_prompt_sha256=packet_object.prompt_sha256,
             )
-            _require_committed_prompt(samples, packet_object=packet_object)
+            if config.backend is PerCaseExecutionBackend.FIXTURE:
+                _require_committed_prompt(samples, packet_object=packet_object)
             samples = _repeat_samples(samples, repeat_count=config.repeat_count)
+
+            def observe_openai_service_tier(request: Any, tier: str) -> None:
+                sample = request.sample
+                log(
+                    "openai_service_tier_observed",
+                    sample_id=sample.sample_id,
+                    repeat_index=_sample_repeat_index(sample.sample_id),
+                    observed_service_tier=tier,
+                )
+
             solver = _solver_for_config(
                 config,
                 registry_entry=registry_entry,
                 model_registry_sha256=model_registry_sha256,
                 cycle_id=cycle_id,
                 verified_execution_policy=verified_execution_policy,
+                openai_service_tier_observer=observe_openai_service_tier,
             )
             run = run_inspect_fixture(
                 samples,
@@ -933,7 +943,9 @@ def _cell_completion_record(
         "repeat_policy_sha256": repeat_policy.sha256,
         "execution_policy_sha256": repeat_policy.execution_policy_sha256,
         "objects": normalized_commitments,
-        "result_commitment_sha256": hash_payload({"objects": normalized_commitments}),
+        "result_commitment_sha256": hash_freeze_payload(
+            {"objects": normalized_commitments}
+        ),
     }
 
 
@@ -1614,7 +1626,7 @@ def _verified_repeat_policy_for_config(
         return _RepeatPolicyBinding(
             case_ids=tuple(cast(list[str], synthetic["case_ids"])),
             count=config.repeat_count,
-            sha256=hash_payload(synthetic),
+            sha256=hash_freeze_payload(synthetic),
             execution_policy_sha256=None,
         )
     try:
@@ -1718,6 +1730,7 @@ def _solver_for_config(
     model_registry_sha256: str | None,
     cycle_id: str | None,
     verified_execution_policy: _VerifiedExecutionPolicy | None = None,
+    openai_service_tier_observer: Callable[[Any, str], None] | None = None,
 ) -> Any:
     if config.backend is PerCaseExecutionBackend.FIXTURE:
         if registry_entry is None:
@@ -1823,6 +1836,7 @@ def _solver_for_config(
         timeout_seconds=config.timeout_seconds,
         max_attempts=frozen_attempt_policy.max_billable_attempts,
         attempt_handler_factory=attempt_handler_factory,
+        openai_service_tier_observer=openai_service_tier_observer,
     )
 
 
@@ -2173,7 +2187,7 @@ def _run_id(
         "solver_id": solver_id,
         "repeat_policy_sha256": _normalize_sha256(repeat_policy_sha256),
     }
-    digest = hash_payload(identity)[:32]
+    digest = hash_freeze_payload(identity)[:32]
     return safe_path_component(
         f"{_slug(case_id)}-{_slug(ablation)}-{_slug(solver_id)}-{digest}",
         field_name="run_id",

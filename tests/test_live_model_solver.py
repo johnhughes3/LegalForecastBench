@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import socket
@@ -30,10 +31,12 @@ from legalforecast.evals.tools import ControlledDocketEntry, ControlledDocketToo
 
 
 def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
+    observed_tiers: list[str] = []
     transport = _FixtureTransport(
         {
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
+            "service_tier": OPENAI_SERVICE_TIER,
             "usage": {"input_tokens": 1000, "output_tokens": 250},
         }
     )
@@ -41,6 +44,7 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
         registry_entry=_registry_entry("openai", "gpt-test"),
         transport=transport,
         environ={"OPENAI_API_KEY": "openai-secret"},
+        openai_service_tier_observer=lambda _request, tier: observed_tiers.append(tier),
     )
 
     request = _request("Predict the case outcome.")
@@ -66,6 +70,8 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert response.metadata["temperature"] == "0"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
+    assert "observed_service_tier" not in response.metadata
+    assert observed_tiers == [OPENAI_SERVICE_TIER]
     assert "service_tier_fallback" not in response.metadata
     assert response.metadata["execution_backend"] == "inspect_ai"
     assert response.metadata["model_registry_sha256"] == "unrecorded"
@@ -90,6 +96,75 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert body["input"].startswith("Controlled docket tool transcript:")
     assert "Predict the case outcome." in body["input"]
     assert "read_docket_entry_results" in body["input"]
+
+
+def test_openai_solver_refuses_actual_payload_that_differs_from_commitment() -> None:
+    """The manifest commitment must gate the post-transformation HTTP prompt."""
+
+    attempt_handler_requests: list[Any] = []
+
+    def record_attempt_handler_request(request: Any) -> Any:
+        attempt_handler_requests.append(request)
+        raise AssertionError("spend handler constructed for a refused prompt")
+
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        attempt_handler_factory=record_attempt_handler_request,
+    )
+    prompt = "Predict the case outcome."
+
+    with pytest.raises(
+        LiveModelConfigError,
+        match="actual provider prompt does not match",
+    ):
+        solver.solve(
+            _request(
+                prompt,
+                committed_prompt_sha256=hashlib.sha256(
+                    prompt.encode("utf-8")
+                ).hexdigest(),
+            )
+        )
+
+    assert transport.requests == []
+    assert attempt_handler_requests == []
+
+
+def test_openai_solver_no_docket_sends_exact_committed_prompt() -> None:
+    """The official --no-docket-tool mode must preserve the frozen prompt bytes."""
+
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+    )
+    prompt = "Predict the case outcome without docket tools."
+    request = _request(
+        prompt,
+        use_docket_tool=False,
+        committed_prompt_sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+    )
+
+    solver.solve(request)
+
+    assert _json_body(transport.only_request())["input"] == prompt
+    assert request.docket_tool.call_count == 0
 
 
 def test_openai_solver_keeps_caller_timeout_above_flex_floor() -> None:
@@ -156,19 +231,22 @@ def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
     assert "Use the benchmark packet." in body["messages"][0]["content"]
 
 
-def test_sonnet_5_omits_sampling_controls_but_preserves_registry_policy() -> None:
+@pytest.mark.parametrize("model_id", ("claude-sonnet-5", "claude-opus-4-8"))
+def test_anthropic_thinking_models_omit_sampling_controls_but_preserve_registry_policy(
+    model_id: str,
+) -> None:
     transport = _FixtureTransport(
         {
-            "model": "claude-sonnet-5",
-            "content": [{"type": "text", "text": '{"sonnet_5":true}'}],
+            "model": model_id,
+            "content": [{"type": "text", "text": '{"thinking_model":true}'}],
             "usage": {"input_tokens": 200, "output_tokens": 40},
         }
     )
     solver = LiveModelSolver(
         registry_entry=_registry_entry(
             "anthropic",
-            "claude-sonnet-5",
-            model_version_or_snapshot="claude-sonnet-5",
+            model_id,
+            model_version_or_snapshot=model_id,
         ),
         model_registry_sha256="cycle-1-registry-sha256",
         transport=transport,
@@ -181,12 +259,14 @@ def test_sonnet_5_omits_sampling_controls_but_preserves_registry_policy() -> Non
     assert "temperature" not in body
     assert "top_p" not in body
     assert "top_k" not in body
+    assert body["tools"] == []
     assert response.metadata is not None
     assert "temperature" not in response.metadata
     assert "top_p" not in response.metadata
     assert response.metadata["registry_temperature"] == "0"
     assert response.metadata["registry_top_p"] == "1"
     assert response.metadata["provider_sampling_policy"] == "provider_default"
+    assert response.metadata["served_model_version"] == model_id
     assert response.metadata["model_registry_sha256"] == "cycle-1-registry-sha256"
 
 
@@ -714,6 +794,7 @@ def test_solver_retries_transient_provider_failures_without_leaving_flex() -> No
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
+                "service_tier": OPENAI_SERVICE_TIER,
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             },
         )
@@ -731,6 +812,7 @@ def test_solver_retries_transient_provider_failures_without_leaving_flex() -> No
     assert response.metadata is not None
     assert response.metadata["provider_attempt_count"] == "2"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
+    assert "observed_service_tier" not in response.metadata
     assert "service_tier_fallback" not in response.metadata
     assert [_json_body(item)["service_tier"] for item in transport.requests] == [
         OPENAI_SERVICE_TIER,
@@ -747,6 +829,7 @@ def test_solver_retries_transient_provider_failures_without_leaving_flex() -> No
 def test_openai_flex_falls_back_to_standard_on_capacity_errors(
     status_code: int,
 ) -> None:
+    observed_tiers: list[str] = []
     transport = _RetryTransport(
         (
             LiveModelProviderError(
@@ -756,6 +839,7 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
+                "service_tier": OPENAI_FALLBACK_SERVICE_TIER,
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             },
         )
@@ -765,6 +849,7 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
         transport=transport,
         environ={"OPENAI_API_KEY": "openai-secret"},
         retry_backoff_seconds=0,
+        openai_service_tier_observer=lambda _request, tier: observed_tiers.append(tier),
     )
 
     response = solver.solve(_request("prompt"))
@@ -773,6 +858,8 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
     assert response.metadata is not None
     assert response.metadata["service_tier"] == OPENAI_FALLBACK_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
+    assert "observed_service_tier" not in response.metadata
+    assert observed_tiers == [OPENAI_FALLBACK_SERVICE_TIER]
     assert response.metadata["service_tier_fallback"] == "flex_unavailable"
     assert [_json_body(item)["service_tier"] for item in transport.requests] == [
         OPENAI_SERVICE_TIER,
@@ -1066,7 +1153,12 @@ class _UrlResponse:
         return json.dumps(self.payload).encode("utf-8")
 
 
-def _request(prompt: str) -> Any:
+def _request(
+    prompt: str,
+    *,
+    use_docket_tool: bool = True,
+    committed_prompt_sha256: str | None = None,
+) -> Any:
     docket_tool = ControlledDocketTool(
         case_id="case-test",
         entries=(
@@ -1081,7 +1173,11 @@ def _request(prompt: str) -> Any:
         max_tool_calls=3,
     )
     return SimpleNamespace(
-        sample=SimpleNamespace(prompt=prompt),
+        sample=SimpleNamespace(
+            prompt=prompt,
+            use_docket_tool=use_docket_tool,
+            committed_prompt_sha256=committed_prompt_sha256,
+        ),
         docket_tool=docket_tool,
     )
 

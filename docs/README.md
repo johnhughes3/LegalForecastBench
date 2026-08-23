@@ -19,6 +19,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [labeling-protocol.md](labeling-protocol.md): the unit-resolution and edge-case codebook used to label frozen prediction units.
 - [official-run-runbook.md](official-run-runbook.md): operator checklist for protected official cycles — freeze, dispatch, recovery, aggregation, and site rendering.
 - [Official-run gate pack](official-run-gate-pack.md): exact protected infrastructure, workflow, provider-smoke, rehearsal, and sign-off sequence for the first official cycle.
+- [Cycle 1 manifest provider-free freeze v2](cycle-1-manifest-provider-free-freeze-v2.md): create-only issuance and replay of the labels-deferred manifest decisions, execution policy, and bundle without provider, AWS, scoring, or publication activity.
 - [GitHub → AWS OIDC trust claims](github-aws-oidc-trust-claims.md): the verified condition-key surface behind the official roles' trust policies, and the two false review claims it retires.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
 - [Publication governance](publication-governance.md): public evidence tiers, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
@@ -104,6 +105,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 **Discovery and screening**
 
 - [courtlistener-discovery-snapshot-v1.md](schemas/courtlistener-discovery-snapshot-v1.md): hash-bound provider-page transcripts and provider-free saturated snapshot materialization.
+- [published-snapshot-store-recovery-v1.md](schemas/published-snapshot-store-recovery-v1.md): create-only reconstruction of a missing published cohort snapshot from authenticated cycle-store commitments, plus a disposable path-rebound store copy for observation export.
 - [courtlistener-recap-fetch-broker-v1.md](schemas/courtlistener-recap-fetch-broker-v1.md): why raw PACER credentials never reach this repository, and the broker identity policy that replaces them.
 - [firecrawl-screening-implementation-v1.md](schemas/firecrawl-screening-implementation-v1.md): the Firecrawl-specific screening, replay, and promotion path.
 - [frozen-batch-firecrawl-observation-v1.md](schemas/frozen-batch-firecrawl-observation-v1.md): the frozen-batch Firecrawl observation run record.
@@ -124,8 +126,11 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [exact100-reserve-extension-v1.md](schemas/exact100-reserve-extension-v1.md): provider-free derivation of additional reserve capacity for an authenticated exact-100 successor whose frozen reserve cannot cover fresh disclosure quarantines.
 - [exact100-successor-terminal-exclusion-v1.md](schemas/exact100-successor-terminal-exclusion-v1.md): authenticated, reason-specific terminal evidence for removing a selected exact-100 candidate without modifying the predecessor.
 - [exact100-zero-cost-recovery-v2.md](schemas/exact100-zero-cost-recovery-v2.md): bounded CourtListener recovery with exact terminal-response evidence or document-bound public handoff.
+- [exact100-zero-cost-recovery-terminal-authority-v3.md](schemas/exact100-zero-cost-recovery-terminal-authority-v3.md): in-process fresh-404 identity proof that does not bind 404 body bytes.
 - [exact100-successor-replacement-v1.md](schemas/exact100-successor-replacement-v1.md): provider-free replacement of only terminally excluded exact-100 candidates with replay-verified, frozen-rank reserves.
 - [exact100-successor-replacement-v2.md](schemas/exact100-successor-replacement-v2.md): provider-free replacement over the authenticated complete downstream materialization and deterministic wider-candidate rank.
+- [exact100-successor-predecessor-coverage-v1.md](schemas/exact100-successor-predecessor-coverage-v1.md): frozen exact selected-document coverage on predecessor manifest, clearance, and restriction evidence.
+- [exact100-successor-predecessor-coverage-v2.md](schemas/exact100-successor-predecessor-coverage-v2.md): versioned coverage that omits authenticated paid-recovery gaps from those three surfaces while keeping the identities on selection and case relevance.
 - [exact100-successor-semantic-repair-v1.md](schemas/exact100-successor-semantic-repair-v1.md): byte-bound recognition of embedded operative complaints and combined motion-to-dismiss memoranda.
 - [exact100-supporting-document-successor-v1.md](schemas/exact100-supporting-document-successor-v1.md): closed, zero-cost exact-100 successor that adds the authenticated ECF 14 supporting memorandum without changing the materializer v1 card.
 - [missing-document-successor-v1.md](schemas/missing-document-successor-v1.md): approved-manifest-bound free-first repair projection with selector-aware document identity, byte-role admission, and complete terminal ledgers.
@@ -171,6 +176,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 - [successor-rerun-impact-v1.md](schemas/successor-rerun-impact-v1.md): the closed, provider-free proposal and advisory impact contracts for explaining the minimum safe Stage A successor rerun without granting execution authority.
 - [candidate-scoped-stage-a-replay-v1.md](schemas/candidate-scoped-stage-a-replay-v1.md): authenticated reuse of unchanged predecessor Stage A results with unitizer/reviewer execution only for candidates whose successor packet inputs changed.
+- [manifest-unitizer-r2-authority-v1.md](schemas/manifest-unitizer-r2-authority-v1.md): immutable provider-free promotion of the exact owner-approved Stage 5.1 r2 proposal into a corrected-selection-ordered 100-case, 425-unit manifest output without changing the historical finalized-v1 path.
 - `uv run legalforecast acquisition replay-stage-a --replay-spec <path>` is the sole production executor for that replay contract; the self-hashed non-authoritative spec supplies the signed candidate scope, frozen v5/v4 models and configuration hashes, shared provider journal, mechanical ceilings, and receipt paths.
 - [target-document-eligibility-audit-v1.md](schemas/target-document-eligibility-audit-v1.md): the provider-free semantic target-document gate for the line-addressed claim-ontology-v4/v5 contracts; executed `llm-unitize` currently admits only claim-ontology-v5 before provider authority is opened.
 - [stage-a-structural-flag-v2.md](schemas/stage-a-structural-flag-v2.md): claim-ontology-v4 structural flags with locally reconstructed, per-document evidence spans and complete omission evidence.
@@ -191,6 +197,9 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 **Evaluation policy**
 
 - [evaluation-policy-artifacts-v1.md](schemas/evaluation-policy-artifacts-v1.md): how decisions made before labeling or acquisition are separated from facts observed later.
+- [evaluation-policy-artifacts-v2.md](schemas/evaluation-policy-artifacts-v2.md): additive truthful lifecycle semantics, journal-derived production start, and authenticated manifest execution decisions; v1 remains unchanged.
+- [manifest-forecast-bundle-v2.md](schemas/manifest-forecast-bundle-v2.md): the exact labels-deferred, non-scoreable, non-publishable manifest forecast commitment and provider-free run card.
+- [manifest-cost-projection-receipt-v1.md](schemas/manifest-cost-projection-receipt-v1.md): authenticated provider-free cost projection, matrix partitioning, input commitments, and create-only receipt publication for an official manifest run.
 
 **Multi-harness**
 

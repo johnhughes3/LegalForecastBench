@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -23,6 +24,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderJournalReplayMismatchError,
     load_provider_cycle_caps,
     open_provider_journal_snapshot,
+    provider_journal_durable_bytes,
     provider_prompt_logical_call_scope,
     verify_provider_journal_identity,
 )
@@ -1661,6 +1663,21 @@ def test_journal_authentication_never_writes_to_the_canonical_journal(
     assert _tree_snapshot(tmp_path) == before
 
 
+def test_journal_durable_capture_rejects_symlink_and_hardlink(tmp_path: Path) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    _settled_journal(path)
+    symlink = tmp_path / "journal-symlink.sqlite3"
+    symlink.symlink_to(path)
+
+    with pytest.raises(ProviderJournalError, match="not a regular file"):
+        provider_journal_durable_bytes(symlink)
+
+    hardlink = tmp_path / "journal-hardlink.sqlite3"
+    os.link(path, hardlink)
+    with pytest.raises(ProviderJournalError, match="one link"):
+        provider_journal_durable_bytes(path)
+
+
 def test_journal_identity_accepts_legacy_bare_caps_digest(tmp_path: Path) -> None:
     path = tmp_path / "provider-attempts.sqlite3"
     with _journal(path):
@@ -1724,19 +1741,21 @@ def test_journal_snapshot_is_query_only_and_fails_closed_on_a_racing_write(
         with pytest.raises(sqlite3.OperationalError, match="readonly database"):
             snapshot.execute("DELETE FROM provider_attempts")
 
-    real_read_bytes = Path.read_bytes
+    from legalforecast.labeling import provider_journal as journal_module
+
+    real_read = journal_module.read_single_link_file
     reads = 0
 
-    def write_between_captures(self: Path) -> bytes:
+    def write_between_captures(path_to_read: Path, *, label: str) -> bytes:
         nonlocal reads
         reads += 1
-        payload = real_read_bytes(self)
+        payload = real_read(path_to_read, label=label)
         if reads == 1:
             with _journal(path, stage="llm-review-stage-a") as racer:
                 racer.run_attempt(1, lambda: {"request_id": "racing"})
         return payload
 
-    monkeypatch.setattr(Path, "read_bytes", write_between_captures)
+    monkeypatch.setattr(journal_module, "read_single_link_file", write_between_captures)
 
     with pytest.raises(ProviderJournalError, match="changed while it was read"):
         open_provider_journal_snapshot(path)

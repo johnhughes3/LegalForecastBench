@@ -6,6 +6,8 @@ The routine workflow cannot apply this root and its role has no permission to ch
 Creating or importing this root does not authorize AWS work.
 The one-time apply requires separately authorized human/operator AWS credentials, independent review of the exact plan, and protected local state custody until remote migration is proven complete.
 
+The rendered operator policy keeps the durable `legalforecastbench-official-eval-provider-authority` table in its existing exact, non-destructive statement and grants a separate exact-resource statement for the public fixed-name canary `legalforecastbench-official-labeling-authority-smoke-canary`. The canary statement grants only the Terraform management actions required to provision and inspect the negative-control resource; it does not grant the labeling or evaluation roles access to the canary. Disposal remains a separately reviewed follow-up because the current protected plan contract rejects destructive actions.
+
 ## Operator role trust surface
 
 The operator trust pins five conditions: `aud`, the environment-qualified `sub`, `repository`, `ref`, and `environment`.

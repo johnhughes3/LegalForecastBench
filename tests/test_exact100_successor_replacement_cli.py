@@ -43,7 +43,6 @@ from tests.recovered_public_capability_helpers import (
 from tests.test_exact100_successor_replacement import (
     _fixture,
     _jsonl,
-    _selection_row,
 )
 from tests.test_target_cohort_projection import (
     _completed_two_case_projection,
@@ -298,6 +297,15 @@ def _completed_authenticated_stipulated_audit(
     return audit_root, selection.read_bytes()
 
 
+def _audit_predecessor_manifest_bytes(root: Path) -> bytes:
+    card = json.loads(
+        (root / "run-cards/audit-stage-a-target-eligibility.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    return Path(str(card["input_paths"][2])).read_bytes()
+
+
 def _stipulated_evidence(
     root: Path,
     *,
@@ -394,11 +402,10 @@ def _recovery_evidence(root: Path, *, candidate_id: str = "C001") -> Path:
         "recap_fetch_permitted": False,
         "selection_sha256": "deferred",
     }
-    # The sealed predecessor binds the selection at replay time.  Populate the
-    # request below once the fixture's deterministic selection is available.
-    selection = b"".join(
-        _bytes(_selection_row(f"C{number:03d}")) for number in range(1, 101)
-    )
+    # The sealed predecessor binds the selection at replay time. Hash the
+    # shared fixture's selection bytes so recovery requests stay aligned with
+    # the successor fixture's 100-row shape.
+    selection = _fixture()["selection_bytes"]
     request["selection_sha256"] = _sha(selection)
     request_bytes = _bytes(request)
     transcript = {
@@ -670,7 +677,6 @@ def test_successor_cli_replays_sealed_input_and_materializer_projection(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
 
@@ -1490,12 +1496,11 @@ def test_saved_recovery_root_alone_cannot_mint_successor_authority(
         successor_cli.run(args)
 
 
-def test_successor_rejects_self_consistent_fabricated_recovery_root(
+def test_successor_accepts_fresh_404_when_persisted_404_bytes_differ(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "fabricated-recovery")
     _rewrite_recovery_response_self_consistently(
         evidence, response_bytes=_bytes({"detail": "fabricated terminal response"})
@@ -1503,16 +1508,15 @@ def test_successor_rejects_self_consistent_fabricated_recovery_root(
     output = tmp_path / "successor"
     monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
 
-    assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 2
-    assert not output.exists()
+    assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 0
+    assert (output / "successor-terminal-exclusions.jsonl").is_file()
 
 
 def test_successor_rejects_saved_404_after_fresh_nonterminal_observation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "saved-404")
     output = tmp_path / "successor"
     monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
@@ -1525,7 +1529,7 @@ def test_successor_rejects_saved_404_after_fresh_nonterminal_observation(
     )
 
     assert cli.main(_command(predecessor=inputs, evidence=evidence, output=output)) == 2
-    assert not output.exists()
+    assert not output.exists() and "did not authorize the persisted root" in capsys.readouterr().err  # noqa: E501  # fmt: skip
 
 
 def test_successor_materializer_rejects_tampered_immutable_output(
@@ -1534,7 +1538,6 @@ def test_successor_materializer_rejects_tampered_immutable_output(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     monkeypatch.setattr(
@@ -1554,7 +1557,6 @@ def test_successor_state_rejects_invalid_input_path_shape(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     monkeypatch.setattr(cli, "_replay_exact100_successor_inputs", _test_only_replay)
@@ -1611,7 +1613,6 @@ def test_successor_rejects_unexpected_output_before_replay(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _recovery_evidence(tmp_path / "recovery")
     output = tmp_path / "successor"
     output.mkdir()
@@ -1654,7 +1655,6 @@ def test_successor_cli_rejects_self_consistent_invented_stipulated_pdf(
 ) -> None:
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     evidence = _stipulated_evidence(
         tmp_path / "invented-stipulated",
         source_document=b"invented PDF bytes with a fabricated dismissal",
@@ -1681,7 +1681,6 @@ def test_successor_accepts_stipulated_root_only_after_authenticated_callback(
 
     inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
-    _fixture()
     root = tmp_path / "completed-eligibility-audit"
     root.joinpath("run-cards").mkdir(parents=True)
     root.joinpath("target-document-eligibility-audit.jsonl").write_bytes(b"audit\n")
@@ -1692,9 +1691,12 @@ def test_successor_accepts_stipulated_root_only_after_authenticated_callback(
     calls: list[bytes] = []
 
     def replay(
-        root_arg: Path, selection_bytes: bytes
+        root_arg: Path,
+        selection_bytes: bytes,
+        predecessor_download_manifest_bytes: bytes,
     ) -> VerifiedTerminalExclusionEvidence:
         assert root_arg == root
+        assert predecessor_download_manifest_bytes
         calls.append(selection_bytes)
         return _mint_terminal_evidence(
             candidate_id="C001",
@@ -1764,7 +1766,9 @@ def test_stipulated_eligibility_replay_rejects_selection_mismatch(
     )
 
     with pytest.raises(ValueError, match="selection differs from exact100 predecessor"):
-        cli._replay_exact100_stipulated_eligibility(root, b"sealed predecessor")
+        cli._replay_exact100_stipulated_eligibility(
+            root, b"sealed predecessor", b"{}\n"
+        )
 
 
 def test_production_stipulated_replay_accepts_completed_authenticated_audit(
@@ -1775,13 +1779,17 @@ def test_production_stipulated_replay_accepts_completed_authenticated_audit(
     root, selection_bytes = _completed_authenticated_stipulated_audit(
         tmp_path, monkeypatch
     )
+    predecessor_manifest = _audit_predecessor_manifest_bytes(root)
 
-    evidence = cli._replay_exact100_stipulated_eligibility(root, selection_bytes)
+    evidence = cli._replay_exact100_stipulated_eligibility(
+        root, selection_bytes, predecessor_manifest
+    )
     successor_evidence = successor_cli._stipulated(
         root,
         selection_bytes,
         {},
         stipulated_replay=cli._replay_exact100_stipulated_eligibility,
+        predecessor_download_manifest_bytes=predecessor_manifest,
     )
 
     assert evidence.reason is TerminalExclusionReason.STIPULATED_INELIGIBLE
@@ -1793,7 +1801,10 @@ def test_production_stipulated_replay_accepts_completed_authenticated_audit(
     elsewhere.mkdir()
     monkeypatch.chdir(elsewhere)
     assert (
-        cli._replay_exact100_stipulated_eligibility(root, selection_bytes) == evidence
+        cli._replay_exact100_stipulated_eligibility(
+            root, selection_bytes, predecessor_manifest
+        )
+        == evidence
     )
 
 
@@ -1840,7 +1851,9 @@ def test_production_stipulated_replay_rejects_fabricated_card_after_root_read(
     )
 
     with pytest.raises(ValueError, match=r"target selection|selection"):
-        cli._replay_exact100_stipulated_eligibility(fabricated, selection_bytes)
+        cli._replay_exact100_stipulated_eligibility(
+            fabricated, selection_bytes, _audit_predecessor_manifest_bytes(root)
+        )
 
 
 def test_production_replay_derives_both_capabilities_from_verified_snapshots(

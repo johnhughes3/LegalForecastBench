@@ -20,7 +20,12 @@ import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
+
+from legalforecast.publication.manifest_forecast_stage import (
+    add_manifest_forecast_stage_arguments,
+    run_manifest_forecast_stage,
+)
 
 
 class _FreezeCommand(Protocol):
@@ -51,6 +56,19 @@ class _BuildCommand(Protocol):
     ) -> dict[str, object]: ...
 
 
+class _FreezeInputsBuild(Protocol):
+    run_card: dict[str, object]
+
+
+class _FreezeInputsCommand(Protocol):
+    def __call__(self, **kwargs: Any) -> _FreezeInputsBuild:
+        raise NotImplementedError
+
+
+class _CostProjectionCommand(Protocol):
+    def __call__(self, request: Any) -> dict[str, Any]: ...
+
+
 _FREEZE = importlib.metadata.EntryPoint(
     name="owner-signed-corpus-manifest-freeze",
     value="legalforecast.evals.corpus_manifest.commands:freeze_corpus_manifest_command",
@@ -60,6 +78,92 @@ _BUILD = importlib.metadata.EntryPoint(
     name="owner-signed-corpus-manifest-build",
     value=(
         "legalforecast.evals.corpus_manifest.commands:build_manifest_forecast_command"
+    ),
+    group="legalforecast.internal",
+)
+_ISSUE_FREEZE_INPUTS = importlib.metadata.EntryPoint(
+    name="manifest-freeze-inputs-issue",
+    value=(
+        "legalforecast.evals.corpus_manifest.freeze_inputs:"
+        "issue_manifest_freeze_inputs_command"
+    ),
+    group="legalforecast.internal",
+)
+_VERIFY_FREEZE_INPUTS = importlib.metadata.EntryPoint(
+    name="manifest-freeze-inputs-verify",
+    value=(
+        "legalforecast.evals.corpus_manifest.freeze_inputs:"
+        "verify_manifest_freeze_inputs_command"
+    ),
+    group="legalforecast.internal",
+)
+_PROJECT_MANIFEST_COST = importlib.metadata.EntryPoint(
+    name="manifest-cost-projector",
+    value=(
+        "legalforecast.evals.corpus_manifest.cost_projector:"
+        "issue_manifest_cost_projection"
+    ),
+    group="legalforecast.internal",
+)
+_MANIFEST_COST_REQUEST = importlib.metadata.EntryPoint(
+    name="manifest-cost-projector-request",
+    value=(
+        "legalforecast.evals.corpus_manifest.cost_projector:"
+        "ManifestCostProjectionRequest"
+    ),
+    group="legalforecast.internal",
+)
+_HISTORICAL_EXCLUSION_AUTHENTICATOR = importlib.metadata.EntryPoint(
+    name="manifest-freeze-historical-exclusion-authenticator",
+    value="legalforecast.cli:_verify_replacement_exclusion_card",
+    group="legalforecast.internal",
+)
+_V2_VERIFIER = importlib.metadata.EntryPoint(
+    name="manifest-freeze-v2-verifier",
+    value="legalforecast.cli:verify_exact100_successor_replacement_v2_projection",
+    group="legalforecast.internal",
+)
+_V2_REPLAY_ARGS = importlib.metadata.EntryPoint(
+    name="manifest-freeze-v2-replay-args",
+    value="legalforecast.cli:_exact100_successor_v2_replay_args",
+    group="legalforecast.internal",
+)
+_V2_REPLAY = importlib.metadata.EntryPoint(
+    name="manifest-freeze-v2-replay",
+    value="legalforecast.cli:_replay_exact100_successor_replacement_v2_inputs",
+    group="legalforecast.internal",
+)
+_ISSUE_BUNDLE = importlib.metadata.EntryPoint(
+    name="manifest-forecast-bundle-issue",
+    value=("legalforecast.evals.corpus_manifest.deferred_bundle:issue_bundle"),
+    group="legalforecast.internal",
+)
+_VERIFY_BUNDLE = importlib.metadata.EntryPoint(
+    name="manifest-forecast-bundle-verify",
+    value=("legalforecast.evals.corpus_manifest.deferred_bundle:verify_bundle"),
+    group="legalforecast.internal",
+)
+_ISSUE_EXECUTION_DECISIONS = importlib.metadata.EntryPoint(
+    name="manifest-execution-decisions-issue",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_decisions:"
+        "issue_execution_decisions"
+    ),
+    group="legalforecast.internal",
+)
+_VERIFY_EXECUTION_DECISIONS = importlib.metadata.EntryPoint(
+    name="manifest-execution-decisions-verify",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_decisions:"
+        "verify_execution_decisions"
+    ),
+    group="legalforecast.internal",
+)
+_ISSUE_BEADS_OBSERVATION = importlib.metadata.EntryPoint(
+    name="manifest-execution-decisions-beads-observation-issue",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_decisions:"
+        "issue_beads_observation"
     ),
     group="legalforecast.internal",
 )
@@ -184,6 +288,208 @@ def register(
     )
     build.set_defaults(handler=run_build)
 
+    issue_inputs = subparsers.add_parser(
+        "issue-manifest-freeze-inputs",
+        help="Issue authenticated generic inputs for a manifest freeze bundle.",
+        description=(
+            "Replay the signed 100-case manifest forecast, all 200 prompt "
+            "commitments, the reviewed release bytes, and the complete "
+            "screened/excluded partition. Create-only emit the three runtime "
+            "contracts, Cycle 1 no-baselines sentinel, 57-row exclusion "
+            "ledger, and completed run card. This command calls no provider."
+        ),
+    )
+    issue_inputs.add_argument("--cycle-id", required=True)
+    issue_inputs.add_argument("--release-sha", required=True)
+    issue_inputs.add_argument("--repository-root", type=Path, required=True)
+    issue_inputs.add_argument("--owner-manifest", type=Path, required=True)
+    issue_inputs.add_argument("--model-registry", type=Path, required=True)
+    issue_inputs.add_argument("--forecast-output-dir", type=Path, required=True)
+    issue_inputs.add_argument("--screened-pool", type=Path, required=True)
+    issue_inputs.add_argument("--historical-exclusion-ledger", type=Path, required=True)
+    issue_inputs.add_argument(
+        "--historical-exclusion-run-card", type=Path, required=True
+    )
+    issue_inputs.add_argument("--v2-root", type=Path, required=True)
+    issue_inputs.add_argument(
+        "--v3-root",
+        type=Path,
+        action="append",
+        required=True,
+        dest="v3_roots",
+        help="Authenticated successor v3 root; repeat exactly three times.",
+    )
+    issue_inputs.add_argument("--output-root", type=Path, required=True)
+    issue_inputs.set_defaults(handler=run_issue_freeze_inputs)
+
+    verify_inputs = subparsers.add_parser(
+        "verify-manifest-freeze-inputs",
+        help="Replay and verify issued manifest freeze inputs.",
+    )
+    verify_inputs.add_argument("--output-root", type=Path, required=True)
+    verify_inputs.set_defaults(handler=run_verify_freeze_inputs)
+
+    cost = subparsers.add_parser(
+        "project-manifest-cost",
+        help="Issue a provider-free official manifest cost projection.",
+        description=(
+            "Verify a complete issued manifest freeze plus its local manifest-run "
+            "root, authenticate the signed owner manifest, exact frozen registry, "
+            "run record, run inputs, and every packet byte, then build the exact "
+            "official provider matrices and create-only emit a self-hashed receipt. "
+            "This command uses no provider or AWS service and never mutates inputs."
+        ),
+    )
+    cost.add_argument("--freeze-bundle", type=Path, required=True)
+    cost.add_argument(
+        "--freeze-root",
+        type=Path,
+        required=True,
+        help="Root resolving every relative artifact path in the freeze bundle.",
+    )
+    cost.add_argument(
+        "--manifest-run-root",
+        type=Path,
+        required=True,
+        help=(
+            "Root containing run-inputs.json, manifest-mode-run-record.json, and "
+            "model-packets/."
+        ),
+    )
+    cost.add_argument(
+        "--amendment-bundle",
+        type=Path,
+        action="append",
+        default=[],
+        help="Freeze amendment ancestor; repeat for the complete chain.",
+    )
+    cost.add_argument("--cycle-id", required=True)
+    cost.add_argument(
+        "--model-key",
+        action="append",
+        required=True,
+        dest="model_keys",
+        help="Requested provider:model_id registry key; repeatable.",
+    )
+    cost.add_argument(
+        "--ablation",
+        action="append",
+        required=True,
+        dest="ablations",
+        help="Requested packet ablation; repeatable.",
+    )
+    cost.add_argument("--repeat-count", type=int, default=1)
+    cost.add_argument(
+        "--repeat-sample-case-id",
+        action="append",
+        default=[],
+        dest="repeat_sample_case_ids",
+        help="Case receiving repeat_count evaluations; repeatable.",
+    )
+    cost.add_argument("--max-projected-model-cost-usd")
+    cost.add_argument(
+        "--matrix-limit",
+        type=int,
+        default=800,
+        help="Maximum aggregate matrix rows (default: 800).",
+    )
+    cost.add_argument(
+        "--shard-only",
+        action="store_true",
+        help=(
+            "Require exactly one model/ablation cell; permits the 256-row shard limit."
+        ),
+    )
+    cost.add_argument("--output", type=Path, required=True)
+    cost.set_defaults(handler=run_project_manifest_cost)
+
+    issue_bundle = subparsers.add_parser(
+        "issue-manifest-forecast-bundle-v2",
+        help="Issue a create-only labels-deferred manifest forecast bundle.",
+        description=(
+            "Bind the authenticated generic freeze inputs, owner-signed manifest "
+            "forecast packets, successor registry, provider caps, execution "
+            "policy, and the schedule derived from that verified policy. This "
+            "command is provider-free; any later provider receipts remain "
+            "private, non-scoreable, and non-publishable."
+        ),
+    )
+    issue_bundle.add_argument("--cycle-id", required=True)
+    issue_bundle.add_argument("--freeze-inputs-root", type=Path, required=True)
+    issue_bundle.add_argument("--owner-manifest", type=Path, required=True)
+    issue_bundle.add_argument("--forecast-output-dir", type=Path, required=True)
+    issue_bundle.add_argument("--model-registry", type=Path, required=True)
+    issue_bundle.add_argument("--provider-cycle-caps", type=Path, required=True)
+    issue_bundle.add_argument("--execution-policy", type=Path, required=True)
+    issue_bundle.add_argument("--output-root", type=Path, required=True)
+    issue_bundle.set_defaults(handler=run_issue_bundle)
+
+    verify_bundle = subparsers.add_parser(
+        "verify-manifest-forecast-bundle-v2",
+        help="Replay and verify a labels-deferred manifest forecast bundle.",
+    )
+    verify_bundle.add_argument("--output-root", type=Path, required=True)
+    verify_bundle.set_defaults(handler=run_verify_bundle)
+
+    issue_decisions = subparsers.add_parser(
+        "issue-manifest-execution-decisions-v2",
+        help="Issue provider-free authenticated execution decisions and policy.",
+        description=(
+            "Derive the Cycle 1 execution decisions from the signed manifest, "
+            "no-docket forecast, official model registry, provider caps, "
+            "labeling/cohort artifacts, observation chain, and a fresh Beads "
+            "observation and canonical labeling journal. Create-only emit "
+            "execution-decisions-v2.json, execution-policy-v2.json, the "
+            "authenticated Beads wrapper, and a v2 run card. No lifecycle "
+            "timestamp is accepted from the operator."
+        ),
+    )
+    issue_decisions.add_argument("--owner-manifest", type=Path, required=True)
+    issue_decisions.add_argument("--forecast-output-dir", type=Path, required=True)
+    issue_decisions.add_argument("--model-registry", type=Path, required=True)
+    issue_decisions.add_argument("--provider-cycle-caps", type=Path, required=True)
+    issue_decisions.add_argument(
+        "--labeling-provider-cycle-caps", type=Path, required=True
+    )
+    issue_decisions.add_argument("--provider-journal", type=Path, required=True)
+    issue_decisions.add_argument("--labeling-policy", type=Path, required=True)
+    issue_decisions.add_argument("--cohort-policy", type=Path, required=True)
+    issue_decisions.add_argument(
+        "--cohort-observation-manifest", type=Path, required=True
+    )
+    issue_decisions.add_argument("--freeze-inputs-root", type=Path, required=True)
+    issue_decisions.add_argument("--output-root", type=Path, required=True)
+    issue_decisions.set_defaults(handler=run_issue_execution_decisions)
+
+    verify_decisions = subparsers.add_parser(
+        "verify-manifest-execution-decisions-v2",
+        help="Replay and verify issued execution decisions and policy.",
+    )
+    verify_decisions.add_argument("--output-root", type=Path, required=True)
+    verify_decisions.set_defaults(handler=run_verify_execution_decisions)
+
+    issue_beads = subparsers.add_parser(
+        "issue-manifest-execution-decisions-beads-observation-v2",
+        help="Capture live Beads comments and issue a hash-pinned wrapper.",
+    )
+    issue_beads.add_argument("--model-registry", type=Path, required=True)
+    issue_beads.add_argument("--output", type=Path, required=True)
+    issue_beads.set_defaults(handler=run_issue_beads_observation)
+
+    stage = subparsers.add_parser(
+        "stage-manifest-forecast",
+        help="Stage manifest-mode forecast inputs into immutable S3 prefixes.",
+        description=(
+            "Authenticate the manifest forecast output and the complete frozen "
+            "artifact bundle, then write them under the immutable "
+            "cycle-1/manifest-runs/<manifest-digest>/ prefix. No provider call "
+            "is made. Existing S3 objects are accepted only when their bytes "
+            "match the same commitments."
+        ),
+    )
+    add_manifest_forecast_stage_arguments(stage)
+    stage.set_defaults(handler=run_manifest_forecast_stage)
+
 
 def run_freeze(args: argparse.Namespace) -> int:
     """Freeze the corpus, printing the digest or every blocker found."""
@@ -221,4 +527,171 @@ def run_build(args: argparse.Namespace) -> int:
             sort_keys=True,
         )
     )
+    return 0
+
+
+def run_issue_freeze_inputs(args: argparse.Namespace) -> int:
+    """Issue the six generic freeze inputs without provider activity."""
+
+    issue = cast(_FreezeInputsCommand, _ISSUE_FREEZE_INPUTS.load())
+    build = issue(
+        cycle_id=cast(str, args.cycle_id),
+        release_sha=cast(str, args.release_sha),
+        repository_root=cast(Path, args.repository_root),
+        owner_manifest=cast(Path, args.owner_manifest),
+        model_registry=cast(Path, args.model_registry),
+        forecast_output_dir=cast(Path, args.forecast_output_dir),
+        screened_pool=cast(Path, args.screened_pool),
+        historical_exclusion_ledger=cast(Path, args.historical_exclusion_ledger),
+        historical_exclusion_run_card=cast(Path, args.historical_exclusion_run_card),
+        v2_root=cast(Path, args.v2_root),
+        v3_roots=tuple(cast("Sequence[Path]", args.v3_roots)),
+        output_root=cast(Path, args.output_root),
+        legacy_historical_authenticator=_HISTORICAL_EXCLUSION_AUTHENTICATOR.load(),
+        legacy_v2_verifier=_V2_VERIFIER.load(),
+        legacy_v2_replay_args=_V2_REPLAY_ARGS.load(),
+        legacy_v2_replay=_V2_REPLAY.load(),
+    )
+    print(json.dumps(build.run_card, indent=2, sort_keys=True))
+    return 0
+
+
+def run_verify_freeze_inputs(args: argparse.Namespace) -> int:
+    """Replay one completed generic freeze-input issuance."""
+
+    verify = cast(_FreezeInputsCommand, _VERIFY_FREEZE_INPUTS.load())
+    build = verify(
+        output_root=cast(Path, args.output_root),
+        legacy_historical_authenticator=_HISTORICAL_EXCLUSION_AUTHENTICATOR.load(),
+        legacy_v2_verifier=_V2_VERIFIER.load(),
+        legacy_v2_replay_args=_V2_REPLAY_ARGS.load(),
+        legacy_v2_replay=_V2_REPLAY.load(),
+    )
+    print(json.dumps(build.run_card, indent=2, sort_keys=True))
+    return 0
+
+
+def run_project_manifest_cost(args: argparse.Namespace) -> int:
+    """Issue the shared provider-free manifest cost receipt."""
+
+    request_type = _MANIFEST_COST_REQUEST.load()
+    request = request_type(
+        freeze_bundle=cast(Path, args.freeze_bundle),
+        freeze_root=cast(Path, args.freeze_root),
+        manifest_run_root=cast(Path, args.manifest_run_root),
+        amendment_bundles=tuple(cast("Sequence[Path]", args.amendment_bundle)),
+        cycle_id=cast(str, args.cycle_id),
+        model_keys=tuple(cast("Sequence[str]", args.model_keys)),
+        ablations=tuple(cast("Sequence[str]", args.ablations)),
+        repeat_count=cast(int, args.repeat_count),
+        repeat_sample_case_ids=tuple(
+            cast("Sequence[str]", args.repeat_sample_case_ids)
+        ),
+        max_projected_model_cost_usd=cast(
+            str | None, args.max_projected_model_cost_usd
+        ),
+        matrix_limit=cast(int, args.matrix_limit),
+        shard_only=cast(bool, args.shard_only),
+        output=cast(Path, args.output),
+    )
+    issue = cast(_CostProjectionCommand, _PROJECT_MANIFEST_COST.load())
+    receipt = issue(request)
+    print(json.dumps(receipt, indent=2, sort_keys=True))
+    return 0
+
+
+def _verify_freeze_inputs_complete(output_root: Path) -> _FreezeInputsBuild:
+    """Replay the complete generic-freeze issuer with its authentic verifiers."""
+
+    verify = cast(_FreezeInputsCommand, _VERIFY_FREEZE_INPUTS.load())
+    return verify(
+        output_root=output_root,
+        legacy_historical_authenticator=_HISTORICAL_EXCLUSION_AUTHENTICATOR.load(),
+        legacy_v2_verifier=_V2_VERIFIER.load(),
+        legacy_v2_replay_args=_V2_REPLAY_ARGS.load(),
+        legacy_v2_replay=_V2_REPLAY.load(),
+    )
+
+
+def run_issue_bundle(args: argparse.Namespace) -> int:
+    """Issue the additive labels-deferred forecast bundle without providers."""
+
+    issue = _ISSUE_BUNDLE.load()
+    result = issue(
+        cycle_id=args.cycle_id,
+        freeze_inputs_root=args.freeze_inputs_root,
+        owner_manifest=args.owner_manifest,
+        forecast_output_dir=args.forecast_output_dir,
+        model_registry=args.model_registry,
+        provider_cycle_caps=args.provider_cycle_caps,
+        execution_policy=args.execution_policy,
+        output_root=cast(Path, args.output_root),
+        verify_freeze_inputs=_verify_freeze_inputs_complete,
+    )
+    print(json.dumps(dict(result.bundle), indent=2, sort_keys=True))
+    return 0
+
+
+def run_verify_bundle(args: argparse.Namespace) -> int:
+    """Verify the bundle and all of its committed source bytes."""
+
+    verify = _VERIFY_BUNDLE.load()
+    print(
+        json.dumps(
+            dict(
+                verify(
+                    args.output_root,
+                    verify_freeze_inputs=_verify_freeze_inputs_complete,
+                )
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def run_issue_execution_decisions(args: argparse.Namespace) -> int:
+    """Issue execution decisions and the derived policy without providers."""
+
+    issue = _ISSUE_EXECUTION_DECISIONS.load()
+    result = issue(
+        owner_manifest=cast(Path, args.owner_manifest),
+        forecast_output_dir=cast(Path, args.forecast_output_dir),
+        model_registry=cast(Path, args.model_registry),
+        provider_cycle_caps=cast(Path, args.provider_cycle_caps),
+        labeling_provider_cycle_caps=cast(Path, args.labeling_provider_cycle_caps),
+        provider_journal=cast(Path, args.provider_journal),
+        labeling_policy=cast(Path, args.labeling_policy),
+        cohort_policy=cast(Path, args.cohort_policy),
+        cohort_observation_manifest=cast(Path, args.cohort_observation_manifest),
+        freeze_inputs_root=cast(Path, args.freeze_inputs_root),
+        output_root=cast(Path, args.output_root),
+        verify_freeze_inputs=_verify_freeze_inputs_complete,
+    )
+    print(json.dumps(dict(result.run_card), indent=2, sort_keys=True))
+    return 0
+
+
+def run_verify_execution_decisions(args: argparse.Namespace) -> int:
+    """Replay one completed execution-decision issuance."""
+
+    verify = _VERIFY_EXECUTION_DECISIONS.load()
+    result = verify(
+        cast(Path, args.output_root),
+        verify_freeze_inputs=_verify_freeze_inputs_complete,
+    )
+    print(json.dumps(dict(result.run_card), indent=2, sort_keys=True))
+    return 0
+
+
+def run_issue_beads_observation(args: argparse.Namespace) -> int:
+    """Capture live Beads comments and issue their hash-pinned wrapper."""
+
+    issue = _ISSUE_BEADS_OBSERVATION.load()
+    result = issue(
+        model_registry=cast(Path, args.model_registry),
+        output=cast(Path, args.output),
+    )
+    print(json.dumps(dict(result), indent=2, sort_keys=True))
     return 0

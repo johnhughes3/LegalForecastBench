@@ -22,14 +22,9 @@ from typing import Any, Protocol, cast
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.path_safety import safe_path_component
 
-_ALLOWED_DOCUMENT_HOSTS = frozenset(
-    {"www.courtlistener.com", "storage.courtlistener.com"}
-)
+_ALLOWED_DOCUMENT_HOSTS = frozenset({"www.courtlistener.com", "storage.courtlistener.com"})  # noqa: E501  # fmt: skip
 _RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
-_DEFAULT_USER_AGENT = (
-    "LegalForecastBench/0.1 "
-    "(public CourtListener/RECAP free-document retrieval; no PACER purchase)"
-)
+_DEFAULT_USER_AGENT = "LegalForecastBench/0.1 (public CourtListener/RECAP free-document retrieval; no PACER purchase)"  # noqa: E501  # fmt: skip
 
 
 class FreeDocumentDownloadError(RuntimeError):
@@ -175,6 +170,7 @@ class UrlLibFreeDocumentSource:
                 "User-Agent": self.user_agent,
             },
         )
+        request.url_validator = self.final_url_validator  # type: ignore[attr-defined]
         with _open_allowlisted(request, timeout=self.timeout_seconds) as response:
             final_url = response.geturl()
             _validate_public_document_url(final_url)
@@ -245,6 +241,7 @@ class UrlLibFreeDocumentSource:
                 "User-Agent": self.user_agent,
             },
         )
+        request.url_validator = self.final_url_validator  # type: ignore[attr-defined]
         with _open_allowlisted(request, timeout=self.timeout_seconds) as response:
             final_url = response.geturl()
             _validate_public_document_url(final_url)
@@ -1907,6 +1904,9 @@ class _AllowlistedRedirectHandler(urllib.request.HTTPRedirectHandler):
         newurl: str,
     ) -> urllib.request.Request | None:
         _validate_public_document_url(newurl)
+        validator = getattr(req, "url_validator", None)
+        if callable(validator):
+            validator(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)  # type: ignore[arg-type]
 
 

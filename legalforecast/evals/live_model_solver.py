@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -136,6 +137,7 @@ class ProviderAttemptHandler(Protocol):
 
 
 ProviderAttemptHandlerFactory = Callable[[HarnessRequest], ProviderAttemptHandler]
+OpenAIServiceTierObserver = Callable[[HarnessRequest, str], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +152,7 @@ class LiveModelSolver:
     max_attempts: int = DEFAULT_MAX_ATTEMPTS
     retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS
     attempt_handler_factory: ProviderAttemptHandlerFactory | None = None
+    openai_service_tier_observer: OpenAIServiceTierObserver | None = None
 
     def __post_init__(self) -> None:
         if not self.registry_entry.network_disabled:
@@ -181,11 +184,20 @@ class LiveModelSolver:
             request,
             tool_policy=self.registry_entry.tool_policy,
         )
+        expected_prompt_sha256 = request.sample.committed_prompt_sha256
+        if expected_prompt_sha256 is not None:
+            actual_prompt_sha256 = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+            if actual_prompt_sha256 != expected_prompt_sha256:
+                raise LiveModelConfigError(
+                    "actual provider prompt does not match the manifest "
+                    "prompt_sha256 commitment"
+                )
         attempt_handler = (
             self.attempt_handler_factory(request)
             if self.attempt_handler_factory is not None
             else None
         )
+        tier_observer = self.openai_service_tier_observer
         return complete_live_prompt(
             self.registry_entry,
             prompt,
@@ -196,6 +208,11 @@ class LiveModelSolver:
             max_attempts=self.max_attempts,
             retry_backoff_seconds=self.retry_backoff_seconds,
             attempt_handler=attempt_handler,
+            openai_service_tier_observer=(
+                None
+                if tier_observer is None
+                else lambda tier: tier_observer(request, tier)
+            ),
         )
 
     def _transport(
@@ -219,6 +236,7 @@ def complete_live_prompt(
     retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
     attempt_handler: ProviderAttemptHandler | None = None,
     response_json_schema: Mapping[str, object] | None = None,
+    openai_service_tier_observer: Callable[[str], None] | None = None,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
 
@@ -307,6 +325,8 @@ def complete_live_prompt(
             actual_cost_usd=estimated_cost,
             raw_output=raw_output,
         )
+    if openai_service_tier_observer is not None and _is_openai_provider(registry_entry):
+        openai_service_tier_observer(_observed_openai_service_tier(payload))
     return SolverResponse(
         raw_output=raw_output,
         request_count=request_count,
@@ -496,7 +516,10 @@ def _prompt_with_controlled_docket_context(
     *,
     tool_policy: ToolPolicy,
 ) -> str:
-    if tool_policy is not ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY:
+    if (
+        tool_policy is not ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY
+        or not request.sample.use_docket_tool
+    ):
         return request.sample.prompt
 
     listed = request.docket_tool.list_available_docket_entries()
@@ -612,10 +635,13 @@ def _anthropic_requires_provider_default_sampling(
 ) -> bool:
     """Return whether Anthropic requires omitted sampling controls for this model."""
 
-    return entry.provider.strip().lower() == "anthropic" and "claude-sonnet-5" in {
-        _canonical_model_version(entry.model_id),
-        _canonical_model_version(entry.model_version_or_snapshot),
-    }
+    return entry.provider.strip().lower() == "anthropic" and bool(
+        {
+            _canonical_model_version(entry.model_id),
+            _canonical_model_version(entry.model_version_or_snapshot),
+        }
+        & {"claude-sonnet-5", "claude-opus-4-8"}
+    )
 
 
 def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
@@ -660,6 +686,15 @@ def _openai_service_tier_metadata(
     if fell_back:
         metadata["service_tier_fallback"] = "flex_unavailable"
     return metadata
+
+
+def _observed_openai_service_tier(payload: JsonRecord | None) -> str:
+    if payload is None:
+        return "unreported"
+    value = payload.get("service_tier")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return "unreported"
 
 
 def _is_openai_flex_unavailable(exc: LiveModelProviderError) -> bool:

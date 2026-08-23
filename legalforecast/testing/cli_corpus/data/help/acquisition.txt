@@ -32,6 +32,32 @@ positional arguments:
     build-manifest-forecast
                         Build forecast packets and prompts from a signed
                         corpus manifest.
+    issue-manifest-freeze-inputs
+                        Issue authenticated generic inputs for a manifest
+                        freeze bundle.
+    verify-manifest-freeze-inputs
+                        Replay and verify issued manifest freeze inputs.
+    project-manifest-cost
+                        Issue a provider-free official manifest cost
+                        projection.
+    issue-manifest-forecast-bundle-v2
+                        Issue a create-only labels-deferred manifest forecast
+                        bundle.
+    verify-manifest-forecast-bundle-v2
+                        Replay and verify a labels-deferred manifest forecast
+                        bundle.
+    issue-manifest-execution-decisions-v2
+                        Issue provider-free authenticated execution decisions
+                        and policy.
+    verify-manifest-execution-decisions-v2
+                        Replay and verify issued execution decisions and
+                        policy.
+    issue-manifest-execution-decisions-beads-observation-v2
+                        Capture live Beads comments and issue a hash-pinned
+                        wrapper.
+    stage-manifest-forecast
+                        Stage manifest-mode forecast inputs into immutable S3
+                        prefixes.
     plan-attachment-pages
                         Authenticate docket entries whose PACER attachment
                         menu is missing.
@@ -247,6 +273,14 @@ positional arguments:
     export-cohort-observations
                         Append complete cycle-store snapshots to the
                         observation manifest.
+    recover-published-snapshot-from-store-commitment
+                        Provider-free create-only recovery of exact published
+                        snapshot bytes from an authenticated cycle-store
+                        commitment.
+    prepare-disposable-snapshot-recovery-store
+                        Create a private cycle-store copy and rebind only its
+                        recovered published-snapshot path for cohort
+                        observation export.
     verify-cohort-observations
                         Verify the append-only cohort observation hash chain.
     fetch-firecrawl-dockets
