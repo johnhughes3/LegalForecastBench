@@ -19,7 +19,16 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
-from legalforecast.contracts.commitments import RAW_BYTES_RAW_SHA256_V1
+from legalforecast.contracts.commitments import (
+    ARTIFACT_PREFIXED_SHA256_V1,
+    RAW_BYTES_RAW_SHA256_V1,
+)
+from legalforecast.contracts.schemas import (
+    STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_INDEX_V1 as _INDEX_SCHEMA,
+)
+from legalforecast.contracts.schemas import (
+    STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1 as _ADJ_SCHEMA,
+)
 from legalforecast.contracts.schemas import (
     STAGE_B_MANIFEST_DECISION_TEXTS_RUN_V1,
     STAGE_B_MANIFEST_DECISION_TEXTS_V1,
@@ -28,6 +37,7 @@ from legalforecast.contracts.schemas import (
     STAGE_B_MANIFEST_PROVIDER_RESULT_V1,
     STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1,
 )
+from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     load_model_registry,
@@ -44,10 +54,13 @@ from legalforecast.ingestion.decision_text_artifact import (
     VerifiedDecisionTextArtifact,
 )
 from legalforecast.labeling.llm_pipeline import (
+    FrozenUnitWorkflowRequiredError,
+    _frozen_unit_workflow_audit_fields,  # pyright: ignore[reportPrivateUsage]
     _labeling_prompt,  # pyright: ignore[reportPrivateUsage]
     _llm_label_one_model,  # pyright: ignore[reportPrivateUsage]
     _outcome_label,  # pyright: ignore[reportPrivateUsage]
     _prediction_units_by_candidate,  # pyright: ignore[reportPrivateUsage]
+    _provider_attempt_journal,  # pyright: ignore[reportPrivateUsage]
     _required_str,  # pyright: ignore[reportPrivateUsage]
     _verified_stage_b_decisions,  # pyright: ignore[reportPrivateUsage]
     lawyer_review_queue_records,
@@ -93,6 +106,17 @@ PROVIDER_KEY_ENV_NAMES = frozenset(
     {"OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY"}
 )
 OWNER_AUTHOR_ENV = "LEGALFORECAST_OWNER_AUTHOR"
+FROZEN_UNIT_ADJUDICATION_INDEX_V1 = str(_INDEX_SCHEMA)
+CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID = "b7f63c90-ca42-5a04-8590-4181be613ec1"
+CONTEXTUAL_OWNER_APPROVAL_TEXT_SHA256 = (
+    "sha256:57c925c08da5dbe25007cc27b1532d8912c61d97702d633091a723efc5f2b7a2"
+)
+CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256 = (
+    "sha256:119293da5aeb7f9eeb328b041b53026f4322cd619e6bb3604ad6be1a19171d18"
+)
+CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_SHA256 = (
+    "sha256:938d24db5ec4977e95abe92aad30b2fea018786d76a6fbc18e10df5930238fa2"
+)
 
 # The replacement rows are not covered by the retired decision-text artifact.
 # These source-byte commitments are the authenticated bridge for the exact five
@@ -232,6 +256,198 @@ def _jsonl(payload: bytes, label: str) -> tuple[JsonRecord, ...]:
     return tuple(records)
 
 
+def _issue_frozen_unit_adjudication(
+    *,
+    output_path: Path,
+    owner_comment_id: str,
+    provider: str,
+    output_root: Path,
+    artifact: VerifiedDecisionTextArtifact,
+    selection_records: Sequence[Mapping[str, Any]],
+    adapted_records: Sequence[Mapping[str, Any]],
+    registry_entry: ModelRegistryEntry,
+    registry_sha256: str,
+    raw_sha256: str,
+    decision_sha256: str,
+) -> Mapping[str, Any]:
+    """Issue a private exclusion input from one retained failed response.
+
+    This is the supported issuer for the adjudication record.  It first proves
+    that the candidate's journal contains an unreconciled response, asks the
+    existing Stage B parser to reconstruct it without a transport, and derives
+    every response/flag/exclusion digest from that result.  It never accepts a
+    hand-entered claim description or response hash.
+    """
+
+    selections = {
+        _required_str(selection, "candidate_id"): selection
+        for selection in selection_records
+    }
+    if len(selections) != 1:
+        raise StageBManifestError(
+            "frozen-unit adjudication issuer requires exactly one candidate"
+        )
+    candidate_id, selection = next(iter(selections.items()))
+    units_by_candidate = _prediction_units_by_candidate(adapted_records)
+    decisions_by_candidate = _verified_stage_b_decisions(artifact)
+    frozen_units = tuple(units_by_candidate[candidate_id])
+    decision_text, commitment = decisions_by_candidate[candidate_id]
+    prompt = _labeling_prompt(
+        selection,
+        decision_text,
+        frozen_units,
+        decision_text_commitment=commitment,
+    )
+    journal_path = _provider_attempt_journal_path(output_root, provider)
+    caps_sha256 = _authority_identity(
+        raw_sha256=raw_sha256,
+        decision_sha256=decision_sha256,
+        registry_sha256=registry_sha256,
+        provider=provider,
+    )
+    journal = _provider_attempt_journal(
+        path=journal_path,
+        stage="llm-label",
+        candidate_id=candidate_id,
+        prompt=prompt,
+        registry_entry=registry_entry,
+        model_registry_sha256=registry_sha256,
+        cycle_cap_usd=PROVIDER_CAP_USD[provider],
+        cycle_id="cycle-1-stage-b-manifest",
+        provider_cycle_caps_sha256=caps_sha256,
+    )
+    if journal is None:
+        raise StageBManifestError("frozen-unit issuer requires an attempt journal")
+    workflow_error: FrozenUnitWorkflowRequiredError | None = None
+    with journal:
+        if not journal.has_reconstruction_failure or journal.has_settled_attempt:
+            raise StageBManifestError(
+                "frozen-unit issuer requires one unsettled reconstruction failure"
+            )
+    try:
+        _llm_label_one_model(
+            selection=selection,
+            decision_text=decision_text,
+            decision_text_commitment=commitment,
+            frozen_units=frozen_units,
+            prompt=prompt,
+            registry_entry=registry_entry,
+            model_registry_sha256=registry_sha256,
+            transport=None,
+            environ=None,
+            timeout_seconds=120.0,
+            max_provider_attempts=1,
+            provider_journal_path=journal_path,
+            provider_cycle_cap_usd=PROVIDER_CAP_USD[provider],
+            provider_cycle_id="cycle-1-stage-b-manifest",
+            provider_cycle_caps_sha256=caps_sha256,
+            provider_spend_authorities=None,
+            provider_accounts=None,
+            replay_only=True,
+        )
+    except FrozenUnitWorkflowRequiredError as exc:
+        workflow_error = exc
+    else:
+        raise StageBManifestError(
+            "frozen-unit issuer did not observe the expected missing-unit flag"
+        )
+    evidence_journal = _provider_attempt_journal(
+        path=journal_path,
+        stage="llm-label",
+        candidate_id=candidate_id,
+        prompt=prompt,
+        registry_entry=registry_entry,
+        model_registry_sha256=registry_sha256,
+        cycle_cap_usd=PROVIDER_CAP_USD[provider],
+        cycle_id="cycle-1-stage-b-manifest",
+        provider_cycle_caps_sha256=caps_sha256,
+    )
+    if evidence_journal is None:
+        raise StageBManifestError("frozen-unit issuer could not reopen the journal")
+    with evidence_journal:
+        evidence = evidence_journal.latest_reconstruction_recovery_evidence()
+    missing_flags = [
+        flag.to_record(workflow_error.labeling_result.decision_text)
+        for flag in workflow_error.labeling_result.missing_unit_flags
+    ]
+    exclusion_entry = workflow_error.repair_result.exclusion_entry
+    if exclusion_entry is None:
+        raise StageBManifestError("missing-unit issuer lacks an exclusion ledger entry")
+    frozen_unit_ids = [unit.unit_id for unit in frozen_units]
+    owner_ruling = _owner_ruling_payload(
+        candidate_id=candidate_id,
+        case_id=_required_str(selection, "case_id"),
+        frozen_unit_ids=frozen_unit_ids,
+        missing_flags=missing_flags,
+    )
+    record: JsonRecord = {
+        "schema_version": str(_ADJ_SCHEMA),
+        "candidate_id": candidate_id,
+        "case_id": _required_str(selection, "case_id"),
+        "provider": provider,
+        "status": "missing_unit_excluded_from_scoring",
+        "owner_comment_id": owner_comment_id,
+        "owner_ruling": owner_ruling,
+        "owner_ruling_sha256": _owner_comment_ruling_sha256(
+            owner_comment_id,
+            expected_ruling=owner_ruling,
+        ),
+        "source_commitments": {
+            "raw_prediction_units_sha256": raw_sha256,
+            "selection_sha256": CURRENT_SELECTION_SHA256,
+            "decision_texts_sha256": decision_sha256,
+            "model_registry_sha256": registry_sha256,
+            "decision_text_sha256": commitment["decision_text_sha256"],
+            "raw_candidate_envelope_sha256": artifact.finalized_unit_envelope_sha256s[
+                candidate_id
+            ],
+        },
+        "frozen_unit_ids": frozen_unit_ids,
+        "score_scope": "frozen_units_only",
+        "scoreable_unit_ids": frozen_unit_ids,
+        "raw_output_sha256": workflow_error.response.raw_output_sha256,
+        "normalized_response_sha256": str(
+            ARTIFACT_PREFIXED_SHA256_V1.commit(
+                evidence.normalized_response_json,
+                domain=_ADJ_SCHEMA,
+            ).digest
+        ),
+        "missing_unit_flags_sha256": canonical_records_sha256(missing_flags),
+        "exclusion_entry_sha256": canonical_sha256(exclusion_entry.to_record()),
+    }
+    _validate_frozen_unit_adjudication(
+        record,
+        selection=selection,
+        frozen_units=frozen_units,
+        decision_commitment=commitment,
+        artifact=artifact,
+        raw_sha256=raw_sha256,
+        decision_sha256=decision_sha256,
+        registry_sha256=registry_sha256,
+    )
+    index_payload = (
+        json.dumps(
+            {
+                "schema_version": FROZEN_UNIT_ADJUDICATION_INDEX_V1,
+                "records": [record],
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+        )
+        + "\n"
+    ).encode()
+    _write_create_only(output_path, index_payload)
+    return {
+        "candidate_id": candidate_id,
+        "output": str(output_path),
+        "output_sha256": _raw_sha256(index_payload),
+        "provider_transport_calls": 0,
+        "missing_unit_flag_count": len(missing_flags),
+        "frozen_unit_count": len(frozen_units),
+    }
+
+
 def _json_object(payload: bytes, label: str) -> Mapping[str, object]:
     try:
         value: object = json.loads(payload)
@@ -315,6 +531,242 @@ def _owner_approval_ids() -> tuple[str, ...]:
     if not terminal_ids:
         raise StageBManifestError("terminal-unit packet approval is missing")
     return tuple(sorted(set((*spend_ids, *terminal_ids))))
+
+
+# contract-ratchet: allow exact owner-comment commitment bound to adjudication schema
+def _owner_comment_ruling_sha256(
+    comment_id: str,
+    *,
+    expected_ruling: Mapping[str, Any],
+) -> str:
+    """Return the digest of an exact, typed owner adjudication comment."""
+
+    expected_text = "stage-b-exclusion: " + json.dumps(
+        dict(expected_ruling), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+
+    owner_author = _owner_author()
+    for bead_id in (BEAD_ID, TERMINAL_APPROVAL_BEAD_ID):
+        try:
+            completed = subprocess.run(
+                ["bd", "comments", bead_id, "--json"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            value: object = json.loads(completed.stdout)
+        except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+            raise StageBManifestError(
+                f"could not read owner adjudication from Beads: {bead_id}"
+            ) from exc
+        if not isinstance(value, list):
+            raise StageBManifestError(
+                f"Beads comments response is not an array: {bead_id}"
+            )
+        for raw_comment in cast(list[object], value):
+            if not isinstance(raw_comment, Mapping):
+                continue
+            comment = cast(Mapping[str, object], raw_comment)
+            if comment.get("id") != comment_id or comment.get("author") != owner_author:
+                continue
+            text = comment.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise StageBManifestError("owner adjudication comment text is invalid")
+            if text != expected_text:
+                candidate_id = expected_ruling.get("candidate_id")
+                case_id = expected_ruling.get("case_id")
+                frozen_unit_ids = expected_ruling.get("frozen_unit_ids")
+                missing_descriptions = expected_ruling.get("missing_unit_descriptions")
+                missing_description_values = (
+                    cast(list[object], missing_descriptions)
+                    if isinstance(missing_descriptions, list)
+                    else []
+                )
+                contextual_scope = (
+                    comment_id == CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID
+                    and str(
+                        ARTIFACT_PREFIXED_SHA256_V1.commit(
+                            text,
+                            domain=_ADJ_SCHEMA,
+                        ).digest
+                    )
+                    == CONTEXTUAL_OWNER_APPROVAL_TEXT_SHA256
+                    and expected_ruling.get("action") == "exclude_missing_unit_only"
+                    and isinstance(candidate_id, str)
+                    and str(
+                        ARTIFACT_PREFIXED_SHA256_V1.commit(
+                            candidate_id,
+                            domain=_ADJ_SCHEMA,
+                        ).digest
+                    )
+                    == CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256
+                    and isinstance(case_id, str)
+                    and str(
+                        ARTIFACT_PREFIXED_SHA256_V1.commit(
+                            case_id,
+                            domain=_ADJ_SCHEMA,
+                        ).digest
+                    )
+                    == CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256
+                    and isinstance(frozen_unit_ids, list)
+                    and len(cast(list[object], frozen_unit_ids)) == 4
+                    and all(
+                        isinstance(unit_id, str)
+                        for unit_id in cast(list[object], frozen_unit_ids)
+                    )
+                    and len(missing_description_values) == 1
+                    and isinstance(missing_description_values[0], str)
+                    and str(
+                        ARTIFACT_PREFIXED_SHA256_V1.commit(
+                            missing_description_values[0],
+                            domain=_ADJ_SCHEMA,
+                        ).digest
+                    )
+                    == CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_SHA256
+                )
+                if contextual_scope:
+                    return str(
+                        ARTIFACT_PREFIXED_SHA256_V1.commit(
+                            text,
+                            domain=_ADJ_SCHEMA,
+                        ).digest
+                    )
+                raise StageBManifestError(
+                    "owner adjudication comment is not the exact typed ruling"
+                )
+            return str(
+                ARTIFACT_PREFIXED_SHA256_V1.commit(
+                    text,
+                    domain=_ADJ_SCHEMA,
+                ).digest
+            )
+    raise StageBManifestError(
+        f"owner adjudication comment is missing or not authored by {owner_author}: "
+        f"{comment_id}"
+    )
+
+
+def _load_frozen_unit_adjudications(
+    path: Path | None,
+) -> tuple[dict[str, JsonRecord], str | None]:
+    """Load the private, owner-comment-bound exclusion decisions, if supplied."""
+
+    if path is None:
+        return {}, None
+    payload = _read_regular(path, "frozen-unit adjudications")
+    value = _json_object(payload, "frozen-unit adjudications")
+    if value.get("schema_version") != FROZEN_UNIT_ADJUDICATION_INDEX_V1:
+        raise StageBManifestError("frozen-unit adjudication index schema differs")
+    records_value = value.get("records")
+    if not isinstance(records_value, Sequence) or isinstance(
+        records_value, (str, bytes)
+    ):
+        raise StageBManifestError("frozen-unit adjudication records are missing")
+    records: dict[str, JsonRecord] = {}
+    for raw_record in cast(Sequence[object], records_value):
+        if not isinstance(raw_record, Mapping):
+            raise StageBManifestError("frozen-unit adjudication is not an object")
+        record = dict(cast(Mapping[str, Any], raw_record))
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in records:
+            raise StageBManifestError(
+                f"duplicate frozen-unit adjudication: {candidate_id}"
+            )
+        records[candidate_id] = record
+    return records, _raw_sha256(payload)
+
+
+def _owner_ruling_payload(
+    *,
+    candidate_id: str,
+    case_id: str,
+    frozen_unit_ids: Sequence[str],
+    missing_flags: Sequence[Mapping[str, Any]],
+) -> JsonRecord:
+    """Describe the only owner action permitted for this missing-unit path."""
+
+    return {
+        "action": "exclude_missing_unit_only",
+        "candidate_id": candidate_id,
+        "case_id": case_id,
+        "frozen_unit_ids": list(frozen_unit_ids),
+        "missing_unit_descriptions": [
+            _required_str(flag, "missing_unit_description") for flag in missing_flags
+        ],
+    }
+
+
+def _validate_frozen_unit_adjudication(
+    record: Mapping[str, Any],
+    *,
+    selection: Mapping[str, Any],
+    frozen_units: Sequence[Any],
+    decision_commitment: Mapping[str, str],
+    artifact: VerifiedDecisionTextArtifact,
+    raw_sha256: str,
+    decision_sha256: str,
+    registry_sha256: str,
+    verify_owner: bool = True,
+) -> None:
+    """Check source commitments before a provider-free exclusion replay."""
+
+    if record.get("schema_version") != str(_ADJ_SCHEMA):
+        raise StageBManifestError("frozen-unit adjudication schema differs")
+    candidate_id = _required_str(selection, "candidate_id")
+    if record.get("candidate_id") != candidate_id or record.get(
+        "case_id"
+    ) != _required_str(selection, "case_id"):
+        raise StageBManifestError("frozen-unit adjudication candidate identity differs")
+    owner_comment_id = record.get("owner_comment_id")
+    owner_ruling_sha256 = record.get("owner_ruling_sha256")
+    owner_ruling_value = record.get("owner_ruling")
+    if (
+        not isinstance(owner_comment_id, str)
+        or not isinstance(owner_ruling_sha256, str)
+        or not isinstance(owner_ruling_value, Mapping)
+    ):
+        raise StageBManifestError("frozen-unit adjudication owner identity is missing")
+    owner_ruling = cast(Mapping[str, Any], owner_ruling_value)
+    expected_unit_ids = [_unit_id(unit) for unit in frozen_units]
+    if (
+        owner_ruling.get("action") != "exclude_missing_unit_only"
+        or owner_ruling.get("candidate_id") != candidate_id
+        or owner_ruling.get("case_id") != _required_str(selection, "case_id")
+        or owner_ruling.get("frozen_unit_ids") != expected_unit_ids
+    ):
+        raise StageBManifestError("frozen-unit adjudication owner ruling differs")
+    if (
+        verify_owner
+        and _owner_comment_ruling_sha256(
+            owner_comment_id,
+            expected_ruling=owner_ruling,
+        )
+        != owner_ruling_sha256
+    ):
+        raise StageBManifestError("frozen-unit adjudication owner comment differs")
+    source_commitments = record.get("source_commitments")
+    if not isinstance(source_commitments, Mapping):
+        raise StageBManifestError("frozen-unit adjudication source commitments missing")
+    expected_source_commitments = {
+        "raw_prediction_units_sha256": raw_sha256,
+        "selection_sha256": CURRENT_SELECTION_SHA256,
+        "decision_texts_sha256": decision_sha256,
+        "model_registry_sha256": registry_sha256,
+        "decision_text_sha256": decision_commitment.get("decision_text_sha256"),
+        "raw_candidate_envelope_sha256": artifact.finalized_unit_envelope_sha256s[
+            candidate_id
+        ],
+    }
+    if dict(cast(Mapping[str, Any], source_commitments)) != expected_source_commitments:
+        raise StageBManifestError("frozen-unit adjudication source commitments differ")
+    if record.get("frozen_unit_ids") != expected_unit_ids:
+        raise StageBManifestError("frozen-unit adjudication changed frozen units")
+    if record.get("status") != "missing_unit_excluded_from_scoring":
+        raise StageBManifestError("frozen-unit adjudication status differs")
+    if record.get("score_scope") != "frozen_units_only":
+        raise StageBManifestError("frozen-unit adjudication score scope differs")
+    if record.get("scoreable_unit_ids") != expected_unit_ids:
+        raise StageBManifestError("frozen-unit adjudication scoreable units differ")
 
 
 def _manifest_units(raw_records: Sequence[Mapping[str, Any]]) -> tuple[JsonRecord, ...]:
@@ -730,12 +1182,12 @@ def _existing_result(
     frozen_units: Sequence[Any],
     decision_commitment: Mapping[str, str],
     prompt: str,
+    frozen_unit_adjudication: Mapping[str, Any] | None = None,
 ) -> JsonRecord | None:
     if not path.exists():
         return None
-    value = _json_object(
-        _read_regular(path, f"existing result {path}"), f"existing result {path}"
-    )
+    value_bytes = _read_regular(path, f"existing result {path}")
+    value = _json_object(value_bytes, f"existing result {path}")
     expected = {
         "schema_version": str(STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
         "candidate_id": candidate_id,
@@ -748,11 +1200,26 @@ def _existing_result(
         "model_registry_sha256": registry_sha256,
         "provider_sampling_policy": "provider_default",
         "tools_enabled": False,
-        "status": "succeeded",
     }
     for key, expected_value in expected.items():
         if value.get(key) != expected_value:
             raise StageBManifestError(f"existing result identity differs: {path}")
+    status = value.get("status")
+    if status == "failed":
+        if frozen_unit_adjudication is None:
+            raise StageBManifestError(
+                f"existing failed result requires frozen-unit adjudication: {path}"
+            )
+        archived_path = path.with_name(path.name + ".failed")
+        if archived_path.exists():
+            raise StageBManifestError(
+                f"failed result archive already exists; refusing to overwrite: "
+                f"{archived_path}"
+            )
+        path.rename(archived_path)
+        return None
+    if status != "succeeded":
+        raise StageBManifestError(f"existing result status differs: {path}")
     audit_value = value.get("audit")
     if not isinstance(audit_value, Mapping):
         raise StageBManifestError(f"existing result audit is missing: {path}")
@@ -773,6 +1240,49 @@ def _existing_result(
     for key, expected_value in expected_audit.items():
         if audit.get(key) != expected_value:
             raise StageBManifestError(f"existing result audit identity differs: {path}")
+    if frozen_unit_adjudication is not None:
+        existing_adjudication = audit.get("frozen_unit_adjudication")
+        if existing_adjudication != dict(frozen_unit_adjudication):
+            raise StageBManifestError(
+                f"existing result frozen-unit adjudication differs: {path}"
+            )
+        workflow = audit.get("frozen_unit_workflow")
+        if (
+            not isinstance(workflow, Mapping)
+            or cast(Mapping[str, Any], workflow).get("is_scored") is not False
+            or cast(Mapping[str, Any], workflow).get("score_scope")
+            != "frozen_units_only"
+            or cast(Mapping[str, Any], workflow).get("scoreable_unit_ids")
+            != [_unit_id(unit) for unit in frozen_units]
+        ):
+            raise StageBManifestError(
+                f"existing result frozen-unit workflow differs: {path}"
+            )
+        missing_flags = audit.get("missing_unit_flags")
+        if not isinstance(missing_flags, Sequence) or isinstance(
+            missing_flags, (str, bytes)
+        ):
+            raise StageBManifestError(
+                f"existing result missing-unit evidence is missing: {path}"
+            )
+        if frozen_unit_adjudication.get("missing_unit_flags_sha256") != (
+            canonical_records_sha256(cast(Sequence[Mapping[str, Any]], missing_flags))
+        ):
+            raise StageBManifestError(
+                f"existing result missing-unit evidence differs: {path}"
+            )
+        exclusion_value = cast(Mapping[str, Any], workflow).get("exclusion")
+        if not isinstance(exclusion_value, Mapping):
+            raise StageBManifestError(
+                f"existing result exclusion evidence differs: {path}"
+            )
+        exclusion = cast(Mapping[str, Any], exclusion_value)
+        if frozen_unit_adjudication.get("exclusion_entry_sha256") != canonical_sha256(
+            exclusion
+        ):
+            raise StageBManifestError(
+                f"existing result exclusion evidence differs: {path}"
+            )
     model_outputs = audit.get("model_outputs")
     if not isinstance(model_outputs, Sequence) or isinstance(
         model_outputs, (str, bytes)
@@ -787,6 +1297,12 @@ def _existing_result(
     expected_prompt_sha256 = "sha256:" + _raw_sha256(prompt.encode("utf-8"))
     if model_output.get("model_key") != model_key:
         raise StageBManifestError(f"existing result model identity differs: {path}")
+    if frozen_unit_adjudication is not None and model_output.get(
+        "raw_output_sha256"
+    ) != frozen_unit_adjudication.get("raw_output_sha256"):
+        raise StageBManifestError(
+            f"existing result response commitment differs: {path}"
+        )
     if model_output.get("provider_prompt_sha256") != expected_prompt_sha256:
         raise StageBManifestError(f"existing result prompt commitment differs: {path}")
     metadata_value = model_output.get("metadata")
@@ -869,11 +1385,12 @@ def _execute_provider(
     raw_sha256: str,
     decision_sha256: str,
     max_cases: int | None,
+    frozen_unit_adjudications: Mapping[str, Mapping[str, Any]] | None = None,
+    frozen_unit_adjudications_sha256: str | None = None,
 ) -> tuple[JsonRecord, ...]:
     del raw_path, decision_texts_path
     if provider not in PROVIDER_CAP_USD:
         raise StageBManifestError(f"unsupported execution provider: {provider}")
-    _validate_provider_environment(provider)
     units_by_candidate = _prediction_units_by_candidate(adapted_records)
     decisions_by_candidate = _verified_stage_b_decisions(artifact)
     selections_by_candidate = {
@@ -892,6 +1409,15 @@ def _execute_provider(
         if max_cases <= 0:
             raise StageBManifestError("max_cases must be positive")
         candidate_ids = candidate_ids[:max_cases]
+    adjudications = {
+        candidate_id: record
+        for candidate_id, record in (frozen_unit_adjudications or {}).items()
+        if record.get("provider") in {None, provider}
+    }
+    if not set(adjudications) <= set(selections_by_candidate):
+        raise StageBManifestError(
+            "frozen-unit adjudication contains an unselected candidate"
+        )
     journal_path = _provider_attempt_journal_path(output_root, provider)
     authority_path = output_root / f"spend-authority-{provider}.sqlite3"
     account = f"cycle1-{provider}"
@@ -924,6 +1450,18 @@ def _execute_provider(
             selection = selections_by_candidate[candidate_id]
             frozen_units = tuple(units_by_candidate[candidate_id])
             decision_text, commitment = decisions_by_candidate[candidate_id]
+            adjudication = adjudications.get(candidate_id)
+            if adjudication is not None:
+                _validate_frozen_unit_adjudication(
+                    adjudication,
+                    selection=selection,
+                    frozen_units=frozen_units,
+                    decision_commitment=commitment,
+                    artifact=artifact,
+                    raw_sha256=raw_sha256,
+                    decision_sha256=decision_sha256,
+                    registry_sha256=registry_sha256,
+                )
             prompt = _labeling_prompt(
                 selection,
                 decision_text,
@@ -946,12 +1484,17 @@ def _execute_provider(
                 frozen_units=frozen_units,
                 decision_commitment=commitment,
                 prompt=prompt,
+                frozen_unit_adjudication=adjudication,
             )
             if prior is not None:
                 records.append(cast(JsonRecord, prior["audit"]))
                 continue
+            replay_only = adjudication is not None
+            if not replay_only:
+                _validate_provider_environment(provider)
             authorities: Mapping[str, ProviderSpendAuthority] = {provider: authority}
             accounts = {provider: account}
+            frozen_workflow_audit: JsonRecord = {}
             try:
                 labels, response, finding_count, missing_count, prompt_sha256 = (
                     _llm_label_one_model(
@@ -977,6 +1520,9 @@ def _execute_provider(
                         ),
                         provider_spend_authorities=authorities,
                         provider_accounts=accounts,
+                        frozen_unit_adjudication=adjudication,
+                        frozen_unit_workflow_audit=frozen_workflow_audit,
+                        replay_only=replay_only,
                     )
                 )
             except Exception as exc:
@@ -998,6 +1544,8 @@ def _execute_provider(
                     "error_type": type(exc).__name__,
                     "error_message": str(exc),
                 }
+                if isinstance(exc, FrozenUnitWorkflowRequiredError):
+                    failure.update(_frozen_unit_workflow_audit_fields(exc))
                 _write_create_only(
                     result_path,
                     (
@@ -1023,6 +1571,14 @@ def _execute_provider(
                 "metadata": dict(response.metadata or {}),
                 "labels": [label.to_record() for label in labels],
             }
+            if adjudication is not None:
+                if frozen_workflow_audit.get("frozen_unit_adjudication") != dict(
+                    adjudication
+                ):
+                    raise StageBManifestError(
+                        "frozen-unit adjudication replay produced no matching audit"
+                    )
+                model_output.update(frozen_workflow_audit)
             audit: JsonRecord = {
                 "stage": "llm-label-provider-shard",
                 "status": "succeeded",
@@ -1038,6 +1594,8 @@ def _execute_provider(
                 "model_outputs": [model_output],
                 "estimated_cost": response.estimated_cost,
             }
+            if frozen_workflow_audit:
+                audit.update(frozen_workflow_audit)
             result = {
                 "schema_version": str(STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
                 "status": "succeeded",
@@ -1101,6 +1659,11 @@ def _execute_provider(
             "case_count": len(records),
             "unit_count": sum(int(record.get("unit_count", 0)) for record in records),
         }
+        if frozen_unit_adjudications_sha256 is not None and adjudications:
+            run_card["source_commitments"] = {
+                **cast(Mapping[str, Any], run_card["source_commitments"]),
+                "frozen_unit_adjudications": frozen_unit_adjudications_sha256,
+            }
         run_card_payload = (
             json.dumps(run_card, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
         ).encode()
@@ -1120,10 +1683,17 @@ def _validate_full_provider_shard(
     selection_records: Sequence[Mapping[str, Any]],
     adapted_records: Sequence[Mapping[str, Any]],
     owner_comment_ids: Sequence[str],
+    frozen_unit_adjudications: Mapping[str, Mapping[str, Any]] | None = None,
+    frozen_unit_adjudications_sha256: str | None = None,
 ) -> tuple[tuple[JsonRecord, ...], Mapping[str, Any]]:
     """Authenticate one complete provider shard without touching credentials."""
 
     normalized_provider = provider.lower()
+    provider_adjudications = {
+        candidate_id: record
+        for candidate_id, record in (frozen_unit_adjudications or {}).items()
+        if record.get("provider") in {None, normalized_provider}
+    }
     audit_path, run_card_path = _shard_artifact_paths(
         output_root, normalized_provider, None
     )
@@ -1169,6 +1739,11 @@ def _validate_full_provider_shard(
             raise StageBManifestError(
                 f"provider shard run card field differs: {normalized_provider}/{key}"
             )
+    if frozen_unit_adjudications_sha256 is not None and provider_adjudications:
+        expected_source_commitments = {
+            **expected_source_commitments,
+            "frozen_unit_adjudications": frozen_unit_adjudications_sha256,
+        }
     if run_card.get("source_commitments") != expected_source_commitments:
         raise StageBManifestError(
             f"provider shard source commitments differ: {normalized_provider}"
@@ -1218,6 +1793,18 @@ def _validate_full_provider_shard(
             decision_text_commitment=commitment,
         )
         result_path = _result_path(output_root, normalized_provider, candidate_id)
+        adjudication = provider_adjudications.get(candidate_id)
+        if adjudication is not None:
+            _validate_frozen_unit_adjudication(
+                adjudication,
+                selection=selection,
+                frozen_units=frozen_units,
+                decision_commitment=commitment,
+                artifact=artifact,
+                raw_sha256=raw_sha256,
+                decision_sha256=decision_sha256,
+                registry_sha256=registry_sha256,
+            )
         result = _existing_result(
             result_path,
             candidate_id=candidate_id,
@@ -1233,6 +1820,7 @@ def _validate_full_provider_shard(
             frozen_units=frozen_units,
             decision_commitment=commitment,
             prompt=prompt,
+            frozen_unit_adjudication=(provider_adjudications.get(candidate_id)),
         )
         if result is None:
             raise StageBManifestError(
@@ -1245,7 +1833,162 @@ def _validate_full_provider_shard(
                 "provider shard receipt audit is missing: "
                 f"{normalized_provider}/{candidate_id}"
             )
-        expected_audits.append(dict(cast(Mapping[str, Any], audit)))
+        audit = cast(Mapping[str, Any], audit)
+        if adjudication is not None:
+            model_outputs_value = audit.get("model_outputs")
+            if not isinstance(model_outputs_value, Sequence) or isinstance(
+                model_outputs_value, (str, bytes)
+            ):
+                raise StageBManifestError(
+                    "provider shard adjudication model output is missing: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            model_output_values = cast(Sequence[object], model_outputs_value)
+            if len(model_output_values) != 1:
+                raise StageBManifestError(
+                    "provider shard adjudication model output is missing: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            model_output_value = model_output_values[0]
+            if not isinstance(model_output_value, Mapping):
+                raise StageBManifestError(
+                    "provider shard adjudication model output is invalid: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            model_output = cast(Mapping[str, Any], model_output_value)
+            if model_output.get("raw_output_sha256") != adjudication.get(
+                "raw_output_sha256"
+            ):
+                raise StageBManifestError(
+                    "provider shard adjudication response differs: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            workflow_value = audit.get("frozen_unit_workflow")
+            missing_flags_value = audit.get("missing_unit_flags")
+            if (
+                not isinstance(workflow_value, Mapping)
+                or not isinstance(missing_flags_value, Sequence)
+                or isinstance(missing_flags_value, (str, bytes))
+            ):
+                raise StageBManifestError(
+                    "provider shard adjudication evidence is incomplete: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            workflow = cast(Mapping[str, Any], workflow_value)
+            missing_flags = cast(Sequence[Mapping[str, Any]], missing_flags_value)
+            if workflow.get("score_scope") != "frozen_units_only" or workflow.get(
+                "scoreable_unit_ids"
+            ) != [_unit_id(unit) for unit in frozen_units]:
+                raise StageBManifestError(
+                    "provider shard adjudication score scope differs: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            if adjudication.get("missing_unit_flags_sha256") != (
+                canonical_records_sha256(missing_flags)
+            ):
+                raise StageBManifestError(
+                    "provider shard adjudication missing-unit evidence differs: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            exclusion_value = workflow.get("exclusion")
+            if not isinstance(exclusion_value, Mapping):
+                raise StageBManifestError(
+                    "provider shard adjudication exclusion evidence differs: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            exclusion = cast(Mapping[str, Any], exclusion_value)
+            if adjudication.get("exclusion_entry_sha256") != canonical_sha256(
+                exclusion
+            ):
+                raise StageBManifestError(
+                    "provider shard adjudication exclusion evidence differs: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            expected_owner_ruling = _owner_ruling_payload(
+                candidate_id=candidate_id,
+                case_id=_required_str(selection, "case_id"),
+                frozen_unit_ids=[_unit_id(unit) for unit in frozen_units],
+                missing_flags=missing_flags,
+            )
+            if adjudication.get("owner_ruling") != expected_owner_ruling:
+                raise StageBManifestError(
+                    "provider shard adjudication owner ruling differs: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+            journal = _provider_attempt_journal(
+                path=journal_path,
+                stage="llm-label",
+                candidate_id=candidate_id,
+                prompt=prompt,
+                registry_entry=registry_entry,
+                account=f"cycle1-{normalized_provider}",
+                model_registry_sha256=registry_sha256,
+                cycle_cap_usd=PROVIDER_CAP_USD[normalized_provider],
+                cycle_id="cycle-1-stage-b-manifest",
+                provider_cycle_caps_sha256=_authority_identity(
+                    raw_sha256=raw_sha256,
+                    decision_sha256=decision_sha256,
+                    registry_sha256=registry_sha256,
+                    provider=normalized_provider,
+                ),
+            )
+            if journal is None:
+                raise StageBManifestError(
+                    "provider shard adjudication journal is unavailable"
+                )
+            with journal:
+                evidence = journal.latest_reconstruction_recovery_evidence()
+                try:
+                    normalized_value: object = json.loads(
+                        evidence.normalized_response_json
+                    )
+                except json.JSONDecodeError as exc:
+                    raise StageBManifestError(
+                        "provider shard adjudication normalized response is not "
+                        "valid JSON: "
+                        f"{normalized_provider}/{candidate_id}"
+                    ) from exc
+                if not isinstance(normalized_value, Mapping):
+                    raise StageBManifestError(
+                        "provider shard adjudication normalized response is not "
+                        "an object: "
+                        f"{normalized_provider}/{candidate_id}"
+                    )
+                normalized_record = cast(Mapping[str, object], normalized_value)
+                raw_output = normalized_record.get("raw_output")
+                if not isinstance(raw_output, str) or not raw_output.strip():
+                    raise StageBManifestError(
+                        "provider shard adjudication normalized response lacks "
+                        "raw_output: "
+                        f"{normalized_provider}/{candidate_id}"
+                    )
+                journal_response = SolverResponse(raw_output=raw_output)
+                expected_raw_output_sha256 = journal_response.raw_output_sha256
+                if (
+                    adjudication.get("raw_output_sha256") != expected_raw_output_sha256
+                    or model_output.get("raw_output_sha256")
+                    != expected_raw_output_sha256
+                ):
+                    raise StageBManifestError(
+                        "provider shard adjudication raw output differs from "
+                        "authenticated "
+                        "provider journal: "
+                        f"{normalized_provider}/{candidate_id}"
+                    )
+            expected_normalized_sha256 = str(
+                ARTIFACT_PREFIXED_SHA256_V1.commit(
+                    evidence.normalized_response_json,
+                    domain=_ADJ_SCHEMA,
+                ).digest
+            )
+            if adjudication.get("normalized_response_sha256") != (
+                expected_normalized_sha256
+            ):
+                raise StageBManifestError(
+                    "provider shard adjudication normalized response differs: "
+                    f"{normalized_provider}/{candidate_id}"
+                )
+        expected_audits.append(dict(audit))
 
     if tuple(audit_rows) != tuple(expected_audits):
         raise StageBManifestError(
@@ -1273,6 +2016,8 @@ def _merge_provider_shards(
     registry_sha256: str,
     raw_sha256: str,
     decision_sha256: str,
+    frozen_unit_adjudications: Mapping[str, Mapping[str, Any]] | None = None,
+    frozen_unit_adjudications_sha256: str | None = None,
 ) -> Mapping[str, Any]:
     """Fan in complete authenticated shards and publish create-only outputs."""
 
@@ -1290,6 +2035,8 @@ def _merge_provider_shards(
             selection_records=selection_records,
             adapted_records=adapted_records,
             owner_comment_ids=owner_comment_ids,
+            frozen_unit_adjudications=frozen_unit_adjudications,
+            frozen_unit_adjudications_sha256=frozen_unit_adjudications_sha256,
         )
         provider_audits.extend(audits)
         shard_inputs.append(shard_input)
@@ -1356,6 +2103,11 @@ def _merge_provider_shards(
         "audit_count": len(merged.audit_records),
         "lawyer_review_queue_count": len(queue_records),
     }
+    if frozen_unit_adjudications_sha256 is not None:
+        merge_run_card["source_commitments"] = {
+            **cast(Mapping[str, Any], merge_run_card["source_commitments"]),
+            "frozen_unit_adjudications": frozen_unit_adjudications_sha256,
+        }
     merge_run_card_payload = (
         json.dumps(merge_run_card, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     ).encode()
@@ -1397,12 +2149,77 @@ def run(args: argparse.Namespace) -> int:
         adapted_path=adapted_path,
         raw_records=raw_records,
     )
+    adjudication_path_value = getattr(args, "frozen_unit_adjudications", None)
+    adjudication_path = (
+        Path(adjudication_path_value).resolve()
+        if adjudication_path_value is not None
+        else None
+    )
+    if getattr(args, "issue_frozen_unit_adjudication", False):
+        frozen_unit_adjudications, frozen_unit_adjudications_sha256 = {}, None
+    else:
+        frozen_unit_adjudications, frozen_unit_adjudications_sha256 = (
+            _load_frozen_unit_adjudications(adjudication_path)
+        )
     if registry_sha256 != STAGE_B_REGISTRY_SHA256 or raw_sha256 != RAW_UNITS_SHA256:
         raise StageBManifestError("authenticated source commitment changed")
     if legacy_decision_sha256 != DECISION_TEXTS_SHA256:
         raise StageBManifestError("legacy decision-text commitment changed")
     decision_sha256 = artifact.decision_texts_sha256
     provider = args.provider
+    if getattr(args, "issue_frozen_unit_adjudication", False):
+        if provider is None:
+            raise StageBManifestError(
+                "--issue-frozen-unit-adjudication requires --provider"
+            )
+        owner_comment_id = getattr(args, "owner_comment_id", None)
+        candidate_id = getattr(args, "candidate_id", None)
+        if not isinstance(owner_comment_id, str) or not owner_comment_id:
+            raise StageBManifestError(
+                "--issue-frozen-unit-adjudication requires --owner-comment-id"
+            )
+        if not isinstance(candidate_id, str) or not candidate_id:
+            raise StageBManifestError(
+                "--issue-frozen-unit-adjudication requires --candidate-id"
+            )
+        if adjudication_path is None:
+            raise StageBManifestError(
+                "--issue-frozen-unit-adjudication requires "
+                "--frozen-unit-adjudications output path"
+            )
+        selected = tuple(
+            selection
+            for selection in selection_records
+            if _required_str(selection, "candidate_id") == candidate_id
+        )
+        adapted = tuple(
+            record
+            for record in adapted_records
+            if _required_str(record, "candidate_id") == candidate_id
+        )
+        if len(selected) != 1 or len(adapted) != 1:
+            raise StageBManifestError(
+                "candidate is not present exactly once for adjudication: "
+                f"{candidate_id}"
+            )
+        entry = next(
+            item for item in registry_entries if item.provider.lower() == provider
+        )
+        summary = _issue_frozen_unit_adjudication(
+            output_path=adjudication_path,
+            owner_comment_id=owner_comment_id,
+            provider=provider,
+            output_root=output_root,
+            artifact=artifact,
+            selection_records=selected,
+            adapted_records=adapted,
+            registry_entry=entry,
+            registry_sha256=registry_sha256,
+            raw_sha256=raw_sha256,
+            decision_sha256=decision_sha256,
+        )
+        print(json.dumps(summary, sort_keys=True))
+        return 0
     if args.merge:
         if args.execute or provider is not None:
             raise StageBManifestError(
@@ -1418,6 +2235,8 @@ def run(args: argparse.Namespace) -> int:
             registry_sha256=registry_sha256,
             raw_sha256=raw_sha256,
             decision_sha256=decision_sha256,
+            frozen_unit_adjudications=frozen_unit_adjudications,
+            frozen_unit_adjudications_sha256=frozen_unit_adjudications_sha256,
         )
         print(json.dumps(summary, sort_keys=True))
         return 0
@@ -1474,6 +2293,8 @@ def run(args: argparse.Namespace) -> int:
         raw_sha256=raw_sha256,
         decision_sha256=decision_sha256,
         max_cases=args.max_cases,
+        frozen_unit_adjudications=frozen_unit_adjudications,
+        frozen_unit_adjudications_sha256=frozen_unit_adjudications_sha256,
     )
     print(
         json.dumps(
@@ -1504,6 +2325,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--provider", choices=("openai", "google"))
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument(
+        "--frozen-unit-adjudications",
+        type=Path,
+        help=(
+            "private owner-comment-bound adjudication index; with "
+            "--issue-frozen-unit-adjudication this is the create-only output"
+        ),
+    )
+    parser.add_argument(
+        "--issue-frozen-unit-adjudication",
+        action="store_true",
+        help=(
+            "issue a provider-free exclusion input from one retained failed "
+            "provider response"
+        ),
+    )
+    parser.add_argument("--owner-comment-id")
+    parser.add_argument("--candidate-id")
     parser.add_argument(
         "--merge",
         action="store_true",

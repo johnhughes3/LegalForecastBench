@@ -11,8 +11,13 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.evals import stageb_manifest_runner as runner
-from legalforecast.labeling import AmendmentClass, UnitResolution
+from legalforecast.evals.inspect_task import SolverResponse
+from legalforecast.labeling import AmendmentClass, UnitResolution, llm_pipeline
 from legalforecast.labeling.label_outcomes import OutcomeCitation, OutcomeLabel
+from legalforecast.labeling.llm_pipeline import (
+    STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
+    _require_frozen_unit_adjudication,
+)
 
 
 def _comment(comment_id: str, text: str, *, author: str = "owner") -> dict[str, str]:
@@ -33,6 +38,30 @@ def _beads_comments(
         return SimpleNamespace(stdout=json.dumps(comments_by_bead[bead_id]))
 
     return fake_run
+
+
+def _contextual_fixture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[str, str, str]:
+    comment_text = "synthetic owner approval for the contextual fixture"
+    candidate_id = "synthetic-contextual-candidate"
+    missing_description = "synthetic missing-unit description"
+    for constant_name, value in (
+        ("CONTEXTUAL_OWNER_APPROVAL_TEXT_SHA256", comment_text),
+        ("CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256", candidate_id),
+        ("CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_SHA256", missing_description),
+    ):
+        monkeypatch.setattr(
+            runner,
+            constant_name,
+            str(
+                runner.ARTIFACT_PREFIXED_SHA256_V1.commit(
+                    value,
+                    domain=runner._ADJ_SCHEMA,  # pyright: ignore[reportPrivateUsage]
+                ).digest
+            ),
+        )
+    return comment_text, candidate_id, missing_description
 
 
 def test_owner_approval_ids_require_exact_real_comments(
@@ -91,6 +120,107 @@ def test_owner_approval_ids_reject_terminal_comment_on_spend_bead(
         runner.StageBManifestError, match="terminal-unit packet approval"
     ):
         runner._owner_approval_ids()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_contextual_owner_approval_binds_candidate_specific_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    comment_text, candidate_id, missing_description = _contextual_fixture(monkeypatch)
+    monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
+    comment = _comment(
+        runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
+        comment_text,
+        author="owner",
+    )
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _beads_comments([comment], []),
+    )
+    ruling = {
+        "action": "exclude_missing_unit_only",
+        "candidate_id": candidate_id,
+        "case_id": candidate_id,
+        "frozen_unit_ids": ["unit-1", "unit-2", "unit-3", "unit-4"],
+        "missing_unit_descriptions": [missing_description],
+    }
+
+    digest = runner._owner_comment_ruling_sha256(  # pyright: ignore[reportPrivateUsage]
+        runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
+        expected_ruling=ruling,
+    )
+
+    assert digest == str(
+        runner.ARTIFACT_PREFIXED_SHA256_V1.commit(
+            comment_text,
+            domain=runner._ADJ_SCHEMA,  # pyright: ignore[reportPrivateUsage]
+        ).digest
+    )
+
+
+@pytest.mark.parametrize(
+    "ruling_update",
+    [
+        {"candidate_id": "other-contextual-candidate"},
+        {"frozen_unit_ids": ["unit-1", "unit-2", "unit-3"]},
+        {"missing_unit_descriptions": ["different claim"]},
+    ],
+)
+def test_contextual_owner_approval_rejects_unbound_scope(
+    monkeypatch: pytest.MonkeyPatch,
+    ruling_update: dict[str, Any],
+) -> None:
+    comment_text, candidate_id, missing_description = _contextual_fixture(monkeypatch)
+    monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
+    comment = _comment(
+        runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
+        comment_text,
+        author="owner",
+    )
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _beads_comments([comment], []),
+    )
+    ruling: dict[str, Any] = {
+        "action": "exclude_missing_unit_only",
+        "candidate_id": candidate_id,
+        "case_id": candidate_id,
+        "frozen_unit_ids": ["unit-1", "unit-2", "unit-3", "unit-4"],
+        "missing_unit_descriptions": [missing_description],
+    }
+    ruling.update(ruling_update)
+
+    with pytest.raises(
+        runner.StageBManifestError,
+        match="not the exact typed ruling",
+    ):
+        runner._owner_comment_ruling_sha256(  # pyright: ignore[reportPrivateUsage]
+            runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
+            expected_ruling=ruling,
+        )
+
+
+def test_spend_and_terminal_approvals_cannot_authorize_adjudication(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
+    spend = _comment("spend-id", runner.SPEND_APPROVAL, author="owner")
+    terminal = _comment("terminal-id", runner.TERMINAL_PACKET_APPROVAL, author="owner")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _beads_comments([spend], [terminal]),
+    )
+
+    with pytest.raises(
+        runner.StageBManifestError,
+        match="not the exact typed ruling",
+    ):
+        runner._owner_comment_ruling_sha256(  # pyright: ignore[reportPrivateUsage]
+            "spend-id",
+            expected_ruling={"candidate_id": "synthetic-contextual-candidate"},
+        )
 
 
 def _valid_result() -> tuple[dict[str, Any], dict[str, Any]]:
@@ -222,6 +352,276 @@ def test_existing_result_replays_full_nested_identity(tmp_path: Path) -> None:
         prompt=context["prompt"],
     )
     assert replayed == result
+
+
+def test_existing_failed_result_is_preserved_for_adjudicated_rerun(
+    tmp_path: Path,
+) -> None:
+    result, context = _valid_result()
+    result["status"] = "failed"
+    path = tmp_path / "result.json"
+    original = json.dumps(result).encode()
+    path.write_bytes(original)
+
+    assert (
+        runner._existing_result(  # pyright: ignore[reportPrivateUsage]
+            path,
+            candidate_id="candidate-1",
+            provider="openai",
+            model_key="openai:gpt-5.4-mini-2026-03-17",
+            raw_sha256="raw",
+            raw_candidate_envelope_sha256="envelope",
+            decision_sha256="decision",
+            registry_sha256="registry",
+            selection=context["selection"],
+            frozen_units=context["frozen_units"],
+            decision_commitment=context["decision_commitment"],
+            prompt=context["prompt"],
+            frozen_unit_adjudication={"candidate_id": "candidate-1"},
+        )
+        is None
+    )
+    assert not path.exists()
+    assert (tmp_path / "result.json.failed").read_bytes() == original
+
+
+def test_existing_failed_result_without_adjudication_remains_create_only(
+    tmp_path: Path,
+) -> None:
+    result, context = _valid_result()
+    result["status"] = "failed"
+    path = tmp_path / "result.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+    with pytest.raises(
+        runner.StageBManifestError, match="requires frozen-unit adjudication"
+    ):
+        runner._existing_result(  # pyright: ignore[reportPrivateUsage]
+            path,
+            candidate_id="candidate-1",
+            provider="openai",
+            model_key="openai:gpt-5.4-mini-2026-03-17",
+            raw_sha256="raw",
+            raw_candidate_envelope_sha256="envelope",
+            decision_sha256="decision",
+            registry_sha256="registry",
+            selection=context["selection"],
+            frozen_units=context["frozen_units"],
+            decision_commitment=context["decision_commitment"],
+            prompt=context["prompt"],
+        )
+    assert path.exists()
+
+
+def test_stage_b_replay_only_never_falls_back_to_live_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    live_calls: list[object] = []
+
+    def fail_live(*args: object, **kwargs: object) -> object:
+        live_calls.append((args, kwargs))
+        raise AssertionError("provider transport must not be called")
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", fail_live)
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="provider-free Stage B replay has no retained response",
+    ):
+        llm_pipeline._llm_label_one_model(  # pyright: ignore[reportPrivateUsage]
+            selection={"candidate_id": "candidate-1", "case_id": "case-1"},
+            decision_text=cast(Any, SimpleNamespace()),
+            decision_text_commitment={},
+            frozen_units=(),
+            prompt="provider-free replay prompt",
+            registry_entry=cast(
+                Any,
+                SimpleNamespace(provider="openai", registry_key="openai:model"),
+            ),
+            model_registry_sha256=None,
+            transport=None,
+            environ=None,
+            timeout_seconds=1.0,
+            provider_journal_path=None,
+            provider_cycle_cap_usd=0.0,
+            provider_cycle_id=None,
+            provider_cycle_caps_sha256=None,
+            provider_spend_authorities=None,
+            provider_accounts=None,
+            replay_only=True,
+        )
+    assert live_calls == []
+
+
+def test_frozen_unit_adjudication_binds_exact_response_and_exclusion() -> None:
+    missing_flags = ({"missing_unit_description": "new claim"},)
+    exclusion = {
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "reason": "unit_missing_from_stage_a",
+    }
+    response = SolverResponse(raw_output='{"unit_findings": []}')
+    adjudication = {
+        "schema_version": STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "status": "missing_unit_excluded_from_scoring",
+        "score_scope": "frozen_units_only",
+        "scoreable_unit_ids": ["unit-1"],
+        "owner_comment_id": "owner-comment",
+        "owner_ruling": {
+            "action": "exclude_missing_unit_only",
+            "candidate_id": "candidate-1",
+            "case_id": "case-1",
+            "frozen_unit_ids": ["unit-1"],
+            "missing_unit_descriptions": ["new claim"],
+        },
+        "owner_ruling_sha256": "sha256:owner-ruling",
+        "raw_output_sha256": response.raw_output_sha256,
+        "frozen_unit_ids": ["unit-1"],
+        "missing_unit_flags_sha256": runner.canonical_records_sha256(missing_flags),
+        "exclusion_entry_sha256": runner.canonical_sha256(exclusion),
+    }
+    _require_frozen_unit_adjudication(
+        adjudication,
+        candidate_id="candidate-1",
+        case_id="case-1",
+        frozen_unit_ids=("unit-1",),
+        missing_flags=missing_flags,
+        exclusion_record=exclusion,
+        response=response,
+        normalized_response_json=None,
+    )
+
+    tampered = dict(adjudication, raw_output_sha256="sha256:tampered")
+    with pytest.raises(ValueError, match="raw response differs"):
+        _require_frozen_unit_adjudication(
+            tampered,
+            candidate_id="candidate-1",
+            case_id="case-1",
+            frozen_unit_ids=("unit-1",),
+            missing_flags=missing_flags,
+            exclusion_record=exclusion,
+            response=response,
+            normalized_response_json=None,
+        )
+
+
+def test_frozen_unit_adjudication_index_is_create_only(tmp_path: Path) -> None:
+    payload = {
+        "schema_version": runner.FROZEN_UNIT_ADJUDICATION_INDEX_V1,
+        "records": [
+            {
+                "schema_version": STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
+                "candidate_id": "candidate-1",
+                "case_id": "case-1",
+            }
+        ],
+    }
+    path = tmp_path / "adjudications.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    first, digest = runner._load_frozen_unit_adjudications(path)  # pyright: ignore[reportPrivateUsage]
+    second, second_digest = runner._load_frozen_unit_adjudications(path)  # pyright: ignore[reportPrivateUsage]
+    assert first == second
+    assert digest == second_digest
+    assert digest is not None
+
+
+def test_issuer_reconstructs_retained_failure_without_transport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeJournal:
+        has_reconstruction_failure = True
+        has_settled_attempt = False
+
+        def __enter__(self) -> FakeJournal:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            self.close()
+
+        def close(self) -> None:
+            return None
+
+        def latest_reconstruction_recovery_evidence(self) -> SimpleNamespace:
+            return SimpleNamespace(
+                normalized_response_json='{"actual_cost_usd":0.01}',
+            )
+
+    decision = SimpleNamespace(text_sha256="sha256:decision")
+    missing_flag = SimpleNamespace(
+        to_record=lambda _: {"missing_unit_description": "new claim"}
+    )
+    exclusion = SimpleNamespace(
+        to_record=lambda: {
+            "candidate_id": "candidate-1",
+            "case_id": "case-1",
+            "reason": "unit_missing_from_stage_a",
+        }
+    )
+    workflow_error = runner.FrozenUnitWorkflowRequiredError(
+        response=SolverResponse(raw_output='{"unit_findings": []}'),
+        labeling_result=SimpleNamespace(
+            candidate_id="candidate-1",
+            case_id="case-1",
+            decision_text=decision,
+            missing_unit_flags=(missing_flag,),
+        ),
+        repair_result=SimpleNamespace(
+            units=(SimpleNamespace(unit_id="unit-1"),),
+            exclusion_entry=exclusion,
+        ),
+    )
+    monkeypatch.setattr(runner, "_provider_attempt_journal", lambda **_: FakeJournal())
+    monkeypatch.setattr(
+        runner,
+        "_owner_comment_ruling_sha256",
+        lambda _, **__: "sha256:ruling",
+    )
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": (SimpleNamespace(unit_id="unit-1"),)},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": (decision, {"decision_text_sha256": "sha256:decision"})
+        },
+    )
+    monkeypatch.setattr(runner, "_labeling_prompt", lambda *args, **kwargs: "prompt")
+    transport_calls: list[object] = []
+
+    def fake_label(**kwargs: Any) -> object:
+        transport_calls.append(kwargs["transport"])
+        raise workflow_error
+
+    monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
+    artifact = cast(
+        Any,
+        SimpleNamespace(finalized_unit_envelope_sha256s={"candidate-1": "envelope"}),
+    )
+    result = runner._issue_frozen_unit_adjudication(  # pyright: ignore[reportPrivateUsage]
+        output_path=tmp_path / "adjudications.json",
+        owner_comment_id="owner-comment",
+        provider="google",
+        output_root=tmp_path / "output",
+        artifact=artifact,
+        selection_records=({"candidate_id": "candidate-1", "case_id": "case-1"},),
+        adapted_records=(),
+        registry_entry=cast(
+            Any,
+            SimpleNamespace(provider="google", registry_key=runner.MODEL_KEYS[1]),
+        ),
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+    )
+    assert result["provider_transport_calls"] == 0
+    assert transport_calls == [None]
+    issued = json.loads((tmp_path / "adjudications.json").read_text())
+    assert issued["records"][0]["frozen_unit_ids"] == ["unit-1"]
 
 
 def _tamper_envelope(result: dict[str, Any]) -> None:
@@ -618,6 +1018,177 @@ def test_full_provider_shard_authenticates_complete_receipt(
         )
 
 
+def test_full_provider_shard_rejects_adjudication_hash_not_bound_to_journal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result, context = _valid_result()
+    audit = cast(dict[str, Any], result["audit"])
+    raw_output = '{"unit_findings": []}'
+    normalized_response_json = json.dumps(
+        {"raw_output": raw_output}, sort_keys=True, separators=(",", ":")
+    )
+    missing_flags = [{"missing_unit_description": "new claim"}]
+    exclusion = {
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "reason": "unit_missing_from_stage_a",
+    }
+    adjudication = {
+        "schema_version": STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "status": "missing_unit_excluded_from_scoring",
+        "score_scope": "frozen_units_only",
+        "scoreable_unit_ids": ["unit-1"],
+        "owner_comment_id": "owner-comment",
+        "owner_ruling": {
+            "action": "exclude_missing_unit_only",
+            "candidate_id": "candidate-1",
+            "case_id": "case-1",
+            "frozen_unit_ids": ["unit-1"],
+            "missing_unit_descriptions": ["new claim"],
+        },
+        "owner_ruling_sha256": "sha256:ruling",
+        "raw_output_sha256": "sha256:tampered",
+        "normalized_response_sha256": str(
+            runner.ARTIFACT_PREFIXED_SHA256_V1.commit(
+                normalized_response_json,
+                domain=STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
+            ).digest
+        ),
+        "frozen_unit_ids": ["unit-1"],
+        "missing_unit_flags_sha256": runner.canonical_records_sha256(missing_flags),
+        "exclusion_entry_sha256": runner.canonical_sha256(exclusion),
+    }
+    audit.update(
+        {
+            "missing_unit_flags": missing_flags,
+            "frozen_unit_workflow": {
+                "is_scored": False,
+                "score_scope": "frozen_units_only",
+                "scoreable_unit_ids": ["unit-1"],
+                "exclusion": exclusion,
+            },
+            "frozen_unit_adjudication": adjudication,
+        }
+    )
+    cast(dict[str, Any], audit["model_outputs"])[0]["raw_output_sha256"] = (
+        "sha256:tampered"
+    )
+    audit_payload = runner._canonical_jsonl((audit,))  # pyright: ignore[reportPrivateUsage]
+    audit_path, card_path = runner._shard_artifact_paths(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, "openai", None
+    )
+    audit_path.write_bytes(audit_payload)
+    journal_path = runner._provider_attempt_journal_path(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, "openai"
+    )
+    journal_path.write_bytes(b"provider-free journal")
+    card_path.write_text(
+        json.dumps(
+            {
+                "schema_version": str(
+                    runner.STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1
+                ),
+                "stage": "llm-label-provider-shard",
+                "status": "completed",
+                "dry_run": False,
+                "execute": True,
+                "paid_activity_requested": True,
+                "paid_activity_executed": True,
+                "execution_provider": "openai",
+                "model_keys": list(runner.MODEL_KEYS),
+                "executed_model_keys": [runner.MODEL_KEYS[0]],
+                "provider_sampling_policy": "provider_default",
+                "tools_enabled": False,
+                "create_only": True,
+                "resumable": True,
+                "max_cases": None,
+                "case_count": 1,
+                "unit_count": 1,
+                "owner_comment_ids": ["spend", "terminal"],
+                "source_commitments": {
+                    "raw_prediction_units": "raw",
+                    "selection": runner.CURRENT_SELECTION_SHA256,
+                    "legacy_decision_texts": runner.DECISION_TEXTS_SHA256,
+                    "decision_texts_current": "decision",
+                    "model_registry": "registry",
+                    "terminal_packet_approval": runner.TERMINAL_PACKET_APPROVAL,
+                },
+                "output_commitments": {
+                    "audit": runner._raw_sha256(audit_payload),  # pyright: ignore[reportPrivateUsage]
+                    "provider_attempt_journal": runner._source_digest(journal_path),  # pyright: ignore[reportPrivateUsage]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    result_path = runner._result_path(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, "openai", "candidate-1"
+    )
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result), encoding="utf-8")
+    monkeypatch.setattr(runner, "EXPECTED_CASE_COUNT", 1)
+    monkeypatch.setattr(runner, "EXPECTED_UNIT_COUNT", 1)
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+    monkeypatch.setattr(
+        runner, "_validate_frozen_unit_adjudication", lambda *args, **kwargs: None
+    )
+
+    class FakeJournal:
+        def __enter__(self) -> FakeJournal:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def latest_reconstruction_recovery_evidence(self) -> SimpleNamespace:
+            return SimpleNamespace(normalized_response_json=normalized_response_json)
+
+    monkeypatch.setattr(runner, "_provider_attempt_journal", lambda **_: FakeJournal())
+
+    with pytest.raises(
+        runner.StageBManifestError,
+        match="raw output differs from authenticated provider journal",
+    ):
+        runner._validate_full_provider_shard(  # pyright: ignore[reportPrivateUsage]
+            output_root=tmp_path,
+            provider="openai",
+            registry_entry=cast(
+                Any,
+                SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+            ),
+            registry_sha256="registry",
+            raw_sha256="raw",
+            decision_sha256="decision",
+            artifact=cast(
+                Any,
+                SimpleNamespace(
+                    finalized_unit_envelope_sha256s={"candidate-1": "envelope"}
+                ),
+            ),
+            selection_records=(context["selection"],),
+            adapted_records=(),
+            owner_comment_ids=("spend", "terminal"),
+            frozen_unit_adjudications={"candidate-1": adjudication},
+        )
+
+
 def test_execute_provider_is_resumable_without_provider_calls(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -701,6 +1272,98 @@ def test_execute_provider_is_resumable_without_provider_calls(
     assert len(provider_calls) == 1
     assert (output_root / "openai-provider-shard-audit.jsonl").is_file()
     assert (output_root / "openai-provider-shard-run-card.json").is_file()
+
+
+def test_execute_provider_replay_skips_provider_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, context = _valid_result()
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    runner._provider_attempt_journal_path(  # pyright: ignore[reportPrivateUsage]
+        output_root, "openai"
+    ).write_bytes(b"provider-free journal")
+    artifact = cast(
+        Any,
+        SimpleNamespace(finalized_unit_envelope_sha256s={"candidate-1": "envelope"}),
+    )
+    entry = cast(
+        Any,
+        SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+    )
+    adjudication = {"candidate_id": "candidate-1", "provider": "openai"}
+    monkeypatch.setattr(
+        runner,
+        "_validate_provider_environment",
+        lambda _: pytest.fail("provider credentials must not be validated on replay"),
+    )
+    monkeypatch.setattr(
+        runner, "_validate_frozen_unit_adjudication", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+    monkeypatch.setattr(runner, "_owner_approval_ids", lambda: ("spend", "terminal"))
+    monkeypatch.setattr(runner, "_existing_result", lambda *args, **kwargs: None)
+
+    def fake_label(**kwargs: Any) -> tuple[list[Any], Any, int, int, str]:
+        assert kwargs["replay_only"] is True
+        audit = cast(dict[str, Any], kwargs["frozen_unit_workflow_audit"])
+        audit.update(
+            {
+                "frozen_unit_adjudication": adjudication,
+                "frozen_unit_workflow": {
+                    "is_scored": False,
+                    "score_scope": "frozen_units_only",
+                    "scoreable_unit_ids": ["unit-1"],
+                },
+            }
+        )
+        return (
+            [],
+            SimpleNamespace(
+                input_tokens=1,
+                output_tokens=1,
+                estimated_cost=0.0,
+                raw_output_sha256="sha256:raw",
+                metadata={"provider": "openai"},
+            ),
+            0,
+            1,
+            "sha256:" + hashlib.sha256(context["prompt"].encode()).hexdigest(),
+        )
+
+    monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
+    records = runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+        provider="openai",
+        output_root=output_root,
+        raw_path=tmp_path / "raw.jsonl",
+        decision_texts_path=tmp_path / "decision.jsonl",
+        artifact=artifact,
+        selection_records=(context["selection"],),
+        adapted_records=(),
+        registry_entry=entry,
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+        max_cases=None,
+        frozen_unit_adjudications={"candidate-1": adjudication},
+        frozen_unit_adjudications_sha256="sha256:adjudications",
+    )
+    assert len(records) == 1
 
 
 def test_execute_provider_isolates_sequential_provider_journals(

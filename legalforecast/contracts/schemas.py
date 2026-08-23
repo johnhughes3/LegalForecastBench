@@ -216,6 +216,12 @@ STAGE_B_MANIFEST_PROVIDER_RESULT_V1 = SchemaIdentifier(
 STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1 = SchemaIdentifier(
     "legalforecast.stage_b_manifest_provider_shard_run_card.v1"
 )
+STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1 = SchemaIdentifier(
+    "legalforecast.stage_b.frozen_unit_exclusion_adjudication.v1"
+)
+STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_INDEX_V1 = SchemaIdentifier(
+    "legalforecast.stage_b.frozen_unit_exclusion_adjudication_index.v1"
+)
 NO_BASELINES_V1 = SchemaIdentifier("legalforecast.no_baselines.v1")
 EXACT100_METHODS_DISCLOSURE_V1 = SchemaIdentifier(
     "legalforecast.exact100_methods_disclosure.v1"

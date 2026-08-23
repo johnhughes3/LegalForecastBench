@@ -17,9 +17,13 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.contracts import (
+    ARTIFACT_PREFIXED_SHA256_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
     STAGE_A_STRUCTURAL_FLAG_V2,
+)
+from legalforecast.contracts import (
+    STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1 as _FROZEN_UNIT_ADJUDICATION_SCHEMA,
 )
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.live_model_solver import (
@@ -92,6 +96,7 @@ from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
     ProviderCallIdentity,
     ProviderJournalError,
+    ReconstructionFailureEvidence,
     RepeatedReconstructionFailureEvidence,
     maximum_call_cost_usd,
     provider_prompt_logical_call_scope,
@@ -143,6 +148,7 @@ STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = (
     STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
     STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
 )
+STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1 = str(_FROZEN_UNIT_ADJUDICATION_SCHEMA)
 _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = frozenset(STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
 _STAGE_A_LINE_ADDRESSED_UNITIZER_CONTRACTS = frozenset(
     {
@@ -2958,6 +2964,7 @@ def merge_llm_label_provider_shards(
             )
 
         model_outputs: list[JsonRecord] = []
+        frozen_unit_workflow_records: list[JsonRecord] = []
         labels_by_model: dict[str, tuple[OutcomeLabel, ...]] = {}
         votes: list[EnsembleLabelVote] = []
         expected_unit_ids = {unit.unit_id for unit in frozen_units}
@@ -2981,6 +2988,37 @@ def merge_llm_label_provider_shards(
                 )
             labels_by_model[entry.registry_key] = labels
             model_outputs.append(dict(output))
+            if "frozen_unit_adjudication" in output:
+                workflow = output.get("frozen_unit_workflow")
+                adjudication = output.get("frozen_unit_adjudication")
+                if not isinstance(workflow, Mapping) or not isinstance(
+                    adjudication, Mapping
+                ):
+                    raise LlmPipelineError(
+                        "frozen-unit adjudication lacks workflow evidence"
+                    )
+                workflow_mapping = cast(Mapping[str, Any], workflow)
+                if (
+                    workflow_mapping.get("is_scored") is not False
+                    or workflow_mapping.get("score_scope") != "frozen_units_only"
+                    or not isinstance(
+                        workflow_mapping.get("scoreable_unit_ids"), Sequence
+                    )
+                    or set(workflow_mapping.get("scoreable_unit_ids", ()))
+                    != expected_unit_ids
+                ):
+                    raise LlmPipelineError(
+                        "frozen-unit exclusion workflow score scope differs"
+                    )
+                frozen_unit_workflow_records.append(
+                    {
+                        "model_key": entry.registry_key,
+                        "frozen_unit_workflow": dict(cast(Mapping[str, Any], workflow)),
+                        "frozen_unit_adjudication": dict(
+                            cast(Mapping[str, Any], adjudication)
+                        ),
+                    }
+                )
             raw_output_sha256 = _required_str(output, "raw_output_sha256")
             votes.extend(
                 EnsembleLabelVote(
@@ -3073,6 +3111,8 @@ def merge_llm_label_provider_shards(
                 ),
             }
         )
+        if frozen_unit_workflow_records:
+            audit_records[-1]["frozen_unit_workflow"] = frozen_unit_workflow_records
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
 
 
@@ -3155,6 +3195,9 @@ def _llm_label_one_model(
     provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None,
     provider_accounts: Mapping[str, str] | None,
     max_provider_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    frozen_unit_adjudication: Mapping[str, Any] | None = None,
+    frozen_unit_workflow_audit: JsonRecord | None = None,
+    replay_only: bool = False,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
     prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
@@ -3230,12 +3273,44 @@ def _llm_label_one_model(
                     )
                 )
                 if recovered.requires_frozen_unit_workflow:
-                    raise _frozen_unit_workflow_required_error(
+                    workflow_error = _frozen_unit_workflow_required_error(
                         selection=selection,
                         decision_text=decision_text,
                         frozen_units=frozen_units,
-                        response=SolverResponse(raw_output=raw_output),
+                        response=_reconstructed_solver_response(
+                            raw_output=raw_output,
+                            normalized_response=cast(
+                                Mapping[str, Any], normalized_value
+                            ),
+                            registry_entry=registry_entry,
+                            model_registry_sha256=model_registry_sha256,
+                        ),
                         labeling_result=recovered,
+                    )
+                    if frozen_unit_adjudication is None:
+                        raise workflow_error
+                    response = _reconstructed_solver_response(
+                        raw_output=raw_output,
+                        normalized_response=cast(Mapping[str, Any], normalized_value),
+                        registry_entry=registry_entry,
+                        model_registry_sha256=model_registry_sha256,
+                    )
+                    _settle_frozen_unit_exclusion_recovery(
+                        journal=journal,
+                        evidence=evidence,
+                        workflow_error=workflow_error,
+                        adjudication=frozen_unit_adjudication,
+                        response=response,
+                        decision_text_commitment=decision_text_commitment,
+                        finding_count=len(findings),
+                        audit_output=frozen_unit_workflow_audit,
+                    )
+                    return (
+                        recovered.labels,
+                        response,
+                        len(findings),
+                        len(missing_flags),
+                        prompt_sha256,
                     )
                 journal.commit_reconstruction_recovery(
                     evidence.attempt_ordinal,
@@ -3255,6 +3330,10 @@ def _llm_label_one_model(
                 # Retain the response as reconstruction_failed and let the fixed
                 # retry budget decide whether one fresh provider call is allowed.
                 pass
+        if replay_only:
+            raise LlmPipelineError(
+                "provider-free Stage B replay has no retained response to settle"
+            )
         max_attempts = min(
             max_provider_attempts,
             _reconstruction_retry_max_attempts(journal),
@@ -3312,12 +3391,24 @@ def _llm_label_one_model(
                 )
             )
             if result.requires_frozen_unit_workflow:
-                raise _frozen_unit_workflow_required_error(
+                workflow_error = _frozen_unit_workflow_required_error(
                     selection=selection,
                     decision_text=decision_text,
                     frozen_units=frozen_units,
                     response=response,
                     labeling_result=result,
+                )
+                if frozen_unit_adjudication is None:
+                    raise workflow_error
+                _settle_frozen_unit_exclusion_recovery(
+                    journal=journal,
+                    evidence=None,
+                    workflow_error=workflow_error,
+                    adjudication=frozen_unit_adjudication,
+                    response=response,
+                    decision_text_commitment=decision_text_commitment,
+                    finding_count=len(findings),
+                    audit_output=frozen_unit_workflow_audit,
                 )
         except FrozenUnitWorkflowRequiredError:
             raise
@@ -3897,6 +3988,197 @@ def _frozen_unit_workflow_required_error(
     )
 
 
+def _reconstructed_solver_response(
+    *,
+    raw_output: str,
+    normalized_response: object,
+    registry_entry: ModelRegistryEntry,
+    model_registry_sha256: str | None,
+) -> SolverResponse:
+    """Rebuild accounting metadata from the exact settled journal envelope.
+
+    A reconstruction is deliberately marked with ``request_count=0``: it is a
+    provider-free replay of a paid response, not a second transport attempt.
+    The normalized envelope is journal-authenticated before this helper is
+    called, and only its accounting fields are copied into the response.
+    """
+
+    if not isinstance(normalized_response, Mapping):
+        raise LlmPipelineError("normalized provider response must be an object")
+    normalized_record = cast(Mapping[str, Any], normalized_response)
+    input_tokens = normalized_record.get("input_tokens")
+    output_tokens = normalized_record.get("output_tokens")
+    actual_cost = normalized_record.get("actual_cost_usd")
+    if (
+        isinstance(input_tokens, bool)
+        or not isinstance(input_tokens, int)
+        or input_tokens < 0
+        or isinstance(output_tokens, bool)
+        or not isinstance(output_tokens, int)
+        or output_tokens < 0
+        or isinstance(actual_cost, bool)
+        or not isinstance(actual_cost, (int, float))
+        or actual_cost < 0
+    ):
+        raise LlmPipelineError("journaled provider accounting fields are invalid")
+    return SolverResponse(
+        raw_output=raw_output,
+        request_count=0,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        estimated_cost=float(actual_cost),
+        metadata={
+            "provider": registry_entry.provider,
+            "model": registry_entry.model_id,
+            "model_id": registry_entry.model_id,
+            "model_registry_sha256": model_registry_sha256 or "unrecorded",
+            "provider_sampling_policy": "provider_default",
+            "tool_policy": "no_tools",
+        },
+    )
+
+
+def _settle_frozen_unit_exclusion_recovery(
+    *,
+    journal: ProviderAttemptJournal | None,
+    evidence: ReconstructionFailureEvidence | None,
+    workflow_error: FrozenUnitWorkflowRequiredError,
+    adjudication: Mapping[str, Any],
+    response: SolverResponse,
+    decision_text_commitment: Mapping[str, str],
+    finding_count: int,
+    audit_output: JsonRecord | None,
+) -> None:
+    """Settle an owner-approved missing-unit exclusion without transport."""
+
+    if journal is None:
+        raise LlmPipelineError(
+            "frozen-unit exclusion adjudication requires a provider journal"
+        )
+    if workflow_error.repair_result.status is not FrozenUnitStatus.EXCLUDED:
+        raise LlmPipelineError("frozen-unit adjudication must exclude the missing unit")
+    missing_flags = [
+        flag.to_record(workflow_error.labeling_result.decision_text)
+        for flag in workflow_error.labeling_result.missing_unit_flags
+    ]
+    expected_unit_ids = [unit.unit_id for unit in workflow_error.repair_result.units]
+    expected_exclusion = workflow_error.repair_result.exclusion_entry
+    if expected_exclusion is None:
+        raise LlmPipelineError("missing-unit exclusion lacks an exclusion ledger entry")
+    expected_exclusion_record = expected_exclusion.to_record()
+    _require_frozen_unit_adjudication(
+        adjudication,
+        candidate_id=workflow_error.labeling_result.candidate_id,
+        case_id=workflow_error.labeling_result.case_id,
+        frozen_unit_ids=expected_unit_ids,
+        missing_flags=missing_flags,
+        exclusion_record=expected_exclusion_record,
+        response=response,
+        normalized_response_json=(
+            evidence.normalized_response_json if evidence is not None else None
+        ),
+    )
+    reconstruction_record: JsonRecord = {
+        "labels": [
+            label.to_record() for label in workflow_error.labeling_result.labels
+        ],
+        "finding_count": finding_count,
+        "missing_unit_flag_count": len(missing_flags),
+        "missing_unit_flags": missing_flags,
+        "frozen_unit_workflow": _frozen_unit_workflow_manifest_fields(workflow_error),
+        "frozen_unit_adjudication": dict(adjudication),
+        "decision_text_commitment": dict(decision_text_commitment),
+    }
+    if evidence is None:
+        journal.commit_reconstruction(reconstruction_record)
+    else:
+        journal.commit_reconstruction_recovery(
+            evidence.attempt_ordinal,
+            raw_response_json=evidence.raw_response_json,
+            normalized_response_json=evidence.normalized_response_json,
+            record=reconstruction_record,
+        )
+    if audit_output is not None:
+        audit_output.update(
+            {
+                "missing_unit_flags": missing_flags,
+                "frozen_unit_workflow": _frozen_unit_workflow_manifest_fields(
+                    workflow_error
+                ),
+                "frozen_unit_adjudication": dict(adjudication),
+            }
+        )
+
+
+def _require_frozen_unit_adjudication(
+    adjudication: Mapping[str, Any],
+    *,
+    candidate_id: str,
+    case_id: str,
+    frozen_unit_ids: Sequence[str],
+    missing_flags: Sequence[Mapping[str, Any]],
+    exclusion_record: Mapping[str, Any],
+    response: SolverResponse,
+    normalized_response_json: str | None,
+) -> None:
+    """Authenticate owner identity and exact response lineage for an exclusion."""
+
+    if (
+        adjudication.get("schema_version")
+        != STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1
+    ):
+        raise LlmPipelineError("unsupported frozen-unit exclusion adjudication schema")
+    if (
+        adjudication.get("candidate_id") != candidate_id
+        or adjudication.get("case_id") != case_id
+    ):
+        raise LlmPipelineError("frozen-unit adjudication candidate identity differs")
+    if adjudication.get("status") != "missing_unit_excluded_from_scoring":
+        raise LlmPipelineError("frozen-unit adjudication status differs")
+    if adjudication.get("score_scope") != "frozen_units_only":
+        raise LlmPipelineError("frozen-unit adjudication score scope differs")
+    expected_owner_ruling = {
+        "action": "exclude_missing_unit_only",
+        "candidate_id": candidate_id,
+        "case_id": case_id,
+        "frozen_unit_ids": list(frozen_unit_ids),
+        "missing_unit_descriptions": [
+            _required_str(flag, "missing_unit_description") for flag in missing_flags
+        ],
+    }
+    if adjudication.get("owner_ruling") != expected_owner_ruling:
+        raise LlmPipelineError("frozen-unit owner ruling differs")
+    if adjudication.get("scoreable_unit_ids") != list(frozen_unit_ids):
+        raise LlmPipelineError("frozen-unit scoreable units differ")
+    for field in ("owner_comment_id", "owner_ruling_sha256"):
+        if (
+            not isinstance(adjudication.get(field), str)
+            or not str(adjudication[field]).strip()
+        ):
+            raise LlmPipelineError(f"frozen-unit adjudication lacks {field}")
+    if adjudication.get("raw_output_sha256") != response.raw_output_sha256:
+        raise LlmPipelineError("frozen-unit adjudication raw response differs")
+    if normalized_response_json is not None:
+        expected_normalized_sha = str(
+            ARTIFACT_PREFIXED_SHA256_V1.commit(
+                normalized_response_json,
+                domain=_FROZEN_UNIT_ADJUDICATION_SCHEMA,
+            ).digest
+        )
+        if adjudication.get("normalized_response_sha256") != expected_normalized_sha:
+            raise LlmPipelineError(
+                "frozen-unit adjudication normalized response differs"
+            )
+    if adjudication.get("frozen_unit_ids") != list(frozen_unit_ids):
+        raise LlmPipelineError("frozen-unit adjudication changed frozen units")
+    if adjudication.get("missing_unit_flags_sha256") != canonical_records_sha256(
+        missing_flags
+    ):
+        raise LlmPipelineError("frozen-unit adjudication missing-flag evidence differs")
+    if adjudication.get("exclusion_entry_sha256") != canonical_sha256(exclusion_record):
+        raise LlmPipelineError("frozen-unit adjudication exclusion evidence differs")
+
+
 def _frozen_unit_workflow_audit_fields(
     error: FrozenUnitWorkflowRequiredError,
 ) -> JsonRecord:
@@ -3908,10 +4190,31 @@ def _frozen_unit_workflow_audit_fields(
             flag.to_record(error.labeling_result.decision_text)
             for flag in error.labeling_result.missing_unit_flags
         ],
-        "frozen_unit_workflow": error.repair_result.to_manifest_fields(),
+        "frozen_unit_workflow": _frozen_unit_workflow_manifest_fields(error),
         "frozen_unit_repaired_count": int(status is FrozenUnitStatus.REPAIRED),
         "frozen_unit_excluded_count": int(status is FrozenUnitStatus.EXCLUDED),
     }
+
+
+def _frozen_unit_workflow_manifest_fields(
+    error: FrozenUnitWorkflowRequiredError,
+) -> JsonRecord:
+    """Make partial scoreability explicit when one unit is omitted."""
+
+    fields = error.repair_result.to_manifest_fields()
+    fields.update(
+        {
+            "score_scope": "frozen_units_only",
+            "scoreable_unit_ids": [
+                label.unit_id for label in error.labeling_result.labels
+            ],
+            "excluded_unit_descriptions": [
+                flag.missing_unit_description
+                for flag in error.labeling_result.missing_unit_flags
+            ],
+        }
+    )
+    return fields
 
 
 def _predecision_documents(
