@@ -37,6 +37,7 @@ from legalforecast.contracts.schemas import (
     STAGE_B_MANIFEST_PROVIDER_RESULT_V1,
     STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1,
 )
+from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     load_model_registry,
@@ -1869,6 +1870,43 @@ def _validate_full_provider_shard(
                 )
             with journal:
                 evidence = journal.latest_reconstruction_recovery_evidence()
+                try:
+                    normalized_value: object = json.loads(
+                        evidence.normalized_response_json
+                    )
+                except json.JSONDecodeError as exc:
+                    raise StageBManifestError(
+                        "provider shard adjudication normalized response is not "
+                        "valid JSON: "
+                        f"{normalized_provider}/{candidate_id}"
+                    ) from exc
+                if not isinstance(normalized_value, Mapping):
+                    raise StageBManifestError(
+                        "provider shard adjudication normalized response is not "
+                        "an object: "
+                        f"{normalized_provider}/{candidate_id}"
+                    )
+                normalized_record = cast(Mapping[str, object], normalized_value)
+                raw_output = normalized_record.get("raw_output")
+                if not isinstance(raw_output, str) or not raw_output.strip():
+                    raise StageBManifestError(
+                        "provider shard adjudication normalized response lacks "
+                        "raw_output: "
+                        f"{normalized_provider}/{candidate_id}"
+                    )
+                journal_response = SolverResponse(raw_output=raw_output)
+                expected_raw_output_sha256 = journal_response.raw_output_sha256
+                if (
+                    adjudication.get("raw_output_sha256") != expected_raw_output_sha256
+                    or model_output.get("raw_output_sha256")
+                    != expected_raw_output_sha256
+                ):
+                    raise StageBManifestError(
+                        "provider shard adjudication raw output differs from "
+                        "authenticated "
+                        "provider journal: "
+                        f"{normalized_provider}/{candidate_id}"
+                    )
             expected_normalized_sha256 = str(
                 ARTIFACT_PREFIXED_SHA256_V1.commit(
                     evidence.normalized_response_json,

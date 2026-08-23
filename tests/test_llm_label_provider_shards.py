@@ -176,6 +176,100 @@ def test_provider_shards_call_only_selected_provider_and_merge_without_call(
     assert len(merged.audit_records[0]["model_outputs"]) == 2
 
 
+def test_adjudicated_merge_retains_frozen_labels_and_audits_omitted_claim(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    selection, finalized, artifact = _inputs()
+    registry_path = ROOT / "model_registries" / "cycle-1-stage-b-judges-2026-07-12.json"
+    entries = load_model_registry(registry_path).entries
+    registry_sha = "sha256:" + hashlib.sha256(registry_path.read_bytes()).hexdigest()
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        lambda entry, *args, **kwargs: _response(entry),
+    )
+    shard_audits = [
+        llm_pipeline.llm_label_cases(
+            selection_records=selection,
+            prediction_unit_records=finalized,
+            decision_text_artifact=artifact,
+            registry_entries=entries,
+            model_registry_sha256=registry_sha,
+            execution_provider=provider,
+            defer_consensus=True,
+        ).audit_records[0]
+        for provider in ("google", "openai")
+    ]
+
+    missing_flags = [
+        {
+            "missing_unit_description": "Count II omitted from the frozen units",
+            "supporting_excerpt": "The decision addresses Count II.",
+        }
+    ]
+    exclusion = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "stage": "unitization",
+        "reason": "unit_missing_from_stage_a",
+        "source_entry_ids": ["16"],
+        "source_document_ids": ["decision"],
+        "notes": "The omitted claim is preserved outside the scored frozen units.",
+    }
+    workflow = {
+        "frozen_unit_status": "excluded",
+        "unit_missing_from_stage_a": True,
+        "unitization_repaired": False,
+        "is_scored": False,
+        "unit_ids": ["unit-1"],
+        "score_scope": "frozen_units_only",
+        "scoreable_unit_ids": ["unit-1"],
+        "excluded_unit_descriptions": [missing_flags[0]["missing_unit_description"]],
+        "exclusion": exclusion,
+    }
+    for shard in shard_audits:
+        model_output = shard["model_outputs"][0]
+        model_output.update(
+            {
+                "missing_unit_flags": missing_flags,
+                "frozen_unit_workflow": workflow,
+                "frozen_unit_adjudication": {
+                    "status": "missing_unit_excluded_from_scoring",
+                    "score_scope": "frozen_units_only",
+                    "scoreable_unit_ids": ["unit-1"],
+                    "missing_unit_flags": missing_flags,
+                    "exclusion": exclusion,
+                    "raw_output_sha256": model_output["raw_output_sha256"],
+                },
+            }
+        )
+
+    merged = llm_pipeline.merge_llm_label_provider_shards(
+        selection_records=selection,
+        prediction_unit_records=finalized,
+        decision_text_artifact=artifact,
+        registry_entries=entries,
+        provider_shard_audit_records=shard_audits,
+        model_registry_sha256=registry_sha,
+    )
+
+    assert [record["unit_id"] for record in merged.records] == ["unit-1"]
+    audit = merged.audit_records[0]
+    workflow_records = audit["frozen_unit_workflow"]
+    assert len(workflow_records) == 2
+    for workflow_record in workflow_records:
+        assert workflow_record["frozen_unit_workflow"]["score_scope"] == (
+            "frozen_units_only"
+        )
+        assert workflow_record["frozen_unit_workflow"]["scoreable_unit_ids"] == [
+            "unit-1"
+        ]
+        assert workflow_record["frozen_unit_workflow"]["exclusion"] == exclusion
+        assert workflow_record["frozen_unit_adjudication"]["missing_unit_flags"] == (
+            missing_flags
+        )
+
+
 def test_provider_shard_merge_fails_closed_on_missing_or_mutated_shard(
     monkeypatch: MonkeyPatch,
 ) -> None:
