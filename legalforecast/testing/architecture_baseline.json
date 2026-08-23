@@ -4577,7 +4577,7 @@
         "largest_symbol": "_validate_full_provider_shard",
         "largest_symbol_lines": 332,
         "layer": "application",
-        "line_count": 2363,
+        "line_count": 2368,
         "nonblank_line_count": 2267,
         "top_level_definition_count": 33
       },
@@ -7191,7 +7191,7 @@
         "largest_symbol": "llm_label_cases",
         "largest_symbol_lines": 371,
         "layer": "application",
-        "line_count": 6474,
+        "line_count": 6476,
         "nonblank_line_count": 6079,
         "top_level_definition_count": 130
       },
@@ -11227,7 +11227,7 @@
         "largest_symbol": "test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet",
         "largest_symbol_lines": 427,
         "layer": "test",
-        "line_count": 3819,
+        "line_count": 3835,
         "nonblank_line_count": 3585,
         "top_level_definition_count": 50
       },
@@ -11725,7 +11725,7 @@
         "largest_symbol": "test_full_provider_shard_rejects_adjudication_hash_not_bound_to_journal",
         "largest_symbol_lines": 169,
         "layer": "test",
-        "line_count": 1948,
+        "line_count": 1961,
         "nonblank_line_count": 1803,
         "top_level_definition_count": 40
       },

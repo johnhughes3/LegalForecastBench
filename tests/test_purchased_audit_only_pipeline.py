@@ -1766,18 +1766,34 @@ def test_stage_b_resume_recovers_stored_response_before_provider_call(
     monkeypatch.setattr(llm_pipeline, "label_stage_b_outcomes", original_labeler)
 
     if missing_unit:
+        with sqlite3.connect(journal_path) as connection:
+            before = connection.execute(
+                "SELECT raw_response_json, normalized_response_json, "
+                "actual_cost_usd FROM provider_attempts"
+            ).fetchone()
+            connection.execute(
+                "UPDATE provider_attempts SET status = 'validated_response', "
+                "failure_type = NULL, failure_message = NULL, completed_at = NULL"
+            )
+        kwargs["replay_only"] = True
         with pytest.raises(llm_pipeline.FrozenUnitWorkflowRequiredError):
             cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
+        with sqlite3.connect(journal_path) as connection:
+            after = connection.execute(
+                "SELECT raw_response_json, normalized_response_json, "
+                "actual_cost_usd FROM provider_attempts"
+            ).fetchone()
+        assert after == before
     else:
         labels, *_ = cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
         assert labels[0].unit_id == "unit-1"
 
     assert provider_calls == 1
-    assert completion_calls == (1 if missing_unit else 2)
+    assert completion_calls == 2
     with sqlite3.connect(journal_path) as connection:
         assert connection.execute(
             "SELECT attempt_ordinal, status FROM provider_attempts"
-        ).fetchall() == [(1, "reconstruction_failed" if missing_unit else "settled")]
+        ).fetchall() == [(1, "validated_response" if missing_unit else "settled")]
 
 
 def test_malformed_structural_review_retries_fresh_bounded_attempts(

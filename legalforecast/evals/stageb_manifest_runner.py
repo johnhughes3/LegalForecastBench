@@ -320,9 +320,12 @@ def _issue_frozen_unit_adjudication(
         raise StageBManifestError("frozen-unit issuer requires an attempt journal")
     workflow_error: FrozenUnitWorkflowRequiredError | None = None
     with journal:
-        if not journal.has_reconstruction_failure or journal.has_settled_attempt:
+        if (
+            not journal.has_reconstruction_failure
+            and not journal.has_validated_response
+        ) or journal.has_settled_attempt:
             raise StageBManifestError(
-                "frozen-unit issuer requires one unsettled reconstruction failure"
+                "frozen-unit issuer requires one unsettled retained response"
             )
     try:
         _llm_label_one_model(
@@ -365,6 +368,8 @@ def _issue_frozen_unit_adjudication(
     if evidence_journal is None:
         raise StageBManifestError("frozen-unit issuer could not reopen the journal")
     with evidence_journal:
+        if evidence_journal.has_validated_response:
+            evidence_journal.record_reconstruction_failure(workflow_error)
         evidence = evidence_journal.latest_reconstruction_recovery_evidence()
     missing_flags = [
         flag.to_record(workflow_error.labeling_result.decision_text)
