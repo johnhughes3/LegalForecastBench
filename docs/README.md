@@ -95,6 +95,12 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 
 Artifact and policy contracts consumed by the CLI. Where a schema is versioned, the highest version is current unless the document says otherwise; superseded versions are retained because existing artifacts remain verifiable against them.
 
+**Public/private release boundary**
+
+- [Public/private release boundary](architecture/public-private-release-boundary.md): the additive split between outcome-blinded public execution inputs and separately controlled labels.
+- [Forecast release v1](schemas/forecast-release-v1.md): canonical cases, prediction units, model-visible document indexes, packets, prompts, and byte commitments.
+- [Labels release v1](schemas/labels-release-v1.md): separately bound unit outcomes and scoring policy with no forecast-execution API path.
+
 **Cycle configuration**
 
 - [cycle-acquisition-config.md](cycle-acquisition-config.md): per-cycle acquisition/selection knobs (`legalforecast.config`). Cycle 1 is documentary and not activated; Cycle 2 is an inert draft. Not the frozen orchestrator plan below.
