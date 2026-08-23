@@ -97,6 +97,27 @@ def _registry() -> llm_pipeline.ModelRegistryEntry:
             "24 therefore dismissed with prejudice.",
             id="pdf-line-number-prefixes",
         ),
+        pytest.param(
+            "For the following reasons, the Court GRANTS Defendant\u2019s motion to "
+            "dismiss Plaintiff\u2019s FAC.\n\n"
+            "### I. Plaintiff Fails to State a Derivative-Work Copyright Claim",
+            "Accordingly, the Court grants Defendant\u2019s motion to dismiss "
+            "Plaintiff\u2019s FAC.\n\n"
+            "### I. Plaintiff Fails to State a Derivative-Work Copyright Claim",
+            "For the following reasons, the Court GRANTS Defendant\u2019s motion to "
+            "dismiss Plaintiff\u2019s FAC.\n\n"
+            "### I. Plaintiff Fails to State a Derivative-Work Copyright Claim",
+            id="allowlisted-lead-in-with-ascii-case-drift",
+        ),
+        pytest.param(
+            "Accordingly, the Court **GRANTED** the motion, and the parties must "
+            "respond **within five days**. The request was **DENIED**.",
+            "Accordingly, the Court GRANTED the motion, and the parties must "
+            "respond within five days. The request was DENIED.",
+            "Accordingly, the Court **GRANTED** the motion, and the parties must "
+            "respond **within five days**. The request was **DENIED**.",
+            id="omitted-markdown-emphasis-delimiters",
+        ),
     ],
 )
 def test_stage_b_reconstruction_recovers_citation_provider_free(
@@ -229,6 +250,18 @@ def test_stage_b_reconstruction_recovers_citation_provider_free(
         (
             "21 The motion is denied because the claim survives.",
             "The motion is denied because the claim survives.",
+        ),
+        (
+            "For the following reasons, the Court GRANTS Defendant's motion.",
+            "Accordingly, the Court grants Defendant's motion denied.",
+        ),
+        (
+            "Accordingly, the Court **GRANTED** the motion.",
+            "Accordingly, the Court granted the motion.",
+        ),
+        (
+            "Accordingly, the Court **GRANTED** the motion.",
+            "Accordingly, the Court GRANTED the request.",
         ),
     ],
 )
