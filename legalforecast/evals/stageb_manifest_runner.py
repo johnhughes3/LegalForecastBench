@@ -12,13 +12,21 @@ artifact.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
+import os
 import subprocess
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts.commitments import RAW_BYTES_RAW_SHA256_V1
+from legalforecast.contracts.schemas import (
+    STAGE_B_MANIFEST_DECISION_TEXTS_RUN_V1,
+    STAGE_B_MANIFEST_DECISION_TEXTS_V1,
+    STAGE_B_MANIFEST_PLAN_V1,
+    STAGE_B_MANIFEST_PROVIDER_RESULT_V1,
+    STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1,
+)
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     load_model_registry,
@@ -29,16 +37,24 @@ from legalforecast.evals.provider_spend_control import (
     SqliteProviderSpendAuthority,
 )
 from legalforecast.ingestion.decision_text_artifact import (
+    SCHEMA_VERSION as DECISION_TEXT_SCHEMA_VERSION,
+)
+from legalforecast.ingestion.decision_text_artifact import (
     VerifiedDecisionTextArtifact,
 )
 from legalforecast.labeling.llm_pipeline import (
     _labeling_prompt,  # pyright: ignore[reportPrivateUsage]
     _llm_label_one_model,  # pyright: ignore[reportPrivateUsage]
+    _outcome_label,  # pyright: ignore[reportPrivateUsage]
     _prediction_units_by_candidate,  # pyright: ignore[reportPrivateUsage]
     _required_str,  # pyright: ignore[reportPrivateUsage]
     _verified_stage_b_decisions,  # pyright: ignore[reportPrivateUsage]
 )
-from legalforecast.unitization.review import canonical_records_sha256, canonical_sha256
+from legalforecast.unitization.review import (
+    LEGACY_FINALIZED_SCHEMA_VERSION,
+    canonical_records_sha256,
+    canonical_sha256,
+)
 
 JsonRecord = dict[str, Any]
 
@@ -70,14 +86,129 @@ MODEL_KEYS = (
     "google:gemini-3.5-flash",
 )
 PROVIDER_CAP_USD = {"openai": 80.0, "google": 220.0}
+PROVIDER_KEY_ENV_NAMES = frozenset(
+    {"OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY"}
+)
+OWNER_AUTHOR_ENV = "LEGALFORECAST_OWNER_AUTHOR"
+
+# The replacement rows are not covered by the retired decision-text artifact.
+# These source-byte commitments are the authenticated bridge for the exact five
+# replacements named by the pinned selection.  Paths remain private metadata.
+REPLACEMENT_SOURCE_COMMITMENTS: Mapping[str, Mapping[str, str]] = {
+    "488531646": {
+        "candidate_id": "69437817",
+        "metadata_sha256": (
+            "174630d2fab27d7150fcd551989f9e4951695011e0a385258eaac5870ee5e874"
+        ),
+        "markdown_sha256": (
+            "1bab49a15eb1b9bc9ce0b059aa1aed30eaf5086c2baa8d26ab5fda2747c5281c"
+        ),
+        "source_sha256": (
+            "c9709e664af298b22723301eeaa3566967832e3092427414556d449112cefdc0"
+        ),
+    },
+    "487640333": {
+        "candidate_id": "69617129",
+        "metadata_sha256": (
+            "0eada30b8ca393ba76116599e287977ad2d7d09a4ed832f4a856ee525bba5a92"
+        ),
+        "markdown_sha256": (
+            "710db830a0295b58de520d6a8af3b9bbb32b755f40c48a612c88e976567a3d39"
+        ),
+        "source_sha256": (
+            "b4110d352a2b1d892513f4228c9f84015b50a0398475d7f9c5cce8fb1c11f026"
+        ),
+    },
+    "487488505": {
+        "candidate_id": "71203930",
+        "metadata_sha256": (
+            "fe791d4f9287f8afcd9efca3987c97f2be5fe27a0018507396eadb37faeb31fb"
+        ),
+        "markdown_sha256": (
+            "f4eafc023654fd6b1743d5f6c62f488e9055fe104d90c5d67739637895f4d57b"
+        ),
+        "source_sha256": (
+            "ece519302f1e9fd67e9baa918b883239a0038aad2a7410df0f5105811682b825"
+        ),
+    },
+    "488276235": {
+        "candidate_id": "70142291",
+        "metadata_sha256": (
+            "fe76c02ce86f9224f3da326600790f8e85ce87bb214a9dbced913a47c7f352cc"
+        ),
+        "markdown_sha256": (
+            "dc62d2321ac19ab7de76e36af2e0f49af42f298c06382d46681d0526d328363d"
+        ),
+        "source_sha256": (
+            "cc559efe1c81ccbf045f2883fd674a39839b52f6e3b053027b5199d4ff0d9095"
+        ),
+    },
+    "484932730": {
+        "candidate_id": "71929529",
+        "metadata_sha256": (
+            "54ffa8b69512ff0ae70b59f3a2b1f20d7dddfb0546616784a32d7991f5562fdc"
+        ),
+        "markdown_sha256": (
+            "b7bee3b02b9a5f04c6227a82a447c8dcb4f73a1f45a2b8ea5bb35467733bd8d2"
+        ),
+        "source_sha256": (
+            "41566313f5082c6ba3da20ca73a6dd34916fa19e676b8a732b8181e454b31c28"
+        ),
+    },
+}
 
 
 class StageBManifestError(ValueError):
     """Raised when the owner-pinned manifest inputs are not exact."""
 
 
-def _sha256(payload: bytes) -> str:
-    return hashlib.sha256(payload).hexdigest()
+def _raw_sha256(payload: bytes) -> str:
+    return str(
+        RAW_BYTES_RAW_SHA256_V1.commit(
+            payload,
+            domain=STAGE_B_MANIFEST_PROVIDER_RESULT_V1,
+        ).digest
+    )
+
+
+def _owner_author() -> str:
+    configured = os.environ.get(OWNER_AUTHOR_ENV, "").strip()
+    if configured:
+        return configured
+    try:
+        completed = subprocess.run(
+            ["git", "config", "user.name"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise StageBManifestError(
+            f"could not resolve owner author from {OWNER_AUTHOR_ENV} or git metadata"
+        ) from exc
+    author = completed.stdout.strip()
+    if not author:
+        raise StageBManifestError(
+            f"owner author is empty; set {OWNER_AUTHOR_ENV} or git user.name"
+        )
+    return author
+
+
+def _validate_provider_environment(provider: str) -> None:
+    normalized = provider.strip().lower()
+    expected = {
+        "openai": "OPENAI_API_KEY",
+        "google": "GEMINI_API_KEY",
+    }.get(normalized)
+    if expected is None:
+        raise StageBManifestError(f"unsupported execution provider: {provider}")
+    present = sorted(
+        name for name in PROVIDER_KEY_ENV_NAMES if os.environ.get(name, "").strip()
+    )
+    if present != [expected]:
+        raise StageBManifestError(
+            f"{normalized} execution requires only {expected} among provider keys"
+        )
 
 
 def _read_regular(path: Path, label: str) -> bytes:
@@ -164,8 +295,9 @@ def _owner_approval_ids() -> tuple[str, ...]:
     terminal_comments = comments(TERMINAL_APPROVAL_BEAD_ID)
     spend_ids: list[str] = []
     terminal_ids: list[str] = []
+    owner_author = _owner_author()
     for comment in spend_comments:
-        if comment.get("author") != "John Hughes":
+        if comment.get("author") != owner_author:
             continue
         text = comment.get("text")
         comment_id = comment.get("id")
@@ -174,7 +306,7 @@ def _owner_approval_ids() -> tuple[str, ...]:
         if text == SPEND_APPROVAL:
             spend_ids.append(comment_id)
     for comment in terminal_comments:
-        if comment.get("author") != "John Hughes":
+        if comment.get("author") != owner_author:
             continue
         text = comment.get("text")
         comment_id = comment.get("id")
@@ -225,7 +357,7 @@ def _manifest_units(raw_records: Sequence[Mapping[str, Any]]) -> tuple[JsonRecor
             raise StageBManifestError(f"raw units envelope is empty: {candidate_id}")
         envelopes.append(
             {
-                "schema_version": "legalforecast.finalized_prediction_units.v1",
+                "schema_version": str(LEGACY_FINALIZED_SCHEMA_VERSION),
                 "status": "finalized",
                 "candidate_id": candidate_id,
                 "case_id": case_id,
@@ -240,7 +372,7 @@ def _manifest_units(raw_records: Sequence[Mapping[str, Any]]) -> tuple[JsonRecor
 
 def _validate_raw_inputs(raw_path: Path) -> tuple[JsonRecord, ...]:
     raw_bytes = _read_regular(raw_path, "raw prediction units")
-    if _sha256(raw_bytes) != RAW_UNITS_SHA256:
+    if _raw_sha256(raw_bytes) != RAW_UNITS_SHA256:
         raise StageBManifestError(
             "raw prediction-units bytes differ from owner commitment"
         )
@@ -266,7 +398,7 @@ def _validate_raw_inputs(raw_path: Path) -> tuple[JsonRecord, ...]:
 
 def _validate_registry(registry_path: Path) -> tuple[ModelRegistryEntry, ...]:
     registry_bytes = _read_regular(registry_path, "Stage B model registry")
-    if _sha256(registry_bytes) != STAGE_B_REGISTRY_SHA256:
+    if _raw_sha256(registry_bytes) != STAGE_B_REGISTRY_SHA256:
         raise StageBManifestError("Stage B registry bytes differ from owner commitment")
     registry = load_model_registry(registry_path)
     by_key = {entry.registry_key: entry for entry in registry.entries}
@@ -311,12 +443,24 @@ def _current_decision_record(
         )
     document = outcome_documents[0]
     source_document_id = _required_str(document, "source_document_id")
+    expected_source = REPLACEMENT_SOURCE_COMMITMENTS.get(source_document_id)
+    if expected_source is None or expected_source.get("candidate_id") != candidate_id:
+        raise StageBManifestError(
+            f"replacement decision source is not owner-pinned: {candidate_id}"
+        )
     metadata_path = decision_store_root / f"{source_document_id}.metadata.json"
     markdown_path = decision_store_root / f"{source_document_id}.md"
-    metadata = _json_object(
-        _read_regular(metadata_path, "decision metadata"), "decision metadata"
-    )
+    metadata_bytes = _read_regular(metadata_path, "decision metadata")
+    if _raw_sha256(metadata_bytes) != expected_source["metadata_sha256"]:
+        raise StageBManifestError(
+            f"replacement decision metadata bytes differ: {candidate_id}"
+        )
+    metadata = _json_object(metadata_bytes, "decision metadata")
     markdown = _read_regular(markdown_path, "decision markdown")
+    if _raw_sha256(markdown) != expected_source["markdown_sha256"]:
+        raise StageBManifestError(
+            f"replacement decision markdown bytes differ: {candidate_id}"
+        )
     if (
         metadata.get("candidate_id") != candidate_id
         or metadata.get("source_document_id") != source_document_id
@@ -331,7 +475,7 @@ def _current_decision_record(
             f"decision metadata lacks extracted_text: {candidate_id}"
         )
     extracted_record = cast(Mapping[str, object], extracted)
-    markdown_sha256 = _sha256(markdown)
+    markdown_sha256 = _raw_sha256(markdown)
     if extracted_record.get("text_sha256") != markdown_sha256:
         raise StageBManifestError(f"decision markdown hash differs: {candidate_id}")
     source_path_value = metadata.get("input_path")
@@ -342,8 +486,12 @@ def _current_decision_record(
         )
     source_path = Path(source_path_value)
     source_bytes = _read_regular(source_path, "decision source PDF")
-    if _sha256(source_bytes) != source_sha256:
+    if _raw_sha256(source_bytes) != source_sha256:
         raise StageBManifestError(f"decision source PDF hash differs: {candidate_id}")
+    if source_sha256 != expected_source["source_sha256"]:
+        raise StageBManifestError(
+            f"replacement decision PDF commitment differs: {candidate_id}"
+        )
     try:
         text = markdown.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -357,7 +505,7 @@ def _current_decision_record(
     if not isinstance(entered_date, str) or not entered_date:
         raise StageBManifestError(f"decision date is missing: {candidate_id}")
     return {
-        "schema_version": "legalforecast.decision_text.v1",
+        "schema_version": DECISION_TEXT_SCHEMA_VERSION,
         "candidate_id": candidate_id,
         "case_id": case_id,
         "document_id": f"{candidate_id}-entry-{docket_entry}-decision",
@@ -393,13 +541,13 @@ def _verified_inputs(
     VerifiedDecisionTextArtifact, tuple[JsonRecord, ...], tuple[JsonRecord, ...]
 ]:
     decision_bytes = _read_regular(decision_texts_path, "decision texts")
-    if _sha256(decision_bytes) != DECISION_TEXTS_SHA256:
+    if _raw_sha256(decision_bytes) != DECISION_TEXTS_SHA256:
         raise StageBManifestError("decision-text bytes differ from owner commitment")
     legacy_decisions = _jsonl(decision_bytes, "decision texts")
     if len(legacy_decisions) != EXPECTED_CASE_COUNT:
         raise StageBManifestError("decision-text count is not exactly 100")
     selection_bytes = _read_regular(selection_path, "selection")
-    if _sha256(selection_bytes) != CURRENT_SELECTION_SHA256:
+    if _raw_sha256(selection_bytes) != CURRENT_SELECTION_SHA256:
         raise StageBManifestError(
             "selection bytes differ from current Stage51 commitment"
         )
@@ -443,16 +591,21 @@ def _verified_inputs(
             record["input_commitments"] = dict(shared_commitments)
         normalized_text = _required_str(record, "text")
         record["text"] = normalized_text
-        record["text_sha256"] = _sha256(normalized_text.encode("utf-8"))
+        record["text_sha256"] = _raw_sha256(normalized_text.encode("utf-8"))
         decisions.append(record)
     decision_payload = _canonical_jsonl(decisions)
     current_decision_path = adapted_path.parent / "decision-texts-current.jsonl"
     _write_create_only(current_decision_path, decision_payload)
     manifest = {
-        "schema_version": "legalforecast.stage_b_manifest_decision_texts.v1",
+        "schema_version": str(STAGE_B_MANIFEST_DECISION_TEXTS_V1),
         **shared_commitments,
+        "replacement_source_commitments": {
+            source_id: dict(commitment)
+            for source_id, commitment in sorted(REPLACEMENT_SOURCE_COMMITMENTS.items())
+            if commitment["candidate_id"] in selected_by_id
+        },
         "record_count": len(decisions),
-        "decision_texts_sha256": _sha256(decision_payload),
+        "decision_texts_sha256": _raw_sha256(decision_payload),
         "record_sha256s": {
             _required_str(record, "candidate_id"): canonical_sha256(record)
             for record in decisions
@@ -464,11 +617,11 @@ def _verified_inputs(
     manifest_path = adapted_path.parent / "decision-texts-current-manifest.json"
     _write_create_only(manifest_path, manifest_payload)
     run_card = {
-        "schema_version": "legalforecast.stage_b_manifest_decision_texts_run.v1",
+        "schema_version": str(STAGE_B_MANIFEST_DECISION_TEXTS_RUN_V1),
         "status": "completed",
         "paid_activity_executed": False,
-        "manifest_sha256": _sha256(manifest_payload),
-        "decision_texts_sha256": _sha256(decision_payload),
+        "manifest_sha256": _raw_sha256(manifest_payload),
+        "decision_texts_sha256": _raw_sha256(decision_payload),
     }
     run_card_payload = (
         json.dumps(run_card, sort_keys=True, separators=(",", ":")) + "\n"
@@ -477,9 +630,9 @@ def _verified_inputs(
     _write_create_only(run_card_path, run_card_payload)
     artifact = VerifiedDecisionTextArtifact(
         records=tuple(decisions),
-        decision_texts_sha256=_sha256(decision_payload),
-        manifest_sha256=_sha256(manifest_payload),
-        run_card_sha256=_sha256(run_card_payload),
+        decision_texts_sha256=_raw_sha256(decision_payload),
+        manifest_sha256=_raw_sha256(manifest_payload),
+        run_card_sha256=_raw_sha256(run_card_payload),
         finalized_prediction_units_sha256=RAW_UNITS_SHA256,
         finalized_unit_envelope_sha256s={
             _required_str(record, "candidate_id"): canonical_sha256(raw)
@@ -492,7 +645,7 @@ def _verified_inputs(
 
 
 def _source_digest(path: Path) -> str:
-    return _sha256(_read_regular(path, str(path)))
+    return _raw_sha256(_read_regular(path, str(path)))
 
 
 def _result_path(output_root: Path, provider: str, candidate_id: str) -> Path:
@@ -508,6 +661,17 @@ def _result_path(output_root: Path, provider: str, candidate_id: str) -> Path:
     return output_root / "results" / provider / f"{safe_candidate}.json"
 
 
+def _shard_artifact_paths(
+    output_root: Path, provider: str, max_cases: int | None
+) -> tuple[Path, Path]:
+    stem = f"{provider}-provider-shard"
+    suffix = "" if max_cases is None else f"-canary-{max_cases}"
+    return (
+        output_root / f"{stem}{suffix}-audit.jsonl",
+        output_root / f"{stem}{suffix}-run-card.json",
+    )
+
+
 def _existing_result(
     path: Path,
     *,
@@ -515,8 +679,13 @@ def _existing_result(
     provider: str,
     model_key: str,
     raw_sha256: str,
+    raw_candidate_envelope_sha256: str,
     decision_sha256: str,
     registry_sha256: str,
+    selection: Mapping[str, Any],
+    frozen_units: Sequence[Any],
+    decision_commitment: Mapping[str, str],
+    prompt: str,
 ) -> JsonRecord | None:
     if not path.exists():
         return None
@@ -524,18 +693,106 @@ def _existing_result(
         _read_regular(path, f"existing result {path}"), f"existing result {path}"
     )
     expected = {
-        "schema_version": "legalforecast.stage_b_manifest_provider_result.v1",
+        "schema_version": str(STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
         "candidate_id": candidate_id,
+        "case_id": _required_str(selection, "case_id"),
         "provider": provider,
         "model_key": model_key,
         "raw_prediction_units_sha256": raw_sha256,
+        "raw_candidate_envelope_sha256": raw_candidate_envelope_sha256,
         "decision_texts_sha256": decision_sha256,
         "model_registry_sha256": registry_sha256,
+        "provider_sampling_policy": "provider_default",
+        "tools_enabled": False,
         "status": "succeeded",
     }
     for key, expected_value in expected.items():
         if value.get(key) != expected_value:
             raise StageBManifestError(f"existing result identity differs: {path}")
+    audit_value = value.get("audit")
+    if not isinstance(audit_value, Mapping):
+        raise StageBManifestError(f"existing result audit is missing: {path}")
+    audit = cast(Mapping[str, Any], audit_value)
+    expected_audit = {
+        "stage": "llm-label-provider-shard",
+        "status": "succeeded",
+        "candidate_id": candidate_id,
+        "case_id": _required_str(selection, "case_id"),
+        "execution_provider": provider,
+        "model_keys": [model_key],
+        "frozen_panel_model_keys": list(MODEL_KEYS),
+        "model_registry_sha256": registry_sha256,
+        "decision_text_commitment": dict(decision_commitment),
+        "label_count": 0,
+        "unit_count": len(frozen_units),
+    }
+    for key, expected_value in expected_audit.items():
+        if audit.get(key) != expected_value:
+            raise StageBManifestError(f"existing result audit identity differs: {path}")
+    model_outputs = audit.get("model_outputs")
+    if not isinstance(model_outputs, Sequence) or isinstance(
+        model_outputs, (str, bytes)
+    ):
+        raise StageBManifestError(f"existing result model outputs are missing: {path}")
+    model_output_values = cast(Sequence[object], model_outputs)
+    if len(model_output_values) != 1 or not isinstance(model_output_values[0], Mapping):
+        raise StageBManifestError(
+            f"existing result model output coverage differs: {path}"
+        )
+    model_output = cast(Mapping[str, Any], model_output_values[0])
+    expected_prompt_sha256 = "sha256:" + _raw_sha256(prompt.encode("utf-8"))
+    if model_output.get("model_key") != model_key:
+        raise StageBManifestError(f"existing result model identity differs: {path}")
+    if model_output.get("provider_prompt_sha256") != expected_prompt_sha256:
+        raise StageBManifestError(f"existing result prompt commitment differs: {path}")
+    metadata_value = model_output.get("metadata")
+    if not isinstance(metadata_value, Mapping):
+        raise StageBManifestError(
+            f"existing result provider metadata is missing: {path}"
+        )
+    metadata = cast(Mapping[str, Any], metadata_value)
+    model_id = model_key.split(":", 1)[1]
+    expected_metadata = {
+        "provider": provider,
+        "model": model_id,
+        "model_id": model_id,
+        "model_registry_sha256": registry_sha256,
+        "provider_sampling_policy": "provider_default",
+        "tool_policy": "no_tools",
+    }
+    for key, expected_value in expected_metadata.items():
+        if metadata.get(key) != expected_value:
+            raise StageBManifestError(
+                f"existing result nested provider metadata differs: {path}"
+            )
+    labels = model_output.get("labels")
+    if not isinstance(labels, Sequence) or isinstance(labels, (str, bytes)):
+        raise StageBManifestError(f"existing result labels are missing: {path}")
+    expected_unit_ids = {
+        _required_str(cast(Mapping[str, Any], unit), "unit_id")
+        for unit in frozen_units
+        if isinstance(unit, Mapping)
+    }
+    label_values = cast(Sequence[object], labels)
+    if len(expected_unit_ids) != len(frozen_units) or len(label_values) != len(
+        frozen_units
+    ):
+        raise StageBManifestError(f"existing result label coverage differs: {path}")
+    actual_unit_ids: set[str] = set()
+    for raw_label in label_values:
+        if not isinstance(raw_label, Mapping):
+            raise StageBManifestError(f"existing result label is not an object: {path}")
+        try:
+            label = _outcome_label(cast(Mapping[str, Any], raw_label))
+        except (TypeError, ValueError) as exc:
+            raise StageBManifestError(
+                f"existing result label is invalid: {path}"
+            ) from exc
+        if label.unit_id in actual_unit_ids:
+            raise StageBManifestError(f"existing result has duplicate labels: {path}")
+        actual_unit_ids.add(label.unit_id)
+    if actual_unit_ids != expected_unit_ids:
+        raise StageBManifestError(f"existing result unit coverage differs: {path}")
     return dict(cast(Mapping[str, Any], value))
 
 
@@ -555,7 +812,7 @@ def _authority_identity(
         sort_keys=True,
         separators=(",", ":"),
     ).encode()
-    return _sha256(payload)
+    return _raw_sha256(payload)
 
 
 def _execute_provider(
@@ -576,6 +833,7 @@ def _execute_provider(
     del raw_path, decision_texts_path
     if provider not in PROVIDER_CAP_USD:
         raise StageBManifestError(f"unsupported execution provider: {provider}")
+    _validate_provider_environment(provider)
     units_by_candidate = _prediction_units_by_candidate(adapted_records)
     decisions_by_candidate = _verified_stage_b_decisions(artifact)
     selections_by_candidate = {
@@ -597,7 +855,7 @@ def _execute_provider(
     journal_path = output_root / "provider-attempts.sqlite3"
     authority_path = output_root / f"spend-authority-{provider}.sqlite3"
     account = f"cycle1-{provider}"
-    authority = SqliteProviderSpendAuthority(
+    with SqliteProviderSpendAuthority(
         authority_path,
         authority_identity_sha256=_authority_identity(
             raw_sha256=raw_sha256,
@@ -620,24 +878,10 @@ def _execute_provider(
             failure_threshold=5,
             failure_window_seconds=86_400,
         ),
-    )
-    records: list[JsonRecord] = []
-    try:
+    ) as authority:
+        records: list[JsonRecord] = []
         for candidate_id in candidate_ids:
             selection = selections_by_candidate[candidate_id]
-            result_path = _result_path(output_root, provider, candidate_id)
-            prior = _existing_result(
-                result_path,
-                candidate_id=candidate_id,
-                provider=provider,
-                model_key=registry_entry.registry_key,
-                raw_sha256=raw_sha256,
-                decision_sha256=decision_sha256,
-                registry_sha256=registry_sha256,
-            )
-            if prior is not None:
-                records.append(cast(JsonRecord, prior["audit"]))
-                continue
             frozen_units = tuple(units_by_candidate[candidate_id])
             decision_text, commitment = decisions_by_candidate[candidate_id]
             prompt = _labeling_prompt(
@@ -646,6 +890,26 @@ def _execute_provider(
                 frozen_units,
                 decision_text_commitment=commitment,
             )
+            result_path = _result_path(output_root, provider, candidate_id)
+            prior = _existing_result(
+                result_path,
+                candidate_id=candidate_id,
+                provider=provider,
+                model_key=registry_entry.registry_key,
+                raw_sha256=raw_sha256,
+                raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                    candidate_id
+                ],
+                decision_sha256=decision_sha256,
+                registry_sha256=registry_sha256,
+                selection=selection,
+                frozen_units=frozen_units,
+                decision_commitment=commitment,
+                prompt=prompt,
+            )
+            if prior is not None:
+                records.append(cast(JsonRecord, prior["audit"]))
+                continue
             authorities: Mapping[str, ProviderSpendAuthority] = {provider: authority}
             accounts = {provider: account}
             try:
@@ -677,9 +941,7 @@ def _execute_provider(
                 )
             except Exception as exc:
                 failure = {
-                    "schema_version": (
-                        "legalforecast.stage_b_manifest_provider_result.v1"
-                    ),
+                    "schema_version": (str(STAGE_B_MANIFEST_PROVIDER_RESULT_V1)),
                     "status": "failed",
                     "candidate_id": candidate_id,
                     "case_id": _required_str(selection, "case_id"),
@@ -737,7 +999,7 @@ def _execute_provider(
                 "estimated_cost": response.estimated_cost,
             }
             result = {
-                "schema_version": "legalforecast.stage_b_manifest_provider_result.v1",
+                "schema_version": str(STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
                 "status": "succeeded",
                 "candidate_id": candidate_id,
                 "case_id": _required_str(selection, "case_id"),
@@ -761,8 +1023,48 @@ def _execute_provider(
                 ).encode(),
             )
             records.append(audit)
-    finally:
-        authority.close()
+        audit_payload = _canonical_jsonl(records)
+        audit_path, run_card_path = _shard_artifact_paths(
+            output_root, provider, max_cases
+        )
+        _write_create_only(audit_path, audit_payload)
+        run_card = {
+            "schema_version": str(STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1),
+            "stage": "llm-label-provider-shard",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": True,
+            "paid_activity_executed": True,
+            "execution_provider": provider,
+            "model_keys": list(MODEL_KEYS),
+            "executed_model_keys": [registry_entry.registry_key],
+            "source_commitments": {
+                "raw_prediction_units": raw_sha256,
+                "selection": CURRENT_SELECTION_SHA256,
+                "legacy_decision_texts": DECISION_TEXTS_SHA256,
+                "decision_texts_current": decision_sha256,
+                "model_registry": registry_sha256,
+                "terminal_packet_approval": TERMINAL_PACKET_APPROVAL,
+            },
+            "output_commitments": {
+                "audit": _raw_sha256(audit_payload),
+                "result_root": str(output_root / "results" / provider),
+                "provider_attempt_journal": _source_digest(journal_path),
+            },
+            "owner_comment_ids": list(_owner_approval_ids()),
+            "provider_sampling_policy": "provider_default",
+            "tools_enabled": False,
+            "create_only": True,
+            "resumable": True,
+            "max_cases": max_cases,
+            "case_count": len(records),
+            "unit_count": sum(int(record.get("unit_count", 0)) for record in records),
+        }
+        run_card_payload = (
+            json.dumps(run_card, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+        ).encode()
+        _write_create_only(run_card_path, run_card_payload)
     return tuple(records)
 
 
@@ -796,7 +1098,7 @@ def run(args: argparse.Namespace) -> int:
     provider = args.provider
     if not args.execute:
         plan = {
-            "schema_version": "legalforecast.stage_b_manifest_plan.v1",
+            "schema_version": str(STAGE_B_MANIFEST_PLAN_V1),
             "execute": False,
             "owner_bead": BEAD_ID,
             "owner_comment_ids": list(owner_comment_ids),
@@ -854,6 +1156,12 @@ def run(args: argparse.Namespace) -> int:
                 "provider": provider,
                 "succeeded": len(audits),
                 "output_root": str(output_root),
+                "provider_shard_audit": str(
+                    _shard_artifact_paths(output_root, provider, args.max_cases)[0]
+                ),
+                "provider_shard_run_card": str(
+                    _shard_artifact_paths(output_root, provider, args.max_cases)[1]
+                ),
             },
             sort_keys=True,
         )
