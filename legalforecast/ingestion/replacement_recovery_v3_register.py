@@ -13,7 +13,9 @@ from legalforecast.contracts import (
     EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3,
 )
 from legalforecast.ingestion import disclosure_clearance
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.disclosure_clearance import (
+    FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE,
     PAID_DELIVERY_RESTRICTION_EVIDENCE,
     SCHEMA_VERSION,
 )
@@ -37,6 +39,27 @@ _LEGACY_PAID_CLEARANCE_FIELDS = frozenset(
     }
 )
 _PAID_RESTRICTION_FIELDS = frozenset(
+    {
+        "candidate_id",
+        "is_private",
+        "is_sealed",
+        "restriction_evidence",
+        "restriction_status",
+        "source_document_id",
+    }
+)
+_LEGACY_FREE_CLEARANCE_FIELDS = frozenset(
+    {
+        "byte_count",
+        "candidate_id",
+        "clearance_basis",
+        "free_or_purchased",
+        "sha256",
+        "source_document_id",
+        "status",
+    }
+)
+_PUBLIC_RESTRICTION_FIELDS = frozenset(
     {
         "candidate_id",
         "is_private",
@@ -340,6 +363,222 @@ def admit_authenticated_v3_register_clearance_rows(
     return tuple(admitted)
 
 
+def admit_authenticated_v3_free_clearance_rows(
+    *,
+    manifest_records: Sequence[Mapping[str, Any]],
+    clearance_records: Sequence[Mapping[str, Any]],
+    restriction_records: Sequence[Mapping[str, Any]],
+    authenticated_clearance_bytes: object,
+    authenticated_restriction_bytes: object,
+    authenticated_clearance_records: Sequence[Mapping[str, Any]] | None = None,
+) -> tuple[JsonRecord, ...]:
+    """Admit v3's exact legacy free public-download clearance rows.
+
+    A v3 verifier owns the complete clearance and restriction bytes.  The
+    downstream projection exposes the free subset for materialization, so the
+    complete clearance records are supplied separately and checked against
+    those bytes before the free subset is examined.  Legacy rows are copied
+    into the canonical v1 shape only for this invocation; no source artifact is
+    rewritten.
+    """
+
+    if not isinstance(authenticated_clearance_bytes, bytes) or not isinstance(
+        authenticated_restriction_bytes, bytes
+    ):
+        raise ValueError("v3 free clearance admission requires authenticated bytes")
+    authenticated_clearance = (
+        tuple(authenticated_clearance_records)
+        if authenticated_clearance_records is not None
+        else tuple(clearance_records)
+    )
+    if _v3_jsonl_bytes(authenticated_clearance) != authenticated_clearance_bytes:
+        raise ValueError("v3 free clearance admission differs from authenticated bytes")
+    if _v3_jsonl_bytes(restriction_records) != authenticated_restriction_bytes:
+        raise ValueError(
+            "v3 free restriction admission differs from authenticated bytes"
+        )
+
+    manifest_by_key = _index(manifest_records, label="authenticated v3 free manifest")
+    clearance_by_key = _index(
+        clearance_records, label="authenticated v3 free clearance"
+    )
+    authenticated_by_key = _index(
+        authenticated_clearance, label="authenticated v3 clearance"
+    )
+    restriction_by_key = _index(
+        restriction_records, label="authenticated v3 restriction"
+    )
+    if set(restriction_by_key) != set(authenticated_by_key):
+        raise ValueError(
+            "v3 restriction coverage differs from authenticated clearance rows"
+        )
+    for key, manifest in manifest_by_key.items():
+        if manifest.get("free_or_purchased") != "free":
+            raise ValueError(f"v3 free manifest row is not free: {key}")
+    for key, record in authenticated_by_key.items():
+        phase = record.get("free_or_purchased")
+        if phase not in {"free", "purchased"}:
+            raise ValueError(f"v3 clearance row has invalid phase: {key}")
+    authenticated_free_by_key = {
+        key: record
+        for key, record in authenticated_by_key.items()
+        if record.get("free_or_purchased") == "free"
+    }
+    if set(clearance_by_key) != set(manifest_by_key) or set(clearance_by_key) != set(
+        authenticated_free_by_key
+    ):
+        raise ValueError("v3 free clearance coverage differs from authenticated rows")
+
+    for key, clearance in clearance_by_key.items():
+        if clearance != authenticated_free_by_key[key]:
+            raise ValueError(
+                f"v3 free clearance row differs from authenticated rows: {key}"
+            )
+        if clearance.get("schema_version") is None:
+            if frozenset(clearance) != _LEGACY_FREE_CLEARANCE_FIELDS:
+                raise ValueError(
+                    "v3 legacy free clearance exact legacy clearance shape differs: "
+                    f"{key}"
+                )
+            if (
+                clearance.get("clearance_basis") != "courtlistener_public_download"
+                or clearance.get("free_or_purchased") != "free"
+                or clearance.get("status") != "cleared"
+            ):
+                raise ValueError(
+                    "v3 legacy free clearance basis/status is not cleared free "
+                    f"public evidence: {key}"
+                )
+        elif clearance.get("schema_version") != SCHEMA_VERSION:
+            raise ValueError(f"v3 free clearance schema is not canonical v1: {key}")
+
+        manifest = manifest_by_key[key]
+        if (
+            manifest.get("candidate_id") != clearance.get("candidate_id")
+            or manifest.get("source_document_id") != clearance.get("source_document_id")
+            or manifest.get("free_or_purchased") != "free"
+            or manifest.get("sha256") != clearance.get("sha256")
+            or manifest.get("byte_count") != clearance.get("byte_count")
+        ):
+            raise ValueError(f"v3 free clearance differs from manifest: {key}")
+
+        restriction = restriction_by_key[key]
+        if frozenset(restriction) != _PUBLIC_RESTRICTION_FIELDS:
+            raise ValueError(
+                f"v3 free clearance exact restriction shape differs: {key}"
+            )
+        if (
+            restriction.get("is_private") is not False
+            or restriction.get("is_sealed") is not False
+        ):
+            raise ValueError(
+                f"v3 free clearance exact restriction booleans differ: {key}"
+            )
+        if "schema_version" not in clearance:
+            if restriction.get("restriction_status") != "public" or restriction.get(
+                "restriction_evidence"
+            ) != list(FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE):
+                raise ValueError(
+                    f"v3 free clearance lacks exact public evidence: {key}"
+                )
+        elif restriction.get("restriction_status") != clearance.get(
+            "restriction_status"
+        ) or restriction.get("restriction_evidence") != clearance.get(
+            "restriction_evidence"
+        ):
+            raise ValueError(
+                f"v3 free restriction evidence differs from clearance: {key}"
+            )
+
+    admitted: list[JsonRecord] = []
+    for record in clearance_records:
+        row = dict(record)
+        if "schema_version" not in row:
+            restriction = restriction_by_key[_key(row)]
+            row.update(
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "is_private": restriction["is_private"],
+                    "is_sealed": restriction["is_sealed"],
+                    "restriction_status": restriction["restriction_status"],
+                    "restriction_evidence": list(
+                        cast(Sequence[str], restriction["restriction_evidence"])
+                    ),
+                }
+            )
+        admitted.append(row)
+    return tuple(admitted)
+
+
+def admit_authenticated_v3_free_projection(
+    projection: Mapping[str, object],
+    manifest_records: Sequence[Mapping[str, Any]],
+    clearance_records: Sequence[Mapping[str, Any]],
+) -> tuple[Mapping[str, Any], ...]:
+    """Apply free-row admission only to an authenticated v3 projection."""
+
+    run_card = projection.get("run_card")
+    if not isinstance(run_card, Mapping) or (
+        cast(Mapping[str, object], run_card).get("schema_version")
+        != str(EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+    ):
+        return tuple(clearance_records)
+    raw_authenticated_clearance = projection.get("authenticated_clearance_records")
+    raw_restriction = projection.get("restriction_records")
+    authenticated_clearance_sequence = (
+        cast(Sequence[object], raw_authenticated_clearance)
+        if isinstance(raw_authenticated_clearance, Sequence)
+        and not isinstance(raw_authenticated_clearance, (str, bytes))
+        else ()
+    )
+    restriction_sequence = (
+        cast(Sequence[object], raw_restriction)
+        if isinstance(raw_restriction, Sequence)
+        and not isinstance(raw_restriction, (str, bytes))
+        else ()
+    )
+    if (
+        not isinstance(raw_authenticated_clearance, Sequence)
+        or isinstance(raw_authenticated_clearance, (str, bytes))
+        or not isinstance(raw_restriction, Sequence)
+        or isinstance(raw_restriction, (str, bytes))
+        or any(not isinstance(row, Mapping) for row in authenticated_clearance_sequence)
+        or any(not isinstance(row, Mapping) for row in restriction_sequence)
+    ):
+        raise ValueError("exact100 v3 free source lacks authenticated rows")
+    authenticated_clearance_bytes = projection.get("authenticated_clearance_bytes")
+    authenticated_restriction_bytes = projection.get("authenticated_restriction_bytes")
+    clearance_path = projection.get("clearance_path")
+    restriction_path = projection.get("restriction_path")
+    raw_verified_bytes = projection.get("verified_artifact_bytes")
+    if (
+        not isinstance(authenticated_clearance_bytes, bytes)
+        or not isinstance(authenticated_restriction_bytes, bytes)
+        or not isinstance(clearance_path, Path)
+        or not isinstance(restriction_path, Path)
+        or not isinstance(raw_verified_bytes, Mapping)
+    ):
+        raise ValueError("exact100 v3 free source lacks authenticated bytes")
+    verified_bytes = cast(Mapping[str, object], raw_verified_bytes)
+    if (
+        verified_bytes.get(str(clearance_path.absolute()))
+        != authenticated_clearance_bytes
+        or verified_bytes.get(str(restriction_path.absolute()))
+        != authenticated_restriction_bytes
+    ):
+        raise ValueError("exact100 v3 free source bytes are not verifier-owned")
+    return admit_authenticated_v3_free_clearance_rows(
+        manifest_records=manifest_records,
+        clearance_records=clearance_records,
+        restriction_records=cast(Sequence[Mapping[str, Any]], raw_restriction),
+        authenticated_clearance_records=cast(
+            Sequence[Mapping[str, Any]], raw_authenticated_clearance
+        ),
+        authenticated_clearance_bytes=authenticated_clearance_bytes,
+        authenticated_restriction_bytes=authenticated_restriction_bytes,
+    )
+
+
 def admit_authenticated_v3_register_lineage(
     recovery: Mapping[str, object],
     clearance_lineage: MutableMapping[str, object],
@@ -381,6 +620,17 @@ def _jsonl_bytes(records: Sequence[Mapping[str, Any]]) -> bytes:
         f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
         for record in records
     ).encode("utf-8")
+
+
+def _v3_jsonl_bytes(records: Sequence[Mapping[str, Any]]) -> bytes:
+    return b"".join(
+        canonical_json_bytes(
+            dict(record),
+            error_type=ValueError,
+            error_message="v3 clearance serialization failed",
+        )
+        for record in records
+    )
 
 
 def _index(raw_records: object, *, label: str) -> dict[DocumentKey, JsonRecord]:
