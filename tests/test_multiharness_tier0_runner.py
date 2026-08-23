@@ -63,9 +63,7 @@ LAB_BASENAME = "issue-identification-memo.docx"
 def test_tier0_optional_extra_matches_the_frozen_anthropic_sdk_version() -> None:
     """Keep the installable Tier-0 extra aligned with the paid-path freeze."""
 
-    project = tomllib.loads(
-        Path("pyproject.toml").read_text(encoding="utf-8")
-    )
+    project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     assert project["project"]["optional-dependencies"]["tier0-judge-adapter"] == [
         f"anthropic=={REQUIRED_ANTHROPIC_SDK_VERSION}"
     ]
