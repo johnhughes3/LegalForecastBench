@@ -571,8 +571,6 @@ def _openai_request(
     payload: dict[str, object] = {
         "model": entry.model_id,
         "input": prompt,
-        "temperature": entry.temperature,
-        "top_p": entry.top_p,
         "max_output_tokens": entry.max_output_tokens,
         "service_tier": service_tier,
         "tools": [],
@@ -597,8 +595,6 @@ def _anthropic_request(
         "max_tokens": entry.max_output_tokens,
         "tools": [],
     }
-    if not _anthropic_requires_provider_default_sampling(entry):
-        payload["temperature"] = entry.temperature
     return _json_request(
         ANTHROPIC_MESSAGES_URL,
         payload,
@@ -623,32 +619,12 @@ def _bedrock_anthropic_payload(
         ],
         "max_tokens": entry.max_output_tokens,
     }
-    if not _anthropic_requires_provider_default_sampling(entry):
-        payload["temperature"] = entry.temperature
-        if entry.top_p < 1.0:
-            payload["top_p"] = entry.top_p
     return payload
 
 
-def _anthropic_requires_provider_default_sampling(
-    entry: ModelRegistryEntry,
-) -> bool:
-    """Return whether Anthropic requires omitted sampling controls for this model."""
-
-    return entry.provider.strip().lower() == "anthropic" and bool(
-        {
-            _canonical_model_version(entry.model_id),
-            _canonical_model_version(entry.model_version_or_snapshot),
-        }
-        & {"claude-sonnet-5", "claude-opus-4-8"}
-    )
-
-
 def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
-    """Separate registry intent from sampling controls applied by the provider."""
+    """Record legacy registry values without overriding provider defaults."""
 
-    if not _anthropic_requires_provider_default_sampling(entry):
-        return {"temperature": _format_number(entry.temperature)}
     return {
         "registry_temperature": _format_number(entry.temperature),
         "registry_top_p": _format_number(entry.top_p),
@@ -711,8 +687,6 @@ def _gemini_request(
     payload: dict[str, object] = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
-            "temperature": entry.temperature,
-            "topP": entry.top_p,
             "maxOutputTokens": entry.max_output_tokens,
             "responseMimeType": "application/json",
         },
