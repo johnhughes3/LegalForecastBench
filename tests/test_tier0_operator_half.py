@@ -377,9 +377,8 @@ class _CapturingTransport:
         system: str,
         prompt: str,
         max_output_tokens: int,
-        temperature: float,
     ) -> JudgeTransportResult:
-        del api_key, max_output_tokens, temperature
+        del api_key, max_output_tokens
         self.prompts.append(prompt)
         self.systems.append(system)
         return JudgeTransportResult(
@@ -546,6 +545,7 @@ def test_attempt_retention_keeps_every_billed_attempt(tmp_path: Path) -> None:
         "attempt-0.json",
         "attempt-1.json",
     ]
+    assert '"provider_sampling_policy":"provider_default"' in attempts[0].read_text()
 
 
 def test_provenance_configuration_is_never_fixture(tmp_path: Path) -> None:
