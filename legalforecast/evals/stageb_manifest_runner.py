@@ -693,6 +693,20 @@ def _shard_artifact_paths(
     )
 
 
+def _provider_attempt_journal_path(output_root: Path, provider: str) -> Path:
+    """Return the canonical attempt journal path for one provider shard.
+
+    The journal identity includes the provider-specific caps commitment.  A
+    shared filename therefore cannot be reused by the OpenAI and Google
+    shards, even when both shards share an output root.
+    """
+
+    normalized_provider = provider.strip().lower()
+    if normalized_provider not in PROVIDER_CAP_USD:
+        raise StageBManifestError(f"unsupported execution provider: {provider}")
+    return output_root / f"provider-attempts-{normalized_provider}.sqlite3"
+
+
 def _unit_id(value: Any) -> str:
     if isinstance(value, Mapping):
         return _required_str(cast(Mapping[str, Any], value), "unit_id")
@@ -878,7 +892,7 @@ def _execute_provider(
         if max_cases <= 0:
             raise StageBManifestError("max_cases must be positive")
         candidate_ids = candidate_ids[:max_cases]
-    journal_path = output_root / "provider-attempts.sqlite3"
+    journal_path = _provider_attempt_journal_path(output_root, provider)
     authority_path = output_root / f"spend-authority-{provider}.sqlite3"
     account = f"cycle1-{provider}"
     with SqliteProviderSpendAuthority(
@@ -1169,6 +1183,18 @@ def _validate_full_provider_shard(
         raise StageBManifestError(
             f"provider shard audit commitment differs: {normalized_provider}"
         )
+    journal_path = _provider_attempt_journal_path(output_root, normalized_provider)
+    try:
+        journal_digest = _source_digest(journal_path)
+    except (OSError, StageBManifestError) as exc:
+        raise StageBManifestError(
+            "provider shard attempt journal is missing or unreadable: "
+            f"{normalized_provider}"
+        ) from exc
+    if output_commitments.get("provider_attempt_journal") != journal_digest:
+        raise StageBManifestError(
+            f"provider shard attempt journal commitment differs: {normalized_provider}"
+        )
 
     units_by_candidate = _prediction_units_by_candidate(adapted_records)
     decisions_by_candidate = _verified_stage_b_decisions(artifact)
@@ -1230,6 +1256,7 @@ def _validate_full_provider_shard(
         "provider": normalized_provider,
         "audit_sha256": _raw_sha256(audit_bytes),
         "run_card_sha256": _raw_sha256(run_card_bytes),
+        "provider_attempt_journal": journal_digest,
         "case_count": len(expected_audits),
         "unit_count": sum(int(row.get("unit_count", 0)) for row in expected_audits),
     }

@@ -309,6 +309,10 @@ def test_full_merge_rejects_missing_or_tampered_receipt(
         tmp_path, provider, None
     )
     audit_path.write_bytes(audit_payload)
+    journal_path = runner._provider_attempt_journal_path(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, provider
+    )
+    journal_path.write_bytes(b"provider-free journal")
     card_path.write_text(
         json.dumps(
             {
@@ -342,6 +346,7 @@ def test_full_merge_rejects_missing_or_tampered_receipt(
                 },
                 "output_commitments": {
                     "audit": runner._raw_sha256(audit_payload),  # pyright: ignore[reportPrivateUsage]
+                    "provider_attempt_journal": runner._source_digest(journal_path),  # pyright: ignore[reportPrivateUsage]
                 },
             }
         ),
@@ -491,6 +496,10 @@ def test_full_provider_shard_authenticates_complete_receipt(
         tmp_path, "openai", None
     )
     audit_path.write_bytes(audit_payload)
+    journal_path = runner._provider_attempt_journal_path(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, "openai"
+    )
+    journal_path.write_bytes(b"provider-free journal")
     result_path = runner._result_path(  # pyright: ignore[reportPrivateUsage]
         tmp_path, "openai", "candidate-1"
     )
@@ -529,6 +538,7 @@ def test_full_provider_shard_authenticates_complete_receipt(
                 },
                 "output_commitments": {
                     "audit": runner._raw_sha256(audit_payload),  # pyright: ignore[reportPrivateUsage]
+                    "provider_attempt_journal": runner._source_digest(journal_path),  # pyright: ignore[reportPrivateUsage]
                 },
             }
         ),
@@ -577,6 +587,35 @@ def test_full_provider_shard_authenticates_complete_receipt(
     assert shard["provider"] == "openai"
     assert shard["case_count"] == 1
     assert shard["unit_count"] == 1
+    assert shard["provider_attempt_journal"] == runner._source_digest(  # pyright: ignore[reportPrivateUsage]
+        journal_path
+    )
+    tampered_card = json.loads(card_path.read_text(encoding="utf-8"))
+    tampered_card["output_commitments"]["provider_attempt_journal"] = "tampered"
+    card_path.write_text(json.dumps(tampered_card), encoding="utf-8")
+    with pytest.raises(
+        runner.StageBManifestError, match="attempt journal commitment differs"
+    ):
+        runner._validate_full_provider_shard(  # pyright: ignore[reportPrivateUsage]
+            output_root=tmp_path,
+            provider="openai",
+            registry_entry=cast(
+                Any,
+                SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+            ),
+            registry_sha256="registry",
+            raw_sha256="raw",
+            decision_sha256="decision",
+            artifact=cast(
+                Any,
+                SimpleNamespace(
+                    finalized_unit_envelope_sha256s={"candidate-1": "envelope"}
+                ),
+            ),
+            selection_records=(context["selection"],),
+            adapted_records=(),
+            owner_comment_ids=("spend", "terminal"),
+        )
 
 
 def test_execute_provider_is_resumable_without_provider_calls(
@@ -586,7 +625,9 @@ def test_execute_provider_is_resumable_without_provider_calls(
     _, context = _valid_result()
     output_root = tmp_path / "output"
     output_root.mkdir()
-    (output_root / "provider-attempts.sqlite3").write_bytes(b"provider-free journal")
+    runner._provider_attempt_journal_path(  # pyright: ignore[reportPrivateUsage]
+        output_root, "openai"
+    ).write_bytes(b"provider-free journal")
     artifact = cast(
         Any,
         SimpleNamespace(finalized_unit_envelope_sha256s={"candidate-1": "envelope"}),
@@ -660,6 +701,101 @@ def test_execute_provider_is_resumable_without_provider_calls(
     assert len(provider_calls) == 1
     assert (output_root / "openai-provider-shard-audit.jsonl").is_file()
     assert (output_root / "openai-provider-shard-run-card.json").is_file()
+
+
+def test_execute_provider_isolates_sequential_provider_journals(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Provider shards may share an output root but never an attempt journal."""
+
+    _, context = _valid_result()
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    artifact = cast(
+        Any,
+        SimpleNamespace(finalized_unit_envelope_sha256s={"candidate-1": "envelope"}),
+    )
+    monkeypatch.setattr(runner, "_validate_provider_environment", lambda _: None)
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+    monkeypatch.setattr(runner, "_owner_approval_ids", lambda: ("spend", "terminal"))
+    monkeypatch.setattr(runner, "_existing_result", lambda *args, **kwargs: None)
+    provider_calls: list[tuple[str, Path]] = []
+
+    def fake_label(**kwargs: Any) -> tuple[list[Any], Any, int, int, str]:
+        provider = kwargs["registry_entry"].provider
+        journal_path = cast(Path, kwargs["provider_journal_path"])
+        journal_path.write_bytes(f"{provider} provider-free journal".encode())
+        provider_calls.append((provider, journal_path))
+        return (
+            [],
+            SimpleNamespace(
+                input_tokens=1,
+                output_tokens=1,
+                estimated_cost=0.01,
+                raw_output_sha256="sha256:raw",
+                metadata={"provider": provider},
+            ),
+            0,
+            0,
+            "sha256:" + hashlib.sha256(context["prompt"].encode()).hexdigest(),
+        )
+
+    monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
+
+    for provider, model_key in zip(
+        ("openai", "google"), runner.MODEL_KEYS, strict=True
+    ):
+        runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+            provider=provider,
+            output_root=output_root,
+            raw_path=tmp_path / "raw.jsonl",
+            decision_texts_path=tmp_path / "decision.jsonl",
+            artifact=artifact,
+            selection_records=(context["selection"],),
+            adapted_records=(),
+            registry_entry=cast(
+                Any,
+                SimpleNamespace(provider=provider, registry_key=model_key),
+            ),
+            registry_sha256="registry",
+            raw_sha256="raw",
+            decision_sha256="decision",
+            max_cases=None,
+        )
+
+    assert [provider for provider, _ in provider_calls] == ["openai", "google"]
+    assert [path.name for _, path in provider_calls] == [
+        "provider-attempts-openai.sqlite3",
+        "provider-attempts-google.sqlite3",
+    ]
+    assert not (output_root / "provider-attempts.sqlite3").exists()
+    for provider in ("openai", "google"):
+        card = json.loads(
+            (output_root / f"{provider}-provider-shard-run-card.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        journal_path = runner._provider_attempt_journal_path(  # pyright: ignore[reportPrivateUsage]
+            output_root, provider
+        )
+        assert card["output_commitments"]["provider_attempt_journal"] == (
+            runner._source_digest(journal_path)  # pyright: ignore[reportPrivateUsage]
+        )
 
 
 def test_execute_provider_records_failure_without_retry(
