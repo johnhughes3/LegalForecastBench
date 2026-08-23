@@ -4,6 +4,8 @@ Status: contract foundation for `LegalForecastBench-dm0g.4.1.8`.
 
 `EvaluationSpec` precommits the exact sealed deliverable manifest, tree, task, run, and configuration hashes; evaluator repository commit, tree, file manifest, image digest, and trusted wrapper; private-material, rubric, ordered-criteria, and aggregation commitments; requested judge identity, settings, prompt, and output schema; and runtime, egress, resource, and token-accounting policies.
 
+The settings commitment describes the effective provider request, not a custom sampling override inherited from a registry. The Tier-0 Anthropic Messages path omits `temperature` and `top_p`, records `provider_sampling_policy=provider_default` in its settings and per-attempt sidecars, and leaves any legacy registry values as observational compatibility metadata. Existing Cycle 1 registry bytes and historical artifact hashes remain unchanged.
+
 All content commitments use canonical prefixed lowercase `sha256:` digests. Evaluator Git commits and trees use full lowercase 40-character object IDs. The image field is a content digest, never a mutable tag. Criterion commitments expose only contiguous one-based ordinals and hashes; private criterion IDs are never recorded.
 
 `EvaluationReceipt` records exactly one stochastic invocation. It binds the spec hash and repeats its exact deliverable/task/run/config, judge, and policy bindings; identifies a unique measurement, evaluator attempt, externally expected nonce, and repeat slot; records the resolved judge identity; commits to the raw result's bytes, size, and media type; and records status, token usage, cost, timing, issuer policy, and issuer key ID. A retry is another receipt and repeat with its own complete usage and cost.

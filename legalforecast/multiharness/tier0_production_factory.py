@@ -82,11 +82,11 @@ JUDGE_PROMPT_FRAMING_TOKEN_RESERVE = 256
 
 _PASS = "pass"
 _FAIL = "fail"
+PROVIDER_SAMPLING_POLICY = "provider_default"
 
 JUDGE_SETTINGS: Mapping[str, object] = {
     "model": JUDGE_REQUESTED_MODEL,
-    "temperature": "0.0",
-    "top_p": None,
+    "provider_sampling_policy": PROVIDER_SAMPLING_POLICY,
     "max_output_tokens": 16,
     "tools": [],
     "stop_sequences": [],
@@ -147,7 +147,6 @@ class JudgeTransport(Protocol):
         system: str,
         prompt: str,
         max_output_tokens: int,
-        temperature: float,
     ) -> JudgeTransportResult:
         """Issue the request and report what the provider actually returned."""
         ...
@@ -196,7 +195,6 @@ def anthropic_messages_transport(
     system: str,
     prompt: str,
     max_output_tokens: int,
-    temperature: float,
 ) -> JudgeTransportResult:
     """Issue one judge request through the official Anthropic SDK.
 
@@ -224,7 +222,6 @@ def anthropic_messages_transport(
     response: Any = client.messages.create(
         model=model,
         max_tokens=max_output_tokens,
-        temperature=temperature,
         system=system,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -280,7 +277,6 @@ class AnthropicMessagesJudgeAdapter:
             system=JUDGE_SYSTEM_PROMPT,
             prompt=prompt,
             max_output_tokens=cast(int, JUDGE_SETTINGS["max_output_tokens"]),
-            temperature=0.0,
         )
         if type(result) is not JudgeTransportResult:
             raise ProductionFactoryError("judge transport returned an invalid result")
@@ -441,6 +437,7 @@ class JudgeAttemptWriter:
             # Names the exact deliverable bytes this verdict was formed
             # against, so a retained attempt is auditable on its own.
             "deliverable_sha256": call.deliverable.sha256,
+            "provider_sampling_policy": PROVIDER_SAMPLING_POLICY,
             "verdict": response.verdict,
             "judge_resolved_identity": response.judge_resolved_identity,
             "retryable": response.retryable,
