@@ -1867,10 +1867,8 @@ def _validate_full_provider_shard(
                 raise StageBManifestError(
                     "provider shard adjudication journal is unavailable"
                 )
-            try:
+            with journal:
                 evidence = journal.latest_reconstruction_recovery_evidence()
-            finally:
-                journal.close()
             expected_normalized_sha256 = str(
                 ARTIFACT_PREFIXED_SHA256_V1.commit(
                     evidence.normalized_response_json,
