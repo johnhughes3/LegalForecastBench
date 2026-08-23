@@ -6185,13 +6185,14 @@ def _omits_unqualified_pdf_line_number(text: str, excerpt_start: int) -> bool:
         return False
     number = int(prefix_match.group(1))
 
-    previous_line_start = text.rfind("\n", 0, line_start - 1) + 1
-    previous_line_end = line_start - 1
-    previous_match = _PDF_LINE_PREFIX_RE.match(
-        text[previous_line_start:previous_line_end]
-    )
-    if previous_match is not None and int(previous_match.group(1)) == number - 1:
-        return False
+    if line_start > 0:
+        previous_line_start = text.rfind("\n", 0, line_start - 1) + 1
+        previous_line_end = line_start - 1
+        previous_match = _PDF_LINE_PREFIX_RE.match(
+            text[previous_line_start:previous_line_end]
+        )
+        if previous_match is not None and int(previous_match.group(1)) == number - 1:
+            return False
 
     next_line_start = text.find("\n", excerpt_start) + 1
     if next_line_start == 0:

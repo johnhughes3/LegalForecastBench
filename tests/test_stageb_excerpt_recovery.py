@@ -366,6 +366,16 @@ def test_stage_b_pdf_line_recovery_prefers_exact_unindented_occurrence() -> None
     )
 
 
+def test_stage_b_pdf_line_recovery_rejects_first_line_isolated_prefix() -> None:
+    decision_text = " 7 citation text\n 6 unrelated line"
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="supporting_excerpt does not appear in decision text",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, "citation text")
+
+
 def test_stage_b_indented_pdf_line_recovery_uses_rendered_mapping() -> None:
     decision_text = " 7 first line\n 8 second line"
 
