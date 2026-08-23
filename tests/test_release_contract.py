@@ -19,6 +19,7 @@ from legalforecast.release import (
     ReleaseValidationError,
     issue_synthetic_release,
     load_forecast_execution,
+    publish_release,
     validate_release,
 )
 from pydantic import ValidationError
@@ -75,6 +76,20 @@ def test_execution_rereads_committed_bytes_at_use_time(tmp_path: Path) -> None:
 
     with pytest.raises(ReleaseValidationError, match="packet SHA-256 mismatch"):
         execution.packet_bytes("unit-001")
+
+
+def test_publication_rechecks_committed_bytes_at_publish_time(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    issued = issue_synthetic_release(source)
+    packet = source / issued.forecast.prediction_units[0].packet_path
+    original = packet.read_bytes()
+    packet.write_bytes(bytes([original[0] ^ 1]) + original[1:])
+    output = tmp_path / "published"
+
+    with pytest.raises(ReleaseValidationError, match="packet SHA-256 mismatch"):
+        publish_release(output, issued, artifact_root=source)
+
+    assert not output.exists()
 
 
 @pytest.mark.parametrize(

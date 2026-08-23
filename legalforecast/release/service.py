@@ -210,9 +210,15 @@ def issue_release(
     return IssuedRelease(forecast=forecast, labels=labels)
 
 
-def publish_release(output_dir: Path, issued: IssuedRelease) -> None:
-    """Publish a release pair as one create-only tree."""
+def publish_release(
+    output_dir: Path,
+    issued: IssuedRelease,
+    *,
+    artifact_root: Path,
+) -> None:
+    """Reverify source bytes, then publish a pair as one create-only tree."""
 
+    _validate_pair(issued.forecast, issued.labels, artifact_root=artifact_root)
     publish_tree_create_only(output_dir, issued.payloads)
 
 

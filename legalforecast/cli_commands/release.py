@@ -57,14 +57,15 @@ def register(
 def run_issue(args: argparse.Namespace) -> int:
     """Issue and create-only publish a generic release pair."""
 
+    artifact_root = cast(Path, args.artifact_root)
     issued = issue_release(
         load_forecast_draft(cast(Path, args.forecast_draft)),
         load_labels_draft(cast(Path, args.labels_draft)),
-        artifact_root=cast(Path, args.artifact_root),
+        artifact_root=artifact_root,
     )
     output_dir = cast(Path, args.output_dir)
     try:
-        publish_release(output_dir, issued)
+        publish_release(output_dir, issued, artifact_root=artifact_root)
     except ImmutableIOError as exc:
         raise ValueError(str(exc)) from exc
     _print_issue_status(output_dir, issued.forecast.release_digest)
