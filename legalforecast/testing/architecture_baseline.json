@@ -4577,8 +4577,8 @@
         "largest_symbol": "_validate_full_provider_shard",
         "largest_symbol_lines": 332,
         "layer": "application",
-        "line_count": 2295,
-        "nonblank_line_count": 2199,
+        "line_count": 2334,
+        "nonblank_line_count": 2238,
         "top_level_definition_count": 33
       },
       "legalforecast/extraction/pdf_text.py": {
@@ -11725,9 +11725,9 @@
         "largest_symbol": "test_full_provider_shard_rejects_adjudication_hash_not_bound_to_journal",
         "largest_symbol_lines": 169,
         "layer": "test",
-        "line_count": 1823,
-        "nonblank_line_count": 1690,
-        "top_level_definition_count": 36
+        "line_count": 1926,
+        "nonblank_line_count": 1783,
+        "top_level_definition_count": 39
       },
       "tests/test_static_result_sites.py": {
         "cycle_id": "",

@@ -98,6 +98,109 @@ def test_owner_approval_ids_reject_terminal_comment_on_spend_bead(
         runner._owner_approval_ids()  # pyright: ignore[reportPrivateUsage]
 
 
+def test_contextual_owner_approval_binds_candidate_specific_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
+    comment = _comment(
+        runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
+        runner.CONTEXTUAL_OWNER_APPROVAL_TEXT,
+        author="owner",
+    )
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _beads_comments([comment], []),
+    )
+    ruling = {
+        "action": "exclude_missing_unit_only",
+        "candidate_id": runner.CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID,
+        "case_id": runner.CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID,
+        "frozen_unit_ids": ["unit-1", "unit-2", "unit-3", "unit-4"],
+        "missing_unit_descriptions": [
+            runner.CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_DESCRIPTION
+        ],
+    }
+
+    digest = runner._owner_comment_ruling_sha256(  # pyright: ignore[reportPrivateUsage]
+        runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
+        expected_ruling=ruling,
+    )
+
+    assert digest == str(
+        runner.ARTIFACT_PREFIXED_SHA256_V1.commit(
+            runner.CONTEXTUAL_OWNER_APPROVAL_TEXT,
+            domain=runner._ADJ_SCHEMA,  # pyright: ignore[reportPrivateUsage]
+        ).digest
+    )
+
+
+@pytest.mark.parametrize(
+    "ruling_update",
+    [
+        {"candidate_id": "72213663"},
+        {"frozen_unit_ids": ["unit-1", "unit-2", "unit-3"]},
+        {"missing_unit_descriptions": ["different claim"]},
+    ],
+)
+def test_contextual_owner_approval_rejects_unbound_scope(
+    monkeypatch: pytest.MonkeyPatch,
+    ruling_update: dict[str, Any],
+) -> None:
+    monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
+    comment = _comment(
+        runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
+        runner.CONTEXTUAL_OWNER_APPROVAL_TEXT,
+        author="owner",
+    )
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _beads_comments([comment], []),
+    )
+    ruling: dict[str, Any] = {
+        "action": "exclude_missing_unit_only",
+        "candidate_id": runner.CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID,
+        "case_id": runner.CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID,
+        "frozen_unit_ids": ["unit-1", "unit-2", "unit-3", "unit-4"],
+        "missing_unit_descriptions": [
+            runner.CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_DESCRIPTION
+        ],
+    }
+    ruling.update(ruling_update)
+
+    with pytest.raises(
+        runner.StageBManifestError,
+        match="not the exact typed ruling",
+    ):
+        runner._owner_comment_ruling_sha256(  # pyright: ignore[reportPrivateUsage]
+            runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
+            expected_ruling=ruling,
+        )
+
+
+def test_spend_and_terminal_approvals_cannot_authorize_adjudication(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
+    spend = _comment("spend-id", runner.SPEND_APPROVAL, author="owner")
+    terminal = _comment("terminal-id", runner.TERMINAL_PACKET_APPROVAL, author="owner")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _beads_comments([spend], [terminal]),
+    )
+
+    with pytest.raises(
+        runner.StageBManifestError,
+        match="not the exact typed ruling",
+    ):
+        runner._owner_comment_ruling_sha256(  # pyright: ignore[reportPrivateUsage]
+            "spend-id",
+            expected_ruling={"candidate_id": "69581167"},
+        )
+
+
 def _valid_result() -> tuple[dict[str, Any], dict[str, Any]]:
     selection = {"candidate_id": "candidate-1", "case_id": "case-1"}
     frozen_units = ({"unit_id": "unit-1"},)
