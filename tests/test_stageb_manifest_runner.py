@@ -963,3 +963,187 @@ def test_verified_inputs_builds_replacement_decision_manifest_provider_free(
         "decision-texts-current-manifest.json",
         "decision-texts-current-run-card.json",
     }
+
+
+def test_manifest_units_adapts_each_authenticated_raw_unit() -> None:
+    raw_records = (
+        {
+            "candidate_id": "candidate-1",
+            "case_id": "case-1",
+            "prediction_units": [
+                {"unit_id": "unit-1", "claim": "first"},
+                {"unit_id": "unit-2", "claim": "second"},
+            ],
+        },
+    )
+
+    adapted = runner._manifest_units(raw_records)  # pyright: ignore[reportPrivateUsage]
+
+    assert len(adapted) == 1
+    envelope = adapted[0]
+    assert envelope["status"] == "finalized"
+    assert envelope["candidate_id"] == "candidate-1"
+    assert envelope["case_id"] == "case-1"
+    assert envelope["exclusion"] is None
+    units = cast(list[dict[str, Any]], envelope["prediction_units"])
+    assert [unit["unit_id"] for unit in units] == ["unit-1", "unit-2"]
+    assert all(unit["disposition"] == "ACCEPT" for unit in units)
+    assert all(unit["adjudication_id"].startswith("automatic:") for unit in units)
+    assert all(unit["adjudication_sha256"] is None for unit in units)
+
+
+def test_validate_raw_inputs_accepts_owner_committed_complete_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw_payload = runner._canonical_jsonl(  # pyright: ignore[reportPrivateUsage]
+        (
+            {
+                "candidate_id": "candidate-1",
+                "case_id": "case-1",
+                "prediction_units": [
+                    {"unit_id": "unit-1"},
+                    {"unit_id": "unit-2"},
+                ],
+            },
+        )
+    )
+    raw_path = tmp_path / "prediction-units.jsonl"
+    raw_path.write_bytes(raw_payload)
+    monkeypatch.setattr(runner, "EXPECTED_CASE_COUNT", 1)
+    monkeypatch.setattr(runner, "EXPECTED_UNIT_COUNT", 2)
+    monkeypatch.setattr(runner, "_raw_sha256", lambda _: runner.RAW_UNITS_SHA256)
+
+    records = runner._validate_raw_inputs(raw_path)  # pyright: ignore[reportPrivateUsage]
+
+    assert records == (
+        {
+            "candidate_id": "candidate-1",
+            "case_id": "case-1",
+            "prediction_units": [
+                {"unit_id": "unit-1"},
+                {"unit_id": "unit-2"},
+            ],
+        },
+    )
+
+
+def test_validate_registry_accepts_exact_safe_stage_b_entries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry_path = tmp_path / "stage-b-registry.json"
+    registry_path.write_bytes(b"owner-committed-registry")
+    entries = tuple(
+        SimpleNamespace(
+            provider=provider,
+            registry_key=model_key,
+            network_disabled=True,
+            search_disabled=True,
+            tool_policy=SimpleNamespace(value="no_tools"),
+        )
+        for provider, model_key in zip(
+            ("openai", "google"), runner.MODEL_KEYS, strict=True
+        )
+    )
+    monkeypatch.setattr(runner, "_raw_sha256", lambda _: runner.STAGE_B_REGISTRY_SHA256)
+    monkeypatch.setattr(
+        runner,
+        "load_model_registry",
+        lambda _: SimpleNamespace(entries=entries),
+    )
+
+    validated = runner._validate_registry(registry_path)  # pyright: ignore[reportPrivateUsage]
+
+    assert validated == entries
+
+
+def test_current_decision_record_authenticates_replacement_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_document_id = "source-1"
+    metadata_bytes = b'{"authenticated":"metadata"}\n'
+    markdown_bytes = b"A first-written disposition.\n"
+    source_bytes = b"authenticated PDF bytes"
+    source_path = tmp_path / "source.pdf"
+    source_path.write_bytes(source_bytes)
+    store_root = tmp_path / "decision-store"
+    store_root.mkdir()
+    (store_root / f"{source_document_id}.md").write_bytes(markdown_bytes)
+    metadata = {
+        "candidate_id": "candidate-1",
+        "source_document_id": source_document_id,
+        "status": "succeeded",
+        "extracted_text": {
+            "text_sha256": "markdown",
+            "extraction_method": "fixture-parser",
+        },
+        "input_path": str(source_path),
+        "source_sha256": "source",
+        "parser_config": {"parser_revision": "fixture-revision"},
+    }
+    metadata_bytes = json.dumps(metadata).encode("utf-8")
+    (store_root / f"{source_document_id}.metadata.json").write_bytes(metadata_bytes)
+    selection = {
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "decision_date": "2026-08-01",
+        "documents": [
+            {
+                "source_document_id": source_document_id,
+                "contains_target_outcome": True,
+                "model_visible": False,
+                "document_role": "decision",
+                "docket_entry_number": 42,
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        runner,
+        "REPLACEMENT_SOURCE_COMMITMENTS",
+        {
+            source_document_id: {
+                "metadata_sha256": "metadata",
+                "markdown_sha256": "markdown",
+                "source_sha256": "source",
+            }
+        },
+    )
+
+    def fake_digest(payload: bytes) -> str:
+        return {
+            metadata_bytes: "metadata",
+            markdown_bytes: "markdown",
+            source_bytes: "source",
+        }[payload]
+
+    monkeypatch.setattr(runner, "_raw_sha256", fake_digest)
+
+    record = runner._current_decision_record(  # pyright: ignore[reportPrivateUsage]
+        selection=selection,
+        decision_store_root=store_root,
+        input_commitments={"selection_sha256": "selection"},
+    )
+
+    assert record == {
+        "schema_version": runner.DECISION_TEXT_SCHEMA_VERSION,
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "document_id": "candidate-1-entry-42-decision",
+        "source_document_id": source_document_id,
+        "document_role": "decision",
+        "docket_entry_number": 42,
+        "entered_date": "2026-08-01",
+        "is_first_written_disposition": True,
+        "contains_target_outcome": True,
+        "model_visible": False,
+        "extraction_method": "fixture-parser",
+        "parser_revision": "fixture-revision",
+        "source_byte_count": len(source_bytes),
+        "source_sha256": "source",
+        "markdown_sha256": "markdown",
+        "text_sha256": "markdown",
+        "text": markdown_bytes.decode(),
+        "input_commitments": {"selection_sha256": "selection"},
+    }

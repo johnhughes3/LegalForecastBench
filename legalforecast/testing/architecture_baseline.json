@@ -11697,20 +11697,20 @@
       },
       "tests/test_stageb_manifest_runner.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "tests",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
         "fan_in": 0,
         "fan_out": 0,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_verified_inputs_builds_replacement_decision_manifest_provider_free",
         "largest_symbol_lines": 107,
         "layer": "test",
-        "line_count": 965,
-        "nonblank_line_count": 892,
-        "top_level_definition_count": 23
+        "line_count": 1149,
+        "nonblank_line_count": 1058,
+        "top_level_definition_count": 27
       },
       "tests/test_static_result_sites.py": {
         "cycle_id": "",
