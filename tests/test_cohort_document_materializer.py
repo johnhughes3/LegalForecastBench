@@ -15,6 +15,7 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.ingestion import case_dev_purchase as purchase_module
 from legalforecast.ingestion import cohort_document_materializer as materializer_module
+from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.case_dev_purchase import CaseDevPurchaseSnapshot
 from legalforecast.ingestion.cohort_document_materializer import (
     CohortDocumentMaterializationError,
@@ -589,11 +590,28 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
         "byte_count": len(payload),
         "status": "cleared",
         "restriction_status": "public",
-        "restriction_evidence": ["courtlistener_public_download_record_checked"],
-        "reviewer_id": "reviewer:john",
-        "controlled_store_provenance": "private-store://cycle-1/clearance",
-        "reviewed_at": "2026-07-27T12:00:00Z",
+        "restriction_evidence": [
+            "courtlistener_public_download_record_checked",
+            "document_repair_byte_role_validation_match",
+        ],
+        "reviewer_id": None,
+        "controlled_store_provenance": None,
+        "reviewed_at": None,
         "free_or_purchased": "free",
+        "clearance_basis": "courtlistener_public_download",
+        "is_private": False,
+        "is_sealed": False,
+    }
+    restriction_record = {
+        "candidate_id": "candidate-1",
+        "source_document_id": "motion-1",
+        "restriction_status": "public",
+        "restriction_evidence": [
+            "courtlistener_public_download_record_checked",
+            "document_repair_byte_role_validation_match",
+        ],
+        "is_private": False,
+        "is_sealed": False,
     }
     preparation_summary = preparation / "target-cohort-preparation-summary.json"
     preparation_config = preparation / "target-cohort-config.json"
@@ -640,10 +658,20 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     free_manifest.write_text(
         json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
     )
-    free_clearance.write_text(
-        json.dumps(clearance, sort_keys=True) + "\n", encoding="utf-8"
+    free_clearance.write_bytes(
+        canonical_json_bytes(
+            clearance,
+            error_type=ValueError,
+            error_message="test clearance is not canonical",
+        )
     )
-    restriction.write_text("\n", encoding="utf-8")
+    restriction.write_bytes(
+        canonical_json_bytes(
+            restriction_record,
+            error_type=ValueError,
+            error_message="test restriction is not canonical",
+        )
+    )
     projected_purchased_manifest: list[Mapping[str, object]] = []
     projection_paths = (
         selection,
@@ -664,7 +692,20 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     )
 
     def verified_projection(**_kwargs: object) -> dict[str, object]:
+        clearance_bytes = canonical_json_bytes(
+            clearance,
+            error_type=ValueError,
+            error_message="test clearance is not canonical",
+        )
+        restriction_bytes = canonical_json_bytes(
+            restriction_record,
+            error_type=ValueError,
+            error_message="test restriction is not canonical",
+        )
         return {
+            "run_card": {
+                "schema_version": str(cli.EXACT100_SUCCESSOR_REPLACEMENT_STATE_V3)
+            },
             "summary_path": projection_summary,
             "run_card_path": projection_card,
             "selection_path": selection,
@@ -674,7 +715,11 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
             "purchased_manifest": projected_purchased_manifest,
             "free_clearance": (clearance,),
             "restriction_path": restriction,
-            "restriction_records": (),
+            "restriction_records": (restriction_record,),
+            "authenticated_clearance_records": (clearance,),
+            "authenticated_clearance_bytes": clearance_bytes,
+            "authenticated_restriction_bytes": restriction_bytes,
+            "clearance_path": free_clearance,
             "selected_document_keys": {("candidate-1", "motion-1")},
             "verified_artifact_bytes": {
                 os.path.abspath(path): path.read_bytes() for path in projection_paths
@@ -682,6 +727,21 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
         }
 
     monkeypatch.setattr(cli, "_verify_materializer_projection", verified_projection)
+    monkeypatch.setattr(
+        cli, "_verified_successor_selection_card_from_projection", lambda _value: None
+    )
+    admission_calls: list[tuple[object, ...]] = []
+    original_admit_v3_free = cli._admit_v3_free
+
+    def admit_v3_free(
+        projection: Mapping[str, object],
+        manifest_records: Sequence[Mapping[str, Any]],
+        clearance_records: Sequence[Mapping[str, Any]],
+    ) -> tuple[Mapping[str, Any], ...]:
+        admission_calls.append((projection, manifest_records, clearance_records))
+        return original_admit_v3_free(projection, manifest_records, clearance_records)
+
+    monkeypatch.setattr(cli, "_admit_v3_free", admit_v3_free)
     approval = SimpleNamespace(
         decision="free_only",
         request=SimpleNamespace(
@@ -744,6 +804,7 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     assert card["authority_mode"] == "free_only"
     assert card["purchased_document_count"] == 0
     assert not ledger.exists()
+    assert len(admission_calls) == 1
     replay = cli._verify_materialized_downstream_lineage(
         run_card_path=run_card,
         manifest_path=output / "document-downloads-merged.jsonl",
@@ -754,6 +815,10 @@ def test_free_only_cli_materializes_and_replays_without_paid_artifacts(
     )
     assert len(replay.manifest_records) == 1
     assert replay.resolved_records == ()
+    assert (
+        replay.free_public_download_capability
+        is vars(cli.disclosure_clearance_module)["_FREE_PUBLIC_DOWNLOAD_AUTHORITY"]
+    )
     assert any(
         path.name == "materialize-cohort-documents.json" for path in final_snapshots
     )
@@ -1183,6 +1248,45 @@ def _v3_split_source_projection(tmp_path: Path) -> dict[str, object]:
     )
     promoted_path = promoted_root / promoted["local_path"]
 
+    def clearance_for(document: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            "byte_count": document["byte_count"],
+            "candidate_id": document["candidate_id"],
+            "clearance_basis": "courtlistener_public_download",
+            "free_or_purchased": "free",
+            "sha256": document["sha256"],
+            "source_document_id": document["source_document_id"],
+            "status": "cleared",
+        }
+
+    def restriction_for(document: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            "candidate_id": document["candidate_id"],
+            "is_private": False,
+            "is_sealed": False,
+            "restriction_evidence": [
+                "courtlistener_public_download_record_checked",
+                "document_repair_byte_role_validation_match",
+            ],
+            "restriction_status": "public",
+            "source_document_id": document["source_document_id"],
+        }
+
+    def jsonl_bytes(rows: Sequence[Mapping[str, Any]]) -> bytes:
+        return "".join(
+            json.dumps(
+                dict(row),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+            + "\n"
+            for row in rows
+        ).encode()
+
+    clearance = (clearance_for(retained), clearance_for(promoted))
+    restrictions = (restriction_for(retained), restriction_for(promoted))
+
     anchor_projection = {
         "run_card": {"schema_version": cli.ZERO_COST_SUCCESSOR_STATE_SCHEMA},
         "free_manifest": (retained, omitted),
@@ -1196,10 +1300,22 @@ def _v3_split_source_projection(tmp_path: Path) -> dict[str, object]:
         "base_projection": anchor_projection,
         "summary_path": tmp_path / "v3" / "projection-summary.json",
         "free_manifest": (retained, promoted),
-        "free_clearance": (retained, promoted),
+        "free_clearance": clearance,
         "purchased_manifest": (),
+        "restriction_records": restrictions,
+        "authenticated_clearance_records": clearance,
+        "authenticated_clearance_bytes": jsonl_bytes(clearance),
+        "authenticated_restriction_bytes": jsonl_bytes(restrictions),
+        "clearance_path": tmp_path / "v3" / "disclosure-clearance.jsonl",
+        "restriction_path": tmp_path / "v3" / "restriction-evidence.jsonl",
         "verified_artifact_bytes": {
-            os.path.abspath(promoted_path): promoted_path.read_bytes()
+            os.path.abspath(promoted_path): promoted_path.read_bytes(),
+            os.path.abspath(
+                tmp_path / "v3" / "disclosure-clearance.jsonl"
+            ): jsonl_bytes(clearance),
+            os.path.abspath(
+                tmp_path / "v3" / "restriction-evidence.jsonl"
+            ): jsonl_bytes(restrictions),
         },
         "preparation_root": preparation_root,
     }
@@ -1231,13 +1347,27 @@ def test_consolidated_successor_v3_filters_anchor_sources_and_uses_owner_root(
         (record["candidate_id"], record["source_document_id"])
         for record in sources[1].manifest
     ] == [("promoted", "new-document")]
+    expected_capability = vars(cli.disclosure_clearance_module)[
+        "_FREE_PUBLIC_DOWNLOAD_AUTHORITY"
+    ]
+    assert all(
+        source.free_public_download_capability is expected_capability
+        for source in sources
+    )
 
 
 def test_consolidated_successor_v3_refuses_unauthenticated_promoted_bytes(
     tmp_path: Path,
 ) -> None:
     projection = _v3_split_source_projection(tmp_path)
-    projection["verified_artifact_bytes"] = {}
+    projection["verified_artifact_bytes"] = {
+        os.path.abspath(cast(Path, projection["clearance_path"])): projection[
+            "authenticated_clearance_bytes"
+        ],
+        os.path.abspath(cast(Path, projection["restriction_path"])): projection[
+            "authenticated_restriction_bytes"
+        ],
+    }
 
     with pytest.raises(
         cli.CommandError, match="promoted free document is unauthenticated"

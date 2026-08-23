@@ -136,6 +136,8 @@ def verify_decision_text_artifact(
     finalized_unit_records: Sequence[Mapping[str, Any]],
     finalized_units_path: Path,
     markdown_root: Path,
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
     docket_decision_authority: VerifiedTerminalPurchaseDispositionAuthority
     | None = None,
     purchase_journal: CaseDevPurchaseJournal | None = None,
@@ -259,6 +261,8 @@ def verify_decision_text_artifact(
             manifest_commitments=manifest_commitments,
             seen_documents=seen_documents,
             docket_sources=docket_sources,
+            paid_delivery_capability=paid_delivery_capability,
+            free_public_download_capability=free_public_download_capability,
         )
         indexed_records[candidate_id] = record
     if set(indexed_records) != selected_candidates:
@@ -286,6 +290,8 @@ def build_decision_text_records(
     parser_records: Sequence[Mapping[str, Any]],
     markdown_root: Path,
     input_commitments: Mapping[str, str],
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
     docket_decision_authority: VerifiedTerminalPurchaseDispositionAuthority
     | None = None,
     purchase_journal: CaseDevPurchaseJournal | None = None,
@@ -305,6 +311,8 @@ def build_decision_text_records(
             docket_decision_authority,
             purchase_journal=purchase_journal,
         ),
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
     )
 
 
@@ -335,6 +343,8 @@ def build_fixture_rehearsal_decision_text_records(
         input_commitments=input_commitments,
         parser_provenance="fixture_markdown",
         docket_sources={},
+        paid_delivery_capability=None,
+        free_public_download_capability=None,
     )
 
 
@@ -349,6 +359,8 @@ def _build_decision_text_records(
     input_commitments: Mapping[str, str],
     parser_provenance: str,
     docket_sources: Mapping[DocumentKey, Mapping[str, Any]],
+    paid_delivery_capability: object | None,
+    free_public_download_capability: object | None,
 ) -> tuple[JsonRecord, ...]:
     if parser_provenance not in {"live_mistral", "fixture_markdown"}:
         raise DecisionTextArtifactError("unsupported parser provenance")
@@ -485,6 +497,8 @@ def _build_decision_text_records(
             parser=parser,
             parser_provenance=parser_provenance,
             parser_markdown=text,
+            paid_delivery_capability=paid_delivery_capability,
+            free_public_download_capability=free_public_download_capability,
         )
         entered_date = _decision_date(selection, candidate_id=candidate_id)
         extracted_text = _mapping(parser.get("extracted_text"), "extracted_text")
@@ -533,6 +547,35 @@ def _decision_text_clearance(clearance: Mapping[str, Any]) -> dict[str, object]:
     """Project clearance while preserving the legacy human bytes exactly."""
 
     basis = clearance.get("clearance_basis")
+    if basis in {"courtlistener_public_download", "paid_delivery"}:
+        expected_phase = (
+            "free" if basis == "courtlistener_public_download" else "purchased"
+        )
+        if (
+            clearance.get("free_or_purchased") != expected_phase
+            or clearance.get("is_private") is not False
+            or clearance.get("is_sealed") is not False
+            or clearance.get("reviewer_id") is not None
+            or clearance.get("controlled_store_provenance") is not None
+            or clearance.get("reviewed_at") is not None
+        ):
+            raise DecisionTextArtifactError(
+                f"{basis} clearance has invalid authenticated projection fields"
+            )
+        return {
+            "status": "cleared",
+            "restriction_status": _required_str(clearance, "restriction_status"),
+            "restriction_evidence": list(
+                _required_nonempty_strings(clearance, "restriction_evidence")
+            ),
+            "reviewer_id": None,
+            "controlled_store_provenance": None,
+            "reviewed_at": None,
+            "free_or_purchased": expected_phase,
+            "clearance_basis": basis,
+            "is_private": False,
+            "is_sealed": False,
+        }
     if basis in {
         "affirmative_public_provenance",
         "authenticated_model_exception_review",
@@ -602,14 +645,24 @@ def _validate_decision_text_clearance(
     *,
     key: DocumentKey,
     label: str,
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     if clearance.get("clearance_basis") in {
         "provider_free_recovered_public",
         "affirmative_public_provenance",
         "authenticated_model_exception_review",
+        "courtlistener_public_download",
+        "paid_delivery",
     }:
         try:
-            require_clearance_policy(clearance, key=key, label=label)
+            require_clearance_policy(
+                clearance,
+                key=key,
+                label=label,
+                paid_delivery_capability=paid_delivery_capability,
+                free_public_download_capability=free_public_download_capability,
+            )
         except DisclosureClearanceError as exc:
             raise DecisionTextArtifactError(str(exc)) from exc
         return
@@ -720,6 +773,8 @@ def _validate_verified_record(
     manifest_commitments: Mapping[str, str],
     seen_documents: set[str],
     docket_sources: Mapping[DocumentKey, Mapping[str, Any]],
+    paid_delivery_capability: object | None,
+    free_public_download_capability: object | None,
 ) -> None:
     candidate_id = _required_str(record, "candidate_id")
     if record.get("schema_version") != SCHEMA_VERSION:
@@ -828,7 +883,11 @@ def _validate_verified_record(
             )
         return
     _validate_decision_text_clearance(
-        clearance, key=(candidate_id, document_id), label="decision text"
+        clearance,
+        key=(candidate_id, document_id),
+        label="decision text",
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
     )
     restriction_status = _required_str(clearance, "restriction_status").lower()
     if restriction_status not in _PUBLIC_STATUSES and not (
@@ -1274,6 +1333,8 @@ def _validate_document_binding(
     parser: Mapping[str, Any],
     parser_provenance: str,
     parser_markdown: str,
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     if clearance.get("schema_version") != "legalforecast.disclosure_clearance.v1":
         raise DecisionTextArtifactError(f"unsupported clearance schema: {key}")
@@ -1286,7 +1347,13 @@ def _validate_document_binding(
         key=key,
     )
     try:
-        require_clearance_policy(clearance, key=key, label="decision document")
+        require_clearance_policy(
+            clearance,
+            key=key,
+            label="decision document",
+            paid_delivery_capability=paid_delivery_capability,
+            free_public_download_capability=free_public_download_capability,
+        )
     except DisclosureClearanceError as exc:
         raise DecisionTextArtifactError(str(exc)) from exc
     _required_nonempty_strings(clearance, "restriction_evidence")

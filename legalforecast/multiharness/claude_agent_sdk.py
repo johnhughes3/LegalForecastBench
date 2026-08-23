@@ -28,23 +28,23 @@ from legalforecast.multiharness.validation import validate_public_record
 
 CLAUDE_AGENT_SDK_ADAPTER_ID = "claude-agent-sdk-baseline"
 CLAUDE_AGENT_SDK_ADAPTER_VERSION = "1.0.0"
-CLAUDE_AGENT_SDK_VERSION = "0.2.138"
-CLAUDE_BUNDLED_CLI_VERSION = "2.1.232"
+CLAUDE_AGENT_SDK_VERSION = "0.2.140"
+CLAUDE_BUNDLED_CLI_VERSION = "2.1.235"
 CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM: Mapping[str, str] = {
     "darwin-arm64": (
-        "sha256:7b39c1588df919d001dea3ffd5651adb682f2451b5a0e18d42d4233296b53cc7"
+        "sha256:83b8f806f6f2eea316cfe246628e6c23374711d868f1fd0409db551b877b7748"
     ),
     "darwin-x86_64": (
-        "sha256:aa3d606d7bf0ea9739a6d0de11810e72a662e7a4e5061d67ee7f8bc47c8890f9"
+        "sha256:325a2dbc166ba8361a913ce588dce4a236789502060239acea52072bb51a54f1"
     ),
     "linux-aarch64": (
-        "sha256:20797ebc644dfc47a69865c46d5cf702c7dbedd48d4268063b8828ebd55b39d0"
+        "sha256:cff9592faa292db0f6ac21874f151b8c3d44e23bf0ab9fd1bcca95edc3469549"
     ),
     "linux-x86_64": (
-        "sha256:61d23f8749136907d586d5b11831ea8a5234d4c1dea40a5e55c33b52e204c6d1"
+        "sha256:bfcf0ae2dbf94b2b6a106074aabf3938b9a10889c3b678e4cb5a00c03274d5d5"
     ),
     "win32-x86_64": (
-        "sha256:ec9e32479bc887809003c91384c6c3a26e7691856d1916f72f6f6d21800f3bd6"
+        "sha256:6786fa5d75a64260de09a3b5f88cd4644dc4292e45a38a4df93dc7eb4d0df3fb"
     ),
 }
 CLAUDE_PROVIDER_ENV_VAR = "ANTHROPIC_API_KEY"

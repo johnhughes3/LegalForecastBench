@@ -413,6 +413,7 @@
   ],
   "identity_checks": [
     "tests/test_acquisition_cli.py::callable-identity",
+    "tests/test_cohort_document_materializer.py::callable-identity",
     "tests/test_deferred_manifest_forecast_bundle.py::callable-identity",
     "tests/test_exact100_successor_v3_consumer_wiring.py::callable-identity",
     "tests/test_exact100_successor_v3_consumer_wiring.py::callable-identity",
