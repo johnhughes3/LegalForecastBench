@@ -1947,6 +1947,27 @@ def _validate_full_provider_shard(
         for candidate_id, record in (frozen_unit_adjudications or {}).items()
         if record.get("provider") in {None, normalized_provider}
     }
+    expected_owner_comment_ids = tuple(owner_comment_ids)
+    candidate_ids = {
+        _required_str(selection, "candidate_id") for selection in selection_records
+    }
+    retry_result_path = _additional_attempt_result_path(
+        output_root,
+        normalized_provider,
+        ADDITIONAL_ATTEMPT_CANDIDATE,
+    )
+    if (
+        normalized_provider == ADDITIONAL_ATTEMPT_PROVIDER
+        and registry_entry.registry_key == ADDITIONAL_ATTEMPT_MODEL_KEY
+        and ADDITIONAL_ATTEMPT_CANDIDATE in candidate_ids
+        and retry_result_path.exists()
+    ):
+        approval_id = _additional_attempt_approval_id()
+        if approval_id not in expected_owner_comment_ids:
+            expected_owner_comment_ids = (
+                *expected_owner_comment_ids,
+                approval_id,
+            )
     audit_path, run_card_path = _shard_artifact_paths(
         output_root, normalized_provider, None
     )
@@ -1985,7 +2006,7 @@ def _validate_full_provider_shard(
         "max_cases": None,
         "case_count": EXPECTED_CASE_COUNT,
         "unit_count": EXPECTED_UNIT_COUNT,
-        "owner_comment_ids": list(owner_comment_ids),
+        "owner_comment_ids": list(expected_owner_comment_ids),
     }
     for key, expected_value in expected_card.items():
         if run_card.get(key) != expected_value:
