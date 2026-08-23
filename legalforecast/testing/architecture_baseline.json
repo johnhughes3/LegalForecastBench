@@ -7191,8 +7191,8 @@
         "largest_symbol": "llm_label_cases",
         "largest_symbol_lines": 371,
         "layer": "application",
-        "line_count": 6689,
-        "nonblank_line_count": 6279,
+        "line_count": 6704,
+        "nonblank_line_count": 6294,
         "top_level_definition_count": 133
       },
       "legalforecast/labeling/official_paid_baton.py": {
@@ -11708,9 +11708,9 @@
         "largest_symbol": "test_stage_b_one_attempt_replay_normalizes_structurally_inapplicable_amendment",
         "largest_symbol_lines": 135,
         "layer": "test",
-        "line_count": 826,
-        "nonblank_line_count": 746,
-        "top_level_definition_count": 21
+        "line_count": 853,
+        "nonblank_line_count": 767,
+        "top_level_definition_count": 23
       },
       "tests/test_stageb_manifest_runner.py": {
         "cycle_id": "",

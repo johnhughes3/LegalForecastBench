@@ -5873,6 +5873,8 @@ def _normalize_rendered_markdown(
             whitespace_start = index
             index += 1
             while index < len(text) and text[index].isspace():
+                if qualified_prefixes.get(index) is not None:
+                    break
                 index += 1
             if normalized and normalized[-1] == " ":
                 source_ends[-1] = index
@@ -5930,28 +5932,41 @@ def _coerced_excerpt_from_rendered_markdown(text: str, excerpt: str) -> str | No
     successful recovery never manufactures or rewrites evidence.
     """
 
+    qualified_prefixes = _qualified_pdf_line_prefixes(text)
     source = _normalize_rendered_markdown(text, remove_line_prefixes=True)
     if not source.changed:
         return None
     target = _normalize_rendered_markdown(excerpt.strip(), remove_line_prefixes=False)
     if not target.text:
         return None
+    matches: list[int] = []
     search_start = 0
     while True:
         offset = source.text.find(target.text, search_start)
         if offset < 0:
-            return None
+            break
         if _word_boundary_match(source.text, target.text, offset):
-            last = offset + len(target.text) - 1
-            start = source.source_starts[offset]
-            end = source.source_ends[last]
-            for opening, opening_end, closing, closing_end in source.emphasis_pairs:
-                if source.source_starts[offset] == opening_end:
-                    start = opening
-                if source.source_ends[last] == closing:
-                    end = closing_end
-            return text[start:end].strip()
+            matches.append(offset)
         search_start = offset + 1
+    if not matches:
+        return None
+    if qualified_prefixes and len(matches) != 1:
+        return None
+    offset = matches[0]
+    last = offset + len(target.text) - 1
+    start = source.source_starts[offset]
+    end = source.source_ends[last]
+    if qualified_prefixes and not any(
+        prefix_start < end and prefix_end > start
+        for prefix_start, prefix_end in qualified_prefixes.values()
+    ):
+        return None
+    for opening, opening_end, closing, closing_end in source.emphasis_pairs:
+        if source.source_starts[offset] == opening_end:
+            start = opening
+        if source.source_ends[last] == closing:
+            end = closing_end
+    return text[start:end].strip()
 
 
 def _coerced_excerpt(text: str, excerpt: str) -> str:

@@ -336,6 +336,33 @@ def test_stage_b_indented_pdf_line_recovery_requires_a_unique_numbered_match() -
     )
 
 
+def test_stage_b_pdf_line_recovery_rejects_ambiguous_unindented_matches() -> None:
+    decision_text = (
+        "7 repeated citation text appears here.\n"
+        "8 and continues on this line.\n"
+        "19 repeated citation text appears here.\n"
+        "20 and continues on this line."
+    )
+    excerpt = "repeated citation text appears here. and continues on this line."
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="supporting_excerpt does not appear in decision text",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
+
+
+def test_stage_b_indented_pdf_line_recovery_uses_rendered_mapping() -> None:
+    decision_text = " 7 first line\n 8 second line"
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_from_rendered_markdown(
+            decision_text, "first line second line"
+        )
+        == "7 first line\n 8 second line"
+    )
+
+
 @pytest.mark.parametrize(
     "decision_text",
     [
