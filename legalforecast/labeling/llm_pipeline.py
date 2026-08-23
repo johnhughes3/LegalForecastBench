@@ -5247,6 +5247,9 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
         raise LlmPipelineError("supporting_excerpt does not appear in decision text")
     if exact_offset >= 0:
         return stripped
+    markdown_recovery = _coerced_excerpt_without_markdown_emphasis(text, stripped)
+    if markdown_recovery is not None:
+        return markdown_recovery
     # A provider can prepend a short discourse marker to an otherwise verbatim
     # citation.  Keep this recovery deliberately narrower than the general
     # whitespace/fuzzy coercions below: the marker is allowlisted, and the
@@ -5255,6 +5258,9 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
         marker_remainder = stripped[len("Accordingly, ") :]
         if marker_remainder and marker_remainder in text:
             return marker_remainder
+        lead_in_recovery = _coerced_excerpt_allowlisted_lead_in(text, stripped)
+        if lead_in_recovery is not None:
+            return lead_in_recovery
         raise LlmPipelineError("supporting_excerpt does not appear in decision text")
 
     # Some PDF text layers retain printed line numbers at the beginning of
@@ -5293,6 +5299,122 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
     start = source_positions[offset]
     end_offset = offset + len(normalized_excerpt) - 1
     end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
+    return text[start:end].strip()
+
+
+_STAGE_B_LEAD_IN_EQUIVALENCES = (("Accordingly, ", "For the following reasons, "),)
+
+
+def _ascii_case_insensitive_equal(left: str, right: str) -> bool:
+    """Compare equal-length text while folding ASCII letters only.
+
+    The Stage-B lead-in recovery permits capitalization drift in an otherwise
+    exact citation.  Keeping the fold ASCII-only prevents Unicode case-folding
+    from changing code-point count or treating punctuation/words as equivalent.
+    """
+
+    if len(left) != len(right):
+        return False
+    return all(
+        left_char == right_char
+        or ("A" <= left_char <= "Z" and left_char.lower() == right_char)
+        or ("a" <= left_char <= "z" and left_char.upper() == right_char)
+        for left_char, right_char in zip(left, right, strict=True)
+    )
+
+
+def _coerced_excerpt_allowlisted_lead_in(text: str, excerpt: str) -> str | None:
+    """Recover one allowlisted citation lead-in substitution.
+
+    This is intentionally stricter than the general Stage-B whitespace and
+    fuzzy coercions: the model lead-in and authenticated source lead-in are a
+    fixed pair, the remainder has identical length and non-letter bytes, and
+    only ASCII letter case may differ.  The returned value is the exact source
+    slice, including the authenticated lead-in.
+    """
+
+    for model_lead_in, source_lead_in in _STAGE_B_LEAD_IN_EQUIVALENCES:
+        if not excerpt.startswith(model_lead_in):
+            continue
+        remainder = excerpt[len(model_lead_in) :]
+        if not remainder:
+            return None
+        search_start = 0
+        while True:
+            source_start = text.find(source_lead_in, search_start)
+            if source_start < 0:
+                return None
+            source_remainder_start = source_start + len(source_lead_in)
+            source_end = source_remainder_start + len(remainder)
+            source_remainder = text[source_remainder_start:source_end]
+            if _ascii_case_insensitive_equal(source_remainder, remainder):
+                return text[source_start:source_end].strip()
+            search_start = source_start + 1
+    return None
+
+
+def _coerced_excerpt_without_markdown_emphasis(text: str, excerpt: str) -> str | None:
+    """Recover omitted balanced Markdown emphasis delimiters.
+
+    Some provider responses omit only literal ``**`` delimiters around words
+    or phrases.  Remove those delimiters from the authenticated text, collapse
+    whitespace, and require a complete case-sensitive substring match.  A
+    source-position map returns the original source slice, including every
+    delimiter.  No punctuation, case, or word changes are accepted.
+    """
+
+    if "**" in excerpt or "**" not in text:
+        return None
+    marker_positions = [
+        index for index in range(len(text) - 1) if text.startswith("**", index)
+    ]
+    if len(marker_positions) % 2 != 0:
+        return None
+    for opening, closing in zip(
+        marker_positions[::2], marker_positions[1::2], strict=True
+    ):
+        body = text[opening + 2 : closing]
+        if not body.strip() or not any(char.isalnum() for char in body):
+            return None
+
+    normalized_chars: list[str] = []
+    source_positions: list[int] = []
+    index = 0
+    while index < len(text):
+        if text.startswith("**", index):
+            index += 2
+            continue
+        char = text[index]
+        if char.isspace():
+            if not normalized_chars or normalized_chars[-1] != " ":
+                normalized_chars.append(" ")
+                source_positions.append(index)
+        else:
+            normalized_chars.append(char)
+            source_positions.append(index)
+        index += 1
+
+    leading_space_count = len(normalized_chars) - len(
+        "".join(normalized_chars).lstrip()
+    )
+    normalized_text = "".join(normalized_chars).strip()
+    source_positions = source_positions[
+        leading_space_count : leading_space_count + len(normalized_text)
+    ]
+    normalized_excerpt = " ".join(excerpt.split())
+    if not normalized_excerpt:
+        return None
+    offset = normalized_text.find(normalized_excerpt)
+    if offset < 0:
+        return None
+
+    start = source_positions[offset]
+    end_offset = offset + len(normalized_excerpt) - 1
+    end = source_positions[end_offset] + 1
+    while start >= 2 and text[start - 2 : start] == "**":
+        start -= 2
+    while text[end : end + 2] == "**":
+        end += 2
     return text[start:end].strip()
 
 
