@@ -5679,6 +5679,7 @@ def _repair_unescaped_json_string_quotes(text: str) -> str | None:
 
 _MARKDOWN_ESCAPABLE_PUNCTUATION = frozenset(r"!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
 _MARKDOWN_EMPHASIS_MARKERS = ("**", "__", "*", "_")
+_PDF_LINE_PREFIX_RE = re.compile(r"[ \t]{0,3}([0-9]{1,3})(?=[ \t])")
 
 
 @dataclass(frozen=True)
@@ -5698,7 +5699,7 @@ def _qualified_pdf_line_prefixes(text: str) -> dict[int, tuple[int, int]]:
     prefixes: list[tuple[int, int, int, int]] = []
     offset = 0
     for line_number, line in enumerate(text.split("\n")):
-        match = re.match(r"([0-9]{1,3})(?=[ \t])", line)
+        match = _PDF_LINE_PREFIX_RE.match(line)
         if match is not None:
             prefixes.append(
                 (
@@ -6144,16 +6145,18 @@ def _omits_unqualified_pdf_line_number(text: str, excerpt_start: int) -> bool:
     """Report whether an exact excerpt starts after an isolated line number."""
 
     line_start = text.rfind("\n", 0, excerpt_start) + 1
-    prefix_match = re.fullmatch(r"([0-9]{1,3})[ \t]+", text[line_start:excerpt_start])
+    prefix_match = re.fullmatch(
+        r"[ \t]{0,3}([0-9]{1,3})[ \t]+",
+        text[line_start:excerpt_start],
+    )
     if prefix_match is None:
         return False
     number = int(prefix_match.group(1))
 
     previous_line_start = text.rfind("\n", 0, line_start - 1) + 1
     previous_line_end = line_start - 1
-    previous_match = re.match(
-        r"([0-9]{1,3})(?=[ \t])",
-        text[previous_line_start:previous_line_end],
+    previous_match = _PDF_LINE_PREFIX_RE.match(
+        text[previous_line_start:previous_line_end]
     )
     if previous_match is not None and int(previous_match.group(1)) == number - 1:
         return False
@@ -6164,10 +6167,7 @@ def _omits_unqualified_pdf_line_number(text: str, excerpt_start: int) -> bool:
     next_line_end = text.find("\n", next_line_start)
     if next_line_end < 0:
         next_line_end = len(text)
-    next_match = re.match(
-        r"([0-9]{1,3})(?=[ \t])",
-        text[next_line_start:next_line_end],
-    )
+    next_match = _PDF_LINE_PREFIX_RE.match(text[next_line_start:next_line_end])
     return next_match is None or int(next_match.group(1)) != number + 1
 
 
@@ -6190,7 +6190,7 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
     line_prefixes: list[tuple[int, int, int, int]] = []
     line_start = 0
     for line_index, line in enumerate(text.split("\n")):
-        match = re.match(r"([0-9]{1,3})(?=[ \t])", line)
+        match = _PDF_LINE_PREFIX_RE.match(line)
         if match is not None:
             line_prefixes.append(
                 (
@@ -6212,44 +6212,49 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
         if current_line == previous_line + 1 and current_number == previous_number + 1:
             removable_prefix_starts.update((previous_start, current_start))
 
+    prefix_by_start = {prefix[2]: prefix for prefix in line_prefixes}
     normalized_chars: list[str] = []
-    source_positions: list[int] = []
+    source_starts: list[int] = []
+    source_ends: list[int] = []
     removed_line_number = False
+    removed_prefix_positions: set[int] = set()
     index = 0
-    line_start = True
     pending_line_number_start: int | None = None
     while index < len(text):
-        if line_start:
-            prefix = next(
-                (prefix for prefix in line_prefixes if prefix[2] == index),
-                None,
-            )
-            if prefix is not None and prefix[2] in removable_prefix_starts:
-                token_end = prefix[3]
-                removed_line_number = True
-                pending_line_number_start = index
-                index = token_end
-                while index < len(text) and text[index] in " \t":
-                    index += 1
-                line_start = False
-                continue
+        prefix = prefix_by_start.get(index)
+        if prefix is not None and prefix[2] in removable_prefix_starts:
+            token_end = prefix[3]
+            removed_line_number = True
+            pending_line_number_start = index
+            index = token_end
+            while index < len(text) and text[index] in " \t":
+                index += 1
+            continue
 
         char = text[index]
         if char.isspace():
             if not normalized_chars or normalized_chars[-1] != " ":
                 normalized_chars.append(" ")
-                source_positions.append(index)
+                source_starts.append(
+                    pending_line_number_start
+                    if pending_line_number_start is not None
+                    else index
+                )
+                source_ends.append(index + 1)
+            else:
+                source_ends[-1] = index + 1
             pending_line_number_start = None
-            line_start = char == "\n"
         else:
+            if pending_line_number_start is not None:
+                removed_prefix_positions.add(len(normalized_chars))
             normalized_chars.append(char)
-            source_positions.append(
+            source_starts.append(
                 pending_line_number_start
                 if pending_line_number_start is not None
                 else index
             )
+            source_ends.append(index + 1)
             pending_line_number_start = None
-            line_start = False
         index += 1
 
     if not removed_line_number:
@@ -6257,15 +6262,36 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
     untrimmed_text = "".join(normalized_chars)
     leading_space_count = len(untrimmed_text) - len(untrimmed_text.lstrip())
     normalized_text = untrimmed_text.strip()
-    source_positions = source_positions[
+    source_starts = source_starts[
         leading_space_count : leading_space_count + len(normalized_text)
     ]
-    offset = normalized_text.find(normalized_excerpt)
-    if offset < 0:
+    source_ends = source_ends[
+        leading_space_count : leading_space_count + len(normalized_text)
+    ]
+    removed_prefix_positions = {
+        position - leading_space_count
+        for position in removed_prefix_positions
+        if leading_space_count <= position < leading_space_count + len(normalized_text)
+    }
+    matches: list[int] = []
+    search_start = 0
+    while True:
+        offset = normalized_text.find(normalized_excerpt, search_start)
+        if offset < 0:
+            break
+        if _word_boundary_match(normalized_text, normalized_excerpt, offset):
+            matches.append(offset)
+        search_start = offset + 1
+    if len(matches) != 1:
         return None
-    start = source_positions[offset]
-    end_offset = offset + len(normalized_excerpt) - 1
-    end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
+    offset = matches[0]
+    end_offset = offset + len(normalized_excerpt)
+    if not any(
+        offset <= position < end_offset for position in removed_prefix_positions
+    ):
+        return None
+    start = source_starts[offset]
+    end = source_ends[end_offset - 1]
     return text[start:end].strip()
 
 
