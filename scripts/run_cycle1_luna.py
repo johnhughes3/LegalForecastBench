@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts.schemas import LOCAL_LUNA_PLAN_V1, LOCAL_LUNA_RESULT_V1
 from legalforecast.evals.inspect_task import build_inspect_samples, run_inspect_fixture
 from legalforecast.evals.live_model_solver import LiveModelSolver
 from legalforecast.evals.model_registry import load_model_registry
@@ -192,7 +193,7 @@ def run(args: argparse.Namespace) -> int:
         ).encode()
     )
     plan = {
-        "schema_version": "legalforecast.local_luna_plan.v1",
+        "schema_version": str(LOCAL_LUNA_PLAN_V1),
         "manifest_sha256": MANIFEST_DIGEST,
         "model_key": MODEL_KEY,
         "registry_sha256": _sha(registry_bytes),
@@ -299,7 +300,7 @@ def run(args: argparse.Namespace) -> int:
                 for digest, status in output_statuses_from_run_records(records).items()
             }
             record = {
-                "schema_version": "legalforecast.local_luna_result.v1",
+                "schema_version": str(LOCAL_LUNA_RESULT_V1),
                 "identity": identity,
                 "plan_identity_sha256": authority_identity,
                 "packet_sha256": row["packet_sha256"],

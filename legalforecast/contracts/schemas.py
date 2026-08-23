@@ -96,6 +96,8 @@ DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1 = SchemaIdentifier(
 )
 DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v1")
 EXECUTION_POLICY_V2 = SchemaIdentifier("legalforecast.execution_policy.v2")
+LOCAL_LUNA_PLAN_V1 = SchemaIdentifier("legalforecast.local_luna_plan.v1")
+LOCAL_LUNA_RESULT_V1 = SchemaIdentifier("legalforecast.local_luna_result.v1")
 SUPPORTING_DOCUMENT_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.supporting_document_restriction_evidence.v1"
 )
