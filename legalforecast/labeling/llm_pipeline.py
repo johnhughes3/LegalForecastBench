@@ -17,9 +17,13 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.contracts import (
+    ARTIFACT_PREFIXED_SHA256_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V1,
     LLM_STAGE_A_STRUCTURAL_REVIEW_TERMINAL_ESCALATION_V2,
     STAGE_A_STRUCTURAL_FLAG_V2,
+)
+from legalforecast.contracts import (
+    STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1 as _FROZEN_UNIT_ADJUDICATION_SCHEMA,
 )
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.live_model_solver import (
@@ -144,9 +148,7 @@ STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = (
     STAGE_A_CLAIM_ONTOLOGY_V4_PROMPT_CONTRACT,
     STAGE_A_CLAIM_ONTOLOGY_V5_PROMPT_CONTRACT,
 )
-STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1 = (
-    "legalforecast.stage_b.frozen_unit_exclusion_adjudication.v1"
-)
+STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1 = str(_FROZEN_UNIT_ADJUDICATION_SCHEMA)
 _STAGE_A_PROVIDER_ATTEMPT_CONTRACTS = frozenset(STAGE_A_PROVIDER_ATTEMPT_CONTRACTS)
 _STAGE_A_LINE_ADDRESSED_UNITIZER_CONTRACTS = frozenset(
     {
@@ -2995,9 +2997,18 @@ def merge_llm_label_provider_shards(
                     raise LlmPipelineError(
                         "frozen-unit adjudication lacks workflow evidence"
                     )
-                if cast(Mapping[str, Any], workflow).get("is_scored") is not False:
+                workflow_mapping = cast(Mapping[str, Any], workflow)
+                if (
+                    workflow_mapping.get("is_scored") is not False
+                    or workflow_mapping.get("score_scope") != "frozen_units_only"
+                    or not isinstance(
+                        workflow_mapping.get("scoreable_unit_ids"), Sequence
+                    )
+                    or set(workflow_mapping.get("scoreable_unit_ids", ()))
+                    != expected_unit_ids
+                ):
                     raise LlmPipelineError(
-                        "frozen-unit exclusion workflow must remain unscored"
+                        "frozen-unit exclusion workflow score scope differs"
                     )
                 frozen_unit_workflow_records.append(
                     {
@@ -3186,6 +3197,7 @@ def _llm_label_one_model(
     max_provider_attempts: int = DEFAULT_MAX_ATTEMPTS,
     frozen_unit_adjudication: Mapping[str, Any] | None = None,
     frozen_unit_workflow_audit: JsonRecord | None = None,
+    replay_only: bool = False,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
     prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
@@ -3318,6 +3330,10 @@ def _llm_label_one_model(
                 # Retain the response as reconstruction_failed and let the fixed
                 # retry budget decide whether one fresh provider call is allowed.
                 pass
+        if replay_only:
+            raise LlmPipelineError(
+                "provider-free Stage B replay has no retained response to settle"
+            )
         max_attempts = min(
             max_provider_attempts,
             _reconstruction_retry_max_attempts(journal),
@@ -4069,7 +4085,7 @@ def _settle_frozen_unit_exclusion_recovery(
         "finding_count": finding_count,
         "missing_unit_flag_count": len(missing_flags),
         "missing_unit_flags": missing_flags,
-        "frozen_unit_workflow": workflow_error.repair_result.to_manifest_fields(),
+        "frozen_unit_workflow": _frozen_unit_workflow_manifest_fields(workflow_error),
         "frozen_unit_adjudication": dict(adjudication),
         "decision_text_commitment": dict(decision_text_commitment),
     }
@@ -4086,8 +4102,8 @@ def _settle_frozen_unit_exclusion_recovery(
         audit_output.update(
             {
                 "missing_unit_flags": missing_flags,
-                "frozen_unit_workflow": (
-                    workflow_error.repair_result.to_manifest_fields()
+                "frozen_unit_workflow": _frozen_unit_workflow_manifest_fields(
+                    workflow_error
                 ),
                 "frozen_unit_adjudication": dict(adjudication),
             }
@@ -4117,8 +4133,23 @@ def _require_frozen_unit_adjudication(
         or adjudication.get("case_id") != case_id
     ):
         raise LlmPipelineError("frozen-unit adjudication candidate identity differs")
-    if adjudication.get("status") != "excluded_from_cycle1_scoring":
-        raise LlmPipelineError("frozen-unit adjudication status must exclude scoring")
+    if adjudication.get("status") != "missing_unit_excluded_from_scoring":
+        raise LlmPipelineError("frozen-unit adjudication status differs")
+    if adjudication.get("score_scope") != "frozen_units_only":
+        raise LlmPipelineError("frozen-unit adjudication score scope differs")
+    expected_owner_ruling = {
+        "action": "exclude_missing_unit_only",
+        "candidate_id": candidate_id,
+        "case_id": case_id,
+        "frozen_unit_ids": list(frozen_unit_ids),
+        "missing_unit_descriptions": [
+            _required_str(flag, "missing_unit_description") for flag in missing_flags
+        ],
+    }
+    if adjudication.get("owner_ruling") != expected_owner_ruling:
+        raise LlmPipelineError("frozen-unit owner ruling differs")
+    if adjudication.get("scoreable_unit_ids") != list(frozen_unit_ids):
+        raise LlmPipelineError("frozen-unit scoreable units differ")
     for field in ("owner_comment_id", "owner_ruling_sha256"):
         if (
             not isinstance(adjudication.get(field), str)
@@ -4128,9 +4159,11 @@ def _require_frozen_unit_adjudication(
     if adjudication.get("raw_output_sha256") != response.raw_output_sha256:
         raise LlmPipelineError("frozen-unit adjudication raw response differs")
     if normalized_response_json is not None:
-        expected_normalized_sha = (
-            "sha256:"
-            + hashlib.sha256(normalized_response_json.encode("utf-8")).hexdigest()
+        expected_normalized_sha = str(
+            ARTIFACT_PREFIXED_SHA256_V1.commit(
+                normalized_response_json,
+                domain=_FROZEN_UNIT_ADJUDICATION_SCHEMA,
+            ).digest
         )
         if adjudication.get("normalized_response_sha256") != expected_normalized_sha:
             raise LlmPipelineError(
@@ -4157,10 +4190,31 @@ def _frozen_unit_workflow_audit_fields(
             flag.to_record(error.labeling_result.decision_text)
             for flag in error.labeling_result.missing_unit_flags
         ],
-        "frozen_unit_workflow": error.repair_result.to_manifest_fields(),
+        "frozen_unit_workflow": _frozen_unit_workflow_manifest_fields(error),
         "frozen_unit_repaired_count": int(status is FrozenUnitStatus.REPAIRED),
         "frozen_unit_excluded_count": int(status is FrozenUnitStatus.EXCLUDED),
     }
+
+
+def _frozen_unit_workflow_manifest_fields(
+    error: FrozenUnitWorkflowRequiredError,
+) -> JsonRecord:
+    """Make partial scoreability explicit when one unit is omitted."""
+
+    fields = error.repair_result.to_manifest_fields()
+    fields.update(
+        {
+            "score_scope": "frozen_units_only",
+            "scoreable_unit_ids": [
+                label.unit_id for label in error.labeling_result.labels
+            ],
+            "excluded_unit_descriptions": [
+                flag.missing_unit_description
+                for flag in error.labeling_result.missing_unit_flags
+            ],
+        }
+    )
+    return fields
 
 
 def _predecision_documents(

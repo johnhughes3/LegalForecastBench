@@ -12,6 +12,7 @@ from typing import Any, cast
 import pytest
 from legalforecast.evals import stageb_manifest_runner as runner
 from legalforecast.evals.inspect_task import SolverResponse
+from legalforecast.labeling import llm_pipeline
 from legalforecast.labeling import AmendmentClass, UnitResolution
 from legalforecast.labeling.label_outcomes import OutcomeCitation, OutcomeLabel
 from legalforecast.labeling.llm_pipeline import (
@@ -229,6 +230,104 @@ def test_existing_result_replays_full_nested_identity(tmp_path: Path) -> None:
     assert replayed == result
 
 
+def test_existing_failed_result_is_preserved_for_adjudicated_rerun(
+    tmp_path: Path,
+) -> None:
+    result, context = _valid_result()
+    result["status"] = "failed"
+    path = tmp_path / "result.json"
+    original = json.dumps(result).encode()
+    path.write_bytes(original)
+
+    assert (
+        runner._existing_result(  # pyright: ignore[reportPrivateUsage]
+            path,
+            candidate_id="candidate-1",
+            provider="openai",
+            model_key="openai:gpt-5.4-mini-2026-03-17",
+            raw_sha256="raw",
+            raw_candidate_envelope_sha256="envelope",
+            decision_sha256="decision",
+            registry_sha256="registry",
+            selection=context["selection"],
+            frozen_units=context["frozen_units"],
+            decision_commitment=context["decision_commitment"],
+            prompt=context["prompt"],
+            frozen_unit_adjudication={"candidate_id": "candidate-1"},
+        )
+        is None
+    )
+    assert not path.exists()
+    assert (tmp_path / "result.json.failed").read_bytes() == original
+
+
+def test_existing_failed_result_without_adjudication_remains_create_only(
+    tmp_path: Path,
+) -> None:
+    result, context = _valid_result()
+    result["status"] = "failed"
+    path = tmp_path / "result.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+    with pytest.raises(
+        runner.StageBManifestError, match="requires frozen-unit adjudication"
+    ):
+        runner._existing_result(  # pyright: ignore[reportPrivateUsage]
+            path,
+            candidate_id="candidate-1",
+            provider="openai",
+            model_key="openai:gpt-5.4-mini-2026-03-17",
+            raw_sha256="raw",
+            raw_candidate_envelope_sha256="envelope",
+            decision_sha256="decision",
+            registry_sha256="registry",
+            selection=context["selection"],
+            frozen_units=context["frozen_units"],
+            decision_commitment=context["decision_commitment"],
+            prompt=context["prompt"],
+        )
+    assert path.exists()
+
+
+def test_stage_b_replay_only_never_falls_back_to_live_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    live_calls: list[object] = []
+
+    def fail_live(*args: object, **kwargs: object) -> object:
+        live_calls.append((args, kwargs))
+        raise AssertionError("provider transport must not be called")
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", fail_live)
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="provider-free Stage B replay has no retained response",
+    ):
+        llm_pipeline._llm_label_one_model(  # pyright: ignore[reportPrivateUsage]
+            selection={"candidate_id": "candidate-1", "case_id": "case-1"},
+            decision_text=cast(Any, SimpleNamespace()),
+            decision_text_commitment={},
+            frozen_units=(),
+            prompt="provider-free replay prompt",
+            registry_entry=cast(
+                Any,
+                SimpleNamespace(provider="openai", registry_key="openai:model"),
+            ),
+            model_registry_sha256=None,
+            transport=None,
+            environ=None,
+            timeout_seconds=1.0,
+            provider_journal_path=None,
+            provider_cycle_cap_usd=0.0,
+            provider_cycle_id=None,
+            provider_cycle_caps_sha256=None,
+            provider_spend_authorities=None,
+            provider_accounts=None,
+            replay_only=True,
+        )
+    assert live_calls == []
+
+
 def test_frozen_unit_adjudication_binds_exact_response_and_exclusion() -> None:
     missing_flags = ({"missing_unit_description": "new claim"},)
     exclusion = {
@@ -241,8 +340,17 @@ def test_frozen_unit_adjudication_binds_exact_response_and_exclusion() -> None:
         "schema_version": STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
         "candidate_id": "candidate-1",
         "case_id": "case-1",
-        "status": "excluded_from_cycle1_scoring",
+        "status": "missing_unit_excluded_from_scoring",
+        "score_scope": "frozen_units_only",
+        "scoreable_unit_ids": ["unit-1"],
         "owner_comment_id": "owner-comment",
+        "owner_ruling": {
+            "action": "exclude_missing_unit_only",
+            "candidate_id": "candidate-1",
+            "case_id": "case-1",
+            "frozen_unit_ids": ["unit-1"],
+            "missing_unit_descriptions": ["new claim"],
+        },
         "owner_ruling_sha256": "sha256:owner-ruling",
         "raw_output_sha256": response.raw_output_sha256,
         "frozen_unit_ids": ["unit-1"],
@@ -336,7 +444,9 @@ def test_issuer_reconstructs_retained_failure_without_transport(
     )
     monkeypatch.setattr(runner, "_provider_attempt_journal", lambda **_: FakeJournal())
     monkeypatch.setattr(
-        runner, "_owner_comment_ruling_sha256", lambda _: "sha256:ruling"
+        runner,
+        "_owner_comment_ruling_sha256",
+        lambda _, **__: "sha256:ruling",
     )
     monkeypatch.setattr(
         runner,
