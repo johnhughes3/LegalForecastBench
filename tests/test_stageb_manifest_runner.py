@@ -589,7 +589,8 @@ def test_issuer_reconstructs_retained_response_without_transport(
     has_validated_response: bool,
 ) -> None:
     class FakeJournal:
-        def __init__(self) -> None:
+        def __init__(self, account: str) -> None:
+            assert account == "cycle1-google"
             self.has_reconstruction_failure = has_reconstruction_failure
             self.has_validated_response = has_validated_response
             self.has_settled_attempt = False
@@ -637,7 +638,11 @@ def test_issuer_reconstructs_retained_response_without_transport(
             exclusion_entry=exclusion,
         ),
     )
-    monkeypatch.setattr(runner, "_provider_attempt_journal", lambda **_: FakeJournal())
+    monkeypatch.setattr(
+        runner,
+        "_provider_attempt_journal",
+        lambda **kwargs: FakeJournal(str(kwargs["account"])),
+    )
     monkeypatch.setattr(
         runner,
         "_owner_comment_ruling_sha256",
@@ -659,7 +664,7 @@ def test_issuer_reconstructs_retained_response_without_transport(
     transport_calls: list[object] = []
 
     def fake_label(**kwargs: Any) -> object:
-        transport_calls.append(kwargs["transport"])
+        transport_calls.append((kwargs["transport"], kwargs["provider_accounts"]))
         raise workflow_error
 
     monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
@@ -667,7 +672,7 @@ def test_issuer_reconstructs_retained_response_without_transport(
         Any,
         SimpleNamespace(finalized_unit_envelope_sha256s={"candidate-1": "envelope"}),
     )
-    result = runner._issue_frozen_unit_adjudication(  # pyright: ignore[reportPrivateUsage]
+    runner._issue_frozen_unit_adjudication(  # pyright: ignore[reportPrivateUsage]
         output_path=tmp_path / "adjudications.json",
         owner_comment_id="owner-comment",
         provider="google",
@@ -683,8 +688,7 @@ def test_issuer_reconstructs_retained_response_without_transport(
         raw_sha256="raw",
         decision_sha256="decision",
     )
-    assert result["provider_transport_calls"] == 0
-    assert transport_calls == [None]
+    assert transport_calls == [(None, {"google": "cycle1-google"})]
     issued = json.loads((tmp_path / "adjudications.json").read_text())
     assert issued["records"][0]["frozen_unit_ids"] == ["unit-1"]
 

@@ -336,6 +336,7 @@ def _issue_frozen_unit_adjudication(
         candidate_id=candidate_id,
         prompt=prompt,
         registry_entry=registry_entry,
+        account=f"cycle1-{provider}",
         model_registry_sha256=registry_sha256,
         cycle_cap_usd=PROVIDER_CAP_USD[provider],
         cycle_id="cycle-1-stage-b-manifest",
@@ -370,7 +371,7 @@ def _issue_frozen_unit_adjudication(
             provider_cycle_id="cycle-1-stage-b-manifest",
             provider_cycle_caps_sha256=caps_sha256,
             provider_spend_authorities=None,
-            provider_accounts=None,
+            provider_accounts={provider: f"cycle1-{provider}"},
             replay_only=True,
         )
     except FrozenUnitWorkflowRequiredError as exc:
@@ -385,6 +386,7 @@ def _issue_frozen_unit_adjudication(
         candidate_id=candidate_id,
         prompt=prompt,
         registry_entry=registry_entry,
+        account=f"cycle1-{provider}",
         model_registry_sha256=registry_sha256,
         cycle_cap_usd=PROVIDER_CAP_USD[provider],
         cycle_id="cycle-1-stage-b-manifest",
