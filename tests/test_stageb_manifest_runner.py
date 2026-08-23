@@ -1607,6 +1607,125 @@ def test_execute_provider_replay_skips_provider_credentials(
     assert len(records) == 1
 
 
+def test_execute_provider_recovers_retained_failure_without_provider_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A corrected local normalizer may settle a failed response create-only."""
+
+    _, context = _valid_result()
+    output_root = tmp_path / "output"
+    failure_path = output_root / "results/google/candidate-1.json"
+    failure_path.parent.mkdir(parents=True)
+    failure_payload = {
+        "schema_version": str(runner.STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
+        "status": "failed",
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "provider": "google",
+        "model_key": runner.MODEL_KEYS[1],
+        "model_registry_sha256": "registry",
+        "raw_prediction_units_sha256": "raw",
+        "raw_candidate_envelope_sha256": "envelope",
+        "decision_texts_sha256": "decision",
+        "provider_sampling_policy": "provider_default",
+        "tools_enabled": False,
+        "error_type": runner.ADDITIONAL_ATTEMPT_FAILURE_TYPE,
+        "error_message": runner.ADDITIONAL_ATTEMPT_FAILURE_MESSAGE,
+    }
+    original_failure = json.dumps(failure_payload, sort_keys=True).encode()
+    failure_path.write_bytes(original_failure)
+    journal_path = runner._provider_attempt_journal_path(  # pyright: ignore[reportPrivateUsage]
+        output_root, "google"
+    )
+    journal_path.write_bytes(b"retained reconstruction-failed journal")
+
+    class FakeJournal:
+        has_reconstruction_failure = True
+        has_validated_response = False
+        has_settled_attempt = False
+
+        def __enter__(self) -> FakeJournal:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(runner, "_provider_attempt_journal", lambda **_: FakeJournal())
+    monkeypatch.setattr(
+        runner,
+        "_validate_provider_environment",
+        lambda _: pytest.fail("provider credentials must not be checked"),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+    captured: dict[str, Any] = {}
+
+    def fake_label(**kwargs: Any) -> tuple[list[Any], Any, int, int, str]:
+        captured.update(kwargs)
+        return (
+            [],
+            SimpleNamespace(
+                input_tokens=123,
+                output_tokens=456,
+                estimated_cost=0.0,
+                raw_output_sha256="sha256:retained",
+                metadata={"provider": "google"},
+            ),
+            0,
+            0,
+            "sha256:" + hashlib.sha256(context["prompt"].encode()).hexdigest(),
+        )
+
+    monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
+
+    records = runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+        provider="google",
+        output_root=output_root,
+        raw_path=tmp_path / "raw.jsonl",
+        decision_texts_path=tmp_path / "decision.jsonl",
+        artifact=cast(
+            Any,
+            SimpleNamespace(
+                finalized_unit_envelope_sha256s={"candidate-1": "envelope"}
+            ),
+        ),
+        selection_records=(context["selection"],),
+        adapted_records=(),
+        registry_entry=cast(
+            Any,
+            SimpleNamespace(provider="google", registry_key=runner.MODEL_KEYS[1]),
+        ),
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+        max_cases=None,
+    )
+
+    assert len(records) == 1
+    assert captured["replay_only"] is True
+    assert failure_path.read_bytes() == original_failure
+    recovered_path = output_root / "results/google/candidate-1.recovered.json"
+    recovered = json.loads(recovered_path.read_text(encoding="utf-8"))
+    assert recovered["status"] == "succeeded"
+
+
 def test_execute_provider_isolates_sequential_provider_journals(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
