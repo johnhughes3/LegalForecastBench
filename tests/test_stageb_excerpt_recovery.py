@@ -328,12 +328,13 @@ def test_stage_b_indented_pdf_line_recovery_requires_a_unique_numbered_match() -
     )
     excerpt = "repeated citation text appears here. and continues on this line."
 
-    assert (
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="ambiguous PDF line-number matches",
+    ):
         cast(Any, llm_pipeline)._coerced_excerpt_without_pdf_line_numbers(
             decision_text, excerpt
         )
-        is None
-    )
 
 
 def test_stage_b_pdf_line_recovery_rejects_ambiguous_unindented_matches() -> None:
@@ -347,7 +348,7 @@ def test_stage_b_pdf_line_recovery_rejects_ambiguous_unindented_matches() -> Non
 
     with pytest.raises(
         llm_pipeline.LlmPipelineError,
-        match="supporting_excerpt does not appear in decision text",
+        match="ambiguous PDF line-number matches",
     ):
         cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
 

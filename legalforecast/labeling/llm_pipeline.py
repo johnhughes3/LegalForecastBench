@@ -5950,8 +5950,10 @@ def _coerced_excerpt_from_rendered_markdown(text: str, excerpt: str) -> str | No
         search_start = offset + 1
     if not matches:
         return None
-    if qualified_prefixes and len(matches) != 1:
-        return None
+    if qualified_prefixes and len(matches) > 1:
+        raise LlmPipelineError(
+            "supporting_excerpt has ambiguous PDF line-number matches"
+        )
     offset = matches[0]
     last = offset + len(target.text) - 1
     start = source.source_starts[offset]
@@ -6297,7 +6299,11 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
         if _word_boundary_match(normalized_text, normalized_excerpt, offset):
             matches.append(offset)
         search_start = offset + 1
-    if len(matches) != 1:
+    if len(matches) > 1:
+        raise LlmPipelineError(
+            "supporting_excerpt has ambiguous PDF line-number matches"
+        )
+    if not matches:
         return None
     offset = matches[0]
     end_offset = offset + len(normalized_excerpt)
