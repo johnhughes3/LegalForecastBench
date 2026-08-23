@@ -624,7 +624,6 @@ def _verified_inputs(
         "replacement_source_commitments": {
             source_id: dict(commitment)
             for source_id, commitment in sorted(REPLACEMENT_SOURCE_COMMITMENTS.items())
-            if commitment["candidate_id"] in selected_by_id
         },
         "record_count": len(decisions),
         "decision_texts_sha256": _raw_sha256(decision_payload),

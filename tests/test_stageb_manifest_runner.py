@@ -478,3 +478,488 @@ def test_merge_writes_and_replays_create_only_outputs(
     assert first_bytes == second_bytes
     assert json.loads(first_bytes["llm-label-merge-run-card.json"])["label_count"] == 1
     assert first_bytes["lawyer-review-queue.jsonl"].count(b"review-1") == 1
+
+
+def test_full_provider_shard_authenticates_complete_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result, context = _valid_result()
+    audit = cast(dict[str, Any], result["audit"])
+    audit_payload = runner._canonical_jsonl((audit,))  # pyright: ignore[reportPrivateUsage]
+    audit_path, card_path = runner._shard_artifact_paths(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, "openai", None
+    )
+    audit_path.write_bytes(audit_payload)
+    result_path = runner._result_path(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, "openai", "candidate-1"
+    )
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result), encoding="utf-8")
+    card_path.write_text(
+        json.dumps(
+            {
+                "schema_version": str(
+                    runner.STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1
+                ),
+                "stage": "llm-label-provider-shard",
+                "status": "completed",
+                "dry_run": False,
+                "execute": True,
+                "paid_activity_requested": True,
+                "paid_activity_executed": True,
+                "execution_provider": "openai",
+                "model_keys": list(runner.MODEL_KEYS),
+                "executed_model_keys": [runner.MODEL_KEYS[0]],
+                "provider_sampling_policy": "provider_default",
+                "tools_enabled": False,
+                "create_only": True,
+                "resumable": True,
+                "max_cases": None,
+                "case_count": 1,
+                "unit_count": 1,
+                "owner_comment_ids": ["spend", "terminal"],
+                "source_commitments": {
+                    "raw_prediction_units": "raw",
+                    "selection": runner.CURRENT_SELECTION_SHA256,
+                    "legacy_decision_texts": runner.DECISION_TEXTS_SHA256,
+                    "decision_texts_current": "decision",
+                    "model_registry": "registry",
+                    "terminal_packet_approval": runner.TERMINAL_PACKET_APPROVAL,
+                },
+                "output_commitments": {
+                    "audit": runner._raw_sha256(audit_payload),  # pyright: ignore[reportPrivateUsage]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(runner, "EXPECTED_CASE_COUNT", 1)
+    monkeypatch.setattr(runner, "EXPECTED_UNIT_COUNT", 1)
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+
+    audits, shard = runner._validate_full_provider_shard(  # pyright: ignore[reportPrivateUsage]
+        output_root=tmp_path,
+        provider="openai",
+        registry_entry=cast(
+            Any,
+            SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+        ),
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+        artifact=cast(
+            Any,
+            SimpleNamespace(
+                finalized_unit_envelope_sha256s={"candidate-1": "envelope"}
+            ),
+        ),
+        selection_records=(context["selection"],),
+        adapted_records=(),
+        owner_comment_ids=("spend", "terminal"),
+    )
+
+    assert audits == (audit,)
+    assert shard["provider"] == "openai"
+    assert shard["case_count"] == 1
+    assert shard["unit_count"] == 1
+
+
+def test_execute_provider_is_resumable_without_provider_calls(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, context = _valid_result()
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    (output_root / "provider-attempts.sqlite3").write_bytes(b"provider-free journal")
+    artifact = cast(
+        Any,
+        SimpleNamespace(finalized_unit_envelope_sha256s={"candidate-1": "envelope"}),
+    )
+    entry = cast(
+        Any,
+        SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+    )
+    monkeypatch.setattr(runner, "_validate_provider_environment", lambda _: None)
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+    monkeypatch.setattr(runner, "_owner_approval_ids", lambda: ("spend", "terminal"))
+    provider_calls: list[dict[str, Any]] = []
+
+    def fake_label(**kwargs: Any) -> tuple[list[Any], Any, int, int, str]:
+        provider_calls.append(kwargs)
+        return (
+            [],
+            SimpleNamespace(
+                input_tokens=1,
+                output_tokens=1,
+                estimated_cost=0.01,
+                raw_output_sha256="sha256:raw",
+                metadata={"provider": "openai"},
+            ),
+            0,
+            0,
+            "sha256:" + hashlib.sha256(context["prompt"].encode()).hexdigest(),
+        )
+
+    monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
+
+    def replay_existing(path: Path, **_: Any) -> dict[str, Any] | None:
+        if not path.exists():
+            return None
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
+
+    monkeypatch.setattr(runner, "_existing_result", replay_existing)
+    kwargs = {
+        "provider": "openai",
+        "output_root": output_root,
+        "raw_path": tmp_path / "raw.jsonl",
+        "decision_texts_path": tmp_path / "decision.jsonl",
+        "artifact": artifact,
+        "selection_records": (context["selection"],),
+        "adapted_records": (),
+        "registry_entry": entry,
+        "registry_sha256": "registry",
+        "raw_sha256": "raw",
+        "decision_sha256": "decision",
+        "max_cases": None,
+    }
+
+    first = runner._execute_provider(**kwargs)  # pyright: ignore[reportPrivateUsage]
+    second = runner._execute_provider(**kwargs)  # pyright: ignore[reportPrivateUsage]
+
+    assert len(first) == len(second) == 1
+    assert len(provider_calls) == 1
+    assert (output_root / "openai-provider-shard-audit.jsonl").is_file()
+    assert (output_root / "openai-provider-shard-run-card.json").is_file()
+
+
+def test_execute_provider_records_failure_without_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, context = _valid_result()
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    artifact = cast(
+        Any,
+        SimpleNamespace(finalized_unit_envelope_sha256s={"candidate-1": "envelope"}),
+    )
+    entry = cast(
+        Any,
+        SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+    )
+    monkeypatch.setattr(runner, "_validate_provider_environment", lambda _: None)
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+    monkeypatch.setattr(runner, "_existing_result", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        runner,
+        "_llm_label_one_model",
+        lambda **kwargs: (_ for _ in ()).throw(
+            RuntimeError("synthetic provider failure")
+        ),
+    )
+    with pytest.raises(RuntimeError, match="synthetic provider failure"):
+        runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+            provider="openai",
+            output_root=output_root,
+            raw_path=tmp_path / "raw.jsonl",
+            decision_texts_path=tmp_path / "decision.jsonl",
+            artifact=artifact,
+            selection_records=(context["selection"],),
+            adapted_records=(),
+            registry_entry=entry,
+            registry_sha256="registry",
+            raw_sha256="raw",
+            decision_sha256="decision",
+            max_cases=1,
+        )
+    failure = json.loads(
+        (output_root / "results/openai/candidate-1.json").read_text(encoding="utf-8")
+    )
+    assert failure["status"] == "failed"
+    assert failure["error_message"] == "synthetic provider failure"
+
+
+def test_run_dispatches_merge_plan_and_execute_modes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    raw_path = tmp_path / "raw.jsonl"
+    selection_path = tmp_path / "selection.jsonl"
+    decision_path = tmp_path / "decision.jsonl"
+    registry_path = tmp_path / "registry.json"
+    store_root = tmp_path / "store"
+    entries = (
+        cast(Any, SimpleNamespace(provider="openai", registry_key="openai:model")),
+    )
+    artifact = cast(Any, SimpleNamespace(decision_texts_sha256="decision"))
+    selection = {"candidate_id": "candidate-1", "case_id": "case-1"}
+    monkeypatch.setattr(runner, "_owner_approval_ids", lambda: ("spend", "terminal"))
+    monkeypatch.setattr(
+        runner,
+        "_validate_raw_inputs",
+        lambda _: ({"candidate_id": "candidate-1", "prediction_units": [{}]},),
+    )
+    monkeypatch.setattr(runner, "_validate_registry", lambda _: entries)
+    monkeypatch.setattr(
+        runner,
+        "_source_digest",
+        lambda path: (
+            runner.RAW_UNITS_SHA256
+            if path == raw_path.resolve()
+            else runner.STAGE_B_REGISTRY_SHA256
+            if path == registry_path.resolve()
+            else runner.DECISION_TEXTS_SHA256
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_inputs",
+        lambda **_: (artifact, (selection,), ()),
+    )
+    merge_calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        runner,
+        "_merge_provider_shards",
+        lambda **kwargs: merge_calls.append(kwargs) or {"status": "merged"},
+    )
+    execute_calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        runner,
+        "_execute_provider",
+        lambda **kwargs: (
+            execute_calls.append(kwargs) or ({"candidate_id": "candidate-1"},)
+        ),
+    )
+
+    def args(
+        output_root: Path, *, merge: bool, execute: bool, provider: str | None
+    ) -> Any:
+        return SimpleNamespace(
+            raw_prediction_units=raw_path,
+            selection=selection_path,
+            decision_texts=decision_path,
+            decision_store_root=store_root,
+            model_registry=registry_path,
+            output_root=output_root,
+            provider=provider,
+            execute=execute,
+            merge=merge,
+            max_cases=1,
+        )
+
+    assert (
+        runner.run(args(tmp_path / "merge", merge=True, execute=False, provider=None))
+        == 0
+    )
+    assert merge_calls[-1]["owner_comment_ids"] == ("spend", "terminal")
+    capsys.readouterr()
+
+    plan_root = tmp_path / "plan"
+    assert runner.run(args(plan_root, merge=False, execute=False, provider=None)) == 0
+    assert (
+        json.loads((plan_root / "dry-run-plan.json").read_text())["estimated_cost_usd"]
+        == 15.0
+    )
+    capsys.readouterr()
+
+    execute_root = tmp_path / "execute"
+    assert (
+        runner.run(args(execute_root, merge=False, execute=True, provider="openai"))
+        == 0
+    )
+    assert execute_calls[-1]["max_cases"] == 1
+    assert capsys.readouterr().out
+
+
+def test_merge_wraps_consensus_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entries = tuple(
+        cast(
+            Any,
+            SimpleNamespace(provider=provider, registry_key=model_key),
+        )
+        for provider, model_key in zip(
+            ("openai", "google"), runner.MODEL_KEYS, strict=True
+        )
+    )
+    monkeypatch.setattr(
+        runner,
+        "_validate_full_provider_shard",
+        lambda **kwargs: (
+            ({"candidate_id": kwargs["provider"]},),
+            {"provider": kwargs["provider"]},
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "merge_llm_label_provider_shards",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("synthetic merge failure")),
+    )
+    with pytest.raises(runner.StageBManifestError, match="synthetic merge failure"):
+        runner._merge_provider_shards(  # pyright: ignore[reportPrivateUsage]
+            output_root=tmp_path,
+            artifact=cast(Any, SimpleNamespace()),
+            selection_records=(),
+            adapted_records=(),
+            registry_entries=entries,
+            owner_comment_ids=(),
+            registry_sha256="registry",
+            raw_sha256="raw",
+            decision_sha256="decision",
+        )
+
+
+def test_verified_inputs_builds_replacement_decision_manifest_provider_free(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selection = {
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "decision_date": "2026-08-01",
+        "documents": [
+            {
+                "source_document_id": "source-1",
+                "contains_target_outcome": True,
+                "model_visible": False,
+                "document_role": "decision",
+            }
+        ],
+    }
+    raw_records = ({"candidate_id": "candidate-1", "case_id": "case-1"},)
+    adapted_records = (
+        {
+            "candidate_id": "candidate-1",
+            "case_id": "case-1",
+            "prediction_units": [{"unit_id": "unit-1"}],
+        },
+    )
+    monkeypatch.setattr(runner, "EXPECTED_CASE_COUNT", 1)
+    monkeypatch.setattr(
+        runner,
+        "REPLACEMENT_SOURCE_COMMITMENTS",
+        {
+            "source-1": {
+                "metadata_sha256": "metadata",
+                "markdown_sha256": "markdown",
+                "source_sha256": "source",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "_read_regular",
+        lambda path, label: b"legacy" if label == "decision texts" else b"selection",
+    )
+    monkeypatch.setattr(
+        runner,
+        "_raw_sha256",
+        lambda payload: (
+            runner.DECISION_TEXTS_SHA256
+            if payload == b"legacy"
+            else runner.CURRENT_SELECTION_SHA256
+            if payload == b"selection"
+            else "digest-" + str(len(payload))
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_jsonl",
+        lambda payload, label: (
+            (
+                {
+                    "candidate_id": "legacy-other",
+                    "case_id": "other-case",
+                    "entered_date": "2026-08-01",
+                    "text": "unused legacy text",
+                },
+            )
+            if label == "decision texts"
+            else (selection,)
+        ),
+    )
+    monkeypatch.setattr(runner, "_manifest_units", lambda _: adapted_records)
+    monkeypatch.setattr(
+        runner,
+        "_current_decision_record",
+        lambda **_: {
+            "candidate_id": "candidate-1",
+            "case_id": "case-1",
+            "entered_date": "2026-08-01",
+            "text": "authenticated replacement decision",
+        },
+    )
+    writes: list[Path] = []
+    monkeypatch.setattr(
+        runner, "_write_create_only", lambda path, payload: writes.append(path)
+    )
+    monkeypatch.setattr(runner, "_verified_stage_b_decisions", lambda _: {})
+
+    artifact, selected, adapted = runner._verified_inputs(  # pyright: ignore[reportPrivateUsage]
+        raw_path=tmp_path / "raw.jsonl",
+        decision_texts_path=tmp_path / "decision.jsonl",
+        selection_path=tmp_path / "selection.jsonl",
+        decision_store_root=tmp_path / "store",
+        adapted_path=tmp_path / "adapted.jsonl",
+        raw_records=raw_records,
+    )
+
+    assert selected == (selection,)
+    assert adapted == adapted_records
+    assert artifact.records[0]["text"] == "authenticated replacement decision"
+    assert artifact.input_commitments["selection_sha256"] == (
+        runner.CURRENT_SELECTION_SHA256
+    )
+    assert {path.name for path in writes} == {
+        "adapted.jsonl",
+        "decision-texts-current.jsonl",
+        "decision-texts-current-manifest.json",
+        "decision-texts-current-run-card.json",
+    }
