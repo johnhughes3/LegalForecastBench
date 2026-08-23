@@ -12,8 +12,7 @@ from typing import Any, cast
 import pytest
 from legalforecast.evals import stageb_manifest_runner as runner
 from legalforecast.evals.inspect_task import SolverResponse
-from legalforecast.labeling import llm_pipeline
-from legalforecast.labeling import AmendmentClass, UnitResolution
+from legalforecast.labeling import AmendmentClass, UnitResolution, llm_pipeline
 from legalforecast.labeling.label_outcomes import OutcomeCitation, OutcomeLabel
 from legalforecast.labeling.llm_pipeline import (
     STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
@@ -971,6 +970,98 @@ def test_execute_provider_is_resumable_without_provider_calls(
     assert len(provider_calls) == 1
     assert (output_root / "openai-provider-shard-audit.jsonl").is_file()
     assert (output_root / "openai-provider-shard-run-card.json").is_file()
+
+
+def test_execute_provider_replay_skips_provider_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, context = _valid_result()
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    runner._provider_attempt_journal_path(  # pyright: ignore[reportPrivateUsage]
+        output_root, "openai"
+    ).write_bytes(b"provider-free journal")
+    artifact = cast(
+        Any,
+        SimpleNamespace(finalized_unit_envelope_sha256s={"candidate-1": "envelope"}),
+    )
+    entry = cast(
+        Any,
+        SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+    )
+    adjudication = {"candidate_id": "candidate-1", "provider": "openai"}
+    monkeypatch.setattr(
+        runner,
+        "_validate_provider_environment",
+        lambda _: pytest.fail("provider credentials must not be validated on replay"),
+    )
+    monkeypatch.setattr(
+        runner, "_validate_frozen_unit_adjudication", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+    monkeypatch.setattr(runner, "_owner_approval_ids", lambda: ("spend", "terminal"))
+    monkeypatch.setattr(runner, "_existing_result", lambda *args, **kwargs: None)
+
+    def fake_label(**kwargs: Any) -> tuple[list[Any], Any, int, int, str]:
+        assert kwargs["replay_only"] is True
+        audit = cast(dict[str, Any], kwargs["frozen_unit_workflow_audit"])
+        audit.update(
+            {
+                "frozen_unit_adjudication": adjudication,
+                "frozen_unit_workflow": {
+                    "is_scored": False,
+                    "score_scope": "frozen_units_only",
+                    "scoreable_unit_ids": ["unit-1"],
+                },
+            }
+        )
+        return (
+            [],
+            SimpleNamespace(
+                input_tokens=1,
+                output_tokens=1,
+                estimated_cost=0.0,
+                raw_output_sha256="sha256:raw",
+                metadata={"provider": "openai"},
+            ),
+            0,
+            1,
+            "sha256:" + hashlib.sha256(context["prompt"].encode()).hexdigest(),
+        )
+
+    monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
+    records = runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+        provider="openai",
+        output_root=output_root,
+        raw_path=tmp_path / "raw.jsonl",
+        decision_texts_path=tmp_path / "decision.jsonl",
+        artifact=artifact,
+        selection_records=(context["selection"],),
+        adapted_records=(),
+        registry_entry=entry,
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+        max_cases=None,
+        frozen_unit_adjudications={"candidate-1": adjudication},
+        frozen_unit_adjudications_sha256="sha256:adjudications",
+    )
+    assert len(records) == 1
 
 
 def test_execute_provider_isolates_sequential_provider_journals(

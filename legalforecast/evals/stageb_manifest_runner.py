@@ -1818,9 +1818,7 @@ def _validate_full_provider_shard(
                     f"{normalized_provider}/{candidate_id}"
                 )
             if adjudication.get("missing_unit_flags_sha256") != (
-                canonical_records_sha256(
-                    missing_flags
-                )
+                canonical_records_sha256(missing_flags)
             ):
                 raise StageBManifestError(
                     "provider shard adjudication missing-unit evidence differs: "
