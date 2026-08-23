@@ -223,6 +223,58 @@ def test_spend_and_terminal_approvals_cannot_authorize_adjudication(
         )
 
 
+def test_additional_attempt_requires_exact_owner_comment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
+    approval = _comment(
+        runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
+        runner.ADDITIONAL_ATTEMPT_APPROVAL_TEXT,
+        author="owner",
+    )
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _beads_comments([approval], []),
+    )
+
+    assert (
+        runner._additional_attempt_approval_id()  # pyright: ignore[reportPrivateUsage]
+        == runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID
+    )
+
+
+def test_additional_attempt_permit_binds_prompt_and_journal() -> None:
+    permit = runner._additional_attempt_permit(  # pyright: ignore[reportPrivateUsage]
+        candidate_id=runner.ADDITIONAL_ATTEMPT_CANDIDATE,
+        provider=runner.ADDITIONAL_ATTEMPT_PROVIDER,
+        account="cycle1-openai",
+        model_key=runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+        prompt="exact prompt",
+        journal_path=Path("/tmp/provider-attempts-openai.sqlite3"),
+        cycle_id="cycle-1-stage-b-manifest",
+    )
+
+    assert permit.max_total_attempts == 2
+    assert permit.reservation_cap_microusd == 50_000
+    with pytest.raises(runner.StageBManifestError, match="only to OpenAI"):
+        runner._additional_attempt_permit(  # pyright: ignore[reportPrivateUsage]
+            candidate_id="other",
+            provider=runner.ADDITIONAL_ATTEMPT_PROVIDER,
+            account="cycle1-openai",
+            model_key=runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+            prompt="exact prompt",
+            journal_path=Path("/tmp/provider-attempts-openai.sqlite3"),
+            cycle_id="cycle-1-stage-b-manifest",
+        )
+    with pytest.raises(llm_pipeline.LlmPipelineError, match="prompt binding differs"):
+        llm_pipeline._validate_additional_attempt_permit(  # pyright: ignore[reportPrivateUsage]
+            permit,
+            prompt="changed prompt",
+            provider_journal_path=Path("/tmp/provider-attempts-openai.sqlite3"),
+        )
+
+
 def _valid_result() -> tuple[dict[str, Any], dict[str, Any]]:
     selection = {"candidate_id": "candidate-1", "case_id": "case-1"}
     frozen_units = ({"unit_id": "unit-1"},)
@@ -1003,6 +1055,39 @@ def test_full_provider_shard_authenticates_complete_receipt(
     assert shard["provider_attempt_journal"] == runner._source_digest(  # pyright: ignore[reportPrivateUsage]
         journal_path
     )
+    original_card = json.loads(card_path.read_text(encoding="utf-8"))
+    extra_owner_card = dict(original_card)
+    extra_owner_card["owner_comment_ids"] = [
+        "spend",
+        "terminal",
+        "unexpected-extra-approval",
+    ]
+    card_path.write_text(json.dumps(extra_owner_card), encoding="utf-8")
+    with pytest.raises(
+        runner.StageBManifestError, match="provider shard run card field differs"
+    ):
+        runner._validate_full_provider_shard(  # pyright: ignore[reportPrivateUsage]
+            output_root=tmp_path,
+            provider="openai",
+            registry_entry=cast(
+                Any,
+                SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+            ),
+            registry_sha256="registry",
+            raw_sha256="raw",
+            decision_sha256="decision",
+            artifact=cast(
+                Any,
+                SimpleNamespace(
+                    finalized_unit_envelope_sha256s={"candidate-1": "envelope"}
+                ),
+            ),
+            selection_records=(context["selection"],),
+            adapted_records=(),
+            owner_comment_ids=("spend", "terminal"),
+        )
+
+    card_path.write_text(json.dumps(original_card), encoding="utf-8")
     tampered_card = json.loads(card_path.read_text(encoding="utf-8"))
     tampered_card["output_commitments"]["provider_attempt_journal"] = "tampered"
     card_path.write_text(json.dumps(tampered_card), encoding="utf-8")
@@ -1023,6 +1108,145 @@ def test_full_provider_shard_authenticates_complete_receipt(
                 Any,
                 SimpleNamespace(
                     finalized_unit_envelope_sha256s={"candidate-1": "envelope"}
+                ),
+            ),
+            selection_records=(context["selection"],),
+            adapted_records=(),
+            owner_comment_ids=("spend", "terminal"),
+        )
+
+
+def test_retry_provider_shard_authenticates_its_extra_approval_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result, context = _valid_result()
+    candidate_id = runner.ADDITIONAL_ATTEMPT_CANDIDATE
+    context["selection"]["candidate_id"] = candidate_id
+    result["candidate_id"] = candidate_id
+    cast(dict[str, Any], result["audit"])["candidate_id"] = candidate_id
+    audit_payload = runner._canonical_jsonl(  # pyright: ignore[reportPrivateUsage]
+        (cast(dict[str, Any], result["audit"]),)
+    )
+    audit_path, card_path = runner._shard_artifact_paths(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, "openai", None
+    )
+    audit_path.write_bytes(audit_payload)
+    journal_path = runner._provider_attempt_journal_path(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, "openai"
+    )
+    journal_path.write_bytes(b"provider-free journal")
+    retry_path = runner._additional_attempt_result_path(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, "openai", candidate_id
+    )
+    retry_path.parent.mkdir(parents=True, exist_ok=True)
+    retry_path.write_text(json.dumps(result), encoding="utf-8")
+    monkeypatch.setattr(
+        runner,
+        "_additional_attempt_approval_id",
+        lambda: runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
+    )
+    card_path.write_text(
+        json.dumps(
+            {
+                "schema_version": str(
+                    runner.STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1
+                ),
+                "stage": "llm-label-provider-shard",
+                "status": "completed",
+                "dry_run": False,
+                "execute": True,
+                "paid_activity_requested": True,
+                "paid_activity_executed": True,
+                "execution_provider": "openai",
+                "model_keys": list(runner.MODEL_KEYS),
+                "executed_model_keys": [runner.MODEL_KEYS[0]],
+                "provider_sampling_policy": "provider_default",
+                "tools_enabled": False,
+                "create_only": True,
+                "resumable": True,
+                "max_cases": None,
+                "case_count": 1,
+                "unit_count": 1,
+                "owner_comment_ids": [
+                    "spend",
+                    "terminal",
+                    runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
+                ],
+                "source_commitments": {
+                    "raw_prediction_units": "raw",
+                    "selection": runner.CURRENT_SELECTION_SHA256,
+                    "legacy_decision_texts": runner.DECISION_TEXTS_SHA256,
+                    "decision_texts_current": "decision",
+                    "model_registry": "registry",
+                    "terminal_packet_approval": runner.TERMINAL_PACKET_APPROVAL,
+                },
+                "output_commitments": {
+                    "audit": runner._raw_sha256(audit_payload),  # pyright: ignore[reportPrivateUsage]
+                    "provider_attempt_journal": runner._source_digest(journal_path),  # pyright: ignore[reportPrivateUsage]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(runner, "EXPECTED_CASE_COUNT", 1)
+    monkeypatch.setattr(runner, "EXPECTED_UNIT_COUNT", 1)
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {candidate_id: context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            candidate_id: ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+
+    audits, _ = runner._validate_full_provider_shard(  # pyright: ignore[reportPrivateUsage]
+        output_root=tmp_path,
+        provider="openai",
+        registry_entry=cast(
+            Any,
+            SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+        ),
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+        artifact=cast(
+            Any,
+            SimpleNamespace(finalized_unit_envelope_sha256s={candidate_id: "envelope"}),
+        ),
+        selection_records=(context["selection"],),
+        adapted_records=(),
+        owner_comment_ids=("spend", "terminal"),
+    )
+    assert audits == (cast(dict[str, Any], result["audit"]),)
+
+    card = json.loads(card_path.read_text(encoding="utf-8"))
+    card["owner_comment_ids"].append("unexpected-extra-approval")
+    card_path.write_text(json.dumps(card), encoding="utf-8")
+    with pytest.raises(
+        runner.StageBManifestError, match="provider shard run card field differs"
+    ):
+        runner._validate_full_provider_shard(  # pyright: ignore[reportPrivateUsage]
+            output_root=tmp_path,
+            provider="openai",
+            registry_entry=cast(
+                Any,
+                SimpleNamespace(provider="openai", registry_key=runner.MODEL_KEYS[0]),
+            ),
+            registry_sha256="registry",
+            raw_sha256="raw",
+            decision_sha256="decision",
+            artifact=cast(
+                Any,
+                SimpleNamespace(
+                    finalized_unit_envelope_sha256s={candidate_id: "envelope"}
                 ),
             ),
             selection_records=(context["selection"],),
@@ -1533,6 +1757,172 @@ def test_execute_provider_records_failure_without_retry(
     )
     assert failure["status"] == "failed"
     assert failure["error_message"] == "synthetic provider failure"
+
+
+def test_approved_retry_preserves_attempt_one_failure_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, context = _valid_result()
+    candidate_id = runner.ADDITIONAL_ATTEMPT_CANDIDATE
+    context["selection"]["candidate_id"] = candidate_id
+    output_root = tmp_path / "output"
+    failure_path = output_root / "results/openai" / f"{candidate_id}.json"
+    failure_path.parent.mkdir(parents=True)
+    failure_payload = {
+        "schema_version": str(runner.STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
+        "status": "failed",
+        "candidate_id": candidate_id,
+        "case_id": "case-1",
+        "provider": "openai",
+        "model_key": runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+        "model_registry_sha256": "registry",
+        "raw_prediction_units_sha256": "raw",
+        "raw_candidate_envelope_sha256": "envelope",
+        "decision_texts_sha256": "decision",
+        "provider_sampling_policy": "provider_default",
+        "tools_enabled": False,
+        "error_type": "LlmResponseValidationError",
+        "error_message": runner.ADDITIONAL_ATTEMPT_FAILURE_MESSAGE,
+    }
+    failure_path.write_text(json.dumps(failure_payload), encoding="utf-8")
+    before = failure_path.read_bytes()
+    artifact = cast(
+        Any,
+        SimpleNamespace(finalized_unit_envelope_sha256s={candidate_id: "envelope"}),
+    )
+    entry = cast(
+        Any,
+        SimpleNamespace(
+            provider="openai", registry_key=runner.ADDITIONAL_ATTEMPT_MODEL_KEY
+        ),
+    )
+    monkeypatch.setattr(runner, "_validate_provider_environment", lambda _: None)
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {candidate_id: context["frozen_units"]},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            candidate_id: ("authenticated decision", context["decision_commitment"])
+        },
+    )
+    monkeypatch.setattr(
+        runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
+    )
+    monkeypatch.setattr(runner, "_owner_approval_ids", lambda: ("spend", "terminal"))
+    captured: dict[str, Any] = {}
+
+    def fake_label(**kwargs: Any) -> tuple[list[Any], Any, int, int, str]:
+        captured.update(kwargs)
+        cast(Path, kwargs["provider_journal_path"]).write_bytes(
+            b"provider-free journal"
+        )
+        return (
+            [],
+            SimpleNamespace(
+                input_tokens=1,
+                output_tokens=1,
+                estimated_cost=0.01,
+                raw_output_sha256="sha256:raw",
+                metadata={"provider": "openai"},
+            ),
+            0,
+            0,
+            "sha256:" + hashlib.sha256(context["prompt"].encode()).hexdigest(),
+        )
+
+    monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
+    runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+        provider="openai",
+        output_root=output_root,
+        raw_path=tmp_path / "raw.jsonl",
+        decision_texts_path=tmp_path / "decision.jsonl",
+        artifact=artifact,
+        selection_records=(context["selection"],),
+        adapted_records=(),
+        registry_entry=entry,
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+        max_cases=None,
+        additional_attempt_candidate=candidate_id,
+        owner_comment_ids=(
+            "spend",
+            "terminal",
+            runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
+        ),
+    )
+
+    assert failure_path.read_bytes() == before
+    retry_path = output_root / "results/openai" / f"{candidate_id}.attempt-2.json"
+    assert retry_path.is_file()
+    assert captured["max_provider_attempts"] == 2
+    assert captured["additional_attempt_permit"].reservation_cap_microusd == 50_000
+    run_card = json.loads(
+        (output_root / "openai-provider-shard-run-card.json").read_text()
+    )
+    assert run_card["owner_comment_ids"] == [
+        "spend",
+        "terminal",
+        runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("error_type", "error_message"),
+    [
+        ("TimeoutError", "provider request timed out"),
+        ("LlmResponseValidationError", "provider response was not valid JSON"),
+        ("LlmResponseValidationError", "supporting excerpt was not authenticated"),
+    ],
+)
+def test_retry_rejects_nonapproved_failure_receipt(
+    tmp_path: Path,
+    error_type: str,
+    error_message: str,
+) -> None:
+    failure_path = tmp_path / "failed.json"
+    failure_path.write_text(
+        json.dumps(
+            {
+                "schema_version": str(runner.STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
+                "status": "failed",
+                "candidate_id": runner.ADDITIONAL_ATTEMPT_CANDIDATE,
+                "case_id": "case-1",
+                "provider": "openai",
+                "model_key": runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+                "model_registry_sha256": "registry",
+                "raw_prediction_units_sha256": "raw",
+                "raw_candidate_envelope_sha256": "envelope",
+                "decision_texts_sha256": "decision",
+                "provider_sampling_policy": "provider_default",
+                "tools_enabled": False,
+                "error_type": error_type,
+                "error_message": error_message,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        runner.StageBManifestError,
+        match="not the approved citation-validation failure",
+    ):
+        runner._existing_failure_result(  # pyright: ignore[reportPrivateUsage]
+            failure_path,
+            candidate_id=runner.ADDITIONAL_ATTEMPT_CANDIDATE,
+            provider="openai",
+            model_key=runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+            raw_sha256="raw",
+            raw_candidate_envelope_sha256="envelope",
+            decision_sha256="decision",
+            registry_sha256="registry",
+            selection={"case_id": "case-1"},
+        )
 
 
 def test_run_dispatches_merge_plan_and_execute_modes(

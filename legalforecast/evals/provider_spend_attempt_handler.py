@@ -6,11 +6,13 @@ import hashlib
 import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Protocol, cast
 
 from legalforecast.evals.model_registry import LongContextSurcharge
 from legalforecast.evals.provider_spend_control import (
+    AdditionalAttemptPermit,
     AttemptLease,
+    AttemptLimitExceededError,
     ProviderSpendAuthority,
     ProviderSpendKey,
 )
@@ -74,6 +76,7 @@ class ProviderSpendAttemptHandler:
     authority: ProviderSpendAuthority
     key: ProviderSpendKey
     reservation_microusd: int
+    additional_attempt_permit: AdditionalAttemptPermit | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
     )
@@ -97,10 +100,29 @@ class ProviderSpendAttemptHandler:
 
         if attempt_ordinal in self._leases_by_local_ordinal:
             raise RuntimeError("local provider attempt ordinal was reused")
-        lease = self.authority.authorize_attempt(
-            self.key,
-            reservation_microusd=self.reservation_microusd,
-        )
+        try:
+            lease = self.authority.authorize_attempt(
+                self.key,
+                reservation_microusd=self.reservation_microusd,
+            )
+        except AttemptLimitExceededError:
+            permit = self.additional_attempt_permit
+            authorize_additional = getattr(
+                self.authority, "authorize_additional_attempt", None
+            )
+            if permit is None or not callable(authorize_additional):
+                raise
+            lease = cast(
+                AttemptLease,
+                authorize_additional(
+                    self.key,
+                    reservation_microusd=min(
+                        self.reservation_microusd,
+                        permit.reservation_cap_microusd,
+                    ),
+                    permit=permit,
+                ),
+            )
         self._leases_by_local_ordinal[attempt_ordinal] = lease
         self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
         try:
@@ -344,3 +366,72 @@ def conservative_reservation_microusd(
         max_input_tokens * input_token_price + max_output_tokens * output_token_price
     )
     return max(reservation, 1)
+
+
+def max_output_tokens_for_reservation_cap(
+    *,
+    context_limit: int,
+    max_output_tokens: int,
+    input_tokens: int,
+    input_token_price: float,
+    output_token_price: float,
+    reservation_cap_microusd: int,
+    long_context_surcharge: LongContextSurcharge | None = None,
+) -> int:
+    """Return a request output bound that fits a fixed micro-USD ceiling.
+
+    The input token count must be a conservative bound for the exact prompt.
+    Prices are expressed in provider dollars per million tokens, so multiplying
+    a token count by a price yields micro-USD.  The returned bound is also
+    constrained by the registry context window; a non-positive result fails
+    closed before any provider transport is constructed.
+    """
+
+    if type(context_limit) is not int or context_limit <= 0:
+        raise ValueError("context_limit must be a positive integer")
+    if type(max_output_tokens) is not int or max_output_tokens <= 0:
+        raise ValueError("max_output_tokens must be a positive integer")
+    if max_output_tokens >= context_limit:
+        raise ValueError("max_output_tokens must be less than context_limit")
+    if type(input_tokens) is not int or input_tokens < 0:
+        raise ValueError("input_tokens must be a non-negative integer")
+    if input_tokens >= context_limit:
+        raise ValueError("input_tokens must be less than context_limit")
+    if input_token_price < 0 or output_token_price < 0:
+        raise ValueError("provider token prices cannot be negative")
+    if type(reservation_cap_microusd) is not int or reservation_cap_microusd <= 0:
+        raise ValueError("reservation_cap_microusd must be a positive integer")
+
+    effective_input_price = input_token_price
+    effective_output_price = output_token_price
+    if (
+        long_context_surcharge is not None
+        and input_tokens > long_context_surcharge.threshold_input_tokens
+    ):
+        effective_input_price *= long_context_surcharge.input_price_multiplier
+        effective_output_price *= long_context_surcharge.output_price_multiplier
+
+    input_cost_microusd = math.ceil(input_tokens * effective_input_price)
+    remaining_microusd = reservation_cap_microusd - input_cost_microusd
+    context_bound = min(max_output_tokens, context_limit - input_tokens)
+    if remaining_microusd <= 0:
+        raise ValueError(
+            "reservation cap cannot cover the conservative prompt input cost"
+        )
+    if effective_output_price == 0:
+        output_bound = context_bound
+    else:
+        output_bound = min(
+            context_bound,
+            math.floor(remaining_microusd / effective_output_price),
+        )
+        # Correct any binary-float boundary round-down/up without making the
+        # request less conservative than the authenticated cap.
+        while (
+            output_bound > 0
+            and math.ceil(output_bound * effective_output_price) > remaining_microusd
+        ):
+            output_bound -= 1
+    if output_bound <= 0:
+        raise ValueError("reservation cap cannot cover one conservative output token")
+    return output_bound

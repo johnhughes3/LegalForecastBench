@@ -74,6 +74,24 @@ class FrozenAttemptPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class AdditionalAttemptPermit:
+    """Bind one owner-approved exception to a single logical provider call."""
+
+    logical_call_key: str
+    prompt_sha256: str
+    journal_path_sha256: str
+    max_total_attempts: int
+    reservation_cap_microusd: int
+
+    def __post_init__(self) -> None:
+        _sha256(self.logical_call_key, "logical_call_key")
+        _sha256(self.prompt_sha256, "prompt_sha256")
+        _sha256(self.journal_path_sha256, "journal_path_sha256")
+        _positive_int(self.max_total_attempts, "max_total_attempts")
+        _positive_int(self.reservation_cap_microusd, "reservation_cap_microusd")
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderSpendKey:
     """Stable logical-cell identity that deliberately survives workflow reruns."""
 
@@ -278,6 +296,96 @@ class SqliteProviderSpendAuthority:
             if attempt_count >= self.policy.max_billable_attempts:
                 raise AttemptLimitExceededError(
                     "logical provider call reached its frozen billable-attempt limit"
+                )
+            if self._failure_count(now) >= self.policy.failure_threshold:
+                raise CircuitBreakerOpenError(
+                    f"provider/account circuit breaker is open for "
+                    f"{self.provider}/{self.account}"
+                )
+            self._raise_if_poisoned()
+            committed = self._committed_microusd()
+            if committed + reservation > self.cap_microusd:
+                raise ProviderCapExceededError(
+                    f"provider reservation would exceed frozen {self.provider}/"
+                    f"{self.account} cap"
+                )
+            ordinal = attempt_count + 1
+            attempt_id = hashlib.sha256(
+                f"{self.authority_identity_sha256}\0{key.logical_call_key}\0{ordinal}".encode()
+            ).hexdigest()
+            self._connection.execute(
+                """
+                INSERT INTO provider_attempts(
+                    attempt_id, logical_call_key, attempt_ordinal, cycle_id,
+                    provider, account, stage, model_key, case_id, ablation,
+                    repeat_index, reservation_microusd, status, authorized_at_epoch
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reserved', ?)
+                """,
+                (
+                    attempt_id,
+                    key.logical_call_key,
+                    ordinal,
+                    key.cycle_id,
+                    key.provider,
+                    key.account,
+                    key.stage,
+                    key.model_key,
+                    key.case_id,
+                    key.ablation,
+                    key.repeat_index,
+                    reservation,
+                    now,
+                ),
+            )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+        return AttemptLease(
+            attempt_id=attempt_id,
+            authority_identity_sha256=self.authority_identity_sha256,
+            logical_call_key=key.logical_call_key,
+            attempt_ordinal=ordinal,
+            reservation_microusd=reservation,
+        )
+
+    def authorize_additional_attempt(
+        self,
+        key: ProviderSpendKey,
+        *,
+        reservation_microusd: int,
+        permit: AdditionalAttemptPermit,
+    ) -> AttemptLease:
+        """Authorize one exact owner-approved attempt beyond the frozen policy."""
+
+        self._verify_key_scope(key)
+        if permit.logical_call_key != key.logical_call_key:
+            raise AuthorityIdentityMismatchError(
+                "additional-attempt permit is bound to a different logical call"
+            )
+        if permit.max_total_attempts != self.policy.max_billable_attempts + 1:
+            raise AuthorityIdentityMismatchError(
+                "additional-attempt permit changes the frozen attempt policy"
+            )
+        reservation = _positive_int(
+            reservation_microusd,
+            "reservation_microusd",
+        )
+        if reservation > permit.reservation_cap_microusd:
+            raise ProviderCapExceededError(
+                "additional-attempt reservation exceeds its approved ceiling"
+            )
+        now = self._clock()
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            attempt_count = self._attempt_count(key.logical_call_key)
+            if attempt_count != self.policy.max_billable_attempts:
+                raise AttemptLimitExceededError(
+                    "additional attempt requires exactly one exhausted frozen call"
+                )
+            if attempt_count >= permit.max_total_attempts:
+                raise AttemptLimitExceededError(
+                    "logical provider call reached its approved attempt limit"
                 )
             if self._failure_count(now) >= self.policy.failure_threshold:
                 raise CircuitBreakerOpenError(

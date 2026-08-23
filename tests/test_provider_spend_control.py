@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 import threading
 from collections.abc import Callable
@@ -11,6 +12,7 @@ from typing import cast
 
 import pytest
 from legalforecast.evals.provider_spend_control import (
+    AdditionalAttemptPermit,
     AttemptLimitExceededError,
     AttemptStateError,
     AuthorityIdentityMismatchError,
@@ -204,6 +206,46 @@ def test_max_attempts_survives_reopen_and_counts_definite_provider_calls(
     with _authority(path, max_billable_attempts=2) as authority:
         with pytest.raises(AttemptLimitExceededError):
             authority.authorize_attempt(_key(), reservation_microusd=100_000)
+        assert authority.snapshot().attempt_count == 2
+
+
+def test_owner_permit_allows_only_one_capped_additional_attempt(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "spend-control.sqlite3"
+    key = _key(stage="llm-label", case_id="72213663", ablation="labeling")
+    permit = AdditionalAttemptPermit(
+        logical_call_key=key.logical_call_key,
+        prompt_sha256=hashlib.sha256(b"prompt").hexdigest(),
+        journal_path_sha256=hashlib.sha256(b"journal").hexdigest(),
+        max_total_attempts=2,
+        reservation_cap_microusd=50_000,
+    )
+    with _authority(path, max_billable_attempts=1) as authority:
+        first = authority.authorize_attempt(key, reservation_microusd=100_000)
+        authority.record_failure(
+            first,
+            failure_type="validation",
+            ambiguous=False,
+        )
+        second = authority.authorize_additional_attempt(
+            key,
+            reservation_microusd=50_000,
+            permit=permit,
+        )
+        assert second.attempt_ordinal == 2
+        with pytest.raises(AttemptLimitExceededError):
+            authority.authorize_additional_attempt(
+                key,
+                reservation_microusd=50_000,
+                permit=permit,
+            )
+        with pytest.raises(AuthorityIdentityMismatchError):
+            authority.authorize_additional_attempt(
+                _key(stage="llm-label", case_id="different", ablation="labeling"),
+                reservation_microusd=50_000,
+                permit=permit,
+            )
         assert authority.snapshot().attempt_count == 2
 
 
