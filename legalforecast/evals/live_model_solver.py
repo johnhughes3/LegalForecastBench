@@ -279,13 +279,12 @@ def complete_live_prompt(
             attempt_handler=attempt_handler,
         )
 
-    api_key = _api_key(provider.api_key_env, environ)
     started = time.perf_counter()
     payload, request_count, durable_attempt_ordinal, used_tier, fell_back = (
         _call_live_http_provider(
             registry_entry,
             prompt,
-            api_key=api_key,
+            api_key_supplier=lambda: _api_key(provider.api_key_env, environ),
             response_json_schema=response_json_schema,
             transport=transport or _urlopen_json,
             timeout_seconds=timeout_seconds,
@@ -867,7 +866,7 @@ def _call_live_http_provider(
     registry_entry: ModelRegistryEntry,
     prompt: str,
     *,
-    api_key: str,
+    api_key_supplier: Callable[[], str],
     response_json_schema: Mapping[str, object] | None,
     transport: LiveModelTransport,
     timeout_seconds: float,
@@ -878,11 +877,19 @@ def _call_live_http_provider(
     """POST one live HTTP provider call, with OpenAI Flex-to-standard fallback."""
 
     if not _is_openai_provider(registry_entry):
-        provider_request = _provider_config(registry_entry.provider).build_request(
-            registry_entry, prompt, api_key, response_json_schema
-        )
+        provider = _provider_config(registry_entry.provider)
+
+        def provider_call() -> JsonRecord:
+            provider_request = provider.build_request(
+                registry_entry,
+                prompt,
+                api_key_supplier(),
+                response_json_schema,
+            )
+            return transport(provider_request, timeout_seconds)
+
         payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
-            lambda: transport(provider_request, timeout_seconds),
+            provider_call,
             max_attempts=max_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
@@ -896,7 +903,7 @@ def _call_live_http_provider(
         request = _openai_request(
             registry_entry,
             prompt,
-            api_key,
+            api_key_supplier(),
             response_json_schema,
             service_tier=used_tier,
         )
