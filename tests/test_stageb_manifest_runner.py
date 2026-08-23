@@ -409,6 +409,12 @@ def test_issuer_reconstructs_retained_failure_without_transport(
         has_reconstruction_failure = True
         has_settled_attempt = False
 
+        def __enter__(self) -> FakeJournal:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            self.close()
+
         def close(self) -> None:
             return None
 
