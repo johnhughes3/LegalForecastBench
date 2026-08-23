@@ -75,7 +75,7 @@ uv run python -m harness.run \
 | --- | --- |
 | Evaluator entry function | Pinned `evaluation.run_eval.evaluate_run`, called through an isolated wrapper rather than the ambient-environment-loading CLI |
 | Judge request | `anthropic:claude-sonnet-4-6` |
-| Judge temperature | `0.0` |
+| Judge sampling | `provider_default` (`temperature` and `top_p` omitted) |
 | Calls per complete arm | `23` criterion calls |
 | Total calls for a complete pair | `46`, before any internal retry |
 | Verdicts | `pass` or `fail` per criterion |

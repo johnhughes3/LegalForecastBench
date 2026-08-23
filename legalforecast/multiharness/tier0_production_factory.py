@@ -82,10 +82,11 @@ JUDGE_PROMPT_FRAMING_TOKEN_RESERVE = 256
 
 _PASS = "pass"
 _FAIL = "fail"
+PROVIDER_SAMPLING_POLICY = "provider_default"
 
 JUDGE_SETTINGS: Mapping[str, object] = {
     "model": JUDGE_REQUESTED_MODEL,
-    "provider_sampling_policy": "provider_default",
+    "provider_sampling_policy": PROVIDER_SAMPLING_POLICY,
     "max_output_tokens": 16,
     "tools": [],
     "stop_sequences": [],
@@ -436,6 +437,7 @@ class JudgeAttemptWriter:
             # Names the exact deliverable bytes this verdict was formed
             # against, so a retained attempt is auditable on its own.
             "deliverable_sha256": call.deliverable.sha256,
+            "provider_sampling_policy": PROVIDER_SAMPLING_POLICY,
             "verdict": response.verdict,
             "judge_resolved_identity": response.judge_resolved_identity,
             "retryable": response.retryable,

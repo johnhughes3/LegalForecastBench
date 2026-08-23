@@ -9,7 +9,7 @@ No provider spend is authorized by this document. The production runner, native-
 | Field | Value |
 | --- | --- |
 | Structural specification | `docs/community-acceptance/tier0-paired-smoke-structural-freeze.md` |
-| SHA-256 | `f87b916fb4eefd621e29093877dbd45b402486e20b51af876110907f880cd681` |
+| SHA-256 | `b8a3053f971c81e442fdb778ca7044ee92f24a78dc6eb899e86b05ab2bbdf919` |
 | Status | Structural pre-spend freeze only; blocked and not an approval target |
 | Required next artifact | A newly hashed executable freeze that explicitly supersedes this one and predates every paid call |
 
@@ -20,7 +20,7 @@ The companion `.sha256` file permits a reviewer to verify the exact bytes. The d
 | Field | Value |
 | --- | --- |
 | Executable freeze | `docs/community-acceptance/tier0-paired-smoke-executable-freeze.md` |
-| SHA-256 | `8acecab5a20f4b5eb39528630132a90a00a4006925b54a8ea2b01120339cb51f` |
+| SHA-256 | `3f7b4c450749ee5088bda4c0d78b392b7282db07be01eb561ab4ba8a7f2e81f9` |
 | Status | Command, evaluator-entrypoint, production-seam, dated-pricing, and per-call ceiling packet; not an approval target |
 | Remaining mint | Public authorities, judge credential, native-thin enforcement, executable spec, detached approval |
 
