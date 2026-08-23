@@ -35,6 +35,7 @@ REVIEW_RECEIPT_SCHEMA_VERSION = "legalforecast.disclosure_review_receipt.v2"
 PDF_SCAN_SCHEMA_VERSION_V1 = "legalforecast.disclosure_pdf_scan.v1"
 PDF_SCAN_SCHEMA_VERSION = "legalforecast.disclosure_pdf_scan.v2"
 _PAID_DELIVERY_AUTHORITY = object()
+_FREE_PUBLIC_DOWNLOAD_AUTHORITY = object()
 _CLEAR = "cleared"
 _QUARANTINED = "quarantined"
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
@@ -54,6 +55,10 @@ _PROVENANCE_REST_PUBLIC_EVIDENCE = frozenset(
 )
 PAID_DELIVERY_RESTRICTION_EVIDENCE = (
     "document_repair_paid_delivery_clearance",
+    "document_repair_byte_role_validation_match",
+)
+FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE = (
+    "courtlistener_public_download_record_checked",
     "document_repair_byte_role_validation_match",
 )
 _POSITIVE_RESTRICTION_EVIDENCE = re.compile(
@@ -374,6 +379,7 @@ def require_cleared_documents(
     document_root: Path,
     clearance_records: Sequence[Mapping[str, object]],
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> tuple[ClearedDocumentEvidence, ...]:
     """Require exact artifact coverage and return invocation-scoped file evidence."""
 
@@ -398,6 +404,7 @@ def require_cleared_documents(
             key=key,
             label="document",
             paid_delivery_capability=paid_delivery_capability,
+            free_public_download_capability=free_public_download_capability,
         )
         path = _safe_document_path(document_root, _required_str(document, "local_path"))
         data, device, inode = _read_document_with_identity(path, key)
@@ -447,10 +454,17 @@ def verify_parse_request_bytes(request: Mapping[str, object]) -> None:
 def require_cleared_parse_requests(
     requests: Sequence[Mapping[str, object]],
     clearance_records: Sequence[Mapping[str, object]],
+    *,
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     """Independently bind parser requests to the reviewed clearance artifact."""
 
-    index = _validated_clearance_index(clearance_records)
+    index = _validated_clearance_index(
+        clearance_records,
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
+    )
     request_keys = {_document_key(request) for request in requests}
     if set(index) != request_keys:
         raise DisclosureClearanceError(
@@ -474,10 +488,17 @@ def require_cleared_parse_requests(
 def require_cleared_parser_records(
     parser_records: Sequence[Mapping[str, object]],
     clearance_records: Sequence[Mapping[str, object]],
+    *,
+    paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     """Require finalized parser artifacts to remain hash-bound to clearance."""
 
-    index = _validated_clearance_index(clearance_records)
+    index = _validated_clearance_index(
+        clearance_records,
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
+    )
     parser_keys = {_document_key(record) for record in parser_records}
     if set(index) != parser_keys:
         raise DisclosureClearanceError(
@@ -502,12 +523,15 @@ def require_cleared_artifact_keys(
     clearance_records: Sequence[Mapping[str, object]],
     *,
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     """Validate terminal clearance coverage when source bytes are not an input."""
 
     required = set(required_keys)
     index = _validated_clearance_index(
-        clearance_records, paid_delivery_capability=paid_delivery_capability
+        clearance_records,
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
     )
     if set(index) != required:
         raise DisclosureClearanceError(
@@ -519,6 +543,7 @@ def _validated_clearance_index(
     clearance_records: Sequence[Mapping[str, object]],
     *,
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> dict[tuple[str, str], Mapping[str, object]]:
     index = _unique_index(clearance_records, "clearance")
     for key, row in index.items():
@@ -533,6 +558,7 @@ def _validated_clearance_index(
             key=key,
             label="parser document",
             paid_delivery_capability=paid_delivery_capability,
+            free_public_download_capability=free_public_download_capability,
         )
     return index
 
@@ -543,6 +569,7 @@ def require_clearance_policy(
     key: tuple[str, str],
     label: str,
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     """Validate one clearance row under the canonical downstream policy."""
 
@@ -551,9 +578,13 @@ def require_clearance_policy(
         key=key,
         label=label,
         paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
     )
     _require_clearance_provenance(
-        row, key=key, paid_delivery_capability=paid_delivery_capability
+        row,
+        key=key,
+        paid_delivery_capability=paid_delivery_capability,
+        free_public_download_capability=free_public_download_capability,
     )
 
 
@@ -582,8 +613,28 @@ def _require_clearance_restriction(
     key: tuple[str, str],
     label: str,
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     basis = row.get("clearance_basis")
+    if basis == "courtlistener_public_download":
+        if free_public_download_capability is not _FREE_PUBLIC_DOWNLOAD_AUTHORITY:
+            raise DisclosureClearanceError(
+                f"free public-download {label} lacks authenticated lineage: {key}"
+            )
+        evidence_value = row.get("restriction_evidence")
+        if (
+            row.get("free_or_purchased") != "free"
+            or row.get("restriction_status") != "public"
+            or row.get("is_private") is not False
+            or row.get("is_sealed") is not False
+            or not isinstance(evidence_value, (list, tuple))
+            or tuple(cast(Sequence[object], evidence_value))
+            != FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE
+        ):
+            raise DisclosureClearanceError(
+                f"free public-download {label} lacks exact public evidence: {key}"
+            )
+        return
     if basis == "paid_delivery":
         evidence_value = row.get("restriction_evidence")
         if paid_delivery_capability is not _PAID_DELIVERY_AUTHORITY:
@@ -768,8 +819,15 @@ def _require_clearance_provenance(
     *,
     key: tuple[str, str],
     paid_delivery_capability: object | None = None,
+    free_public_download_capability: object | None = None,
 ) -> None:
     basis = row.get("clearance_basis")
+    if basis == "courtlistener_public_download":
+        if free_public_download_capability is not _FREE_PUBLIC_DOWNLOAD_AUTHORITY:
+            raise DisclosureClearanceError(
+                f"free public-download clearance lacks authenticated lineage: {key}"
+            )
+        return
     if basis == "paid_delivery":
         if paid_delivery_capability is not _PAID_DELIVERY_AUTHORITY:
             raise DisclosureClearanceError(

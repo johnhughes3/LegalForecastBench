@@ -180,6 +180,17 @@ def _isolate_materialized_decision_semantics(
             raise cli_module.CommandError(
                 "clear-disclosures disclosure_clearance commitment mismatch"
             )
+        clearance_records = _read_jsonl(clearance_path)
+        free_public_download_capability = (
+            vars(cli_module.disclosure_clearance_module)[
+                "_FREE_PUBLIC_DOWNLOAD_AUTHORITY"
+            ]
+            if any(
+                record.get("clearance_basis") == "courtlistener_public_download"
+                for record in clearance_records
+            )
+            else None
+        )
         return cli_module._VerifiedMaterializedDownstreamLineage(
             paths=(run_card_path,),
             artifact_bytes={},
@@ -188,6 +199,7 @@ def _isolate_materialized_decision_semantics(
             selection_records=(),
             resolved_records=(),
             document_tree={},
+            free_public_download_capability=free_public_download_capability,
         )
 
     monkeypatch.setattr(
@@ -258,6 +270,32 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
         == hashlib.sha256(record["text"].encode("utf-8")).hexdigest()
     )
     assert record["source_sha256"] == inputs["source_sha256"]
+
+
+def test_build_decision_texts_accepts_authenticated_v3_free_clearance(
+    tmp_path: Path,
+) -> None:
+    inputs = _write_inputs(tmp_path, mutation="free_public_download")
+    output = tmp_path / "output"
+
+    assert main(_command(inputs, output)) == 0
+    [record] = _read_jsonl(output / "decision-texts.jsonl")
+    records = [record]
+    assert record["clearance"] == {
+        "status": "cleared",
+        "restriction_status": "public",
+        "restriction_evidence": [
+            "courtlistener_public_download_record_checked",
+            "document_repair_byte_role_validation_match",
+        ],
+        "reviewer_id": None,
+        "controlled_store_provenance": None,
+        "reviewed_at": None,
+        "free_or_purchased": "free",
+        "clearance_basis": "courtlistener_public_download",
+        "is_private": False,
+        "is_sealed": False,
+    }
     assert record["input_commitments"] == {
         "clearance_run_card_sha256": _sha256(inputs["materialization_run_card"]),
         "disclosure_clearance_sha256": _sha256(inputs["clearance"]),
@@ -461,13 +499,22 @@ def test_docket_decision_record_commitment_rejects_nonfinite_values() -> None:
         )
 
 
-def test_docket_decision_replay_accepts_suffixless_materialization_card(
+@pytest.mark.parametrize(
+    "decision_record",
+    [
+        {"source_provenance": "authenticated_docket_entry_text"},
+        {"clearance": {"clearance_basis": "courtlistener_public_download"}},
+    ],
+    ids=("docket-source", "free-public-download"),
+)
+def test_decision_replay_accepts_suffixless_materialization_card(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    decision_record: dict[str, object],
 ) -> None:
     decision_texts = tmp_path / "decisions.jsonl"
     decision_texts.write_text(
-        json.dumps({"source_provenance": "authenticated_docket_entry_text"}) + "\n",
+        json.dumps(decision_record) + "\n",
         encoding="utf-8",
     )
     markdown_root = tmp_path / "markdown"
@@ -500,6 +547,7 @@ def test_docket_decision_replay_accepts_suffixless_materialization_card(
         encoding="utf-8",
     )
     calls: list[str] = []
+    free_public_download_capability = object()
     verified = cli_module._VerifiedMaterializedDownstreamLineage(
         paths=(materialization_card,),
         artifact_bytes={},
@@ -508,6 +556,7 @@ def test_docket_decision_replay_accepts_suffixless_materialization_card(
         selection_records=(),
         resolved_records=(),
         document_tree={},
+        free_public_download_capability=free_public_download_capability,
     )
     monkeypatch.setattr(
         cli_module,
@@ -515,11 +564,14 @@ def test_docket_decision_replay_accepts_suffixless_materialization_card(
         lambda **_kwargs: (calls.append("materialization"), verified)[1],
     )
     sentinel = cast(Any, object())
-    monkeypatch.setattr(
-        cli_module,
-        "verify_decision_text_artifact",
-        lambda **_kwargs: (calls.append("decision"), sentinel)[1],
-    )
+    verify_kwargs: dict[str, object] = {}
+
+    def verify_decision(**kwargs: object) -> object:
+        calls.append("decision")
+        verify_kwargs.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(cli_module, "verify_decision_text_artifact", verify_decision)
 
     result = cli_module._verify_decision_text_artifact_with_materialization(
         args=type(
@@ -544,6 +596,10 @@ def test_docket_decision_replay_accepts_suffixless_materialization_card(
 
     assert result is sentinel
     assert calls == ["materialization", "decision"]
+    assert (
+        verify_kwargs["free_public_download_capability"]
+        is free_public_download_capability
+    )
 
 
 def test_docket_decision_replay_rejects_missing_materialization_lineage(
@@ -1097,6 +1153,24 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         decision_document["is_private"] = None
         restriction_rows[0]["is_sealed"] = None
         restriction_rows[0]["is_private"] = None
+    elif mutation == "free_public_download":
+        evidence = [
+            "courtlistener_public_download_record_checked",
+            "document_repair_byte_role_validation_match",
+        ]
+        clearance_rows[0].update(
+            {
+                "restriction_evidence": evidence,
+                "reviewer_id": None,
+                "controlled_store_provenance": None,
+                "reviewed_at": None,
+                "free_or_purchased": "free",
+                "clearance_basis": "courtlistener_public_download",
+                "is_private": False,
+                "is_sealed": False,
+            }
+        )
+        restriction_rows[0]["restriction_evidence"] = evidence
     elif mutation in {"recovered_public", "selection_unknown_recovered_public"}:
         evidence = [
             "courtlistener_recap_fetch_fresh_detail_exact_match",

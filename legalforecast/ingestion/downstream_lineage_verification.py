@@ -32,6 +32,8 @@ class VerifiedMaterializedDownstreamLineage:
     resolved_lineage_selection_records: tuple[Mapping[str, Any], ...] | None = None
     recovered_public_capability: object | None = None
     consolidated_recovery_capability: object | None = None
+    paid_delivery_capability: object | None = None
+    free_public_download_capability: object | None = None
     fresh_ledger_namespace: Path | None = None
     docket_decision_authority: Any = None
     verified_successor_selection_card: Any = None
@@ -151,6 +153,7 @@ def verify_materialized_downstream_lineage(
     _materializer_successor_v2_free_sources = (
         _cli_ns._materializer_successor_v2_free_sources
     )
+    _v3_free_public_download_capability = _cli_ns._v3_free_public_download_capability
     _materializer_tree_snapshot = _cli_ns._materializer_tree_snapshot
     _merge_verified_artifact_bytes = _cli_ns._merge_verified_artifact_bytes
     _prepare_free_only_cohort_documents = _cli_ns._prepare_free_only_cohort_documents
@@ -186,6 +189,10 @@ def verify_materialized_downstream_lineage(
     )
     _verify_materializer_clearance_lineage = (
         _cli_ns._verify_materializer_clearance_lineage
+    )
+    _admit_v3 = _cli_ns._admit_v3
+    _consume_consolidated_resolved_capability = (
+        _cli_ns._consume_consolidated_resolved_capability
     )
     _verify_materializer_docket_decision_authority = (
         _cli_ns._verify_materializer_docket_decision_authority
@@ -394,6 +401,10 @@ def verify_materialized_downstream_lineage(
             source_commitments=publication.source_commitments,
             output_commitments=output_commitments,
             dry_run=False,
+            paid_delivery_capability=publication.paid_delivery_capability,
+            free_public_download_capability=(
+                publication.free_public_download_capability
+            ),
             authority_mode="free_only",
         )
         selection_records = tuple(
@@ -445,6 +456,9 @@ def verify_materialized_downstream_lineage(
             resolved_lineage_selection_records=selection_records,
             resolved_records=(),
             document_tree=document_tree_snapshot,
+            free_public_download_capability=(
+                publication.free_public_download_capability
+            ),
             fresh_ledger_namespace=ledger_path.resolve(),
             verified_successor_selection_card=(
                 publication.verified_successor_selection_card
@@ -737,14 +751,22 @@ def verify_materialized_downstream_lineage(
                 cast(Mapping[str, bytes], raw_recovery_bytes),
                 label="downstream materialization recovery",
             )
+        consolidated_resolved_capability = recovery.get(
+            "consolidated_resolved_capability"
+        )
         purchased_lineage = _verify_materializer_clearance_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=purchased_clearance_path,
             run_card_path=purchased_clearance_card_path,
+            captured_artifact_bytes=(
+                cast(Mapping[str, bytes], raw_recovery_bytes)
+                if consolidated_resolved_capability is not None
+                and isinstance(raw_recovery_bytes, Mapping)
+                else None
+            ),
+            consolidated_recovery_capability=consolidated_resolved_capability,
         )
-        consolidated_resolved_capability = recovery.get(
-            "consolidated_resolved_capability"
-        )
+        consolidated_authority: Mapping[str, object] | None = None
         if consolidated_resolved_capability is not None:
             if (
                 purchased_lineage.get("lineage_kind")
@@ -756,6 +778,10 @@ def verify_materialized_downstream_lineage(
             purchased_lineage["consolidated_resolved_capability"] = (
                 consolidated_resolved_capability
             )
+            consolidated_authority = _consume_consolidated_resolved_capability(
+                consolidated_resolved_capability
+            )
+        _admit_v3(recovery, purchased_lineage, consolidated_authority)
         raw_clearance_bytes = purchased_lineage.get("verified_artifact_bytes")
         if isinstance(raw_clearance_bytes, Mapping):
             _merge_verified_artifact_bytes(
@@ -826,6 +852,9 @@ def verify_materialized_downstream_lineage(
             preparation_root=preparation_root,
             consolidated_recovery=preverified_recovery is not None,
         )
+        free_public_download_capability = _v3_free_public_download_capability(
+            projection
+        )
         materialization = prepare_cohort_document_materialization(
             (
                 *free_sources,
@@ -838,6 +867,9 @@ def verify_materialized_downstream_lineage(
                     clearance=cast(
                         Sequence[Mapping[str, Any]],
                         purchased_lineage["clearance_records"],
+                    ),
+                    paid_delivery_capability=purchased_lineage.get(
+                        "paid_delivery_capability"
                     ),
                 ),
             ),
@@ -1084,6 +1116,8 @@ def verify_materialized_downstream_lineage(
         consolidated_recovery_capability=clearance_kwargs.get(
             "_verified_consolidated_recovery_capability"
         ),
+        paid_delivery_capability=purchased_lineage.get("paid_delivery_capability"),
+        free_public_download_capability=free_public_download_capability,
         docket_decision_authority=docket_decision_descriptor,
         verified_successor_selection_card=(
             _verified_successor_selection_card_from_projection(projection)
