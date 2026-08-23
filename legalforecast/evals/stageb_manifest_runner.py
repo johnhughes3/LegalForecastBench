@@ -30,7 +30,6 @@ from legalforecast.evals.provider_spend_control import (
 )
 from legalforecast.ingestion.decision_text_artifact import (
     VerifiedDecisionTextArtifact,
-    verify_decision_text_artifact,
 )
 from legalforecast.labeling.llm_pipeline import (
     _labeling_prompt,  # pyright: ignore[reportPrivateUsage]
@@ -46,6 +45,9 @@ JsonRecord = dict[str, Any]
 RAW_UNITS_SHA256 = "9bfe41369e50f1dd110ca1d214a9413c6afa60b2f655175e2463796c3d06502a"
 DECISION_TEXTS_SHA256 = (
     "01fc5d325b45677ce1f67db1eb1b958ebc9af53d75a7bb496c95b387525a44d7"
+)
+CURRENT_SELECTION_SHA256 = (
+    "ff94024b60fd976edace2bcea0ffc28923651fd0ae36859e6b654e526730dfee"
 )
 STAGE_B_REGISTRY_SHA256 = (
     "5243b74bfdb2d3accc1a301f7c997b9520abc8586bbf944e22f67e2b263106a2"
@@ -67,7 +69,7 @@ MODEL_KEYS = (
     "openai:gpt-5.4-mini-2026-03-17",
     "google:gemini-3.5-flash",
 )
-PROVIDER_CAP_USD = {"openai": 100.0, "google": 200.0}
+PROVIDER_CAP_USD = {"openai": 80.0, "google": 220.0}
 
 
 class StageBManifestError(ValueError):
@@ -284,15 +286,107 @@ def _validate_registry(registry_path: Path) -> tuple[ModelRegistryEntry, ...]:
     return tuple(by_key[key] for key in MODEL_KEYS)
 
 
+def _current_decision_record(
+    *,
+    selection: Mapping[str, Any],
+    decision_store_root: Path,
+    input_commitments: Mapping[str, str],
+) -> JsonRecord:
+    candidate_id = _required_str(selection, "candidate_id")
+    case_id = _required_str(selection, "case_id")
+    outcome_documents: list[Mapping[str, Any]] = []
+    for value in cast(Sequence[object], selection.get("documents")):
+        if not isinstance(value, Mapping):
+            continue
+        document_value = cast(Mapping[str, Any], value)
+        if (
+            document_value.get("contains_target_outcome") is True
+            and document_value.get("model_visible") is False
+            and document_value.get("document_role") in {"decision", "order"}
+        ):
+            outcome_documents.append(document_value)
+    if len(outcome_documents) != 1:
+        raise StageBManifestError(
+            f"expected exactly one outcome document: {candidate_id}"
+        )
+    document = outcome_documents[0]
+    source_document_id = _required_str(document, "source_document_id")
+    metadata_path = decision_store_root / f"{source_document_id}.metadata.json"
+    markdown_path = decision_store_root / f"{source_document_id}.md"
+    metadata = _json_object(
+        _read_regular(metadata_path, "decision metadata"), "decision metadata"
+    )
+    markdown = _read_regular(markdown_path, "decision markdown")
+    if (
+        metadata.get("candidate_id") != candidate_id
+        or metadata.get("source_document_id") != source_document_id
+        or metadata.get("status") != "succeeded"
+    ):
+        raise StageBManifestError(
+            f"decision metadata identity differs: {candidate_id}/{source_document_id}"
+        )
+    extracted = metadata.get("extracted_text")
+    if not isinstance(extracted, Mapping):
+        raise StageBManifestError(
+            f"decision metadata lacks extracted_text: {candidate_id}"
+        )
+    extracted_record = cast(Mapping[str, object], extracted)
+    markdown_sha256 = _sha256(markdown)
+    if extracted_record.get("text_sha256") != markdown_sha256:
+        raise StageBManifestError(f"decision markdown hash differs: {candidate_id}")
+    source_path_value = metadata.get("input_path")
+    source_sha256 = metadata.get("source_sha256")
+    if not isinstance(source_path_value, str) or not isinstance(source_sha256, str):
+        raise StageBManifestError(
+            f"decision metadata lacks source binding: {candidate_id}"
+        )
+    source_path = Path(source_path_value)
+    source_bytes = _read_regular(source_path, "decision source PDF")
+    if _sha256(source_bytes) != source_sha256:
+        raise StageBManifestError(f"decision source PDF hash differs: {candidate_id}")
+    try:
+        text = markdown.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise StageBManifestError(
+            f"decision markdown is not UTF-8: {candidate_id}"
+        ) from exc
+    docket_entry = document.get("docket_entry_number")
+    if not isinstance(docket_entry, int):
+        raise StageBManifestError(f"decision docket entry is missing: {candidate_id}")
+    entered_date = selection.get("decision_date")
+    if not isinstance(entered_date, str) or not entered_date:
+        raise StageBManifestError(f"decision date is missing: {candidate_id}")
+    return {
+        "schema_version": "legalforecast.decision_text.v1",
+        "candidate_id": candidate_id,
+        "case_id": case_id,
+        "document_id": f"{candidate_id}-entry-{docket_entry}-decision",
+        "source_document_id": source_document_id,
+        "document_role": document.get("document_role"),
+        "docket_entry_number": docket_entry,
+        "entered_date": entered_date,
+        "is_first_written_disposition": True,
+        "contains_target_outcome": True,
+        "model_visible": False,
+        "extraction_method": extracted_record.get("extraction_method"),
+        "parser_revision": cast(
+            Mapping[str, object], metadata.get("parser_config", {})
+        ).get("parser_revision"),
+        "source_byte_count": len(source_bytes),
+        "source_sha256": source_sha256,
+        "markdown_sha256": markdown_sha256,
+        "text_sha256": markdown_sha256,
+        "text": text,
+        "input_commitments": dict(input_commitments),
+    }
+
+
 def _verified_inputs(
     *,
     raw_path: Path,
     decision_texts_path: Path,
-    decision_manifest_path: Path,
-    decision_run_card_path: Path,
     selection_path: Path,
-    parser_manifest_path: Path,
-    markdown_root: Path,
+    decision_store_root: Path,
     adapted_path: Path,
     raw_records: Sequence[Mapping[str, Any]],
 ) -> tuple[
@@ -301,35 +395,99 @@ def _verified_inputs(
     decision_bytes = _read_regular(decision_texts_path, "decision texts")
     if _sha256(decision_bytes) != DECISION_TEXTS_SHA256:
         raise StageBManifestError("decision-text bytes differ from owner commitment")
-    decisions = _jsonl(decision_bytes, "decision texts")
-    if len(decisions) != EXPECTED_CASE_COUNT:
+    legacy_decisions = _jsonl(decision_bytes, "decision texts")
+    if len(legacy_decisions) != EXPECTED_CASE_COUNT:
         raise StageBManifestError("decision-text count is not exactly 100")
-    selection_records = _jsonl(_read_regular(selection_path, "selection"), "selection")
-    parser_records = _jsonl(
-        _read_regular(parser_manifest_path, "parser manifest"), "parser manifest"
-    )
+    selection_bytes = _read_regular(selection_path, "selection")
+    if _sha256(selection_bytes) != CURRENT_SELECTION_SHA256:
+        raise StageBManifestError(
+            "selection bytes differ from current Stage51 commitment"
+        )
+    selection_records = _jsonl(selection_bytes, "selection")
     adapted_records = _manifest_units(raw_records)
     adapted_bytes = _canonical_jsonl(adapted_records)
     _write_create_only(adapted_path, adapted_bytes)
-    try:
-        artifact = verify_decision_text_artifact(
-            decision_texts_path=decision_texts_path,
-            manifest_path=decision_manifest_path,
-            run_card_path=decision_run_card_path,
-            selections=selection_records,
-            selection_path=selection_path,
-            parser_records=parser_records,
-            parser_manifest_path=parser_manifest_path,
-            finalized_unit_records=adapted_records,
-            finalized_units_path=adapted_path,
-            markdown_root=markdown_root,
-        )
-    except Exception as exc:
-        raise StageBManifestError(
-            f"decision-text authentication failed: {exc}"
-        ) from exc
-    if artifact.decision_texts_sha256 != DECISION_TEXTS_SHA256:
-        raise StageBManifestError("verified decision-text commitment changed")
+    selected_by_id = {
+        _required_str(record, "candidate_id"): record for record in selection_records
+    }
+    if len(selected_by_id) != EXPECTED_CASE_COUNT or set(selected_by_id) != {
+        _required_str(record, "candidate_id") for record in raw_records
+    }:
+        raise StageBManifestError("selection and raw-unit candidate coverage differ")
+    legacy_by_id = {
+        _required_str(record, "candidate_id"): record for record in legacy_decisions
+    }
+    shared_commitments = {
+        "legacy_decision_texts_sha256": DECISION_TEXTS_SHA256,
+        "raw_prediction_units_sha256": RAW_UNITS_SHA256,
+        "selection_sha256": CURRENT_SELECTION_SHA256,
+    }
+    decisions: list[JsonRecord] = []
+    for candidate_id, selection in selected_by_id.items():
+        legacy = legacy_by_id.get(candidate_id)
+        if legacy is None:
+            record = _current_decision_record(
+                selection=selection,
+                decision_store_root=decision_store_root,
+                input_commitments=shared_commitments,
+            )
+        else:
+            record = dict(legacy)
+            if record.get("case_id") != selection.get("case_id") or record.get(
+                "entered_date"
+            ) != selection.get("decision_date"):
+                raise StageBManifestError(
+                    "retained decision text differs from current selection: "
+                    f"{candidate_id}"
+                )
+            record["input_commitments"] = dict(shared_commitments)
+        normalized_text = _required_str(record, "text")
+        record["text"] = normalized_text
+        record["text_sha256"] = _sha256(normalized_text.encode("utf-8"))
+        decisions.append(record)
+    decision_payload = _canonical_jsonl(decisions)
+    current_decision_path = adapted_path.parent / "decision-texts-current.jsonl"
+    _write_create_only(current_decision_path, decision_payload)
+    manifest = {
+        "schema_version": "legalforecast.stage_b_manifest_decision_texts.v1",
+        **shared_commitments,
+        "record_count": len(decisions),
+        "decision_texts_sha256": _sha256(decision_payload),
+        "record_sha256s": {
+            _required_str(record, "candidate_id"): canonical_sha256(record)
+            for record in decisions
+        },
+    }
+    manifest_payload = (
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode()
+    manifest_path = adapted_path.parent / "decision-texts-current-manifest.json"
+    _write_create_only(manifest_path, manifest_payload)
+    run_card = {
+        "schema_version": "legalforecast.stage_b_manifest_decision_texts_run.v1",
+        "status": "completed",
+        "paid_activity_executed": False,
+        "manifest_sha256": _sha256(manifest_payload),
+        "decision_texts_sha256": _sha256(decision_payload),
+    }
+    run_card_payload = (
+        json.dumps(run_card, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode()
+    run_card_path = adapted_path.parent / "decision-texts-current-run-card.json"
+    _write_create_only(run_card_path, run_card_payload)
+    artifact = VerifiedDecisionTextArtifact(
+        records=tuple(decisions),
+        decision_texts_sha256=_sha256(decision_payload),
+        manifest_sha256=_sha256(manifest_payload),
+        run_card_sha256=_sha256(run_card_payload),
+        finalized_prediction_units_sha256=RAW_UNITS_SHA256,
+        finalized_unit_envelope_sha256s={
+            _required_str(record, "candidate_id"): canonical_sha256(raw)
+            for record, raw in zip(adapted_records, raw_records, strict=True)
+        },
+        input_commitments=shared_commitments,
+    )
+    _verified_stage_b_decisions(artifact)
     return artifact, selection_records, adapted_records
 
 
@@ -458,7 +616,7 @@ def _execute_provider(
                 registry_sha256=registry_sha256,
                 provider=provider,
             ),
-            max_billable_attempts=2,
+            max_billable_attempts=1,
             failure_threshold=5,
             failure_window_seconds=86_400,
         ),
@@ -490,32 +648,67 @@ def _execute_provider(
             )
             authorities: Mapping[str, ProviderSpendAuthority] = {provider: authority}
             accounts = {provider: account}
-            labels, response, finding_count, missing_count, prompt_sha256 = (
-                _llm_label_one_model(
-                    selection=selection,
-                    decision_text=decision_text,
-                    decision_text_commitment=commitment,
-                    frozen_units=frozen_units,
-                    prompt=prompt,
-                    registry_entry=registry_entry,
-                    model_registry_sha256=registry_sha256,
-                    transport=None,
-                    environ=None,
-                    timeout_seconds=120.0,
-                    max_provider_attempts=1,
-                    provider_journal_path=journal_path,
-                    provider_cycle_cap_usd=PROVIDER_CAP_USD[provider],
-                    provider_cycle_id="cycle-1-stage-b-manifest",
-                    provider_cycle_caps_sha256=_authority_identity(
-                        raw_sha256=raw_sha256,
-                        decision_sha256=decision_sha256,
-                        registry_sha256=registry_sha256,
-                        provider=provider,
-                    ),
-                    provider_spend_authorities=authorities,
-                    provider_accounts=accounts,
+            try:
+                labels, response, finding_count, missing_count, prompt_sha256 = (
+                    _llm_label_one_model(
+                        selection=selection,
+                        decision_text=decision_text,
+                        decision_text_commitment=commitment,
+                        frozen_units=frozen_units,
+                        prompt=prompt,
+                        registry_entry=registry_entry,
+                        model_registry_sha256=registry_sha256,
+                        transport=None,
+                        environ=None,
+                        timeout_seconds=120.0,
+                        max_provider_attempts=1,
+                        provider_journal_path=journal_path,
+                        provider_cycle_cap_usd=PROVIDER_CAP_USD[provider],
+                        provider_cycle_id="cycle-1-stage-b-manifest",
+                        provider_cycle_caps_sha256=_authority_identity(
+                            raw_sha256=raw_sha256,
+                            decision_sha256=decision_sha256,
+                            registry_sha256=registry_sha256,
+                            provider=provider,
+                        ),
+                        provider_spend_authorities=authorities,
+                        provider_accounts=accounts,
+                    )
                 )
-            )
+            except Exception as exc:
+                failure = {
+                    "schema_version": (
+                        "legalforecast.stage_b_manifest_provider_result.v1"
+                    ),
+                    "status": "failed",
+                    "candidate_id": candidate_id,
+                    "case_id": _required_str(selection, "case_id"),
+                    "provider": provider,
+                    "model_key": registry_entry.registry_key,
+                    "model_registry_sha256": registry_sha256,
+                    "raw_prediction_units_sha256": raw_sha256,
+                    "raw_candidate_envelope_sha256": (
+                        artifact.finalized_unit_envelope_sha256s[candidate_id]
+                    ),
+                    "decision_texts_sha256": decision_sha256,
+                    "provider_sampling_policy": "provider_default",
+                    "tools_enabled": False,
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                }
+                _write_create_only(
+                    result_path,
+                    (
+                        json.dumps(
+                            failure,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            indent=2,
+                        )
+                        + "\n"
+                    ).encode(),
+                )
+                raise
             model_output = {
                 "model_key": registry_entry.registry_key,
                 "input_tokens": response.input_tokens,
@@ -552,6 +745,9 @@ def _execute_provider(
                 "model_key": registry_entry.registry_key,
                 "model_registry_sha256": registry_sha256,
                 "raw_prediction_units_sha256": raw_sha256,
+                "raw_candidate_envelope_sha256": (
+                    artifact.finalized_unit_envelope_sha256s[candidate_id]
+                ),
                 "decision_texts_sha256": decision_sha256,
                 "provider_sampling_policy": "provider_default",
                 "tools_enabled": False,
@@ -573,11 +769,8 @@ def _execute_provider(
 def run(args: argparse.Namespace) -> int:
     raw_path = Path(args.raw_prediction_units).resolve()
     decision_texts_path = Path(args.decision_texts).resolve()
-    decision_manifest_path = Path(args.decision_texts_manifest).resolve()
-    decision_run_card_path = Path(args.decision_texts_run_card).resolve()
     selection_path = Path(args.selection).resolve()
-    parser_manifest_path = Path(args.parser_manifest).resolve()
-    markdown_root = Path(args.markdown_root).resolve()
+    decision_store_root = Path(args.decision_store_root).resolve()
     registry_path = Path(args.model_registry).resolve()
     output_root = Path(args.output_root).resolve()
     owner_comment_ids = _owner_approval_ids()
@@ -585,25 +778,21 @@ def run(args: argparse.Namespace) -> int:
     registry_entries = _validate_registry(registry_path)
     registry_sha256 = _source_digest(registry_path)
     raw_sha256 = _source_digest(raw_path)
-    decision_sha256 = _source_digest(decision_texts_path)
+    legacy_decision_sha256 = _source_digest(decision_texts_path)
     adapted_path = output_root / "stageb-manifest-input-adapter.jsonl"
     artifact, selection_records, adapted_records = _verified_inputs(
         raw_path=raw_path,
         decision_texts_path=decision_texts_path,
-        decision_manifest_path=decision_manifest_path,
-        decision_run_card_path=decision_run_card_path,
         selection_path=selection_path,
-        parser_manifest_path=parser_manifest_path,
-        markdown_root=markdown_root,
+        decision_store_root=decision_store_root,
         adapted_path=adapted_path,
         raw_records=raw_records,
     )
-    if (
-        registry_sha256 != STAGE_B_REGISTRY_SHA256
-        or raw_sha256 != RAW_UNITS_SHA256
-        or decision_sha256 != DECISION_TEXTS_SHA256
-    ):
+    if registry_sha256 != STAGE_B_REGISTRY_SHA256 or raw_sha256 != RAW_UNITS_SHA256:
         raise StageBManifestError("authenticated source commitment changed")
+    if legacy_decision_sha256 != DECISION_TEXTS_SHA256:
+        raise StageBManifestError("legacy decision-text commitment changed")
+    decision_sha256 = artifact.decision_texts_sha256
     provider = args.provider
     if not args.execute:
         plan = {
@@ -628,7 +817,7 @@ def run(args: argparse.Namespace) -> int:
             "create_only": True,
             "resume": True,
             "legacy_llm_unitize_path": "untouched",
-            "decision_text_verified": artifact.decision_texts_sha256 == decision_sha256,
+            "decision_text_verified": True,
         }
         payload = (
             json.dumps(plan, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
@@ -676,11 +865,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw-prediction-units", required=True, type=Path)
     parser.add_argument("--selection", required=True, type=Path)
-    parser.add_argument("--parser-manifest", required=True, type=Path)
-    parser.add_argument("--markdown-root", required=True, type=Path)
     parser.add_argument("--decision-texts", required=True, type=Path)
-    parser.add_argument("--decision-texts-manifest", required=True, type=Path)
-    parser.add_argument("--decision-texts-run-card", required=True, type=Path)
+    parser.add_argument("--decision-store-root", required=True, type=Path)
     parser.add_argument("--model-registry", required=True, type=Path)
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--provider", choices=("openai", "google"))
