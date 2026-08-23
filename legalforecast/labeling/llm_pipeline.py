@@ -3172,6 +3172,18 @@ def _llm_label_one_model(
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
     )
     try:
+        replayed_reconstruction = False
+        if journal is not None and journal.has_settled_attempt:
+            try:
+                journal.latest_reconstruction_recovery_evidence()
+            except ProviderJournalError:
+                pass
+            else:
+                # A prior invocation can settle the retained response and then
+                # stop before its create-only result receipt is persisted.
+                # Preserve the replay-only compatibility normalization across
+                # that crash window without accepting malformed fresh output.
+                replayed_reconstruction = True
         if _has_reconstruction_failure(journal):
             try:
                 assert journal is not None
@@ -3192,7 +3204,11 @@ def _llm_label_one_model(
                     raw_output, top_level_sequence_field="unit_findings"
                 )
                 findings = tuple(
-                    _stage_b_finding(record, decision_text=decision_text)
+                    _stage_b_finding(
+                        record,
+                        decision_text=decision_text,
+                        normalize_structurally_inapplicable_amendment_signal=True,
+                    )
                     for record in _record_sequence(
                         payload.get("unit_findings"), "unit_findings"
                     )
@@ -3232,6 +3248,7 @@ def _llm_label_one_model(
                         "decision_text_commitment": dict(decision_text_commitment),
                     },
                 )
+                replayed_reconstruction = True
             except FrozenUnitWorkflowRequiredError:
                 raise
             except (LlmPipelineError, ValueError):
@@ -3266,7 +3283,13 @@ def _llm_label_one_model(
                 top_level_sequence_field="unit_findings",
             )
             findings = tuple(
-                _stage_b_finding(record, decision_text=decision_text)
+                _stage_b_finding(
+                    record,
+                    decision_text=decision_text,
+                    normalize_structurally_inapplicable_amendment_signal=(
+                        replayed_reconstruction
+                    ),
+                )
                 for record in _record_sequence(
                     payload.get("unit_findings"),
                     "unit_findings",
@@ -4387,7 +4410,10 @@ def _stage_b_finding(
     record: Mapping[str, Any],
     *,
     decision_text: StageBDecisionText,
+    normalize_structurally_inapplicable_amendment_signal: bool = False,
 ) -> StageBUnitFinding:
+    if normalize_structurally_inapplicable_amendment_signal:
+        record = _normalize_structurally_inapplicable_amendment_signal(record)
     return StageBUnitFinding(
         unit_id=_required_str(record, "unit_id"),
         resolution=UnitResolution(_required_str(record, "resolution")),
@@ -4401,6 +4427,36 @@ def _stage_b_finding(
         paragraph=_optional_int(record, "paragraph"),
         notes=_optional_str(record, "notes"),
     )
+
+
+def _normalize_structurally_inapplicable_amendment_signal(
+    record: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Repair one known provider response defect during journal replay only.
+
+    Amendment signals describe leave to amend only for fully dismissed units.
+    A retained response can therefore carry ``silent`` for a surviving or
+    partially dismissed unit even though the current schema requires
+    ``not_applicable``.  Keep this compatibility repair in-memory and limited
+    to the replay path: the authenticated raw and normalized provider
+    response evidence is never rewritten, and fresh provider responses still
+    receive the ordinary fail-closed validation.
+    """
+
+    resolution = UnitResolution(_required_str(record, "resolution"))
+    amendment_signal = AmendmentSignal(_required_str(record, "amendment_signal"))
+    if (
+        resolution
+        not in {
+            UnitResolution.SURVIVES_IN_MATERIAL_RESPECT,
+            UnitResolution.PARTIAL_DISMISSAL_ONLY,
+        }
+        or amendment_signal is not AmendmentSignal.SILENT
+    ):
+        return record
+    normalized = dict(record)
+    normalized["amendment_signal"] = AmendmentSignal.NOT_APPLICABLE.value
+    return normalized
 
 
 def _stage_b_missing_flag(
