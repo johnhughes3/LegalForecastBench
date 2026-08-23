@@ -526,13 +526,21 @@ def test_frozen_unit_adjudication_index_is_create_only(tmp_path: Path) -> None:
     assert digest is not None
 
 
-def test_issuer_reconstructs_retained_failure_without_transport(
+@pytest.mark.parametrize(
+    ("has_reconstruction_failure", "has_validated_response"),
+    [(True, False), (False, True)],
+)
+def test_issuer_reconstructs_retained_response_without_transport(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    has_reconstruction_failure: bool,
+    has_validated_response: bool,
 ) -> None:
     class FakeJournal:
-        has_reconstruction_failure = True
-        has_settled_attempt = False
+        def __init__(self) -> None:
+            self.has_reconstruction_failure = has_reconstruction_failure
+            self.has_validated_response = has_validated_response
+            self.has_settled_attempt = False
 
         def __enter__(self) -> FakeJournal:
             return self
@@ -542,6 +550,11 @@ def test_issuer_reconstructs_retained_failure_without_transport(
 
         def close(self) -> None:
             return None
+
+        def record_reconstruction_failure(self, error: Exception) -> None:
+            assert isinstance(error, runner.FrozenUnitWorkflowRequiredError)
+            self.has_validated_response = False
+            self.has_reconstruction_failure = True
 
         def latest_reconstruction_recovery_evidence(self) -> SimpleNamespace:
             return SimpleNamespace(
