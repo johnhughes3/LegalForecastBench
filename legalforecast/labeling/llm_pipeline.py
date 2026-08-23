@@ -5243,6 +5243,24 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
     stripped = excerpt.strip()
     if stripped in text:
         return stripped
+    # A provider can prepend a short discourse marker to an otherwise verbatim
+    # citation.  Keep this recovery deliberately narrower than the general
+    # whitespace/fuzzy coercions below: the marker is allowlisted, and the
+    # remainder must already occur byte-for-byte in the authenticated source.
+    if stripped.startswith("Accordingly, "):
+        marker_remainder = stripped[len("Accordingly, ") :]
+        if marker_remainder and marker_remainder in text:
+            return marker_remainder
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+
+    # Some PDF text layers retain printed line numbers at the beginning of
+    # each source line.  A model may omit those tokens while preserving the
+    # prose.  Normalize only a one-to-three digit token at the beginning of a
+    # line, retain a source-position map, and return the exact source slice.
+    line_number_recovery = _coerced_excerpt_without_pdf_line_numbers(text, stripped)
+    if line_number_recovery is not None:
+        return line_number_recovery
+
     normalized_excerpt = " ".join(stripped.split())
     if not normalized_excerpt:
         raise LlmPipelineError("supporting_excerpt is required")
@@ -5268,6 +5286,80 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
                 "supporting_excerpt does not appear in decision text"
             )
         return fuzzy
+    start = source_positions[offset]
+    end_offset = offset + len(normalized_excerpt) - 1
+    end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
+    return text[start:end].strip()
+
+
+def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | None:
+    """Recover a citation that omits only printed PDF line-number prefixes.
+
+    This is intentionally not a general citation normalizer.  It removes an
+    ASCII one-to-three digit token only when it starts a physical source line
+    and is followed by horizontal whitespace.  The normalized match must cover
+    the complete requested excerpt; the returned value is the exact original
+    source slice, including any line-number tokens it spans.
+    """
+
+    normalized_excerpt = " ".join(excerpt.split())
+    if not normalized_excerpt:
+        return None
+
+    normalized_chars: list[str] = []
+    source_positions: list[int] = []
+    removed_line_number = False
+    index = 0
+    line_start = True
+    pending_line_number_start: int | None = None
+    while index < len(text):
+        if line_start:
+            token_end = index
+            while token_end < len(text) and text[token_end] in "0123456789":
+                token_end += 1
+            if (
+                token_end > index
+                and token_end - index <= 3
+                and token_end < len(text)
+                and text[token_end] in " \t"
+            ):
+                removed_line_number = True
+                pending_line_number_start = index
+                index = token_end
+                while index < len(text) and text[index] in " \t":
+                    index += 1
+                line_start = False
+                continue
+
+        char = text[index]
+        if char.isspace():
+            if not normalized_chars or normalized_chars[-1] != " ":
+                normalized_chars.append(" ")
+                source_positions.append(index)
+            pending_line_number_start = None
+            line_start = char == "\n"
+        else:
+            normalized_chars.append(char)
+            source_positions.append(
+                pending_line_number_start
+                if pending_line_number_start is not None
+                else index
+            )
+            pending_line_number_start = None
+            line_start = False
+        index += 1
+
+    if not removed_line_number:
+        return None
+    untrimmed_text = "".join(normalized_chars)
+    leading_space_count = len(untrimmed_text) - len(untrimmed_text.lstrip())
+    normalized_text = untrimmed_text.strip()
+    source_positions = source_positions[
+        leading_space_count : leading_space_count + len(normalized_text)
+    ]
+    offset = normalized_text.find(normalized_excerpt)
+    if offset < 0:
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
     start = source_positions[offset]
     end_offset = offset + len(normalized_excerpt) - 1
     end = source_positions[min(end_offset, len(source_positions) - 1)] + 1

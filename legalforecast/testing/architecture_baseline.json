@@ -7191,8 +7191,8 @@
         "largest_symbol": "llm_label_cases",
         "largest_symbol_lines": 371,
         "layer": "application",
-        "line_count": 5561,
-        "nonblank_line_count": 5246,
+        "line_count": 5653,
+        "nonblank_line_count": 5329,
         "top_level_definition_count": 112
       },
       "legalforecast/labeling/official_paid_baton.py": {
