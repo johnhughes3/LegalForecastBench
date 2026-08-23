@@ -4577,8 +4577,8 @@
         "largest_symbol": "_execute_provider",
         "largest_symbol_lines": 251,
         "layer": "application",
-        "line_count": 1498,
-        "nonblank_line_count": 1423,
+        "line_count": 1497,
+        "nonblank_line_count": 1422,
         "top_level_definition_count": 27
       },
       "legalforecast/extraction/pdf_text.py": {
@@ -11694,6 +11694,23 @@
         "line_count": 644,
         "nonblank_line_count": 581,
         "top_level_definition_count": 21
+      },
+      "tests/test_stageb_manifest_runner.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_verified_inputs_builds_replacement_decision_manifest_provider_free",
+        "largest_symbol_lines": 107,
+        "layer": "test",
+        "line_count": 965,
+        "nonblank_line_count": 892,
+        "top_level_definition_count": 23
       },
       "tests/test_static_result_sites.py": {
         "cycle_id": "",
