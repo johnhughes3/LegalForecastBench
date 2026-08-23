@@ -7,7 +7,7 @@ import json
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from legalforecast.evals import stageb_manifest_runner as runner
@@ -273,3 +273,208 @@ def test_provider_environment_requires_one_matching_provider_key(
     with pytest.raises(runner.StageBManifestError, match="only GEMINI_API_KEY"):
         monkeypatch.setenv("GEMINI_API_KEY", "google-test")
         runner._validate_provider_environment("google")  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.parametrize(
+    ("receipt", "message"),
+    [
+        (None, "provider shard receipt is missing"),
+        ({"audit": {"stage": "tampered"}}, "provider shard audit does not match"),
+    ],
+)
+def test_full_merge_rejects_missing_or_tampered_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    receipt: dict[str, Any] | None,
+    message: str,
+) -> None:
+    monkeypatch.setattr(runner, "EXPECTED_CASE_COUNT", 1)
+    monkeypatch.setattr(runner, "EXPECTED_UNIT_COUNT", 1)
+    provider = "openai"
+    entry = cast(
+        Any,
+        SimpleNamespace(
+            provider=provider,
+            registry_key=runner.MODEL_KEYS[0],
+        ),
+    )
+    selection = {"candidate_id": "candidate-1", "case_id": "case-1"}
+    audit = {
+        "stage": "llm-label-provider-shard",
+        "status": "succeeded",
+        "candidate_id": "candidate-1",
+    }
+    audit_payload = runner._canonical_jsonl((audit,))  # pyright: ignore[reportPrivateUsage]
+    audit_path, card_path = runner._shard_artifact_paths(  # pyright: ignore[reportPrivateUsage]
+        tmp_path, provider, None
+    )
+    audit_path.write_bytes(audit_payload)
+    card_path.write_text(
+        json.dumps(
+            {
+                "schema_version": str(
+                    runner.STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1
+                ),
+                "stage": "llm-label-provider-shard",
+                "status": "completed",
+                "dry_run": False,
+                "execute": True,
+                "paid_activity_requested": True,
+                "paid_activity_executed": True,
+                "execution_provider": provider,
+                "model_keys": list(runner.MODEL_KEYS),
+                "executed_model_keys": [runner.MODEL_KEYS[0]],
+                "provider_sampling_policy": "provider_default",
+                "tools_enabled": False,
+                "create_only": True,
+                "resumable": True,
+                "max_cases": None,
+                "case_count": 1,
+                "unit_count": 1,
+                "owner_comment_ids": ["spend", "terminal"],
+                "source_commitments": {
+                    "raw_prediction_units": "raw",
+                    "selection": runner.CURRENT_SELECTION_SHA256,
+                    "legacy_decision_texts": runner.DECISION_TEXTS_SHA256,
+                    "decision_texts_current": "decision",
+                    "model_registry": "registry",
+                    "terminal_packet_approval": runner.TERMINAL_PACKET_APPROVAL,
+                },
+                "output_commitments": {
+                    "audit": runner._raw_sha256(audit_payload),  # pyright: ignore[reportPrivateUsage]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": (SimpleNamespace(unit_id="unit-1"),)},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {"candidate-1": (SimpleNamespace(), {})},
+    )
+    monkeypatch.setattr(runner, "_labeling_prompt", lambda *args, **kwargs: "prompt")
+    monkeypatch.setattr(runner, "_existing_result", lambda *args, **kwargs: receipt)
+
+    with pytest.raises(runner.StageBManifestError, match=message):
+        runner._validate_full_provider_shard(  # pyright: ignore[reportPrivateUsage]
+            output_root=tmp_path,
+            provider=provider,
+            registry_entry=entry,
+            registry_sha256="registry",
+            raw_sha256="raw",
+            decision_sha256="decision",
+            artifact=cast(
+                Any,
+                SimpleNamespace(
+                    finalized_unit_envelope_sha256s={"candidate-1": "candidate-raw"}
+                ),
+            ),
+            selection_records=(selection,),
+            adapted_records=(),
+            owner_comment_ids=("spend", "terminal"),
+        )
+
+
+def test_merge_writes_and_replays_create_only_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entries = tuple(
+        cast(
+            Any,
+            SimpleNamespace(
+                provider=provider,
+                registry_key=model_key,
+            ),
+        )
+        for provider, model_key in zip(
+            ("openai", "google"), runner.MODEL_KEYS, strict=True
+        )
+    )
+    selection = {"candidate_id": "candidate-1", "case_id": "case-1"}
+    shard_audits = {
+        provider: (
+            {
+                "stage": "llm-label-provider-shard",
+                "status": "succeeded",
+                "candidate_id": "candidate-1",
+                "execution_provider": provider,
+            },
+        )
+        for provider in ("openai", "google")
+    }
+
+    def fake_validate(
+        **kwargs: Any,
+    ) -> tuple[tuple[dict[str, Any], ...], dict[str, Any]]:
+        provider = kwargs["provider"]
+        return shard_audits[provider], {
+            "provider": provider,
+            "audit_sha256": f"{provider}-audit",
+            "run_card_sha256": f"{provider}-card",
+            "case_count": 1,
+            "unit_count": 1,
+        }
+
+    review_queue = {
+        "schema_version": "legalforecast.lawyer_review_queue.v1",
+        "status": "pending_adjudication",
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "unit_id": "unit-1",
+        "review_id": "review-1",
+        "route_reason": "disagreement",
+        "packet": {},
+    }
+    merged = SimpleNamespace(
+        records=({"unit_id": "unit-1", "label": "survives"},),
+        audit_records=(
+            {
+                "stage": "llm-label",
+                "status": "adjudication_pending",
+                "candidate_id": "candidate-1",
+                "lawyer_review_queue": [review_queue],
+            },
+        ),
+    )
+    monkeypatch.setattr(runner, "_validate_full_provider_shard", fake_validate)
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": (SimpleNamespace(unit_id="unit-1"),)},
+    )
+    monkeypatch.setattr(runner, "merge_llm_label_provider_shards", lambda **_: merged)
+
+    kwargs = {
+        "output_root": tmp_path,
+        "artifact": cast(Any, SimpleNamespace()),
+        "selection_records": (selection,),
+        "adapted_records": (),
+        "registry_entries": entries,
+        "owner_comment_ids": ("spend", "terminal"),
+        "registry_sha256": "registry",
+        "raw_sha256": "raw",
+        "decision_sha256": "decision",
+    }
+    first = runner._merge_provider_shards(**kwargs)  # pyright: ignore[reportPrivateUsage]
+    first_bytes = {
+        name: (tmp_path / name).read_bytes()
+        for name in (
+            "labels.jsonl",
+            "llm-label-audit.jsonl",
+            "lawyer-review-queue.jsonl",
+            "llm-label-merge-run-card.json",
+        )
+    }
+    second = runner._merge_provider_shards(**kwargs)  # pyright: ignore[reportPrivateUsage]
+    second_bytes = {name: (tmp_path / name).read_bytes() for name in first_bytes}
+
+    assert first == second
+    assert first_bytes == second_bytes
+    assert json.loads(first_bytes["llm-label-merge-run-card.json"])["label_count"] == 1
+    assert first_bytes["lawyer-review-queue.jsonl"].count(b"review-1") == 1

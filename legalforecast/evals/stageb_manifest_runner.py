@@ -23,6 +23,7 @@ from legalforecast.contracts.commitments import RAW_BYTES_RAW_SHA256_V1
 from legalforecast.contracts.schemas import (
     STAGE_B_MANIFEST_DECISION_TEXTS_RUN_V1,
     STAGE_B_MANIFEST_DECISION_TEXTS_V1,
+    STAGE_B_MANIFEST_MERGE_RUN_CARD_V1,
     STAGE_B_MANIFEST_PLAN_V1,
     STAGE_B_MANIFEST_PROVIDER_RESULT_V1,
     STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1,
@@ -49,6 +50,8 @@ from legalforecast.labeling.llm_pipeline import (
     _prediction_units_by_candidate,  # pyright: ignore[reportPrivateUsage]
     _required_str,  # pyright: ignore[reportPrivateUsage]
     _verified_stage_b_decisions,  # pyright: ignore[reportPrivateUsage]
+    lawyer_review_queue_records,
+    merge_llm_label_provider_shards,
 )
 from legalforecast.unitization.review import (
     LEGACY_FINALIZED_SCHEMA_VERSION,
@@ -96,7 +99,6 @@ OWNER_AUTHOR_ENV = "LEGALFORECAST_OWNER_AUTHOR"
 # replacements named by the pinned selection.  Paths remain private metadata.
 REPLACEMENT_SOURCE_COMMITMENTS: Mapping[str, Mapping[str, str]] = {
     "488531646": {
-        "candidate_id": "69437817",
         "metadata_sha256": (
             "174630d2fab27d7150fcd551989f9e4951695011e0a385258eaac5870ee5e874"
         ),
@@ -108,7 +110,6 @@ REPLACEMENT_SOURCE_COMMITMENTS: Mapping[str, Mapping[str, str]] = {
         ),
     },
     "487640333": {
-        "candidate_id": "69617129",
         "metadata_sha256": (
             "0eada30b8ca393ba76116599e287977ad2d7d09a4ed832f4a856ee525bba5a92"
         ),
@@ -120,7 +121,6 @@ REPLACEMENT_SOURCE_COMMITMENTS: Mapping[str, Mapping[str, str]] = {
         ),
     },
     "487488505": {
-        "candidate_id": "71203930",
         "metadata_sha256": (
             "fe791d4f9287f8afcd9efca3987c97f2be5fe27a0018507396eadb37faeb31fb"
         ),
@@ -132,7 +132,6 @@ REPLACEMENT_SOURCE_COMMITMENTS: Mapping[str, Mapping[str, str]] = {
         ),
     },
     "488276235": {
-        "candidate_id": "70142291",
         "metadata_sha256": (
             "fe76c02ce86f9224f3da326600790f8e85ce87bb214a9dbced913a47c7f352cc"
         ),
@@ -144,7 +143,6 @@ REPLACEMENT_SOURCE_COMMITMENTS: Mapping[str, Mapping[str, str]] = {
         ),
     },
     "484932730": {
-        "candidate_id": "71929529",
         "metadata_sha256": (
             "54ffa8b69512ff0ae70b59f3a2b1f20d7dddfb0546616784a32d7991f5562fdc"
         ),
@@ -444,7 +442,7 @@ def _current_decision_record(
     document = outcome_documents[0]
     source_document_id = _required_str(document, "source_document_id")
     expected_source = REPLACEMENT_SOURCE_COMMITMENTS.get(source_document_id)
-    if expected_source is None or expected_source.get("candidate_id") != candidate_id:
+    if expected_source is None:
         raise StageBManifestError(
             f"replacement decision source is not owner-pinned: {candidate_id}"
         )
@@ -571,9 +569,29 @@ def _verified_inputs(
         "selection_sha256": CURRENT_SELECTION_SHA256,
     }
     decisions: list[JsonRecord] = []
+    replacement_source_ids: set[str] = set()
     for candidate_id, selection in selected_by_id.items():
         legacy = legacy_by_id.get(candidate_id)
         if legacy is None:
+            documents = selection.get("documents")
+            if not isinstance(documents, Sequence) or isinstance(
+                documents, (str, bytes)
+            ):
+                raise StageBManifestError(
+                    f"selection documents are missing: {candidate_id}"
+                )
+            for raw_document in cast(Sequence[object], documents):
+                if not isinstance(raw_document, Mapping):
+                    continue
+                document = cast(Mapping[str, Any], raw_document)
+                if (
+                    document.get("contains_target_outcome") is True
+                    and document.get("model_visible") is False
+                    and document.get("document_role") in {"decision", "order"}
+                ):
+                    source_document_id = document.get("source_document_id")
+                    if isinstance(source_document_id, str):
+                        replacement_source_ids.add(source_document_id)
             record = _current_decision_record(
                 selection=selection,
                 decision_store_root=decision_store_root,
@@ -593,6 +611,10 @@ def _verified_inputs(
         record["text"] = normalized_text
         record["text_sha256"] = _raw_sha256(normalized_text.encode("utf-8"))
         decisions.append(record)
+    if replacement_source_ids != set(REPLACEMENT_SOURCE_COMMITMENTS):
+        raise StageBManifestError(
+            "replacement decision source coverage differs from owner commitments"
+        )
     decision_payload = _canonical_jsonl(decisions)
     current_decision_path = adapted_path.parent / "decision-texts-current.jsonl"
     _write_create_only(current_decision_path, decision_payload)
@@ -670,6 +692,15 @@ def _shard_artifact_paths(
         output_root / f"{stem}{suffix}-audit.jsonl",
         output_root / f"{stem}{suffix}-run-card.json",
     )
+
+
+def _unit_id(value: Any) -> str:
+    if isinstance(value, Mapping):
+        return _required_str(cast(Mapping[str, Any], value), "unit_id")
+    unit_id = getattr(value, "unit_id", None)
+    if not isinstance(unit_id, str) or not unit_id:
+        raise StageBManifestError("frozen unit lacks a valid unit_id")
+    return unit_id
 
 
 def _existing_result(
@@ -768,11 +799,7 @@ def _existing_result(
     labels = model_output.get("labels")
     if not isinstance(labels, Sequence) or isinstance(labels, (str, bytes)):
         raise StageBManifestError(f"existing result labels are missing: {path}")
-    expected_unit_ids = {
-        _required_str(cast(Mapping[str, Any], unit), "unit_id")
-        for unit in frozen_units
-        if isinstance(unit, Mapping)
-    }
+    expected_unit_ids = {_unit_id(unit) for unit in frozen_units}
     label_values = cast(Sequence[object], labels)
     if len(expected_unit_ids) != len(frozen_units) or len(label_values) != len(
         frozen_units
@@ -1068,6 +1095,260 @@ def _execute_provider(
     return tuple(records)
 
 
+def _validate_full_provider_shard(
+    *,
+    output_root: Path,
+    provider: str,
+    registry_entry: ModelRegistryEntry,
+    registry_sha256: str,
+    raw_sha256: str,
+    decision_sha256: str,
+    artifact: VerifiedDecisionTextArtifact,
+    selection_records: Sequence[Mapping[str, Any]],
+    adapted_records: Sequence[Mapping[str, Any]],
+    owner_comment_ids: Sequence[str],
+) -> tuple[tuple[JsonRecord, ...], Mapping[str, Any]]:
+    """Authenticate one complete provider shard without touching credentials."""
+
+    normalized_provider = provider.lower()
+    audit_path, run_card_path = _shard_artifact_paths(
+        output_root, normalized_provider, None
+    )
+    audit_bytes = _read_regular(audit_path, "provider shard audit")
+    audit_rows = _jsonl(audit_bytes, "provider shard audit")
+    if len(audit_rows) != EXPECTED_CASE_COUNT:
+        raise StageBManifestError(
+            f"{normalized_provider} provider shard is not complete: "
+            f"expected {EXPECTED_CASE_COUNT} rows, got {len(audit_rows)}"
+        )
+    run_card_bytes = _read_regular(run_card_path, "provider shard run card")
+    run_card = _json_object(run_card_bytes, "provider shard run card")
+    expected_source_commitments = {
+        "raw_prediction_units": raw_sha256,
+        "selection": CURRENT_SELECTION_SHA256,
+        "legacy_decision_texts": DECISION_TEXTS_SHA256,
+        "decision_texts_current": decision_sha256,
+        "model_registry": registry_sha256,
+        "terminal_packet_approval": TERMINAL_PACKET_APPROVAL,
+    }
+    expected_card = {
+        "schema_version": str(STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1),
+        "stage": "llm-label-provider-shard",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "paid_activity_requested": True,
+        "paid_activity_executed": True,
+        "execution_provider": normalized_provider,
+        "model_keys": list(MODEL_KEYS),
+        "executed_model_keys": [registry_entry.registry_key],
+        "provider_sampling_policy": "provider_default",
+        "tools_enabled": False,
+        "create_only": True,
+        "resumable": True,
+        "max_cases": None,
+        "case_count": EXPECTED_CASE_COUNT,
+        "unit_count": EXPECTED_UNIT_COUNT,
+        "owner_comment_ids": list(owner_comment_ids),
+    }
+    for key, expected_value in expected_card.items():
+        if run_card.get(key) != expected_value:
+            raise StageBManifestError(
+                f"provider shard run card field differs: {normalized_provider}/{key}"
+            )
+    if run_card.get("source_commitments") != expected_source_commitments:
+        raise StageBManifestError(
+            f"provider shard source commitments differ: {normalized_provider}"
+        )
+    output_commitments_value = run_card.get("output_commitments")
+    if not isinstance(output_commitments_value, Mapping):
+        raise StageBManifestError(
+            f"provider shard output commitments are missing: {normalized_provider}"
+        )
+    output_commitments = cast(Mapping[str, Any], output_commitments_value)
+    if output_commitments.get("audit") != _raw_sha256(audit_bytes):
+        raise StageBManifestError(
+            f"provider shard audit commitment differs: {normalized_provider}"
+        )
+
+    units_by_candidate = _prediction_units_by_candidate(adapted_records)
+    decisions_by_candidate = _verified_stage_b_decisions(artifact)
+    selections_by_candidate = {
+        _required_str(selection, "candidate_id"): selection
+        for selection in selection_records
+    }
+    if set(selections_by_candidate) != set(units_by_candidate) or set(
+        selections_by_candidate
+    ) != set(decisions_by_candidate):
+        raise StageBManifestError("merge inputs do not cover the same candidates")
+
+    expected_audits: list[JsonRecord] = []
+    for candidate_id, selection in selections_by_candidate.items():
+        frozen_units = tuple(units_by_candidate[candidate_id])
+        decision_text, commitment = decisions_by_candidate[candidate_id]
+        prompt = _labeling_prompt(
+            selection,
+            decision_text,
+            frozen_units,
+            decision_text_commitment=commitment,
+        )
+        result_path = _result_path(output_root, normalized_provider, candidate_id)
+        result = _existing_result(
+            result_path,
+            candidate_id=candidate_id,
+            provider=normalized_provider,
+            model_key=registry_entry.registry_key,
+            raw_sha256=raw_sha256,
+            raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                candidate_id
+            ],
+            decision_sha256=decision_sha256,
+            registry_sha256=registry_sha256,
+            selection=selection,
+            frozen_units=frozen_units,
+            decision_commitment=commitment,
+            prompt=prompt,
+        )
+        if result is None:
+            raise StageBManifestError(
+                "provider shard receipt is missing: "
+                f"{normalized_provider}/{candidate_id}"
+            )
+        audit = result.get("audit")
+        if not isinstance(audit, Mapping):
+            raise StageBManifestError(
+                "provider shard receipt audit is missing: "
+                f"{normalized_provider}/{candidate_id}"
+            )
+        expected_audits.append(dict(cast(Mapping[str, Any], audit)))
+
+    if tuple(audit_rows) != tuple(expected_audits):
+        raise StageBManifestError(
+            f"provider shard audit does not match authenticated receipts: "
+            f"{normalized_provider}"
+        )
+    return tuple(expected_audits), {
+        "provider": normalized_provider,
+        "audit_sha256": _raw_sha256(audit_bytes),
+        "run_card_sha256": _raw_sha256(run_card_bytes),
+        "case_count": len(expected_audits),
+        "unit_count": sum(int(row.get("unit_count", 0)) for row in expected_audits),
+    }
+
+
+def _merge_provider_shards(
+    *,
+    output_root: Path,
+    artifact: VerifiedDecisionTextArtifact,
+    selection_records: Sequence[Mapping[str, Any]],
+    adapted_records: Sequence[Mapping[str, Any]],
+    registry_entries: Sequence[ModelRegistryEntry],
+    owner_comment_ids: Sequence[str],
+    registry_sha256: str,
+    raw_sha256: str,
+    decision_sha256: str,
+) -> Mapping[str, Any]:
+    """Fan in complete authenticated shards and publish create-only outputs."""
+
+    provider_audits: list[JsonRecord] = []
+    shard_inputs: list[Mapping[str, Any]] = []
+    for entry in registry_entries:
+        audits, shard_input = _validate_full_provider_shard(
+            output_root=output_root,
+            provider=entry.provider,
+            registry_entry=entry,
+            registry_sha256=registry_sha256,
+            raw_sha256=raw_sha256,
+            decision_sha256=decision_sha256,
+            artifact=artifact,
+            selection_records=selection_records,
+            adapted_records=adapted_records,
+            owner_comment_ids=owner_comment_ids,
+        )
+        provider_audits.extend(audits)
+        shard_inputs.append(shard_input)
+
+    try:
+        merged = merge_llm_label_provider_shards(
+            selection_records=selection_records,
+            prediction_unit_records=adapted_records,
+            decision_text_artifact=artifact,
+            registry_entries=registry_entries,
+            provider_shard_audit_records=provider_audits,
+            model_registry_sha256=registry_sha256,
+        )
+    except Exception as exc:
+        raise StageBManifestError(f"provider shard merge failed: {exc}") from exc
+
+    units_by_candidate = _prediction_units_by_candidate(adapted_records)
+    labels_payload = _canonical_jsonl(merged.records)
+    audit_payload = _canonical_jsonl(merged.audit_records)
+    queue_records = lawyer_review_queue_records(merged.audit_records)
+    queue_payload = _canonical_jsonl(queue_records)
+    output_payloads = {
+        "labels.jsonl": labels_payload,
+        "llm-label-audit.jsonl": audit_payload,
+        "lawyer-review-queue.jsonl": queue_payload,
+    }
+    for name, payload in output_payloads.items():
+        _write_create_only(output_root / name, payload)
+
+    unit_count = sum(
+        len(units_by_candidate[candidate_id])
+        for candidate_id in (
+            _required_str(selection, "candidate_id") for selection in selection_records
+        )
+    )
+
+    merge_run_card = {
+        "schema_version": str(STAGE_B_MANIFEST_MERGE_RUN_CARD_V1),
+        "stage": "llm-label-manifest-merge",
+        "status": "completed",
+        "execute": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "provider_credentials_required": False,
+        "source_commitments": {
+            "raw_prediction_units": raw_sha256,
+            "selection": CURRENT_SELECTION_SHA256,
+            "legacy_decision_texts": DECISION_TEXTS_SHA256,
+            "decision_texts_current": decision_sha256,
+            "model_registry": registry_sha256,
+            "terminal_packet_approval": TERMINAL_PACKET_APPROVAL,
+        },
+        "owner_comment_ids": list(owner_comment_ids),
+        "provider_shards": shard_inputs,
+        "output_commitments": {
+            name.removesuffix(".jsonl").replace("-", "_"): _raw_sha256(payload)
+            for name, payload in output_payloads.items()
+        },
+        "create_only": True,
+        "resumable": True,
+        "case_count": len(selection_records),
+        "unit_count": unit_count,
+        "label_count": len(merged.records),
+        "audit_count": len(merged.audit_records),
+        "lawyer_review_queue_count": len(queue_records),
+    }
+    merge_run_card_payload = (
+        json.dumps(merge_run_card, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    ).encode()
+    _write_create_only(
+        output_root / "llm-label-merge-run-card.json", merge_run_card_payload
+    )
+    return {
+        "case_count": len(selection_records),
+        "unit_count": merge_run_card["unit_count"],
+        "label_count": len(merged.records),
+        "audit_count": len(merged.audit_records),
+        "lawyer_review_queue_count": len(queue_records),
+        "labels": str(output_root / "labels.jsonl"),
+        "audit": str(output_root / "llm-label-audit.jsonl"),
+        "lawyer_review_queue": str(output_root / "lawyer-review-queue.jsonl"),
+        "run_card": str(output_root / "llm-label-merge-run-card.json"),
+    }
+
+
 def run(args: argparse.Namespace) -> int:
     raw_path = Path(args.raw_prediction_units).resolve()
     decision_texts_path = Path(args.decision_texts).resolve()
@@ -1096,6 +1377,24 @@ def run(args: argparse.Namespace) -> int:
         raise StageBManifestError("legacy decision-text commitment changed")
     decision_sha256 = artifact.decision_texts_sha256
     provider = args.provider
+    if args.merge:
+        if args.execute or provider is not None:
+            raise StageBManifestError(
+                "--merge cannot be combined with --execute or --provider"
+            )
+        summary = _merge_provider_shards(
+            output_root=output_root,
+            artifact=artifact,
+            selection_records=selection_records,
+            adapted_records=adapted_records,
+            registry_entries=registry_entries,
+            owner_comment_ids=owner_comment_ids,
+            registry_sha256=registry_sha256,
+            raw_sha256=raw_sha256,
+            decision_sha256=decision_sha256,
+        )
+        print(json.dumps(summary, sort_keys=True))
+        return 0
     if not args.execute:
         plan = {
             "schema_version": str(STAGE_B_MANIFEST_PLAN_V1),
@@ -1179,6 +1478,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--provider", choices=("openai", "google"))
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument(
+        "--merge",
+        action="store_true",
+        help="Provider-free fan-in of complete authenticated provider shards.",
+    )
     parser.add_argument("--max-cases", type=int)
     return parser
 
