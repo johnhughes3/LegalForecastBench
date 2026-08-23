@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from pydantic import (
     BaseModel,
@@ -13,8 +13,20 @@ from pydantic import (
     model_validator,
 )
 
-FORECAST_RELEASE_SCHEMA = "legalforecast.forecast-release.v1"
-LABELS_RELEASE_SCHEMA = "legalforecast.labels-release.v1"
+from legalforecast.contracts import FORECAST_RELEASE_V1, LABELS_RELEASE_V1
+
+FORECAST_RELEASE_SCHEMA = cast(
+    Literal[
+        "legalforecast.forecast-release.v1"  # contract-ratchet: allow typed registry
+    ],
+    str(FORECAST_RELEASE_V1),
+)
+LABELS_RELEASE_SCHEMA = cast(
+    Literal[
+        "legalforecast.labels-release.v1"  # contract-ratchet: allow typed registry
+    ],
+    str(LABELS_RELEASE_V1),
+)
 
 PleadingRole = Literal[
     "complaint",

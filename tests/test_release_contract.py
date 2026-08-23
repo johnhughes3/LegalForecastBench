@@ -9,6 +9,7 @@ import pytest
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
     ARTIFACT_RAW_SHA256_V1,
+    FORECAST_RELEASE_V1,
     LABELS_RELEASE_V1,
 )
 from legalforecast.release import (
@@ -41,6 +42,8 @@ def test_synthetic_issuer_is_deterministic_complete_and_blinded(tmp_path: Path) 
         first / "labels-release.json",
         artifact_root=first,
     )
+    assert forecast.schema_version == str(FORECAST_RELEASE_V1)
+    assert labels.schema_version == str(LABELS_RELEASE_V1)
     assert forecast.case_count == 3
     assert forecast.unit_count == 3
     assert labels.unit_count == 3
