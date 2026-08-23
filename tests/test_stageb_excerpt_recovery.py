@@ -289,6 +289,21 @@ def test_stage_b_page_boundary_recovery_returns_exact_source_slice() -> None:
     )
 
 
+def test_stage_b_page_boundary_recovery_does_not_prefix_post_boundary_excerpt() -> None:
+    decision_text = (
+        "The preceding page explains the issue.\n\n"
+        "11\n\n\n\n---\n\n##### Page 12\n\n"
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12\n\n"
+        "and the claim\ntherefore survived."
+    )
+    excerpt = "and the claim therefore survived."
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
+        == "and the claim\ntherefore survived."
+    )
+
+
 def test_stage_b_page_boundary_recovery_rejects_unrelated_isolated_line_number() -> (
     None
 ):

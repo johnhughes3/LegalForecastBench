@@ -6293,16 +6293,16 @@ def _coerced_excerpt_without_page_boundary(text: str, excerpt: str) -> str | Non
     normalized_chars: list[str] = []
     source_starts: list[int] = []
     source_ends: list[int] = []
-    pending_boundary_start: int | None = None
     index = 0
     while index < len(text):
         boundary_end = boundary_by_start.get(index)
         if boundary_end is not None:
-            pending_boundary_start = index
             if normalized_chars and normalized_chars[-1] != " ":
                 normalized_chars.append(" ")
                 source_starts.append(index)
                 source_ends.append(boundary_end)
+            elif normalized_chars:
+                source_ends[-1] = boundary_end
             index = boundary_end
             continue
         character = text[index]
@@ -6315,20 +6315,12 @@ def _coerced_excerpt_without_page_boundary(text: str, excerpt: str) -> str | Non
                 source_ends[-1] = index
             else:
                 normalized_chars.append(" ")
-                source_starts.append(
-                    pending_boundary_start
-                    if pending_boundary_start is not None
-                    else whitespace_start
-                )
+                source_starts.append(whitespace_start)
                 source_ends.append(index)
-            pending_boundary_start = None
             continue
         normalized_chars.append(character)
-        source_starts.append(
-            pending_boundary_start if pending_boundary_start is not None else index
-        )
+        source_starts.append(index)
         source_ends.append(index + 1)
-        pending_boundary_start = None
         index += 1
 
     untrimmed_text = "".join(normalized_chars)
