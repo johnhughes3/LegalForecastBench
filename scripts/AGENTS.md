@@ -76,6 +76,25 @@ checkout but do not belong in the installed `legalforecast` CLI.
     --output tmp/infisical-systemd-smoke-receipt.json
   ```
 
+- `validate_flatten_local_luna.py`: validates the provider-free integrity
+  summaries in local Luna result envelopes and emits the unchanged nested run
+  records as `legalforecast score` JSONL input. It never creates outcome labels
+  and refuses to overwrite an existing output.
+
+  ```bash
+  uv run python scripts/validate_flatten_local_luna.py \
+    --results-dir <private-local-luna-results> \
+    --output <private-runs.jsonl> \
+    --expected-count 200 \
+    --expected-registry-sha256 <registry-sha256>
+  ```
+
+  The compatibility escape hatch is identity-scoped and fail-closed by
+  default. Use `--derive-missing-output-statuses-for CASE:ABLATION` only for a
+  specifically audited legacy envelope whose unchanged run record permits
+  deterministic re-derivation; it writes a separate output and never repairs
+  the source envelope.
+
 - `official_infra_contract.py`: fail-closed contract helper used by the protected infrastructure workflow to resolve reviewed import IDs, verify exact remote-state bindings, and reject destructive or unreviewed Terraform plans. Raw protected import IDs are accepted only through the workflow environment and are never printed.
 
   ```bash
