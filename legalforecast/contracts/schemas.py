@@ -200,6 +200,22 @@ MANIFEST_FREEZE_RUNTIME_CONTRACT_V1 = SchemaIdentifier(
 MANIFEST_FREEZE_INPUTS_RUN_CARD_V1 = SchemaIdentifier(
     "legalforecast.manifest_freeze_inputs_run_card.v1"
 )
+STAGE_B_MANIFEST_DECISION_TEXTS_V1 = SchemaIdentifier(
+    "legalforecast.stage_b_manifest_decision_texts.v1"
+)
+STAGE_B_MANIFEST_DECISION_TEXTS_RUN_V1 = SchemaIdentifier(
+    "legalforecast.stage_b_manifest_decision_texts_run.v1"
+)
+STAGE_B_MANIFEST_PLAN_V1 = SchemaIdentifier("legalforecast.stage_b_manifest_plan.v1")
+STAGE_B_MANIFEST_MERGE_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.stage_b_manifest_merge_run_card.v1"
+)
+STAGE_B_MANIFEST_PROVIDER_RESULT_V1 = SchemaIdentifier(
+    "legalforecast.stage_b_manifest_provider_result.v1"
+)
+STAGE_B_MANIFEST_PROVIDER_SHARD_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.stage_b_manifest_provider_shard_run_card.v1"
+)
 NO_BASELINES_V1 = SchemaIdentifier("legalforecast.no_baselines.v1")
 EXACT100_METHODS_DISCLOSURE_V1 = SchemaIdentifier(
     "legalforecast.exact100_methods_disclosure.v1"

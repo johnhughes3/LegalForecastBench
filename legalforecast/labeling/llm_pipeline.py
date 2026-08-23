@@ -3153,6 +3153,7 @@ def _llm_label_one_model(
     provider_cycle_caps_sha256: str | None,
     provider_spend_authorities: Mapping[str, ProviderSpendAuthority] | None,
     provider_accounts: Mapping[str, str] | None,
+    max_provider_attempts: int = DEFAULT_MAX_ATTEMPTS,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
     prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
@@ -3236,7 +3237,10 @@ def _llm_label_one_model(
                 # Retain the response as reconstruction_failed and let the fixed
                 # retry budget decide whether one fresh provider call is allowed.
                 pass
-        max_attempts = _reconstruction_retry_max_attempts(journal)
+        max_attempts = min(
+            max_provider_attempts,
+            _reconstruction_retry_max_attempts(journal),
+        )
         response = complete_live_prompt(
             registry_entry,
             prompt,
