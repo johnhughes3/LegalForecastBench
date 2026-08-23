@@ -218,8 +218,8 @@ def run(args: argparse.Namespace) -> int:
     output_root.mkdir(parents=True, exist_ok=True)
     policy = FrozenAttemptPolicy(
         reservation_ledger_sha256=authority_identity,
-        max_billable_attempts=1,
-        failure_threshold=1,
+        max_billable_attempts=2,
+        failure_threshold=5,
         failure_window_seconds=86_400,
     )
     with SqliteProviderSpendAuthority(
@@ -289,7 +289,7 @@ def run(args: argparse.Namespace) -> int:
             solver = LiveModelSolver(
                 registry_entry=entry,
                 model_registry_sha256=_sha(registry_bytes),
-                max_attempts=1,
+                max_attempts=2,
                 attempt_handler_factory=handler_factory,
             )
             records = run_inspect_fixture(samples, (solver,)).to_records()

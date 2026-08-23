@@ -107,10 +107,12 @@ class ProviderSpendAttemptHandler:
         except BaseException as exc:
             # Once transport begins, a missing response can still be billable. Keep
             # the reservation until immutable provider usage data reconciles it.
+            # An explicit HTTP 429 is a provider rejection before generation and
+            # is therefore safe to release for the solver's bounded fallback.
             self.authority.record_failure(
                 lease,
                 failure_type=type(exc).__name__,
-                ambiguous=True,
+                ambiguous=getattr(exc, "status_code", None) != 429,
             )
             raise
 

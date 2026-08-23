@@ -118,6 +118,22 @@ def test_transport_failure_is_ambiguous_and_retains_reservation() -> None:
     ]
 
 
+def test_explicit_http_429_is_nonbillable_for_bounded_fallback() -> None:
+    authority = RecordingAuthority()
+    handler = _handler(authority)
+
+    class RateLimitError(RuntimeError):
+        status_code = 429
+
+    with pytest.raises(RateLimitError):
+        handler.run_attempt(1, lambda: (_ for _ in ()).throw(RateLimitError()))
+
+    assert authority.events == [
+        ("authorize", 500_000),
+        ("failure", 1, "RateLimitError", False),
+    ]
+
+
 def test_post_response_validation_failure_is_recorded_as_ambiguous() -> None:
     authority = RecordingAuthority()
     handler = _handler(authority)
