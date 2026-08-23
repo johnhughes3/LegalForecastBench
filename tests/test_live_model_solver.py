@@ -699,14 +699,16 @@ def test_solver_rejects_registry_entries_that_allow_model_network_or_search() ->
 
 
 def test_solver_requires_the_matching_provider_api_key() -> None:
+    transport = _FixtureTransport({"output_text": "{}"})
     solver = LiveModelSolver(
         registry_entry=_registry_entry("openai", "gpt-test"),
-        transport=_FixtureTransport({"output_text": "{}"}),
+        transport=transport,
         environ={},
     )
 
     with pytest.raises(LiveModelConfigError, match="OPENAI_API_KEY"):
         solver.solve(_request("prompt"))
+    assert transport.requests == []
 
 
 def test_solver_rejects_prompt_that_exceeds_registry_context_budget() -> None:

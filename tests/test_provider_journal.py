@@ -755,7 +755,7 @@ def test_reconstruction_retry_settles_durable_response_without_double_mapping(
 def test_reconstruction_retry_replays_received_response_provider_free(
     tmp_path: Path,
 ) -> None:
-    """A crash after durable response receipt resumes through the live solver."""
+    """A crash after durable response receipt resumes without provider credentials."""
 
     path = tmp_path / "provider-attempts.sqlite3"
     with _journal(path) as journal:
@@ -792,7 +792,7 @@ def test_reconstruction_retry_replays_received_response_provider_free(
             _openai_registry_entry(),
             "frozen prompt",
             transport=provider_must_not_run,
-            environ={"OPENAI_API_KEY": "test-key"},
+            environ={},
             max_attempts=1,
             retry_backoff_seconds=0,
             attempt_handler=replay,
