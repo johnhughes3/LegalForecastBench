@@ -21,6 +21,7 @@ classifiers = [
 dependencies = [
     "cryptography>=50.0.0",
     "ortools>=9.15.6755",
+    "pydantic>=2.13,<3",
     "pypdf>=6.14.2",
 ]
 

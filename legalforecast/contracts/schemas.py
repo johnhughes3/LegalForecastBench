@@ -283,6 +283,8 @@ EXACT100_ZERO_COST_RECOVERY_REST_OBSERVATION_TRANSCRIPT_V1 = SchemaIdentifier(
 FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1 = SchemaIdentifier(
     "legalforecast.firecrawl_scrape_request_contract.v1"
 )
+FORECAST_RELEASE_V1 = SchemaIdentifier("legalforecast.forecast-release.v1")
+LABELS_RELEASE_V1 = SchemaIdentifier("legalforecast.labels-release.v1")
 FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1 = SchemaIdentifier(
     "legalforecast.free_support_memorandum_recovery_plan.v1"
 )
