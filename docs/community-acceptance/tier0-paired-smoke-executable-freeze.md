@@ -9,7 +9,7 @@ No provider call is authorized by this document.
 | Field | Value |
 | --- | --- |
 | Packet | `docs/community-acceptance/tier0-paired-smoke-executable-freeze.md` |
-| Supersedes | The T0R successor packet (`00d37b320cee3d937712b291748143cc816e0dad6813c2ccd71cad2e45c136bc`) in full, and `docs/community-acceptance/tier0-paired-smoke-structural-freeze.md` (`f87b916fb4eefd621e29093877dbd45b402486e20b51af876110907f880cd681`) for operator command, binary identity, evaluator entrypoint, and spend-control shape |
+| Supersedes | The T0R successor packet (`00d37b320cee3d937712b291748143cc816e0dad6813c2ccd71cad2e45c136bc`) in full, and `docs/community-acceptance/tier0-paired-smoke-structural-freeze.md` (`b8a3053f971c81e442fdb778ca7044ee92f24a78dc6eb899e86b05ab2bbdf919`) for operator command, binary identity, evaluator entrypoint, and spend-control shape |
 | Reviewer | `dm0g.4.5.16-reviewer` |
 | Regeneration | Recreate this file from the rows below, then `sha256sum` it. The companion `.sha256` and the readiness-pack executable-freeze table move together |
 
@@ -79,7 +79,7 @@ This packet therefore binds the **deterministic generator plus every public inpu
 | --- | --- |
 | Clean-native solver | `anthropic:claude-sonnet-4-6` |
 | Native-thin solver | `anthropic:claude-sonnet-4-6` |
-| Judge | `anthropic:claude-sonnet-4-6` at temperature `0.0` |
+| Judge | `anthropic:claude-sonnet-4-6` with provider-default sampling (`temperature` and `top_p` omitted) |
 | Criterion calls per complete arm | 23 |
 
 ## True binary identities
