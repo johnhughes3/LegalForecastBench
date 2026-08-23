@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import date
 from difflib import SequenceMatcher
 from enum import StrEnum
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
 
@@ -5241,8 +5242,29 @@ def _repair_unescaped_json_string_quotes(text: str) -> str | None:
 
 def _coerced_excerpt(text: str, excerpt: str) -> str:
     stripped = excerpt.strip()
-    if stripped in text:
+    exact_offset = text.find(stripped)
+    if exact_offset >= 0 and _omits_unqualified_pdf_line_number(text, exact_offset):
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+    if exact_offset >= 0:
         return stripped
+    # A provider can prepend a short discourse marker to an otherwise verbatim
+    # citation.  Keep this recovery deliberately narrower than the general
+    # whitespace/fuzzy coercions below: the marker is allowlisted, and the
+    # remainder must already occur byte-for-byte in the authenticated source.
+    if stripped.startswith("Accordingly, "):
+        marker_remainder = stripped[len("Accordingly, ") :]
+        if marker_remainder and marker_remainder in text:
+            return marker_remainder
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+
+    # Some PDF text layers retain printed line numbers at the beginning of
+    # each source line.  A model may omit those tokens while preserving the
+    # prose.  Normalize only a one-to-three digit token at the beginning of a
+    # line, retain a source-position map, and return the exact source slice.
+    line_number_recovery = _coerced_excerpt_without_pdf_line_numbers(text, stripped)
+    if line_number_recovery is not None:
+        return line_number_recovery
+
     normalized_excerpt = " ".join(stripped.split())
     if not normalized_excerpt:
         raise LlmPipelineError("supporting_excerpt is required")
@@ -5268,6 +5290,135 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
                 "supporting_excerpt does not appear in decision text"
             )
         return fuzzy
+    start = source_positions[offset]
+    end_offset = offset + len(normalized_excerpt) - 1
+    end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
+    return text[start:end].strip()
+
+
+def _omits_unqualified_pdf_line_number(text: str, excerpt_start: int) -> bool:
+    """Report whether an exact excerpt starts after an isolated line number."""
+
+    line_start = text.rfind("\n", 0, excerpt_start) + 1
+    prefix_match = re.fullmatch(r"([0-9]{1,3})[ \t]+", text[line_start:excerpt_start])
+    if prefix_match is None:
+        return False
+    number = int(prefix_match.group(1))
+
+    previous_line_start = text.rfind("\n", 0, line_start - 1) + 1
+    previous_line_end = line_start - 1
+    previous_match = re.match(
+        r"([0-9]{1,3})(?=[ \t])",
+        text[previous_line_start:previous_line_end],
+    )
+    if previous_match is not None and int(previous_match.group(1)) == number - 1:
+        return False
+
+    next_line_start = text.find("\n", excerpt_start) + 1
+    if next_line_start == 0:
+        return True
+    next_line_end = text.find("\n", next_line_start)
+    if next_line_end < 0:
+        next_line_end = len(text)
+    next_match = re.match(
+        r"([0-9]{1,3})(?=[ \t])",
+        text[next_line_start:next_line_end],
+    )
+    return next_match is None or int(next_match.group(1)) != number + 1
+
+
+def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | None:
+    """Recover a citation that omits only printed PDF line-number prefixes.
+
+    This is intentionally not a general citation normalizer.  It recognizes an
+    ASCII one-to-three digit token only when it starts a physical source line
+    and is followed by horizontal whitespace, and removes it only when it is
+    part of a run of at least two adjacent lines with consecutive numbers.  The
+    normalized match must cover the complete requested excerpt; the returned
+    value is the exact original source slice, including any line-number tokens
+    it spans.
+    """
+
+    normalized_excerpt = " ".join(excerpt.split())
+    if not normalized_excerpt:
+        return None
+
+    line_prefixes: list[tuple[int, int, int, int]] = []
+    line_start = 0
+    for line_index, line in enumerate(text.split("\n")):
+        match = re.match(r"([0-9]{1,3})(?=[ \t])", line)
+        if match is not None:
+            line_prefixes.append(
+                (
+                    line_index,
+                    int(match.group(1)),
+                    line_start,
+                    line_start + match.end(),
+                )
+            )
+        line_start += len(line) + 1
+
+    if not line_prefixes:
+        return None
+
+    removable_prefix_starts: set[int] = set()
+    for previous, current in pairwise(line_prefixes):
+        previous_line, previous_number, previous_start, _ = previous
+        current_line, current_number, current_start, _ = current
+        if current_line == previous_line + 1 and current_number == previous_number + 1:
+            removable_prefix_starts.update((previous_start, current_start))
+
+    normalized_chars: list[str] = []
+    source_positions: list[int] = []
+    removed_line_number = False
+    index = 0
+    line_start = True
+    pending_line_number_start: int | None = None
+    while index < len(text):
+        if line_start:
+            prefix = next(
+                (prefix for prefix in line_prefixes if prefix[2] == index),
+                None,
+            )
+            if prefix is not None and prefix[2] in removable_prefix_starts:
+                token_end = prefix[3]
+                removed_line_number = True
+                pending_line_number_start = index
+                index = token_end
+                while index < len(text) and text[index] in " \t":
+                    index += 1
+                line_start = False
+                continue
+
+        char = text[index]
+        if char.isspace():
+            if not normalized_chars or normalized_chars[-1] != " ":
+                normalized_chars.append(" ")
+                source_positions.append(index)
+            pending_line_number_start = None
+            line_start = char == "\n"
+        else:
+            normalized_chars.append(char)
+            source_positions.append(
+                pending_line_number_start
+                if pending_line_number_start is not None
+                else index
+            )
+            pending_line_number_start = None
+            line_start = False
+        index += 1
+
+    if not removed_line_number:
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+    untrimmed_text = "".join(normalized_chars)
+    leading_space_count = len(untrimmed_text) - len(untrimmed_text.lstrip())
+    normalized_text = untrimmed_text.strip()
+    source_positions = source_positions[
+        leading_space_count : leading_space_count + len(normalized_text)
+    ]
+    offset = normalized_text.find(normalized_excerpt)
+    if offset < 0:
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
     start = source_positions[offset]
     end_offset = offset + len(normalized_excerpt) - 1
     end = source_positions[min(end_offset, len(source_positions) - 1)] + 1

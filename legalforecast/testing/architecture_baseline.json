@@ -4037,7 +4037,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 17,
-      "tests": 485,
+      "tests": 486,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -7191,8 +7191,8 @@
         "largest_symbol": "llm_label_cases",
         "largest_symbol_lines": 371,
         "layer": "application",
-        "line_count": 5561,
-        "nonblank_line_count": 5246,
+        "line_count": 5712,
+        "nonblank_line_count": 5329,
         "top_level_definition_count": 112
       },
       "legalforecast/labeling/official_paid_baton.py": {
