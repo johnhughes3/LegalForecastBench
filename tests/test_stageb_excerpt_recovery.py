@@ -143,6 +143,19 @@ def _registry() -> llm_pipeline.ModelRegistryEntry:
             "2016 WL 7635950, at \\*4. The motion is **GRANTED.**",
             id="rendered-markdown-line-map",
         ),
+        pytest.param(
+            "The court explained that the constitutional violation was established\n\n"
+            "11\n\n\n\n---\n\n##### Page 12\n\n"
+            "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12\n\n"
+            "and the claim therefore survived.",
+            "The court explained that the constitutional violation was established "
+            "and the claim therefore survived.",
+            "The court explained that the constitutional violation was established\n\n"
+            "11\n\n\n\n---\n\n##### Page 12\n\n"
+            "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12\n\n"
+            "and the claim therefore survived.",
+            id="parser-page-boundary",
+        ),
     ],
 )
 def test_stage_b_reconstruction_recovers_citation_provider_free(
@@ -256,6 +269,54 @@ def test_stage_b_reconstruction_recovers_citation_provider_free(
             "normalized_response_json FROM provider_attempts"
         ).fetchall()
     assert row == [(1, "settled", raw_response_json, normalized_response_json)]
+
+
+def test_stage_b_page_boundary_recovery_returns_exact_source_slice() -> None:
+    decision_text = (
+        "The court explained that the constitutional violation was established\n\n"
+        "11\n\n\n\n---\n\n##### Page 12\n\n"
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12\n\n"
+        "and the claim therefore survived."
+    )
+    excerpt = (
+        "The court explained that the constitutional violation was established "
+        "and the claim therefore survived."
+    )
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
+        == decision_text
+    )
+
+
+@pytest.mark.parametrize(
+    "invalid_boundary",
+    [
+        "##### Page 13",
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 13 of 13",
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12",
+    ],
+)
+def test_stage_b_page_boundary_recovery_rejects_unqualified_markers(
+    invalid_boundary: str,
+) -> None:
+    decision_text = (
+        "The court explained that the constitutional violation was established\n\n"
+        "11\n\n\n\n---\n\n"
+        f"{invalid_boundary}\n\n"
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12\n\n"
+        "and the claim therefore survived."
+    )
+    excerpt = (
+        "The court explained that the constitutional violation was established "
+        "and the claim therefore survived."
+    )
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="supporting_excerpt does not appear in decision text",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
 
 
 def test_stage_b_one_attempt_replay_normalizes_structurally_inapplicable_amendment(

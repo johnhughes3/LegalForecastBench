@@ -5969,6 +5969,10 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
     if line_number_recovery is not None:
         return line_number_recovery
 
+    page_boundary_recovery = _coerced_excerpt_without_page_boundary(text, stripped)
+    if page_boundary_recovery is not None:
+        return page_boundary_recovery
+
     normalized_excerpt = " ".join(stripped.split())
     if not normalized_excerpt:
         raise LlmPipelineError("supporting_excerpt is required")
@@ -6244,6 +6248,104 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
     start = source_positions[offset]
     end_offset = offset + len(normalized_excerpt) - 1
     end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
+    return text[start:end].strip()
+
+
+_STAGE_B_PAGE_BOUNDARY = re.compile(
+    r"\n\n(?P<previous_page>[0-9]{1,3})\n{2,}---\n{2,}"
+    r"##### Page (?P<page>[0-9]{1,3})\n{2,}"
+    r"CASE (?P<header>[^\n]*?\bPage (?P<header_page>[0-9]{1,3})"
+    r" of [0-9]{1,3})\n{2,}"
+)
+
+
+def _stage_b_page_boundary_spans(text: str) -> tuple[tuple[int, int], ...]:
+    """Return parser page-boundary spans with consecutive page numbers only."""
+
+    spans: list[tuple[int, int]] = []
+    for match in _STAGE_B_PAGE_BOUNDARY.finditer(text):
+        previous_page = int(match.group("previous_page"))
+        page = int(match.group("page"))
+        if page != previous_page + 1 or int(match.group("header_page")) != page:
+            continue
+        spans.append((match.start(), match.end()))
+    return tuple(spans)
+
+
+def _coerced_excerpt_without_page_boundary(text: str, excerpt: str) -> str | None:
+    """Recover prose that crosses an authenticated parser page boundary.
+
+    The decision-text builder preserves a page footer, horizontal rule, and the
+    next page's docket header in Markdown.  A provider can copy the prose across
+    that presentation boundary without copying those bytes.  Recognize only
+    the builder's explicit marker shape and consecutive page numbers, then map
+    the normalized match back to the original source slice.  This never removes
+    arbitrary headings or rewrites the authenticated text.
+    """
+
+    normalized_excerpt = " ".join(excerpt.split())
+    if not normalized_excerpt:
+        return None
+    boundary_spans = _stage_b_page_boundary_spans(text)
+    if not boundary_spans:
+        return None
+    boundary_by_start = dict(boundary_spans)
+    normalized_chars: list[str] = []
+    source_starts: list[int] = []
+    source_ends: list[int] = []
+    pending_boundary_start: int | None = None
+    index = 0
+    while index < len(text):
+        boundary_end = boundary_by_start.get(index)
+        if boundary_end is not None:
+            pending_boundary_start = index
+            if normalized_chars and normalized_chars[-1] != " ":
+                normalized_chars.append(" ")
+                source_starts.append(index)
+                source_ends.append(boundary_end)
+            index = boundary_end
+            continue
+        character = text[index]
+        if character.isspace():
+            whitespace_start = index
+            index += 1
+            while index < len(text) and text[index].isspace():
+                index += 1
+            if normalized_chars and normalized_chars[-1] == " ":
+                source_ends[-1] = index
+            else:
+                normalized_chars.append(" ")
+                source_starts.append(
+                    pending_boundary_start
+                    if pending_boundary_start is not None
+                    else whitespace_start
+                )
+                source_ends.append(index)
+            pending_boundary_start = None
+            continue
+        normalized_chars.append(character)
+        source_starts.append(
+            pending_boundary_start if pending_boundary_start is not None else index
+        )
+        source_ends.append(index + 1)
+        pending_boundary_start = None
+        index += 1
+
+    untrimmed_text = "".join(normalized_chars)
+    leading_space_count = len(untrimmed_text) - len(untrimmed_text.lstrip())
+    normalized_text = untrimmed_text.strip()
+    source_starts = source_starts[
+        leading_space_count : leading_space_count + len(normalized_text)
+    ]
+    source_ends = source_ends[
+        leading_space_count : leading_space_count + len(normalized_text)
+    ]
+    offset = normalized_text.find(normalized_excerpt)
+    if offset < 0:
+        return None
+    start = source_starts[offset]
+    end_offset = offset + len(normalized_excerpt) - 1
+    end = source_ends[min(end_offset, len(source_ends) - 1)]
     return text[start:end].strip()
 
 
