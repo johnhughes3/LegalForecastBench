@@ -118,6 +118,17 @@ def _registry() -> llm_pipeline.ModelRegistryEntry:
             "respond **within five days**. The request was **DENIED**.",
             id="omitted-markdown-emphasis-delimiters",
         ),
+        pytest.param(
+            "7 Thus, like in *Sound N*\n"
+            "8 *Light*, Plaintiffs do not allege non-conclusory facts. See Compl.; "
+            "2016 WL 7635950, at \\*4. The motion is **GRANTED.**",
+            "Thus, like in Sound N Light, Plaintiffs do not allege non-conclusory "
+            "facts. See Compl.; 2016 WL 7635950, at *4. The motion is GRANTED.",
+            "7 Thus, like in *Sound N*\n"
+            "8 *Light*, Plaintiffs do not allege non-conclusory facts. See Compl.; "
+            "2016 WL 7635950, at \\*4. The motion is **GRANTED.**",
+            id="rendered-markdown-line-map",
+        ),
     ],
 )
 def test_stage_b_reconstruction_recovers_citation_provider_free(
@@ -292,4 +303,24 @@ def test_stage_b_excerpt_recovery_falls_back_after_unrelated_numbered_lines() ->
     ) == (
         "The authenticated decision explains that jurisdiction remains proper "
         "because the complaint invokes federal law."
+    )
+
+
+def test_stage_b_rendered_markdown_recovery_rejects_word_drift() -> None:
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_from_rendered_markdown(
+            "7 The Court **GRANTED** the motion because the complaint is deficient.",
+            "The Court GRANTED the motion because the complaint is insufficient.",
+        )
+        is None
+    )
+
+
+def test_stage_b_rendered_markdown_recovery_rejects_unbalanced_markup() -> None:
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_from_rendered_markdown(
+            "7 The Court *GRANTED the motion because the complaint is deficient.",
+            "The Court GRANTED the motion because the complaint is deficient.",
+        )
+        is None
     )
