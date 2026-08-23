@@ -258,17 +258,77 @@ def test_stage_b_reconstruction_recovers_citation_provider_free(
     assert failed[0] == "reconstruction_failed"
     raw_response_json, normalized_response_json = failed[1:]
 
+    kwargs["replay_only"] = True
     labels, *_ = cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
 
     assert labels[0].supporting_citations[0].excerpt == expected_excerpt
     assert provider_calls == 1
-    assert completion_calls == 2
+    assert completion_calls == 1
     with sqlite3.connect(journal_path) as connection:
         row = connection.execute(
             "SELECT attempt_ordinal, status, raw_response_json, "
             "normalized_response_json FROM provider_attempts"
         ).fetchall()
     assert row == [(1, "settled", raw_response_json, normalized_response_json)]
+
+
+def test_stage_b_replay_only_rejects_unrelated_settled_journal(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    class UnrelatedSettledJournal:
+        has_settled_attempt = True
+        has_reconstruction_failure = False
+        has_validated_response = False
+
+        def latest_reconstruction_recovery_evidence(self) -> object:
+            raise llm_pipeline.ProviderJournalError(
+                "provider journal has no failed reconstruction to recover"
+            )
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        llm_pipeline,
+        "_provider_attempt_journal",
+        lambda **_: UnrelatedSettledJournal(),
+    )
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        lambda *args, **kwargs: pytest.fail(
+            "provider-free replay must reject before live completion"
+        ),
+    )
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="provider-free Stage B replay has no retained response to settle",
+    ):
+        cast(Any, llm_pipeline)._llm_label_one_model(
+            selection=_selection(),
+            decision_text=llm_pipeline.StageBDecisionText(
+                document_id="synthetic-decision",
+                entered_date="2026-07-01",
+                text="The motion is denied.",
+            ),
+            decision_text_commitment={"decision_texts_sha256": "sha256:" + "a" * 64},
+            frozen_units=(_unit(),),
+            prompt="synthetic frozen label prompt",
+            registry_entry=_registry(),
+            model_registry_sha256="b" * 64,
+            transport=None,
+            environ=None,
+            timeout_seconds=1.0,
+            provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="synthetic-cycle",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_spend_authorities=None,
+            provider_accounts=None,
+            replay_only=True,
+        )
 
 
 def test_stage_b_page_boundary_recovery_returns_exact_source_slice() -> None:

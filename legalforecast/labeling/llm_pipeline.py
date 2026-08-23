@@ -3324,6 +3324,12 @@ def _llm_label_one_model(
                         len(missing_flags),
                         prompt_sha256,
                     )
+                reconstructed_response = _reconstructed_solver_response(
+                    raw_output=raw_output,
+                    normalized_response=cast(Mapping[str, Any], normalized_value),
+                    registry_entry=registry_entry,
+                    model_registry_sha256=model_registry_sha256,
+                )
                 journal.commit_reconstruction_recovery(
                     evidence.attempt_ordinal,
                     raw_response_json=evidence.raw_response_json,
@@ -3336,13 +3342,25 @@ def _llm_label_one_model(
                     },
                 )
                 replayed_reconstruction = True
+                if replay_only:
+                    return (
+                        recovered.labels,
+                        reconstructed_response,
+                        len(findings),
+                        len(missing_flags),
+                        prompt_sha256,
+                    )
             except FrozenUnitWorkflowRequiredError:
                 raise
             except (LlmPipelineError, ValueError):
                 # Retain the response as reconstruction_failed and let the fixed
                 # retry budget decide whether one fresh provider call is allowed.
                 pass
-        if replay_only and (journal is None or not journal.has_validated_response):
+        if (
+            replay_only
+            and not replayed_reconstruction
+            and (journal is None or not journal.has_validated_response)
+        ):
             raise LlmPipelineError(
                 "provider-free Stage B replay has no retained response to settle"
             )
