@@ -219,11 +219,9 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
             "temperature": 0.0,
         }
     ]
-    assert packet_budget["temperature_policy"]["all_registry_temperatures_zero"] is True
-    assert (
-        "reduce avoidable sampling variance"
-        in packet_budget["temperature_policy"]["rationale"]
-    )
+    sampling_policy = packet_budget["sampling_policy"]
+    assert sampling_policy["provider_sampling_policy"] == "provider_default"
+    assert "requests omit temperature and top_p" in sampling_policy["rationale"]
     assert run_card["cycle_power"]["claim_strength"] == "feasibility_only"
     assert run_card["cycle_power"]["strong_ranking_claim_allowed"] is False
     assert "runs.jsonl" in run_card["private_debug_outputs"]

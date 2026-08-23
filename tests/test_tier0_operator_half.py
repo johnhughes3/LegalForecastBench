@@ -377,9 +377,8 @@ class _CapturingTransport:
         system: str,
         prompt: str,
         max_output_tokens: int,
-        temperature: float,
     ) -> JudgeTransportResult:
-        del api_key, max_output_tokens, temperature
+        del api_key, max_output_tokens
         self.prompts.append(prompt)
         self.systems.append(system)
         return JudgeTransportResult(

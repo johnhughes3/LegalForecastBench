@@ -119,6 +119,7 @@ def build_run_card_record(
         "sampling": {
             "temperature": registry_entry.temperature,
             "top_p": registry_entry.top_p,
+            "provider_sampling_policy": "provider_default",
             "max_output_tokens": registry_entry.max_output_tokens,
         },
         "policy": {
@@ -221,6 +222,14 @@ def validate_run_card_record(record: Mapping[str, Any]) -> RunCardValidationResu
     if sampling is not None:
         _required_number(sampling, "temperature", issues, prefix="sampling")
         _required_number(sampling, "top_p", issues, prefix="sampling", maximum=1)
+        _require_equal(
+            _required_str(
+                sampling, "provider_sampling_policy", issues, prefix="sampling"
+            ),
+            "provider_default",
+            "sampling.provider_sampling_policy",
+            issues,
+        )
         _required_int(
             sampling,
             "max_output_tokens",

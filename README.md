@@ -157,9 +157,9 @@ The check emits text on a terminal and one stable JSON summary when piped; child
 
 ## Context and Sampling Policy
 
-Official runs enforce prompt-size comparability against the smallest evaluated model budget: each packet must fit within `context_limit - max_output_tokens` for every model in the frozen registry. Aggregate run cards report the packet token distribution by ablation, the smallest prompt-input budget, and the registry temperature settings.
+Official runs enforce prompt-size comparability against the smallest evaluated model budget: each packet must fit within `context_limit - max_output_tokens` for every model in the frozen registry. Aggregate run cards report the packet token distribution by ablation, the smallest prompt-input budget, and the provider-default sampling policy.
 
-Registry entries use `temperature=0` for official runs to reduce avoidable sampling variance and make prompt/context differences easier to audit. This does not make provider responses perfectly deterministic; repeat-sampling runs are used to measure residual provider-side variance.
+Live provider requests omit `temperature`, `top_p`, and equivalent controls, so each provider supplies its own default sampling settings. The legacy registry values remain only as provenance for already-frozen registry bytes; they are not sent to providers and do not configure the run. Provider responses are therefore not assumed to be perfectly deterministic, and repeat-sampling runs measure residual provider-side variance.
 
 ## Public Records and Recusal
 

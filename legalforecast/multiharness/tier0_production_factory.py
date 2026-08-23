@@ -85,8 +85,7 @@ _FAIL = "fail"
 
 JUDGE_SETTINGS: Mapping[str, object] = {
     "model": JUDGE_REQUESTED_MODEL,
-    "temperature": "0.0",
-    "top_p": None,
+    "provider_sampling_policy": "provider_default",
     "max_output_tokens": 16,
     "tools": [],
     "stop_sequences": [],
@@ -147,7 +146,6 @@ class JudgeTransport(Protocol):
         system: str,
         prompt: str,
         max_output_tokens: int,
-        temperature: float,
     ) -> JudgeTransportResult:
         """Issue the request and report what the provider actually returned."""
         ...
@@ -196,7 +194,6 @@ def anthropic_messages_transport(
     system: str,
     prompt: str,
     max_output_tokens: int,
-    temperature: float,
 ) -> JudgeTransportResult:
     """Issue one judge request through the official Anthropic SDK.
 
@@ -224,7 +221,6 @@ def anthropic_messages_transport(
     response: Any = client.messages.create(
         model=model,
         max_tokens=max_output_tokens,
-        temperature=temperature,
         system=system,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -280,7 +276,6 @@ class AnthropicMessagesJudgeAdapter:
             system=JUDGE_SYSTEM_PROMPT,
             prompt=prompt,
             max_output_tokens=cast(int, JUDGE_SETTINGS["max_output_tokens"]),
-            temperature=0.0,
         )
         if type(result) is not JudgeTransportResult:
             raise ProductionFactoryError("judge transport returned an invalid result")
