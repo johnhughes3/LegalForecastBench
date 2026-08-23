@@ -40,6 +40,30 @@ def _beads_comments(
     return fake_run
 
 
+def _contextual_fixture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[str, str, str]:
+    comment_text = "synthetic owner approval for the contextual fixture"
+    candidate_id = "synthetic-contextual-candidate"
+    missing_description = "synthetic missing-unit description"
+    for constant_name, value in (
+        ("CONTEXTUAL_OWNER_APPROVAL_TEXT_SHA256", comment_text),
+        ("CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256", candidate_id),
+        ("CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_SHA256", missing_description),
+    ):
+        monkeypatch.setattr(
+            runner,
+            constant_name,
+            str(
+                runner.ARTIFACT_PREFIXED_SHA256_V1.commit(
+                    value,
+                    domain=runner._ADJ_SCHEMA,  # pyright: ignore[reportPrivateUsage]
+                ).digest
+            ),
+        )
+    return comment_text, candidate_id, missing_description
+
+
 def test_owner_approval_ids_require_exact_real_comments(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -101,10 +125,11 @@ def test_owner_approval_ids_reject_terminal_comment_on_spend_bead(
 def test_contextual_owner_approval_binds_candidate_specific_scope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    comment_text, candidate_id, missing_description = _contextual_fixture(monkeypatch)
     monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
     comment = _comment(
         runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
-        runner.CONTEXTUAL_OWNER_APPROVAL_TEXT,
+        comment_text,
         author="owner",
     )
     monkeypatch.setattr(
@@ -114,12 +139,10 @@ def test_contextual_owner_approval_binds_candidate_specific_scope(
     )
     ruling = {
         "action": "exclude_missing_unit_only",
-        "candidate_id": runner.CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID,
-        "case_id": runner.CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID,
+        "candidate_id": candidate_id,
+        "case_id": candidate_id,
         "frozen_unit_ids": ["unit-1", "unit-2", "unit-3", "unit-4"],
-        "missing_unit_descriptions": [
-            runner.CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_DESCRIPTION
-        ],
+        "missing_unit_descriptions": [missing_description],
     }
 
     digest = runner._owner_comment_ruling_sha256(  # pyright: ignore[reportPrivateUsage]
@@ -129,7 +152,7 @@ def test_contextual_owner_approval_binds_candidate_specific_scope(
 
     assert digest == str(
         runner.ARTIFACT_PREFIXED_SHA256_V1.commit(
-            runner.CONTEXTUAL_OWNER_APPROVAL_TEXT,
+            comment_text,
             domain=runner._ADJ_SCHEMA,  # pyright: ignore[reportPrivateUsage]
         ).digest
     )
@@ -138,7 +161,7 @@ def test_contextual_owner_approval_binds_candidate_specific_scope(
 @pytest.mark.parametrize(
     "ruling_update",
     [
-        {"candidate_id": "72213663"},
+        {"candidate_id": "other-contextual-candidate"},
         {"frozen_unit_ids": ["unit-1", "unit-2", "unit-3"]},
         {"missing_unit_descriptions": ["different claim"]},
     ],
@@ -147,10 +170,11 @@ def test_contextual_owner_approval_rejects_unbound_scope(
     monkeypatch: pytest.MonkeyPatch,
     ruling_update: dict[str, Any],
 ) -> None:
+    comment_text, candidate_id, missing_description = _contextual_fixture(monkeypatch)
     monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
     comment = _comment(
         runner.CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID,
-        runner.CONTEXTUAL_OWNER_APPROVAL_TEXT,
+        comment_text,
         author="owner",
     )
     monkeypatch.setattr(
@@ -160,12 +184,10 @@ def test_contextual_owner_approval_rejects_unbound_scope(
     )
     ruling: dict[str, Any] = {
         "action": "exclude_missing_unit_only",
-        "candidate_id": runner.CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID,
-        "case_id": runner.CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID,
+        "candidate_id": candidate_id,
+        "case_id": candidate_id,
         "frozen_unit_ids": ["unit-1", "unit-2", "unit-3", "unit-4"],
-        "missing_unit_descriptions": [
-            runner.CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_DESCRIPTION
-        ],
+        "missing_unit_descriptions": [missing_description],
     }
     ruling.update(ruling_update)
 
@@ -197,7 +219,7 @@ def test_spend_and_terminal_approvals_cannot_authorize_adjudication(
     ):
         runner._owner_comment_ruling_sha256(  # pyright: ignore[reportPrivateUsage]
             "spend-id",
-            expected_ruling={"candidate_id": "69581167"},
+            expected_ruling={"candidate_id": "synthetic-contextual-candidate"},
         )
 
 

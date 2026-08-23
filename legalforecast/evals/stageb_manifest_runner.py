@@ -108,23 +108,14 @@ PROVIDER_KEY_ENV_NAMES = frozenset(
 OWNER_AUTHOR_ENV = "LEGALFORECAST_OWNER_AUTHOR"
 FROZEN_UNIT_ADJUDICATION_INDEX_V1 = str(_INDEX_SCHEMA)
 CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID = "b7f63c90-ca42-5a04-8590-4181be613ec1"
-CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID = "69581167"
-CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_DESCRIPTION = (
-    "Fourteenth Amendment / Due Process claim regarding grievance procedures "
-    "against Bodtmann and Crothers"
+CONTEXTUAL_OWNER_APPROVAL_TEXT_SHA256 = (
+    "sha256:57c925c08da5dbe25007cc27b1532d8912c61d97702d633091a723efc5f2b7a2"
 )
-CONTEXTUAL_OWNER_APPROVAL_TEXT = (
-    "Owner response received verbatim 2026-08-23: “ok botha pproved”\n\n"
-    "This response directly approves both immediately preceding requested "
-    "decisions:\n"
-    "1. Candidate 69581167: preserve the newly discovered grievance-procedure "
-    "claim in the adjudication record, exclude only that omitted claim from "
-    "Cycle 1 scoring, and keep the four frozen units scoreable.\n"
-    "2. Candidate 72213663: permit one additional GPT-5.4 mini attempt because "
-    "attempt 1 failed exact citation validation, estimated USD 0.02 and capped "
-    "at USD 0.05 for the additional attempt.\n\n"
-    "The quoted owner response is verbatim; the numbered scope is the operator "
-    "context to which “both” refers."
+CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256 = (
+    "sha256:119293da5aeb7f9eeb328b041b53026f4322cd619e6bb3604ad6be1a19171d18"
+)
+CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_SHA256 = (
+    "sha256:938d24db5ec4977e95abe92aad30b2fea018786d76a6fbc18e10df5930238fa2"
 )
 
 # The replacement rows are not covered by the retired decision-text artifact.
@@ -582,18 +573,56 @@ def _owner_comment_ruling_sha256(
             if not isinstance(text, str) or not text.strip():
                 raise StageBManifestError("owner adjudication comment text is invalid")
             if text != expected_text:
+                candidate_id = expected_ruling.get("candidate_id")
+                case_id = expected_ruling.get("case_id")
+                frozen_unit_ids = expected_ruling.get("frozen_unit_ids")
+                missing_descriptions = expected_ruling.get("missing_unit_descriptions")
+                missing_description_values = (
+                    cast(list[object], missing_descriptions)
+                    if isinstance(missing_descriptions, list)
+                    else []
+                )
                 contextual_scope = (
                     comment_id == CONTEXTUAL_OWNER_APPROVAL_COMMENT_ID
-                    and text == CONTEXTUAL_OWNER_APPROVAL_TEXT
+                    and str(
+                        ARTIFACT_PREFIXED_SHA256_V1.commit(
+                            text,
+                            domain=_ADJ_SCHEMA,
+                        ).digest
+                    )
+                    == CONTEXTUAL_OWNER_APPROVAL_TEXT_SHA256
                     and expected_ruling.get("action") == "exclude_missing_unit_only"
-                    and expected_ruling.get("candidate_id")
-                    == CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID
-                    and expected_ruling.get("case_id")
-                    == CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_ID
-                    and isinstance(expected_ruling.get("frozen_unit_ids"), list)
-                    and len(expected_ruling["frozen_unit_ids"]) == 4
-                    and expected_ruling.get("missing_unit_descriptions")
-                    == [CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_DESCRIPTION]
+                    and isinstance(candidate_id, str)
+                    and str(
+                        ARTIFACT_PREFIXED_SHA256_V1.commit(
+                            candidate_id,
+                            domain=_ADJ_SCHEMA,
+                        ).digest
+                    )
+                    == CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256
+                    and isinstance(case_id, str)
+                    and str(
+                        ARTIFACT_PREFIXED_SHA256_V1.commit(
+                            case_id,
+                            domain=_ADJ_SCHEMA,
+                        ).digest
+                    )
+                    == CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256
+                    and isinstance(frozen_unit_ids, list)
+                    and len(cast(list[object], frozen_unit_ids)) == 4
+                    and all(
+                        isinstance(unit_id, str)
+                        for unit_id in cast(list[object], frozen_unit_ids)
+                    )
+                    and len(missing_description_values) == 1
+                    and isinstance(missing_description_values[0], str)
+                    and str(
+                        ARTIFACT_PREFIXED_SHA256_V1.commit(
+                            missing_description_values[0],
+                            domain=_ADJ_SCHEMA,
+                        ).digest
+                    )
+                    == CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_SHA256
                 )
                 if contextual_scope:
                     return str(
