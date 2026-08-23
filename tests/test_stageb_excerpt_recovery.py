@@ -355,10 +355,7 @@ def test_stage_b_pdf_line_recovery_rejects_ambiguous_unindented_matches() -> Non
 
 def test_stage_b_pdf_line_recovery_prefers_exact_unindented_occurrence() -> None:
     decision_text = (
-        " 7 repeated citation text\n"
-        " 8 continues\n"
-        "\n"
-        "repeated citation text continues"
+        " 7 repeated citation text\n 8 continues\n\nrepeated citation text continues"
     )
 
     assert (
