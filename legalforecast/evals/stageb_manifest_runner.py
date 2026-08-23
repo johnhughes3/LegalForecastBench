@@ -1251,10 +1251,27 @@ def _additional_attempt_result_path(
     return canonical.with_name(f"{canonical.stem}.attempt-2{canonical.suffix}")
 
 
-def _preferred_result_path(output_root: Path, provider: str, candidate_id: str) -> Path:
-    """Prefer a successful exception receipt over its preserved failed receipt."""
+def _provider_free_recovery_result_path(
+    output_root: Path, provider: str, candidate_id: str
+) -> Path:
+    """Keep a failed receipt while publishing a corrected replay result."""
 
+    canonical = _result_path(output_root, provider, candidate_id)
+    return canonical.with_name(f"{canonical.stem}.recovered{canonical.suffix}")
+
+
+def _preferred_result_path(output_root: Path, provider: str, candidate_id: str) -> Path:
+    """Prefer a successful replay receipt over a preserved failed receipt."""
+
+    recovered = _provider_free_recovery_result_path(output_root, provider, candidate_id)
     retry = _additional_attempt_result_path(output_root, provider, candidate_id)
+    if recovered.exists() and retry.exists():
+        raise StageBManifestError(
+            "provider has both provider-free recovery and additional-attempt "
+            f"receipts: {provider}/{candidate_id}"
+        )
+    if recovered.exists():
+        return recovered
     if retry.exists():
         return retry
     return _result_path(output_root, provider, candidate_id)
@@ -1489,8 +1506,9 @@ def _existing_failure_result(
     decision_sha256: str,
     registry_sha256: str,
     selection: Mapping[str, Any],
+    allow_any_validation_failure: bool = False,
 ) -> JsonRecord:
-    """Authenticate the preserved attempt-1 failure before a retry receipt."""
+    """Authenticate a preserved failed receipt before a new result receipt."""
 
     value = _json_object(
         _read_regular(path, f"existing failed result {path}"),
@@ -1515,15 +1533,58 @@ def _existing_failure_result(
             raise StageBManifestError(
                 f"existing failed result identity differs: {path}/{key}"
             )
-    if (
-        value.get("error_type") != ADDITIONAL_ATTEMPT_FAILURE_TYPE
-        or value.get("error_message") != ADDITIONAL_ATTEMPT_FAILURE_MESSAGE
-    ):
+    valid_failure = (
+        value.get("error_type") == ADDITIONAL_ATTEMPT_FAILURE_TYPE
+        and value.get("error_message") == ADDITIONAL_ATTEMPT_FAILURE_MESSAGE
+    )
+    if allow_any_validation_failure:
+        valid_failure = (
+            value.get("error_type") == "LlmResponseValidationError"
+            and isinstance(value.get("error_message"), str)
+            and bool(str(value["error_message"]).strip())
+        )
+    if not valid_failure:
         raise StageBManifestError(
             f"existing failed result is not the approved citation-validation "
             f"failure: {path}"
         )
     return dict(value)
+
+
+def _journal_has_reconstruction_failure(
+    *,
+    journal_path: Path,
+    candidate_id: str,
+    prompt: str,
+    registry_entry: ModelRegistryEntry,
+    registry_sha256: str,
+    provider: str,
+    raw_sha256: str,
+    decision_sha256: str,
+) -> bool:
+    """Check for a retained response before attempting provider-free replay."""
+
+    journal = _provider_attempt_journal(
+        path=journal_path,
+        stage="llm-label",
+        candidate_id=candidate_id,
+        prompt=prompt,
+        registry_entry=registry_entry,
+        account=f"cycle1-{provider}",
+        model_registry_sha256=registry_sha256,
+        cycle_cap_usd=PROVIDER_CAP_USD[provider],
+        cycle_id="cycle-1-stage-b-manifest",
+        provider_cycle_caps_sha256=_authority_identity(
+            raw_sha256=raw_sha256,
+            decision_sha256=decision_sha256,
+            registry_sha256=registry_sha256,
+            provider=provider,
+        ),
+    )
+    if journal is None:
+        return False
+    with journal:
+        return journal.has_reconstruction_failure
 
 
 def _authority_identity(
@@ -1657,13 +1718,50 @@ def _execute_provider(
                 decision_text_commitment=commitment,
             )
             canonical_result_path = _result_path(output_root, provider, candidate_id)
+            recovered_result_path = _provider_free_recovery_result_path(
+                output_root, provider, candidate_id
+            )
             retry_enabled = additional_attempt_candidate == candidate_id
             retry_result_path = _additional_attempt_result_path(
                 output_root, provider, candidate_id
             )
             prior: JsonRecord | None = None
             result_path = canonical_result_path
-            if retry_enabled and retry_result_path.exists():
+            recovery_enabled = False
+            if recovered_result_path.exists():
+                _existing_failure_result(
+                    canonical_result_path,
+                    candidate_id=candidate_id,
+                    provider=provider,
+                    model_key=registry_entry.registry_key,
+                    raw_sha256=raw_sha256,
+                    raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                        candidate_id
+                    ],
+                    decision_sha256=decision_sha256,
+                    registry_sha256=registry_sha256,
+                    selection=selection,
+                    allow_any_validation_failure=True,
+                )
+                prior = _existing_result(
+                    recovered_result_path,
+                    candidate_id=candidate_id,
+                    provider=provider,
+                    model_key=registry_entry.registry_key,
+                    raw_sha256=raw_sha256,
+                    raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                        candidate_id
+                    ],
+                    decision_sha256=decision_sha256,
+                    registry_sha256=registry_sha256,
+                    selection=selection,
+                    frozen_units=frozen_units,
+                    decision_commitment=commitment,
+                    prompt=prompt,
+                    frozen_unit_adjudication=adjudication,
+                )
+                result_path = recovered_result_path
+            elif retry_enabled and retry_result_path.exists():
                 _existing_failure_result(
                     canonical_result_path,
                     candidate_id=candidate_id,
@@ -1714,27 +1812,59 @@ def _execute_provider(
                         prompt=prompt,
                         frozen_unit_adjudication=adjudication,
                     )
-                except StageBManifestError:
-                    if not retry_enabled:
+                except StageBManifestError as existing_error:
+                    if retry_enabled:
+                        _existing_failure_result(
+                            canonical_result_path,
+                            candidate_id=candidate_id,
+                            provider=provider,
+                            model_key=registry_entry.registry_key,
+                            raw_sha256=raw_sha256,
+                            raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                                candidate_id
+                            ],
+                            decision_sha256=decision_sha256,
+                            registry_sha256=registry_sha256,
+                            selection=selection,
+                        )
+                        result_path = retry_result_path
+                    elif adjudication is None:
+                        try:
+                            _existing_failure_result(
+                                canonical_result_path,
+                                candidate_id=candidate_id,
+                                provider=provider,
+                                model_key=registry_entry.registry_key,
+                                raw_sha256=raw_sha256,
+                                raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                                    candidate_id
+                                ],
+                                decision_sha256=decision_sha256,
+                                registry_sha256=registry_sha256,
+                                selection=selection,
+                                allow_any_validation_failure=True,
+                            )
+                        except StageBManifestError:
+                            raise existing_error from None
+                        if not _journal_has_reconstruction_failure(
+                            journal_path=journal_path,
+                            candidate_id=candidate_id,
+                            prompt=prompt,
+                            registry_entry=registry_entry,
+                            registry_sha256=registry_sha256,
+                            provider=provider,
+                            raw_sha256=raw_sha256,
+                            decision_sha256=decision_sha256,
+                        ):
+                            raise existing_error
+                        recovery_enabled = True
+                        result_path = recovered_result_path
+                    else:
                         raise
-                    _existing_failure_result(
-                        canonical_result_path,
-                        candidate_id=candidate_id,
-                        provider=provider,
-                        model_key=registry_entry.registry_key,
-                        raw_sha256=raw_sha256,
-                        raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
-                            candidate_id
-                        ],
-                        decision_sha256=decision_sha256,
-                        registry_sha256=registry_sha256,
-                        selection=selection,
-                    )
-                    result_path = retry_result_path
             if prior is not None:
                 records.append(cast(JsonRecord, prior["audit"]))
                 continue
-            replay_only = adjudication is not None
+            replay_only = adjudication is not None or recovery_enabled
             if not replay_only:
                 _validate_provider_environment(provider)
             additional_attempt_permit = (
@@ -1807,18 +1937,19 @@ def _execute_provider(
                 }
                 if isinstance(exc, FrozenUnitWorkflowRequiredError):
                     failure.update(_frozen_unit_workflow_audit_fields(exc))
-                _write_create_only(
-                    result_path,
-                    (
-                        json.dumps(
-                            failure,
-                            ensure_ascii=False,
-                            sort_keys=True,
-                            indent=2,
-                        )
-                        + "\n"
-                    ).encode(),
-                )
+                if not recovery_enabled:
+                    _write_create_only(
+                        result_path,
+                        (
+                            json.dumps(
+                                failure,
+                                ensure_ascii=False,
+                                sort_keys=True,
+                                indent=2,
+                            )
+                            + "\n"
+                        ).encode(),
+                    )
                 raise
             model_output = {
                 "model_key": registry_entry.registry_key,
