@@ -9,29 +9,29 @@ inner run record as score input.  It never creates or infers outcome labels.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import RAW_BYTES_RAW_SHA256_V1
+from legalforecast.contracts.schemas import (
+    LOCAL_LUNA_RESULT_V1,
+    RAW_BYTES_RAW_SHA256_COMMITMENT_V1,
+)
 from legalforecast.evals.response_verification import (
     output_statuses_from_run_records,
     response_verification_summary_from_run_records,
 )
 
-RESULT_SCHEMA_VERSION = "legalforecast.local_luna_result.v1"
+RESULT_SCHEMA_VERSION = str(LOCAL_LUNA_RESULT_V1)
 MODEL_ID = "openai:gpt-5.6-luna"
 _FORBIDDEN_SAMPLING_KEYS = frozenset({"temperature", "top_p", "topP"})
 
 
 class LocalLunaResultError(ValueError):
     """Raised when a local result cannot be admitted to the score stream."""
-
-
-def _sha256(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
 
 
 def _require_mapping(value: object, label: str) -> Mapping[str, object]:
@@ -126,10 +126,12 @@ def _validate_result(
         )
     _require_string_list(run, "required_unit_ids")
     raw_output = _require_string(run, "raw_output")
-    if (
-        _require_string(run, "raw_output_sha256")
-        != f"sha256:{_sha256(raw_output.encode())}"
-    ):
+    raw_output_digest = str(
+        RAW_BYTES_RAW_SHA256_V1.commit(
+            raw_output.encode(), domain=RAW_BYTES_RAW_SHA256_COMMITMENT_V1
+        ).digest
+    )
+    if _require_string(run, "raw_output_sha256") != f"sha256:{raw_output_digest}":
         raise LocalLunaResultError(f"raw output hash mismatch: {path}")
     tool_call_logs = run.get("tool_call_logs")
     if not isinstance(tool_call_logs, Sequence) or isinstance(tool_call_logs, str):
