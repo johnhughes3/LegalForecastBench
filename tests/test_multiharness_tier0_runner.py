@@ -8,6 +8,7 @@ import json
 import os
 import stat
 import sys
+import tomllib
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -27,6 +28,9 @@ from legalforecast.multiharness.tier0_operator_contract import (
     TIER0_PRIVATE_ROOT_ENV,
     TIER0_SOURCE_ROOT_ENV,
     infisical_evaluator_issuer_secret_loader,
+)
+from legalforecast.multiharness.tier0_production_factory import (
+    REQUIRED_ANTHROPIC_SDK_VERSION,
 )
 from legalforecast.multiharness.tier0_runner import (
     TIER0_SPEND_APPROVAL_SCHEMA_VERSION,
@@ -54,6 +58,17 @@ from tests.test_multiharness_claude_clean_native_lab_e2e import (
 APPROVAL_KEY = Ed25519PrivateKey.from_private_bytes(b"A" * 32)
 EVALUATOR_KEY = Ed25519PrivateKey.from_private_bytes(b"L" * 32)
 LAB_BASENAME = "issue-identification-memo.docx"
+
+
+def test_tier0_optional_extra_matches_the_frozen_anthropic_sdk_version() -> None:
+    """Keep the installable Tier-0 extra aligned with the paid-path freeze."""
+
+    project = tomllib.loads(
+        Path("pyproject.toml").read_text(encoding="utf-8")
+    )
+    assert project["project"]["optional-dependencies"]["tier0-judge-adapter"] == [
+        f"anthropic=={REQUIRED_ANTHROPIC_SDK_VERSION}"
+    ]
 
 
 class _FixtureApprovalAuthority:
