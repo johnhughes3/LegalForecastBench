@@ -5679,6 +5679,7 @@ def _repair_unescaped_json_string_quotes(text: str) -> str | None:
 
 _MARKDOWN_ESCAPABLE_PUNCTUATION = frozenset(r"!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
 _MARKDOWN_EMPHASIS_MARKERS = ("**", "__", "*", "_")
+_PDF_LINE_PREFIX_RE = re.compile(r"[ \t]{0,3}([0-9]{1,3})(?=[ \t])")
 
 
 @dataclass(frozen=True)
@@ -5698,7 +5699,7 @@ def _qualified_pdf_line_prefixes(text: str) -> dict[int, tuple[int, int]]:
     prefixes: list[tuple[int, int, int, int]] = []
     offset = 0
     for line_number, line in enumerate(text.split("\n")):
-        match = re.match(r"([0-9]{1,3})(?=[ \t])", line)
+        match = _PDF_LINE_PREFIX_RE.match(line)
         if match is not None:
             prefixes.append(
                 (
@@ -5872,6 +5873,8 @@ def _normalize_rendered_markdown(
             whitespace_start = index
             index += 1
             while index < len(text) and text[index].isspace():
+                if qualified_prefixes.get(index) is not None:
+                    break
                 index += 1
             if normalized and normalized[-1] == " ":
                 source_ends[-1] = index
@@ -5929,28 +5932,58 @@ def _coerced_excerpt_from_rendered_markdown(text: str, excerpt: str) -> str | No
     successful recovery never manufactures or rewrites evidence.
     """
 
+    qualified_prefixes = _qualified_pdf_line_prefixes(text)
     source = _normalize_rendered_markdown(text, remove_line_prefixes=True)
     if not source.changed:
         return None
     target = _normalize_rendered_markdown(excerpt.strip(), remove_line_prefixes=False)
     if not target.text:
         return None
+    matches: list[int] = []
     search_start = 0
     while True:
         offset = source.text.find(target.text, search_start)
         if offset < 0:
-            return None
+            break
         if _word_boundary_match(source.text, target.text, offset):
+            matches.append(offset)
+        search_start = offset + 1
+    if not matches:
+        return None
+    if qualified_prefixes:
+        # Let an exact source occurrence win over a presentation-only recovery.
+        # This prevents a numbered copy from shadowing the authenticated exact
+        # occurrence later in the decision text.
+        if text.find(excerpt.strip()) >= 0:
+            return None
+        crossing_matches: list[int] = []
+        for offset in matches:
             last = offset + len(target.text) - 1
             start = source.source_starts[offset]
             end = source.source_ends[last]
-            for opening, opening_end, closing, closing_end in source.emphasis_pairs:
-                if source.source_starts[offset] == opening_end:
-                    start = opening
-                if source.source_ends[last] == closing:
-                    end = closing_end
-            return text[start:end].strip()
-        search_start = offset + 1
+            if any(
+                prefix_start < end and prefix_end > start
+                for prefix_start, prefix_end in qualified_prefixes.values()
+            ):
+                crossing_matches.append(offset)
+        if len(crossing_matches) > 1:
+            raise LlmPipelineError(
+                "supporting_excerpt has ambiguous PDF line-number matches"
+            )
+        if not crossing_matches:
+            return None
+        offset = crossing_matches[0]
+    else:
+        offset = matches[0]
+    last = offset + len(target.text) - 1
+    start = source.source_starts[offset]
+    end = source.source_ends[last]
+    for opening, opening_end, closing, closing_end in source.emphasis_pairs:
+        if source.source_starts[offset] == opening_end:
+            start = opening
+        if source.source_ends[last] == closing:
+            end = closing_end
+    return text[start:end].strip()
 
 
 def _coerced_excerpt(text: str, excerpt: str) -> str:
@@ -6144,19 +6177,22 @@ def _omits_unqualified_pdf_line_number(text: str, excerpt_start: int) -> bool:
     """Report whether an exact excerpt starts after an isolated line number."""
 
     line_start = text.rfind("\n", 0, excerpt_start) + 1
-    prefix_match = re.fullmatch(r"([0-9]{1,3})[ \t]+", text[line_start:excerpt_start])
+    prefix_match = re.fullmatch(
+        r"[ \t]{0,3}([0-9]{1,3})[ \t]+",
+        text[line_start:excerpt_start],
+    )
     if prefix_match is None:
         return False
     number = int(prefix_match.group(1))
 
-    previous_line_start = text.rfind("\n", 0, line_start - 1) + 1
-    previous_line_end = line_start - 1
-    previous_match = re.match(
-        r"([0-9]{1,3})(?=[ \t])",
-        text[previous_line_start:previous_line_end],
-    )
-    if previous_match is not None and int(previous_match.group(1)) == number - 1:
-        return False
+    if line_start > 0:
+        previous_line_start = text.rfind("\n", 0, line_start - 1) + 1
+        previous_line_end = line_start - 1
+        previous_match = _PDF_LINE_PREFIX_RE.match(
+            text[previous_line_start:previous_line_end]
+        )
+        if previous_match is not None and int(previous_match.group(1)) == number - 1:
+            return False
 
     next_line_start = text.find("\n", excerpt_start) + 1
     if next_line_start == 0:
@@ -6164,10 +6200,7 @@ def _omits_unqualified_pdf_line_number(text: str, excerpt_start: int) -> bool:
     next_line_end = text.find("\n", next_line_start)
     if next_line_end < 0:
         next_line_end = len(text)
-    next_match = re.match(
-        r"([0-9]{1,3})(?=[ \t])",
-        text[next_line_start:next_line_end],
-    )
+    next_match = _PDF_LINE_PREFIX_RE.match(text[next_line_start:next_line_end])
     return next_match is None or int(next_match.group(1)) != number + 1
 
 
@@ -6190,7 +6223,7 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
     line_prefixes: list[tuple[int, int, int, int]] = []
     line_start = 0
     for line_index, line in enumerate(text.split("\n")):
-        match = re.match(r"([0-9]{1,3})(?=[ \t])", line)
+        match = _PDF_LINE_PREFIX_RE.match(line)
         if match is not None:
             line_prefixes.append(
                 (
@@ -6212,44 +6245,49 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
         if current_line == previous_line + 1 and current_number == previous_number + 1:
             removable_prefix_starts.update((previous_start, current_start))
 
+    prefix_by_start = {prefix[2]: prefix for prefix in line_prefixes}
     normalized_chars: list[str] = []
-    source_positions: list[int] = []
+    source_starts: list[int] = []
+    source_ends: list[int] = []
     removed_line_number = False
+    removed_prefix_positions: set[int] = set()
     index = 0
-    line_start = True
     pending_line_number_start: int | None = None
     while index < len(text):
-        if line_start:
-            prefix = next(
-                (prefix for prefix in line_prefixes if prefix[2] == index),
-                None,
-            )
-            if prefix is not None and prefix[2] in removable_prefix_starts:
-                token_end = prefix[3]
-                removed_line_number = True
-                pending_line_number_start = index
-                index = token_end
-                while index < len(text) and text[index] in " \t":
-                    index += 1
-                line_start = False
-                continue
+        prefix = prefix_by_start.get(index)
+        if prefix is not None and prefix[2] in removable_prefix_starts:
+            token_end = prefix[3]
+            removed_line_number = True
+            pending_line_number_start = index
+            index = token_end
+            while index < len(text) and text[index] in " \t":
+                index += 1
+            continue
 
         char = text[index]
         if char.isspace():
             if not normalized_chars or normalized_chars[-1] != " ":
                 normalized_chars.append(" ")
-                source_positions.append(index)
+                source_starts.append(
+                    pending_line_number_start
+                    if pending_line_number_start is not None
+                    else index
+                )
+                source_ends.append(index + 1)
+            else:
+                source_ends[-1] = index + 1
             pending_line_number_start = None
-            line_start = char == "\n"
         else:
+            if pending_line_number_start is not None:
+                removed_prefix_positions.add(len(normalized_chars))
             normalized_chars.append(char)
-            source_positions.append(
+            source_starts.append(
                 pending_line_number_start
                 if pending_line_number_start is not None
                 else index
             )
+            source_ends.append(index + 1)
             pending_line_number_start = None
-            line_start = False
         index += 1
 
     if not removed_line_number:
@@ -6257,15 +6295,46 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
     untrimmed_text = "".join(normalized_chars)
     leading_space_count = len(untrimmed_text) - len(untrimmed_text.lstrip())
     normalized_text = untrimmed_text.strip()
-    source_positions = source_positions[
+    source_starts = source_starts[
         leading_space_count : leading_space_count + len(normalized_text)
     ]
-    offset = normalized_text.find(normalized_excerpt)
-    if offset < 0:
+    source_ends = source_ends[
+        leading_space_count : leading_space_count + len(normalized_text)
+    ]
+    removed_prefix_positions = {
+        position - leading_space_count
+        for position in removed_prefix_positions
+        if leading_space_count <= position < leading_space_count + len(normalized_text)
+    }
+    matches: list[int] = []
+    search_start = 0
+    while True:
+        offset = normalized_text.find(normalized_excerpt, search_start)
+        if offset < 0:
+            break
+        if _word_boundary_match(normalized_text, normalized_excerpt, offset):
+            matches.append(offset)
+        search_start = offset + 1
+    if not matches:
         return None
-    start = source_positions[offset]
-    end_offset = offset + len(normalized_excerpt) - 1
-    end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
+    crossing_matches = [
+        offset
+        for offset in matches
+        if any(
+            offset <= position < offset + len(normalized_excerpt)
+            for position in removed_prefix_positions
+        )
+    ]
+    if len(crossing_matches) > 1:
+        raise LlmPipelineError(
+            "supporting_excerpt has ambiguous PDF line-number matches"
+        )
+    if not crossing_matches:
+        return None
+    offset = crossing_matches[0]
+    end_offset = offset + len(normalized_excerpt)
+    start = source_starts[offset]
+    end = source_ends[end_offset - 1]
     return text[start:end].strip()
 
 
