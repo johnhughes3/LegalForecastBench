@@ -7191,7 +7191,7 @@
         "largest_symbol": "llm_label_cases",
         "largest_symbol_lines": 371,
         "layer": "application",
-        "line_count": 6115,
+        "line_count": 6171,
         "nonblank_line_count": 5329,
         "top_level_definition_count": 112
       },
@@ -11711,6 +11711,23 @@
         "line_count": 1285,
         "nonblank_line_count": 1187,
         "top_level_definition_count": 28
+      },
+      "tests/test_stageb_excerpt_recovery.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_stage_b_one_attempt_replay_normalizes_structurally_inapplicable_amendment",
+        "largest_symbol_lines": 125,
+        "layer": "test",
+        "line_count": 515,
+        "nonblank_line_count": 467,
+        "top_level_definition_count": 12
       },
       "tests/test_static_result_sites.py": {
         "cycle_id": "",
