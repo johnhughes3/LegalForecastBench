@@ -99,11 +99,11 @@ _PACKET_TOKEN_ESTIMATOR = (
 _LONG_CONTEXT_SURCHARGE_BASIS = (
     f"{_PACKET_TOKEN_ESTIMATOR}; estimate only, not provider-reported billing usage"
 )
-_TEMPERATURE_ZERO_RATIONALE = (
-    "Official runs set registry temperature to 0 to reduce avoidable sampling "
-    "variance and make prompt/context differences easier to audit. Provider-side "
-    "nondeterminism is still possible and should be measured with the repeat "
-    "sampling protocol."
+_PROVIDER_DEFAULT_SAMPLING_RATIONALE = (
+    "Live provider requests omit temperature and top_p and therefore use each "
+    "provider's default sampling settings. The registry values are retained only "
+    "as frozen legacy provenance; provider-side nondeterminism is expected and "
+    "should be measured with the repeat sampling protocol."
 )
 
 JsonRecord = dict[str, Any]
@@ -1394,7 +1394,7 @@ def _packet_token_budget_record(
         "long_context_surcharge_packet_count": len(long_context_surcharge_packets),
         "long_context_surcharge_packets": long_context_surcharge_packets,
         "registry_budgets": registry_budgets,
-        "temperature_policy": _temperature_policy_record(registry_entries),
+        "sampling_policy": _sampling_policy_record(registry_entries),
         "overall": _token_distribution(
             [
                 _required_int(packet, "estimated_input_tokens")
@@ -1411,19 +1411,16 @@ def _registry_budget_record(entry: ModelRegistryEntry) -> JsonRecord:
         "context_limit": entry.context_limit,
         "max_output_tokens": entry.max_output_tokens,
         "prompt_input_token_budget": entry.context_limit - entry.max_output_tokens,
-        "temperature": entry.temperature,
     }
 
 
-def _temperature_policy_record(
+def _sampling_policy_record(
     registry_entries: Sequence[ModelRegistryEntry],
 ) -> JsonRecord:
-    temperatures = sorted({float(entry.temperature) for entry in registry_entries})
+    del registry_entries
     return {
-        "registry_temperatures": temperatures,
-        "all_registry_temperatures_zero": bool(temperatures)
-        and all(temperature == 0 for temperature in temperatures),
-        "rationale": _TEMPERATURE_ZERO_RATIONALE,
+        "provider_sampling_policy": "provider_default",
+        "rationale": _PROVIDER_DEFAULT_SAMPLING_RATIONALE,
     }
 
 

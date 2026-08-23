@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from legalforecast.evals.model_registry import LongContextSurcharge
 from legalforecast.evals.provider_spend_control import (
     AttemptLease,
     ProviderSpendAuthority,
@@ -107,10 +108,12 @@ class ProviderSpendAttemptHandler:
         except BaseException as exc:
             # Once transport begins, a missing response can still be billable. Keep
             # the reservation until immutable provider usage data reconciles it.
+            # An explicit HTTP 429 is a provider rejection before generation and
+            # is therefore safe to release for the solver's bounded fallback.
             self.authority.record_failure(
                 lease,
                 failure_type=type(exc).__name__,
-                ambiguous=True,
+                ambiguous=getattr(exc, "status_code", None) != 429,
             )
             raise
 
@@ -320,6 +323,7 @@ def conservative_reservation_microusd(
     max_output_tokens: int,
     input_token_price: float,
     output_token_price: float,
+    long_context_surcharge: LongContextSurcharge | None = None,
 ) -> int:
     """Return a ceiling reservation from registry prices per million tokens."""
 
@@ -330,6 +334,12 @@ def conservative_reservation_microusd(
     if input_token_price < 0 or output_token_price < 0:
         raise ValueError("provider token prices cannot be negative")
     max_input_tokens = context_limit - max_output_tokens
+    if (
+        long_context_surcharge is not None
+        and max_input_tokens > long_context_surcharge.threshold_input_tokens
+    ):
+        input_token_price *= long_context_surcharge.input_price_multiplier
+        output_token_price *= long_context_surcharge.output_price_multiplier
     reservation = math.ceil(
         max_input_tokens * input_token_price + max_output_tokens * output_token_price
     )

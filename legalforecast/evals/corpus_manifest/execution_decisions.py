@@ -662,8 +662,6 @@ def _require_successor_registry_safety(entries: tuple[Any, ...]) -> None:
         for entry in entries
         if entry.network_disabled is not True
         or entry.search_disabled is not True
-        or entry.temperature != 0.0
-        or entry.top_p != 1.0
         or entry.tool_policy.value != "controlled_docket_tool_only"
     )
     if unsafe:

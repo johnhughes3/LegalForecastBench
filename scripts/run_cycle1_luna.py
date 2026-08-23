@@ -1,0 +1,525 @@
+"""Resumable local Luna-only runner for the frozen Cycle 1 forecast packets."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any, cast
+
+from legalforecast.contracts.schemas import LOCAL_LUNA_PLAN_V1, LOCAL_LUNA_RESULT_V1
+from legalforecast.evals.inspect_task import build_inspect_samples, run_inspect_fixture
+from legalforecast.evals.live_model_solver import LiveModelSolver
+from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.evals.per_case_runner import (
+    _model_packet_from_record,  # pyright: ignore[reportPrivateUsage]
+)
+from legalforecast.evals.provider_spend_attempt_handler import (
+    CompositeProviderAttemptHandler,
+    ProviderSpendAttemptHandler,
+    conservative_reservation_microusd,
+)
+from legalforecast.evals.provider_spend_control import (
+    FrozenAttemptPolicy,
+    ProviderSpendKey,
+    SqliteProviderSpendAuthority,
+)
+from legalforecast.evals.response_verification import (
+    output_statuses_from_run_records,
+    response_verification_summary_from_run_records,
+)
+from legalforecast.labeling.provider_journal import (
+    ProviderAttemptJournal,
+    ProviderCallIdentity,
+)
+
+MODEL_KEY = "openai:gpt-5.6-luna"
+MANIFEST_DIGEST = "8e1c2b2d428f8be9cb53ea4a41fc24571617306effdc72fac5b47e791d5889b1"
+SPEND_APPROVAL = (
+    "OK I approve up to USD 100 of provider spend for Cycle 1 run on Luna ONLY "
+    "please -- skip others for now."
+)
+MANIFEST_APPROVAL = (
+    f"I approve corpus manifest {MANIFEST_DIGEST} as the frozen Cycle 1 forecast "
+    "corpus."
+)
+CAP_MICROUSD = 100_000_000
+ACCOUNT = "cycle-1-local-luna"
+FROZEN_RUN_INPUTS_SHA256 = (
+    "378acbd9034121c203ad3528aa39c5f6359558b451e09e4add97d710cd3736f6"
+)
+FROZEN_RUN_RECORD_SHA256 = (
+    "46f42378b782361e67e24a13b00282cb15e3b0ef200f7fe9ef790283bd42d124"
+)
+FROZEN_REGISTRY_SHA256 = (
+    "619164614062a0030aacc904feaeacfb93996e3a3e13731b0c2d317c9dccb670"
+)
+
+
+class LocalLunaRunnerError(RuntimeError):
+    """Raised before unsafe, ambiguous, or identity-drifting local execution."""
+
+
+def _sha(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _read_json(path: Path) -> object:
+    if path.is_symlink() or not path.is_file():
+        raise LocalLunaRunnerError(f"input must be a regular non-symlink file: {path}")
+    return json.loads(path.read_bytes())
+
+
+def _owner_approvals() -> dict[str, str]:
+    completed = subprocess.run(
+        ["bd", "comments", "legalforecastbench-3ak.38", "--json"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    rows: object = json.loads(completed.stdout)
+    if not isinstance(rows, list):
+        raise LocalLunaRunnerError("Beads comments response is not an array")
+    evidence: dict[str, str] = {}
+    for raw in cast(list[object], rows):
+        if not isinstance(raw, Mapping):
+            continue
+        row = cast(Mapping[str, object], raw)
+        if row.get("author") != "John Hughes":
+            continue
+        text = row.get("text")
+        comment_id = row.get("id")
+        if text in {SPEND_APPROVAL, MANIFEST_APPROVAL} and isinstance(comment_id, str):
+            evidence[cast(str, text)] = comment_id
+    for required in (SPEND_APPROVAL, MANIFEST_APPROVAL):
+        if required not in evidence:
+            raise LocalLunaRunnerError(f"missing exact owner approval: {required}")
+    return evidence
+
+
+def _authenticate_frozen_chain(
+    *,
+    run_inputs_path: Path,
+    run_record_path: Path,
+    registry_path: Path,
+    run_inputs: Mapping[str, Any],
+    run_record: Mapping[str, Any],
+    registry_bytes: bytes,
+) -> Mapping[Path, bytes]:
+    """Authenticate the issued manifest inputs before provider authorization."""
+
+    def read_committed(path: Path, expected_sha256: str, label: str) -> bytes:
+        if path.is_symlink() or not path.is_file():
+            raise LocalLunaRunnerError(
+                f"{label} must be a regular non-symlink file: {path}"
+            )
+        payload = path.read_bytes()
+        actual_sha256 = _sha(payload)
+        if actual_sha256 != expected_sha256:
+            raise LocalLunaRunnerError(
+                f"{label} differs from the frozen commitment: "
+                f"expected={expected_sha256}, actual={actual_sha256}"
+            )
+        return payload
+
+    run_input_bytes = read_committed(
+        run_inputs_path, FROZEN_RUN_INPUTS_SHA256, "run-inputs"
+    )
+    run_record_bytes = read_committed(
+        run_record_path, FROZEN_RUN_RECORD_SHA256, "run record"
+    )
+    committed_registry_bytes = read_committed(
+        registry_path, FROZEN_REGISTRY_SHA256, "registry"
+    )
+    if committed_registry_bytes != registry_bytes:
+        raise LocalLunaRunnerError("registry bytes changed during authentication")
+    snapshots: dict[Path, bytes] = {
+        run_inputs_path: run_input_bytes,
+        run_record_path: run_record_bytes,
+        registry_path: registry_bytes,
+    }
+    packets = run_inputs.get("model_packets")
+    prompt_commitments = run_record.get("prompt_commitments")
+    if not isinstance(packets, list) or not isinstance(prompt_commitments, Mapping):
+        raise LocalLunaRunnerError(
+            "frozen inputs lack the authenticated packet/prompt commitments"
+        )
+    prompt_commitment_map = cast(Mapping[str, object], prompt_commitments)
+    packet_root = run_inputs_path.parent.resolve()
+    for raw in cast(list[object], packets):
+        if not isinstance(raw, Mapping):
+            raise LocalLunaRunnerError("frozen packet inventory row is not an object")
+        row = cast(Mapping[str, object], raw)
+        packet_object_key = row.get("packet_object_key")
+        packet_sha256 = row.get("packet_sha256")
+        candidate_id = row.get("candidate_id")
+        ablation = row.get("ablation")
+        prompt_sha256 = row.get("prompt_sha256")
+        if not all(
+            isinstance(value, str)
+            for value in (
+                packet_object_key,
+                packet_sha256,
+                candidate_id,
+                ablation,
+                prompt_sha256,
+            )
+        ):
+            raise LocalLunaRunnerError("frozen packet row has invalid commitments")
+        packet_object_key = cast(str, packet_object_key)
+        packet_sha256 = cast(str, packet_sha256)
+        candidate_id = cast(str, candidate_id)
+        ablation = cast(str, ablation)
+        prompt_sha256 = cast(str, prompt_sha256)
+        identity = f"{candidate_id}:{ablation}"
+        if prompt_commitment_map.get(identity) != prompt_sha256:
+            raise LocalLunaRunnerError(
+                f"prompt commitment differs from frozen replay record: {identity}"
+            )
+        relative_key = Path(packet_object_key)
+        if relative_key.is_absolute():
+            raise LocalLunaRunnerError(
+                f"frozen packet object key must be relative: {identity}"
+            )
+        unresolved_packet_path = packet_root / relative_key
+        if unresolved_packet_path.is_symlink():
+            raise LocalLunaRunnerError(
+                f"frozen packet must not be a symlink: {identity}"
+            )
+        packet_path = unresolved_packet_path.resolve()
+        try:
+            packet_path.relative_to(packet_root)
+        except ValueError as exc:
+            raise LocalLunaRunnerError(
+                f"frozen packet object key escapes the manifest root: {identity}"
+            ) from exc
+        snapshots[packet_path] = read_committed(
+            packet_path, packet_sha256, f"packet {identity}"
+        )
+    return snapshots
+
+
+def _load_inputs(
+    run_inputs_path: Path, run_record_path: Path
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    run_inputs = _read_json(run_inputs_path)
+    run_record = _read_json(run_record_path)
+    if not isinstance(run_inputs, Mapping) or not isinstance(run_record, Mapping):
+        raise LocalLunaRunnerError("run inputs and run record must be JSON objects")
+    run_inputs = cast(Mapping[str, object], run_inputs)
+    run_record = cast(Mapping[str, object], run_record)
+    if run_record.get("manifest_sha256") != MANIFEST_DIGEST:
+        raise LocalLunaRunnerError(
+            "run record manifest digest differs from owner approval"
+        )
+    owner = run_record.get("owner_signature_reference")
+    if (
+        not isinstance(owner, Mapping)
+        or cast(Mapping[str, object], owner).get("approval_line") != MANIFEST_APPROVAL
+    ):
+        raise LocalLunaRunnerError("run record lacks the exact manifest approval line")
+    if run_record.get("docket_tool_enabled") is not False:
+        raise LocalLunaRunnerError("run record does not disable the docket tool")
+    if run_record.get("provider_calls_made") != 0:
+        raise LocalLunaRunnerError(
+            "forecast packet build unexpectedly made provider calls"
+        )
+    packets = run_inputs.get("model_packets")
+    if not isinstance(packets, list) or len(cast(list[object], packets)) != 200:
+        raise LocalLunaRunnerError("run inputs must contain exactly 200 packets")
+    return dict(run_inputs), dict(run_record)
+
+
+def _select_rows(
+    run_inputs: Mapping[str, Any], selectors: Sequence[str]
+) -> list[dict[str, Any]]:
+    requested = set(selectors)
+    select_all = not requested
+    selected: list[dict[str, Any]] = []
+    for raw in cast(list[object], run_inputs["model_packets"]):
+        if not isinstance(raw, Mapping):
+            raise LocalLunaRunnerError("packet inventory row is not an object")
+        row = cast(Mapping[str, object], raw)
+        identity = f"{row.get('case_id')}:{row.get('ablation')}"
+        if select_all or identity in requested:
+            selected.append(dict(row))
+            requested.discard(identity)
+    if requested:
+        raise LocalLunaRunnerError(f"unknown packet selectors: {sorted(requested)}")
+    return selected
+
+
+def run(args: argparse.Namespace) -> int:
+    run_inputs_path = Path(args.run_inputs).resolve()
+    run_record_path = Path(args.run_record).resolve()
+    registry_path = Path(args.registry).resolve()
+    packet_root = Path(args.packet_root).resolve()
+    output_root = Path(args.output_root).resolve()
+    prior_committed_microusd = args.prior_committed_microusd
+    if (
+        isinstance(prior_committed_microusd, bool)
+        or prior_committed_microusd < 0
+        or prior_committed_microusd >= CAP_MICROUSD
+    ):
+        raise LocalLunaRunnerError(
+            "prior_committed_microusd must be between zero and the owner ceiling"
+        )
+    effective_cap_microusd = CAP_MICROUSD - prior_committed_microusd
+    run_inputs, run_record = _load_inputs(run_inputs_path, run_record_path)
+    approvals = _owner_approvals()
+    registry_bytes = registry_path.read_bytes()
+    authenticated_snapshots = _authenticate_frozen_chain(
+        run_inputs_path=run_inputs_path,
+        run_record_path=run_record_path,
+        registry_path=registry_path,
+        run_inputs=run_inputs,
+        run_record=run_record,
+        registry_bytes=registry_bytes,
+    )
+    if not authenticated_snapshots:
+        raise LocalLunaRunnerError("frozen chain authentication captured no inputs")
+    registry = load_model_registry(registry_path)
+    entries = [entry for entry in registry.entries if entry.registry_key == MODEL_KEY]
+    if len(entries) != 1:
+        raise LocalLunaRunnerError("registry must contain exactly one Luna entry")
+    entry = entries[0]
+    if (
+        entry.provider != "openai"
+        or not entry.network_disabled
+        or not entry.search_disabled
+    ):
+        raise LocalLunaRunnerError("Luna registry safety fields differ")
+    rows = _select_rows(run_inputs, args.packet)
+    if args.shard_count <= 0:
+        raise LocalLunaRunnerError("shard_count must be positive")
+    if args.shard_index < 0 or args.shard_index >= args.shard_count:
+        raise LocalLunaRunnerError("shard_index must be in [0, shard_count)")
+    rows = rows[args.shard_index :: args.shard_count]
+    if args.max_calls is not None:
+        rows = rows[: args.max_calls]
+    if not rows:
+        raise LocalLunaRunnerError("no packet rows selected")
+    authority_identity = _sha(
+        json.dumps(
+            {
+                "approval": SPEND_APPROVAL,
+                "manifest": MANIFEST_DIGEST,
+                "model_key": MODEL_KEY,
+                "owner_cap_microusd": CAP_MICROUSD,
+                "prior_committed_microusd": prior_committed_microusd,
+                "registry_sha256": _sha(registry_bytes),
+                "run_inputs_sha256": _sha(run_inputs_path.read_bytes()),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    )
+    plan = {
+        "schema_version": str(LOCAL_LUNA_PLAN_V1),
+        "manifest_sha256": MANIFEST_DIGEST,
+        "model_key": MODEL_KEY,
+        "registry_sha256": _sha(registry_bytes),
+        "run_inputs_sha256": _sha(run_inputs_path.read_bytes()),
+        "run_record_sha256": _sha(run_record_path.read_bytes()),
+        "cap_microusd": effective_cap_microusd,
+        "owner_cap_microusd": CAP_MICROUSD,
+        "prior_committed_microusd": prior_committed_microusd,
+        "packet_count": len(rows),
+        "packets": [f"{row['case_id']}:{row['ablation']}" for row in rows],
+        "shard_count": args.shard_count,
+        "shard_index": args.shard_index,
+        "owner_comment_ids": sorted(approvals.values()),
+        "dry_run": bool(args.dry_run),
+    }
+    print(json.dumps(plan, sort_keys=True))
+    if args.dry_run:
+        return 0
+    if "OPENAI_API_KEY" not in os.environ or not os.environ["OPENAI_API_KEY"]:
+        raise LocalLunaRunnerError(
+            "OPENAI_API_KEY is not present in the runtime environment"
+        )
+    output_root.mkdir(parents=True, exist_ok=True)
+    policy = FrozenAttemptPolicy(
+        reservation_ledger_sha256=authority_identity,
+        max_billable_attempts=2,
+        failure_threshold=5,
+        failure_window_seconds=86_400,
+    )
+    with SqliteProviderSpendAuthority(
+        output_root / f"provider-spend-{prior_committed_microusd}.sqlite3",
+        authority_identity_sha256=authority_identity,
+        cycle_id=cast(str, run_record["cycle_id"]),
+        provider="openai",
+        account=ACCOUNT,
+        cap_microusd=effective_cap_microusd,
+        policy=policy,
+    ) as authority:
+        for row in rows:
+            identity = f"{row['case_id']}:{row['ablation']}"
+            result_path = output_root / f"{row['case_id']}--{row['ablation']}.json"
+            if result_path.exists():
+                existing = _read_json(result_path)
+                if (
+                    not isinstance(existing, Mapping)
+                    or cast(Mapping[str, object], existing).get("identity") != identity
+                    or cast(Mapping[str, object], existing).get("packet_sha256")
+                    != row["packet_sha256"]
+                    or cast(Mapping[str, object], existing).get("prompt_sha256")
+                    != row["prompt_sha256"]
+                ):
+                    raise LocalLunaRunnerError(
+                        f"existing result identity differs: {result_path}"
+                    )
+                continue
+            packet_path = packet_root / cast(str, row["packet_object_key"])
+            packet_bytes = packet_path.read_bytes()
+            if _sha(packet_bytes) != row.get("packet_sha256"):
+                raise LocalLunaRunnerError(f"packet SHA-256 mismatch: {identity}")
+            authenticated_packet_path = run_inputs_path.parent / cast(
+                str, row["packet_object_key"]
+            )
+            if authenticated_snapshots.get(authenticated_packet_path.resolve()) != (
+                packet_bytes
+            ):
+                raise LocalLunaRunnerError(
+                    "packet bytes differ from authenticated manifest packet: "
+                    f"{identity}"
+                )
+            loaded_packet: object = json.loads(packet_bytes)
+            if not isinstance(loaded_packet, Mapping):
+                raise LocalLunaRunnerError(f"packet is not an object: {identity}")
+            packet = _model_packet_from_record(
+                dict(cast(Mapping[str, Any], loaded_packet))
+            )
+            samples = build_inspect_samples(
+                (packet,),
+                run_label=cast(str, row["ablation"]),
+                use_docket_tool=False,
+                committed_prompt_sha256=cast(str, row["prompt_sha256"]),
+            )
+
+            reservation_microusd = conservative_reservation_microusd(
+                context_limit=entry.context_limit,
+                max_output_tokens=entry.max_output_tokens,
+                input_token_price=entry.input_token_price,
+                output_token_price=entry.output_token_price,
+                long_context_surcharge=entry.long_context_surcharge,
+            )
+            replay_path = (
+                output_root
+                / "provider-replay"
+                / f"{_sha(identity.encode('utf-8'))}.sqlite3"
+            )
+            replay_path.parent.mkdir(parents=True, exist_ok=True)
+            with ProviderAttemptJournal(
+                replay_path,
+                identity=ProviderCallIdentity(
+                    stage="cycle-1-local-luna",
+                    candidate_id=identity,
+                    model_key=MODEL_KEY,
+                    prompt=samples[0].prompt,
+                    model_registry_sha256=_sha(registry_bytes),
+                    account=ACCOUNT,
+                    prompt_contract=cast(str, row["prompt_sha256"]),
+                ),
+                provider="openai",
+                reservation_usd=reservation_microusd / 1_000_000,
+                cycle_cap_usd=effective_cap_microusd / 1_000_000,
+                cycle_id=cast(str, run_record["cycle_id"]),
+                provider_cycle_caps_sha256=authority_identity,
+            ) as replay_journal:
+
+                def handler_factory(
+                    request: Any,
+                    *,
+                    reservation_microusd_for_request: int = reservation_microusd,
+                ) -> CompositeProviderAttemptHandler:
+                    return CompositeProviderAttemptHandler(
+                        replay_handler=replay_journal,
+                        spend_handler=ProviderSpendAttemptHandler(
+                            authority=authority,
+                            key=ProviderSpendKey(
+                                cycle_id=cast(str, run_record["cycle_id"]),
+                                provider="openai",
+                                account=ACCOUNT,
+                                stage="cycle-1-local-luna",
+                                model_key=MODEL_KEY,
+                                case_id=request.sample.packet.case_id,
+                                ablation=request.sample.packet.ablation.value,
+                                repeat_index=1,
+                            ),
+                            reservation_microusd=reservation_microusd_for_request,
+                        ),
+                    )
+
+                solver = LiveModelSolver(
+                    registry_entry=entry,
+                    model_registry_sha256=_sha(registry_bytes),
+                    max_attempts=2,
+                    attempt_handler_factory=handler_factory,
+                )
+                records = run_inspect_fixture(samples, (solver,)).to_records()
+                verification = response_verification_summary_from_run_records(records)
+                if verification["grounding_artifacts_detected"]:
+                    raise LocalLunaRunnerError(
+                        "provider response included prohibited grounding artifacts: "
+                        f"{identity}"
+                    )
+                if verification["retryable_ops_event_count"]:
+                    raise LocalLunaRunnerError(
+                        f"provider response requires retry: {identity}"
+                    )
+                output_statuses = {
+                    digest: status.to_record()
+                    for digest, status in output_statuses_from_run_records(
+                        records
+                    ).items()
+                }
+                record = {
+                    "schema_version": str(LOCAL_LUNA_RESULT_V1),
+                    "identity": identity,
+                    "plan_identity_sha256": authority_identity,
+                    "packet_sha256": row["packet_sha256"],
+                    "prompt_sha256": row["prompt_sha256"],
+                    "response_verification": verification,
+                    "output_statuses": output_statuses,
+                    "runs": records,
+                }
+                flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                descriptor = os.open(result_path, flags, 0o600)
+                with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                    json.dump(record, handle, sort_keys=True)
+                    handle.write("\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+    return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--run-inputs", required=True)
+    parser.add_argument("--run-record", required=True)
+    parser.add_argument("--registry", required=True)
+    parser.add_argument("--packet-root", required=True)
+    parser.add_argument("--output-root", required=True)
+    parser.add_argument("--packet", action="append", default=[])
+    parser.add_argument("--max-calls", type=int)
+    parser.add_argument(
+        "--prior-committed-microusd",
+        "--prior-reserved-microusd",
+        dest="prior_committed_microusd",
+        type=int,
+        default=0,
+    )
+    parser.add_argument("--shard-count", type=int, default=1)
+    parser.add_argument("--shard-index", type=int, default=0)
+    parser.add_argument("--dry-run", action="store_true")
+    return run(parser.parse_args(argv))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

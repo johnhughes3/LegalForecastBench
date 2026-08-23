@@ -613,7 +613,7 @@ endstream
 endobj
 33 0 obj
 <<
-/Length 7584
+/Length 7596
 >>
 stream
 1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
@@ -645,7 +645,7 @@ q
 1 0 0 1 57.84 627.44 cm
 q
 .090196 .12549 .2 rg
-BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (Temperature and fixed prompts reduce avoidable variation but cannot make a hosted model deterministic. Repeats expose some) Tj T* (run-to-run variation, while the primary inferential pairing remains aligned to the declared case-family clusters. A result describes the) Tj T* (exact registry and execution date, not a timeless property of a product name.) Tj T* ET
+BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (Live requests omit temperature, top-p, and equivalent sampling controls, so each provider uses its default settings. Repeats expose) Tj T* (provider-side variation, while the primary inferential pairing remains aligned to the declared case-family clusters. A result describes) Tj T* (the exact registry and execution date, not a timeless property of a product name.) Tj T* ET
 Q
 Q
 q
@@ -1516,10 +1516,10 @@ xref
 0000013017 00000 n 
 0000020315 00000 n 
 0000027911 00000 n 
-0000035547 00000 n 
-0000045451 00000 n 
-0000053003 00000 n 
-0000060448 00000 n 
+0000035559 00000 n 
+0000045463 00000 n 
+0000053015 00000 n 
+0000060460 00000 n 
 trailer
 <<
 /ID 
@@ -1531,5 +1531,5 @@ trailer
 /Size 38
 >>
 startxref
-65684
+65696
 %%EOF

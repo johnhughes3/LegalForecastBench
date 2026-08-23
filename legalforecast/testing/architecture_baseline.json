@@ -4036,7 +4036,7 @@
       "legalforecast/testing/architecture_rules": 8,
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
-      "scripts": 14,
+      "scripts": 15,
       "tests": 483,
       "tests/fakes": 1,
       "tests/fixtures": 2,
@@ -4268,8 +4268,8 @@
         "largest_symbol": "SchemaIdentifier",
         "largest_symbol_lines": 13,
         "layer": "domain",
-        "line_count": 545,
-        "nonblank_line_count": 534,
+        "line_count": 547,
+        "nonblank_line_count": 536,
         "top_level_definition_count": 1
       },
       "legalforecast/document_need/cycle_config.py": {
@@ -4336,8 +4336,8 @@
         "largest_symbol": "verify_bundle",
         "largest_symbol_lines": 173,
         "layer": "application",
-        "line_count": 1003,
-        "nonblank_line_count": 929,
+        "line_count": 1001,
+        "nonblank_line_count": 927,
         "top_level_definition_count": 30
       },
       "legalforecast/evals/corpus_manifest/execution_decisions.py": {
@@ -4353,8 +4353,8 @@
         "largest_symbol": "_build",
         "largest_symbol_lines": 265,
         "layer": "application",
-        "line_count": 1117,
-        "nonblank_line_count": 1037,
+        "line_count": 1115,
+        "nonblank_line_count": 1035,
         "top_level_definition_count": 29
       },
       "legalforecast/evals/corpus_manifest/freeze_inputs.py": {
@@ -4475,9 +4475,9 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 133,
         "layer": "application",
-        "line_count": 1356,
-        "nonblank_line_count": 1180,
-        "top_level_definition_count": 67
+        "line_count": 1325,
+        "nonblank_line_count": 1154,
+        "top_level_definition_count": 65
       },
       "legalforecast/evals/output_parser.py": {
         "cycle_id": "",
@@ -8068,8 +8068,8 @@
         "largest_symbol": "aggregate_official_results",
         "largest_symbol_lines": 239,
         "layer": "application",
-        "line_count": 2687,
-        "nonblank_line_count": 2433,
+        "line_count": 2684,
+        "nonblank_line_count": 2430,
         "top_level_definition_count": 108
       },
       "legalforecast/publication/official_report_site.py": {
@@ -8151,10 +8151,10 @@
         ],
         "lane_owner": "publication",
         "largest_symbol": "validate_run_card_record",
-        "largest_symbol_lines": 132,
+        "largest_symbol_lines": 138,
         "layer": "application",
-        "line_count": 724,
-        "nonblank_line_count": 633,
+        "line_count": 729,
+        "nonblank_line_count": 638,
         "top_level_definition_count": 33
       },
       "legalforecast/publication/shard_fan_in.py": {
@@ -8619,6 +8619,23 @@
         "line_count": 447,
         "nonblank_line_count": 404,
         "top_level_definition_count": 11
+      },
+      "scripts/run_cycle1_luna.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "scripts",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "scripts",
+        "largest_symbol": "run",
+        "largest_symbol_lines": 244,
+        "layer": "entrypoint",
+        "line_count": 525,
+        "nonblank_line_count": 496,
+        "top_level_definition_count": 9
       },
       "scripts/smoke_infisical_systemd_exit_status.py": {
         "cycle_id": "",
@@ -10185,10 +10202,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
-        "largest_symbol_lines": 72,
+        "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1242,
-        "nonblank_line_count": 1080,
+        "line_count": 1236,
+        "nonblank_line_count": 1074,
         "top_level_definition_count": 40
       },
       "tests/test_live_parse_plan_role_gate.py": {
@@ -10291,9 +10308,9 @@
         "largest_symbol": "fixture",
         "largest_symbol_lines": 282,
         "layer": "test",
-        "line_count": 920,
-        "nonblank_line_count": 820,
-        "top_level_definition_count": 35
+        "line_count": 938,
+        "nonblank_line_count": 835,
+        "top_level_definition_count": 36
       },
       "tests/test_manifest_freeze_inputs.py": {
         "cycle_id": "",
@@ -10688,10 +10705,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_official_aggregate_writes_public_bundle_and_private_debug",
-        "largest_symbol_lines": 134,
+        "largest_symbol_lines": 131,
         "layer": "test",
-        "line_count": 1854,
-        "nonblank_line_count": 1692,
+        "line_count": 1851,
+        "nonblank_line_count": 1689,
         "top_level_definition_count": 49
       },
       "tests/test_official_eval_bootstrap_infra.py": {
@@ -11089,9 +11106,9 @@
         "largest_symbol": "RecordingAuthority",
         "largest_symbol_lines": 72,
         "layer": "test",
-        "line_count": 605,
-        "nonblank_line_count": 501,
-        "top_level_definition_count": 23
+        "line_count": 656,
+        "nonblank_line_count": 543,
+        "top_level_definition_count": 26
       },
       "tests/test_provider_spend_control.py": {
         "cycle_id": "",

@@ -67,7 +67,7 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert response.metadata["context_limit"] == "200000"
     assert response.metadata["max_output_tokens"] == "4096"
     assert response.metadata["prompt_input_token_budget"] == "195904"
-    assert response.metadata["temperature"] == "0"
+    assert response.metadata["provider_sampling_policy"] == "provider_default"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
     assert "observed_service_tier" not in response.metadata
@@ -87,8 +87,6 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert body == {
         "model": "gpt-test",
         "input": body["input"],
-        "temperature": 0,
-        "top_p": 1,
         "max_output_tokens": 4096,
         "service_tier": OPENAI_SERVICE_TIER,
         "tools": [],
@@ -221,7 +219,6 @@ def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
         "model": "claude-test",
         "messages": [{"role": "user", "content": body["messages"][0]["content"]}],
         "max_tokens": 4096,
-        "temperature": 0,
         "tools": [],
     }
     assert "top_p" not in body
@@ -231,8 +228,10 @@ def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
     assert "Use the benchmark packet." in body["messages"][0]["content"]
 
 
-@pytest.mark.parametrize("model_id", ("claude-sonnet-5", "claude-opus-4-8"))
-def test_anthropic_thinking_models_omit_sampling_controls_but_preserve_registry_policy(
+@pytest.mark.parametrize(
+    "model_id", ("claude-test", "claude-sonnet-5", "claude-opus-4-8")
+)
+def test_anthropic_models_omit_sampling_controls_but_preserve_registry_policy(
     model_id: str,
 ) -> None:
     transport = _FixtureTransport(
@@ -263,8 +262,6 @@ def test_anthropic_thinking_models_omit_sampling_controls_but_preserve_registry_
     assert response.metadata is not None
     assert "temperature" not in response.metadata
     assert "top_p" not in response.metadata
-    assert response.metadata["registry_temperature"] == "0"
-    assert response.metadata["registry_top_p"] == "1"
     assert response.metadata["provider_sampling_policy"] == "provider_default"
     assert response.metadata["served_model_version"] == model_id
     assert response.metadata["model_registry_sha256"] == "cycle-1-registry-sha256"
@@ -336,7 +333,6 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
             }
         ],
         "max_tokens": 4096,
-        "temperature": 0,
     }
     assert body["messages"][0]["content"][0]["text"].startswith(
         "Controlled docket tool transcript:"
@@ -492,8 +488,6 @@ def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:
             }
         ],
         "generationConfig": {
-            "temperature": 0,
-            "topP": 1,
             "maxOutputTokens": 4096,
             "responseMimeType": "application/json",
         },
