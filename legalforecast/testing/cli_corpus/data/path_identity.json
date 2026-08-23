@@ -335,6 +335,7 @@
     "tests/test_llm_label_provider_shards.py",
     "tests/test_local_cli_adapter_manifest.py",
     "tests/test_local_cli_contracts.py",
+    "tests/test_manifest_cost_projector.py",
     "tests/test_manifest_freeze_inputs.py",
     "tests/test_manifest_unitizer_inputs.py",
     "tests/test_methods_preprint.py",
@@ -412,6 +413,8 @@
   ],
   "identity_checks": [
     "tests/test_acquisition_cli.py::callable-identity",
+    "tests/test_cohort_document_materializer.py::callable-identity",
+    "tests/test_deferred_manifest_forecast_bundle.py::callable-identity",
     "tests/test_exact100_successor_v3_consumer_wiring.py::callable-identity",
     "tests/test_exact100_successor_v3_consumer_wiring.py::callable-identity",
     "tests/test_llm_labeling_cli.py::callable-identity",
@@ -595,6 +598,16 @@
       "legalforecast/evals/live_model_solver.py",
       "legalforecast/evals/per_case_runner.py",
       "legalforecast/publication/official_aggregate.py"
+    ],
+    "tests/test_official_eval_matrix_workflow.py": [
+      "legalforecast/evals/corpus_manifest/cost_projector.py",
+      "legalforecast/evals/corpus_manifest/cost_projector_workflow.py"
+    ],
+    "tests/test_official_provider_workflow.py": [
+      "legalforecast/evals/corpus_manifest/cost_projector.py"
+    ],
+    "tests/test_private_store_export.py": [
+      "legalforecast/evals/corpus_manifest/cost_projector.py"
     ],
     "tests/test_rest_observation_policy_rebind.py": [
       "legalforecast/ingestion/courtlistener_acquisition.py"

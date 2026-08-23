@@ -69267,8 +69267,9 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     else:
         if packet_plan_replay is None or packet_build_replay is None:
             raise AssertionError("executed finalization lacks verified packet replay")
-        if verified_materialization is None:
-            raise AssertionError("executed finalization lacks materialization lineage")
+        typed_verified_materialization = cast(
+            _VerifiedMaterializedDownstreamLineage, verified_materialization
+        )
         if llm_unitization_run_card_path is None:
             raise CommandError(
                 "finalize-corpus requires --llm-unitization-run-card with --execute"
@@ -69420,10 +69421,10 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 parser_records,
                 clearance_records,
                 paid_delivery_capability=(
-                    verified_materialization.paid_delivery_capability
+                    typed_verified_materialization.paid_delivery_capability
                 ),
                 free_public_download_capability=(
-                    verified_materialization.free_public_download_capability
+                    typed_verified_materialization.free_public_download_capability
                 ),
             )
         except DisclosureClearanceError as exc:

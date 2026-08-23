@@ -18,6 +18,7 @@ from types import TracebackType
 from typing import Self, cast
 
 from legalforecast.evals.live_model_solver import LiveModelProviderError
+from legalforecast.immutable_io import ImmutableIOError, read_single_link_file
 
 JsonRecord = Mapping[str, object]
 DEFAULT_CYCLE_PROVIDER_CAP_USD = 1_000.0
@@ -243,7 +244,7 @@ def _provider_journal_durable_bytes(source: Path) -> tuple[bytes, dict[str, byte
     """
 
     try:
-        main_payload = source.read_bytes()
+        main_payload = read_single_link_file(source, label="provider journal")
         sidecars: dict[str, bytes] = {}
         for suffix in _PROVIDER_JOURNAL_SIDECAR_SUFFIXES:
             sidecar = Path(f"{source}{suffix}")
@@ -251,14 +252,30 @@ def _provider_journal_durable_bytes(source: Path) -> tuple[bytes, dict[str, byte
                 status = sidecar.lstat()
             except FileNotFoundError:
                 continue
-            if not stat.S_ISREG(status.st_mode):
+            if not stat.S_ISREG(status.st_mode) or status.st_nlink != 1:
                 raise ProviderJournalError(
-                    f"provider journal sidecar is not a regular file: {sidecar}"
+                    "provider journal sidecar is not a single-link regular file: "
+                    f"{sidecar}"
                 )
-            sidecars[suffix] = sidecar.read_bytes()
-    except OSError as exc:
+            sidecars[suffix] = read_single_link_file(
+                sidecar, label="provider journal sidecar"
+            )
+    except (OSError, ImmutableIOError) as exc:
         raise ProviderJournalError(f"cannot read provider journal: {exc}") from exc
     return main_payload, sidecars
+
+
+def provider_journal_durable_bytes(path: str | Path) -> Mapping[str, bytes]:
+    """Capture the exact canonical database and durable sidecars it commits."""
+
+    source = Path(path)
+    if source.is_symlink() or not source.is_file():
+        raise ProviderJournalError(f"provider journal is not a regular file: {source}")
+    main_payload, sidecars = _provider_journal_durable_bytes(source)
+    return {
+        source.name: main_payload,
+        **{f"{source.name}{suffix}": payload for suffix, payload in sidecars.items()},
+    }
 
 
 def open_provider_journal_snapshot(path: str | Path) -> sqlite3.Connection:

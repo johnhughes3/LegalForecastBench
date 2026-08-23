@@ -408,6 +408,10 @@ def admit_authenticated_v3_free_clearance_rows(
     restriction_by_key = _index(
         restriction_records, label="authenticated v3 restriction"
     )
+    if set(restriction_by_key) != set(authenticated_by_key):
+        raise ValueError(
+            "v3 restriction coverage differs from authenticated clearance rows"
+        )
     for key, manifest in manifest_by_key.items():
         if manifest.get("free_or_purchased") != "free":
             raise ValueError(f"v3 free manifest row is not free: {key}")
@@ -458,28 +462,33 @@ def admit_authenticated_v3_free_clearance_rows(
         ):
             raise ValueError(f"v3 free clearance differs from manifest: {key}")
 
+        restriction = restriction_by_key[key]
+        if frozenset(restriction) != _PUBLIC_RESTRICTION_FIELDS:
+            raise ValueError(
+                f"v3 free clearance exact restriction shape differs: {key}"
+            )
+        if (
+            restriction.get("is_private") is not False
+            or restriction.get("is_sealed") is not False
+        ):
+            raise ValueError(
+                f"v3 free clearance exact restriction booleans differ: {key}"
+            )
         if "schema_version" not in clearance:
-            restriction = restriction_by_key.get(key)
-            if (
-                restriction is None
-                or frozenset(restriction) != _PUBLIC_RESTRICTION_FIELDS
-            ):
-                raise ValueError(
-                    f"v3 free clearance exact restriction shape differs: {key}"
-                )
-            if (
-                restriction.get("is_private") is not False
-                or restriction.get("is_sealed") is not False
-            ):
-                raise ValueError(
-                    f"v3 free clearance exact restriction booleans differ: {key}"
-                )
             if restriction.get("restriction_status") != "public" or restriction.get(
                 "restriction_evidence"
             ) != list(FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE):
                 raise ValueError(
                     f"v3 free clearance lacks exact public evidence: {key}"
                 )
+        elif restriction.get("restriction_status") != clearance.get(
+            "restriction_status"
+        ) or restriction.get("restriction_evidence") != clearance.get(
+            "restriction_evidence"
+        ):
+            raise ValueError(
+                f"v3 free restriction evidence differs from clearance: {key}"
+            )
 
     admitted: list[JsonRecord] = []
     for record in clearance_records:

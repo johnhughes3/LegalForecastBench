@@ -3068,12 +3068,12 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     capsys: pytest.CaptureFixture[str],
     producer_mutation: str | None,
 ) -> None:
-    candidate_id = "70649963"
+    candidate_id = "123"
     output_root = tmp_path / "acquisition"
     raw_html_dir = tmp_path / "raw_html"
     raw_html_dir.mkdir()
     raw_html = _packet_input_docket_html().encode()
-    raw_html_path = raw_html_dir / "70649963.html"
+    raw_html_path = raw_html_dir / f"{candidate_id}.html"
     raw_html_path.write_bytes(raw_html)
     raw_artifacts_path = tmp_path / "raw-artifacts.jsonl"
     _write_jsonl(
@@ -6064,3 +6064,12 @@ def test_live_mistral_reuse_repairs_a_dropped_page_without_a_provider_call(
     assert "MOTION TO DISMISS UNDER RULES 12(b)(5) AND 12(b)(6)" in repaired
     assert "COMES NOW Defendant Example Corporation" in repaired
     assert page_two[0] in repaired
+
+
+def test_manifest_execution_decisions_cli_has_no_beads_observation_option(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit, match="0"):
+        main(["acquisition", "issue-manifest-execution-decisions-v2", "--help"])
+
+    assert "--beads-observation" not in capsys.readouterr().out

@@ -95,6 +95,7 @@ DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1 = SchemaIdentifier(
     "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
 )
 DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v1")
+EXECUTION_POLICY_V2 = SchemaIdentifier("legalforecast.execution_policy.v2")
 SUPPORTING_DOCUMENT_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.supporting_document_restriction_evidence.v1"
 )
@@ -157,6 +158,39 @@ OWNER_SIGNED_CORPUS_MANIFEST_V1 = SchemaIdentifier(
 )
 MANIFEST_MODE_FORECAST_RUN_RECORD_V1 = SchemaIdentifier(
     "legalforecast.manifest_mode_forecast_run_record.v1"
+)
+MANIFEST_COST_PROJECTION_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.manifest_cost_projection_receipt.v1"
+)
+MANIFEST_FORECAST_BUNDLE_V1 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle.v1"
+)
+MANIFEST_FORECAST_BUNDLE_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle_run_card.v1"
+)
+MANIFEST_EXECUTION_DECISIONS_V1 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions.v1"
+)
+MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions_run_card.v1"
+)
+MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V1 = SchemaIdentifier(
+    "legalforecast.execution_decisions_beads_observation.v1"
+)
+MANIFEST_FORECAST_BUNDLE_V2 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle.v2"
+)
+MANIFEST_FORECAST_BUNDLE_RUN_CARD_V2 = SchemaIdentifier(
+    "legalforecast.manifest_forecast_bundle_run_card.v2"
+)
+MANIFEST_EXECUTION_DECISIONS_V2 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions.v2"
+)
+MANIFEST_EXECUTION_DECISIONS_RUN_CARD_V2 = SchemaIdentifier(
+    "legalforecast.manifest_execution_decisions_run_card.v2"
+)
+MANIFEST_EXECUTION_DECISIONS_BEADS_OBSERVATION_V2 = SchemaIdentifier(
+    "legalforecast.execution_decisions_beads_observation.v2"
 )
 MANIFEST_FREEZE_RUNTIME_CONTRACT_V1 = SchemaIdentifier(
     "legalforecast.manifest_freeze_runtime_contract.v1"

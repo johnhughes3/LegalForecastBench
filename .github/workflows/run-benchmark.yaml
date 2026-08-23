@@ -30,7 +30,7 @@ on:
       shard_only:
         description: Run exactly one frozen model-key/ablation shard without aggregating or publishing.
         required: true
-        default: true
+        default: false
         type: boolean
       model_registry_uri:
         description: Frozen model registry s3:// URI, manifests/ key, or checked-out JSON path.
@@ -44,9 +44,9 @@ on:
         type: string
       freeze_bundle_path:
         description: >-
-          Current freeze bundle path. Use a committed manifests/*.freeze.json
-          path or an immutable s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json
-          bridge URI; defaults to manifests/<cycle_id>.freeze.json.
+          Current authenticated manifest-run freeze bundle. Use only an immutable
+          s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI;
+          the cost projector requires the corresponding downloaded manifest-run root.
         required: false
         default: ""
         type: string
@@ -163,6 +163,12 @@ jobs:
     outputs:
       artifact_retention_days: ${{ steps.validate.outputs.artifact_retention_days }}
       case_count: ${{ steps.matrix.outputs.case_count }}
+      packet_count: ${{ steps.matrix.outputs.packet_count }}
+      cell_count: ${{ steps.matrix.outputs.cell_count }}
+      matrix_row_count: ${{ steps.matrix.outputs.matrix_row_count }}
+      shard_matrix_row_count: ${{ steps.matrix.outputs.shard_matrix_row_count }}
+      request_count: ${{ steps.matrix.outputs.request_count }}
+      attempt_count: ${{ steps.matrix.outputs.attempt_count }}
       dispatch_run_attempt: ${{ steps.dispatch.outputs.workflow_run_attempt }}
       frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
       execution_policy_sha256: ${{ steps.dispatch.outputs.execution_policy_sha256 }}
@@ -277,12 +283,10 @@ jobs:
           fi
           freeze_bundle_path="${FREEZE_BUNDLE_PATH_INPUT//[[:space:]]/}"
           if [[ -z "${freeze_bundle_path}" ]]; then
-            freeze_bundle_path="manifests/${CYCLE_ID_INPUT}.freeze.json"
+            echo "freeze_bundle_path is required; use an immutable s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI." >&2
+            exit 1
           fi
           case "${freeze_bundle_path}" in
-            manifests/*.freeze.json)
-              freeze_root="."
-              ;;
             s3://*)
               if [[ ! "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]]; then
                 echo "freeze_bundle_path must use the immutable manifest-run S3 prefix contract." >&2
@@ -292,7 +296,7 @@ jobs:
               freeze_root="/tmp/lfb-manifest-run"
               ;;
             *)
-              echo "freeze_bundle_path must be a committed manifests/*.freeze.json path or an immutable manifest-run S3 URI." >&2
+              echo "freeze_bundle_path must be an immutable manifest-run S3 URI; committed manifests/*.freeze.json paths do not provide an authenticated manifest-run root." >&2
               exit 1
               ;;
           esac
@@ -325,6 +329,17 @@ jobs:
           if [[ "${DRY_RUN_INPUT}" != "true" && "${SHARD_ONLY_INPUT}" != "true" ]]; then
             echo "Non-dry-run official evaluation requires shard_only=true; canonical aggregation occurs only through immutable shard receipts and provider-free fan-in." >&2
             exit 1
+          fi
+          if [[ "${SHARD_ONLY_INPUT}" == "true" ]]; then
+            IFS=',' read -ra requested_model_keys <<< "${MODEL_KEYS}"
+            model_key_count=0
+            for raw_key in "${requested_model_keys[@]}"; do
+              [[ -n "${raw_key//[[:space:]]/}" ]] && ((model_key_count += 1))
+            done
+            if (( model_key_count != 1 || ${#seen_ablations[@]} != 1 )); then
+              echo "shard_only=true requires exactly one model-key and one ablation; each official shard must contain 100 rows under the 256-row limit." >&2
+              exit 1
+            fi
           fi
           if ! [[ "${MAX_PARALLEL_INPUT}" =~ ^[0-9]+$ ]] || (( MAX_PARALLEL_INPUT < 1 || MAX_PARALLEL_INPUT > 64 )); then
             echo "max_parallel must be an integer from 1 through 64." >&2
@@ -738,335 +753,54 @@ jobs:
         shell: bash
         env:
           ABLATIONS: ${{ inputs.ablations }}
+          COST_PROJECTION_RECEIPT_PATH: /tmp/lfb-manifest-cost-projection.json
           CYCLE_ID: ${{ inputs.cycle_id }}
-          MATRIX_LIMIT: "256"
+          FREEZE_BUNDLE_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
+          FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
+          MANIFEST_RUN_ROOT: ${{ steps.validate.outputs.freeze_root }}
+          MATRIX_LIMIT: ${{ inputs.shard_only && '256' || '800' }}
           MAX_PROJECTED_MODEL_COST_USD: ${{ inputs.max_projected_model_cost_usd }}
           MODEL_KEYS: ${{ inputs.model_keys }}
-          MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
-          RUN_INPUT_MANIFEST_PATH: /tmp/lfb-run-inputs-frozen.json
+          SHARD_ONLY: ${{ inputs.shard_only }}
         run: |
           set -euo pipefail
+          if [[ "${MANIFEST_RUN_ROOT}" == "." ]]; then
+            echo "manifest cost projection requires an immutable manifest-run bundle" >&2
+            exit 1
+          fi
+          amendment_bundles=()
+          while IFS= read -r bundle_path; do
+            amendment_bundles+=("${bundle_path}")
+          done < <(find "${FREEZE_ROOT}/amendments" -maxdepth 1 -type f -name '*.freeze.json' -print 2>/dev/null | sort)
+          FREEZE_AMENDMENT_BUNDLES="$(printf '%s\n' "${amendment_bundles[@]}")"
+          export FREEZE_AMENDMENT_BUNDLES
           python - <<'PY'
-          import hashlib
-          import json
-          import math
           import os
-          import re
-          import sys
 
-          from legalforecast.protocol.policy_artifacts import require_repeat_case_coverage
+          from legalforecast.evals.corpus_manifest.cost_projector_workflow import (
+              issue_manifest_cost_projection_from_workflow_environment,
+          )
 
-          PRICE_UNITS_PER_TOKEN = 1_000_000
-          LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS = 272_000
-
-          with open(os.environ["RUN_INPUT_MANIFEST_PATH"], encoding="utf-8") as handle:
-              manifest = json.load(handle)
-          with open(os.environ["MODEL_REGISTRY_PATH"], encoding="utf-8") as handle:
-              registry_records = json.load(handle)
-          if manifest.get("cycle_id") != os.environ["CYCLE_ID"]:
-              raise SystemExit("run-input manifest cycle_id does not match dispatch input")
-          packets = manifest.get("model_packets")
-          if not isinstance(packets, list):
-              raise SystemExit("run-input manifest must contain model_packets list")
-          if not isinstance(registry_records, list):
-              raise SystemExit("model registry must contain a JSON array")
-
-          registry_by_key = {}
-          for record in registry_records:
-              if not isinstance(record, dict):
-                  raise SystemExit("model registry entries must be objects")
-              provider = record.get("provider")
-              model_id = record.get("model_id")
-              if not isinstance(provider, str) or not isinstance(model_id, str):
-                  raise SystemExit("model registry entries require provider and model_id")
-              registry_key = f"{provider}:{model_id}"
-              registry_by_key[registry_key] = record
-
-          requested_model_keys = [
-              key.strip()
-              for key in os.environ["MODEL_KEYS"].split(",")
-              if key.strip()
-          ]
-          if not requested_model_keys:
-              raise SystemExit("model_keys must include at least one provider:model_id key")
-          duplicate_model_keys = sorted(
-              {
-                  key
-                  for key in requested_model_keys
-                  if requested_model_keys.count(key) > 1
+          receipt = issue_manifest_cost_projection_from_workflow_environment(os.environ)
+          if os.environ["SHARD_ONLY"] == "true":
+              expected = {
+                  "case_count": 100,
+                  "packet_count": 200,
+                  "cell_count": 1,
+                  "matrix_row_count": 100,
+                  "shard_matrix_row_count": 100,
+                  "request_count": 100,
+                  "model_count": 1,
+                  "matrix_limit": 256,
               }
-          )
-          if duplicate_model_keys:
-              raise SystemExit(f"duplicate model_keys: {duplicate_model_keys}")
-          missing_model_keys = [
-              key for key in requested_model_keys if key not in registry_by_key
-          ]
-          if missing_model_keys:
-              raise SystemExit(f"model_keys missing from registry: {missing_model_keys}")
-          requested_ablations = [
-              ablation.strip()
-              for ablation in os.environ["ABLATIONS"].split(",")
-              if ablation.strip()
-          ]
-          if not requested_ablations:
-              raise SystemExit("ablations must include at least one packet ablation")
-          duplicate_ablations = sorted(
-              {
-                  ablation
-                  for ablation in requested_ablations
-                  if requested_ablations.count(ablation) > 1
-              }
-          )
-          if duplicate_ablations:
-              raise SystemExit(f"duplicate ablations: {duplicate_ablations}")
-          supported_ablations = {
-              "full_packet",
-              "metadata_only",
-              "briefs_only_redacted",
-              "judge_removed",
-              "no_briefs",
-          }
-          unsupported_ablations = sorted(
-              set(requested_ablations) - supported_ablations
-          )
-          if unsupported_ablations:
-              raise SystemExit(f"unsupported ablations: {unsupported_ablations}")
-          requested_ablation_set = set(requested_ablations)
-          repeat_sample_case_ids = {
-              case_id.strip()
-              for case_id in os.environ["REPEAT_SAMPLE_CASE_IDS"].split(",")
-              if case_id.strip()
-          }
-          repeat_count = int(os.environ["REPEAT_COUNT"])
-          require_repeat_case_coverage(
-              packets,
-              repeat_case_ids=sorted(repeat_sample_case_ids),
-              requested_ablations=requested_ablations,
-          )
-
-          def provider_lane(model_key):
-              provider = model_key.split(":", 1)[0]
-              if provider in {"google", "gemini"}:
-                  return "gemini"
-              if provider in {"openai", "anthropic"}:
-                  return provider
-              raise SystemExit(f"unsupported model provider: {provider}")
-
-          if (
-              repeat_count > 1
-              and repeat_sample_case_ids
-              and any(provider_lane(model_key) == "openai" for model_key in requested_model_keys)
-          ):
-              raise SystemExit(
-                  "OpenAI repeat samples are not supported in one provider-cell shard; "
-                  "use repeat_count=1 until repeat fan-out and AWS-session coordination land."
-              )
-
-          def safe_case_id_slug(case_id):
-              prefix = re.sub(r"[^A-Za-z0-9]+", "-", case_id).strip("-").lower()
-              prefix = prefix[:48].rstrip("-") or "case"
-              digest = hashlib.sha256(case_id.encode("utf-8")).hexdigest()[:12]
-              return f"{prefix}-{digest}"
-
-          def packet_input_tokens(packet):
-              for field_name in (
-                  "estimated_input_tokens",
-                  "input_tokens",
-                  "prompt_tokens",
-                  "estimated_prompt_tokens",
-                  "packet_token_count",
-                  "token_count",
-              ):
-                  value = packet.get(field_name)
-                  if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-                      return value
-              packet_size_bytes = packet.get("packet_size_bytes")
-              if isinstance(packet_size_bytes, int) and packet_size_bytes >= 0:
-                  return math.ceil(packet_size_bytes / 4)
-              raise SystemExit(
-                  "each matrix row requires packet token counts or packet_size_bytes "
-                  "for cost projection"
-              )
-
-          def projected_cost_for_row(*, input_tokens, registry_record):
-              input_price = required_nonnegative_number(
-                  registry_record,
-                  "input_token_price",
-              )
-              output_price = required_nonnegative_number(
-                  registry_record,
-                  "output_token_price",
-              )
-              max_output_tokens = required_nonnegative_int(
-                  registry_record,
-                  "max_output_tokens",
-              )
-              return (
-                  (input_tokens * input_price)
-                  + (max_output_tokens * output_price)
-              ) / PRICE_UNITS_PER_TOKEN
-
-          def required_nonnegative_number(record, field_name):
-              value = record.get(field_name)
-              if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
-                  raise SystemExit(f"model registry {field_name} must be non-negative")
-              return float(value)
-
-          def required_nonnegative_int(record, field_name):
-              value = record.get(field_name)
-              if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                  raise SystemExit(f"model registry {field_name} must be a non-negative integer")
-              return value
-
-          include = []
-          long_context_surcharge_packets = []
-          projected_model_cost = 0.0
-          seen_packet_rows = set()
-          for packet in packets:
-              if not isinstance(packet, dict):
-                  raise SystemExit("model_packets entries must be objects")
-              ablation = packet.get("ablation", "full_packet")
-              if ablation not in requested_ablation_set:
-                  continue
-              case_id = packet.get("case_id")
-              packet_object_key = (
-                  packet.get("packet_object_key")
-                  or packet.get("object_key")
-                  or packet.get("key")
-              )
-              if not isinstance(case_id, str) or not case_id:
-                  raise SystemExit("each matrix row requires case_id")
-              packet_row_key = (case_id, ablation)
-              if packet_row_key in seen_packet_rows:
-                  raise SystemExit(f"duplicate packet row for ablation: {case_id}")
-              if not isinstance(packet_object_key, str) or not packet_object_key.startswith("model-packets/"):
-                  raise SystemExit("each matrix row requires model-packets/ packet_object_key")
-              sha256_value = packet.get("sha256")
-              packet_sha256_value = packet.get("packet_sha256")
-              for field_name, value in (
-                  ("sha256", sha256_value),
-                  ("packet_sha256", packet_sha256_value),
-              ):
-                  if value is not None and (
-                      not isinstance(value, str)
-                      or re.fullmatch(r"[0-9a-f]{64}", value) is None
-                  ):
-                      raise SystemExit(
-                          f"each matrix row {field_name} must be a lowercase SHA-256"
-                      )
-              if sha256_value is None and packet_sha256_value is None:
+              actual = {name: receipt.get(name) for name in expected}
+              if actual != expected:
                   raise SystemExit(
-                      "each matrix row requires sha256 or packet_sha256"
+                      "official shard projection must contain exactly one 100-row "
+                      f"cell under the 256-row limit: {actual}"
                   )
-              if (
-                  sha256_value is not None
-                  and packet_sha256_value is not None
-                  and sha256_value != packet_sha256_value
-              ):
-                  raise SystemExit(
-                      "matrix row has conflicting sha256 and packet_sha256"
-                  )
-              packet_sha256 = sha256_value or packet_sha256_value
-              input_tokens = packet_input_tokens(packet)
-              if input_tokens > LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS:
-                  long_context_surcharge_packets.append(
-                      {
-                          "case_id": case_id,
-                          "ablation": ablation,
-                          "packet_object_key": packet_object_key,
-                          "packet_sha256": packet_sha256,
-                          "estimated_input_tokens": input_tokens,
-                      }
-                  )
-              seen_packet_rows.add(packet_row_key)
-              row_repeat_count = (
-                  repeat_count if case_id in repeat_sample_case_ids else 1
-              )
-              for model_key in requested_model_keys:
-                  projected_model_cost += row_repeat_count * projected_cost_for_row(
-                      input_tokens=input_tokens,
-                      registry_record=registry_by_key[model_key],
-                  )
-                  include.append(
-                      {
-                          "case_id": case_id,
-                          "case_id_slug": safe_case_id_slug(case_id),
-                          "ablation": ablation,
-                          "packet_object_key": packet_object_key,
-                          "packet_sha256": packet_sha256,
-                          "model_key": model_key,
-                          "model_key_slug": re.sub(r"[^A-Za-z0-9._-]+", "-", model_key).strip("-"),
-                          "repeat_count": row_repeat_count,
-                      }
-                  )
-
-          limit = int(os.environ["MATRIX_LIMIT"])
-          if not include:
-              raise SystemExit("run-input manifest produced an empty matrix")
-          if len(include) > limit:
-              raise SystemExit(f"matrix has {len(include)} rows; GitHub limit is {limit}")
-          recommended_dispatch_ceiling = projected_model_cost * 2
-          budget_raw = os.environ.get("MAX_PROJECTED_MODEL_COST_USD", "").strip()
-          if budget_raw:
-              budget = float(budget_raw)
-              if projected_model_cost > budget:
-                  raise SystemExit(
-                      f"projected model cost ${projected_model_cost:.2f} exceeds "
-                      f"budget ${budget:.2f}"
-                  )
-              if budget > recommended_dispatch_ceiling:
-                  raise SystemExit(
-                      f"budget ${budget:.2f} exceeds the 2x projected early-warning ceiling ${recommended_dispatch_ceiling:.2f}"
-                  )
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
-              summary.write("## Official evaluation cost preflight\n\n")
-              summary.write(f"- Projected model cost: ${projected_model_cost:.2f}\n")
-              summary.write(
-                  "- Recommended max_projected_model_cost_usd (2x projection): "
-                  f"${recommended_dispatch_ceiling:.2f}\n"
-              )
-              summary.write(
-                  "- The dispatch ceiling is an early-warning control, not a provider "
-                  "or account cap.\n"
-              )
-              if long_context_surcharge_packets:
-                  summary.write("\n### Long-context surcharge packet warning\n\n")
-                  summary.write(
-                      "Packets above 272,000 estimated input tokens require deliberate "
-                      "pricing or exclusion before a live run.\n\n```json\n"
-                  )
-                  summary.write(json.dumps(long_context_surcharge_packets, indent=2))
-                  summary.write("\n```\n")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"matrix={json.dumps({'include': include}, separators=(',', ':'))}\n")
-              for provider in ("openai", "anthropic", "gemini"):
-                  provider_rows = [
-                      row
-                      for row in include
-                      if provider_lane(row["model_key"]) == provider
-                  ]
-                  output.write(f"{provider}_count={len(provider_rows)}\n")
-                  output.write(
-                      f"{provider}_matrix="
-                      f"{json.dumps({'include': provider_rows}, separators=(',', ':'))}\n"
-                  )
-              output.write(f"case_count={len(seen_packet_rows)}\n")
-              output.write(f"model_count={len(requested_model_keys)}\n")
-              output.write(
-                  "long_context_surcharge_packet_count="
-                  f"{len(long_context_surcharge_packets)}\n"
-              )
-              output.write(
-                  "long_context_surcharge_packets_json="
-                  f"{json.dumps(long_context_surcharge_packets, separators=(',', ':'))}\n"
-              )
-              output.write(f"projected_model_cost_usd={projected_model_cost:.6f}\n")
-              output.write(
-                  "recommended_max_projected_model_cost_usd="
-                  f"{recommended_dispatch_ceiling:.6f}\n"
-              )
           PY
 
       - name: Upload dispatch provenance
@@ -1080,6 +814,7 @@ jobs:
             /tmp/lfb-labels.jsonl
             /tmp/lfb-model-registry.json
             /tmp/lfb-execution-policy.json
+            /tmp/lfb-manifest-cost-projection.json
           if-no-files-found: error
           retention-days: ${{ fromJSON(steps.validate.outputs.artifact_retention_days) }}
 
