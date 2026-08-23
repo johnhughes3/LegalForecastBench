@@ -522,6 +522,7 @@ def _owner_approval_ids() -> tuple[str, ...]:
     return tuple(sorted(set((*spend_ids, *terminal_ids))))
 
 
+# contract-ratchet: allow exact owner-comment commitment bound to adjudication schema
 def _owner_comment_ruling_sha256(
     comment_id: str,
     *,
