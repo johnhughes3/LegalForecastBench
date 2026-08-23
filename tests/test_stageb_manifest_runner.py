@@ -11,8 +11,13 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.evals import stageb_manifest_runner as runner
+from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.labeling import AmendmentClass, UnitResolution
 from legalforecast.labeling.label_outcomes import OutcomeCitation, OutcomeLabel
+from legalforecast.labeling.llm_pipeline import (
+    STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
+    _require_frozen_unit_adjudication,
+)
 
 
 def _comment(comment_id: str, text: str, *, author: str = "owner") -> dict[str, str]:
@@ -222,6 +227,161 @@ def test_existing_result_replays_full_nested_identity(tmp_path: Path) -> None:
         prompt=context["prompt"],
     )
     assert replayed == result
+
+
+def test_frozen_unit_adjudication_binds_exact_response_and_exclusion() -> None:
+    missing_flags = ({"missing_unit_description": "new claim"},)
+    exclusion = {
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "reason": "unit_missing_from_stage_a",
+    }
+    response = SolverResponse(raw_output='{"unit_findings": []}')
+    adjudication = {
+        "schema_version": STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "status": "excluded_from_cycle1_scoring",
+        "owner_comment_id": "owner-comment",
+        "owner_ruling_sha256": "sha256:owner-ruling",
+        "raw_output_sha256": response.raw_output_sha256,
+        "frozen_unit_ids": ["unit-1"],
+        "missing_unit_flags_sha256": runner.canonical_records_sha256(missing_flags),
+        "exclusion_entry_sha256": runner.canonical_sha256(exclusion),
+    }
+    _require_frozen_unit_adjudication(
+        adjudication,
+        candidate_id="candidate-1",
+        case_id="case-1",
+        frozen_unit_ids=("unit-1",),
+        missing_flags=missing_flags,
+        exclusion_record=exclusion,
+        response=response,
+        normalized_response_json=None,
+    )
+
+    tampered = dict(adjudication, raw_output_sha256="sha256:tampered")
+    with pytest.raises(ValueError, match="raw response differs"):
+        _require_frozen_unit_adjudication(
+            tampered,
+            candidate_id="candidate-1",
+            case_id="case-1",
+            frozen_unit_ids=("unit-1",),
+            missing_flags=missing_flags,
+            exclusion_record=exclusion,
+            response=response,
+            normalized_response_json=None,
+        )
+
+
+def test_frozen_unit_adjudication_index_is_create_only(tmp_path: Path) -> None:
+    payload = {
+        "schema_version": runner.FROZEN_UNIT_ADJUDICATION_INDEX_V1,
+        "records": [
+            {
+                "schema_version": STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1,
+                "candidate_id": "candidate-1",
+                "case_id": "case-1",
+            }
+        ],
+    }
+    path = tmp_path / "adjudications.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    first, digest = runner._load_frozen_unit_adjudications(path)  # pyright: ignore[reportPrivateUsage]
+    second, second_digest = runner._load_frozen_unit_adjudications(path)  # pyright: ignore[reportPrivateUsage]
+    assert first == second
+    assert digest == second_digest
+    assert digest is not None
+
+
+def test_issuer_reconstructs_retained_failure_without_transport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeJournal:
+        has_reconstruction_failure = True
+        has_settled_attempt = False
+
+        def close(self) -> None:
+            return None
+
+        def latest_reconstruction_recovery_evidence(self) -> SimpleNamespace:
+            return SimpleNamespace(
+                normalized_response_json='{"actual_cost_usd":0.01}',
+            )
+
+    decision = SimpleNamespace(text_sha256="sha256:decision")
+    missing_flag = SimpleNamespace(
+        to_record=lambda _: {"missing_unit_description": "new claim"}
+    )
+    exclusion = SimpleNamespace(
+        to_record=lambda: {
+            "candidate_id": "candidate-1",
+            "case_id": "case-1",
+            "reason": "unit_missing_from_stage_a",
+        }
+    )
+    workflow_error = runner.FrozenUnitWorkflowRequiredError(
+        response=SolverResponse(raw_output='{"unit_findings": []}'),
+        labeling_result=SimpleNamespace(
+            candidate_id="candidate-1",
+            case_id="case-1",
+            decision_text=decision,
+            missing_unit_flags=(missing_flag,),
+        ),
+        repair_result=SimpleNamespace(
+            units=(SimpleNamespace(unit_id="unit-1"),),
+            exclusion_entry=exclusion,
+        ),
+    )
+    monkeypatch.setattr(runner, "_provider_attempt_journal", lambda **_: FakeJournal())
+    monkeypatch.setattr(
+        runner, "_owner_comment_ruling_sha256", lambda _: "sha256:ruling"
+    )
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {"candidate-1": (SimpleNamespace(unit_id="unit-1"),)},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            "candidate-1": (decision, {"decision_text_sha256": "sha256:decision"})
+        },
+    )
+    monkeypatch.setattr(runner, "_labeling_prompt", lambda *args, **kwargs: "prompt")
+    transport_calls: list[object] = []
+
+    def fake_label(**kwargs: Any) -> object:
+        transport_calls.append(kwargs["transport"])
+        raise workflow_error
+
+    monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
+    artifact = cast(
+        Any,
+        SimpleNamespace(finalized_unit_envelope_sha256s={"candidate-1": "envelope"}),
+    )
+    result = runner._issue_frozen_unit_adjudication(  # pyright: ignore[reportPrivateUsage]
+        output_path=tmp_path / "adjudications.json",
+        owner_comment_id="owner-comment",
+        provider="google",
+        output_root=tmp_path / "output",
+        artifact=artifact,
+        selection_records=({"candidate_id": "candidate-1", "case_id": "case-1"},),
+        adapted_records=(),
+        registry_entry=cast(
+            Any,
+            SimpleNamespace(provider="google", registry_key=runner.MODEL_KEYS[1]),
+        ),
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+    )
+    assert result["provider_transport_calls"] == 0
+    assert transport_calls == [None]
+    issued = json.loads((tmp_path / "adjudications.json").read_text())
+    assert issued["records"][0]["frozen_unit_ids"] == ["unit-1"]
 
 
 def _tamper_envelope(result: dict[str, Any]) -> None:
