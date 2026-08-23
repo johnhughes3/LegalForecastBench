@@ -226,6 +226,10 @@ def test_stage_b_reconstruction_recovers_citation_provider_free(
             "The motion is denied because the claim survives. The court therefore "
             "permits discovery to continue.",
         ),
+        (
+            "21 The motion is denied because the claim survives.",
+            "The motion is denied because the claim survives.",
+        ),
     ],
 )
 def test_stage_b_excerpt_recovery_rejects_non_exact_remainder(

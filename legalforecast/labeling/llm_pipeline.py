@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import date
 from difflib import SequenceMatcher
 from enum import StrEnum
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
 
@@ -5241,7 +5242,10 @@ def _repair_unescaped_json_string_quotes(text: str) -> str | None:
 
 def _coerced_excerpt(text: str, excerpt: str) -> str:
     stripped = excerpt.strip()
-    if stripped in text:
+    exact_offset = text.find(stripped)
+    if exact_offset >= 0 and _omits_unqualified_pdf_line_number(text, exact_offset):
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+    if exact_offset >= 0:
         return stripped
     # A provider can prepend a short discourse marker to an otherwise verbatim
     # citation.  Keep this recovery deliberately narrower than the general
@@ -5292,19 +5296,77 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
     return text[start:end].strip()
 
 
+def _omits_unqualified_pdf_line_number(text: str, excerpt_start: int) -> bool:
+    """Report whether an exact excerpt starts after an isolated line number."""
+
+    line_start = text.rfind("\n", 0, excerpt_start) + 1
+    prefix_match = re.fullmatch(r"([0-9]{1,3})[ \t]+", text[line_start:excerpt_start])
+    if prefix_match is None:
+        return False
+    number = int(prefix_match.group(1))
+
+    previous_line_start = text.rfind("\n", 0, line_start - 1) + 1
+    previous_line_end = line_start - 1
+    previous_match = re.match(
+        r"([0-9]{1,3})(?=[ \t])",
+        text[previous_line_start:previous_line_end],
+    )
+    if previous_match is not None and int(previous_match.group(1)) == number - 1:
+        return False
+
+    next_line_start = text.find("\n", excerpt_start) + 1
+    if next_line_start == 0:
+        return True
+    next_line_end = text.find("\n", next_line_start)
+    if next_line_end < 0:
+        next_line_end = len(text)
+    next_match = re.match(
+        r"([0-9]{1,3})(?=[ \t])",
+        text[next_line_start:next_line_end],
+    )
+    return next_match is None or int(next_match.group(1)) != number + 1
+
+
 def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | None:
     """Recover a citation that omits only printed PDF line-number prefixes.
 
-    This is intentionally not a general citation normalizer.  It removes an
+    This is intentionally not a general citation normalizer.  It recognizes an
     ASCII one-to-three digit token only when it starts a physical source line
-    and is followed by horizontal whitespace.  The normalized match must cover
-    the complete requested excerpt; the returned value is the exact original
-    source slice, including any line-number tokens it spans.
+    and is followed by horizontal whitespace, and removes it only when it is
+    part of a run of at least two adjacent lines with consecutive numbers.  The
+    normalized match must cover the complete requested excerpt; the returned
+    value is the exact original source slice, including any line-number tokens
+    it spans.
     """
 
     normalized_excerpt = " ".join(excerpt.split())
     if not normalized_excerpt:
         return None
+
+    line_prefixes: list[tuple[int, int, int, int]] = []
+    line_start = 0
+    for line_index, line in enumerate(text.split("\n")):
+        match = re.match(r"([0-9]{1,3})(?=[ \t])", line)
+        if match is not None:
+            line_prefixes.append(
+                (
+                    line_index,
+                    int(match.group(1)),
+                    line_start,
+                    line_start + match.end(),
+                )
+            )
+        line_start += len(line) + 1
+
+    if not line_prefixes:
+        return None
+
+    removable_prefix_starts: set[int] = set()
+    for previous, current in pairwise(line_prefixes):
+        previous_line, previous_number, previous_start, _ = previous
+        current_line, current_number, current_start, _ = current
+        if current_line == previous_line + 1 and current_number == previous_number + 1:
+            removable_prefix_starts.update((previous_start, current_start))
 
     normalized_chars: list[str] = []
     source_positions: list[int] = []
@@ -5314,15 +5376,12 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
     pending_line_number_start: int | None = None
     while index < len(text):
         if line_start:
-            token_end = index
-            while token_end < len(text) and text[token_end] in "0123456789":
-                token_end += 1
-            if (
-                token_end > index
-                and token_end - index <= 3
-                and token_end < len(text)
-                and text[token_end] in " \t"
-            ):
+            prefix = next(
+                (prefix for prefix in line_prefixes if prefix[2] == index),
+                None,
+            )
+            if prefix is not None and prefix[2] in removable_prefix_starts:
+                token_end = prefix[3]
                 removed_line_number = True
                 pending_line_number_start = index
                 index = token_end
@@ -5350,7 +5409,7 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
         index += 1
 
     if not removed_line_number:
-        return None
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
     untrimmed_text = "".join(normalized_chars)
     leading_space_count = len(untrimmed_text) - len(untrimmed_text.lstrip())
     normalized_text = untrimmed_text.strip()
