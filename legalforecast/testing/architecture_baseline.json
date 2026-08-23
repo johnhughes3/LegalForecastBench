@@ -4037,7 +4037,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 14,
-      "tests": 482,
+      "tests": 483,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -7878,10 +7878,10 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "AnthropicMessagesJudgeAdapter",
-        "largest_symbol_lines": 64,
+        "largest_symbol_lines": 63,
         "layer": "application",
-        "line_count": 541,
-        "nonblank_line_count": 474,
+        "line_count": 538,
+        "nonblank_line_count": 471,
         "top_level_definition_count": 17
       },
       "legalforecast/multiharness/tier0_runner.py": {
@@ -10673,9 +10673,9 @@
         "largest_symbol": "test_cli_full_paired_tier0_fake_binary_run",
         "largest_symbol_lines": 100,
         "layer": "test",
-        "line_count": 847,
-        "nonblank_line_count": 758,
-        "top_level_definition_count": 32
+        "line_count": 860,
+        "nonblank_line_count": 768,
+        "top_level_definition_count": 33
       },
       "tests/test_official_aggregate.py": {
         "cycle_id": "",
