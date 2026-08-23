@@ -216,7 +216,6 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
             "max_output_tokens": 4_096,
             "model_key": "fixture:solver",
             "prompt_input_token_budget": 195_904,
-            "temperature": 0.0,
         }
     ]
     sampling_policy = packet_budget["sampling_policy"]

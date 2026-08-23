@@ -67,8 +67,6 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert response.metadata["context_limit"] == "200000"
     assert response.metadata["max_output_tokens"] == "4096"
     assert response.metadata["prompt_input_token_budget"] == "195904"
-    assert response.metadata["registry_temperature"] == "0"
-    assert response.metadata["registry_top_p"] == "1"
     assert response.metadata["provider_sampling_policy"] == "provider_default"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
@@ -264,8 +262,6 @@ def test_anthropic_models_omit_sampling_controls_but_preserve_registry_policy(
     assert response.metadata is not None
     assert "temperature" not in response.metadata
     assert "top_p" not in response.metadata
-    assert response.metadata["registry_temperature"] == "0"
-    assert response.metadata["registry_top_p"] == "1"
     assert response.metadata["provider_sampling_policy"] == "provider_default"
     assert response.metadata["served_model_version"] == model_id
     assert response.metadata["model_registry_sha256"] == "cycle-1-registry-sha256"

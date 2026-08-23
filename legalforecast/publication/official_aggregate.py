@@ -1411,17 +1411,15 @@ def _registry_budget_record(entry: ModelRegistryEntry) -> JsonRecord:
         "context_limit": entry.context_limit,
         "max_output_tokens": entry.max_output_tokens,
         "prompt_input_token_budget": entry.context_limit - entry.max_output_tokens,
-        "temperature": entry.temperature,
     }
 
 
 def _sampling_policy_record(
     registry_entries: Sequence[ModelRegistryEntry],
 ) -> JsonRecord:
-    temperatures = sorted({float(entry.temperature) for entry in registry_entries})
+    del registry_entries
     return {
         "provider_sampling_policy": "provider_default",
-        "registry_temperatures": temperatures,
         "rationale": _PROVIDER_DEFAULT_SAMPLING_RATIONALE,
     }
 

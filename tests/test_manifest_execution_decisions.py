@@ -317,6 +317,24 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     }
 
 
+def test_successor_registry_safety_ignores_legacy_sampling_fields() -> None:
+    entries = tuple(
+        SimpleNamespace(
+            provider=key.split(":", 1)[0],
+            model_id=key.split(":", 1)[1],
+            registry_key=key,
+            network_disabled=True,
+            search_disabled=True,
+            temperature=0.7,
+            top_p=0.2,
+            tool_policy=SimpleNamespace(value="controlled_docket_tool_only"),
+        )
+        for key in sorted(evidence.SUCCESSOR_REGISTRY_KEYS)
+    )
+
+    module._require_successor_registry_safety(entries)
+
+
 def _issue(fixture: dict[str, Any]) -> module.ExecutionDecisionsBuild:
     return module.issue_execution_decisions(
         owner_manifest=fixture["owner"],

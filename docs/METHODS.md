@@ -70,6 +70,6 @@ The first cycle includes no human-baseline arm: no reviewers were recruited, no 
 
 ## Limitations
 
-Temperature and fixed prompts reduce avoidable variation but do not guarantee deterministic provider behavior. Within-cycle comparisons still depend on case mix, legal subject matter, packet completeness, model serving changes, and the number of independent clusters. Cross-cycle comparisons require caution because the underlying cases and release anchors differ. Performance on this benchmark is a hypothesized proxy for legal reasoning, not a direct measure of it.
+Live requests omit temperature, top-p, and equivalent sampling controls, so each provider uses its default settings. Fixed prompts and the repeat-sampling protocol make provider-side variation observable but do not guarantee deterministic behavior. Within-cycle comparisons still depend on case mix, legal subject matter, packet completeness, model serving changes, and the number of independent clusters. Cross-cycle comparisons require caution because the underlying cases and release anchors differ. Performance on this benchmark is a hypothesized proxy for legal reasoning, not a direct measure of it.
 
 See [labeling-protocol.md](labeling-protocol.md), [official-run-runbook.md](official-run-runbook.md), and [reproduce-or-audit.md](reproduce-or-audit.md) for the operational contracts.

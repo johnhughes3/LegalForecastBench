@@ -708,8 +708,6 @@ def _authenticate_runtime_inputs(
     if any(
         entry.network_disabled is not True
         or entry.search_disabled is not True
-        or entry.temperature != 0.0
-        or entry.top_p != 1.0
         or entry.tool_policy.value != "controlled_docket_tool_only"
         for entry in entries
     ):

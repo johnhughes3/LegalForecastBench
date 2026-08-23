@@ -623,13 +623,10 @@ def _bedrock_anthropic_payload(
 
 
 def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
-    """Record legacy registry values without overriding provider defaults."""
+    """Record the sampling policy without exposing legacy controls as settings."""
 
-    return {
-        "registry_temperature": _format_number(entry.temperature),
-        "registry_top_p": _format_number(entry.top_p),
-        "provider_sampling_policy": "provider_default",
-    }
+    del entry
+    return {"provider_sampling_policy": "provider_default"}
 
 
 def _is_openai_provider(entry: ModelRegistryEntry) -> bool:
@@ -1214,13 +1211,6 @@ def _prompt_input_token_budget(entry: ModelRegistryEntry) -> int:
     return entry.context_limit - entry.max_output_tokens
 
 
-def _format_number(value: float) -> str:
-    numeric = float(value)
-    if numeric.is_integer():
-        return str(int(numeric))
-    return str(numeric)
-
-
 def _required_str_field(
     record: JsonRecord,
     field_name: str,
@@ -1316,9 +1306,14 @@ def _estimated_cost(
     input_tokens: int,
     output_tokens: int,
 ) -> float:
+    input_price = entry.input_token_price
+    output_price = entry.output_token_price
+    surcharge = entry.long_context_surcharge
+    if surcharge is not None and input_tokens > surcharge.threshold_input_tokens:
+        input_price *= surcharge.input_price_multiplier
+        output_price *= surcharge.output_price_multiplier
     return (
-        (input_tokens * entry.input_token_price)
-        + (output_tokens * entry.output_token_price)
+        (input_tokens * input_price) + (output_tokens * output_price)
     ) / _PRICE_UNITS_PER_TOKEN
 
 

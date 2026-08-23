@@ -85,7 +85,7 @@ Recovery is conservative. A resumed run may reuse a complete result only when th
 
 The official system separates solver execution from aggregation and publication. Provider-facing code does not decide which rows become public leaderboard entries. Fan-in first verifies authenticated receipts and the exact expected matrix. Aggregation then reconstructs scores from accepted per-case artifacts and locked labels. The static report renderer accepts only the aggregate's public directory. This separation reduces the authority of any single runtime component.
 
-Temperature and fixed prompts reduce avoidable variation but cannot make a hosted model deterministic. Repeats expose some run-to-run variation, while the primary inferential pairing remains aligned to the declared case-family clusters. A result describes the exact registry and execution date, not a timeless property of a product name.
+Live requests omit temperature, top-p, and equivalent sampling controls, so each provider uses its default settings. Repeats expose provider-side variation, while the primary inferential pairing remains aligned to the declared case-family clusters. A result describes the exact registry and execution date, not a timeless property of a product name.
 
 ## 5. Metrics and statistical analysis
 

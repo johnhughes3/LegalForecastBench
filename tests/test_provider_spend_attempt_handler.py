@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
+from legalforecast.evals.model_registry import LongContextSurcharge
 from legalforecast.evals.provider_spend_attempt_handler import (
     CompositeProviderAttemptHandler,
     ProviderSpendAttemptHandler,
@@ -201,6 +202,40 @@ def test_conservative_reservation_uses_remaining_input_context() -> None:
             output_token_price=10.0,
         )
         == 530_720
+    )
+
+
+def test_conservative_reservation_uses_base_rates_at_long_context_boundary() -> None:
+    assert (
+        conservative_reservation_microusd(
+            context_limit=276_096,
+            max_output_tokens=4_096,
+            input_token_price=2.5,
+            output_token_price=10.0,
+            long_context_surcharge=LongContextSurcharge(
+                threshold_input_tokens=272_000,
+                input_price_multiplier=2.0,
+                output_price_multiplier=1.5,
+            ),
+        )
+        == 720_960
+    )
+
+
+def test_conservative_reservation_uses_surcharge_above_long_context_boundary() -> None:
+    assert (
+        conservative_reservation_microusd(
+            context_limit=276_097,
+            max_output_tokens=4_096,
+            input_token_price=2.5,
+            output_token_price=10.0,
+            long_context_surcharge=LongContextSurcharge(
+                threshold_input_tokens=272_000,
+                input_price_multiplier=2.0,
+                output_price_multiplier=1.5,
+            ),
+        )
+        == 1_421_445
     )
 
 

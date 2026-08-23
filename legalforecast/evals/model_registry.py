@@ -51,7 +51,13 @@ class LongContextSurcharge:
 
 @dataclass(frozen=True, slots=True)
 class ModelRegistryEntry:
-    """One frozen model/run configuration used by all benchmark components."""
+    """One frozen model/run configuration used by all benchmark components.
+
+    ``temperature`` and ``top_p`` remain required for byte-compatible parsing
+    of existing frozen registries. They are legacy provenance only: live
+    provider requests omit sampling controls, and execution policy does not
+    treat these fields as active settings.
+    """
 
     provider: str
     model_id: str
