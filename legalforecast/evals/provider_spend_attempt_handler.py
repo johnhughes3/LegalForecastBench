@@ -6,11 +6,13 @@ import hashlib
 import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Protocol, cast
 
 from legalforecast.evals.model_registry import LongContextSurcharge
 from legalforecast.evals.provider_spend_control import (
+    AdditionalAttemptPermit,
     AttemptLease,
+    AttemptLimitExceededError,
     ProviderSpendAuthority,
     ProviderSpendKey,
 )
@@ -74,6 +76,7 @@ class ProviderSpendAttemptHandler:
     authority: ProviderSpendAuthority
     key: ProviderSpendKey
     reservation_microusd: int
+    additional_attempt_permit: AdditionalAttemptPermit | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
     )
@@ -97,10 +100,29 @@ class ProviderSpendAttemptHandler:
 
         if attempt_ordinal in self._leases_by_local_ordinal:
             raise RuntimeError("local provider attempt ordinal was reused")
-        lease = self.authority.authorize_attempt(
-            self.key,
-            reservation_microusd=self.reservation_microusd,
-        )
+        try:
+            lease = self.authority.authorize_attempt(
+                self.key,
+                reservation_microusd=self.reservation_microusd,
+            )
+        except AttemptLimitExceededError:
+            permit = self.additional_attempt_permit
+            authorize_additional = getattr(
+                self.authority, "authorize_additional_attempt", None
+            )
+            if permit is None or not callable(authorize_additional):
+                raise
+            lease = cast(
+                AttemptLease,
+                authorize_additional(
+                    self.key,
+                    reservation_microusd=min(
+                        self.reservation_microusd,
+                        permit.reservation_cap_microusd,
+                    ),
+                    permit=permit,
+                ),
+            )
         self._leases_by_local_ordinal[attempt_ordinal] = lease
         self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
         try:

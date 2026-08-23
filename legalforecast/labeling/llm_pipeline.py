@@ -38,6 +38,7 @@ from legalforecast.evals.provider_spend_attempt_handler import (
     conservative_reservation_microusd,
 )
 from legalforecast.evals.provider_spend_control import (
+    AdditionalAttemptPermit,
     ProviderSpendAuthority,
     ProviderSpendKey,
 )
@@ -213,6 +214,8 @@ def stage_a_provider_attempt_stage(
 
 def _reconstruction_retry_max_attempts(
     journal: ProviderAttemptJournal | None,
+    *,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
 ) -> int:
     """Return the fixed provider-attempt budget after reconstruction failures.
 
@@ -225,8 +228,8 @@ def _reconstruction_retry_max_attempts(
     """
 
     if journal is None:
-        return DEFAULT_MAX_ATTEMPTS
-    return journal.prepare_reconstruction_retry(max_attempts=DEFAULT_MAX_ATTEMPTS)
+        return max_attempts
+    return journal.prepare_reconstruction_retry(max_attempts=max_attempts)
 
 
 def _has_reconstruction_failure(journal: ProviderAttemptJournal | None) -> bool:
@@ -3198,6 +3201,7 @@ def _llm_label_one_model(
     frozen_unit_adjudication: Mapping[str, Any] | None = None,
     frozen_unit_workflow_audit: JsonRecord | None = None,
     replay_only: bool = False,
+    additional_attempt_permit: AdditionalAttemptPermit | None = None,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
     prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
@@ -3215,6 +3219,12 @@ def _llm_label_one_model(
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
     )
     try:
+        if additional_attempt_permit is not None:
+            _validate_additional_attempt_permit(
+                additional_attempt_permit,
+                prompt=prompt,
+                provider_journal_path=provider_journal_path,
+            )
         replayed_reconstruction = False
         if journal is not None and journal.has_settled_attempt:
             try:
@@ -3336,7 +3346,10 @@ def _llm_label_one_model(
             )
         max_attempts = min(
             max_provider_attempts,
-            _reconstruction_retry_max_attempts(journal),
+            _reconstruction_retry_max_attempts(
+                journal,
+                max_attempts=max_provider_attempts,
+            ),
         )
         response = complete_live_prompt(
             registry_entry,
@@ -3354,6 +3367,7 @@ def _llm_label_one_model(
                 stage="llm-label",
                 candidate_id=_required_str(selection, "candidate_id"),
                 registry_entry=registry_entry,
+                additional_attempt_permit=additional_attempt_permit,
             ),
         )
         try:
@@ -3823,6 +3837,7 @@ def _combined_attempt_handler(
     stage: str,
     candidate_id: str,
     registry_entry: ModelRegistryEntry,
+    additional_attempt_permit: AdditionalAttemptPermit | None = None,
 ) -> (
     ProviderAttemptJournal
     | ProviderSpendAttemptHandler
@@ -3859,6 +3874,7 @@ def _combined_attempt_handler(
             input_token_price=registry_entry.input_token_price,
             output_token_price=registry_entry.output_token_price,
         ),
+        additional_attempt_permit=additional_attempt_permit,
     )
     if journal is None:
         return spend_handler
@@ -3866,6 +3882,28 @@ def _combined_attempt_handler(
         replay_handler=journal,
         spend_handler=spend_handler,
     )
+
+
+def _validate_additional_attempt_permit(
+    permit: AdditionalAttemptPermit,
+    *,
+    prompt: str,
+    provider_journal_path: str | Path | None,
+) -> None:
+    """Fail closed when an exception permit is reused for another prompt/journal."""
+
+    if provider_journal_path is None:
+        raise LlmPipelineError(
+            "additional-attempt permit requires a canonical provider journal"
+        )
+    prompt_sha256 = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    journal_path_sha256 = hashlib.sha256(
+        str(Path(provider_journal_path).resolve()).encode("utf-8")
+    ).hexdigest()
+    if permit.prompt_sha256 != prompt_sha256:
+        raise LlmPipelineError("additional-attempt permit prompt binding differs")
+    if permit.journal_path_sha256 != journal_path_sha256:
+        raise LlmPipelineError("additional-attempt permit journal binding differs")
 
 
 def _labeling_prompt(

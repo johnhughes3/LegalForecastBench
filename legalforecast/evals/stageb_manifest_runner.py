@@ -12,6 +12,7 @@ artifact.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -43,8 +44,10 @@ from legalforecast.evals.model_registry import (
     load_model_registry,
 )
 from legalforecast.evals.provider_spend_control import (
+    AdditionalAttemptPermit,
     FrozenAttemptPolicy,
     ProviderSpendAuthority,
+    ProviderSpendKey,
     SqliteProviderSpendAuthority,
 )
 from legalforecast.ingestion.decision_text_artifact import (
@@ -117,6 +120,24 @@ CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256 = (
 CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_SHA256 = (
     "sha256:938d24db5ec4977e95abe92aad30b2fea018786d76a6fbc18e10df5930238fa2"
 )
+ADDITIONAL_ATTEMPT_CANDIDATE = "72213663"
+ADDITIONAL_ATTEMPT_PROVIDER = "openai"
+ADDITIONAL_ATTEMPT_MODEL_KEY = "openai:gpt-5.4-mini-2026-03-17"
+ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID = "b7f63c90-ca42-5a04-8590-4181be613ec1"
+ADDITIONAL_ATTEMPT_APPROVAL_TEXT = (
+    "Owner response received verbatim 2026-08-23: “ok botha pproved”\n\n"
+    "This response directly approves both immediately preceding requested decisions:\n"
+    "1. Candidate 69581167: preserve the newly discovered grievance-procedure "
+    "claim in the adjudication record, exclude only that omitted claim from Cycle "
+    "1 scoring, and keep the four frozen units scoreable.\n"
+    "2. Candidate 72213663: permit one additional GPT-5.4 mini attempt because "
+    "attempt 1 failed exact citation validation, estimated USD 0.02 and capped at "
+    "USD 0.05 for the additional attempt.\n\n"
+    "The quoted owner response is verbatim; the numbered scope is the operator "
+    "context to which “both” refers."
+)
+ADDITIONAL_ATTEMPT_MAX_TOTAL = 2
+ADDITIONAL_ATTEMPT_RESERVATION_CAP_MICROUSD = 50_000
 
 # The replacement rows are not covered by the retired decision-text artifact.
 # These source-byte commitments are the authenticated bridge for the exact five
@@ -774,6 +795,82 @@ def _validate_frozen_unit_adjudication(
         raise StageBManifestError("frozen-unit adjudication scoreable units differ")
 
 
+def _additional_attempt_approval_id() -> str:
+    """Require the exact owner approval for the one-candidate exception."""
+
+    try:
+        completed = subprocess.run(
+            ["bd", "comments", BEAD_ID, "--json"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        value: object = json.loads(completed.stdout)
+    except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+        raise StageBManifestError(
+            "could not read the additional-attempt owner approval from Beads"
+        ) from exc
+    if not isinstance(value, list):
+        raise StageBManifestError("Beads comments response is not an array")
+    matches: list[Mapping[str, object]] = []
+    for raw in cast(list[object], value):
+        if not isinstance(raw, Mapping):
+            continue
+        comment = cast(Mapping[str, object], raw)
+        if (
+            comment.get("id") == ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID
+            and comment.get("author") == _owner_author()
+            and comment.get("text") == ADDITIONAL_ATTEMPT_APPROVAL_TEXT
+        ):
+            matches.append(comment)
+    if len(matches) != 1:
+        raise StageBManifestError(
+            "exact 72213663 additional-attempt owner approval is missing"
+        )
+    return ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID
+
+
+def _additional_attempt_permit(
+    *,
+    candidate_id: str,
+    provider: str,
+    account: str,
+    model_key: str,
+    prompt: str,
+    journal_path: Path,
+    cycle_id: str,
+) -> AdditionalAttemptPermit:
+    """Bind the approved exception to the exact Stage B call and journal."""
+
+    if (
+        candidate_id != ADDITIONAL_ATTEMPT_CANDIDATE
+        or provider != ADDITIONAL_ATTEMPT_PROVIDER
+        or model_key != ADDITIONAL_ATTEMPT_MODEL_KEY
+    ):
+        raise StageBManifestError(
+            "additional-attempt exception is bound only to OpenAI 72213663"
+        )
+    logical_key = ProviderSpendKey(
+        cycle_id=cycle_id,
+        provider=provider,
+        account=account,
+        stage="llm-label",
+        model_key=model_key,
+        case_id=candidate_id,
+        ablation="labeling",
+        repeat_index=1,
+    ).logical_call_key
+    return AdditionalAttemptPermit(
+        logical_call_key=logical_key,
+        prompt_sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        journal_path_sha256=hashlib.sha256(
+            str(journal_path.resolve()).encode("utf-8")
+        ).hexdigest(),
+        max_total_attempts=ADDITIONAL_ATTEMPT_MAX_TOTAL,
+        reservation_cap_microusd=ADDITIONAL_ATTEMPT_RESERVATION_CAP_MICROUSD,
+    )
+
+
 def _manifest_units(raw_records: Sequence[Mapping[str, Any]]) -> tuple[JsonRecord, ...]:
     """Derive a local validation view without claiming Stage-A finalization."""
 
@@ -1139,6 +1236,24 @@ def _result_path(output_root: Path, provider: str, candidate_id: str) -> Path:
     return output_root / "results" / provider / f"{safe_candidate}.json"
 
 
+def _additional_attempt_result_path(
+    output_root: Path, provider: str, candidate_id: str
+) -> Path:
+    """Keep the failed first receipt while publishing the bounded retry result."""
+
+    canonical = _result_path(output_root, provider, candidate_id)
+    return canonical.with_name(f"{canonical.stem}.attempt-2{canonical.suffix}")
+
+
+def _preferred_result_path(output_root: Path, provider: str, candidate_id: str) -> Path:
+    """Prefer a successful exception receipt over its preserved failed receipt."""
+
+    retry = _additional_attempt_result_path(output_root, provider, candidate_id)
+    if retry.exists():
+        return retry
+    return _result_path(output_root, provider, candidate_id)
+
+
 def _shard_artifact_paths(
     output_root: Path, provider: str, max_cases: int | None
 ) -> tuple[Path, Path]:
@@ -1357,6 +1472,52 @@ def _existing_result(
     return dict(cast(Mapping[str, Any], value))
 
 
+def _existing_failure_result(
+    path: Path,
+    *,
+    candidate_id: str,
+    provider: str,
+    model_key: str,
+    raw_sha256: str,
+    raw_candidate_envelope_sha256: str,
+    decision_sha256: str,
+    registry_sha256: str,
+    selection: Mapping[str, Any],
+) -> JsonRecord:
+    """Authenticate the preserved attempt-1 failure before a retry receipt."""
+
+    value = _json_object(
+        _read_regular(path, f"existing failed result {path}"),
+        f"existing failed result {path}",
+    )
+    expected = {
+        "schema_version": str(STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
+        "status": "failed",
+        "candidate_id": candidate_id,
+        "case_id": _required_str(selection, "case_id"),
+        "provider": provider,
+        "model_key": model_key,
+        "model_registry_sha256": registry_sha256,
+        "raw_prediction_units_sha256": raw_sha256,
+        "raw_candidate_envelope_sha256": raw_candidate_envelope_sha256,
+        "decision_texts_sha256": decision_sha256,
+        "provider_sampling_policy": "provider_default",
+        "tools_enabled": False,
+    }
+    for key, expected_value in expected.items():
+        if value.get(key) != expected_value:
+            raise StageBManifestError(
+                f"existing failed result identity differs: {path}/{key}"
+            )
+    if not isinstance(value.get("error_type"), str) or not isinstance(
+        value.get("error_message"), str
+    ):
+        raise StageBManifestError(
+            f"existing failed result evidence is incomplete: {path}"
+        )
+    return dict(value)
+
+
 def _authority_identity(
     *, raw_sha256: str, decision_sha256: str, registry_sha256: str, provider: str
 ) -> str:
@@ -1392,6 +1553,8 @@ def _execute_provider(
     max_cases: int | None,
     frozen_unit_adjudications: Mapping[str, Mapping[str, Any]] | None = None,
     frozen_unit_adjudications_sha256: str | None = None,
+    additional_attempt_candidate: str | None = None,
+    owner_comment_ids: Sequence[str] | None = None,
 ) -> tuple[JsonRecord, ...]:
     del raw_path, decision_texts_path
     if provider not in PROVIDER_CAP_USD:
@@ -1423,9 +1586,21 @@ def _execute_provider(
         raise StageBManifestError(
             "frozen-unit adjudication contains an unselected candidate"
         )
+    if (
+        additional_attempt_candidate is not None
+        and additional_attempt_candidate not in candidate_ids
+    ):
+        raise StageBManifestError(
+            "additional-attempt candidate is outside the selected execution"
+        )
     journal_path = _provider_attempt_journal_path(output_root, provider)
     authority_path = output_root / f"spend-authority-{provider}.sqlite3"
     account = f"cycle1-{provider}"
+    effective_owner_comment_ids = (
+        tuple(owner_comment_ids)
+        if owner_comment_ids is not None
+        else _owner_approval_ids()
+    )
     with SqliteProviderSpendAuthority(
         authority_path,
         authority_identity_sha256=_authority_identity(
@@ -1473,30 +1648,100 @@ def _execute_provider(
                 frozen_units,
                 decision_text_commitment=commitment,
             )
-            result_path = _result_path(output_root, provider, candidate_id)
-            prior = _existing_result(
-                result_path,
-                candidate_id=candidate_id,
-                provider=provider,
-                model_key=registry_entry.registry_key,
-                raw_sha256=raw_sha256,
-                raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
-                    candidate_id
-                ],
-                decision_sha256=decision_sha256,
-                registry_sha256=registry_sha256,
-                selection=selection,
-                frozen_units=frozen_units,
-                decision_commitment=commitment,
-                prompt=prompt,
-                frozen_unit_adjudication=adjudication,
+            canonical_result_path = _result_path(output_root, provider, candidate_id)
+            retry_enabled = additional_attempt_candidate == candidate_id
+            retry_result_path = _additional_attempt_result_path(
+                output_root, provider, candidate_id
             )
+            prior: JsonRecord | None = None
+            result_path = canonical_result_path
+            if retry_enabled and retry_result_path.exists():
+                _existing_failure_result(
+                    canonical_result_path,
+                    candidate_id=candidate_id,
+                    provider=provider,
+                    model_key=registry_entry.registry_key,
+                    raw_sha256=raw_sha256,
+                    raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                        candidate_id
+                    ],
+                    decision_sha256=decision_sha256,
+                    registry_sha256=registry_sha256,
+                    selection=selection,
+                )
+                prior = _existing_result(
+                    retry_result_path,
+                    candidate_id=candidate_id,
+                    provider=provider,
+                    model_key=registry_entry.registry_key,
+                    raw_sha256=raw_sha256,
+                    raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                        candidate_id
+                    ],
+                    decision_sha256=decision_sha256,
+                    registry_sha256=registry_sha256,
+                    selection=selection,
+                    frozen_units=frozen_units,
+                    decision_commitment=commitment,
+                    prompt=prompt,
+                    frozen_unit_adjudication=adjudication,
+                )
+                result_path = retry_result_path
+            elif canonical_result_path.exists():
+                try:
+                    prior = _existing_result(
+                        canonical_result_path,
+                        candidate_id=candidate_id,
+                        provider=provider,
+                        model_key=registry_entry.registry_key,
+                        raw_sha256=raw_sha256,
+                        raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                            candidate_id
+                        ],
+                        decision_sha256=decision_sha256,
+                        registry_sha256=registry_sha256,
+                        selection=selection,
+                        frozen_units=frozen_units,
+                        decision_commitment=commitment,
+                        prompt=prompt,
+                        frozen_unit_adjudication=adjudication,
+                    )
+                except StageBManifestError:
+                    if not retry_enabled:
+                        raise
+                    _existing_failure_result(
+                        canonical_result_path,
+                        candidate_id=candidate_id,
+                        provider=provider,
+                        model_key=registry_entry.registry_key,
+                        raw_sha256=raw_sha256,
+                        raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                            candidate_id
+                        ],
+                        decision_sha256=decision_sha256,
+                        registry_sha256=registry_sha256,
+                        selection=selection,
+                    )
+                    result_path = retry_result_path
             if prior is not None:
                 records.append(cast(JsonRecord, prior["audit"]))
                 continue
             replay_only = adjudication is not None
             if not replay_only:
                 _validate_provider_environment(provider)
+            additional_attempt_permit = (
+                _additional_attempt_permit(
+                    candidate_id=candidate_id,
+                    provider=provider,
+                    account=account,
+                    model_key=registry_entry.registry_key,
+                    prompt=prompt,
+                    journal_path=journal_path,
+                    cycle_id="cycle-1-stage-b-manifest",
+                )
+                if retry_enabled
+                else None
+            )
             authorities: Mapping[str, ProviderSpendAuthority] = {provider: authority}
             accounts = {provider: account}
             frozen_workflow_audit: JsonRecord = {}
@@ -1513,7 +1758,10 @@ def _execute_provider(
                         transport=None,
                         environ=None,
                         timeout_seconds=120.0,
-                        max_provider_attempts=1,
+                        max_provider_attempts=(
+                            ADDITIONAL_ATTEMPT_MAX_TOTAL if retry_enabled else 1
+                        ),
+                        additional_attempt_permit=additional_attempt_permit,
                         provider_journal_path=journal_path,
                         provider_cycle_cap_usd=PROVIDER_CAP_USD[provider],
                         provider_cycle_id="cycle-1-stage-b-manifest",
@@ -1655,7 +1903,7 @@ def _execute_provider(
                 "result_root": str(output_root / "results" / provider),
                 "provider_attempt_journal": _source_digest(journal_path),
             },
-            "owner_comment_ids": list(_owner_approval_ids()),
+            "owner_comment_ids": list(effective_owner_comment_ids),
             "provider_sampling_policy": "provider_default",
             "tools_enabled": False,
             "create_only": True,
@@ -1797,7 +2045,9 @@ def _validate_full_provider_shard(
             frozen_units,
             decision_text_commitment=commitment,
         )
-        result_path = _result_path(output_root, normalized_provider, candidate_id)
+        result_path = _preferred_result_path(
+            output_root, normalized_provider, candidate_id
+        )
         adjudication = provider_adjudications.get(candidate_id)
         if adjudication is not None:
             _validate_frozen_unit_adjudication(
@@ -2225,10 +2475,25 @@ def run(args: argparse.Namespace) -> int:
         )
         print(json.dumps(summary, sort_keys=True))
         return 0
-    if args.merge:
-        if args.execute or provider is not None:
+    additional_attempt_candidate = getattr(args, "additional_attempt_candidate", None)
+    if additional_attempt_candidate is not None:
+        if provider != ADDITIONAL_ATTEMPT_PROVIDER:
             raise StageBManifestError(
-                "--merge cannot be combined with --execute or --provider"
+                "additional-attempt exception requires the OpenAI shard"
+            )
+        if additional_attempt_candidate != ADDITIONAL_ATTEMPT_CANDIDATE:
+            raise StageBManifestError(
+                "additional-attempt exception is bound only to candidate 72213663"
+            )
+        owner_comment_ids = (*owner_comment_ids, _additional_attempt_approval_id())
+    if args.merge:
+        if (
+            args.execute
+            or provider is not None
+            or additional_attempt_candidate is not None
+        ):
+            raise StageBManifestError(
+                "--merge cannot be combined with --execute, --provider, or retry"
             )
         summary = _merge_provider_shards(
             output_root=output_root,
@@ -2245,6 +2510,8 @@ def run(args: argparse.Namespace) -> int:
         )
         print(json.dumps(summary, sort_keys=True))
         return 0
+    if additional_attempt_candidate is not None and not args.execute:
+        raise StageBManifestError("--additional-attempt-candidate requires --execute")
     if not args.execute:
         plan = {
             "schema_version": str(STAGE_B_MANIFEST_PLAN_V1),
@@ -2300,6 +2567,8 @@ def run(args: argparse.Namespace) -> int:
         max_cases=args.max_cases,
         frozen_unit_adjudications=frozen_unit_adjudications,
         frozen_unit_adjudications_sha256=frozen_unit_adjudications_sha256,
+        additional_attempt_candidate=additional_attempt_candidate,
+        owner_comment_ids=owner_comment_ids,
     )
     print(
         json.dumps(
@@ -2348,6 +2617,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--owner-comment-id")
     parser.add_argument("--candidate-id")
+    parser.add_argument(
+        "--additional-attempt-candidate",
+        help="Owner-approved second attempt for candidate 72213663 only.",
+    )
     parser.add_argument(
         "--merge",
         action="store_true",
