@@ -6340,12 +6340,29 @@ def _coerced_excerpt_without_page_boundary(text: str, excerpt: str) -> str | Non
     source_ends = source_ends[
         leading_space_count : leading_space_count + len(normalized_text)
     ]
-    offset = normalized_text.find(normalized_excerpt)
-    if offset < 0:
+    matches: list[tuple[int, int, tuple[tuple[int, int], ...]]] = []
+    search_start = 0
+    while True:
+        offset = normalized_text.find(normalized_excerpt, search_start)
+        if offset < 0:
+            break
+        if _word_boundary_match(normalized_text, normalized_excerpt, offset):
+            start = source_starts[offset]
+            end_offset = offset + len(normalized_excerpt) - 1
+            end = source_ends[min(end_offset, len(source_ends) - 1)]
+            crossed_boundaries = tuple(
+                boundary
+                for boundary in boundary_spans
+                if start < boundary[1] and end > boundary[0]
+            )
+            matches.append((start, end, crossed_boundaries))
+        search_start = offset + 1
+
+    if len(matches) != 1:
         return None
-    start = source_starts[offset]
-    end_offset = offset + len(normalized_excerpt) - 1
-    end = source_ends[min(end_offset, len(source_ends) - 1)]
+    start, end, crossed_boundaries = matches[0]
+    if len(crossed_boundaries) != 1 or _omits_unqualified_pdf_line_number(text, start):
+        return None
     return text[start:end].strip()
 
 

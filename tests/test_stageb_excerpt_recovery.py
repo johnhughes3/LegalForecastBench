@@ -289,6 +289,86 @@ def test_stage_b_page_boundary_recovery_returns_exact_source_slice() -> None:
     )
 
 
+def test_stage_b_page_boundary_recovery_rejects_unrelated_isolated_line_number() -> (
+    None
+):
+    decision_text = (
+        "7 The motion\nis denied.\n\n"
+        "11\n\n\n\n---\n\n##### Page 12\n\n"
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12\n\n"
+        "The later page is unrelated."
+    )
+    excerpt = "The motion is denied."
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_without_page_boundary(
+            decision_text, excerpt
+        )
+        is None
+    )
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="supporting_excerpt does not appear in decision text",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
+
+
+def test_stage_b_page_boundary_recovery_rejects_duplicate_matches() -> None:
+    decision_text = (
+        "The claim survives because the record is complete.\n\n"
+        "11\n\n\n\n---\n\n##### Page 12\n\n"
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12\n\n"
+        "That conclusion follows.\n\n"
+        "The claim survives because the record is complete.\n\n"
+        "13\n\n\n\n---\n\n##### Page 14\n\n"
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 14 of 14\n\n"
+        "That conclusion follows."
+    )
+    excerpt = (
+        "The claim survives because the record is complete. That conclusion follows."
+    )
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_without_page_boundary(
+            decision_text, excerpt
+        )
+        is None
+    )
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="supporting_excerpt does not appear in decision text",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
+
+
+def test_stage_b_page_boundary_recovery_rejects_multi_boundary_match() -> None:
+    decision_text = (
+        "The first conclusion is established.\n\n"
+        "11\n\n\n\n---\n\n##### Page 12\n\n"
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12\n\n"
+        "The second conclusion is established.\n\n"
+        "13\n\n\n\n---\n\n##### Page 14\n\n"
+        "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 14 of 14\n\n"
+        "The third conclusion is established."
+    )
+    excerpt = (
+        "The first conclusion is established. The second conclusion is "
+        "established. The third conclusion is established."
+    )
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_without_page_boundary(
+            decision_text, excerpt
+        )
+        is None
+    )
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="supporting_excerpt does not appear in decision text",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
+
+
 @pytest.mark.parametrize(
     "invalid_boundary",
     [
