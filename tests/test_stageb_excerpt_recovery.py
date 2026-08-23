@@ -353,6 +353,22 @@ def test_stage_b_pdf_line_recovery_rejects_ambiguous_unindented_matches() -> Non
         cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
 
 
+def test_stage_b_pdf_line_recovery_prefers_exact_unindented_occurrence() -> None:
+    decision_text = (
+        " 7 repeated citation text\n"
+        " 8 continues\n"
+        "\n"
+        "repeated citation text continues"
+    )
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt(
+            decision_text, "repeated citation text continues"
+        )
+        == "repeated citation text continues"
+    )
+
+
 def test_stage_b_indented_pdf_line_recovery_uses_rendered_mapping() -> None:
     decision_text = " 7 first line\n 8 second line"
 

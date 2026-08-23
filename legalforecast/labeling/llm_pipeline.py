@@ -5950,19 +5950,34 @@ def _coerced_excerpt_from_rendered_markdown(text: str, excerpt: str) -> str | No
         search_start = offset + 1
     if not matches:
         return None
-    if qualified_prefixes and len(matches) > 1:
-        raise LlmPipelineError(
-            "supporting_excerpt has ambiguous PDF line-number matches"
-        )
-    offset = matches[0]
+    if qualified_prefixes:
+        # Let an exact source occurrence win over a presentation-only recovery.
+        # This prevents a numbered copy from shadowing the authenticated exact
+        # occurrence later in the decision text.
+        if text.find(excerpt.strip()) >= 0:
+            return None
+        crossing_matches: list[int] = []
+        for offset in matches:
+            last = offset + len(target.text) - 1
+            start = source.source_starts[offset]
+            end = source.source_ends[last]
+            if any(
+                prefix_start < end and prefix_end > start
+                for prefix_start, prefix_end in qualified_prefixes.values()
+            ):
+                crossing_matches.append(offset)
+        if len(crossing_matches) > 1:
+            raise LlmPipelineError(
+                "supporting_excerpt has ambiguous PDF line-number matches"
+            )
+        if not crossing_matches:
+            return None
+        offset = crossing_matches[0]
+    else:
+        offset = matches[0]
     last = offset + len(target.text) - 1
     start = source.source_starts[offset]
     end = source.source_ends[last]
-    if qualified_prefixes and not any(
-        prefix_start < end and prefix_end > start
-        for prefix_start, prefix_end in qualified_prefixes.values()
-    ):
-        return None
     for opening, opening_end, closing, closing_end in source.emphasis_pairs:
         if source.source_starts[offset] == opening_end:
             start = opening
@@ -6299,18 +6314,24 @@ def _coerced_excerpt_without_pdf_line_numbers(text: str, excerpt: str) -> str | 
         if _word_boundary_match(normalized_text, normalized_excerpt, offset):
             matches.append(offset)
         search_start = offset + 1
-    if len(matches) > 1:
+    if not matches:
+        return None
+    crossing_matches = [
+        offset
+        for offset in matches
+        if any(
+            offset <= position < offset + len(normalized_excerpt)
+            for position in removed_prefix_positions
+        )
+    ]
+    if len(crossing_matches) > 1:
         raise LlmPipelineError(
             "supporting_excerpt has ambiguous PDF line-number matches"
         )
-    if not matches:
+    if not crossing_matches:
         return None
-    offset = matches[0]
+    offset = crossing_matches[0]
     end_offset = offset + len(normalized_excerpt)
-    if not any(
-        offset <= position < end_offset for position in removed_prefix_positions
-    ):
-        return None
     start = source_starts[offset]
     end = source_ends[end_offset - 1]
     return text[start:end].strip()
