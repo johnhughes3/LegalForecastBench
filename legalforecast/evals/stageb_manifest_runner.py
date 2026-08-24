@@ -1883,6 +1883,7 @@ def _execute_provider(
             authorities: Mapping[str, ProviderSpendAuthority] = {provider: authority}
             accounts = {provider: account}
             frozen_workflow_audit: JsonRecord = {}
+            supporting_evidence_audit: JsonRecord = {}
             try:
                 labels, response, finding_count, missing_count, prompt_sha256 = (
                     _llm_label_one_model(
@@ -1914,6 +1915,9 @@ def _execute_provider(
                         frozen_unit_adjudication=adjudication,
                         frozen_unit_workflow_audit=frozen_workflow_audit,
                         replay_only=replay_only,
+                        supporting_evidence_audit=(
+                            supporting_evidence_audit if recovery_enabled else None
+                        ),
                     )
                 )
             except Exception as exc:
@@ -1963,6 +1967,8 @@ def _execute_provider(
                 "metadata": dict(response.metadata or {}),
                 "labels": [label.to_record() for label in labels],
             }
+            if supporting_evidence_audit:
+                model_output.update(supporting_evidence_audit)
             if adjudication is not None:
                 if frozen_workflow_audit.get("frozen_unit_adjudication") != dict(
                     adjudication
@@ -1988,6 +1994,8 @@ def _execute_provider(
             }
             if frozen_workflow_audit:
                 audit.update(frozen_workflow_audit)
+            if supporting_evidence_audit:
+                audit.update(supporting_evidence_audit)
             result = {
                 "schema_version": str(STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
                 "status": "succeeded",
