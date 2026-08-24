@@ -388,6 +388,8 @@ def read_llm_stage_a_unitizer_terminal_failure_evidence(
                 attempt_ordinal=int(row["attempt_ordinal"]),
                 raw_response_json=cast(str, row["raw_response_json"]),
                 normalized_response_json=cast(str, row["normalized_response_json"]),
+                failure_type=cast(str, row["failure_type"]),
+                failure_message=cast(str, row["failure_message"]),
             )
             for row in rows
         ),
