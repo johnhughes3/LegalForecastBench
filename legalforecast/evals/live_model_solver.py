@@ -108,6 +108,10 @@ class LiveModelTransport(Protocol):
 
 
 RequestBodyObserver = Callable[[bytes], None]
+RunAttemptWithPreflight = Callable[
+    [int, Callable[[], None], Callable[[], JsonRecord]],
+    JsonRecord,
+]
 
 
 class ProviderAttemptHandler(Protocol):
@@ -919,14 +923,21 @@ def _call_live_http_provider(
 
     if not _is_openai_provider(registry_entry):
         provider = _provider_config(registry_entry.provider)
-        provider_request = provider.build_request(
-            registry_entry,
-            prompt,
-            api_key_supplier(),
-            response_json_schema,
-        )
+        provider_request: urllib.request.Request | None = None
+
+        def prepare_provider_request() -> None:
+            nonlocal provider_request
+            if provider_request is None:
+                provider_request = provider.build_request(
+                    registry_entry,
+                    prompt,
+                    api_key_supplier(),
+                    response_json_schema,
+                )
 
         def provider_call() -> JsonRecord:
+            if provider_request is None:
+                raise RuntimeError("provider request preflight did not run")
             _observe_request_body(provider_request, request_body_observer)
             return transport(provider_request, timeout_seconds)
 
@@ -935,27 +946,39 @@ def _call_live_http_provider(
             max_attempts=max_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
+            attempt_preflight=prepare_provider_request,
         )
         return payload, request_count, durable_attempt_ordinal, None, False
 
     used_tier = OPENAI_SERVICE_TIER
     fell_back = False
-    api_key = api_key_supplier()
-    request = _openai_request(
-        registry_entry,
-        prompt,
-        api_key,
-        response_json_schema,
-        service_tier=used_tier,
-    )
+    api_key: str | None = None
+    request: urllib.request.Request | None = None
+
+    def prepare_openai_request() -> None:
+        nonlocal api_key, request
+        if request is not None:
+            return
+        api_key = api_key_supplier()
+        request = _openai_request(
+            registry_entry,
+            prompt,
+            api_key,
+            response_json_schema,
+            service_tier=used_tier,
+        )
 
     def openai_call() -> JsonRecord:
+        if request is None:
+            raise RuntimeError("OpenAI request preflight did not run")
         _observe_request_body(request, request_body_observer)
         return transport(request, timeout_seconds)
 
     def on_retryable_error(exc: LiveModelProviderError) -> None:
         nonlocal used_tier, fell_back, request
         if used_tier == OPENAI_SERVICE_TIER and _is_openai_flex_unavailable(exc):
+            if api_key is None:
+                raise RuntimeError("OpenAI request preflight did not run")
             used_tier = OPENAI_FALLBACK_SERVICE_TIER
             fell_back = True
             request = _openai_request(
@@ -972,6 +995,7 @@ def _call_live_http_provider(
         retry_backoff_seconds=retry_backoff_seconds,
         attempt_handler=attempt_handler,
         on_retryable_error=on_retryable_error,
+        attempt_preflight=prepare_openai_request,
     )
     return payload, request_count, durable_attempt_ordinal, used_tier, fell_back
 
@@ -994,6 +1018,7 @@ def _call_with_provider_retries(
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None = None,
     on_retryable_error: Callable[[LiveModelProviderError], None] | None = None,
+    attempt_preflight: Callable[[], None] | None = None,
 ) -> tuple[JsonRecord, int, int]:
     """Retry provider transport failures that are plausibly temporary."""
 
@@ -1006,11 +1031,26 @@ def _call_with_provider_retries(
 
     for attempt in range(1, max_attempts + 1):
         try:
-            payload = (
-                attempt_handler.run_attempt(attempt, counted_call)
-                if attempt_handler is not None
-                else counted_call()
-            )
+            if attempt_handler is None:
+                if attempt_preflight is not None:
+                    attempt_preflight()
+                payload = counted_call()
+            else:
+                run_with_preflight = getattr(
+                    attempt_handler,
+                    "run_attempt_with_preflight",
+                    None,
+                )
+                if attempt_preflight is not None and callable(run_with_preflight):
+                    payload = cast(RunAttemptWithPreflight, run_with_preflight)(
+                        attempt,
+                        attempt_preflight,
+                        counted_call,
+                    )
+                else:
+                    if attempt_preflight is not None:
+                        attempt_preflight()
+                    payload = attempt_handler.run_attempt(attempt, counted_call)
             durable_attempt_ordinal = (
                 attempt_handler.durable_attempt_ordinal(attempt)
                 if attempt_handler is not None

@@ -594,6 +594,27 @@ class ProviderAttemptJournal:
     ) -> JsonRecord:
         """Replay a captured response or reserve and execute one HTTP attempt."""
 
+        return self._run_attempt(attempt_ordinal, call, preflight=None)
+
+    def run_attempt_with_preflight(
+        self,
+        attempt_ordinal: int,
+        preflight: Callable[[], None],
+        call: Callable[[], JsonRecord],
+    ) -> JsonRecord:
+        """Replay first, or validate a fresh request before reserving it."""
+
+        return self._run_attempt(attempt_ordinal, call, preflight=preflight)
+
+    def _run_attempt(
+        self,
+        attempt_ordinal: int,
+        call: Callable[[], JsonRecord],
+        *,
+        preflight: Callable[[], None] | None,
+    ) -> JsonRecord:
+        """Replay a response or preflight, reserve, and execute a fresh call."""
+
         durable_ordinal = self._durable_ordinal(attempt_ordinal)
         row = self._attempt(durable_ordinal)
         if row is not None:
@@ -612,6 +633,8 @@ class ProviderAttemptJournal:
                 "ambiguous",
                 "reserved",
             }:
+                if preflight is not None:
+                    preflight()
                 durable_ordinal = self._next_attempt_ordinal()
                 self._durable_ordinals[attempt_ordinal] = durable_ordinal
                 self._reserve(durable_ordinal)
@@ -621,6 +644,8 @@ class ProviderAttemptJournal:
                     f"and status {status}"
                 )
         else:
+            if preflight is not None:
+                preflight()
             self._reserve(durable_ordinal)
         try:
             payload = call()

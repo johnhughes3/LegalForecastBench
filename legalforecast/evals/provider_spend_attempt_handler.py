@@ -18,6 +18,10 @@ from legalforecast.evals.provider_spend_control import (
 )
 
 JsonRecord = Mapping[str, object]
+RunAttemptWithPreflight = Callable[
+    [int, Callable[[], None], Callable[[], JsonRecord]],
+    JsonRecord,
+]
 
 
 class AttemptHandler(Protocol):
@@ -139,6 +143,17 @@ class ProviderSpendAttemptHandler:
             )
             raise
 
+    def run_attempt_with_preflight(
+        self,
+        attempt_ordinal: int,
+        preflight: Callable[[], None],
+        call: Callable[[], JsonRecord],
+    ) -> JsonRecord:
+        """Validate request construction before reserving shared spend."""
+
+        preflight()
+        return self.run_attempt(attempt_ordinal, call)
+
     def durable_attempt_ordinal(self, local_ordinal: int) -> int:
         """Return the authority-assigned ordinal for solver settlement."""
 
@@ -240,6 +255,25 @@ class CompositeProviderAttemptHandler:
         attempt_ordinal: int,
         call: Callable[[], JsonRecord],
     ) -> JsonRecord:
+        return self._run_attempt(attempt_ordinal, call, preflight=None)
+
+    def run_attempt_with_preflight(
+        self,
+        attempt_ordinal: int,
+        preflight: Callable[[], None],
+        call: Callable[[], JsonRecord],
+    ) -> JsonRecord:
+        """Replay without credentials, or preflight before fresh spend."""
+
+        return self._run_attempt(attempt_ordinal, call, preflight=preflight)
+
+    def _run_attempt(
+        self,
+        attempt_ordinal: int,
+        call: Callable[[], JsonRecord],
+        *,
+        preflight: Callable[[], None] | None,
+    ) -> JsonRecord:
         def authorized_call() -> JsonRecord:
             try:
                 result = self.spend_handler.run_attempt(attempt_ordinal, call)
@@ -249,7 +283,21 @@ class CompositeProviderAttemptHandler:
             self._bind_authority_attempt(attempt_ordinal, required=True)
             return result
 
-        result = self.replay_handler.run_attempt(attempt_ordinal, authorized_call)
+        run_with_preflight = getattr(
+            self.replay_handler,
+            "run_attempt_with_preflight",
+            None,
+        )
+        if preflight is not None and callable(run_with_preflight):
+            result = cast(RunAttemptWithPreflight, run_with_preflight)(
+                attempt_ordinal,
+                preflight,
+                authorized_call,
+            )
+        else:
+            if preflight is not None:
+                preflight()
+            result = self.replay_handler.run_attempt(attempt_ordinal, authorized_call)
         if attempt_ordinal not in self._spend_authorized_local_ordinals:
             # A replay hit means the prior process persisted a usable response.
             # Adopt its still-reserved remote attempt before settlement rather

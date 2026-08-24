@@ -4485,8 +4485,8 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 152,
         "layer": "application",
-        "line_count": 1396,
-        "nonblank_line_count": 1214,
+        "line_count": 1436,
+        "nonblank_line_count": 1252,
         "top_level_definition_count": 67
       },
       "legalforecast/evals/output_parser.py": {
@@ -7268,10 +7268,10 @@
         ],
         "lane_owner": "labeling",
         "largest_symbol": "ProviderAttemptJournal",
-        "largest_symbol_lines": 1088,
+        "largest_symbol_lines": 1113,
         "layer": "application",
-        "line_count": 1806,
-        "nonblank_line_count": 1641,
+        "line_count": 1831,
+        "nonblank_line_count": 1662,
         "top_level_definition_count": 34
       },
       "legalforecast/labeling/unitizer_terminal.py": {
