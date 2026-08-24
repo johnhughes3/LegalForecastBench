@@ -320,10 +320,14 @@ def _validate_pair(
         raise ReleaseValidationError("forecast and labels release_id do not match")
     if labels.forecast_release_digest != forecast.release_digest:
         raise ReleaseValidationError("labels bind the wrong forecast release digest")
-    forecast_units = {unit.unit_id for unit in forecast.prediction_units}
+    forecast_units = {
+        unit.unit_id for unit in forecast.prediction_units if unit.should_score
+    }
     label_units = {outcome.unit_id for outcome in labels.unit_outcomes}
     if forecast_units != label_units:
-        raise ReleaseValidationError("labels unit set does not match forecast unit set")
+        raise ReleaseValidationError(
+            "labels unit set does not match scoreable forecast unit set"
+        )
 
 
 def _validate_forecast(forecast: ForecastRelease, *, artifact_root: Path) -> None:

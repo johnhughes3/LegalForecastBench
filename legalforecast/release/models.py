@@ -125,7 +125,7 @@ class PredictionUnitDraft(ReleaseModel):
     case_id: NonEmptyString
     claim_name: NonEmptyString
     defendant_group: NonEmptyString
-    count: Annotated[int, Field(strict=True, gt=0)]
+    count: NonEmptyString
     should_score: bool
     model_visible_document_ids: tuple[NonEmptyString, ...] = Field(min_length=1)
     packet_path: RelativePath
@@ -206,7 +206,7 @@ class ForecastPredictionUnit(ReleaseModel):
     case_id: NonEmptyString
     claim_name: NonEmptyString
     defendant_group: NonEmptyString
-    count: Annotated[int, Field(strict=True, gt=0)]
+    count: NonEmptyString
     should_score: bool
     model_visible_document_indexes: tuple[
         Annotated[int, Field(strict=True, ge=0)], ...

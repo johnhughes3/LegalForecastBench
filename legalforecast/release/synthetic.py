@@ -101,6 +101,7 @@ def _synthetic_inputs() -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
             ).encode()
 
     units: list[PredictionUnitDraft] = []
+    count_labels = ("Count I", "Count II", "Count III")
     for index, (case_id, documents) in enumerate(documents_by_case.items(), start=1):
         unit_id = f"unit-{index:03d}"
         packet_path = f"packets/{unit_id}.json"
@@ -125,8 +126,8 @@ def _synthetic_inputs() -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
                 case_id=case_id,
                 claim_name=f"Synthetic claim {index}",
                 defendant_group=f"Synthetic defendants {index}",
-                count=index,
-                should_score=True,
+                count=count_labels[index - 1],
+                should_score=index < 3,
                 model_visible_document_ids=tuple(
                     document.document_id for document in documents
                 ),
@@ -152,7 +153,6 @@ def _synthetic_inputs() -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
         unit_outcomes=(
             UnitOutcome(unit_id="unit-001", outcome=0),
             UnitOutcome(unit_id="unit-002", outcome=1),
-            UnitOutcome(unit_id="unit-003", outcome=0),
         ),
     )
     return payloads, forecast, labels

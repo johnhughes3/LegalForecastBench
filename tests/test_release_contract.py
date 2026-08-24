@@ -46,7 +46,22 @@ def test_synthetic_issuer_is_deterministic_complete_and_blinded(tmp_path: Path) 
     assert labels.schema_version == str(LABELS_RELEASE_V1)
     assert forecast.case_count == 3
     assert forecast.unit_count == 3
-    assert labels.unit_count == 3
+    assert labels.unit_count == 2
+    assert [unit.count for unit in forecast.prediction_units] == [
+        "Count I",
+        "Count II",
+        "Count III",
+    ]
+    assert [
+        unit.unit_id for unit in forecast.prediction_units if unit.should_score
+    ] == [
+        "unit-001",
+        "unit-002",
+    ]
+    assert [outcome.unit_id for outcome in labels.unit_outcomes] == [
+        "unit-001",
+        "unit-002",
+    ]
     full_packet_roles = {
         document.role
         for document in forecast.cases[0].documents

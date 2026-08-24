@@ -2,7 +2,7 @@
 
 Status: accepted for the additive corpus split.
 
-The public repository owns exactly two current runtime contracts: `legalforecast.forecast-release.v1` contains outcome-blinded execution inputs, and `legalforecast.labels-release.v1` contains outcomes and scoring policy. The forecast release commits release and policy identity, code and packet-builder versions, canonical case and prediction-unit indexes, exact model-visible document indexes, and the bytes of every document, packet, and prompt. The labels release binds the forecast digest and the exact unit set without giving forecast execution an API for label bytes or paths.
+The public repository owns exactly two current runtime contracts: `legalforecast.forecast-release.v1` contains outcome-blinded execution inputs, and `legalforecast.labels-release.v1` contains outcomes and scoring policy. The forecast release commits release and policy identity, code and packet-builder versions, canonical case and prediction-unit indexes, exact model-visible document indexes, and the bytes of every document, packet, and prompt. The labels release binds the forecast digest and the exact scoreable unit set without giving forecast execution an API for label bytes or paths; unscoreable model-visible units have no fabricated labels.
 
 The public package owns canonical issuance and validation. A private corpus producer supplies strict uncommitted drafts and referenced public artifact bytes to `legalforecast release issue`; it does not copy a schema or serialize release bytes itself. `legalforecast release issue-synthetic` proves the complete producer-to-validator flow without providers or private data.
 
