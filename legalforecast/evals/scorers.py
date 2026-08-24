@@ -256,11 +256,17 @@ def score_cases(
     scored_case_count = 0
     invalid_case_count = 0
     refusal_case_count = 0
+    defaulted_prediction_count = 0
+    required_unit_count = 0
     for case in cases:
         labels = _labels_by_unit_id(case.outcome_labels)
         missing_labels = sorted(set(case.parsed_output.required_unit_ids) - set(labels))
         if missing_labels:
             raise ValueError(f"labels missing for required units: {missing_labels}")
+        invalid_case_count += int(case.parsed_output.invalid_output)
+        refusal_case_count += int(case.parsed_output.status is ParserStatus.REFUSAL)
+        required_unit_count += len(case.parsed_output.required_unit_ids)
+        defaulted_prediction_count += len(case.parsed_output.defaulted_unit_ids)
         case_unit_scores = tuple(
             _score_unit(
                 case=case,
@@ -276,10 +282,6 @@ def score_cases(
         unit_scores.extend(case_unit_scores)
         case_briers.append(_mean(score.brier for score in case_unit_scores))
         scored_case_count += 1
-        if case.parsed_output.invalid_output:
-            invalid_case_count += 1
-        if case.parsed_output.status is ParserStatus.REFUSAL:
-            refusal_case_count += 1
 
     if not unit_scores:
         raise ValueError("no scoreable units remain after excluding ambiguous labels")
@@ -328,12 +330,9 @@ def score_cases(
             case_unit_cap=case_unit_cap,
             family_unit_cap=family_unit_cap,
         ),
-        invalid_output_rate=invalid_case_count / scored_case_count,
-        refusal_rate=refusal_case_count / scored_case_count,
-        defaulted_prediction_rate=(
-            sum(1 for unit_score in unit_scores if unit_score.defaulted_prediction)
-            / len(unit_scores)
-        ),
+        invalid_output_rate=invalid_case_count / len(cases),
+        refusal_rate=refusal_case_count / len(cases),
+        defaulted_prediction_rate=defaulted_prediction_count / required_unit_count,
         base_rate=base_rate,
         base_rate_brier=base_rate_brier,
         ece_bins=ece_result.bins,

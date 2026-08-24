@@ -42,10 +42,15 @@ def score_run_records(
         missing_labels = sorted(set(required_unit_ids) - label_unit_id_set)
         if missing_labels:
             raise ValueError(f"labels missing for required units: {missing_labels}")
-        model_id = _display_model_id(
-            _record_model_id(record),
-            _record_ablation(record),
-            include_ablation=include_ablation_in_model_id,
+        base_model_id = _record_model_id(record)
+        model_id = (
+            _display_model_id(
+                base_model_id,
+                _record_ablation(record),
+                include_ablation=True,
+            )
+            if include_ablation_in_model_id
+            else base_model_id
         )
         parsed = parse_model_output(
             _required_str(record, "raw_output"),

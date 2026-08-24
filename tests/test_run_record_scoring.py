@@ -82,7 +82,35 @@ def test_score_run_records_preserves_parser_accounting_for_ambiguous_units() -> 
     summary = summaries[0]
     assert summary.unit_count == 1
     assert summary.invalid_output_rate == 1.0
+    assert summary.defaulted_prediction_rate == 0.5
     assert summary.unit_scores[0].parser_status is ParserStatus.MISSING_UNIT
+
+
+def test_score_run_records_quality_rates_include_all_ambiguous_cases_and_units() -> (
+    None
+):
+    summaries = score_run_records(
+        (
+            _run_record(
+                case_id="refused-ambiguous",
+                required_unit_ids=("unit-a",),
+                raw_output="I cannot provide a prediction.",
+            ),
+            _run_record(
+                case_id="valid-scored",
+                required_unit_ids=("unit-b",),
+            ),
+        ),
+        (_ambiguous_label("unit-a"), _label("unit-b", False)),
+        base_rate=0.0,
+    )
+
+    summary = summaries[0]
+    assert summary.case_count == 1
+    assert summary.unit_count == 1
+    assert summary.invalid_output_rate == 0.5
+    assert summary.refusal_rate == 0.5
+    assert summary.defaulted_prediction_rate == 0.5
 
 
 def test_score_run_records_rejects_duplicate_outcome_label_unit_ids() -> None:
@@ -136,6 +164,19 @@ def test_score_run_records_can_include_ablation_in_model_identity() -> None:
         "model-a::full_packet",
         "model-a::metadata_only",
     )
+
+
+def test_score_run_records_ignores_legacy_ablation_when_not_opted_in() -> None:
+    record = _run_record()
+    record["ablation"] = ""
+
+    summaries = score_run_records(
+        (record,),
+        (_label("unit-a", True), _label("unit-b", False)),
+        base_rate=0.5,
+    )
+
+    assert summaries[0].model_id == "model-fallback"
 
 
 def test_score_run_records_rejects_computed_base_rate_without_scored_labels() -> None:
