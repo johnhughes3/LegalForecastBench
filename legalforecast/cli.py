@@ -46,6 +46,7 @@ from legalforecast.acquisition_completion_summary_cli import (
     add_acquisition_completion_summary_parser,
 )
 from legalforecast.cli_commands import attachment_pages as _attachment_pages_cmd
+from legalforecast.cli_commands import release as _release_cmd
 from legalforecast.cli_commands import report as _report_cmd
 from legalforecast.cli_commands import score as _score_cmd
 from legalforecast.cli_commands.report import (
@@ -1497,6 +1498,8 @@ def build_parser() -> argparse.ArgumentParser:
     _score_cmd.register(subparsers)
 
     _report_cmd.register(subparsers)
+
+    _release_cmd.register(subparsers)
 
     publish = subparsers.add_parser(
         "publish",
