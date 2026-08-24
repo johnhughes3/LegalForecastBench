@@ -82,6 +82,8 @@ def _validate_result(
     path: Path,
     *,
     expected_registry_sha256: str | None,
+    expected_model_key: str = MODEL_ID,
+    expected_prompt_commitments: Mapping[str, str] | None = None,
     derive_missing_output_statuses: frozenset[str],
 ) -> dict[str, Any]:
     if path.is_symlink() or not path.is_file():
@@ -118,7 +120,7 @@ def _validate_result(
         raise LocalLunaResultError(f"nested case_id differs from envelope: {path}")
     if _require_string(run, "ablation") != ablation:
         raise LocalLunaResultError(f"nested ablation differs from envelope: {path}")
-    if _require_string(run, "solver_id") != MODEL_ID:
+    if _require_string(run, "solver_id") != expected_model_key:
         raise LocalLunaResultError(f"unexpected solver identity: {path}")
     if run.get("execution_backend") != "inspect_ai":
         raise LocalLunaResultError(
@@ -142,8 +144,11 @@ def _validate_result(
         )
 
     metadata = _require_mapping(run.get("metadata"), f"metadata in {path}")
+    expected_provider, separator, _ = expected_model_key.partition(":")
+    if not separator or not expected_provider:
+        raise LocalLunaResultError(f"expected model key is not provider:model: {path}")
     if (
-        metadata.get("provider") != "openai"
+        metadata.get("provider") != expected_provider
         or metadata.get("provider_sampling_policy") != "provider_default"
     ):
         raise LocalLunaResultError(
@@ -157,6 +162,25 @@ def _validate_result(
         and registry_sha256 != expected_registry_sha256
     ):
         raise LocalLunaResultError(f"model registry hash mismatch: {path}")
+    envelope_model_key = envelope.get("model_key")
+    if envelope_model_key is not None and envelope_model_key != expected_model_key:
+        raise LocalLunaResultError(f"result model identity mismatch: {path}")
+    envelope_provider = envelope.get("provider")
+    if envelope_provider is not None and envelope_provider != expected_provider:
+        raise LocalLunaResultError(f"result provider identity mismatch: {path}")
+    envelope_tools = envelope.get("tools")
+    if envelope_tools is not None and envelope_tools != []:
+        raise LocalLunaResultError(f"result tools are not empty: {path}")
+    envelope_registry_sha256 = envelope.get("registry_sha256")
+    if envelope_registry_sha256 is not None:
+        if not isinstance(envelope_registry_sha256, str):
+            raise LocalLunaResultError(f"result registry hash is invalid: {path}")
+        if envelope_registry_sha256 != registry_sha256:
+            raise LocalLunaResultError(f"result registry commitment mismatch: {path}")
+    if expected_prompt_commitments is not None:
+        expected_prompt_sha256 = expected_prompt_commitments.get(identity)
+        if expected_prompt_sha256 != envelope.get("prompt_sha256"):
+            raise LocalLunaResultError(f"prompt commitment mismatch: {path}")
 
     runs = [dict(run)]
     expected_response = response_verification_summary_from_run_records(runs)
@@ -165,6 +189,10 @@ def _validate_result(
     )
     if dict(response_verification) != expected_response:
         raise LocalLunaResultError(f"response verification summary mismatch: {path}")
+    if expected_response.get("grounding_artifacts_detected"):
+        raise LocalLunaResultError(
+            f"provider grounding artifacts are not allowed: {path}"
+        )
     expected_statuses = {
         digest: status.to_record()
         for digest, status in output_statuses_from_run_records(runs).items()
@@ -188,6 +216,8 @@ def flatten_results(
     *,
     expected_count: int | None = None,
     expected_registry_sha256: str | None = None,
+    expected_model_key: str = MODEL_ID,
+    expected_prompt_commitments: Mapping[str, str] | None = None,
     derive_missing_output_statuses: frozenset[str] = frozenset(),
 ) -> int:
     """Validate all result envelopes and write a create-only flat JSONL stream."""
@@ -207,6 +237,8 @@ def flatten_results(
         _validate_result(
             path,
             expected_registry_sha256=expected_registry_sha256,
+            expected_model_key=expected_model_key,
+            expected_prompt_commitments=expected_prompt_commitments,
             derive_missing_output_statuses=derive_missing_output_statuses,
         )
         for path in paths

@@ -1,4 +1,8 @@
-"""Resumable local Luna-only runner for the frozen Cycle 1 forecast packets."""
+"""Resumable local model runner for frozen Cycle 1 forecast packets.
+
+The default configuration is the completed Luna run; the Gemini entry point
+selects the supplementary Google configuration without duplicating this logic.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +12,7 @@ import json
 import os
 import subprocess
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -60,6 +65,59 @@ FROZEN_REGISTRY_SHA256 = (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class LocalModelConfig:
+    """Runtime policy for one manifest-bound local model run.
+
+    The original Luna command remains the default configuration.  Supplementary
+    models can use the same authenticated packet, resumable envelope, replay
+    journal, and spend-authority implementation without copying the runner.
+    """
+
+    model_key: str
+    provider: str
+    account: str
+    stage: str
+    approval_bead: str
+    spend_approval: str
+    cap_microusd: int
+    expected_registry_sha256: str | None
+    extended_commitments: bool = False
+
+
+LUNA_CONFIG = LocalModelConfig(
+    model_key=MODEL_KEY,
+    provider="openai",
+    account=ACCOUNT,
+    stage="cycle-1-local-luna",
+    approval_bead="legalforecastbench-3ak.38",
+    spend_approval=SPEND_APPROVAL,
+    cap_microusd=CAP_MICROUSD,
+    expected_registry_sha256=FROZEN_REGISTRY_SHA256,
+)
+
+# This is deliberately a supplementary, post-freeze configuration.  The
+# registry file carries the model release/pricing evidence and its digest is
+# supplied by the Gemini wrapper after the file is published.
+GEMINI_CONFIG = LocalModelConfig(
+    model_key="google:gemini-3.7-flash",
+    provider="google",
+    account="cycle-1-gemini-3-7-flash",
+    stage="cycle-1-local-gemini",
+    approval_bead="legalforecastbench-rkjw",
+    spend_approval=(
+        "I approve up to USD 25 of provider spend for the supplementary Cycle 1 "
+        "Gemini 3.7 Flash run, estimated USD 7, across 100 cases and both frozen "
+        "ablations."
+    ),
+    cap_microusd=25_000_000,
+    expected_registry_sha256=(
+        "131ece75c82275fc8d47d9cd6bbdf7b39ff45f69568750eb4a777709e1a1be75"
+    ),
+    extended_commitments=True,
+)
+
+
 class LocalLunaRunnerError(RuntimeError):
     """Raised before unsafe, ambiguous, or identity-drifting local execution."""
 
@@ -74,9 +132,9 @@ def _read_json(path: Path) -> object:
     return json.loads(path.read_bytes())
 
 
-def _owner_approvals() -> dict[str, str]:
+def _owner_approvals(config: LocalModelConfig) -> dict[str, str]:
     completed = subprocess.run(
-        ["bd", "comments", "legalforecastbench-3ak.38", "--json"],
+        ["bd", "comments", config.approval_bead, "--json"],
         check=True,
         capture_output=True,
         text=True,
@@ -93,9 +151,11 @@ def _owner_approvals() -> dict[str, str]:
             continue
         text = row.get("text")
         comment_id = row.get("id")
-        if text in {SPEND_APPROVAL, MANIFEST_APPROVAL} and isinstance(comment_id, str):
+        if text in {config.spend_approval, MANIFEST_APPROVAL} and isinstance(
+            comment_id, str
+        ):
             evidence[cast(str, text)] = comment_id
-    for required in (SPEND_APPROVAL, MANIFEST_APPROVAL):
+    for required in (config.spend_approval, MANIFEST_APPROVAL):
         if required not in evidence:
             raise LocalLunaRunnerError(f"missing exact owner approval: {required}")
     return evidence
@@ -109,6 +169,7 @@ def _authenticate_frozen_chain(
     run_inputs: Mapping[str, Any],
     run_record: Mapping[str, Any],
     registry_bytes: bytes,
+    config: LocalModelConfig,
 ) -> Mapping[Path, bytes]:
     """Authenticate the issued manifest inputs before provider authorization."""
 
@@ -132,9 +193,15 @@ def _authenticate_frozen_chain(
     run_record_bytes = read_committed(
         run_record_path, FROZEN_RUN_RECORD_SHA256, "run record"
     )
-    committed_registry_bytes = read_committed(
-        registry_path, FROZEN_REGISTRY_SHA256, "registry"
-    )
+    expected_registry_sha256 = config.expected_registry_sha256
+    if expected_registry_sha256 is not None:
+        committed_registry_bytes = read_committed(
+            registry_path, expected_registry_sha256, "registry"
+        )
+    else:
+        committed_registry_bytes = registry_bytes
+        if _sha(committed_registry_bytes) != _sha(registry_bytes):
+            raise LocalLunaRunnerError("registry bytes changed during authentication")
     if committed_registry_bytes != registry_bytes:
         raise LocalLunaRunnerError("registry bytes changed during authentication")
     snapshots: dict[Path, bytes] = {
@@ -253,7 +320,7 @@ def _select_rows(
     return selected
 
 
-def run(args: argparse.Namespace) -> int:
+def run(args: argparse.Namespace, config: LocalModelConfig = LUNA_CONFIG) -> int:
     run_inputs_path = Path(args.run_inputs).resolve()
     run_record_path = Path(args.run_record).resolve()
     registry_path = Path(args.registry).resolve()
@@ -263,14 +330,14 @@ def run(args: argparse.Namespace) -> int:
     if (
         isinstance(prior_committed_microusd, bool)
         or prior_committed_microusd < 0
-        or prior_committed_microusd >= CAP_MICROUSD
+        or prior_committed_microusd >= config.cap_microusd
     ):
         raise LocalLunaRunnerError(
             "prior_committed_microusd must be between zero and the owner ceiling"
         )
-    effective_cap_microusd = CAP_MICROUSD - prior_committed_microusd
+    effective_cap_microusd = config.cap_microusd - prior_committed_microusd
     run_inputs, run_record = _load_inputs(run_inputs_path, run_record_path)
-    approvals = _owner_approvals()
+    approvals = _owner_approvals(config)
     registry_bytes = registry_path.read_bytes()
     authenticated_snapshots = _authenticate_frozen_chain(
         run_inputs_path=run_inputs_path,
@@ -279,20 +346,27 @@ def run(args: argparse.Namespace) -> int:
         run_inputs=run_inputs,
         run_record=run_record,
         registry_bytes=registry_bytes,
+        config=config,
     )
     if not authenticated_snapshots:
         raise LocalLunaRunnerError("frozen chain authentication captured no inputs")
     registry = load_model_registry(registry_path)
-    entries = [entry for entry in registry.entries if entry.registry_key == MODEL_KEY]
+    entries = [
+        entry for entry in registry.entries if entry.registry_key == config.model_key
+    ]
     if len(entries) != 1:
-        raise LocalLunaRunnerError("registry must contain exactly one Luna entry")
+        raise LocalLunaRunnerError(
+            f"registry must contain exactly one {config.model_key} entry"
+        )
     entry = entries[0]
     if (
-        entry.provider != "openai"
+        entry.provider != config.provider
         or not entry.network_disabled
         or not entry.search_disabled
     ):
-        raise LocalLunaRunnerError("Luna registry safety fields differ")
+        raise LocalLunaRunnerError(f"{config.model_key} registry safety fields differ")
+    if config.provider == "google" and entry.tool_policy.value != "no_tools":
+        raise LocalLunaRunnerError("Gemini supplementary registry must disable tools")
     rows = _select_rows(run_inputs, args.packet)
     if args.shard_count <= 0:
         raise LocalLunaRunnerError("shard_count must be positive")
@@ -306,10 +380,10 @@ def run(args: argparse.Namespace) -> int:
     authority_identity = _sha(
         json.dumps(
             {
-                "approval": SPEND_APPROVAL,
+                "approval": config.spend_approval,
                 "manifest": MANIFEST_DIGEST,
-                "model_key": MODEL_KEY,
-                "owner_cap_microusd": CAP_MICROUSD,
+                "model_key": config.model_key,
+                "owner_cap_microusd": config.cap_microusd,
                 "prior_committed_microusd": prior_committed_microusd,
                 "registry_sha256": _sha(registry_bytes),
                 "run_inputs_sha256": _sha(run_inputs_path.read_bytes()),
@@ -321,12 +395,12 @@ def run(args: argparse.Namespace) -> int:
     plan = {
         "schema_version": str(LOCAL_LUNA_PLAN_V1),
         "manifest_sha256": MANIFEST_DIGEST,
-        "model_key": MODEL_KEY,
+        "model_key": config.model_key,
         "registry_sha256": _sha(registry_bytes),
         "run_inputs_sha256": _sha(run_inputs_path.read_bytes()),
         "run_record_sha256": _sha(run_record_path.read_bytes()),
         "cap_microusd": effective_cap_microusd,
-        "owner_cap_microusd": CAP_MICROUSD,
+        "owner_cap_microusd": config.cap_microusd,
         "prior_committed_microusd": prior_committed_microusd,
         "packet_count": len(rows),
         "packets": [f"{row['case_id']}:{row['ablation']}" for row in rows],
@@ -338,9 +412,15 @@ def run(args: argparse.Namespace) -> int:
     print(json.dumps(plan, sort_keys=True))
     if args.dry_run:
         return 0
-    if "OPENAI_API_KEY" not in os.environ or not os.environ["OPENAI_API_KEY"]:
+    api_key_name = {
+        "openai": "OPENAI_API_KEY",
+        "google": "GEMINI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+    }.get(config.provider)
+    if api_key_name is None or not os.environ.get(api_key_name):
         raise LocalLunaRunnerError(
-            "OPENAI_API_KEY is not present in the runtime environment"
+            f"{api_key_name or config.provider + ' API key'} is not present in the "
+            "runtime environment"
         )
     output_root.mkdir(parents=True, exist_ok=True)
     policy = FrozenAttemptPolicy(
@@ -353,8 +433,8 @@ def run(args: argparse.Namespace) -> int:
         output_root / f"provider-spend-{prior_committed_microusd}.sqlite3",
         authority_identity_sha256=authority_identity,
         cycle_id=cast(str, run_record["cycle_id"]),
-        provider="openai",
-        account=ACCOUNT,
+        provider=config.provider,
+        account=config.account,
         cap_microusd=effective_cap_microusd,
         policy=policy,
     ) as authority:
@@ -370,6 +450,21 @@ def run(args: argparse.Namespace) -> int:
                     != row["packet_sha256"]
                     or cast(Mapping[str, object], existing).get("prompt_sha256")
                     != row["prompt_sha256"]
+                    or cast(Mapping[str, object], existing).get(
+                        "plan_identity_sha256"
+                    )
+                    != authority_identity
+                    or (
+                        config.extended_commitments
+                        and (
+                            cast(Mapping[str, object], existing).get("model_key")
+                            != config.model_key
+                            or cast(Mapping[str, object], existing).get(
+                                "registry_sha256"
+                            )
+                            != _sha(registry_bytes)
+                        )
+                    )
                 ):
                     raise LocalLunaRunnerError(
                         f"existing result identity differs: {result_path}"
@@ -418,15 +513,15 @@ def run(args: argparse.Namespace) -> int:
             with ProviderAttemptJournal(
                 replay_path,
                 identity=ProviderCallIdentity(
-                    stage="cycle-1-local-luna",
+                    stage=config.stage,
                     candidate_id=identity,
-                    model_key=MODEL_KEY,
+                    model_key=config.model_key,
                     prompt=samples[0].prompt,
                     model_registry_sha256=_sha(registry_bytes),
-                    account=ACCOUNT,
+                    account=config.account,
                     prompt_contract=cast(str, row["prompt_sha256"]),
                 ),
-                provider="openai",
+                provider=config.provider,
                 reservation_usd=reservation_microusd / 1_000_000,
                 cycle_cap_usd=effective_cap_microusd / 1_000_000,
                 cycle_id=cast(str, run_record["cycle_id"]),
@@ -444,10 +539,10 @@ def run(args: argparse.Namespace) -> int:
                             authority=authority,
                             key=ProviderSpendKey(
                                 cycle_id=cast(str, run_record["cycle_id"]),
-                                provider="openai",
-                                account=ACCOUNT,
-                                stage="cycle-1-local-luna",
-                                model_key=MODEL_KEY,
+                                provider=config.provider,
+                                account=config.account,
+                                stage=config.stage,
+                                model_key=config.model_key,
                                 case_id=request.sample.packet.case_id,
                                 ablation=request.sample.packet.ablation.value,
                                 repeat_index=1,
@@ -489,6 +584,15 @@ def run(args: argparse.Namespace) -> int:
                     "output_statuses": output_statuses,
                     "runs": records,
                 }
+                if config.extended_commitments:
+                    record.update(
+                        {
+                            "model_key": config.model_key,
+                            "registry_sha256": _sha(registry_bytes),
+                            "provider": config.provider,
+                            "tools": [],
+                        }
+                    )
                 flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
                 descriptor = os.open(result_path, flags, 0o600)
                 with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
@@ -499,7 +603,11 @@ def run(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    config: LocalModelConfig = LUNA_CONFIG,
+) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-inputs", required=True)
     parser.add_argument("--run-record", required=True)
@@ -518,7 +626,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--dry-run", action="store_true")
-    return run(parser.parse_args(argv))
+    return run(parser.parse_args(argv), config=config)
 
 
 if __name__ == "__main__":
