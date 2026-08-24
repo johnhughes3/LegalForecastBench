@@ -910,6 +910,21 @@ def test_stage_b_exact_excerpt_ignores_unrelated_unmatched_marker() -> None:
     assert cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt) == excerpt
 
 
+def test_stage_b_balanced_multi_pair_markdown_recovery_precedes_local_guard() -> None:
+    decision_text = (
+        "The court *granted* the motion because the plaintiff *failed* to state "
+        "a claim."
+    )
+    excerpt = (
+        "The court granted the motion because the plaintiff failed to state a claim."
+    )
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
+        == decision_text
+    )
+
+
 @pytest.mark.parametrize(
     "decision_text",
     [

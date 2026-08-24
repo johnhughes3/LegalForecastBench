@@ -5998,6 +5998,13 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
         # malformed markers must not invalidate a citation that needs no
         # coercion at all.
         return stripped
+    rendered_markdown_recovery = _coerced_excerpt_from_rendered_markdown(text, stripped)
+    if rendered_markdown_recovery is not None:
+        if exact_offset < 0 and _single_markdown_candidate_count(text, stripped) > 1:
+            raise LlmPipelineError(
+                "supporting_excerpt does not appear in decision text"
+            )
+        return rendered_markdown_recovery
     if exact_offset < 0:
         local_markdown_recovery = _coerced_excerpt_without_single_markdown_emphasis(
             text, stripped
@@ -6010,9 +6017,6 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
             raise LlmPipelineError(
                 "supporting_excerpt does not appear in decision text"
             )
-    rendered_markdown_recovery = _coerced_excerpt_from_rendered_markdown(text, stripped)
-    if rendered_markdown_recovery is not None:
-        return rendered_markdown_recovery
     if exact_match_omits_line_number:
         raise LlmPipelineError("supporting_excerpt does not appear in decision text")
     if exact_offset >= 0:
