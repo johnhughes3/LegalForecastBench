@@ -2,9 +2,9 @@
   "cli_metrics": {
     "command_handler_count": 168,
     "command_handler_lines": 27189,
-    "line_count": 74333,
-    "nonblank_line_count": 71529,
-    "parser_line_count": 1802,
+    "line_count": 74336,
+    "nonblank_line_count": 71531,
+    "parser_line_count": 1804,
     "top_level_class_count": 20,
     "top_level_definition_count": 1019,
     "verifier_family_count": 164,
@@ -89,6 +89,7 @@
       "tests/test_policy_artifacts.py",
       "tests/test_provenance_clearance_cli.py",
       "tests/test_provider_cycle_caps_successor_cli.py",
+      "tests/test_public_runner.py",
       "tests/test_purchase_approval.py",
       "tests/test_purchase_ledger_init_cli.py",
       "tests/test_purchase_spend_summary.py",
@@ -229,6 +230,7 @@
       "tests/test_provenance_clearance_cli.py",
       "tests/test_provenance_clearance_cli.py",
       "tests/test_provider_cycle_caps_successor_cli.py",
+      "tests/test_public_runner.py",
       "tests/test_purchase_approval.py",
       "tests/test_purchase_approval.py",
       "tests/test_purchase_ledger_init_cli.py",
@@ -2739,6 +2741,7 @@
       "tests/test_policy_artifacts.py",
       "tests/test_provenance_clearance_cli.py",
       "tests/test_provider_cycle_caps_successor_cli.py",
+      "tests/test_public_runner.py",
       "tests/test_purchase_approval.py",
       "tests/test_purchase_ledger_init_cli.py",
       "tests/test_purchase_spend_summary.py",
@@ -3336,6 +3339,7 @@
       "tests/test_provenance_clearance_cli.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
       "tests/test_provenance_clearance_cli.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
       "tests/test_provider_cycle_caps_successor_cli.py::legalforecast.cli.main",
+      "tests/test_public_runner.py::legalforecast.cli.main",
       "tests/test_purchase_approval.py::legalforecast.cli.CommandError",
       "tests/test_purchase_approval.py::legalforecast.cli.CommandError",
       "tests/test_purchase_approval.py::legalforecast.cli.CommandError",
@@ -4015,7 +4019,7 @@
       "examples/adapters/codex-cli": 1,
       "examples/adapters/openai-responses": 1,
       "legalforecast": 10,
-      "legalforecast/cli_commands": 7,
+      "legalforecast/cli_commands": 8,
       "legalforecast/config": 6,
       "legalforecast/config/cycles": 3,
       "legalforecast/contracts": 4,
@@ -4036,13 +4040,14 @@
       "legalforecast/publication": 22,
       "legalforecast/release": 4,
       "legalforecast/reporting": 9,
+      "legalforecast/runner": 4,
       "legalforecast/selection": 8,
       "legalforecast/testing": 4,
       "legalforecast/testing/architecture_rules": 8,
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 17,
-      "tests": 491,
+      "tests": 492,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -4126,7 +4131,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-cwdv",
         "fan_in": 10,
-        "fan_out": 189,
+        "fan_out": 190,
         "flags": [
           "relative-path",
           "cycle",
@@ -4134,10 +4139,10 @@
         ],
         "lane_owner": "cli",
         "largest_symbol": "build_parser",
-        "largest_symbol_lines": 1802,
+        "largest_symbol_lines": 1804,
         "layer": "entrypoint",
-        "line_count": 74333,
-        "nonblank_line_count": 71529,
+        "line_count": 74336,
+        "nonblank_line_count": 71531,
         "top_level_definition_count": 1019
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -4273,8 +4278,8 @@
         "largest_symbol": "SchemaIdentifier",
         "largest_symbol_lines": 13,
         "layer": "domain",
-        "line_count": 571,
-        "nonblank_line_count": 560,
+        "line_count": 573,
+        "nonblank_line_count": 562,
         "top_level_definition_count": 1
       },
       "legalforecast/document_need/cycle_config.py": {
@@ -4471,24 +4476,24 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
-        "fan_in": 9,
+        "fan_in": 10,
         "fan_out": 3,
         "flags": [
           "oversized"
         ],
         "lane_owner": "evals",
         "largest_symbol": "complete_live_prompt",
-        "largest_symbol_lines": 149,
+        "largest_symbol_lines": 152,
         "layer": "application",
-        "line_count": 1349,
-        "nonblank_line_count": 1176,
-        "top_level_definition_count": 65
+        "line_count": 1396,
+        "nonblank_line_count": 1214,
+        "top_level_definition_count": 67
       },
       "legalforecast/evals/output_parser.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 10,
+        "fan_in": 11,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -4522,7 +4527,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
-        "fan_in": 8,
+        "fan_in": 9,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -8298,6 +8303,23 @@
         "nonblank_line_count": 810,
         "top_level_definition_count": 22
       },
+      "legalforecast/runner/service.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "root",
+        "fan_in": 1,
+        "fan_out": 9,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "execute_release_run",
+        "largest_symbol_lines": 260,
+        "layer": "application",
+        "line_count": 543,
+        "nonblank_line_count": 501,
+        "top_level_definition_count": 13
+      },
       "legalforecast/selection/case_mix_diagnostics.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -10226,9 +10248,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1285,
-        "nonblank_line_count": 1116,
-        "top_level_definition_count": 42
+        "line_count": 1327,
+        "nonblank_line_count": 1152,
+        "top_level_definition_count": 43
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",
