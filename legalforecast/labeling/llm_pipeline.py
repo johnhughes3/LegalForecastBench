@@ -6024,6 +6024,12 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
     if page_boundary_recovery is not None:
         return page_boundary_recovery
 
+    sentence_initial_case_recovery = _coerced_excerpt_sentence_initial_case(
+        text, stripped
+    )
+    if sentence_initial_case_recovery is not None:
+        return sentence_initial_case_recovery
+
     normalized_excerpt = " ".join(stripped.split())
     if not normalized_excerpt:
         raise LlmPipelineError("supporting_excerpt is required")
@@ -6055,6 +6061,128 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
     end_offset = offset + len(normalized_excerpt) - 1
     end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
     return text[start:end].strip()
+
+
+def _ascii_case_pair(left: str, right: str) -> bool:
+    return ("A" <= left <= "Z" and left.lower() == right) or (
+        "a" <= left <= "z" and left.upper() == right
+    )
+
+
+def _ascii_case_fold(value: str) -> str:
+    return "".join(
+        character.lower() if "A" <= character <= "Z" else character
+        for character in value
+    )
+
+
+def _normalized_excerpt_source_map(
+    text: str,
+) -> tuple[str, tuple[int, ...], tuple[int, ...]]:
+    normalized: list[str] = []
+    source_starts: list[int] = []
+    source_ends: list[int] = []
+    for index, character in enumerate(text):
+        if character.isspace():
+            if normalized and normalized[-1] == " ":
+                source_ends[-1] = index + 1
+            else:
+                normalized.append(" ")
+                source_starts.append(index)
+                source_ends.append(index + 1)
+            continue
+        normalized.append(character)
+        source_starts.append(index)
+        source_ends.append(index + 1)
+
+    start = 0
+    while start < len(normalized) and normalized[start] == " ":
+        start += 1
+    end = len(normalized)
+    while end > start and normalized[end - 1] == " ":
+        end -= 1
+    return (
+        "".join(normalized[start:end]),
+        tuple(source_starts[start:end]),
+        tuple(source_ends[start:end]),
+    )
+
+
+def _sentence_initial_source_position(text: str, source_start: int) -> bool:
+    index = source_start - 1
+    while index >= 0 and text[index].isspace():
+        index -= 1
+    return index < 0 or text[index] in ".!?"
+
+
+def _coerced_excerpt_sentence_initial_case(text: str, excerpt: str) -> str | None:
+    """Recover exactly one ASCII case drift at a sentence boundary.
+
+    Whitespace is compared using the same presentation normalization as the
+    existing excerpt fallback, but every non-whitespace code point after the
+    first is byte-identical.  Invalid case-only candidates are rejected before
+    the broad legacy fallback can turn a near-match into evidence.
+    """
+
+    normalized_excerpt = " ".join(excerpt.strip().split())
+    if not normalized_excerpt:
+        return None
+    normalized_text, source_starts, source_ends = _normalized_excerpt_source_map(text)
+    width = len(normalized_excerpt)
+    if width == 0 or width > len(normalized_text):
+        return None
+
+    matches: list[tuple[int, bool]] = []
+    unsupported_case_drift = False
+    folded_text = _ascii_case_fold(normalized_text)
+    folded_excerpt = _ascii_case_fold(normalized_excerpt)
+    search_start = 0
+    while True:
+        offset = folded_text.find(folded_excerpt, search_start)
+        if offset < 0:
+            break
+        candidate = normalized_text[offset : offset + width]
+        if candidate == normalized_excerpt:
+            search_start = offset + 1
+            continue
+        mismatches = [
+            index
+            for index, (source_character, excerpt_character) in enumerate(
+                zip(candidate, normalized_excerpt, strict=True)
+            )
+            if source_character != excerpt_character
+        ]
+        if (
+            len(mismatches) == 1
+            and mismatches[0] == 0
+            and _ascii_case_pair(candidate[0], normalized_excerpt[0])
+        ):
+            matches.append(
+                (
+                    offset,
+                    _word_boundary_match(normalized_text, normalized_excerpt, offset),
+                )
+            )
+        else:
+            unsupported_case_drift = True
+        search_start = offset + 1
+
+    if unsupported_case_drift:
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+    if len(matches) > 1:
+        raise LlmPipelineError(
+            "supporting_excerpt has ambiguous sentence-initial case matches"
+        )
+    if not matches:
+        return None
+    offset, has_word_boundaries = matches[0]
+    source_start = source_starts[offset]
+    if not has_word_boundaries or not _sentence_initial_source_position(
+        text, source_start
+    ):
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+    source_end = source_ends[offset + width - 1]
+    return text[source_start:source_end].strip()
 
 
 _STAGE_B_LEAD_IN_EQUIVALENCES = (("Accordingly, ", "For the following reasons, "),)

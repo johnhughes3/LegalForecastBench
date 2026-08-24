@@ -4037,7 +4037,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 17,
-      "tests": 486,
+      "tests": 487,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -7191,9 +7191,9 @@
         "largest_symbol": "llm_label_cases",
         "largest_symbol_lines": 371,
         "layer": "application",
-        "line_count": 6732,
-        "nonblank_line_count": 6322,
-        "top_level_definition_count": 133
+        "line_count": 6860,
+        "nonblank_line_count": 6434,
+        "top_level_definition_count": 138
       },
       "legalforecast/labeling/official_paid_baton.py": {
         "cycle_id": "legalforecast/acquisition_completion_summary_cli.py,legalforecast/cli.py,legalforecast/cli_commands/attachment_pages.py,legalforecast/cli_commands/report.py,legalforecast/cli_commands/score.py,legalforecast/evals/corpus_manifest/stage51_r2.py,legalforecast/evals/corpus_manifest/unitizer.py,legalforecast/evals/corpus_manifest/unitizer_publication.py,legalforecast/evals/corpus_manifest/unitizer_replay.py,legalforecast/extraction/pdf_text.py,legalforecast/ingestion/__init__.py,legalforecast/ingestion/attachment_page/__init__.py,legalforecast/ingestion/attachment_page/authorization.py,legalforecast/ingestion/attachment_page/execute.py,legalforecast/ingestion/attachment_page/journal.py,legalforecast/ingestion/attachment_page/plan.py,legalforecast/ingestion/budgeted_docket_acquisition.py,legalforecast/ingestion/case_dev_provisional_frontier.py,legalforecast/ingestion/case_dev_purchase.py,legalforecast/ingestion/case_dev_ranked_selection.py,legalforecast/ingestion/case_dev_recap_batch.py,legalforecast/ingestion/clearance_replacement.py,legalforecast/ingestion/cohort_document_materializer.py,legalforecast/ingestion/corpus_completion_summary.py,legalforecast/ingestion/courtlistener_case_dev_bridge.py,legalforecast/ingestion/courtlistener_recap_fetch.py,legalforecast/ingestion/cycle_lineage_index.py,legalforecast/ingestion/cycle_manifest_template.py,legalforecast/ingestion/cycle_orchestrator.py,legalforecast/ingestion/cycle_path_metadata.py,legalforecast/ingestion/cycle_preflight_manifest.py,legalforecast/ingestion/decision_text_artifact.py,legalforecast/ingestion/disclosure_clearance.py,legalforecast/ingestion/disclosure_model_review.py,legalforecast/ingestion/disclosure_model_review_authority.py,legalforecast/ingestion/disclosure_review_bundle.py,legalforecast/ingestion/docket_decision_text_source.py,legalforecast/ingestion/document_repair_acquire.py,legalforecast/ingestion/document_repair_executor.py,legalforecast/ingestion/document_repair_purchase_approval.py,legalforecast/ingestion/document_repair_purchase_cli.py,legalforecast/ingestion/document_repair_resume.py,legalforecast/ingestion/document_repair_resume_cli.py,legalforecast/ingestion/downstream_lineage_verification.py,legalforecast/ingestion/downstream_rehearsal.py,legalforecast/ingestion/embedded_text_layer_repair.py,legalforecast/ingestion/exact100_successor_predecessor_coverage_v2.py,legalforecast/ingestion/exact100_successor_replacement.py,legalforecast/ingestion/exact100_successor_replacement_cli.py,legalforecast/ingestion/exact100_successor_replacement_v2.py,legalforecast/ingestion/exact100_successor_replacement_v2_cli.py,legalforecast/ingestion/exact100_successor_v3/cli.py,legalforecast/ingestion/exact100_terminal_recovery_authority_v3/authority.py,legalforecast/ingestion/exact100_zero_cost_recovery.py,legalforecast/ingestion/exact100_zero_cost_recovery_cli.py,legalforecast/ingestion/firecrawl_docket_recovery.py,legalforecast/ingestion/free_only_materialization.py,legalforecast/ingestion/free_support_memorandum_recovery.py,legalforecast/ingestion/frozen_parser_model/loader.py,legalforecast/ingestion/live_parse_record_provenance.py,legalforecast/ingestion/mistral_markdown_parser.py,legalforecast/ingestion/model_packet_assembly.py,legalforecast/ingestion/packet_build_replay.py,legalforecast/ingestion/packet_input_planner.py,legalforecast/ingestion/packet_role_adjudication.py,legalforecast/ingestion/post_selection_terminal_exclusion.py,legalforecast/ingestion/provenance_clearance.py,legalforecast/ingestion/public_packet_planner.py,legalforecast/ingestion/purchase_approval.py,legalforecast/ingestion/purchase_spend_summary.py,legalforecast/ingestion/purchased_document_recovery.py,legalforecast/ingestion/ranked_reserve_replacement.py,legalforecast/ingestion/readiness_provenance.py,legalforecast/ingestion/recap_fetch_attempt_policy.py,legalforecast/ingestion/recap_fetch_broker_policy.py,legalforecast/ingestion/recap_fetch_quarantine_recovery.py,legalforecast/ingestion/recovered_public_replay.py,legalforecast/ingestion/replacement_purchase_approval.py,legalforecast/ingestion/replacement_recovery_v3_register.py,legalforecast/ingestion/resolved_post_recovery.py,legalforecast/ingestion/retained_cohort_extension.py,legalforecast/ingestion/stage_a_lineage_verification.py,legalforecast/ingestion/successor_rerun_impact.py,legalforecast/ingestion/successor_rerun_proposal.py,legalforecast/ingestion/supporting_document_successor_cli.py,legalforecast/ingestion/target_cohort_projection.py,legalforecast/ingestion/target_public_gap_refresh.py,legalforecast/ingestion/target_raw_docket_auxiliary_provenance.py,legalforecast/ingestion/target_raw_docket_recovery.py,legalforecast/ingestion/terminal_purchase_failure.py,legalforecast/ingestion/terminal_subset_promotion.py,legalforecast/ingestion/text_layer_completeness.py,legalforecast/ingestion/zero_cost_successor.py,legalforecast/labeling/llm_pipeline.py,legalforecast/labeling/official_paid_baton.py,legalforecast/labeling/unitizer_terminal.py",
@@ -11708,9 +11708,9 @@
         "largest_symbol": "test_stage_b_one_attempt_replay_normalizes_structurally_inapplicable_amendment",
         "largest_symbol_lines": 135,
         "layer": "test",
-        "line_count": 854,
-        "nonblank_line_count": 768,
-        "top_level_definition_count": 23
+        "line_count": 877,
+        "nonblank_line_count": 785,
+        "top_level_definition_count": 25
       },
       "tests/test_stageb_manifest_runner.py": {
         "cycle_id": "",
