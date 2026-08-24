@@ -95,6 +95,31 @@ checkout but do not belong in the installed `legalforecast` CLI.
   deterministic re-derivation; it writes a separate output and never repairs
   the source envelope.
 
+- `run_cycle1_gemini.py`: runs the supplementary Cycle 1 Gemini 3.7 Flash
+  configuration through the shared authenticated local runner. Dry runs are
+  provider-free; paid runs must be wrapped with
+  `legalforecast.labeling.provider_environment --provider google` so only
+  `GEMINI_API_KEY` enters the child.
+
+  ```bash
+  uv run python scripts/run_cycle1_gemini.py --help
+  uv run python -m legalforecast.labeling.provider_environment --provider google -- \
+    uv run python scripts/run_cycle1_gemini.py <run arguments>
+  ```
+
+- `validate_flatten_local.py`: generic provider-free validator for local model
+  envelopes. It authenticates the expected model, registry, prompt commitments,
+  and response/status summaries before emitting score-compatible JSONL. The
+  Luna-specific validator remains available for backward compatibility.
+
+  ```bash
+  uv run python scripts/validate_flatten_local.py \
+    --results-dir <private-results> --output <private-runs.jsonl> \
+    --expected-count 200 --model-key google:gemini-3.7-flash \
+    --expected-registry-sha256 <supplementary-registry-sha256> \
+    --expected-prompt-commitments <frozen-run-record.json>
+  ```
+
 - `official_infra_contract.py`: fail-closed contract helper used by the protected infrastructure workflow to resolve reviewed import IDs, verify exact remote-state bindings, and reject destructive or unreviewed Terraform plans. Raw protected import IDs are accepted only through the workflow environment and are never printed.
 
   ```bash

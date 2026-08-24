@@ -98,6 +98,8 @@ DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v
 EXECUTION_POLICY_V2 = SchemaIdentifier("legalforecast.execution_policy.v2")
 LOCAL_LUNA_PLAN_V1 = SchemaIdentifier("legalforecast.local_luna_plan.v1")
 LOCAL_LUNA_RESULT_V1 = SchemaIdentifier("legalforecast.local_luna_result.v1")
+LOCAL_MODEL_PLAN_V1 = SchemaIdentifier("legalforecast.local_model_plan.v1")
+LOCAL_MODEL_RESULT_V1 = SchemaIdentifier("legalforecast.local_model_result.v1")
 SUPPORTING_DOCUMENT_RESTRICTION_EVIDENCE_V1 = SchemaIdentifier(
     "legalforecast.supporting_document_restriction_evidence.v1"
 )
