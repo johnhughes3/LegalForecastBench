@@ -925,6 +925,25 @@ def test_stage_b_balanced_multi_pair_markdown_recovery_precedes_local_guard() ->
     )
 
 
+def test_stage_b_local_markdown_recovery_rejects_partial_emphasis_span() -> None:
+    decision_text = (
+        "An unrelated * marker. The court *denied motion because it was late*."
+    )
+    excerpt = "The court denied motion"
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_without_single_markdown_emphasis(
+            decision_text, excerpt
+        )
+        is None
+    )
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="supporting_excerpt does not appear in decision text",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
+
+
 @pytest.mark.parametrize(
     "decision_text",
     [

@@ -6443,8 +6443,10 @@ def _coerced_excerpt_without_single_markdown_emphasis(
                     continue
                 if opening + 1 <= start:
                     start = opening
-                if end <= closing:
+                if end == closing:
                     end = closing + 1
+                if (start <= opening < end) != (start < closing < end):
+                    continue
                 candidates.append((start, end))
 
     unique_candidates = set(candidates)
