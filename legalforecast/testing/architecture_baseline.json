@@ -2,8 +2,8 @@
   "cli_metrics": {
     "command_handler_count": 168,
     "command_handler_lines": 27189,
-    "line_count": 74333,
-    "nonblank_line_count": 71529,
+    "line_count": 74380,
+    "nonblank_line_count": 71576,
     "parser_line_count": 1802,
     "top_level_class_count": 20,
     "top_level_definition_count": 1019,
@@ -2145,6 +2145,7 @@
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._path_sha256",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._provider_chain_commitment",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._provider_chain_commitment",
+      "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._provider_stage_attempt_rows",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._registry_entries_for_keys",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._registry_entry_for_key",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._require_stage_a_lineage_unchanged",
@@ -2185,6 +2186,7 @@
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._validate_selection_run_card_commitment",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._validate_selection_run_card_commitment",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._validate_selection_run_card_commitment",
+      "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verified_provider_stage_attempts",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verified_provider_stage_attempts",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verified_provider_stage_attempts",
       "tests/test_stage_a_authenticated_lineage.py::legalforecast.cli._verified_provider_stage_attempts",
@@ -2547,6 +2549,7 @@
       "legalforecast.cli._provider_journal_database_snapshot",
       "legalforecast.cli._provider_journal_stage_snapshot",
       "legalforecast.cli._provider_spend_authorities",
+      "legalforecast.cli._provider_stage_attempt_rows",
       "legalforecast.cli._publish_recorded_replacement_successor_artifacts",
       "legalforecast.cli._publish_resolved_post_recovery_documents",
       "legalforecast.cli._read_authenticated_public_first_bridge_inputs",
@@ -4136,8 +4139,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1802,
         "layer": "entrypoint",
-        "line_count": 74333,
-        "nonblank_line_count": 71529,
+        "line_count": 74380,
+        "nonblank_line_count": 71576,
         "top_level_definition_count": 1019
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -4582,8 +4585,8 @@
         "largest_symbol": "_execute_provider",
         "largest_symbol_lines": 514,
         "layer": "application",
-        "line_count": 3063,
-        "nonblank_line_count": 2938,
+        "line_count": 3066,
+        "nonblank_line_count": 2941,
         "top_level_definition_count": 43
       },
       "legalforecast/extraction/pdf_text.py": {
@@ -11645,9 +11648,9 @@
         "largest_symbol": "test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units",
         "largest_symbol_lines": 552,
         "layer": "test",
-        "line_count": 2440,
-        "nonblank_line_count": 2320,
-        "top_level_definition_count": 21
+        "line_count": 2526,
+        "nonblank_line_count": 2401,
+        "top_level_definition_count": 22
       },
       "tests/test_stage_a_prompt_ontology.py": {
         "cycle_id": "",
@@ -11730,9 +11733,9 @@
         "largest_symbol": "test_approved_retry_preserves_attempt_one_failure_receipt",
         "largest_symbol_lines": 176,
         "layer": "test",
-        "line_count": 2653,
-        "nonblank_line_count": 2467,
-        "top_level_definition_count": 48
+        "line_count": 2661,
+        "nonblank_line_count": 2472,
+        "top_level_definition_count": 49
       },
       "tests/test_static_result_sites.py": {
         "cycle_id": "",

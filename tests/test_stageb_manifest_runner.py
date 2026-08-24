@@ -258,7 +258,7 @@ def test_additional_attempt_permit_binds_prompt_and_journal() -> None:
     )
     scope = runner.provider_prompt_logical_call_scope("exact repair prompt")
     permit = runner._additional_attempt_permit(  # pyright: ignore[reportPrivateUsage]
-        candidate_id="70142291",
+        candidate_id="candidate-repair-google",
         provider="google",
         account="cycle1-google",
         registry_entry=entry,
@@ -285,6 +285,14 @@ def test_additional_attempt_permit_binds_prompt_and_journal() -> None:
             provider_journal_path=Path("/tmp/provider-attempts-google.sqlite3"),
             provider_logical_call_scope=scope,
         )
+
+
+def test_additional_attempt_help_describes_general_candidate_scope() -> None:
+    help_text = runner.build_parser().format_help()
+
+    assert "Owner-approved one additional same-model attempt" in help_text
+    assert "one selected failed Stage B candidate" in help_text
+    assert "72213663" not in help_text
 
 
 def test_additional_attempt_prompt_uses_exact_journal_evidence() -> None:
@@ -1208,7 +1216,7 @@ def test_retry_provider_shard_authenticates_its_extra_approval_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     result, context = _valid_result()
-    candidate_id = "70142291"
+    candidate_id = "candidate-repair-google"
     context["selection"]["candidate_id"] = candidate_id
     result["candidate_id"] = candidate_id
     cast(dict[str, Any], result["audit"])["candidate_id"] = candidate_id
@@ -2001,7 +2009,7 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, context = _valid_result()
-    candidate_id = "68468414"
+    candidate_id = "candidate-repair-openai"
     context["selection"]["candidate_id"] = candidate_id
     output_root = tmp_path / "output"
     failure_path = output_root / "results/openai" / f"{candidate_id}.json"

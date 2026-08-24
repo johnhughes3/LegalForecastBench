@@ -3041,7 +3041,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--candidate-id")
     parser.add_argument(
         "--additional-attempt-candidate",
-        help="Owner-approved second attempt for candidate 72213663 only.",
+        help=(
+            "Owner-approved one additional same-model attempt for one selected "
+            "failed Stage B candidate."
+        ),
     )
     parser.add_argument(
         "--merge",
