@@ -2056,10 +2056,11 @@ def _execute_provider(
             retry_result_path = _additional_attempt_result_path(
                 output_root, provider, candidate_id
             )
+            retry_result_exists = retry_result_path.exists()
             call_prompt = prompt
             call_scope: str | None = None
             expected_error_message: str | None = None
-            if retry_enabled:
+            if retry_enabled or retry_result_exists:
                 if not canonical_result_path.exists():
                     raise StageBManifestError(
                         "additional attempt requires canonical failed receipt"
@@ -2120,7 +2121,7 @@ def _execute_provider(
                     frozen_unit_adjudication=adjudication,
                 )
                 result_path = recovered_result_path
-            elif retry_enabled and retry_result_path.exists():
+            elif retry_result_exists:
                 _existing_failure_result(
                     canonical_result_path,
                     candidate_id=candidate_id,
