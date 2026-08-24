@@ -4,7 +4,7 @@ This audit supports `legalforecastbench-97nr` and the later `legalforecastbench-
 
 ## History review
 
-The inspected public revision is `c53d0738484df9eecdd8f60abe6b70bcd8d5a764`, fetched from `origin/main` on 2026-08-23. The scan covered every object reachable from the repository's refs at that point, not only the checked-out tree.
+The inspected public revision is `8c6272421697603868b5f6ba58210374a5d4713c`, fetched from `origin/main` on 2026-08-23. The scan covered every object reachable from the repository's refs at that point, not only the checked-out tree.
 
 The review combined a redacted Gitleaks history scan using the installed default rules, an object walk using `git rev-list --objects --all` and `git cat-file`, content-signature checks independent of filename extensions, and bounded manual review of candidate secrets, large blobs, document-like objects, credential/key paths, database/archive paths, and court- or docket-related names. Candidate values were not copied into this report.
 
