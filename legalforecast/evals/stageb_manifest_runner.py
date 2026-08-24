@@ -31,6 +31,7 @@ from legalforecast.contracts.schemas import (
     STAGE_B_FROZEN_UNIT_EXCLUSION_ADJUDICATION_V1 as _ADJ_SCHEMA,
 )
 from legalforecast.contracts.schemas import (
+    STAGE_B_MANIFEST_ADJUDICATION_RUN_CARD_V1,
     STAGE_B_MANIFEST_DECISION_TEXTS_RUN_V1,
     STAGE_B_MANIFEST_DECISION_TEXTS_V1,
     STAGE_B_MANIFEST_MERGE_RUN_CARD_V1,
@@ -61,6 +62,7 @@ from legalforecast.ingestion.decision_text_artifact import (
 )
 from legalforecast.labeling.llm_pipeline import (
     FrozenUnitWorkflowRequiredError,
+    _adjudicated_review,  # pyright: ignore[reportPrivateUsage]
     _frozen_unit_workflow_audit_fields,  # pyright: ignore[reportPrivateUsage]
     _labeling_prompt,  # pyright: ignore[reportPrivateUsage]
     _llm_label_one_model,  # pyright: ignore[reportPrivateUsage]
@@ -69,6 +71,7 @@ from legalforecast.labeling.llm_pipeline import (
     _provider_attempt_journal,  # pyright: ignore[reportPrivateUsage]
     _required_str,  # pyright: ignore[reportPrivateUsage]
     _verified_stage_b_decisions,  # pyright: ignore[reportPrivateUsage]
+    apply_adjudicated_reviews,
     lawyer_review_queue_records,
     merge_llm_label_provider_shards,
 )
@@ -143,6 +146,8 @@ ADDITIONAL_ATTEMPT_FAILURE_TYPE = "LlmResponseValidationError"
 ADDITIONAL_ATTEMPT_FAILURE_MESSAGE = (
     "supporting_excerpt does not appear in decision text"
 )
+TERMINAL_REPAIR_FAILURE_STATUS = "terminal_repair_failed"
+TERMINAL_REPAIR_FAILURE_ROUTE_REASON = "terminal_repair_failure"
 SUPPORTING_EVIDENCE_SIDECAR_KIND = "stage_b_supporting_evidence_sidecar"
 SUPPORTING_EVIDENCE_SIDECAR_FIELDS = frozenset(
     {
@@ -1651,6 +1656,7 @@ def _reconstruction_failure_evidence(
     provider: str,
     raw_sha256: str,
     decision_sha256: str,
+    provider_logical_call_scope: str | None = None,
 ) -> ReconstructionFailureEvidence | None:
     """Read the exact retained response and validation error, if present."""
 
@@ -1670,6 +1676,7 @@ def _reconstruction_failure_evidence(
             registry_sha256=registry_sha256,
             provider=provider,
         ),
+        provider_logical_call_scope=provider_logical_call_scope,
     )
     if journal is None:
         return None
@@ -1682,6 +1689,201 @@ def _reconstruction_failure_evidence(
             raise StageBManifestError(
                 "additional attempt lacks immutable journal evidence"
             ) from exc
+
+
+def _journaled_response_details(
+    evidence: ReconstructionFailureEvidence,
+) -> tuple[SolverResponse, Mapping[str, Any]]:
+    """Return authenticated accounting and response identity for terminal evidence."""
+
+    try:
+        normalized_value: object = json.loads(evidence.normalized_response_json)
+    except json.JSONDecodeError as exc:
+        raise StageBManifestError(
+            "terminal repair failure journal response is not valid JSON"
+        ) from exc
+    if not isinstance(normalized_value, Mapping):
+        raise StageBManifestError(
+            "terminal repair failure journal response is not an object"
+        )
+    normalized = cast(Mapping[str, Any], normalized_value)
+    raw_output = normalized.get("raw_output")
+    if not isinstance(raw_output, str) or not raw_output.strip():
+        raise StageBManifestError(
+            "terminal repair failure journal response lacks raw_output"
+        )
+    input_tokens = normalized.get("input_tokens", 0)
+    output_tokens = normalized.get("output_tokens", 0)
+    estimated_cost = normalized.get("actual_cost_usd", 0.0)
+    if (
+        isinstance(input_tokens, bool)
+        or not isinstance(input_tokens, int)
+        or input_tokens < 0
+        or isinstance(output_tokens, bool)
+        or not isinstance(output_tokens, int)
+        or output_tokens < 0
+        or isinstance(estimated_cost, bool)
+        or not isinstance(estimated_cost, (int, float))
+        or estimated_cost < 0
+    ):
+        raise StageBManifestError(
+            "terminal repair failure journal accounting is invalid"
+        )
+    response = SolverResponse(
+        raw_output=raw_output,
+        request_count=0,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        estimated_cost=float(estimated_cost),
+    )
+    return response, normalized
+
+
+def _terminal_repair_failure_audit(
+    *,
+    canonical_result_path: Path,
+    retry_result_path: Path,
+    journal_path: Path,
+    candidate_id: str,
+    provider: str,
+    registry_entry: ModelRegistryEntry,
+    model_key: str,
+    registry_sha256: str,
+    raw_sha256: str,
+    raw_candidate_envelope_sha256: str,
+    decision_sha256: str,
+    decision_commitment: Mapping[str, str],
+    selection: Mapping[str, Any],
+    frozen_units: Sequence[Any],
+    prompt: str,
+) -> JsonRecord:
+    """Authenticate a failed repair and represent it as non-voting evidence."""
+
+    original_evidence = _reconstruction_failure_evidence(
+        journal_path=journal_path,
+        candidate_id=candidate_id,
+        prompt=prompt,
+        registry_entry=registry_entry,
+        registry_sha256=registry_sha256,
+        provider=provider,
+        raw_sha256=raw_sha256,
+        decision_sha256=decision_sha256,
+    )
+    if original_evidence is None:
+        raise StageBManifestError(
+            "terminal repair failure lacks original journal evidence"
+        )
+    _existing_failure_result(
+        canonical_result_path,
+        candidate_id=candidate_id,
+        provider=provider,
+        model_key=model_key,
+        raw_sha256=raw_sha256,
+        raw_candidate_envelope_sha256=raw_candidate_envelope_sha256,
+        decision_sha256=decision_sha256,
+        registry_sha256=registry_sha256,
+        selection=selection,
+        allow_any_validation_failure=True,
+        expected_error_message=original_evidence.failure_message,
+    )
+    repair_prompt = _additional_attempt_prompt(
+        original_prompt=prompt, evidence=original_evidence
+    )
+    repair_scope = provider_prompt_logical_call_scope(repair_prompt)
+    repair_evidence = _reconstruction_failure_evidence(
+        journal_path=journal_path,
+        candidate_id=candidate_id,
+        prompt=repair_prompt,
+        registry_entry=registry_entry,
+        registry_sha256=registry_sha256,
+        provider=provider,
+        raw_sha256=raw_sha256,
+        decision_sha256=decision_sha256,
+        provider_logical_call_scope=repair_scope,
+    )
+    if repair_evidence is None:
+        raise StageBManifestError(
+            "terminal repair failure lacks repair journal evidence"
+        )
+    _existing_failure_result(
+        retry_result_path,
+        candidate_id=candidate_id,
+        provider=provider,
+        model_key=model_key,
+        raw_sha256=raw_sha256,
+        raw_candidate_envelope_sha256=raw_candidate_envelope_sha256,
+        decision_sha256=decision_sha256,
+        registry_sha256=registry_sha256,
+        selection=selection,
+        allow_any_validation_failure=True,
+        expected_error_message=repair_evidence.failure_message,
+    )
+    original_response, _ = _journaled_response_details(original_evidence)
+    repair_response, _ = _journaled_response_details(repair_evidence)
+    model_id = model_key.split(":", 1)[1]
+    model_output: JsonRecord = {
+        "status": "validation_failed",
+        "model_key": model_key,
+        "input_tokens": repair_response.input_tokens,
+        "output_tokens": repair_response.output_tokens,
+        "estimated_cost": repair_response.estimated_cost,
+        "raw_output_sha256": repair_response.raw_output_sha256,
+        "finding_count": 0,
+        "missing_unit_flag_count": 0,
+        "provider_prompt_sha256": "sha256:" + _raw_sha256(repair_prompt.encode()),
+        "provider_prompt_scope": "repair",
+        "original_provider_prompt_sha256": "sha256:" + _raw_sha256(prompt.encode()),
+        "repair_prompt_sha256": "sha256:" + _raw_sha256(repair_prompt.encode()),
+        "metadata": {
+            "provider": provider,
+            "model": model_id,
+            "model_id": model_id,
+            "model_registry_sha256": registry_sha256,
+            "provider_sampling_policy": "provider_default",
+            "tool_policy": "no_tools",
+        },
+        # A failed repair has no authenticated OutcomeLabel values.  Keeping an
+        # empty list makes the cross-product row explicit while ensuring merge
+        # cannot accidentally treat invalid labels as votes.
+        "labels": [],
+        "error_type": repair_evidence.failure_type,
+        "error_message": repair_evidence.failure_message,
+    }
+    terminal_failure: JsonRecord = {
+        "status": TERMINAL_REPAIR_FAILURE_STATUS,
+        "original": {
+            "attempt_ordinal": original_evidence.attempt_ordinal,
+            "failure_type": original_evidence.failure_type,
+            "failure_message": original_evidence.failure_message,
+            "provider_prompt_sha256": "sha256:" + _raw_sha256(prompt.encode()),
+            "raw_output_sha256": original_response.raw_output_sha256,
+        },
+        "repair": {
+            "attempt_ordinal": repair_evidence.attempt_ordinal,
+            "failure_type": repair_evidence.failure_type,
+            "failure_message": repair_evidence.failure_message,
+            "provider_prompt_sha256": "sha256:" + _raw_sha256(repair_prompt.encode()),
+            "raw_output_sha256": repair_response.raw_output_sha256,
+            "normalized_response_sha256": "sha256:"
+            + _raw_sha256(repair_evidence.normalized_response_json.encode()),
+        },
+    }
+    return {
+        "stage": "llm-label-provider-shard",
+        "status": TERMINAL_REPAIR_FAILURE_STATUS,
+        "candidate_id": candidate_id,
+        "case_id": _required_str(selection, "case_id"),
+        "execution_provider": provider,
+        "model_keys": [model_key],
+        "frozen_panel_model_keys": list(MODEL_KEYS),
+        "model_registry_sha256": registry_sha256,
+        "decision_text_commitment": dict(decision_commitment),
+        "label_count": 0,
+        "unit_count": len(frozen_units),
+        "model_outputs": [model_output],
+        "estimated_cost": repair_response.estimated_cost,
+        "terminal_failure": terminal_failure,
+    }
 
 
 def _additional_attempt_prompt(
@@ -1857,10 +2059,11 @@ def _execute_provider(
             retry_result_path = _additional_attempt_result_path(
                 output_root, provider, candidate_id
             )
+            retry_result_exists = retry_result_path.exists()
             call_prompt = prompt
             call_scope: str | None = None
             expected_error_message: str | None = None
-            if retry_enabled:
+            if retry_enabled or retry_result_exists:
                 if not canonical_result_path.exists():
                     raise StageBManifestError(
                         "additional attempt requires canonical failed receipt"
@@ -1887,6 +2090,7 @@ def _execute_provider(
             prior: JsonRecord | None = None
             result_path = canonical_result_path
             recovery_enabled = False
+            terminal_audit: JsonRecord | None = None
             if recovered_result_path.exists():
                 _existing_failure_result(
                     canonical_result_path,
@@ -1920,7 +2124,7 @@ def _execute_provider(
                     frozen_unit_adjudication=adjudication,
                 )
                 result_path = recovered_result_path
-            elif retry_enabled and retry_result_path.exists():
+            elif retry_result_exists:
                 _existing_failure_result(
                     canonical_result_path,
                     candidate_id=candidate_id,
@@ -1936,24 +2140,51 @@ def _execute_provider(
                     allow_any_validation_failure=True,
                     expected_error_message=expected_error_message,
                 )
-                prior = _existing_result(
-                    retry_result_path,
-                    candidate_id=candidate_id,
-                    provider=provider,
-                    model_key=registry_entry.registry_key,
-                    raw_sha256=raw_sha256,
-                    raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
-                        candidate_id
-                    ],
-                    decision_sha256=decision_sha256,
-                    registry_sha256=registry_sha256,
-                    selection=selection,
-                    frozen_units=frozen_units,
-                    decision_commitment=commitment,
-                    prompt=call_prompt,
-                    frozen_unit_adjudication=adjudication,
+                retry_value = _json_object(
+                    _read_regular(
+                        retry_result_path, f"existing result {retry_result_path}"
+                    ),
+                    f"existing result {retry_result_path}",
                 )
-                result_path = retry_result_path
+                if retry_value.get("status") == "failed":
+                    terminal_audit = _terminal_repair_failure_audit(
+                        canonical_result_path=canonical_result_path,
+                        retry_result_path=retry_result_path,
+                        journal_path=journal_path,
+                        candidate_id=candidate_id,
+                        provider=provider,
+                        registry_entry=registry_entry,
+                        model_key=registry_entry.registry_key,
+                        registry_sha256=registry_sha256,
+                        raw_sha256=raw_sha256,
+                        raw_candidate_envelope_sha256=(
+                            artifact.finalized_unit_envelope_sha256s[candidate_id]
+                        ),
+                        decision_sha256=decision_sha256,
+                        decision_commitment=commitment,
+                        selection=selection,
+                        frozen_units=frozen_units,
+                        prompt=prompt,
+                    )
+                else:
+                    prior = _existing_result(
+                        retry_result_path,
+                        candidate_id=candidate_id,
+                        provider=provider,
+                        model_key=registry_entry.registry_key,
+                        raw_sha256=raw_sha256,
+                        raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                            candidate_id
+                        ],
+                        decision_sha256=decision_sha256,
+                        registry_sha256=registry_sha256,
+                        selection=selection,
+                        frozen_units=frozen_units,
+                        decision_commitment=commitment,
+                        prompt=call_prompt,
+                        frozen_unit_adjudication=adjudication,
+                    )
+                    result_path = retry_result_path
             elif canonical_result_path.exists():
                 try:
                     prior = _existing_result(
@@ -2027,6 +2258,9 @@ def _execute_provider(
                         result_path = recovered_result_path
                     else:
                         raise
+            if terminal_audit is not None:
+                records.append(terminal_audit)
+                continue
             if prior is not None:
                 records.append(cast(JsonRecord, prior["audit"]))
                 continue
@@ -2428,22 +2662,56 @@ def _validate_full_provider_shard(
                 decision_sha256=decision_sha256,
                 registry_sha256=registry_sha256,
             )
-        result = _existing_result(
-            result_path,
-            candidate_id=candidate_id,
-            provider=normalized_provider,
-            model_key=registry_entry.registry_key,
-            raw_sha256=raw_sha256,
-            raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
-                candidate_id
-            ],
-            decision_sha256=decision_sha256,
-            registry_sha256=registry_sha256,
-            selection=selection,
-            frozen_units=frozen_units,
-            decision_commitment=commitment,
-            prompt=result_prompt,
-            frozen_unit_adjudication=(provider_adjudications.get(candidate_id)),
+        terminal_audit: JsonRecord | None = None
+        if result_path == _additional_attempt_result_path(
+            output_root, normalized_provider, candidate_id
+        ):
+            retry_value = _json_object(
+                _read_regular(result_path, f"existing result {result_path}"),
+                f"existing result {result_path}",
+            )
+            if retry_value.get("status") == "failed":
+                terminal_audit = _terminal_repair_failure_audit(
+                    canonical_result_path=_result_path(
+                        output_root, normalized_provider, candidate_id
+                    ),
+                    retry_result_path=result_path,
+                    journal_path=journal_path,
+                    candidate_id=candidate_id,
+                    provider=normalized_provider,
+                    registry_entry=registry_entry,
+                    model_key=registry_entry.registry_key,
+                    registry_sha256=registry_sha256,
+                    raw_sha256=raw_sha256,
+                    raw_candidate_envelope_sha256=(
+                        artifact.finalized_unit_envelope_sha256s[candidate_id]
+                    ),
+                    decision_sha256=decision_sha256,
+                    decision_commitment=commitment,
+                    selection=selection,
+                    frozen_units=frozen_units,
+                    prompt=prompt,
+                )
+        result = (
+            {"audit": terminal_audit}
+            if terminal_audit is not None
+            else _existing_result(
+                result_path,
+                candidate_id=candidate_id,
+                provider=normalized_provider,
+                model_key=registry_entry.registry_key,
+                raw_sha256=raw_sha256,
+                raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                    candidate_id
+                ],
+                decision_sha256=decision_sha256,
+                registry_sha256=registry_sha256,
+                selection=selection,
+                frozen_units=frozen_units,
+                decision_commitment=commitment,
+                prompt=result_prompt,
+                frozen_unit_adjudication=(provider_adjudications.get(candidate_id)),
+            )
         )
         if result is None:
             raise StageBManifestError(
@@ -2812,6 +3080,344 @@ def _merge_provider_shards(
     }
 
 
+def _load_authenticated_merge_outputs(
+    *,
+    output_root: Path,
+    artifact: VerifiedDecisionTextArtifact,
+    raw_sha256: str,
+    registry_sha256: str,
+    decision_sha256: str,
+    frozen_unit_adjudications_sha256: str | None,
+) -> tuple[
+    bytes, tuple[JsonRecord, ...], tuple[JsonRecord, ...], tuple[JsonRecord, ...]
+]:
+    """Authenticate the provider-free merge before applying lawyer rulings."""
+
+    run_card_path = output_root / "llm-label-merge-run-card.json"
+    run_card_bytes = _read_regular(run_card_path, "Stage B merge run card")
+    run_card = _json_object(run_card_bytes, "Stage B merge run card")
+    if run_card.get("schema_version") != str(STAGE_B_MANIFEST_MERGE_RUN_CARD_V1):
+        raise StageBManifestError("Stage B merge run-card schema differs")
+    if run_card.get("stage") != "llm-label-manifest-merge":
+        raise StageBManifestError("Stage B merge run-card stage differs")
+    if run_card.get("status") != "completed" or run_card.get("create_only") is not True:
+        raise StageBManifestError(
+            "Stage B merge run card is not a completed create-only run"
+        )
+    if run_card.get("paid_activity_executed") is not False:
+        raise StageBManifestError("Stage B merge run card records paid activity")
+
+    source_commitments = run_card.get("source_commitments")
+    if not isinstance(source_commitments, Mapping):
+        raise StageBManifestError("Stage B merge source commitments are missing")
+    source_commitments = cast(Mapping[str, Any], source_commitments)
+    expected_sources: dict[str, object] = {
+        "raw_prediction_units": raw_sha256,
+        "selection": CURRENT_SELECTION_SHA256,
+        "legacy_decision_texts": DECISION_TEXTS_SHA256,
+        "decision_texts_current": artifact.decision_texts_sha256,
+        "model_registry": registry_sha256,
+        "terminal_packet_approval": TERMINAL_PACKET_APPROVAL,
+    }
+    if frozen_unit_adjudications_sha256 is not None:
+        expected_sources["frozen_unit_adjudications"] = frozen_unit_adjudications_sha256
+    if any(
+        source_commitments.get(key) != value for key, value in expected_sources.items()
+    ):
+        raise StageBManifestError("Stage B merge source commitments differ")
+
+    payloads: dict[str, bytes] = {}
+    records: dict[str, tuple[JsonRecord, ...]] = {}
+    for name, label in (
+        ("labels.jsonl", "Stage B merged labels"),
+        ("llm-label-audit.jsonl", "Stage B merged audit"),
+        ("lawyer-review-queue.jsonl", "Stage B lawyer review queue"),
+    ):
+        payload = _read_regular(output_root / name, label)
+        payloads[name] = payload
+        records[name] = _jsonl(payload, label)
+    output_commitments = run_card.get("output_commitments")
+    expected_outputs = {
+        name.removesuffix(".jsonl").replace("-", "_"): _raw_sha256(payload)
+        for name, payload in payloads.items()
+    }
+    if output_commitments != expected_outputs:
+        raise StageBManifestError("Stage B merge output commitments differ")
+    expected_counts = {
+        "label_count": len(records["labels.jsonl"]),
+        "audit_count": len(records["llm-label-audit.jsonl"]),
+        "lawyer_review_queue_count": len(records["lawyer-review-queue.jsonl"]),
+    }
+    if any(run_card.get(key) != value for key, value in expected_counts.items()):
+        raise StageBManifestError("Stage B merge output counts differ")
+    audit_records = records["llm-label-audit.jsonl"]
+    try:
+        artifact.verify_stage_b_audit_commitments(audit_records)
+    except Exception as exc:
+        raise StageBManifestError(
+            f"Stage B merge audit does not bind the authenticated decision text: {exc}"
+        ) from exc
+    return (
+        run_card_bytes,
+        records["labels.jsonl"],
+        audit_records,
+        records["lawyer-review-queue.jsonl"],
+    )
+
+
+def _load_adjudication_records(path: Path) -> tuple[JsonRecord, ...]:
+    """Parse machine-valid lawyer adjudications without trusting their claims."""
+
+    payload = _read_regular(path, "Stage B adjudications")
+    records = _jsonl(payload, "Stage B adjudications")
+    if not records:
+        raise StageBManifestError("Stage B adjudications are empty")
+    for record in records:
+        try:
+            _adjudicated_review(record)
+        except Exception as exc:
+            raise StageBManifestError(
+                "Stage B adjudication is not a valid AdjudicatedReview: "
+                f"{record.get('review_id', '<missing review_id>')}"
+            ) from exc
+    return records
+
+
+def _validate_adjudication_coverage(
+    *,
+    queue_records: Sequence[Mapping[str, Any]],
+    adjudication_records: Sequence[Mapping[str, Any]],
+) -> None:
+    """Require exact merits coverage while leaving advisory evidence pending."""
+
+    merits: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for queue in queue_records:
+        if queue.get("status") != "pending_adjudication":
+            raise StageBManifestError("lawyer review queue contains a non-pending row")
+        review_id = _required_str(queue, "review_id")
+        unit_id = _required_str(queue, "unit_id")
+        route_reason = queue.get("route_reason")
+        if route_reason == "unresolved_supporting_evidence":
+            continue
+        if not isinstance(route_reason, str) or not route_reason.strip():
+            raise StageBManifestError(f"merits review lacks route reason: {review_id}")
+        identity = (review_id, unit_id)
+        if identity in merits:
+            raise StageBManifestError(f"duplicate merits review queue row: {review_id}")
+        merits[identity] = queue
+
+    adjudications: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for record in adjudication_records:
+        review_id = _required_str(record, "review_id")
+        unit_id = _required_str(record, "unit_id")
+        identity = (review_id, unit_id)
+        if identity in adjudications:
+            raise StageBManifestError(f"duplicate Stage B adjudication: {review_id}")
+        adjudications[identity] = record
+        queue = merits.get(identity)
+        if queue is None:
+            raise StageBManifestError(
+                f"Stage B adjudication is not a merits queue row: {review_id}/{unit_id}"
+            )
+        if record.get("candidate_id") != queue.get("candidate_id"):
+            raise StageBManifestError(
+                f"Stage B adjudication candidate differs: {review_id}"
+            )
+    if set(adjudications) != set(merits):
+        missing = sorted(set(merits) - set(adjudications))
+        raise StageBManifestError(
+            "Stage B adjudications do not exactly cover merits queue rows; "
+            f"missing={missing[:5]} count={len(missing)}"
+        )
+
+
+def _adjudication_owner_comment_digest(comment_id: str) -> str:
+    """Return the authenticated digest of an owner approval comment."""
+
+    owner_author = _owner_author()
+    for bead_id in (BEAD_ID, TERMINAL_APPROVAL_BEAD_ID):
+        try:
+            completed = subprocess.run(
+                ["bd", "comments", bead_id, "--json"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            value: object = json.loads(completed.stdout)
+        except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+            raise StageBManifestError(
+                f"could not read owner adjudication approval from Beads: {bead_id}"
+            ) from exc
+        if not isinstance(value, list):
+            raise StageBManifestError(
+                f"Beads comments response is not an array: {bead_id}"
+            )
+        for raw in cast(list[object], value):
+            if not isinstance(raw, Mapping):
+                continue
+            comment = cast(Mapping[str, object], raw)
+            if comment.get("id") != comment_id or comment.get("author") != owner_author:
+                continue
+            text = comment.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise StageBManifestError("owner adjudication approval text is invalid")
+            return str(
+                ARTIFACT_PREFIXED_SHA256_V1.commit(text, domain=_ADJ_SCHEMA).digest
+            )
+    raise StageBManifestError(
+        f"owner adjudication approval is missing or not authored by {owner_author}: "
+        f"{comment_id}"
+    )
+
+
+def _apply_manifest_adjudications(
+    *,
+    output_root: Path,
+    artifact: VerifiedDecisionTextArtifact,
+    raw_sha256: str,
+    registry_sha256: str,
+    decision_sha256: str,
+    frozen_unit_adjudications_sha256: str | None,
+    adjudication_path: Path,
+    execute: bool,
+    owner_comment_id: str | None,
+    owner_comment_digest: str | None,
+) -> Mapping[str, Any]:
+    """Validate or apply the existing manifest merge with owner adjudications."""
+
+    merge_run_card_bytes, labels, merged_audit, queue = (
+        _load_authenticated_merge_outputs(
+            output_root=output_root,
+            artifact=artifact,
+            raw_sha256=raw_sha256,
+            registry_sha256=registry_sha256,
+            decision_sha256=decision_sha256,
+            frozen_unit_adjudications_sha256=frozen_unit_adjudications_sha256,
+        )
+    )
+    adjudication_bytes = _read_regular(adjudication_path, "Stage B adjudications")
+    adjudications = _load_adjudication_records(adjudication_path)
+    _validate_adjudication_coverage(
+        queue_records=queue,
+        adjudication_records=adjudications,
+    )
+    decisions_by_candidate = _verified_stage_b_decisions(artifact)
+    decision_texts = {
+        decision.document_id: decision
+        for decision, _commitment in decisions_by_candidate.values()
+    }
+    try:
+        applied = apply_adjudicated_reviews(
+            label_records=labels,
+            adjudication_records=adjudications,
+            decision_texts=decision_texts,
+            label_audit_records=(),
+        )
+    except Exception as exc:
+        raise StageBManifestError(
+            f"Stage B adjudication citation or label validation failed: {exc}"
+        ) from exc
+    if not execute:
+        return {
+            "execute": False,
+            "merge_run_card_sha256": _raw_sha256(merge_run_card_bytes),
+            "adjudications_sha256": _raw_sha256(adjudication_bytes),
+            "merits_review_count": len(adjudications),
+            "advisory_review_count": sum(
+                1
+                for row in queue
+                if row.get("route_reason") == "unresolved_supporting_evidence"
+            ),
+            "final_label_count": len(applied.records),
+            "citation_validation": "passed",
+        }
+    if not isinstance(owner_comment_id, str) or not owner_comment_id:
+        raise StageBManifestError(
+            "executed adjudication apply requires --adjudication-owner-comment-id"
+        )
+    if not isinstance(owner_comment_digest, str) or not owner_comment_digest:
+        raise StageBManifestError(
+            "executed adjudication apply requires --adjudication-owner-comment-digest"
+        )
+    actual_owner_digest = _adjudication_owner_comment_digest(owner_comment_id)
+    if actual_owner_digest != owner_comment_digest:
+        raise StageBManifestError("owner adjudication approval digest differs")
+
+    final_labels_payload = _canonical_jsonl(applied.records)
+    final_audit_records = (*merged_audit, *applied.audit_records)
+    final_audit_payload = _canonical_jsonl(final_audit_records)
+    source_commitments: JsonRecord = {
+        "merge_run_card_sha256": _raw_sha256(merge_run_card_bytes),
+        "labels_sha256": _raw_sha256(
+            _read_regular(output_root / "labels.jsonl", "Stage B merged labels")
+        ),
+        "audit_sha256": _raw_sha256(
+            _read_regular(output_root / "llm-label-audit.jsonl", "Stage B merged audit")
+        ),
+        "lawyer_review_queue_sha256": _raw_sha256(
+            _read_regular(
+                output_root / "lawyer-review-queue.jsonl", "Stage B lawyer review queue"
+            )
+        ),
+        "adjudications_sha256": _raw_sha256(adjudication_bytes),
+        "raw_prediction_units": raw_sha256,
+        "selection": CURRENT_SELECTION_SHA256,
+        "legacy_decision_texts": DECISION_TEXTS_SHA256,
+        "decision_texts_current": artifact.decision_texts_sha256,
+        "model_registry": registry_sha256,
+    }
+    merge_run_card = _json_object(merge_run_card_bytes, "Stage B merge run card")
+    final_run_card: JsonRecord = {
+        "schema_version": str(STAGE_B_MANIFEST_ADJUDICATION_RUN_CARD_V1),
+        "stage": "llm-label-manifest-adjudication",
+        "status": "completed",
+        "execute": True,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "provider_credentials_required": False,
+        "owner_comment_id": owner_comment_id,
+        "owner_comment_digest": owner_comment_digest,
+        "source_commitments": source_commitments,
+        "output_commitments": {
+            "final_labels": _raw_sha256(final_labels_payload),
+            "final_audit": _raw_sha256(final_audit_payload),
+        },
+        "create_only": True,
+        "case_count": int(cast(int, merge_run_card.get("case_count", 0))),
+        "unit_count": int(cast(int, merge_run_card.get("unit_count", 0))),
+        "final_label_count": len(applied.records),
+        "final_audit_count": len(final_audit_records),
+        "adjudicated_review_count": len(adjudications),
+        "advisory_review_count": sum(
+            1
+            for row in queue
+            if row.get("route_reason") == "unresolved_supporting_evidence"
+        ),
+    }
+    final_run_card_payload = (
+        json.dumps(final_run_card, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    ).encode()
+    _write_create_only(output_root / "final-labels.jsonl", final_labels_payload)
+    _write_create_only(output_root / "final-label-audit.jsonl", final_audit_payload)
+    _write_create_only(
+        output_root / "final-label-run-card.json", final_run_card_payload
+    )
+    return {
+        "execute": True,
+        "final_labels": str(output_root / "final-labels.jsonl"),
+        "final_audit": str(output_root / "final-label-audit.jsonl"),
+        "run_card": str(output_root / "final-label-run-card.json"),
+        "final_label_count": len(applied.records),
+        "adjudicated_review_count": len(adjudications),
+        "advisory_review_count": sum(
+            1
+            for row in queue
+            if row.get("route_reason") == "unresolved_supporting_evidence"
+        ),
+        "output_commitments": final_run_card["output_commitments"],
+    }
+
+
 def run(args: argparse.Namespace) -> int:
     raw_path = Path(args.raw_prediction_units).resolve()
     decision_texts_path = Path(args.decision_texts).resolve()
@@ -2906,6 +3512,33 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(summary, sort_keys=True))
         return 0
     additional_attempt_candidate = getattr(args, "additional_attempt_candidate", None)
+    adjudication_path_value = getattr(args, "apply_adjudications", None)
+    if adjudication_path_value is not None:
+        if (
+            provider is not None
+            or args.merge
+            or additional_attempt_candidate is not None
+        ):
+            raise StageBManifestError(
+                "--apply-adjudications cannot be combined with provider, merge, "
+                "or retry"
+            )
+        summary = _apply_manifest_adjudications(
+            output_root=output_root,
+            artifact=artifact,
+            raw_sha256=raw_sha256,
+            registry_sha256=registry_sha256,
+            decision_sha256=decision_sha256,
+            frozen_unit_adjudications_sha256=frozen_unit_adjudications_sha256,
+            adjudication_path=Path(adjudication_path_value).resolve(),
+            execute=args.execute,
+            owner_comment_id=getattr(args, "adjudication_owner_comment_id", None),
+            owner_comment_digest=getattr(
+                args, "adjudication_owner_comment_digest", None
+            ),
+        )
+        print(json.dumps(summary, sort_keys=True))
+        return 0
     if additional_attempt_candidate is not None:
         owner_comment_ids = (*owner_comment_ids, _additional_attempt_approval_id())
     if args.merge:
@@ -3050,6 +3683,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--merge",
         action="store_true",
         help="Provider-free fan-in of complete authenticated provider shards.",
+    )
+    parser.add_argument(
+        "--apply-adjudications",
+        type=Path,
+        help=(
+            "provider-free validation or application of machine-valid lawyer "
+            "adjudications against the authenticated merge outputs; omit "
+            "--execute for a proposal dry-run"
+        ),
+    )
+    parser.add_argument(
+        "--adjudication-owner-comment-id",
+        help="exact Beads comment ID authorizing an executed adjudication apply",
+    )
+    parser.add_argument(
+        "--adjudication-owner-comment-digest",
+        help="artifact-domain digest of that exact owner comment text",
     )
     parser.add_argument("--max-cases", type=int)
     return parser

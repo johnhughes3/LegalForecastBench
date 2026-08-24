@@ -210,6 +210,9 @@ STAGE_B_MANIFEST_PLAN_V1 = SchemaIdentifier("legalforecast.stage_b_manifest_plan
 STAGE_B_MANIFEST_MERGE_RUN_CARD_V1 = SchemaIdentifier(
     "legalforecast.stage_b_manifest_merge_run_card.v1"
 )
+STAGE_B_MANIFEST_ADJUDICATION_RUN_CARD_V1 = SchemaIdentifier(
+    "legalforecast.stage_b_manifest_adjudication_run.v1"
+)
 STAGE_B_MANIFEST_PROVIDER_RESULT_V1 = SchemaIdentifier(
     "legalforecast.stage_b_manifest_provider_result.v1"
 )

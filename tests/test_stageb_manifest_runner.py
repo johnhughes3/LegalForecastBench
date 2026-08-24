@@ -295,6 +295,79 @@ def test_additional_attempt_help_describes_general_candidate_scope() -> None:
     assert "72213663" not in help_text
 
 
+def test_manifest_adjudication_coverage_leaves_advisory_rows_nonblocking() -> None:
+    queue = [
+        {
+            "status": "pending_adjudication",
+            "route_reason": "ambiguous",
+            "review_id": "candidate-1:unit-1:lawyer-adjudication",
+            "candidate_id": "candidate-1",
+            "unit_id": "unit-1",
+        },
+        {
+            "status": "pending_adjudication",
+            "route_reason": "unresolved_supporting_evidence",
+            "review_id": "candidate-1:unit-2:supporting-evidence",
+            "candidate_id": "candidate-1",
+            "unit_id": "unit-2",
+        },
+    ]
+    adjudications = [
+        {
+            "review_id": "candidate-1:unit-1:lawyer-adjudication",
+            "candidate_id": "candidate-1",
+            "unit_id": "unit-1",
+        }
+    ]
+
+    runner._validate_adjudication_coverage(  # pyright: ignore[reportPrivateUsage]
+        queue_records=queue,
+        adjudication_records=adjudications,
+    )
+
+
+def test_manifest_adjudication_coverage_rejects_missing_merits_row() -> None:
+    queue = [
+        {
+            "status": "pending_adjudication",
+            "route_reason": "disagreement",
+            "review_id": "candidate-1:unit-1:lawyer-adjudication",
+            "candidate_id": "candidate-1",
+            "unit_id": "unit-1",
+        }
+    ]
+
+    with pytest.raises(runner.StageBManifestError, match="exactly cover"):
+        runner._validate_adjudication_coverage(  # pyright: ignore[reportPrivateUsage]
+            queue_records=queue,
+            adjudication_records=(),
+        )
+
+
+def test_manifest_adjudication_owner_digest_requires_exact_owner_comment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
+    comment = _comment(
+        "adjudication-id", "owner approves adjudications", author="owner"
+    )
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _beads_comments([comment], []),
+    )
+
+    digest = runner._adjudication_owner_comment_digest(  # pyright: ignore[reportPrivateUsage]
+        "adjudication-id"
+    )
+    assert digest == str(
+        runner.ARTIFACT_PREFIXED_SHA256_V1.commit(
+            comment["text"],
+            domain=runner._ADJ_SCHEMA,  # pyright: ignore[reportPrivateUsage]
+        ).digest
+    )
+
+
 def test_additional_attempt_prompt_uses_exact_journal_evidence() -> None:
     prompt = runner._additional_attempt_prompt(  # pyright: ignore[reportPrivateUsage]
         original_prompt="authenticated prompt",
@@ -2145,6 +2218,27 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
     failed_attempt_two = dict(failure_payload)
     failed_attempt_two["error_message"] = "repair remained invalid"
     retry_path.write_text(json.dumps(failed_attempt_two), encoding="utf-8")
+    repair_evidence = runner.ReconstructionFailureEvidence(
+        attempt_ordinal=1,
+        raw_response_json='{"response":"repair"}',
+        normalized_response_json=(
+            '{"actual_cost_usd":0.02,"input_tokens":2,"output_tokens":3,'
+            '"raw_output":"{\\"still_bad\\":true}"}'
+        ),
+        failure_type="ValueError",
+        failure_message="repair remained invalid",
+    )
+    monkeypatch.setattr(
+        runner,
+        "_reconstruction_failure_evidence",
+        lambda **kwargs: (
+            repair_evidence
+            if kwargs.get("provider_logical_call_scope") is not None
+            else evidence
+        ),
+    )
+    (output_root / "openai-provider-shard-audit.jsonl").unlink()
+    (output_root / "openai-provider-shard-run-card.json").unlink()
     monkeypatch.setattr(
         runner,
         "_validate_provider_environment",
@@ -2155,31 +2249,200 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
         "_llm_label_one_model",
         lambda **_: pytest.fail("terminal repair must not make a third call"),
     )
-    with pytest.raises(
-        runner.StageBManifestError,
-        match="existing failed result requires frozen-unit adjudication",
-    ):
-        runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
-            provider="openai",
-            output_root=output_root,
-            raw_path=tmp_path / "raw.jsonl",
-            decision_texts_path=tmp_path / "decision.jsonl",
-            artifact=artifact,
-            selection_records=(context["selection"],),
-            adapted_records=(),
-            registry_entry=entry,
-            registry_sha256="registry",
-            raw_sha256="raw",
-            decision_sha256="decision",
-            max_cases=None,
-            additional_attempt_candidate=candidate_id,
-            owner_comment_ids=(
-                "spend",
-                "terminal",
-                runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
-            ),
-        )
+    terminal_records = runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+        provider="openai",
+        output_root=output_root,
+        raw_path=tmp_path / "raw.jsonl",
+        decision_texts_path=tmp_path / "decision.jsonl",
+        artifact=artifact,
+        selection_records=(context["selection"],),
+        adapted_records=(),
+        registry_entry=entry,
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+        max_cases=None,
+        additional_attempt_candidate=candidate_id,
+        owner_comment_ids=(
+            "spend",
+            "terminal",
+            runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
+        ),
+    )
+    assert terminal_records[0]["status"] == "terminal_repair_failed"
+    assert terminal_records[0]["model_outputs"][0]["labels"] == []
     assert failure_path.read_bytes() == before
+
+
+def test_terminal_retry_is_skipped_when_repair_targets_another_candidate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A prior terminal repair must not block a different selected repair."""
+
+    _, context = _valid_result()
+    candidate_a = "candidate-terminal-a"
+    candidate_b = "candidate-repair-b"
+    output_root = tmp_path / "output"
+    result_root = output_root / "results/openai"
+    result_root.mkdir(parents=True)
+
+    def failure(candidate_id: str, message: str) -> dict[str, Any]:
+        return {
+            "schema_version": str(runner.STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
+            "status": "failed",
+            "candidate_id": candidate_id,
+            "case_id": f"case-{candidate_id[-1]}",
+            "provider": "openai",
+            "model_key": runner.MODEL_KEYS[0],
+            "model_registry_sha256": "registry",
+            "raw_prediction_units_sha256": "raw",
+            "raw_candidate_envelope_sha256": "envelope",
+            "decision_texts_sha256": "decision",
+            "provider_sampling_policy": "provider_default",
+            "tools_enabled": False,
+            "error_type": "LlmResponseValidationError",
+            "error_message": message,
+        }
+
+    original_failure = failure(candidate_a, "initial validation failure")
+    (result_root / f"{candidate_a}.json").write_text(
+        json.dumps(original_failure), encoding="utf-8"
+    )
+    terminal_retry = failure(candidate_a, "repair A remained invalid")
+    terminal_retry_path = result_root / f"{candidate_a}.attempt-2.json"
+    terminal_retry_path.write_text(json.dumps(terminal_retry), encoding="utf-8")
+    terminal_retry_before = terminal_retry_path.read_bytes()
+    (result_root / f"{candidate_b}.json").write_text(
+        json.dumps(failure(candidate_b, "initial validation failure")),
+        encoding="utf-8",
+    )
+
+    selection_a = {"candidate_id": candidate_a, "case_id": "case-a"}
+    selection_b = {"candidate_id": candidate_b, "case_id": "case-b"}
+    artifact = cast(
+        Any,
+        SimpleNamespace(
+            finalized_unit_envelope_sha256s={
+                candidate_a: "envelope",
+                candidate_b: "envelope",
+            }
+        ),
+    )
+    entry = cast(
+        Any,
+        SimpleNamespace(
+            provider="openai",
+            registry_key=runner.MODEL_KEYS[0],
+            context_limit=400_000,
+            max_output_tokens=128_000,
+            input_token_price=0.75,
+            output_token_price=4.5,
+            long_context_surcharge=None,
+        ),
+    )
+    evidence = runner.ReconstructionFailureEvidence(
+        attempt_ordinal=1,
+        raw_response_json='{"response":"exact"}',
+        normalized_response_json='{"raw_output":"{\\"bad\\":true}"}',
+        failure_type="ValueError",
+        failure_message="initial validation failure",
+    )
+    monkeypatch.setattr(runner, "_validate_provider_environment", lambda _: None)
+    monkeypatch.setattr(
+        runner,
+        "_prediction_units_by_candidate",
+        lambda _: {
+            candidate_a: context["frozen_units"],
+            candidate_b: context["frozen_units"],
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "_verified_stage_b_decisions",
+        lambda _: {
+            candidate_a: ("authenticated decision", context["decision_commitment"]),
+            candidate_b: ("authenticated decision", context["decision_commitment"]),
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "_labeling_prompt",
+        lambda selection, *args, **kwargs: f"prompt-{selection['candidate_id']}",
+    )
+    monkeypatch.setattr(
+        runner,
+        "_reconstruction_failure_evidence",
+        lambda **_: evidence,
+    )
+    monkeypatch.setattr(runner, "_additional_attempt_permit", lambda **_: None)
+    terminal_candidates: list[str] = []
+
+    def fake_terminal(**kwargs: Any) -> dict[str, Any]:
+        terminal_candidates.append(kwargs["candidate_id"])
+        return {
+            "status": "terminal_repair_failed",
+            "candidate_id": kwargs["candidate_id"],
+            "case_id": kwargs["selection"]["case_id"],
+            "unit_count": 1,
+            "model_outputs": [{"labels": []}],
+            "estimated_cost": 0.0,
+        }
+
+    monkeypatch.setattr(runner, "_terminal_repair_failure_audit", fake_terminal)
+    provider_calls: list[str] = []
+
+    def fake_label(**kwargs: Any) -> tuple[list[Any], Any, int, int, str]:
+        provider_calls.append(kwargs["selection"]["candidate_id"])
+        cast(Path, kwargs["provider_journal_path"]).write_bytes(
+            b"provider-free regression journal"
+        )
+        prompt = cast(str, kwargs["prompt"])
+        return (
+            [],
+            SimpleNamespace(
+                input_tokens=1,
+                output_tokens=1,
+                estimated_cost=0.01,
+                raw_output_sha256="sha256:raw",
+                metadata={
+                    "provider": "openai",
+                    "model": "gpt-5.4-mini-2026-03-17",
+                    "model_id": "gpt-5.4-mini-2026-03-17",
+                    "model_registry_sha256": "registry",
+                    "provider_sampling_policy": "provider_default",
+                    "tool_policy": "no_tools",
+                },
+            ),
+            0,
+            0,
+            "sha256:" + hashlib.sha256(prompt.encode()).hexdigest(),
+        )
+
+    monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
+    records = runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+        provider="openai",
+        output_root=output_root,
+        raw_path=tmp_path / "raw.jsonl",
+        decision_texts_path=tmp_path / "decision.jsonl",
+        artifact=artifact,
+        selection_records=(selection_a, selection_b),
+        adapted_records=(),
+        registry_entry=entry,
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+        max_cases=None,
+        additional_attempt_candidate=candidate_b,
+        owner_comment_ids=(runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,),
+    )
+
+    assert terminal_candidates == [candidate_a]
+    assert provider_calls == [candidate_b]
+    assert records[0]["status"] == "terminal_repair_failed"
+    assert records[1]["status"] == "succeeded"
+    assert terminal_retry_path.read_bytes() == terminal_retry_before
+    assert (result_root / f"{candidate_b}.attempt-2.json").is_file()
 
 
 @pytest.mark.parametrize(
