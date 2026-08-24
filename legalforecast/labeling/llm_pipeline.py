@@ -3201,7 +3201,16 @@ def merge_llm_label_provider_shards(
                 for entry in registry_entries
                 if entry.registry_key in labels_by_model
             )
-            selected_labels = labels_by_model[provisional_model_key]
+            # A terminal provider failure already routes every unit to lawyer
+            # review.  Keep only structurally unambiguous labels as provisional
+            # recommendations: an ambiguous label has no scoreable primary
+            # outcome and must never enter the locked-label output, even when
+            # the other provider is unavailable.
+            selected_labels = tuple(
+                label
+                for label in labels_by_model[provisional_model_key]
+                if not label.ambiguous
+            )
         else:
             ensemble = evaluate_labeling_ensemble(
                 votes,

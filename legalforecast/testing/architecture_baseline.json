@@ -7197,10 +7197,10 @@
         ],
         "lane_owner": "labeling",
         "largest_symbol": "merge_llm_label_provider_shards",
-        "largest_symbol_lines": 522,
+        "largest_symbol_lines": 531,
         "layer": "application",
-        "line_count": 7377,
-        "nonblank_line_count": 6928,
+        "line_count": 7386,
+        "nonblank_line_count": 6937,
         "top_level_definition_count": 143
       },
       "legalforecast/labeling/official_paid_baton.py": {
@@ -10266,6 +10266,24 @@
         "line_count": 536,
         "nonblank_line_count": 455,
         "top_level_definition_count": 14
+      },
+      "tests/test_llm_label_provider_shards.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_adjudicated_merge_retains_frozen_labels_and_audits_omitted_claim",
+        "largest_symbol_lines": 92,
+        "layer": "test",
+        "line_count": 507,
+        "nonblank_line_count": 474,
+        "top_level_definition_count": 8
       },
       "tests/test_llm_labeling_cli.py": {
         "cycle_id": "",
