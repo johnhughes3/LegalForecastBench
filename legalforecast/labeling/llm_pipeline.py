@@ -2931,9 +2931,19 @@ def merge_llm_label_provider_shards(
             raise LlmPipelineError(
                 f"verified decision text date mismatch for {candidate_id}"
             )
-        if any(row.get("status") != "succeeded" for row in rows):
+        terminal_rows = [
+            row for row in rows if row.get("status") == "terminal_repair_failed"
+        ]
+        if (
+            any(
+                row.get("status") not in {"succeeded", "terminal_repair_failed"}
+                for row in rows
+            )
+            or len(terminal_rows) > 1
+        ):
             raise LlmPipelineError(
-                f"provider shard did not succeed for candidate {candidate_id}"
+                f"provider shard has unsupported terminal coverage for candidate "
+                f"{candidate_id}"
             )
 
         provider_prompt = _labeling_prompt(
@@ -2974,8 +2984,44 @@ def merge_llm_label_provider_shards(
         votes: list[EnsembleLabelVote] = []
         expected_unit_ids = {unit.unit_id for unit in frozen_units}
         advisory_unit_ids: set[str] = set()
+        terminal_model_keys: set[str] = set()
         for entry in registry_entries:
             output = outputs_by_model[entry.registry_key]
+            row_for_model = next(
+                row
+                for row in rows
+                if entry.registry_key in cast(list[str], row.get("model_keys", []))
+            )
+            is_terminal = row_for_model.get("status") == "terminal_repair_failed"
+            if is_terminal:
+                if not isinstance(row_for_model.get("terminal_failure"), Mapping):
+                    raise LlmPipelineError(
+                        "terminal provider shard lacks authenticated failure "
+                        f"evidence for {candidate_id}/{entry.registry_key}"
+                    )
+                if output.get("status") != "validation_failed":
+                    raise LlmPipelineError(
+                        "terminal provider shard output status differs for "
+                        f"{candidate_id}/{entry.registry_key}"
+                    )
+                if output.get("labels") != []:
+                    raise LlmPipelineError(
+                        "terminal provider shard output must not carry labels for "
+                        f"{candidate_id}/{entry.registry_key}"
+                    )
+                _required_str(output, "raw_output_sha256")
+                terminal_model_keys.add(entry.registry_key)
+                persisted_output = dict(output)
+                persisted_output.pop("provider_prompt_scope", None)
+                persisted_output.pop("original_provider_prompt_sha256", None)
+                persisted_output.pop("repair_prompt_sha256", None)
+                model_outputs.append(persisted_output)
+                continue
+            if output.get("status") not in {None, "succeeded"}:
+                raise LlmPipelineError(
+                    "successful provider shard output status differs for "
+                    f"{candidate_id}/{entry.registry_key}"
+                )
             if output.get("provider_prompt_sha256") != prompt_sha256:
                 repair_sha256 = output.get("repair_prompt_sha256")
                 is_repair = (
@@ -3100,25 +3146,82 @@ def merge_llm_label_provider_shards(
                 for label in labels
             )
 
-        ensemble = evaluate_labeling_ensemble(
-            votes,
-            high_confidence_threshold=high_confidence_threshold,
-            required_model_count=len(registry_entries),
-        )
-        lawyer_review_packets = _lawyer_review_packets(
-            candidate_id=candidate_id,
-            ensemble=ensemble,
-        )
-        selected_labels = (
-            tuple(ensemble.auto_labels)
-            if lawyer_review_packets
-            else _selected_labels(
-                labels_by_model,
-                votes,
-                consensus_policy=consensus_policy,
-                first_model_key=registry_entries[0].registry_key,
+        terminal_provider_failure = bool(terminal_model_keys)
+        if terminal_provider_failure:
+            if not labels_by_model:
+                raise LlmPipelineError(
+                    f"terminal provider failure leaves no valid labels for "
+                    f"{candidate_id}"
+                )
+            votes_by_unit: dict[str, tuple[EnsembleLabelVote, ...]] = {
+                unit_id: tuple(vote for vote in votes if vote.unit_id == unit_id)
+                for unit_id in sorted(expected_unit_ids)
+            }
+            if any(not unit_votes for unit_votes in votes_by_unit.values()):
+                raise LlmPipelineError(
+                    f"terminal provider failure has incomplete provisional labels "
+                    f"for {candidate_id}"
+                )
+            ensemble = EnsembleRunResult(
+                decisions=tuple(
+                    EnsembleUnitDecision(
+                        unit_id=unit_id,
+                        votes=unit_votes,
+                        status=EnsembleDecisionStatus.LAWYER_ADJUDICATION,
+                        route_reason=EnsembleRouteReason.DISAGREEMENT,
+                    )
+                    for unit_id, unit_votes in votes_by_unit.items()
+                ),
+                high_confidence_threshold=high_confidence_threshold,
+                required_model_count=len(registry_entries),
             )
-        )
+            lawyer_review_packets = tuple(
+                LawyerReviewPacket(
+                    review_id=f"{candidate_id}:{unit_id}:terminal-repair-failure",
+                    candidate_id=candidate_id,
+                    unit_id=unit_id,
+                    review_reason="terminal_repair_failure",
+                    materials=(
+                        ReviewMaterial(
+                            material_id=f"{unit_id}:terminal-repair-failure",
+                            kind=ReviewMaterialKind.DISAGREEMENT_SUMMARY,
+                            text=(
+                                "LAWYER_ADJUDICATION required because one provider "
+                                "repair remained structurally invalid; the other "
+                                "provider label is retained as a provisional "
+                                "recommendation only."
+                            ),
+                        ),
+                    ),
+                )
+                for unit_id in sorted(expected_unit_ids)
+            )
+            provisional_model_key = next(
+                entry.registry_key
+                for entry in registry_entries
+                if entry.registry_key in labels_by_model
+            )
+            selected_labels = labels_by_model[provisional_model_key]
+        else:
+            ensemble = evaluate_labeling_ensemble(
+                votes,
+                high_confidence_threshold=high_confidence_threshold,
+                required_model_count=len(registry_entries),
+            )
+            lawyer_review_packets = _lawyer_review_packets(
+                candidate_id=candidate_id,
+                ensemble=ensemble,
+            )
+            selected_labels = (
+                tuple(ensemble.auto_labels)
+                if lawyer_review_packets
+                else _selected_labels(
+                    labels_by_model,
+                    votes,
+                    consensus_policy=consensus_policy,
+                    first_model_key=registry_entries[0].registry_key,
+                )
+            )
         ambiguous = [label.unit_id for label in selected_labels if label.ambiguous]
         if ambiguous:
             raise LlmPipelineError(
@@ -3132,7 +3235,7 @@ def merge_llm_label_provider_shards(
             label_audit_packets=(),
             ensemble=ensemble,
         )
-        queued_unit_ids = set(pending_unit_ids)
+        queued_unit_ids: set[str] = set(pending_unit_ids)
         for unit_id in sorted(advisory_unit_ids):
             if unit_id in queued_unit_ids:
                 continue
@@ -3200,6 +3303,15 @@ def merge_llm_label_provider_shards(
                 ),
             }
         )
+        if terminal_provider_failure:
+            audit_records[-1].update(
+                {
+                    "terminal_provider_failure": True,
+                    "terminal_provider_model_keys": sorted(terminal_model_keys),
+                    "provisional_label_model_keys": sorted(labels_by_model),
+                    "selected_labels_are_provisional": True,
+                }
+            )
         if advisory_unit_ids:
             audit_records[-1].update(
                 {
@@ -5147,7 +5259,8 @@ def _lawyer_review_queue_records(
             "route_reason": (
                 "label_audit_sample"
                 if packet in label_audit_packets
-                else decisions_by_unit[packet.unit_id].route_reason.value
+                else packet.review_reason
+                or decisions_by_unit[packet.unit_id].route_reason.value
             ),
             "packet": packet.to_record(),
         }

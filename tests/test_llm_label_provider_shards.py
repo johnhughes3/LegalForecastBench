@@ -176,6 +176,81 @@ def test_provider_shards_call_only_selected_provider_and_merge_without_call(
     assert len(merged.audit_records[0]["model_outputs"]) == 2
 
 
+def test_terminal_repair_failure_keeps_other_provider_labels_provisional(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    selection, finalized, artifact = _inputs()
+    registry_path = ROOT / "model_registries" / "cycle-1-stage-b-judges-2026-07-12.json"
+    entries = load_model_registry(registry_path).entries
+    registry_sha = "sha256:" + hashlib.sha256(registry_path.read_bytes()).hexdigest()
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        lambda *a, **k: _response(a[0]),
+    )
+    google_audit = llm_pipeline.llm_label_cases(
+        selection_records=selection,
+        prediction_unit_records=finalized,
+        decision_text_artifact=artifact,
+        registry_entries=entries,
+        model_registry_sha256=registry_sha,
+        execution_provider="google",
+        defer_consensus=True,
+    ).audit_records[0]
+    openai_entry = next(entry for entry in entries if entry.provider == "openai")
+    terminal_audit = {
+        "stage": "llm-label-provider-shard",
+        "status": "terminal_repair_failed",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "execution_provider": "openai",
+        "model_keys": [openai_entry.registry_key],
+        "frozen_panel_model_keys": [entry.registry_key for entry in entries],
+        "model_registry_sha256": registry_sha,
+        "decision_text_commitment": google_audit["decision_text_commitment"],
+        "label_count": 0,
+        "unit_count": 1,
+        "model_outputs": [
+            {
+                "status": "validation_failed",
+                "model_key": openai_entry.registry_key,
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "estimated_cost": 0.01,
+                "raw_output_sha256": "sha256:" + "f" * 64,
+                "finding_count": 0,
+                "missing_unit_flag_count": 0,
+                "provider_prompt_sha256": "sha256:" + "1" * 64,
+                "labels": [],
+            }
+        ],
+        "terminal_failure": {
+            "status": "terminal_repair_failed",
+            "original": {"attempt_ordinal": 1},
+            "repair": {"attempt_ordinal": 2},
+        },
+        "estimated_cost": 0.01,
+    }
+    merged = llm_pipeline.merge_llm_label_provider_shards(
+        selection_records=selection,
+        prediction_unit_records=finalized,
+        decision_text_artifact=artifact,
+        registry_entries=entries,
+        provider_shard_audit_records=(google_audit, terminal_audit),
+        model_registry_sha256=registry_sha,
+    )
+    assert len(merged.records) == 1
+    assert merged.records[0]["unit_id"] == "unit-1"
+    audit = merged.audit_records[0]
+    assert audit["status"] == "adjudication_pending"
+    assert audit["human_verified"] is False
+    assert audit["pending_adjudication_unit_ids"] == ["unit-1"]
+    assert audit["terminal_provider_failure"] is True
+    assert audit["selected_labels_are_provisional"] is True
+    assert any(output["labels"] == [] for output in audit["model_outputs"])
+    assert audit["lawyer_review_queue"][0]["route_reason"] == "terminal_repair_failure"
+
+
 def test_adjudicated_merge_retains_frozen_labels_and_audits_omitted_claim(
     monkeypatch: MonkeyPatch,
 ) -> None:
