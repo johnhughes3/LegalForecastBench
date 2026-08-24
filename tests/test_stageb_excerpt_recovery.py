@@ -875,3 +875,54 @@ def test_stage_b_rendered_markdown_recovery_rejects_unbalanced_markup() -> None:
         )
         is None
     )
+
+
+def test_stage_b_local_markdown_recovery_ignores_unrelated_malformed_text() -> None:
+    decision_text = (
+        "An unrelated malformed marker * appears before the sentence.\n"
+        "Therefore, Plaintiff fails to state a First Amendment *Bivens* claim."
+    )
+    excerpt = "Therefore, Plaintiff fails to state a First Amendment Bivens claim."
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_without_single_markdown_emphasis(
+            decision_text, excerpt
+        )
+        == "Therefore, Plaintiff fails to state a First Amendment *Bivens* claim."
+    )
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_without_single_markdown_emphasis(
+            decision_text + " *",
+            excerpt,
+        )
+        == "Therefore, Plaintiff fails to state a First Amendment *Bivens* claim."
+    )
+
+
+@pytest.mark.parametrize(
+    "decision_text",
+    [
+        "Therefore, Plaintiff fails to state a First Amendment *Bivens claim.",
+        "Therefore, Plaintiff fails to state a First Amendment *Bivens*claim.",
+        "Therefore, Plaintiff fails to state a First Amendment *Bivens* claim. "
+        "Therefore, Plaintiff fails to state a First Amendment *Bivens* claim.",
+    ],
+)
+def test_stage_b_local_markdown_emphasis_recovery_fails_closed(
+    decision_text: str,
+) -> None:
+    excerpt = "Therefore, Plaintiff fails to state a First Amendment Bivens claim."
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_without_single_markdown_emphasis(
+            decision_text, excerpt
+        )
+        is None
+    )
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="supporting_excerpt does not appear in decision text",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)

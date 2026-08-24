@@ -5988,6 +5988,15 @@ def _coerced_excerpt_from_rendered_markdown(text: str, excerpt: str) -> str | No
 
 def _coerced_excerpt(text: str, excerpt: str) -> str:
     stripped = excerpt.strip()
+    local_markdown_recovery = _coerced_excerpt_without_single_markdown_emphasis(
+        text, stripped
+    )
+    if local_markdown_recovery is not None:
+        return local_markdown_recovery
+    if _has_intraword_single_markdown_pair(text) or _single_markdown_candidate_count(
+        text, stripped
+    ):
+        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
     rendered_markdown_recovery = _coerced_excerpt_from_rendered_markdown(text, stripped)
     if rendered_markdown_recovery is not None:
         return rendered_markdown_recovery
@@ -6306,6 +6315,189 @@ def _coerced_excerpt_without_markdown_emphasis(text: str, excerpt: str) -> str |
     while text[end : end + 2] == "**":
         end += 2
     return text[start:end].strip()
+
+
+def _coerced_excerpt_without_single_markdown_emphasis(
+    text: str, excerpt: str
+) -> str | None:
+    """Recover one locally balanced single-asterisk emphasis pair.
+
+    Unlike whole-document Markdown normalization, this deliberately considers
+    only a candidate pair surrounding the requested excerpt.  Other markers,
+    including malformed or unmatched markers elsewhere in the authenticated
+    source, remain literal text and are never removed by this recovery.
+    """
+
+    normalized_excerpt = " ".join(excerpt.split())
+    if not normalized_excerpt or "*" in normalized_excerpt:
+        return None
+
+    escaped_positions = _markdown_escape_positions(text)
+    escaped = set(escaped_positions)
+    escaped.update(escaped_positions.values())
+    marker_positions = _single_markdown_marker_positions(text)
+    if len(marker_positions) < 2:
+        return None
+
+    def word(character: str) -> bool:
+        return character.isalnum() or character == "_"
+
+    candidates: list[tuple[int, int]] = []
+    for opening_index, opening in enumerate(marker_positions[:-1]):
+        for closing_index in range(opening_index + 1, len(marker_positions)):
+            closing = marker_positions[closing_index]
+            if marker_positions[opening_index + 1 : closing_index]:
+                # A local pair must be balanced; do not pair across another
+                # single marker, even when that marker is malformed elsewhere.
+                continue
+            body = text[opening + 1 : closing]
+            if (
+                not body.strip()
+                or not any(character.isalnum() for character in body)
+                or any(
+                    character == "*" and index not in escaped
+                    for index, character in enumerate(body, start=opening + 1)
+                )
+            ):
+                continue
+            before_open = text[opening - 1] if opening else ""
+            after_open = text[opening + 1] if opening + 1 < len(text) else ""
+            before_close = text[closing - 1] if closing else ""
+            after_close = text[closing + 1] if closing + 1 < len(text) else ""
+            if (
+                not after_open
+                or after_open.isspace()
+                or not before_close
+                or before_close.isspace()
+                or (word(before_open) and word(after_open))
+                or (word(before_close) and word(after_close))
+            ):
+                continue
+
+            normalized_chars: list[str] = []
+            source_starts: list[int] = []
+            source_ends: list[int] = []
+            index = 0
+            while index < len(text):
+                if index in {opening, closing}:
+                    index += 1
+                    continue
+                escaped_character = escaped_positions.get(index)
+                if escaped_character is not None:
+                    normalized_chars.append(text[escaped_character])
+                    source_starts.append(index)
+                    source_ends.append(escaped_character + 1)
+                    index = escaped_character + 1
+                    continue
+                character = text[index]
+                if character.isspace():
+                    if normalized_chars and normalized_chars[-1] == " ":
+                        source_ends[-1] = index + 1
+                    else:
+                        normalized_chars.append(" ")
+                        source_starts.append(index)
+                        source_ends.append(index + 1)
+                    index += 1
+                    continue
+                normalized_chars.append(character)
+                source_starts.append(index)
+                source_ends.append(index + 1)
+                index += 1
+
+            untrimmed_text = "".join(normalized_chars)
+            leading = len(untrimmed_text) - len(untrimmed_text.lstrip())
+            trailing = len(untrimmed_text.rstrip())
+            normalized_text = untrimmed_text.strip()
+            starts = source_starts[leading:trailing]
+            ends = source_ends[leading:trailing]
+            search_start = 0
+            while True:
+                offset = normalized_text.find(normalized_excerpt, search_start)
+                if offset < 0:
+                    break
+                search_start = offset + 1
+                if not _word_boundary_match(
+                    normalized_text, normalized_excerpt, offset
+                ):
+                    continue
+                last = offset + len(normalized_excerpt) - 1
+                start = starts[offset]
+                end = ends[last]
+                if start >= closing or end <= opening + 1:
+                    continue
+                if opening + 1 <= start < closing:
+                    start = opening
+                if opening + 1 < end <= closing:
+                    end = closing + 1
+                candidates.append((start, end))
+
+    unique_candidates = set(candidates)
+    if len(unique_candidates) != 1:
+        return None
+    start, end = next(iter(unique_candidates))
+    return text[start:end].strip()
+
+
+def _single_markdown_marker_positions(text: str) -> list[int]:
+    """Return isolated, unescaped single-asterisk marker positions."""
+
+    escaped_positions = _markdown_escape_positions(text)
+    escaped = set(escaped_positions)
+    escaped.update(escaped_positions.values())
+    positions: list[int] = []
+    for index, character in enumerate(text):
+        if character != "*" or index in escaped:
+            continue
+        if text.startswith("**", index) or (index > 0 and text[index - 1] == "*"):
+            continue
+        positions.append(index)
+    return positions
+
+
+def _single_markdown_candidate_count(text: str, excerpt: str) -> int:
+    """Count target matches after removing all isolated single markers."""
+
+    normalized_excerpt = " ".join(excerpt.split())
+    if not normalized_excerpt or "*" in normalized_excerpt:
+        return 0
+    marker_positions = set(_single_markdown_marker_positions(text))
+    if not marker_positions:
+        return 0
+    normalized_text = " ".join(
+        "".join(
+            character
+            for index, character in enumerate(text)
+            if index not in marker_positions
+        ).split()
+    )
+    matches = 0
+    search_start = 0
+    while True:
+        offset = normalized_text.find(normalized_excerpt, search_start)
+        if offset < 0:
+            return matches
+        if _word_boundary_match(normalized_text, normalized_excerpt, offset):
+            matches += 1
+        search_start = offset + 1
+
+
+def _has_intraword_single_markdown_pair(text: str) -> bool:
+    """Report an isolated emphasis pair embedded within a word."""
+
+    positions = _single_markdown_marker_positions(text)
+    for opening, closing in pairwise(positions):
+        body = text[opening + 1 : closing]
+        if not body.strip() or not any(character.isalnum() for character in body):
+            continue
+        before_open = text[opening - 1] if opening else ""
+        after_open = text[opening + 1] if opening + 1 < len(text) else ""
+        before_close = text[closing - 1] if closing else ""
+        after_close = text[closing + 1] if closing + 1 < len(text) else ""
+        if (before_open.isalnum() and after_open.isalnum()) or (
+            before_close.isalnum() and after_close.isalnum()
+        ):
+            return True
+    return False
 
 
 def _omits_unqualified_pdf_line_number(text: str, excerpt_start: int) -> bool:
