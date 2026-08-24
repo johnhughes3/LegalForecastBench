@@ -7,9 +7,13 @@ from pathlib import Path
 from typing import cast
 from urllib.request import Request
 
+import legalforecast.runner.service as runner_service
 import pytest
 from legalforecast.cli import main
-from legalforecast.evals.live_model_solver import LiveModelResponseError
+from legalforecast.evals.live_model_solver import (
+    LiveModelConfigError,
+    LiveModelResponseError,
+)
 from legalforecast.immutable_io import ImmutableIOError
 from legalforecast.runner import (
     RunBlockedError,
@@ -185,6 +189,66 @@ def test_runner_resumes_completed_cells_without_duplicate_transport(
     assert second.executed_cells == 0
     assert second.resumed_cells == 3
     assert second_transport.calls == 0
+
+
+def test_runner_restores_receipt_after_ledger_commit_without_duplicate_transport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+    first_transport = FixtureModelTransport()
+
+    def simulate_crash_before_receipt_publish(path: Path, payload: bytes) -> None:
+        del path, payload
+        raise OSError("simulated crash before receipt publication")
+
+    monkeypatch.setattr(
+        runner_service,
+        "write_file_create_only",
+        simulate_crash_before_receipt_publish,
+    )
+    with pytest.raises(OSError, match="simulated crash"):
+        execute_release_run(
+            config,
+            transport=first_transport,
+            environ=_fixture_environ(),
+        )
+    assert first_transport.call_count == 1
+    assert tuple(config.receipts_dir.glob("*.json")) == ()
+
+    monkeypatch.undo()
+    resumed_transport = FixtureModelTransport()
+    summary = execute_release_run(
+        config,
+        transport=resumed_transport,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.resumed_cells == 1
+    assert summary.executed_cells == 2
+    assert resumed_transport.call_count == 2
+    assert len(tuple(config.receipts_dir.glob("*.json"))) == 3
+
+
+def test_runner_retries_repaired_pretransport_failure_without_duplicate_call(
+    tmp_path: Path,
+) -> None:
+    config = _config(tmp_path)
+    transport = FixtureModelTransport()
+
+    with pytest.raises(LiveModelConfigError, match="OPENAI_API_KEY"):
+        execute_release_run(config, transport=transport, environ={})
+    assert transport.call_count == 0
+
+    summary = execute_release_run(
+        config,
+        transport=transport,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.executed_cells == 3
+    assert summary.resumed_cells == 0
+    assert transport.call_count == 3
 
 
 def test_runner_retains_interrupted_reservation_and_refuses_duplicate_call(

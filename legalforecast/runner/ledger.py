@@ -32,6 +32,7 @@ class CellRecord:
     repeat_index: int
     status: str
     receipt_sha256: str | None
+    receipt_payload: bytes | None
 
 
 class RunnerLedger:
@@ -155,6 +156,7 @@ class RunnerLedger:
                     repeat_index=repeat_index,
                     status="reserved",
                     receipt_sha256=None,
+                    receipt_payload=None,
                 )
             else:
                 record = self._cell_record(row)
@@ -172,7 +174,26 @@ class RunnerLedger:
                 )
                 if actual != expected:
                     raise RunIdentityError("existing cell identity differs")
-                if record.status != "completed":
+                if record.status == "blocked":
+                    self._connection.execute(
+                        """
+                        UPDATE public_runner_cells
+                        SET status = 'reserved', failure_type = NULL
+                        WHERE cell_id = ? AND status = 'blocked'
+                        """,
+                        (cell_id,),
+                    )
+                    record = CellRecord(
+                        cell_id=record.cell_id,
+                        run_identity_sha256=record.run_identity_sha256,
+                        case_id=record.case_id,
+                        unit_id=record.unit_id,
+                        repeat_index=record.repeat_index,
+                        status="reserved",
+                        receipt_sha256=None,
+                        receipt_payload=None,
+                    )
+                elif record.status != "completed":
                     raise RunBlockedError(
                         f"cell {cell_id} has {record.status} provider state; "
                         "another call is forbidden"
@@ -203,6 +224,7 @@ class RunnerLedger:
         *,
         request_body_sha256: str,
         receipt_sha256: str,
+        receipt_payload: bytes,
     ) -> None:
         """Bind an immutable receipt to its previously reserved cell."""
 
@@ -212,10 +234,15 @@ class RunnerLedger:
                 """
                 UPDATE public_runner_cells
                 SET status = 'completed', request_body_sha256 = ?,
-                    receipt_sha256 = ?, failure_type = NULL
+                    receipt_sha256 = ?, receipt_payload = ?, failure_type = NULL
                 WHERE cell_id = ? AND status = 'reserved'
                 """,
-                (request_body_sha256, receipt_sha256, cell_id),
+                (
+                    request_body_sha256,
+                    receipt_sha256,
+                    receipt_payload,
+                    cell_id,
+                ),
             )
             if cursor.rowcount != 1:
                 raise RunBlockedError("cell is not reserved for completion")
@@ -280,6 +307,7 @@ class RunnerLedger:
                 ),
                 request_body_sha256 TEXT,
                 receipt_sha256 TEXT,
+                receipt_payload BLOB,
                 failure_type TEXT
             );
             """
@@ -288,6 +316,7 @@ class RunnerLedger:
     @staticmethod
     def _cell_record(row: sqlite3.Row) -> CellRecord:
         receipt = row["receipt_sha256"]
+        receipt_payload = row["receipt_payload"]
         return CellRecord(
             cell_id=str(row["cell_id"]),
             run_identity_sha256=str(row["run_identity_sha256"]),
@@ -296,4 +325,7 @@ class RunnerLedger:
             repeat_index=int(row["repeat_index"]),
             status=str(row["status"]),
             receipt_sha256=None if receipt is None else str(receipt),
+            receipt_payload=(
+                None if receipt_payload is None else bytes(receipt_payload)
+            ),
         )

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import cast
-from urllib.request import Request
 
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
@@ -83,19 +82,14 @@ class RunSummary:
         return asdict(self)
 
 
-class _RequestBodyCommitmentTransport:
-    def __init__(self, delegate: LiveModelTransport) -> None:
-        self._delegate = delegate
+class _RequestBodyCommitment:
+    def __init__(self) -> None:
         self.request_body_sha256: str | None = None
 
-    def __call__(
-        self, request: Request, timeout_seconds: float
-    ) -> Mapping[str, object]:
-        if request.data is None:
-            raise RunValidationError("provider request body is missing")
+    def observe(self, request_body: bytes) -> None:
         digest = str(
             RAW_BYTES_RAW_SHA256_V1.commit(
-                cast(bytes, request.data),
+                request_body,
                 domain=PUBLIC_RUN_RECEIPT_V1,
             ).digest
         )
@@ -104,7 +98,6 @@ class _RequestBodyCommitmentTransport:
                 "one logical cell attempted duplicate provider transport"
             )
         self.request_body_sha256 = digest
-        return self._delegate(request, timeout_seconds)
 
 
 def execute_release_run(
@@ -244,23 +237,25 @@ def execute_release_run(
                     )
                     receipt_path = config.receipts_dir / f"{cell_id}.json"
                     if cell.status == "completed":
-                        _validate_completed_receipt(
+                        _restore_or_validate_completed_receipt(
                             receipt_path,
                             expected_sha256=cell.receipt_sha256,
+                            expected_payload=cell.receipt_payload,
                             cell_id=cell_id,
                             run_identity_sha256=identity_sha256,
                         )
                         resumed_cells += 1
                         continue
 
-                    capture = _RequestBodyCommitmentTransport(delegate)
+                    capture = _RequestBodyCommitment()
                     completed = False
                     try:
                         response = _complete_cell(
                             entry,
                             prompt,
                             registry_sha256=registry_sha256,
-                            transport=capture,
+                            transport=delegate,
+                            request_body_observer=capture.observe,
                             environ=environ,
                             authority=authority,
                             reservation_microusd=reservation_microusd,
@@ -313,13 +308,9 @@ def execute_release_run(
                             "parser_output": _public_parser_record(parsed),
                         }
                         receipt_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(receipt)
-                        write_file_create_only(receipt_path, receipt_bytes)
                         receipt_sha256 = str(
                             RAW_BYTES_RAW_SHA256_V1.commit(
-                                read_single_link_file(
-                                    receipt_path,
-                                    label="run receipt",
-                                ),
+                                receipt_bytes,
                                 domain=PUBLIC_RUN_RECEIPT_V1,
                             ).digest
                         )
@@ -327,8 +318,16 @@ def execute_release_run(
                             cell_id,
                             request_body_sha256=request_sha256,
                             receipt_sha256=receipt_sha256,
+                            receipt_payload=receipt_bytes,
                         )
                         completed = True
+                        _restore_or_validate_completed_receipt(
+                            receipt_path,
+                            expected_sha256=receipt_sha256,
+                            expected_payload=receipt_bytes,
+                            cell_id=cell_id,
+                            run_identity_sha256=identity_sha256,
+                        )
                     except BaseException as exc:
                         if not completed:
                             _record_cell_failure(
@@ -369,6 +368,7 @@ def _complete_cell(
     *,
     registry_sha256: str,
     transport: LiveModelTransport,
+    request_body_observer: Callable[[bytes], None],
     environ: Mapping[str, str] | None,
     authority: SqliteProviderSpendAuthority,
     reservation_microusd: int,
@@ -402,6 +402,7 @@ def _complete_cell(
         environ=environ,
         max_attempts=1,
         attempt_handler=handler,
+        request_body_observer=request_body_observer,
     )
 
 
@@ -452,16 +453,21 @@ def _public_parser_record(parsed: ParsedModelOutput) -> dict[str, object]:
     }
 
 
-def _validate_completed_receipt(
+def _restore_or_validate_completed_receipt(
     path: Path,
     *,
     expected_sha256: str | None,
+    expected_payload: bytes | None,
     cell_id: str,
     run_identity_sha256: str,
 ) -> None:
-    if expected_sha256 is None:
-        raise RunValidationError("completed cell lacks receipt commitment")
+    if expected_sha256 is None or expected_payload is None:
+        raise RunValidationError("completed cell lacks durable receipt evidence")
+    if not path.exists():
+        write_file_create_only(path, expected_payload)
     payload = read_single_link_file(path, label="completed run receipt")
+    if payload != expected_payload:
+        raise RunValidationError("completed run receipt bytes changed")
     actual_sha256 = str(
         RAW_BYTES_RAW_SHA256_V1.commit(
             payload,

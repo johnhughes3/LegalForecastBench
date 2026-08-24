@@ -107,6 +107,9 @@ class LiveModelTransport(Protocol):
     ) -> JsonRecord: ...
 
 
+RequestBodyObserver = Callable[[bytes], None]
+
+
 class ProviderAttemptHandler(Protocol):
     """Durably wrap and settle individual provider HTTP attempts."""
 
@@ -238,6 +241,7 @@ def complete_live_prompt(
     response_json_schema: Mapping[str, object] | None = None,
     max_output_tokens_override: int | None = None,
     openai_service_tier_observer: Callable[[str], None] | None = None,
+    request_body_observer: RequestBodyObserver | None = None,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
 
@@ -294,6 +298,7 @@ def complete_live_prompt(
             max_attempts=max_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
+            request_body_observer=request_body_observer,
         )
 
     started = time.perf_counter()
@@ -308,6 +313,7 @@ def complete_live_prompt(
             max_attempts=max_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
+            request_body_observer=request_body_observer,
         )
     )
     latency_ms = (time.perf_counter() - started) * 1000
@@ -385,6 +391,7 @@ def _complete_bedrock_anthropic_prompt(
     max_attempts: int,
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None,
+    request_body_observer: RequestBodyObserver | None,
 ) -> SolverResponse:
     bedrock_model_id = _bedrock_anthropic_model_id(registry_entry, environ)
     _reject_unsupported_legacy_bedrock_model(
@@ -393,14 +400,21 @@ def _complete_bedrock_anthropic_prompt(
         environ,
     )
     request_payload = _bedrock_anthropic_payload(registry_entry, prompt)
-    started = time.perf_counter()
-    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
-        lambda: _invoke_bedrock_runtime_json(
+    request_bytes = json.dumps(dict(request_payload)).encode("utf-8")
+
+    def bedrock_call() -> JsonRecord:
+        if request_body_observer is not None:
+            request_body_observer(request_bytes)
+        return _invoke_bedrock_runtime_json(
             bedrock_model_id,
             request_payload,
             environ=environ,
             timeout_seconds=timeout_seconds,
-        ),
+        )
+
+    started = time.perf_counter()
+    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
+        bedrock_call,
         max_attempts=max_attempts,
         retry_backoff_seconds=retry_backoff_seconds,
         attempt_handler=attempt_handler,
@@ -899,19 +913,21 @@ def _call_live_http_provider(
     max_attempts: int,
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None,
+    request_body_observer: RequestBodyObserver | None,
 ) -> tuple[JsonRecord, int, int, str | None, bool]:
     """POST one live HTTP provider call, with OpenAI Flex-to-standard fallback."""
 
     if not _is_openai_provider(registry_entry):
         provider = _provider_config(registry_entry.provider)
+        provider_request = provider.build_request(
+            registry_entry,
+            prompt,
+            api_key_supplier(),
+            response_json_schema,
+        )
 
         def provider_call() -> JsonRecord:
-            provider_request = provider.build_request(
-                registry_entry,
-                prompt,
-                api_key_supplier(),
-                response_json_schema,
-            )
+            _observe_request_body(provider_request, request_body_observer)
             return transport(provider_request, timeout_seconds)
 
         payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
@@ -924,22 +940,31 @@ def _call_live_http_provider(
 
     used_tier = OPENAI_SERVICE_TIER
     fell_back = False
+    api_key = api_key_supplier()
+    request = _openai_request(
+        registry_entry,
+        prompt,
+        api_key,
+        response_json_schema,
+        service_tier=used_tier,
+    )
 
     def openai_call() -> JsonRecord:
-        request = _openai_request(
-            registry_entry,
-            prompt,
-            api_key_supplier(),
-            response_json_schema,
-            service_tier=used_tier,
-        )
+        _observe_request_body(request, request_body_observer)
         return transport(request, timeout_seconds)
 
     def on_retryable_error(exc: LiveModelProviderError) -> None:
-        nonlocal used_tier, fell_back
+        nonlocal used_tier, fell_back, request
         if used_tier == OPENAI_SERVICE_TIER and _is_openai_flex_unavailable(exc):
             used_tier = OPENAI_FALLBACK_SERVICE_TIER
             fell_back = True
+            request = _openai_request(
+                registry_entry,
+                prompt,
+                api_key,
+                response_json_schema,
+                service_tier=used_tier,
+            )
 
     payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
         openai_call,
@@ -949,6 +974,17 @@ def _call_live_http_provider(
         on_retryable_error=on_retryable_error,
     )
     return payload, request_count, durable_attempt_ordinal, used_tier, fell_back
+
+
+def _observe_request_body(
+    request: urllib.request.Request,
+    observer: RequestBodyObserver | None,
+) -> None:
+    if observer is None:
+        return
+    if request.data is None:
+        raise LiveModelConfigError("provider request body is missing")
+    observer(cast(bytes, request.data))
 
 
 def _call_with_provider_retries(

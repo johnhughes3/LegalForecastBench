@@ -387,6 +387,48 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
     assert "Use AWS Bedrock." in body["messages"][0]["content"][0]["text"]
 
 
+def test_bedrock_request_body_observer_receives_exact_transport_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_bodies: list[bytes] = []
+    invoked_payloads: list[dict[str, object]] = []
+
+    def fake_bedrock(
+        model_id: str,
+        payload: live_model_solver.JsonRecord,
+        *,
+        environ: Mapping[str, str] | None,
+        timeout_seconds: float,
+    ) -> live_model_solver.JsonRecord:
+        del model_id, environ, timeout_seconds
+        invoked_payloads.append(dict(payload))
+        return {
+            "model": "claude-sonnet-4-6",
+            "content": [{"type": "text", "text": '{"bedrock":true}'}],
+            "usage": {"input_tokens": 220, "output_tokens": 55},
+        }
+
+    monkeypatch.setattr(
+        live_model_solver,
+        "_invoke_bedrock_runtime_json",
+        fake_bedrock,
+    )
+
+    live_model_solver.complete_live_prompt(
+        _registry_entry(
+            "anthropic",
+            "claude-sonnet-4-6",
+            model_version_or_snapshot="claude-sonnet-4-6",
+        ),
+        "Use AWS Bedrock.",
+        environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
+        request_body_observer=request_bodies.append,
+    )
+
+    assert len(request_bodies) == 1
+    assert json.loads(request_bodies[0]) == invoked_payloads[0]
+
+
 def test_bedrock_malformed_response_marks_authorized_attempt_ambiguous(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
