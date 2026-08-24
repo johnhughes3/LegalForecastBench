@@ -15,6 +15,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
+from legalforecast.contracts.schemas import LOCAL_MODEL_RESULT_V1
 from scripts.validate_flatten_local_luna import (
     LocalLunaResultError,
 )
@@ -62,7 +63,7 @@ def flatten_results(
     *,
     expected_count: int | None = None,
     expected_model_key: str,
-    expected_registry_sha256: str | None = None,
+    expected_registry_sha256: str,
     expected_prompt_commitments: Mapping[str, str],
     derive_missing_output_statuses: frozenset[str] = frozenset(),
 ) -> int:
@@ -73,6 +74,7 @@ def flatten_results(
         output_path,
         expected_count=expected_count,
         expected_model_key=expected_model_key,
+        expected_schema_version=str(LOCAL_MODEL_RESULT_V1),
         expected_registry_sha256=expected_registry_sha256,
         expected_prompt_commitments=expected_prompt_commitments,
         derive_missing_output_statuses=derive_missing_output_statuses,
@@ -85,7 +87,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--expected-count", type=int)
     parser.add_argument("--model-key", required=True)
-    parser.add_argument("--expected-registry-sha256")
+    parser.add_argument("--expected-registry-sha256", required=True)
     parser.add_argument(
         "--expected-prompt-commitments",
         type=Path,

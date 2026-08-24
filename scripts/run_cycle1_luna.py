@@ -16,7 +16,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from legalforecast.contracts.schemas import LOCAL_LUNA_PLAN_V1, LOCAL_LUNA_RESULT_V1
+from legalforecast.contracts.schemas import (
+    LOCAL_LUNA_PLAN_V1,
+    LOCAL_LUNA_RESULT_V1,
+    LOCAL_MODEL_PLAN_V1,
+    LOCAL_MODEL_RESULT_V1,
+)
 from legalforecast.evals.inspect_task import build_inspect_samples, run_inspect_fixture
 from legalforecast.evals.live_model_solver import LiveModelSolver
 from legalforecast.evals.model_registry import load_model_registry
@@ -83,6 +88,8 @@ class LocalModelConfig:
     spend_approval: str
     cap_microusd: int
     expected_registry_sha256: str | None
+    plan_schema_version: str = str(LOCAL_LUNA_PLAN_V1)
+    result_schema_version: str = str(LOCAL_LUNA_RESULT_V1)
     spend_approval_comment_id: str | None = None
     manifest_approval_comment_id: str | None = None
     extended_commitments: bool = False
@@ -117,6 +124,8 @@ GEMINI_CONFIG = LocalModelConfig(
     expected_registry_sha256=(
         "131ece75c82275fc8d47d9cd6bbdf7b39ff45f69568750eb4a777709e1a1be75"
     ),
+    plan_schema_version=str(LOCAL_MODEL_PLAN_V1),
+    result_schema_version=str(LOCAL_MODEL_RESULT_V1),
     spend_approval_comment_id="9dc0ad0a-de38-5eb8-ae76-a935a3a8f311",
     manifest_approval_comment_id="36e31a09-588e-591c-8898-510f1ccb9d06",
     extended_commitments=True,
@@ -409,7 +418,7 @@ def run(args: argparse.Namespace, config: LocalModelConfig = LUNA_CONFIG) -> int
         ).encode()
     )
     plan = {
-        "schema_version": str(LOCAL_LUNA_PLAN_V1),
+        "schema_version": config.plan_schema_version,
         "manifest_sha256": MANIFEST_DIGEST,
         "model_key": config.model_key,
         "registry_sha256": _sha(registry_bytes),
@@ -474,9 +483,17 @@ def run(args: argparse.Namespace, config: LocalModelConfig = LUNA_CONFIG) -> int
                             cast(Mapping[str, object], existing).get("model_key")
                             != config.model_key
                             or cast(Mapping[str, object], existing).get(
+                                "schema_version"
+                            )
+                            != config.result_schema_version
+                            or cast(Mapping[str, object], existing).get(
                                 "registry_sha256"
                             )
                             != _sha(registry_bytes)
+                            or cast(Mapping[str, object], existing).get(
+                                "prompt_commitment_identity"
+                            )
+                            != f"{row['candidate_id']}:{row['ablation']}"
                         )
                     )
                 ):
@@ -589,7 +606,7 @@ def run(args: argparse.Namespace, config: LocalModelConfig = LUNA_CONFIG) -> int
                     ).items()
                 }
                 record = {
-                    "schema_version": str(LOCAL_LUNA_RESULT_V1),
+                    "schema_version": config.result_schema_version,
                     "identity": identity,
                     "plan_identity_sha256": authority_identity,
                     "packet_sha256": row["packet_sha256"],
@@ -604,6 +621,9 @@ def run(args: argparse.Namespace, config: LocalModelConfig = LUNA_CONFIG) -> int
                             "model_key": config.model_key,
                             "registry_sha256": _sha(registry_bytes),
                             "provider": config.provider,
+                            "prompt_commitment_identity": (
+                                f"{row['candidate_id']}:{row['ablation']}"
+                            ),
                             "tools": [],
                         }
                     )

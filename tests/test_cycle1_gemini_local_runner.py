@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from legalforecast.contracts.schemas import LOCAL_MODEL_PLAN_V1, LOCAL_MODEL_RESULT_V1
 from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.evals.response_verification import (
     output_statuses_from_run_records,
@@ -54,6 +55,8 @@ def test_gemini_config_binds_owner_ceiling_and_exact_registry() -> None:
     assert GEMINI_CONFIG.spend_approval == (
         "I approve up to USD 15 for the Gemini 3.7 Flash 200-call Cycle 1 comparison."
     )
+    assert GEMINI_CONFIG.plan_schema_version == str(LOCAL_MODEL_PLAN_V1)
+    assert GEMINI_CONFIG.result_schema_version == str(LOCAL_MODEL_RESULT_V1)
     assert (
         GEMINI_CONFIG.expected_registry_sha256
         == hashlib.sha256(REGISTRY_PATH.read_bytes()).hexdigest()
@@ -65,7 +68,13 @@ def test_generic_flatten_authenticates_gemini_model_registry_and_prompt(
 ) -> None:
     results = tmp_path / "results"
     results.mkdir()
-    _write_result(results, "case-1", "full_packet", "unit-1")
+    _write_result(
+        results,
+        "courtlistener-docket-case-1",
+        "full_packet",
+        "unit-1",
+        candidate_id="case-1",
+    )
 
     output = tmp_path / "runs.jsonl"
     assert (
@@ -101,7 +110,14 @@ def test_generic_flatten_rejects_prompt_identity_drift_without_output(
     assert not (tmp_path / "runs.jsonl").exists()
 
 
-def _write_result(results: Path, case_id: str, ablation: str, unit_id: str) -> None:
+def _write_result(
+    results: Path,
+    case_id: str,
+    ablation: str,
+    unit_id: str,
+    *,
+    candidate_id: str | None = None,
+) -> None:
     raw_output = json.dumps(
         {
             "case_assessment": "Assessment.",
@@ -125,13 +141,14 @@ def _write_result(results: Path, case_id: str, ablation: str, unit_id: str) -> N
         },
     }
     envelope = {
-        "schema_version": "legalforecast.local_luna_result.v1",
+        "schema_version": str(LOCAL_MODEL_RESULT_V1),
         "identity": f"{case_id}:{ablation}",
         "model_key": GEMINI_CONFIG.model_key,
         "registry_sha256": REGISTRY_SHA,
         "packet_sha256": "b" * 64,
         "prompt_sha256": PROMPT_SHA,
         "plan_identity_sha256": "d" * 64,
+        "prompt_commitment_identity": f"{candidate_id or case_id}:{ablation}",
         "provider": "google",
         "tools": [],
         "runs": [run],

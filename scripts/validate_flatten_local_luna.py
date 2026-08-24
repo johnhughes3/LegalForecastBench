@@ -83,6 +83,7 @@ def _validate_result(
     *,
     expected_registry_sha256: str | None,
     expected_model_key: str = MODEL_ID,
+    expected_schema_version: str = RESULT_SCHEMA_VERSION,
     expected_prompt_commitments: Mapping[str, str] | None = None,
     derive_missing_output_statuses: frozenset[str],
 ) -> dict[str, Any]:
@@ -93,7 +94,7 @@ def _validate_result(
     except (OSError, ValueError) as exc:
         raise LocalLunaResultError(f"result is not readable JSON: {path}") from exc
     envelope = _require_mapping(decoded, f"result envelope {path}")
-    if envelope.get("schema_version") != RESULT_SCHEMA_VERSION:
+    if envelope.get("schema_version") != expected_schema_version:
         raise LocalLunaResultError(f"unsupported result schema: {path}")
     identity = _require_string(envelope, "identity")
     if ":" not in identity:
@@ -162,23 +163,37 @@ def _validate_result(
         and registry_sha256 != expected_registry_sha256
     ):
         raise LocalLunaResultError(f"model registry hash mismatch: {path}")
+    require_extended_commitments = expected_schema_version != RESULT_SCHEMA_VERSION
     envelope_model_key = envelope.get("model_key")
-    if envelope_model_key is not None and envelope_model_key != expected_model_key:
+    if (
+        require_extended_commitments or envelope_model_key is not None
+    ) and envelope_model_key != expected_model_key:
         raise LocalLunaResultError(f"result model identity mismatch: {path}")
     envelope_provider = envelope.get("provider")
-    if envelope_provider is not None and envelope_provider != expected_provider:
+    if (
+        require_extended_commitments or envelope_provider is not None
+    ) and envelope_provider != expected_provider:
         raise LocalLunaResultError(f"result provider identity mismatch: {path}")
     envelope_tools = envelope.get("tools")
-    if envelope_tools is not None and envelope_tools != []:
+    if (
+        require_extended_commitments or envelope_tools is not None
+    ) and envelope_tools != []:
         raise LocalLunaResultError(f"result tools are not empty: {path}")
     envelope_registry_sha256 = envelope.get("registry_sha256")
-    if envelope_registry_sha256 is not None:
+    if require_extended_commitments or envelope_registry_sha256 is not None:
         if not isinstance(envelope_registry_sha256, str):
             raise LocalLunaResultError(f"result registry hash is invalid: {path}")
         if envelope_registry_sha256 != registry_sha256:
             raise LocalLunaResultError(f"result registry commitment mismatch: {path}")
     if expected_prompt_commitments is not None:
-        expected_prompt_sha256 = expected_prompt_commitments.get(identity)
+        prompt_commitment_identity = (
+            _require_string(envelope, "prompt_commitment_identity")
+            if require_extended_commitments
+            else identity
+        )
+        expected_prompt_sha256 = expected_prompt_commitments.get(
+            prompt_commitment_identity
+        )
         if expected_prompt_sha256 != envelope.get("prompt_sha256"):
             raise LocalLunaResultError(f"prompt commitment mismatch: {path}")
 
@@ -217,6 +232,7 @@ def flatten_results(
     expected_count: int | None = None,
     expected_registry_sha256: str | None = None,
     expected_model_key: str = MODEL_ID,
+    expected_schema_version: str = RESULT_SCHEMA_VERSION,
     expected_prompt_commitments: Mapping[str, str] | None = None,
     derive_missing_output_statuses: frozenset[str] = frozenset(),
 ) -> int:
@@ -238,6 +254,7 @@ def flatten_results(
             path,
             expected_registry_sha256=expected_registry_sha256,
             expected_model_key=expected_model_key,
+            expected_schema_version=expected_schema_version,
             expected_prompt_commitments=expected_prompt_commitments,
             derive_missing_output_statuses=derive_missing_output_statuses,
         )
