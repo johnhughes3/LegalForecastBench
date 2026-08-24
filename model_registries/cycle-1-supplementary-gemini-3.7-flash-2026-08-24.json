@@ -1,0 +1,25 @@
+[
+  {
+    "context_limit": 1048576,
+    "display_name": "Gemini 3.7 Flash",
+    "input_token_price": 0.75,
+    "known_cutoff_publicity_caveats": [
+      "Google does not publish an exact training-data cutoff for Gemini 3.7 Flash; the structured cutoff remains unknown.",
+      "Gemini 3.7 Flash reached general availability on 2026-08-13 and postdates the frozen Cycle 1 model registry; this entry is supplementary and must not be substituted into the original Cycle 1 registry.",
+      "The 16000 max_output_tokens value is a local safety and accounting cap below the provider's 65536 output-token limit; provider-default sampling remains in force."
+    ],
+    "max_output_tokens": 16000,
+    "model_id": "gemini-3.7-flash",
+    "model_version_or_snapshot": "gemini-3.7-flash",
+    "network_disabled": true,
+    "output_token_price": 3.75,
+    "pricing_source": "https://ai.google.dev/gemini-api/docs/pricing, standard prices through 2026-12-31: USD 0.75/M input and USD 3.75/M output, checked 2026-08-24",
+    "provider": "google",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-08-13T00:00:00Z",
+    "release_timestamp_source": "https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash, GA release 2026-08-13, checked 2026-08-24",
+    "search_disabled": true,
+    "tool_policy": "no_tools"
+  }
+]
