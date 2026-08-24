@@ -219,17 +219,18 @@ def test_stage_b_sentence_initial_case_recovery_returns_exact_source_slice() -> 
     )
 
 
-def test_stage_b_sentence_initial_case_recovery_defers_to_normalized_exact_match() -> None:
+def test_stage_b_sentence_initial_case_recovery_defers_to_normalized_exact_match() -> (
+    None
+):
     source = (
         _SOURCE_EXCERPT
         + " The court reached another conclusion.\n"
         + _MODEL_EXCERPT.replace(" ", "  ", 1)
     )
 
-    assert (
-        cast(Any, llm_pipeline)._coerced_excerpt(source, _MODEL_EXCERPT)
-        == _MODEL_EXCERPT.replace(" ", "  ", 1)
-    )
+    assert cast(Any, llm_pipeline)._coerced_excerpt(
+        source, _MODEL_EXCERPT
+    ) == _MODEL_EXCERPT.replace(" ", "  ", 1)
 
 
 @pytest.mark.parametrize(
