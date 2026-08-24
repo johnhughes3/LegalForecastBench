@@ -6133,6 +6133,7 @@ def _coerced_excerpt_sentence_initial_case(text: str, excerpt: str) -> str | Non
         return None
 
     matches: list[tuple[int, bool]] = []
+    has_normalized_exact_match = False
     unsupported_case_drift = False
     folded_text = _ascii_case_fold(normalized_text)
     folded_excerpt = _ascii_case_fold(normalized_excerpt)
@@ -6143,6 +6144,7 @@ def _coerced_excerpt_sentence_initial_case(text: str, excerpt: str) -> str | Non
             break
         candidate = normalized_text[offset : offset + width]
         if candidate == normalized_excerpt:
+            has_normalized_exact_match = True
             search_start = offset + 1
             continue
         mismatches = [
@@ -6167,6 +6169,11 @@ def _coerced_excerpt_sentence_initial_case(text: str, excerpt: str) -> str | Non
             unsupported_case_drift = True
         search_start = offset + 1
 
+    # The existing normalized fallback returns this authenticated exact-cased
+    # occurrence, including its source whitespace.  Prefer that stronger match
+    # over a case-drift candidate elsewhere in the decision text.
+    if has_normalized_exact_match:
+        return None
     if unsupported_case_drift:
         raise LlmPipelineError("supporting_excerpt does not appear in decision text")
     if len(matches) > 1:
