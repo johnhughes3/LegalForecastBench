@@ -21,6 +21,7 @@ from legalforecast.labeling.llm_pipeline import (
 from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
     ProviderCallIdentity,
+    provider_prompt_logical_call_scope,
 )
 from legalforecast.selection import TrainingCutoffStatus
 
@@ -1351,6 +1352,91 @@ def test_provider_stage_replay_rejects_duplicate_cross_model_and_cross_stage_row
             providers_by_model=providers,
             model_registry_sha256="registry-sha",
         )
+
+
+def test_provider_stage_replay_accepts_scoped_repair_after_original_failure(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    original_prompt = "original authenticated Stage B prompt"
+    repair_prompt = "scoped repair Stage B prompt"
+    identity_kwargs = {
+        "stage": "llm-label",
+        "candidate_id": "candidate-repair",
+        "model_key": "openai:judge-a",
+        "model_registry_sha256": "registry-sha",
+    }
+    journal_kwargs = {
+        "provider": "openai",
+        "reservation_usd": 0.1,
+        "cycle_cap_usd": 10.0,
+        "cycle_id": "cycle-1",
+        "provider_cycle_caps_sha256": "sha256:caps",
+    }
+    with ProviderAttemptJournal(
+        path,
+        identity=ProviderCallIdentity(**identity_kwargs, prompt=original_prompt),
+        **journal_kwargs,
+    ) as journal:
+        journal.run_attempt(1, lambda: {"fixture": "invalid-original"})
+        journal.settle_attempt(
+            1,
+            input_tokens=1,
+            output_tokens=1,
+            actual_cost_usd=0.01,
+            raw_output='{"labels": "invalid"}',
+        )
+        journal.record_reconstruction_failure(ValueError("invalid labels"))
+
+    with ProviderAttemptJournal(
+        path,
+        identity=ProviderCallIdentity(
+            **identity_kwargs,
+            prompt=repair_prompt,
+            logical_call_scope=provider_prompt_logical_call_scope(repair_prompt),
+        ),
+        **journal_kwargs,
+    ) as journal:
+        journal.run_attempt(1, lambda: {"fixture": "corrected-repair"})
+        journal.settle_attempt(
+            1,
+            input_tokens=2,
+            output_tokens=2,
+            actual_cost_usd=0.02,
+            raw_output='{"labels": []}',
+        )
+        journal.commit_reconstruction({"labels": []})
+
+    expected = {
+        ("candidate-repair", "openai:judge-a"): hashlib.sha256(
+            repair_prompt.encode()
+        ).hexdigest()
+    }
+    result = cli._verified_provider_stage_attempts(
+        stage="llm-label",
+        journal_path=path,
+        expected_prompts=expected,
+        providers_by_model={"openai:judge-a": "openai"},
+        model_registry_sha256="registry-sha",
+    )
+
+    assert result["call_count"] == 1
+    assert result["attempt_count"] == 2
+    rows = cli._provider_stage_attempt_rows(path, stage="llm-label")
+    assert {row["prompt_sha256"] for row in rows} == {
+        hashlib.sha256(original_prompt.encode()).hexdigest(),
+        hashlib.sha256(repair_prompt.encode()).hexdigest(),
+    }
+    assert {row["logical_call_key"] for row in rows} == {
+        ProviderCallIdentity(
+            **identity_kwargs, prompt=original_prompt
+        ).logical_call_key,
+        ProviderCallIdentity(
+            **identity_kwargs,
+            prompt=repair_prompt,
+            logical_call_scope=provider_prompt_logical_call_scope(repair_prompt),
+        ).logical_call_key,
+    }
 
 
 def test_provider_stage_replay_ignores_only_inactive_candidate_history(

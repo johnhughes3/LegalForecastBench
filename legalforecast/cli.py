@@ -1184,6 +1184,7 @@ from legalforecast.labeling.provider_journal import (
     load_provider_cycle_caps,
     load_provider_cycle_caps_bytes,
     open_provider_journal_snapshot,
+    provider_prompt_logical_call_scope,
     verify_provider_journal_identity,
 )
 from legalforecast.labeling.unitizer_terminal import (
@@ -62105,6 +62106,9 @@ def _verified_provider_stage_attempts(
     rows = _provider_stage_attempt_rows(journal_path, stage=stage, snapshot=snapshot)
     matched_rows: list[Mapping[str, Any]] = []
     rows_by_call: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
+    prior_failed_rows: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(
+        list
+    )
     for row in rows:
         key = (_required_str(row, "candidate_id"), _required_str(row, "model_key"))
         if key not in expected_prompts:
@@ -62128,6 +62132,11 @@ def _verified_provider_stage_attempts(
             **identity_kwargs,
             prompt_contract=provider_attempt_namespace,
         ).logical_call_key
+        expected_scoped_logical_key = ProviderCallIdentity(
+            **identity_kwargs,
+            prompt_contract=provider_attempt_namespace,
+            logical_call_scope=provider_prompt_logical_call_scope(prompt_text),
+        ).logical_call_key
         if stage in {"llm-unitize", "llm-review-stage-a"}:
             alternate_logical_keys = {
                 ProviderCallIdentity(
@@ -62139,20 +62148,58 @@ def _verified_provider_stage_attempts(
             }
             if row.get("logical_call_key") in alternate_logical_keys:
                 continue
+        row_prompt_sha256 = row.get("prompt_sha256")
+        prompt_hash_matches_row = (
+            isinstance(row_prompt_sha256, str)
+            and row_prompt_sha256
+            == hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()
+        )
+        shared_identity_matches = (
+            row.get("stage") == stage
+            and row.get("provider") == providers_by_model.get(key[1])
+            and row.get("model_registry_sha256") == model_registry_sha256
+            and prompt_hash_matches_row
+        )
+        is_expected_call = (
+            shared_identity_matches
+            and row.get("prompt_sha256") == expected_prompt_sha
+            and row.get("logical_call_key") == expected_logical_key
+        )
+        is_scoped_repair = (
+            stage == "llm-label"
+            and shared_identity_matches
+            and row.get("prompt_sha256") == expected_prompt_sha
+            and row.get("logical_call_key") == expected_scoped_logical_key
+        )
+        if is_expected_call or is_scoped_repair:
+            matched_rows.append(row)
+            rows_by_call[key].append(row)
+            continue
         if (
-            row.get("stage") != stage
-            or row.get("logical_call_key") != expected_logical_key
-            or row.get("provider") != providers_by_model.get(key[1])
-            or row.get("model_registry_sha256") != model_registry_sha256
-            or row.get("prompt_sha256") != expected_prompt_sha
-            or hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()
-            != expected_prompt_sha
+            stage == "llm-label"
+            and shared_identity_matches
+            and row.get("logical_call_key") == expected_logical_key
+            and row.get("status") == "reconstruction_failed"
+            and row.get("attempt_ordinal") == 1
+            and row.get("reconstructed_result_json") is None
+            and isinstance(row.get("raw_response_json"), str)
+            and isinstance(row.get("normalized_response_json"), str)
+            and isinstance(row.get("failure_type"), str)
+            and bool(str(row["failure_type"]).strip())
+            and isinstance(row.get("failure_message"), str)
+            and bool(str(row["failure_message"]).strip())
         ):
-            raise CommandError(f"{stage} provider replay identity differs: {key}")
-        matched_rows.append(row)
-        rows_by_call[key].append(row)
+            prior_failed_rows[key].append(row)
+            matched_rows.append(row)
+            continue
+        raise CommandError(f"{stage} provider replay identity differs: {key}")
     if set(rows_by_call) != set(expected_prompts):
         raise CommandError(f"{stage} provider journal call coverage differs")
+    for key, call_rows in prior_failed_rows.items():
+        if len(call_rows) != 1 or key not in rows_by_call:
+            raise CommandError(
+                f"{stage} scoped repair requires one retained original failure: {key}"
+            )
     if not set(nonsettled_statuses) <= set(expected_prompts):
         raise CommandError(f"{stage} validation-failure audit coverage differs")
     if set(nonsettled_attempt_counts) - set(nonsettled_statuses):
