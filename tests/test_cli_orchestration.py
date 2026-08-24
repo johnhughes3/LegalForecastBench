@@ -310,6 +310,54 @@ def test_score_and_report_cli_reuse_fixture_artifacts(tmp_path: Path) -> None:
     assert (report_dir / "leaderboard.csv").is_file()
 
 
+def test_score_cli_can_separate_model_ablations(tmp_path: Path) -> None:
+    fixture_dir = tmp_path / "fixture"
+    assert main(["fixture", "e2e", "--output-dir", str(fixture_dir)]) == 0
+
+    run_records = [
+        json.loads(line)
+        for line in (fixture_dir / "runs.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert len(run_records) == 2
+    for record, ablation in zip(
+        run_records,
+        ("full_packet", "metadata_only"),
+        strict=True,
+    ):
+        record["model_id"] = "shared-model"
+        record["solver_id"] = "offline:shared-model"
+        record["ablation"] = ablation
+    runs_path = tmp_path / "runs.jsonl"
+    runs_path.write_text(
+        "".join(json.dumps(record) + "\n" for record in run_records),
+        encoding="utf-8",
+    )
+    scores_path = tmp_path / "scores.json"
+
+    assert (
+        main(
+            [
+                "score",
+                "--runs",
+                str(runs_path),
+                "--labels",
+                str(fixture_dir / "labels.jsonl"),
+                "--output",
+                str(scores_path),
+                "--include-ablation-in-model-id",
+            ]
+        )
+        == 0
+    )
+
+    scores = json.loads(scores_path.read_text(encoding="utf-8"))
+    assert tuple(row["model_id"] for row in scores["summaries"]) == (
+        "shared-model::full_packet",
+        "shared-model::metadata_only",
+    )
+
+
 def test_pilot_readiness_cli_writes_blocked_live_report(tmp_path: Path) -> None:
     smoke_report = tmp_path / "phase0_case_dev_smoke.md"
     smoke_report.write_text(_blocked_smoke_report_text(), encoding="utf-8")

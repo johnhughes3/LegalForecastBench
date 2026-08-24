@@ -2690,6 +2690,19 @@
           "action": "store_true",
           "choices": null,
           "default": false,
+          "dest": "include_ablation_in_model_id",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--include-ablation-in-model-id"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
           "dest": "dry_run",
           "metavar": null,
           "nargs": 0,
