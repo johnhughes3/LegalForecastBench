@@ -3492,7 +3492,11 @@ def _llm_label_one_model(
                 # retry budget decide whether one fresh provider call is allowed.
                 if replay_only:
                     raise exc
-        if replay_only and not replayed_reconstruction:
+        if (
+            replay_only
+            and not replayed_reconstruction
+            and (journal is None or not journal.has_validated_response)
+        ):
             raise LlmPipelineError(
                 "provider-free Stage B replay has no retained response to settle"
             )

@@ -392,14 +392,26 @@ def _population(records: Iterable[Mapping[str, Any]]) -> tuple[_PopulationUnit, 
         candidate_id = _required_str(audit, "candidate_id")
         case_id = _required_str(audit, "case_id")
         ensemble = _mapping(audit.get("ensemble"), "ensemble")
-        for decision in _records(ensemble.get("decisions"), "decisions"):
+        decisions = _records(ensemble.get("decisions"), "decisions")
+        advisory_unit_ids = _advisory_unit_ids(audit)
+        decision_unit_ids = {
+            _required_str(decision, "unit_id") for decision in decisions
+        }
+        if not advisory_unit_ids <= decision_unit_ids:
+            raise CycleLabelAuditError(
+                f"advisory unit IDs differ for candidate {candidate_id}"
+            )
+        for decision in decisions:
             if decision.get("status") != "auto_label":
+                continue
+            unit_id = _required_str(decision, "unit_id")
+            if unit_id in advisory_unit_ids:
                 continue
             label = _mapping(decision.get("unanimous_label"), "unanimous_label")
             unit = _PopulationUnit(
                 candidate_id=candidate_id,
                 case_id=case_id,
-                unit_id=_required_str(decision, "unit_id"),
+                unit_id=unit_id,
                 stratum=_stratum(label),
                 auto_label=label,
                 votes=_records(decision.get("votes"), "votes"),
@@ -411,6 +423,33 @@ def _population(records: Iterable[Mapping[str, Any]]) -> tuple[_PopulationUnit, 
             identities.add(unit.identity)
             output.append(unit)
     return tuple(sorted(output, key=lambda unit: unit.identity))
+
+
+def _advisory_unit_ids(audit: Mapping[str, Any]) -> frozenset[str]:
+    """Return validated advisory units excluded from cycle label-audit sampling."""
+
+    status = audit.get("supporting_evidence_status")
+    affected_value = audit.get("supporting_evidence_affected_unit_ids")
+    if status is None:
+        if affected_value is not None:
+            raise CycleLabelAuditError(
+                "advisory evidence unit IDs are present without a status"
+            )
+        return frozenset()
+    if status != "unresolved_advisory":
+        raise CycleLabelAuditError("advisory evidence status is invalid")
+    if not isinstance(affected_value, list) or not affected_value:
+        raise CycleLabelAuditError("advisory evidence unit IDs are invalid")
+    affected_values = cast(list[object], affected_value)
+    if any(
+        not isinstance(unit_id, str) or not unit_id.strip()
+        for unit_id in affected_values
+    ):
+        raise CycleLabelAuditError("advisory evidence unit IDs are invalid")
+    affected_strings = tuple(cast(str, unit_id) for unit_id in affected_values)
+    if len(set(affected_strings)) != len(affected_strings):
+        raise CycleLabelAuditError("advisory evidence unit IDs are duplicated")
+    return frozenset(affected_strings)
 
 
 def _allocate_sample(

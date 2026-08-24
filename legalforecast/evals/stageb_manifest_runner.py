@@ -142,6 +142,13 @@ ADDITIONAL_ATTEMPT_FAILURE_TYPE = "LlmResponseValidationError"
 ADDITIONAL_ATTEMPT_FAILURE_MESSAGE = (
     "supporting_excerpt does not appear in decision text"
 )
+SUPPORTING_EVIDENCE_SIDECAR_KIND = "stage_b_supporting_evidence_sidecar"
+SUPPORTING_EVIDENCE_SIDECAR_FIELDS = frozenset(
+    {
+        "supporting_evidence_status",
+        "supporting_evidence_affected_unit_ids",
+    }
+)
 
 # The replacement rows are not covered by the retired decision-text artifact.
 # These source-byte commitments are the authenticated bridge for the exact five
@@ -488,6 +495,63 @@ def _json_object(payload: bytes, label: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise StageBManifestError(f"{label} is not a JSON object")
     return cast(Mapping[str, object], value)
+
+
+def _validated_supporting_evidence_sidecar(
+    *,
+    result_path: Path,
+    result_bytes: bytes,
+    candidate_id: str,
+    provider: str,
+    model_key: str,
+    frozen_unit_ids: set[str],
+) -> Mapping[str, Any] | None:
+    """Authenticate an advisory sidecar without making it authoritative."""
+
+    sidecar_path = _supporting_evidence_sidecar_path(result_path)
+    if not sidecar_path.exists() and not sidecar_path.is_symlink():
+        return None
+    sidecar = _json_object(
+        _read_regular(sidecar_path, f"supporting evidence sidecar {sidecar_path}"),
+        f"supporting evidence sidecar {sidecar_path}",
+    )
+    expected_identity = {
+        "kind": SUPPORTING_EVIDENCE_SIDECAR_KIND,
+        "authoritative": False,
+        "result_sha256": _raw_sha256(result_bytes),
+        "candidate_id": candidate_id,
+        "provider": provider,
+        "model_key": model_key,
+        "supporting_evidence_status": "unresolved_advisory",
+    }
+    for key, expected in expected_identity.items():
+        if sidecar.get(key) != expected:
+            raise StageBManifestError(
+                f"supporting evidence sidecar identity differs: {sidecar_path}/{key}"
+            )
+    affected_value = sidecar.get("supporting_evidence_affected_unit_ids")
+    if not isinstance(affected_value, list) or not affected_value:
+        raise StageBManifestError(
+            f"supporting evidence sidecar affected unit IDs are invalid: {sidecar_path}"
+        )
+    affected_ids = cast(list[object], affected_value)
+    if any(
+        not isinstance(unit_id, str) or not unit_id.strip() for unit_id in affected_ids
+    ):
+        raise StageBManifestError(
+            f"supporting evidence sidecar affected unit IDs are invalid: {sidecar_path}"
+        )
+    affected_strings = tuple(cast(str, unit_id) for unit_id in affected_ids)
+    if len(set(affected_strings)) != len(affected_strings):
+        raise StageBManifestError(
+            "supporting evidence sidecar affected unit IDs are duplicated: "
+            f"{sidecar_path}"
+        )
+    if not set(affected_strings) <= frozen_unit_ids:
+        raise StageBManifestError(
+            f"supporting evidence sidecar affected unit IDs differ: {sidecar_path}"
+        )
+    return dict(sidecar)
 
 
 def _canonical_jsonl(records: Iterable[Mapping[str, object]]) -> bytes:
@@ -1260,6 +1324,12 @@ def _provider_free_recovery_result_path(
     return canonical.with_name(f"{canonical.stem}.recovered{canonical.suffix}")
 
 
+def _supporting_evidence_sidecar_path(result_path: Path) -> Path:
+    """Return the non-authoritative advisory sidecar beside one result receipt."""
+
+    return result_path.with_name(f"{result_path.stem}.supporting-evidence.json")
+
+
 def _preferred_result_path(output_root: Path, provider: str, candidate_id: str) -> Path:
     """Prefer a successful replay receipt over a preserved failed receipt."""
 
@@ -1331,6 +1401,10 @@ def _existing_result(
         return None
     value_bytes = _read_regular(path, f"existing result {path}")
     value = _json_object(value_bytes, f"existing result {path}")
+    if SUPPORTING_EVIDENCE_SIDECAR_FIELDS.intersection(value):
+        raise StageBManifestError(
+            f"existing result carries non-authoritative advisory fields: {path}"
+        )
     expected = {
         "schema_version": str(STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
         "candidate_id": candidate_id,
@@ -1367,6 +1441,10 @@ def _existing_result(
     if not isinstance(audit_value, Mapping):
         raise StageBManifestError(f"existing result audit is missing: {path}")
     audit = cast(Mapping[str, Any], audit_value)
+    if SUPPORTING_EVIDENCE_SIDECAR_FIELDS.intersection(audit):
+        raise StageBManifestError(
+            f"existing result audit carries non-authoritative advisory fields: {path}"
+        )
     expected_audit = {
         "stage": "llm-label-provider-shard",
         "status": "succeeded",
@@ -1437,6 +1515,11 @@ def _existing_result(
             f"existing result model output coverage differs: {path}"
         )
     model_output = cast(Mapping[str, Any], model_output_values[0])
+    if SUPPORTING_EVIDENCE_SIDECAR_FIELDS.intersection(model_output):
+        raise StageBManifestError(
+            "existing result model output carries non-authoritative advisory "
+            f"fields: {path}"
+        )
     expected_prompt_sha256 = "sha256:" + _raw_sha256(prompt.encode("utf-8"))
     if model_output.get("model_key") != model_key:
         raise StageBManifestError(f"existing result model identity differs: {path}")
@@ -1967,8 +2050,6 @@ def _execute_provider(
                 "metadata": dict(response.metadata or {}),
                 "labels": [label.to_record() for label in labels],
             }
-            if supporting_evidence_audit:
-                model_output.update(supporting_evidence_audit)
             if adjudication is not None:
                 if frozen_workflow_audit.get("frozen_unit_adjudication") != dict(
                     adjudication
@@ -1994,8 +2075,6 @@ def _execute_provider(
             }
             if frozen_workflow_audit:
                 audit.update(frozen_workflow_audit)
-            if supporting_evidence_audit:
-                audit.update(supporting_evidence_audit)
             result = {
                 "schema_version": str(STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
                 "status": "succeeded",
@@ -2013,13 +2092,30 @@ def _execute_provider(
                 "tools_enabled": False,
                 "audit": audit,
             }
+            result_payload = (
+                json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+            ).encode()
             _write_create_only(
                 result_path,
-                (
-                    json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2)
-                    + "\n"
-                ).encode(),
+                result_payload,
             )
+            if supporting_evidence_audit:
+                sidecar = {
+                    "kind": SUPPORTING_EVIDENCE_SIDECAR_KIND,
+                    "authoritative": False,
+                    "result_sha256": _raw_sha256(result_payload),
+                    "candidate_id": candidate_id,
+                    "provider": provider,
+                    "model_key": registry_entry.registry_key,
+                    **supporting_evidence_audit,
+                }
+                sidecar_payload = (
+                    json.dumps(sidecar, ensure_ascii=False, sort_keys=True, indent=2)
+                    + "\n"
+                ).encode()
+                _write_create_only(
+                    _supporting_evidence_sidecar_path(result_path), sidecar_payload
+                )
             records.append(audit)
         audit_payload = _canonical_jsonl(records)
         audit_path, run_card_path = _shard_artifact_paths(
@@ -2204,6 +2300,7 @@ def _validate_full_provider_shard(
         raise StageBManifestError("merge inputs do not cover the same candidates")
 
     expected_audits: list[JsonRecord] = []
+    supporting_evidence_sidecars: dict[str, Mapping[str, Any]] = {}
     for candidate_id, selection in selections_by_candidate.items():
         frozen_units = tuple(units_by_candidate[candidate_id])
         decision_text, commitment = decisions_by_candidate[candidate_id]
@@ -2250,6 +2347,18 @@ def _validate_full_provider_shard(
                 "provider shard receipt is missing: "
                 f"{normalized_provider}/{candidate_id}"
             )
+        if result_path.exists() or result_path.is_symlink():
+            result_bytes = _read_regular(result_path, f"provider result {result_path}")
+            sidecar = _validated_supporting_evidence_sidecar(
+                result_path=result_path,
+                result_bytes=result_bytes,
+                candidate_id=candidate_id,
+                provider=normalized_provider,
+                model_key=registry_entry.registry_key,
+                frozen_unit_ids={_unit_id(unit) for unit in frozen_units},
+            )
+            if sidecar is not None:
+                supporting_evidence_sidecars[candidate_id] = sidecar
         audit = result.get("audit")
         if not isinstance(audit, Mapping):
             raise StageBManifestError(
@@ -2418,7 +2527,46 @@ def _validate_full_provider_shard(
             f"provider shard audit does not match authenticated receipts: "
             f"{normalized_provider}"
         )
-    return tuple(expected_audits), {
+    merge_audits: list[JsonRecord] = []
+    for audit in expected_audits:
+        candidate_id = _required_str(audit, "candidate_id")
+        sidecar = supporting_evidence_sidecars.get(candidate_id)
+        if sidecar is None:
+            merge_audits.append(audit)
+            continue
+        model_outputs_value = audit.get("model_outputs")
+        if not isinstance(model_outputs_value, Sequence) or isinstance(
+            model_outputs_value, (str, bytes)
+        ):
+            raise StageBManifestError(
+                "provider shard advisory model output coverage differs: "
+                f"{normalized_provider}/{candidate_id}"
+            )
+        model_output_values = cast(Sequence[object], model_outputs_value)
+        if len(model_output_values) != 1:
+            raise StageBManifestError(
+                "provider shard advisory model output coverage differs: "
+                f"{normalized_provider}/{candidate_id}"
+            )
+        model_output_value = model_output_values[0]
+        if not isinstance(model_output_value, Mapping):
+            raise StageBManifestError(
+                "provider shard advisory model output is invalid: "
+                f"{normalized_provider}/{candidate_id}"
+            )
+        enriched_output = dict(cast(Mapping[str, Any], model_output_value))
+        enriched_output.update(
+            {
+                "supporting_evidence_status": sidecar["supporting_evidence_status"],
+                "supporting_evidence_affected_unit_ids": sidecar[
+                    "supporting_evidence_affected_unit_ids"
+                ],
+            }
+        )
+        enriched_audit = dict(audit)
+        enriched_audit["model_outputs"] = [enriched_output]
+        merge_audits.append(enriched_audit)
+    return tuple(merge_audits), {
         "provider": normalized_provider,
         "audit_sha256": _raw_sha256(audit_bytes),
         "run_card_sha256": _raw_sha256(run_card_bytes),
