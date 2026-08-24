@@ -2973,6 +2973,7 @@ def merge_llm_label_provider_shards(
         labels_by_model: dict[str, tuple[OutcomeLabel, ...]] = {}
         votes: list[EnsembleLabelVote] = []
         expected_unit_ids = {unit.unit_id for unit in frozen_units}
+        advisory_unit_ids: set[str] = set()
         for entry in registry_entries:
             output = outputs_by_model[entry.registry_key]
             if output.get("provider_prompt_sha256") != prompt_sha256:
@@ -2993,6 +2994,57 @@ def merge_llm_label_provider_shards(
                 )
             labels_by_model[entry.registry_key] = labels
             model_outputs.append(dict(output))
+            evidence_status = output.get("supporting_evidence_status")
+            affected_value = output.get("supporting_evidence_affected_unit_ids")
+            if evidence_status is None:
+                if affected_value is not None:
+                    raise LlmPipelineError(
+                        "provider shard advisory evidence status is missing"
+                    )
+                affected_ids: frozenset[str] = frozenset()
+            else:
+                if evidence_status != "unresolved_advisory":
+                    raise LlmPipelineError(
+                        "provider shard supporting evidence status is invalid"
+                    )
+                if not isinstance(affected_value, list) or not affected_value:
+                    raise LlmPipelineError(
+                        "provider shard advisory evidence unit IDs are invalid"
+                    )
+                affected_values = cast(list[object], affected_value)
+                if any(
+                    not isinstance(unit_id, str) or not unit_id.strip()
+                    for unit_id in affected_values
+                ):
+                    raise LlmPipelineError(
+                        "provider shard advisory evidence unit IDs are invalid"
+                    )
+                affected_strings = tuple(
+                    cast(str, unit_id) for unit_id in affected_values
+                )
+                if len(set(affected_strings)) != len(affected_strings):
+                    raise LlmPipelineError(
+                        "provider shard advisory evidence unit IDs are duplicated"
+                    )
+                affected_ids = frozenset(affected_strings)
+                if not affected_ids <= expected_unit_ids:
+                    raise LlmPipelineError(
+                        "provider shard advisory evidence unit IDs differ"
+                    )
+                advisory_unit_ids.update(affected_ids)
+            for label in labels:
+                excerpts = tuple(
+                    citation.excerpt for citation in label.supporting_citations
+                )
+                if label.unit_id in affected_ids:
+                    if any(excerpt is not None for excerpt in excerpts):
+                        raise LlmPipelineError(
+                            "provider shard advisory label retains excerpt"
+                        )
+                elif any(excerpt is None for excerpt in excerpts):
+                    raise LlmPipelineError(
+                        "provider shard non-advisory label lacks excerpt"
+                    )
             if "frozen_unit_adjudication" in output:
                 workflow = output.get("frozen_unit_workflow")
                 adjudication = output.get("frozen_unit_adjudication")
@@ -3069,13 +3121,34 @@ def merge_llm_label_provider_shards(
             label_audit_packets=(),
             ensemble=ensemble,
         )
+        queued_unit_ids = set(pending_unit_ids)
+        for unit_id in sorted(advisory_unit_ids):
+            if unit_id in queued_unit_ids:
+                continue
+            queue_records.append(
+                {
+                    "schema_version": "legalforecast.lawyer_review_queue.v1",
+                    "status": "pending_adjudication",
+                    "candidate_id": candidate_id,
+                    "case_id": _required_str(selection, "case_id"),
+                    "unit_id": unit_id,
+                    "review_id": f"{candidate_id}:{unit_id}:supporting-evidence",
+                    "route_reason": "unresolved_supporting_evidence",
+                    "advisory": {
+                        "supporting_evidence_status": "unresolved_advisory",
+                        "authenticated_verbatim_evidence": False,
+                    },
+                }
+            )
+            queued_unit_ids.add(unit_id)
+        pending_unit_ids = list(
+            dict.fromkeys((*pending_unit_ids, *sorted(advisory_unit_ids)))
+        )
         records.extend(label.to_record() for label in selected_labels)
         audit_records.append(
             {
                 "stage": "llm-label",
-                "status": (
-                    "adjudication_pending" if lawyer_review_packets else "succeeded"
-                ),
+                "status": ("adjudication_pending" if pending_unit_ids else "succeeded"),
                 "candidate_id": candidate_id,
                 "case_id": _required_str(selection, "case_id"),
                 "model_keys": list(frozen_panel_model_keys),
@@ -3090,7 +3163,7 @@ def merge_llm_label_provider_shards(
                 ],
                 "lawyer_review_queue": queue_records,
                 "pending_adjudication_unit_ids": pending_unit_ids,
-                "pending_adjudication_count": len(lawyer_review_packets),
+                "pending_adjudication_count": len(pending_unit_ids),
                 "adjudicated_review_count": 0,
                 "label_audit_gate": {
                     "required": True,
@@ -3116,6 +3189,13 @@ def merge_llm_label_provider_shards(
                 ),
             }
         )
+        if advisory_unit_ids:
+            audit_records[-1].update(
+                {
+                    "supporting_evidence_status": "unresolved_advisory",
+                    "supporting_evidence_affected_unit_ids": sorted(advisory_unit_ids),
+                }
+            )
         if frozen_unit_workflow_records:
             audit_records[-1]["frozen_unit_workflow"] = frozen_unit_workflow_records
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
@@ -3204,6 +3284,7 @@ def _llm_label_one_model(
     frozen_unit_workflow_audit: JsonRecord | None = None,
     replay_only: bool = False,
     additional_attempt_permit: AdditionalAttemptPermit | None = None,
+    supporting_evidence_audit: JsonRecord | None = None,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
     prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
@@ -3228,6 +3309,7 @@ def _llm_label_one_model(
                 provider_journal_path=provider_journal_path,
             )
         replayed_reconstruction = False
+        advisory_reconstruction = False
         if journal is not None and journal.has_settled_attempt:
             try:
                 journal.latest_reconstruction_recovery_evidence()
@@ -3258,32 +3340,96 @@ def _llm_label_one_model(
                 payload = _json_object_from_response(
                     raw_output, top_level_sequence_field="unit_findings"
                 )
-                findings = tuple(
-                    _stage_b_finding(
-                        record,
-                        decision_text=decision_text,
-                        normalize_structurally_inapplicable_amendment_signal=True,
+
+                def _reconstruct(
+                    *, allow_unresolved_excerpt: bool
+                ) -> tuple[
+                    StageBLabelingResult,
+                    SolverResponse,
+                    tuple[StageBUnitFinding, ...],
+                    tuple[StageBMissingUnitFlag, ...],
+                    set[str],
+                ]:
+                    unresolved_excerpt_unit_ids: set[str] = set()
+                    findings = tuple(
+                        _stage_b_finding(
+                            record,
+                            decision_text=decision_text,
+                            normalize_structurally_inapplicable_amendment_signal=True,
+                            allow_unresolved_excerpt=allow_unresolved_excerpt,
+                            unresolved_excerpt_unit_ids=unresolved_excerpt_unit_ids,
+                        )
+                        for record in _record_sequence(
+                            payload.get("unit_findings"), "unit_findings"
+                        )
                     )
-                    for record in _record_sequence(
-                        payload.get("unit_findings"), "unit_findings"
+                    missing_flags = tuple(
+                        _stage_b_missing_flag(record, decision_text=decision_text)
+                        for record in _optional_record_sequence(
+                            payload.get("missing_unit_flags")
+                        )
                     )
-                )
-                missing_flags = tuple(
-                    _stage_b_missing_flag(record, decision_text=decision_text)
-                    for record in _optional_record_sequence(
-                        payload.get("missing_unit_flags")
+                    recovered = label_stage_b_outcomes(
+                        StageBLabelingInput(
+                            candidate_id=_required_str(selection, "candidate_id"),
+                            case_id=_required_str(selection, "case_id"),
+                            frozen_units=frozen_units,
+                            decision_text=decision_text,
+                            unit_findings=findings,
+                            missing_unit_flags=missing_flags,
+                        ),
+                        unresolved_excerpt_unit_ids=tuple(
+                            sorted(unresolved_excerpt_unit_ids)
+                        ),
                     )
-                )
-                recovered = label_stage_b_outcomes(
-                    StageBLabelingInput(
-                        candidate_id=_required_str(selection, "candidate_id"),
-                        case_id=_required_str(selection, "case_id"),
-                        frozen_units=frozen_units,
-                        decision_text=decision_text,
-                        unit_findings=findings,
-                        missing_unit_flags=missing_flags,
+                    response = _reconstructed_solver_response(
+                        raw_output=raw_output,
+                        normalized_response=cast(Mapping[str, Any], normalized_value),
+                        registry_entry=registry_entry,
+                        model_registry_sha256=model_registry_sha256,
                     )
-                )
+                    return (
+                        recovered,
+                        response,
+                        findings,
+                        missing_flags,
+                        unresolved_excerpt_unit_ids,
+                    )
+
+                try:
+                    (
+                        recovered,
+                        reconstructed_response,
+                        findings,
+                        missing_flags,
+                        unresolved_excerpt_unit_ids,
+                    ) = _reconstruct(allow_unresolved_excerpt=False)
+                except (LlmPipelineError, ValueError) as exc:
+                    if not (
+                        replay_only
+                        and supporting_evidence_audit is not None
+                        and isinstance(exc, LlmPipelineError)
+                        and _is_excerpt_reconstruction_error(exc)
+                    ):
+                        raise
+                    (
+                        recovered,
+                        reconstructed_response,
+                        findings,
+                        missing_flags,
+                        unresolved_excerpt_unit_ids,
+                    ) = _reconstruct(allow_unresolved_excerpt=True)
+                    if not unresolved_excerpt_unit_ids:
+                        raise exc
+                    supporting_evidence_audit.update(
+                        {
+                            "supporting_evidence_status": "unresolved_advisory",
+                            "supporting_evidence_affected_unit_ids": sorted(
+                                unresolved_excerpt_unit_ids
+                            ),
+                        }
+                    )
+                    advisory_reconstruction = True
                 if recovered.requires_frozen_unit_workflow:
                     workflow_error = _frozen_unit_workflow_required_error(
                         selection=selection,
@@ -3301,46 +3447,35 @@ def _llm_label_one_model(
                     )
                     if frozen_unit_adjudication is None:
                         raise workflow_error
-                    response = _reconstructed_solver_response(
-                        raw_output=raw_output,
-                        normalized_response=cast(Mapping[str, Any], normalized_value),
-                        registry_entry=registry_entry,
-                        model_registry_sha256=model_registry_sha256,
-                    )
                     _settle_frozen_unit_exclusion_recovery(
                         journal=journal,
                         evidence=evidence,
                         workflow_error=workflow_error,
                         adjudication=frozen_unit_adjudication,
-                        response=response,
+                        response=reconstructed_response,
                         decision_text_commitment=decision_text_commitment,
                         finding_count=len(findings),
                         audit_output=frozen_unit_workflow_audit,
                     )
                     return (
                         recovered.labels,
-                        response,
+                        reconstructed_response,
                         len(findings),
                         len(missing_flags),
                         prompt_sha256,
                     )
-                reconstructed_response = _reconstructed_solver_response(
-                    raw_output=raw_output,
-                    normalized_response=cast(Mapping[str, Any], normalized_value),
-                    registry_entry=registry_entry,
-                    model_registry_sha256=model_registry_sha256,
-                )
-                journal.commit_reconstruction_recovery(
-                    evidence.attempt_ordinal,
-                    raw_response_json=evidence.raw_response_json,
-                    normalized_response_json=evidence.normalized_response_json,
-                    record={
-                        "labels": [label.to_record() for label in recovered.labels],
-                        "finding_count": len(findings),
-                        "missing_unit_flag_count": len(missing_flags),
-                        "decision_text_commitment": dict(decision_text_commitment),
-                    },
-                )
+                if not advisory_reconstruction:
+                    journal.commit_reconstruction_recovery(
+                        evidence.attempt_ordinal,
+                        raw_response_json=evidence.raw_response_json,
+                        normalized_response_json=evidence.normalized_response_json,
+                        record={
+                            "labels": [label.to_record() for label in recovered.labels],
+                            "finding_count": len(findings),
+                            "missing_unit_flag_count": len(missing_flags),
+                            "decision_text_commitment": dict(decision_text_commitment),
+                        },
+                    )
                 replayed_reconstruction = True
                 if replay_only:
                     return (
@@ -3352,10 +3487,11 @@ def _llm_label_one_model(
                     )
             except FrozenUnitWorkflowRequiredError:
                 raise
-            except (LlmPipelineError, ValueError):
+            except (LlmPipelineError, ValueError) as exc:
                 # Retain the response as reconstruction_failed and let the fixed
                 # retry budget decide whether one fresh provider call is allowed.
-                pass
+                if replay_only:
+                    raise exc
         if (
             replay_only
             and not replayed_reconstruction
@@ -4792,22 +4928,43 @@ def _stage_b_finding(
     *,
     decision_text: StageBDecisionText,
     normalize_structurally_inapplicable_amendment_signal: bool = False,
+    allow_unresolved_excerpt: bool = False,
+    unresolved_excerpt_unit_ids: set[str] | None = None,
 ) -> StageBUnitFinding:
     if normalize_structurally_inapplicable_amendment_signal:
         record = _normalize_structurally_inapplicable_amendment_signal(record)
+    unit_id = _required_str(record, "unit_id")
+    supporting_excerpt = _required_str(record, "supporting_excerpt")
+    try:
+        coerced_excerpt = _coerced_excerpt(
+            decision_text.text,
+            supporting_excerpt,
+        )
+    except LlmPipelineError as error:
+        if not (
+            allow_unresolved_excerpt
+            and unresolved_excerpt_unit_ids is not None
+            and _is_excerpt_reconstruction_error(error)
+        ):
+            raise
+        # Keep the provider's raw excerpt only in this in-memory finding.  The
+        # advisory result deliberately omits it from the emitted citation.
+        unresolved_excerpt_unit_ids.add(unit_id)
+        coerced_excerpt = supporting_excerpt
     return StageBUnitFinding(
-        unit_id=_required_str(record, "unit_id"),
+        unit_id=unit_id,
         resolution=UnitResolution(_required_str(record, "resolution")),
         amendment_signal=AmendmentSignal(_required_str(record, "amendment_signal")),
-        supporting_excerpt=_coerced_excerpt(
-            decision_text.text,
-            _required_str(record, "supporting_excerpt"),
-        ),
+        supporting_excerpt=coerced_excerpt,
         labeler_confidence=_required_float(record, "labeler_confidence"),
         page=_optional_int(record, "page"),
         paragraph=_optional_int(record, "paragraph"),
         notes=_optional_str(record, "notes"),
     )
+
+
+def _is_excerpt_reconstruction_error(error: LlmPipelineError) -> bool:
+    return str(error) == "supporting_excerpt does not appear in decision text"
 
 
 def _normalize_structurally_inapplicable_amendment_signal(

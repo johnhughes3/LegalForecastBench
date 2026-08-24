@@ -70,6 +70,40 @@ def test_cycle_plan_samples_all_observed_resolution_strata_and_is_non_circular()
     assert plan["seed_sha256"] == seed
 
 
+def test_cycle_plan_excludes_supporting_evidence_advisory_units() -> None:
+    audits = [
+        _audit("cand-grant", "fully_dismissed", True),
+        _audit("cand-deny", "survives_in_material_respect", False),
+        _audit("cand-partial", "partial_dismissal_only", False),
+    ]
+    audits[0].update(
+        {
+            "supporting_evidence_status": "unresolved_advisory",
+            "supporting_evidence_affected_unit_ids": ["unit-cand-grant"],
+        }
+    )
+    plan, augmented, queue = plan_cycle_label_audit(
+        label_audit_records=audits,
+        selection_records=[_selection(candidate) for candidate in _candidates()],
+        finalized_prediction_unit_records=[
+            _units(candidate) for candidate in _candidates()
+        ],
+        decision_text_records=[
+            {"document_id": f"decision-{candidate}", "text": "The order resolves it."}
+            for candidate in _candidates()
+        ],
+        policy_record=_policy(),
+    )
+
+    assert plan["population_count"] == 2
+    assert {row["candidate_id"] for row in plan["sampled_units"]} == {
+        "cand-deny",
+        "cand-partial",
+    }
+    assert {row["candidate_id"] for row in queue} == {"cand-deny", "cand-partial"}
+    assert augmented[0]["label_audit_gate"]["sample_unit_ids"] == []
+
+
 def test_cycle_gate_fails_closed_on_per_stratum_error() -> None:
     audits = [
         _audit("cand-grant", "fully_dismissed", True),
