@@ -558,8 +558,24 @@ def _outcome_citation_from_record(record: Mapping[str, Any]) -> OutcomeCitation:
     )
 
 
-def label_stage_b_outcomes(labeling_input: StageBLabelingInput) -> StageBLabelingResult:
-    """Label every scoreable frozen unit from the first written disposition."""
+def label_stage_b_outcomes(
+    labeling_input: StageBLabelingInput,
+    *,
+    unresolved_excerpt_unit_ids: Sequence[str] = (),
+) -> StageBLabelingResult:
+    """Label every scoreable frozen unit from the first written disposition.
+
+    Normal calls remain fail-closed.  The optional set is reserved for a
+    provider-free replay that has already validated the complete structured
+    response but cannot map one or more supporting excerpts to the
+    authenticated decision text.  Those citations are omitted from the
+    resulting label and must be routed for human review.
+    """
+
+    unresolved_values = tuple(unresolved_excerpt_unit_ids)
+    unresolved_ids = frozenset(unresolved_values)
+    if len(unresolved_ids) != len(unresolved_values):
+        raise ValueError("unresolved excerpt unit IDs must be unique")
 
     units_by_id = _index_units(labeling_input.frozen_units)
     findings_by_unit_id = _index_findings(labeling_input.unit_findings)
@@ -591,16 +607,25 @@ def label_stage_b_outcomes(labeling_input: StageBLabelingInput) -> StageBLabelin
             f"missing outcome findings for frozen units: {missing_label_ids}"
         )
 
+    unknown_unresolved_ids = sorted(unresolved_ids - set(findings_by_unit_id))
+    if unknown_unresolved_ids:
+        raise ValueError(
+            "unresolved excerpt unit IDs do not identify findings: "
+            f"{unknown_unresolved_ids}"
+        )
+
     _validate_excerpts(
         labeling_input.decision_text,
         labeling_input.unit_findings,
         labeling_input.missing_unit_flags,
+        unresolved_unit_ids=unresolved_ids,
     )
 
     labels = tuple(
         _label_from_finding(
             finding=findings_by_unit_id[unit.unit_id],
             decision_text=labeling_input.decision_text,
+            omit_excerpt=unit.unit_id in unresolved_ids,
         )
         for unit in labeling_input.frozen_units
         if unit.unit_id in findings_by_unit_id
@@ -618,6 +643,7 @@ def _label_from_finding(
     *,
     finding: StageBUnitFinding,
     decision_text: StageBDecisionText,
+    omit_excerpt: bool = False,
 ) -> OutcomeLabel:
     fully_dismissed = _fully_dismissed(finding.resolution)
     return OutcomeLabel(
@@ -636,7 +662,7 @@ def _label_from_finding(
                 document_id=decision_text.document_id,
                 page=finding.page,
                 paragraph=finding.paragraph,
-                excerpt=finding.supporting_excerpt,
+                excerpt=None if omit_excerpt else finding.supporting_excerpt,
             ),
         ),
         first_written_disposition_id=decision_text.document_id,
@@ -712,8 +738,12 @@ def _validate_excerpts(
     decision_text: StageBDecisionText,
     findings: tuple[StageBUnitFinding, ...],
     missing_unit_flags: tuple[StageBMissingUnitFlag, ...],
+    *,
+    unresolved_unit_ids: frozenset[str] = frozenset(),
 ) -> None:
     for finding in findings:
+        if finding.unit_id in unresolved_unit_ids:
+            continue
         if not decision_text.contains_excerpt(finding.supporting_excerpt):
             raise ValueError(
                 "supporting_excerpt must appear in decision text for "

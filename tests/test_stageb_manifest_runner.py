@@ -385,6 +385,54 @@ def _assert_result_rejected(
         )
 
 
+def test_supporting_evidence_sidecar_is_non_authoritative_and_result_bound(
+    tmp_path: Path,
+) -> None:
+    result_path = tmp_path / "candidate-1.json"
+    result_bytes = b'{"status":"succeeded"}\n'
+    result_path.write_bytes(result_bytes)
+    sidecar_path = runner._supporting_evidence_sidecar_path(  # pyright: ignore[reportPrivateUsage]
+        result_path
+    )
+    sidecar_path.write_text(
+        json.dumps(
+            {
+                "kind": runner.SUPPORTING_EVIDENCE_SIDECAR_KIND,
+                "authoritative": False,
+                "result_sha256": runner._raw_sha256(result_bytes),  # pyright: ignore[reportPrivateUsage]
+                "candidate_id": "candidate-1",
+                "provider": "openai",
+                "model_key": runner.MODEL_KEYS[0],
+                "supporting_evidence_status": "unresolved_advisory",
+                "supporting_evidence_affected_unit_ids": ["unit-1"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    validated = runner._validated_supporting_evidence_sidecar(  # pyright: ignore[reportPrivateUsage]
+        result_path=result_path,
+        result_bytes=result_bytes,
+        candidate_id="candidate-1",
+        provider="openai",
+        model_key=runner.MODEL_KEYS[0],
+        frozen_unit_ids={"unit-1"},
+    )
+    assert validated is not None
+    assert validated["authoritative"] is False
+    assert validated["supporting_evidence_affected_unit_ids"] == ["unit-1"]
+
+    with pytest.raises(runner.StageBManifestError, match="result_sha256"):
+        runner._validated_supporting_evidence_sidecar(  # pyright: ignore[reportPrivateUsage]
+            result_path=result_path,
+            result_bytes=b'{"status":"tampered"}\n',
+            candidate_id="candidate-1",
+            provider="openai",
+            model_key=runner.MODEL_KEYS[0],
+            frozen_unit_ids={"unit-1"},
+        )
+
+
 def test_existing_result_replays_full_nested_identity(tmp_path: Path) -> None:
     result, context = _valid_result()
     path = tmp_path / "result.json"
