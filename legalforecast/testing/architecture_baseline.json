@@ -4583,10 +4583,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "_execute_provider",
-        "largest_symbol_lines": 545,
+        "largest_symbol_lines": 546,
         "layer": "application",
-        "line_count": 3330,
-        "nonblank_line_count": 3199,
+        "line_count": 3331,
+        "nonblank_line_count": 3200,
         "top_level_definition_count": 45
       },
       "legalforecast/extraction/pdf_text.py": {
@@ -11733,9 +11733,9 @@
         "largest_symbol": "test_approved_retry_preserves_attempt_one_failure_receipt",
         "largest_symbol_lines": 195,
         "layer": "test",
-        "line_count": 2680,
-        "nonblank_line_count": 2491,
-        "top_level_definition_count": 49
+        "line_count": 2851,
+        "nonblank_line_count": 2651,
+        "top_level_definition_count": 50
       },
       "tests/test_static_result_sites.py": {
         "cycle_id": "",
