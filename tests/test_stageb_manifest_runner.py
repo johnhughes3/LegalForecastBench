@@ -2145,6 +2145,27 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
     failed_attempt_two = dict(failure_payload)
     failed_attempt_two["error_message"] = "repair remained invalid"
     retry_path.write_text(json.dumps(failed_attempt_two), encoding="utf-8")
+    repair_evidence = runner.ReconstructionFailureEvidence(
+        attempt_ordinal=1,
+        raw_response_json='{"response":"repair"}',
+        normalized_response_json=(
+            '{"actual_cost_usd":0.02,"input_tokens":2,"output_tokens":3,'
+            '"raw_output":"{\\"still_bad\\":true}"}'
+        ),
+        failure_type="ValueError",
+        failure_message="repair remained invalid",
+    )
+    monkeypatch.setattr(
+        runner,
+        "_reconstruction_failure_evidence",
+        lambda **kwargs: (
+            repair_evidence
+            if kwargs.get("provider_logical_call_scope") is not None
+            else evidence
+        ),
+    )
+    (output_root / "openai-provider-shard-audit.jsonl").unlink()
+    (output_root / "openai-provider-shard-run-card.json").unlink()
     monkeypatch.setattr(
         runner,
         "_validate_provider_environment",
@@ -2155,30 +2176,28 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
         "_llm_label_one_model",
         lambda **_: pytest.fail("terminal repair must not make a third call"),
     )
-    with pytest.raises(
-        runner.StageBManifestError,
-        match="existing failed result requires frozen-unit adjudication",
-    ):
-        runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
-            provider="openai",
-            output_root=output_root,
-            raw_path=tmp_path / "raw.jsonl",
-            decision_texts_path=tmp_path / "decision.jsonl",
-            artifact=artifact,
-            selection_records=(context["selection"],),
-            adapted_records=(),
-            registry_entry=entry,
-            registry_sha256="registry",
-            raw_sha256="raw",
-            decision_sha256="decision",
-            max_cases=None,
-            additional_attempt_candidate=candidate_id,
-            owner_comment_ids=(
-                "spend",
-                "terminal",
-                runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
-            ),
-        )
+    terminal_records = runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+        provider="openai",
+        output_root=output_root,
+        raw_path=tmp_path / "raw.jsonl",
+        decision_texts_path=tmp_path / "decision.jsonl",
+        artifact=artifact,
+        selection_records=(context["selection"],),
+        adapted_records=(),
+        registry_entry=entry,
+        registry_sha256="registry",
+        raw_sha256="raw",
+        decision_sha256="decision",
+        max_cases=None,
+        additional_attempt_candidate=candidate_id,
+        owner_comment_ids=(
+            "spend",
+            "terminal",
+            runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
+        ),
+    )
+    assert terminal_records[0]["status"] == "terminal_repair_failed"
+    assert terminal_records[0]["model_outputs"][0]["labels"] == []
     assert failure_path.read_bytes() == before
 
 

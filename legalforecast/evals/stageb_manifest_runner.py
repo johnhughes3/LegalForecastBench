@@ -143,6 +143,8 @@ ADDITIONAL_ATTEMPT_FAILURE_TYPE = "LlmResponseValidationError"
 ADDITIONAL_ATTEMPT_FAILURE_MESSAGE = (
     "supporting_excerpt does not appear in decision text"
 )
+TERMINAL_REPAIR_FAILURE_STATUS = "terminal_repair_failed"
+TERMINAL_REPAIR_FAILURE_ROUTE_REASON = "terminal_repair_failure"
 SUPPORTING_EVIDENCE_SIDECAR_KIND = "stage_b_supporting_evidence_sidecar"
 SUPPORTING_EVIDENCE_SIDECAR_FIELDS = frozenset(
     {
@@ -1651,6 +1653,7 @@ def _reconstruction_failure_evidence(
     provider: str,
     raw_sha256: str,
     decision_sha256: str,
+    provider_logical_call_scope: str | None = None,
 ) -> ReconstructionFailureEvidence | None:
     """Read the exact retained response and validation error, if present."""
 
@@ -1670,6 +1673,7 @@ def _reconstruction_failure_evidence(
             registry_sha256=registry_sha256,
             provider=provider,
         ),
+        provider_logical_call_scope=provider_logical_call_scope,
     )
     if journal is None:
         return None
@@ -1682,6 +1686,201 @@ def _reconstruction_failure_evidence(
             raise StageBManifestError(
                 "additional attempt lacks immutable journal evidence"
             ) from exc
+
+
+def _journaled_response_details(
+    evidence: ReconstructionFailureEvidence,
+) -> tuple[SolverResponse, Mapping[str, Any]]:
+    """Return authenticated accounting and response identity for terminal evidence."""
+
+    try:
+        normalized_value: object = json.loads(evidence.normalized_response_json)
+    except json.JSONDecodeError as exc:
+        raise StageBManifestError(
+            "terminal repair failure journal response is not valid JSON"
+        ) from exc
+    if not isinstance(normalized_value, Mapping):
+        raise StageBManifestError(
+            "terminal repair failure journal response is not an object"
+        )
+    normalized = cast(Mapping[str, Any], normalized_value)
+    raw_output = normalized.get("raw_output")
+    if not isinstance(raw_output, str) or not raw_output.strip():
+        raise StageBManifestError(
+            "terminal repair failure journal response lacks raw_output"
+        )
+    input_tokens = normalized.get("input_tokens", 0)
+    output_tokens = normalized.get("output_tokens", 0)
+    estimated_cost = normalized.get("actual_cost_usd", 0.0)
+    if (
+        isinstance(input_tokens, bool)
+        or not isinstance(input_tokens, int)
+        or input_tokens < 0
+        or isinstance(output_tokens, bool)
+        or not isinstance(output_tokens, int)
+        or output_tokens < 0
+        or isinstance(estimated_cost, bool)
+        or not isinstance(estimated_cost, (int, float))
+        or estimated_cost < 0
+    ):
+        raise StageBManifestError(
+            "terminal repair failure journal accounting is invalid"
+        )
+    response = SolverResponse(
+        raw_output=raw_output,
+        request_count=0,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        estimated_cost=float(estimated_cost),
+    )
+    return response, normalized
+
+
+def _terminal_repair_failure_audit(
+    *,
+    canonical_result_path: Path,
+    retry_result_path: Path,
+    journal_path: Path,
+    candidate_id: str,
+    provider: str,
+    registry_entry: ModelRegistryEntry,
+    model_key: str,
+    registry_sha256: str,
+    raw_sha256: str,
+    raw_candidate_envelope_sha256: str,
+    decision_sha256: str,
+    decision_commitment: Mapping[str, str],
+    selection: Mapping[str, Any],
+    frozen_units: Sequence[Any],
+    prompt: str,
+) -> JsonRecord:
+    """Authenticate a failed repair and represent it as non-voting evidence."""
+
+    original_evidence = _reconstruction_failure_evidence(
+        journal_path=journal_path,
+        candidate_id=candidate_id,
+        prompt=prompt,
+        registry_entry=registry_entry,
+        registry_sha256=registry_sha256,
+        provider=provider,
+        raw_sha256=raw_sha256,
+        decision_sha256=decision_sha256,
+    )
+    if original_evidence is None:
+        raise StageBManifestError(
+            "terminal repair failure lacks original journal evidence"
+        )
+    _existing_failure_result(
+        canonical_result_path,
+        candidate_id=candidate_id,
+        provider=provider,
+        model_key=model_key,
+        raw_sha256=raw_sha256,
+        raw_candidate_envelope_sha256=raw_candidate_envelope_sha256,
+        decision_sha256=decision_sha256,
+        registry_sha256=registry_sha256,
+        selection=selection,
+        allow_any_validation_failure=True,
+        expected_error_message=original_evidence.failure_message,
+    )
+    repair_prompt = _additional_attempt_prompt(
+        original_prompt=prompt, evidence=original_evidence
+    )
+    repair_scope = provider_prompt_logical_call_scope(repair_prompt)
+    repair_evidence = _reconstruction_failure_evidence(
+        journal_path=journal_path,
+        candidate_id=candidate_id,
+        prompt=repair_prompt,
+        registry_entry=registry_entry,
+        registry_sha256=registry_sha256,
+        provider=provider,
+        raw_sha256=raw_sha256,
+        decision_sha256=decision_sha256,
+        provider_logical_call_scope=repair_scope,
+    )
+    if repair_evidence is None:
+        raise StageBManifestError(
+            "terminal repair failure lacks repair journal evidence"
+        )
+    _existing_failure_result(
+        retry_result_path,
+        candidate_id=candidate_id,
+        provider=provider,
+        model_key=model_key,
+        raw_sha256=raw_sha256,
+        raw_candidate_envelope_sha256=raw_candidate_envelope_sha256,
+        decision_sha256=decision_sha256,
+        registry_sha256=registry_sha256,
+        selection=selection,
+        allow_any_validation_failure=True,
+        expected_error_message=repair_evidence.failure_message,
+    )
+    original_response, _ = _journaled_response_details(original_evidence)
+    repair_response, _ = _journaled_response_details(repair_evidence)
+    model_id = model_key.split(":", 1)[1]
+    model_output: JsonRecord = {
+        "status": "validation_failed",
+        "model_key": model_key,
+        "input_tokens": repair_response.input_tokens,
+        "output_tokens": repair_response.output_tokens,
+        "estimated_cost": repair_response.estimated_cost,
+        "raw_output_sha256": repair_response.raw_output_sha256,
+        "finding_count": 0,
+        "missing_unit_flag_count": 0,
+        "provider_prompt_sha256": "sha256:" + _raw_sha256(repair_prompt.encode()),
+        "provider_prompt_scope": "repair",
+        "original_provider_prompt_sha256": "sha256:" + _raw_sha256(prompt.encode()),
+        "repair_prompt_sha256": "sha256:" + _raw_sha256(repair_prompt.encode()),
+        "metadata": {
+            "provider": provider,
+            "model": model_id,
+            "model_id": model_id,
+            "model_registry_sha256": registry_sha256,
+            "provider_sampling_policy": "provider_default",
+            "tool_policy": "no_tools",
+        },
+        # A failed repair has no authenticated OutcomeLabel values.  Keeping an
+        # empty list makes the cross-product row explicit while ensuring merge
+        # cannot accidentally treat invalid labels as votes.
+        "labels": [],
+        "error_type": repair_evidence.failure_type,
+        "error_message": repair_evidence.failure_message,
+    }
+    terminal_failure: JsonRecord = {
+        "status": TERMINAL_REPAIR_FAILURE_STATUS,
+        "original": {
+            "attempt_ordinal": original_evidence.attempt_ordinal,
+            "failure_type": original_evidence.failure_type,
+            "failure_message": original_evidence.failure_message,
+            "provider_prompt_sha256": "sha256:" + _raw_sha256(prompt.encode()),
+            "raw_output_sha256": original_response.raw_output_sha256,
+        },
+        "repair": {
+            "attempt_ordinal": repair_evidence.attempt_ordinal,
+            "failure_type": repair_evidence.failure_type,
+            "failure_message": repair_evidence.failure_message,
+            "provider_prompt_sha256": "sha256:" + _raw_sha256(repair_prompt.encode()),
+            "raw_output_sha256": repair_response.raw_output_sha256,
+            "normalized_response_sha256": "sha256:"
+            + _raw_sha256(repair_evidence.normalized_response_json.encode()),
+        },
+    }
+    return {
+        "stage": "llm-label-provider-shard",
+        "status": TERMINAL_REPAIR_FAILURE_STATUS,
+        "candidate_id": candidate_id,
+        "case_id": _required_str(selection, "case_id"),
+        "execution_provider": provider,
+        "model_keys": [model_key],
+        "frozen_panel_model_keys": list(MODEL_KEYS),
+        "model_registry_sha256": registry_sha256,
+        "decision_text_commitment": dict(decision_commitment),
+        "label_count": 0,
+        "unit_count": len(frozen_units),
+        "model_outputs": [model_output],
+        "estimated_cost": repair_response.estimated_cost,
+        "terminal_failure": terminal_failure,
+    }
 
 
 def _additional_attempt_prompt(
@@ -1887,6 +2086,7 @@ def _execute_provider(
             prior: JsonRecord | None = None
             result_path = canonical_result_path
             recovery_enabled = False
+            terminal_audit: JsonRecord | None = None
             if recovered_result_path.exists():
                 _existing_failure_result(
                     canonical_result_path,
@@ -1936,24 +2136,51 @@ def _execute_provider(
                     allow_any_validation_failure=True,
                     expected_error_message=expected_error_message,
                 )
-                prior = _existing_result(
-                    retry_result_path,
-                    candidate_id=candidate_id,
-                    provider=provider,
-                    model_key=registry_entry.registry_key,
-                    raw_sha256=raw_sha256,
-                    raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
-                        candidate_id
-                    ],
-                    decision_sha256=decision_sha256,
-                    registry_sha256=registry_sha256,
-                    selection=selection,
-                    frozen_units=frozen_units,
-                    decision_commitment=commitment,
-                    prompt=call_prompt,
-                    frozen_unit_adjudication=adjudication,
+                retry_value = _json_object(
+                    _read_regular(
+                        retry_result_path, f"existing result {retry_result_path}"
+                    ),
+                    f"existing result {retry_result_path}",
                 )
-                result_path = retry_result_path
+                if retry_value.get("status") == "failed":
+                    terminal_audit = _terminal_repair_failure_audit(
+                        canonical_result_path=canonical_result_path,
+                        retry_result_path=retry_result_path,
+                        journal_path=journal_path,
+                        candidate_id=candidate_id,
+                        provider=provider,
+                        registry_entry=registry_entry,
+                        model_key=registry_entry.registry_key,
+                        registry_sha256=registry_sha256,
+                        raw_sha256=raw_sha256,
+                        raw_candidate_envelope_sha256=(
+                            artifact.finalized_unit_envelope_sha256s[candidate_id]
+                        ),
+                        decision_sha256=decision_sha256,
+                        decision_commitment=commitment,
+                        selection=selection,
+                        frozen_units=frozen_units,
+                        prompt=prompt,
+                    )
+                else:
+                    prior = _existing_result(
+                        retry_result_path,
+                        candidate_id=candidate_id,
+                        provider=provider,
+                        model_key=registry_entry.registry_key,
+                        raw_sha256=raw_sha256,
+                        raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                            candidate_id
+                        ],
+                        decision_sha256=decision_sha256,
+                        registry_sha256=registry_sha256,
+                        selection=selection,
+                        frozen_units=frozen_units,
+                        decision_commitment=commitment,
+                        prompt=call_prompt,
+                        frozen_unit_adjudication=adjudication,
+                    )
+                    result_path = retry_result_path
             elif canonical_result_path.exists():
                 try:
                     prior = _existing_result(
@@ -2027,6 +2254,9 @@ def _execute_provider(
                         result_path = recovered_result_path
                     else:
                         raise
+            if terminal_audit is not None:
+                records.append(terminal_audit)
+                continue
             if prior is not None:
                 records.append(cast(JsonRecord, prior["audit"]))
                 continue
@@ -2428,22 +2658,56 @@ def _validate_full_provider_shard(
                 decision_sha256=decision_sha256,
                 registry_sha256=registry_sha256,
             )
-        result = _existing_result(
-            result_path,
-            candidate_id=candidate_id,
-            provider=normalized_provider,
-            model_key=registry_entry.registry_key,
-            raw_sha256=raw_sha256,
-            raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
-                candidate_id
-            ],
-            decision_sha256=decision_sha256,
-            registry_sha256=registry_sha256,
-            selection=selection,
-            frozen_units=frozen_units,
-            decision_commitment=commitment,
-            prompt=result_prompt,
-            frozen_unit_adjudication=(provider_adjudications.get(candidate_id)),
+        terminal_audit: JsonRecord | None = None
+        if result_path == _additional_attempt_result_path(
+            output_root, normalized_provider, candidate_id
+        ):
+            retry_value = _json_object(
+                _read_regular(result_path, f"existing result {result_path}"),
+                f"existing result {result_path}",
+            )
+            if retry_value.get("status") == "failed":
+                terminal_audit = _terminal_repair_failure_audit(
+                    canonical_result_path=_result_path(
+                        output_root, normalized_provider, candidate_id
+                    ),
+                    retry_result_path=result_path,
+                    journal_path=journal_path,
+                    candidate_id=candidate_id,
+                    provider=normalized_provider,
+                    registry_entry=registry_entry,
+                    model_key=registry_entry.registry_key,
+                    registry_sha256=registry_sha256,
+                    raw_sha256=raw_sha256,
+                    raw_candidate_envelope_sha256=(
+                        artifact.finalized_unit_envelope_sha256s[candidate_id]
+                    ),
+                    decision_sha256=decision_sha256,
+                    decision_commitment=commitment,
+                    selection=selection,
+                    frozen_units=frozen_units,
+                    prompt=prompt,
+                )
+        result = (
+            {"audit": terminal_audit}
+            if terminal_audit is not None
+            else _existing_result(
+                result_path,
+                candidate_id=candidate_id,
+                provider=normalized_provider,
+                model_key=registry_entry.registry_key,
+                raw_sha256=raw_sha256,
+                raw_candidate_envelope_sha256=artifact.finalized_unit_envelope_sha256s[
+                    candidate_id
+                ],
+                decision_sha256=decision_sha256,
+                registry_sha256=registry_sha256,
+                selection=selection,
+                frozen_units=frozen_units,
+                decision_commitment=commitment,
+                prompt=result_prompt,
+                frozen_unit_adjudication=(provider_adjudications.get(candidate_id)),
+            )
         )
         if result is None:
             raise StageBManifestError(
