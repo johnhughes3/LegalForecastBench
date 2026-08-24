@@ -14,9 +14,9 @@ from pytest import MonkeyPatch
 JsonRecord = dict[str, Any]
 
 
-def _selection() -> JsonRecord:
+def _selection(candidate_id: str = "synthetic-candidate") -> JsonRecord:
     return {
-        "candidate_id": "synthetic-candidate",
+        "candidate_id": candidate_id,
         "case_id": "synthetic-case",
         "decision_date": "2026-06-30",
         "case_name": "Synthetic v. Issuer",
@@ -87,6 +87,30 @@ def _registry() -> llm_pipeline.ModelRegistryEntry:
     )
 
 
+_CANDIDATE_71985792_DECISION_TEXT = (
+    " 6 So, because Epidemic has not plausibly alleged any works on Meta's platform "
+    "are  \n"
+    " 7 substantially similar to or exact copies of its 1,000 copyright-protected "
+    "Works, Epidemic fails to  \n"
+    " 8 state a direct infringement claim.\n"
+    " 18 any of its Works are substantially similar to any infringing work. So, "
+    "Epidemic has not plausibly  \n"
+    " 19 alleged any direct infringement, and the Court grants Meta's motion to "
+    "dismiss Epidemic's  \n"
+    " 20 inducement of infringement and contributory infringement causes of action."
+)
+_CANDIDATE_71985792_FIRST_EXCERPT = (
+    "So, because Epidemic has not plausibly alleged any works on Meta's platform are "
+    "substantially similar to or exact copies of its 1,000 copyright-protected Works, "
+    "Epidemic fails to state a direct infringement claim."
+)
+_CANDIDATE_71985792_SECOND_EXCERPT = (
+    "So, Epidemic has not plausibly alleged any direct infringement, and the Court "
+    "grants Meta's motion to dismiss Epidemic's inducement of infringement and "
+    "contributory infringement causes of action."
+)
+
+
 @pytest.mark.parametrize(
     ("decision_text", "response_excerpt", "expected_excerpt"),
     [
@@ -155,6 +179,29 @@ def _registry() -> llm_pipeline.ModelRegistryEntry:
             "CASE SYNTHETIC-1 Doc. 80 Filed 07/08/26 Page 12 of 12\n\n"
             "and the claim therefore survived.",
             id="parser-page-boundary",
+        ),
+        pytest.param(
+            _CANDIDATE_71985792_DECISION_TEXT,
+            _CANDIDATE_71985792_FIRST_EXCERPT,
+            "6 So, because Epidemic has not plausibly alleged any works on Meta's "
+            "platform "
+            "are  \n"
+            " 7 substantially similar to or exact copies of its 1,000 "
+            "copyright-protected "
+            "Works, Epidemic fails to  \n"
+            " 8 state a direct infringement claim.",
+            id="candidate-71985792-indented-pdf-lines-7-8",
+        ),
+        pytest.param(
+            _CANDIDATE_71985792_DECISION_TEXT,
+            _CANDIDATE_71985792_SECOND_EXCERPT,
+            "So, Epidemic has not plausibly  \n"
+            " 19 alleged any direct infringement, and the Court grants Meta's "
+            "motion to "
+            "dismiss Epidemic's  \n"
+            " 20 inducement of infringement and contributory infringement causes of "
+            "action.",
+            id="candidate-71985792-indented-pdf-lines-19-20",
         ),
     ],
 )
@@ -258,17 +305,166 @@ def test_stage_b_reconstruction_recovers_citation_provider_free(
     assert failed[0] == "reconstruction_failed"
     raw_response_json, normalized_response_json = failed[1:]
 
+    kwargs["replay_only"] = True
     labels, *_ = cast(Any, llm_pipeline)._llm_label_one_model(**kwargs)
 
     assert labels[0].supporting_citations[0].excerpt == expected_excerpt
     assert provider_calls == 1
-    assert completion_calls == 2
+    assert completion_calls == 1
     with sqlite3.connect(journal_path) as connection:
         row = connection.execute(
             "SELECT attempt_ordinal, status, raw_response_json, "
             "normalized_response_json FROM provider_attempts"
         ).fetchall()
     assert row == [(1, "settled", raw_response_json, normalized_response_json)]
+
+
+def test_stage_b_indented_pdf_line_recovery_requires_a_unique_numbered_match() -> None:
+    decision_text = (
+        " 7 repeated citation text appears here.\n"
+        " 8 and continues on this line.\n"
+        " 19 repeated citation text appears here.\n"
+        " 20 and continues on this line."
+    )
+    excerpt = "repeated citation text appears here. and continues on this line."
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="ambiguous PDF line-number matches",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt_without_pdf_line_numbers(
+            decision_text, excerpt
+        )
+
+
+def test_stage_b_pdf_line_recovery_rejects_ambiguous_unindented_matches() -> None:
+    decision_text = (
+        "7 repeated citation text appears here.\n"
+        "8 and continues on this line.\n"
+        "19 repeated citation text appears here.\n"
+        "20 and continues on this line."
+    )
+    excerpt = "repeated citation text appears here. and continues on this line."
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="ambiguous PDF line-number matches",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt)
+
+
+def test_stage_b_pdf_line_recovery_prefers_exact_unindented_occurrence() -> None:
+    decision_text = (
+        " 7 repeated citation text\n 8 continues\n\nrepeated citation text continues"
+    )
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt(
+            decision_text, "repeated citation text continues"
+        )
+        == "repeated citation text continues"
+    )
+
+
+def test_stage_b_pdf_line_recovery_rejects_first_line_isolated_prefix() -> None:
+    decision_text = " 7 citation text\n 6 unrelated line"
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="supporting_excerpt does not appear in decision text",
+    ):
+        cast(Any, llm_pipeline)._coerced_excerpt(decision_text, "citation text")
+
+
+def test_stage_b_indented_pdf_line_recovery_uses_rendered_mapping() -> None:
+    decision_text = " 7 first line\n 8 second line"
+
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_from_rendered_markdown(
+            decision_text, "first line second line"
+        )
+        == "7 first line\n 8 second line"
+    )
+
+
+@pytest.mark.parametrize(
+    "decision_text",
+    [
+        " 7 isolated citation text.",
+        "    7 over-indented citation text.\n    8 continues here.",
+    ],
+)
+def test_stage_b_indented_pdf_line_recovery_rejects_unqualified_prefixes(
+    decision_text: str,
+) -> None:
+    assert (
+        cast(Any, llm_pipeline)._coerced_excerpt_without_pdf_line_numbers(
+            decision_text,
+            "isolated citation text."
+            if "isolated" in decision_text
+            else "over-indented citation text. continues here.",
+        )
+        is None
+    )
+
+
+def test_stage_b_replay_only_rejects_unrelated_settled_journal(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    class UnrelatedSettledJournal:
+        has_settled_attempt = True
+        has_reconstruction_failure = False
+        has_validated_response = False
+
+        def latest_reconstruction_recovery_evidence(self) -> object:
+            raise llm_pipeline.ProviderJournalError(
+                "provider journal has no failed reconstruction to recover"
+            )
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        llm_pipeline,
+        "_provider_attempt_journal",
+        lambda **_: UnrelatedSettledJournal(),
+    )
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        lambda *args, **kwargs: pytest.fail(
+            "provider-free replay must reject before live completion"
+        ),
+    )
+
+    with pytest.raises(
+        llm_pipeline.LlmPipelineError,
+        match="provider-free Stage B replay has no retained response to settle",
+    ):
+        cast(Any, llm_pipeline)._llm_label_one_model(
+            selection=_selection(),
+            decision_text=llm_pipeline.StageBDecisionText(
+                document_id="synthetic-decision",
+                entered_date="2026-07-01",
+                text="The motion is denied.",
+            ),
+            decision_text_commitment={"decision_texts_sha256": "sha256:" + "a" * 64},
+            frozen_units=(_unit(),),
+            prompt="synthetic frozen label prompt",
+            registry_entry=_registry(),
+            model_registry_sha256="b" * 64,
+            transport=None,
+            environ=None,
+            timeout_seconds=1.0,
+            provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+            provider_cycle_cap_usd=100.0,
+            provider_cycle_id="synthetic-cycle",
+            provider_cycle_caps_sha256="sha256:" + "c" * 64,
+            provider_spend_authorities=None,
+            provider_accounts=None,
+            replay_only=True,
+        )
 
 
 def test_stage_b_page_boundary_recovery_returns_exact_source_slice() -> None:
