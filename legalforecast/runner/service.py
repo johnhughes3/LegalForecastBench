@@ -27,6 +27,7 @@ from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     load_model_registry_bytes,
     model_registry_entry_sha256,
+    require_official_registry_entries,
 )
 from legalforecast.evals.output_parser import ParsedModelOutput, parse_model_output
 from legalforecast.evals.provider_spend_attempt_handler import (
@@ -116,6 +117,11 @@ def execute_release_run(
     )
     harness = _non_empty(config.harness, "harness")
     ablation = _non_empty(config.ablation, "ablation")
+    if ablation != "none":
+        raise RunValidationError(
+            "forecast-release.v1 contains authenticated release prompts only; "
+            "non-default ablations require a separately authenticated release"
+        )
     account = _non_empty(config.account, "account")
     _positive_int(config.ceiling_microusd, "ceiling_microusd")
     _positive_int(config.repeat_count, "repeat_count")
@@ -142,6 +148,10 @@ def execute_release_run(
         raise RunValidationError(
             f"model key is absent from registry: {config.model_key}"
         ) from exc
+    try:
+        require_official_registry_entries((entry,))
+    except ValueError as exc:
+        raise RunValidationError(f"official model eligibility failed: {exc}") from exc
     entry_sha256 = model_registry_entry_sha256(entry)
 
     identity = {

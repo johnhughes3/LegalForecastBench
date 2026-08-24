@@ -94,7 +94,11 @@ def register(
     execute.add_argument(
         "--ablation",
         default="none",
-        help="Stable ablation identity bound into every run cell (default: none).",
+        choices=("none",),
+        help=(
+            "Authenticated prompt treatment bound into every run cell; "
+            "forecast-release.v1 currently supports only none."
+        ),
     )
     execute.add_argument(
         "--repeat-count",

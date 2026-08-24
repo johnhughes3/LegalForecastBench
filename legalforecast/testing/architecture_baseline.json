@@ -8317,10 +8317,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 290,
+        "largest_symbol_lines": 299,
         "layer": "application",
-        "line_count": 571,
-        "nonblank_line_count": 527,
+        "line_count": 581,
+        "nonblank_line_count": 537,
         "top_level_definition_count": 13
       },
       "legalforecast/selection/case_mix_diagnostics.py": {
@@ -11240,9 +11240,9 @@
         "largest_symbol": "test_runner_rolls_back_cell_when_atomic_spend_reservation_is_interrupted",
         "largest_symbol_lines": 58,
         "layer": "test",
-        "line_count": 523,
-        "nonblank_line_count": 437,
-        "top_level_definition_count": 22
+        "line_count": 554,
+        "nonblank_line_count": 460,
+        "top_level_definition_count": 24
       },
       "tests/test_purchase_approval.py": {
         "cycle_id": "",

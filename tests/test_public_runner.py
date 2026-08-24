@@ -147,6 +147,37 @@ def test_runner_refuses_missing_approval_reference_before_creating_ledger(
     assert not config.ledger_path.exists()
 
 
+def test_runner_rejects_unauthenticated_ablation_before_creating_ledger(
+    tmp_path: Path,
+) -> None:
+    config = replace(_config(tmp_path), ablation="metadata-only")
+    transport = CountingTransport(error=AssertionError("transport called"))
+
+    with pytest.raises(RunValidationError, match="authenticated release prompts"):
+        execute_release_run(config, transport=transport)
+
+    assert transport.calls == 0
+    assert not config.ledger_path.exists()
+
+
+def test_runner_rejects_ineligible_model_before_creating_ledger(
+    tmp_path: Path,
+) -> None:
+    config = _config(tmp_path)
+    records = cast(
+        list[dict[str, object]], json.loads(config.model_registry_path.read_bytes())
+    )
+    records[0]["release_timestamp"] = None
+    config.model_registry_path.write_text(json.dumps(records), encoding="utf-8")
+    transport = CountingTransport(error=AssertionError("transport called"))
+
+    with pytest.raises(RunValidationError, match="official model eligibility"):
+        execute_release_run(config, transport=transport)
+
+    assert transport.calls == 0
+    assert not config.ledger_path.exists()
+
+
 def test_runner_refuses_exact_ledger_identity_drift_without_transport(
     tmp_path: Path,
 ) -> None:

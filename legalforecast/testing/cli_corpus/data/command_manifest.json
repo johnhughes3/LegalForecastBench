@@ -3330,7 +3330,9 @@
         },
         {
           "action": "store",
-          "choices": null,
+          "choices": [
+            "none"
+          ],
           "default": "none",
           "dest": "ablation",
           "metavar": null,
