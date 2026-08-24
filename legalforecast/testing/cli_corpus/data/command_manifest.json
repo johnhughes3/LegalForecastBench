@@ -3317,7 +3317,9 @@
         },
         {
           "action": "store",
-          "choices": null,
+          "choices": [
+            "native"
+          ],
           "default": "native",
           "dest": "harness",
           "metavar": null,

@@ -8,6 +8,10 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
+from legalforecast.evals.provider_spend_control import (
+    RETRYABLE_HTTP_429_FAILURE_TYPE,
+)
+
 
 class RunValidationError(ValueError):
     """Raised when a public run input or durable output is invalid."""
@@ -124,6 +128,7 @@ class RunnerLedger:
         case_id: str,
         unit_id: str,
         repeat_index: int,
+        allow_retryable_nonbillable: bool = False,
     ) -> CellRecord | None:
         """Inspect an exact cell without creating pre-authorization state."""
 
@@ -141,7 +146,24 @@ class RunnerLedger:
             unit_id=unit_id,
             repeat_index=repeat_index,
         )
-        if record.status not in {"blocked", "completed"}:
+        retryable_nonbillable = False
+        if (
+            allow_retryable_nonbillable
+            and record.status == "reserved"
+            and record.provider_attempt_id is not None
+        ):
+            prior_attempt = self._connection.execute(
+                "SELECT status, failure_type FROM provider_attempts "
+                "WHERE attempt_id = ?",
+                (record.provider_attempt_id,),
+            ).fetchone()
+            retryable_nonbillable = (
+                prior_attempt is not None
+                and str(prior_attempt["status"]) == "failed_nonbillable"
+                and str(prior_attempt["failure_type"])
+                == RETRYABLE_HTTP_429_FAILURE_TYPE
+            )
+        if record.status not in {"blocked", "completed"} and not retryable_nonbillable:
             raise RunBlockedError(
                 f"cell {cell_id} has {record.status} provider state; "
                 "another call is forbidden"
@@ -158,6 +180,7 @@ class RunnerLedger:
         unit_id: str,
         repeat_index: int,
         provider_attempt_id: str,
+        allow_nonbillable_replacement: bool = False,
     ) -> None:
         """Bind a cell reservation to spend authorization before one commit."""
 
@@ -191,6 +214,31 @@ class RunnerLedger:
             unit_id=unit_id,
             repeat_index=repeat_index,
         )
+        if (
+            allow_nonbillable_replacement
+            and record.status == "reserved"
+            and record.provider_attempt_id is not None
+        ):
+            prior_attempt = connection.execute(
+                "SELECT status, failure_type FROM provider_attempts "
+                "WHERE attempt_id = ?",
+                (record.provider_attempt_id,),
+            ).fetchone()
+            if (
+                prior_attempt is not None
+                and str(prior_attempt["status"]) == "failed_nonbillable"
+                and str(prior_attempt["failure_type"])
+                == RETRYABLE_HTTP_429_FAILURE_TYPE
+            ):
+                connection.execute(
+                    """
+                    UPDATE public_runner_cells
+                    SET provider_attempt_id = ?, failure_type = NULL
+                    WHERE cell_id = ? AND status = 'reserved'
+                    """,
+                    (provider_attempt_id, cell_id),
+                )
+                return
         if record.status != "blocked":
             raise RunBlockedError(
                 f"cell {cell_id} has {record.status} provider state; "

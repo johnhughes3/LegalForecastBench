@@ -19,6 +19,7 @@ from types import TracebackType
 from typing import Protocol, Self
 
 PROVIDER_SPEND_CONTROL_SCHEMA_VERSION = "legalforecast.provider_spend_control.v2"
+RETRYABLE_HTTP_429_FAILURE_TYPE = "retryable_http_429"
 
 
 class ProviderSpendControlError(RuntimeError):
@@ -391,6 +392,121 @@ class SqliteProviderSpendAuthority:
         self._connection.commit()
         return lease
 
+    def authorize_nonbillable_replacement_with_transaction(
+        self,
+        key: ProviderSpendKey,
+        *,
+        prior_attempt: AttemptLease,
+        reservation_microusd: int,
+        before_commit: BeforeAttemptCommit,
+    ) -> AttemptLease:
+        """Authorize one exact replacement after a retryable nonbillable rejection."""
+
+        self._verify_key_scope(key)
+        reservation = _positive_int(
+            reservation_microusd,
+            "reservation_microusd",
+        )
+        now = self._clock()
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._lease_row(prior_attempt)
+            if prior_attempt.logical_call_key != key.logical_call_key:
+                raise AuthorityIdentityMismatchError(
+                    "retryable replacement is bound to a different logical call"
+                )
+            attempt_count = self._attempt_count(key.logical_call_key)
+            if (
+                self.policy.max_billable_attempts != 1
+                or attempt_count != 1
+                or prior_attempt.attempt_ordinal != 1
+                or str(row["status"]) != "failed_nonbillable"
+                or str(row["failure_type"]) != RETRYABLE_HTTP_429_FAILURE_TYPE
+            ):
+                raise AttemptLimitExceededError(
+                    "retryable replacement requires one exact "
+                    "failed_nonbillable attempt"
+                )
+            if self._failure_count(now) >= self.policy.failure_threshold:
+                raise CircuitBreakerOpenError(
+                    f"provider/account circuit breaker is open for "
+                    f"{self.provider}/{self.account}"
+                )
+            self._raise_if_poisoned()
+            committed = self._committed_microusd()
+            if committed + reservation > self.cap_microusd:
+                raise ProviderCapExceededError(
+                    f"provider reservation would exceed frozen {self.provider}/"
+                    f"{self.account} cap"
+                )
+            ordinal = 2
+            attempt_id = hashlib.sha256(
+                f"{self.authority_identity_sha256}\0{key.logical_call_key}\0{ordinal}".encode()
+            ).hexdigest()
+            self._connection.execute(
+                """
+                INSERT INTO provider_attempts(
+                    attempt_id, logical_call_key, attempt_ordinal, cycle_id,
+                    provider, account, stage, model_key, case_id, ablation,
+                    repeat_index, reservation_microusd, status, authorized_at_epoch
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reserved', ?)
+                """,
+                (
+                    attempt_id,
+                    key.logical_call_key,
+                    ordinal,
+                    key.cycle_id,
+                    key.provider,
+                    key.account,
+                    key.stage,
+                    key.model_key,
+                    key.case_id,
+                    key.ablation,
+                    key.repeat_index,
+                    reservation,
+                    now,
+                ),
+            )
+            lease = AttemptLease(
+                attempt_id=attempt_id,
+                authority_identity_sha256=self.authority_identity_sha256,
+                logical_call_key=key.logical_call_key,
+                attempt_ordinal=ordinal,
+                reservation_microusd=reservation,
+            )
+            before_commit(self._connection, lease)
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+        return lease
+
+    def recover_retryable_nonbillable_attempt(
+        self,
+        key: ProviderSpendKey,
+        *,
+        attempt_id: str,
+    ) -> AttemptLease:
+        """Recover one exact retryable 429 attempt for crash-safe replacement."""
+
+        self._verify_key_scope(key)
+        normalized_attempt_id = _sha256(attempt_id, "attempt_id")
+        rows = self._connection.execute(
+            "SELECT * FROM provider_attempts WHERE logical_call_key = ?",
+            (key.logical_call_key,),
+        ).fetchall()
+        if (
+            len(rows) != 1
+            or str(rows[0]["attempt_id"]) != normalized_attempt_id
+            or int(rows[0]["attempt_ordinal"]) != 1
+            or str(rows[0]["status"]) != "failed_nonbillable"
+            or str(rows[0]["failure_type"]) != RETRYABLE_HTTP_429_FAILURE_TYPE
+        ):
+            raise AttemptStateError(
+                "retryable replacement recovery requires one exact durable HTTP 429"
+            )
+        return self._lease_from_row(rows[0])
+
     def authorize_additional_attempt(
         self,
         key: ProviderSpendKey,
@@ -621,13 +737,14 @@ class SqliteProviderSpendAuthority:
                 """,
                 (target, normalized_failure, now, lease.attempt_id),
             )
-            self._connection.execute(
-                """
-                INSERT INTO provider_failure_events(attempt_id, failed_at_epoch)
-                VALUES (?, ?)
-                """,
-                (lease.attempt_id, now),
-            )
+            if ambiguous:
+                self._connection.execute(
+                    """
+                    INSERT INTO provider_failure_events(attempt_id, failed_at_epoch)
+                    VALUES (?, ?)
+                    """,
+                    (lease.attempt_id, now),
+                )
         except BaseException:
             self._connection.rollback()
             raise

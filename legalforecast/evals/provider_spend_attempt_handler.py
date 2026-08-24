@@ -11,6 +11,7 @@ from typing import Protocol, cast
 
 from legalforecast.evals.model_registry import LongContextSurcharge
 from legalforecast.evals.provider_spend_control import (
+    RETRYABLE_HTTP_429_FAILURE_TYPE,
     AdditionalAttemptPermit,
     AttemptLease,
     AttemptLimitExceededError,
@@ -84,6 +85,9 @@ class ProviderSpendAttemptHandler:
     reservation_microusd: int
     additional_attempt_permit: AdditionalAttemptPermit | None = None
     before_authorize: Callable[[sqlite3.Connection, AttemptLease], None] | None = None
+    failure_observer: Callable[[bool], None] | None = None
+    allow_retryable_nonbillable_replacement: bool = False
+    retryable_nonbillable_prior_attempt: AttemptLease | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
     )
@@ -108,7 +112,36 @@ class ProviderSpendAttemptHandler:
         if attempt_ordinal in self._leases_by_local_ordinal:
             raise RuntimeError("local provider attempt ordinal was reused")
         try:
-            if self.before_authorize is None:
+            replacement_ordinal = attempt_ordinal in {1, 2}
+            if (
+                self.allow_retryable_nonbillable_replacement
+                and replacement_ordinal
+                and isinstance(self.authority, SqliteProviderSpendAuthority)
+                and self.before_authorize is not None
+                and (
+                    attempt_ordinal == 2
+                    or self.retryable_nonbillable_prior_attempt is not None
+                )
+            ):
+                prior_attempt = (
+                    self.retryable_nonbillable_prior_attempt
+                    if attempt_ordinal == 1
+                    else self._leases_by_local_ordinal.get(1)
+                )
+                if prior_attempt is None:
+                    raise RuntimeError(
+                        "retryable replacement lacks the exact prior attempt"
+                    )
+                authorize_replacement = (
+                    self.authority.authorize_nonbillable_replacement_with_transaction
+                )
+                lease = authorize_replacement(
+                    self.key,
+                    prior_attempt=prior_attempt,
+                    reservation_microusd=self.reservation_microusd,
+                    before_commit=self.before_authorize,
+                )
+            elif self.before_authorize is None:
                 lease = self.authority.authorize_attempt(
                     self.key,
                     reservation_microusd=self.reservation_microusd,
@@ -148,13 +181,24 @@ class ProviderSpendAttemptHandler:
         except BaseException as exc:
             # Once transport begins, a missing response can still be billable. Keep
             # the reservation until immutable provider usage data reconciles it.
-            # An explicit HTTP 429 is a provider rejection before generation and
-            # is therefore safe to release for the solver's bounded fallback.
+            # Only an explicitly retryable HTTP 429 proves a pre-generation
+            # rejection. Missing retryability evidence remains fail-closed.
+            retryable_nonbillable = (
+                getattr(exc, "status_code", None) == 429
+                and getattr(exc, "retryable", None) is True
+            )
+            ambiguous = not retryable_nonbillable
             self.authority.record_failure(
                 lease,
-                failure_type=type(exc).__name__,
-                ambiguous=getattr(exc, "status_code", None) != 429,
+                failure_type=(
+                    RETRYABLE_HTTP_429_FAILURE_TYPE
+                    if retryable_nonbillable
+                    else type(exc).__name__
+                ),
+                ambiguous=ambiguous,
             )
+            if self.failure_observer is not None:
+                self.failure_observer(ambiguous)
             raise
 
     def run_attempt_with_preflight(
@@ -226,6 +270,8 @@ class ProviderSpendAttemptHandler:
             failure_type=failure_type,
             ambiguous=True,
         )
+        if self.failure_observer is not None:
+            self.failure_observer(True)
 
     def settle_attempt(
         self,

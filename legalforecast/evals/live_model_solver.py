@@ -247,6 +247,7 @@ def complete_live_prompt(
     max_output_tokens_override: int | None = None,
     openai_service_tier_observer: Callable[[str], None] | None = None,
     request_body_observer: RequestBodyObserver | None = None,
+    openai_flex_already_rejected: bool = False,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
 
@@ -319,6 +320,7 @@ def complete_live_prompt(
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
             request_body_observer=request_body_observer,
+            openai_flex_already_rejected=openai_flex_already_rejected,
         )
     )
     latency_ms = (time.perf_counter() - started) * 1000
@@ -936,6 +938,7 @@ def _call_live_http_provider(
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None,
     request_body_observer: RequestBodyObserver | None,
+    openai_flex_already_rejected: bool,
 ) -> tuple[JsonRecord, int, int, str | None, bool]:
     """POST one live HTTP provider call, with OpenAI Flex-to-standard fallback."""
 
@@ -968,8 +971,12 @@ def _call_live_http_provider(
         )
         return payload, request_count, durable_attempt_ordinal, None, False
 
-    used_tier = OPENAI_SERVICE_TIER
-    fell_back = False
+    used_tier = (
+        OPENAI_FALLBACK_SERVICE_TIER
+        if openai_flex_already_rejected
+        else OPENAI_SERVICE_TIER
+    )
+    fell_back = openai_flex_already_rejected
     api_key: str | None = None
     request: urllib.request.Request | None = None
 

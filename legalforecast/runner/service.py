@@ -42,6 +42,9 @@ from legalforecast.evals.provider_spend_control import (
     ProviderSpendKey,
     SqliteProviderSpendAuthority,
 )
+from legalforecast.evals.response_verification import (
+    require_publishable_response_metadata,
+)
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
 from legalforecast.release import ForecastPredictionUnit, load_forecast_execution
 
@@ -88,6 +91,8 @@ class RunSummary:
 class _RequestBodyCommitment:
     def __init__(self) -> None:
         self.request_body_sha256: str | None = None
+        self._replacement_allowed = False
+        self._last_failure_was_nonbillable = False
 
     def observe(self, request_body: bytes) -> None:
         digest = str(
@@ -96,11 +101,25 @@ class _RequestBodyCommitment:
                 domain=PUBLIC_RUN_RECEIPT_V1,
             ).digest
         )
-        if self.request_body_sha256 is not None:
+        if self.request_body_sha256 is not None and not self._replacement_allowed:
             raise RunBlockedError(
                 "one logical cell attempted duplicate provider transport"
             )
         self.request_body_sha256 = digest
+        self._replacement_allowed = False
+        self._last_failure_was_nonbillable = False
+
+    def observe_failure(self, ambiguous: bool) -> None:
+        """Permit a replacement body only after durable nonbillable evidence."""
+
+        self._last_failure_was_nonbillable = not ambiguous
+        self._replacement_allowed = not ambiguous
+
+    def transport_is_ambiguous(self) -> bool:
+        return (
+            self.request_body_sha256 is not None
+            and not self._last_failure_was_nonbillable
+        )
 
 
 def execute_release_run(
@@ -116,6 +135,10 @@ def execute_release_run(
         "approval reference",
     )
     harness = _non_empty(config.harness, "harness")
+    if harness != "native":
+        raise RunValidationError(
+            "forecast-release.v1 currently supports only the native harness"
+        )
     ablation = _non_empty(config.ablation, "ablation")
     if ablation != "none":
         raise RunValidationError(
@@ -246,7 +269,7 @@ def execute_release_run(
                         account=account,
                         stage=harness,
                         model_key=entry.registry_key,
-                        case_id=f"{unit.case_id}:{unit.unit_id}",
+                        case_id=cell_id,
                         ablation=ablation,
                         repeat_index=repeat_index,
                     )
@@ -256,6 +279,7 @@ def execute_release_run(
                         case_id=unit.case_id,
                         unit_id=unit.unit_id,
                         repeat_index=repeat_index,
+                        allow_retryable_nonbillable=True,
                     )
                     receipt_path = config.receipts_dir / f"{cell_id}.json"
                     if cell is not None and cell.status == "completed":
@@ -268,6 +292,19 @@ def execute_release_run(
                         )
                         resumed_cells += 1
                         continue
+
+                    retryable_nonbillable_prior_attempt: AttemptLease | None = None
+                    if cell is not None and cell.status == "reserved":
+                        if cell.provider_attempt_id is None:
+                            raise RunBlockedError(
+                                f"cell {cell_id} lacks its prior provider attempt"
+                            )
+                        retryable_nonbillable_prior_attempt = (
+                            authority.recover_retryable_nonbillable_attempt(
+                                key,
+                                attempt_id=cell.provider_attempt_id,
+                            )
+                        )
 
                     capture = _RequestBodyCommitment()
                     completed = False
@@ -291,6 +328,7 @@ def execute_release_run(
                             unit_id=bound_unit_id,
                             repeat_index=bound_repeat_index,
                             provider_attempt_id=lease.attempt_id,
+                            allow_nonbillable_replacement=(lease.attempt_ordinal == 2),
                         )
                         authorized_attempt_id = lease.attempt_id
 
@@ -302,26 +340,29 @@ def execute_release_run(
                             registry_sha256=registry_sha256,
                             transport=delegate,
                             request_body_observer=capture.observe,
+                            attempt_failure_observer=capture.observe_failure,
                             environ=environ,
                             authority=authority,
                             reservation_microusd=reservation_microusd,
                             before_authorize=reserve_authorized_cell,
+                            retryable_nonbillable_prior_attempt=(
+                                retryable_nonbillable_prior_attempt
+                            ),
                         )
                         request_sha256 = capture.request_body_sha256
                         if request_sha256 is None:
                             raise RunValidationError(
                                 "provider response lacks a request-body commitment"
                             )
+                        metadata = response.metadata or {}
+                        try:
+                            require_publishable_response_metadata(metadata)
+                        except ValueError as exc:
+                            raise RunValidationError(str(exc)) from exc
                         parsed = parse_model_output(
                             response.raw_output,
                             required_unit_ids=(unit.unit_id,),
                         )
-                        metadata = response.metadata or {}
-                        served_model = metadata.get("served_model_version")
-                        if not isinstance(served_model, str) or not served_model:
-                            raise RunValidationError(
-                                "validated provider response lacks served model"
-                            )
                         receipt = {
                             "schema_version": str(PUBLIC_RUN_RECEIPT_V1),
                             "cell_id": cell_id,
@@ -338,11 +379,11 @@ def execute_release_run(
                             "repeat_index": repeat_index,
                             "prompt_sha256": unit.prompt_sha256,
                             "request_body_sha256": request_sha256,
-                            "served_model_version": served_model,
+                            "served_model_version": entry.model_version_or_snapshot,
                             "usage": {
                                 "input_tokens": response.input_tokens,
                                 "output_tokens": response.output_tokens,
-                                "actual_cost_microusd": math.ceil(
+                                "estimated_cost_microusd": math.ceil(
                                     response.estimated_cost * 1_000_000
                                 ),
                             },
@@ -376,8 +417,7 @@ def execute_release_run(
                                 cell_id,
                                 provider_attempt_id=authorized_attempt_id,
                                 exc=exc,
-                                transport_started=capture.request_body_sha256
-                                is not None,
+                                transport_started=capture.transport_is_ambiguous(),
                             )
                         if isinstance(exc, ProviderSpendControlError) and (
                             capture.request_body_sha256 is None
@@ -412,16 +452,21 @@ def _complete_cell(
     registry_sha256: str,
     transport: LiveModelTransport,
     request_body_observer: Callable[[bytes], None],
+    attempt_failure_observer: Callable[[bool], None],
     environ: Mapping[str, str] | None,
     authority: SqliteProviderSpendAuthority,
     reservation_microusd: int,
     before_authorize: Callable[[sqlite3.Connection, AttemptLease], None],
+    retryable_nonbillable_prior_attempt: AttemptLease | None,
 ) -> SolverResponse:
     handler = ProviderSpendAttemptHandler(
         authority=authority,
         key=key,
         reservation_microusd=reservation_microusd,
         before_authorize=before_authorize,
+        failure_observer=attempt_failure_observer,
+        allow_retryable_nonbillable_replacement=True,
+        retryable_nonbillable_prior_attempt=retryable_nonbillable_prior_attempt,
     )
     return complete_live_prompt(
         entry,
@@ -429,9 +474,10 @@ def _complete_cell(
         model_registry_sha256=registry_sha256,
         transport=transport,
         environ=environ,
-        max_attempts=1,
+        max_attempts=(1 if retryable_nonbillable_prior_attempt is not None else 2),
         attempt_handler=handler,
         request_body_observer=request_body_observer,
+        openai_flex_already_rejected=(retryable_nonbillable_prior_attempt is not None),
     )
 
 
@@ -484,7 +530,9 @@ def _public_parser_record(parsed: ParsedModelOutput) -> dict[str, object]:
         "issues": [
             {
                 "code": issue.code.value,
-                "unit_id": issue.unit_id,
+                "unit_id": (
+                    issue.unit_id if issue.unit_id in parsed.required_unit_ids else None
+                ),
             }
             for issue in parsed.issues
         ],

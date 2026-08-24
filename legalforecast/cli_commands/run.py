@@ -89,7 +89,11 @@ def register(
     execute.add_argument(
         "--harness",
         default="native",
-        help="Stable harness identity bound into every run cell (default: native).",
+        choices=("native",),
+        help=(
+            "Authenticated execution adapter bound into every run cell; "
+            "forecast-release.v1 currently supports only native."
+        ),
     )
     execute.add_argument(
         "--ablation",
