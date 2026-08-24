@@ -22,6 +22,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [Cycle 1 manifest provider-free freeze v2](cycle-1-manifest-provider-free-freeze-v2.md): create-only issuance and replay of the labels-deferred manifest decisions, execution policy, and bundle without provider, AWS, scoring, or publication activity.
 - [GitHub → AWS OIDC trust claims](github-aws-oidc-trust-claims.md): the verified condition-key surface behind the official roles' trust policies, and the two false review claims it retires.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
+- [Corpus split public-history audit and cutover map](corpus-split-history-audit.md): revision-bound security conclusion and package-level keep, private-port, delete, and archive boundaries for the public/private cutover.
 - [Publication governance](publication-governance.md): public evidence tiers, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
 
 ## Release Security
