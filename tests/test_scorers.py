@@ -275,16 +275,66 @@ def test_ece_uses_fixed_equal_width_bins() -> None:
     assert summary.ece_bins[1].observed_rate == 1
 
 
-def test_score_cases_rejects_ambiguous_labels() -> None:
-    parsed = _parsed([(REQUIRED_MOCK_UNIT_IDS[0], 0.5)])
+def test_score_cases_excludes_ambiguous_units() -> None:
+    parsed = _parsed(
+        [
+            (REQUIRED_MOCK_UNIT_IDS[0], 0.5),
+            (REQUIRED_MOCK_UNIT_IDS[1], 0.25),
+        ]
+    )
 
-    with pytest.raises(ValueError, match="ambiguous label"):
+    summary = score_cases(
+        (
+            ScoringCase(
+                case_id="case-1",
+                model_id="model-a",
+                parsed_output=parsed,
+                outcome_labels=(
+                    _ambiguous_label(REQUIRED_MOCK_UNIT_IDS[0]),
+                    _label(REQUIRED_MOCK_UNIT_IDS[1], False),
+                ),
+            ),
+        ),
+        base_rate=0.5,
+    )
+
+    assert summary.case_count == 1
+    assert summary.unit_count == 1
+    assert summary.unit_scores[0].unit_id == REQUIRED_MOCK_UNIT_IDS[1]
+
+
+def test_score_cases_excludes_all_ambiguous_cases_from_denominators() -> None:
+    summary = score_cases(
+        (
+            ScoringCase(
+                case_id="all-ambiguous",
+                model_id="model-a",
+                parsed_output=_parsed([(REQUIRED_MOCK_UNIT_IDS[0], 0.5)]),
+                outcome_labels=(_ambiguous_label(REQUIRED_MOCK_UNIT_IDS[0]),),
+            ),
+            ScoringCase(
+                case_id="scored",
+                model_id="model-a",
+                parsed_output=_parsed([(REQUIRED_MOCK_UNIT_IDS[1], 0.25)]),
+                outcome_labels=(_label(REQUIRED_MOCK_UNIT_IDS[1], False),),
+            ),
+        ),
+        base_rate=0.5,
+    )
+
+    assert summary.case_count == 1
+    assert summary.unit_count == 1
+    assert tuple(score.case_id for score in summary.unit_scores) == ("scored",)
+
+
+def test_score_cases_rejects_when_no_scoreable_units_remain() -> None:
+    with pytest.raises(ValueError, match="no scoreable units remain"):
         score_cases(
             (
                 ScoringCase(
-                    case_id="case-1",
+                    case_id="all-ambiguous",
                     model_id="model-a",
-                    parsed_output=parsed,
+                    parsed_output=_parsed([(REQUIRED_MOCK_UNIT_IDS[0], 0.5)]),
                     outcome_labels=(_ambiguous_label(REQUIRED_MOCK_UNIT_IDS[0]),),
                 ),
             ),

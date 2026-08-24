@@ -253,10 +253,14 @@ def score_cases(
 
     unit_scores: list[UnitScore] = []
     case_briers: list[float] = []
+    scored_case_count = 0
     invalid_case_count = 0
     refusal_case_count = 0
     for case in cases:
         labels = _labels_by_unit_id(case.outcome_labels)
+        missing_labels = sorted(set(case.parsed_output.required_unit_ids) - set(labels))
+        if missing_labels:
+            raise ValueError(f"labels missing for required units: {missing_labels}")
         case_unit_scores = tuple(
             _score_unit(
                 case=case,
@@ -265,15 +269,20 @@ def score_cases(
                 log_loss_epsilon=log_loss_epsilon,
             )
             for unit_id in case.parsed_output.required_unit_ids
+            if labels[unit_id].primary_outcome is not None
         )
         if not case_unit_scores:
-            raise ValueError(f"case has no scorable units: {case.case_id}")
+            continue
         unit_scores.extend(case_unit_scores)
         case_briers.append(_mean(score.brier for score in case_unit_scores))
+        scored_case_count += 1
         if case.parsed_output.invalid_output:
             invalid_case_count += 1
         if case.parsed_output.status is ParserStatus.REFUSAL:
             refusal_case_count += 1
+
+    if not unit_scores:
+        raise ValueError("no scoreable units remain after excluding ambiguous labels")
 
     base_rate_brier = _mean(
         (base_rate - unit_score.outcome) ** 2 for unit_score in unit_scores
@@ -297,7 +306,7 @@ def score_cases(
     )
     return ScoreSummary(
         model_id=model_id,
-        case_count=len(cases),
+        case_count=scored_case_count,
         unit_count=len(unit_scores),
         micro_brier=micro_brier,
         macro_brier=_mean(case_briers),
@@ -319,8 +328,8 @@ def score_cases(
             case_unit_cap=case_unit_cap,
             family_unit_cap=family_unit_cap,
         ),
-        invalid_output_rate=invalid_case_count / len(cases),
-        refusal_rate=refusal_case_count / len(cases),
+        invalid_output_rate=invalid_case_count / scored_case_count,
+        refusal_rate=refusal_case_count / scored_case_count,
         defaulted_prediction_rate=(
             sum(1 for unit_score in unit_scores if unit_score.defaulted_prediction)
             / len(unit_scores)
@@ -403,8 +412,6 @@ def _labels_by_unit_id(labels: tuple[OutcomeLabel, ...]) -> dict[str, OutcomeLab
     for label in labels:
         if label.unit_id in indexed:
             raise ValueError(f"duplicate outcome label: {label.unit_id}")
-        if label.primary_outcome is None:
-            raise ValueError(f"ambiguous label cannot be scored: {label.unit_id}")
         indexed[label.unit_id] = label
     return indexed
 

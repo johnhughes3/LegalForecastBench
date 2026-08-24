@@ -16,6 +16,7 @@ def score_run_records(
     labels: tuple[OutcomeLabel, ...],
     *,
     base_rate: float | None,
+    include_ablation_in_model_id: bool = False,
 ) -> tuple[ScoreSummary, ...]:
     """Group evaluation records by model and score them against locked labels."""
 
@@ -41,7 +42,11 @@ def score_run_records(
         missing_labels = sorted(set(required_unit_ids) - label_unit_id_set)
         if missing_labels:
             raise ValueError(f"labels missing for required units: {missing_labels}")
-        model_id = _record_model_id(record)
+        model_id = _display_model_id(
+            _record_model_id(record),
+            _record_ablation(record),
+            include_ablation=include_ablation_in_model_id,
+        )
         parsed = parse_model_output(
             _required_str(record, "raw_output"),
             required_unit_ids=required_unit_ids,
@@ -64,6 +69,18 @@ def score_run_records(
         score_cases(tuple(cases), base_rate=effective_base_rate)
         for _model_id, cases in sorted(cases_by_model.items())
     )
+
+
+def _record_ablation(record: Mapping[str, Any]) -> str:
+    return (
+        _optional_str(record, "ablation")
+        or _optional_str(record, "run_label")
+        or "full_packet"
+    )
+
+
+def _display_model_id(model_id: str, ablation: str, *, include_ablation: bool) -> str:
+    return f"{model_id}::{ablation}" if include_ablation else model_id
 
 
 def _computed_base_rate(labels: Iterable[OutcomeLabel]) -> float:

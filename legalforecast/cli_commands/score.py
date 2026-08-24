@@ -53,6 +53,11 @@ def register(
     score.add_argument("--output", type=Path, required=True)
     score.add_argument("--unit-scores-output", type=Path)
     score.add_argument("--base-rate", type=float)
+    score.add_argument(
+        "--include-ablation-in-model-id",
+        action="store_true",
+        help="Separate summaries by model and run ablation (model::ablation).",
+    )
     score.add_argument("--dry-run", action="store_true")
     score.set_defaults(handler=run)
 
@@ -91,6 +96,7 @@ def run(args: argparse.Namespace) -> int:
         run_records,
         tuple(outcome_label_from_record(record) for record in label_records),
         base_rate=cast(float | None, args.base_rate),
+        include_ablation_in_model_id=cast(bool, args.include_ablation_in_model_id),
     )
     _cli_ns._write_json(
         output_path,
