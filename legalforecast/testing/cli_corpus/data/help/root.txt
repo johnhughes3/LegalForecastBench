@@ -19,6 +19,8 @@ positional arguments:
     score           Parse model outputs and score them against locked labels.
     report          Render leaderboard artifacts from score summaries.
     release         Issue and validate public forecast and labels releases.
+    run             Execute a validated forecast release with durable local
+                    spend control.
     publish         Aggregate and render official publication artifacts.
     fixture-e2e     Run a deterministic no-network benchmark fixture end to
                     end.

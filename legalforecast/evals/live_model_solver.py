@@ -879,6 +879,15 @@ def _urlopen_json(
         ) from exc
 
 
+def default_live_model_transport(
+    request: urllib.request.Request,
+    timeout_seconds: float,
+) -> JsonRecord:
+    """Send one provider request through the supported default transport."""
+
+    return _urlopen_json(request, timeout_seconds)
+
+
 def _call_live_http_provider(
     registry_entry: ModelRegistryEntry,
     prompt: str,
@@ -1319,9 +1328,11 @@ def _int_field(record: JsonRecord, *field_names: str) -> int:
         value = record.get(field_name)
         if isinstance(value, bool):
             continue
-        if isinstance(value, int):
+        if isinstance(value, int) and value >= 0:
             return value
-    return 0
+    raise LiveModelResponseError(
+        f"provider usage field is missing or invalid: {' or '.join(field_names)}"
+    )
 
 
 def _estimated_cost(

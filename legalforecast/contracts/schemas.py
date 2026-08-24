@@ -285,6 +285,8 @@ FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1 = SchemaIdentifier(
 )
 FORECAST_RELEASE_V1 = SchemaIdentifier("legalforecast.forecast-release.v1")
 LABELS_RELEASE_V1 = SchemaIdentifier("legalforecast.labels-release.v1")
+PUBLIC_RUN_IDENTITY_V1 = SchemaIdentifier("legalforecast.public-run-identity.v1")
+PUBLIC_RUN_RECEIPT_V1 = SchemaIdentifier("legalforecast.public-run-receipt.v1")
 FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1 = SchemaIdentifier(
     "legalforecast.free_support_memorandum_recovery_plan.v1"
 )
