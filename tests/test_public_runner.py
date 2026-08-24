@@ -1047,6 +1047,132 @@ def test_runner_rolls_back_cell_when_atomic_spend_reservation_is_interrupted(
     assert transport.call_count == 3
 
 
+def test_runner_reuses_exact_pretransport_reservation_after_crash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+    original_attempt_id = _strand_pretransport_reservation(config, monkeypatch)
+
+    resumed_transport = FixtureModelTransport()
+    summary = execute_release_run(
+        config,
+        transport=resumed_transport,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.executed_cells == 3
+    assert resumed_transport.call_count == 3
+    with sqlite3.connect(config.ledger_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM provider_attempts"
+        ).fetchone() == (3,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM public_runner_cells WHERE status = 'completed'"
+        ).fetchone() == (3,)
+        assert connection.execute(
+            "SELECT provider_attempt_id FROM public_runner_cells ORDER BY rowid LIMIT 1"
+        ).fetchone() == (original_attempt_id,)
+
+
+def test_runner_preflights_before_reusing_pretransport_reservation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+    _strand_pretransport_reservation(config, monkeypatch)
+
+    for _ in range(2):
+        preflight_transport = CountingTransport(
+            error=AssertionError("transport after failed preflight")
+        )
+        with pytest.raises(LiveModelConfigError, match="OPENAI_API_KEY"):
+            execute_release_run(config, transport=preflight_transport, environ={})
+        assert preflight_transport.calls == 0
+        with sqlite3.connect(config.ledger_path) as connection:
+            assert connection.execute(
+                "SELECT status, request_body_sha256, response_payload "
+                "FROM public_runner_cells"
+            ).fetchone() == ("reserved", None, None)
+            assert connection.execute(
+                "SELECT status FROM provider_attempts"
+            ).fetchone() == ("reserved",)
+
+    resumed_transport = FixtureModelTransport()
+    summary = execute_release_run(
+        config,
+        transport=resumed_transport,
+        environ=_fixture_environ(),
+    )
+    assert summary.executed_cells == 3
+    assert resumed_transport.call_count == 3
+
+
+@pytest.mark.parametrize(
+    "unsafe_state",
+    ("request_observed", "attempt_not_reserved", "attempt_binding_mismatch"),
+)
+def test_runner_refuses_unsafe_pretransport_reservation_variants(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    unsafe_state: str,
+) -> None:
+    config = _config(tmp_path)
+    _strand_pretransport_reservation(config, monkeypatch)
+
+    with sqlite3.connect(config.ledger_path) as connection:
+        if unsafe_state == "request_observed":
+            connection.execute(
+                "UPDATE public_runner_cells SET request_body_sha256 = ?",
+                ("0" * 64,),
+            )
+        elif unsafe_state == "attempt_not_reserved":
+            connection.execute("UPDATE provider_attempts SET status = 'ambiguous'")
+        else:
+            connection.execute(
+                "UPDATE public_runner_cells SET provider_attempt_id = ?",
+                ("f" * 64,),
+            )
+        connection.commit()
+
+    retry = CountingTransport(error=AssertionError("unsafe reservation retried"))
+    with pytest.raises(RunBlockedError, match="provider state"):
+        execute_release_run(config, transport=retry, environ=_fixture_environ())
+    assert retry.calls == 0
+
+
+@pytest.mark.parametrize("raced_state", ("request_committed", "attempt_settled"))
+def test_runner_request_commitment_rechecks_pretransport_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    raced_state: str,
+) -> None:
+    config = _config(tmp_path)
+    attempt_id = _strand_pretransport_reservation(config, monkeypatch)
+    with sqlite3.connect(config.ledger_path) as connection:
+        cell_id = cast(
+            str,
+            connection.execute("SELECT cell_id FROM public_runner_cells").fetchone()[0],
+        )
+        if raced_state == "attempt_settled":
+            connection.execute("UPDATE provider_attempts SET status = 'settled'")
+            connection.commit()
+
+    with runner_service.RunnerLedger(config.ledger_path) as ledger:
+        if raced_state == "request_committed":
+            ledger.record_request_body(
+                cell_id,
+                provider_attempt_id=attempt_id,
+                request_body_sha256="a" * 64,
+            )
+        with pytest.raises(RunBlockedError, match="request commitment"):
+            ledger.record_request_body(
+                cell_id,
+                provider_attempt_id=attempt_id,
+                request_body_sha256="b" * 64,
+            )
+
+
 def test_runner_retains_interrupted_reservation_and_refuses_duplicate_call(
     tmp_path: Path,
 ) -> None:
@@ -1185,6 +1311,58 @@ def test_public_receipts_are_normalized_hash_only_and_label_blind(
             "synthetic predecision material",
         ):
             assert forbidden not in serialized
+
+
+def _strand_pretransport_reservation(
+    config: RunConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> str:
+    class SimulatedCrash(BaseException):
+        pass
+
+    original_authorize = (
+        runner_service.SqliteProviderSpendAuthority.authorize_attempt_with_transaction
+    )
+
+    def crash_after_atomic_reservation(
+        authority: runner_service.SqliteProviderSpendAuthority,
+        *args: object,
+        **kwargs: object,
+    ) -> None:
+        original_authorize(authority, *args, **kwargs)
+        raise SimulatedCrash
+
+    transport = FixtureModelTransport()
+    with monkeypatch.context() as crash_patch:
+        crash_patch.setattr(
+            runner_service.SqliteProviderSpendAuthority,
+            "authorize_attempt_with_transaction",
+            crash_after_atomic_reservation,
+        )
+        crash_patch.setattr(
+            runner_service,
+            "_record_cell_failure",
+            lambda *_args, **_kwargs: None,
+        )
+        with pytest.raises(SimulatedCrash):
+            execute_release_run(
+                config,
+                transport=transport,
+                environ=_fixture_environ(),
+            )
+
+    assert transport.call_count == 0
+    with sqlite3.connect(config.ledger_path) as connection:
+        assert connection.execute(
+            "SELECT status, request_body_sha256, response_payload "
+            "FROM public_runner_cells"
+        ).fetchone() == ("reserved", None, None)
+        attempt = connection.execute(
+            "SELECT attempt_id, status FROM provider_attempts"
+        ).fetchone()
+        assert attempt is not None
+        assert attempt[1] == "reserved"
+        return cast(str, attempt[0])
 
 
 def _config(

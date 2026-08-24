@@ -91,6 +91,8 @@ class ProviderSpendAttemptHandler:
     retryable_nonbillable_prior_attempt: AttemptLease | None = None
     replayable_attempt: AttemptLease | None = None
     replayable_response: JsonRecord | None = None
+    pretransport_attempt_ordinal: int | None = None
+    pretransport_attempt_observer: Callable[[AttemptLease], None] | None = None
     response_observer: ResponseObserver | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
@@ -107,6 +109,13 @@ class ProviderSpendAttemptHandler:
             raise ValueError("reservation_microusd must be a positive integer")
         if (self.replayable_attempt is None) != (self.replayable_response is None):
             raise ValueError("provider replay requires both attempt and response")
+        if (
+            self.replayable_attempt is not None
+            and self.pretransport_attempt_ordinal is not None
+        ):
+            raise ValueError(
+                "provider replay and pretransport reuse are mutually exclusive"
+            )
 
     def run_attempt(
         self,
@@ -124,71 +133,75 @@ class ProviderSpendAttemptHandler:
             self._leases_by_local_ordinal[attempt_ordinal] = lease
             self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
             return self.replayable_response
-        try:
-            replacement_ordinal = attempt_ordinal in {1, 2}
-            if (
-                self.allow_retryable_nonbillable_replacement
-                and replacement_ordinal
-                and isinstance(self.authority, SqliteProviderSpendAuthority)
-                and self.before_authorize is not None
-                and (
-                    attempt_ordinal == 2
-                    or self.retryable_nonbillable_prior_attempt is not None
-                )
-            ):
-                prior_attempt = (
-                    self.retryable_nonbillable_prior_attempt
-                    if attempt_ordinal == 1
-                    else self._leases_by_local_ordinal.get(1)
-                )
-                if prior_attempt is None:
-                    raise RuntimeError(
-                        "retryable replacement lacks the exact prior attempt"
+        if self.pretransport_attempt_ordinal is not None and attempt_ordinal == 1:
+            lease = self.authority.adopt_attempt(
+                self.key,
+                attempt_ordinal=self.pretransport_attempt_ordinal,
+            )
+        else:
+            try:
+                replacement_ordinal = attempt_ordinal in {1, 2}
+                if (
+                    self.allow_retryable_nonbillable_replacement
+                    and replacement_ordinal
+                    and isinstance(self.authority, SqliteProviderSpendAuthority)
+                    and self.before_authorize is not None
+                    and (
+                        attempt_ordinal == 2
+                        or self.retryable_nonbillable_prior_attempt is not None
                     )
-                authorize_replacement = (
-                    self.authority.authorize_nonbillable_replacement_with_transaction
+                ):
+                    prior_attempt = (
+                        self.retryable_nonbillable_prior_attempt
+                        if attempt_ordinal == 1
+                        else self._leases_by_local_ordinal.get(1)
+                    )
+                    if prior_attempt is None:
+                        raise RuntimeError(
+                            "retryable replacement lacks the exact prior attempt"
+                        )
+                    lease = self._authorize_nonbillable_replacement(prior_attempt)
+                elif self.before_authorize is None:
+                    lease = self.authority.authorize_attempt(
+                        self.key,
+                        reservation_microusd=self.reservation_microusd,
+                    )
+                elif isinstance(self.authority, SqliteProviderSpendAuthority):
+                    lease = self.authority.authorize_attempt_with_transaction(
+                        self.key,
+                        reservation_microusd=self.reservation_microusd,
+                        before_commit=self.before_authorize,
+                    )
+                else:
+                    raise RuntimeError(
+                        "atomic caller reservation requires SQLite spend authority"
+                    )
+            except AttemptLimitExceededError:
+                permit = self.additional_attempt_permit
+                authorize_additional = getattr(
+                    self.authority, "authorize_additional_attempt", None
                 )
-                lease = authorize_replacement(
-                    self.key,
-                    prior_attempt=prior_attempt,
-                    reservation_microusd=self.reservation_microusd,
-                    before_commit=self.before_authorize,
-                )
-            elif self.before_authorize is None:
-                lease = self.authority.authorize_attempt(
-                    self.key,
-                    reservation_microusd=self.reservation_microusd,
-                )
-            elif isinstance(self.authority, SqliteProviderSpendAuthority):
-                lease = self.authority.authorize_attempt_with_transaction(
-                    self.key,
-                    reservation_microusd=self.reservation_microusd,
-                    before_commit=self.before_authorize,
-                )
-            else:
-                raise RuntimeError(
-                    "atomic caller reservation requires SQLite spend authority"
-                )
-        except AttemptLimitExceededError:
-            permit = self.additional_attempt_permit
-            authorize_additional = getattr(
-                self.authority, "authorize_additional_attempt", None
-            )
-            if permit is None or not callable(authorize_additional):
-                raise
-            lease = cast(
-                AttemptLease,
-                authorize_additional(
-                    self.key,
-                    reservation_microusd=min(
-                        self.reservation_microusd,
-                        permit.reservation_cap_microusd,
+                if permit is None or not callable(authorize_additional):
+                    raise
+                lease = cast(
+                    AttemptLease,
+                    authorize_additional(
+                        self.key,
+                        reservation_microusd=min(
+                            self.reservation_microusd,
+                            permit.reservation_cap_microusd,
+                        ),
+                        permit=permit,
                     ),
-                    permit=permit,
-                ),
-            )
+                )
         self._leases_by_local_ordinal[attempt_ordinal] = lease
         self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
+        if (
+            self.pretransport_attempt_ordinal is not None
+            and attempt_ordinal == 1
+            and self.pretransport_attempt_observer is not None
+        ):
+            self.pretransport_attempt_observer(lease)
         try:
             response = call()
             if self.response_observer is not None:
@@ -216,6 +229,21 @@ class ProviderSpendAttemptHandler:
             if self.failure_observer is not None:
                 self.failure_observer(ambiguous)
             raise
+
+    def _authorize_nonbillable_replacement(
+        self,
+        prior_attempt: AttemptLease,
+    ) -> AttemptLease:
+        if not isinstance(self.authority, SqliteProviderSpendAuthority):
+            raise RuntimeError("nonbillable replacement requires SQLite authority")
+        if self.before_authorize is None:
+            raise RuntimeError("nonbillable replacement requires caller reservation")
+        return self.authority.authorize_nonbillable_replacement_with_transaction(
+            self.key,
+            prior_attempt=prior_attempt,
+            reservation_microusd=self.reservation_microusd,
+            before_commit=self.before_authorize,
+        )
 
     def run_attempt_with_preflight(
         self,

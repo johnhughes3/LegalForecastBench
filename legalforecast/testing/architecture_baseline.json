@@ -4537,10 +4537,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "ProviderSpendAttemptHandler",
-        "largest_symbol_lines": 240,
+        "largest_symbol_lines": 268,
         "layer": "application",
-        "line_count": 563,
-        "nonblank_line_count": 508,
+        "line_count": 591,
+        "nonblank_line_count": 535,
         "top_level_definition_count": 5
       },
       "legalforecast/evals/provider_spend_control.py": {
@@ -8351,10 +8351,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "RunnerLedger",
-        "largest_symbol_lines": 516,
+        "largest_symbol_lines": 556,
         "layer": "application",
-        "line_count": 564,
-        "nonblank_line_count": 524,
+        "line_count": 606,
+        "nonblank_line_count": 566,
         "top_level_definition_count": 5
       },
       "legalforecast/runner/service.py": {
@@ -8368,10 +8368,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 403,
+        "largest_symbol_lines": 431,
         "layer": "application",
-        "line_count": 820,
-        "nonblank_line_count": 761,
+        "line_count": 864,
+        "nonblank_line_count": 804,
         "top_level_definition_count": 15
       },
       "legalforecast/selection/case_mix_diagnostics.py": {
@@ -11291,9 +11291,9 @@
         "largest_symbol": "test_runner_spend_keys_use_injective_cell_identity",
         "largest_symbol_lines": 94,
         "layer": "test",
-        "line_count": 1260,
-        "nonblank_line_count": 1083,
-        "top_level_definition_count": 37
+        "line_count": 1438,
+        "nonblank_line_count": 1240,
+        "top_level_definition_count": 42
       },
       "tests/test_purchase_approval.py": {
         "cycle_id": "",

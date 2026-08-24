@@ -39,11 +39,13 @@ class CellRecord:
     status: str
     provider_attempt_id: str | None
     provider_attempt_ordinal: int | None
+    provider_attempt_status: str | None
     request_body_sha256: str | None
     response_payload: bytes | None
     response_payload_sha256: str | None
     receipt_sha256: str | None
     receipt_payload: bytes | None
+    failure_type: str | None
 
 
 class RunnerLedger:
@@ -135,6 +137,7 @@ class RunnerLedger:
         unit_id: str,
         repeat_index: int,
         allow_retryable_nonbillable: bool = False,
+        allow_pretransport_reuse: bool = False,
     ) -> CellRecord | None:
         """Inspect an exact cell without creating pre-authorization state."""
 
@@ -190,10 +193,24 @@ class RunnerLedger:
             and record.response_payload is not None
             and record.response_payload_sha256 is not None
         )
+        reusable_pretransport = (
+            allow_pretransport_reuse
+            and record.status == "reserved"
+            and record.provider_attempt_id is not None
+            and record.provider_attempt_ordinal is not None
+            and record.provider_attempt_status == "reserved"
+            and record.request_body_sha256 is None
+            and record.response_payload is None
+            and record.response_payload_sha256 is None
+            and record.receipt_sha256 is None
+            and record.receipt_payload is None
+            and record.failure_type is None
+        )
         if (
             record.status not in {"blocked", "completed"}
             and not retryable_nonbillable
             and not replayable_response
+            and not reusable_pretransport
         ):
             raise RunBlockedError(
                 f"cell {cell_id} has {record.status} provider state; "
@@ -218,8 +235,20 @@ class RunnerLedger:
                 SET request_body_sha256 = ?
                 WHERE cell_id = ? AND provider_attempt_id = ?
                   AND status = 'reserved'
+                  AND request_body_sha256 IS NULL
+                  AND response_payload IS NULL
+                  AND EXISTS (
+                    SELECT 1 FROM provider_attempts AS attempts
+                    WHERE attempts.attempt_id = ?
+                      AND attempts.status = 'reserved'
+                  )
                 """,
-                (request_body_sha256, cell_id, provider_attempt_id),
+                (
+                    request_body_sha256,
+                    cell_id,
+                    provider_attempt_id,
+                    provider_attempt_id,
+                ),
             )
             if cursor.rowcount != 1:
                 raise RunBlockedError("request commitment has no reserved cell")
@@ -530,6 +559,11 @@ class RunnerLedger:
             if "provider_attempt_ordinal" in row.keys()
             else None
         )
+        provider_attempt_status = (
+            row["provider_attempt_status"]
+            if "provider_attempt_status" in row.keys()
+            else None
+        )
         request_body = row["request_body_sha256"]
         response_payload = row["response_payload"]
         response_payload_sha256 = row["response_payload_sha256"]
@@ -548,6 +582,11 @@ class RunnerLedger:
                 if provider_attempt_ordinal is None
                 else int(provider_attempt_ordinal)
             ),
+            provider_attempt_status=(
+                None
+                if provider_attempt_status is None
+                else str(provider_attempt_status)
+            ),
             request_body_sha256=(None if request_body is None else str(request_body)),
             response_payload=(
                 None if response_payload is None else bytes(response_payload)
@@ -560,5 +599,8 @@ class RunnerLedger:
             receipt_sha256=None if receipt is None else str(receipt),
             receipt_payload=(
                 None if receipt_payload is None else bytes(receipt_payload)
+            ),
+            failure_type=(
+                None if row["failure_type"] is None else str(row["failure_type"])
             ),
         )

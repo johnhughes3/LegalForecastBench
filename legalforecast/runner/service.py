@@ -299,6 +299,7 @@ def execute_release_run(
                         unit_id=unit.unit_id,
                         repeat_index=repeat_index,
                         allow_retryable_nonbillable=True,
+                        allow_pretransport_reuse=True,
                     )
                     receipt_path = config.receipts_dir / f"{cell_id}.json"
                     if cell is not None and cell.status == "completed":
@@ -313,6 +314,7 @@ def execute_release_run(
                         continue
 
                     retryable_nonbillable_prior_attempt: AttemptLease | None = None
+                    pretransport_attempt_ordinal: int | None = None
                     if (
                         cell is not None
                         and cell.status == "reserved"
@@ -322,12 +324,19 @@ def execute_release_run(
                             raise RunBlockedError(
                                 f"cell {cell_id} lacks its prior provider attempt"
                             )
-                        retryable_nonbillable_prior_attempt = (
-                            authority.recover_retryable_nonbillable_attempt(
-                                key,
-                                attempt_id=cell.provider_attempt_id,
+                        if (
+                            cell.provider_attempt_status == "reserved"
+                            and cell.request_body_sha256 is None
+                            and cell.provider_attempt_ordinal is not None
+                        ):
+                            pretransport_attempt_ordinal = cell.provider_attempt_ordinal
+                        else:
+                            retryable_nonbillable_prior_attempt = (
+                                authority.recover_retryable_nonbillable_attempt(
+                                    key,
+                                    attempt_id=cell.provider_attempt_id,
+                                )
                             )
-                        )
 
                     replayable_response: Mapping[str, object] | None = None
                     replayable_attempt: AttemptLease | None = None
@@ -407,6 +416,23 @@ def execute_release_run(
                         )
                         bound_authorization_state[0] = lease.attempt_id
 
+                    def bind_pretransport_attempt(
+                        lease: AttemptLease,
+                        *,
+                        bound_cell_attempt_id: str | None = (
+                            None if cell is None else cell.provider_attempt_id
+                        ),
+                        bound_authorization_state: list[str | None] = (
+                            authorization_state
+                        ),
+                    ) -> None:
+                        if lease.attempt_id != bound_cell_attempt_id:
+                            raise RunBlockedError(
+                                "pretransport provider attempt differs from "
+                                "cell binding"
+                            )
+                        bound_authorization_state[0] = lease.attempt_id
+
                     def persist_provider_response(
                         lease: AttemptLease,
                         response: Mapping[str, object],
@@ -441,6 +467,8 @@ def execute_release_run(
                             ),
                             replayable_attempt=replayable_attempt,
                             replayable_response=replayable_response,
+                            pretransport_attempt_ordinal=(pretransport_attempt_ordinal),
+                            pretransport_attempt_observer=bind_pretransport_attempt,
                             response_observer=persist_provider_response,
                         )
                         request_sha256 = capture.request_body_sha256
@@ -558,6 +586,8 @@ def _complete_cell(
     retryable_nonbillable_prior_attempt: AttemptLease | None,
     replayable_attempt: AttemptLease | None,
     replayable_response: Mapping[str, object] | None,
+    pretransport_attempt_ordinal: int | None,
+    pretransport_attempt_observer: Callable[[AttemptLease], None],
     response_observer: Callable[[AttemptLease, Mapping[str, object]], None],
 ) -> SolverResponse:
     handler = ProviderSpendAttemptHandler(
@@ -570,6 +600,8 @@ def _complete_cell(
         retryable_nonbillable_prior_attempt=retryable_nonbillable_prior_attempt,
         replayable_attempt=replayable_attempt,
         replayable_response=replayable_response,
+        pretransport_attempt_ordinal=pretransport_attempt_ordinal,
+        pretransport_attempt_observer=pretransport_attempt_observer,
         response_observer=response_observer,
     )
     return complete_live_prompt(
@@ -578,7 +610,15 @@ def _complete_cell(
         model_registry_sha256=registry_sha256,
         transport=transport,
         environ=environ,
-        max_attempts=(1 if retryable_nonbillable_prior_attempt is not None else 2),
+        max_attempts=(
+            1
+            if retryable_nonbillable_prior_attempt is not None
+            or (
+                pretransport_attempt_ordinal is not None
+                and pretransport_attempt_ordinal == 2
+            )
+            else 2
+        ),
         attempt_handler=handler,
         request_body_observer=request_body_observer,
         openai_flex_already_rejected=(
@@ -586,6 +626,10 @@ def _complete_cell(
             or (
                 replayable_attempt is not None
                 and replayable_attempt.attempt_ordinal == 2
+            )
+            or (
+                pretransport_attempt_ordinal is not None
+                and pretransport_attempt_ordinal == 2
             )
         ),
     )
