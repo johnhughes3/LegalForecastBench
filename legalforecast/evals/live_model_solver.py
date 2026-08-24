@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import os
+import shutil
 import socket
 import subprocess
 import time
@@ -406,6 +407,9 @@ def _complete_bedrock_anthropic_prompt(
     request_payload = _bedrock_anthropic_payload(registry_entry, prompt)
     request_bytes = json.dumps(dict(request_payload)).encode("utf-8")
 
+    def prepare_bedrock_runtime() -> None:
+        _bedrock_aws_cli_executable(environ)
+
     def bedrock_call() -> JsonRecord:
         if request_body_observer is not None:
             request_body_observer(request_bytes)
@@ -422,6 +426,7 @@ def _complete_bedrock_anthropic_prompt(
         max_attempts=max_attempts,
         retry_backoff_seconds=retry_backoff_seconds,
         attempt_handler=attempt_handler,
+        attempt_preflight=prepare_bedrock_runtime,
     )
     latency_ms = (time.perf_counter() - started) * 1000
     try:
@@ -798,12 +803,13 @@ def _invoke_bedrock_runtime_json(
     if not model_id.strip():
         raise LiveModelConfigError("Bedrock model id is required")
     process_env = dict(os.environ if environ is None else environ)
+    aws_executable = _bedrock_aws_cli_executable(environ)
     with TemporaryDirectory(prefix="lfb-bedrock-") as tmpdir:
         request_path = Path(tmpdir) / "request.json"
         response_path = Path(tmpdir) / "response.json"
         request_path.write_text(json.dumps(dict(payload)), encoding="utf-8")
         command = [
-            "aws",
+            aws_executable,
             "bedrock-runtime",
             "invoke-model",
             "--model-id",
@@ -847,6 +853,18 @@ def _invoke_bedrock_runtime_json(
         if not response_path.exists():
             raise LiveModelResponseError("Bedrock response file was not written")
         return _json_payload(response_path.read_bytes())
+
+
+def _bedrock_aws_cli_executable(
+    environ: Mapping[str, str] | None,
+) -> str:
+    """Resolve the AWS CLI before spend authorization or transport observation."""
+
+    values = os.environ if environ is None else environ
+    executable = shutil.which("aws", path=values.get("PATH"))
+    if executable is None:
+        raise LiveModelConfigError("aws CLI is required for Bedrock runtime")
+    return executable
 
 
 def _json_request(

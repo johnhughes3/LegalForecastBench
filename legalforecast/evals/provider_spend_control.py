@@ -151,6 +151,9 @@ class AttemptLease:
         _positive_int(self.reservation_microusd, "reservation_microusd")
 
 
+BeforeAttemptCommit = Callable[[sqlite3.Connection, AttemptLease], None]
+
+
 @dataclass(frozen=True, slots=True)
 class SpendControlSnapshot:
     """Private provider/account accounting summary without prompts or responses."""
@@ -284,6 +287,36 @@ class SqliteProviderSpendAuthority:
     ) -> AttemptLease:
         """Atomically check policy, allocate identity, and reserve exact money."""
 
+        return self._authorize_attempt(
+            key,
+            reservation_microusd=reservation_microusd,
+            before_commit=None,
+        )
+
+    def authorize_attempt_with_transaction(
+        self,
+        key: ProviderSpendKey,
+        *,
+        reservation_microusd: int,
+        before_commit: BeforeAttemptCommit,
+    ) -> AttemptLease:
+        """Reserve spend and caller state in one SQLite transaction."""
+
+        return self._authorize_attempt(
+            key,
+            reservation_microusd=reservation_microusd,
+            before_commit=before_commit,
+        )
+
+    def _authorize_attempt(
+        self,
+        key: ProviderSpendKey,
+        *,
+        reservation_microusd: int,
+        before_commit: BeforeAttemptCommit | None,
+    ) -> AttemptLease:
+        """Implement ordinary and transaction-coupled attempt authorization."""
+
         self._verify_key_scope(key)
         reservation = _positive_int(
             reservation_microusd,
@@ -337,17 +370,20 @@ class SqliteProviderSpendAuthority:
                     now,
                 ),
             )
+            lease = AttemptLease(
+                attempt_id=attempt_id,
+                authority_identity_sha256=self.authority_identity_sha256,
+                logical_call_key=key.logical_call_key,
+                attempt_ordinal=ordinal,
+                reservation_microusd=reservation,
+            )
+            if before_commit is not None:
+                before_commit(self._connection, lease)
         except BaseException:
             self._connection.rollback()
             raise
         self._connection.commit()
-        return AttemptLease(
-            attempt_id=attempt_id,
-            authority_identity_sha256=self.authority_identity_sha256,
-            logical_call_key=key.logical_call_key,
-            attempt_ordinal=ordinal,
-            reservation_microusd=reservation,
-        )
+        return lease
 
     def authorize_additional_attempt(
         self,

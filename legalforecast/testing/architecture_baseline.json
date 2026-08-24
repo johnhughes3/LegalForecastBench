@@ -4485,9 +4485,9 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 152,
         "layer": "application",
-        "line_count": 1436,
-        "nonblank_line_count": 1252,
-        "top_level_definition_count": 67
+        "line_count": 1454,
+        "nonblank_line_count": 1266,
+        "top_level_definition_count": 68
       },
       "legalforecast/evals/output_parser.py": {
         "cycle_id": "",
@@ -4534,10 +4534,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "SqliteProviderSpendAuthority",
-        "largest_symbol_lines": 702,
+        "largest_symbol_lines": 735,
         "layer": "application",
-        "line_count": 950,
-        "nonblank_line_count": 862,
+        "line_count": 986,
+        "nonblank_line_count": 892,
         "top_level_definition_count": 20
       },
       "legalforecast/evals/provider_spend_dynamodb.py": {
@@ -8314,10 +8314,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 260,
+        "largest_symbol_lines": 290,
         "layer": "application",
-        "line_count": 543,
-        "nonblank_line_count": 501,
+        "line_count": 571,
+        "nonblank_line_count": 527,
         "top_level_definition_count": 13
       },
       "legalforecast/selection/case_mix_diagnostics.py": {
@@ -10248,9 +10248,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1327,
-        "nonblank_line_count": 1152,
-        "top_level_definition_count": 43
+        "line_count": 1356,
+        "nonblank_line_count": 1177,
+        "top_level_definition_count": 44
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",
@@ -11205,6 +11205,23 @@
         "line_count": 2399,
         "nonblank_line_count": 2150,
         "top_level_definition_count": 67
+      },
+      "tests/test_public_runner.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_runner_rolls_back_cell_when_atomic_spend_reservation_is_interrupted",
+        "largest_symbol_lines": 58,
+        "layer": "test",
+        "line_count": 523,
+        "nonblank_line_count": 437,
+        "top_level_definition_count": 22
       },
       "tests/test_purchase_approval.py": {
         "cycle_id": "",

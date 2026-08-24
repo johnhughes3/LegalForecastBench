@@ -429,6 +429,35 @@ def test_bedrock_request_body_observer_receives_exact_transport_bytes(
     assert json.loads(request_bodies[0]) == invoked_payloads[0]
 
 
+def test_missing_aws_cli_fails_before_bedrock_authorization_or_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler = _RecordingAttemptHandler()
+    request_bodies: list[bytes] = []
+    monkeypatch.setattr(live_model_solver.shutil, "which", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        live_model_solver,
+        "_invoke_bedrock_runtime_json",
+        lambda *args, **kwargs: pytest.fail("Bedrock transport must not start"),
+    )
+
+    with pytest.raises(LiveModelConfigError, match="aws CLI"):
+        live_model_solver.complete_live_prompt(
+            _registry_entry(
+                "anthropic",
+                "claude-sonnet-4-6",
+                model_version_or_snapshot="claude-sonnet-4-6",
+            ),
+            "Use AWS Bedrock.",
+            environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
+            attempt_handler=handler,
+            request_body_observer=request_bodies.append,
+        )
+
+    assert handler.events == []
+    assert request_bodies == []
+
+
 def test_bedrock_malformed_response_marks_authorized_attempt_ambiguous(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

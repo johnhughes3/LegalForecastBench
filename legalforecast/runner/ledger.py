@@ -31,6 +31,7 @@ class CellRecord:
     unit_id: str
     repeat_index: int
     status: str
+    provider_attempt_id: str | None
     receipt_sha256: str | None
     receipt_payload: bytes | None
 
@@ -115,7 +116,7 @@ class RunnerLedger:
             raise
         self._connection.commit()
 
-    def reserve_cell(
+    def inspect_cell(
         self,
         *,
         cell_id: str,
@@ -123,97 +124,115 @@ class RunnerLedger:
         case_id: str,
         unit_id: str,
         repeat_index: int,
-    ) -> CellRecord:
-        """Reserve a new cell before transport or return its completed record."""
+    ) -> CellRecord | None:
+        """Inspect an exact cell without creating pre-authorization state."""
 
-        self._connection.execute("BEGIN IMMEDIATE")
-        try:
-            row = self._connection.execute(
-                "SELECT * FROM public_runner_cells WHERE cell_id = ?",
-                (cell_id,),
-            ).fetchone()
-            if row is None:
-                self._connection.execute(
-                    """
-                    INSERT INTO public_runner_cells(
-                        cell_id, run_identity_sha256, case_id, unit_id,
-                        repeat_index, status
-                    ) VALUES (?, ?, ?, ?, ?, 'reserved')
-                    """,
-                    (
-                        cell_id,
-                        run_identity_sha256,
-                        case_id,
-                        unit_id,
-                        repeat_index,
-                    ),
-                )
-                record = CellRecord(
-                    cell_id=cell_id,
-                    run_identity_sha256=run_identity_sha256,
-                    case_id=case_id,
-                    unit_id=unit_id,
-                    repeat_index=repeat_index,
-                    status="reserved",
-                    receipt_sha256=None,
-                    receipt_payload=None,
-                )
-            else:
-                record = self._cell_record(row)
-                expected = (
+        row = self._connection.execute(
+            "SELECT * FROM public_runner_cells WHERE cell_id = ?",
+            (cell_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        record = self._cell_record(row)
+        self._verify_cell_identity(
+            record,
+            run_identity_sha256=run_identity_sha256,
+            case_id=case_id,
+            unit_id=unit_id,
+            repeat_index=repeat_index,
+        )
+        if record.status not in {"blocked", "completed"}:
+            raise RunBlockedError(
+                f"cell {cell_id} has {record.status} provider state; "
+                "another call is forbidden"
+            )
+        return record
+
+    def reserve_cell_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        cell_id: str,
+        run_identity_sha256: str,
+        case_id: str,
+        unit_id: str,
+        repeat_index: int,
+        provider_attempt_id: str,
+    ) -> None:
+        """Bind a cell reservation to spend authorization before one commit."""
+
+        row = connection.execute(
+            "SELECT * FROM public_runner_cells WHERE cell_id = ?",
+            (cell_id,),
+        ).fetchone()
+        if row is None:
+            connection.execute(
+                """
+                INSERT INTO public_runner_cells(
+                    cell_id, run_identity_sha256, case_id, unit_id,
+                    repeat_index, status, provider_attempt_id
+                ) VALUES (?, ?, ?, ?, ?, 'reserved', ?)
+                """,
+                (
+                    cell_id,
                     run_identity_sha256,
                     case_id,
                     unit_id,
                     repeat_index,
-                )
-                actual = (
-                    record.run_identity_sha256,
-                    record.case_id,
-                    record.unit_id,
-                    record.repeat_index,
-                )
-                if actual != expected:
-                    raise RunIdentityError("existing cell identity differs")
-                if record.status == "blocked":
-                    self._connection.execute(
-                        """
-                        UPDATE public_runner_cells
-                        SET status = 'reserved', failure_type = NULL
-                        WHERE cell_id = ? AND status = 'blocked'
-                        """,
-                        (cell_id,),
-                    )
-                    record = CellRecord(
-                        cell_id=record.cell_id,
-                        run_identity_sha256=record.run_identity_sha256,
-                        case_id=record.case_id,
-                        unit_id=record.unit_id,
-                        repeat_index=record.repeat_index,
-                        status="reserved",
-                        receipt_sha256=None,
-                        receipt_payload=None,
-                    )
-                elif record.status != "completed":
-                    raise RunBlockedError(
-                        f"cell {cell_id} has {record.status} provider state; "
-                        "another call is forbidden"
-                    )
-        except BaseException:
-            self._connection.rollback()
-            raise
-        self._connection.commit()
-        return record
+                    provider_attempt_id,
+                ),
+            )
+            return
+        record = self._cell_record(row)
+        self._verify_cell_identity(
+            record,
+            run_identity_sha256=run_identity_sha256,
+            case_id=case_id,
+            unit_id=unit_id,
+            repeat_index=repeat_index,
+        )
+        if record.status != "blocked":
+            raise RunBlockedError(
+                f"cell {cell_id} has {record.status} provider state; "
+                "another call is forbidden"
+            )
+        connection.execute(
+            """
+            UPDATE public_runner_cells
+            SET status = 'reserved', provider_attempt_id = ?, failure_type = NULL
+            WHERE cell_id = ? AND status = 'blocked'
+            """,
+            (provider_attempt_id, cell_id),
+        )
 
-    def mark_blocked(self, cell_id: str, *, failure_type: str) -> None:
+    def mark_blocked(
+        self,
+        cell_id: str,
+        *,
+        provider_attempt_id: str,
+        failure_type: str,
+    ) -> None:
         """Record a pre-transport failure that must be repaired before retry."""
 
-        self._transition_failure(cell_id, status="blocked", failure_type=failure_type)
+        self._transition_failure(
+            cell_id,
+            provider_attempt_id=provider_attempt_id,
+            status="blocked",
+            failure_type=failure_type,
+        )
 
-    def mark_ambiguous(self, cell_id: str, *, failure_type: str) -> None:
+    def mark_ambiguous(
+        self,
+        cell_id: str,
+        *,
+        provider_attempt_id: str,
+        failure_type: str,
+    ) -> None:
         """Retain a cell after transport may have become billable."""
 
         self._transition_failure(
             cell_id,
+            provider_attempt_id=provider_attempt_id,
             status="ambiguous",
             failure_type=failure_type,
         )
@@ -262,6 +281,7 @@ class RunnerLedger:
         self,
         cell_id: str,
         *,
+        provider_attempt_id: str,
         status: str,
         failure_type: str,
     ) -> None:
@@ -271,9 +291,10 @@ class RunnerLedger:
                 """
                 UPDATE public_runner_cells
                 SET status = ?, failure_type = ?
-                WHERE cell_id = ? AND status = 'reserved'
+                WHERE cell_id = ? AND provider_attempt_id = ?
+                    AND status = 'reserved'
                 """,
-                (status, failure_type, cell_id),
+                (status, failure_type, cell_id, provider_attempt_id),
             )
             if cursor.rowcount != 1:
                 raise RunBlockedError("cell failure state cannot be changed")
@@ -305,6 +326,7 @@ class RunnerLedger:
                 status TEXT NOT NULL CHECK(
                     status IN ('reserved', 'blocked', 'ambiguous', 'completed')
                 ),
+                provider_attempt_id TEXT,
                 request_body_sha256 TEXT,
                 receipt_sha256 TEXT,
                 receipt_payload BLOB,
@@ -312,11 +334,41 @@ class RunnerLedger:
             );
             """
         )
+        columns = {
+            str(row[1])
+            for row in self._connection.execute(
+                "PRAGMA table_info(public_runner_cells)"
+            ).fetchall()
+        }
+        if "provider_attempt_id" not in columns:
+            self._connection.execute(
+                "ALTER TABLE public_runner_cells ADD COLUMN provider_attempt_id TEXT"
+            )
+
+    @staticmethod
+    def _verify_cell_identity(
+        record: CellRecord,
+        *,
+        run_identity_sha256: str,
+        case_id: str,
+        unit_id: str,
+        repeat_index: int,
+    ) -> None:
+        expected = (run_identity_sha256, case_id, unit_id, repeat_index)
+        actual = (
+            record.run_identity_sha256,
+            record.case_id,
+            record.unit_id,
+            record.repeat_index,
+        )
+        if actual != expected:
+            raise RunIdentityError("existing cell identity differs")
 
     @staticmethod
     def _cell_record(row: sqlite3.Row) -> CellRecord:
         receipt = row["receipt_sha256"]
         receipt_payload = row["receipt_payload"]
+        provider_attempt = row["provider_attempt_id"]
         return CellRecord(
             cell_id=str(row["cell_id"]),
             run_identity_sha256=str(row["run_identity_sha256"]),
@@ -324,6 +376,9 @@ class RunnerLedger:
             unit_id=str(row["unit_id"]),
             repeat_index=int(row["repeat_index"]),
             status=str(row["status"]),
+            provider_attempt_id=(
+                None if provider_attempt is None else str(provider_attempt)
+            ),
             receipt_sha256=None if receipt is None else str(receipt),
             receipt_payload=(
                 None if receipt_payload is None else bytes(receipt_payload)

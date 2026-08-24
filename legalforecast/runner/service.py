@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -33,6 +34,7 @@ from legalforecast.evals.provider_spend_attempt_handler import (
     conservative_reservation_microusd,
 )
 from legalforecast.evals.provider_spend_control import (
+    AttemptLease,
     FrozenAttemptPolicy,
     ProviderCapExceededError,
     ProviderSpendControlError,
@@ -228,7 +230,17 @@ def execute_release_run(
                         unit=unit,
                         repeat_index=repeat_index,
                     )
-                    cell = ledger.reserve_cell(
+                    key = ProviderSpendKey(
+                        cycle_id=execution.release.release_id,
+                        provider=entry.provider,
+                        account=account,
+                        stage=harness,
+                        model_key=entry.registry_key,
+                        case_id=f"{unit.case_id}:{unit.unit_id}",
+                        ablation=ablation,
+                        repeat_index=repeat_index,
+                    )
+                    cell = ledger.inspect_cell(
                         cell_id=cell_id,
                         run_identity_sha256=identity_sha256,
                         case_id=unit.case_id,
@@ -236,7 +248,7 @@ def execute_release_run(
                         repeat_index=repeat_index,
                     )
                     receipt_path = config.receipts_dir / f"{cell_id}.json"
-                    if cell.status == "completed":
+                    if cell is not None and cell.status == "completed":
                         _restore_or_validate_completed_receipt(
                             receipt_path,
                             expected_sha256=cell.receipt_sha256,
@@ -249,22 +261,41 @@ def execute_release_run(
 
                     capture = _RequestBodyCommitment()
                     completed = False
+                    authorized_attempt_id: str | None = None
+
+                    def reserve_authorized_cell(
+                        connection: sqlite3.Connection,
+                        lease: AttemptLease,
+                        *,
+                        bound_cell_id: str = cell_id,
+                        bound_case_id: str = unit.case_id,
+                        bound_unit_id: str = unit.unit_id,
+                        bound_repeat_index: int = repeat_index,
+                    ) -> None:
+                        nonlocal authorized_attempt_id
+                        ledger.reserve_cell_in_transaction(
+                            connection,
+                            cell_id=bound_cell_id,
+                            run_identity_sha256=identity_sha256,
+                            case_id=bound_case_id,
+                            unit_id=bound_unit_id,
+                            repeat_index=bound_repeat_index,
+                            provider_attempt_id=lease.attempt_id,
+                        )
+                        authorized_attempt_id = lease.attempt_id
+
                     try:
                         response = _complete_cell(
                             entry,
                             prompt,
+                            key=key,
                             registry_sha256=registry_sha256,
                             transport=delegate,
                             request_body_observer=capture.observe,
                             environ=environ,
                             authority=authority,
                             reservation_microusd=reservation_microusd,
-                            release_id=execution.release.release_id,
-                            account=account,
-                            harness=harness,
-                            ablation=ablation,
-                            unit=unit,
-                            repeat_index=repeat_index,
+                            before_authorize=reserve_authorized_cell,
                         )
                         request_sha256 = capture.request_body_sha256
                         if request_sha256 is None:
@@ -329,10 +360,11 @@ def execute_release_run(
                             run_identity_sha256=identity_sha256,
                         )
                     except BaseException as exc:
-                        if not completed:
+                        if not completed and authorized_attempt_id is not None:
                             _record_cell_failure(
                                 ledger,
                                 cell_id,
+                                provider_attempt_id=authorized_attempt_id,
                                 exc=exc,
                                 transport_started=capture.request_body_sha256
                                 is not None,
@@ -366,33 +398,20 @@ def _complete_cell(
     entry: ModelRegistryEntry,
     prompt: str,
     *,
+    key: ProviderSpendKey,
     registry_sha256: str,
     transport: LiveModelTransport,
     request_body_observer: Callable[[bytes], None],
     environ: Mapping[str, str] | None,
     authority: SqliteProviderSpendAuthority,
     reservation_microusd: int,
-    release_id: str,
-    account: str,
-    harness: str,
-    ablation: str,
-    unit: ForecastPredictionUnit,
-    repeat_index: int,
+    before_authorize: Callable[[sqlite3.Connection, AttemptLease], None],
 ) -> SolverResponse:
-    key = ProviderSpendKey(
-        cycle_id=release_id,
-        provider=entry.provider,
-        account=account,
-        stage=harness,
-        model_key=entry.registry_key,
-        case_id=f"{unit.case_id}:{unit.unit_id}",
-        ablation=ablation,
-        repeat_index=repeat_index,
-    )
     handler = ProviderSpendAttemptHandler(
         authority=authority,
         key=key,
         reservation_microusd=reservation_microusd,
+        before_authorize=before_authorize,
     )
     return complete_live_prompt(
         entry,
@@ -410,14 +429,23 @@ def _record_cell_failure(
     ledger: RunnerLedger,
     cell_id: str,
     *,
+    provider_attempt_id: str,
     exc: BaseException,
     transport_started: bool,
 ) -> None:
     failure_type = type(exc).__name__
     if transport_started:
-        ledger.mark_ambiguous(cell_id, failure_type=failure_type)
+        ledger.mark_ambiguous(
+            cell_id,
+            provider_attempt_id=provider_attempt_id,
+            failure_type=failure_type,
+        )
     else:
-        ledger.mark_blocked(cell_id, failure_type=failure_type)
+        ledger.mark_blocked(
+            cell_id,
+            provider_attempt_id=provider_attempt_id,
+            failure_type=failure_type,
+        )
 
 
 def _public_parser_record(parsed: ParsedModelOutput) -> dict[str, object]:

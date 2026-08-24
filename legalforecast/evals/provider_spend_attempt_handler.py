@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Protocol, cast
@@ -15,6 +16,7 @@ from legalforecast.evals.provider_spend_control import (
     AttemptLimitExceededError,
     ProviderSpendAuthority,
     ProviderSpendKey,
+    SqliteProviderSpendAuthority,
 )
 
 JsonRecord = Mapping[str, object]
@@ -81,6 +83,7 @@ class ProviderSpendAttemptHandler:
     key: ProviderSpendKey
     reservation_microusd: int
     additional_attempt_permit: AdditionalAttemptPermit | None = None
+    before_authorize: Callable[[sqlite3.Connection, AttemptLease], None] | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
     )
@@ -105,10 +108,21 @@ class ProviderSpendAttemptHandler:
         if attempt_ordinal in self._leases_by_local_ordinal:
             raise RuntimeError("local provider attempt ordinal was reused")
         try:
-            lease = self.authority.authorize_attempt(
-                self.key,
-                reservation_microusd=self.reservation_microusd,
-            )
+            if self.before_authorize is None:
+                lease = self.authority.authorize_attempt(
+                    self.key,
+                    reservation_microusd=self.reservation_microusd,
+                )
+            elif isinstance(self.authority, SqliteProviderSpendAuthority):
+                lease = self.authority.authorize_attempt_with_transaction(
+                    self.key,
+                    reservation_microusd=self.reservation_microusd,
+                    before_commit=self.before_authorize,
+                )
+            else:
+                raise RuntimeError(
+                    "atomic caller reservation requires SQLite spend authority"
+                )
         except AttemptLimitExceededError:
             permit = self.additional_attempt_permit
             authorize_additional = getattr(

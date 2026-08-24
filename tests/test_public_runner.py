@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -248,6 +249,66 @@ def test_runner_retries_repaired_pretransport_failure_without_duplicate_call(
 
     assert summary.executed_cells == 3
     assert summary.resumed_cells == 0
+    assert transport.call_count == 3
+
+
+def test_runner_rolls_back_cell_when_atomic_spend_reservation_is_interrupted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+    transport = FixtureModelTransport()
+    original = runner_service.RunnerLedger.reserve_cell_in_transaction
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    def crash_during_atomic_reservation(
+        ledger: runner_service.RunnerLedger,
+        connection: sqlite3.Connection,
+        **kwargs: object,
+    ) -> None:
+        assert connection.in_transaction
+        original(ledger, connection, **kwargs)
+        assert (
+            connection.execute("SELECT COUNT(*) FROM public_runner_cells").fetchone()[0]
+            == 1
+        )
+        assert (
+            connection.execute("SELECT COUNT(*) FROM provider_attempts").fetchone()[0]
+            == 1
+        )
+        raise SimulatedCrash
+
+    monkeypatch.setattr(
+        runner_service.RunnerLedger,
+        "reserve_cell_in_transaction",
+        crash_during_atomic_reservation,
+    )
+    with pytest.raises(SimulatedCrash):
+        execute_release_run(
+            config,
+            transport=transport,
+            environ=_fixture_environ(),
+        )
+    assert transport.call_count == 0
+    with sqlite3.connect(config.ledger_path) as connection:
+        assert (
+            connection.execute("SELECT COUNT(*) FROM public_runner_cells").fetchone()[0]
+            == 0
+        )
+        assert (
+            connection.execute("SELECT COUNT(*) FROM provider_attempts").fetchone()[0]
+            == 0
+        )
+
+    monkeypatch.undo()
+    summary = execute_release_run(
+        config,
+        transport=transport,
+        environ=_fixture_environ(),
+    )
+    assert summary.executed_cells == 3
     assert transport.call_count == 3
 
 
