@@ -132,6 +132,18 @@ def test_publication_rechecks_committed_bytes_at_publish_time(tmp_path: Path) ->
             "relative POSIX path",
         ),
         (
+            lambda value: value["cases"][0]["documents"][1].update(
+                path=value["cases"][0]["documents"][0]["path"]
+            ),
+            "artifact path is reused",
+        ),
+        (
+            lambda value: value["prediction_units"][0].update(
+                prompt_path=value["prediction_units"][0]["packet_path"]
+            ),
+            "artifact path is reused",
+        ),
+        (
             lambda value: value["prediction_units"][0].update(outcome=1),
             "extra_forbidden",
         ),

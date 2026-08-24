@@ -267,17 +267,25 @@ class ForecastRelease(ReleaseModel):
 
         cases_by_id = {case.case_id: case for case in self.cases}
         document_ids: set[str] = set()
+        artifact_paths: set[str] = set()
         for case in self.cases:
             for document in case.documents:
                 if document.document_id in document_ids:
                     raise ValueError("duplicate document across forecast release")
                 document_ids.add(document.document_id)
+                if document.path in artifact_paths:
+                    raise ValueError(f"artifact path is reused: {document.path}")
+                artifact_paths.add(document.path)
         for unit in self.prediction_units:
             case = cases_by_id.get(unit.case_id)
             if case is None:
                 raise ValueError("prediction unit references an unknown case")
             if unit.model_visible_document_indexes[-1] >= len(case.documents):
                 raise ValueError("model-visible document index is out of range")
+            for path in (unit.packet_path, unit.prompt_path):
+                if path in artifact_paths:
+                    raise ValueError(f"artifact path is reused: {path}")
+                artifact_paths.add(path)
         return self
 
 
