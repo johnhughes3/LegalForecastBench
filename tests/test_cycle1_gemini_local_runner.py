@@ -40,12 +40,19 @@ def test_supplementary_registry_freezes_gemini_safety_and_accounting_fields() ->
 
 
 def test_gemini_config_binds_owner_ceiling_and_exact_registry() -> None:
-    assert GEMINI_CONFIG.cap_microusd == 25_000_000
+    assert GEMINI_CONFIG.cap_microusd == 15_000_000
     assert GEMINI_CONFIG.approval_bead == "legalforecastbench-rkjw"
+    assert GEMINI_CONFIG.manifest_approval_bead == "legalforecastbench-3ak.38"
+    assert (
+        GEMINI_CONFIG.spend_approval_comment_id
+        == "9dc0ad0a-de38-5eb8-ae76-a935a3a8f311"
+    )
+    assert (
+        GEMINI_CONFIG.manifest_approval_comment_id
+        == "36e31a09-588e-591c-8898-510f1ccb9d06"
+    )
     assert GEMINI_CONFIG.spend_approval == (
-        "I approve up to USD 25 of provider spend for the supplementary Cycle 1 "
-        "Gemini 3.7 Flash run, estimated USD 7, across 100 cases and both frozen "
-        "ablations."
+        "I approve up to USD 15 for the Gemini 3.7 Flash 200-call Cycle 1 comparison."
     )
     assert (
         GEMINI_CONFIG.expected_registry_sha256

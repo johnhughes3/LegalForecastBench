@@ -63,7 +63,7 @@ def flatten_results(
     expected_count: int | None = None,
     expected_model_key: str,
     expected_registry_sha256: str | None = None,
-    expected_prompt_commitments: Mapping[str, str] | None = None,
+    expected_prompt_commitments: Mapping[str, str],
     derive_missing_output_statuses: frozenset[str] = frozenset(),
 ) -> int:
     """Validate model, registry, prompt, and response commitments then flatten."""
@@ -89,6 +89,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--expected-prompt-commitments",
         type=Path,
+        required=True,
         help="Frozen run record or bare identity-to-prompt-SHA map.",
     )
     parser.add_argument(
@@ -103,6 +104,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.expected_prompt_commitments is not None
         else None
     )
+    if prompt_commitments is None:
+        raise LocalModelResultError("prompt commitments are required")
     count = flatten_results(
         args.results_dir,
         args.output,

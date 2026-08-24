@@ -79,9 +79,12 @@ class LocalModelConfig:
     account: str
     stage: str
     approval_bead: str
+    manifest_approval_bead: str
     spend_approval: str
     cap_microusd: int
     expected_registry_sha256: str | None
+    spend_approval_comment_id: str | None = None
+    manifest_approval_comment_id: str | None = None
     extended_commitments: bool = False
 
 
@@ -91,6 +94,7 @@ LUNA_CONFIG = LocalModelConfig(
     account=ACCOUNT,
     stage="cycle-1-local-luna",
     approval_bead="legalforecastbench-3ak.38",
+    manifest_approval_bead="legalforecastbench-3ak.38",
     spend_approval=SPEND_APPROVAL,
     cap_microusd=CAP_MICROUSD,
     expected_registry_sha256=FROZEN_REGISTRY_SHA256,
@@ -105,15 +109,16 @@ GEMINI_CONFIG = LocalModelConfig(
     account="cycle-1-gemini-3-7-flash",
     stage="cycle-1-local-gemini",
     approval_bead="legalforecastbench-rkjw",
+    manifest_approval_bead="legalforecastbench-3ak.38",
     spend_approval=(
-        "I approve up to USD 25 of provider spend for the supplementary Cycle 1 "
-        "Gemini 3.7 Flash run, estimated USD 7, across 100 cases and both frozen "
-        "ablations."
+        "I approve up to USD 15 for the Gemini 3.7 Flash 200-call Cycle 1 comparison."
     ),
-    cap_microusd=25_000_000,
+    cap_microusd=15_000_000,
     expected_registry_sha256=(
         "131ece75c82275fc8d47d9cd6bbdf7b39ff45f69568750eb4a777709e1a1be75"
     ),
+    spend_approval_comment_id="9dc0ad0a-de38-5eb8-ae76-a935a3a8f311",
+    manifest_approval_comment_id="36e31a09-588e-591c-8898-510f1ccb9d06",
     extended_commitments=True,
 )
 
@@ -133,28 +138,36 @@ def _read_json(path: Path) -> object:
 
 
 def _owner_approvals(config: LocalModelConfig) -> dict[str, str]:
-    completed = subprocess.run(
-        ["bd", "comments", config.approval_bead, "--json"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    rows: object = json.loads(completed.stdout)
-    if not isinstance(rows, list):
-        raise LocalLunaRunnerError("Beads comments response is not an array")
     evidence: dict[str, str] = {}
-    for raw in cast(list[object], rows):
-        if not isinstance(raw, Mapping):
-            continue
-        row = cast(Mapping[str, object], raw)
-        if row.get("author") != "John Hughes":
-            continue
-        text = row.get("text")
-        comment_id = row.get("id")
-        if text in {config.spend_approval, MANIFEST_APPROVAL} and isinstance(
-            comment_id, str
-        ):
-            evidence[cast(str, text)] = comment_id
+    for bead in (config.approval_bead, config.manifest_approval_bead):
+        completed = subprocess.run(
+            ["bd", "comments", bead, "--json"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        rows: object = json.loads(completed.stdout)
+        if not isinstance(rows, list):
+            raise LocalLunaRunnerError("Beads comments response is not an array")
+        for raw in cast(list[object], rows):
+            if not isinstance(raw, Mapping):
+                continue
+            row = cast(Mapping[str, object], raw)
+            if row.get("author") != "John Hughes":
+                continue
+            text = row.get("text")
+            comment_id = row.get("id")
+            expected_comment_id = (
+                config.spend_approval_comment_id
+                if text == config.spend_approval
+                else config.manifest_approval_comment_id
+            )
+            if (
+                text in {config.spend_approval, MANIFEST_APPROVAL}
+                and isinstance(comment_id, str)
+                and (expected_comment_id is None or comment_id == expected_comment_id)
+            ):
+                evidence[cast(str, text)] = comment_id
     for required in (config.spend_approval, MANIFEST_APPROVAL):
         if required not in evidence:
             raise LocalLunaRunnerError(f"missing exact owner approval: {required}")
@@ -377,17 +390,20 @@ def run(args: argparse.Namespace, config: LocalModelConfig = LUNA_CONFIG) -> int
         rows = rows[: args.max_calls]
     if not rows:
         raise LocalLunaRunnerError("no packet rows selected")
+    authority_payload: dict[str, object] = {
+        "approval": config.spend_approval,
+        "manifest": MANIFEST_DIGEST,
+        "model_key": config.model_key,
+        "owner_cap_microusd": config.cap_microusd,
+        "prior_committed_microusd": prior_committed_microusd,
+        "registry_sha256": _sha(registry_bytes),
+        "run_inputs_sha256": _sha(run_inputs_path.read_bytes()),
+    }
+    if config.extended_commitments:
+        authority_payload["owner_comment_ids"] = sorted(approvals.values())
     authority_identity = _sha(
         json.dumps(
-            {
-                "approval": config.spend_approval,
-                "manifest": MANIFEST_DIGEST,
-                "model_key": config.model_key,
-                "owner_cap_microusd": config.cap_microusd,
-                "prior_committed_microusd": prior_committed_microusd,
-                "registry_sha256": _sha(registry_bytes),
-                "run_inputs_sha256": _sha(run_inputs_path.read_bytes()),
-            },
+            authority_payload,
             sort_keys=True,
             separators=(",", ":"),
         ).encode()
@@ -450,9 +466,7 @@ def run(args: argparse.Namespace, config: LocalModelConfig = LUNA_CONFIG) -> int
                     != row["packet_sha256"]
                     or cast(Mapping[str, object], existing).get("prompt_sha256")
                     != row["prompt_sha256"]
-                    or cast(Mapping[str, object], existing).get(
-                        "plan_identity_sha256"
-                    )
+                    or cast(Mapping[str, object], existing).get("plan_identity_sha256")
                     != authority_identity
                     or (
                         config.extended_commitments
