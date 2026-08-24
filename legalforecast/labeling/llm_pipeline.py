@@ -6425,9 +6425,9 @@ def _coerced_excerpt_without_single_markdown_emphasis(
                 end = ends[last]
                 if start >= closing or end <= opening + 1:
                     continue
-                if opening + 1 <= start < closing:
+                if opening + 1 <= start:
                     start = opening
-                if opening + 1 < end <= closing:
+                if end <= closing:
                     end = closing + 1
                 candidates.append((start, end))
 

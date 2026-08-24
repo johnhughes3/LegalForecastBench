@@ -906,7 +906,7 @@ def test_stage_b_local_markdown_recovery_ignores_unrelated_malformed_text() -> N
         "Therefore, Plaintiff fails to state a First Amendment *Bivens claim.",
         "Therefore, Plaintiff fails to state a First Amendment *Bivens*claim.",
         "Therefore, Plaintiff fails to state a First Amendment *Bivens* claim. "
-        "Therefore, Plaintiff fails to state a First Amendment *Bivens* claim.",
+        + "Therefore, Plaintiff fails to state a First Amendment *Bivens* claim.",
     ],
 )
 def test_stage_b_local_markdown_emphasis_recovery_fails_closed(
