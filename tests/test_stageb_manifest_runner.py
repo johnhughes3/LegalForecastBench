@@ -295,6 +295,79 @@ def test_additional_attempt_help_describes_general_candidate_scope() -> None:
     assert "72213663" not in help_text
 
 
+def test_manifest_adjudication_coverage_leaves_advisory_rows_nonblocking() -> None:
+    queue = [
+        {
+            "status": "pending_adjudication",
+            "route_reason": "ambiguous",
+            "review_id": "candidate-1:unit-1:lawyer-adjudication",
+            "candidate_id": "candidate-1",
+            "unit_id": "unit-1",
+        },
+        {
+            "status": "pending_adjudication",
+            "route_reason": "unresolved_supporting_evidence",
+            "review_id": "candidate-1:unit-2:supporting-evidence",
+            "candidate_id": "candidate-1",
+            "unit_id": "unit-2",
+        },
+    ]
+    adjudications = [
+        {
+            "review_id": "candidate-1:unit-1:lawyer-adjudication",
+            "candidate_id": "candidate-1",
+            "unit_id": "unit-1",
+        }
+    ]
+
+    runner._validate_adjudication_coverage(  # pyright: ignore[reportPrivateUsage]
+        queue_records=queue,
+        adjudication_records=adjudications,
+    )
+
+
+def test_manifest_adjudication_coverage_rejects_missing_merits_row() -> None:
+    queue = [
+        {
+            "status": "pending_adjudication",
+            "route_reason": "disagreement",
+            "review_id": "candidate-1:unit-1:lawyer-adjudication",
+            "candidate_id": "candidate-1",
+            "unit_id": "unit-1",
+        }
+    ]
+
+    with pytest.raises(runner.StageBManifestError, match="exactly cover"):
+        runner._validate_adjudication_coverage(  # pyright: ignore[reportPrivateUsage]
+            queue_records=queue,
+            adjudication_records=(),
+        )
+
+
+def test_manifest_adjudication_owner_digest_requires_exact_owner_comment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(runner.OWNER_AUTHOR_ENV, "owner")
+    comment = _comment(
+        "adjudication-id", "owner approves adjudications", author="owner"
+    )
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        _beads_comments([comment], []),
+    )
+
+    digest = runner._adjudication_owner_comment_digest(  # pyright: ignore[reportPrivateUsage]
+        "adjudication-id"
+    )
+    assert digest == str(
+        runner.ARTIFACT_PREFIXED_SHA256_V1.commit(
+            comment["text"],
+            domain=runner._ADJ_SCHEMA,  # pyright: ignore[reportPrivateUsage]
+        ).digest
+    )
+
+
 def test_additional_attempt_prompt_uses_exact_journal_evidence() -> None:
     prompt = runner._additional_attempt_prompt(  # pyright: ignore[reportPrivateUsage]
         original_prompt="authenticated prompt",
