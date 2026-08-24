@@ -4537,10 +4537,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "ProviderSpendAttemptHandler",
-        "largest_symbol_lines": 223,
+        "largest_symbol_lines": 240,
         "layer": "application",
-        "line_count": 545,
-        "nonblank_line_count": 490,
+        "line_count": 563,
+        "nonblank_line_count": 508,
         "top_level_definition_count": 5
       },
       "legalforecast/evals/provider_spend_control.py": {
@@ -8340,10 +8340,27 @@
         "nonblank_line_count": 810,
         "top_level_definition_count": 22
       },
+      "legalforecast/runner/ledger.py": {
+        "cycle_id": "",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv",
+        "fan_in": 2,
+        "fan_out": 1,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "RunnerLedger",
+        "largest_symbol_lines": 516,
+        "layer": "application",
+        "line_count": 564,
+        "nonblank_line_count": 524,
+        "top_level_definition_count": 5
+      },
       "legalforecast/runner/service.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "root",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv",
         "fan_in": 1,
         "fan_out": 10,
         "flags": [
@@ -8351,11 +8368,11 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 320,
+        "largest_symbol_lines": 403,
         "layer": "application",
-        "line_count": 629,
-        "nonblank_line_count": 581,
-        "top_level_definition_count": 13
+        "line_count": 820,
+        "nonblank_line_count": 761,
+        "top_level_definition_count": 15
       },
       "legalforecast/selection/case_mix_diagnostics.py": {
         "cycle_id": "",
@@ -11272,11 +11289,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_runner_spend_keys_use_injective_cell_identity",
-        "largest_symbol_lines": 80,
+        "largest_symbol_lines": 94,
         "layer": "test",
-        "line_count": 1038,
-        "nonblank_line_count": 885,
-        "top_level_definition_count": 34
+        "line_count": 1260,
+        "nonblank_line_count": 1083,
+        "top_level_definition_count": 37
       },
       "tests/test_purchase_approval.py": {
         "cycle_id": "",

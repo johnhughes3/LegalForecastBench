@@ -230,6 +230,65 @@ def test_runner_rejects_ineligible_model_before_creating_ledger(
     assert not config.ledger_path.exists()
 
 
+def test_runner_rejects_packet_before_selected_model_release_anchor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+    units = (
+        SimpleNamespace(
+            case_id="case-001",
+            unit_id="unit-001",
+            prompt_sha256="1" * 64,
+        ),
+        SimpleNamespace(
+            case_id="case-002",
+            unit_id="unit-002",
+            prompt_sha256="2" * 64,
+        ),
+    )
+    release = SimpleNamespace(
+        release_digest="3" * 64,
+        release_id="release-anchor-regression",
+        cases=(
+            SimpleNamespace(case_id="case-001"),
+            SimpleNamespace(case_id="case-002"),
+        ),
+        prediction_units=units,
+    )
+
+    class IneligibleExecution:
+        def __init__(self) -> None:
+            self.release = release
+
+        def packet_bytes(self, unit_id: str) -> bytes:
+            case_id = "case-001" if unit_id == "unit-001" else "case-002"
+            decision_date = "2026-08-23" if unit_id == "unit-001" else "2026-08-22"
+            return runner_service.ARTIFACT_CANONICAL_JSON_V1.encode(
+                {
+                    "case_id": case_id,
+                    "decision_date": decision_date,
+                    "unit_id": unit_id,
+                }
+            )
+
+        def prompt_bytes(self, unit_id: str) -> bytes:
+            raise AssertionError(f"prompt read for ineligible unit {unit_id}")
+
+    monkeypatch.setattr(
+        runner_service,
+        "load_forecast_execution",
+        lambda *_args, **_kwargs: IneligibleExecution(),
+    )
+    transport = CountingTransport(error=AssertionError("transport called"))
+
+    with pytest.raises(RunValidationError, match="precedes model release anchor"):
+        execute_release_run(config, transport=transport)
+
+    assert transport.calls == 0
+    assert not config.ledger_path.exists()
+
+
 def test_runner_refuses_exact_ledger_identity_drift_without_transport(
     tmp_path: Path,
 ) -> None:
@@ -549,6 +608,10 @@ def test_runner_spend_keys_use_injective_cell_identity(
     release = SimpleNamespace(
         release_digest="3" * 64,
         release_id="collision-release",
+        cases=(
+            SimpleNamespace(case_id="a"),
+            SimpleNamespace(case_id="a:b"),
+        ),
         prediction_units=units,
     )
 
@@ -558,6 +621,16 @@ def test_runner_spend_keys_use_injective_cell_identity(
 
         def prompt_bytes(self, unit_id: str) -> bytes:
             return f"Forecast exact unit {unit_id}".encode()
+
+        def packet_bytes(self, unit_id: str) -> bytes:
+            case_id = "a" if unit_id == "b:c" else "a:b"
+            return runner_service.ARTIFACT_CANONICAL_JSON_V1.encode(
+                {
+                    "case_id": case_id,
+                    "decision_date": "2026-08-23",
+                    "unit_id": unit_id,
+                }
+            )
 
     monkeypatch.setattr(
         runner_service,
@@ -742,6 +815,155 @@ def test_runner_restores_receipt_after_ledger_commit_without_duplicate_transport
     assert summary.executed_cells == 2
     assert resumed_transport.call_count == 2
     assert len(tuple(config.receipts_dir.glob("*.json"))) == 3
+
+
+def test_runner_replays_settled_response_after_crash_before_cell_completion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class SimulatedCrash(BaseException):
+        pass
+
+    config = _config(tmp_path)
+    first_transport = FixtureModelTransport()
+    original_mark_completed = runner_service.RunnerLedger.mark_completed
+    crashed = False
+
+    def crash_after_provider_settlement(
+        ledger: runner_service.RunnerLedger,
+        cell_id: str,
+        **kwargs: object,
+    ) -> None:
+        nonlocal crashed
+        if not crashed:
+            crashed = True
+            raise SimulatedCrash
+        original_mark_completed(ledger, cell_id, **kwargs)
+
+    monkeypatch.setattr(
+        runner_service.RunnerLedger,
+        "mark_completed",
+        crash_after_provider_settlement,
+    )
+    monkeypatch.setattr(
+        runner_service,
+        "_record_cell_failure",
+        lambda *_args, **_kwargs: None,
+    )
+    with pytest.raises(SimulatedCrash):
+        execute_release_run(
+            config,
+            transport=first_transport,
+            environ=_fixture_environ(),
+        )
+    assert first_transport.call_count == 1
+    with sqlite3.connect(config.ledger_path) as connection:
+        cell = connection.execute(
+            "SELECT status, request_body_sha256, response_payload "
+            "FROM public_runner_cells"
+        ).fetchone()
+        attempt = connection.execute("SELECT status FROM provider_attempts").fetchone()
+    assert cell is not None
+    assert cell[0] == "reserved"
+    assert cell[1] is not None
+    assert cell[2] is not None
+    assert attempt == ("settled",)
+
+    monkeypatch.setattr(
+        runner_service.RunnerLedger,
+        "mark_completed",
+        original_mark_completed,
+    )
+    monkeypatch.undo()
+    resumed_transport = FixtureModelTransport()
+    summary = execute_release_run(
+        config,
+        transport=resumed_transport,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.resumed_cells == 1
+    assert summary.executed_cells == 2
+    assert resumed_transport.call_count == 2
+    assert len(tuple(config.receipts_dir.glob("*.json"))) == 3
+
+
+def test_runner_replays_response_after_crash_before_provider_settlement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class SimulatedCrash(BaseException):
+        pass
+
+    config = _config(tmp_path)
+    first_transport = FixtureModelTransport()
+    original_record_response = (
+        runner_service.SqliteProviderSpendAuthority.record_response
+    )
+    crashed = False
+
+    def crash_before_provider_settlement(
+        authority: runner_service.SqliteProviderSpendAuthority,
+        *args: object,
+        **kwargs: object,
+    ) -> None:
+        nonlocal crashed
+        if not crashed:
+            crashed = True
+            raise SimulatedCrash
+        original_record_response(authority, *args, **kwargs)
+
+    monkeypatch.setattr(
+        runner_service.SqliteProviderSpendAuthority,
+        "record_response",
+        crash_before_provider_settlement,
+    )
+    monkeypatch.setattr(
+        runner_service,
+        "_record_cell_failure",
+        lambda *_args, **_kwargs: None,
+    )
+    with pytest.raises(SimulatedCrash):
+        execute_release_run(
+            config,
+            transport=first_transport,
+            environ=_fixture_environ(),
+        )
+    assert first_transport.call_count == 1
+    with sqlite3.connect(config.ledger_path) as connection:
+        cell = connection.execute(
+            "SELECT status, request_body_sha256, response_payload "
+            "FROM public_runner_cells"
+        ).fetchone()
+        attempt = connection.execute("SELECT status FROM provider_attempts").fetchone()
+    assert cell is not None
+    assert cell[0] == "reserved"
+    assert cell[1] is not None
+    assert cell[2] is not None
+    assert attempt == ("reserved",)
+
+    monkeypatch.undo()
+    resumed_transport = FixtureModelTransport()
+    summary = execute_release_run(
+        config,
+        transport=resumed_transport,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.resumed_cells == 1
+    assert summary.executed_cells == 2
+    assert resumed_transport.call_count == 2
+    assert len(tuple(config.receipts_dir.glob("*.json"))) == 3
+
+    completed_transport = CountingTransport(error=AssertionError("cell retried"))
+    completed = execute_release_run(
+        config,
+        transport=completed_transport,
+        environ=_fixture_environ(),
+    )
+    assert completed.executed_cells == 0
+    assert completed.resumed_cells == 3
+    assert completed_transport.calls == 0
 
 
 def test_runner_retries_repaired_pretransport_failure_without_duplicate_call(

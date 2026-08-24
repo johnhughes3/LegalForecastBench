@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 from typing import cast
 
@@ -25,6 +27,7 @@ from legalforecast.evals.live_model_solver import (
 )
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
+    earliest_eligible_decision_date,
     load_model_registry_bytes,
     model_registry_entry_sha256,
     require_official_registry_entries,
@@ -46,7 +49,11 @@ from legalforecast.evals.response_verification import (
     require_publishable_response_metadata,
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
-from legalforecast.release import ForecastPredictionUnit, load_forecast_execution
+from legalforecast.release import (
+    ForecastExecution,
+    ForecastPredictionUnit,
+    load_forecast_execution,
+)
 
 from .ledger import (
     RunBlockedError,
@@ -89,8 +96,14 @@ class RunSummary:
 
 
 class _RequestBodyCommitment:
-    def __init__(self) -> None:
-        self.request_body_sha256: str | None = None
+    def __init__(
+        self,
+        *,
+        request_body_sha256: str | None = None,
+        observer: Callable[[str], None] | None = None,
+    ) -> None:
+        self.request_body_sha256 = request_body_sha256
+        self._observer = observer
         self._replacement_allowed = False
         self._last_failure_was_nonbillable = False
 
@@ -105,6 +118,8 @@ class _RequestBodyCommitment:
             raise RunBlockedError(
                 "one logical cell attempted duplicate provider transport"
             )
+        if self._observer is not None:
+            self._observer(digest)
         self.request_body_sha256 = digest
         self._replacement_allowed = False
         self._last_failure_was_nonbillable = False
@@ -172,9 +187,13 @@ def execute_release_run(
             f"model key is absent from registry: {config.model_key}"
         ) from exc
     try:
-        require_official_registry_entries((entry,))
+        official_entries = require_official_registry_entries((entry,))
     except ValueError as exc:
         raise RunValidationError(f"official model eligibility failed: {exc}") from exc
+    _require_model_release_anchor(
+        execution,
+        release_anchor=earliest_eligible_decision_date(official_entries),
+    )
     entry_sha256 = model_registry_entry_sha256(entry)
 
     identity = {
@@ -294,7 +313,11 @@ def execute_release_run(
                         continue
 
                     retryable_nonbillable_prior_attempt: AttemptLease | None = None
-                    if cell is not None and cell.status == "reserved":
+                    if (
+                        cell is not None
+                        and cell.status == "reserved"
+                        and cell.response_payload is None
+                    ):
                         if cell.provider_attempt_id is None:
                             raise RunBlockedError(
                                 f"cell {cell_id} lacks its prior provider attempt"
@@ -306,9 +329,59 @@ def execute_release_run(
                             )
                         )
 
-                    capture = _RequestBodyCommitment()
+                    replayable_response: Mapping[str, object] | None = None
+                    replayable_attempt: AttemptLease | None = None
+                    if (
+                        cell is not None
+                        and cell.response_payload is not None
+                        and cell.provider_attempt_ordinal is not None
+                    ):
+                        replayable_response = _replayable_response(
+                            cell.response_payload
+                        )
+                        replayable_attempt = authority.adopt_attempt(
+                            key,
+                            attempt_ordinal=cell.provider_attempt_ordinal,
+                        )
+                        if replayable_attempt.attempt_id != cell.provider_attempt_id:
+                            raise RunBlockedError(
+                                "replayable provider attempt differs from cell binding"
+                            )
+
+                    authorization_state: list[str | None] = [
+                        None
+                        if replayable_attempt is None
+                        else replayable_attempt.attempt_id
+                    ]
+
+                    def persist_request_body(
+                        request_body_sha256: str,
+                        *,
+                        bound_cell_id: str = cell_id,
+                        bound_authorization_state: list[str | None] = (
+                            authorization_state
+                        ),
+                    ) -> None:
+                        authorized_attempt_id = bound_authorization_state[0]
+                        if authorized_attempt_id is None:
+                            raise RunBlockedError(
+                                "request commitment lacks provider authorization"
+                            )
+                        ledger.record_request_body(
+                            bound_cell_id,
+                            provider_attempt_id=authorized_attempt_id,
+                            request_body_sha256=request_body_sha256,
+                        )
+
+                    capture = _RequestBodyCommitment(
+                        request_body_sha256=(
+                            None if cell is None else cell.request_body_sha256
+                        )
+                        if replayable_response is not None
+                        else None,
+                        observer=persist_request_body,
+                    )
                     completed = False
-                    authorized_attempt_id: str | None = None
 
                     def reserve_authorized_cell(
                         connection: sqlite3.Connection,
@@ -318,8 +391,10 @@ def execute_release_run(
                         bound_case_id: str = unit.case_id,
                         bound_unit_id: str = unit.unit_id,
                         bound_repeat_index: int = repeat_index,
+                        bound_authorization_state: list[str | None] = (
+                            authorization_state
+                        ),
                     ) -> None:
-                        nonlocal authorized_attempt_id
                         ledger.reserve_cell_in_transaction(
                             connection,
                             cell_id=bound_cell_id,
@@ -330,7 +405,23 @@ def execute_release_run(
                             provider_attempt_id=lease.attempt_id,
                             allow_nonbillable_replacement=(lease.attempt_ordinal == 2),
                         )
-                        authorized_attempt_id = lease.attempt_id
+                        bound_authorization_state[0] = lease.attempt_id
+
+                    def persist_provider_response(
+                        lease: AttemptLease,
+                        response: Mapping[str, object],
+                        *,
+                        bound_cell_id: str = cell_id,
+                    ) -> None:
+                        response_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(response)
+                        ledger.record_response_payload(
+                            bound_cell_id,
+                            provider_attempt_id=lease.attempt_id,
+                            response_payload=response_bytes,
+                            response_payload_sha256=hashlib.sha256(
+                                response_bytes
+                            ).hexdigest(),
+                        )
 
                     try:
                         response = _complete_cell(
@@ -348,6 +439,9 @@ def execute_release_run(
                             retryable_nonbillable_prior_attempt=(
                                 retryable_nonbillable_prior_attempt
                             ),
+                            replayable_attempt=replayable_attempt,
+                            replayable_response=replayable_response,
+                            response_observer=persist_provider_response,
                         )
                         request_sha256 = capture.request_body_sha256
                         if request_sha256 is None:
@@ -411,6 +505,7 @@ def execute_release_run(
                             run_identity_sha256=identity_sha256,
                         )
                     except BaseException as exc:
+                        authorized_attempt_id = authorization_state[0]
                         if not completed and authorized_attempt_id is not None:
                             _record_cell_failure(
                                 ledger,
@@ -431,7 +526,10 @@ def execute_release_run(
                                 )
                             raise RunBlockedError(message) from exc
                         raise
-                    executed_cells += 1
+                    if replayable_response is None:
+                        executed_cells += 1
+                    else:
+                        resumed_cells += 1
         ledger.mark_run_completed()
 
     completed_cells = executed_cells + resumed_cells
@@ -458,6 +556,9 @@ def _complete_cell(
     reservation_microusd: int,
     before_authorize: Callable[[sqlite3.Connection, AttemptLease], None],
     retryable_nonbillable_prior_attempt: AttemptLease | None,
+    replayable_attempt: AttemptLease | None,
+    replayable_response: Mapping[str, object] | None,
+    response_observer: Callable[[AttemptLease, Mapping[str, object]], None],
 ) -> SolverResponse:
     handler = ProviderSpendAttemptHandler(
         authority=authority,
@@ -467,6 +568,9 @@ def _complete_cell(
         failure_observer=attempt_failure_observer,
         allow_retryable_nonbillable_replacement=True,
         retryable_nonbillable_prior_attempt=retryable_nonbillable_prior_attempt,
+        replayable_attempt=replayable_attempt,
+        replayable_response=replayable_response,
+        response_observer=response_observer,
     )
     return complete_live_prompt(
         entry,
@@ -477,8 +581,95 @@ def _complete_cell(
         max_attempts=(1 if retryable_nonbillable_prior_attempt is not None else 2),
         attempt_handler=handler,
         request_body_observer=request_body_observer,
-        openai_flex_already_rejected=(retryable_nonbillable_prior_attempt is not None),
+        openai_flex_already_rejected=(
+            retryable_nonbillable_prior_attempt is not None
+            or (
+                replayable_attempt is not None
+                and replayable_attempt.attempt_ordinal == 2
+            )
+        ),
     )
+
+
+def _require_model_release_anchor(
+    execution: ForecastExecution,
+    *,
+    release_anchor: date,
+) -> None:
+    """Require the runner packet profile to clear the model release anchor.
+
+    ``forecast-release.v1`` deliberately authenticates packet bytes without
+    defining their internal schema.  This new runner therefore validates its
+    narrower executable profile here; generic v1 validation remains unchanged.
+    """
+
+    decision_dates: dict[str, date] = {}
+    for unit in execution.release.prediction_units:
+        try:
+            payload: object = json.loads(execution.packet_bytes(unit.unit_id))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RunValidationError(
+                f"runner packet is not valid JSON for unit {unit.unit_id}"
+            ) from exc
+        if not isinstance(payload, Mapping):
+            raise RunValidationError(
+                f"runner packet must be an object for unit {unit.unit_id}"
+            )
+        packet = cast(Mapping[str, object], payload)
+        packet_case_id = packet.get("case_id")
+        if packet_case_id != unit.case_id:
+            raise RunValidationError(
+                f"runner packet case_id differs for unit {unit.unit_id}"
+            )
+        raw_decision_date = packet.get("decision_date")
+        if not isinstance(raw_decision_date, str) or not raw_decision_date:
+            raise RunValidationError(
+                f"runner packet decision_date is required for case {unit.case_id}"
+            )
+        try:
+            decision_date = date.fromisoformat(raw_decision_date)
+        except ValueError as exc:
+            raise RunValidationError(
+                "runner packet decision_date must be an ISO date for case "
+                f"{unit.case_id}"
+            ) from exc
+        if decision_date.isoformat() != raw_decision_date:
+            raise RunValidationError(
+                f"runner packet decision_date is not canonical for case {unit.case_id}"
+            )
+        prior_date = decision_dates.setdefault(unit.case_id, decision_date)
+        if prior_date != decision_date:
+            raise RunValidationError(
+                f"authenticated runner packets disagree on decision_date for case "
+                f"{unit.case_id}"
+            )
+        if decision_date < release_anchor:
+            raise RunValidationError(
+                f"case {unit.case_id} decision_date {decision_date.isoformat()} "
+                f"precedes model release anchor {release_anchor.isoformat()}"
+            )
+
+    release_case_ids = {case.case_id for case in execution.release.cases}
+    missing_case_dates = sorted(release_case_ids - decision_dates.keys())
+    if missing_case_dates:
+        raise RunValidationError(
+            "forecast release cases lack an authenticated runner-packet "
+            "decision_date: "
+            f"{missing_case_dates}"
+        )
+
+
+def _replayable_response(payload: bytes) -> Mapping[str, object]:
+    try:
+        value: object = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RunValidationError("durable provider response is not valid JSON") from exc
+    if not isinstance(value, Mapping):
+        raise RunValidationError("durable provider response must be an object")
+    response = cast(Mapping[str, object], value)
+    if ARTIFACT_CANONICAL_JSON_V1.encode(response) != payload:
+        raise RunValidationError("durable provider response is not canonical")
+    return response
 
 
 def _record_cell_failure(

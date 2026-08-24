@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +38,10 @@ class CellRecord:
     repeat_index: int
     status: str
     provider_attempt_id: str | None
+    provider_attempt_ordinal: int | None
+    request_body_sha256: str | None
+    response_payload: bytes | None
+    response_payload_sha256: str | None
     receipt_sha256: str | None
     receipt_payload: bytes | None
 
@@ -133,12 +139,25 @@ class RunnerLedger:
         """Inspect an exact cell without creating pre-authorization state."""
 
         row = self._connection.execute(
-            "SELECT * FROM public_runner_cells WHERE cell_id = ?",
+            """
+            SELECT cells.*, attempts.attempt_ordinal AS provider_attempt_ordinal,
+                attempts.status AS provider_attempt_status
+            FROM public_runner_cells AS cells
+            LEFT JOIN provider_attempts AS attempts
+              ON attempts.attempt_id = cells.provider_attempt_id
+            WHERE cells.cell_id = ?
+            """,
             (cell_id,),
         ).fetchone()
         if row is None:
             return None
         record = self._cell_record(row)
+        if record.response_payload is not None:
+            if record.response_payload_sha256 is None or not hmac.compare_digest(
+                hashlib.sha256(record.response_payload).hexdigest(),
+                record.response_payload_sha256,
+            ):
+                raise RunValidationError("durable provider response digest differs")
         self._verify_cell_identity(
             record,
             run_identity_sha256=run_identity_sha256,
@@ -163,12 +182,84 @@ class RunnerLedger:
                 and str(prior_attempt["failure_type"])
                 == RETRYABLE_HTTP_429_FAILURE_TYPE
             )
-        if record.status not in {"blocked", "completed"} and not retryable_nonbillable:
+        replayable_response = (
+            record.status == "reserved"
+            and str(row["provider_attempt_status"]) in {"reserved", "settled"}
+            and record.provider_attempt_ordinal is not None
+            and record.request_body_sha256 is not None
+            and record.response_payload is not None
+            and record.response_payload_sha256 is not None
+        )
+        if (
+            record.status not in {"blocked", "completed"}
+            and not retryable_nonbillable
+            and not replayable_response
+        ):
             raise RunBlockedError(
                 f"cell {cell_id} has {record.status} provider state; "
                 "another call is forbidden"
             )
         return record
+
+    def record_request_body(
+        self,
+        cell_id: str,
+        *,
+        provider_attempt_id: str,
+        request_body_sha256: str,
+    ) -> None:
+        """Persist the exact request commitment before provider transport."""
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            cursor = self._connection.execute(
+                """
+                UPDATE public_runner_cells
+                SET request_body_sha256 = ?
+                WHERE cell_id = ? AND provider_attempt_id = ?
+                  AND status = 'reserved'
+                """,
+                (request_body_sha256, cell_id, provider_attempt_id),
+            )
+            if cursor.rowcount != 1:
+                raise RunBlockedError("request commitment has no reserved cell")
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
+    def record_response_payload(
+        self,
+        cell_id: str,
+        *,
+        provider_attempt_id: str,
+        response_payload: bytes,
+        response_payload_sha256: str,
+    ) -> None:
+        """Persist a replayable raw response before settling provider spend."""
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            cursor = self._connection.execute(
+                """
+                UPDATE public_runner_cells
+                SET response_payload = ?, response_payload_sha256 = ?
+                WHERE cell_id = ? AND provider_attempt_id = ?
+                  AND status = 'reserved' AND request_body_sha256 IS NOT NULL
+                """,
+                (
+                    response_payload,
+                    response_payload_sha256,
+                    cell_id,
+                    provider_attempt_id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise RunBlockedError("provider response has no committed request")
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
 
     def reserve_cell_in_transaction(
         self,
@@ -233,7 +324,9 @@ class RunnerLedger:
                 connection.execute(
                     """
                     UPDATE public_runner_cells
-                    SET provider_attempt_id = ?, failure_type = NULL
+                    SET provider_attempt_id = ?, request_body_sha256 = NULL,
+                        response_payload = NULL, response_payload_sha256 = NULL,
+                        failure_type = NULL
                     WHERE cell_id = ? AND status = 'reserved'
                     """,
                     (provider_attempt_id, cell_id),
@@ -247,7 +340,9 @@ class RunnerLedger:
         connection.execute(
             """
             UPDATE public_runner_cells
-            SET status = 'reserved', provider_attempt_id = ?, failure_type = NULL
+            SET status = 'reserved', provider_attempt_id = ?,
+                request_body_sha256 = NULL, response_payload = NULL,
+                response_payload_sha256 = NULL, failure_type = NULL
             WHERE cell_id = ? AND status = 'blocked'
             """,
             (provider_attempt_id, cell_id),
@@ -303,6 +398,7 @@ class RunnerLedger:
                 SET status = 'completed', request_body_sha256 = ?,
                     receipt_sha256 = ?, receipt_payload = ?, failure_type = NULL
                 WHERE cell_id = ? AND status = 'reserved'
+                  AND response_payload IS NOT NULL
                 """,
                 (
                     request_body_sha256,
@@ -338,7 +434,8 @@ class RunnerLedger:
             cursor = self._connection.execute(
                 """
                 UPDATE public_runner_cells
-                SET status = ?, failure_type = ?
+                SET status = ?, failure_type = ?, response_payload = NULL,
+                    response_payload_sha256 = NULL
                 WHERE cell_id = ? AND provider_attempt_id = ?
                     AND status = 'reserved'
                 """,
@@ -376,6 +473,8 @@ class RunnerLedger:
                 ),
                 provider_attempt_id TEXT,
                 request_body_sha256 TEXT,
+                response_payload BLOB,
+                response_payload_sha256 TEXT,
                 receipt_sha256 TEXT,
                 receipt_payload BLOB,
                 failure_type TEXT
@@ -391,6 +490,15 @@ class RunnerLedger:
         if "provider_attempt_id" not in columns:
             self._connection.execute(
                 "ALTER TABLE public_runner_cells ADD COLUMN provider_attempt_id TEXT"
+            )
+        if "response_payload" not in columns:
+            self._connection.execute(
+                "ALTER TABLE public_runner_cells ADD COLUMN response_payload BLOB"
+            )
+        if "response_payload_sha256" not in columns:
+            self._connection.execute(
+                "ALTER TABLE public_runner_cells "
+                "ADD COLUMN response_payload_sha256 TEXT"
             )
 
     @staticmethod
@@ -417,6 +525,14 @@ class RunnerLedger:
         receipt = row["receipt_sha256"]
         receipt_payload = row["receipt_payload"]
         provider_attempt = row["provider_attempt_id"]
+        provider_attempt_ordinal = (
+            row["provider_attempt_ordinal"]
+            if "provider_attempt_ordinal" in row.keys()
+            else None
+        )
+        request_body = row["request_body_sha256"]
+        response_payload = row["response_payload"]
+        response_payload_sha256 = row["response_payload_sha256"]
         return CellRecord(
             cell_id=str(row["cell_id"]),
             run_identity_sha256=str(row["run_identity_sha256"]),
@@ -426,6 +542,20 @@ class RunnerLedger:
             status=str(row["status"]),
             provider_attempt_id=(
                 None if provider_attempt is None else str(provider_attempt)
+            ),
+            provider_attempt_ordinal=(
+                None
+                if provider_attempt_ordinal is None
+                else int(provider_attempt_ordinal)
+            ),
+            request_body_sha256=(None if request_body is None else str(request_body)),
+            response_payload=(
+                None if response_payload is None else bytes(response_payload)
+            ),
+            response_payload_sha256=(
+                None
+                if response_payload_sha256 is None
+                else str(response_payload_sha256)
             ),
             receipt_sha256=None if receipt is None else str(receipt),
             receipt_payload=(

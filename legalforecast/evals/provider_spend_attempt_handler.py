@@ -21,6 +21,7 @@ from legalforecast.evals.provider_spend_control import (
 )
 
 JsonRecord = Mapping[str, object]
+ResponseObserver = Callable[[AttemptLease, JsonRecord], None]
 RunAttemptWithPreflight = Callable[
     [int, Callable[[], None], Callable[[], JsonRecord]],
     JsonRecord,
@@ -88,6 +89,9 @@ class ProviderSpendAttemptHandler:
     failure_observer: Callable[[bool], None] | None = None
     allow_retryable_nonbillable_replacement: bool = False
     retryable_nonbillable_prior_attempt: AttemptLease | None = None
+    replayable_attempt: AttemptLease | None = None
+    replayable_response: JsonRecord | None = None
+    response_observer: ResponseObserver | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
     )
@@ -101,6 +105,8 @@ class ProviderSpendAttemptHandler:
             or self.reservation_microusd <= 0
         ):
             raise ValueError("reservation_microusd must be a positive integer")
+        if (self.replayable_attempt is None) != (self.replayable_response is None):
+            raise ValueError("provider replay requires both attempt and response")
 
     def run_attempt(
         self,
@@ -111,6 +117,13 @@ class ProviderSpendAttemptHandler:
 
         if attempt_ordinal in self._leases_by_local_ordinal:
             raise RuntimeError("local provider attempt ordinal was reused")
+        if self.replayable_attempt is not None:
+            if attempt_ordinal != 1 or self.replayable_response is None:
+                raise RuntimeError("provider replay state is incomplete")
+            lease = self.replayable_attempt
+            self._leases_by_local_ordinal[attempt_ordinal] = lease
+            self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
+            return self.replayable_response
         try:
             replacement_ordinal = attempt_ordinal in {1, 2}
             if (
@@ -177,7 +190,10 @@ class ProviderSpendAttemptHandler:
         self._leases_by_local_ordinal[attempt_ordinal] = lease
         self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
         try:
-            return call()
+            response = call()
+            if self.response_observer is not None:
+                self.response_observer(lease, response)
+            return response
         except BaseException as exc:
             # Once transport begins, a missing response can still be billable. Keep
             # the reservation until immutable provider usage data reconciles it.
@@ -209,6 +225,8 @@ class ProviderSpendAttemptHandler:
     ) -> JsonRecord:
         """Validate request construction before reserving shared spend."""
 
+        if self.replayable_attempt is not None:
+            return self.run_attempt(attempt_ordinal, call)
         preflight()
         return self.run_attempt(attempt_ordinal, call)
 
