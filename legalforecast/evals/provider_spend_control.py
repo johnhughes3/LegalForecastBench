@@ -82,6 +82,7 @@ class AdditionalAttemptPermit:
     journal_path_sha256: str
     max_total_attempts: int
     reservation_cap_microusd: int
+    provider_logical_call_scope_sha256: str | None = None
 
     def __post_init__(self) -> None:
         _sha256(self.logical_call_key, "logical_call_key")
@@ -89,6 +90,11 @@ class AdditionalAttemptPermit:
         _sha256(self.journal_path_sha256, "journal_path_sha256")
         _positive_int(self.max_total_attempts, "max_total_attempts")
         _positive_int(self.reservation_cap_microusd, "reservation_cap_microusd")
+        if self.provider_logical_call_scope_sha256 is not None:
+            _sha256(
+                self.provider_logical_call_scope_sha256,
+                "provider_logical_call_scope_sha256",
+            )
 
 
 @dataclass(frozen=True, slots=True)

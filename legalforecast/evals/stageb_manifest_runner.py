@@ -43,6 +43,9 @@ from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     load_model_registry,
 )
+from legalforecast.evals.provider_spend_attempt_handler import (
+    conservative_reservation_microusd,
+)
 from legalforecast.evals.provider_spend_control import (
     AdditionalAttemptPermit,
     FrozenAttemptPolicy,
@@ -68,6 +71,11 @@ from legalforecast.labeling.llm_pipeline import (
     _verified_stage_b_decisions,  # pyright: ignore[reportPrivateUsage]
     lawyer_review_queue_records,
     merge_llm_label_provider_shards,
+)
+from legalforecast.labeling.provider_journal import (
+    ProviderJournalError,
+    ReconstructionFailureEvidence,
+    provider_prompt_logical_call_scope,
 )
 from legalforecast.unitization.review import (
     LEGACY_FINALIZED_SCHEMA_VERSION,
@@ -120,24 +128,17 @@ CONTEXTUAL_OWNER_APPROVAL_CANDIDATE_SHA256 = (
 CONTEXTUAL_OWNER_APPROVAL_MISSING_UNIT_SHA256 = (
     "sha256:938d24db5ec4977e95abe92aad30b2fea018786d76a6fbc18e10df5930238fa2"
 )
-ADDITIONAL_ATTEMPT_CANDIDATE = "72213663"
-ADDITIONAL_ATTEMPT_PROVIDER = "openai"
-ADDITIONAL_ATTEMPT_MODEL_KEY = "openai:gpt-5.4-mini-2026-03-17"
-ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID = "b7f63c90-ca42-5a04-8590-4181be613ec1"
+ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID = "4dee40a6-efe9-57f8-9945-795b167e8591"
 ADDITIONAL_ATTEMPT_APPROVAL_TEXT = (
-    "Owner response received verbatim 2026-08-23: “ok botha pproved”\n\n"
-    "This response directly approves both immediately preceding requested decisions:\n"
-    "1. Candidate 69581167: preserve the newly discovered grievance-procedure "
-    "claim in the adjudication record, exclude only that omitted claim from Cycle "
-    "1 scoring, and keep the four frozen units scoreable.\n"
-    "2. Candidate 72213663: permit one additional GPT-5.4 mini attempt because "
-    "attempt 1 failed exact citation validation, estimated USD 0.02 and capped at "
-    "USD 0.05 for the additional attempt.\n\n"
-    "The quoted owner response is verbatim; the numbered scope is the operator "
-    "context to which “both” refers."
+    "2026-08-24 owner ruling: Stage B supporting-excerpt validation should not "
+    "block an otherwise valid document label. Add exactly one same-model repair "
+    "opportunity containing the validation failure and original submission; if "
+    "repair still cannot map supporting evidence, preserve structurally valid "
+    "labels and mark evidence unresolved/advisory. Invalid labels remain terminal. "
+    "Fastest Cycle 1 path: land current narrow provider-free recovery, resume "
+    "shards now, implement generalized repair without holding the run."
 )
 ADDITIONAL_ATTEMPT_MAX_TOTAL = 2
-ADDITIONAL_ATTEMPT_RESERVATION_CAP_MICROUSD = 50_000
 ADDITIONAL_ATTEMPT_FAILURE_TYPE = "LlmResponseValidationError"
 ADDITIONAL_ATTEMPT_FAILURE_MESSAGE = (
     "supporting_excerpt does not appear in decision text"
@@ -866,7 +867,7 @@ def _validate_frozen_unit_adjudication(
 
 
 def _additional_attempt_approval_id() -> str:
-    """Require the exact owner approval for the one-candidate exception."""
+    """Require the exact owner approval for one same-model repair."""
 
     try:
         completed = subprocess.run(
@@ -894,9 +895,7 @@ def _additional_attempt_approval_id() -> str:
         ):
             matches.append(comment)
     if len(matches) != 1:
-        raise StageBManifestError(
-            "exact 72213663 additional-attempt owner approval is missing"
-        )
+        raise StageBManifestError("exact Stage B repair owner approval is missing")
     return ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID
 
 
@@ -905,27 +904,20 @@ def _additional_attempt_permit(
     candidate_id: str,
     provider: str,
     account: str,
-    model_key: str,
+    registry_entry: ModelRegistryEntry,
     prompt: str,
     journal_path: Path,
     cycle_id: str,
 ) -> AdditionalAttemptPermit:
-    """Bind the approved exception to the exact Stage B call and journal."""
+    """Bind the approved repair to the exact Stage B call and journal."""
 
-    if (
-        candidate_id != ADDITIONAL_ATTEMPT_CANDIDATE
-        or provider != ADDITIONAL_ATTEMPT_PROVIDER
-        or model_key != ADDITIONAL_ATTEMPT_MODEL_KEY
-    ):
-        raise StageBManifestError(
-            "additional-attempt exception is bound only to OpenAI 72213663"
-        )
+    scope = provider_prompt_logical_call_scope(prompt)
     logical_key = ProviderSpendKey(
         cycle_id=cycle_id,
         provider=provider,
         account=account,
         stage="llm-label",
-        model_key=model_key,
+        model_key=registry_entry.registry_key,
         case_id=candidate_id,
         ablation="labeling",
         repeat_index=1,
@@ -937,7 +929,14 @@ def _additional_attempt_permit(
             str(journal_path.resolve()).encode("utf-8")
         ).hexdigest(),
         max_total_attempts=ADDITIONAL_ATTEMPT_MAX_TOTAL,
-        reservation_cap_microusd=ADDITIONAL_ATTEMPT_RESERVATION_CAP_MICROUSD,
+        reservation_cap_microusd=conservative_reservation_microusd(
+            context_limit=registry_entry.context_limit,
+            max_output_tokens=registry_entry.max_output_tokens,
+            input_token_price=registry_entry.input_token_price,
+            output_token_price=registry_entry.output_token_price,
+            long_context_surcharge=registry_entry.long_context_surcharge,
+        ),
+        provider_logical_call_scope_sha256=hashlib.sha256(scope.encode()).hexdigest(),
     )
 
 
@@ -1590,6 +1589,7 @@ def _existing_failure_result(
     registry_sha256: str,
     selection: Mapping[str, Any],
     allow_any_validation_failure: bool = False,
+    expected_error_message: str | None = None,
 ) -> JsonRecord:
     """Authenticate a preserved failed receipt before a new result receipt."""
 
@@ -1631,10 +1631,17 @@ def _existing_failure_result(
             f"existing failed result is not the approved citation-validation "
             f"failure: {path}"
         )
+    if (
+        expected_error_message is not None
+        and value.get("error_message") != expected_error_message
+    ):
+        raise StageBManifestError(
+            f"existing failed result differs from journal evidence: {path}"
+        )
     return dict(value)
 
 
-def _journal_has_reconstruction_failure(
+def _reconstruction_failure_evidence(
     *,
     journal_path: Path,
     candidate_id: str,
@@ -1644,8 +1651,8 @@ def _journal_has_reconstruction_failure(
     provider: str,
     raw_sha256: str,
     decision_sha256: str,
-) -> bool:
-    """Check for a retained response before attempting provider-free replay."""
+) -> ReconstructionFailureEvidence | None:
+    """Read the exact retained response and validation error, if present."""
 
     journal = _provider_attempt_journal(
         path=journal_path,
@@ -1665,9 +1672,46 @@ def _journal_has_reconstruction_failure(
         ),
     )
     if journal is None:
-        return False
+        return None
     with journal:
-        return journal.has_reconstruction_failure
+        if not journal.has_reconstruction_failure:
+            return None
+        try:
+            return journal.latest_reconstruction_recovery_evidence()
+        except ProviderJournalError as exc:
+            raise StageBManifestError(
+                "additional attempt lacks immutable journal evidence"
+            ) from exc
+
+
+def _additional_attempt_prompt(
+    *, original_prompt: str, evidence: ReconstructionFailureEvidence
+) -> str:
+    try:
+        normalized: object = json.loads(evidence.normalized_response_json)
+    except json.JSONDecodeError as exc:
+        raise StageBManifestError("journaled provider response is invalid") from exc
+    raw_output = (
+        cast(Mapping[str, object], normalized).get("raw_output")
+        if isinstance(normalized, Mapping)
+        else None
+    )
+    if not isinstance(raw_output, str):
+        raise StageBManifestError("journaled provider response lacks raw_output")
+    return json.dumps(
+        {
+            "instruction": "Return only corrected Stage B schema JSON.",
+            "original_authenticated_prompt": original_prompt,
+            "original_raw_submission": raw_output,
+            "validation_error": {
+                "type": evidence.failure_type,
+                "message": evidence.failure_message,
+            },
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        indent=2,
+    )
 
 
 def _authority_identity(
@@ -1753,6 +1797,11 @@ def _execute_provider(
         if owner_comment_ids is not None
         else (_owner_approval_ids() if additional_attempt_candidate is not None else ())
     )
+    if (
+        additional_attempt_candidate is not None
+        and ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID not in effective_owner_comment_ids
+    ):
+        raise StageBManifestError("additional attempt lacks exact owner approval")
     with SqliteProviderSpendAuthority(
         authority_path,
         authority_identity_sha256=_authority_identity(
@@ -1808,6 +1857,33 @@ def _execute_provider(
             retry_result_path = _additional_attempt_result_path(
                 output_root, provider, candidate_id
             )
+            call_prompt = prompt
+            call_scope: str | None = None
+            expected_error_message: str | None = None
+            if retry_enabled:
+                if not canonical_result_path.exists():
+                    raise StageBManifestError(
+                        "additional attempt requires canonical failed receipt"
+                    )
+                evidence = _reconstruction_failure_evidence(
+                    journal_path=journal_path,
+                    candidate_id=candidate_id,
+                    prompt=prompt,
+                    registry_entry=registry_entry,
+                    registry_sha256=registry_sha256,
+                    provider=provider,
+                    raw_sha256=raw_sha256,
+                    decision_sha256=decision_sha256,
+                )
+                if evidence is None:
+                    raise StageBManifestError(
+                        "additional attempt requires retained validation failure"
+                    )
+                call_prompt = _additional_attempt_prompt(
+                    original_prompt=prompt, evidence=evidence
+                )
+                call_scope = provider_prompt_logical_call_scope(call_prompt)
+                expected_error_message = evidence.failure_message
             prior: JsonRecord | None = None
             result_path = canonical_result_path
             recovery_enabled = False
@@ -1857,6 +1933,8 @@ def _execute_provider(
                     decision_sha256=decision_sha256,
                     registry_sha256=registry_sha256,
                     selection=selection,
+                    allow_any_validation_failure=True,
+                    expected_error_message=expected_error_message,
                 )
                 prior = _existing_result(
                     retry_result_path,
@@ -1872,7 +1950,7 @@ def _execute_provider(
                     selection=selection,
                     frozen_units=frozen_units,
                     decision_commitment=commitment,
-                    prompt=prompt,
+                    prompt=call_prompt,
                     frozen_unit_adjudication=adjudication,
                 )
                 result_path = retry_result_path
@@ -1909,6 +1987,8 @@ def _execute_provider(
                             decision_sha256=decision_sha256,
                             registry_sha256=registry_sha256,
                             selection=selection,
+                            allow_any_validation_failure=True,
+                            expected_error_message=expected_error_message,
                         )
                         result_path = retry_result_path
                     elif adjudication is None:
@@ -1929,15 +2009,18 @@ def _execute_provider(
                             )
                         except StageBManifestError:
                             raise existing_error from None
-                        if not _journal_has_reconstruction_failure(
-                            journal_path=journal_path,
-                            candidate_id=candidate_id,
-                            prompt=prompt,
-                            registry_entry=registry_entry,
-                            registry_sha256=registry_sha256,
-                            provider=provider,
-                            raw_sha256=raw_sha256,
-                            decision_sha256=decision_sha256,
+                        if (
+                            _reconstruction_failure_evidence(
+                                journal_path=journal_path,
+                                candidate_id=candidate_id,
+                                prompt=prompt,
+                                registry_entry=registry_entry,
+                                registry_sha256=registry_sha256,
+                                provider=provider,
+                                raw_sha256=raw_sha256,
+                                decision_sha256=decision_sha256,
+                            )
+                            is None
                         ):
                             raise existing_error
                         recovery_enabled = True
@@ -1955,8 +2038,8 @@ def _execute_provider(
                     candidate_id=candidate_id,
                     provider=provider,
                     account=account,
-                    model_key=registry_entry.registry_key,
-                    prompt=prompt,
+                    registry_entry=registry_entry,
+                    prompt=call_prompt,
                     journal_path=journal_path,
                     cycle_id="cycle-1-stage-b-manifest",
                 )
@@ -1974,15 +2057,13 @@ def _execute_provider(
                         decision_text=decision_text,
                         decision_text_commitment=commitment,
                         frozen_units=frozen_units,
-                        prompt=prompt,
+                        prompt=call_prompt,
                         registry_entry=registry_entry,
                         model_registry_sha256=registry_sha256,
                         transport=None,
                         environ=None,
                         timeout_seconds=120.0,
-                        max_provider_attempts=(
-                            ADDITIONAL_ATTEMPT_MAX_TOTAL if retry_enabled else 1
-                        ),
+                        max_provider_attempts=1,
                         additional_attempt_permit=additional_attempt_permit,
                         provider_journal_path=journal_path,
                         provider_cycle_cap_usd=PROVIDER_CAP_USD[provider],
@@ -2001,6 +2082,7 @@ def _execute_provider(
                         supporting_evidence_audit=(
                             supporting_evidence_audit if recovery_enabled else None
                         ),
+                        provider_logical_call_scope=call_scope,
                     )
                 )
             except Exception as exc:
@@ -2194,16 +2276,11 @@ def _validate_full_provider_shard(
     candidate_ids = {
         _required_str(selection, "candidate_id") for selection in selection_records
     }
-    retry_result_path = _additional_attempt_result_path(
-        output_root,
-        normalized_provider,
-        ADDITIONAL_ATTEMPT_CANDIDATE,
-    )
-    if (
-        normalized_provider == ADDITIONAL_ATTEMPT_PROVIDER
-        and registry_entry.registry_key == ADDITIONAL_ATTEMPT_MODEL_KEY
-        and ADDITIONAL_ATTEMPT_CANDIDATE in candidate_ids
-        and retry_result_path.exists()
+    if any(
+        _additional_attempt_result_path(
+            output_root, normalized_provider, candidate_id
+        ).exists()
+        for candidate_id in candidate_ids
     ):
         approval_id = _additional_attempt_approval_id()
         if approval_id not in expected_owner_comment_ids:
@@ -2301,6 +2378,7 @@ def _validate_full_provider_shard(
 
     expected_audits: list[JsonRecord] = []
     supporting_evidence_sidecars: dict[str, Mapping[str, Any]] = {}
+    repair_prompt_sha256s: dict[str, tuple[str, str]] = {}
     for candidate_id, selection in selections_by_candidate.items():
         frozen_units = tuple(units_by_candidate[candidate_id])
         decision_text, commitment = decisions_by_candidate[candidate_id]
@@ -2313,6 +2391,31 @@ def _validate_full_provider_shard(
         result_path = _preferred_result_path(
             output_root, normalized_provider, candidate_id
         )
+        result_prompt = prompt
+        if result_path == _additional_attempt_result_path(
+            output_root, normalized_provider, candidate_id
+        ):
+            evidence = _reconstruction_failure_evidence(
+                journal_path=journal_path,
+                candidate_id=candidate_id,
+                prompt=prompt,
+                registry_entry=registry_entry,
+                registry_sha256=registry_sha256,
+                provider=normalized_provider,
+                raw_sha256=raw_sha256,
+                decision_sha256=decision_sha256,
+            )
+            if evidence is None:
+                raise StageBManifestError(
+                    "additional-attempt result lacks original journal evidence"
+                )
+            result_prompt = _additional_attempt_prompt(
+                original_prompt=prompt, evidence=evidence
+            )
+            repair_prompt_sha256s[candidate_id] = (
+                "sha256:" + _raw_sha256(prompt.encode()),
+                "sha256:" + _raw_sha256(result_prompt.encode()),
+            )
         adjudication = provider_adjudications.get(candidate_id)
         if adjudication is not None:
             _validate_frozen_unit_adjudication(
@@ -2339,7 +2442,7 @@ def _validate_full_provider_shard(
             selection=selection,
             frozen_units=frozen_units,
             decision_commitment=commitment,
-            prompt=prompt,
+            prompt=result_prompt,
             frozen_unit_adjudication=(provider_adjudications.get(candidate_id)),
         )
         if result is None:
@@ -2531,7 +2634,8 @@ def _validate_full_provider_shard(
     for audit in expected_audits:
         candidate_id = _required_str(audit, "candidate_id")
         sidecar = supporting_evidence_sidecars.get(candidate_id)
-        if sidecar is None:
+        repair_hashes = repair_prompt_sha256s.get(candidate_id)
+        if sidecar is None and repair_hashes is None:
             merge_audits.append(audit)
             continue
         model_outputs_value = audit.get("model_outputs")
@@ -2555,14 +2659,24 @@ def _validate_full_provider_shard(
                 f"{normalized_provider}/{candidate_id}"
             )
         enriched_output = dict(cast(Mapping[str, Any], model_output_value))
-        enriched_output.update(
-            {
-                "supporting_evidence_status": sidecar["supporting_evidence_status"],
-                "supporting_evidence_affected_unit_ids": sidecar[
-                    "supporting_evidence_affected_unit_ids"
-                ],
-            }
-        )
+        if sidecar is not None:
+            enriched_output.update(
+                {
+                    "supporting_evidence_status": sidecar["supporting_evidence_status"],
+                    "supporting_evidence_affected_unit_ids": sidecar[
+                        "supporting_evidence_affected_unit_ids"
+                    ],
+                }
+            )
+        if repair_hashes is not None:
+            original_sha256, repair_sha256 = repair_hashes
+            enriched_output.update(
+                {
+                    "provider_prompt_scope": "repair",
+                    "original_provider_prompt_sha256": original_sha256,
+                    "repair_prompt_sha256": repair_sha256,
+                }
+            )
         enriched_audit = dict(audit)
         enriched_audit["model_outputs"] = [enriched_output]
         merge_audits.append(enriched_audit)
@@ -2793,14 +2907,6 @@ def run(args: argparse.Namespace) -> int:
         return 0
     additional_attempt_candidate = getattr(args, "additional_attempt_candidate", None)
     if additional_attempt_candidate is not None:
-        if provider != ADDITIONAL_ATTEMPT_PROVIDER:
-            raise StageBManifestError(
-                "additional-attempt exception requires the OpenAI shard"
-            )
-        if additional_attempt_candidate != ADDITIONAL_ATTEMPT_CANDIDATE:
-            raise StageBManifestError(
-                "additional-attempt exception is bound only to candidate 72213663"
-            )
         owner_comment_ids = (*owner_comment_ids, _additional_attempt_approval_id())
     if args.merge:
         if (
@@ -2935,7 +3041,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--candidate-id")
     parser.add_argument(
         "--additional-attempt-candidate",
-        help="Owner-approved second attempt for candidate 72213663 only.",
+        help=(
+            "Owner-approved one additional same-model attempt for one selected "
+            "failed Stage B candidate."
+        ),
     )
     parser.add_argument(
         "--merge",

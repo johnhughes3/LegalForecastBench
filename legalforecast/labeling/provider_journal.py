@@ -86,6 +86,8 @@ class ReconstructionFailureEvidence:
     attempt_ordinal: int
     raw_response_json: str
     normalized_response_json: str
+    failure_type: str
+    failure_message: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -1066,7 +1068,7 @@ class ProviderAttemptJournal:
         rows = self._connection.execute(
             """
             SELECT attempt_ordinal, status, raw_response_json,
-                   normalized_response_json, failure_type
+                   normalized_response_json, failure_type, failure_message
             FROM provider_attempts
             WHERE logical_call_key = ?
             ORDER BY attempt_ordinal DESC
@@ -1103,16 +1105,29 @@ class ProviderAttemptJournal:
             )
         raw_response_json = recoverable["raw_response_json"]
         normalized_response_json = recoverable["normalized_response_json"]
+        failure_type = recoverable["failure_type"]
+        failure_message = recoverable["failure_message"]
         if not isinstance(raw_response_json, str) or not isinstance(
             normalized_response_json, str
         ):
             raise ProviderJournalError(
                 "failed reconstruction lacks exact provider response evidence"
             )
+        if (
+            not isinstance(failure_type, str)
+            or not failure_type
+            or not isinstance(failure_message, str)
+            or not failure_message
+        ):
+            raise ProviderJournalError(
+                "failed reconstruction lacks exact validation-error evidence"
+            )
         return ReconstructionFailureEvidence(
             attempt_ordinal=int(recoverable["attempt_ordinal"]),
             raw_response_json=raw_response_json,
             normalized_response_json=normalized_response_json,
+            failure_type=failure_type,
+            failure_message=failure_message,
         )
 
     def repeated_identical_reconstruction_failure_evidence(
@@ -1177,6 +1192,8 @@ class ProviderAttemptJournal:
                     attempt_ordinal=int(row["attempt_ordinal"]),
                     raw_response_json=cast(str, row["raw_response_json"]),
                     normalized_response_json=cast(str, row["normalized_response_json"]),
+                    failure_type=cast(str, row["failure_type"]),
+                    failure_message=cast(str, row["failure_message"]),
                 )
                 for row in rows
             ),
@@ -1255,6 +1272,8 @@ class ProviderAttemptJournal:
                     attempt_ordinal=int(row["attempt_ordinal"]),
                     raw_response_json=cast(str, row["raw_response_json"]),
                     normalized_response_json=cast(str, row["normalized_response_json"]),
+                    failure_type=cast(str, row["failure_type"]),
+                    failure_message=cast(str, row["failure_message"]),
                 )
                 for row in rows
             ),

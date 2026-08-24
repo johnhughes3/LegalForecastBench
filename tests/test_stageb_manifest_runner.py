@@ -245,34 +245,77 @@ def test_additional_attempt_requires_exact_owner_comment(
 
 
 def test_additional_attempt_permit_binds_prompt_and_journal() -> None:
+    entry = cast(
+        Any,
+        SimpleNamespace(
+            registry_key=runner.MODEL_KEYS[1],
+            context_limit=1_048_576,
+            max_output_tokens=65_536,
+            input_token_price=0.5,
+            output_token_price=1.0,
+            long_context_surcharge=None,
+        ),
+    )
+    scope = runner.provider_prompt_logical_call_scope("exact repair prompt")
     permit = runner._additional_attempt_permit(  # pyright: ignore[reportPrivateUsage]
-        candidate_id=runner.ADDITIONAL_ATTEMPT_CANDIDATE,
-        provider=runner.ADDITIONAL_ATTEMPT_PROVIDER,
-        account="cycle1-openai",
-        model_key=runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
-        prompt="exact prompt",
-        journal_path=Path("/tmp/provider-attempts-openai.sqlite3"),
+        candidate_id="candidate-repair-google",
+        provider="google",
+        account="cycle1-google",
+        registry_entry=entry,
+        prompt="exact repair prompt",
+        journal_path=Path("/tmp/provider-attempts-google.sqlite3"),
         cycle_id="cycle-1-stage-b-manifest",
     )
 
     assert permit.max_total_attempts == 2
-    assert permit.reservation_cap_microusd == 50_000
-    with pytest.raises(runner.StageBManifestError, match="only to OpenAI"):
-        runner._additional_attempt_permit(  # pyright: ignore[reportPrivateUsage]
-            candidate_id="other",
-            provider=runner.ADDITIONAL_ATTEMPT_PROVIDER,
-            account="cycle1-openai",
-            model_key=runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
-            prompt="exact prompt",
-            journal_path=Path("/tmp/provider-attempts-openai.sqlite3"),
-            cycle_id="cycle-1-stage-b-manifest",
-        )
+    assert (
+        permit.provider_logical_call_scope_sha256
+        == hashlib.sha256(scope.encode()).hexdigest()
+    )
+    llm_pipeline._validate_additional_attempt_permit(  # pyright: ignore[reportPrivateUsage]
+        permit,
+        prompt="exact repair prompt",
+        provider_journal_path=Path("/tmp/provider-attempts-google.sqlite3"),
+        provider_logical_call_scope=scope,
+    )
     with pytest.raises(llm_pipeline.LlmPipelineError, match="prompt binding differs"):
         llm_pipeline._validate_additional_attempt_permit(  # pyright: ignore[reportPrivateUsage]
             permit,
             prompt="changed prompt",
-            provider_journal_path=Path("/tmp/provider-attempts-openai.sqlite3"),
+            provider_journal_path=Path("/tmp/provider-attempts-google.sqlite3"),
+            provider_logical_call_scope=scope,
         )
+
+
+def test_additional_attempt_help_describes_general_candidate_scope() -> None:
+    help_text = runner.build_parser().format_help()
+
+    assert "Owner-approved one additional same-model attempt" in help_text
+    assert "one selected failed Stage B candidate" in help_text
+    assert "72213663" not in help_text
+
+
+def test_additional_attempt_prompt_uses_exact_journal_evidence() -> None:
+    prompt = runner._additional_attempt_prompt(  # pyright: ignore[reportPrivateUsage]
+        original_prompt="authenticated prompt",
+        evidence=runner.ReconstructionFailureEvidence(
+            attempt_ordinal=1,
+            raw_response_json='{"response":"exact"}',
+            normalized_response_json='{"raw_output":"{\\"bad\\":true}"}',
+            failure_type="ValueError",
+            failure_message="unknown unit IDs: ['invented']",
+        ),
+    )
+
+    assert json.loads(prompt) == {
+        "instruction": "Return only corrected Stage B schema JSON.",
+        "original_authenticated_prompt": "authenticated prompt",
+        "original_raw_submission": '{"bad":true}',
+        "validation_error": {
+            "type": "ValueError",
+            "message": "unknown unit IDs: ['invented']",
+        },
+    }
 
 
 def _valid_result() -> tuple[dict[str, Any], dict[str, Any]]:
@@ -1173,10 +1216,23 @@ def test_retry_provider_shard_authenticates_its_extra_approval_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     result, context = _valid_result()
-    candidate_id = runner.ADDITIONAL_ATTEMPT_CANDIDATE
+    candidate_id = "candidate-repair-google"
     context["selection"]["candidate_id"] = candidate_id
     result["candidate_id"] = candidate_id
     cast(dict[str, Any], result["audit"])["candidate_id"] = candidate_id
+    evidence = runner.ReconstructionFailureEvidence(
+        attempt_ordinal=1,
+        raw_response_json='{"response":"exact"}',
+        normalized_response_json='{"raw_output":"{\\"bad\\":true}"}',
+        failure_type="ValueError",
+        failure_message="unknown unit IDs: ['invented']",
+    )
+    repair_prompt = runner._additional_attempt_prompt(  # pyright: ignore[reportPrivateUsage]
+        original_prompt=context["prompt"], evidence=evidence
+    )
+    cast(dict[str, Any], cast(dict[str, Any], result["audit"])["model_outputs"][0])[
+        "provider_prompt_sha256"
+    ] = "sha256:" + hashlib.sha256(repair_prompt.encode()).hexdigest()
     audit_payload = runner._canonical_jsonl(  # pyright: ignore[reportPrivateUsage]
         (cast(dict[str, Any], result["audit"]),)
     )
@@ -1258,6 +1314,9 @@ def test_retry_provider_shard_authenticates_its_extra_approval_only(
     monkeypatch.setattr(
         runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
     )
+    monkeypatch.setattr(
+        runner, "_reconstruction_failure_evidence", lambda **_: evidence
+    )
 
     audits, _ = runner._validate_full_provider_shard(  # pyright: ignore[reportPrivateUsage]
         output_root=tmp_path,
@@ -1277,7 +1336,11 @@ def test_retry_provider_shard_authenticates_its_extra_approval_only(
         adapted_records=(),
         owner_comment_ids=("spend", "terminal"),
     )
-    assert audits == (cast(dict[str, Any], result["audit"]),)
+    model_output = cast(dict[str, Any], audits[0]["model_outputs"][0])
+    assert model_output["provider_prompt_scope"] == "repair"
+    assert model_output["original_provider_prompt_sha256"] == (
+        "sha256:" + hashlib.sha256(context["prompt"].encode()).hexdigest()
+    )
 
     card = json.loads(card_path.read_text(encoding="utf-8"))
     card["owner_comment_ids"].append("unexpected-extra-approval")
@@ -1702,6 +1765,17 @@ def test_execute_provider_recovers_retained_failure_without_provider_retry(
         def close(self) -> None:
             return None
 
+        def latest_reconstruction_recovery_evidence(
+            self,
+        ) -> runner.ReconstructionFailureEvidence:
+            return runner.ReconstructionFailureEvidence(
+                attempt_ordinal=1,
+                raw_response_json='{"response":"exact"}',
+                normalized_response_json='{"raw_output":"{}"}',
+                failure_type="LlmPipelineError",
+                failure_message=runner.ADDITIONAL_ATTEMPT_FAILURE_MESSAGE,
+            )
+
     monkeypatch.setattr(runner, "_provider_attempt_journal", lambda **_: FakeJournal())
     monkeypatch.setattr(
         runner,
@@ -1935,7 +2009,7 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, context = _valid_result()
-    candidate_id = runner.ADDITIONAL_ATTEMPT_CANDIDATE
+    candidate_id = "candidate-repair-openai"
     context["selection"]["candidate_id"] = candidate_id
     output_root = tmp_path / "output"
     failure_path = output_root / "results/openai" / f"{candidate_id}.json"
@@ -1946,7 +2020,7 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
         "candidate_id": candidate_id,
         "case_id": "case-1",
         "provider": "openai",
-        "model_key": runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+        "model_key": runner.MODEL_KEYS[0],
         "model_registry_sha256": "registry",
         "raw_prediction_units_sha256": "raw",
         "raw_candidate_envelope_sha256": "envelope",
@@ -1954,7 +2028,7 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
         "provider_sampling_policy": "provider_default",
         "tools_enabled": False,
         "error_type": "LlmResponseValidationError",
-        "error_message": runner.ADDITIONAL_ATTEMPT_FAILURE_MESSAGE,
+        "error_message": "invalid amendment semantics",
     }
     failure_path.write_text(json.dumps(failure_payload), encoding="utf-8")
     before = failure_path.read_bytes()
@@ -1965,8 +2039,21 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
     entry = cast(
         Any,
         SimpleNamespace(
-            provider="openai", registry_key=runner.ADDITIONAL_ATTEMPT_MODEL_KEY
+            provider="openai",
+            registry_key=runner.MODEL_KEYS[0],
+            context_limit=400_000,
+            max_output_tokens=128_000,
+            input_token_price=0.75,
+            output_token_price=4.5,
+            long_context_surcharge=None,
         ),
+    )
+    evidence = runner.ReconstructionFailureEvidence(
+        attempt_ordinal=1,
+        raw_response_json='{"response":"exact"}',
+        normalized_response_json='{"raw_output":"{\\"bad\\":true}"}',
+        failure_type="ValueError",
+        failure_message="invalid amendment semantics",
     )
     monkeypatch.setattr(runner, "_validate_provider_environment", lambda _: None)
     monkeypatch.setattr(
@@ -1985,6 +2072,9 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
         runner, "_labeling_prompt", lambda *args, **kwargs: context["prompt"]
     )
     monkeypatch.setattr(runner, "_owner_approval_ids", lambda: ("spend", "terminal"))
+    monkeypatch.setattr(
+        runner, "_reconstruction_failure_evidence", lambda **_: evidence
+    )
     captured: dict[str, Any] = {}
 
     def fake_label(**kwargs: Any) -> tuple[list[Any], Any, int, int, str]:
@@ -2003,7 +2093,7 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
             ),
             0,
             0,
-            "sha256:" + hashlib.sha256(context["prompt"].encode()).hexdigest(),
+            "sha256:" + hashlib.sha256(kwargs["prompt"].encode()).hexdigest(),
         )
 
     monkeypatch.setattr(runner, "_llm_label_one_model", fake_label)
@@ -2031,8 +2121,18 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
     assert failure_path.read_bytes() == before
     retry_path = output_root / "results/openai" / f"{candidate_id}.attempt-2.json"
     assert retry_path.is_file()
-    assert captured["max_provider_attempts"] == 2
-    assert captured["additional_attempt_permit"].reservation_cap_microusd == 50_000
+    assert captured["max_provider_attempts"] == 1
+    assert captured["registry_entry"] is entry
+    assert captured["provider_logical_call_scope"] == (
+        runner.provider_prompt_logical_call_scope(captured["prompt"])
+    )
+    repair_payload = json.loads(captured["prompt"])
+    assert repair_payload["original_authenticated_prompt"] == context["prompt"]
+    assert repair_payload["original_raw_submission"] == '{"bad":true}'
+    assert repair_payload["validation_error"] == {
+        "type": "ValueError",
+        "message": "invalid amendment semantics",
+    }
     run_card = json.loads(
         (output_root / "openai-provider-shard-run-card.json").read_text()
     )
@@ -2041,6 +2141,45 @@ def test_approved_retry_preserves_attempt_one_failure_receipt(
         "terminal",
         runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
     ]
+
+    failed_attempt_two = dict(failure_payload)
+    failed_attempt_two["error_message"] = "repair remained invalid"
+    retry_path.write_text(json.dumps(failed_attempt_two), encoding="utf-8")
+    monkeypatch.setattr(
+        runner,
+        "_validate_provider_environment",
+        lambda _: pytest.fail("terminal repair must stop before credentials"),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_llm_label_one_model",
+        lambda **_: pytest.fail("terminal repair must not make a third call"),
+    )
+    with pytest.raises(
+        runner.StageBManifestError,
+        match="existing failed result requires frozen-unit adjudication",
+    ):
+        runner._execute_provider(  # pyright: ignore[reportPrivateUsage]
+            provider="openai",
+            output_root=output_root,
+            raw_path=tmp_path / "raw.jsonl",
+            decision_texts_path=tmp_path / "decision.jsonl",
+            artifact=artifact,
+            selection_records=(context["selection"],),
+            adapted_records=(),
+            registry_entry=entry,
+            registry_sha256="registry",
+            raw_sha256="raw",
+            decision_sha256="decision",
+            max_cases=None,
+            additional_attempt_candidate=candidate_id,
+            owner_comment_ids=(
+                "spend",
+                "terminal",
+                runner.ADDITIONAL_ATTEMPT_APPROVAL_COMMENT_ID,
+            ),
+        )
+    assert failure_path.read_bytes() == before
 
 
 @pytest.mark.parametrize(
@@ -2062,10 +2201,10 @@ def test_retry_rejects_nonapproved_failure_receipt(
             {
                 "schema_version": str(runner.STAGE_B_MANIFEST_PROVIDER_RESULT_V1),
                 "status": "failed",
-                "candidate_id": runner.ADDITIONAL_ATTEMPT_CANDIDATE,
+                "candidate_id": "candidate-1",
                 "case_id": "case-1",
                 "provider": "openai",
-                "model_key": runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+                "model_key": runner.MODEL_KEYS[0],
                 "model_registry_sha256": "registry",
                 "raw_prediction_units_sha256": "raw",
                 "raw_candidate_envelope_sha256": "envelope",
@@ -2085,9 +2224,9 @@ def test_retry_rejects_nonapproved_failure_receipt(
     ):
         runner._existing_failure_result(  # pyright: ignore[reportPrivateUsage]
             failure_path,
-            candidate_id=runner.ADDITIONAL_ATTEMPT_CANDIDATE,
+            candidate_id="candidate-1",
             provider="openai",
-            model_key=runner.ADDITIONAL_ATTEMPT_MODEL_KEY,
+            model_key=runner.MODEL_KEYS[0],
             raw_sha256="raw",
             raw_candidate_envelope_sha256="envelope",
             decision_sha256="decision",

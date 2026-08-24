@@ -2977,10 +2977,17 @@ def merge_llm_label_provider_shards(
         for entry in registry_entries:
             output = outputs_by_model[entry.registry_key]
             if output.get("provider_prompt_sha256") != prompt_sha256:
-                raise LlmPipelineError(
-                    f"provider shard prompt differs for "
-                    f"{candidate_id}/{entry.registry_key}"
+                repair_sha256 = output.get("repair_prompt_sha256")
+                is_repair = (
+                    output.get("provider_prompt_scope") == "repair"
+                    and output.get("original_provider_prompt_sha256") == prompt_sha256
+                    and repair_sha256 == output.get("provider_prompt_sha256")
                 )
+                if not is_repair:
+                    raise LlmPipelineError(
+                        f"provider shard prompt differs for "
+                        f"{candidate_id}/{entry.registry_key}"
+                    )
             labels = tuple(
                 _outcome_label(label)
                 for label in _record_sequence(output.get("labels"), "labels")
@@ -2993,7 +3000,11 @@ def merge_llm_label_provider_shards(
                     f"{candidate_id}/{entry.registry_key}"
                 )
             labels_by_model[entry.registry_key] = labels
-            model_outputs.append(dict(output))
+            persisted_output = dict(output)
+            persisted_output.pop("provider_prompt_scope", None)
+            persisted_output.pop("original_provider_prompt_sha256", None)
+            persisted_output.pop("repair_prompt_sha256", None)
+            model_outputs.append(persisted_output)
             evidence_status = output.get("supporting_evidence_status")
             affected_value = output.get("supporting_evidence_affected_unit_ids")
             if evidence_status is None:
@@ -3285,6 +3296,7 @@ def _llm_label_one_model(
     replay_only: bool = False,
     additional_attempt_permit: AdditionalAttemptPermit | None = None,
     supporting_evidence_audit: JsonRecord | None = None,
+    provider_logical_call_scope: str | None = None,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
     prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
@@ -3300,6 +3312,7 @@ def _llm_label_one_model(
         cycle_cap_usd=provider_cycle_cap_usd,
         cycle_id=provider_cycle_id,
         provider_cycle_caps_sha256=provider_cycle_caps_sha256,
+        provider_logical_call_scope=provider_logical_call_scope,
     )
     try:
         if additional_attempt_permit is not None:
@@ -3307,6 +3320,7 @@ def _llm_label_one_model(
                 additional_attempt_permit,
                 prompt=prompt,
                 provider_journal_path=provider_journal_path,
+                provider_logical_call_scope=provider_logical_call_scope,
             )
         replayed_reconstruction = False
         advisory_reconstruction = False
@@ -4065,6 +4079,7 @@ def _validate_additional_attempt_permit(
     *,
     prompt: str,
     provider_journal_path: str | Path | None,
+    provider_logical_call_scope: str | None = None,
 ) -> None:
     """Fail closed when an exception permit is reused for another prompt/journal."""
 
@@ -4080,6 +4095,21 @@ def _validate_additional_attempt_permit(
         raise LlmPipelineError("additional-attempt permit prompt binding differs")
     if permit.journal_path_sha256 != journal_path_sha256:
         raise LlmPipelineError("additional-attempt permit journal binding differs")
+    scope_sha256 = permit.provider_logical_call_scope_sha256
+    if scope_sha256 is None:
+        if provider_logical_call_scope is not None:
+            raise LlmPipelineError(
+                "additional-attempt permit lacks logical-call scope binding"
+            )
+        return
+    if (
+        provider_logical_call_scope != provider_prompt_logical_call_scope(prompt)
+        or scope_sha256
+        != hashlib.sha256(str(provider_logical_call_scope).encode()).hexdigest()
+    ):
+        raise LlmPipelineError(
+            "additional-attempt permit logical-call scope binding differs"
+        )
 
 
 def _labeling_prompt(
