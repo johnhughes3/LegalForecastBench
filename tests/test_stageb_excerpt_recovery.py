@@ -900,6 +900,16 @@ def test_stage_b_local_markdown_recovery_ignores_unrelated_malformed_text() -> N
     )
 
 
+def test_stage_b_exact_excerpt_ignores_unrelated_unmatched_marker() -> None:
+    decision_text = (
+        "An unrelated malformed marker * appears before the sentence.\n"
+        "Therefore, Plaintiff fails to state a First Amendment Bivens claim."
+    )
+    excerpt = "Therefore, Plaintiff fails to state a First Amendment Bivens claim."
+
+    assert cast(Any, llm_pipeline)._coerced_excerpt(decision_text, excerpt) == excerpt
+
+
 @pytest.mark.parametrize(
     "decision_text",
     [

@@ -5988,20 +5988,32 @@ def _coerced_excerpt_from_rendered_markdown(text: str, excerpt: str) -> str | No
 
 def _coerced_excerpt(text: str, excerpt: str) -> str:
     stripped = excerpt.strip()
-    local_markdown_recovery = _coerced_excerpt_without_single_markdown_emphasis(
-        text, stripped
+    exact_offset = text.find(stripped)
+    exact_match_omits_line_number = (
+        exact_offset >= 0 and _omits_unqualified_pdf_line_number(text, exact_offset)
     )
-    if local_markdown_recovery is not None:
-        return local_markdown_recovery
-    if _has_intraword_single_markdown_pair(text) or _single_markdown_candidate_count(
-        text, stripped
-    ):
-        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+    if exact_offset >= 0 and not exact_match_omits_line_number:
+        # An authenticated exact occurrence is stronger than any presentation
+        # recovery elsewhere in the document.  In particular, unrelated
+        # malformed markers must not invalidate a citation that needs no
+        # coercion at all.
+        return stripped
+    if exact_offset < 0:
+        local_markdown_recovery = _coerced_excerpt_without_single_markdown_emphasis(
+            text, stripped
+        )
+        if local_markdown_recovery is not None:
+            return local_markdown_recovery
+        if _has_intraword_single_markdown_pair(
+            text
+        ) or _single_markdown_candidate_count(text, stripped):
+            raise LlmPipelineError(
+                "supporting_excerpt does not appear in decision text"
+            )
     rendered_markdown_recovery = _coerced_excerpt_from_rendered_markdown(text, stripped)
     if rendered_markdown_recovery is not None:
         return rendered_markdown_recovery
-    exact_offset = text.find(stripped)
-    if exact_offset >= 0 and _omits_unqualified_pdf_line_number(text, exact_offset):
+    if exact_match_omits_line_number:
         raise LlmPipelineError("supporting_excerpt does not appear in decision text")
     if exact_offset >= 0:
         return stripped
