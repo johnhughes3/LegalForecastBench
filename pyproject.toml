@@ -34,7 +34,7 @@ legalforecast-exact100-successor-v3 = "legalforecast.ingestion.exact100_successo
 
 [project.optional-dependencies]
 claude-agent-sdk-adapter = [
-    "claude-agent-sdk==0.2.140",
+    "claude-agent-sdk==0.2.143",
 ]
 tier0-judge-adapter = [
     "anthropic==0.116.0",
@@ -43,7 +43,7 @@ tier0-judge-adapter = [
 [dependency-groups]
 dev = [
   "interrogate>=1.7.0",
-  "openai==3.3.0",
+  "openai==3.3.1",
   "pyright>=1.1.409",
   "pytest>=8.4",
   "pytest-cov>=7.1.0",
