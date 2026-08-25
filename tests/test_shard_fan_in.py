@@ -478,7 +478,9 @@ def test_fan_in_uses_downloaded_manifest_run_root_and_staged_bundle_hash(
     }
     monkeypatch.setattr(shard_fan_in, "verify_freeze_bundle", fake_verify_freeze_bundle)
     monkeypatch.setattr(shard_fan_in, "load_json_object", lambda *_args: execution)
-    monkeypatch.setattr(shard_fan_in, "execution_policy_content", lambda value: value)
+    monkeypatch.setattr(
+        shard_fan_in, "official_execution_policy_content", lambda value: value
+    )
     monkeypatch.setattr(shard_fan_in, "policy_content_sha256", lambda _value: "e" * 64)
 
     config = shard_fan_in.FanInConfig(

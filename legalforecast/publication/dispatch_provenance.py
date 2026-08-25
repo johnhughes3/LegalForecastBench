@@ -44,13 +44,13 @@ def build_shard_concurrency_group(
 
     from legalforecast.protocol.policy_artifacts import (
         PolicyArtifactError,
-        execution_policy_content,
-        verify_execution_policy,
+        official_execution_policy_content,
+        verify_official_execution_policy,
     )
 
     try:
-        verify_execution_policy(execution_policy_artifact)
-        policy = execution_policy_content(execution_policy_artifact)
+        verify_official_execution_policy(execution_policy_artifact)
+        policy = official_execution_policy_content(execution_policy_artifact)
     except PolicyArtifactError as exc:
         raise DispatchProvenanceError(f"invalid execution policy: {exc}") from exc
     declared_shards = _declared_shards_from_policy(policy)
@@ -550,16 +550,16 @@ def _load_execution_policy(
         raise DispatchProvenanceError("execution policy must be a JSON object")
     from legalforecast.protocol.policy_artifacts import (
         PolicyArtifactError,
-        execution_policy_content,
-        verify_execution_policy,
+        official_execution_policy_content,
+        verify_official_execution_policy,
     )
 
     try:
-        verify_execution_policy(
+        verify_official_execution_policy(
             cast(Mapping[str, Any], raw),
             expected_cycle_id=expected_cycle_id,
         )
-        return execution_policy_content(cast(Mapping[str, Any], raw))
+        return official_execution_policy_content(cast(Mapping[str, Any], raw))
     except PolicyArtifactError as exc:
         raise DispatchProvenanceError(f"invalid execution policy: {exc}") from exc
 

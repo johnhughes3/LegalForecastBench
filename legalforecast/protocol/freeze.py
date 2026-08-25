@@ -311,6 +311,28 @@ def write_hash_bundle(
     return record
 
 
+def write_hash_bundle_create_only(
+    path: str | Path,
+    bundle: FreezeBundle,
+    *,
+    root_path: str | Path | None = None,
+) -> Mapping[str, Any]:
+    """Durably publish a final hash bundle without replacing any destination."""
+
+    from legalforecast.immutable_io import ImmutableIOError, write_file_create_only
+
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    root = Path(root_path) if root_path is not None else None
+    record = bundle.to_record(root_path=root)
+    payload = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    try:
+        write_file_create_only(output_path, payload)
+    except ImmutableIOError as exc:
+        raise FreezeProtocolError(f"cannot create final freeze bundle: {exc}") from exc
+    return record
+
+
 def load_freeze_bundle(
     path: str | Path,
     *,
@@ -704,8 +726,9 @@ def cli_freeze(argv: Sequence[str]) -> int:
                 if args.timestamp is not None
                 else None
             ),
-            bundle_output_path=bundle_output,
+            bundle_output_path=None,
         )
+        write_hash_bundle_create_only(bundle_output, bundle)
     except (FreezeProtocolError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -928,11 +951,11 @@ def _verify_policy_artifact_links(
     )
     from legalforecast.protocol.policy_artifacts import (
         PolicyArtifactError,
-        execution_policy_content,
         find_values,
         load_json_object,
-        verify_execution_policy,
+        official_execution_policy_content,
         verify_labeling_policy,
+        verify_official_execution_policy,
     )
 
     execution_artifact = load_json_object(
@@ -945,7 +968,7 @@ def _verify_policy_artifact_links(
         by_name[FrozenArtifactName.COHORT_POLICY].path, "cohort policy"
     )
     try:
-        verify_execution_policy(execution_artifact, expected_cycle_id=cycle_id)
+        verify_official_execution_policy(execution_artifact, expected_cycle_id=cycle_id)
         verify_labeling_policy(labeling_artifact, expected_cycle_id=cycle_id)
         verify_cohort_policy(cohort_artifact)
         provider_cycle_caps = load_provider_cycle_caps(
@@ -954,7 +977,7 @@ def _verify_policy_artifact_links(
     except (PolicyArtifactError, CohortPolicyError, ProviderJournalError) as exc:
         raise FreezeProtocolError(f"invalid policy artifact: {exc}") from exc
 
-    execution = execution_policy_content(execution_artifact)
+    execution = official_execution_policy_content(execution_artifact)
     labeling = cast(Mapping[str, Any], labeling_artifact["policy"])
     cohort = cast(Mapping[str, Any], cohort_artifact["policy"])
     if cohort.get("cycle_id") != cycle_id:

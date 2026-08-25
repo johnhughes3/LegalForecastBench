@@ -15,6 +15,7 @@ from legalforecast.protocol.freeze import (
     verify_freeze_bundle,
     verify_no_freeze_drift,
     write_hash_bundle,
+    write_hash_bundle_create_only,
 )
 from legalforecast.protocol.manifest import (
     MANIFEST_SCHEMA_VERSION,
@@ -37,10 +38,12 @@ from legalforecast.protocol.policy_artifacts import (
     generate_execution_policy_v2,
     generate_labeling_policy,
     labeling_policy_content,
+    official_execution_policy_content,
     require_dispatch_policy_match,
     verify_execution_policy,
     verify_execution_policy_v2,
     verify_labeling_policy,
+    verify_official_execution_policy,
     write_execution_policy,
     write_labeling_policy,
 )
@@ -74,6 +77,7 @@ __all__ = [
     "hash_records",
     "labeling_policy_content",
     "load_freeze_bundle",
+    "official_execution_policy_content",
     "require_dispatch_policy_match",
     "sha256_file",
     "verify_execution_policy",
@@ -81,7 +85,9 @@ __all__ = [
     "verify_freeze_bundle",
     "verify_labeling_policy",
     "verify_no_freeze_drift",
+    "verify_official_execution_policy",
     "write_execution_policy",
     "write_hash_bundle",
+    "write_hash_bundle_create_only",
     "write_labeling_policy",
 ]

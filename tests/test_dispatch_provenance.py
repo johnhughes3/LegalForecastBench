@@ -244,25 +244,39 @@ def test_frozen_policy_builds_exact_workflow_concurrency_group(
     assert _workflow_group(("fixture:model-a",), ("full_packet",)) in groups
 
 
-def test_legacy_dispatch_rejects_deferred_execution_policy_v2(
+def test_official_dispatch_accepts_authenticated_execution_policy_v2(
     tmp_path: Path,
 ) -> None:
-    _write_sharded_bundle(tmp_path)
-    v1 = json.loads((tmp_path / "execution-policy.json").read_text(encoding="utf-8"))
-    decisions = dict(v1["policy"])
-    decisions["lifecycle"] = {
-        "labeling_policy_published_at": "2026-07-12T20:00:00Z",
-        "production_labeling_started_at": "2026-07-13T00:00:00Z",
-    }
-    v2 = generate_execution_policy_v2(decisions)
+    bundle_path, _ = _write_sharded_bundle(tmp_path, policy_version=2)
+    v2 = json.loads((tmp_path / "execution-policy.json").read_text(encoding="utf-8"))
 
-    with pytest.raises(DispatchProvenanceError, match="schema version"):
-        build_shard_concurrency_group(
-            execution_policy_artifact=v2,
-            workflow_ref="refs/heads/main",
-            model_key="fixture:model-a",
-            ablation="full_packet",
-        )
+    group = build_shard_concurrency_group(
+        execution_policy_artifact=v2,
+        workflow_ref="refs/heads/main",
+        model_key="fixture:model-a",
+        ablation="full_packet",
+    )
+
+    assert group == _workflow_group(("fixture:model-a",), ("full_packet",))
+
+    record = build_dispatch_provenance(
+        current_freeze_bundle_path=bundle_path,
+        candidate_freeze_bundle_paths=(bundle_path,),
+        root_path=tmp_path,
+        current_model_registry_path=tmp_path / "root-registry.json",
+        prior_dispatches=(),
+        current_workflow_run_id="1001",
+        current_workflow_run_attempt=1,
+        current_workflow_ref="refs/heads/main",
+        current_concurrency_group=group,
+        requested_model_keys=("fixture:model-a",),
+        requested_ablations=("full_packet",),
+        shard_only=True,
+    )
+    assert (
+        record["execution_policy_artifact_sha256"]
+        == hashlib.sha256((tmp_path / "execution-policy.json").read_bytes()).hexdigest()
+    )
 
 
 @pytest.mark.parametrize(
@@ -606,69 +620,77 @@ def _write_bundle(
     return bundle_path, bundle_sha
 
 
-def _write_sharded_bundle(tmp_path: Path) -> tuple[Path, str]:
+def _write_sharded_bundle(
+    tmp_path: Path, *, policy_version: int = 1
+) -> tuple[Path, str]:
     registry_records = [_registry_entry(f"model-{model}") for model in "abcd"]
     registry_path = tmp_path / "root-registry.json"
     registry_bytes = (
         json.dumps(registry_records, indent=2, sort_keys=True) + "\n"
     ).encode()
     registry_path.write_bytes(registry_bytes)
-    execution_policy = generate_execution_policy(
-        {
-            "cycle_id": "cycle-1",
-            "cycle_series": "official",
-            "allow_no_baselines": True,
-            "labeling_policy_sha256": "a" * 64,
-            "cohort_policy_sha256": "b" * 64,
-            "cohort_observation_manifest_sha256": "c" * 64,
-            "lifecycle": {
-                "labeling_policy_published_at": "2026-07-12T20:00:00Z",
-                "production_labeling_started_at": "2026-07-13T00:00:00Z",
-                "cohort_policy_published_at": "2026-07-12T19:00:00Z",
-                "batch_002_started_at": "2026-07-12T21:00:00Z",
-            },
-            "shard_schedule": {
-                "shard_count": 8,
-                "dispatch_unit": "model_key_ablation",
-                "shards": [
-                    {"model_key": f"fixture:model-{model}", "ablation": ablation}
-                    for model in "abcd"
-                    for ablation in ("full_packet", "metadata_only")
-                ],
-            },
-            "concurrency_policy": {
-                "mode": "shard_identity",
-                "identity_fields": ["cycle_id", "model_key", "ablation"],
-            },
-            "receipt_policy": {
-                "write_once_per_attempt": True,
-                "identity_fields": ["workflow_run_id", "workflow_run_attempt"],
-                "result_commitment_required": True,
-            },
-            "attempt_policy": {
-                "authority_backend": "dynamodb",
-                "authority_resource_identity_sha256": "e" * 64,
-                "ledger_scope_fields": ["cycle_id", "provider", "account"],
-                "provider_account_caps": [
-                    {
-                        "provider": "openai",
-                        "account": "primary",
-                        "cap_microusd": 1_000_000_000,
-                    }
-                ],
-                "reservation_ledger_sha256": "d" * 64,
-                "max_billable_attempts": 2,
-                "failure_threshold": 3,
-                "failure_window_seconds": 300,
-            },
-            "repeat_policy": {"case_ids": ["case-1", "case-2"], "count": 2},
-            "cadence_counts": {
-                "clean_motion_count_source": "frozen_manifest",
-                "prediction_unit_count_source": "frozen_units",
-                "reject_operator_mismatch": True,
-            },
+    decisions = {
+        "cycle_id": "cycle-1",
+        "cycle_series": "official",
+        "allow_no_baselines": True,
+        "labeling_policy_sha256": "a" * 64,
+        "cohort_policy_sha256": "b" * 64,
+        "cohort_observation_manifest_sha256": "c" * 64,
+        "lifecycle": {
+            "labeling_policy_published_at": "2026-07-12T20:00:00Z",
+            "production_labeling_started_at": "2026-07-13T00:00:00Z",
+            "cohort_policy_published_at": "2026-07-12T19:00:00Z",
+            "batch_002_started_at": "2026-07-12T21:00:00Z",
+        },
+        "shard_schedule": {
+            "shard_count": 8,
+            "dispatch_unit": "model_key_ablation",
+            "shards": [
+                {"model_key": f"fixture:model-{model}", "ablation": ablation}
+                for model in "abcd"
+                for ablation in ("full_packet", "metadata_only")
+            ],
+        },
+        "concurrency_policy": {
+            "mode": "shard_identity",
+            "identity_fields": ["cycle_id", "model_key", "ablation"],
+        },
+        "receipt_policy": {
+            "write_once_per_attempt": True,
+            "identity_fields": ["workflow_run_id", "workflow_run_attempt"],
+            "result_commitment_required": True,
+        },
+        "attempt_policy": {
+            "authority_backend": "dynamodb",
+            "authority_resource_identity_sha256": "e" * 64,
+            "ledger_scope_fields": ["cycle_id", "provider", "account"],
+            "provider_account_caps": [
+                {
+                    "provider": "openai",
+                    "account": "primary",
+                    "cap_microusd": 1_000_000_000,
+                }
+            ],
+            "reservation_ledger_sha256": "d" * 64,
+            "max_billable_attempts": 2,
+            "failure_threshold": 3,
+            "failure_window_seconds": 300,
+        },
+        "repeat_policy": {"case_ids": ["case-1", "case-2"], "count": 2},
+        "cadence_counts": {
+            "clean_motion_count_source": "frozen_manifest",
+            "prediction_unit_count_source": "frozen_units",
+            "reject_operator_mismatch": True,
+        },
+    }
+    if policy_version == 2:
+        decisions["lifecycle"] = {
+            "labeling_policy_published_at": "2026-07-12T20:00:00Z",
+            "production_labeling_started_at": "2026-07-13T00:00:00Z",
         }
-    )
+        execution_policy = generate_execution_policy_v2(decisions)
+    else:
+        execution_policy = generate_execution_policy(decisions)
     execution_path = tmp_path / "execution-policy.json"
     execution_bytes = (
         json.dumps(execution_policy, sort_keys=True, separators=(",", ":")) + "\n"

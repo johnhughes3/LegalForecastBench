@@ -7988,7 +7988,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-l8qv.9",
         "fan_in": 10,
-        "fan_out": 7,
+        "fan_out": 8,
         "flags": [
           "oversized"
         ],
@@ -7996,9 +7996,9 @@
         "largest_symbol": "_verify_policy_artifact_links",
         "largest_symbol_lines": 100,
         "layer": "domain",
-        "line_count": 1285,
-        "nonblank_line_count": 1122,
-        "top_level_definition_count": 55
+        "line_count": 1308,
+        "nonblank_line_count": 1141,
+        "top_level_definition_count": 56
       },
       "legalforecast/protocol/manifest.py": {
         "cycle_id": "",
@@ -8030,9 +8030,9 @@
         "largest_symbol": "_validated_execution_policy",
         "largest_symbol_lines": 250,
         "layer": "domain",
-        "line_count": 847,
-        "nonblank_line_count": 734,
-        "top_level_definition_count": 41
+        "line_count": 935,
+        "nonblank_line_count": 805,
+        "top_level_definition_count": 47
       },
       "legalforecast/publication/accounting.py": {
         "cycle_id": "",
@@ -9835,10 +9835,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "_write_sharded_bundle",
-        "largest_symbol_lines": 96,
+        "largest_symbol_lines": 104,
         "layer": "test",
-        "line_count": 721,
-        "nonblank_line_count": 661,
+        "line_count": 743,
+        "nonblank_line_count": 681,
         "top_level_definition_count": 19
       },
       "tests/test_docket_decision_text_source.py": {
@@ -11118,9 +11118,9 @@
         "largest_symbol": "test_policy_generator_and_verifier_clis_round_trip",
         "largest_symbol_lines": 115,
         "layer": "test",
-        "line_count": 680,
-        "nonblank_line_count": 590,
-        "top_level_definition_count": 28
+        "line_count": 717,
+        "nonblank_line_count": 622,
+        "top_level_definition_count": 29
       },
       "tests/test_protocol_freeze.py": {
         "cycle_id": "",
@@ -11704,8 +11704,8 @@
         "largest_symbol": "test_s3_publication_claims_and_conditionally_writes_protected_snapshot",
         "largest_symbol_lines": 103,
         "layer": "test",
-        "line_count": 1600,
-        "nonblank_line_count": 1437,
+        "line_count": 1602,
+        "nonblank_line_count": 1439,
         "top_level_definition_count": 45
       },
       "tests/test_shard_receipt.py": {
