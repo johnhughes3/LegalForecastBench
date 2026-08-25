@@ -1811,6 +1811,7 @@ def _solver_for_config(
         max_output_tokens=registry_entry.max_output_tokens,
         input_token_price=registry_entry.input_token_price,
         output_token_price=registry_entry.output_token_price,
+        long_context_surcharge=registry_entry.long_context_surcharge,
     )
 
     def attempt_handler_factory(request: Any) -> ProviderSpendAttemptHandler:

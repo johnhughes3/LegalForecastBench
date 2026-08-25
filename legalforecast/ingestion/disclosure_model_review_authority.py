@@ -379,6 +379,7 @@ def _execution_context(
         max_output_tokens=reviewer.max_output_tokens,
         input_token_price=reviewer.input_token_price,
         output_token_price=reviewer.output_token_price,
+        long_context_surcharge=reviewer.long_context_surcharge,
     )
     authority_identity = _sha256(
         _canonical_bytes(

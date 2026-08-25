@@ -18,6 +18,7 @@ from types import TracebackType
 from typing import Self, cast
 
 from legalforecast.evals.live_model_solver import LiveModelProviderError
+from legalforecast.evals.model_registry import LongContextSurcharge
 from legalforecast.immutable_io import ImmutableIOError, read_single_link_file
 
 JsonRecord = Mapping[str, object]
@@ -1669,10 +1670,17 @@ def maximum_call_cost_usd(
     max_output_tokens: int,
     input_token_price: float,
     output_token_price: float,
+    long_context_surcharge: LongContextSurcharge | None = None,
 ) -> float:
     """Return a conservative per-attempt reservation from frozen registry prices."""
 
     max_input_tokens = max(context_limit - max_output_tokens, 0)
+    if (
+        long_context_surcharge is not None
+        and max_input_tokens > long_context_surcharge.threshold_input_tokens
+    ):
+        input_token_price *= long_context_surcharge.input_price_multiplier
+        output_token_price *= long_context_surcharge.output_price_multiplier
     return (
         max_input_tokens * input_token_price + max_output_tokens * output_token_price
     ) / 1_000_000
