@@ -878,8 +878,11 @@ That environment contains the one secret `LFB_INFRA_PLAN_AGE_IDENTITY` and only 
 - `LFB_GITHUB_OIDC_PROVIDER_ARN`
 - `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256`
 - `LFB_PROVIDER_AUTHORITY_TABLE_ARN`
+- `LFB_ARTIFACTS_KMS_KEY_ARN`
 - `LFB_PACKET_BUCKET`
+- `LFB_PACKET_LIFECYCLE_RULE_ID`
 - `LFB_RESULTS_BUCKET`
+- `LFB_RESULTS_LIFECYCLE_RULE_ID`
 
 It contains no provider key, baton identity, AWS access key, evaluation role, freeze authority, or dispatch credential.
 The packet and result bucket variables are exact protected Terraform inputs, not credentials; the workflow commits to them without publishing their names.
