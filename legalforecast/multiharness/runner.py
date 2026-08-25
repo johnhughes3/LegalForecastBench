@@ -14,13 +14,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.multiharness.release_harness as release_harness
 from legalforecast._json_io import (
-    read_json_object,
-    write_json_object,
-    write_jsonl_objects,
+    read_json_object_safe,
+    write_json_object_safe,
+    write_jsonl_objects_safe,
 )
+from legalforecast.contracts import FORECAST_RELEASE_V1
 from legalforecast.evals.inspect_task import HarnessSolver
 from legalforecast.evals.packet_builder import ModelPacket
+from legalforecast.immutable_io import (
+    ImmutableIOError,
+    ensure_private_directory,
+    read_single_link_file,
+    write_file_replace_safe,
+)
 from legalforecast.multiharness.adapters import HarnessAdapter, LiveToolAdapter
 from legalforecast.multiharness.artifacts import AdapterRunResult
 from legalforecast.multiharness.auth_profiles import (
@@ -47,6 +55,11 @@ from legalforecast.multiharness.lfb_native import LfbNativeAdapter
 from legalforecast.multiharness.process_containment import (
     preflight_process_containment,
 )
+from legalforecast.multiharness.release_adapters import (
+    NEUTRAL_FIXTURE_ADAPTER_ID,
+    NativeReleaseAdapter,
+    NeutralApiFixtureAdapter,
+)
 from legalforecast.multiharness.run_progress import (
     CLAIM_PARTIAL,
     IdentityBinding,
@@ -67,9 +80,10 @@ from legalforecast.multiharness.sandbox import (
 )
 from legalforecast.multiharness.selection import SelectionResult, TaskSelection
 from legalforecast.multiharness.solver_inputs import (
-    SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION,
+    PreparedSolverInput,
     SolverInputEntry,
     SolverInputStore,
+    prepare_solver_input,
 )
 from legalforecast.multiharness.spec import (
     POSIX_PROCESS_GROUP_CONTAINMENT,
@@ -92,6 +106,8 @@ from legalforecast.multiharness.validation import (
 
 INCOMPLETE_RUN_POLICIES = frozenset({"record_failure", "fail_fast"})
 CONTAINER_EXECUTION_MODES = frozenset({"plan_only", "live_tools"})
+_FORECAST_RELEASE_SCHEMA_VERSION = str(FORECAST_RELEASE_V1)
+_OPENAI_RELEASE_ADAPTER_ID = "openai-responses-baseline"
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,6 +301,13 @@ def run_multi_harness(config: MultiHarnessRunConfig) -> MultiHarnessRun:
     return _MultiHarnessRunner(config).run()
 
 
+def _ensure_private_run_directory(path: Path) -> Path:
+    try:
+        return ensure_private_directory(path)
+    except ImmutableIOError as exc:
+        raise ValueError(str(exc)) from exc
+
+
 def validate_provider_environment_scope(
     *,
     sandbox_policy: SandboxPolicy,
@@ -307,16 +330,119 @@ def validate_provider_environment_scope(
         )
 
 
+def _validate_live_release_adapter_routes(
+    *,
+    container_execution: str,
+    tasks: Sequence[CanonicalTask],
+    adapters: Sequence[HarnessAdapter],
+    model_configs: Sequence[ModelConfig],
+) -> None:
+    if container_execution != "live_tools" or not any(
+        task.metadata.get("release_schema_version") == _FORECAST_RELEASE_SCHEMA_VERSION
+        for task in tasks
+    ):
+        return
+    routed_adapter_ids = {
+        adapter.manifest.adapter_id
+        for adapter in adapters
+        if any(
+            model.adapter_id in {None, adapter.manifest.adapter_id}
+            for model in model_configs
+        )
+    }
+    unsupported = sorted(routed_adapter_ids.difference({_OPENAI_RELEASE_ADAPTER_ID}))
+    if unsupported:
+        raise ValueError(
+            "live forecast-release.v1 execution supports only "
+            f"{_OPENAI_RELEASE_ADAPTER_ID}; unsupported adapter route(s): "
+            + ", ".join(unsupported)
+        )
+
+
+def _validate_known_release_adapter_routes(
+    *,
+    tasks: Sequence[CanonicalTask],
+    adapters: Sequence[HarnessAdapter],
+    model_configs: Sequence[ModelConfig],
+) -> None:
+    """Reject known release routes before creating any run artifacts."""
+
+    if not any(
+        task.metadata.get("release_schema_version") == _FORECAST_RELEASE_SCHEMA_VERSION
+        for task in tasks
+    ):
+        return
+    if not any(
+        isinstance(adapter, LfbNativeAdapter)
+        and any(
+            model.adapter_id in {None, adapter.manifest.adapter_id}
+            for model in model_configs
+        )
+        for adapter in adapters
+    ):
+        return
+    raise ValueError(
+        "LfbNativeAdapter does not support release-backed tasks; "
+        "use an authenticated release adapter"
+    )
+
+
+def _prepare_incomplete_release_retry(plan: _RowPlan) -> None:
+    """Remove only known adapter-owned release files before a resumed rerun."""
+
+    adapter = plan.adapter
+    adapter_id = adapter.manifest.adapter_id
+    if isinstance(adapter, NeutralApiFixtureAdapter) or adapter_id == (
+        NEUTRAL_FIXTURE_ADAPTER_ID
+    ):
+        relative_paths = (
+            "private-logs/release-forecast-output.json",
+            "private-logs/neutral-api-transcript.json",
+        )
+    elif isinstance(adapter, NativeReleaseAdapter):
+        relative_paths = (
+            "private-logs/release-forecast-output.json",
+            "private-logs/release-harness-transcript.json",
+        )
+    elif adapter_id == _OPENAI_RELEASE_ADAPTER_ID:
+        relative_paths = (
+            "private-logs/openai-forecast.json",
+            "private-logs/openai-transcript.json",
+        )
+    else:
+        raise ResumeRefusedError(
+            "resume refused: incomplete release row uses an unsupported adapter"
+        )
+    for relative in relative_paths:
+        try:
+            (plan.workspace / relative).unlink(missing_ok=True)
+        except OSError as exc:
+            raise ResumeRefusedError(
+                f"resume refused: stale release artifact is unsafe: {relative}"
+            ) from exc
+
+
 @dataclass(slots=True)
 class _MultiHarnessRunner:
     config: MultiHarnessRunConfig
 
     def run(self) -> MultiHarnessRun:
-        (self.config.output_dir / "artifact-index.json").unlink(missing_ok=True)
+        adapters = _ordered_adapters(self.config.adapters)
+        selection = self.config.selection.select(self.config.task_index)
+        _validate_known_release_adapter_routes(
+            tasks=selection.tasks,
+            adapters=adapters,
+            model_configs=self.config.model_configs,
+        )
+        _validate_live_release_adapter_routes(
+            container_execution=self.config.container_execution,
+            tasks=selection.tasks,
+            adapters=adapters,
+            model_configs=self.config.model_configs,
+        )
         if self.config.container_execution == "live_tools":
             validate_live_container_policy(self.config.sandbox_policy)
             _preflight_live_container(self.config.sandbox_policy)
-        adapters = _ordered_adapters(self.config.adapters)
         requested_containment = self.config.sandbox_policy.host_process_containment
         if requested_containment != POSIX_PROCESS_GROUP_CONTAINMENT:
             unsupported = tuple(
@@ -336,18 +462,27 @@ class _MultiHarnessRunner:
             self.config.sandbox_policy.allowed_provider_env_vars
         )
         secret_values = tuple(provider_values.values())
-        self.config.output_dir.mkdir(parents=True, exist_ok=True)
         build_container_plan(self.config.sandbox_policy)
-        selection = self.config.selection.select(self.config.task_index)
         identity = _identity_binding_for(self.config, selection.selection_sha256)
+        _ensure_private_run_directory(self.config.output_dir)
+        (self.config.output_dir / "artifact-index.json").unlink(missing_ok=True)
         journal = self._prepare_journal(selection=selection, identity=identity)
-        try:
-            capabilities = self._load_capabilities(adapters)
-        except CommandAdapterCancelled:
-            journal = journal.mark_stopped()
-            write_progress_journal(self.config.output_dir, journal)
-            raise
-        row_plans = self._build_row_plans(selection, adapters, capabilities)
+        with tempfile.TemporaryDirectory(prefix="multiharness-capabilities-") as root:
+            capability_root = Path(root)
+            _ensure_private_run_directory(capability_root)
+            try:
+                capabilities, capability_artifacts = self._load_capabilities(
+                    adapters,
+                    capability_root,
+                )
+            except CommandAdapterCancelled:
+                journal = journal.mark_stopped()
+                write_progress_journal(self.config.output_dir, journal)
+                raise
+            row_plans = self._build_row_plans(selection, adapters, capabilities)
+
+        self._write_capabilities(capabilities, capability_artifacts)
+        _ensure_private_run_directory(self.config.output_dir / "rows")
         run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
         run_compatibility_record = _run_compatibility_record(
             self.config,
@@ -362,7 +497,7 @@ class _MultiHarnessRunner:
             run_compatibility_record,
             prefixed=True,
         )
-        write_json_object(
+        write_json_object_safe(
             self.config.output_dir / "run-compatibility.json",
             run_compatibility_record,
         )
@@ -373,11 +508,11 @@ class _MultiHarnessRunner:
             request_ids=tuple(plan.request.request_id for plan in row_plans),
             run_compatibility_sha256=run_compatibility_sha256,
         )
-        write_json_object(
+        write_json_object_safe(
             self.config.output_dir / "run-manifest.json",
             initial_manifest.to_record(),
         )
-        write_json_object(
+        write_json_object_safe(
             self.config.output_dir / "selection-manifest.json",
             _selection_manifest_record(selection, journal),
         )
@@ -416,7 +551,7 @@ class _MultiHarnessRunner:
         else:
             journal = journal.mark_completed()
             write_progress_journal(self.config.output_dir, journal)
-        write_json_object(
+        write_json_object_safe(
             self.config.output_dir / "selection-manifest.json",
             _selection_manifest_record(selection, journal),
         )
@@ -464,17 +599,21 @@ class _MultiHarnessRunner:
     def _load_capabilities(
         self,
         adapters: tuple[HarnessAdapter, ...],
-    ) -> dict[str, AdapterCapabilities]:
+        workspace_root: Path,
+    ) -> tuple[
+        dict[str, AdapterCapabilities],
+        dict[str, dict[str, bytes]],
+    ]:
         seen: set[str] = set()
         capabilities: dict[str, AdapterCapabilities] = {}
+        artifacts: dict[str, dict[str, bytes]] = {}
         for adapter in adapters:
             adapter_id = adapter.manifest.adapter_id
             if adapter_id in seen:
                 raise ValueError(f"duplicate adapter_id: {adapter_id}")
             seen.add(adapter_id)
-            workspace = (
-                self.config.output_dir / "adapter-capabilities" / _slug(adapter_id)
-            )
+            workspace = workspace_root / _slug(adapter_id)
+            _ensure_private_run_directory(workspace)
             if isinstance(adapter, CommandAdapter):
                 requested_containment = (
                     self.config.sandbox_policy.host_process_containment
@@ -512,11 +651,27 @@ class _MultiHarnessRunner:
                         "implement run_with_tools"
                     )
             capabilities[adapter_id] = value
-            write_json_object(
+            artifacts[adapter_id] = _snapshot_capability_artifacts(workspace)
+        return capabilities, artifacts
+
+    def _write_capabilities(
+        self,
+        capabilities: Mapping[str, AdapterCapabilities],
+        artifacts: Mapping[str, Mapping[str, bytes]],
+    ) -> None:
+        root = self.config.output_dir / "adapter-capabilities"
+        _ensure_private_run_directory(root)
+        for adapter_id, value in capabilities.items():
+            workspace = root / _slug(adapter_id)
+            _ensure_private_run_directory(workspace)
+            for relative, payload in artifacts[adapter_id].items():
+                destination = workspace / relative
+                _ensure_private_run_directory(destination.parent)
+                write_file_replace_safe(destination, payload)
+            write_json_object_safe(
                 workspace / "adapter-capabilities.json",
                 value.to_record(),
             )
-        return capabilities
 
     def _build_row_plans(
         self,
@@ -588,6 +743,14 @@ class _MultiHarnessRunner:
             return
         if task.family != "legalforecast_mtd":
             return
+        if (
+            task.metadata.get("release_schema_version")
+            == _FORECAST_RELEASE_SCHEMA_VERSION
+        ):
+            raise ValueError(
+                "LfbNativeAdapter does not support release-backed tasks; "
+                "use an authenticated release adapter"
+            )
         if model.lfb_packet is None or model.lfb_solver is None:
             raise ValueError("LfbNativeAdapter rows require lfb_packet and lfb_solver")
 
@@ -599,54 +762,36 @@ class _MultiHarnessRunner:
         coverage_kind: str,
         journal: RunProgressJournal,
     ) -> MultiHarnessRunRow:
-        plan.workspace.mkdir(parents=True, exist_ok=True)
+        # Unsafe output paths are fatal even under ``record_failure``: there is
+        # no trusted location in which to persist failure evidence, and
+        # continuing would let the aggregate artifact walk inspect hostile
+        # pre-existing row contents.
+        _ensure_private_run_directory(plan.workspace)
         private_logs = plan.workspace / "private-logs"
-        private_logs.mkdir(parents=True, exist_ok=True)
+        _ensure_private_run_directory(private_logs)
 
         resumed = False
         lfb_record: Mapping[str, Any] | None = None
         container_receipt_sha256: str | None = None
-        solver_input_temporary: tempfile.TemporaryDirectory[str] | None = None
+        prepared_input = PreparedSolverInput()
         try:
-            solver_input_root: Path | None = None
-            solver_input_entry: SolverInputEntry | None = None
-            solver_input_tree_sha256: str | None = None
-            if self.config.container_execution == "live_tools":
-                solver_inputs = self.config.solver_inputs
-                if solver_inputs is None:
-                    raise ValueError("live row has no solver-input store")
-                solver_input_temporary = tempfile.TemporaryDirectory(
-                    prefix="solver-input-",
-                    dir=private_logs,
-                )
-                solver_input_root = Path(solver_input_temporary.name) / "materialized"
-                solver_input_entry, materialization = solver_inputs.materialize(
-                    plan.task,
-                    destination_root=solver_input_root,
-                )
-                solver_input_tree_sha256 = solver_input_entry.tree_sha256
-                write_json_object(
-                    private_logs / "solver-input-manifest.json",
-                    {
-                        "schema_version": (
-                            SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION
-                        ),
-                        "task_id": solver_input_entry.task_id,
-                        "task_sha256": solver_input_entry.task_sha256,
-                        "entrypoint_path": solver_input_entry.entrypoint_path,
-                        "input_tree_sha256": solver_input_entry.tree_sha256,
-                        "solver_input_index_sha256": (solver_inputs.index.index_sha256),
-                        "solver_input_entry": solver_input_entry.to_record(),
-                        "materialization": materialization.to_record(),
-                    },
-                )
+            prepared_input = prepare_solver_input(
+                self.config.solver_inputs,
+                plan.task,
+                private_logs,
+            )
             resumed_result = self._resume_result(
                 plan,
-                solver_input_tree_sha256=solver_input_tree_sha256,
+                solver_input_root=prepared_input.root,
+                solver_input_entry=prepared_input.entry,
+                solver_input_tree_sha256=prepared_input.tree_sha256,
                 journal=journal,
             )
-            write_json_object(plan.workspace / "request.json", plan.request.to_record())
-            write_json_object(
+            write_json_object_safe(
+                plan.workspace / "request.json",
+                plan.request.to_record(),
+            )
+            write_json_object_safe(
                 plan.workspace / "sandbox.plan.json",
                 (
                     live_container_public_plan(plan.request.sandbox_policy)
@@ -660,9 +805,9 @@ class _MultiHarnessRunner:
             else:
                 result, lfb_record, container_receipt_sha256 = self._run_adapter(
                     plan,
-                    solver_input_root=solver_input_root,
-                    solver_input_entry=solver_input_entry,
-                    solver_input_tree_sha256=solver_input_tree_sha256,
+                    solver_input_root=prepared_input.root,
+                    solver_input_entry=prepared_input.entry,
+                    solver_input_tree_sha256=prepared_input.tree_sha256,
                 )
             provider_values = require_provider_environment_values(
                 plan.request.sandbox_policy.allowed_provider_env_vars
@@ -677,7 +822,7 @@ class _MultiHarnessRunner:
         except (CommandAdapterCancelled, KeyboardInterrupt) as exc:
             container_receipt_sha256 = None
             result = _interrupted_result(plan, exc)
-            write_json_object(plan.workspace / "result.json", result.to_record())
+            write_json_object_safe(plan.workspace / "result.json", result.to_record())
         except Exception as exc:
             container_receipt_sha256 = None
             if self.config.incomplete_run_policy == "fail_fast":
@@ -687,12 +832,14 @@ class _MultiHarnessRunner:
                     # Preserve the original failure if best-effort cleanup fails.
                     pass
                 raise
-            (private_logs / "error.txt").write_text(_plain_error(exc), encoding="utf-8")
+            write_file_replace_safe(
+                private_logs / "error.txt",
+                _plain_error(exc).encode("utf-8"),
+            )
             result = _failure_result(plan, exc)
-            write_json_object(plan.workspace / "result.json", result.to_record())
+            write_json_object_safe(plan.workspace / "result.json", result.to_record())
         finally:
-            if solver_input_temporary is not None:
-                solver_input_temporary.cleanup()
+            prepared_input.cleanup()
 
         return MultiHarnessRunRow(
             row_id=plan.row_id,
@@ -714,6 +861,8 @@ class _MultiHarnessRunner:
         self,
         plan: _RowPlan,
         *,
+        solver_input_root: Path | None,
+        solver_input_entry: SolverInputEntry | None,
         solver_input_tree_sha256: str | None,
         journal: RunProgressJournal,
     ) -> tuple[RunResult, Mapping[str, Any] | None, str | None] | None:
@@ -726,18 +875,33 @@ class _MultiHarnessRunner:
             raise ResumeRefusedError(
                 "resume refused: completed row is missing durable artifacts"
             )
-        if not request_path.is_file() or not result_path.is_file():
+        if not request_path.is_file():
             return None
         try:
             existing_request = RunRequest.from_record(
                 _read_json(request_path, "request")
             )
+        except (OSError, ValueError) as exc:
+            if completed:
+                raise ResumeRefusedError(
+                    "resume refused: completed row is missing durable artifacts"
+                ) from exc
+            return None
+        if existing_request.to_record() != plan.request.to_record():
+            return None
+        if not result_path.is_file():
+            if release_harness.is_release_task(plan.request):
+                _prepare_incomplete_release_retry(plan)
+            return None
+        try:
             result = RunResult.from_record(_read_json(result_path, "result"))
         except (OSError, ValueError) as exc:
             if completed:
                 raise ResumeRefusedError(
                     "resume refused: completed row is missing durable artifacts"
                 ) from exc
+            if release_harness.is_release_task(plan.request):
+                _prepare_incomplete_release_retry(plan)
             return None
         try:
             provider_values = require_provider_environment_values(
@@ -749,10 +913,12 @@ class _MultiHarnessRunner:
                 "resumed run result",
             )
         except (OSError, ValueError):
-            return None
-        if existing_request.to_record() != plan.request.to_record():
+            if release_harness.is_release_task(plan.request):
+                _prepare_incomplete_release_retry(plan)
             return None
         if result.request_id != plan.request.request_id or result.status != "succeeded":
+            if release_harness.is_release_task(plan.request):
+                _prepare_incomplete_release_retry(plan)
             return None
         container_receipt_sha256: str | None = None
         if self.config.container_execution == "live_tools":
@@ -767,9 +933,39 @@ class _MultiHarnessRunner:
                     policy=plan.request.sandbox_policy,
                     input_tree_sha256=solver_input_tree_sha256,
                 )
-            except (OSError, ValueError, ContainerRuntimeError):
-                return None
+            except (OSError, ValueError, ContainerRuntimeError) as exc:
+                raise ResumeRefusedError(
+                    "resume refused: successful live-tool row has an invalid "
+                    "container receipt"
+                ) from exc
         lfb_record_path = plan.workspace / "lfb-inspect-record.json"
+        if release_harness.is_release_task(plan.request):
+            try:
+                lfb_record = release_harness.validate_resumed_release_harness_result(
+                    plan.request,
+                    result,
+                    plan.workspace,
+                    solver_input_root,
+                    solver_input_entry,
+                )
+            except (OSError, ValueError) as exc:
+                if completed:
+                    raise ResumeRefusedError(
+                        "resume refused: completed release evidence is invalid"
+                    ) from exc
+                try:
+                    lfb_record = release_harness.repair_resumed_release_harness_result(
+                        plan.request,
+                        result,
+                        plan.workspace,
+                        solver_input_root,
+                        solver_input_entry,
+                    )
+                except (OSError, ValueError) as repair_exc:
+                    raise ResumeRefusedError(
+                        "resume refused: partial release evidence is invalid"
+                    ) from repair_exc
+            return result, lfb_record, container_receipt_sha256
         if lfb_record_path.is_file():
             return (
                 result,
@@ -826,8 +1022,15 @@ class _MultiHarnessRunner:
                 except ContainerRuntimeError as cleanup_error:
                     raise cleanup_error from exc
                 raise
-            write_json_object(plan.workspace / "result.json", result.to_record())
-            return result, None, receipt_sha256
+            write_json_object_safe(plan.workspace / "result.json", result.to_record())
+            lfb_record = release_harness.project_and_write_release_harness_result(
+                plan.request,
+                result,
+                plan.workspace,
+                solver_input_root,
+                solver_input_entry,
+            )
+            return result, lfb_record, receipt_sha256
         if isinstance(plan.adapter, LfbNativeAdapter):
             projected = self._run_lfb_native(plan)
             result = projected.result
@@ -840,13 +1043,20 @@ class _MultiHarnessRunner:
                 tuple(provider_values.values()),
                 "native run result",
             )
-            write_json_object(plan.workspace / "result.json", result.to_record())
-            write_json_object(plan.workspace / "lfb-inspect-record.json", lfb_record)
+            write_json_object_safe(plan.workspace / "result.json", result.to_record())
+            write_json_object_safe(
+                plan.workspace / "lfb-inspect-record.json",
+                lfb_record,
+            )
             return result, lfb_record, None
-        result = plan.adapter.run(plan.request, plan.workspace)
-        if result.request_id != plan.request.request_id:
-            raise ValueError("run result request_id does not match request")
-        return result, None, None
+        result, lfb_record = release_harness.run_and_project_solver_input_adapter(
+            plan.adapter,
+            plan.request,
+            plan.workspace,
+            solver_input_root,
+            solver_input_entry,
+        )
+        return result, lfb_record, None
 
     def _run_lfb_native(self, plan: _RowPlan) -> AdapterRunResult:
         packet = plan.model_config.lfb_packet
@@ -878,36 +1088,66 @@ class _MultiHarnessRunner:
                 secret_values,
                 "run row",
             )
-        write_json_object(
+        write_json_object_safe(
             self.config.output_dir / "run-manifest.json",
             manifest.to_record(),
         )
-        write_jsonl_objects(
+        write_jsonl_objects_safe(
             self.config.output_dir / "canonical-runs.jsonl",
             [row.result.to_record() for row in rows],
         )
         lfb_records = [row.lfb_record for row in rows if row.lfb_record is not None]
         if lfb_records:
-            write_jsonl_objects(
+            _ensure_private_run_directory(self.config.output_dir / "lfb")
+            write_jsonl_objects_safe(
                 self.config.output_dir / "lfb" / "runs.jsonl",
                 [record for record in lfb_records],
+            )
+        release_receipts = release_harness.collect_release_harness_receipts(
+            (row.request, row.result, row.workspace) for row in rows
+        )
+        if release_receipts:
+            write_jsonl_objects_safe(
+                self.config.output_dir / "release-harness-receipts.jsonl",
+                release_receipts,
             )
         lab_records = [
             _lab_result_record(row) for row in rows if row.task.family == "harvey_lab"
         ]
         if lab_records:
-            write_jsonl_objects(
+            _ensure_private_run_directory(self.config.output_dir / "lab")
+            write_jsonl_objects_safe(
                 self.config.output_dir / "lab" / "task-results.jsonl",
                 lab_records,
             )
-        write_jsonl_objects(
+        write_jsonl_objects_safe(
             self.config.output_dir / "row-results.jsonl",
             [row.to_record() for row in rows],
         )
-        write_json_object(
+        write_json_object_safe(
             self.config.output_dir / "artifact-index.json",
             {"artifacts": _artifact_index(self.config.output_dir)},
         )
+
+
+def _snapshot_capability_artifacts(workspace: Path) -> dict[str, bytes]:
+    """Capture exact safe probe artifacts before deleting the preflight root."""
+
+    artifacts: dict[str, bytes] = {}
+    for path in sorted(workspace.rglob("*")):
+        if path.is_symlink():
+            raise ValueError("adapter capability output must not contain symlinks")
+        if not path.is_file():
+            continue
+        relative = path.relative_to(workspace).as_posix()
+        try:
+            artifacts[relative] = read_single_link_file(
+                path,
+                label="adapter capability output",
+            )
+        except ImmutableIOError as exc:
+            raise ValueError("adapter capability output is unsafe") from exc
+    return artifacts
 
 
 def _ordered_adapters(adapters: Sequence[HarnessAdapter]) -> tuple[HarnessAdapter, ...]:
@@ -1136,26 +1376,33 @@ def _artifact_index(root: Path) -> list[dict[str, Any]]:
                 path=relative,
                 sha256=_file_sha256(path),
                 media_type=_media_type(path),
-                public=_is_public_artifact(relative),
+                public=_is_public_artifact(root, relative),
                 size_bytes=path.stat().st_size,
             ).to_record()
         )
     return artifacts
 
 
-def _is_public_artifact(relative_path: str) -> bool:
+def _is_public_artifact(root: Path, relative_path: str) -> bool:
     """Keep private diagnostics out of the public artifact set by default."""
 
     parts = relative_path.split("/")
     if "private-logs" in parts or parts[-1] == "lab-command-capabilities.json":
         return False
+    if len(parts) >= 4 and parts[0] == "rows":
+        row_root = root / parts[0] / parts[1]
+        if (row_root / "release-harness-receipt.json").is_file() and parts[2] in {
+            "codex-output",
+            "sealed-deliverable",
+        }:
+            return False
     if parts[0] == "adapter-capabilities":
         return len(parts) == 3 and parts[-1] == "adapter-capabilities.json"
     return True
 
 
 def _read_json(path: Path, label: str) -> Mapping[str, Any]:
-    return read_json_object(
+    return read_json_object_safe(
         path,
         error_factory=ValueError,
         missing_message=lambda item: f"{label} does not exist: {item}",

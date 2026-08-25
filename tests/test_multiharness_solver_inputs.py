@@ -10,6 +10,7 @@ import pytest
 from legalforecast.multiharness.solver_inputs import (
     SOLVER_INPUT_ENTRY_PATH,
     SOLVER_INPUT_INDEX_NAME,
+    SolverInputEntry,
     SolverInputError,
     SolverInputPayload,
     SolverInputStore,
@@ -47,6 +48,29 @@ def test_store_materializes_exact_private_solver_tree(tmp_path: Path) -> None:
     )
 
 
+def test_store_refuses_existing_destination_without_mutating_it(
+    tmp_path: Path,
+) -> None:
+    task = _task()
+    store = _store(tmp_path, task=task)
+    index_before = (store.root / SOLVER_INPUT_INDEX_NAME).read_bytes()
+
+    with pytest.raises(SolverInputError, match="destination must be fresh"):
+        write_solver_input_store(
+            destination_root=store.root,
+            task_index_sha256=SHA256,
+            payloads=(
+                SolverInputPayload(
+                    task=task,
+                    prompt="private prompt",
+                    source_packet={"private": "packet"},
+                ),
+            ),
+        )
+
+    assert (store.root / SOLVER_INPUT_INDEX_NAME).read_bytes() == index_before
+
+
 def test_public_task_does_not_contain_private_solver_bytes(tmp_path: Path) -> None:
     task = _task()
     store = _store(tmp_path, task=task)
@@ -55,6 +79,16 @@ def test_public_task_does_not_contain_private_solver_bytes(tmp_path: Path) -> No
     assert "private prompt" not in public_record
     assert '"private": "packet"' not in public_record
     assert "private prompt" not in json.dumps(store.index.to_record(), sort_keys=True)
+
+
+def test_solver_input_entry_reads_pre_commitment_v1_records(tmp_path: Path) -> None:
+    entry = _store(tmp_path, task=_task()).index.entries[0]
+    legacy_record = entry.to_record()
+    legacy_record.pop("task_record_sha256")
+
+    restored = SolverInputEntry.from_record(legacy_record)
+
+    assert restored.task_record_sha256 is None
 
 
 def test_store_rejects_tampered_source_before_materialization(tmp_path: Path) -> None:
@@ -147,6 +181,40 @@ def test_store_rejects_prompt_or_packet_not_bound_to_task(tmp_path: Path) -> Non
                 ),
             ),
         )
+
+
+def test_store_preserves_exact_packet_bytes_and_rejects_later_tampering(
+    tmp_path: Path,
+) -> None:
+    packet_bytes = b'{"private":"packet"}\n'
+    task = replace(
+        _task(),
+        task_sha256="sha256:" + hashlib.sha256(packet_bytes).hexdigest(),
+    )
+    store = write_solver_input_store(
+        destination_root=tmp_path / "exact-store",
+        task_index_sha256=SHA256,
+        payloads=(
+            SolverInputPayload(
+                task=task,
+                prompt="private prompt",
+                source_packet_bytes=packet_bytes,
+            ),
+        ),
+    )
+    packet_entry = next(
+        item
+        for item in store.index.entries[0].files
+        if item.destination_path == "source/model-packet.json"
+    )
+    packet_path = store.root / packet_entry.source_path
+    assert packet_path.read_bytes() == packet_bytes
+
+    packet_path.chmod(0o600)
+    packet_path.write_bytes(b'{"private":"changed"}\n')
+    packet_path.chmod(0o400)
+    with pytest.raises(SolverInputError, match=r"size|sha256"):
+        store.entry_for(task)
 
 
 def _store(tmp_path: Path, *, task: CanonicalTask) -> SolverInputStore:

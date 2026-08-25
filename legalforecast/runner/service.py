@@ -32,7 +32,7 @@ from legalforecast.evals.model_registry import (
     model_registry_entry_sha256,
     require_official_registry_entries,
 )
-from legalforecast.evals.output_parser import ParsedModelOutput, parse_model_output
+from legalforecast.evals.output_parser import parse_model_output, public_parser_record
 from legalforecast.evals.provider_spend_attempt_handler import (
     ProviderSpendAttemptHandler,
     conservative_reservation_microusd,
@@ -509,7 +509,7 @@ def execute_release_run(
                                     response.estimated_cost * 1_000_000
                                 ),
                             },
-                            "parser_output": _public_parser_record(parsed),
+                            "parser_output": public_parser_record(parsed),
                         }
                         receipt_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(receipt)
                         receipt_sha256 = str(
@@ -737,41 +737,6 @@ def _record_cell_failure(
             provider_attempt_id=provider_attempt_id,
             failure_type=failure_type,
         )
-
-
-def _public_parser_record(parsed: ParsedModelOutput) -> dict[str, object]:
-    """Project parsed output to score inputs without retaining model prose."""
-
-    return {
-        "status": parsed.status.value,
-        "is_valid": parsed.is_valid,
-        "invalid_output": parsed.invalid_output,
-        "raw_output_sha256": parsed.raw_output_sha256,
-        "required_unit_ids": list(parsed.required_unit_ids),
-        "predictions": [
-            {
-                "unit_id": prediction.unit_id,
-                "probability_fully_dismissed": (prediction.probability_fully_dismissed),
-                "defaulted": prediction.defaulted,
-                "invalid_reason": (
-                    prediction.invalid_reason.value
-                    if prediction.invalid_reason is not None
-                    else None
-                ),
-            }
-            for prediction in parsed.predictions
-        ],
-        "defaulted_unit_ids": list(parsed.defaulted_unit_ids),
-        "issues": [
-            {
-                "code": issue.code.value,
-                "unit_id": (
-                    issue.unit_id if issue.unit_id in parsed.required_unit_ids else None
-                ),
-            }
-            for issue in parsed.issues
-        ],
-    }
 
 
 def _restore_or_validate_completed_receipt(

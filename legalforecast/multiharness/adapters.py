@@ -71,3 +71,20 @@ class LiveToolAdapter(HarnessAdapter, Protocol):
     ) -> RunResult:
         """Run one request using a bounded host-owned tool RPC channel."""
         raise NotImplementedError("live tool execution is provided by implementations")
+
+
+@runtime_checkable
+class SolverInputAdapter(HarnessAdapter, Protocol):
+    """Adapter that consumes a host-authenticated private solver-input tree."""
+
+    def run_with_solver_input(
+        self,
+        request: RunRequest,
+        workspace: Path,
+        solver_input_root: Path,
+    ) -> RunResult:
+        """Run with exact input bytes kept outside serialized task metadata."""
+
+        raise NotImplementedError(
+            "solver-input execution is provided by implementations"
+        )

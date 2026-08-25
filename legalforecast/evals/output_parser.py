@@ -197,6 +197,181 @@ class ParsedModelOutput:
         }
 
 
+def public_parser_record(parsed: ParsedModelOutput) -> dict[str, object]:
+    """Project parsed output to score inputs without retaining model prose."""
+
+    return {
+        "status": parsed.status.value,
+        "is_valid": parsed.is_valid,
+        "invalid_output": parsed.invalid_output,
+        "raw_output_sha256": parsed.raw_output_sha256,
+        "required_unit_ids": list(parsed.required_unit_ids),
+        "predictions": [
+            {
+                "unit_id": prediction.unit_id,
+                "probability_fully_dismissed": (prediction.probability_fully_dismissed),
+                "defaulted": prediction.defaulted,
+                "invalid_reason": (
+                    prediction.invalid_reason.value
+                    if prediction.invalid_reason is not None
+                    else None
+                ),
+            }
+            for prediction in parsed.predictions
+        ],
+        "defaulted_unit_ids": list(parsed.defaulted_unit_ids),
+        "issues": [
+            {
+                "code": issue.code.value,
+                "unit_id": (
+                    issue.unit_id if issue.unit_id in parsed.required_unit_ids else None
+                ),
+            }
+            for issue in parsed.issues
+        ],
+    }
+
+
+def parsed_output_from_public_record(record: Mapping[str, Any]) -> ParsedModelOutput:
+    """Authenticate a prose-free parser projection for public scoring."""
+
+    expected_fields = {
+        "status",
+        "is_valid",
+        "invalid_output",
+        "raw_output_sha256",
+        "required_unit_ids",
+        "predictions",
+        "defaulted_unit_ids",
+        "issues",
+    }
+    if set(record) != expected_fields:
+        raise ValueError("public parser record has unexpected fields")
+    status = _public_enum(record.get("status"), ParserStatus, "status")
+    raw_output_sha256 = _public_non_empty_str(
+        record.get("raw_output_sha256"), "raw_output_sha256"
+    )
+    required_unit_ids = _public_string_tuple(
+        record.get("required_unit_ids"), "required_unit_ids"
+    )
+    raw_predictions = _public_sequence(record.get("predictions"), "predictions")
+    predictions: list[ParsedPrediction] = []
+    for index, value in enumerate(raw_predictions):
+        if not isinstance(value, Mapping):
+            raise ValueError(f"predictions[{index}] must be an object")
+        prediction_record = cast(Mapping[str, Any], value)
+        if set(prediction_record) != {
+            "unit_id",
+            "probability_fully_dismissed",
+            "defaulted",
+            "invalid_reason",
+        }:
+            raise ValueError(f"predictions[{index}] has unexpected fields")
+        defaulted = prediction_record.get("defaulted")
+        if type(defaulted) is not bool:
+            raise ValueError(f"predictions[{index}].defaulted must be a boolean")
+        raw_reason = prediction_record.get("invalid_reason")
+        reason = (
+            None
+            if raw_reason is None
+            else _public_enum(
+                raw_reason,
+                ParserIssueCode,
+                f"predictions[{index}].invalid_reason",
+            )
+        )
+        probability = prediction_record.get("probability_fully_dismissed")
+        if not isinstance(probability, int | float) or isinstance(probability, bool):
+            raise ValueError(
+                f"predictions[{index}].probability_fully_dismissed must be numeric"
+            )
+        predictions.append(
+            ParsedPrediction(
+                unit_id=_public_non_empty_str(
+                    prediction_record.get("unit_id"),
+                    f"predictions[{index}].unit_id",
+                ),
+                probability_fully_dismissed=float(probability),
+                defaulted=defaulted,
+                invalid_reason=reason,
+            )
+        )
+    raw_issues = _public_sequence(record.get("issues"), "issues")
+    issues: list[ParserIssue] = []
+    for index, value in enumerate(raw_issues):
+        if not isinstance(value, Mapping):
+            raise ValueError(f"issues[{index}] must be an object")
+        issue_record = cast(Mapping[str, Any], value)
+        if set(issue_record) != {"code", "unit_id"}:
+            raise ValueError(f"issues[{index}] has unexpected fields")
+        code = _public_enum(
+            issue_record.get("code"), ParserIssueCode, f"issues[{index}].code"
+        )
+        raw_unit_id = issue_record.get("unit_id")
+        unit_id = (
+            None
+            if raw_unit_id is None
+            else _public_non_empty_str(raw_unit_id, f"issues[{index}].unit_id")
+        )
+        if unit_id is not None and unit_id not in required_unit_ids:
+            raise ValueError(f"issues[{index}].unit_id is outside required_unit_ids")
+        issues.append(
+            ParserIssue(
+                code=code,
+                message=f"public parser issue: {code.value}",
+                unit_id=unit_id,
+            )
+        )
+    parsed = ParsedModelOutput(
+        status=status,
+        raw_output_sha256=raw_output_sha256,
+        required_unit_ids=required_unit_ids,
+        predictions=tuple(predictions),
+        issues=tuple(issues),
+        repair_attempted=status is ParserStatus.REPAIRED_VALID,
+        repair_applied=status is ParserStatus.REPAIRED_VALID,
+    )
+    if public_parser_record(parsed) != dict(record):
+        raise ValueError("public parser record is internally inconsistent")
+    return parsed
+
+
+def _public_non_empty_str(value: object, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return value
+
+
+def _public_string_tuple(value: object, field_name: str) -> tuple[str, ...]:
+    sequence = _public_sequence(value, field_name)
+    values = tuple(
+        _public_non_empty_str(item, f"{field_name}[{index}]")
+        for index, item in enumerate(sequence)
+    )
+    if not values or len(values) != len(set(values)):
+        raise ValueError(f"{field_name} must contain unique non-empty strings")
+    return values
+
+
+def _public_sequence(value: object, field_name: str) -> Sequence[object]:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        raise ValueError(f"{field_name} must be an array")
+    return cast(Sequence[object], value)
+
+
+def _public_enum[EnumType: StrEnum](
+    value: object,
+    enum_type: type[EnumType],
+    field_name: str,
+) -> EnumType:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+    try:
+        return enum_type(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} is invalid") from exc
+
+
 @dataclass(frozen=True, slots=True)
 class DecodeResult:
     payload: Mapping[str, Any] | None

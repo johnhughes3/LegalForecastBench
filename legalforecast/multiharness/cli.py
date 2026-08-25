@@ -14,7 +14,9 @@ from legalforecast._json_io import (
     read_json_object,
     read_jsonl_objects,
     write_json_object,
+    write_json_object_safe,
 )
+from legalforecast.immutable_io import ImmutableIOError, ensure_private_directory
 from legalforecast.multiharness.adapter_registry import builtin_adapter_registry
 from legalforecast.multiharness.adapters import HarnessAdapter
 from legalforecast.multiharness.command_adapter import (
@@ -46,6 +48,11 @@ from legalforecast.multiharness.harvey_lab_projection import (
     project_harvey_lab_suite,
     remove_projected_tree,
 )
+from legalforecast.multiharness.release_harness_cli import (
+    add_lfb_task_index_arguments,
+    lfb_task_index_from_args,
+    release_task_index_plan_fields,
+)
 from legalforecast.multiharness.runner import (
     INCOMPLETE_RUN_POLICIES,
     ModelConfig,
@@ -73,9 +80,7 @@ from legalforecast.multiharness.spec import (
 from legalforecast.multiharness.spend import PricingSnapshot, SpendPolicy
 from legalforecast.multiharness.task_loaders import (
     DEFAULT_LAB_SUITE_VERSION,
-    DEFAULT_LFB_SUITE_VERSION,
     HarveyLabTaskLoader,
-    LfbTaskLoader,
 )
 from legalforecast.multiharness.tier0_operator_contract import (
     caller_tier0_roots,
@@ -142,11 +147,7 @@ def add_multiharness_parser(subparsers: Any) -> None:
         required=True,
         help="Source suite to index.",
     )
-    task_index.add_argument(
-        "--input",
-        type=Path,
-        help="LFB packet JSONL input for --suite lfb.",
-    )
+    add_lfb_task_index_arguments(task_index)
     task_index.add_argument(
         "--lab-root",
         type=Path,
@@ -560,6 +561,7 @@ def _cmd_tasks_index(args: argparse.Namespace) -> int:
                 "dry_run": True,
                 "suite": suite,
                 "input": _optional_path_record(cast(Path | None, args.input)),
+                **release_task_index_plan_fields(args),
                 "lab_root": _optional_path_record(cast(Path | None, args.lab_root)),
                 "projected_root": _optional_path_record(
                     cast(Path | None, args.projected_root)
@@ -702,6 +704,13 @@ def _cmd_tasks_select(args: argparse.Namespace) -> int:
     return 0
 
 
+def _ensure_cli_private_directory(path: Path) -> Path:
+    try:
+        return ensure_private_directory(path)
+    except ImmutableIOError as exc:
+        raise ValueError(str(exc)) from exc
+
+
 def _cmd_adapters_list(args: argparse.Namespace) -> int:
     output = cast(Path, args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -722,9 +731,9 @@ def _cmd_adapters_inspect(args: argparse.Namespace) -> int:
     if adapter_name is not None:
         builtin_adapter_registry().require_known(adapter_name)
     output_dir = cast(Path, args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_cli_private_directory(output_dir)
     if cast(bool, args.dry_run):
-        write_json_object(
+        write_json_object_safe(
             output_dir / "adapter-inspect-plan.json",
             {
                 "schema_version": _CLI_PLAN_SCHEMA_VERSION,
@@ -737,11 +746,12 @@ def _cmd_adapters_inspect(args: argparse.Namespace) -> int:
         return 0
 
     adapter = _load_adapter(args)
-    write_json_object(
+    write_json_object_safe(
         output_dir / "adapter-manifest.json", adapter.manifest.to_record()
     )
-    capabilities = adapter.capabilities(output_dir / "capabilities")
-    write_json_object(
+    capabilities_dir = _ensure_cli_private_directory(output_dir / "capabilities")
+    capabilities = adapter.capabilities(capabilities_dir)
+    write_json_object_safe(
         output_dir / "adapter-capabilities.json",
         capabilities.to_record(),
     )
@@ -792,7 +802,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         cast(Path | None, args.task_folder),
     )
     output_dir = cast(Path, args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_cli_private_directory(output_dir)
     manifests = _adapter_manifests_from_paths(_path_tuple_arg(args, "adapter_manifest"))
     policy = _sandbox_policy_from_args(args)
     if cast(bool, args.live_tool_container):
@@ -807,7 +817,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         model_count=len(_str_tuple_arg(args, "model_key")),
     )
     if cast(bool, args.dry_run):
-        write_json_object(
+        write_json_object_safe(
             output_dir / "run-plan.json",
             _run_plan_record(
                 args=args,
@@ -1060,8 +1070,8 @@ def _cmd_report(args: argparse.Namespace) -> int:
 
 def _cmd_community_package(args: argparse.Namespace) -> int:
     output_dir = cast(Path, args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
     if cast(bool, args.dry_run):
+        _ensure_cli_private_directory(output_dir)
         write_json_object(
             output_dir / "community-package-plan.json",
             {
@@ -1232,14 +1242,11 @@ def _task_index_from_args(args: argparse.Namespace) -> TaskIndex:
     index_id = cast(str | None, args.index_id)
     namespace = cast(str | None, args.selection_namespace)
     if suite == "lfb":
-        input_path = _required_path_arg(args, "input", "--input is required for lfb")
-        return LfbTaskLoader(
-            suite_version=suite_version or DEFAULT_LFB_SUITE_VERSION,
-        ).load_packet_jsonl(
-            input_path,
-            index_id=index_id or "legalforecast-mtd",
-            selection_namespace=namespace or "legalforecast_mtd",
-            solver_input_root=cast(Path | None, args.solver_input_root),
+        return lfb_task_index_from_args(
+            args,
+            suite_version=suite_version,
+            index_id=index_id,
+            selection_namespace=namespace,
         )
     if suite == "harvey-lab":
         if args.solver_input_root is not None:
@@ -1458,13 +1465,6 @@ def _read_json(path: Path, label: str) -> dict[str, Any]:
         missing_message=lambda item: f"{label} does not exist: {item}",
         non_object_message=lambda item: f"{label} must be a JSON object: {item}",
     )
-
-
-def _required_path_arg(args: argparse.Namespace, name: str, message: str) -> Path:
-    value = cast(Path | None, getattr(args, name))
-    if value is None:
-        raise ValueError(message)
-    return value
 
 
 def _path_tuple_arg(args: argparse.Namespace, name: str) -> tuple[Path, ...]:

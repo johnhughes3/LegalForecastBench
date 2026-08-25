@@ -18,6 +18,7 @@ from legalforecast.evals.packet_builder import (
     PacketText,
     build_model_packet,
 )
+from legalforecast.immutable_io import ImmutableIOError
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
@@ -231,6 +232,105 @@ def test_runner_executes_live_tool_adapter_and_records_receipt_commitment(
         config.solver_inputs.index.index_sha256
     )
     assert adapter.ordinary_run_called is False
+
+
+def test_runner_refuses_live_resume_with_invalid_container_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _LiveToolAdapter()
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    task_index = _task_index(task)
+    monkeypatch.setattr(
+        runner_module,
+        "_preflight_live_container",
+        lambda _policy: None,
+    )
+    monkeypatch.setattr(runner_module, "ContainerToolSession", _FakeToolSession)
+    config = MultiHarnessRunConfig(
+        task_index=task_index,
+        adapters=(adapter,),
+        model_configs=(
+            ModelConfig(
+                adapter_id=adapter.manifest.adapter_id,
+                model_key="fixture-model",
+            ),
+        ),
+        sandbox_policy=replace(
+            _sandbox(),
+            image="sha256:" + "b" * 64,
+            uid_gid="65532:65532",
+        ),
+        output_dir=tmp_path / "run",
+        container_execution="live_tools",
+        solver_inputs=_solver_inputs(tmp_path, task_index),
+    )
+
+    first = run_multi_harness(config)
+    adapter.tool_run_called = False
+    receipt_path = (
+        first.rows[0].workspace
+        / "private-logs"
+        / "tool-container"
+        / "execution-receipt.json"
+    )
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt_path.write_text('{"tampered": true}', encoding="utf-8")
+    result_path = first.rows[0].workspace / "result.json"
+    result_bytes = result_path.read_bytes()
+
+    with pytest.raises(ResumeRefusedError, match="invalid container receipt"):
+        run_multi_harness(replace(config, resume=True))
+
+    assert adapter.tool_run_called is False
+    assert result_path.read_bytes() == result_bytes
+    assert receipt_path.read_text(encoding="utf-8") == '{"tampered": true}'
+
+
+def test_runner_rejects_unsupported_claude_release_route_before_provider_call(
+    tmp_path: Path,
+) -> None:
+    adapter = _LiveToolAdapter()
+    adapter.manifest = replace(
+        adapter.manifest,
+        adapter_id="claude-agent-sdk-baseline",
+        display_name="Claude Agent SDK Baseline",
+    )
+    task = replace(
+        _task("lfb:release:unit-1", "legalforecast_mtd", "lfb_brier"),
+        metadata={
+            "release_schema_version": "legalforecast.forecast-release.v1",
+            "prompt_sha256": (
+                "sha256:" + hashlib.sha256(b"fixture prompt").hexdigest()
+            ),
+        },
+    )
+    task_index = _task_index(task)
+    config = MultiHarnessRunConfig(
+        task_index=task_index,
+        adapters=(adapter,),
+        model_configs=(
+            ModelConfig(
+                adapter_id=adapter.manifest.adapter_id,
+                model_key="claude:fixture",
+            ),
+        ),
+        sandbox_policy=replace(
+            _sandbox(),
+            image="sha256:" + "b" * 64,
+            uid_gid="65532:65532",
+        ),
+        output_dir=tmp_path / "run",
+        container_execution="live_tools",
+        solver_inputs=_solver_inputs(tmp_path, task_index),
+    )
+
+    with pytest.raises(ValueError, match="supports only openai-responses-baseline"):
+        run_multi_harness(config)
+
+    assert adapter.capabilities_called is False
+    assert adapter.tool_run_called is False
+    assert not config.output_dir.exists()
 
 
 def test_runner_clears_live_receipt_after_post_run_rejection(
@@ -1169,6 +1269,59 @@ def test_runner_validates_compatibility_before_row_execution(tmp_path: Path) -> 
         )
 
     assert not (output_dir / "rows").exists()
+
+
+def test_runner_refuses_symlinked_runtime_record_without_write_through(
+    tmp_path: Path,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    output_dir = tmp_path / "run"
+    output_dir.mkdir(mode=0o700)
+    outside = tmp_path / "outside.json"
+    outside.write_text("sentinel\n", encoding="utf-8")
+    (output_dir / "run-compatibility.json").symlink_to(outside)
+
+    with pytest.raises(ImmutableIOError, match="regular file"):
+        run_multi_harness(
+            _command_config(output_dir=output_dir, task=task, adapter=adapter)
+        )
+
+    assert outside.read_text(encoding="utf-8") == "sentinel\n"
+
+
+def test_runner_refuses_unsafe_row_even_when_recording_failures(
+    tmp_path: Path,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    config = replace(
+        _command_config(output_dir=tmp_path / "run", task=task, adapter=adapter),
+        incomplete_run_policy="record_failure",
+    )
+    row_id = runner_module._row_id(  # pyright: ignore[reportPrivateUsage]
+        task=task,
+        adapter=adapter.manifest,
+        model=config.model_configs[0],
+        selection_sha256=config.selection.select(config.task_index).selection_sha256,
+        live=False,
+        stage=None,
+    )
+    hostile_row = config.output_dir / "rows" / row_id
+    hostile_row.mkdir(mode=0o755, parents=True)
+    config.output_dir.chmod(0o700)
+    (config.output_dir / "rows").chmod(0o700)
+
+    with pytest.raises(ValueError, match="owner-only"):
+        run_multi_harness(config)
 
 
 def _native_config(

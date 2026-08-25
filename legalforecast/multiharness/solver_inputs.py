@@ -6,12 +6,19 @@ import hashlib
 import json
 import os
 import stat
+import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Self, cast
 
-from legalforecast._json_io import read_json_object, write_json_object
+from legalforecast._json_io import write_json_object_safe
+from legalforecast.contracts import FORECAST_RELEASE_V1
+from legalforecast.immutable_io import (
+    ImmutableIOError,
+    publish_tree_create_only,
+    read_single_link_file,
+)
 from legalforecast.multiharness.materialization import (
     TaskArtifactProjection,
     TaskMaterializationLayout,
@@ -51,13 +58,29 @@ class SolverInputPayload:
 
     task: CanonicalTask
     prompt: str = field(repr=False)
-    source_packet: Mapping[str, Any] = field(repr=False)
+    source_packet: Mapping[str, Any] | None = field(default=None, repr=False)
+    source_packet_bytes: bytes | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if not self.prompt.strip():
             raise ValueError("prompt must be non-empty")
-        if not self.source_packet:
+        if (self.source_packet is None) == (self.source_packet_bytes is None):
+            raise ValueError(
+                "provide exactly one of source_packet or source_packet_bytes"
+            )
+        if self.source_packet is not None and not self.source_packet:
             raise ValueError("source_packet must not be empty")
+        if self.source_packet_bytes is not None and not self.source_packet_bytes:
+            raise ValueError("source_packet_bytes must not be empty")
+
+    def encoded_source_packet(self) -> bytes:
+        """Return the exact private source bytes bound to ``task_sha256``."""
+
+        if self.source_packet_bytes is not None:
+            return self.source_packet_bytes
+        if self.source_packet is None:  # pragma: no cover - guarded above
+            raise AssertionError("source packet is unavailable")
+        return _canonical_bytes(dict(self.source_packet), trailing_newline=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,11 +152,14 @@ class SolverInputEntry:
     entrypoint_path: str
     files: tuple[SolverInputFile, ...]
     tree_sha256: str
+    task_record_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if not self.task_id.strip():
             raise ValueError("task_id must be non-empty")
         validate_sha256(self.task_sha256, "task_sha256")
+        if self.task_record_sha256 is not None:
+            validate_sha256(self.task_record_sha256, "task_record_sha256")
         validate_sha256(self.prompt_sha256, "prompt_sha256")
         validate_safe_relative_path(self.entrypoint_path, "entrypoint_path")
         if not self.files:
@@ -173,7 +199,7 @@ class SolverInputEntry:
             raise SolverInputError("solver input tree sha256 does not match files")
 
     def to_record(self) -> dict[str, Any]:
-        return {
+        record: dict[str, Any] = {
             "task_id": self.task_id,
             "task_sha256": self.task_sha256,
             "prompt_sha256": self.prompt_sha256,
@@ -181,17 +207,24 @@ class SolverInputEntry:
             "files": [item.to_record() for item in self.files],
             "tree_sha256": self.tree_sha256,
         }
+        if self.task_record_sha256 is not None:
+            record["task_record_sha256"] = self.task_record_sha256
+        return record
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
-        if set(record) != {
+        required_fields = {
             "task_id",
             "task_sha256",
             "prompt_sha256",
             "entrypoint_path",
             "files",
             "tree_sha256",
-        }:
+        }
+        if set(record) not in (
+            required_fields,
+            required_fields | {"task_record_sha256"},
+        ):
             raise SolverInputError("solver input entry has unexpected fields")
         files: list[SolverInputFile] = []
         for value in require_sequence(record, "files"):
@@ -205,6 +238,11 @@ class SolverInputEntry:
             entrypoint_path=require_str(record, "entrypoint_path"),
             files=tuple(files),
             tree_sha256=require_str(record, "tree_sha256"),
+            task_record_sha256=(
+                require_str(record, "task_record_sha256")
+                if "task_record_sha256" in record
+                else None
+            ),
         )
 
 
@@ -274,12 +312,20 @@ class SolverInputStore:
         _validate_private_store_path(root, expect_directory=True)
         index_path = root / SOLVER_INPUT_INDEX_NAME
         _validate_private_store_path(index_path, expect_directory=False)
-        record = read_json_object(
-            index_path,
-            error_factory=SolverInputError,
-            missing_message=lambda _path: "solver input index does not exist",
-            non_object_message=lambda _path: "solver input index must be an object",
-        )
+        try:
+            decoded = json.loads(
+                read_single_link_file(
+                    index_path,
+                    label="solver input index",
+                ).decode("utf-8")
+            )
+        except (ImmutableIOError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise SolverInputError(
+                "solver input index is unavailable or invalid"
+            ) from exc
+        if not isinstance(decoded, dict):
+            raise SolverInputError("solver input index must be an object")
+        record = cast(dict[str, Any], decoded)
         return cls(root=root, index=SolverInputIndex.from_record(record))
 
     def entry_for(self, task: CanonicalTask) -> SolverInputEntry:
@@ -298,6 +344,17 @@ class SolverInputStore:
             entry.prompt_sha256
         ) != _normalized_sha256(prompt_sha256):
             raise SolverInputError("solver input prompt sha256 does not match")
+        if (
+            task.metadata.get("release_schema_version") == str(FORECAST_RELEASE_V1)
+            and entry.task_record_sha256 is None
+        ):
+            raise SolverInputError("release solver input task metadata is unbound")
+        if entry.task_record_sha256 is not None and (
+            entry.task_record_sha256 != _record_sha256(task.to_record())
+        ):
+            raise SolverInputError("solver input task metadata does not match")
+        for item in entry.files:
+            _verify_private_source_file(self.root / item.source_path, item)
         return entry
 
     def materialize(
@@ -358,6 +415,57 @@ class SolverInputStore:
         return entry, manifest
 
 
+@dataclass(slots=True)
+class PreparedSolverInput:
+    """One authenticated ephemeral solver-input tree, if configured."""
+
+    temporary: tempfile.TemporaryDirectory[str] | None = None
+    root: Path | None = None
+    entry: SolverInputEntry | None = None
+    tree_sha256: str | None = None
+
+    def cleanup(self) -> None:
+        if self.temporary is not None:
+            self.temporary.cleanup()
+
+
+def prepare_solver_input(
+    store: SolverInputStore | None,
+    task: CanonicalTask,
+    private_logs: Path,
+) -> PreparedSolverInput:
+    """Authenticate and materialize a task's private input for one row."""
+
+    if store is None:
+        return PreparedSolverInput()
+    temporary = tempfile.TemporaryDirectory(prefix="solver-input-", dir=private_logs)
+    root = Path(temporary.name) / "materialized"
+    try:
+        entry, materialization = store.materialize(task, destination_root=root)
+        write_json_object_safe(
+            private_logs / "solver-input-manifest.json",
+            {
+                "schema_version": SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION,
+                "task_id": entry.task_id,
+                "task_sha256": entry.task_sha256,
+                "entrypoint_path": entry.entrypoint_path,
+                "input_tree_sha256": entry.tree_sha256,
+                "solver_input_index_sha256": store.index.index_sha256,
+                "solver_input_entry": entry.to_record(),
+                "materialization": materialization.to_record(),
+            },
+        )
+    except BaseException:
+        temporary.cleanup()
+        raise
+    return PreparedSolverInput(
+        temporary=temporary,
+        root=root,
+        entry=entry,
+        tree_sha256=entry.tree_sha256,
+    )
+
+
 def write_solver_input_store(
     *,
     destination_root: Path,
@@ -373,11 +481,9 @@ def write_solver_input_store(
         (payload.task.task_id for payload in payloads),
         "solver input task IDs",
     )
-    try:
-        destination_root.mkdir(mode=0o700, parents=True, exist_ok=False)
-    except OSError as exc:
-        raise SolverInputError("solver input destination must be fresh") from exc
     entries: list[SolverInputEntry] = []
+    tree_payloads: dict[str, bytes] = {}
+    tree_modes: dict[str, int] = {}
     for payload in sorted(payloads, key=lambda item: item.task.task_id):
         task_root = f"tasks/{hashlib.sha256(payload.task.task_id.encode()).hexdigest()}"
         prompt_sha256 = payload.task.metadata.get("prompt_sha256")
@@ -393,22 +499,15 @@ def write_solver_input_store(
             (
                 _SOURCE_PACKET_PATH,
                 "application/json",
-                _canonical_bytes(dict(payload.source_packet), trailing_newline=False),
+                payload.encoded_source_packet(),
                 False,
             ),
         )
         files: list[SolverInputFile] = []
         for relative_name, media_type, encoded, solver_visible in file_payloads:
             source_path = f"{task_root}/{relative_name}"
-            path = destination_root / source_path
-            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            for directory in (path.parent, *path.parent.parents):
-                directory.chmod(0o700)
-                if directory == destination_root:
-                    break
-            path.touch(mode=0o600, exist_ok=False)
-            path.write_bytes(encoded)
-            path.chmod(0o400)
+            tree_payloads[source_path] = encoded
+            tree_modes[source_path] = 0o400
             files.append(
                 SolverInputFile(
                     source_path=source_path,
@@ -424,6 +523,7 @@ def write_solver_input_store(
             SolverInputEntry(
                 task_id=payload.task.task_id,
                 task_sha256=payload.task.task_sha256,
+                task_record_sha256=_record_sha256(payload.task.to_record()),
                 prompt_sha256=prompt_sha256,
                 entrypoint_path=SOLVER_INPUT_ENTRY_PATH,
                 files=canonical_files,
@@ -440,11 +540,18 @@ def write_solver_input_store(
         entries=tuple(entries),
         index_sha256=_record_sha256(content),
     )
-    write_json_object(destination_root / SOLVER_INPUT_INDEX_NAME, index.to_record())
-    (destination_root / SOLVER_INPUT_INDEX_NAME).chmod(0o600)
-    directories = tuple(path for path in destination_root.rglob("*") if path.is_dir())
-    for directory in (destination_root, *directories):
-        directory.chmod(0o700)
+    tree_payloads[SOLVER_INPUT_INDEX_NAME] = (
+        json.dumps(index.to_record(), indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    tree_modes[SOLVER_INPUT_INDEX_NAME] = 0o600
+    try:
+        publish_tree_create_only(
+            destination_root,
+            tree_payloads,
+            file_modes=tree_modes,
+        )
+    except (ImmutableIOError, OSError) as exc:
+        raise SolverInputError("solver input destination must be fresh") from exc
     return SolverInputStore(root=destination_root, index=index)
 
 
@@ -512,3 +619,16 @@ def _validate_private_store_path(path: Path, *, expect_directory: bool) -> None:
         raise SolverInputError("solver input store path is unsafe")
     if path_stat.st_uid != os.geteuid() or stat.S_IMODE(path_stat.st_mode) & 0o077:
         raise SolverInputError("solver input store permissions are not private")
+
+
+def _verify_private_source_file(path: Path, expected: SolverInputFile) -> None:
+    """Re-read one private store file without following a replacement symlink."""
+
+    try:
+        payload = read_single_link_file(path, label="solver input source")
+    except ImmutableIOError as exc:
+        raise SolverInputError("solver input source is unavailable") from exc
+    if len(payload) != expected.size_bytes:
+        raise SolverInputError("solver input source hash mismatch (size changed)")
+    if _bytes_sha256(payload) != expected.sha256:
+        raise SolverInputError("solver input source hash mismatch (sha256 changed)")

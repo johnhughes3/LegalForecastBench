@@ -18,7 +18,11 @@ from pathlib import Path
 from types import FrameType
 from typing import Any, BinaryIO
 
-from legalforecast._json_io import read_json_object, write_json_object
+from legalforecast._json_io import (
+    read_json_object_safe,
+    write_json_object_safe,
+)
+from legalforecast.immutable_io import ImmutableIOError, ensure_private_directory
 from legalforecast.multiharness.adapters import (
     AdapterError,
     AdapterPreparation,
@@ -132,7 +136,7 @@ class CommandAdapter:
         termination_grace_seconds: float = 1,
         max_private_log_bytes: int = 1_048_576,
     ) -> CommandAdapter:
-        record = read_json_object(
+        record = read_json_object_safe(
             path,
             error_factory=CommandAdapterError,
             missing_message=lambda item: f"adapter manifest does not exist: {item}",
@@ -154,8 +158,9 @@ class CommandAdapter:
         *,
         host_process_containment: str = POSIX_PROCESS_GROUP_CONTAINMENT,
     ) -> AdapterCapabilities:
+        _ensure_private_workspace(workspace)
         output_path = workspace / "adapter-capabilities.json"
-        output_path.unlink(missing_ok=True)
+        _unlink_stale_workspace_file(output_path, label="adapter capabilities")
         self._invoke(
             "capabilities",
             ("capabilities", "--output", str(output_path)),
@@ -203,14 +208,14 @@ class CommandAdapter:
         )
 
     def run(self, request: RunRequest, workspace: Path) -> RunResult:
-        workspace.mkdir(parents=True, exist_ok=True)
+        _ensure_private_workspace(workspace)
         request_path = workspace / "request.json"
         output_path = workspace / "result.json"
         private_output_path = workspace / "private-logs" / "run-result.raw.json"
-        output_path.unlink(missing_ok=True)
+        _unlink_stale_workspace_file(output_path, label="run result")
         self.prepare(request, workspace)
-        private_output_path.unlink(missing_ok=True)
-        write_json_object(request_path, request.to_record())
+        _unlink_stale_workspace_file(private_output_path, label="run result")
+        write_json_object_safe(request_path, request.to_record())
         self._invoke(
             "run",
             (
@@ -242,7 +247,7 @@ class CommandAdapter:
             tuple(provider_values.values()),
             "run result",
         )
-        write_json_object(output_path, result.to_record())
+        write_json_object_safe(output_path, result.to_record())
         return result
 
     def run_with_tools(
@@ -253,13 +258,13 @@ class CommandAdapter:
     ) -> RunResult:
         """Run an adapter over a bounded duplex JSONL tool channel."""
 
-        workspace.mkdir(parents=True, exist_ok=True)
+        _ensure_private_workspace(workspace)
         request_path = workspace / "request.json"
         output_path = workspace / "result.json"
         private_output_path = (
             workspace / "private-logs" / "run-with-tools-result.raw.json"
         )
-        output_path.unlink(missing_ok=True)
+        _unlink_stale_workspace_file(output_path, label="run-with-tools result")
         preparation = self.prepare(request, workspace)
         if (
             preparation.capabilities.tool_protocol_version
@@ -269,8 +274,11 @@ class CommandAdapter:
                 "adapter does not advertise tool protocol "
                 f"{TOOL_REQUEST_SCHEMA_VERSION}"
             )
-        private_output_path.unlink(missing_ok=True)
-        write_json_object(request_path, request.to_record())
+        _unlink_stale_workspace_file(
+            private_output_path,
+            label="run-with-tools result",
+        )
+        write_json_object_safe(request_path, request.to_record())
         self._invoke_with_tools(
             (
                 "run-with-tools",
@@ -299,7 +307,7 @@ class CommandAdapter:
             tuple(provider_values.values()),
             "run result",
         )
-        write_json_object(output_path, result.to_record())
+        write_json_object_safe(output_path, result.to_record())
         return result
 
     def _invoke_with_tools(
@@ -312,9 +320,9 @@ class CommandAdapter:
     ) -> CommandExecutionLog:
         phase = "run-with-tools"
         self._validate_execution_settings()
-        workspace.mkdir(parents=True, exist_ok=True)
+        _ensure_private_workspace(workspace)
         private_logs = workspace / "private-logs"
-        private_logs.mkdir(parents=True, exist_ok=True)
+        _ensure_private_workspace(private_logs)
         stdout_path = private_logs / f"{phase}-stdout.log"
         stderr_path = private_logs / f"{phase}-stderr.log"
         execution_path = private_logs / f"{phase}-execution.json"
@@ -469,9 +477,9 @@ class CommandAdapter:
         host_process_containment: str = POSIX_PROCESS_GROUP_CONTAINMENT,
     ) -> CommandExecutionLog:
         self._validate_execution_settings()
-        workspace.mkdir(parents=True, exist_ok=True)
+        _ensure_private_workspace(workspace)
         private_logs = workspace / "private-logs"
-        private_logs.mkdir(parents=True, exist_ok=True)
+        _ensure_private_workspace(private_logs)
         stdout_path = private_logs / f"{phase}-stdout.log"
         stderr_path = private_logs / f"{phase}-stderr.log"
         execution_path = private_logs / f"{phase}-execution.json"
@@ -1077,12 +1085,40 @@ def _require_tool_response(value: object) -> ToolResponse:
 
 
 def _read_command_json(path: Path, label: str) -> Mapping[str, Any]:
-    return read_json_object(
+    return read_json_object_safe(
         path,
         error_factory=CommandAdapterError,
         missing_message=lambda item: f"{label} was not written: {item}",
         non_object_message=lambda item: f"{label} must be a JSON object: {item}",
     )
+
+
+def _ensure_private_workspace(path: Path) -> None:
+    """Create or validate an owner-private command-adapter directory."""
+
+    try:
+        ensure_private_directory(path)
+    except (ImmutableIOError, OSError) as exc:
+        raise CommandAdapterError(
+            f"command-adapter workspace is unsafe: {path}"
+        ) from exc
+
+
+def _unlink_stale_workspace_file(path: Path, *, label: str) -> None:
+    """Remove one stale workspace file without ever following its final link."""
+
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise CommandAdapterError(f"{label} path is unavailable") from exc
+    if stat.S_ISDIR(metadata.st_mode):
+        raise CommandAdapterError(f"{label} path must be a file")
+    try:
+        path.unlink()
+    except OSError as exc:
+        raise CommandAdapterError(f"{label} path could not be cleared") from exc
 
 
 def _validate_result_artifacts(result: RunResult) -> None:

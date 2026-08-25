@@ -92,6 +92,66 @@ def test_capabilities_rejects_stale_output_when_probe_writes_only_once(
         adapter.capabilities(workspace)
 
 
+def test_command_adapter_rejects_symlinked_capability_output(
+    tmp_path: Path,
+) -> None:
+    victim = tmp_path / "victim-capabilities.json"
+    victim.write_text("must remain unchanged", encoding="utf-8")
+    script = _write_adapter_script(
+        tmp_path,
+        capabilities_symlink_target=victim,
+    )
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+
+    with pytest.raises(
+        CommandAdapterError,
+        match="adapter capabilities was not written",
+    ):
+        adapter.capabilities(tmp_path / "workspace")
+
+    assert victim.read_text(encoding="utf-8") == "must remain unchanged"
+
+
+def test_command_adapter_rejects_symlinked_run_result(
+    tmp_path: Path,
+) -> None:
+    victim = tmp_path / "victim-run-result.json"
+    victim.write_text("must remain unchanged", encoding="utf-8")
+    script = _write_adapter_script(
+        tmp_path,
+        run_result_symlink_target=victim,
+    )
+    manifest = _manifest(command=(sys.executable, str(script)))
+    adapter = CommandAdapter(manifest=manifest)
+
+    with pytest.raises(CommandAdapterError, match="run result was not written"):
+        adapter.run(_run_request(manifest), tmp_path / "workspace")
+
+    assert victim.read_text(encoding="utf-8") == "must remain unchanged"
+
+
+def test_command_adapter_rejects_hardlinked_capability_output(
+    tmp_path: Path,
+) -> None:
+    anchor = tmp_path / "capabilities-anchor.json"
+    script = _write_adapter_script(
+        tmp_path,
+        capabilities_hardlink_target=anchor,
+    )
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+    )
+
+    with pytest.raises(
+        CommandAdapterError,
+        match="adapter capabilities was not written",
+    ):
+        adapter.capabilities(tmp_path / "workspace")
+
+    assert anchor.is_file()
+    assert anchor.stat().st_nlink == 2
+
+
 def test_permission_denied_group_cleanup_preserves_success_receipt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -471,7 +531,7 @@ def test_command_adapter_rejects_provider_value_in_public_result(
     secret = "opaque-provider-value-7Jx9"
     monkeypatch.setenv("DECLARED_PROVIDER_VALUE", secret)
     workspace = tmp_path / "workspace"
-    workspace.mkdir()
+    workspace.mkdir(mode=0o700)
     (workspace / "result.json").write_text("stale public result", encoding="utf-8")
 
     with pytest.raises(ValueError, match="declared provider environment value") as exc:
@@ -496,7 +556,7 @@ def test_command_adapter_clears_stale_result_before_capability_probe(
     script = _write_adapter_script(tmp_path, fail=True)
     adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
     workspace = tmp_path / "workspace"
-    workspace.mkdir()
+    workspace.mkdir(mode=0o700)
     result_path = workspace / "result.json"
     result_path.write_text("stale public result", encoding="utf-8")
 
@@ -511,7 +571,8 @@ def test_command_adapter_rejects_planted_home_symlink(tmp_path: Path) -> None:
     adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
     workspace = tmp_path / "workspace"
     private_logs = workspace / "private-logs"
-    private_logs.mkdir(parents=True)
+    workspace.mkdir(mode=0o700)
+    private_logs.mkdir(parents=True, mode=0o700)
     ambient_home = tmp_path / "ambient-home"
     ambient_home.mkdir()
     (private_logs / "adapter-home").symlink_to(ambient_home, target_is_directory=True)
@@ -527,7 +588,9 @@ def test_command_adapter_rejects_planted_home_subdirectory_symlink(
     adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
     workspace = tmp_path / "workspace"
     adapter_home = workspace / "private-logs" / "adapter-home"
-    adapter_home.mkdir(parents=True)
+    workspace.mkdir(mode=0o700)
+    (workspace / "private-logs").mkdir(mode=0o700)
+    adapter_home.mkdir(mode=0o700)
     ambient_home = tmp_path / "ambient-home"
     ambient_home.mkdir()
     (adapter_home / ".local").symlink_to(ambient_home, target_is_directory=True)
@@ -1310,7 +1373,8 @@ def test_private_execution_logs_reject_planted_symlinks(tmp_path: Path) -> None:
     adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
     workspace = tmp_path / "workspace"
     private_logs = workspace / "private-logs"
-    private_logs.mkdir(parents=True)
+    workspace.mkdir(mode=0o700)
+    private_logs.mkdir(parents=True, mode=0o700)
     victim = tmp_path / "victim.txt"
     victim.write_text("must remain unchanged", encoding="utf-8")
     (private_logs / "capabilities-stdout.log").symlink_to(victim)
@@ -1353,10 +1417,26 @@ def _write_adapter_script(
     capture_environment: bool = False,
     public_summary_env_name: str | None = None,
     capabilities_once: bool = False,
+    capabilities_symlink_target: Path | None = None,
+    capabilities_hardlink_target: Path | None = None,
+    run_result_symlink_target: Path | None = None,
     start_marker: Path | None = None,
 ) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     script = root / "fixture_adapter.py"
+    capabilities_symlink_value = (
+        repr(str(capabilities_symlink_target))
+        if capabilities_symlink_target
+        else "None"
+    )
+    run_result_symlink_value = (
+        repr(str(run_result_symlink_target)) if run_result_symlink_target else "None"
+    )
+    capabilities_hardlink_value = (
+        repr(str(capabilities_hardlink_target))
+        if capabilities_hardlink_target
+        else "None"
+    )
     script.write_text(
         "\n".join(
             [
@@ -1369,6 +1449,9 @@ def _write_adapter_script(
                 f"CAPTURE_ENVIRONMENT = {capture_environment!r}",
                 f"PUBLIC_SUMMARY_ENV_NAME = {public_summary_env_name!r}",
                 f"CAPABILITIES_ONCE = {capabilities_once!r}",
+                f"CAPABILITIES_SYMLINK_TARGET = {capabilities_symlink_value}",
+                f"CAPABILITIES_HARDLINK_TARGET = {capabilities_hardlink_value}",
+                f"RUN_RESULT_SYMLINK_TARGET = {run_result_symlink_value}",
                 f"START_MARKER = {str(start_marker) if start_marker else None!r}",
                 f"SHA256 = {SHA256!r}",
                 f"OTHER_SHA256 = {OTHER_SHA256!r}",
@@ -1396,6 +1479,11 @@ def _write_adapter_script(
                 "        raise SystemExit()",
                 "    if CAPABILITIES_ONCE:",
                 "        once_path.write_text('written', encoding='utf-8')",
+                "    if CAPABILITIES_SYMLINK_TARGET:",
+                "        pathlib.Path(args.output).symlink_to(",
+                "            CAPABILITIES_SYMLINK_TARGET",
+                "        )",
+                "        raise SystemExit()",
                 "    if CAPTURE_ENVIRONMENT:",
                 "        private_logs = pathlib.Path(args.output).parent",
                 "        private_logs /= 'private-logs'",
@@ -1413,6 +1501,12 @@ def _write_adapter_script(
                 "      'supports_sandbox_policy': True,",
                 "      'capabilities_sha256': SHA256,",
                 "    }",
+                "    if CAPABILITIES_HARDLINK_TARGET:",
+                "        pathlib.Path(CAPABILITIES_HARDLINK_TARGET).write_text(",
+                "            json.dumps(payload), encoding='utf-8'",
+                "        )",
+                "        os.link(CAPABILITIES_HARDLINK_TARGET, args.output)",
+                "        raise SystemExit()",
                 "    with open(args.output, 'w', encoding='utf-8') as handle:",
                 "        handle.write(json.dumps(payload))",
                 "else:",
@@ -1452,6 +1546,11 @@ def _write_adapter_script(
                 "      },",
                 "    }",
                 "    print('SECRET_STDOUT')",
+                "    if RUN_RESULT_SYMLINK_TARGET:",
+                "        pathlib.Path(args.output).symlink_to(",
+                "            RUN_RESULT_SYMLINK_TARGET",
+                "        )",
+                "        raise SystemExit()",
                 "    with open(args.output, 'w', encoding='utf-8') as handle:",
                 "        handle.write(json.dumps(payload))",
             ]

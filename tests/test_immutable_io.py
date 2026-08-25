@@ -1,10 +1,30 @@
 from __future__ import annotations
 
 import os
+import stat
 from pathlib import Path
 
 import pytest
 from legalforecast import immutable_io
+
+
+def test_private_directory_rejects_symlink_and_open_permissions(
+    tmp_path: Path,
+) -> None:
+    created = immutable_io.ensure_private_directory(tmp_path / "created")
+    assert created.stat().st_mode & 0o777 == 0o700
+
+    open_directory = tmp_path / "open"
+    open_directory.mkdir(mode=0o755)
+    with pytest.raises(immutable_io.ImmutableIOError, match="owner-only"):
+        immutable_io.ensure_private_directory(open_directory)
+
+    actual = tmp_path / "actual"
+    actual.mkdir(mode=0o700)
+    linked = tmp_path / "linked"
+    linked.symlink_to(actual, target_is_directory=True)
+    with pytest.raises(immutable_io.ImmutableIOError, match="unsafe"):
+        immutable_io.ensure_private_directory(linked)
 
 
 def test_single_link_read_rejects_symlink_and_hardlink(tmp_path: Path) -> None:
@@ -49,6 +69,34 @@ def test_create_only_tree_publishes_exact_members(tmp_path: Path) -> None:
     assert (root / "nested/b.json").read_bytes() == b"b\n"
     with pytest.raises(immutable_io.ImmutableIOError, match="already exists"):
         immutable_io.publish_tree_create_only(root, {"other.json": b"x\n"})
+
+
+def test_create_only_tree_applies_validated_file_modes(tmp_path: Path) -> None:
+    root = tmp_path / "published-modes"
+
+    immutable_io.publish_tree_create_only(
+        root,
+        {"private.txt": b"private\n", "index.json": b"{}\n"},
+        file_modes={"private.txt": 0o400, "index.json": 0o600},
+    )
+
+    assert stat.S_IMODE((root / "private.txt").stat().st_mode) == 0o400
+    assert stat.S_IMODE((root / "index.json").stat().st_mode) == 0o600
+
+    with pytest.raises(immutable_io.ImmutableIOError, match="unknown payloads"):
+        immutable_io.publish_tree_create_only(
+            tmp_path / "unknown-mode",
+            {"index.json": b"{}\n"},
+            file_modes={"missing.txt": 0o400},
+        )
+    with pytest.raises(immutable_io.ImmutableIOError, match="0400 or 0600"):
+        immutable_io.publish_tree_create_only(
+            tmp_path / "open-mode",
+            {"index.json": b"{}\n"},
+            file_modes={"index.json": 0o644},
+        )
+    assert not (tmp_path / "unknown-mode").exists()
+    assert not (tmp_path / "open-mode").exists()
 
 
 def test_create_only_tree_rejects_missing_parent_without_mutation(
@@ -107,6 +155,33 @@ def test_create_only_write_rejects_missing_parent_without_mutation(
         immutable_io.write_file_create_only(missing_parent / "output.json", b"{}\n")
 
     assert not missing_parent.exists()
+
+
+def test_safe_replace_refuses_symlink_and_hardlink_targets(tmp_path: Path) -> None:
+    outside = tmp_path / "outside.json"
+    outside.write_bytes(b"sentinel\n")
+    symlink = tmp_path / "symlink.json"
+    symlink.symlink_to(outside)
+
+    with pytest.raises(immutable_io.ImmutableIOError, match="regular file"):
+        immutable_io.write_file_replace_safe(symlink, b"replaced\n")
+    assert outside.read_bytes() == b"sentinel\n"
+
+    hardlink = tmp_path / "hardlink.json"
+    os.link(outside, hardlink)
+    with pytest.raises(immutable_io.ImmutableIOError, match="single-link"):
+        immutable_io.write_file_replace_safe(hardlink, b"replaced\n")
+    assert outside.read_bytes() == b"sentinel\n"
+
+
+def test_safe_replace_creates_and_replaces_owner_file(tmp_path: Path) -> None:
+    output = tmp_path / "output.json"
+
+    immutable_io.write_file_replace_safe(output, b"first\n")
+    immutable_io.write_file_replace_safe(output, b"second\n")
+
+    assert output.read_bytes() == b"second\n"
+    assert output.stat().st_mode & 0o777 == 0o600
 
 
 def test_create_only_tree_rejects_symlinked_parent_without_mutation(

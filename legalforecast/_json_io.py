@@ -7,6 +7,12 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.immutable_io import (
+    ImmutableIOError,
+    read_single_link_file,
+    write_file_replace_safe,
+)
+
 JsonRecord = dict[str, Any]
 ErrorFactory = Callable[[str], Exception]
 
@@ -79,3 +85,52 @@ def write_jsonl_objects(
         ),
         encoding="utf-8",
     )
+
+
+def read_json_object_safe(
+    path: Path,
+    *,
+    error_factory: ErrorFactory,
+    missing_message: Callable[[Path], str],
+    non_object_message: Callable[[Path], str],
+) -> JsonRecord:
+    """Read one JSON object without following a symlink or hardlink."""
+
+    try:
+        payload = read_single_link_file(path, label="JSON object")
+        value: object = json.loads(payload.decode("utf-8"))
+    except (ImmutableIOError, OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise error_factory(missing_message(path)) from exc
+    if not isinstance(value, dict):
+        raise error_factory(non_object_message(path))
+    return cast(JsonRecord, value)
+
+
+def write_json_object_safe(
+    path: Path,
+    payload: Mapping[str, Any],
+    *,
+    indent: int = 2,
+    sort_keys: bool = True,
+    trailing_newline: bool = True,
+) -> None:
+    """Write JSON through an anchored, no-follow owner-controlled file."""
+
+    text = json.dumps(payload, indent=indent, sort_keys=sort_keys)
+    if trailing_newline:
+        text += "\n"
+    write_file_replace_safe(path, text.encode("utf-8"))
+
+
+def write_jsonl_objects_safe(
+    path: Path,
+    records: Sequence[Mapping[str, Any]],
+    *,
+    sort_keys: bool = True,
+) -> None:
+    """Write JSONL through an anchored, no-follow owner-controlled file."""
+
+    payload = "".join(
+        json.dumps(dict(record), sort_keys=sort_keys) + "\n" for record in records
+    )
+    write_file_replace_safe(path, payload.encode("utf-8"))

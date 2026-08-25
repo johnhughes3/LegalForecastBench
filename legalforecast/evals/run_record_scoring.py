@@ -6,7 +6,11 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
 
-from legalforecast.evals.output_parser import parse_model_output
+from legalforecast.evals.output_parser import (
+    ParsedModelOutput,
+    parse_model_output,
+    parsed_output_from_public_record,
+)
 from legalforecast.evals.scorers import ScoreSummary, ScoringCase, score_cases
 from legalforecast.labeling.label_outcomes import OutcomeLabel
 
@@ -52,10 +56,7 @@ def score_run_records(
             if include_ablation_in_model_id
             else base_model_id
         )
-        parsed = parse_model_output(
-            _required_str(record, "raw_output"),
-            required_unit_ids=required_unit_ids,
-        )
+        parsed = _record_parsed_output(record, required_unit_ids)
         cases_by_model[model_id].append(
             ScoringCase(
                 case_id=_required_str(record, "case_id"),
@@ -113,6 +114,24 @@ def _record_model_id(record: Mapping[str, Any]) -> str:
             raise ValueError("solver_id must include a non-empty model ID")
         return model_id
     return solver_id
+
+
+def _record_parsed_output(
+    record: Mapping[str, Any],
+    required_unit_ids: tuple[str, ...],
+) -> ParsedModelOutput:
+    projection = record.get("parser_output")
+    if projection is None:
+        return parse_model_output(
+            _required_str(record, "raw_output"),
+            required_unit_ids=required_unit_ids,
+        )
+    if not isinstance(projection, Mapping):
+        raise ValueError("parser_output must be an object")
+    parsed = parsed_output_from_public_record(cast(Mapping[str, Any], projection))
+    if parsed.required_unit_ids != required_unit_ids:
+        raise ValueError("parser_output required_unit_ids does not match run record")
+    return parsed
 
 
 def _required(record: Mapping[str, Any], field_name: str) -> Any:

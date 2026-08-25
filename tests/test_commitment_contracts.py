@@ -28,6 +28,7 @@ from legalforecast.contracts import (
     LLM_STAGE_A_UNITIZER_TERMINAL_ESCALATION_V1,
     MANIFEST_CANONICAL_JSON_V1,
     MANIFEST_RAW_SHA256_V1,
+    RAW_BYTES_PREFIXED_SHA256_V1,
     RAW_BYTES_RAW_SHA256_V1,
     RECOVERY_VERTICAL_SLICE_SCHEMAS,
     REPLACEMENT_RECOVERY_CONSOLIDATION_RUN_CARD_V2,
@@ -138,6 +139,17 @@ def test_raw_bytes_digest_preserves_exact_input_bytes() -> None:
 
     assert commitment.digest == RawSha256(
         "d4e4877bac978b7952f0d544fc52ebff5411d351d129f1f056fa43f11da9af2b"
+    )
+
+
+def test_prefixed_raw_bytes_digest_preserves_exact_input_bytes() -> None:
+    commitment = RAW_BYTES_PREFIXED_SHA256_V1.commit(
+        b"payload\n",
+        domain=ACQUISITION_RUN_CARD_V1,
+    )
+
+    assert commitment.digest == PrefixedSha256(
+        "sha256:d4e4877bac978b7952f0d544fc52ebff5411d351d129f1f056fa43f11da9af2b"
     )
 
 

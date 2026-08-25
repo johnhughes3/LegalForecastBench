@@ -28,13 +28,17 @@ from legalforecast.multiharness.openai_responses_cli import (
 from legalforecast.multiharness.openai_responses_cli import (
     main as adapter_main,
 )
+from legalforecast.multiharness.release_harness import project_release_harness_result
+from legalforecast.multiharness.solver_inputs import SolverInputStore
 from legalforecast.multiharness.spec import (
     AdapterManifest,
     CanonicalTask,
     RunRequest,
     SandboxPolicy,
 )
+from legalforecast.multiharness.task_loaders import ReleaseLfbTaskLoader
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
+from legalforecast.release.synthetic import issue_synthetic_release
 
 
 @dataclass(frozen=True)
@@ -184,12 +188,13 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
         output_tokens=3,
     )
     forecast = {
+        "case_assessment": "Fixture assessment.",
         "predictions": [
             {
                 "unit_id": "count_i",
                 "probability_fully_dismissed": 0.7,
             }
-        ]
+        ],
     }
     second = _response(
         response_id="resp-private-2",
@@ -259,6 +264,7 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
         "adapter_id": OPENAI_RESPONSES_ADAPTER_ID,
         "adapter_bundle_sha256": adapter_bundle_sha256(),
         "adapter_version": OPENAI_RESPONSES_ADAPTER_VERSION,
+        "allowed_tools": ["read_canonical_task"],
         "auth_mode": "api-key-by-user-environment",
         "forecast_sha256": result.public_summary["forecast_sha256"],
         "input_tokens": 32,
@@ -277,13 +283,20 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
         "served_model": "gpt-served-snapshot",
         "subscription_login_claimed": False,
         "task_id": "lfb:case-1:full_packet",
+        "tool_policy": "host_read_canonical_task_only",
         "tool_call_count": 1,
         "total_tokens": 42,
+        "harness_track": "neutral",
+        "transcript_sha256": result.public_summary["transcript_sha256"],
     }
     assert "response_id" not in result.public_summary
-    assert len(result.artifacts) == 1
-    artifact = result.artifacts[0]
-    assert artifact.artifact_id == "openai-forecast-private"
+    assert len(result.artifacts) == 2
+    artifact = next(
+        item
+        for item in result.artifacts
+        if item.artifact_id == "release-forecast-output-private"
+    )
+    assert artifact.artifact_id == "release-forecast-output-private"
     assert artifact.path == "private-logs/openai-forecast.json"
     assert artifact.sha256 == result.public_summary["forecast_sha256"]
     assert artifact.public is False
@@ -292,6 +305,144 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
         (tmp_path / "private-logs" / "openai-forecast.json").read_text()
     )
     assert private_forecast == forecast
+    assert json.loads(
+        (tmp_path / "private-logs" / "openai-transcript.json").read_text()
+    )
+
+
+def test_release_response_projects_end_to_end_with_bound_transcript(
+    tmp_path: Path,
+) -> None:
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    solver_root = tmp_path / "solver-inputs"
+    task_index = ReleaseLfbTaskLoader().load_forecast_release(
+        release_root / "forecast-release.json",
+        artifact_root=release_root,
+        solver_input_root=solver_root,
+    )
+    task = task_index.tasks[0]
+    manifest = AdapterManifest(
+        adapter_id=OPENAI_RESPONSES_ADAPTER_ID,
+        display_name="OpenAI Responses Baseline",
+        adapter_version=OPENAI_RESPONSES_ADAPTER_VERSION,
+        command=("adapter.py",),
+    )
+    request = RunRequest(
+        request_id="release-request-1",
+        task=task,
+        adapter=manifest,
+        model_key="openai:gpt-test",
+        sandbox_policy=SandboxPolicy(
+            policy_id="provider-runtime",
+            backend="podman",
+            image="worker@sha256:" + "2" * 64,
+            network_policy="provider-egress-host-only",
+            timeout_seconds=30,
+            allowed_provider_env_vars=("OPENAI_API_KEY",),
+        ),
+        request_sha256="sha256:" + "3" * 64,
+    )
+    unit_id = str(task.metadata["unit_id"])
+    forecast = {
+        "case_assessment": "Fixture assessment.",
+        "predictions": [
+            {
+                "unit_id": unit_id,
+                "probability_fully_dismissed": 0.7,
+            }
+        ],
+    }
+    client = _FakeClient(
+        [
+            _response(
+                response_id="resp-private-1",
+                model="gpt-served-snapshot",
+                output=[_FunctionCall(call_id="call-1")],
+            ),
+            _response(
+                response_id="resp-private-2",
+                model="gpt-served-snapshot",
+                output=[],
+                output_text=json.dumps(forecast),
+            ),
+        ]
+    )
+    workspace = tmp_path / "workspace"
+
+    result = run_openai_responses(
+        request,
+        workspace,
+        tool_transport=_ToolTransport(),
+        client=client,
+    )
+    materialized = tmp_path / "materialized"
+    entry, _ = SolverInputStore.load(solver_root).materialize(
+        task, destination_root=materialized
+    )
+    projection = project_release_harness_result(
+        request,
+        result,
+        workspace,
+        materialized,
+        entry,
+    )
+
+    transcript = json.loads(
+        (workspace / "private-logs/openai-transcript.json").read_text("utf-8")
+    )
+    assert transcript["request_sha256"] == request.request_sha256
+    assert transcript["packet_sha256"] == task.task_sha256
+    assert transcript["prompt_sha256"] == task.metadata["prompt_sha256"]
+    assert transcript["response_sha256"] == result.public_summary["forecast_sha256"]
+    assert len(transcript["turns"]) == 2
+    assert projection.receipt.to_record()["adapter"]["adapter_id"] == (
+        OPENAI_RESPONSES_ADAPTER_ID
+    )
+
+
+def test_live_response_refuses_symlinked_private_output_directory(
+    tmp_path: Path,
+) -> None:
+    forecast = {
+        "case_assessment": "Fixture assessment.",
+        "predictions": [
+            {
+                "unit_id": "count_i",
+                "probability_fully_dismissed": 0.7,
+            }
+        ],
+    }
+    client = _FakeClient(
+        [
+            _response(
+                response_id="resp-private-1",
+                model="gpt-served-snapshot",
+                output=[_FunctionCall(call_id="call-1")],
+            ),
+            _response(
+                response_id="resp-private-2",
+                model="gpt-served-snapshot",
+                output=[],
+                output_text=json.dumps(forecast),
+            ),
+        ]
+    )
+    workspace = tmp_path / "workspace"
+    outside = tmp_path / "outside"
+    workspace.mkdir()
+    outside.mkdir()
+    (workspace / "private-logs").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="staging path is unavailable"):
+        run_openai_responses(
+            _request(),
+            workspace,
+            tool_transport=_ToolTransport(),
+            client=client,
+        )
+
+    assert tuple(outside.iterdir()) == ()
 
 
 @pytest.mark.parametrize(
@@ -358,12 +509,13 @@ def test_live_run_accepts_empty_arguments_for_zero_parameter_tool(
     arguments: str,
 ) -> None:
     forecast = {
+        "case_assessment": "Fixture assessment.",
         "predictions": [
             {
                 "unit_id": "count_i",
                 "probability_fully_dismissed": 0.5,
             }
-        ]
+        ],
     }
     client = _FakeClient(
         [
@@ -429,12 +581,13 @@ def test_live_run_rejects_non_completed_responses(
         output=[],
         output_text=json.dumps(
             {
+                "case_assessment": "Fixture assessment.",
                 "predictions": [
                     {
                         "unit_id": "count_i",
                         "probability_fully_dismissed": 0.5,
                     }
-                ]
+                ],
             }
         ),
         status=status,
@@ -474,30 +627,33 @@ def test_live_run_enforces_tool_exchange_cap(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "forecast",
     [
-        {"predictions": []},
+        {"case_assessment": "Fixture assessment.", "predictions": []},
         {
+            "case_assessment": "Fixture assessment.",
             "predictions": [
                 {
                     "unit_id": "wrong",
                     "probability_fully_dismissed": 0.5,
                 }
-            ]
+            ],
         },
         {
+            "case_assessment": "Fixture assessment.",
             "predictions": [
                 {
                     "unit_id": "count_i",
                     "probability_fully_dismissed": 1.1,
                 }
-            ]
+            ],
         },
         {
+            "case_assessment": "Fixture assessment.",
             "predictions": [
                 {
                     "unit_id": "count_i",
                     "probability_fully_dismissed": math.nan,
                 }
-            ]
+            ],
         },
     ],
 )

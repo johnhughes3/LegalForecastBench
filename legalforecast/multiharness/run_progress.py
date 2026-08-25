@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Self
 
-from legalforecast._json_io import read_json_object, write_json_object
+from legalforecast._json_io import read_json_object_safe, write_json_object_safe
 from legalforecast.multiharness.identity import derive_solver_identity
 from legalforecast.multiharness.validation import (
     require_mapping,
@@ -288,7 +288,7 @@ def load_progress_journal(output_dir: Path) -> RunProgressJournal | None:
     if not path.is_file():
         return None
     try:
-        record = read_json_object(
+        record = read_json_object_safe(
             path,
             error_factory=ResumeRefusedError,
             missing_message=lambda item: f"progress journal does not exist: {item}",
@@ -310,7 +310,7 @@ def write_progress_journal(output_dir: Path, journal: RunProgressJournal) -> Non
 
     path = output_dir / JOURNAL_FILENAME
     temporary = path.with_name(f".{path.name}.tmp")
-    write_json_object(temporary, journal.to_record())
+    write_json_object_safe(temporary, journal.to_record())
     temporary.replace(path)
 
 

@@ -290,6 +290,9 @@ FIRECRAWL_SCRAPE_REQUEST_CONTRACT_V1 = SchemaIdentifier(
 )
 FORECAST_RELEASE_V1 = SchemaIdentifier("legalforecast.forecast-release.v1")
 LABELS_RELEASE_V1 = SchemaIdentifier("legalforecast.labels-release.v1")
+RELEASE_HARNESS_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.release_harness_receipt.v1"
+)
 PUBLIC_RUN_IDENTITY_V1 = SchemaIdentifier("legalforecast.public-run-identity.v1")
 PUBLIC_RUN_RECEIPT_V1 = SchemaIdentifier("legalforecast.public-run-receipt.v1")
 FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1 = SchemaIdentifier(
@@ -429,6 +432,9 @@ RECAP_FETCH_QUARANTINE_RECOVERY_V1 = SchemaIdentifier(
 RAW_BYTES_CODEC_V1 = SchemaIdentifier("legalforecast.codec.raw-bytes.v1")
 RAW_BYTES_RAW_SHA256_COMMITMENT_V1 = SchemaIdentifier(
     "legalforecast.commitment.raw-bytes.raw-sha256.v1"
+)
+RAW_BYTES_PREFIXED_SHA256_COMMITMENT_V1 = SchemaIdentifier(
+    "legalforecast.commitment.raw-bytes.sha256-prefixed.v1"
 )
 RECAP_FETCH_QUARANTINE_RECOVERY_RUN_CARD_V2 = SchemaIdentifier(
     "legalforecast.recap_fetch_quarantine_recovery_run_card.v2"

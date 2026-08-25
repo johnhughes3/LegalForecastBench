@@ -4038,7 +4038,7 @@
       "legalforecast/ingestion/frozen_parser_model": 2,
       "legalforecast/ingestion/stage_a_replay_executor": 17,
       "legalforecast/labeling": 13,
-      "legalforecast/multiharness": 69,
+      "legalforecast/multiharness": 72,
       "legalforecast/protocol": 4,
       "legalforecast/publication": 22,
       "legalforecast/release": 4,
@@ -4050,7 +4050,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 19,
-      "tests": 495,
+      "tests": 496,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -4496,7 +4496,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 11,
+        "fan_in": 12,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -4505,9 +4505,9 @@
         "largest_symbol": "_parse_payload",
         "largest_symbol_lines": 130,
         "layer": "application",
-        "line_count": 625,
-        "nonblank_line_count": 546,
-        "top_level_definition_count": 23
+        "line_count": 800,
+        "nonblank_line_count": 707,
+        "top_level_definition_count": 29
       },
       "legalforecast/evals/per_case_runner.py": {
         "cycle_id": "",
@@ -7403,14 +7403,14 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 2,
-        "fan_out": 23,
+        "fan_out": 25,
         "flags": [
           "cycle",
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "add_multiharness_parser",
-        "largest_symbol_lines": 399,
+        "largest_symbol_lines": 395,
         "layer": "application",
         "line_count": 1539,
         "nonblank_line_count": 1416,
@@ -7439,24 +7439,24 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 4,
-        "fan_out": 7,
+        "fan_out": 8,
         "flags": [
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "CommandAdapter",
-        "largest_symbol_lines": 514,
+        "largest_symbol_lines": 518,
         "layer": "application",
-        "line_count": 1234,
-        "nonblank_line_count": 1146,
-        "top_level_definition_count": 25
+        "line_count": 1270,
+        "nonblank_line_count": 1176,
+        "top_level_definition_count": 27
       },
       "legalforecast/multiharness/community.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 3,
-        "fan_out": 10,
+        "fan_out": 13,
         "flags": [
           "monolith"
         ],
@@ -7464,9 +7464,9 @@
         "largest_symbol": "_validate_local_run_provenance",
         "largest_symbol_lines": 319,
         "layer": "application",
-        "line_count": 2355,
-        "nonblank_line_count": 2166,
-        "top_level_definition_count": 68
+        "line_count": 2734,
+        "nonblank_line_count": 2515,
+        "top_level_definition_count": 76
       },
       "legalforecast/multiharness/conformance.py": {
         "cycle_id": "",
@@ -7763,18 +7763,18 @@
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
         "fan_in": 1,
-        "fan_out": 4,
+        "fan_out": 5,
         "flags": [
           "relative-path",
           "watch"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_openai_responses",
-        "largest_symbol_lines": 120,
+        "largest_symbol_lines": 124,
         "layer": "application",
-        "line_count": 602,
-        "nonblank_line_count": 530,
-        "top_level_definition_count": 27
+        "line_count": 693,
+        "nonblank_line_count": 615,
+        "top_level_definition_count": 29
       },
       "legalforecast/multiharness/process_containment.py": {
         "cycle_id": "",
@@ -7794,22 +7794,39 @@
         "nonblank_line_count": 770,
         "top_level_definition_count": 35
       },
+      "legalforecast/multiharness/release_harness.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 4,
+        "fan_out": 8,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "_release_receipt_evidence",
+        "largest_symbol_lines": 97,
+        "layer": "application",
+        "line_count": 918,
+        "nonblank_line_count": 804,
+        "top_level_definition_count": 44
+      },
       "legalforecast/multiharness/runner.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 2,
-        "fan_out": 17,
+        "fan_out": 20,
         "flags": [
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "_MultiHarnessRunner",
-        "largest_symbol_lines": 600,
+        "largest_symbol_lines": 705,
         "layer": "application",
-        "line_count": 1339,
-        "nonblank_line_count": 1234,
-        "top_level_definition_count": 34
+        "line_count": 1586,
+        "nonblank_line_count": 1462,
+        "top_level_definition_count": 39
       },
       "legalforecast/multiharness/scoring.py": {
         "cycle_id": "",
@@ -7832,24 +7849,24 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 8,
-        "fan_out": 4,
+        "fan_in": 10,
+        "fan_out": 5,
         "flags": [
           "watch"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "SolverInputStore",
-        "largest_symbol_lines": 95,
+        "largest_symbol_lines": 115,
         "layer": "application",
-        "line_count": 514,
-        "nonblank_line_count": 459,
-        "top_level_definition_count": 14
+        "line_count": 634,
+        "nonblank_line_count": 567,
+        "top_level_definition_count": 17
       },
       "legalforecast/multiharness/spec.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 35,
+        "fan_in": 38,
         "fan_out": 1,
         "flags": [
           "watch"
@@ -7883,18 +7900,18 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 3,
-        "fan_out": 8,
+        "fan_in": 4,
+        "fan_out": 10,
         "flags": [
           "watch"
         ],
         "lane_owner": "multiharness",
-        "largest_symbol": "LfbTaskLoader",
-        "largest_symbol_lines": 125,
+        "largest_symbol": "ReleaseLfbTaskLoader",
+        "largest_symbol_lines": 140,
         "layer": "application",
-        "line_count": 555,
-        "nonblank_line_count": 492,
-        "top_level_definition_count": 23
+        "line_count": 700,
+        "nonblank_line_count": 628,
+        "top_level_definition_count": 24
       },
       "legalforecast/multiharness/tier0_evaluator_wrapper.py": {
         "cycle_id": "",
@@ -8370,9 +8387,9 @@
         "largest_symbol": "execute_release_run",
         "largest_symbol_lines": 431,
         "layer": "application",
-        "line_count": 864,
-        "nonblank_line_count": 804,
-        "top_level_definition_count": 15
+        "line_count": 829,
+        "nonblank_line_count": 772,
+        "top_level_definition_count": 14
       },
       "legalforecast/selection/case_mix_diagnostics.py": {
         "cycle_id": "",
@@ -9351,11 +9368,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "_write_run_dir",
-        "largest_symbol_lines": 156,
+        "largest_symbol_lines": 160,
         "layer": "test",
-        "line_count": 1139,
-        "nonblank_line_count": 1006,
-        "top_level_definition_count": 44
+        "line_count": 1524,
+        "nonblank_line_count": 1328,
+        "top_level_definition_count": 62
       },
       "tests/test_contamination_tier_reporting.py": {
         "cycle_id": "",
@@ -10565,9 +10582,9 @@
         "largest_symbol": "test_multiharness_task_folder_selects_projected_layout",
         "largest_symbol_lines": 68,
         "layer": "test",
-        "line_count": 722,
-        "nonblank_line_count": 663,
-        "top_level_definition_count": 19
+        "line_count": 843,
+        "nonblank_line_count": 774,
+        "top_level_definition_count": 22
       },
       "tests/test_multiharness_codex_cli.py": {
         "cycle_id": "",
@@ -10598,11 +10615,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "_write_adapter_script",
-        "largest_symbol_lines": 116,
+        "largest_symbol_lines": 151,
         "layer": "test",
-        "line_count": 1751,
-        "nonblank_line_count": 1553,
-        "top_level_definition_count": 53
+        "line_count": 1850,
+        "nonblank_line_count": 1640,
+        "top_level_definition_count": 56
       },
       "tests/test_multiharness_container_runtime.py": {
         "cycle_id": "",
@@ -10736,11 +10753,28 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_live_responses_tool_loop_maps_request_and_records_safe_provenance",
-        "largest_symbol_lines": 123,
+        "largest_symbol_lines": 135,
         "layer": "test",
-        "line_count": 633,
-        "nonblank_line_count": 565,
-        "top_level_definition_count": 21
+        "line_count": 789,
+        "nonblank_line_count": 713,
+        "top_level_definition_count": 23
+      },
+      "tests/test_multiharness_release_harness.py": {
+        "cycle_id": "",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "oversized"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_release_prompt_runs_through_neutral_and_native_shared_receipt",
+        "largest_symbol_lines": 276,
+        "layer": "test",
+        "line_count": 1124,
+        "nonblank_line_count": 1054,
+        "top_level_definition_count": 17
       },
       "tests/test_multiharness_runner.py": {
         "cycle_id": "",
@@ -10755,9 +10789,9 @@
         "largest_symbol": "_command_adapter",
         "largest_symbol_lines": 115,
         "layer": "test",
-        "line_count": 1593,
-        "nonblank_line_count": 1424,
-        "top_level_definition_count": 46
+        "line_count": 1746,
+        "nonblank_line_count": 1513,
+        "top_level_definition_count": 49
       },
       "tests/test_multiharness_spend.py": {
         "cycle_id": "",

@@ -13,7 +13,12 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
-from legalforecast.multiharness.task_loaders import HarveyLabTaskLoader, LfbTaskLoader
+from legalforecast.multiharness.task_loaders import (
+    HarveyLabTaskLoader,
+    LfbTaskLoader,
+    ReleaseLfbTaskLoader,
+)
+from legalforecast.release.synthetic import issue_synthetic_release
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     PredictionUnit,
@@ -101,6 +106,54 @@ def test_lfb_task_loader_rejects_duplicate_task_ids() -> None:
 
     with pytest.raises(ValueError, match="duplicate"):
         LfbTaskLoader().from_records((packet, packet))
+
+
+def test_release_task_loader_binds_exact_public_release_without_labels(
+    tmp_path: Path,
+) -> None:
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    (release_root / "labels-release.json").unlink()
+    solver_root = tmp_path / "solver-inputs"
+
+    index = ReleaseLfbTaskLoader().load_forecast_release(
+        release_root / "forecast-release.json",
+        artifact_root=release_root,
+        solver_input_root=solver_root,
+    )
+
+    assert len(index.tasks) == 3
+    first = index.tasks[0]
+    assert first.task_id == "lfb-release:synthetic-three-case-v1:unit-001"
+    assert first.task_sha256 == first.metadata["packet_sha256"]
+    assert first.metadata["required_unit_ids"] == ["unit-001"]
+    assert first.metadata["should_score"] is True
+    assert index.tasks[2].metadata["should_score"] is False
+    public = json.dumps(index.to_record(), sort_keys=True)
+    assert "Forecast whether" not in public
+    assert "decision_date" not in public
+    assert "labels-release" not in public
+
+    solver_index = json.loads(
+        (solver_root / "solver-input-index.json").read_text(encoding="utf-8")
+    )
+    entry = next(
+        item for item in solver_index["entries"] if item["task_id"] == first.task_id
+    )
+    packet_file = next(
+        item
+        for item in entry["files"]
+        if item["destination_path"] == "source/model-packet.json"
+    )
+    prompt_file = next(
+        item for item in entry["files"] if item["destination_path"] == "prompt.txt"
+    )
+    assert (solver_root / packet_file["source_path"]).read_bytes() == (
+        release_root / "packets/unit-001.json"
+    ).read_bytes()
+    assert (solver_root / prompt_file["source_path"]).read_bytes() == (
+        release_root / "prompts/unit-001.txt"
+    ).read_bytes()
 
 
 def test_harvey_lab_task_loader_indexes_tasks_and_infers_taxonomy(
