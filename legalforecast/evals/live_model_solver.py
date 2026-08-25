@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import os
+import shutil
 import socket
 import subprocess
 import time
@@ -105,6 +106,13 @@ class LiveModelTransport(Protocol):
         request: urllib.request.Request,
         timeout_seconds: float,
     ) -> JsonRecord: ...
+
+
+RequestBodyObserver = Callable[[bytes], None]
+RunAttemptWithPreflight = Callable[
+    [int, Callable[[], None], Callable[[], JsonRecord]],
+    JsonRecord,
+]
 
 
 class ProviderAttemptHandler(Protocol):
@@ -238,6 +246,8 @@ def complete_live_prompt(
     response_json_schema: Mapping[str, object] | None = None,
     max_output_tokens_override: int | None = None,
     openai_service_tier_observer: Callable[[str], None] | None = None,
+    request_body_observer: RequestBodyObserver | None = None,
+    openai_flex_already_rejected: bool = False,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
 
@@ -294,6 +304,7 @@ def complete_live_prompt(
             max_attempts=max_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
+            request_body_observer=request_body_observer,
         )
 
     started = time.perf_counter()
@@ -308,6 +319,8 @@ def complete_live_prompt(
             max_attempts=max_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
+            request_body_observer=request_body_observer,
+            openai_flex_already_rejected=openai_flex_already_rejected,
         )
     )
     latency_ms = (time.perf_counter() - started) * 1000
@@ -385,6 +398,7 @@ def _complete_bedrock_anthropic_prompt(
     max_attempts: int,
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None,
+    request_body_observer: RequestBodyObserver | None,
 ) -> SolverResponse:
     bedrock_model_id = _bedrock_anthropic_model_id(registry_entry, environ)
     _reject_unsupported_legacy_bedrock_model(
@@ -393,17 +407,28 @@ def _complete_bedrock_anthropic_prompt(
         environ,
     )
     request_payload = _bedrock_anthropic_payload(registry_entry, prompt)
-    started = time.perf_counter()
-    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
-        lambda: _invoke_bedrock_runtime_json(
+    request_bytes = json.dumps(dict(request_payload)).encode("utf-8")
+
+    def prepare_bedrock_runtime() -> None:
+        _bedrock_aws_cli_executable(environ)
+
+    def bedrock_call() -> JsonRecord:
+        if request_body_observer is not None:
+            request_body_observer(request_bytes)
+        return _invoke_bedrock_runtime_json(
             bedrock_model_id,
             request_payload,
             environ=environ,
             timeout_seconds=timeout_seconds,
-        ),
+        )
+
+    started = time.perf_counter()
+    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
+        bedrock_call,
         max_attempts=max_attempts,
         retry_backoff_seconds=retry_backoff_seconds,
         attempt_handler=attempt_handler,
+        attempt_preflight=prepare_bedrock_runtime,
     )
     latency_ms = (time.perf_counter() - started) * 1000
     try:
@@ -514,6 +539,10 @@ def validate_provider_response_fields(
 ) -> ValidatedProviderResponseFields:
     """Extract and validate the fields used to settle one provider response."""
 
+    if _is_openai_provider(registry_entry) and payload.get("status") != "completed":
+        raise LiveModelResponseError(
+            "OpenAI response status must be completed before spend settlement"
+        )
     provider = _provider_config(registry_entry.provider)
     raw_output = provider.extract_output(payload)
     input_tokens, output_tokens = provider.extract_usage(payload)
@@ -780,12 +809,13 @@ def _invoke_bedrock_runtime_json(
     if not model_id.strip():
         raise LiveModelConfigError("Bedrock model id is required")
     process_env = dict(os.environ if environ is None else environ)
+    aws_executable = _bedrock_aws_cli_executable(environ)
     with TemporaryDirectory(prefix="lfb-bedrock-") as tmpdir:
         request_path = Path(tmpdir) / "request.json"
         response_path = Path(tmpdir) / "response.json"
         request_path.write_text(json.dumps(dict(payload)), encoding="utf-8")
         command = [
-            "aws",
+            aws_executable,
             "bedrock-runtime",
             "invoke-model",
             "--model-id",
@@ -829,6 +859,18 @@ def _invoke_bedrock_runtime_json(
         if not response_path.exists():
             raise LiveModelResponseError("Bedrock response file was not written")
         return _json_payload(response_path.read_bytes())
+
+
+def _bedrock_aws_cli_executable(
+    environ: Mapping[str, str] | None,
+) -> str:
+    """Resolve the AWS CLI before spend authorization or transport observation."""
+
+    values = os.environ if environ is None else environ
+    executable = shutil.which("aws", path=values.get("PATH"))
+    if executable is None:
+        raise LiveModelConfigError("aws CLI is required for Bedrock runtime")
+    return executable
 
 
 def _json_request(
@@ -879,6 +921,15 @@ def _urlopen_json(
         ) from exc
 
 
+def default_live_model_transport(
+    request: urllib.request.Request,
+    timeout_seconds: float,
+) -> JsonRecord:
+    """Send one provider request through the supported default transport."""
+
+    return _urlopen_json(request, timeout_seconds)
+
+
 def _call_live_http_provider(
     registry_entry: ModelRegistryEntry,
     prompt: str,
@@ -890,19 +941,29 @@ def _call_live_http_provider(
     max_attempts: int,
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None,
+    request_body_observer: RequestBodyObserver | None,
+    openai_flex_already_rejected: bool,
 ) -> tuple[JsonRecord, int, int, str | None, bool]:
     """POST one live HTTP provider call, with OpenAI Flex-to-standard fallback."""
 
     if not _is_openai_provider(registry_entry):
         provider = _provider_config(registry_entry.provider)
+        provider_request: urllib.request.Request | None = None
+
+        def prepare_provider_request() -> None:
+            nonlocal provider_request
+            if provider_request is None:
+                provider_request = provider.build_request(
+                    registry_entry,
+                    prompt,
+                    api_key_supplier(),
+                    response_json_schema,
+                )
 
         def provider_call() -> JsonRecord:
-            provider_request = provider.build_request(
-                registry_entry,
-                prompt,
-                api_key_supplier(),
-                response_json_schema,
-            )
+            if provider_request is None:
+                raise RuntimeError("provider request preflight did not run")
+            _observe_request_body(provider_request, request_body_observer)
             return transport(provider_request, timeout_seconds)
 
         payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
@@ -910,27 +971,52 @@ def _call_live_http_provider(
             max_attempts=max_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
+            attempt_preflight=prepare_provider_request,
         )
         return payload, request_count, durable_attempt_ordinal, None, False
 
-    used_tier = OPENAI_SERVICE_TIER
-    fell_back = False
+    used_tier = (
+        OPENAI_FALLBACK_SERVICE_TIER
+        if openai_flex_already_rejected
+        else OPENAI_SERVICE_TIER
+    )
+    fell_back = openai_flex_already_rejected
+    api_key: str | None = None
+    request: urllib.request.Request | None = None
 
-    def openai_call() -> JsonRecord:
+    def prepare_openai_request() -> None:
+        nonlocal api_key, request
+        if request is not None:
+            return
+        api_key = api_key_supplier()
         request = _openai_request(
             registry_entry,
             prompt,
-            api_key_supplier(),
+            api_key,
             response_json_schema,
             service_tier=used_tier,
         )
+
+    def openai_call() -> JsonRecord:
+        if request is None:
+            raise RuntimeError("OpenAI request preflight did not run")
+        _observe_request_body(request, request_body_observer)
         return transport(request, timeout_seconds)
 
     def on_retryable_error(exc: LiveModelProviderError) -> None:
-        nonlocal used_tier, fell_back
+        nonlocal used_tier, fell_back, request
         if used_tier == OPENAI_SERVICE_TIER and _is_openai_flex_unavailable(exc):
+            if api_key is None:
+                raise RuntimeError("OpenAI request preflight did not run")
             used_tier = OPENAI_FALLBACK_SERVICE_TIER
             fell_back = True
+            request = _openai_request(
+                registry_entry,
+                prompt,
+                api_key,
+                response_json_schema,
+                service_tier=used_tier,
+            )
 
     payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
         openai_call,
@@ -938,8 +1024,20 @@ def _call_live_http_provider(
         retry_backoff_seconds=retry_backoff_seconds,
         attempt_handler=attempt_handler,
         on_retryable_error=on_retryable_error,
+        attempt_preflight=prepare_openai_request,
     )
     return payload, request_count, durable_attempt_ordinal, used_tier, fell_back
+
+
+def _observe_request_body(
+    request: urllib.request.Request,
+    observer: RequestBodyObserver | None,
+) -> None:
+    if observer is None:
+        return
+    if request.data is None:
+        raise LiveModelConfigError("provider request body is missing")
+    observer(cast(bytes, request.data))
 
 
 def _call_with_provider_retries(
@@ -949,6 +1047,7 @@ def _call_with_provider_retries(
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None = None,
     on_retryable_error: Callable[[LiveModelProviderError], None] | None = None,
+    attempt_preflight: Callable[[], None] | None = None,
 ) -> tuple[JsonRecord, int, int]:
     """Retry provider transport failures that are plausibly temporary."""
 
@@ -961,11 +1060,26 @@ def _call_with_provider_retries(
 
     for attempt in range(1, max_attempts + 1):
         try:
-            payload = (
-                attempt_handler.run_attempt(attempt, counted_call)
-                if attempt_handler is not None
-                else counted_call()
-            )
+            if attempt_handler is None:
+                if attempt_preflight is not None:
+                    attempt_preflight()
+                payload = counted_call()
+            else:
+                run_with_preflight = getattr(
+                    attempt_handler,
+                    "run_attempt_with_preflight",
+                    None,
+                )
+                if attempt_preflight is not None and callable(run_with_preflight):
+                    payload = cast(RunAttemptWithPreflight, run_with_preflight)(
+                        attempt,
+                        attempt_preflight,
+                        counted_call,
+                    )
+                else:
+                    if attempt_preflight is not None:
+                        attempt_preflight()
+                    payload = attempt_handler.run_attempt(attempt, counted_call)
             durable_attempt_ordinal = (
                 attempt_handler.durable_attempt_ordinal(attempt)
                 if attempt_handler is not None
@@ -1319,9 +1433,11 @@ def _int_field(record: JsonRecord, *field_names: str) -> int:
         value = record.get(field_name)
         if isinstance(value, bool):
             continue
-        if isinstance(value, int):
+        if isinstance(value, int) and value >= 0:
             return value
-    return 0
+    raise LiveModelResponseError(
+        f"provider usage field is missing or invalid: {' or '.join(field_names)}"
+    )
 
 
 def _estimated_cost(

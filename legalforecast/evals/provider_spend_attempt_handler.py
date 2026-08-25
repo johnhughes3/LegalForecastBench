@@ -4,20 +4,28 @@ from __future__ import annotations
 
 import hashlib
 import math
+import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Protocol, cast
 
 from legalforecast.evals.model_registry import LongContextSurcharge
 from legalforecast.evals.provider_spend_control import (
+    RETRYABLE_HTTP_429_FAILURE_TYPE,
     AdditionalAttemptPermit,
     AttemptLease,
     AttemptLimitExceededError,
     ProviderSpendAuthority,
     ProviderSpendKey,
+    SqliteProviderSpendAuthority,
 )
 
 JsonRecord = Mapping[str, object]
+ResponseObserver = Callable[[AttemptLease, JsonRecord], None]
+RunAttemptWithPreflight = Callable[
+    [int, Callable[[], None], Callable[[], JsonRecord]],
+    JsonRecord,
+]
 
 
 class AttemptHandler(Protocol):
@@ -77,6 +85,15 @@ class ProviderSpendAttemptHandler:
     key: ProviderSpendKey
     reservation_microusd: int
     additional_attempt_permit: AdditionalAttemptPermit | None = None
+    before_authorize: Callable[[sqlite3.Connection, AttemptLease], None] | None = None
+    failure_observer: Callable[[bool], None] | None = None
+    allow_retryable_nonbillable_replacement: bool = False
+    retryable_nonbillable_prior_attempt: AttemptLease | None = None
+    replayable_attempt: AttemptLease | None = None
+    replayable_response: JsonRecord | None = None
+    pretransport_attempt_ordinal: int | None = None
+    pretransport_attempt_observer: Callable[[AttemptLease], None] | None = None
+    response_observer: ResponseObserver | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
     )
@@ -90,6 +107,15 @@ class ProviderSpendAttemptHandler:
             or self.reservation_microusd <= 0
         ):
             raise ValueError("reservation_microusd must be a positive integer")
+        if (self.replayable_attempt is None) != (self.replayable_response is None):
+            raise ValueError("provider replay requires both attempt and response")
+        if (
+            self.replayable_attempt is not None
+            and self.pretransport_attempt_ordinal is not None
+        ):
+            raise ValueError(
+                "provider replay and pretransport reuse are mutually exclusive"
+            )
 
     def run_attempt(
         self,
@@ -100,44 +126,137 @@ class ProviderSpendAttemptHandler:
 
         if attempt_ordinal in self._leases_by_local_ordinal:
             raise RuntimeError("local provider attempt ordinal was reused")
-        try:
-            lease = self.authority.authorize_attempt(
+        if self.replayable_attempt is not None:
+            if attempt_ordinal != 1 or self.replayable_response is None:
+                raise RuntimeError("provider replay state is incomplete")
+            lease = self.replayable_attempt
+            self._leases_by_local_ordinal[attempt_ordinal] = lease
+            self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
+            return self.replayable_response
+        if self.pretransport_attempt_ordinal is not None and attempt_ordinal == 1:
+            lease = self.authority.adopt_attempt(
                 self.key,
-                reservation_microusd=self.reservation_microusd,
+                attempt_ordinal=self.pretransport_attempt_ordinal,
             )
-        except AttemptLimitExceededError:
-            permit = self.additional_attempt_permit
-            authorize_additional = getattr(
-                self.authority, "authorize_additional_attempt", None
-            )
-            if permit is None or not callable(authorize_additional):
-                raise
-            lease = cast(
-                AttemptLease,
-                authorize_additional(
-                    self.key,
-                    reservation_microusd=min(
-                        self.reservation_microusd,
-                        permit.reservation_cap_microusd,
+        else:
+            try:
+                replacement_ordinal = attempt_ordinal in {1, 2}
+                if (
+                    self.allow_retryable_nonbillable_replacement
+                    and replacement_ordinal
+                    and isinstance(self.authority, SqliteProviderSpendAuthority)
+                    and self.before_authorize is not None
+                    and (
+                        attempt_ordinal == 2
+                        or self.retryable_nonbillable_prior_attempt is not None
+                    )
+                ):
+                    prior_attempt = (
+                        self.retryable_nonbillable_prior_attempt
+                        if attempt_ordinal == 1
+                        else self._leases_by_local_ordinal.get(1)
+                    )
+                    if prior_attempt is None:
+                        raise RuntimeError(
+                            "retryable replacement lacks the exact prior attempt"
+                        )
+                    lease = self._authorize_nonbillable_replacement(prior_attempt)
+                elif self.before_authorize is None:
+                    lease = self.authority.authorize_attempt(
+                        self.key,
+                        reservation_microusd=self.reservation_microusd,
+                    )
+                elif isinstance(self.authority, SqliteProviderSpendAuthority):
+                    lease = self.authority.authorize_attempt_with_transaction(
+                        self.key,
+                        reservation_microusd=self.reservation_microusd,
+                        before_commit=self.before_authorize,
+                    )
+                else:
+                    raise RuntimeError(
+                        "atomic caller reservation requires SQLite spend authority"
+                    )
+            except AttemptLimitExceededError:
+                permit = self.additional_attempt_permit
+                authorize_additional = getattr(
+                    self.authority, "authorize_additional_attempt", None
+                )
+                if permit is None or not callable(authorize_additional):
+                    raise
+                lease = cast(
+                    AttemptLease,
+                    authorize_additional(
+                        self.key,
+                        reservation_microusd=min(
+                            self.reservation_microusd,
+                            permit.reservation_cap_microusd,
+                        ),
+                        permit=permit,
                     ),
-                    permit=permit,
-                ),
-            )
+                )
         self._leases_by_local_ordinal[attempt_ordinal] = lease
         self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
+        if (
+            self.pretransport_attempt_ordinal is not None
+            and attempt_ordinal == 1
+            and self.pretransport_attempt_observer is not None
+        ):
+            self.pretransport_attempt_observer(lease)
         try:
-            return call()
+            response = call()
+            if self.response_observer is not None:
+                self.response_observer(lease, response)
+            return response
         except BaseException as exc:
             # Once transport begins, a missing response can still be billable. Keep
             # the reservation until immutable provider usage data reconciles it.
-            # An explicit HTTP 429 is a provider rejection before generation and
-            # is therefore safe to release for the solver's bounded fallback.
+            # Only an explicitly retryable HTTP 429 proves a pre-generation
+            # rejection. Missing retryability evidence remains fail-closed.
+            retryable_nonbillable = (
+                getattr(exc, "status_code", None) == 429
+                and getattr(exc, "retryable", None) is True
+            )
+            ambiguous = not retryable_nonbillable
             self.authority.record_failure(
                 lease,
-                failure_type=type(exc).__name__,
-                ambiguous=getattr(exc, "status_code", None) != 429,
+                failure_type=(
+                    RETRYABLE_HTTP_429_FAILURE_TYPE
+                    if retryable_nonbillable
+                    else type(exc).__name__
+                ),
+                ambiguous=ambiguous,
             )
+            if self.failure_observer is not None:
+                self.failure_observer(ambiguous)
             raise
+
+    def _authorize_nonbillable_replacement(
+        self,
+        prior_attempt: AttemptLease,
+    ) -> AttemptLease:
+        if not isinstance(self.authority, SqliteProviderSpendAuthority):
+            raise RuntimeError("nonbillable replacement requires SQLite authority")
+        if self.before_authorize is None:
+            raise RuntimeError("nonbillable replacement requires caller reservation")
+        return self.authority.authorize_nonbillable_replacement_with_transaction(
+            self.key,
+            prior_attempt=prior_attempt,
+            reservation_microusd=self.reservation_microusd,
+            before_commit=self.before_authorize,
+        )
+
+    def run_attempt_with_preflight(
+        self,
+        attempt_ordinal: int,
+        preflight: Callable[[], None],
+        call: Callable[[], JsonRecord],
+    ) -> JsonRecord:
+        """Validate request construction before reserving shared spend."""
+
+        if self.replayable_attempt is not None:
+            return self.run_attempt(attempt_ordinal, call)
+        preflight()
+        return self.run_attempt(attempt_ordinal, call)
 
     def durable_attempt_ordinal(self, local_ordinal: int) -> int:
         """Return the authority-assigned ordinal for solver settlement."""
@@ -197,6 +316,8 @@ class ProviderSpendAttemptHandler:
             failure_type=failure_type,
             ambiguous=True,
         )
+        if self.failure_observer is not None:
+            self.failure_observer(True)
 
     def settle_attempt(
         self,
@@ -240,6 +361,25 @@ class CompositeProviderAttemptHandler:
         attempt_ordinal: int,
         call: Callable[[], JsonRecord],
     ) -> JsonRecord:
+        return self._run_attempt(attempt_ordinal, call, preflight=None)
+
+    def run_attempt_with_preflight(
+        self,
+        attempt_ordinal: int,
+        preflight: Callable[[], None],
+        call: Callable[[], JsonRecord],
+    ) -> JsonRecord:
+        """Replay without credentials, or preflight before fresh spend."""
+
+        return self._run_attempt(attempt_ordinal, call, preflight=preflight)
+
+    def _run_attempt(
+        self,
+        attempt_ordinal: int,
+        call: Callable[[], JsonRecord],
+        *,
+        preflight: Callable[[], None] | None,
+    ) -> JsonRecord:
         def authorized_call() -> JsonRecord:
             try:
                 result = self.spend_handler.run_attempt(attempt_ordinal, call)
@@ -249,7 +389,21 @@ class CompositeProviderAttemptHandler:
             self._bind_authority_attempt(attempt_ordinal, required=True)
             return result
 
-        result = self.replay_handler.run_attempt(attempt_ordinal, authorized_call)
+        run_with_preflight = getattr(
+            self.replay_handler,
+            "run_attempt_with_preflight",
+            None,
+        )
+        if preflight is not None and callable(run_with_preflight):
+            result = cast(RunAttemptWithPreflight, run_with_preflight)(
+                attempt_ordinal,
+                preflight,
+                authorized_call,
+            )
+        else:
+            if preflight is not None:
+                preflight()
+            result = self.replay_handler.run_attempt(attempt_ordinal, authorized_call)
         if attempt_ordinal not in self._spend_authorized_local_ordinals:
             # A replay hit means the prior process persisted a usable response.
             # Adopt its still-reserved remote attempt before settlement rather

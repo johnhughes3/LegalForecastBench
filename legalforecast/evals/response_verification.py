@@ -129,6 +129,70 @@ def verify_provider_response(
     )
 
 
+def require_publishable_response_metadata(metadata: Mapping[str, str]) -> None:
+    """Validate live response-verification metadata before public publication."""
+
+    schema_version = _metadata_text(metadata, RESPONSE_VERIFICATION_SCHEMA_FIELD)
+    if schema_version != RESPONSE_VERIFICATION_SCHEMA_VERSION:
+        raise ValueError(
+            "provider response verification schema is missing or unsupported"
+        )
+    required_bool_fields = (
+        RESPONSE_GROUNDING_ARTIFACTS_DETECTED_FIELD,
+        RESPONSE_TRUNCATED_FIELD,
+        RESPONSE_RETRYABLE_OPS_EVENT_FIELD,
+        RESPONSE_CONTENT_FILTER_FIELD,
+    )
+    for field_name in required_bool_fields:
+        if field_name not in metadata:
+            raise ValueError(f"provider response verification is missing {field_name}")
+    grounding_detected = _metadata_bool(
+        metadata,
+        RESPONSE_GROUNDING_ARTIFACTS_DETECTED_FIELD,
+    )
+    if RESPONSE_GROUNDING_ARTIFACT_PATHS_FIELD not in metadata:
+        raise ValueError(
+            "provider response verification is missing grounding artifact paths"
+        )
+    grounding_paths = _metadata_str_list(
+        metadata,
+        RESPONSE_GROUNDING_ARTIFACT_PATHS_FIELD,
+    )
+    if grounding_detected != bool(grounding_paths):
+        raise ValueError("provider response grounding flag and artifact paths disagree")
+    if RESPONSE_FINISH_REASON_FIELD not in metadata:
+        raise ValueError("provider response verification is missing finish reason")
+    _metadata_text(metadata, RESPONSE_FINISH_REASON_FIELD)
+    truncated = _metadata_bool(metadata, RESPONSE_TRUNCATED_FIELD)
+    retryable = _metadata_bool(metadata, RESPONSE_RETRYABLE_OPS_EVENT_FIELD)
+    content_filter = _metadata_bool(metadata, RESPONSE_CONTENT_FILTER_FIELD)
+    if RESPONSE_RETRYABLE_OPS_EVENT_REASON_FIELD not in metadata:
+        raise ValueError(
+            "provider response verification is missing retryable event reason"
+        )
+    retry_reason = _metadata_optional_reason(
+        metadata,
+        RESPONSE_RETRYABLE_OPS_EVENT_REASON_FIELD,
+    )
+    if retryable != truncated:
+        raise ValueError("provider response retryable and truncated flags disagree")
+    if retryable != (retry_reason is not None):
+        raise ValueError("provider response retryable flag and reason disagree")
+    if grounding_detected:
+        raise ValueError(
+            "provider response included prohibited grounding or search artifacts"
+        )
+    if retryable or truncated:
+        raise ValueError(
+            "provider response is a retryable or truncated event and requires "
+            "retry before publication"
+        )
+    if content_filter:
+        raise ValueError(
+            "provider response was blocked by a content filter and cannot be published"
+        )
+
+
 def output_statuses_from_run_records(
     run_records: Sequence[Mapping[str, Any]],
 ) -> dict[str, OutputValidityStatus]:

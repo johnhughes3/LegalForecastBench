@@ -14,7 +14,11 @@ from legalforecast.evals.provider_spend_attempt_handler import (
     conservative_reservation_microusd,
     max_output_tokens_for_reservation_cap,
 )
-from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
+from legalforecast.evals.provider_spend_control import (
+    RETRYABLE_HTTP_429_FAILURE_TYPE,
+    AttemptLease,
+    ProviderSpendKey,
+)
 from legalforecast.labeling.provider_journal import (
     ProviderAttemptJournal,
     ProviderCallIdentity,
@@ -124,22 +128,60 @@ def test_transport_failure_is_ambiguous_and_retains_reservation() -> None:
 def test_explicit_http_429_is_nonbillable_for_bounded_fallback() -> None:
     authority = RecordingAuthority()
     handler = _handler(authority)
+    observed_failures: list[bool] = []
+    handler.failure_observer = observed_failures.append
 
     class RateLimitError(RuntimeError):
         status_code = 429
+        retryable = True
 
     with pytest.raises(RateLimitError):
         handler.run_attempt(1, lambda: (_ for _ in ()).throw(RateLimitError()))
 
     assert authority.events == [
         ("authorize", 500_000),
-        ("failure", 1, "RateLimitError", False),
+        ("failure", 1, RETRYABLE_HTTP_429_FAILURE_TYPE, False),
     ]
+    assert observed_failures == [False]
+
+
+@pytest.mark.parametrize(
+    ("status_code", "retryable"),
+    ((429, False), (429, None), (503, True)),
+)
+def test_failure_observer_fails_closed_without_explicit_retryable_429(
+    status_code: int,
+    retryable: bool | None,
+) -> None:
+    authority = RecordingAuthority()
+    handler = _handler(authority)
+    observed_failures: list[bool] = []
+    handler.failure_observer = observed_failures.append
+
+    class ProviderError(RuntimeError):
+        pass
+
+    error = ProviderError("provider failure")
+    error.status_code = status_code  # type: ignore[attr-defined]
+    error.retryable = retryable  # type: ignore[attr-defined]
+
+    with pytest.raises(ProviderError):
+        handler.run_attempt(1, lambda: (_ for _ in ()).throw(error))
+
+    assert authority.events[-1] == (
+        "failure",
+        1,
+        "ProviderError",
+        True,
+    )
+    assert observed_failures == [True]
 
 
 def test_post_response_validation_failure_is_recorded_as_ambiguous() -> None:
     authority = RecordingAuthority()
     handler = _handler(authority)
+    observed_failures: list[bool] = []
+    handler.failure_observer = observed_failures.append
     handler.run_attempt(1, lambda: {"malformed": True})
 
     handler.record_post_response_failure(1, failure_type="LiveModelResponseError")
@@ -150,6 +192,7 @@ def test_post_response_validation_failure_is_recorded_as_ambiguous() -> None:
         "LiveModelResponseError",
         True,
     )
+    assert observed_failures == [True]
 
 
 def test_settlement_uses_authority_ordinal_and_rounds_microdollars_up() -> None:

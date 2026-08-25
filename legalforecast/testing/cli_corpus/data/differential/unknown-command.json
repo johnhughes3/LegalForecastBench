@@ -4,6 +4,6 @@
   "exit_status": 2,
   "extra_files": [],
   "output_tree": [],
-  "stderr": "usage: legalforecast [-h] [--version] COMMAND ...\nlegalforecast: error: argument COMMAND: invalid choice: 'definitely-not-a-command' (choose from discover, retrieve, case-dev-smoke, extract, link, unitize, label, packet-build, packet, model-run, eval, score, report, release, publish, fixture-e2e, fixture, pilot, multiharness, batch-002, acquisition)\n",
+  "stderr": "usage: legalforecast [-h] [--version] COMMAND ...\nlegalforecast: error: argument COMMAND: invalid choice: 'definitely-not-a-command' (choose from discover, retrieve, case-dev-smoke, extract, link, unitize, label, packet-build, packet, model-run, eval, score, report, release, run, publish, fixture-e2e, fixture, pilot, multiharness, batch-002, acquisition)\n",
   "stdout": ""
 }

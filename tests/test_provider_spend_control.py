@@ -12,6 +12,7 @@ from typing import cast
 
 import pytest
 from legalforecast.evals.provider_spend_control import (
+    RETRYABLE_HTTP_429_FAILURE_TYPE,
     AdditionalAttemptPermit,
     AttemptLimitExceededError,
     AttemptStateError,
@@ -187,7 +188,7 @@ def test_usage_record_is_single_use_and_same_attempt_retry_is_idempotent(
     assert snapshot.reserved_attempt_count == 0
 
 
-def test_max_attempts_survives_reopen_and_counts_definite_provider_calls(
+def test_max_billable_attempts_survives_reopen_and_counts_unknown_exposure(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "spend-control.sqlite3"
@@ -200,13 +201,85 @@ def test_max_attempts_survives_reopen_and_counts_definite_provider_calls(
             authority.record_failure(
                 lease,
                 failure_type=f"HTTP{400 + index}",
-                ambiguous=False,
+                ambiguous=True,
             )
 
     with _authority(path, max_billable_attempts=2) as authority:
         with pytest.raises(AttemptLimitExceededError):
             authority.authorize_attempt(_key(), reservation_microusd=100_000)
         assert authority.snapshot().attempt_count == 2
+
+
+def test_explicit_nonbillable_failure_preserves_one_billable_attempt(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "spend-control.sqlite3"
+    key = _key()
+    with _authority(
+        path,
+        max_billable_attempts=1,
+        failure_threshold=1,
+    ) as authority:
+        rejected = authority.authorize_attempt(
+            key,
+            reservation_microusd=100_000,
+        )
+        authority.record_failure(
+            rejected,
+            failure_type=RETRYABLE_HTTP_429_FAILURE_TYPE,
+            ambiguous=False,
+        )
+
+        fallback = authority.authorize_nonbillable_replacement_with_transaction(
+            key,
+            prior_attempt=rejected,
+            reservation_microusd=100_000,
+            before_commit=lambda _connection, _lease: None,
+        )
+        authority.record_response(
+            fallback,
+            input_tokens=10,
+            output_tokens=5,
+            actual_microusd=25_000,
+            response_sha256="4" * 64,
+        )
+
+        with pytest.raises(AttemptLimitExceededError):
+            authority.authorize_attempt(
+                key,
+                reservation_microusd=100_000,
+            )
+        snapshot = authority.snapshot()
+
+    assert rejected.attempt_ordinal == 1
+    assert fallback.attempt_ordinal == 2
+    assert snapshot.attempt_count == 2
+    assert snapshot.settled_attempt_count == 1
+    assert snapshot.committed_microusd == 25_000
+    assert snapshot.failure_count_in_window == 0
+
+
+def test_reconciled_unbilled_attempt_still_consumes_logical_attempt(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "spend-control.sqlite3"
+    key = _key()
+    with _authority(path, max_billable_attempts=1) as authority:
+        attempt = authority.authorize_attempt(key, reservation_microusd=100_000)
+        authority.record_failure(
+            attempt,
+            failure_type="TimeoutError",
+            ambiguous=True,
+        )
+        authority.reconcile_ambiguous(
+            attempt,
+            usage_record_id="usage-unbilled-1",
+            usage_record_sha256="6" * 64,
+            billed_microusd=None,
+        )
+
+        with pytest.raises(AttemptLimitExceededError):
+            authority.authorize_attempt(key, reservation_microusd=100_000)
 
 
 def test_owner_permit_allows_only_one_capped_additional_attempt(
@@ -226,7 +299,7 @@ def test_owner_permit_allows_only_one_capped_additional_attempt(
         authority.record_failure(
             first,
             failure_type="validation",
-            ambiguous=False,
+            ambiguous=True,
         )
         second = authority.authorize_additional_attempt(
             key,
@@ -300,7 +373,7 @@ def test_breaker_uses_true_trailing_window_across_prior_window_boundary(
             authority.record_failure(
                 lease,
                 failure_type="TimeoutError",
-                ambiguous=False,
+                ambiguous=True,
             )
 
     # A tumbling window anchored at t=100 would discard the still-live t=200

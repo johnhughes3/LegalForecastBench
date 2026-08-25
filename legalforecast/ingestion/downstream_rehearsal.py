@@ -783,6 +783,7 @@ def _provider_payload(
         return {
             "model": fixture.served_model_version,
             "output_text": fixture.raw_output,
+            "status": "completed",
             "usage": {
                 "input_tokens": fixture.input_tokens,
                 "output_tokens": fixture.output_tokens,

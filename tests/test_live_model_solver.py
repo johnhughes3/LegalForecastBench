@@ -37,6 +37,7 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
             "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
             "usage": {"input_tokens": 1000, "output_tokens": 250},
         }
     )
@@ -96,12 +97,42 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert "read_docket_entry_results" in body["input"]
 
 
+@pytest.mark.parametrize("status", ("failed", "cancelled", "incomplete", None))
+def test_openai_solver_rejects_noncompleted_terminal_status(
+    status: str | None,
+) -> None:
+    handler = _RecordingAttemptHandler()
+    payload: dict[str, Any] = {
+        "model": "gpt-test-2026-05-14",
+        "output_text": '{"predictions":[]}',
+        "service_tier": OPENAI_SERVICE_TIER,
+        "usage": {"input_tokens": 1000, "output_tokens": 250},
+    }
+    if status is not None:
+        payload["status"] = status
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=_FixtureTransport(payload),
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        attempt_handler_factory=lambda _request: handler,
+    )
+
+    with pytest.raises(LiveModelResponseError, match=r"status.*completed"):
+        solver.solve(_request("Predict the case outcome."))
+
+    assert handler.events == [
+        ("run", 1),
+        ("post_response_failure", 41, "LiveModelResponseError"),
+    ]
+
+
 def test_complete_live_prompt_applies_retry_output_token_bound_to_request() -> None:
     transport = _FixtureTransport(
         {
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
             "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
             "usage": {"input_tokens": 100, "output_tokens": 50},
         }
     )
@@ -156,6 +187,7 @@ def test_openai_solver_refuses_actual_payload_that_differs_from_commitment() -> 
         {
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
+            "status": "completed",
             "usage": {"input_tokens": 1000, "output_tokens": 250},
         }
     )
@@ -191,6 +223,7 @@ def test_openai_solver_no_docket_sends_exact_committed_prompt() -> None:
         {
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
+            "status": "completed",
             "usage": {"input_tokens": 1000, "output_tokens": 250},
         }
     )
@@ -217,6 +250,7 @@ def test_openai_solver_keeps_caller_timeout_above_flex_floor() -> None:
         {
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
+            "status": "completed",
             "usage": {"input_tokens": 10, "output_tokens": 2},
         }
     )
@@ -385,6 +419,77 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
         "Controlled docket tool transcript:"
     )
     assert "Use AWS Bedrock." in body["messages"][0]["content"][0]["text"]
+
+
+def test_bedrock_request_body_observer_receives_exact_transport_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_bodies: list[bytes] = []
+    invoked_payloads: list[dict[str, object]] = []
+
+    def fake_bedrock(
+        model_id: str,
+        payload: live_model_solver.JsonRecord,
+        *,
+        environ: Mapping[str, str] | None,
+        timeout_seconds: float,
+    ) -> live_model_solver.JsonRecord:
+        del model_id, environ, timeout_seconds
+        invoked_payloads.append(dict(payload))
+        return {
+            "model": "claude-sonnet-4-6",
+            "content": [{"type": "text", "text": '{"bedrock":true}'}],
+            "usage": {"input_tokens": 220, "output_tokens": 55},
+        }
+
+    monkeypatch.setattr(
+        live_model_solver,
+        "_invoke_bedrock_runtime_json",
+        fake_bedrock,
+    )
+
+    live_model_solver.complete_live_prompt(
+        _registry_entry(
+            "anthropic",
+            "claude-sonnet-4-6",
+            model_version_or_snapshot="claude-sonnet-4-6",
+        ),
+        "Use AWS Bedrock.",
+        environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
+        request_body_observer=request_bodies.append,
+    )
+
+    assert len(request_bodies) == 1
+    assert json.loads(request_bodies[0]) == invoked_payloads[0]
+
+
+def test_missing_aws_cli_fails_before_bedrock_authorization_or_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler = _RecordingAttemptHandler()
+    request_bodies: list[bytes] = []
+    monkeypatch.setattr(live_model_solver.shutil, "which", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        live_model_solver,
+        "_invoke_bedrock_runtime_json",
+        lambda *args, **kwargs: pytest.fail("Bedrock transport must not start"),
+    )
+
+    with pytest.raises(LiveModelConfigError, match="aws CLI"):
+        live_model_solver.complete_live_prompt(
+            _registry_entry(
+                "anthropic",
+                "claude-sonnet-4-6",
+                model_version_or_snapshot="claude-sonnet-4-6",
+            ),
+            "Use AWS Bedrock.",
+            environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
+            attempt_handler=handler,
+            request_body_observer=request_bodies.append,
+        )
+
+    assert handler.events == []
+    assert request_bodies == []
 
 
 def test_bedrock_malformed_response_marks_authorized_attempt_ambiguous(
@@ -596,6 +701,7 @@ def test_complete_live_prompt_rejects_json_schema_for_unsupported_provider() -> 
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"openai":true}',
                 "output": [{"type": "web_search_call", "status": "completed"}],
+                "status": "completed",
                 "usage": {"input_tokens": 10, "output_tokens": 2},
             },
             {"OPENAI_API_KEY": "openai-secret"},
@@ -789,6 +895,7 @@ def test_solver_rejects_provider_served_model_version_mismatch() -> None:
             {
                 "model": "gpt-test-latest",
                 "output_text": "{}",
+                "status": "completed",
                 "usage": {"input_tokens": 1, "output_tokens": 1},
             }
         ),
@@ -838,6 +945,7 @@ def test_solver_retries_transient_provider_failures_without_leaving_flex() -> No
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
                 "service_tier": OPENAI_SERVICE_TIER,
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             },
         )
@@ -883,6 +991,7 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
                 "service_tier": OPENAI_FALLBACK_SERVICE_TIER,
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             },
         )
@@ -927,6 +1036,7 @@ def test_default_transport_retries_raw_timeout_and_dns_failures(
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),
@@ -991,6 +1101,7 @@ def test_solver_creates_attempt_handler_per_harness_request_and_settles() -> Non
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),
@@ -1017,6 +1128,7 @@ def test_malformed_response_marks_authorized_attempt_ambiguous() -> None:
         transport=_FixtureTransport(
             {
                 "model": "gpt-test-2026-05-14",
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),
@@ -1048,6 +1160,7 @@ def test_post_response_recording_failure_surfaces_as_authority_failure() -> None
         transport=_FixtureTransport(
             {
                 "model": "gpt-test-2026-05-14",
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),
@@ -1081,6 +1194,7 @@ def test_post_response_interrupt_marks_authorized_attempt_ambiguous_before_rerai
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),

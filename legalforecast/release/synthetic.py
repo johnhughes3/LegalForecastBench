@@ -109,6 +109,7 @@ def _synthetic_inputs() -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
         payloads[packet_path] = ARTIFACT_CANONICAL_JSON_V1.encode(
             {
                 "case_id": case_id,
+                "decision_date": "2026-08-23",
                 "documents": [
                     {"document_id": document.document_id, "role": document.role}
                     for document in documents

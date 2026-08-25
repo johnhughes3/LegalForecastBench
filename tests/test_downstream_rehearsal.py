@@ -134,6 +134,7 @@ def test_deterministic_response_fixture_transport_is_prompt_bound_and_exhaustive
     payload = transport(request, 120.0)
 
     assert payload["output_text"] == json.dumps({"unit_seeds": []})
+    assert payload["status"] == "completed"
     assert payload["usage"] == {"input_tokens": 0, "output_tokens": 0}
     assert transport.request_count == 1
     [trace] = transport.traces

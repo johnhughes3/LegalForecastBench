@@ -48,6 +48,7 @@ from legalforecast.acquisition_completion_summary_cli import (
 from legalforecast.cli_commands import attachment_pages as _attachment_pages_cmd
 from legalforecast.cli_commands import release as _release_cmd
 from legalforecast.cli_commands import report as _report_cmd
+from legalforecast.cli_commands import run as _run_cmd
 from legalforecast.cli_commands import score as _score_cmd
 from legalforecast.cli_commands.report import (
     run as _cmd_report,  # noqa: F401  # pyright: ignore[reportUnusedImport]
@@ -1501,6 +1502,8 @@ def build_parser() -> argparse.ArgumentParser:
     _report_cmd.register(subparsers)
 
     _release_cmd.register(subparsers)
+
+    _run_cmd.register(subparsers)
 
     publish = subparsers.add_parser(
         "publish",

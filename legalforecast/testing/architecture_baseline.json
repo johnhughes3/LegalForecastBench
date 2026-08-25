@@ -2,9 +2,9 @@
   "cli_metrics": {
     "command_handler_count": 168,
     "command_handler_lines": 27189,
-    "line_count": 74380,
-    "nonblank_line_count": 71576,
-    "parser_line_count": 1802,
+    "line_count": 74383,
+    "nonblank_line_count": 71578,
+    "parser_line_count": 1804,
     "top_level_class_count": 20,
     "top_level_definition_count": 1019,
     "verifier_family_count": 164,
@@ -89,6 +89,7 @@
       "tests/test_policy_artifacts.py",
       "tests/test_provenance_clearance_cli.py",
       "tests/test_provider_cycle_caps_successor_cli.py",
+      "tests/test_public_runner.py",
       "tests/test_purchase_approval.py",
       "tests/test_purchase_ledger_init_cli.py",
       "tests/test_purchase_spend_summary.py",
@@ -229,6 +230,7 @@
       "tests/test_provenance_clearance_cli.py",
       "tests/test_provenance_clearance_cli.py",
       "tests/test_provider_cycle_caps_successor_cli.py",
+      "tests/test_public_runner.py",
       "tests/test_purchase_approval.py",
       "tests/test_purchase_approval.py",
       "tests/test_purchase_ledger_init_cli.py",
@@ -2742,6 +2744,7 @@
       "tests/test_policy_artifacts.py",
       "tests/test_provenance_clearance_cli.py",
       "tests/test_provider_cycle_caps_successor_cli.py",
+      "tests/test_public_runner.py",
       "tests/test_purchase_approval.py",
       "tests/test_purchase_ledger_init_cli.py",
       "tests/test_purchase_spend_summary.py",
@@ -3339,6 +3342,7 @@
       "tests/test_provenance_clearance_cli.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
       "tests/test_provenance_clearance_cli.py::legalforecast.cli.verify_completed_target_cohort_projection_for_purchase_approval",
       "tests/test_provider_cycle_caps_successor_cli.py::legalforecast.cli.main",
+      "tests/test_public_runner.py::legalforecast.cli.main",
       "tests/test_purchase_approval.py::legalforecast.cli.CommandError",
       "tests/test_purchase_approval.py::legalforecast.cli.CommandError",
       "tests/test_purchase_approval.py::legalforecast.cli.CommandError",
@@ -4018,7 +4022,7 @@
       "examples/adapters/codex-cli": 1,
       "examples/adapters/openai-responses": 1,
       "legalforecast": 10,
-      "legalforecast/cli_commands": 7,
+      "legalforecast/cli_commands": 8,
       "legalforecast/config": 6,
       "legalforecast/config/cycles": 3,
       "legalforecast/contracts": 4,
@@ -4039,13 +4043,14 @@
       "legalforecast/publication": 22,
       "legalforecast/release": 4,
       "legalforecast/reporting": 9,
+      "legalforecast/runner": 4,
       "legalforecast/selection": 8,
       "legalforecast/testing": 4,
       "legalforecast/testing/architecture_rules": 8,
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
-      "scripts": 17,
-      "tests": 492,
+      "scripts": 19,
+      "tests": 494,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -4129,7 +4134,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-cwdv",
         "fan_in": 10,
-        "fan_out": 189,
+        "fan_out": 190,
         "flags": [
           "relative-path",
           "cycle",
@@ -4137,10 +4142,10 @@
         ],
         "lane_owner": "cli",
         "largest_symbol": "build_parser",
-        "largest_symbol_lines": 1802,
+        "largest_symbol_lines": 1804,
         "layer": "entrypoint",
-        "line_count": 74380,
-        "nonblank_line_count": 71576,
+        "line_count": 74383,
+        "nonblank_line_count": 71578,
         "top_level_definition_count": 1019
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -4205,10 +4210,10 @@
         ],
         "lane_owner": "cli",
         "largest_symbol": "run",
-        "largest_symbol_lines": 57,
+        "largest_symbol_lines": 58,
         "layer": "adapter",
-        "line_count": 116,
-        "nonblank_line_count": 99,
+        "line_count": 122,
+        "nonblank_line_count": 105,
         "top_level_definition_count": 3
       },
       "legalforecast/config/registry.py": {
@@ -4276,8 +4281,8 @@
         "largest_symbol": "SchemaIdentifier",
         "largest_symbol_lines": 13,
         "layer": "domain",
-        "line_count": 574,
-        "nonblank_line_count": 563,
+        "line_count": 578,
+        "nonblank_line_count": 567,
         "top_level_definition_count": 1
       },
       "legalforecast/document_need/cycle_config.py": {
@@ -4474,24 +4479,24 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
-        "fan_in": 9,
+        "fan_in": 10,
         "fan_out": 3,
         "flags": [
           "oversized"
         ],
         "lane_owner": "evals",
         "largest_symbol": "complete_live_prompt",
-        "largest_symbol_lines": 149,
+        "largest_symbol_lines": 154,
         "layer": "application",
-        "line_count": 1349,
-        "nonblank_line_count": 1176,
-        "top_level_definition_count": 65
+        "line_count": 1465,
+        "nonblank_line_count": 1277,
+        "top_level_definition_count": 68
       },
       "legalforecast/evals/output_parser.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 10,
+        "fan_in": 11,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -4521,21 +4526,38 @@
         "nonblank_line_count": 2008,
         "top_level_definition_count": 92
       },
-      "legalforecast/evals/provider_spend_control.py": {
+      "legalforecast/evals/provider_spend_attempt_handler.py": {
         "cycle_id": "",
-        "disposition_kind": "planned-seam",
-        "disposition_owner": "legalforecastbench-m1pv.5",
-        "fan_in": 8,
-        "fan_out": 0,
+        "disposition_kind": "watch",
+        "disposition_owner": "evals",
+        "fan_in": 5,
+        "fan_out": 2,
         "flags": [
           "watch"
         ],
         "lane_owner": "evals",
-        "largest_symbol": "SqliteProviderSpendAuthority",
-        "largest_symbol_lines": 702,
+        "largest_symbol": "ProviderSpendAttemptHandler",
+        "largest_symbol_lines": 268,
         "layer": "application",
-        "line_count": 956,
-        "nonblank_line_count": 868,
+        "line_count": 591,
+        "nonblank_line_count": 535,
+        "top_level_definition_count": 5
+      },
+      "legalforecast/evals/provider_spend_control.py": {
+        "cycle_id": "",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.5",
+        "fan_in": 10,
+        "fan_out": 0,
+        "flags": [
+          "oversized"
+        ],
+        "lane_owner": "evals",
+        "largest_symbol": "SqliteProviderSpendAuthority",
+        "largest_symbol_lines": 851,
+        "layer": "application",
+        "line_count": 1109,
+        "nonblank_line_count": 1011,
         "top_level_definition_count": 20
       },
       "legalforecast/evals/provider_spend_dynamodb.py": {
@@ -4555,6 +4577,23 @@
         "nonblank_line_count": 1202,
         "top_level_definition_count": 18
       },
+      "legalforecast/evals/response_verification.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "evals",
+        "fan_in": 4,
+        "fan_out": 2,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "evals",
+        "largest_symbol": "require_publishable_response_metadata",
+        "largest_symbol_lines": 62,
+        "layer": "application",
+        "line_count": 500,
+        "nonblank_line_count": 437,
+        "top_level_definition_count": 24
+      },
       "legalforecast/evals/scorers.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -4566,10 +4605,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "score_cases",
-        "largest_symbol_lines": 106,
+        "largest_symbol_lines": 114,
         "layer": "application",
-        "line_count": 640,
-        "nonblank_line_count": 551,
+        "line_count": 646,
+        "nonblank_line_count": 556,
         "top_level_definition_count": 31
       },
       "legalforecast/evals/stageb_manifest_runner.py": {
@@ -5621,8 +5660,8 @@
         "largest_symbol": "DeterministicModelFixtureTransport",
         "largest_symbol_lines": 95,
         "layer": "application",
-        "line_count": 861,
-        "nonblank_line_count": 760,
+        "line_count": 862,
+        "nonblank_line_count": 761,
         "top_level_definition_count": 31
       },
       "legalforecast/ingestion/embedded_text_layer_repair.py": {
@@ -7266,10 +7305,10 @@
         ],
         "lane_owner": "labeling",
         "largest_symbol": "ProviderAttemptJournal",
-        "largest_symbol_lines": 1105,
+        "largest_symbol_lines": 1130,
         "layer": "application",
-        "line_count": 1825,
-        "nonblank_line_count": 1660,
+        "line_count": 1850,
+        "nonblank_line_count": 1681,
         "top_level_definition_count": 34
       },
       "legalforecast/labeling/unitizer_terminal.py": {
@@ -8301,6 +8340,40 @@
         "nonblank_line_count": 810,
         "top_level_definition_count": 22
       },
+      "legalforecast/runner/ledger.py": {
+        "cycle_id": "",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv",
+        "fan_in": 2,
+        "fan_out": 1,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "RunnerLedger",
+        "largest_symbol_lines": 556,
+        "layer": "application",
+        "line_count": 606,
+        "nonblank_line_count": 566,
+        "top_level_definition_count": 5
+      },
+      "legalforecast/runner/service.py": {
+        "cycle_id": "",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv",
+        "fan_in": 1,
+        "fan_out": 10,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "execute_release_run",
+        "largest_symbol_lines": 431,
+        "layer": "application",
+        "line_count": 864,
+        "nonblank_line_count": 804,
+        "top_level_definition_count": 15
+      },
       "legalforecast/selection/case_mix_diagnostics.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -8656,11 +8729,11 @@
         ],
         "lane_owner": "scripts",
         "largest_symbol": "run",
-        "largest_symbol_lines": 244,
+        "largest_symbol_lines": 293,
         "layer": "entrypoint",
-        "line_count": 525,
-        "nonblank_line_count": 496,
-        "top_level_definition_count": 9
+        "line_count": 667,
+        "nonblank_line_count": 630,
+        "top_level_definition_count": 10
       },
       "scripts/smoke_infisical_systemd_exit_status.py": {
         "cycle_id": "",
@@ -9175,9 +9248,9 @@
         "largest_symbol": "test_stage_commands_write_stable_dry_run_plans_and_logs",
         "largest_symbol_lines": 230,
         "layer": "test",
-        "line_count": 842,
-        "nonblank_line_count": 764,
-        "top_level_definition_count": 19
+        "line_count": 890,
+        "nonblank_line_count": 807,
+        "top_level_definition_count": 20
       },
       "tests/test_cohort_document_materializer.py": {
         "cycle_id": "",
@@ -9902,8 +9975,8 @@
         "largest_symbol": "_write_canonical_exact_100_chain",
         "largest_symbol_lines": 466,
         "layer": "test",
-        "line_count": 2923,
-        "nonblank_line_count": 2752,
+        "line_count": 2924,
+        "nonblank_line_count": 2753,
         "top_level_definition_count": 54
       },
       "tests/test_exact100_convergence_invariants.py": {
@@ -10229,9 +10302,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1285,
-        "nonblank_line_count": 1116,
-        "top_level_definition_count": 42
+        "line_count": 1399,
+        "nonblank_line_count": 1216,
+        "top_level_definition_count": 45
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",
@@ -11132,8 +11205,8 @@
         "largest_symbol": "test_journal_terminalizes_invalid_reconstruction_without_losing_accounting",
         "largest_symbol_lines": 57,
         "layer": "test",
-        "line_count": 1831,
-        "nonblank_line_count": 1597,
+        "line_count": 1832,
+        "nonblank_line_count": 1598,
         "top_level_definition_count": 57
       },
       "tests/test_provider_spend_attempt_handler.py": {
@@ -11149,9 +11222,9 @@
         "largest_symbol": "RecordingAuthority",
         "largest_symbol_lines": 72,
         "layer": "test",
-        "line_count": 685,
-        "nonblank_line_count": 567,
-        "top_level_definition_count": 28
+        "line_count": 728,
+        "nonblank_line_count": 604,
+        "top_level_definition_count": 29
       },
       "tests/test_provider_spend_control.py": {
         "cycle_id": "",
@@ -11164,12 +11237,12 @@
           "watch"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "test_breaker_uses_true_trailing_window_across_prior_window_boundary",
-        "largest_symbol_lines": 44,
+        "largest_symbol": "test_explicit_nonbillable_failure_preserves_one_billable_attempt",
+        "largest_symbol_lines": 47,
         "layer": "test",
-        "line_count": 571,
-        "nonblank_line_count": 494,
-        "top_level_definition_count": 22
+        "line_count": 644,
+        "nonblank_line_count": 559,
+        "top_level_definition_count": 24
       },
       "tests/test_provider_spend_dynamodb.py": {
         "cycle_id": "",
@@ -11204,6 +11277,23 @@
         "line_count": 2399,
         "nonblank_line_count": 2150,
         "top_level_definition_count": 67
+      },
+      "tests/test_public_runner.py": {
+        "cycle_id": "",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "oversized"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_runner_spend_keys_use_injective_cell_identity",
+        "largest_symbol_lines": 95,
+        "layer": "test",
+        "line_count": 1461,
+        "nonblank_line_count": 1258,
+        "top_level_definition_count": 43
       },
       "tests/test_purchase_approval.py": {
         "cycle_id": "",
@@ -11732,10 +11822,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_stage_b_one_attempt_replay_normalizes_structurally_inapplicable_amendment",
-        "largest_symbol_lines": 135,
+        "largest_symbol_lines": 136,
         "layer": "test",
-        "line_count": 972,
-        "nonblank_line_count": 863,
+        "line_count": 973,
+        "nonblank_line_count": 864,
         "top_level_definition_count": 30
       },
       "tests/test_stageb_manifest_runner.py": {
