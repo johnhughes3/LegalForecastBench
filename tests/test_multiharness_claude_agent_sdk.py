@@ -110,23 +110,23 @@ def test_sdk_is_an_exact_optional_runtime_pin() -> None:
     assert project["project"]["optional-dependencies"]["claude-agent-sdk-adapter"] == [
         f"claude-agent-sdk=={CLAUDE_AGENT_SDK_VERSION}"
     ]
-    assert CLAUDE_AGENT_SDK_VERSION == "0.2.140"
-    assert CLAUDE_BUNDLED_CLI_VERSION == "2.1.235"
+    assert CLAUDE_AGENT_SDK_VERSION == "0.2.143"
+    assert CLAUDE_BUNDLED_CLI_VERSION == "2.1.238"
     assert CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM == {
         "darwin-arm64": (
-            "sha256:83b8f806f6f2eea316cfe246628e6c23374711d868f1fd0409db551b877b7748"
+            "sha256:1c196c456373b57818ae87df84aecee96cb659448c0d6a6bbb401ac5758431b2"
         ),
         "darwin-x86_64": (
-            "sha256:325a2dbc166ba8361a913ce588dce4a236789502060239acea52072bb51a54f1"
+            "sha256:d10bc7bb1720435f8830aa3ee74085f09348d2b1a2a152bdee251b770d76cc73"
         ),
         "linux-aarch64": (
-            "sha256:cff9592faa292db0f6ac21874f151b8c3d44e23bf0ab9fd1bcca95edc3469549"
+            "sha256:28d736120a6b14c5eae1ad1470e73371818c9c2fa41e0b3c7040207aa2d4edee"
         ),
         "linux-x86_64": (
-            "sha256:bfcf0ae2dbf94b2b6a106074aabf3938b9a10889c3b678e4cb5a00c03274d5d5"
+            "sha256:0933b286cf94e1b2504b35ac165ab76b8f822735d53371c56393988c23040d58"
         ),
         "win32-x86_64": (
-            "sha256:6786fa5d75a64260de09a3b5f88cd4644dc4292e45a38a4df93dc7eb4d0df3fb"
+            "sha256:223bc058b5aef48138876e28de5d00387e4fd7362a18e733143bf00819c01aab"
         ),
     }
 
