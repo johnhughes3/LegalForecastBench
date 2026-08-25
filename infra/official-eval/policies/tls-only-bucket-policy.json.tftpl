@@ -4,7 +4,9 @@
     {
       "Sid": "DenyInsecureTransport",
       "Effect": "Deny",
-      "Principal": "*",
+      "Principal": {
+        "AWS": "*"
+      },
       "Action": "s3:*",
       "Resource": [
         "${bucket_arn}",

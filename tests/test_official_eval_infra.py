@@ -1115,7 +1115,9 @@ def test_storage_is_private_owned_encrypted_versioned_and_tls_only() -> None:
     assert storage.count('resource "aws_s3_bucket_versioning"') == 2
     assert storage.count('resource "aws_s3_bucket_policy"') == 2
     assert storage.count("BucketOwnerEnforced") == 2
-    assert storage.count('sse_algorithm = "AES256"') == 2
+    assert storage.count('sse_algorithm     = "aws:kms"') == 2
+    assert storage.count("kms_master_key_id = var.artifacts_kms_key_arn") == 2
+    assert storage.count("bucket_key_enabled = true") == 2
     assert storage.count('status = "Enabled"') >= 2
     assert tls_policy == {
         "Version": "2012-10-17",
@@ -1123,7 +1125,7 @@ def test_storage_is_private_owned_encrypted_versioned_and_tls_only() -> None:
             {
                 "Sid": "DenyInsecureTransport",
                 "Effect": "Deny",
-                "Principal": "*",
+                "Principal": {"AWS": "*"},
                 "Action": "s3:*",
                 "Resource": [RESULTS_BUCKET_ARN, f"{RESULTS_BUCKET_ARN}/*"],
                 "Condition": {"Bool": {"aws:SecureTransport": "false"}},
@@ -1139,6 +1141,9 @@ def test_lifecycle_preserves_audit_versions_and_only_expires_negative_controls()
 
     assert "per-case/" not in storage
     assert "noncurrent_result_retention_days" not in storage
+    assert storage.count("noncurrent_days = 365") == 2
+    assert "var.packet_lifecycle_rule_id" in storage
+    assert "var.results_lifecycle_rule_id" in storage
     assert 'prefix = "reports/security-negative-controls/"' in storage
     assert "var.negative_control_retention_days" in storage
     assert storage.count("abort_incomplete_multipart_upload") == 2
@@ -1170,6 +1175,26 @@ def test_s3_inputs_enforce_global_bucket_names_and_whole_retention_days() -> Non
         "floor(var.negative_control_retention_days) == "
         "var.negative_control_retention_days" in variables
     )
+    assert 'variable "artifacts_kms_key_arn"' in variables
+    assert "artifacts_kms_key_arn must be one exact KMS key ARN" in variables
+    assert 'variable "packet_lifecycle_rule_id"' in variables
+    assert 'variable "results_lifecycle_rule_id"' in variables
+
+
+def test_protected_infra_workflow_binds_exact_storage_contract_inputs() -> None:
+    workflow = (WORKFLOW_ROOT / "official-provider-authority-infra.yaml").read_text(
+        encoding="utf-8"
+    )
+    for name in (
+        "TF_VAR_artifacts_kms_key_arn",
+        "TF_VAR_packet_lifecycle_rule_id",
+        "TF_VAR_results_lifecycle_rule_id",
+    ):
+        assert (
+            f"{name}: ${{{{ vars.LFB_{name.removeprefix('TF_VAR_').upper()} }}}}"
+            in workflow
+        )
+        assert name in workflow[workflow.index("Validate external bootstrap values") :]
 
 
 def test_docs_record_unapplied_import_remote_state_and_live_acceptance_boundaries() -> (
