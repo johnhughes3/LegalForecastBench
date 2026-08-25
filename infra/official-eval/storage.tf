@@ -55,8 +55,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "packet" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = var.artifacts_kms_key_arn
+      sse_algorithm     = "aws:kms"
     }
+
+    bucket_key_enabled = true
   }
 }
 
@@ -65,8 +68,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "results" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = var.artifacts_kms_key_arn
+      sse_algorithm     = "aws:kms"
     }
+
+    bucket_key_enabled = true
   }
 }
 
@@ -90,10 +96,14 @@ resource "aws_s3_bucket_lifecycle_configuration" "packet" {
   bucket = aws_s3_bucket.packet.id
 
   rule {
-    id     = "abort-incomplete-multipart-uploads"
+    id     = var.packet_lifecycle_rule_id
     status = "Enabled"
 
     filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = 365
+    }
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
@@ -107,10 +117,14 @@ resource "aws_s3_bucket_lifecycle_configuration" "results" {
   depends_on = [aws_s3_bucket_versioning.results]
 
   rule {
-    id     = "abort-incomplete-multipart-uploads"
+    id     = var.results_lifecycle_rule_id
     status = "Enabled"
 
     filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = 365
+    }
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 7

@@ -259,10 +259,13 @@ jobs:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
       TF_VAR_aws_region: ${{ vars.LFB_AWS_REGION }}
+      TF_VAR_artifacts_kms_key_arn: ${{ vars.LFB_ARTIFACTS_KMS_KEY_ARN }}
       TF_VAR_github_oidc_provider_arn: ${{ vars.LFB_GITHUB_OIDC_PROVIDER_ARN }}
+      TF_VAR_packet_lifecycle_rule_id: ${{ vars.LFB_PACKET_LIFECYCLE_RULE_ID }}
       TF_VAR_packet_bucket_name: ${{ vars.LFB_PACKET_BUCKET }}
       TF_VAR_provider_authority_resource_identity_sha256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
       TF_VAR_provider_authority_table_arn: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE_ARN }}
+      TF_VAR_results_lifecycle_rule_id: ${{ vars.LFB_RESULTS_LIFECYCLE_RULE_ID }}
       TF_VAR_results_bucket_name: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
       - name: Checkout exact main release
@@ -294,7 +297,13 @@ jobs:
             )
           fi
           if [[ "${MODULE}" == "official-eval" ]]; then
-            required+=(TF_VAR_packet_bucket_name TF_VAR_results_bucket_name)
+            required+=(
+              TF_VAR_artifacts_kms_key_arn
+              TF_VAR_packet_bucket_name
+              TF_VAR_packet_lifecycle_rule_id
+              TF_VAR_results_bucket_name
+              TF_VAR_results_lifecycle_rule_id
+            )
           fi
           for name in "${required[@]}"; do
             [[ -n "${!name:-}" ]] || {
@@ -337,17 +346,48 @@ jobs:
               '{bucket:$bucket,key:$key,region:$region,kms_key:$kms_key}' |
               sha256sum | cut -d' ' -f1
           )"
-          terraform_input_identity_sha256="$(
-            jq -cn --arg module "${MODULE}" --arg region "${TF_VAR_aws_region}" \
-              --arg oidc "${TF_VAR_github_oidc_provider_arn}" \
-              --arg identity "${TF_VAR_provider_authority_resource_identity_sha256}" \
-              --arg packet_bucket "${TF_VAR_packet_bucket_name}" \
-              --arg results_bucket "${TF_VAR_results_bucket_name}" \
-              --arg table "${TF_VAR_provider_authority_table_arn}" \
-              '{module:$module,region:$region,oidc:$oidc,identity:$identity,
-                packet_bucket:$packet_bucket,results_bucket:$results_bucket,table:$table}' |
-              sha256sum | cut -d' ' -f1
-          )"
+          case "${MODULE}" in
+            official-eval)
+              terraform_input_identity_sha256="$(
+                jq -cn --arg module "${MODULE}" --arg region "${TF_VAR_aws_region}" \
+                  --arg oidc "${TF_VAR_github_oidc_provider_arn}" \
+                  --arg artifacts_kms_key "${TF_VAR_artifacts_kms_key_arn}" \
+                  --arg identity "${TF_VAR_provider_authority_resource_identity_sha256}" \
+                  --arg packet_lifecycle_rule "${TF_VAR_packet_lifecycle_rule_id}" \
+                  --arg packet_bucket "${TF_VAR_packet_bucket_name}" \
+                  --arg results_lifecycle_rule "${TF_VAR_results_lifecycle_rule_id}" \
+                  --arg results_bucket "${TF_VAR_results_bucket_name}" \
+                  --arg table "${TF_VAR_provider_authority_table_arn}" \
+                  '{module:$module,region:$region,oidc:$oidc,
+                    artifacts_kms_key:$artifacts_kms_key,identity:$identity,
+                    packet_bucket:$packet_bucket,packet_lifecycle_rule:$packet_lifecycle_rule,
+                    results_bucket:$results_bucket,results_lifecycle_rule:$results_lifecycle_rule,
+                    table:$table}' |
+                  sha256sum | cut -d' ' -f1
+              )"
+              ;;
+            official-labeling)
+              terraform_input_identity_sha256="$(
+                jq -cn --arg module "${MODULE}" --arg region "${TF_VAR_aws_region}" \
+                  --arg oidc "${TF_VAR_github_oidc_provider_arn}" \
+                  --arg identity "${TF_VAR_provider_authority_resource_identity_sha256}" \
+                  --arg table "${TF_VAR_provider_authority_table_arn}" \
+                  '{module:$module,region:$region,oidc:$oidc,identity:$identity,table:$table}' |
+                  sha256sum | cut -d' ' -f1
+              )"
+              ;;
+            provider-authority)
+              terraform_input_identity_sha256="$(
+                jq -cn --arg module "${MODULE}" --arg region "${TF_VAR_aws_region}" \
+                  '{module:$module,region:$region}' |
+                  sha256sum | cut -d' ' -f1
+              )"
+              ;;
+            *)
+              echo "The Terraform module is outside the reviewed identity contract." >&2
+              exit 1
+              ;;
+          esac
           age_recipient_identity_sha256="$(
             printf '%s' "${LFB_INFRA_PLAN_AGE_RECIPIENT}" | sha256sum | cut -d' ' -f1
           )"

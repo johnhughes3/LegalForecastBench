@@ -878,8 +878,11 @@ That environment contains the one secret `LFB_INFRA_PLAN_AGE_IDENTITY` and only 
 - `LFB_GITHUB_OIDC_PROVIDER_ARN`
 - `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256`
 - `LFB_PROVIDER_AUTHORITY_TABLE_ARN`
+- `LFB_ARTIFACTS_KMS_KEY_ARN`
 - `LFB_PACKET_BUCKET`
+- `LFB_PACKET_LIFECYCLE_RULE_ID`
 - `LFB_RESULTS_BUCKET`
+- `LFB_RESULTS_LIFECYCLE_RULE_ID`
 
 It contains no provider key, baton identity, AWS access key, evaluation role, freeze authority, or dispatch credential.
 The packet and result bucket variables are exact protected Terraform inputs, not credentials; the workflow commits to them without publishing their names.
@@ -905,15 +908,47 @@ state_backend_identity_sha256="$(
     '{bucket:$bucket,key:$key,region:$region,kms_key:$kms_key}' |
     sha256sum | cut -d' ' -f1
 )"
-terraform_input_identity_sha256="$(
-  jq -cn --arg module "$module" --arg region "$aws_region" \
-    --arg oidc "$oidc_provider_arn" --arg identity "$resource_identity_sha256" \
-    --arg packet_bucket "$packet_bucket" --arg results_bucket "$results_bucket" \
-    --arg table "$table_arn" \
-    '{module:$module,region:$region,oidc:$oidc,identity:$identity,
-      packet_bucket:$packet_bucket,results_bucket:$results_bucket,table:$table}' |
-    sha256sum | cut -d' ' -f1
-)"
+case "$module" in
+  official-eval)
+    terraform_input_identity_sha256="$(
+      jq -cn --arg module "$module" --arg region "$aws_region" \
+        --arg oidc "$oidc_provider_arn" \
+        --arg artifacts_kms_key "$artifacts_kms_key_arn" \
+        --arg identity "$resource_identity_sha256" \
+        --arg packet_lifecycle_rule "$packet_lifecycle_rule_id" \
+        --arg packet_bucket "$packet_bucket" \
+        --arg results_lifecycle_rule "$results_lifecycle_rule_id" \
+        --arg results_bucket "$results_bucket" \
+        --arg table "$table_arn" \
+        '{module:$module,region:$region,oidc:$oidc,
+          artifacts_kms_key:$artifacts_kms_key,identity:$identity,
+          packet_bucket:$packet_bucket,packet_lifecycle_rule:$packet_lifecycle_rule,
+          results_bucket:$results_bucket,results_lifecycle_rule:$results_lifecycle_rule,
+          table:$table}' |
+        sha256sum | cut -d' ' -f1
+    )"
+    ;;
+  official-labeling)
+    terraform_input_identity_sha256="$(
+      jq -cn --arg module "$module" --arg region "$aws_region" \
+        --arg oidc "$oidc_provider_arn" --arg identity "$resource_identity_sha256" \
+        --arg table "$table_arn" \
+        '{module:$module,region:$region,oidc:$oidc,identity:$identity,table:$table}' |
+        sha256sum | cut -d' ' -f1
+    )"
+    ;;
+  provider-authority)
+    terraform_input_identity_sha256="$(
+      jq -cn --arg module "$module" --arg region "$aws_region" \
+        '{module:$module,region:$region}' |
+        sha256sum | cut -d' ' -f1
+    )"
+    ;;
+  *)
+    echo "The Terraform module is outside the reviewed identity contract." >&2
+    exit 1
+    ;;
+esac
 ```
 
 Keep the raw import ID on the trusted operator machine, compute its lowercase SHA-256, and compute the authorization commitment over this canonical request:
@@ -1753,7 +1788,7 @@ The sentinel is a hash-bound disclosure, not the enforcement authority; `executi
 
 Use `uv run legalforecast freeze --help` for the exact argument shape. The workflow verifies the committed freeze commitment, substituting the downloaded labels and model registry for their checkout paths, before matrix fan-out. The separately downloaded run-input manifest is validated and label-bound by the workflow's manifest-freeze step; it is not substituted for the cycle manifest recorded in the freeze bundle.
 
-The intended AWS boundary is defined, but not applied, under [`infra/official-eval/`](../infra/official-eval/README.md). Its canonical protected-environment contract is [`infra/official-eval/github-environments.json`](../infra/official-eval/github-environments.json), which defines the infrastructure bootstrap, evaluation cell, and fan-in environments with closed variable and secret-name inventories. The role bindings use the current `legalforecastbench-official-eval` cell environment with `LFB_AWS_REGION`, `LFB_GITHUB_PACKET_READ_ROLE_ARN`, and `LFB_PROVIDER_AUTHORITY_TABLE`, plus the `legalforecastbench-official-eval-fan-in` environment with the same reviewed `LFB_AWS_REGION`, `LFB_GITHUB_FAN_IN_ROLE_ARN`, and `LFB_PACKET_BUCKET`; do not recreate the obsolete five-environment topology. The runner derives each provider's account alias from its unique cap in the verified frozen execution policy. Before live acceptance, verify that both runtime environments exist and are protected for `main`, ensure fan-in has no secrets or provider role, and assign the reviewed applied outputs through the human-approved server-side configuration path.
+The intended AWS boundary is defined, but not applied, under [`infra/official-eval/`](../infra/official-eval/README.md). Its canonical protected-environment contract is [`infra/official-eval/github-environments.json`](../infra/official-eval/github-environments.json), which defines the infrastructure bootstrap, evaluation cell, and fan-in environments with closed variable and secret-name inventories. The infrastructure operation also requires the exact existing artifact-bucket KMS key ARN plus the exact packet/results lifecycle rule IDs (`LFB_ARTIFACTS_KMS_KEY_ARN`, `LFB_PACKET_LIFECYCLE_RULE_ID`, and `LFB_RESULTS_LIFECYCLE_RULE_ID`) captured by protected inventory; aliases and guessed lifecycle IDs are rejected. The role bindings use the current `legalforecastbench-official-eval` cell environment with `LFB_AWS_REGION`, `LFB_GITHUB_PACKET_READ_ROLE_ARN`, and `LFB_PROVIDER_AUTHORITY_TABLE`, plus the `legalforecastbench-official-eval-fan-in` environment with the same reviewed `LFB_AWS_REGION`, `LFB_GITHUB_FAN_IN_ROLE_ARN`, and `LFB_PACKET_BUCKET`; do not recreate the obsolete five-environment topology. The runner derives each provider's account alias from its unique cap in the verified frozen execution policy. Before live acceptance, verify that both runtime environments exist and are protected for `main`, ensure fan-in has no secrets or provider role, and assign the reviewed applied outputs through the human-approved server-side configuration path.
 
 The packet/result role used by each case writer has only the current packet, manifest, per-case, closure, and exact provider-attempt authority operations. It may create and read the two explicit resource patterns `cycle-publication-state/*/runs/*/*/intent.json` and `cycle-publication-state/*/runs/*/*/done.json`, has read-only GetObject authority for `cycle-publication-state/*/seal.json`, and has prefix-conditioned `s3:ListBucket` authority only for the exact seal-key pattern and current packet/per-case validation paths. `begin` uses this exact-key ListObjectsV2 probe before GetObject because S3 otherwise returns 403 rather than 404 for an absent object when ListBucket is denied. Immutable writes are separate from reads and require the `If-None-Match: *` request header; ordinary versioned per-case writes remain unconditional. The cell role may call only `ConditionCheckItem`, `DescribeTable`, `GetItem`, `PutItem`, and `UpdateItem` on the one DynamoDB table whose exact ARN hash is frozen in the provider-caps artifact. The workflow supplies the protected table name and region to every live runner; each runner derives its public account alias from the verified frozen provider cap and re-verifies the actual table ARN and key schema before a provider call. The cell role has no broader marker listing, seal write, receipt, or report-prefix authority. It also has no DynamoDB table administration, scan, or delete authority and no S3 delete, ACL, or version-list authority. The provider-free fan-in role has prefix-conditioned `s3:ListBucketVersions` authority only for `per-case/<cycle_id>/`, owns exact-version per-case reads, marker read/list and seal authority, finalizer marker and receipt writes, and exclusive canonical publication under `reports/<cycle_id>/multi-ablation/`, with the same create-once precondition on every immutable write.
 

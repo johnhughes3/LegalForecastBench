@@ -87,7 +87,7 @@ The import and exact saved-plan path below is the protected implementation merge
 
 ### 1. Prepare the protected identity commitments
 
-John supplies these values from the protected infrastructure environment without printing their raw contents: `LFB_AWS_REGION`, `LFB_INFRA_OPERATOR_ROLE_ARN`, `LFB_TERRAFORM_STATE_BUCKET`, `LFB_TERRAFORM_STATE_KEY_PREFIX`, `LFB_TERRAFORM_STATE_KMS_KEY_ID`, `LFB_INFRA_PLAN_AGE_RECIPIENT`, `LFB_GITHUB_OIDC_PROVIDER_ARN`, `LFB_PROVIDER_AUTHORITY_TABLE_ARN`, `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256`, `LFB_PACKET_BUCKET`, and `LFB_RESULTS_BUCKET`.
+John supplies these values from the protected infrastructure environment without printing their raw contents: `LFB_AWS_REGION`, `LFB_INFRA_OPERATOR_ROLE_ARN`, `LFB_TERRAFORM_STATE_BUCKET`, `LFB_TERRAFORM_STATE_KEY_PREFIX`, `LFB_TERRAFORM_STATE_KMS_KEY_ID`, `LFB_INFRA_PLAN_AGE_RECIPIENT`, `LFB_GITHUB_OIDC_PROVIDER_ARN`, `LFB_PROVIDER_AUTHORITY_TABLE_ARN`, `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256`, `LFB_ARTIFACTS_KMS_KEY_ARN`, `LFB_PACKET_BUCKET`, `LFB_PACKET_LIFECYCLE_RULE_ID`, `LFB_RESULTS_BUCKET`, and `LFB_RESULTS_LIFECYCLE_RULE_ID`.
 
 The workflow’s identity formulas are reproduced below so request commitments can be computed in the operator session without exposing identifiers:
 
@@ -106,10 +106,18 @@ STATE_BACKEND_IDENTITY_SHA256="$(jq -cn \
 TERRAFORM_INPUT_IDENTITY_SHA256="$(jq -cn \
   --arg module "$MODULE" --arg region "$LFB_AWS_REGION" \
   --arg oidc "$LFB_GITHUB_OIDC_PROVIDER_ARN" \
+  --arg artifacts_kms_key "$LFB_ARTIFACTS_KMS_KEY_ARN" \
   --arg identity "$LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256" \
-  --arg packet_bucket "$LFB_PACKET_BUCKET" --arg results_bucket "$LFB_RESULTS_BUCKET" \
+  --arg packet_lifecycle_rule "$LFB_PACKET_LIFECYCLE_RULE_ID" \
+  --arg packet_bucket "$LFB_PACKET_BUCKET" \
+  --arg results_lifecycle_rule "$LFB_RESULTS_LIFECYCLE_RULE_ID" \
+  --arg results_bucket "$LFB_RESULTS_BUCKET" \
   --arg table "$LFB_PROVIDER_AUTHORITY_TABLE_ARN" \
-  '{module:$module,region:$region,oidc:$oidc,identity:$identity,packet_bucket:$packet_bucket,results_bucket:$results_bucket,table:$table}' | sha256sum | cut -d' ' -f1)"
+  '{module:$module,region:$region,oidc:$oidc,
+    artifacts_kms_key:$artifacts_kms_key,identity:$identity,
+    packet_bucket:$packet_bucket,packet_lifecycle_rule:$packet_lifecycle_rule,
+    results_bucket:$results_bucket,results_lifecycle_rule:$results_lifecycle_rule,
+    table:$table}' | sha256sum | cut -d' ' -f1)"
 ```
 
 ### 2. Inventory and import every existing official-eval resource

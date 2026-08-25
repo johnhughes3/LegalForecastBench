@@ -104,6 +104,39 @@ variable "results_bucket_name" {
   }
 }
 
+variable "artifacts_kms_key_arn" {
+  description = "Exact customer-managed KMS key ARN used by both existing artifact buckets. Aliases are not accepted."
+  type        = string
+
+  validation {
+    condition = can(regex(
+      "^arn:aws[a-zA-Z-]*:kms:[a-z0-9-]+:[0-9]{12}:key/[0-9a-fA-F-]{36}$",
+      var.artifacts_kms_key_arn,
+    ))
+    error_message = "artifacts_kms_key_arn must be one exact KMS key ARN, not an alias."
+  }
+}
+
+variable "packet_lifecycle_rule_id" {
+  description = "Exact existing packet-bucket lifecycle rule ID captured by protected inventory."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._+=:/-]{0,254}$", var.packet_lifecycle_rule_id))
+    error_message = "packet_lifecycle_rule_id must be a nonempty S3 lifecycle rule ID."
+  }
+}
+
+variable "results_lifecycle_rule_id" {
+  description = "Exact existing results-bucket lifecycle rule ID captured by protected inventory."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._+=:/-]{0,254}$", var.results_lifecycle_rule_id))
+    error_message = "results_lifecycle_rule_id must be a nonempty S3 lifecycle rule ID."
+  }
+}
+
 variable "enable_bedrock_runtime" {
   description = "Whether the cell role may use the separately reviewed direct-model and geographic inference-profile grants."
   type        = bool

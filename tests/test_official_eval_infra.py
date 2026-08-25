@@ -32,6 +32,9 @@ OIDC_PROVIDER_ARN = (
 )
 PACKET_BUCKET_ARN = "arn:aws:s3:::lfb-packets"
 RESULTS_BUCKET_ARN = "arn:aws:s3:::lfb-results"
+ARTIFACTS_KMS_KEY_ARN = (
+    "arn:aws:kms:us-east-1:123456789012:key/01234567-89ab-cdef-0123-456789abcdef"
+)
 PROVIDER_AUTHORITY_TABLE_ARN = (
     "arn:aws:dynamodb:us-east-1:123456789012:table/lfb-provider-authority"
 )
@@ -69,6 +72,7 @@ def _trust_policy(environment: str) -> JsonObject:
 def _cell_policy() -> JsonObject:
     return _render_template(
         POLICY_ROOT / "cell-storage-policy.json.tftpl",
+        artifacts_kms_key_arn=ARTIFACTS_KMS_KEY_ARN,
         packet_bucket_arn=PACKET_BUCKET_ARN,
         results_bucket_arn=RESULTS_BUCKET_ARN,
     )
@@ -77,6 +81,7 @@ def _cell_policy() -> JsonObject:
 def _fan_in_policy() -> JsonObject:
     return _render_template(
         POLICY_ROOT / "fan-in-storage-policy.json.tftpl",
+        artifacts_kms_key_arn=ARTIFACTS_KMS_KEY_ARN,
         results_bucket_arn=RESULTS_BUCKET_ARN,
     )
 
@@ -182,6 +187,8 @@ def _assert_exact_cell_policy(policy: Mapping[str, object]) -> None:
     assert policy["Version"] == "2012-10-17"
     statements = _statements_by_sid(policy)
     assert set(statements) == {
+        "DecryptArtifactObjects",
+        "GenerateArtifactDataKeys",
         "ReadModelPackets",
         "ListModelPackets",
         "ReadFrozenManifests",
@@ -195,6 +202,18 @@ def _assert_exact_cell_policy(policy: Mapping[str, object]) -> None:
         "CreateMutationMarkers",
         "ReadCycleSeal",
         "ProbeExactCycleSeal",
+    }
+    assert statements["DecryptArtifactObjects"] == {
+        "Sid": "DecryptArtifactObjects",
+        "Effect": "Allow",
+        "Action": "kms:Decrypt",
+        "Resource": ARTIFACTS_KMS_KEY_ARN,
+    }
+    assert statements["GenerateArtifactDataKeys"] == {
+        "Sid": "GenerateArtifactDataKeys",
+        "Effect": "Allow",
+        "Action": "kms:GenerateDataKey",
+        "Resource": ARTIFACTS_KMS_KEY_ARN,
     }
     assert statements["ReadModelPackets"] == {
         "Sid": "ReadModelPackets",
@@ -297,6 +316,8 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
     assert policy["Version"] == "2012-10-17"
     statements = _statements_by_sid(policy)
     assert set(statements) == {
+        "DecryptArtifactObjects",
+        "GenerateArtifactDataKeys",
         "ReadExactPerCaseVersions",
         "ReadShardReceipts",
         "CreateShardReceipts",
@@ -307,6 +328,18 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
         "CreateCanonicalPublication",
         "ListCurrentPerCaseVersions",
         "ListFanInNamespaces",
+    }
+    assert statements["DecryptArtifactObjects"] == {
+        "Sid": "DecryptArtifactObjects",
+        "Effect": "Allow",
+        "Action": "kms:Decrypt",
+        "Resource": ARTIFACTS_KMS_KEY_ARN,
+    }
+    assert statements["GenerateArtifactDataKeys"] == {
+        "Sid": "GenerateArtifactDataKeys",
+        "Effect": "Allow",
+        "Action": "kms:GenerateDataKey",
+        "Resource": ARTIFACTS_KMS_KEY_ARN,
     }
     assert statements["ReadExactPerCaseVersions"] == {
         "Sid": "ReadExactPerCaseVersions",
@@ -1115,7 +1148,9 @@ def test_storage_is_private_owned_encrypted_versioned_and_tls_only() -> None:
     assert storage.count('resource "aws_s3_bucket_versioning"') == 2
     assert storage.count('resource "aws_s3_bucket_policy"') == 2
     assert storage.count("BucketOwnerEnforced") == 2
-    assert storage.count('sse_algorithm = "AES256"') == 2
+    assert storage.count('sse_algorithm     = "aws:kms"') == 2
+    assert storage.count("kms_master_key_id = var.artifacts_kms_key_arn") == 2
+    assert storage.count("bucket_key_enabled = true") == 2
     assert storage.count('status = "Enabled"') >= 2
     assert tls_policy == {
         "Version": "2012-10-17",
@@ -1123,7 +1158,7 @@ def test_storage_is_private_owned_encrypted_versioned_and_tls_only() -> None:
             {
                 "Sid": "DenyInsecureTransport",
                 "Effect": "Deny",
-                "Principal": "*",
+                "Principal": {"AWS": "*"},
                 "Action": "s3:*",
                 "Resource": [RESULTS_BUCKET_ARN, f"{RESULTS_BUCKET_ARN}/*"],
                 "Condition": {"Bool": {"aws:SecureTransport": "false"}},
@@ -1139,6 +1174,9 @@ def test_lifecycle_preserves_audit_versions_and_only_expires_negative_controls()
 
     assert "per-case/" not in storage
     assert "noncurrent_result_retention_days" not in storage
+    assert storage.count("noncurrent_days = 365") == 2
+    assert "var.packet_lifecycle_rule_id" in storage
+    assert "var.results_lifecycle_rule_id" in storage
     assert 'prefix = "reports/security-negative-controls/"' in storage
     assert "var.negative_control_retention_days" in storage
     assert storage.count("abort_incomplete_multipart_upload") == 2
@@ -1169,6 +1207,51 @@ def test_s3_inputs_enforce_global_bucket_names_and_whole_retention_days() -> Non
     assert (
         "floor(var.negative_control_retention_days) == "
         "var.negative_control_retention_days" in variables
+    )
+    assert 'variable "artifacts_kms_key_arn"' in variables
+    assert "artifacts_kms_key_arn must be one exact KMS key ARN" in variables
+    assert 'variable "packet_lifecycle_rule_id"' in variables
+    assert 'variable "results_lifecycle_rule_id"' in variables
+
+
+def test_protected_infra_workflow_binds_exact_storage_contract_inputs() -> None:
+    workflow = (WORKFLOW_ROOT / "official-provider-authority-infra.yaml").read_text(
+        encoding="utf-8"
+    )
+    for name in (
+        "TF_VAR_artifacts_kms_key_arn",
+        "TF_VAR_packet_lifecycle_rule_id",
+        "TF_VAR_results_lifecycle_rule_id",
+    ):
+        assert (
+            f"{name}: ${{{{ vars.LFB_{name.removeprefix('TF_VAR_').upper()} }}}}"
+            in workflow
+        )
+        assert name in workflow[workflow.index("Validate external bootstrap values") :]
+
+    validation = workflow.split("- name: Validate external bootstrap values", 1)[1]
+    validation = validation.split("- name: Install Terraform", 1)[0]
+    labeling_condition = (
+        'if [[ "${MODULE}" == "official-labeling" || '
+        '"${MODULE}" == "official-eval" ]]; then'
+    )
+    labeling_block = validation.split(
+        labeling_condition,
+        1,
+    )[1].split('if [[ "${MODULE}" == "official-eval" ]]; then', 1)[0]
+    assert "TF_VAR_artifacts_kms_key_arn" not in labeling_block
+    assert "TF_VAR_packet_lifecycle_rule_id" not in labeling_block
+    assert "TF_VAR_results_lifecycle_rule_id" not in labeling_block
+    eval_block = validation.split('if [[ "${MODULE}" == "official-eval" ]]; then', 1)[
+        1
+    ].split("fi", 1)[0]
+    assert "TF_VAR_artifacts_kms_key_arn" in eval_block
+    assert "TF_VAR_packet_lifecycle_rule_id" in eval_block
+    assert "TF_VAR_results_lifecycle_rule_id" in eval_block
+    for module in ("official-eval", "official-labeling", "provider-authority"):
+        assert f"{module})" in validation
+    assert (
+        "The Terraform module is outside the reviewed identity contract." in validation
     )
 
 

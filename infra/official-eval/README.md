@@ -26,11 +26,12 @@ Do not remove the `repository` or `ref` conditions. Both are documented AWS cond
 
 ## Storage and retention
 
-Both existing buckets are modeled as global-namespace general purpose buckets that are private, `BucketOwnerEnforced`, AES-256 server-side encrypted, versioned, and TLS-only. Public-access blocks and `prevent_destroy` are mandatory. Account-regional `-an` names and directory/table bucket suffixes are rejected because this root does not set a non-global `bucket_namespace` or model those bucket types.
+Both existing buckets are modeled as global-namespace general purpose buckets that are private, `BucketOwnerEnforced`, versioned, and TLS-only. Their default encryption is SSE-KMS with the exact customer-managed artifact key ARN supplied through `artifacts_kms_key_arn`, with S3 bucket keys enabled; an alias is not accepted. Public-access blocks and `prevent_destroy` are mandatory. Account-regional `-an` names and directory/table bucket suffixes are rejected because this root does not set a non-global `bucket_namespace` or model those bucket types.
+Both runtime storage policies grant only `kms:Decrypt` and `kms:GenerateDataKey` on that exact artifact key ARN. The current writers use single-part `s3api put-object`, so no additional multipart-upload KMS permission is granted.
 
 This root deliberately does not expire `per-case/` current objects or noncurrent versions. Per-case outputs can repeat filing text or other PII, so indefinite private retention has a data-minimization cost; however, deleting a noncurrent version can invalidate a receipt that commits its exact S3 `VersionId`. Any destructive raw-result lifecycle must therefore be a separate, explicit review that reconciles PII obligations with the receipt-retention horizon and archived audit evidence. A stale blanket 30-day noncurrent-version rule is not safe.
 
-`reports/security-negative-controls/` is reserved for live denied-write canaries. It is never a canonical report destination and neither runtime role is granted that prefix as a negative-control namespace. Only an administrator may seed or clean those disposable objects; the narrowly scoped lifecycle expires their current and noncurrent versions after the reviewed whole-day retention. Incomplete multipart uploads are aborted after seven days on both buckets.
+The imported packet and results lifecycle configurations preserve each existing full-prefix rule: the protected `*_lifecycle_rule_id` input keeps the live rule identity, noncurrent versions expire after 365 days, and incomplete multipart uploads are aborted after seven days. The results configuration also retains the separately reviewed `reports/security-negative-controls/` disposable-canary rule; it is never a canonical report destination and neither runtime role is granted that prefix as a write namespace. Only an administrator may seed or clean those canaries. The lifecycle rule IDs are bucket-specific values and must come from the protected inventory rather than source control.
 
 ## Existing buckets, import, and remote state
 
@@ -118,7 +119,7 @@ fi
 
 Successful inventory responses remain as JSON for plan review. `NoSuchLifecycleConfiguration` or `NoSuchBucketPolicy` marks only that exact subresource as absent and skips only its corresponding import. Any other AWS CLI error stops reconciliation; do not suppress errors or continue with an incomplete inventory.
 
-Reconcile every pre-existing lifecycle rule and bucket-policy statement into this Terraform configuration before saving a plan. Both S3 APIs are full-replacement surfaces, so an acceptable first-apply plan must preserve every intended live rule and statement and show no unintended deletion.
+Reconcile every pre-existing lifecycle rule and bucket-policy statement into this Terraform configuration before saving a plan. Both S3 APIs are full-replacement surfaces, so an acceptable first-apply plan must preserve every intended live rule and statement and show no unintended deletion. The operator input set must include the exact KMS key ARN and both imported lifecycle rule IDs (`LFB_ARTIFACTS_KMS_KEY_ARN`, `LFB_PACKET_LIFECYCLE_RULE_ID`, and `LFB_RESULTS_LIFECYCLE_RULE_ID`); the protected workflow binds them into the Terraform input identity commitment. The currently inventoried live policies contain only the TLS deny statement; the results-write output remains disabled until the narrowly scoped official roles are separately provisioned.
 
 Import existing IAM roles and inline policies, or choose reviewed new role names after an account inventory; never guess whether those names are already managed elsewhere. If the default role names already exist, the exact IAM imports are:
 
