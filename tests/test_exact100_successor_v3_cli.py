@@ -398,6 +398,8 @@ def test_snapshot_authentication_returns_the_bytes_read_by_replay(
     assert receipt.root.resolve() == root.resolve()
     state = (root / v3_cli._OUTPUT_NAMES["state"]).absolute()  # pyright: ignore[reportPrivateUsage]
     assert captured[state] == state.read_bytes()
+    carried = (root / _CARRIED_RELATIVE).absolute()
+    assert captured[carried] == carried.read_bytes()
     assert captured
 
 

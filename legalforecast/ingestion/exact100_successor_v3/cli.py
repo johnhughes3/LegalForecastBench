@@ -625,7 +625,11 @@ def _carried_documents(root: Path, committed: Mapping[str, str]) -> dict[str, by
             if not path.is_file():
                 continue
             relative = path.relative_to(root).as_posix()
-            payload = path.read_bytes()
+            # Use the replay reader so carried predecessor documents are part
+            # of the same byte snapshot as the committed surface files.  They
+            # are authenticated inputs even though they are copied forward
+            # rather than parsed into the cohort projection here.
+            payload = _read(path)
             expected = committed.get(relative)
             if expected is None:
                 raise Exact100SuccessorReplacementV3CliError(
