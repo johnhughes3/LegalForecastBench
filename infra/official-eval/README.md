@@ -23,11 +23,36 @@ canonical-publication prefixes remain constrained by the policy templates.
 
 Before any infrastructure operation, an authorized operator must verify the
 live COS stack and bucket controls through read-only inventory. After these IAM
-roles are applied and configured, the operator must obtain a passing run of
-`.github/workflows/official-s3-access-validation.yaml` against the exact
-external buckets before evaluation dispatch. A failed, missing, or ambiguous
-live-storage check is a halt; it is not permission to add storage resources
-here.
+roles are applied and configured, the operator must first run one explicitly
+approved bounded non-dry-run shard. That shard is the only producer of the
+admissible per-case object `VersionId` and immutable shard receipt needed by
+`.github/workflows/official-s3-access-validation.yaml`; dry runs and fixture
+rehearsals cannot issue those inputs. Capture the exact keys and version before
+dispatching that provider-free validation, and require it to pass before the
+remaining official shards. A failed, missing, or ambiguous live-storage check
+is a halt; it is not permission to add storage resources here.
+
+## Required operational order
+
+The external storage boundary follows one ordered path:
+
+1. Inventory the CloudFormation stack and packet/results bucket controls
+   read-only; keep that evidence outside this Terraform state.
+2. If prior state contains obsolete S3 addresses, detach only those reviewed
+   addresses through the protected state migration, then inventory and import
+   existing IAM objects, review the exact plan, and obtain the approved
+   protected apply. Do not import or manage the buckets here.
+3. Treat dry-run commands and fixture rehearsals as provider-free checks only;
+   neither can issue official per-case versions or shard receipts.
+4. Run one explicitly approved bounded non-dry-run shard. It is the only
+   producer of admissible per-case `VersionId` and immutable shard-receipt
+   evidence for storage validation.
+5. Capture the exact packet, manifest, per-case, and shard-receipt keys plus
+   the per-case `VersionId`, then run
+   `.github/workflows/official-s3-access-validation.yaml` from the exact
+   trusted `main` SHA.
+6. Dispatch the remaining official shards only after that validation passes;
+   fan-in remains provider-free and consumes only accepted immutable receipts.
 
 ## Exact two-role contract
 

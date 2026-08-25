@@ -6,12 +6,14 @@ import math
 import sqlite3
 from io import BytesIO
 from pathlib import Path
-from typing import cast
+from types import SimpleNamespace
+from typing import Any, cast
 from urllib.request import Request
 
 import legalforecast.ingestion.disclosure_model_review_authority as authority_module
 import pytest
 from legalforecast.evals.live_model_solver import LiveModelProviderError
+from legalforecast.evals.model_registry import LongContextSurcharge
 from legalforecast.ingestion.provenance_clearance import (
     ProvenanceClearanceError,
     build_authenticated_model_provenance_clearance_records_v3,
@@ -42,6 +44,46 @@ disclosure_model_review_provider_call_executed = (
 
 ROOT = Path(__file__).resolve().parents[1]
 CYCLE_ID = "cycle-1-target-100-2026-07-25"
+
+
+def test_disclosure_review_reservation_includes_registry_long_context_surcharge(
+    tmp_path: Path,
+) -> None:
+    reviewer = SimpleNamespace(
+        registry_key="google:gpt-5.6-sol",
+        context_limit=1_050_000,
+        max_output_tokens=128_000,
+        input_token_price=5.0,
+        output_token_price=30.0,
+        long_context_surcharge=LongContextSurcharge(
+            threshold_input_tokens=272_000,
+            input_price_multiplier=2.0,
+            output_price_multiplier=1.5,
+        ),
+    )
+
+    class SyntheticCaps:
+        cycle_id = "cycle-1"
+
+        def cap_usd(self, provider: str) -> float:
+            assert provider == "google"
+            return 50.0
+
+        def cap_microusd(self, provider: str) -> int:
+            assert provider == "google"
+            return 50_000_000
+
+    context = cast(Any, authority_module)._execution_context(
+        routing_plan_bytes=b"plan",
+        worksheet_bytes=b"worksheet",
+        batch_prompt_text="synthetic prompt",
+        reviewer=reviewer,
+        caps=SyntheticCaps(),
+        provider_journal_path=tmp_path / "provider-attempts.sqlite3",
+        provider_spend_authority_path=tmp_path / "provider-spend.sqlite3",
+    )
+
+    assert context.reservation_microusd == 14_980_000
 
 
 def _pdf(text: str) -> bytes:

@@ -21,7 +21,7 @@ from legalforecast.cli import (
     main,
 )
 from legalforecast.evals.inspect_task import SolverResponse
-from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.evals.model_registry import LongContextSurcharge, load_model_registry
 from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
 from legalforecast.evals.provider_spend_dynamodb import DynamoDbAuthorityError
 from legalforecast.ingestion import provenance_clearance
@@ -39,6 +39,51 @@ from legalforecast.unitization.review_queue import (
 from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
+
+
+def test_paid_labeling_reservations_include_registry_long_context_surcharge(
+    tmp_path: Path,
+) -> None:
+    registry_entry = SimpleNamespace(
+        provider="openai",
+        registry_key="openai:gpt-5.6-sol",
+        context_limit=1_050_000,
+        max_output_tokens=128_000,
+        input_token_price=5.0,
+        output_token_price=30.0,
+        long_context_surcharge=LongContextSurcharge(
+            threshold_input_tokens=272_000,
+            input_price_multiplier=2.0,
+            output_price_multiplier=1.5,
+        ),
+    )
+
+    journal = llm_pipeline._provider_attempt_journal(
+        path=tmp_path / "provider-attempts.sqlite3",
+        stage="llm-label",
+        candidate_id="candidate-1",
+        prompt="synthetic prompt",
+        registry_entry=registry_entry,
+        cycle_cap_usd=20.0,
+        cycle_id="cycle-1",
+        model_registry_sha256="b" * 64,
+        provider_cycle_caps_sha256="sha256:" + "a" * 64,
+    )
+    assert journal is not None
+    assert journal.reservation_usd == pytest.approx(14.98)
+    journal.close()
+
+    spend_handler = llm_pipeline._combined_attempt_handler(
+        journal=None,
+        authorities={"openai": object()},
+        accounts={"openai": "primary"},
+        cycle_id="cycle-1",
+        stage="llm-label",
+        candidate_id="candidate-1",
+        registry_entry=registry_entry,
+    )
+    assert spend_handler is not None
+    assert spend_handler.reservation_microusd == 14_980_000  # type: ignore[attr-defined]
 
 
 def test_markdown_text_filesystem_rejects_absolute_path_outside_root(

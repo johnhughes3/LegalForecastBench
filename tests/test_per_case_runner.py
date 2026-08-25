@@ -626,7 +626,20 @@ def test_live_solver_binds_frozen_account_cap_breaker_and_repeat_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     registry_path = tmp_path / "registry.json"
-    _write_model_registry(registry_path, ("example-model",), provider="openai")
+    _write_model_registry(
+        registry_path,
+        ("example-model",),
+        provider="openai",
+        context_limit=1_050_000,
+        max_output_tokens=128_000,
+        input_price_by_model={"example-model": 5.0},
+        output_token_price=30.0,
+        long_context_surcharge={
+            "threshold_input_tokens": 272_000,
+            "input_price_multiplier": 2.0,
+            "output_price_multiplier": 1.5,
+        },
+    )
     registry_entry = load_model_registry(registry_path).entries[0]
     execution_policy_path = tmp_path / "execution-policy.json"
     execution_policy_sha256 = _write_execution_policy(
@@ -685,7 +698,7 @@ def test_live_solver_binds_frozen_account_cap_breaker_and_repeat_identity(
     assert handler.key.repeat_index == 2
     assert handler.key.stage == "official-eval"
     assert handler.key.account == "primary"
-    assert handler.reservation_microusd == 53_072
+    assert handler.reservation_microusd == 14_980_000
 
 
 def test_live_resume_requires_exact_raw_execution_policy_binding(
@@ -1858,10 +1871,15 @@ def _write_model_registry(
     *,
     input_price_by_model: dict[str, float] | None = None,
     provider: str = "example-provider",
+    context_limit: int = 200_000,
+    max_output_tokens: int = 4_096,
+    output_token_price: float = 1.0,
+    long_context_surcharge: dict[str, int | float] | None = None,
 ) -> None:
     prices = input_price_by_model or {}
-    records: list[dict[str, Any]] = [
-        {
+    records: list[dict[str, Any]] = []
+    for model_id in model_ids:
+        record: dict[str, Any] = {
             "provider": provider,
             "model_id": model_id,
             "display_name": model_id,
@@ -1872,18 +1890,19 @@ def _write_model_registry(
             "provider_training_cutoff": None,
             "temperature": 0,
             "top_p": 1,
-            "max_output_tokens": 4096,
+            "max_output_tokens": max_output_tokens,
             "network_disabled": True,
             "search_disabled": True,
             "tool_policy": "controlled_docket_tool_only",
-            "context_limit": 200000,
+            "context_limit": context_limit,
             "pricing_source": "fixture",
             "input_token_price": prices.get(model_id, 0.25),
-            "output_token_price": 1.0,
+            "output_token_price": output_token_price,
             "known_cutoff_publicity_caveats": [],
         }
-        for model_id in model_ids
-    ]
+        if long_context_surcharge is not None:
+            record["long_context_surcharge"] = long_context_surcharge
+        records.append(record)
     _write_json(
         path,
         records,
