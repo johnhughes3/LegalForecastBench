@@ -908,15 +908,47 @@ state_backend_identity_sha256="$(
     '{bucket:$bucket,key:$key,region:$region,kms_key:$kms_key}' |
     sha256sum | cut -d' ' -f1
 )"
-terraform_input_identity_sha256="$(
-  jq -cn --arg module "$module" --arg region "$aws_region" \
-    --arg oidc "$oidc_provider_arn" --arg identity "$resource_identity_sha256" \
-    --arg packet_bucket "$packet_bucket" --arg results_bucket "$results_bucket" \
-    --arg table "$table_arn" \
-    '{module:$module,region:$region,oidc:$oidc,identity:$identity,
-      packet_bucket:$packet_bucket,results_bucket:$results_bucket,table:$table}' |
-    sha256sum | cut -d' ' -f1
-)"
+case "$module" in
+  official-eval)
+    terraform_input_identity_sha256="$(
+      jq -cn --arg module "$module" --arg region "$aws_region" \
+        --arg oidc "$oidc_provider_arn" \
+        --arg artifacts_kms_key "$artifacts_kms_key_arn" \
+        --arg identity "$resource_identity_sha256" \
+        --arg packet_lifecycle_rule "$packet_lifecycle_rule_id" \
+        --arg packet_bucket "$packet_bucket" \
+        --arg results_lifecycle_rule "$results_lifecycle_rule_id" \
+        --arg results_bucket "$results_bucket" \
+        --arg table "$table_arn" \
+        '{module:$module,region:$region,oidc:$oidc,
+          artifacts_kms_key:$artifacts_kms_key,identity:$identity,
+          packet_bucket:$packet_bucket,packet_lifecycle_rule:$packet_lifecycle_rule,
+          results_bucket:$results_bucket,results_lifecycle_rule:$results_lifecycle_rule,
+          table:$table}' |
+        sha256sum | cut -d' ' -f1
+    )"
+    ;;
+  official-labeling)
+    terraform_input_identity_sha256="$(
+      jq -cn --arg module "$module" --arg region "$aws_region" \
+        --arg oidc "$oidc_provider_arn" --arg identity "$resource_identity_sha256" \
+        --arg table "$table_arn" \
+        '{module:$module,region:$region,oidc:$oidc,identity:$identity,table:$table}' |
+        sha256sum | cut -d' ' -f1
+    )"
+    ;;
+  provider-authority)
+    terraform_input_identity_sha256="$(
+      jq -cn --arg module "$module" --arg region "$aws_region" \
+        '{module:$module,region:$region}' |
+        sha256sum | cut -d' ' -f1
+    )"
+    ;;
+  *)
+    echo "The Terraform module is outside the reviewed identity contract." >&2
+    exit 1
+    ;;
+esac
 ```
 
 Keep the raw import ID on the trusted operator machine, compute its lowercase SHA-256, and compute the authorization commitment over this canonical request:

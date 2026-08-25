@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/official-provider-authority-infra.yaml"
 CONTRACT = ROOT / "scripts/official_infra_contract.py"
+GATE_PACK = ROOT / "docs/official-run-gate-pack.md"
 RUNBOOK = ROOT / "docs/official-run-runbook.md"
 TERRAFORM_ROOTS = (
     ROOT / "infra/provider-authority",
@@ -211,6 +212,62 @@ def test_aws_region_is_fail_closed_external_bootstrap() -> None:
     assert "LFB_AWS_REGION" in RUNBOOK.read_text(encoding="utf-8")
     assert ":kms:" in text
     assert "immutable KMS key ARN, not an alias" in text
+
+
+def test_terraform_input_identity_recipes_share_exact_module_shapes() -> None:
+    workflow = _text()
+    workflow_identity = workflow.rsplit('case "${MODULE}" in', 1)[1].split(
+        "age_recipient_identity_sha256", 1
+    )[0]
+    gate_pack = GATE_PACK.read_text(encoding="utf-8")
+    gate_pack_identity = gate_pack.split('TERRAFORM_INPUT_IDENTITY_SHA256="$(', 1)[
+        1
+    ].split("\n```", 1)[0]
+    runbook = RUNBOOK.read_text(encoding="utf-8")
+    runbook_identity = runbook.split('case "$module" in', 1)[1].split(
+        "Keep the raw import ID", 1
+    )[0]
+
+    eval_fields = (
+        "module:$module",
+        "region:$region",
+        "oidc:$oidc",
+        "artifacts_kms_key:$artifacts_kms_key",
+        "identity:$identity",
+        "packet_bucket:$packet_bucket",
+        "packet_lifecycle_rule:$packet_lifecycle_rule",
+        "results_bucket:$results_bucket",
+        "results_lifecycle_rule:$results_lifecycle_rule",
+        "table:$table",
+    )
+    for source in (workflow_identity, gate_pack_identity, runbook_identity):
+        positions = [source.index(field) for field in eval_fields]
+        assert positions == sorted(positions)
+        for field in eval_fields:
+            assert field in source
+
+    for module, fields in {
+        "official-labeling": (
+            "module:$module",
+            "region:$region",
+            "oidc:$oidc",
+            "identity:$identity",
+            "table:$table",
+        ),
+        "provider-authority": ("module:$module", "region:$region"),
+    }.items():
+        workflow_module = workflow_identity.split(f"{module})", 1)[1].split(";;", 1)[0]
+        runbook_module = runbook_identity.split(f"{module})", 1)[1].split(";;", 1)[0]
+        for source in (workflow_module, runbook_module):
+            positions = [source.index(field) for field in fields]
+            assert positions == sorted(positions)
+            for field in fields:
+                assert field in source
+            assert "artifacts_kms_key:" not in source
+            assert "packet_bucket:" not in source
+            assert "packet_lifecycle_rule:" not in source
+            assert "results_bucket:" not in source
+            assert "results_lifecycle_rule:" not in source
 
 
 def test_import_and_official_eval_are_closed_and_public_safe() -> None:

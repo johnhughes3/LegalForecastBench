@@ -27,6 +27,7 @@ Do not remove the `repository` or `ref` conditions. Both are documented AWS cond
 ## Storage and retention
 
 Both existing buckets are modeled as global-namespace general purpose buckets that are private, `BucketOwnerEnforced`, versioned, and TLS-only. Their default encryption is SSE-KMS with the exact customer-managed artifact key ARN supplied through `artifacts_kms_key_arn`, with S3 bucket keys enabled; an alias is not accepted. Public-access blocks and `prevent_destroy` are mandatory. Account-regional `-an` names and directory/table bucket suffixes are rejected because this root does not set a non-global `bucket_namespace` or model those bucket types.
+Both runtime storage policies grant only `kms:Decrypt` and `kms:GenerateDataKey` on that exact artifact key ARN. The current writers use single-part `s3api put-object`, so no additional multipart-upload KMS permission is granted.
 
 This root deliberately does not expire `per-case/` current objects or noncurrent versions. Per-case outputs can repeat filing text or other PII, so indefinite private retention has a data-minimization cost; however, deleting a noncurrent version can invalidate a receipt that commits its exact S3 `VersionId`. Any destructive raw-result lifecycle must therefore be a separate, explicit review that reconciles PII obligations with the receipt-retention horizon and archived audit evidence. A stale blanket 30-day noncurrent-version rule is not safe.
 

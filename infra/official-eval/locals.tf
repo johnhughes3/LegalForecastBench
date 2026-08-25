@@ -38,8 +38,9 @@ locals {
   cell_storage_policy_json = templatefile(
     "${path.module}/policies/cell-storage-policy.json.tftpl",
     {
-      packet_bucket_arn  = aws_s3_bucket.packet.arn
-      results_bucket_arn = aws_s3_bucket.results.arn
+      artifacts_kms_key_arn = var.artifacts_kms_key_arn
+      packet_bucket_arn     = aws_s3_bucket.packet.arn
+      results_bucket_arn    = aws_s3_bucket.results.arn
     },
   )
   cell_provider_authority_policy_json = templatefile(
@@ -93,7 +94,8 @@ locals {
   fan_in_storage_policy_json = templatefile(
     "${path.module}/policies/fan-in-storage-policy.json.tftpl",
     {
-      results_bucket_arn = aws_s3_bucket.results.arn
+      artifacts_kms_key_arn = var.artifacts_kms_key_arn
+      results_bucket_arn    = aws_s3_bucket.results.arn
     },
   )
 }
