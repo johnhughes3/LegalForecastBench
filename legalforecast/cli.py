@@ -127,6 +127,7 @@ from legalforecast.evals.provider_spend_dynamodb import (
 )
 from legalforecast.evals.run_record_scoring import score_run_records
 from legalforecast.extraction.pdf_text import extract_pdf_text_with_ocr_fallback
+from legalforecast.ingestion import authenticated_read_observer as _r
 from legalforecast.ingestion import (
     case_packet_from_record,
     extracted_text_artifact_from_record,
@@ -16575,7 +16576,7 @@ def _read_singly_linked_regular_input(path: Path, *, label: str) -> bytes:
             if existing is not None and existing != payload:
                 raise CommandError("verified projection byte closure conflicts")
             collector[key] = payload
-        return payload
+        return _r.require_authenticated_read(path, payload)
     except OSError as exc:
         raise CommandError(f"{label} could not be read safely: {path}: {exc}") from exc
     finally:
@@ -18635,7 +18636,7 @@ def _verify_retarget_public_plan_matches_source(
 
 
 def _path_sha256(path: Path) -> str:
-    return prefixed_sha256(hashlib.sha256(path.read_bytes()).hexdigest())
+    return prefixed_sha256(hashlib.sha256(_r.read_bytes(path)).hexdigest())
 
 
 def _path_matches_sha256(path: Path, expected: str) -> bool:
@@ -73835,17 +73836,16 @@ def _candidate_id(record: Mapping[str, Any]) -> str:
 def _read_records(path: Path) -> list[JsonRecord]:
     if path.suffix == ".jsonl":
         records: list[JsonRecord] = []
-        with path.open("r", encoding="utf-8") as handle:
-            for line_number, line in enumerate(handle, start=1):
-                if not line.strip():
-                    continue
-                loaded = _loads_json(line)
-                if not isinstance(loaded, Mapping):
-                    raise ValueError(f"{path}:{line_number} must contain a JSON object")
-                records.append(dict(cast(Mapping[str, Any], loaded)))
+        for line_number, line in enumerate(_r.read_text(path).splitlines(), 1):
+            if not line.strip():
+                continue
+            loaded = _loads_json(line)
+            if not isinstance(loaded, Mapping):
+                raise ValueError(f"{path}:{line_number} must contain a JSON object")
+            records.append(dict(cast(Mapping[str, Any], loaded)))
         return records
 
-    text = path.read_text(encoding="utf-8")
+    text = _r.read_text(path)
     loaded = _loads_json(text)
     if isinstance(loaded, list):
         return [_mapping(item, f"{path} item") for item in cast(list[object], loaded)]
@@ -73862,7 +73862,7 @@ def _read_records(path: Path) -> list[JsonRecord]:
 
 
 def _read_json_object(path: Path) -> JsonRecord:
-    loaded = _loads_json(path.read_text(encoding="utf-8"))
+    loaded = _loads_json(_r.read_text(path))
     if not isinstance(loaded, Mapping):
         raise ValueError(f"{path} must contain a JSON object")
     return dict(cast(Mapping[str, Any], loaded))

@@ -40,6 +40,10 @@ from legalforecast.evals.model_registry import (
     require_official_registry_entries,
 )
 from legalforecast.evals.per_case_runner import _model_packet_from_record
+from legalforecast.ingestion import stage_a_lineage_verification
+from legalforecast.ingestion.authenticated_read_observer import (
+    authenticated_read_scope,
+)
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -639,6 +643,33 @@ def test_issue_refuses_authenticated_successor_surface_changed_after_replay(
             authenticate_v2=mutate_surface,
             authenticate_v3=mutate_surface,
         )
+
+
+def test_stage_a_registry_read_is_rechecked_after_nested_verifier_returns(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "model-registry.json"
+    registry.write_bytes(b'{"model": "synthetic"}\n')
+    commitment = {
+        "model_registry": {
+            "path": str(registry.absolute()),
+            "sha256": "sha256:" + hashlib.sha256(registry.read_bytes()).hexdigest(),
+        }
+    }
+    captured: dict[Path, bytes] = {}
+
+    with authenticated_read_scope(captured):
+        stage_a_lineage_verification.capture_stage_a_committed_file(
+            commitment, "model_registry"
+        )
+
+    registry.write_bytes(b'{"model": "mutated after replay"}\n')
+    assert registry.absolute() in captured
+    with pytest.raises(
+        ManifestFreezeInputsError,
+        match="input changed before publication",
+    ):
+        freeze_inputs_module._require_snapshots_unchanged(captured)
 
 
 def test_issue_refuses_v3_root_outside_final_predecessor_chain(

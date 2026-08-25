@@ -34,13 +34,16 @@ import json
 import os
 import sys
 from collections.abc import Callable, Mapping, Sequence
-from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.contracts import (
     EXACT100_METHODS_DISCLOSURE_V1,
     EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1,
+)
+from legalforecast.ingestion.authenticated_read_observer import (
+    authenticated_read_scope,
+    record_authenticated_read,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_stipulated_parser_lineage import (
@@ -147,10 +150,6 @@ _CARRIED_SUPPLEMENTAL_ROOT = "supplemental-free-source"
 # re-anchoring step, so the legitimate chain grows for the life of the project.
 # A cap sized to today's chain would eventually refuse honest work.
 _MAX_PREDECESSOR_CHAIN_DEPTH = 256
-
-_AUTHENTICATED_READS: ContextVar[dict[Path, bytes] | None] = ContextVar(
-    "exact100_successor_v3_authenticated_reads", default=None
-)
 
 _OUTPUT_NAMES = {
     "selection": "target-cohort-selection.jsonl",
@@ -375,11 +374,8 @@ def authenticate_exact100_successor_v3_root_with_snapshot(
     """
 
     captured: dict[Path, bytes] = {}
-    token = _AUTHENTICATED_READS.set(captured)
-    try:
+    with authenticated_read_scope(captured):
         receipt = authenticate_exact100_successor_v3_root(root)
-    finally:
-        _AUTHENTICATED_READS.reset(token)
     return receipt, captured
 
 
@@ -1039,15 +1035,10 @@ def _read(path: Path) -> bytes:
             f"missing regular evidence file: {path}"
         )
     payload = path.read_bytes()
-    captured = _AUTHENTICATED_READS.get()
-    if captured is not None:
-        absolute = path.absolute()
-        previous = captured.get(absolute)
-        if previous is not None and previous != payload:
-            raise Exact100SuccessorReplacementV3CliError(
-                "v3 authenticated input changed during replay"
-            )
-        captured[absolute] = payload
+    if not record_authenticated_read(path, payload):
+        raise Exact100SuccessorReplacementV3CliError(
+            "v3 authenticated input changed during replay"
+        )
     return payload
 
 

@@ -2738,7 +2738,7 @@ def verify_stage_a_packet_authority(
         finalized_records = tuple(_c._read_records(finalized_prediction_units_path))
         if finalized_records != tuple(finalized_prediction_unit_records):
             raise _c.CommandError("Stage A finalized units differ from apply output")
-        registry_payload = structural_review_registry_path.read_bytes()
+        registry_payload = _c._r.read_bytes(structural_review_registry_path)
         structural_review_registry = _c._model_registry_from_payload(
             registry_payload,
             source=structural_review_registry_path,
@@ -2925,7 +2925,7 @@ def verify_stage_a_packet_authority(
                 "model_registry"
             ],
         )
-        registry_payload = structural_review_registry_path.read_bytes()
+        registry_payload = _c._r.read_bytes(structural_review_registry_path)
         if _c._bytes_sha256(registry_payload) != registry_commitment.get("sha256"):
             raise _c.CommandError("Stage A reviewer registry commitment mismatch")
         structural_review_registry = _c._model_registry_from_payload(
@@ -2960,7 +2960,7 @@ def verify_stage_a_packet_authority(
                 "apply-unitization-review",
             ),
         ):
-            if path.read_bytes() != payload:
+            if _c._r.read_bytes(path) != payload:
                 raise _c.CommandError(f"{label} run card changed while being replayed")
         return StageAReplay(
             raw_prediction_unit_records=unitize_outputs["prediction_units"],

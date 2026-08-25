@@ -28,6 +28,9 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.contracts import OWNER_ADJUDICATED_REPLACEMENT_PLAN_V1
+from legalforecast.ingestion.authenticated_read_observer import (
+    record_authenticated_read,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_v3.replacement_evidence import (
     EVIDENCE_SCHEMA_VERSION,
@@ -708,7 +711,12 @@ def _read(path: Path) -> bytes:
         raise OwnerAdjudicatedReplacementCliError(
             f"missing regular evidence file: {path}"
         )
-    return path.read_bytes()
+    payload = path.read_bytes()
+    if not record_authenticated_read(path, payload):
+        raise OwnerAdjudicatedReplacementCliError(
+            "replacement evidence input changed during replay"
+        )
+    return payload
 
 
 def _write_immutable(path: Path, payload: bytes) -> None:
