@@ -29,7 +29,7 @@ from legalforecast.multiharness.validation import validate_public_record
 
 OPENAI_RESPONSES_ADAPTER_ID = "openai-responses-baseline"
 OPENAI_RESPONSES_ADAPTER_VERSION = "1.0.0"
-OPENAI_SDK_VERSION = "3.3.0"
+OPENAI_SDK_VERSION = "3.3.1"
 OPENAI_SDK_MAX_RETRIES = 0
 OPENAI_MAX_OUTPUT_TOKENS = 4096
 OPENAI_PROVIDER_ENV_VAR = "OPENAI_API_KEY"
