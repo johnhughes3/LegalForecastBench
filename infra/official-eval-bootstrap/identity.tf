@@ -1,11 +1,5 @@
-resource "aws_iam_openid_connect_provider" "github_actions" {
-  url            = "https://token.actions.githubusercontent.com"
-  client_id_list = ["sts.amazonaws.com"]
-  tags           = var.tags
-
-  lifecycle {
-    prevent_destroy = true
-  }
+data "aws_iam_openid_connect_provider" "github_actions" {
+  arn = var.github_oidc_provider_arn
 }
 
 resource "aws_iam_role" "operator" {
@@ -19,10 +13,19 @@ resource "aws_iam_role" "operator" {
 
     precondition {
       condition = (
-        aws_iam_openid_connect_provider.github_actions.arn ==
-        local.github_provider_arn
+        var.github_oidc_provider_arn == local.github_provider_arn
       )
       error_message = "GitHub OIDC provider must belong to the current AWS account and partition."
+    }
+
+    precondition {
+      condition = (
+        data.aws_iam_openid_connect_provider.github_actions.url ==
+        "token.actions.githubusercontent.com" &&
+        toset(data.aws_iam_openid_connect_provider.github_actions.client_id_list) ==
+        toset(["sts.amazonaws.com"])
+      )
+      error_message = "Existing GitHub OIDC provider must use token.actions.githubusercontent.com with only the sts.amazonaws.com audience."
     }
   }
 }

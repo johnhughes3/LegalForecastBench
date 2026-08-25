@@ -12,7 +12,7 @@ output "state_kms_key_arn" {
 
 output "github_oidc_provider_arn" {
   description = "Account-level GitHub Actions OIDC provider ARN."
-  value       = aws_iam_openid_connect_provider.github_actions.arn
+  value       = data.aws_iam_openid_connect_provider.github_actions.arn
   sensitive   = true
 }
 

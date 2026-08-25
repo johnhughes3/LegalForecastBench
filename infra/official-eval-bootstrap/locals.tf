@@ -27,7 +27,7 @@ locals {
   operator_trust_policy = templatefile(
     "${path.module}/policies/github-oidc-trust.json.tftpl",
     {
-      github_oidc_provider_arn = local.github_provider_arn
+      github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github_actions.arn
       github_repository        = var.github_repository
       github_ref               = local.github_ref
       github_environment       = var.github_environment
