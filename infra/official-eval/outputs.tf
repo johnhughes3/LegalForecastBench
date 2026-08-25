@@ -19,13 +19,13 @@ output "provider_authority_resource_identity_sha256" {
 }
 
 output "packet_bucket_name" {
-  description = "Set as LFB_PACKET_BUCKET in both protected environments."
-  value       = aws_s3_bucket.packet.id
+  description = "Verified external packet bucket name consumed by the IAM contract; set as LFB_PACKET_BUCKET in both protected environments."
+  value       = var.packet_bucket_name
 }
 
 output "results_bucket_name" {
-  description = "Set as LFB_RESULTS_BUCKET in both protected environments."
-  value       = aws_s3_bucket.results.id
+  description = "Verified external results bucket name consumed by the IAM contract; set as LFB_RESULTS_BUCKET in both protected environments."
+  value       = var.results_bucket_name
 }
 
 output "trusted_oidc_subjects" {

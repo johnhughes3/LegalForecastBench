@@ -235,9 +235,7 @@ def test_terraform_input_identity_recipes_share_exact_module_shapes() -> None:
         "artifacts_kms_key:$artifacts_kms_key",
         "identity:$identity",
         "packet_bucket:$packet_bucket",
-        "packet_lifecycle_rule:$packet_lifecycle_rule",
         "results_bucket:$results_bucket",
-        "results_lifecycle_rule:$results_lifecycle_rule",
         "table:$table",
     )
     for source in (workflow_identity, gate_pack_identity, runbook_identity):
@@ -265,9 +263,7 @@ def test_terraform_input_identity_recipes_share_exact_module_shapes() -> None:
                 assert field in source
             assert "artifacts_kms_key:" not in source
             assert "packet_bucket:" not in source
-            assert "packet_lifecycle_rule:" not in source
             assert "results_bucket:" not in source
-            assert "results_lifecycle_rule:" not in source
 
 
 def test_import_and_official_eval_are_closed_and_public_safe() -> None:

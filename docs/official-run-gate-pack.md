@@ -87,7 +87,7 @@ The import and exact saved-plan path below is the protected implementation merge
 
 ### 1. Prepare the protected identity commitments
 
-John supplies these values from the protected infrastructure environment without printing their raw contents: `LFB_AWS_REGION`, `LFB_INFRA_OPERATOR_ROLE_ARN`, `LFB_TERRAFORM_STATE_BUCKET`, `LFB_TERRAFORM_STATE_KEY_PREFIX`, `LFB_TERRAFORM_STATE_KMS_KEY_ID`, `LFB_INFRA_PLAN_AGE_RECIPIENT`, `LFB_GITHUB_OIDC_PROVIDER_ARN`, `LFB_PROVIDER_AUTHORITY_TABLE_ARN`, `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256`, `LFB_ARTIFACTS_KMS_KEY_ARN`, `LFB_PACKET_BUCKET`, `LFB_PACKET_LIFECYCLE_RULE_ID`, `LFB_RESULTS_BUCKET`, and `LFB_RESULTS_LIFECYCLE_RULE_ID`.
+John supplies these values from the protected infrastructure environment without printing their raw contents: `LFB_AWS_REGION`, `LFB_INFRA_OPERATOR_ROLE_ARN`, `LFB_TERRAFORM_STATE_BUCKET`, `LFB_TERRAFORM_STATE_KEY_PREFIX`, `LFB_TERRAFORM_STATE_KMS_KEY_ID`, `LFB_INFRA_PLAN_AGE_RECIPIENT`, `LFB_GITHUB_OIDC_PROVIDER_ARN`, `LFB_PROVIDER_AUTHORITY_TABLE_ARN`, `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256`, `LFB_ARTIFACTS_KMS_KEY_ARN`, `LFB_PACKET_BUCKET`, and `LFB_RESULTS_BUCKET`.
 
 The workflow’s identity formulas are reproduced below so request commitments can be computed in the operator session without exposing identifiers:
 
@@ -108,31 +108,30 @@ TERRAFORM_INPUT_IDENTITY_SHA256="$(jq -cn \
   --arg oidc "$LFB_GITHUB_OIDC_PROVIDER_ARN" \
   --arg artifacts_kms_key "$LFB_ARTIFACTS_KMS_KEY_ARN" \
   --arg identity "$LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256" \
-  --arg packet_lifecycle_rule "$LFB_PACKET_LIFECYCLE_RULE_ID" \
   --arg packet_bucket "$LFB_PACKET_BUCKET" \
-  --arg results_lifecycle_rule "$LFB_RESULTS_LIFECYCLE_RULE_ID" \
   --arg results_bucket "$LFB_RESULTS_BUCKET" \
   --arg table "$LFB_PROVIDER_AUTHORITY_TABLE_ARN" \
   '{module:$module,region:$region,oidc:$oidc,
     artifacts_kms_key:$artifacts_kms_key,identity:$identity,
-    packet_bucket:$packet_bucket,packet_lifecycle_rule:$packet_lifecycle_rule,
-    results_bucket:$results_bucket,results_lifecycle_rule:$results_lifecycle_rule,
+    packet_bucket:$packet_bucket,results_bucket:$results_bucket,
     table:$table}' | sha256sum | cut -d' ' -f1)"
 ```
 
 ### 2. Inventory and import every existing official-eval resource
 
-The import address list is conditional on the live bucket subresources. Before
-dispatching any import, the designated operator performs a read-only inventory
-of the two protected buckets and removes absent optional resources from the
-dispatch set. In particular, `get-bucket-lifecycle-configuration` and
-`get-bucket-policy` return a documented absence when no lifecycle configuration
-or bucket policy exists; that absence is not an import target.
+The packet and results buckets and all of their storage subresources remain
+owned by the COS CloudFormation stack. Before any official-eval infrastructure
+operation or evaluation dispatch, the designated operator must verify that
+live ownership and obtain a passing
+`.github/workflows/official-s3-access-validation.yaml` run against those exact
+external buckets. Keep the inventory and validation evidence outside this
+Terraform state. A missing, failed, or ambiguous storage validation is a
+halt; do not add a storage import or broaden this root.
 
-The inventory result is retained as operator evidence and is used to construct
-`EXISTING_IMPORT_ADDRESSES` from the closed list below. Every IAM, bucket, and
-present lifecycle/policy address remains exact; only an address whose live
-object is absent is omitted.
+The official-eval Terraform import allowlist is IAM-only. Inventory the exact
+roles and inline policies first; import only an address whose corresponding
+AWS object already exists. Leave an absent reviewed object out of the import
+dispatches so the protected plan can propose its creation.
 
 Import is one protected workflow dispatch per address. The closed address set is:
 
@@ -146,23 +145,9 @@ aws_iam_role_policies_exclusive.cell
 aws_iam_role_policies_exclusive.fan_in
 aws_iam_role_policy_attachments_exclusive.cell
 aws_iam_role_policy_attachments_exclusive.fan_in
-aws_s3_bucket.packet
-aws_s3_bucket.results
-aws_s3_bucket_lifecycle_configuration.packet
-aws_s3_bucket_lifecycle_configuration.results
-aws_s3_bucket_ownership_controls.packet
-aws_s3_bucket_ownership_controls.results
-aws_s3_bucket_policy.packet
-aws_s3_bucket_policy.results
-aws_s3_bucket_public_access_block.packet
-aws_s3_bucket_public_access_block.results
-aws_s3_bucket_server_side_encryption_configuration.packet
-aws_s3_bucket_server_side_encryption_configuration.results
-aws_s3_bucket_versioning.packet
-aws_s3_bucket_versioning.results
 ```
 
-The fixed role/policy IDs are defined in `scripts/official_infra_contract.py`; bucket IDs come only from protected variables. The following operator function computes the raw-ID SHA-256 and canonical import-authorization commitment, then dispatches the exact request without printing the raw import ID:
+The fixed role/policy IDs are defined in `scripts/official_infra_contract.py`; bucket names are never import IDs for this root. The following operator function computes the raw-ID SHA-256 and canonical import-authorization commitment, then dispatches the exact IAM request without printing the raw import ID:
 
 ```bash
 import_authorized() {
@@ -175,8 +160,6 @@ import_authorized() {
     aws_iam_role_policy.fan_in_storage) import_id=legalforecastbench-official-eval-fan-in:official-eval-fan-in-storage ;;
     aws_iam_role_policies_exclusive.cell|aws_iam_role_policy_attachments_exclusive.cell) import_id=legalforecastbench-official-eval ;;
     aws_iam_role_policies_exclusive.fan_in|aws_iam_role_policy_attachments_exclusive.fan_in) import_id=legalforecastbench-official-eval-fan-in ;;
-    aws_s3_bucket.packet|aws_s3_bucket_public_access_block.packet|aws_s3_bucket_ownership_controls.packet|aws_s3_bucket_server_side_encryption_configuration.packet|aws_s3_bucket_versioning.packet|aws_s3_bucket_lifecycle_configuration.packet|aws_s3_bucket_policy.packet) import_id="$LFB_PACKET_BUCKET" ;;
-    aws_s3_bucket.results|aws_s3_bucket_public_access_block.results|aws_s3_bucket_ownership_controls.results|aws_s3_bucket_server_side_encryption_configuration.results|aws_s3_bucket_versioning.results|aws_s3_bucket_lifecycle_configuration.results|aws_s3_bucket_policy.results) import_id="$LFB_RESULTS_BUCKET" ;;
     *) echo "unallowlisted address: $address" >&2; return 1 ;;
   esac
   import_id_sha256="$(printf %s "$import_id" | sha256sum | cut -d' ' -f1)"
@@ -199,19 +182,25 @@ PY
     -f import_terraform_input_identity_sha256="$TERRAFORM_INPUT_IDENTITY_SHA256"
 }
 
-# Preparation-only pseudocode for the protected operator session. The helper
-# must not dispatch an address that the inventory proved absent.
-EXISTING_IMPORT_ADDRESSES=(...closed addresses with present optional objects...)
+# Preparation-only pseudocode for the protected operator session.
+EXISTING_IMPORT_ADDRESSES=(...only IAM addresses whose exact objects exist...)
 for address in "${EXISTING_IMPORT_ADDRESSES[@]}"; do
   import_authorized "$address"
 done
 ```
 
-John runs `import_authorized <address>` once for each address in `EXISTING_IMPORT_ADDRESSES` — that is, every closed-list address whose live object the read-only inventory proved present, never the full 23 unconditionally — and waits for the protected approval and `gh run watch <IMPORT_RUN_ID> --exit-status`. Expected evidence is a successful `state-binding` check and `import-receipt.json` with `result` `imported` or `already_present`; no apply is performed by an import run. Any non-absent AWS error stops reconciliation; it is not suppressed.
+John runs `import_authorized <address>` once for each inventoried existing IAM object and waits for the protected approval and `gh run watch <IMPORT_RUN_ID> --exit-status`. Expected evidence is a successful `state-binding` check and `import-receipt.json` with `result` `imported` or `already_present`; no apply is performed by an import run. An absent reviewed role or inline policy is not an import error and is not fabricated as an import target; it remains a create candidate in the later protected plan.
+
+Before importing or planning, inspect any existing official-eval state from the
+previous storage-owning revision. If it contains S3 addresses, do not accept
+the configuration-deletion destroy plan. Use a separately reviewed state-only
+migration to detach only those obsolete addresses, or establish a fresh
+IAM-only state while preserving the COS stack's live ownership. This migration
+must not mutate S3; the final plan must contain no S3 address and no destroy.
 
 ### 3. Read-only protected plan
 
-After all imports and live bucket-policy/lifecycle/IAM inventory have been reconciled into Terraform, dispatch exactly:
+After the IAM imports are reconciled and the external live-storage validation has passed, dispatch exactly:
 
 ```bash
 gh workflow run .github/workflows/official-provider-authority-infra.yaml \
@@ -219,7 +208,7 @@ gh workflow run .github/workflows/official-provider-authority-infra.yaml \
   -f operation=plan -f module=official-eval -f release_sha="$RELEASE_SHA"
 ```
 
-Watch the resulting run to completion. Successful evidence is `terraform validate`, `terraform plan`, `official_infra_contract.py validate-plan`, encrypted plan upload, and sensitive-file cleanup. Capture the run ID/attempt, artifact name `provider-authority-infra-plan-official-eval-<run_id>-<run_attempt>`, GitHub artifact digest, plaintext plan SHA-256 from `plan-receipt.json`, and the redacted `resource_changes` list. The plan is acceptable only when the contract validator accepts every address, contains no destroy/replace action, and preserves every pre-existing authoritative bucket policy/lifecycle/inline/attachment member. The synthetic 23-create plan in this pack is not a substitute.
+Watch the resulting run to completion. Successful evidence is `terraform validate`, `terraform plan`, `official_infra_contract.py validate-plan`, encrypted plan upload, and sensitive-file cleanup. Capture the run ID/attempt, artifact name `provider-authority-infra-plan-official-eval-<run_id>-<run_attempt>`, GitHub artifact digest, plaintext plan SHA-256 from `plan-receipt.json`, and the redacted `resource_changes` list. The plan is acceptable only when the contract validator accepts every IAM address, contains no destroy/replace action, and has no S3/storage resource changes.
 
 ### 4. John-only apply of that exact saved plan
 
@@ -347,7 +336,7 @@ The first two lines are a hard dependency, not parallel work: the official run c
 ## One ordered checklist for John
 
 1. Confirm Lane F2’s Stage A + Gate 3 completion, exact frozen corpus, model registry, execution policy, and the current-main release SHA.
-2. Run all approved `hckb.15` imports; reconcile live bucket policies/lifecycle and IAM attachments; dispatch and save the protected `official-eval` plan.
+2. Verify the external COS-owned storage and pass `official-s3-access-validation.yaml`; run the approved IAM-only `hckb.15` imports and save the protected `official-eval` plan.
 3. Review the complete saved plan and apply only that exact plan through the protected workflow; record the redacted apply receipt and outputs.
 4. Publish this branch through the workflow-capable path, then merge the stacked workflow drafts so `main` contains the exact pinned workflows.
 5. Set the reviewed GitHub environment variables and secret-name inventory server-side; keep fan-in provider-free and verify the Bedrock runtime choice explicitly.

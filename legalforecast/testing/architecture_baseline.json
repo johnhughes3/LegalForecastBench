@@ -8614,23 +8614,6 @@
         "nonblank_line_count": 409,
         "top_level_definition_count": 15
       },
-      "scripts/official_infra_contract.py": {
-        "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "scripts",
-        "fan_in": 0,
-        "fan_out": 0,
-        "flags": [
-          "watch"
-        ],
-        "lane_owner": "scripts",
-        "largest_symbol": "_resolve_import_command",
-        "largest_symbol_lines": 54,
-        "layer": "entrypoint",
-        "line_count": 523,
-        "nonblank_line_count": 472,
-        "top_level_definition_count": 17
-      },
       "scripts/probe_claude_code_native_containment.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",

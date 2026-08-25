@@ -486,7 +486,6 @@ def test_exact_two_role_topology_and_policy_attachments() -> None:
         "cell-storage-policy.json.tftpl",
         "fan-in-storage-policy.json.tftpl",
         "github-oidc-trust.json.tftpl",
-        "tls-only-bucket-policy.json.tftpl",
     }
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in (INFRA_ROOT / "outputs.tf").read_text(
         encoding="utf-8"
@@ -1131,55 +1130,57 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
     )
 
 
-def test_storage_is_private_owned_encrypted_versioned_and_tls_only() -> None:
-    storage = (INFRA_ROOT / "storage.tf").read_text(encoding="utf-8")
-    tls_policy = _render_template(
-        POLICY_ROOT / "tls-only-bucket-policy.json.tftpl",
-        bucket_arn=RESULTS_BUCKET_ARN,
+def test_external_storage_is_not_managed_by_this_terraform_root() -> None:
+    terraform_sources = "\n".join(
+        path.read_text(encoding="utf-8") for path in INFRA_ROOT.glob("*.tf")
     )
 
-    assert storage.count('resource "aws_s3_bucket"') == 2
-    assert storage.count('resource "aws_s3_bucket_public_access_block"') == 2
-    assert storage.count('resource "aws_s3_bucket_ownership_controls"') == 2
+    assert not (INFRA_ROOT / "storage.tf").exists()
+    assert 'resource "aws_s3_' not in terraform_sources
+    assert "aws_s3_bucket" not in terraform_sources
+    assert not (POLICY_ROOT / "tls-only-bucket-policy.json.tftpl").exists()
+
+    locals_source = (INFRA_ROOT / "locals.tf").read_text(encoding="utf-8")
+    outputs_source = (INFRA_ROOT / "outputs.tf").read_text(encoding="utf-8")
     assert (
-        storage.count('resource "aws_s3_bucket_server_side_encryption_configuration"')
-        == 2
+        "packet_bucket_arn         = "
+        '"arn:${local.artifact_bucket_partition}:s3:::${var.packet_bucket_name}"'
+        in locals_source
     )
-    assert storage.count('resource "aws_s3_bucket_versioning"') == 2
-    assert storage.count('resource "aws_s3_bucket_policy"') == 2
-    assert storage.count("BucketOwnerEnforced") == 2
-    assert storage.count('sse_algorithm     = "aws:kms"') == 2
-    assert storage.count("kms_master_key_id = var.artifacts_kms_key_arn") == 2
-    assert storage.count("bucket_key_enabled = true") == 2
-    assert storage.count('status = "Enabled"') >= 2
-    assert tls_policy == {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "DenyInsecureTransport",
-                "Effect": "Deny",
-                "Principal": {"AWS": "*"},
-                "Action": "s3:*",
-                "Resource": [RESULTS_BUCKET_ARN, f"{RESULTS_BUCKET_ARN}/*"],
-                "Condition": {"Bool": {"aws:SecureTransport": "false"}},
-            }
-        ],
-    }
+    assert (
+        "results_bucket_arn        = "
+        '"arn:${local.artifact_bucket_partition}:s3:::${var.results_bucket_name}"'
+        in locals_source
+    )
+    assert "packet_bucket_arn     = local.packet_bucket_arn" in locals_source
+    assert "results_bucket_arn    = local.results_bucket_arn" in locals_source
+    assert "value       = var.packet_bucket_name" in outputs_source
+    assert "value       = var.results_bucket_name" in outputs_source
 
 
-def test_lifecycle_preserves_audit_versions_and_only_expires_negative_controls() -> (
+def test_external_storage_requires_live_validation_and_has_no_lifecycle_inputs() -> (
     None
 ):
-    storage = (INFRA_ROOT / "storage.tf").read_text(encoding="utf-8")
+    variables = (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8")
+    workflow = (WORKFLOW_ROOT / "official-provider-authority-infra.yaml").read_text(
+        encoding="utf-8"
+    )
+    readme = (INFRA_ROOT / "README.md").read_text(encoding="utf-8")
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
 
-    assert "per-case/" not in storage
-    assert "noncurrent_result_retention_days" not in storage
-    assert storage.count("noncurrent_days = 365") == 2
-    assert "var.packet_lifecycle_rule_id" in storage
-    assert "var.results_lifecycle_rule_id" in storage
-    assert 'prefix = "reports/security-negative-controls/"' in storage
-    assert "var.negative_control_retention_days" in storage
-    assert storage.count("abort_incomplete_multipart_upload") == 2
+    for name in (
+        "packet_lifecycle_rule_id",
+        "results_lifecycle_rule_id",
+        "negative_control_retention_days",
+        "LFB_PACKET_LIFECYCLE_RULE_ID",
+        "LFB_RESULTS_LIFECYCLE_RULE_ID",
+    ):
+        assert name not in variables
+        assert name not in workflow
+        assert name not in readme
+        assert name not in runbook
+    assert "official-s3-access-validation.yaml" in readme
+    assert "official-s3-access-validation.yaml" in runbook
 
 
 def test_s3_inputs_enforce_global_bucket_names_and_whole_retention_days() -> None:
@@ -1204,25 +1205,15 @@ def test_s3_inputs_enforce_global_bucket_names_and_whole_retention_days() -> Non
         ):
             assert f'!endswith({reference}, "{reserved_suffix}")' in variables
 
-    assert (
-        "floor(var.negative_control_retention_days) == "
-        "var.negative_control_retention_days" in variables
-    )
     assert 'variable "artifacts_kms_key_arn"' in variables
     assert "artifacts_kms_key_arn must be one exact KMS key ARN" in variables
-    assert 'variable "packet_lifecycle_rule_id"' in variables
-    assert 'variable "results_lifecycle_rule_id"' in variables
 
 
 def test_protected_infra_workflow_binds_exact_storage_contract_inputs() -> None:
     workflow = (WORKFLOW_ROOT / "official-provider-authority-infra.yaml").read_text(
         encoding="utf-8"
     )
-    for name in (
-        "TF_VAR_artifacts_kms_key_arn",
-        "TF_VAR_packet_lifecycle_rule_id",
-        "TF_VAR_results_lifecycle_rule_id",
-    ):
+    for name in ("TF_VAR_artifacts_kms_key_arn",):
         assert (
             f"{name}: ${{{{ vars.LFB_{name.removeprefix('TF_VAR_').upper()} }}}}"
             in workflow
@@ -1246,8 +1237,8 @@ def test_protected_infra_workflow_binds_exact_storage_contract_inputs() -> None:
         1
     ].split("fi", 1)[0]
     assert "TF_VAR_artifacts_kms_key_arn" in eval_block
-    assert "TF_VAR_packet_lifecycle_rule_id" in eval_block
-    assert "TF_VAR_results_lifecycle_rule_id" in eval_block
+    assert "TF_VAR_packet_bucket_name" in eval_block
+    assert "TF_VAR_results_bucket_name" in eval_block
     for module in ("official-eval", "official-labeling", "provider-authority"):
         assert f"{module})" in validation
     assert (
@@ -1255,9 +1246,7 @@ def test_protected_infra_workflow_binds_exact_storage_contract_inputs() -> None:
     )
 
 
-def test_docs_record_unapplied_import_remote_state_and_live_acceptance_boundaries() -> (
-    None
-):
+def test_docs_record_unapplied_iam_only_and_live_storage_boundaries() -> None:
     readme = (INFRA_ROOT / "README.md").read_text(encoding="utf-8")
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
     combined = f"{readme}\n{runbook}"
@@ -1296,43 +1285,22 @@ def test_docs_record_unapplied_import_remote_state_and_live_acceptance_boundarie
         assert required in combined
 
     for required in (
-        "get-bucket-lifecycle-configuration",
-        "get-bucket-policy",
-        "full-replacement surfaces",
-        "no unintended deletion",
-        "Before live acceptance",
-        "both `legalforecastbench-official-eval` and "
-        "`legalforecastbench-official-eval-fan-in`",
-        "fan-in environment has no provider secrets",
-        "LFB_OFFICIAL_EVAL_INVENTORY_DIR",
-        "set -euo pipefail",
-        "NoSuchLifecycleConfiguration",
-        "NoSuchBucketPolicy",
-        "Any other AWS CLI error stops reconciliation",
-        "Successful inventory responses remain as JSON",
-        "--output json --no-cli-pager",
-        'grep -Fq "($absent_code)"',
-        'cat "$error_path" >&2',
+        "COS CloudFormation",
+        "LegalForecastBenchArtifactStack",
+        "provider_authority_resource_identity_sha256",
+        "no `aws_s3_*` resources",
+        "must never import those storage resources",
+        "official-s3-access-validation.yaml",
+        "IAM-only imports",
+        "Bucket names are never import IDs",
+        "state-only migration",
+        "destroy plan",
     ):
         assert required in readme
-
-    inventories_complete_index = readme.index(
-        "NoSuchBucketPolicy results_policy_exists"
-    )
-    for presence_variable, terraform_resource in (
-        (
-            "packet_lifecycle_exists",
-            "aws_s3_bucket_lifecycle_configuration.packet",
-        ),
-        (
-            "results_lifecycle_exists",
-            "aws_s3_bucket_lifecycle_configuration.results",
-        ),
-        ("packet_policy_exists", "aws_s3_bucket_policy.packet"),
-        ("results_policy_exists", "aws_s3_bucket_policy.results"),
-    ):
-        assert f'if [[ "${presence_variable}" == true ]]' in readme
-        assert inventories_complete_index < readme.index(terraform_resource)
+    assert "aws_s3_bucket.packet" not in runbook_boundary
+    assert "aws_s3_bucket_policy.packet" not in runbook_boundary
+    assert "LFB_PACKET_LIFECYCLE_RULE_ID" not in combined
+    assert "LFB_RESULTS_LIFECYCLE_RULE_ID" not in combined
 
     assert "code validation is not live acceptance" in readme
     for dated_observation in (
