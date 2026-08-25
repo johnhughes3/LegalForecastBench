@@ -4030,7 +4030,7 @@
       "legalforecast/evals": 21,
       "legalforecast/evals/corpus_manifest": 23,
       "legalforecast/extraction": 4,
-      "legalforecast/ingestion": 175,
+      "legalforecast/ingestion": 176,
       "legalforecast/ingestion/attachment_page": 7,
       "legalforecast/ingestion/disclosure_review_authorities": 1,
       "legalforecast/ingestion/exact100_successor_v3": 6,
@@ -10859,7 +10859,7 @@
         "largest_symbol": "_assert_eval_trust_refs_satisfiable",
         "largest_symbol_lines": 134,
         "layer": "test",
-        "line_count": 1247,
+        "line_count": 1264,
         "nonblank_line_count": 1139,
         "top_level_definition_count": 34
       },
