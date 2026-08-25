@@ -62,6 +62,7 @@ class FixtureModelTransport:
             "model": FIXTURE_MODEL_VERSION,
             "output_text": output,
             "service_tier": "flex",
+            "status": "completed",
             "usage": {"input_tokens": 20, "output_tokens": 10},
         }
 

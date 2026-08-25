@@ -657,6 +657,7 @@ def test_stage_b_one_attempt_replay_normalizes_structurally_inapplicable_amendme
             return {
                 "output_text": response.raw_output,
                 "model": "synthetic-model",
+                "status": "completed",
                 "usage": {
                     "input_tokens": response.input_tokens,
                     "output_tokens": response.output_tokens,

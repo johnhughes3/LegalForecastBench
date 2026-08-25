@@ -4488,8 +4488,8 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 154,
         "layer": "application",
-        "line_count": 1461,
-        "nonblank_line_count": 1273,
+        "line_count": 1465,
+        "nonblank_line_count": 1277,
         "top_level_definition_count": 68
       },
       "legalforecast/evals/output_parser.py": {
@@ -5660,8 +5660,8 @@
         "largest_symbol": "DeterministicModelFixtureTransport",
         "largest_symbol_lines": 95,
         "layer": "application",
-        "line_count": 861,
-        "nonblank_line_count": 760,
+        "line_count": 862,
+        "nonblank_line_count": 761,
         "top_level_definition_count": 31
       },
       "legalforecast/ingestion/embedded_text_layer_repair.py": {
@@ -9975,8 +9975,8 @@
         "largest_symbol": "_write_canonical_exact_100_chain",
         "largest_symbol_lines": 466,
         "layer": "test",
-        "line_count": 2923,
-        "nonblank_line_count": 2752,
+        "line_count": 2924,
+        "nonblank_line_count": 2753,
         "top_level_definition_count": 54
       },
       "tests/test_exact100_convergence_invariants.py": {
@@ -10302,9 +10302,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1356,
-        "nonblank_line_count": 1177,
-        "top_level_definition_count": 44
+        "line_count": 1399,
+        "nonblank_line_count": 1216,
+        "top_level_definition_count": 45
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",
@@ -11205,8 +11205,8 @@
         "largest_symbol": "test_journal_terminalizes_invalid_reconstruction_without_losing_accounting",
         "largest_symbol_lines": 57,
         "layer": "test",
-        "line_count": 1831,
-        "nonblank_line_count": 1597,
+        "line_count": 1832,
+        "nonblank_line_count": 1598,
         "top_level_definition_count": 57
       },
       "tests/test_provider_spend_attempt_handler.py": {
@@ -11289,11 +11289,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_runner_spend_keys_use_injective_cell_identity",
-        "largest_symbol_lines": 94,
+        "largest_symbol_lines": 95,
         "layer": "test",
-        "line_count": 1438,
-        "nonblank_line_count": 1240,
-        "top_level_definition_count": 42
+        "line_count": 1461,
+        "nonblank_line_count": 1258,
+        "top_level_definition_count": 43
       },
       "tests/test_purchase_approval.py": {
         "cycle_id": "",
@@ -11822,10 +11822,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_stage_b_one_attempt_replay_normalizes_structurally_inapplicable_amendment",
-        "largest_symbol_lines": 135,
+        "largest_symbol_lines": 136,
         "layer": "test",
-        "line_count": 972,
-        "nonblank_line_count": 863,
+        "line_count": 973,
+        "nonblank_line_count": 864,
         "top_level_definition_count": 30
       },
       "tests/test_stageb_manifest_runner.py": {

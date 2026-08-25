@@ -1827,5 +1827,6 @@ def _openai_response(request_id: str) -> dict[str, object]:
         "id": request_id,
         "model": "gpt-test-2026-05-14",
         "output_text": "{}",
+        "status": "completed",
         "usage": {"input_tokens": 10, "output_tokens": 2},
     }

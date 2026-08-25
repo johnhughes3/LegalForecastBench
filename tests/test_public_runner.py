@@ -554,13 +554,6 @@ def test_runner_redacts_untrusted_extra_unit_ids_from_public_receipts(
             "grounding or search",
         ),
         (
-            {
-                "status": "incomplete",
-                "incomplete_details": {"reason": "max_output_tokens"},
-            },
-            "retryable",
-        ),
-        (
             {"finish_reason": "content_filter"},
             "content filter",
         ),
@@ -583,6 +576,33 @@ def test_runner_rejects_unpublishable_provider_response_without_retry(
     assert first.calls == 1
     assert tuple(config.receipts_dir.glob("*.json")) == ()
     retry = CountingTransport(error=AssertionError("unpublishable response retried"))
+    with pytest.raises(RunBlockedError, match="ambiguous"):
+        execute_release_run(config, transport=retry, environ=_fixture_environ())
+    assert retry.calls == 0
+
+
+@pytest.mark.parametrize("status", ("failed", "cancelled", "incomplete", None))
+def test_runner_rejects_openai_noncompleted_status_without_retry(
+    tmp_path: Path,
+    status: str | None,
+) -> None:
+    def unsuccessful_response(request: Request) -> JsonRecord:
+        response = dict(_valid_response(request))
+        if status is None:
+            response.pop("status")
+        else:
+            response["status"] = status
+        return response
+
+    config = _config(tmp_path)
+    first = CountingTransport(unsuccessful_response)
+
+    with pytest.raises(LiveModelResponseError, match=r"status.*completed"):
+        execute_release_run(config, transport=first, environ=_fixture_environ())
+
+    assert first.calls == 1
+    assert tuple(config.receipts_dir.glob("*.json")) == ()
+    retry = CountingTransport(error=AssertionError("unsuccessful response retried"))
     with pytest.raises(RunBlockedError, match="ambiguous"):
         execute_release_run(config, transport=retry, environ=_fixture_environ())
     assert retry.calls == 0
@@ -656,6 +676,7 @@ def test_runner_spend_keys_use_injective_cell_identity(
                 sort_keys=True,
             ),
             "service_tier": "flex",
+            "status": "completed",
             "usage": {"input_tokens": 20, "output_tokens": 10},
         }
 
@@ -1211,6 +1232,7 @@ def test_runner_unknown_usage_stops_all_future_calls(tmp_path: Path) -> None:
             "model": "legalforecast-fixture-2026-08-23",
             "output_text": _output_for_prompt(cast(str, body["input"])),
             "service_tier": "flex",
+            "status": "completed",
         }
 
     config = _config(tmp_path)
@@ -1398,6 +1420,7 @@ def _valid_response(request: Request) -> JsonRecord:
         "model": "legalforecast-fixture-2026-08-23",
         "output_text": _output_for_prompt(cast(str, body["input"])),
         "service_tier": "flex",
+        "status": "completed",
         "usage": {"input_tokens": 20, "output_tokens": 10},
     }
 

@@ -37,6 +37,7 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
             "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
             "usage": {"input_tokens": 1000, "output_tokens": 250},
         }
     )
@@ -96,12 +97,42 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert "read_docket_entry_results" in body["input"]
 
 
+@pytest.mark.parametrize("status", ("failed", "cancelled", "incomplete", None))
+def test_openai_solver_rejects_noncompleted_terminal_status(
+    status: str | None,
+) -> None:
+    handler = _RecordingAttemptHandler()
+    payload: dict[str, Any] = {
+        "model": "gpt-test-2026-05-14",
+        "output_text": '{"predictions":[]}',
+        "service_tier": OPENAI_SERVICE_TIER,
+        "usage": {"input_tokens": 1000, "output_tokens": 250},
+    }
+    if status is not None:
+        payload["status"] = status
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=_FixtureTransport(payload),
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        attempt_handler_factory=lambda _request: handler,
+    )
+
+    with pytest.raises(LiveModelResponseError, match=r"status.*completed"):
+        solver.solve(_request("Predict the case outcome."))
+
+    assert handler.events == [
+        ("run", 1),
+        ("post_response_failure", 41, "LiveModelResponseError"),
+    ]
+
+
 def test_complete_live_prompt_applies_retry_output_token_bound_to_request() -> None:
     transport = _FixtureTransport(
         {
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
             "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
             "usage": {"input_tokens": 100, "output_tokens": 50},
         }
     )
@@ -156,6 +187,7 @@ def test_openai_solver_refuses_actual_payload_that_differs_from_commitment() -> 
         {
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
+            "status": "completed",
             "usage": {"input_tokens": 1000, "output_tokens": 250},
         }
     )
@@ -191,6 +223,7 @@ def test_openai_solver_no_docket_sends_exact_committed_prompt() -> None:
         {
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
+            "status": "completed",
             "usage": {"input_tokens": 1000, "output_tokens": 250},
         }
     )
@@ -217,6 +250,7 @@ def test_openai_solver_keeps_caller_timeout_above_flex_floor() -> None:
         {
             "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
+            "status": "completed",
             "usage": {"input_tokens": 10, "output_tokens": 2},
         }
     )
@@ -667,6 +701,7 @@ def test_complete_live_prompt_rejects_json_schema_for_unsupported_provider() -> 
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"openai":true}',
                 "output": [{"type": "web_search_call", "status": "completed"}],
+                "status": "completed",
                 "usage": {"input_tokens": 10, "output_tokens": 2},
             },
             {"OPENAI_API_KEY": "openai-secret"},
@@ -860,6 +895,7 @@ def test_solver_rejects_provider_served_model_version_mismatch() -> None:
             {
                 "model": "gpt-test-latest",
                 "output_text": "{}",
+                "status": "completed",
                 "usage": {"input_tokens": 1, "output_tokens": 1},
             }
         ),
@@ -909,6 +945,7 @@ def test_solver_retries_transient_provider_failures_without_leaving_flex() -> No
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
                 "service_tier": OPENAI_SERVICE_TIER,
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             },
         )
@@ -954,6 +991,7 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
                 "service_tier": OPENAI_FALLBACK_SERVICE_TIER,
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             },
         )
@@ -998,6 +1036,7 @@ def test_default_transport_retries_raw_timeout_and_dns_failures(
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),
@@ -1062,6 +1101,7 @@ def test_solver_creates_attempt_handler_per_harness_request_and_settles() -> Non
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),
@@ -1088,6 +1128,7 @@ def test_malformed_response_marks_authorized_attempt_ambiguous() -> None:
         transport=_FixtureTransport(
             {
                 "model": "gpt-test-2026-05-14",
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),
@@ -1119,6 +1160,7 @@ def test_post_response_recording_failure_surfaces_as_authority_failure() -> None
         transport=_FixtureTransport(
             {
                 "model": "gpt-test-2026-05-14",
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),
@@ -1152,6 +1194,7 @@ def test_post_response_interrupt_marks_authorized_attempt_ambiguous_before_rerai
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
+                "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             }
         ),

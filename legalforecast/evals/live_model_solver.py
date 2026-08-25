@@ -539,6 +539,10 @@ def validate_provider_response_fields(
 ) -> ValidatedProviderResponseFields:
     """Extract and validate the fields used to settle one provider response."""
 
+    if _is_openai_provider(registry_entry) and payload.get("status") != "completed":
+        raise LiveModelResponseError(
+            "OpenAI response status must be completed before spend settlement"
+        )
     provider = _provider_config(registry_entry.provider)
     raw_output = provider.extract_output(payload)
     input_tokens, output_tokens = provider.extract_usage(payload)
