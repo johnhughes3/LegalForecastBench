@@ -1,7 +1,8 @@
 # One-time official-evaluation AWS bootstrap
 
-This Terraform root owns the trust anchor consumed by `.github/workflows/official-provider-authority-infra.yaml`: one private versioned state bucket, one customer-managed KMS key and alias, the account-level GitHub Actions OIDC provider, and the exact environment-bound infrastructure operator role.
-The routine workflow cannot apply this root and its role has no permission to change its own trust or policy, administer the OIDC provider, bucket, KMS key, or bootstrap state, or broaden the three reviewed downstream roots.
+This Terraform root owns the repository-specific trust anchor consumed by `.github/workflows/official-provider-authority-infra.yaml`: one private versioned state bucket, one customer-managed KMS key and alias, and the exact environment-bound infrastructure operator role.
+It consumes and verifies an existing account-level GitHub Actions OIDC provider without importing or owning that shared resource.
+The routine workflow cannot apply this root and its role has no permission to change its own trust or policy, administer the shared OIDC provider, bucket, KMS key, or bootstrap state, or broaden the three reviewed downstream roots.
 
 Creating or importing this root does not authorize AWS work.
 The one-time apply requires separately authorized human/operator AWS credentials, independent review of the exact plan, and protected local state custody until remote migration is proven complete.
@@ -17,7 +18,7 @@ Do not delete `repository`, `ref`, or `environment`. They are documented AWS con
 
 Use an exact reviewed commit on a trusted operator machine.
 Keep the variable file and state directory outside the checkout, do not print Terraform state or outputs into logs, and do not place AWS credentials in a variable file.
-Set `github_repository` in that protected variable file to the exact reviewed GitHub `owner/repository`; the root intentionally has no account-specific default.
+Set `github_repository` and `github_oidc_provider_arn` in that protected variable file to the exact reviewed GitHub `owner/repository` and verified existing account-level provider ARN; neither input has an account-specific default.
 Copy the exact root into that protected directory so Terraform's default local state is both discoverable by the later migration and never written beneath the repository checkout:
 
 ```bash
@@ -41,16 +42,9 @@ TF_DATA_DIR="$tf_data_dir" \
 ```
 
 Inventory the account-level provider for `https://token.actions.githubusercontent.com` before planning.
-If it already exists, verify that its sole audience is `sts.amazonaws.com`, determine whether other roles depend on it, and run `terraform import` into this root before any plan; never create a duplicate provider or silently rewrite a shared audience list:
-
-```bash
-set -euo pipefail
-TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" import \
-  -input=false \
-  -var-file="$var_file" \
-  aws_iam_openid_connect_provider.github_actions \
-  "<exact-existing-provider-arn>"
-```
+Verify that its sole audience is `sts.amazonaws.com`, determine which other stacks and roles depend on it, and supply its exact ARN as `github_oidc_provider_arn`.
+This root reads the provider as a data source and fails unless its account, partition, URL, and audience match; never import it, create a duplicate, or transfer ownership from the account foundation.
+If it is absent, establish it through the separately reviewed account-foundation owner before continuing.
 
 Apply the same import-first rule to every resource that already exists.
 Inventory and import each applicable address with its provider-defined ID before planning:
@@ -78,8 +72,6 @@ tf_import aws_iam_role_policy_attachments_exclusive.operator "legalforecastbench
 
 Import the inline and exclusive-policy ownership resources only after verifying that the role has no unrelated inline or attached policy that this root would remove.
 Stop on any ownership ambiguity or unsupported import result rather than planning a replacement.
-For an absent provider, the separately authorized bootstrap apply creates it and this root becomes its Terraform owner.
-
 Before any `terraform plan`, complete the inventory and required imports above.
 Save, review, and apply one exact local-state plan; a `terraform apply` is permitted only for the separately authorized saved plan:
 

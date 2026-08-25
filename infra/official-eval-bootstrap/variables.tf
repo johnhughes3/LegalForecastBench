@@ -8,6 +8,19 @@ variable "aws_region" {
   }
 }
 
+variable "github_oidc_provider_arn" {
+  description = "Existing account-level GitHub Actions OIDC provider ARN; this root verifies but does not own it."
+  type        = string
+
+  validation {
+    condition = can(regex(
+      "^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:oidc-provider/token[.]actions[.]githubusercontent[.]com$",
+      var.github_oidc_provider_arn,
+    ))
+    error_message = "github_oidc_provider_arn must be the exact account-level GitHub Actions provider ARN."
+  }
+}
+
 variable "state_bucket_name" {
   description = "Globally unique private S3 bucket that will own LFB Terraform state."
   type        = string

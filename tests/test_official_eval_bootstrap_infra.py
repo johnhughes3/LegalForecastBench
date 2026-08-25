@@ -103,7 +103,6 @@ def test_root_owns_only_the_bootstrap_trust_anchor() -> None:
     )
 
     assert resources == {
-        ("aws_iam_openid_connect_provider", "github_actions"),
         ("aws_iam_role", "operator"),
         ("aws_iam_role_policy", "operator"),
         ("aws_iam_role_policies_exclusive", "operator"),
@@ -117,9 +116,34 @@ def test_root_owns_only_the_bootstrap_trust_anchor() -> None:
         ("aws_s3_bucket_server_side_encryption_configuration", "terraform_state"),
         ("aws_s3_bucket_versioning", "terraform_state"),
     }
-    assert terraform.count("prevent_destroy = true") >= 5
+    assert terraform.count("prevent_destroy = true") >= 4
     assert "aws_access_key" not in terraform
     assert "aws_iam_access_key" not in terraform
+
+    data_sources = set(
+        re.findall(r'^data "([^"]+)" "([^"]+)"', terraform, re.MULTILINE)
+    )
+    assert ("aws_iam_openid_connect_provider", "github_actions") in data_sources
+
+
+def test_existing_github_oidc_provider_is_verified_without_ownership_transfer() -> None:
+    terraform = _terraform()
+    variables = (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8")
+    outputs = (INFRA_ROOT / "outputs.tf").read_text(encoding="utf-8")
+
+    provider_variable = variables.split(
+        'variable "github_oidc_provider_arn"', maxsplit=1
+    )[1].split('variable "state_bucket_name"', maxsplit=1)[0]
+    assert "default" not in provider_variable
+    assert (
+        "oidc-provider/token[.]actions[.]githubusercontent[.]com" in provider_variable
+    )
+    assert "[0-9]{12}" in provider_variable
+    assert "arn = var.github_oidc_provider_arn" in terraform
+    assert 'resource "aws_iam_openid_connect_provider"' not in terraform
+    assert "var.github_oidc_provider_arn == local.github_provider_arn" in terraform
+    assert '"sts.amazonaws.com"' in terraform
+    assert "data.aws_iam_openid_connect_provider.github_actions.arn" in outputs
 
 
 def test_state_storage_is_private_versioned_kms_encrypted_and_tls_only() -> None:
@@ -661,8 +685,8 @@ def test_runbook_is_import_first_and_migrates_verified_local_state() -> None:
         "separately authorized human/operator AWS credentials",
         "umask 077",
         "LFB_PROTECTED_BOOTSTRAP_STATE_DIR",
-        "terraform import",
-        "aws_iam_openid_connect_provider.github_actions",
+        'terraform -chdir="$root_dir" import',
+        "github_oidc_provider_arn",
         "terraform init -migrate-state",
         "use_lockfile=true",
         "VersionId",
@@ -678,12 +702,17 @@ def test_runbook_is_import_first_and_migrates_verified_local_state() -> None:
         "aws_iam_role.operator",
     ):
         assert required in readme
+    assert (
+        "terraform import aws_iam_openid_connect_provider.github_actions" not in readme
+    )
     assert '-state="$state_dir/terraform.tfstate"' not in readme
     versions = (INFRA_ROOT / "versions.tf").read_text(encoding="utf-8")
     backend_example = (INFRA_ROOT / "backend.s3.tf.example").read_text(encoding="utf-8")
     assert 'backend "s3"' not in versions
     assert 'backend "s3" {}' in backend_example
-    assert readme.index("terraform import") < readme.index("terraform plan")
+    assert readme.index('terraform -chdir="$root_dir" import') < readme.index(
+        "terraform plan"
+    )
     assert readme.index("terraform apply") < readme.index(
         "terraform init -migrate-state"
     )

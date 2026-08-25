@@ -1,4 +1,5 @@
 aws_region       = "us-east-1"
+github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
 state_bucket_name = "replace-with-a-globally-unique-private-state-bucket"
 state_key_prefix  = "official-eval"
 github_repository = "example-org/LegalForecastBench"
