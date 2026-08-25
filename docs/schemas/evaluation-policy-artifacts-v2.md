@@ -1,6 +1,6 @@
 # Execution policy v2
 
-`legalforecast.execution_policy.v2` is an additive execution-policy schema for Cycle 1 manifest-mode issuance. It does not change `legalforecast.execution_policy.v1`; existing v1 producers, verifiers, freeze bundles, receipts, and runtime consumers retain their four-field lifecycle contract.
+`legalforecast.execution_policy.v2` is an additive execution-policy schema for Cycle 1 manifest-mode issuance. It does not change `legalforecast.execution_policy.v1`; existing v1 producers and the generic v1 verifier/content APIs retain their four-field lifecycle contract. Final labels-bound official freeze bundles and their official runtime, dispatch-provenance, and fan-in consumers accept either authenticated v1 or v2 policy bytes through explicitly named official adapters.
 
 Like v1, the artifact is canonical JSON with exactly `schema_version`, `policy`, and `policy_sha256`. The digest is SHA-256 over the canonical `policy` object. The v2 `policy` object retains the v1 policy fields and their validation rules, but its `lifecycle` contains exactly:
 
@@ -9,7 +9,7 @@ Like v1, the artifact is canonical JSON with exactly `schema_version`, `policy`,
 
 The labeling-policy publication must not be later than the first durable provider reservation. V2 intentionally omits `cohort_policy_published_at` and `batch_002_started_at`: those v1 chronology fields do not truthfully describe the successor manifest execution path, and v2 neither fabricates them nor represents them as null.
 
-The v2 issuer derives every policy value from authenticated inputs. It does not accept lifecycle timestamps or policy JSON from the operator. Generic `verify_execution_policy()` and `execution_policy_content()` remain v1-only and reject v2; only labels-deferred code uses the explicit `verify_execution_policy_v2()` and `execution_policy_v2_content()` APIs.
+The v2 issuer derives every policy value from authenticated inputs. It does not accept lifecycle timestamps or policy JSON from the operator. Generic `verify_execution_policy()` and `execution_policy_content()` remain v1-only and reject v2. Labels-deferred issuance uses the explicit `verify_execution_policy_v2()` and `execution_policy_v2_content()` APIs; labels-bound final freeze and official consumers use `verify_official_execution_policy()` and the corresponding explicitly named official helpers, which authenticate v1 or v2 without broadening the generic contract.
 
 The provider-free issuer writes `execution-decisions-v2.json`, `execution-policy-v2.json`, `beads-observation-v2.json`, and `run-cards/issue-manifest-execution-decisions-v2.json` as one create-only tree. The decisions bind the owner manifest, provider-free forecast, four-model successor registry, evaluation and labeling provider-cap artifacts, canonical paid-labeling journal identity and durable bytes, labeling and cohort policies, current cohort observation bytes, fresh Beads evidence, and the fully replayed generic-freeze inputs.
 
@@ -17,4 +17,4 @@ The provider-free issuer writes `execution-decisions-v2.json`, `execution-policy
 
 `legalforecast.execution_decisions_beads_observation.v2` contains exactly `schema_version`, `issue_id`, `model_registry_path`, `model_registry_sha256`, `raw_observation_sha256`, `raw_observation_base64`, and `evidence`. The critical decisions issuer captures `bd comments legalforecastbench-3ak.38 --json` directly, authenticates it, and publishes the wrapper as `beads-observation-v2.json`; verification consumes that published wrapper and replays its raw Base64 comments without querying live Beads. Replay accepts only exact owner-authored manifest approval, contamination replacement, and successor-registry spend-approval records; it does not parse a lifecycle comment. Neither caller-supplied raw comment JSON nor a caller-authored wrapper is a critical-issuance input.
 
-This artifact is issuance groundwork only. Producing or verifying it makes no provider call, performs no AWS action, dispatches no shard, attaches no label, scores no forecast, and publishes no result.
+Issuing or verifying this artifact is provider-free groundwork. After locked labels exist, the authenticated v2 bytes may be bound into the ordinary create-only 13-artifact final freeze and consumed by the official runtime path. Neither operation makes a provider call, performs an AWS action, dispatches a shard, scores a forecast, or publishes a result.
