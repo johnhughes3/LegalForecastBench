@@ -55,9 +55,9 @@ from legalforecast.path_safety import safe_path_component
 from legalforecast.protocol.freeze import hash_freeze_payload, sha256_file
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
-    execution_repeat_policy,
-    execution_repeat_policy_sha256,
-    verify_execution_policy,
+    official_execution_repeat_policy,
+    official_execution_repeat_policy_sha256,
+    verify_official_execution_policy,
 )
 from legalforecast.unitization.schemas import (
     ChallengeScope,
@@ -1631,13 +1631,13 @@ def _verified_repeat_policy_for_config(
         )
     try:
         artifact = _read_json_uri(config.execution_policy_uri)
-        execution_sha256 = verify_execution_policy(
+        execution_sha256 = verify_official_execution_policy(
             artifact,
             expected_cycle_id=expected_cycle_id,
             expected_sha256=config.expected_execution_policy_sha256,
         )
-        repeat = execution_repeat_policy(artifact)
-        repeat_sha256 = execution_repeat_policy_sha256(artifact)
+        repeat = official_execution_repeat_policy(artifact)
+        repeat_sha256 = official_execution_repeat_policy_sha256(artifact)
     except (PolicyArtifactError, OSError, ValueError) as exc:
         raise PerCaseRunnerError(f"invalid frozen execution policy: {exc}") from exc
     raw_case_ids = repeat.get("case_ids")
@@ -1691,9 +1691,9 @@ def _verified_execution_policy_for_config(
         raise PerCaseRunnerError("live backend requires a frozen cycle_id")
     try:
         from legalforecast.protocol.policy_artifacts import (
-            execution_policy_content,
-            execution_policy_runtime_binding,
-            verify_execution_policy,
+            official_execution_policy_content,
+            official_execution_policy_runtime_binding,
+            verify_official_execution_policy,
         )
 
         payload = _read_uri_bytes(cast(str, config.execution_policy_uri))
@@ -1701,14 +1701,14 @@ def _verified_execution_policy_for_config(
         if not isinstance(loaded, Mapping):
             raise ValueError("artifact must be a JSON object")
         artifact = cast(Mapping[str, Any], loaded)
-        verify_execution_policy(
+        verify_official_execution_policy(
             artifact,
             expected_cycle_id=cycle_id,
             expected_sha256=config.expected_execution_policy_sha256,
         )
-        policy = execution_policy_content(artifact)
+        policy = official_execution_policy_content(artifact)
         attempt_policy = _mapping(policy.get("attempt_policy"), "attempt_policy")
-        binding = execution_policy_runtime_binding(
+        binding = official_execution_policy_runtime_binding(
             artifact,
             execution_policy_sha256=hashlib.sha256(payload).hexdigest(),
             provider=registry_entry.provider,

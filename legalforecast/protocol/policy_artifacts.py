@@ -173,6 +173,33 @@ def verify_execution_policy_v2(
     )
 
 
+def verify_official_execution_policy(
+    artifact: Mapping[str, Any],
+    *,
+    expected_cycle_id: str | None = None,
+    expected_sha256: str | None = None,
+) -> str:
+    """Verify an execution policy supported by the finalized official runtime."""
+
+    schema_version = artifact.get("schema_version")
+    if schema_version == EXECUTION_POLICY_SCHEMA_VERSION:
+        return verify_execution_policy(
+            artifact,
+            expected_cycle_id=expected_cycle_id,
+            expected_sha256=expected_sha256,
+        )
+    if schema_version == EXECUTION_POLICY_V2_SCHEMA_VERSION:
+        return verify_execution_policy_v2(
+            artifact,
+            expected_cycle_id=expected_cycle_id,
+            expected_sha256=expected_sha256,
+        )
+    raise PolicyArtifactError(
+        "official execution policy schema version must be "
+        f"{EXECUTION_POLICY_SCHEMA_VERSION} or {EXECUTION_POLICY_V2_SCHEMA_VERSION}"
+    )
+
+
 def _verify_execution_policy_for_schema(
     artifact: Mapping[str, Any],
     *,
@@ -220,6 +247,19 @@ def execution_policy_v2_content(
     )
 
 
+def official_execution_policy_content(
+    artifact: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Return validated v1 or v2 policy content for finalized official consumers."""
+
+    verify_official_execution_policy(artifact)
+    schema_version = cast(str, artifact["schema_version"])
+    return _validated_execution_policy(
+        cast(Mapping[str, Any], artifact["policy"]),
+        schema_version=schema_version,
+    )
+
+
 def execution_repeat_policy(artifact: Mapping[str, Any]) -> Mapping[str, Any]:
     """Return the normalized frozen repeat policy after full verification."""
 
@@ -231,6 +271,21 @@ def execution_repeat_policy_sha256(artifact: Mapping[str, Any]) -> str:
     """Return the durable identity of the verified frozen repeat policy."""
 
     return _hash(execution_repeat_policy(artifact))
+
+
+def official_execution_repeat_policy(
+    artifact: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Return the repeat policy from a finalized official v1 or v2 artifact."""
+
+    policy = official_execution_policy_content(artifact)
+    return cast(Mapping[str, Any], policy["repeat_policy"])
+
+
+def official_execution_repeat_policy_sha256(artifact: Mapping[str, Any]) -> str:
+    """Return the identity of a finalized official repeat policy."""
+
+    return _hash(official_execution_repeat_policy(artifact))
 
 
 def require_repeat_case_coverage(
@@ -288,6 +343,39 @@ def execution_policy_runtime_binding(
     """Return the provider's exact frozen spend-policy commitment."""
 
     policy = execution_policy_content(artifact)
+    return _runtime_binding_from_policy(
+        policy,
+        execution_policy_sha256=execution_policy_sha256,
+        provider=provider,
+        account=account,
+    )
+
+
+def official_execution_policy_runtime_binding(
+    artifact: Mapping[str, Any],
+    *,
+    execution_policy_sha256: str,
+    provider: str,
+    account: str | None = None,
+) -> dict[str, Any]:
+    """Return the spend binding from a finalized official v1 or v2 policy."""
+
+    policy = official_execution_policy_content(artifact)
+    return _runtime_binding_from_policy(
+        policy,
+        execution_policy_sha256=execution_policy_sha256,
+        provider=provider,
+        account=account,
+    )
+
+
+def _runtime_binding_from_policy(
+    policy: Mapping[str, Any],
+    *,
+    execution_policy_sha256: str,
+    provider: str,
+    account: str | None,
+) -> dict[str, Any]:
     attempts = _object(policy.get("attempt_policy"), "attempt_policy")
     normalized_provider = _text(provider, "provider").lower()
     matches = [

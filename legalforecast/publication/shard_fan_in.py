@@ -21,8 +21,8 @@ from legalforecast.protocol.freeze import (
 )
 from legalforecast.protocol.manifest import hash_payload
 from legalforecast.protocol.policy_artifacts import (
-    execution_policy_content,
     load_json_object,
+    official_execution_policy_content,
     policy_content_sha256,
 )
 from legalforecast.publication.official_aggregate import (
@@ -813,7 +813,7 @@ def _load_frozen_inputs(config: FanInConfig) -> _FrozenInputs:
         bundle.artifact(FrozenArtifactName.EXECUTION_POLICY).path,
         "execution policy",
     )
-    execution = execution_policy_content(execution_artifact_record)
+    execution = official_execution_policy_content(execution_artifact_record)
     repeat = _mapping(execution.get("repeat_policy"), "repeat_policy")
     attempts = _mapping(execution.get("attempt_policy"), "attempt_policy")
     receipts = _mapping(execution.get("receipt_policy"), "receipt_policy")
