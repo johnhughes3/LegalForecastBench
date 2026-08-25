@@ -65,5 +65,12 @@ docs/cohort-policy-*.json.lock
 .claude/
 .gc/
 
+# Gas City / NTM session materialization on the shared checkout.
+# Untracked copies blocked mol-polecat-report self-review. Leave the files;
+# keep them out of git status. Do not ignore tracked .agents skill docs.
+.ntm/
+.agents/skills/.gc-skill-ownership.json
+.agents/skills/core.gc-*
+
 # Beads viewer local config/cache
 .bv/
