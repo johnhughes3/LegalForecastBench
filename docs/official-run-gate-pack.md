@@ -23,7 +23,6 @@ The corpus dependency is strict: Lane F2 must finish Stage A and Gate 3, then fr
 | Green — verified today | `uv run pytest -q tests/test_downstream_rehearsal.py` — 92 passed; exact-100 public fixture chain included | Fixture-only rehearsal machinery; no live corpus, provider, or infrastructure |
 | Green — verified today | `terraform fmt -check -recursive infra/official-eval`; backend-free `terraform init`; `terraform validate` | Local Terraform code shape only |
 | Yellow — fixture only | The `hfk` downstream rehearsal and staged-rollout tests exercise deterministic response fixtures, packet exclusion, zero review queues, zero provider billing, and receipt byte identity | Not evidence of a live corpus, provider, S3, OIDC, or protected environment |
-| Yellow — non-authoritative | A local scratch offline official-eval plan had `Plan: 23 to add, 0 to change, 0 to destroy.` against placeholder identifiers in a temporary copy; SHA-256 `3b66966009736cf1ff1f67a49f8e655aea711ec9274603d1a11b8723dd956a8d` | Structural shape only; not an AWS plan and not apply authorization |
 | Red — John gate | Existing-resource import, protected plan review, and apply for `hckb.15` | Requires the protected infrastructure environment, remote state, hidden identifiers, and John’s approval |
 | Red — John gate | Workflow-bearing publication and sanctioned dispatches (`5qd6.119`, `5qd6.32`, `5qd6.101`) | No agent PR or main publication while secure-gate is down |
 | Red — John gate | Provider-free live OIDC/S3 validation, bounded provider smoke, rehearsal sign-off, and `ur6` | Requires applied AWS/GitHub state, Stage A + Gate 3 frozen corpus, and human authority |
@@ -121,12 +120,13 @@ TERRAFORM_INPUT_IDENTITY_SHA256="$(jq -cn \
 
 The packet and results buckets and all of their storage subresources remain
 owned by the COS CloudFormation stack. Before any official-eval infrastructure
-operation or evaluation dispatch, the designated operator must verify that
-live ownership and obtain a passing
-`.github/workflows/official-s3-access-validation.yaml` run against those exact
-external buckets. Keep the inventory and validation evidence outside this
-Terraform state. A missing, failed, or ambiguous storage validation is a
-halt; do not add a storage import or broaden this root.
+operation, the designated operator must verify that live ownership and the
+expected storage controls remain intact using read-only CloudFormation and S3
+inventory. Keep that inventory evidence outside this Terraform state. The
+role-based `.github/workflows/official-s3-access-validation.yaml` run occurs
+after the IAM roles are applied and configured, but remains mandatory before
+evaluation dispatch. A missing, failed, or ambiguous storage check is a halt;
+do not add a storage import or broaden this root.
 
 The official-eval Terraform import allowlist is IAM-only. Inventory the exact
 roles and inline policies first; import only an address whose corresponding
@@ -193,14 +193,28 @@ John runs `import_authorized <address>` once for each inventoried existing IAM o
 
 Before importing or planning, inspect any existing official-eval state from the
 previous storage-owning revision. If it contains S3 addresses, do not accept
-the configuration-deletion destroy plan. Use a separately reviewed state-only
-migration to detach only those obsolete addresses, or establish a fresh
-IAM-only state while preserving the COS stack's live ownership. This migration
-must not mutate S3; the final plan must contain no S3 address and no destroy.
+the configuration-deletion destroy plan. Dispatch the protected state-only
+operation below. It encrypts and uploads the exact pre-migration state, rejects
+unreviewed S3 addresses, removes only the closed fourteen obsolete storage
+addresses that are actually present, proves that no other state address
+changed, and emits a redacted receipt. It does not mutate live S3.
+
+```bash
+gh workflow run .github/workflows/official-provider-authority-infra.yaml \
+  --repo "$GITHUB_REPOSITORY" --ref main \
+  -f operation=detach-external-storage-state \
+  -f module=official-eval -f release_sha="$RELEASE_SHA"
+```
+
+Wait for protected approval and a successful run, then retain artifact
+`provider-authority-infra-state-detach-official-eval-<run_id>-<run_attempt>`
+with its encrypted pre-migration state and `state-detach-receipt.json`. If the
+reviewed backend is provably fresh and contains no state, no detachment run is
+needed. The final plan must contain no S3 address and no destroy.
 
 ### 3. Read-only protected plan
 
-After the IAM imports are reconciled and the external live-storage validation has passed, dispatch exactly:
+After the IAM imports are reconciled and the read-only COS ownership/storage inventory has passed, dispatch exactly:
 
 ```bash
 gh workflow run .github/workflows/official-provider-authority-infra.yaml \
@@ -336,10 +350,11 @@ The first two lines are a hard dependency, not parallel work: the official run c
 ## One ordered checklist for John
 
 1. Confirm Lane F2’s Stage A + Gate 3 completion, exact frozen corpus, model registry, execution policy, and the current-main release SHA.
-2. Verify the external COS-owned storage and pass `official-s3-access-validation.yaml`; run the approved IAM-only `hckb.15` imports and save the protected `official-eval` plan.
+2. Verify external COS ownership and storage controls by read-only inventory; detach only reviewed obsolete S3 state addresses if present; run the approved IAM-only `hckb.15` imports and save the protected `official-eval` plan.
 3. Review the complete saved plan and apply only that exact plan through the protected workflow; record the redacted apply receipt and outputs.
 4. Publish this branch through the workflow-capable path, then merge the stacked workflow drafts so `main` contains the exact pinned workflows.
 5. Set the reviewed GitHub environment variables and secret-name inventory server-side; keep fan-in provider-free and verify the Bedrock runtime choice explicitly.
+6. Run `official-s3-access-validation.yaml` against the applied roles and exact external buckets; require it to pass before any evaluation dispatch.
 6. Dispatch `official-s3-access-validation.yaml` and the provider-free fan-in verification from the exact post-publication `main` SHA; retain run IDs and terminal receipts.
 7. Run the bounded provider-authority and one-provider smoke under the dedicated smoke freeze/prefix; stop on any omission-denial or identity mismatch.
 8. Execute the fixture rehearsal and staged-rollout failure drill; retain the final summary, run card, and byte-identity evidence.

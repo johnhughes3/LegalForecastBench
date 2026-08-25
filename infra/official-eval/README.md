@@ -21,11 +21,13 @@ buckets. The exact KMS grants remain `kms:Decrypt` and
 `kms:GenerateDataKey`. The packet, manifest, per-case, closure, receipt, and
 canonical-publication prefixes remain constrained by the policy templates.
 
-Before any infrastructure operation or evaluation dispatch, an authorized
-operator must verify the live COS stack and bucket controls and obtain a
-passing run of `.github/workflows/official-s3-access-validation.yaml` against
-those external buckets. A failed, missing, or ambiguous live-storage
-validation is a halt; it is not permission to add storage resources here.
+Before any infrastructure operation, an authorized operator must verify the
+live COS stack and bucket controls through read-only inventory. After these IAM
+roles are applied and configured, the operator must obtain a passing run of
+`.github/workflows/official-s3-access-validation.yaml` against the exact
+external buckets before evaluation dispatch. A failed, missing, or ambiguous
+live-storage check is a halt; it is not permission to add storage resources
+here.
 
 ## Exact two-role contract
 
@@ -86,11 +88,14 @@ public-access block.
 
 If an older official-eval state already contains S3 addresses from a prior
 revision of this root, inspect that state before planning. Do not accept the
-destroy plan produced by simply deleting the configuration. Use a separately
-reviewed state-only migration to detach only those obsolete S3 addresses, or
-start a fresh IAM-only state after preserving the COS stack as sole storage
-owner. The migration must not change live S3 resources, and the final plan
-must contain no S3 address or destroy action.
+destroy plan produced by simply deleting the configuration. Use the protected
+state-only migration operation `detach-external-storage-state` in the protected
+workflow; it creates an encrypted
+pre-migration backup, removes only the exact closed obsolete S3 addresses that
+are present, verifies that no other state address changed, and emits a redacted
+receipt. If the reviewed backend is provably fresh and contains no state, no
+detachment run is needed. The operation must not change live S3 resources, and
+the final plan must contain no S3 address or destroy action.
 
 ## Local validation
 

@@ -331,6 +331,90 @@ def test_import_and_official_eval_are_closed_and_public_safe() -> None:
         assert forbidden not in import_upload
 
 
+def test_external_storage_state_detach_is_closed_backed_up_and_s3_read_only() -> None:
+    text = _text()
+    step = text.split("- name: Detach obsolete external-storage state bindings", 1)[
+        1
+    ].split("- name: Produce and guard exact Terraform plan", 1)[0]
+    obsolete_block = step.split("cat > \"${obsolete_addresses}\" <<'EOF'", 1)[1].split(
+        "EOF", 1
+    )[0]
+    obsolete_addresses = {
+        line.strip() for line in obsolete_block.splitlines() if line.strip()
+    }
+    assert obsolete_addresses == {
+        f"aws_s3_{kind}.{name}"
+        for kind in (
+            "bucket",
+            "bucket_lifecycle_configuration",
+            "bucket_ownership_controls",
+            "bucket_policy",
+            "bucket_public_access_block",
+            "bucket_server_side_encryption_configuration",
+            "bucket_versioning",
+        )
+        for name in ("packet", "results")
+    }
+    _assert_contains(
+        text,
+        "- detach-external-storage-state",
+        '[[ "${MODULE}" == "official-eval" ]]',
+        "State-detachment provenance inputs must remain empty.",
+    )
+    _assert_contains(
+        step,
+        'terraform -chdir="${MODULE_ROOT}" state pull',
+        'terraform -chdir="${MODULE_ROOT}" state list',
+        '"${AGE_ROOT}/age" --encrypt',
+        'terraform -chdir="${MODULE_ROOT}" state rm "${addresses_to_remove[@]}"',
+        'cmp --silent "${expected_after_addresses}" "${after_addresses}"',
+        "legalforecast.official_eval_external_storage_state_detach.v1",
+        "legalforecast.official_eval_external_storage_state_detach_recovery.v1",
+        "before_state_sha256",
+        "after_state_sha256",
+        "encrypted_backup_sha256",
+        "removed_addresses",
+    )
+    assert step.index('"${AGE_ROOT}/age" --encrypt') < step.index(
+        'terraform -chdir="${MODULE_ROOT}" state rm'
+    )
+    assert "aws s3" not in step
+    assert "terraform apply" not in step
+
+    success_upload = text.split(
+        "- name: Upload encrypted pre-migration state and redacted detach receipt", 1
+    )[1].split("- name: Upload apply recovery receipt", 1)[0]
+    _assert_contains(
+        success_upload,
+        "official-eval-state-before.tfstate.age",
+        "state-detach-receipt.json",
+        "include-hidden-files: false",
+        "overwrite: false",
+    )
+    recovery_upload = text.split(
+        "- name: Upload state-detach recovery receipt after post-mutation failure", 1
+    )[1]
+    _assert_contains(
+        recovery_upload,
+        "steps.detach_storage_state.outcome != 'success'",
+        "steps.clear_sensitive.outcome == 'success'",
+        "official-eval-state-before.tfstate.age",
+        "state-detach-recovery-receipt.json",
+    )
+
+    gate_pack = GATE_PACK.read_text(encoding="utf-8")
+    assert "Plan: 23 to add" not in gate_pack
+    assert gate_pack.index("read-only CloudFormation and S3") < gate_pack.index(
+        "operation=detach-external-storage-state"
+    )
+    assert gate_pack.index("operation=detach-external-storage-state") < gate_pack.index(
+        "operation=plan"
+    )
+    assert gate_pack.index("operation=apply") < gate_pack.rindex(
+        "gh workflow run .github/workflows/official-s3-access-validation.yaml"
+    )
+
+
 def test_protected_job_rechecks_current_main_before_aws_mutation() -> None:
     text = _text()
     main_check = text.index("Prove release is still current main")
