@@ -8234,8 +8234,8 @@
         "largest_symbol": "verify_fan_in",
         "largest_symbol_lines": 144,
         "layer": "application",
-        "line_count": 1547,
-        "nonblank_line_count": 1401,
+        "line_count": 1557,
+        "nonblank_line_count": 1411,
         "top_level_definition_count": 57
       },
       "legalforecast/publication/shard_fan_in_publish.py": {
@@ -10859,8 +10859,8 @@
         "largest_symbol": "_assert_eval_trust_refs_satisfiable",
         "largest_symbol_lines": 134,
         "layer": "test",
-        "line_count": 1239,
-        "nonblank_line_count": 1131,
+        "line_count": 1247,
+        "nonblank_line_count": 1139,
         "top_level_definition_count": 34
       },
       "tests/test_official_eval_matrix_workflow.py": {
@@ -11687,9 +11687,9 @@
         "largest_symbol": "test_s3_publication_claims_and_conditionally_writes_protected_snapshot",
         "largest_symbol_lines": 103,
         "layer": "test",
-        "line_count": 1535,
-        "nonblank_line_count": 1380,
-        "top_level_definition_count": 44
+        "line_count": 1600,
+        "nonblank_line_count": 1437,
+        "top_level_definition_count": 45
       },
       "tests/test_shard_receipt.py": {
         "cycle_id": "",

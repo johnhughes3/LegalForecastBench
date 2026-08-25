@@ -303,6 +303,7 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
         "ReadCycleClosure",
         "CreateCycleClosure",
         "ReadCanonicalPublication",
+        "ReadManifestRunArtifacts",
         "CreateCanonicalPublication",
         "ListCurrentPerCaseVersions",
         "ListFanInNamespaces",
@@ -352,6 +353,12 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
         "Action": "s3:GetObject",
         "Resource": report_resource,
     }
+    assert statements["ReadManifestRunArtifacts"] == {
+        "Sid": "ReadManifestRunArtifacts",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": f"{RESULTS_BUCKET_ARN}/cycle-1/manifest-runs/*",
+    }
     assert statements["CreateCanonicalPublication"] == {
         "Sid": "CreateCanonicalPublication",
         "Effect": "Allow",
@@ -369,6 +376,7 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
                 "s3:prefix": [
                     "cycle-publication-state/*/runs/*",
                     "cycle-publication-state/*/seal.json",
+                    "cycle-1/manifest-runs/*",
                     "per-case/*",
                     "reports/*/multi-ablation/*",
                     "shard-receipts/*",
