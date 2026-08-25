@@ -4,15 +4,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from legalforecast.evals.model_registry import LongContextSurcharge
 from legalforecast.ingestion.candidate_scoped_stage_a_replay import (
     CandidateScopedStageARerunRequest,
     StageAStageOutcome,
@@ -172,6 +175,113 @@ def test_runtime_code_identity_is_rechecked_immediately_before_provider_access(
         "failure_type": "StageAReplayExecutorError",
         "provider_accessed": False,
     }
+
+
+def test_runtime_reservations_include_registry_long_context_surcharge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The replay preflight reserves the same surcharge-aware maximum as calls."""
+
+    surcharge = LongContextSurcharge(
+        threshold_input_tokens=272_000,
+        input_price_multiplier=2.0,
+        output_price_multiplier=1.5,
+    )
+    entries = {
+        "fixture:unitizer": SimpleNamespace(
+            provider="fixture",
+            registry_key="fixture:unitizer",
+            context_limit=1_050_000,
+            max_output_tokens=128_000,
+            input_token_price=5.0,
+            output_token_price=30.0,
+            long_context_surcharge=surcharge,
+        ),
+        "fixture:reviewer": SimpleNamespace(
+            provider="fixture",
+            registry_key="fixture:reviewer",
+            context_limit=1_050_000,
+            max_output_tokens=128_000,
+            input_token_price=5.0,
+            output_token_price=30.0,
+            long_context_surcharge=surcharge,
+        ),
+    }
+
+    class _Registry:
+        def get(self, provider: str, model_id: str) -> Any:
+            return entries[f"{provider}:{model_id}"]
+
+    registry_path = tmp_path / "registry.json"
+    caps_path = tmp_path / "caps.json"
+    registry_payload = b"fixture registry"
+    caps_payload = b"fixture caps"
+    registry_path.write_bytes(registry_payload)
+    caps_path.write_bytes(caps_payload)
+    monkeypatch.setattr(
+        provider_module,
+        "load_model_registry_bytes",
+        lambda _payload: _Registry(),
+    )
+    monkeypatch.setattr(
+        provider_module,
+        "load_provider_cycle_caps_bytes",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            cycle_id="cycle-1",
+            providers={"fixture": object()},
+            cap_usd=lambda _provider: Decimal("100"),
+        ),
+    )
+    monkeypatch.setattr(
+        provider_module,
+        "model_registry_entry_sha256",
+        lambda _entry: "e" * 64,
+    )
+    monkeypatch.setattr(
+        provider_module,
+        "_validated_provider_accounts",
+        lambda *_args: {"fixture": "fixture-account"},
+    )
+    monkeypatch.setattr(provider_module, "verify_journal", lambda _spec: None)
+
+    spec = cast(
+        Any,
+        SimpleNamespace(
+            synthetic_fixture=False,
+            record={
+                "provider": {
+                    "model_registry_path": str(registry_path),
+                    "provider_cycle_caps_path": str(caps_path),
+                    "provider_accounts": {"fixture": "fixture-account"},
+                },
+                "configuration": {
+                    "unitizer": {"model_entry_sha256": "e" * 64},
+                    "reviewer": {"model_entry_sha256": "e" * 64},
+                },
+            },
+            model_registry_sha256=hashlib.sha256(registry_payload).hexdigest(),
+            provider_caps_sha256=hashlib.sha256(caps_payload).hexdigest(),
+            cycle_id="cycle-1",
+            model_ids={
+                "unitizer": "fixture:unitizer",
+                "reviewer": "fixture:reviewer",
+            },
+            invocation_reservations_usd={
+                "unitizer": Decimal("8.45"),
+                "reviewer": Decimal("8.45"),
+            },
+            provider_journal_path=tmp_path / "provider.sqlite3",
+        ),
+    )
+
+    with pytest.raises(
+        StageAReplayExecutorError,
+        match="unitizer reservation is below the pinned model maximum cost",
+    ):
+        provider_module.CanonicalProviderRuntime(
+            spec,
+            cast(Any, SimpleNamespace()),
+        )
 
 
 def test_signed_candidate_set_must_equal_exact_planned_rerun_set(

@@ -125,6 +125,7 @@ class CanonicalProviderRuntime:
                         max_output_tokens=entry.max_output_tokens,
                         input_token_price=entry.input_token_price,
                         output_token_price=entry.output_token_price,
+                        long_context_surcharge=entry.long_context_surcharge,
                     )
                 )
             )
