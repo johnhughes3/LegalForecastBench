@@ -48,10 +48,7 @@ def _state(*resources: tuple[str, str]) -> dict[str, object]:
 
 def test_import_ids_are_derived_from_one_closed_module_address_mapping() -> None:
     contract = _load_contract()
-    protected = {
-        "packet_bucket_name": "private-packet-bucket",
-        "results_bucket_name": "private-results-bucket",
-    }
+    protected: dict[str, str] = {}
 
     assert (
         contract.resolve_import_id(
@@ -75,12 +72,6 @@ def test_import_ids_are_derived_from_one_closed_module_address_mapping() -> None
     )
     assert (
         contract.resolve_import_id(
-            "official-eval", "aws_s3_bucket_policy.packet", protected
-        )
-        == "private-packet-bucket"
-    )
-    assert (
-        contract.resolve_import_id(
             "official-eval", "aws_iam_role_policy.fan_in_storage", protected
         )
         == "legalforecastbench-official-eval-fan-in:official-eval-fan-in-storage"
@@ -92,7 +83,7 @@ def test_import_ids_are_derived_from_one_closed_module_address_mapping() -> None
     assert resolved_eval_addresses.keys() == contract.PLAN_ADDRESSES["official-eval"]
 
     for module, address in (
-        ("../official-eval", "aws_s3_bucket.packet"),
+        ("../official-eval", "aws_iam_role.cell"),
         ("official-eval", "aws_s3_bucket.unrelated"),
         ("official-eval", "module.other.aws_s3_bucket.packet"),
         ("official-eval", "aws_iam_role_policy.cell_bedrock[0]"),
@@ -104,12 +95,12 @@ def test_import_ids_are_derived_from_one_closed_module_address_mapping() -> None
 
 def test_import_authorization_binds_release_module_address_and_hidden_id() -> None:
     contract = _load_contract()
-    raw_id = "private-packet-bucket"
+    raw_id = "legalforecastbench-official-eval"
     id_sha256 = hashlib.sha256(raw_id.encode()).hexdigest()
     first = contract.import_authorization_sha256(
         release_sha="a" * 40,
         module="official-eval",
-        address="aws_s3_bucket.packet",
+        address="aws_iam_role.cell",
         import_id_sha256=id_sha256,
         operator_role_identity_sha256="d" * 64,
         state_backend_identity_sha256="e" * 64,
@@ -118,7 +109,7 @@ def test_import_authorization_binds_release_module_address_and_hidden_id() -> No
     second = contract.import_authorization_sha256(
         release_sha="a" * 40,
         module="official-eval",
-        address="aws_s3_bucket.results",
+        address="aws_iam_role.fan_in",
         import_id_sha256=id_sha256,
         operator_role_identity_sha256="d" * 64,
         state_backend_identity_sha256="e" * 64,
@@ -127,7 +118,7 @@ def test_import_authorization_binds_release_module_address_and_hidden_id() -> No
     different_backend = contract.import_authorization_sha256(
         release_sha="a" * 40,
         module="official-eval",
-        address="aws_s3_bucket.packet",
+        address="aws_iam_role.cell",
         import_id_sha256=id_sha256,
         operator_role_identity_sha256="d" * 64,
         state_backend_identity_sha256="0" * 64,
@@ -137,7 +128,7 @@ def test_import_authorization_binds_release_module_address_and_hidden_id() -> No
     assert first != second
     assert first != different_backend
     expected_payload = {
-        "address": "aws_s3_bucket.packet",
+        "address": "aws_iam_role.cell",
         "import_id_sha256": id_sha256,
         "module": "official-eval",
         "operator_role_identity_sha256": "d" * 64,
@@ -154,7 +145,7 @@ def test_import_authorization_binds_release_module_address_and_hidden_id() -> No
         contract.public_import_receipt(
             module="official-eval",
             release_sha="a" * 40,
-            address="aws_s3_bucket.packet",
+            address="aws_iam_role.cell",
             import_id_sha256=id_sha256,
             authorization_sha256=first,
             result="imported",
@@ -168,7 +159,7 @@ def test_import_authorization_binds_release_module_address_and_hidden_id() -> No
     assert contract.public_import_receipt(
         module="official-eval",
         release_sha="a" * 40,
-        address="aws_s3_bucket.packet",
+        address="aws_iam_role.cell",
         import_id_sha256=id_sha256,
         authorization_sha256=first,
         result="imported",
@@ -184,7 +175,7 @@ def test_resolve_import_cli_uses_mode_0600_file_not_job_environment(
     tmp_path: Path,
 ) -> None:
     contract = _load_contract()
-    raw_id = "private-packet-bucket"
+    raw_id = "legalforecastbench-official-eval"
     id_sha256 = hashlib.sha256(raw_id.encode()).hexdigest()
     identities = {
         "operator_role_identity_sha256": "d" * 64,
@@ -194,7 +185,7 @@ def test_resolve_import_cli_uses_mode_0600_file_not_job_environment(
     authorization = contract.import_authorization_sha256(
         release_sha="a" * 40,
         module="official-eval",
-        address="aws_s3_bucket.packet",
+        address="aws_iam_role.cell",
         import_id_sha256=id_sha256,
         **identities,
     )
@@ -206,7 +197,7 @@ def test_resolve_import_cli_uses_mode_0600_file_not_job_environment(
             "--module",
             "official-eval",
             "--address",
-            "aws_s3_bucket.packet",
+            "aws_iam_role.cell",
             "--release-sha",
             "a" * 40,
             "--import-id-sha256",
@@ -226,8 +217,6 @@ def test_resolve_import_cli_uses_mode_0600_file_not_job_environment(
         capture_output=True,
         env={
             **os.environ,
-            "TF_VAR_packet_bucket_name": raw_id,
-            "TF_VAR_results_bucket_name": "private-results-bucket",
             "OPERATOR_ROLE_IDENTITY_SHA256": identities[
                 "operator_role_identity_sha256"
             ],
@@ -249,8 +238,8 @@ def test_resolve_import_cli_uses_mode_0600_file_not_job_environment(
 
 def test_state_binding_is_idempotent_and_rejects_wrong_or_duplicate_identity() -> None:
     contract = _load_contract()
-    address = "aws_s3_bucket.packet"
-    import_id = "private-packet-bucket"
+    address = "aws_iam_role.cell"
+    import_id = "legalforecastbench-official-eval"
 
     assert contract.classify_state_binding(_state(), address, import_id) == "absent"
     assert (
@@ -267,7 +256,7 @@ def test_state_binding_is_idempotent_and_rejects_wrong_or_duplicate_identity() -
         contract.classify_state_binding(_state((address, "wrong")), address, import_id)
     with pytest.raises(ValueError, match="another address"):
         contract.classify_state_binding(
-            _state(("aws_s3_bucket.results", import_id)), address, import_id
+            _state(("aws_iam_role.fan_in", import_id)), address, import_id
         )
     with pytest.raises(ValueError, match="format version"):
         contract.classify_state_binding({}, address, import_id)
@@ -305,27 +294,6 @@ def test_state_binding_is_idempotent_and_rejects_wrong_or_duplicate_identity() -
 
 def test_state_binding_allows_reviewed_resource_types_to_share_import_id() -> None:
     contract = _load_contract()
-    bucket_id = "private-packet-bucket"
-    bucket_state = _state(
-        ("aws_s3_bucket.packet", bucket_id),
-        ("aws_s3_bucket_policy.packet", bucket_id),
-    )
-
-    assert (
-        contract.classify_state_binding(
-            bucket_state, "aws_s3_bucket_policy.packet", bucket_id
-        )
-        == "already_present"
-    )
-    assert (
-        contract.classify_state_binding(
-            bucket_state,
-            "aws_s3_bucket_lifecycle_configuration.packet",
-            bucket_id,
-        )
-        == "absent"
-    )
-
     role_id = "legalforecastbench-official-eval"
     role_state = _state(
         ("aws_iam_role.cell", role_id),
@@ -350,7 +318,7 @@ def test_plan_guard_accepts_only_reviewed_addresses_and_safe_action_vectors() ->
         "format_version": "1.2",
         "resource_changes": [
             {
-                "address": "aws_s3_bucket.packet",
+                "address": "aws_iam_role.cell",
                 "mode": "managed",
                 "change": {"actions": ["update"]},
             }
@@ -359,11 +327,11 @@ def test_plan_guard_accepts_only_reviewed_addresses_and_safe_action_vectors() ->
     contract.validate_plan("official-eval", safe)
 
     for address, actions in (
-        ("aws_s3_bucket.unrelated", ["update"]),
-        ("aws_s3_bucket.packet", []),
-        ("aws_s3_bucket.packet", ["delete"]),
-        ("aws_s3_bucket.packet", ["create", "delete"]),
-        ("aws_s3_bucket.packet", ["delete", "create"]),
+        ("aws_iam_role.unrelated", ["update"]),
+        ("aws_iam_role.cell", []),
+        ("aws_iam_role.cell", ["delete"]),
+        ("aws_iam_role.cell", ["create", "delete"]),
+        ("aws_iam_role.cell", ["delete", "create"]),
     ):
         plan = {
             "format_version": "1.2",
@@ -382,7 +350,7 @@ def test_plan_guard_accepts_only_reviewed_addresses_and_safe_action_vectors() ->
         "format_version": "1.2",
         "resource_changes": [
             {
-                "address": "aws_s3_bucket.packet",
+                "address": "aws_iam_role.cell",
                 "mode": "managed",
                 "action_reason": "create_before_destroy",
                 "change": {"actions": ["update"]},
@@ -415,7 +383,7 @@ def test_plan_guard_accepts_only_reviewed_addresses_and_safe_action_vectors() ->
             "format_version": "1.2",
             "resource_changes": [
                 {
-                    "address": "aws_s3_bucket.packet",
+                    "address": "aws_iam_role.cell",
                     "mode": "future-mode",
                     "change": {"actions": ["update"]},
                 }

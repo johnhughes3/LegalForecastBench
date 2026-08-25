@@ -117,26 +117,6 @@ variable "artifacts_kms_key_arn" {
   }
 }
 
-variable "packet_lifecycle_rule_id" {
-  description = "Exact existing packet-bucket lifecycle rule ID captured by protected inventory."
-  type        = string
-
-  validation {
-    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._+=:/-]{0,254}$", var.packet_lifecycle_rule_id))
-    error_message = "packet_lifecycle_rule_id must be a nonempty S3 lifecycle rule ID."
-  }
-}
-
-variable "results_lifecycle_rule_id" {
-  description = "Exact existing results-bucket lifecycle rule ID captured by protected inventory."
-  type        = string
-
-  validation {
-    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._+=:/-]{0,254}$", var.results_lifecycle_rule_id))
-    error_message = "results_lifecycle_rule_id must be a nonempty S3 lifecycle rule ID."
-  }
-}
-
 variable "enable_bedrock_runtime" {
   description = "Whether the cell role may use the separately reviewed direct-model and geographic inference-profile grants."
   type        = bool
@@ -212,21 +192,6 @@ variable "bedrock_geographic_inference_profiles" {
       profile.inference_profile_arn
     ])) == length(var.bedrock_geographic_inference_profiles)
     error_message = "Each geographic Bedrock inference-profile ARN must appear in exactly one contract entry."
-  }
-}
-
-variable "negative_control_retention_days" {
-  description = "Short retention for disposable objects placed by administrators under the reserved security-negative-controls prefix."
-  type        = number
-  default     = 7
-
-  validation {
-    condition = (
-      var.negative_control_retention_days >= 1 &&
-      var.negative_control_retention_days <= 30 &&
-      floor(var.negative_control_retention_days) == var.negative_control_retention_days
-    )
-    error_message = "negative-control retention must be a whole number from 1 through 30 days."
   }
 }
 

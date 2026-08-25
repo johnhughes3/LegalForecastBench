@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - import
+          - detach-external-storage-state
           - plan
           - apply
       module:
@@ -165,6 +166,15 @@ jobs:
             [[ "${IMPORT_OPERATOR_ROLE_IDENTITY_SHA256}" =~ ^[0-9a-f]{64}$ ]] || exit 1
             [[ "${IMPORT_STATE_BACKEND_IDENTITY_SHA256}" =~ ^[0-9a-f]{64}$ ]] || exit 1
             [[ "${IMPORT_TERRAFORM_INPUT_IDENTITY_SHA256}" =~ ^[0-9a-f]{64}$ ]] || exit 1
+          elif [[ "${OPERATION}" == "detach-external-storage-state" ]]; then
+            [[ "${MODULE}" == "official-eval" ]] || {
+              echo "External-storage state detachment is limited to official-eval." >&2
+              exit 1
+            }
+            if [[ -n "${plan_provenance}${import_provenance}" ]]; then
+              echo "State-detachment provenance inputs must remain empty." >&2
+              exit 1
+            fi
           elif [[ "${OPERATION}" == "plan" ]]; then
             if [[ -n "${plan_provenance}${import_provenance}" ]]; then
               echo "Plan provenance inputs must remain empty for a new plan." >&2
@@ -261,11 +271,9 @@ jobs:
       TF_VAR_aws_region: ${{ vars.LFB_AWS_REGION }}
       TF_VAR_artifacts_kms_key_arn: ${{ vars.LFB_ARTIFACTS_KMS_KEY_ARN }}
       TF_VAR_github_oidc_provider_arn: ${{ vars.LFB_GITHUB_OIDC_PROVIDER_ARN }}
-      TF_VAR_packet_lifecycle_rule_id: ${{ vars.LFB_PACKET_LIFECYCLE_RULE_ID }}
       TF_VAR_packet_bucket_name: ${{ vars.LFB_PACKET_BUCKET }}
       TF_VAR_provider_authority_resource_identity_sha256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
       TF_VAR_provider_authority_table_arn: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE_ARN }}
-      TF_VAR_results_lifecycle_rule_id: ${{ vars.LFB_RESULTS_LIFECYCLE_RULE_ID }}
       TF_VAR_results_bucket_name: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
       - name: Checkout exact main release
@@ -300,9 +308,7 @@ jobs:
             required+=(
               TF_VAR_artifacts_kms_key_arn
               TF_VAR_packet_bucket_name
-              TF_VAR_packet_lifecycle_rule_id
               TF_VAR_results_bucket_name
-              TF_VAR_results_lifecycle_rule_id
             )
           fi
           for name in "${required[@]}"; do
@@ -353,15 +359,12 @@ jobs:
                   --arg oidc "${TF_VAR_github_oidc_provider_arn}" \
                   --arg artifacts_kms_key "${TF_VAR_artifacts_kms_key_arn}" \
                   --arg identity "${TF_VAR_provider_authority_resource_identity_sha256}" \
-                  --arg packet_lifecycle_rule "${TF_VAR_packet_lifecycle_rule_id}" \
                   --arg packet_bucket "${TF_VAR_packet_bucket_name}" \
-                  --arg results_lifecycle_rule "${TF_VAR_results_lifecycle_rule_id}" \
                   --arg results_bucket "${TF_VAR_results_bucket_name}" \
                   --arg table "${TF_VAR_provider_authority_table_arn}" \
                   '{module:$module,region:$region,oidc:$oidc,
                     artifacts_kms_key:$artifacts_kms_key,identity:$identity,
-                    packet_bucket:$packet_bucket,packet_lifecycle_rule:$packet_lifecycle_rule,
-                    results_bucket:$results_bucket,results_lifecycle_rule:$results_lifecycle_rule,
+                    packet_bucket:$packet_bucket,results_bucket:$results_bucket,
                     table:$table}' |
                   sha256sum | cut -d' ' -f1
               )"
@@ -672,8 +675,145 @@ jobs:
               after_state_sha256:$after_state_sha256,
               operator_role_identity_sha256:$operator_role_identity_sha256,
               state_backend_identity_sha256:$state_backend_identity_sha256,
+            terraform_input_identity_sha256:$terraform_input_identity_sha256
+          }' > "${OUTPUT_ROOT}/import-receipt.json"
+
+      - name: Detach obsolete external-storage state bindings
+        id: detach_storage_state
+        if: inputs.operation == 'detach-external-storage-state'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(
+            gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+          )"
+          [[ "${current_main_sha}" == "${RELEASE_SHA}" ]] || exit 1
+
+          before_state="${RUNNER_TEMP}/official-infra-state-before.tfstate"
+          after_state="${RUNNER_TEMP}/official-infra-state-after.tfstate"
+          before_addresses="${RUNNER_TEMP}/official-infra-state-before.addresses"
+          after_addresses="${RUNNER_TEMP}/official-infra-state-after.addresses"
+          expected_after_addresses="${RUNNER_TEMP}/official-infra-state-expected-after.addresses"
+          obsolete_addresses="${RUNNER_TEMP}/official-infra-state-obsolete.addresses"
+          remove_addresses="${RUNNER_TEMP}/official-infra-state-remove.addresses"
+
+          cat > "${obsolete_addresses}" <<'EOF'
+          aws_s3_bucket.packet
+          aws_s3_bucket.results
+          aws_s3_bucket_lifecycle_configuration.packet
+          aws_s3_bucket_lifecycle_configuration.results
+          aws_s3_bucket_ownership_controls.packet
+          aws_s3_bucket_ownership_controls.results
+          aws_s3_bucket_policy.packet
+          aws_s3_bucket_policy.results
+          aws_s3_bucket_public_access_block.packet
+          aws_s3_bucket_public_access_block.results
+          aws_s3_bucket_server_side_encryption_configuration.packet
+          aws_s3_bucket_server_side_encryption_configuration.results
+          aws_s3_bucket_versioning.packet
+          aws_s3_bucket_versioning.results
+          EOF
+          sort -u -o "${obsolete_addresses}" "${obsolete_addresses}"
+
+          terraform -chdir="${MODULE_ROOT}" state pull > "${before_state}"
+          terraform -chdir="${MODULE_ROOT}" state list | sort -u > "${before_addresses}"
+          before_state_sha256="$(sha256sum "${before_state}" | cut -d' ' -f1)"
+
+          while IFS= read -r address; do
+            if [[ "${address}" == aws_s3_* ]] &&
+              ! grep -Fqx -- "${address}" "${obsolete_addresses}"; then
+              echo "Remote state contains an unreviewed S3 address: ${address}" >&2
+              exit 1
+            fi
+          done < "${before_addresses}"
+
+          comm -12 "${before_addresses}" "${obsolete_addresses}" > "${remove_addresses}"
+          comm -23 "${before_addresses}" "${remove_addresses}" > "${expected_after_addresses}"
+          mapfile -t addresses_to_remove < "${remove_addresses}"
+
+          mkdir -p "${OUTPUT_ROOT}"
+          "${AGE_ROOT}/age" --encrypt \
+            --recipient "${LFB_INFRA_PLAN_AGE_RECIPIENT}" \
+            --output "${OUTPUT_ROOT}/official-eval-state-before.tfstate.age" \
+            "${before_state}"
+          encrypted_backup_sha256="$(
+            sha256sum "${OUTPUT_ROOT}/official-eval-state-before.tfstate.age" | cut -d' ' -f1
+          )"
+
+          jq -cn \
+            --arg before_state_sha256 "${before_state_sha256}" \
+            --arg encrypted_backup_sha256 "${encrypted_backup_sha256}" \
+            --arg module "${MODULE}" \
+            --arg operator_role_identity_sha256 "${OPERATOR_ROLE_IDENTITY_SHA256}" \
+            --arg release_sha "${RELEASE_SHA}" \
+            --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
+            --arg run_id "${GITHUB_RUN_ID}" \
+            --arg state_backend_identity_sha256 "${STATE_BACKEND_IDENTITY_SHA256}" \
+            --arg terraform_input_identity_sha256 "${TERRAFORM_INPUT_IDENTITY_SHA256}" \
+            --slurpfile removed <(jq -Rsc 'split("\n") | map(select(length > 0))' "${remove_addresses}") '{
+              schema_version:"legalforecast.official_eval_external_storage_state_detach_recovery.v1",
+              status:"backup_complete_pending_state_detach",
+              module:$module,
+              release_sha:$release_sha,
+              run_id:$run_id,
+              run_attempt:$run_attempt,
+              before_state_sha256:$before_state_sha256,
+              encrypted_backup_sha256:$encrypted_backup_sha256,
+              removed_addresses:$removed[0],
+              operator_role_identity_sha256:$operator_role_identity_sha256,
+              state_backend_identity_sha256:$state_backend_identity_sha256,
               terraform_input_identity_sha256:$terraform_input_identity_sha256
-            }' > "${OUTPUT_ROOT}/import-receipt.json"
+            }' > "${OUTPUT_ROOT}/state-detach-recovery-receipt.json"
+
+          detach_result="already_detached"
+          if (( ${#addresses_to_remove[@]} > 0 )); then
+            current_main_sha="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+            )"
+            [[ "${current_main_sha}" == "${RELEASE_SHA}" ]] || exit 1
+            terraform -chdir="${MODULE_ROOT}" state rm "${addresses_to_remove[@]}" \
+              > "${RUNNER_TEMP}/official-infra-state-detach.log" 2>&1
+            echo "mutation_succeeded=true" >> "${GITHUB_OUTPUT}"
+            detach_result="detached"
+          fi
+
+          terraform -chdir="${MODULE_ROOT}" state pull > "${after_state}"
+          terraform -chdir="${MODULE_ROOT}" state list | sort -u > "${after_addresses}"
+          cmp --silent "${expected_after_addresses}" "${after_addresses}" || {
+            echo "Remote state changed outside the exact obsolete-address subtraction." >&2
+            exit 1
+          }
+          if grep -Fxq -f "${obsolete_addresses}" "${after_addresses}"; then
+            echo "An obsolete external-storage address remains in remote state." >&2
+            exit 1
+          fi
+          after_state_sha256="$(sha256sum "${after_state}" | cut -d' ' -f1)"
+
+          jq -cn \
+            --arg after_state_sha256 "${after_state_sha256}" \
+            --arg before_state_sha256 "${before_state_sha256}" \
+            --arg encrypted_backup_sha256 "${encrypted_backup_sha256}" \
+            --arg module "${MODULE}" \
+            --arg operator_role_identity_sha256 "${OPERATOR_ROLE_IDENTITY_SHA256}" \
+            --arg release_sha "${RELEASE_SHA}" \
+            --arg result "${detach_result}" \
+            --arg state_backend_identity_sha256 "${STATE_BACKEND_IDENTITY_SHA256}" \
+            --arg terraform_input_identity_sha256 "${TERRAFORM_INPUT_IDENTITY_SHA256}" \
+            --slurpfile removed <(jq -Rsc 'split("\n") | map(select(length > 0))' "${remove_addresses}") '{
+              schema_version:"legalforecast.official_eval_external_storage_state_detach.v1",
+              module:$module,
+              release_sha:$release_sha,
+              result:$result,
+              before_state_sha256:$before_state_sha256,
+              after_state_sha256:$after_state_sha256,
+              encrypted_backup_sha256:$encrypted_backup_sha256,
+              removed_addresses:$removed[0],
+              operator_role_identity_sha256:$operator_role_identity_sha256,
+              state_backend_identity_sha256:$state_backend_identity_sha256,
+              terraform_input_identity_sha256:$terraform_input_identity_sha256
+            }' > "${OUTPUT_ROOT}/state-detach-receipt.json"
 
       - name: Produce and guard exact Terraform plan
         id: plan
@@ -846,6 +986,8 @@ jobs:
             \( -name 'provider-authority-plan.json' -o \
               -name 'official-infra-import-id' -o \
               -name 'official-infra-state-*.json' -o \
+              -name 'official-infra-state-*.tfstate' -o \
+              -name 'official-infra-state-*.addresses' -o \
               -name 'terraform-output.json' \) -delete
           find "${MODULE_ROOT}" -maxdepth 1 -type f \
             -name 'backend.workflow.tf' -delete
@@ -899,6 +1041,19 @@ jobs:
           overwrite: false
           retention-days: 30
 
+      - name: Upload encrypted pre-migration state and redacted detach receipt
+        if: inputs.operation == 'detach-external-storage-state' && steps.detach_storage_state.outcome == 'success' && steps.clear_sensitive.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: provider-authority-infra-state-detach-${{ inputs.module }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.OUTPUT_ROOT }}/official-eval-state-before.tfstate.age
+            ${{ env.OUTPUT_ROOT }}/state-detach-receipt.json
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+          retention-days: 30
+
       - name: Upload apply recovery receipt after post-mutation failure
         if: always() && inputs.operation == 'apply' && steps.apply.outputs.mutation_succeeded == 'true' && steps.apply.outcome != 'success' && steps.clear_sensitive.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
@@ -916,6 +1071,19 @@ jobs:
         with:
           name: provider-authority-infra-import-recovery-${{ inputs.module }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.OUTPUT_ROOT }}/import-recovery-receipt.json
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+          retention-days: 30
+
+      - name: Upload state-detach recovery receipt after post-mutation failure
+        if: always() && inputs.operation == 'detach-external-storage-state' && steps.detach_storage_state.outcome != 'success' && steps.clear_sensitive.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: provider-authority-infra-state-detach-recovery-${{ inputs.module }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.OUTPUT_ROOT }}/official-eval-state-before.tfstate.age
+            ${{ env.OUTPUT_ROOT }}/state-detach-recovery-receipt.json
           if-no-files-found: error
           include-hidden-files: false
           overwrite: false

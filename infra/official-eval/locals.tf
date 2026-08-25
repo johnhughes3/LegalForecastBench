@@ -15,6 +15,9 @@ locals {
   computed_provider_authority_resource_identity_sha256 = sha256(
     var.provider_authority_table_arn
   )
+  artifact_bucket_partition = split(":", var.artifacts_kms_key_arn)[1]
+  packet_bucket_arn         = "arn:${local.artifact_bucket_partition}:s3:::${var.packet_bucket_name}"
+  results_bucket_arn        = "arn:${local.artifact_bucket_partition}:s3:::${var.results_bucket_name}"
 
   cell_trust_policy_json = templatefile(
     "${path.module}/policies/github-oidc-trust.json.tftpl",
@@ -39,8 +42,8 @@ locals {
     "${path.module}/policies/cell-storage-policy.json.tftpl",
     {
       artifacts_kms_key_arn = var.artifacts_kms_key_arn
-      packet_bucket_arn     = aws_s3_bucket.packet.arn
-      results_bucket_arn    = aws_s3_bucket.results.arn
+      packet_bucket_arn     = local.packet_bucket_arn
+      results_bucket_arn    = local.results_bucket_arn
     },
   )
   cell_provider_authority_policy_json = templatefile(
@@ -95,7 +98,7 @@ locals {
     "${path.module}/policies/fan-in-storage-policy.json.tftpl",
     {
       artifacts_kms_key_arn = var.artifacts_kms_key_arn
-      results_bucket_arn    = aws_s3_bucket.results.arn
+      results_bucket_arn    = local.results_bucket_arn
     },
   )
 }

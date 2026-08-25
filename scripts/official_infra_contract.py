@@ -48,20 +48,6 @@ PLAN_ADDRESSES: dict[str, frozenset[str]] = {
             "aws_iam_role_policies_exclusive.fan_in",
             "aws_iam_role_policy_attachments_exclusive.cell",
             "aws_iam_role_policy_attachments_exclusive.fan_in",
-            "aws_s3_bucket.packet",
-            "aws_s3_bucket.results",
-            "aws_s3_bucket_lifecycle_configuration.packet",
-            "aws_s3_bucket_lifecycle_configuration.results",
-            "aws_s3_bucket_ownership_controls.packet",
-            "aws_s3_bucket_ownership_controls.results",
-            "aws_s3_bucket_policy.packet",
-            "aws_s3_bucket_policy.results",
-            "aws_s3_bucket_public_access_block.packet",
-            "aws_s3_bucket_public_access_block.results",
-            "aws_s3_bucket_server_side_encryption_configuration.packet",
-            "aws_s3_bucket_server_side_encryption_configuration.results",
-            "aws_s3_bucket_versioning.packet",
-            "aws_s3_bucket_versioning.results",
         }
     ),
 }
@@ -120,14 +106,6 @@ def resolve_import_id(
     if module == "official-eval":
         if address in _EVAL_FIXED_IMPORT_IDS:
             return _EVAL_FIXED_IMPORT_IDS[address]
-        if address in PLAN_ADDRESSES[module] and address.endswith(".packet"):
-            value = protected_values.get("packet_bucket_name", "")
-            if value:
-                return value
-        if address in PLAN_ADDRESSES[module] and address.endswith(".results"):
-            value = protected_values.get("results_bucket_name", "")
-            if value:
-                return value
     raise ValueError("module/address is outside the reviewed import allowlist")
 
 
@@ -249,21 +227,6 @@ def _canonical_members(value: object) -> set[str]:
     }
 
 
-def _policy_statements(value: object) -> set[str]:
-    if not isinstance(value, str):
-        raise ValueError("bucket policy has an invalid plan shape")
-    try:
-        document = cast(object, json.loads(value))
-    except json.JSONDecodeError as error:
-        raise ValueError("bucket policy is not valid JSON") from error
-    if not isinstance(document, dict):
-        raise ValueError("bucket policy document must be an object")
-    statements = cast(object, cast(dict[str, Any], document).get("Statement"))
-    if isinstance(statements, dict):
-        statements = [cast(dict[str, Any], statements)]
-    return _canonical_members(statements)
-
-
 def _reject_authoritative_contraction(
     address: str, before: object, after: object
 ) -> None:
@@ -271,8 +234,6 @@ def _reject_authoritative_contraction(
         (
             "aws_iam_role_policies_exclusive.",
             "aws_iam_role_policy_attachments_exclusive.",
-            "aws_s3_bucket_policy.",
-            "aws_s3_bucket_lifecycle_configuration.",
         )
     )
     if not authoritative:
@@ -287,12 +248,6 @@ def _reject_authoritative_contraction(
     elif address.startswith("aws_iam_role_policy_attachments_exclusive."):
         old = _canonical_members(before_values.get("policy_arns"))
         new = _canonical_members(after_values.get("policy_arns"))
-    elif address.startswith("aws_s3_bucket_policy."):
-        old = _policy_statements(before_values.get("policy"))
-        new = _policy_statements(after_values.get("policy"))
-    elif address.startswith("aws_s3_bucket_lifecycle_configuration."):
-        old = _canonical_members(before_values.get("rule"))
-        new = _canonical_members(after_values.get("rule"))
     else:
         raise AssertionError("authoritative resource classifier is inconsistent")
     if not old.issubset(new):

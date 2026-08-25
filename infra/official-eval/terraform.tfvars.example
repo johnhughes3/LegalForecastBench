@@ -4,8 +4,6 @@ provider_authority_resource_identity_sha256 = "replace-with-lowercase-sha256-of-
 packet_bucket_name       = "replace-with-existing-private-packet-bucket"
 results_bucket_name      = "replace-with-existing-private-results-bucket"
 artifacts_kms_key_arn    = "arn:aws:kms:us-east-1:123456789012:key/replace-with-exact-key-uuid"
-packet_lifecycle_rule_id = "replace-with-protected-packet-lifecycle-rule-id"
-results_lifecycle_rule_id = "replace-with-protected-results-lifecycle-rule-id"
 
 # Keep false unless the protected environment is intentionally configured to
 # use Bedrock and the matching direct-model or geographic-profile contract has
