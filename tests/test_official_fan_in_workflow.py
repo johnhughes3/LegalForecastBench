@@ -43,6 +43,27 @@ def test_workflow_downloads_exact_cross_run_dispatch_artifact() -> None:
     assert '--source-release-sha "${RELEASE_SHA}"' in WORKFLOW
 
 
+def test_workflow_downloads_the_immutable_staged_manifest_run() -> None:
+    validation = WORKFLOW[
+        WORKFLOW.index("- name: Validate trusted immutable inputs") : WORKFLOW.index(
+            "- name: Validate source dispatch workflow run"
+        )
+    ]
+    download = WORKFLOW[
+        WORKFLOW.index(
+            "- name: Download immutable manifest-run bundle"
+        ) : WORKFLOW.index(
+            "- name: Verify receipts and aggregate accepted exact versions"
+        )
+    ]
+
+    assert "^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\\.json$" in validation
+    assert "freeze_bundle_path must use the configured LFB_RESULTS_BUCKET" in validation
+    assert 'aws s3 sync "s3://${bucket}/${prefix}/" "${root}/"' in download
+    assert 'root="/tmp/lfb-manifest-run"' in download
+    assert '[[ -f "${root}/freeze.json" ]]' in download
+
+
 def test_workflow_binds_source_dispatch_run_record_to_exact_attempt() -> None:
     validation = WORKFLOW[
         WORKFLOW.index(
@@ -95,7 +116,6 @@ def test_verify_only_and_publish_use_structurally_distinct_entrypoints() -> None
     assert "legalforecast.publication.shard_fan_in_publish \\\n" in WORKFLOW
     assert "--publish-root" in WORKFLOW
     assert '--publication-cycle-id "${CYCLE_ID}"' in WORKFLOW
-    assert "aws s3 sync" not in WORKFLOW
     assert "per-case/${CYCLE_ID}" not in WORKFLOW
 
 
@@ -126,9 +146,21 @@ def test_oidc_workflow_uses_immutable_action_pins_and_safe_shell_inputs() -> Non
     assert "reports/${CYCLE_ID}/multi-ablation/" in WORKFLOW
 
 
-def test_workflow_supplies_committed_freeze_ancestors() -> None:
-    assert "find manifests -type f -name '*.freeze.json'" in WORKFLOW
-    assert 'args+=(--amendment-bundle "${bundle_path}")' in WORKFLOW
+def test_workflow_supplies_staged_freeze_ancestors() -> None:
+    fan_in = WORKFLOW[
+        WORKFLOW.index(
+            "- name: Verify receipts and aggregate accepted exact versions"
+        ) : WORKFLOW.index("- name: Upload sanitized fan-in verification report")
+    ]
+
+    assert "--freeze-bundle /tmp/lfb-manifest-run/freeze.json" in fan_in
+    assert "--freeze-root /tmp/lfb-manifest-run" in fan_in
+    assert (
+        "find /tmp/lfb-manifest-run/amendments -type f -name '*.freeze.json'" in fan_in
+    )
+    assert 'args+=(--amendment-bundle "${bundle_path}")' in fan_in
+    assert "find manifests -type f -name '*.freeze.json'" not in fan_in
+    assert "freeze_bundle_path is not a checked-out file" not in WORKFLOW
 
 
 def test_workflow_uploads_only_sanitized_verification_report() -> None:

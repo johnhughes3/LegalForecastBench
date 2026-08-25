@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 import pytest
+from legalforecast.evals.corpus_manifest import freeze_inputs as freeze_inputs_module
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_v3 import cli as v3_cli
 from legalforecast.ingestion.exact100_successor_v3.replacement_evidence_cli import (
@@ -384,6 +385,65 @@ def test_public_authentication_refuses_methods_mutation_even_with_updated_digest
         match="state differs from its replay",
     ):
         v3_cli.authenticate_exact100_successor_v3_root(root)
+
+
+def test_snapshot_authentication_returns_the_bytes_read_by_replay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _published_successor_root(tmp_path, monkeypatch)
+
+    receipt, captured = v3_cli.authenticate_exact100_successor_v3_root_with_snapshot(
+        root
+    )
+
+    assert receipt.root.resolve() == root.resolve()
+    state = (root / v3_cli._OUTPUT_NAMES["state"]).absolute()  # pyright: ignore[reportPrivateUsage]
+    assert captured[state] == state.read_bytes()
+    carried = (root / _CARRIED_RELATIVE).absolute()
+    assert captured[carried] == carried.read_bytes()
+    assert captured
+
+
+def test_snapshot_authentication_captures_replacement_bytes_after_nested_return(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The outer freeze recheck sees a source changed after replacement replay."""
+
+    anchor = _anchor_root(tmp_path, monkeypatch)
+    evidence, paths = _issue_evidence_root(tmp_path, "new1", "case000")
+    output = tmp_path / "successor-1"
+    assert (
+        _run_project(
+            predecessor=anchor,
+            exclusion=_owner_judgment_file(tmp_path, "case000", "e0.json"),
+            evidence=evidence,
+            output=output,
+        )
+        == 0
+    )
+    source = Path(json.loads(paths["receipt"].read_text())[0]["path"])
+    original = v3_cli.verify_owner_adjudicated_replacement_evidence
+
+    def replay_then_mutate(root: Path) -> object:
+        result = original(root)
+        if root.absolute() == evidence.absolute():
+            source.write_bytes(source.read_bytes() + b"post-replay mutation\n")
+        return result
+
+    monkeypatch.setattr(
+        v3_cli, "verify_owner_adjudicated_replacement_evidence", replay_then_mutate
+    )
+
+    _receipt, captured = v3_cli.authenticate_exact100_successor_v3_root_with_snapshot(
+        output
+    )
+
+    assert source.absolute() in captured
+    with pytest.raises(
+        freeze_inputs_module.ManifestFreezeInputsError,
+        match="input changed before publication",
+    ):
+        freeze_inputs_module._require_snapshots_unchanged(captured)
 
 
 def test_public_authentication_refuses_removed_promoted_document_commitment(

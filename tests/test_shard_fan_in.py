@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from legalforecast.protocol.freeze import FrozenArtifactName
 from legalforecast.protocol.manifest import hash_payload
 from legalforecast.publication import shard_fan_in, shard_fan_in_publish
 from legalforecast.publication.shard_receipt import build_shard_receipt, receipt_key
@@ -408,6 +409,8 @@ def test_cli_preserves_the_complete_freeze_amendment_chain() -> None:
         [
             "--freeze-bundle",
             "manifests/current.freeze.json",
+            "--freeze-root",
+            "tmp/manifest-run",
             "--amendment-bundle",
             "manifests/root.freeze.json",
             "--amendment-bundle",
@@ -428,6 +431,68 @@ def test_cli_preserves_the_complete_freeze_amendment_chain() -> None:
         Path("manifests/root.freeze.json"),
         Path("manifests/amendment-1.freeze.json"),
     )
+    assert config.freeze_root == Path("tmp/manifest-run")
+
+
+def test_fan_in_uses_downloaded_manifest_run_root_and_staged_bundle_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_paths = {
+        name: tmp_path / "artifacts" / f"{name.value}.json"
+        for name in (
+            FrozenArtifactName.MANIFEST,
+            FrozenArtifactName.UNITS,
+            FrozenArtifactName.LABELS,
+            FrozenArtifactName.MODEL_REGISTRY,
+            FrozenArtifactName.BASELINES,
+        )
+    }
+    for path in artifact_paths.values():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n", encoding="utf-8")
+    run_inputs = tmp_path / "run-inputs.json"
+    run_inputs.write_text("{}\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    class FakeBundle:
+        cycle_id = "cycle-1"
+        bundle_sha256 = "c" * 64
+
+        def artifact(self, name: FrozenArtifactName) -> SimpleNamespace:
+            return SimpleNamespace(
+                path=artifact_paths.get(
+                    name, tmp_path / "artifacts" / f"{name.value}.json"
+                ),
+                sha256="d" * 64,
+            )
+
+    def fake_verify_freeze_bundle(*args: object, **kwargs: object) -> FakeBundle:
+        captured.update(kwargs)
+        return FakeBundle()
+
+    execution = {
+        "repeat_policy": {},
+        "attempt_policy": {},
+        "receipt_policy": {},
+        "allow_no_baselines": True,
+    }
+    monkeypatch.setattr(shard_fan_in, "verify_freeze_bundle", fake_verify_freeze_bundle)
+    monkeypatch.setattr(shard_fan_in, "load_json_object", lambda *_args: execution)
+    monkeypatch.setattr(shard_fan_in, "execution_policy_content", lambda value: value)
+    monkeypatch.setattr(shard_fan_in, "policy_content_sha256", lambda _value: "e" * 64)
+
+    config = shard_fan_in.FanInConfig(
+        freeze_bundle_path=tmp_path / "freeze.json",
+        freeze_root=tmp_path,
+        run_input_manifest_path=run_inputs,
+        receipt_root="s3://results",
+        output_dir=tmp_path / "output",
+    )
+    frozen = shard_fan_in._load_frozen_inputs(config)
+
+    assert captured["root_path"] == tmp_path
+    assert frozen.context.freeze_bundle_sha256 == "c" * 64
+    assert frozen.manifest_path == artifact_paths[FrozenArtifactName.MANIFEST]
 
 
 def test_publisher_rechecks_inventory_before_canonical_write(

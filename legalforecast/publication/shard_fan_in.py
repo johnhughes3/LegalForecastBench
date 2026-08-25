@@ -97,6 +97,7 @@ class FanInConfig:
     run_input_manifest_path: Path
     receipt_root: str
     output_dir: Path
+    freeze_root: Path | None = None
     amendment_bundle_paths: tuple[Path, ...] = ()
     source_dispatch_run_id: str | None = None
     source_dispatch_run_attempt: int | None = None
@@ -802,7 +803,7 @@ def _load_frozen_inputs(config: FanInConfig) -> _FrozenInputs:
     try:
         bundle = verify_freeze_bundle(
             config.freeze_bundle_path,
-            root_path=Path.cwd(),
+            root_path=config.freeze_root or Path.cwd(),
             artifact_path_overrides=overrides,
             amendment_bundle_paths=config.amendment_bundle_paths,
         )
@@ -1431,6 +1432,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--freeze-bundle", type=Path, required=True)
     parser.add_argument(
+        "--freeze-root",
+        type=Path,
+        help=(
+            "Root for relative artifact paths recorded in the freeze bundle; "
+            "use the downloaded immutable manifest-run root."
+        ),
+    )
+    parser.add_argument(
         "--amendment-bundle",
         type=Path,
         action="append",
@@ -1460,6 +1469,7 @@ def config_from_args(args: argparse.Namespace, *, verify_only: bool) -> FanInCon
     deferred = tuple(cast(Sequence[str], args.deferred_ablation))
     return FanInConfig(
         freeze_bundle_path=cast(Path, args.freeze_bundle),
+        freeze_root=cast(Path | None, args.freeze_root),
         amendment_bundle_paths=tuple(cast(Sequence[Path], args.amendment_bundle)),
         run_input_manifest_path=cast(Path, args.run_input_manifest),
         receipt_root=cast(str, args.receipt_root),

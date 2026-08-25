@@ -1783,7 +1783,9 @@ The resume identity includes the case, ablation, packet hash, solver/model ident
 
 After every declared shard has a receipt, dispatch `Fan In Official Shards` at the exact 40-character trusted release SHA and provide one accepted shard's `source_dispatch_run_id` and `source_dispatch_run_attempt`. The workflow validates the exact completed `run-benchmark.yaml` attempt through GitHub's attempt-specific API and requires that attempt's `Build benchmark matrix` job to have succeeded; the overall attempt may have failed before a later **Re-run failed jobs** attempt completed the shard. It downloads the source attempt's non-overwritable `official-dispatch-provenance-<run_id>-<run_attempt>` artifact and uses the exact frozen run-input manifest, labels, and model registry bytes. The artifact binds the run ID, source dispatch attempt, and release SHA; every accepted receipt must bind the same release SHA, and at least one accepted receipt must bind that exact source attempt even when its receipt was finalized by a later workflow attempt. Fan-in auto-selects singleton shards and refuses any multi-receipt shard until a committed [accepted-attempt map](schemas/accepted-attempt-map-v1.md) selects exactly one receipt for each ambiguity. It verifies that the current union contains no uncommitted or stale object, fetches each accepted object by its exact S3 `VersionId`, verifies its size and SHA-256, and materializes only those bytes for `official_aggregate`.
 
-For an amended freeze, keep every ancestor `*.freeze.json` bundle committed under `manifests/`. Fan-in supplies those committed bundles as the verification chain before it accepts the current amended bundle.
+The fan-in workflow consumes the exact staged manifest-run root, not a source checkout freeze. Set `freeze_bundle_path` to the immutable `s3://<results-bucket>/cycle-1/manifest-runs/<manifest-digest>/freeze.json` URI. After assuming the fan-in role, the workflow downloads that entire prefix, passes `/tmp/lfb-manifest-run/freeze.json` with `--freeze-root /tmp/lfb-manifest-run`, and discovers any staged amendment bundles under `/tmp/lfb-manifest-run/amendments/`. The staged bundle's hash is authoritative: staging rewrites relative artifact paths, so receipts must bind the staged `freeze_bundle_sha256`, never the source or committed bundle hash. The fan-in role must have read/list authority for this exact immutable prefix.
+
+For an amended freeze, the staging operation must include every authenticated ancestor. The staged prefix contains the current bundle at `freeze.json`, its rewritten artifacts under `artifacts/`, and each ancestor bundle plus artifacts under `amendments/`; do not substitute committed `manifests/*.freeze.json` paths for that chain.
 
 Leave `clean_motion_count` and `prediction_unit_count` empty unless using them as assertions. Fan-in derives the authoritative counts from the frozen included manifest, finalized units, and run-input case set; a supplied mismatch fails closed. Publishing first creates the permanent `cycle-publication-state/<cycle_id>/seal.json` and waits for every pre-existing mutation intent to have a matching completion. It then requires a non-smoke identifier with frozen `cycle_series: official`, stable receipt and current union-VersionId inventories through the final commit boundary, an empty canonical destination prefix, and any accepted-attempt map to match a tracked `manifests/` file in the release checkout.
 
@@ -1798,8 +1800,9 @@ For a local audit with read authority to the durable result bucket, use the nonp
 ```bash
 uv run python -m legalforecast.publication.shard_fan_in \
   --verify-only \
-  --freeze-bundle manifests/<cycle_id>.freeze.json \
-  --amendment-bundle manifests/<cycle_id>.ancestor.freeze.json \
+  --freeze-bundle tmp/manifest-run/<cycle_id>/freeze.json \
+  --freeze-root tmp/manifest-run/<cycle_id> \
+  --amendment-bundle tmp/manifest-run/<cycle_id>/amendments/<ancestor>.freeze.json \
   --run-input-manifest manifests/<cycle_id>.run-inputs.json \
   --receipt-root s3://$LFB_RESULTS_BUCKET \
   --output-dir tmp/fan-in-verification/<cycle_id> \

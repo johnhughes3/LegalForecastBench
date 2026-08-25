@@ -14,6 +14,7 @@ Use this page to find code, not as a second API specification. Module docstrings
 | --- | --- |
 | [`__init__.py`](../legalforecast/ingestion/__init__.py) | Compatibility exports for ingestion clients and workflows. |
 | [`acquisition_contract.py`](../legalforecast/ingestion/acquisition_contract.py) | Production acquisition constants and packet-role normalization. |
+| [`authenticated_read_observer.py`](../legalforecast/ingestion/authenticated_read_observer.py) | Scoped byte observation shared by nested authenticated replay readers. |
 | [`canonical_json.py`](../legalforecast/ingestion/canonical_json.py) | Canonical JSON bytes shared by trust boundaries. |
 | [`decision_first_terms.py`](../legalforecast/ingestion/decision_first_terms.py) | Frozen decision-first RECAP search vocabulary. |
 | [`disclosure_uri.py`](../legalforecast/ingestion/disclosure_uri.py) | URI validation shared by disclosure boundaries. |

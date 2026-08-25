@@ -41,6 +41,10 @@ from legalforecast.contracts import (
     EXACT100_METHODS_DISCLOSURE_V1,
     EXACT100_SUPPORTING_DOCUMENT_SUCCESSOR_V1,
 )
+from legalforecast.ingestion.authenticated_read_observer import (
+    authenticated_read_scope,
+    record_authenticated_read,
+)
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_stipulated_parser_lineage import (
     StipulatedParserLineageError,
@@ -359,6 +363,22 @@ def authenticate_exact100_successor_v3_root(root: Path) -> AuthenticatedV3Root:
     return AuthenticatedV3Root(root=root, anchor_root=anchor_root)
 
 
+def authenticate_exact100_successor_v3_root_with_snapshot(
+    root: Path,
+) -> tuple[AuthenticatedV3Root, Mapping[Path, bytes]]:
+    """Replay a v3 root once and expose the bytes read by that replay.
+
+    The byte map lets a caller perform a final TOCTOU recheck without paying
+    for a second recursive predecessor replay.  It is evidence from this
+    replay, not an alternate authentication path.
+    """
+
+    captured: dict[Path, bytes] = {}
+    with authenticated_read_scope(captured):
+        receipt = authenticate_exact100_successor_v3_root(root)
+    return receipt, captured
+
+
 def _verified_predecessor(
     root: Path, *, depth: int = 0
 ) -> tuple[Any, str, dict[str, bytes], Path]:
@@ -601,7 +621,11 @@ def _carried_documents(root: Path, committed: Mapping[str, str]) -> dict[str, by
             if not path.is_file():
                 continue
             relative = path.relative_to(root).as_posix()
-            payload = path.read_bytes()
+            # Use the replay reader so carried predecessor documents are part
+            # of the same byte snapshot as the committed surface files.  They
+            # are authenticated inputs even though they are copied forward
+            # rather than parsed into the cohort projection here.
+            payload = _read(path)
             expected = committed.get(relative)
             if expected is None:
                 raise Exact100SuccessorReplacementV3CliError(
@@ -1010,7 +1034,12 @@ def _read(path: Path) -> bytes:
         raise Exact100SuccessorReplacementV3CliError(
             f"missing regular evidence file: {path}"
         )
-    return path.read_bytes()
+    payload = path.read_bytes()
+    if not record_authenticated_read(path, payload):
+        raise Exact100SuccessorReplacementV3CliError(
+            "v3 authenticated input changed during replay"
+        )
+    return payload
 
 
 def _object(payload: bytes, path: Path) -> dict[str, Any]:

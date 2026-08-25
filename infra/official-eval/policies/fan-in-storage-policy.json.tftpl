@@ -59,6 +59,12 @@
       "Resource": "${results_bucket_arn}/reports/*/multi-ablation/*"
     },
     {
+      "Sid": "ReadManifestRunArtifacts",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "${results_bucket_arn}/cycle-1/manifest-runs/*"
+    },
+    {
       "Sid": "CreateCanonicalPublication",
       "Effect": "Allow",
       "Action": "s3:PutObject",
@@ -90,6 +96,7 @@
           "s3:prefix": [
             "cycle-publication-state/*/runs/*",
             "cycle-publication-state/*/seal.json",
+            "cycle-1/manifest-runs/*",
             "per-case/*",
             "reports/*/multi-ablation/*",
             "shard-receipts/*"

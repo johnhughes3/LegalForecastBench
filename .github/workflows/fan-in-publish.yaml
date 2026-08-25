@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       freeze_bundle_path:
-        description: Committed current freeze bundle path.
+        description: Immutable staged manifest-run freeze URI (s3://.../cycle-1/manifest-runs/<sha256>/freeze.json).
         required: true
         type: string
       source_dispatch_run_id:
@@ -92,6 +92,7 @@ jobs:
           ACCEPTED_MAP: ${{ inputs.accepted_attempt_map_path }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           FREEZE_BUNDLE: ${{ inputs.freeze_bundle_path }}
+          RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
           RELEASE_SHA: ${{ inputs.release_sha }}
           SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}
           SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}
@@ -128,8 +129,14 @@ jobs:
             echo "source_dispatch_run_attempt must be a positive integer" >&2
             exit 1
           }
-          [[ -f "${FREEZE_BUNDLE}" ]] || {
-            echo "freeze_bundle_path is not a checked-out file" >&2
+          [[ "${FREEZE_BUNDLE}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]] || {
+            echo "freeze_bundle_path must be an immutable manifest-run S3 URI" >&2
+            exit 1
+          }
+          freeze_location="${FREEZE_BUNDLE#s3://}"
+          freeze_bucket="${freeze_location%%/*}"
+          [[ -n "${RESULTS_BUCKET:-}" && "${freeze_bucket}" == "${RESULTS_BUCKET}" ]] || {
+            echo "freeze_bundle_path must use the configured LFB_RESULTS_BUCKET" >&2
             exit 1
           }
           if [[ -n "${ACCEPTED_MAP//[[:space:]]/}" ]]; then
@@ -321,6 +328,25 @@ jobs:
           role-session-name: lfb-fan-in-${{ github.run_id }}-${{ github.run_attempt }}
           role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
 
+      - name: Download immutable manifest-run bundle
+        shell: bash
+        env:
+          FREEZE_BUNDLE_URI: ${{ inputs.freeze_bundle_path }}
+        run: |
+          set -euo pipefail
+          root="/tmp/lfb-manifest-run"
+          rm -rf "${root}"
+          mkdir -p "${root}"
+          location="${FREEZE_BUNDLE_URI#s3://}"
+          bucket="${location%%/*}"
+          key="${location#*/}"
+          prefix="${key%/freeze.json}"
+          aws s3 sync "s3://${bucket}/${prefix}/" "${root}/" --only-show-errors
+          [[ -f "${root}/freeze.json" ]] || {
+            echo "manifest-run S3 prefix did not contain freeze.json" >&2
+            exit 1
+          }
+
       - name: Verify receipts and aggregate accepted exact versions
         shell: bash
         env:
@@ -328,7 +354,6 @@ jobs:
           BASELINES: ${{ inputs.baseline_training_examples_path }}
           CLEAN_MOTION_COUNT: ${{ inputs.clean_motion_count }}
           CYCLE_ID: ${{ inputs.cycle_id }}
-          FREEZE_BUNDLE: ${{ inputs.freeze_bundle_path }}
           PREDICTION_UNIT_COUNT: ${{ inputs.prediction_unit_count }}
           RELEASE_SHA: ${{ inputs.release_sha }}
           SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}
@@ -337,7 +362,8 @@ jobs:
         run: |
           set -euo pipefail
           args=(
-            --freeze-bundle "${FREEZE_BUNDLE}"
+            --freeze-bundle /tmp/lfb-manifest-run/freeze.json
+            --freeze-root /tmp/lfb-manifest-run
             --run-input-manifest /tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json
             --labels /tmp/lfb-source-dispatch/lfb-labels.jsonl
             --model-registry /tmp/lfb-source-dispatch/lfb-model-registry.json
@@ -347,11 +373,11 @@ jobs:
             --receipt-root "s3://${LFB_RESULTS_BUCKET}"
             --output-dir tmp/official-fan-in
           )
-          while IFS= read -r bundle_path; do
-            if [[ "${bundle_path}" != "${FREEZE_BUNDLE}" ]]; then
+          if [[ -d /tmp/lfb-manifest-run/amendments ]]; then
+            while IFS= read -r bundle_path; do
               args+=(--amendment-bundle "${bundle_path}")
-            fi
-          done < <(find manifests -type f -name '*.freeze.json' -print | sort)
+            done < <(find /tmp/lfb-manifest-run/amendments -type f -name '*.freeze.json' -print | sort)
+          fi
           [[ -z "${ACCEPTED_MAP//[[:space:]]/}" ]] || args+=(--accepted-attempt-map "${ACCEPTED_MAP}")
           [[ -z "${BASELINES//[[:space:]]/}" ]] || args+=(--baseline-training-examples "${BASELINES}")
           [[ -z "${CLEAN_MOTION_COUNT//[[:space:]]/}" ]] || args+=(--clean-motion-count "${CLEAN_MOTION_COUNT}")

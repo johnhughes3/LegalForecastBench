@@ -36,6 +36,23 @@
       }
     },
     {
+      "Sid": "ReadManifestRunArtifacts",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "${results_bucket_arn}/cycle-1/manifest-runs/*"
+    },
+    {
+      "Sid": "ListManifestRunArtifacts",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "${results_bucket_arn}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "cycle-1/manifest-runs/*"
+        }
+      }
+    },
+    {
       "Sid": "ReadWritePerCaseResults",
       "Effect": "Allow",
       "Action": [
