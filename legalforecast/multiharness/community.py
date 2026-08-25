@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import shutil
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -14,11 +13,21 @@ from typing import Any, Self, cast
 from urllib.parse import unquote, urlsplit
 
 from legalforecast._json_io import (
-    read_json_object,
-    read_jsonl_objects,
-    write_json_object,
-    write_jsonl_objects,
+    read_json_object_safe,
 )
+from legalforecast._json_io import (
+    write_json_object_safe as write_json_object,
+)
+from legalforecast._json_io import (
+    write_jsonl_objects_safe as write_jsonl_objects,
+)
+from legalforecast.immutable_io import (
+    ImmutableIOError,
+    ensure_private_directory,
+    read_single_link_file,
+    write_file_create_only,
+)
+from legalforecast.multiharness.artifacts import lfb_inspect_record_sha256
 from legalforecast.multiharness.container_runtime import validate_container_resume
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
@@ -26,6 +35,11 @@ from legalforecast.multiharness.local_cli_contracts import (
 )
 from legalforecast.multiharness.materialization import (
     TASK_MATERIALIZATION_SCHEMA_VERSION,
+)
+from legalforecast.multiharness.release_harness import (
+    ReleaseHarnessReceipt,
+    collect_release_harness_projections,
+    is_release_task,
 )
 from legalforecast.multiharness.run_progress import (
     CLAIM_FULL,
@@ -764,6 +778,36 @@ class CommunityPackageResult:
     submission_path: Path
 
 
+@dataclass(frozen=True, slots=True)
+class _ValidatedReleaseHarnessArtifacts:
+    """Exact reconstructed release artifacts safe for public packaging."""
+
+    receipts: tuple[Mapping[str, Any], ...]
+    lfb_records: tuple[Mapping[str, Any], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _RunSourceSnapshot:
+    """Exact single-link source bytes captured once before packaging."""
+
+    payloads: Mapping[str, bytes]
+
+    def optional_bytes(self, relative: str) -> bytes | None:
+        return self.payloads.get(relative)
+
+    def require_bytes(self, relative: str) -> bytes:
+        payload = self.optional_bytes(relative)
+        if payload is None:
+            raise ValueError(f"run artifact is missing: {relative}")
+        return payload
+
+    def json_object(self, relative: str, label: str) -> dict[str, Any]:
+        return _json_object_from_bytes(self.require_bytes(relative), label)
+
+    def jsonl_objects(self, relative: str, label: str) -> list[dict[str, Any]]:
+        return _jsonl_objects_from_bytes(self.require_bytes(relative), label)
+
+
 def package_community_submission(
     config: CommunityPackageConfig,
 ) -> CommunityPackageResult:
@@ -771,41 +815,88 @@ def package_community_submission(
 
     if not config.run_dir.is_dir():
         raise ValueError(f"run directory does not exist: {config.run_dir}")
-    config.output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        config.output_dir.lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        raise ValueError("community package output directory must be fresh")
+    ensure_private_directory(config.output_dir)
 
-    run_manifest_source = config.run_dir / "run-manifest.json"
-    row_results_source = config.run_dir / "row-results.jsonl"
-    run_manifest = RunManifest.from_record(_read_json(run_manifest_source, "run"))
-    rows = _read_jsonl(row_results_source, "row results")
+    initial_snapshot = _capture_run_source_snapshot(config.run_dir)
+    rows = initial_snapshot.jsonl_objects("row-results.jsonl", "row results")
     if not rows:
         raise ValueError("row-results.jsonl must contain at least one row")
-    _validate_live_run_receipts(config.run_dir, rows)
+    row_ids = tuple(_required_row_str(row, "row_id") for row in rows)
+    source_snapshot = _capture_run_source_snapshot(
+        config.run_dir,
+        row_ids=row_ids,
+        initial=initial_snapshot.payloads,
+    )
+    run_manifest = RunManifest.from_record(
+        source_snapshot.json_object("run-manifest.json", "run")
+    )
+    request_records, result_records = _validated_row_records(source_snapshot, rows)
+    _validate_canonical_run_aggregate(source_snapshot, rows, result_records)
+    _validate_live_run_receipts(
+        config.run_dir,
+        rows,
+        request_records,
+        result_records,
+        source_snapshot,
+    )
+    release_harness_artifacts = _validate_release_harness_receipts(
+        config.run_dir,
+        rows,
+        request_records,
+        result_records,
+        source_snapshot,
+    )
+    generic_lfb_records = _validate_generic_lfb_aggregate(
+        rows,
+        request_records,
+        result_records,
+        source_snapshot,
+        release_harness_artifacts=release_harness_artifacts,
+    )
     conformance_source = config.conformance_report_path or (
         config.run_dir / "conformance-report.json"
     )
+    try:
+        conformance_bytes = read_single_link_file(
+            conformance_source, label="conformance report"
+        )
+    except (ImmutableIOError, OSError) as exc:
+        raise ValueError("conformance report is unsafe or unavailable") from exc
     conformance = ConformanceReport.from_record(
-        _read_json(conformance_source, "conformance report")
+        _json_object_from_bytes(conformance_bytes, "conformance report")
     )
 
-    copied_paths = _copy_run_public_artifacts(config.run_dir, config.output_dir)
-    observation_path = _write_efficiency_observation_if_possible(
-        config.run_dir,
+    copied_paths = _copy_run_public_artifacts(
         config.output_dir,
+        source_snapshot=source_snapshot,
+        rows=rows,
+        results=result_records,
+        release_harness_artifacts=release_harness_artifacts,
+        generic_lfb_records=generic_lfb_records,
+    )
+    observation_path = _write_efficiency_observation_if_possible(
+        config.output_dir,
+        source_snapshot,
     )
     if observation_path is not None:
         copied_paths.append(observation_path)
     conformance_path = config.output_dir / "conformance-report.json"
-    shutil.copy2(conformance_source, conformance_path)
+    write_file_create_only(conformance_path, conformance_bytes, mode=0o600)
     copied_paths.append(conformance_path)
 
-    request_records = _request_records_for_rows(config.run_dir, rows)
     public_summary = _public_summary_record(
         run_manifest=run_manifest,
         rows=rows,
         requests=request_records,
         conformance=conformance,
         submission_id=config.submission_id,
-        run_dir=config.run_dir,
+        source_snapshot=source_snapshot,
     )
     public_summary_path = config.output_dir / "public-summary.json"
     write_json_object(public_summary_path, public_summary)
@@ -814,7 +905,7 @@ def package_community_submission(
         run_manifest=run_manifest,
         rows=rows,
         requests=request_records,
-        run_dir=config.run_dir,
+        source_snapshot=source_snapshot,
     )
     selection_manifest_path = config.output_dir / "selection-manifest.json"
     write_json_object(selection_manifest_path, selection_manifest)
@@ -858,7 +949,7 @@ def package_community_submission(
             rows=rows,
             requests=request_records,
             contributors=config.contributors,
-            run_dir=config.run_dir,
+            source_snapshot=source_snapshot,
         ),
     )
     submission_path = config.output_dir / "submission.json"
@@ -875,6 +966,9 @@ def package_community_submission(
 def _validate_live_run_receipts(
     run_dir: Path,
     rows: Sequence[Mapping[str, Any]],
+    requests: Mapping[str, Mapping[str, Any]],
+    results: Mapping[str, RunResult],
+    source_snapshot: _RunSourceSnapshot,
 ) -> None:
     """Revalidate private live receipts before publishing their commitments."""
 
@@ -889,9 +983,8 @@ def _validate_live_run_receipts(
     )
     if not live_rows:
         return
-    compatibility = _read_json(
-        run_dir / "run-compatibility.json",
-        "run compatibility",
+    compatibility = source_snapshot.json_object(
+        "run-compatibility.json", "run compatibility"
     )
     run_config = require_mapping(compatibility, "run_config")
     expected_solver_index = optional_str(
@@ -909,13 +1002,9 @@ def _validate_live_run_receipts(
         row_id = require_str(row, "row_id")
         validate_safe_relative_path(row_id, "row_id")
         row_dir = run_dir / "rows" / row_id
-        request = RunRequest.from_record(
-            _read_json(row_dir / "request.json", "live row request")
-        )
-        result = RunResult.from_record(
-            _read_json(row_dir / "result.json", "live row result")
-        )
-        input_manifest = _read_json(
+        request = RunRequest.from_record(requests[row_id])
+        result = results[row_id]
+        input_manifest = _read_json_safe(
             row_dir / "private-logs" / "solver-input-manifest.json",
             "live row solver-input manifest",
         )
@@ -1413,7 +1502,15 @@ def _validate_local_run_provenance(
             )
 
 
-def _copy_run_public_artifacts(run_dir: Path, output_dir: Path) -> list[Path]:
+def _copy_run_public_artifacts(
+    output_dir: Path,
+    *,
+    source_snapshot: _RunSourceSnapshot,
+    rows: Sequence[Mapping[str, Any]],
+    results: Mapping[str, RunResult],
+    release_harness_artifacts: _ValidatedReleaseHarnessArtifacts | None,
+    generic_lfb_records: tuple[Mapping[str, Any], ...],
+) -> list[Path]:
     copied: list[Path] = []
     for relative in (
         "run-manifest.json",
@@ -1425,29 +1522,58 @@ def _copy_run_public_artifacts(run_dir: Path, output_dir: Path) -> list[Path]:
         "efficiency-observation.json",
         "score-artifacts.jsonl",
         "execution-receipts.jsonl",
+        "release-harness-receipts.jsonl",
         "evaluation-receipt.json",
     ):
-        source = run_dir / relative
-        if not source.is_file():
+        if release_harness_artifacts is not None and relative in {
+            "lfb/runs.jsonl",
+            "release-harness-receipts.jsonl",
+        }:
+            records = (
+                release_harness_artifacts.lfb_records
+                if relative == "lfb/runs.jsonl"
+                else release_harness_artifacts.receipts
+            )
+            if records:
+                destination = output_dir / relative
+                ensure_private_directory(destination.parent)
+                write_jsonl_objects(destination, records)
+                copied.append(destination)
+            continue
+        payload = source_snapshot.optional_bytes(relative)
+        if payload is None:
             continue
         destination = output_dir / relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
+        ensure_private_directory(destination.parent)
         if relative == "row-results.jsonl":
-            _copy_scrubbed_jsonl(source, destination, forbidden_fields={"workspace"})
+            _copy_scrubbed_jsonl(rows, destination, forbidden_fields={"workspace"})
         elif relative == "canonical-runs.jsonl":
-            _copy_public_canonical_runs(source, destination)
+            _copy_public_canonical_runs(
+                (results[_required_row_str(row, "row_id")].to_record() for row in rows),
+                destination,
+            )
         elif relative == "lfb/runs.jsonl":
-            _copy_scrubbed_jsonl(source, destination, forbidden_fields={"raw_output"})
+            _copy_scrubbed_jsonl(
+                generic_lfb_records,
+                destination,
+                forbidden_fields={"raw_output"},
+            )
         elif relative == "execution-receipts.jsonl":
-            _copy_public_execution_receipts(source, destination)
+            _copy_public_execution_receipts(
+                _jsonl_objects_from_bytes(payload, "execution receipts"),
+                destination,
+            )
+        elif relative == "release-harness-receipts.jsonl":
+            raise ValueError("release harness receipts require release row evidence")
         else:
-            shutil.copy2(source, destination)
+            write_file_create_only(destination, payload, mode=0o600)
         copied.append(destination)
     return copied
 
 
-def _copy_public_execution_receipts(source: Path, destination: Path) -> None:
-    records = _read_jsonl(source, "execution receipts")
+def _copy_public_execution_receipts(
+    records: Iterable[Mapping[str, Any]], destination: Path
+) -> None:
     public_records: list[dict[str, Any]] = []
     for record in records:
         try:
@@ -1469,14 +1595,125 @@ def _copy_public_execution_receipts(source: Path, destination: Path) -> None:
     write_jsonl_objects(destination, public_records)
 
 
-def _write_efficiency_observation_if_possible(
+def _validate_release_harness_receipts(
     run_dir: Path,
+    rows: Sequence[Mapping[str, Any]],
+    requests: Mapping[str, Mapping[str, Any]],
+    results: Mapping[str, RunResult],
+    source_snapshot: _RunSourceSnapshot,
+) -> _ValidatedReleaseHarnessArtifacts | None:
+    """Bind release aggregates back to one immutable row-evidence snapshot."""
+
+    row_evidence: list[tuple[RunRequest, RunResult, Path]] = []
+    release_row_count = 0
+    for row in rows:
+        row_id = require_str(row, "row_id")
+        validate_safe_relative_path(row_id, "row_id")
+        row_dir = run_dir / "rows" / row_id
+        request = RunRequest.from_record(requests[row_id])
+        if not is_release_task(request):
+            continue
+        release_row_count += 1
+        row_evidence.append((request, results[row_id], row_dir))
+
+    receipt_payload = source_snapshot.optional_bytes("release-harness-receipts.jsonl")
+    lfb_payload = source_snapshot.optional_bytes("lfb/runs.jsonl")
+    if release_row_count == 0:
+        if receipt_payload is not None:
+            raise ValueError("release receipt aggregate requires release rows")
+        return None
+    if release_row_count != len(rows):
+        raise ValueError("release and non-release rows cannot share one package")
+
+    projections = collect_release_harness_projections(row_evidence)
+    expected_receipts = tuple(
+        projection.receipt.to_record() for projection in projections
+    )
+    expected_lfb_records = tuple(
+        projection.lfb_record
+        for projection in projections
+        if projection.lfb_record is not None
+    )
+    if receipt_payload is None:
+        if expected_receipts:
+            raise ValueError("release harness receipt aggregate is missing")
+    else:
+        actual_receipts = tuple(
+            ReleaseHarnessReceipt.from_record(record).to_record()
+            for record in _jsonl_objects_from_bytes(
+                receipt_payload, "release harness receipts"
+            )
+        )
+        if actual_receipts != expected_receipts:
+            raise ValueError(
+                "release harness receipt aggregate does not match run rows"
+            )
+
+    if lfb_payload is None:
+        if expected_lfb_records:
+            raise ValueError("release LFB aggregate is missing")
+    else:
+        actual_lfb_records = tuple(
+            _jsonl_objects_from_bytes(lfb_payload, "release LFB runs")
+        )
+        if actual_lfb_records != expected_lfb_records:
+            raise ValueError("release LFB aggregate does not match run rows")
+    return _ValidatedReleaseHarnessArtifacts(
+        receipts=expected_receipts,
+        lfb_records=expected_lfb_records,
+    )
+
+
+def _validate_generic_lfb_aggregate(
+    rows: Sequence[Mapping[str, Any]],
+    requests: Mapping[str, Mapping[str, Any]],
+    results: Mapping[str, RunResult],
+    source_snapshot: _RunSourceSnapshot,
+    *,
+    release_harness_artifacts: _ValidatedReleaseHarnessArtifacts | None,
+) -> tuple[Mapping[str, Any], ...]:
+    """Bind generic LFB projections to the durable per-row inspect records."""
+
+    if release_harness_artifacts is not None:
+        return ()
+    expected: list[Mapping[str, Any]] = []
+    for row in rows:
+        row_id = _required_row_str(row, "row_id")
+        request = RunRequest.from_record(requests[row_id])
+        if is_release_task(request):
+            raise ValueError("release and non-release rows cannot share one package")
+        relative = f"rows/{row_id}/lfb-inspect-record.json"
+        payload = source_snapshot.optional_bytes(relative)
+        if payload is None:
+            continue
+        record = _json_object_from_bytes(payload, "LFB inspect record")
+        if lfb_inspect_record_sha256(record) != results[row_id].result_sha256:
+            raise ValueError(
+                f"row {row_id} LFB inspect record does not match durable result"
+            )
+        expected.append(record)
+
+    aggregate_payload = source_snapshot.optional_bytes("lfb/runs.jsonl")
+    if aggregate_payload is None:
+        if expected:
+            raise ValueError("generic LFB aggregate is missing")
+        return ()
+    actual = tuple(_jsonl_objects_from_bytes(aggregate_payload, "generic LFB runs"))
+    if actual != tuple(expected):
+        raise ValueError("generic LFB aggregate does not match durable row evidence")
+    return tuple(expected)
+
+
+def _write_efficiency_observation_if_possible(
     output_dir: Path,
+    source_snapshot: _RunSourceSnapshot,
 ) -> Path | None:
     destination = output_dir / "efficiency-observation.json"
     if destination.is_file():
         return None
-    receipts = _load_full_execution_receipts(run_dir / "execution-receipts.jsonl")
+    receipts = _load_full_execution_receipts(
+        source_snapshot.optional_bytes("execution-receipts.jsonl")
+    )
     if not receipts:
         return None
     try:
@@ -1487,11 +1724,13 @@ def _write_efficiency_observation_if_possible(
     return destination
 
 
-def _load_full_execution_receipts(path: Path) -> tuple[ExecutionReceipt, ...]:
-    if not path.is_file():
+def _load_full_execution_receipts(
+    payload: bytes | None,
+) -> tuple[ExecutionReceipt, ...]:
+    if payload is None:
         return ()
     loaded: list[ExecutionReceipt] = []
-    for record in _read_jsonl(path, "execution receipts"):
+    for record in _jsonl_objects_from_bytes(payload, "execution receipts"):
         try:
             loaded.append(ExecutionReceipt.from_record(record))
         except (
@@ -1505,13 +1744,13 @@ def _load_full_execution_receipts(path: Path) -> tuple[ExecutionReceipt, ...]:
 
 
 def _v2_summary_fields(
-    run_dir: Path,
+    source_snapshot: _RunSourceSnapshot,
     rows: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    bindings, identity = _canonical_bindings_from_run(run_dir)
+    bindings, identity = _canonical_bindings_from_run(source_snapshot)
     if bindings is None:
         return {}
-    run_selection = _run_selection_record(run_dir)
+    run_selection = _run_selection_record(source_snapshot)
     coverage_kind = _coverage_kind_from_run(run_selection, rows)
     claim_kind = str(run_selection.get("claim_kind") or coverage_kind)
     fields: dict[str, Any] = {
@@ -1526,22 +1765,26 @@ def _v2_summary_fields(
 
 
 def _canonical_bindings_from_run(
-    run_dir: Path,
+    source_snapshot: _RunSourceSnapshot,
 ) -> tuple[CanonicalArtifactBindings | None, BoundIdentityKeys | None]:
     receipt_sha256, identity, spec_sha256, deliverable_sha256 = (
-        _execution_receipt_binding(run_dir / "execution-receipts.jsonl")
+        _execution_receipt_binding(
+            source_snapshot.optional_bytes("execution-receipts.jsonl")
+        )
     )
     score_sha256, evaluation_sha256 = _score_artifact_binding(
-        run_dir / "score-artifacts.jsonl"
+        source_snapshot.optional_bytes("score-artifacts.jsonl")
     )
     if evaluation_sha256 is None:
         evaluation_sha256 = _optional_digest_field(
-            run_dir / "evaluation-receipt.json",
+            source_snapshot.optional_bytes("evaluation-receipt.json"),
             "receipt_sha256",
         )
-    observation_path = run_dir / "efficiency-observation.json"
-    if observation_path.is_file():
-        observation = _read_json(observation_path, "efficiency observation")
+    observation_payload = source_snapshot.optional_bytes("efficiency-observation.json")
+    if observation_payload is not None:
+        observation = _json_object_from_bytes(
+            observation_payload, "efficiency observation"
+        )
         if receipt_sha256 is None:
             candidate = observation.get("execution_receipt_sha256")
             receipt_sha256 = candidate if isinstance(candidate, str) else None
@@ -1574,11 +1817,11 @@ def _canonical_bindings_from_run(
 
 
 def _execution_receipt_binding(
-    path: Path,
+    payload: bytes | None,
 ) -> tuple[str | None, BoundIdentityKeys | None, str | None, str | None]:
-    if not path.is_file():
+    if payload is None:
         return None, None, None, None
-    records = _read_jsonl(path, "execution receipts")
+    records = _jsonl_objects_from_bytes(payload, "execution receipts")
     if not records:
         return None, None, None, None
     record = records[0]
@@ -1615,10 +1858,10 @@ def _execution_receipt_binding(
         )
 
 
-def _score_artifact_binding(path: Path) -> tuple[str | None, str | None]:
-    if not path.is_file():
+def _score_artifact_binding(payload: bytes | None) -> tuple[str | None, str | None]:
+    if payload is None:
         return None, None
-    records = _read_jsonl(path, "score artifacts")
+    records = _jsonl_objects_from_bytes(payload, "score artifacts")
     if not records:
         return None, None
     record = records[0]
@@ -1630,10 +1873,10 @@ def _score_artifact_binding(path: Path) -> tuple[str | None, str | None]:
     )
 
 
-def _optional_digest_field(path: Path, field_name: str) -> str | None:
-    if not path.is_file():
+def _optional_digest_field(payload: bytes | None, field_name: str) -> str | None:
+    if payload is None:
         return None
-    record = _read_json(path, field_name)
+    record = _json_object_from_bytes(payload, field_name)
     value = record.get(field_name)
     return value if isinstance(value, str) else None
 
@@ -1669,12 +1912,11 @@ def _cli_record_sha256(record: Mapping[str, Any]) -> str:
 
 
 def _copy_scrubbed_jsonl(
-    source: Path,
+    records: Iterable[Mapping[str, Any]],
     destination: Path,
     *,
     forbidden_fields: set[str],
 ) -> None:
-    records = _read_jsonl(source, "public run artifact")
     scrubbed = [
         _scrub_public_json_record(record, forbidden_fields=forbidden_fields)
         for record in records
@@ -1682,8 +1924,9 @@ def _copy_scrubbed_jsonl(
     write_jsonl_objects(destination, scrubbed)
 
 
-def _copy_public_canonical_runs(source: Path, destination: Path) -> None:
-    records = _read_jsonl(source, "canonical run results")
+def _copy_public_canonical_runs(
+    records: Iterable[Mapping[str, Any]], destination: Path
+) -> None:
     projected: list[dict[str, Any]] = []
     for record in records:
         result = dict(record)
@@ -1746,13 +1989,13 @@ def _public_summary_record(
     requests: Mapping[str, Mapping[str, Any]],
     conformance: ConformanceReport,
     submission_id: str,
-    run_dir: Path,
+    source_snapshot: _RunSourceSnapshot,
 ) -> dict[str, Any]:
     summary = CommunityRunSummary(
         run_id=run_manifest.run_id,
         run_manifest_sha256=_file_sha256_from_record(run_manifest.to_record()),
         selection_sha256=run_manifest.selection_sha256,
-        selection_label=_selection_label(requests, run_dir=run_dir),
+        selection_label=_selection_label(requests, source_snapshot=source_snapshot),
         run_config_sha256=run_manifest.run_config_sha256,
         row_count=len(rows),
         result_status_counts=_counter_record(
@@ -1767,7 +2010,7 @@ def _public_summary_record(
             _required_row_str(row, "adapter_id") for row in rows
         ),
         model_keys=_sorted_unique(_required_row_str(row, "model_key") for row in rows),
-        **_v2_summary_fields(run_dir, rows),
+        **_v2_summary_fields(source_snapshot, rows),
     )
     return {
         "schema_version": COMMUNITY_PUBLIC_SUMMARY_SCHEMA_VERSION,
@@ -1787,13 +2030,13 @@ def _selection_manifest_record(
     run_manifest: RunManifest,
     rows: Sequence[Mapping[str, Any]],
     requests: Mapping[str, Mapping[str, Any]],
-    run_dir: Path,
+    source_snapshot: _RunSourceSnapshot,
 ) -> dict[str, Any]:
     task_ids = tuple(_required_row_str(row, "task_id") for row in rows)
-    run_selection = _run_selection_record(run_dir)
+    run_selection = _run_selection_record(source_snapshot)
     coverage_kind = _coverage_kind_from_run(run_selection, rows)
     claim_kind = str(run_selection.get("claim_kind") or coverage_kind)
-    selection_label = _selection_label(requests, run_dir=run_dir)
+    selection_label = _selection_label(requests, source_snapshot=source_snapshot)
     return {
         "schema_version": COMMUNITY_SELECTION_MANIFEST_SCHEMA_VERSION,
         "run_id": run_manifest.run_id,
@@ -1821,7 +2064,7 @@ def _submission_shards(
     rows: Sequence[Mapping[str, Any]],
     requests: Mapping[str, Mapping[str, Any]],
     contributors: tuple[ContributorCredit, ...],
-    run_dir: Path,
+    source_snapshot: _RunSourceSnapshot,
 ) -> tuple[CommunitySubmissionShard, ...]:
     groups: dict[tuple[str, str, str, str, str, str], list[Mapping[str, Any]]] = {}
     for row in rows:
@@ -1856,7 +2099,12 @@ def _submission_shards(
         ) = key
         task_ids = tuple(_required_row_str(row, "task_id") for row in shard_rows)
         sandbox_policy_hashes = tuple(
-            sorted({_sandbox_policy_hash_for_row(row, requests) for row in shard_rows})
+            sorted(
+                {
+                    _sandbox_policy_hash_for_row(row, requests, source_snapshot)
+                    for row in shard_rows
+                }
+            )
         )
         if len(sandbox_policy_hashes) != 1:
             raise MultiHarnessValidationError(
@@ -1873,7 +2121,9 @@ def _submission_shards(
                     suite_version=suite_version,
                 ),
                 selection_sha256=run_manifest.selection_sha256,
-                selection_label=_selection_label(requests, run_dir=run_dir),
+                selection_label=_selection_label(
+                    requests, source_snapshot=source_snapshot
+                ),
                 source_suite=family,
                 suite_version=suite_version,
                 task_selectors={"task_ids": list(task_ids)},
@@ -1899,25 +2149,62 @@ def _compatible_shard_group_id(
     return f"{family}:{scoring_mode}:{suite_version}"
 
 
-def _request_records_for_rows(
-    run_dir: Path,
+def _validated_row_records(
+    source_snapshot: _RunSourceSnapshot,
     rows: Sequence[Mapping[str, Any]],
-) -> dict[str, Mapping[str, Any]]:
+) -> tuple[dict[str, Mapping[str, Any]], dict[str, RunResult]]:
     requests: dict[str, Mapping[str, Any]] = {}
+    results: dict[str, RunResult] = {}
     for row in rows:
         row_id = _required_row_str(row, "row_id")
-        workspace = _row_workspace(row)
-        if not workspace.is_dir():
-            workspace = run_dir / "rows" / row_id
-        requests[row_id] = _read_json(workspace / "request.json", "run request")
-    return requests
+        validate_safe_relative_path(row_id, "row_id")
+        if row_id in requests:
+            raise ValueError(f"duplicate row_id in row results: {row_id}")
+        request = RunRequest.from_record(
+            source_snapshot.json_object(f"rows/{row_id}/request.json", "run request")
+        )
+        result = RunResult.from_record(
+            source_snapshot.json_object(f"rows/{row_id}/result.json", "run result")
+        )
+        expected_fields = {
+            "task_id": request.task.task_id,
+            "family": request.task.family,
+            "scoring_mode": request.task.scoring_mode,
+            "adapter_id": request.adapter.adapter_id,
+            "adapter_version": request.adapter.adapter_version,
+            "model_key": request.model_key,
+            "request_id": request.request_id,
+            "request_sha256": request.request_sha256,
+            "result_id": result.result_id,
+            "status": result.status,
+        }
+        for field_name, expected in expected_fields.items():
+            if _required_row_str(row, field_name) != expected:
+                raise ValueError(
+                    f"row {row_id} {field_name} does not match durable evidence"
+                )
+        if result.request_id != request.request_id:
+            raise ValueError(f"row {row_id} result does not match run request")
+        requests[row_id] = request.to_record()
+        results[row_id] = result
+    return requests, results
 
 
-def _row_workspace(row: Mapping[str, Any]) -> Path:
-    value = row.get("workspace")
-    if isinstance(value, str) and value.strip():
-        return Path(value)
-    return Path("rows") / _required_row_str(row, "row_id")
+def _validate_canonical_run_aggregate(
+    source_snapshot: _RunSourceSnapshot,
+    rows: Sequence[Mapping[str, Any]],
+    results: Mapping[str, RunResult],
+) -> None:
+    payload = source_snapshot.optional_bytes("canonical-runs.jsonl")
+    if payload is None:
+        return
+    actual = [
+        RunResult.from_record(record).to_record()
+        for record in _jsonl_objects_from_bytes(payload, "canonical run results")
+    ]
+    expected = [results[_required_row_str(row, "row_id")].to_record() for row in rows]
+    if actual != expected:
+        raise ValueError("canonical run aggregate does not match durable row results")
 
 
 def _artifact_reference_for(root: Path, path: Path) -> CommunityArtifactReference:
@@ -1953,23 +2240,122 @@ def _hf_upload_plan_record(
 
 
 def _read_json(path: Path, label: str) -> dict[str, Any]:
-    return read_json_object(
+    return _read_json_safe(path, label)
+
+
+def _read_json_safe(path: Path, label: str) -> dict[str, Any]:
+    return read_json_object_safe(
         path,
         error_factory=ValueError,
-        missing_message=lambda item: f"{label} does not exist: {item}",
+        missing_message=lambda item: f"{label} does not exist or is unsafe: {item}",
         non_object_message=lambda item: f"{label} must be a JSON object: {item}",
     )
 
 
 def _read_jsonl(path: Path, label: str) -> list[dict[str, Any]]:
-    return read_jsonl_objects(
-        path,
-        error_factory=ValueError,
-        missing_message=lambda item: f"{label} does not exist: {item}",
-        non_object_message=lambda item, line: (
-            f"{label} row {line} in {item} must be an object"
-        ),
-    )
+    return _read_jsonl_safe(path, label)
+
+
+def _read_jsonl_safe(path: Path, label: str) -> list[dict[str, Any]]:
+    try:
+        payload = read_single_link_file(path, label=label)
+    except (ImmutableIOError, OSError) as exc:
+        raise ValueError(f"{label} is unavailable or invalid") from exc
+
+    return _jsonl_objects_from_bytes(payload, label)
+
+
+def _json_object_from_bytes(payload: bytes, label: str) -> dict[str, Any]:
+    try:
+        value: object = json.loads(payload.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{label} must be valid UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    return cast(dict[str, Any], value)
+
+
+def _jsonl_objects_from_bytes(payload: bytes, label: str) -> list[dict[str, Any]]:
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError(f"{label} must be valid UTF-8 JSONL") from exc
+
+    records: list[dict[str, Any]] = []
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            value: object = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{label} row {line_number} must be valid JSON") from exc
+        if not isinstance(value, dict):
+            raise ValueError(f"{label} row {line_number} must be an object")
+        records.append(cast(dict[str, Any], value))
+    return records
+
+
+def _capture_run_source_snapshot(
+    run_dir: Path,
+    *,
+    row_ids: Sequence[str] = (),
+    initial: Mapping[str, bytes] | None = None,
+) -> _RunSourceSnapshot:
+    required = {
+        "run-manifest.json",
+        "row-results.jsonl",
+        "selection-manifest.json",
+    }
+    optional = {
+        "run-compatibility.json",
+        "canonical-runs.jsonl",
+        "lab/task-results.jsonl",
+        "lfb/runs.jsonl",
+        "efficiency-observation.json",
+        "score-artifacts.jsonl",
+        "execution-receipts.jsonl",
+        "release-harness-receipts.jsonl",
+        "evaluation-receipt.json",
+    }
+    for row_id in row_ids:
+        validate_safe_relative_path(row_id, "row_id")
+        required.update(
+            {
+                f"rows/{row_id}/request.json",
+                f"rows/{row_id}/result.json",
+            }
+        )
+        optional.update(
+            {
+                f"rows/{row_id}/sandbox.plan.json",
+                f"rows/{row_id}/lfb-inspect-record.json",
+            }
+        )
+    payloads: dict[str, bytes] = dict(initial or {})
+    for relative in sorted(required | optional):
+        if relative in payloads:
+            continue
+        path = run_dir / relative
+        try:
+            path.lstat()
+        except FileNotFoundError:
+            if relative in required:
+                if relative == "selection-manifest.json":
+                    raise MultiHarnessValidationError(
+                        "run is missing selection-manifest.json; "
+                        "coverage cannot be claimed"
+                    ) from None
+                raise ValueError(f"run artifact is missing: {relative}") from None
+            continue
+        except OSError as exc:
+            raise ValueError(f"run artifact is unavailable: {relative}") from exc
+        try:
+            payloads[relative] = read_single_link_file(path, label=relative)
+        except (ImmutableIOError, OSError) as exc:
+            raise ValueError(
+                f"run artifact is unavailable or invalid: {relative}"
+            ) from exc
+    return _RunSourceSnapshot(payloads=payloads)
 
 
 def _credit_tuple(records: Sequence[Any]) -> tuple[ContributorCredit, ...]:
@@ -2156,22 +2542,24 @@ def _request_task_field(request: Mapping[str, Any], field_name: str) -> str:
 def _sandbox_policy_hash_for_row(
     row: Mapping[str, Any],
     requests: Mapping[str, Mapping[str, Any]],
+    source_snapshot: _RunSourceSnapshot,
 ) -> str:
-    request = requests[_required_row_str(row, "row_id")]
+    row_id = _required_row_str(row, "row_id")
+    request = requests[row_id]
     sandbox_policy = require_mapping(request, "sandbox_policy")
-    return _file_or_record_sha256(
-        _row_workspace(row) / "sandbox.plan.json",
-        sandbox_policy,
-    )
+    payload = source_snapshot.optional_bytes(f"rows/{row_id}/sandbox.plan.json")
+    if payload is None:
+        return _file_sha256_from_record(sandbox_policy)
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
 def _selection_label(
     requests: Mapping[str, Mapping[str, Any]],
     *,
-    run_dir: Path | None = None,
+    source_snapshot: _RunSourceSnapshot | None = None,
 ) -> str:
-    if run_dir is not None:
-        record = _run_selection_record(run_dir)
+    if source_snapshot is not None:
+        record = _run_selection_record(source_snapshot)
         value = record.get("selection_label")
         if isinstance(value, str) and value.strip():
             return value
@@ -2184,14 +2572,11 @@ def _selection_label(
     return "submitted-run"
 
 
-def _run_selection_record(run_dir: Path) -> dict[str, Any]:
-    path = run_dir / "selection-manifest.json"
-    if not path.is_file():
-        raise MultiHarnessValidationError(
-            "run is missing selection-manifest.json; coverage cannot be claimed"
-        )
+def _run_selection_record(source_snapshot: _RunSourceSnapshot) -> dict[str, Any]:
     try:
-        return dict(_read_json(path, "run selection manifest"))
+        return source_snapshot.json_object(
+            "selection-manifest.json", "run selection manifest"
+        )
     except ValueError as exc:
         raise MultiHarnessValidationError(
             "run selection-manifest.json is unreadable; coverage cannot be claimed"
@@ -2321,12 +2706,6 @@ def _sorted_unique(values: Iterable[str]) -> tuple[str, ...]:
 def _counter_record(values: Iterable[str]) -> dict[str, int]:
     counter: Counter[str] = Counter(values)
     return dict(sorted(counter.items()))
-
-
-def _file_or_record_sha256(path: Path, record: Mapping[str, Any]) -> str:
-    if path.is_file():
-        return _file_sha256(path)
-    return _file_sha256_from_record(record)
 
 
 def _file_sha256_from_record(record: Mapping[str, Any]) -> str:

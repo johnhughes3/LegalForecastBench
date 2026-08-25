@@ -20,6 +20,7 @@ from legalforecast.multiharness.folder_selection import (
     PROJECTED_LAYOUT_SCHEMA_VERSION,
 )
 from legalforecast.multiharness.spec import CanonicalTask, TaskIndex
+from legalforecast.release.synthetic import issue_synthetic_release
 from pytest import CaptureFixture
 
 JsonRecord = dict[str, Any]
@@ -89,6 +90,100 @@ def test_multiharness_tasks_index_and_select_harvey_lab_fixture(
         "harvey_lab:corporate/merger"
     ]
     assert selection_record["tasks"][0]["metadata"]["module"] == "corporate"
+
+
+def test_multiharness_tasks_index_accepts_forecast_release_v1(tmp_path: Path) -> None:
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    task_index = tmp_path / "task-index.json"
+    solver_root = tmp_path / "solver-inputs"
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "lfb",
+                "--forecast-release",
+                str(release_root / "forecast-release.json"),
+                "--artifact-root",
+                str(release_root),
+                "--solver-input-root",
+                str(solver_root),
+                "--output",
+                str(task_index),
+            ]
+        )
+        == 0
+    )
+
+    record = _read_json(task_index)
+    assert len(record["tasks"]) == 3
+    assert record["tasks"][0]["metadata"]["release_schema_version"] == (
+        "legalforecast.forecast-release.v1"
+    )
+    assert (solver_root / "solver-input-index.json").is_file()
+    assert str(release_root.resolve()) not in json.dumps(record, sort_keys=True)
+
+
+def test_multiharness_run_refuses_command_adapter_for_release_input(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    task_index = tmp_path / "task-index.json"
+    solver_root = tmp_path / "solver-inputs"
+    manifest = _fixture_adapter_manifest(tmp_path)
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "lfb",
+                "--forecast-release",
+                str(release_root / "forecast-release.json"),
+                "--artifact-root",
+                str(release_root),
+                "--solver-input-root",
+                str(solver_root),
+                "--output",
+                str(task_index),
+            ]
+        )
+        == 0
+    )
+
+    output_dir = tmp_path / "run"
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(task_index),
+                "--solver-input-root",
+                str(solver_root),
+                "--adapter-manifest",
+                str(manifest),
+                "--model-key",
+                "fixture-model",
+                "--output-dir",
+                str(output_dir),
+                "--incomplete-run-policy",
+                "fail_fast",
+            ]
+        )
+        == 2
+    )
+    assert "does not support authenticated release solver input" in (
+        capsys.readouterr().err
+    )
+    assert not (output_dir / "release-harness-receipts.jsonl").exists()
 
 
 def test_multiharness_category_alias_selects_lab_module(tmp_path: Path) -> None:
@@ -524,6 +619,32 @@ def test_cli_inspect_lfb_native_still_works(tmp_path: Path) -> None:
     )
     manifest = (output_dir / "adapter-manifest.json").read_text(encoding="utf-8")
     assert LFB_NATIVE_REGISTRY_NAME in manifest
+
+
+def test_cli_inspect_refuses_symlinked_capabilities_directory(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "inspect"
+    output_dir.mkdir(mode=0o700)
+    outside = tmp_path / "outside"
+    outside.mkdir(mode=0o700)
+    (output_dir / "capabilities").symlink_to(outside, target_is_directory=True)
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "adapters",
+                "inspect",
+                "--adapter",
+                LFB_NATIVE_REGISTRY_NAME,
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        == 2
+    )
+    assert tuple(outside.iterdir()) == ()
 
 
 def test_cli_unknown_adapter_fails_with_known_names(

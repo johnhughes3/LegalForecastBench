@@ -16,14 +16,26 @@ from legalforecast.multiharness.community import (
     CommunityArtifactReference,
     CommunityPackageConfig,
     CommunitySubmissionManifest,
+    _validate_canonical_run_aggregate,
+    _validate_release_harness_receipts,
     package_community_submission,
     validate_submission_file,
 )
+from legalforecast.multiharness.release_adapters import NeutralApiFixtureAdapter
+from legalforecast.multiharness.release_harness import release_record_sha256
+from legalforecast.multiharness.runner import (
+    ModelConfig,
+    MultiHarnessRunConfig,
+    run_multi_harness,
+)
+from legalforecast.multiharness.sandbox import sandbox_policy
+from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.solver_inputs import (
     SOLVER_INPUT_ENTRY_PATH,
     SOLVER_INPUT_EXECUTION_MANIFEST_SCHEMA_VERSION,
     SOLVER_INPUT_LAYOUT_ID,
     SOLVER_INPUT_PAYLOAD_SCHEMA_VERSION,
+    SolverInputStore,
 )
 from legalforecast.multiharness.spec import (
     ADAPTER_MANIFEST_SCHEMA_VERSION,
@@ -37,8 +49,10 @@ from legalforecast.multiharness.spec import (
     TOOL_REQUEST_SCHEMA_VERSION,
     ContributorCredit,
 )
+from legalforecast.multiharness.task_loaders import ReleaseLfbTaskLoader
 from legalforecast.multiharness.validation import MultiHarnessValidationError
 from legalforecast.publication.publication_guardrails import PublicationGuardrailError
+from legalforecast.release.synthetic import issue_synthetic_release
 
 JsonRecord = dict[str, Any]
 SHA1 = "sha256:" + "1" * 64
@@ -62,6 +76,7 @@ def test_community_package_cli_writes_pr_ready_submission(tmp_path: Path) -> Non
         }
     ]
     _write_jsonl(run_dir / "canonical-runs.jsonl", canonical_runs)
+    _write_json(run_dir / "rows" / "row-1" / "result.json", canonical_runs[0])
 
     assert (
         main(
@@ -185,6 +200,294 @@ def test_missing_run_selection_manifest_fails_closed_on_package(
         package_community_submission(
             _package_config(run_dir, tmp_path / "missing-selection")
         )
+
+
+def test_package_preserves_release_harness_receipts(tmp_path: Path) -> None:
+    run_dir = _write_release_run_dir(tmp_path)
+    receipts = _read_jsonl(run_dir / "release-harness-receipts.jsonl")
+    lfb_records = _read_jsonl(run_dir / "lfb/runs.jsonl")
+    output_dir = tmp_path / "release-receipt-package"
+
+    package_community_submission(_package_config(run_dir, output_dir))
+
+    assert _read_jsonl(output_dir / "release-harness-receipts.jsonl") == receipts
+    assert _read_jsonl(output_dir / "lfb/runs.jsonl") == lfb_records
+
+
+def test_package_rejects_forged_release_lfb_projection(tmp_path: Path) -> None:
+    run_dir = _write_release_run_dir(tmp_path)
+    lfb_records = _read_jsonl(run_dir / "lfb/runs.jsonl")
+    parser_output = cast(JsonRecord, lfb_records[0]["parser_output"])
+    parser_output["is_valid"] = False
+    _write_jsonl(run_dir / "lfb/runs.jsonl", lfb_records)
+
+    with pytest.raises(ValueError, match="release LFB aggregate does not match"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "forged-release-lfb")
+        )
+
+
+def test_unscoreable_release_row_packages_receipt_without_lfb_record(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_release_run_dir(tmp_path, task_offset=2)
+    output_dir = tmp_path / "unscoreable-release-package"
+
+    package_community_submission(_package_config(run_dir, output_dir))
+
+    receipts = _read_jsonl(output_dir / "release-harness-receipts.jsonl")
+    assert len(receipts) == 1
+    assert receipts[0]["unit_id"] == "unit-003"
+    assert receipts[0]["should_score"] is False
+    assert not (run_dir / "lfb/runs.jsonl").exists()
+    assert not (output_dir / "lfb/runs.jsonl").exists()
+
+
+def test_package_rejects_invalid_release_harness_receipt(tmp_path: Path) -> None:
+    run_dir = _write_release_run_dir(tmp_path)
+    receipt = _read_jsonl(run_dir / "release-harness-receipts.jsonl")[0]
+    _write_jsonl(
+        run_dir / "release-harness-receipts.jsonl",
+        [
+            {
+                **receipt,
+                "receipt_sha256": SHA1,
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="digest does not match"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "invalid-release-receipt")
+        )
+
+
+def test_package_rejects_semantically_empty_release_harness_receipt(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_release_run_dir(tmp_path)
+    content = {
+        "schema_version": "legalforecast.multiharness.release_harness_receipt.v1",
+        "receipt_id": "fixture-receipt",
+    }
+    _write_jsonl(
+        run_dir / "release-harness-receipts.jsonl",
+        [
+            {
+                **content,
+                "receipt_sha256": release_record_sha256(content),
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="fields are invalid"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "empty-release-receipt")
+        )
+
+
+def test_package_rejects_self_rehashed_release_receipt_not_bound_to_rows(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_release_run_dir(tmp_path)
+    receipt = _read_jsonl(run_dir / "release-harness-receipts.jsonl")[0]
+    adapter = cast(JsonRecord, receipt["adapter"])
+    adapter["model_key"] = "forged-model"
+    receipt["treatment_id"] = (
+        f"{receipt['harness_track']}:{adapter['adapter_id']}:"
+        f"{adapter['adapter_version']}:forged-model"
+    )
+    content = {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+    receipt["receipt_sha256"] = release_record_sha256(content)
+    _write_jsonl(run_dir / "release-harness-receipts.jsonl", [receipt])
+
+    with pytest.raises(ValueError, match="does not match run rows"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "forged-release-receipt")
+        )
+
+
+def test_package_rejects_symlinked_release_receipt_aggregate(tmp_path: Path) -> None:
+    run_dir = _write_release_run_dir(tmp_path)
+    receipt_path = run_dir / "release-harness-receipts.jsonl"
+    outside = tmp_path / "outside-release-harness-receipts.jsonl"
+    receipt_path.rename(outside)
+    receipt_path.symlink_to(outside)
+
+    with pytest.raises(ValueError, match="unavailable or invalid"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "symlinked-release-receipt")
+        )
+
+
+def test_package_uses_one_request_snapshot_after_release_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_dir = _write_release_run_dir(tmp_path)
+    row_id = cast(str, _read_jsonl(run_dir / "row-results.jsonl")[0]["row_id"])
+    request_path = run_dir / "rows" / row_id / "request.json"
+    original_request = _read_json(request_path)
+    original_suite = cast(JsonRecord, original_request["task"])["suite_version"]
+    original_validate = _validate_release_harness_receipts
+
+    def mutate_after_validation(*args: Any, **kwargs: Any):
+        receipts = original_validate(*args, **kwargs)
+        mutated = _read_json(request_path)
+        cast(JsonRecord, mutated["task"])["suite_version"] = "forged-suite"
+        _write_json(request_path, mutated)
+        return receipts
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.community._validate_release_harness_receipts",
+        mutate_after_validation,
+    )
+    output_dir = tmp_path / "request-snapshot-package"
+
+    result = package_community_submission(_package_config(run_dir, output_dir))
+
+    assert result.manifest.shards[0].suite_version == original_suite
+    assert "forged-suite" not in (output_dir / "submission.json").read_text("utf-8")
+
+
+def test_package_uses_reconstructed_lfb_snapshot_after_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_dir = _write_release_run_dir(tmp_path)
+    lfb_path = run_dir / "lfb/runs.jsonl"
+    expected = _read_jsonl(lfb_path)
+    original_validate = _validate_release_harness_receipts
+
+    def mutate_after_validation(*args: Any, **kwargs: Any):
+        artifacts = original_validate(*args, **kwargs)
+        forged = _read_jsonl(lfb_path)
+        cast(JsonRecord, forged[0]["parser_output"])["is_valid"] = False
+        _write_jsonl(lfb_path, forged)
+        return artifacts
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.community._validate_release_harness_receipts",
+        mutate_after_validation,
+    )
+    output_dir = tmp_path / "lfb-snapshot-package"
+
+    package_community_submission(_package_config(run_dir, output_dir))
+
+    assert _read_jsonl(output_dir / "lfb/runs.jsonl") == expected
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "task_id",
+        "family",
+        "scoring_mode",
+        "adapter_id",
+        "adapter_version",
+        "model_key",
+        "request_id",
+        "request_sha256",
+        "result_id",
+        "status",
+    ],
+)
+def test_package_rejects_row_claim_drift(tmp_path: Path, field_name: str) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    rows = _read_jsonl(run_dir / "row-results.jsonl")
+    rows[0][field_name] = SHA1 if field_name.endswith("sha256") else "forged"
+    _write_jsonl(run_dir / "row-results.jsonl", rows)
+
+    with pytest.raises(ValueError, match=field_name):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / f"forged-{field_name}")
+        )
+
+
+def test_package_rejects_duplicate_row_id(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    rows = _read_jsonl(run_dir / "row-results.jsonl")
+    _write_jsonl(run_dir / "row-results.jsonl", [rows[0], dict(rows[0])])
+
+    with pytest.raises(ValueError, match="duplicate row_id"):
+        package_community_submission(_package_config(run_dir, tmp_path / "duplicate"))
+
+
+def test_package_rejects_durable_result_request_mismatch(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    result_path = run_dir / "rows" / "row-1" / "result.json"
+    result = _read_json(result_path)
+    result["request_id"] = "forged-request"
+    _write_json(result_path, result)
+
+    with pytest.raises(ValueError, match="result does not match run request"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "result-request-mismatch")
+        )
+
+
+@pytest.mark.parametrize("link_kind", ["symlink", "hardlink"])
+def test_package_rejects_linked_required_source(tmp_path: Path, link_kind: str) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    source = run_dir / "canonical-runs.jsonl"
+    outside = tmp_path / f"outside-{link_kind}.jsonl"
+    source.rename(outside)
+    if link_kind == "symlink":
+        source.symlink_to(outside)
+    else:
+        source.hardlink_to(outside)
+
+    with pytest.raises(ValueError, match="unavailable or invalid"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / f"linked-{link_kind}")
+        )
+
+
+def test_package_uses_canonical_snapshot_after_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    expected = _read_jsonl(run_dir / "canonical-runs.jsonl")
+    original_validate = _validate_canonical_run_aggregate
+
+    def mutate_after_validation(*args: Any, **kwargs: Any) -> None:
+        original_validate(*args, **kwargs)
+        forged = _read_jsonl(run_dir / "canonical-runs.jsonl")
+        cast(JsonRecord, forged[0]["public_summary"])["task_id"] = "forged"
+        _write_jsonl(run_dir / "canonical-runs.jsonl", forged)
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.community._validate_canonical_run_aggregate",
+        mutate_after_validation,
+    )
+    output_dir = tmp_path / "canonical-snapshot"
+
+    package_community_submission(_package_config(run_dir, output_dir))
+
+    assert _read_jsonl(output_dir / "canonical-runs.jsonl") == expected
+
+
+def test_package_rejects_forged_generic_lfb_projection(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    inspect_record = _bind_generic_lfb_record(run_dir)
+    forged = dict(inspect_record)
+    forged["score"] = 0.99
+    _write_jsonl(run_dir / "lfb" / "runs.jsonl", [forged])
+
+    with pytest.raises(ValueError, match="generic LFB aggregate does not match"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "forged-generic-lfb")
+        )
+
+
+def test_package_requires_fresh_output_directory(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    output_dir = tmp_path / "existing-output"
+    output_dir.mkdir()
+
+    with pytest.raises(ValueError, match="must be fresh"):
+        package_community_submission(_package_config(run_dir, output_dir))
 
 
 def test_unknown_coverage_kind_fails_closed_on_package(tmp_path: Path) -> None:
@@ -626,17 +929,18 @@ def test_package_scrubs_lfb_raw_output_from_public_submission(
 ) -> None:
     run_dir = _write_run_dir(tmp_path)
     lfb_runs_path = run_dir / "lfb" / "runs.jsonl"
-    _write_jsonl(
-        lfb_runs_path,
-        [
-            {
-                "sample_id": "sample-1",
-                "raw_output": "private chain of thought and provider transcript",
-                "raw_output_sha256": SHA4,
-                "score": 0.12,
-            }
-        ],
-    )
+    inspect_record = {
+        "sample_id": "sample-1",
+        "raw_output": "private chain of thought and provider transcript",
+        "raw_output_sha256": SHA4,
+        "score": 0.12,
+    }
+    _write_jsonl(lfb_runs_path, [inspect_record])
+    _write_json(run_dir / "rows" / "row-1" / "lfb-inspect-record.json", inspect_record)
+    result = _read_json(run_dir / "rows" / "row-1" / "result.json")
+    result["result_sha256"] = _record_sha256(inspect_record)
+    _write_json(run_dir / "rows" / "row-1" / "result.json", result)
+    _write_jsonl(run_dir / "canonical-runs.jsonl", [result])
     output_dir = tmp_path / "submission-package"
 
     package_community_submission(_package_config(run_dir, output_dir))
@@ -756,6 +1060,63 @@ def _package_config(run_dir: Path, output_dir: Path) -> CommunityPackageConfig:
     )
 
 
+def _write_release_run_dir(tmp_path: Path, *, task_offset: int = 0) -> Path:
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    solver_root = tmp_path / "solver-inputs"
+    task_index = ReleaseLfbTaskLoader().load_forecast_release(
+        release_root / "forecast-release.json",
+        artifact_root=release_root,
+        solver_input_root=solver_root,
+    )
+    task = task_index.tasks[task_offset]
+    unit_id = cast(str, task.metadata["unit_id"])
+    adapter = NeutralApiFixtureAdapter(
+        raw_output=(
+            '{"case_assessment":"fixture","predictions":'
+            f'[{{"unit_id":"{unit_id}","probability_fully_dismissed":0.5}}]}}'
+        )
+    )
+    run_dir = tmp_path / "release-run"
+    run_multi_harness(
+        MultiHarnessRunConfig(
+            task_index=task_index,
+            adapters=(adapter,),
+            model_configs=(
+                ModelConfig(
+                    model_key="neutral:fixture",
+                    adapter_id=adapter.manifest.adapter_id,
+                ),
+            ),
+            sandbox_policy=sandbox_policy(
+                policy_id="release-community-fixture",
+                backend="docker",
+                image="python:3.12-slim",
+                mounts=(),
+                timeout_seconds=30,
+                network_policy="none",
+            ),
+            output_dir=run_dir,
+            selection=TaskSelection(task_ids=(task.task_id,)),
+            solver_inputs=SolverInputStore.load(solver_root),
+            incomplete_run_policy="fail_fast",
+        )
+    )
+    _write_json(
+        run_dir / "conformance-report.json",
+        {
+            "schema_version": CONFORMANCE_REPORT_SCHEMA_VERSION,
+            "report_id": "release-neutral-conformance",
+            "adapter_id": adapter.manifest.adapter_id,
+            "adapter_version": adapter.manifest.adapter_version,
+            "status": "passed",
+            "checks": {"release_fixture": "passed: provider-free release run"},
+            "artifacts": [],
+        },
+    )
+    return run_dir
+
+
 def _mark_first_row_live(run_dir: Path, *, receipt_sha256: str) -> None:
     rows = _read_jsonl(run_dir / "row-results.jsonl")
     rows[0]["container_execution"] = {
@@ -822,6 +1183,7 @@ def _solver_input_manifest(request: JsonRecord) -> JsonRecord:
     solver_entry = {
         "task_id": task["task_id"],
         "task_sha256": task["task_sha256"],
+        "task_record_sha256": _record_sha256_with_newline(task),
         "prompt_sha256": SHA1,
         "entrypoint_path": SOLVER_INPUT_ENTRY_PATH,
         "files": [prompt_file, source_file],
@@ -921,6 +1283,7 @@ def _write_run_dir(tmp_path: Path) -> Path:
         "row_id": "row-1",
         "task_id": "harvey_lab:corporate/merger",
         "family": "harvey_lab",
+        "scoring_mode": "lab_native",
         "adapter_id": "fixture-cli",
         "adapter_version": "0.1.0",
         "model_key": "fixture-model",
@@ -990,6 +1353,9 @@ def _write_run_dir(tmp_path: Path) -> Path:
     }
     _write_json(row_dir / "request.json", request)
     _write_json(
+        row_dir / "result.json", _read_jsonl(run_dir / "canonical-runs.jsonl")[0]
+    )
+    _write_json(
         row_dir / "sandbox.plan.json",
         {"backend": "docker", "argv": [], "policy": request["sandbox_policy"]},
     )
@@ -1017,6 +1383,22 @@ def _write_run_dir(tmp_path: Path) -> Path:
         },
     )
     return run_dir
+
+
+def _bind_generic_lfb_record(run_dir: Path) -> JsonRecord:
+    inspect_record: JsonRecord = {
+        "sample_id": "sample-1",
+        "raw_output": "private chain of thought and provider transcript",
+        "raw_output_sha256": SHA4,
+        "score": 0.12,
+    }
+    _write_jsonl(run_dir / "lfb" / "runs.jsonl", [inspect_record])
+    _write_json(run_dir / "rows" / "row-1" / "lfb-inspect-record.json", inspect_record)
+    result = _read_json(run_dir / "rows" / "row-1" / "result.json")
+    result["result_sha256"] = _record_sha256(inspect_record)
+    _write_json(run_dir / "rows" / "row-1" / "result.json", result)
+    _write_jsonl(run_dir / "canonical-runs.jsonl", [result])
+    return inspect_record
 
 
 def _set_run_selection_sha256(run_dir: Path, selection_sha256: str) -> None:
@@ -1060,6 +1442,7 @@ def _append_run_row(
     )
     canonical_runs.append(canonical_result)
     _write_jsonl(run_dir / "canonical-runs.jsonl", canonical_runs)
+    _write_json(row_dir / "result.json", canonical_result)
 
     run_manifest = _read_json(run_dir / "run-manifest.json")
     request_ids = cast(list[str], run_manifest["request_ids"])

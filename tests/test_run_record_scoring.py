@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 
 import pytest
-from legalforecast.evals.output_parser import ParserStatus
+from legalforecast.evals.output_parser import (
+    ParserStatus,
+    parse_model_output,
+    public_parser_record,
+)
 from legalforecast.evals.run_record_scoring import score_run_records
 from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
 
@@ -111,6 +115,23 @@ def test_score_run_records_quality_rates_include_all_ambiguous_cases_and_units()
     assert summary.invalid_output_rate == 0.5
     assert summary.refusal_rate == 0.5
     assert summary.defaulted_prediction_rate == 0.5
+
+
+def test_score_run_records_accepts_public_prose_free_parser_projection() -> None:
+    record = _run_record()
+    raw_output = str(record.pop("raw_output"))
+    record["parser_output"] = public_parser_record(
+        parse_model_output(raw_output, required_unit_ids=("unit-a", "unit-b"))
+    )
+
+    summaries = score_run_records(
+        (record,),
+        (_label("unit-a", True), _label("unit-b", False)),
+        base_rate=0.5,
+    )
+
+    assert summaries[0].unit_count == 2
+    assert summaries[0].invalid_output_rate == 0.0
 
 
 def test_score_run_records_rejects_duplicate_outcome_label_unit_ids() -> None:

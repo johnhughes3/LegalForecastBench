@@ -19,6 +19,7 @@ from legalforecast.ingestion.canonical_json import (
 
 from .schemas import (
     RAW_BYTES_CODEC_V1,
+    RAW_BYTES_PREFIXED_SHA256_COMMITMENT_V1,
     RAW_BYTES_RAW_SHA256_COMMITMENT_V1,
     SchemaIdentifier,
 )
@@ -265,4 +266,9 @@ RAW_BYTES_RAW_SHA256_V1 = CommitmentProfile(
     str(RAW_BYTES_RAW_SHA256_COMMITMENT_V1),
     RAW_BYTES_V1,
     DigestRepresentation.RAW_HEX,
+)
+RAW_BYTES_PREFIXED_SHA256_V1 = CommitmentProfile(
+    str(RAW_BYTES_PREFIXED_SHA256_COMMITMENT_V1),
+    RAW_BYTES_V1,
+    DigestRepresentation.SHA256_PREFIXED,
 )

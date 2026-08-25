@@ -10,6 +10,12 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from legalforecast.multiharness.release_harness import (
+    RELEASE_FORECAST_OUTPUT_ARTIFACT_ID,
+    RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID,
+    is_release_task,
+    write_release_create_only,
+)
 from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
 from legalforecast.multiharness.spec import (
     TOOL_REQUEST_SCHEMA_VERSION,
@@ -159,6 +165,7 @@ def run_openai_responses(
     requested_model = _requested_model(request.model_key)
     required_unit_ids = _required_unit_ids(request)
     conversation: list[Any] = _initial_input(request, required_unit_ids)
+    transcript: list[dict[str, Any]] = []
     common: dict[str, Any] = {
         "include": ["reasoning.encrypted_content"],
         "instructions": _instructions(required_unit_ids),
@@ -168,8 +175,9 @@ def run_openai_responses(
         "timeout": float(request.sandbox_policy.timeout_seconds),
         "tools": [_READ_TASK_TOOL],
     }
-    response = _provider_request(
+    response = _recorded_provider_request(
         client,
+        transcript,
         **common,
         input=list(conversation),
         tool_choice="required",
@@ -239,8 +247,9 @@ def run_openai_responses(
                         ),
                     }
                 )
-            response = _provider_request(
+            response = _recorded_provider_request(
                 client,
+                transcript,
                 **common,
                 input=list(conversation),
                 tool_choice="auto",
@@ -260,6 +269,7 @@ def run_openai_responses(
             tool_call_count=tool_call_count,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            transcript=tuple(transcript),
         )
 
 
@@ -270,6 +280,23 @@ def _provider_request(client: OpenAIClient, **kwargs: Any) -> object:
         raise
     except Exception:
         raise OpenAIResponsesAdapterError("OpenAI Responses request failed") from None
+
+
+def _recorded_provider_request(
+    client: OpenAIClient,
+    transcript: list[dict[str, Any]],
+    **kwargs: Any,
+) -> object:
+    """Retain the complete private request/response turn before continuing."""
+
+    response = _provider_request(client, **kwargs)
+    transcript.append(
+        {
+            "request": _json_compatible(kwargs),
+            "response": _json_compatible(response),
+        }
+    )
+    return response
 
 
 def _successful_result(
@@ -283,6 +310,7 @@ def _successful_result(
     tool_call_count: int,
     input_tokens: int,
     output_tokens: int,
+    transcript: tuple[Mapping[str, Any], ...],
 ) -> RunResult:
     private_logs = workspace / "private-logs"
     private_logs.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -291,13 +319,33 @@ def _successful_result(
     encoded_forecast = (
         json.dumps(forecast, indent=2, sort_keys=True, allow_nan=False) + "\n"
     ).encode("utf-8")
-    forecast_path.write_bytes(encoded_forecast)
-    forecast_path.chmod(0o600)
+    write_release_create_only(forecast_path, encoded_forecast, mode=0o600)
     forecast_sha256 = f"sha256:{hashlib.sha256(encoded_forecast).hexdigest()}"
+    transcript_record: object = transcript
+    if is_release_task(request):
+        prompt_sha256 = request.task.metadata.get("prompt_sha256")
+        if not isinstance(prompt_sha256, str):
+            raise OpenAIResponsesAdapterError(
+                "release task is missing its prompt commitment"
+            )
+        transcript_record = {
+            "request_sha256": request.request_sha256,
+            "packet_sha256": request.task.task_sha256,
+            "prompt_sha256": prompt_sha256,
+            "response_sha256": forecast_sha256,
+            "turns": list(transcript),
+        }
+    encoded_transcript = (
+        json.dumps(transcript_record, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    transcript_path = private_logs / "openai-transcript.json"
+    write_release_create_only(transcript_path, encoded_transcript, mode=0o600)
+    transcript_sha256 = f"sha256:{hashlib.sha256(encoded_transcript).hexdigest()}"
     summary: dict[str, Any] = {
         "adapter_id": OPENAI_RESPONSES_ADAPTER_ID,
         "adapter_bundle_sha256": adapter_bundle_sha256(),
         "adapter_version": OPENAI_RESPONSES_ADAPTER_VERSION,
+        "allowed_tools": [_READ_TASK_TOOL_NAME],
         "auth_mode": "api-key-by-user-environment",
         "forecast_sha256": forecast_sha256,
         "input_tokens": input_tokens,
@@ -316,8 +364,11 @@ def _successful_result(
         "served_model": served_model,
         "subscription_login_claimed": False,
         "task_id": request.task.task_id,
+        "tool_policy": "host_read_canonical_task_only",
         "tool_call_count": tool_call_count,
         "total_tokens": input_tokens + output_tokens,
+        "harness_track": "neutral",
+        "transcript_sha256": transcript_sha256,
     }
     validate_public_record(summary, "openai_responses.public_summary")
     commitment = {
@@ -332,15 +383,49 @@ def _successful_result(
         result_sha256=_record_sha256(commitment),
         artifacts=(
             ArtifactRecord(
-                artifact_id="openai-forecast-private",
+                artifact_id=RELEASE_FORECAST_OUTPUT_ARTIFACT_ID,
                 path="private-logs/openai-forecast.json",
                 sha256=forecast_sha256,
                 media_type="application/json",
                 public=False,
                 size_bytes=len(encoded_forecast),
             ),
+            ArtifactRecord(
+                artifact_id=RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID,
+                path="private-logs/openai-transcript.json",
+                sha256=transcript_sha256,
+                media_type="application/json",
+                public=False,
+                size_bytes=len(encoded_transcript),
+            ),
         ),
         public_summary=summary,
+    )
+
+
+def _json_compatible(value: object) -> Any:
+    """Convert SDK response objects into a complete private JSON transcript."""
+
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    if isinstance(value, Mapping):
+        return {
+            str(key): _json_compatible(item)
+            for key, item in cast(Mapping[object, object], value).items()
+        }
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes):
+        return [_json_compatible(item) for item in cast(Sequence[object], value)]
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return _json_compatible(model_dump(mode="json"))
+    to_dict = getattr(value, "to_dict", None)
+    if callable(to_dict):
+        return _json_compatible(to_dict())
+    attributes = getattr(value, "__dict__", None)
+    if isinstance(attributes, Mapping):
+        return _json_compatible(cast(Mapping[object, object], attributes))
+    raise OpenAIResponsesAdapterError(
+        "OpenAI Responses transcript contains a non-serializable value"
     )
 
 
@@ -402,7 +487,8 @@ def _instructions(required_unit_ids: Sequence[str]) -> str:
     return (
         "You are producing a LegalForecastBench community baseline forecast. "
         "Use only the complete solver prompt available through "
-        f"{_READ_TASK_TOOL_NAME}. Return only JSON with one predictions array. "
+        f"{_READ_TASK_TOOL_NAME}. Return only JSON with a non-empty "
+        "case_assessment string and one predictions array. "
         "Each prediction must contain unit_id and probability_fully_dismissed. "
         f"The exact required unit IDs are {encoded_ids}; probabilities must be "
         "finite numbers from 0 through 1. Do not include analysis or prose."
@@ -477,9 +563,14 @@ def _validated_forecast(
             "OpenAI Responses forecast must be a JSON object"
         )
     record = cast(dict[str, Any], decoded)
-    if set(record) != {"predictions"}:
+    if set(record) != {"case_assessment", "predictions"}:
         raise OpenAIResponsesAdapterError(
             "OpenAI Responses forecast has unexpected fields"
+        )
+    case_assessment = record["case_assessment"]
+    if not isinstance(case_assessment, str) or not case_assessment.strip():
+        raise OpenAIResponsesAdapterError(
+            "OpenAI Responses forecast case_assessment is invalid"
         )
     predictions = record["predictions"]
     if not isinstance(predictions, list):

@@ -49,6 +49,12 @@ def community_model_id(adapter_id: str, model_key: str) -> str:
     return f"{adapter_id}:{model_key}"
 
 
+def lfb_inspect_record_sha256(record: Mapping[str, Any]) -> str:
+    """Return the canonical digest used to bind an LFB inspect record."""
+
+    return _record_sha256(record)
+
+
 def project_lfb_adapter_record(
     record: Mapping[str, Any],
     request: RunRequest,

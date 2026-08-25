@@ -53,6 +53,24 @@ uv run legalforecast multiharness tasks select \
   --output tmp/multiharness/lfb-selection.json
 ```
 
+For the supported public/private boundary, index an already-issued immutable `forecast-release.v1` instead of reconstructing the legacy packet JSONL:
+
+```bash
+uv run legalforecast release issue-synthetic \
+  --output-dir tmp/release-fixture
+
+uv run legalforecast multiharness tasks index \
+  --suite lfb \
+  --forecast-release tmp/release-fixture/forecast-release.json \
+  --artifact-root tmp/release-fixture \
+  --solver-input-root tmp/private-release-inputs \
+  --output tmp/multiharness/release-index.json
+```
+
+This command loads only the outcome-blinded forecast side. It authenticates every release artifact, projects one `CanonicalTask` per prediction unit, keeps prompt and packet bytes out of public task metadata, and writes the exact packet bytes plus the strict-UTF-8 prompt to a fresh private solver-input store. The private packet remains construction evidence and is not mounted into the solver; the solver receives only the exact committed prompt.
+
+Release-backed rows use the existing `RunRequest`, `RunResult`, and LFB scoring projection. Every successful row emits `legalforecast.multiharness.release_harness_receipt.v1`, including a `should_score` commitment, so excluded units retain execution evidence without becoming scoring inputs. Only rows whose authenticated release unit has `should_score: true` emit public and private LFB scoring projections. The receipt binds release/unit and packet/prompt identity, adapter ID/version, neutral or native track, model key, tool policy and count, network policy, resource/time limits, a private-transcript commitment, the forecast-output commitment, and the prose-free normalized parser result. The private transcript semantically binds the exact request, packet, prompt, and forecast-output digests in addition to its own byte digest. Community packaging reconstructs both the receipt aggregate and the scoreable LFB aggregate from durable row request, result, transcript, forecast, and projection evidence, compares each run aggregate exactly, and packages the reconstructed snapshot rather than rereading mutable aggregate files. `treatment_id` includes the track and adapter identity, so neutral and native results cannot collapse into one scoring identity. Adding another adapter implements the solver-input-aware adapter seam and returns the standard private forecast artifact; it does not change `forecast-release.v1`.
+
 The LAB examples require a user-supplied LAB checkout. Harvey LAB is a separate Harvey AI project and task corpus; credit and license language for any public-facing use must remain explicit, and final branding is subject to John Hughes/Legal Quants approval.
 
 ## First-Class Adapter Examples

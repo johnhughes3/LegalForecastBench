@@ -31,6 +31,8 @@ from legalforecast.multiharness.validation import (
     validate_safe_relative_path,
     validate_unique_ids,
 )
+from legalforecast.release.models import ForecastPredictionUnit
+from legalforecast.release.service import ForecastExecution, load_forecast_execution
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     DefendantGrouping,
@@ -39,6 +41,7 @@ from legalforecast.unitization.schemas import (
 )
 
 DEFAULT_LFB_SUITE_VERSION = "legalforecast-mtd-v1"
+DEFAULT_RELEASE_LFB_SUITE_VERSION = "forecast-release.v1"
 DEFAULT_LAB_SUITE_VERSION = "harvey-lab"
 
 
@@ -165,6 +168,148 @@ class LfbTaskLoader:
             suite_version=self.suite_version,
             source_id=packet.candidate_id,
             task_sha256=packet_sha256,
+            metadata=metadata,
+        )
+
+
+class ReleaseLfbTaskLoader:
+    """Project an authenticated forecast release into existing LFB tasks."""
+
+    def __init__(
+        self,
+        *,
+        suite_version: str = DEFAULT_RELEASE_LFB_SUITE_VERSION,
+    ) -> None:
+        if not suite_version.strip():
+            raise ValueError("suite_version must be non-empty")
+        self.suite_version = suite_version
+
+    def load_forecast_release(
+        self,
+        forecast_path: Path,
+        *,
+        artifact_root: Path,
+        index_id: str = "legalforecast-release",
+        selection_namespace: str = "legalforecast_mtd",
+        solver_input_root: Path | None = None,
+    ) -> TaskIndex:
+        """Load only outcome-blinded release bytes and issue runnable tasks."""
+
+        execution = load_forecast_execution(
+            forecast_path,
+            artifact_root=artifact_root,
+        )
+        task_index = self.from_execution(
+            execution,
+            index_id=index_id,
+            selection_namespace=selection_namespace,
+        )
+        if solver_input_root is not None:
+            self.write_solver_inputs(
+                execution,
+                task_index=task_index,
+                destination_root=solver_input_root,
+            )
+        return task_index
+
+    def from_execution(
+        self,
+        execution: ForecastExecution,
+        *,
+        index_id: str = "legalforecast-release",
+        selection_namespace: str = "legalforecast_mtd",
+    ) -> TaskIndex:
+        tasks = tuple(
+            self.task_from_unit(execution, unit)
+            for unit in execution.release.prediction_units
+        )
+        validate_unique_ids((task.task_id for task in tasks), "tasks")
+        return TaskIndex(
+            index_id=index_id,
+            selection_namespace=selection_namespace,
+            tasks=tasks,
+            index_sha256=task_index_sha256(tasks),
+        )
+
+    def write_solver_inputs(
+        self,
+        execution: ForecastExecution,
+        *,
+        task_index: TaskIndex,
+        destination_root: Path,
+    ) -> SolverInputStore:
+        """Write exact authenticated packet and prompt bytes to a private store."""
+
+        units_by_id = {
+            unit.unit_id: unit for unit in execution.release.prediction_units
+        }
+        payloads: list[SolverInputPayload] = []
+        for task in task_index.tasks:
+            unit_id = task.metadata.get("unit_id")
+            if not isinstance(unit_id, str) or unit_id not in units_by_id:
+                raise ValueError("release task does not match the forecast release")
+            prompt_bytes = execution.prompt_bytes(unit_id)
+            try:
+                prompt = prompt_bytes.decode("utf-8", errors="strict")
+            except UnicodeDecodeError as exc:
+                raise ValueError("release prompt must be strict UTF-8") from exc
+            payloads.append(
+                SolverInputPayload(
+                    task=task,
+                    prompt=prompt,
+                    source_packet_bytes=execution.packet_bytes(unit_id),
+                )
+            )
+        return write_solver_input_store(
+            destination_root=destination_root,
+            task_index_sha256=task_index.index_sha256,
+            payloads=tuple(payloads),
+        )
+
+    def task_from_unit(
+        self,
+        execution: ForecastExecution,
+        unit: ForecastPredictionUnit,
+    ) -> CanonicalTask:
+        release = execution.release
+        case = next(item for item in release.cases if item.case_id == unit.case_id)
+        visible_documents = tuple(
+            case.documents[index] for index in unit.model_visible_document_indexes
+        )
+        metadata = {
+            "suite": "legalforecast_mtd",
+            "release_schema_version": release.schema_version,
+            "release_id": release.release_id,
+            "forecast_release_digest": release.release_digest,
+            "case_id": unit.case_id,
+            "unit_id": unit.unit_id,
+            "claim_name": unit.claim_name,
+            "defendant_group": unit.defendant_group,
+            "count": unit.count,
+            "should_score": unit.should_score,
+            "ablation": "none",
+            "required_unit_ids": [unit.unit_id],
+            "packet_sha256": f"sha256:{unit.packet_sha256}",
+            "packet_byte_count": unit.packet_byte_count,
+            "prompt_sha256": f"sha256:{unit.prompt_sha256}",
+            "prompt_byte_count": unit.prompt_byte_count,
+            "model_visible_documents": [
+                {
+                    "document_id": document.document_id,
+                    "role": document.role,
+                    "sha256": f"sha256:{document.sha256}",
+                    "byte_count": document.byte_count,
+                }
+                for document in visible_documents
+            ],
+        }
+        return CanonicalTask(
+            task_id=f"lfb-release:{release.release_id}:{unit.unit_id}",
+            family="legalforecast_mtd",
+            scoring_mode="lfb_brier",
+            suite_version=self.suite_version,
+            source_id=unit.unit_id,
+            task_sha256=f"sha256:{unit.packet_sha256}",
             metadata=metadata,
         )
 
