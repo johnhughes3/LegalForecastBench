@@ -386,6 +386,21 @@ def test_public_authentication_refuses_methods_mutation_even_with_updated_digest
         v3_cli.authenticate_exact100_successor_v3_root(root)
 
 
+def test_snapshot_authentication_returns_the_bytes_read_by_replay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _published_successor_root(tmp_path, monkeypatch)
+
+    receipt, captured = v3_cli.authenticate_exact100_successor_v3_root_with_snapshot(
+        root
+    )
+
+    assert receipt.root.resolve() == root.resolve()
+    state = (root / v3_cli._OUTPUT_NAMES["state"]).absolute()  # pyright: ignore[reportPrivateUsage]
+    assert captured[state] == state.read_bytes()
+    assert captured
+
+
 def test_public_authentication_refuses_removed_promoted_document_commitment(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

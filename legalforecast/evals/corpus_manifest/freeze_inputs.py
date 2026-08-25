@@ -52,9 +52,10 @@ from legalforecast.evals.model_registry import (
 from legalforecast.evals.per_case_runner import _model_packet_from_record
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.ingestion.exact100_successor_v3.cli import (
-    authenticate_exact100_successor_v3_root,
+    authenticate_exact100_successor_v3_root_with_snapshot,
 )
 from legalforecast.ingestion.exact100_successor_v3.downstream import (
+    AuthenticatedV3Root,
     verify_exact100_successor_replacement_v3_projection,
 )
 from legalforecast.ingestion.provenance import sha256_text
@@ -311,7 +312,7 @@ def build_manifest_freeze_inputs(
         snapshots=snapshots,
         authenticate_historical=authenticate_historical,
         authenticate_v2=authenticate_v2,
-        authenticate_v3=authenticate_v3 or _authenticate_v3,
+        authenticate_v3=authenticate_v3,
     )
     contracts = {
         role: canonical_json_bytes(
@@ -611,7 +612,7 @@ def _exclusion_payload(
     snapshots: dict[Path, bytes],
     authenticate_historical: HistoricalExclusionAuthenticator,
     authenticate_v2: V2Authenticator,
-    authenticate_v3: V3Authenticator,
+    authenticate_v3: V3Authenticator | None,
 ) -> bytes:
     screened_bytes = _snapshot(request.screened_pool, snapshots, "screened pool")
     screened_rows = _jsonl(screened_bytes, request.screened_pool)
@@ -681,12 +682,23 @@ def _exclusion_payload(
         raise ManifestFreezeInputsError(
             "authenticated v2 projection lacks its selection receipt"
         )
+    if authenticate_v3 is None:
+        # The real v3 authenticator recursively replays every predecessor.  Do
+        # that once for the final root, retain the bytes it read, then project
+        # the earlier roots against the chain proof it established.  The
+        # retained bytes are rechecked before publication, while
+        # snapshot_verified_artifacts keeps every projection byte stable.
+        v3_projections = _authenticate_v3_chain(request.v3_roots, snapshots=snapshots)
+    else:
+        v3_projections = tuple(
+            (root, authenticate_v3(root)) for root in request.v3_roots
+        )
     final_v3: Mapping[str, Any] | None = None
     expected_predecessor: Path | None = None
     authenticated_anchor: Path | None = None
     anchor_digest: str | None = None
-    for root in request.v3_roots:
-        final_v3 = authenticate_v3(root)
+    for root, projection in v3_projections:
+        final_v3 = projection
         terminal_records.extend(_terminal_records(root, final_v3, snapshots))
         card_path = root / "run-cards/project-exact100-successor-replacement-v3.json"
         card_bytes = snapshots.get(card_path.absolute())
@@ -852,10 +864,127 @@ def _legacy_authenticators(
     return authenticate_historical, authenticate_v2
 
 
-def _authenticate_v3(root: Path) -> Mapping[str, Any]:
-    return verify_exact100_successor_replacement_v3_projection(
-        root, authenticate=authenticate_exact100_successor_v3_root
+def _authenticate_v3_chain(
+    roots: tuple[Path, ...],
+    *,
+    snapshots: dict[Path, bytes] | None = None,
+) -> tuple[tuple[Path, Mapping[str, Any]], ...]:
+    """Authenticate one v3 chain and reuse its proof for sibling projections.
+
+    The final root's normal replay authenticates every predecessor recursively.
+    Earlier roots are then read through the same downstream verifier with
+    receipts minted from that already-authenticated chain.  The caller retains
+    and rechecks the recursive replay's exact bytes, so this optimization does
+    not turn a changed root into trusted output.
+    """
+
+    if len(roots) != 3:
+        raise ManifestFreezeInputsError("exactly three v3 roots are required")
+    final_root = roots[-1]
+    final_projection, authenticated_bytes = _authenticate_v3_with_snapshot(final_root)
+    if snapshots is not None:
+        for path, payload in authenticated_bytes.items():
+            if _snapshot(path, snapshots, "authenticated v3 chain input") != payload:
+                raise ManifestFreezeInputsError(
+                    "authenticated v3 chain bytes changed after replay"
+                )
+    anchor_root = final_projection.get("anchor_root")
+    if not isinstance(anchor_root, Path):
+        raise ManifestFreezeInputsError("authenticated v3 anchor receipt is missing")
+    chain = _v3_chain_roots(final_root)
+    expected = tuple(reversed(chain[:-1]))
+    if tuple(root.absolute() for root in expected) != tuple(
+        root.absolute() for root in roots
+    ):
+        raise ManifestFreezeInputsError(
+            "supplied v3 roots are not the authenticated predecessor chain"
+        )
+    if anchor_root.absolute() != chain[-1].absolute():
+        raise ManifestFreezeInputsError(
+            "authenticated v3 anchor differs from the predecessor chain"
+        )
+
+    projections: list[tuple[Path, Mapping[str, Any]]] = []
+    for root in roots:
+        if root.absolute() == final_root.absolute():
+            projections.append((root, final_projection))
+            continue
+        receipt = AuthenticatedV3Root(root=root, anchor_root=anchor_root)
+
+        def reuse_receipt(
+            target: Path,
+            *,
+            expected_root: Path = root,
+            cached_receipt: AuthenticatedV3Root = receipt,
+        ) -> object:
+            if target.absolute() != expected_root.absolute():
+                raise ManifestFreezeInputsError(
+                    "v3 verifier requested an unexpected cached predecessor"
+                )
+            return cached_receipt
+
+        projections.append(
+            (
+                root,
+                verify_exact100_successor_replacement_v3_projection(
+                    root, authenticate=reuse_receipt
+                ),
+            )
+        )
+    return tuple(projections)
+
+
+def _authenticate_v3_with_snapshot(
+    root: Path,
+) -> tuple[Mapping[str, Any], Mapping[Path, bytes]]:
+    """Authenticate one final root and retain its recursive byte evidence."""
+
+    captured: dict[Path, bytes] = {}
+
+    def authenticate(target: Path) -> object:
+        receipt, replayed = authenticate_exact100_successor_v3_root_with_snapshot(
+            target
+        )
+        for path, payload in replayed.items():
+            previous = captured.get(path)
+            if previous is not None and previous != payload:
+                raise ManifestFreezeInputsError(
+                    "authenticated v3 chain replay read inconsistent bytes"
+                )
+            captured[path] = payload
+        return receipt
+
+    projection = verify_exact100_successor_replacement_v3_projection(
+        root, authenticate=authenticate
     )
+    return projection, captured
+
+
+def _v3_chain_roots(final_root: Path) -> tuple[Path, ...]:
+    """Return ``final -> ... -> sealed anchor`` from v3 run-card paths."""
+
+    chain = [final_root]
+    seen = {final_root.absolute()}
+    for _ in range(256):
+        current = chain[-1]
+        anchor_card = (
+            current / "run-cards/project-exact100-supporting-document-successor.json"
+        )
+        if anchor_card.is_file():
+            return tuple(chain)
+        card_path = current / "run-cards/project-exact100-successor-replacement-v3.json"
+        card = _json_object(
+            _read_regular(card_path, "authenticated v3 run card"), card_path
+        )
+        input_roots = _mapping(card.get("input_roots"), "authenticated v3 input_roots")
+        predecessor = Path(_required_str(input_roots, "predecessor_root"))
+        if predecessor.absolute() in seen:
+            raise ManifestFreezeInputsError(
+                "authenticated v3 predecessor chain contains a cycle"
+            )
+        chain.append(predecessor)
+        seen.add(predecessor.absolute())
+    raise ManifestFreezeInputsError("authenticated v3 predecessor chain is too deep")
 
 
 def _terminal_records(

@@ -749,6 +749,101 @@ def test_issue_refuses_final_successor_selection_different_from_manifest(
         fixture.issue()
 
 
+def test_default_v3_chain_authenticates_once_and_reuses_receipts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The final recursive replay is reused for the two earlier roots."""
+
+    anchor = tmp_path / "anchor"
+    roots = tuple(tmp_path / name for name in ("v3-a", "v3-b", "v3-c"))
+    (anchor / "run-cards").mkdir(parents=True)
+    anchor_card = (
+        anchor / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    anchor_card.write_bytes(b"{}")
+    for root, predecessor in zip(
+        roots,
+        (anchor, roots[0], roots[1]),
+        strict=True,
+    ):
+        card = root / "run-cards/project-exact100-successor-replacement-v3.json"
+        _write_json(
+            card,
+            {"input_roots": {"predecessor_root": str(predecessor.absolute())}},
+        )
+
+    recursive_replays: list[Path] = []
+    cached_projections: list[Path] = []
+
+    def authenticate_final_with_snapshot(
+        root: Path,
+    ) -> tuple[dict[str, Any], dict[Path, bytes]]:
+        recursive_replays.append(root)
+        return {"anchor_root": anchor}, {}
+
+    def project_cached(root: Path, *, authenticate: Any) -> dict[str, Any]:
+        cached_projections.append(root)
+        receipt = authenticate(root)
+        assert isinstance(receipt, freeze_inputs_module.AuthenticatedV3Root)
+        return {"anchor_root": receipt.anchor_root}
+
+    monkeypatch.setattr(
+        freeze_inputs_module,
+        "_authenticate_v3_with_snapshot",
+        authenticate_final_with_snapshot,
+    )
+    monkeypatch.setattr(
+        freeze_inputs_module,
+        "verify_exact100_successor_replacement_v3_projection",
+        project_cached,
+    )
+
+    result = freeze_inputs_module._authenticate_v3_chain(roots)
+
+    assert recursive_replays == [roots[-1]]
+    assert cached_projections == [roots[0], roots[1]]
+    assert tuple(root for root, _projection in result) == roots
+
+
+def test_default_v3_chain_refuses_a_root_outside_authenticated_chain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cached receipts cannot authorize a supplied root outside the chain."""
+
+    anchor = tmp_path / "anchor"
+    roots = tuple(tmp_path / name for name in ("v3-a", "v3-b", "v3-c"))
+    wrong = tmp_path / "wrong"
+    (anchor / "run-cards").mkdir(parents=True)
+    anchor_card = (
+        anchor / "run-cards/project-exact100-supporting-document-successor.json"
+    )
+    anchor_card.write_bytes(b"{}")
+    for root, predecessor in zip(
+        roots,
+        (anchor, roots[0], wrong),
+        strict=True,
+    ):
+        _write_json(
+            root / "run-cards/project-exact100-successor-replacement-v3.json",
+            {"input_roots": {"predecessor_root": str(predecessor.absolute())}},
+        )
+    _write_json(
+        wrong / "run-cards/project-exact100-successor-replacement-v3.json",
+        {"input_roots": {"predecessor_root": str(anchor.absolute())}},
+    )
+
+    monkeypatch.setattr(
+        freeze_inputs_module,
+        "_authenticate_v3_with_snapshot",
+        lambda _root: ({"anchor_root": anchor}, {}),
+    )
+
+    with pytest.raises(
+        ManifestFreezeInputsError, match="authenticated predecessor chain"
+    ):
+        freeze_inputs_module._authenticate_v3_chain(roots)
+
+
 def test_prediction_units_are_parsed_from_the_captured_bytes(fixture: _Fixture) -> None:
     captured = fixture.units.read_bytes()
     _write_jsonl(fixture.units, [_unit_row("attacker-candidate")])

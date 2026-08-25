@@ -34,6 +34,7 @@ import json
 import os
 import sys
 from collections.abc import Callable, Mapping, Sequence
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, cast
 
@@ -146,6 +147,10 @@ _CARRIED_SUPPLEMENTAL_ROOT = "supplemental-free-source"
 # re-anchoring step, so the legitimate chain grows for the life of the project.
 # A cap sized to today's chain would eventually refuse honest work.
 _MAX_PREDECESSOR_CHAIN_DEPTH = 256
+
+_AUTHENTICATED_READS: ContextVar[dict[Path, bytes] | None] = ContextVar(
+    "exact100_successor_v3_authenticated_reads", default=None
+)
 
 _OUTPUT_NAMES = {
     "selection": "target-cohort-selection.jsonl",
@@ -357,6 +362,25 @@ def authenticate_exact100_successor_v3_root(root: Path) -> AuthenticatedV3Root:
 
     _base, _anchor, _carried, anchor_root = _verified_predecessor(root)
     return AuthenticatedV3Root(root=root, anchor_root=anchor_root)
+
+
+def authenticate_exact100_successor_v3_root_with_snapshot(
+    root: Path,
+) -> tuple[AuthenticatedV3Root, Mapping[Path, bytes]]:
+    """Replay a v3 root once and expose the bytes read by that replay.
+
+    The byte map lets a caller perform a final TOCTOU recheck without paying
+    for a second recursive predecessor replay.  It is evidence from this
+    replay, not an alternate authentication path.
+    """
+
+    captured: dict[Path, bytes] = {}
+    token = _AUTHENTICATED_READS.set(captured)
+    try:
+        receipt = authenticate_exact100_successor_v3_root(root)
+    finally:
+        _AUTHENTICATED_READS.reset(token)
+    return receipt, captured
 
 
 def _verified_predecessor(
@@ -1010,7 +1034,17 @@ def _read(path: Path) -> bytes:
         raise Exact100SuccessorReplacementV3CliError(
             f"missing regular evidence file: {path}"
         )
-    return path.read_bytes()
+    payload = path.read_bytes()
+    captured = _AUTHENTICATED_READS.get()
+    if captured is not None:
+        absolute = path.absolute()
+        previous = captured.get(absolute)
+        if previous is not None and previous != payload:
+            raise Exact100SuccessorReplacementV3CliError(
+                "v3 authenticated input changed during replay"
+            )
+        captured[absolute] = payload
+    return payload
 
 
 def _object(payload: bytes, path: Path) -> dict[str, Any]:
