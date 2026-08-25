@@ -71,6 +71,23 @@ _PUBLIC_RESTRICTION_FIELDS = frozenset(
 )
 
 
+def _restriction_evidence_matches(left: object, right: object) -> bool:
+    """Compare restriction_evidence lists ignoring producer order."""
+
+    if (
+        isinstance(left, Sequence)
+        and isinstance(right, Sequence)
+        and not isinstance(left, (str, bytes))
+        and not isinstance(right, (str, bytes))
+    ):
+        left_sequence = cast(Sequence[object], left)
+        right_sequence = cast(Sequence[object], right)
+        left_tokens = [str(item) for item in left_sequence]
+        right_tokens = [str(item) for item in right_sequence]
+        return sorted(left_tokens) == sorted(right_tokens)
+    return left == right
+
+
 class _Register(Protocol):
     def commitment_map(self) -> Mapping[DocumentKey, str]: ...
 
@@ -463,18 +480,18 @@ def admit_authenticated_v3_free_clearance_rows(
             raise ValueError(f"v3 free clearance differs from manifest: {key}")
 
         restriction = restriction_by_key[key]
-        if frozenset(restriction) != _PUBLIC_RESTRICTION_FIELDS:
-            raise ValueError(
-                f"v3 free clearance exact restriction shape differs: {key}"
-            )
-        if (
-            restriction.get("is_private") is not False
-            or restriction.get("is_sealed") is not False
-        ):
-            raise ValueError(
-                f"v3 free clearance exact restriction booleans differ: {key}"
-            )
         if "schema_version" not in clearance:
+            if frozenset(restriction) != _PUBLIC_RESTRICTION_FIELDS:
+                raise ValueError(
+                    f"v3 free clearance exact restriction shape differs: {key}"
+                )
+            if (
+                restriction.get("is_private") is not False
+                or restriction.get("is_sealed") is not False
+            ):
+                raise ValueError(
+                    f"v3 free clearance exact restriction booleans differ: {key}"
+                )
             if restriction.get("restriction_status") != "public" or restriction.get(
                 "restriction_evidence"
             ) != list(FREE_PUBLIC_DOWNLOAD_RESTRICTION_EVIDENCE):
@@ -483,8 +500,9 @@ def admit_authenticated_v3_free_clearance_rows(
                 )
         elif restriction.get("restriction_status") != clearance.get(
             "restriction_status"
-        ) or restriction.get("restriction_evidence") != clearance.get(
-            "restriction_evidence"
+        ) or not _restriction_evidence_matches(
+            restriction.get("restriction_evidence"),
+            clearance.get("restriction_evidence"),
         ):
             raise ValueError(
                 f"v3 free restriction evidence differs from clearance: {key}"
