@@ -124,9 +124,11 @@ operation, the designated operator must verify that live ownership and the
 expected storage controls remain intact using read-only CloudFormation and S3
 inventory. Keep that inventory evidence outside this Terraform state. The
 role-based `.github/workflows/official-s3-access-validation.yaml` run occurs
-after the IAM roles are applied and configured, but remains mandatory before
-evaluation dispatch. A missing, failed, or ambiguous storage check is a halt;
-do not add a storage import or broaden this root.
+after the IAM roles are applied and configured, but only after the first
+explicitly approved bounded non-dry-run shard has produced its immutable
+per-case object/version and shard receipt inputs. Dry runs and fixture
+rehearsals cannot issue those inputs. A missing, failed, or ambiguous storage
+check is a halt; do not add a storage import or broaden this root.
 
 The official-eval Terraform import allowlist is IAM-only. Inventory the exact
 roles and inline policies first; import only an address whose corresponding
@@ -246,9 +248,16 @@ gh workflow run .github/workflows/official-provider-authority-infra.yaml \
 
 Expected protected output is successful exact-artifact authentication, age decryption and SHA-256 verification, a fresh `main` equality check, `terraform apply -auto-approve <exact-plan>`, encrypted Terraform outputs, and a redacted `apply-receipt.json`. If any precondition fails, the workflow stops before apply. John records the apply run/attempt, receipt, output digest, and exact role/environment variables assigned server-side; this lane does not read or write those values.
 
-## `5qd6.119`: post-apply provider-free dispatches
+## `5qd6.119`: post-first-shard provider-free dispatches
 
-After the applied outputs and environment variables are assigned, John dispatches the existing-object validation from the exact `main` SHA. The five object values are operator inputs; the agent must not discover or print them:
+After the applied outputs and environment variables are assigned, John first
+uses the exact `main` SHA for one explicitly approved bounded non-dry-run
+shard. That shard is the only producer of admissible per-case `VersionId` and
+immutable shard-receipt evidence for this validation; dry-run and fixture
+outputs cannot substitute for it. Capture the exact object keys and
+per-case `VersionId` from that shard before dispatching validation. The five
+validation inputs are operator inputs; the agent must not discover or print
+them:
 
 ```bash
 gh workflow run .github/workflows/official-s3-access-validation.yaml \
@@ -263,7 +272,9 @@ gh workflow run .github/workflows/official-s3-access-validation.yaml \
 
 Expected evidence is successful cell-role positive reads and fan-in-role positive exact-version/receipt reads, followed by `AccessDenied` for the listed report-prefix write, bucket-wide list, delete, ACL, object-version, and private-prefix negative controls. A successful workflow proves only those operations; it does not prove provider calls or the full DynamoDB transaction contract.
 
-Run the provider-free fan-in verification only after a successful shard receipt and exact source dispatch attempt are available:
+Run the provider-free fan-in verification only after the S3 validation has
+passed and the remaining shard receipts and exact source dispatch attempts are
+available:
 
 ```bash
 gh workflow run .github/workflows/fan-in-publish.yaml \
@@ -301,7 +312,7 @@ The supported fixture path is the runbook’s `hfk` machinery. It is provider-fr
 | Eight downstream fixture stages | `rehearsal-build-decision-texts`, `rehearsal-stage-a-unitize`, `rehearsal-stage-a-review`, `rehearsal-stage-a-apply`, `rehearsal-stage-b-label`, `rehearsal-stage-b-apply`, `rehearsal-plan-packet-inputs`, `rehearsal-build-packets` with the exact shared `rehearsal_args` in `docs/official-run-runbook.md` | Yellow fixture-only; success requires exact target counts, zero pending review queues, `provider_journal_created=false`, `provider_billing_usd="0.00"`, and `packet_outcome_material_excluded=true` |
 | Fixture finalization | `uv run legalforecast acquisition finalize-rehearsal-corpus ...` | Yellow fixture-only; output must retain `official_eligible=false` |
 | Staged-rollout failure drill | Freeze fixture A, run/aggregate fixture A, amend with fixture B, fan-in the union, and byte-compare every A artifact as specified in the runbook | Red for live sign-off; fixture assertions are covered by `tests/test_official_run_runbook.py` |
-| Live provider-free OIDC/S3 validation | John dispatches `official-s3-access-validation.yaml` from the exact `main` SHA after `hckb.15` apply, supplying existing packet/manifest/per-case VersionId/shard-receipt keys | Red on `hckb.15` + `5qd6.119`; no agent dispatch |
+| Live provider-free OIDC/S3 validation | John dispatches `official-s3-access-validation.yaml` from the exact `main` SHA after the first explicitly approved bounded non-dry-run shard supplies the admissible per-case VersionId and immutable shard-receipt key | Red on `hckb.15` + `5qd6.119`; dry runs and fixtures cannot issue these inputs; no agent dispatch |
 | Provider smoke and official run | John executes the bounded provider smoke, then `Run Benchmark` dry-run and official shards, followed by `Fan In Official Shards` | Red on applied infrastructure, workflow publication, provider authority, Stage A + Gate 3 freeze, and sign-off |
 
 The fixture runbook intentionally never self-adjudicates a nonempty review queue. Any nonempty Stage A or Stage B fixture queue is a failed rehearsal that requires correction or a John-review bead.
@@ -329,9 +340,6 @@ hckb.15 protected import -> reviewed plan -> John-approved apply
 5qd6.32 / 5qd6.101 workflow pins published on main
         |  (15-30 minutes once workflow-capable authority is available)
         v
-5qd6.119 provider-free OIDC/S3 validation and fan-in verification
-        |  (20-45 minutes; exact existing object/version inputs required)
-        v
 Bounded one-provider smoke and provider-authority smoke
         |  (30-60 minutes; provider spend and smoke freeze are John-gated)
         v
@@ -341,7 +349,16 @@ ue7.32 fixture rehearsal + staged-rollout failure drill
 John reviews evidence and signs off ue7.32
         |
         v
-ur6 official Cycle 1 shards -> immutable receipts -> provider-free fan-in/publication
+ur6 dry-run (provider-free; cannot issue S3 validation inputs)
+        |  (seconds to minutes; validates schedule and projected cost only)
+        v
+first explicitly approved bounded non-dry-run shard
+        |  (the only producer of admissible per-case VersionId and shard receipt)
+        v
+capture exact keys/version -> 5qd6.119 provider-free OIDC/S3 validation
+        |  (20-45 minutes; supplied inputs must come from that shard)
+        v
+remaining official shards -> immutable receipts -> provider-free fan-in/publication
         |  (run duration follows the frozen corpus/model matrix; do not estimate from fixture timing)
 ```
 
@@ -354,9 +371,8 @@ The first two lines are a hard dependency, not parallel work: the official run c
 3. Review the complete saved plan and apply only that exact plan through the protected workflow; record the redacted apply receipt and outputs.
 4. Publish this branch through the workflow-capable path, then merge the stacked workflow drafts so `main` contains the exact pinned workflows.
 5. Set the reviewed GitHub environment variables and secret-name inventory server-side; keep fan-in provider-free and verify the Bedrock runtime choice explicitly.
-6. Run `official-s3-access-validation.yaml` against the applied roles and exact external buckets; require it to pass before any evaluation dispatch.
-6. Dispatch `official-s3-access-validation.yaml` and the provider-free fan-in verification from the exact post-publication `main` SHA; retain run IDs and terminal receipts.
-7. Run the bounded provider-authority and one-provider smoke under the dedicated smoke freeze/prefix; stop on any omission-denial or identity mismatch.
-8. Execute the fixture rehearsal and staged-rollout failure drill; retain the final summary, run card, and byte-identity evidence.
-9. Review and sign `ue7.32`; only then dispatch `ur6` official shards with `dry_run=true` first, explicit projected-cost ceiling, `shard_only=true`, and `resume_existing_results=true`.
-10. Fan in only accepted immutable shard receipts, prove exact source attempt/release identity, and publish the canonical report through the provider-free fan-in path.
+6. Run the bounded provider-authority and one-provider smoke under the dedicated smoke freeze/prefix; stop on any omission-denial or identity mismatch.
+7. Execute the fixture rehearsal and staged-rollout failure drill; retain the final summary, run card, and byte-identity evidence. Dry-run and fixture outputs cannot issue official S3 validation inputs.
+8. Review and sign `ue7.32`; dispatch `ur6` with `dry_run=true` first, then one explicitly approved bounded non-dry-run shard with `shard_only=true` and `resume_existing_results=true`.
+9. Capture that shard's exact per-case object key/version and immutable shard-receipt key; dispatch `official-s3-access-validation.yaml` from the exact post-publication `main` SHA and require it to pass.
+10. Dispatch the remaining official shards only after validation passes; fan in only accepted immutable shard receipts, prove exact source attempt/release identity, and publish the canonical report through the provider-free fan-in path.

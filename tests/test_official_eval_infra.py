@@ -1181,6 +1181,12 @@ def test_external_storage_requires_live_validation_and_has_no_lifecycle_inputs()
         assert name not in runbook
     assert "official-s3-access-validation.yaml" in readme
     assert "official-s3-access-validation.yaml" in runbook
+    for document in (readme, runbook):
+        assert "one explicitly approved bounded non-dry-run shard" in document
+        assert "dry run" in document.lower()
+        assert "VersionId" in document
+        assert "remaining official shards" in document
+    assert "before any evaluation dispatch" not in runbook
 
 
 def test_s3_inputs_enforce_global_bucket_names_and_whole_retention_days() -> None:

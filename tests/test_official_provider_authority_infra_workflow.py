@@ -413,6 +413,11 @@ def test_external_storage_state_detach_is_closed_backed_up_and_s3_read_only() ->
     assert gate_pack.index("operation=apply") < gate_pack.rindex(
         "gh workflow run .github/workflows/official-s3-access-validation.yaml"
     )
+    first_shard = gate_pack.rindex("one explicitly approved bounded non-dry-run shard")
+    s3_validation = gate_pack.rindex("Capture that shard's exact per-case")
+    remaining_shards = gate_pack.rindex("remaining official shards")
+    assert first_shard < s3_validation < remaining_shards
+    assert "dry runs and fixtures cannot issue these inputs" in gate_pack
 
 
 def test_protected_job_rechecks_current_main_before_aws_mutation() -> None:
