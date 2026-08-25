@@ -13,7 +13,7 @@
       "output_price_multiplier": 1.5,
       "threshold_input_tokens": 272000
     },
-    "max_output_tokens": 16000,
+    "max_output_tokens": 128000,
     "model_id": "gpt-5.6-sol",
     "model_version_or_snapshot": "gpt-5.6-sol",
     "network_disabled": true,
@@ -25,9 +25,7 @@
     "release_timestamp": "2026-06-26T00:00:00Z",
     "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
     "search_disabled": true,
-    "temperature": 0.0,
-    "tool_policy": "controlled_docket_tool_only",
-    "top_p": 1.0
+    "tool_policy": "controlled_docket_tool_only"
   },
   {
     "context_limit": 1050000,
@@ -43,7 +41,7 @@
       "output_price_multiplier": 1.5,
       "threshold_input_tokens": 272000
     },
-    "max_output_tokens": 16000,
+    "max_output_tokens": 128000,
     "model_id": "gpt-5.6-terra",
     "model_version_or_snapshot": "gpt-5.6-terra",
     "network_disabled": true,
@@ -55,9 +53,7 @@
     "release_timestamp": "2026-06-26T00:00:00Z",
     "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
     "search_disabled": true,
-    "temperature": 0.0,
-    "tool_policy": "controlled_docket_tool_only",
-    "top_p": 1.0
+    "tool_policy": "controlled_docket_tool_only"
   },
   {
     "context_limit": 1050000,
@@ -73,7 +69,7 @@
       "output_price_multiplier": 1.5,
       "threshold_input_tokens": 272000
     },
-    "max_output_tokens": 16000,
+    "max_output_tokens": 128000,
     "model_id": "gpt-5.6-luna",
     "model_version_or_snapshot": "gpt-5.6-luna",
     "network_disabled": true,
@@ -85,9 +81,7 @@
     "release_timestamp": "2026-06-26T00:00:00Z",
     "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
     "search_disabled": true,
-    "temperature": 0.0,
-    "tool_policy": "controlled_docket_tool_only",
-    "top_p": 1.0
+    "tool_policy": "controlled_docket_tool_only"
   },
   {
     "context_limit": 1000000,
@@ -97,7 +91,7 @@
       "Anthropic does not disclose an exact training-data cutoff for Claude Opus 4.8, so the structured exact-date field remains unknown.",
       "Claude Opus 4.8's dateless model ID is a pinned snapshot, not an evergreen alias."
     ],
-    "max_output_tokens": 16000,
+    "max_output_tokens": 128000,
     "model_id": "claude-opus-4-8",
     "model_version_or_snapshot": "claude-opus-4-8",
     "network_disabled": true,
@@ -109,8 +103,6 @@
     "release_timestamp": "2026-05-28T00:00:00Z",
     "release_timestamp_source": "https://www.anthropic.com/news/claude-opus-4-8, Claude Opus 4.8 launch on 2026-05-28, checked 2026-08-21",
     "search_disabled": true,
-    "temperature": 0.0,
-    "tool_policy": "controlled_docket_tool_only",
-    "top_p": 1.0
+    "tool_policy": "controlled_docket_tool_only"
   }
 ]

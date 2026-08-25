@@ -10,7 +10,6 @@ from legalforecast.cli import main
 from legalforecast.evals.model_registry import (
     earliest_eligible_decision_date,
     load_model_registry,
-    model_registry_entry_sha256,
     require_official_registry_entries,
 )
 from legalforecast.unitization.review import apply_unitization_reviews
@@ -74,9 +73,27 @@ def test_opus_4_8_successor_replaces_sonnet_without_expanding_matrix() -> None:
         entry.registry_key for entry in successor.entries
     }
     for model_id in ("gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"):
-        assert model_registry_entry_sha256(
-            successor.get("openai", model_id)
-        ) == model_registry_entry_sha256(frozen.get("openai", model_id))
+        successor_record = successor.get("openai", model_id).to_record()
+        frozen_record = frozen.get("openai", model_id).to_record()
+        for field in ("max_output_tokens", "temperature", "top_p"):
+            successor_record.pop(field, None)
+            frozen_record.pop(field, None)
+        assert successor_record == frozen_record
+
+
+def test_opus_4_8_successor_uses_provider_output_limits_and_sampling_defaults() -> None:
+    successor = load_model_registry(SUCCESSOR_REGISTRY)
+
+    assert {
+        entry.registry_key: entry.max_output_tokens for entry in successor.entries
+    } == {
+        "anthropic:claude-opus-4-8": 128_000,
+        "openai:gpt-5.6-luna": 128_000,
+        "openai:gpt-5.6-sol": 128_000,
+        "openai:gpt-5.6-terra": 128_000,
+    }
+    assert all(entry.temperature is None for entry in successor.entries)
+    assert all(entry.top_p is None for entry in successor.entries)
 
 
 def test_opus_4_8_successor_preserves_corpus_dates_and_release_anchor() -> None:
