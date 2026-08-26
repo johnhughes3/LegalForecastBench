@@ -4349,9 +4349,9 @@
         "largest_symbol": "verify_bundle",
         "largest_symbol_lines": 173,
         "layer": "application",
-        "line_count": 1001,
-        "nonblank_line_count": 927,
-        "top_level_definition_count": 30
+        "line_count": 1018,
+        "nonblank_line_count": 942,
+        "top_level_definition_count": 31
       },
       "legalforecast/evals/corpus_manifest/execution_decisions.py": {
         "cycle_id": "",
@@ -4366,8 +4366,8 @@
         "largest_symbol": "_build",
         "largest_symbol_lines": 265,
         "layer": "application",
-        "line_count": 1115,
-        "nonblank_line_count": 1035,
+        "line_count": 1133,
+        "nonblank_line_count": 1053,
         "top_level_definition_count": 29
       },
       "legalforecast/evals/corpus_manifest/freeze_inputs.py": {
@@ -4384,8 +4384,8 @@
         "largest_symbol": "_exclusion_payload",
         "largest_symbol_lines": 199,
         "layer": "application",
-        "line_count": 1199,
-        "nonblank_line_count": 1103,
+        "line_count": 1201,
+        "nonblank_line_count": 1105,
         "top_level_definition_count": 33
       },
       "legalforecast/evals/corpus_manifest/stage51_r2.py": {
@@ -4486,11 +4486,28 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "complete_live_prompt",
-        "largest_symbol_lines": 154,
+        "largest_symbol_lines": 155,
         "layer": "application",
-        "line_count": 1465,
-        "nonblank_line_count": 1277,
-        "top_level_definition_count": 68
+        "line_count": 1491,
+        "nonblank_line_count": 1299,
+        "top_level_definition_count": 70
+      },
+      "legalforecast/evals/model_registry.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "evals",
+        "fan_in": 37,
+        "fan_out": 1,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "evals",
+        "largest_symbol": "ModelRegistryEntry",
+        "largest_symbol_lines": 161,
+        "layer": "application",
+        "line_count": 502,
+        "nonblank_line_count": 408,
+        "top_level_definition_count": 33
       },
       "legalforecast/evals/output_parser.py": {
         "cycle_id": "",
@@ -10302,9 +10319,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1399,
-        "nonblank_line_count": 1216,
-        "top_level_definition_count": 45
+        "line_count": 1501,
+        "nonblank_line_count": 1303,
+        "top_level_definition_count": 48
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",

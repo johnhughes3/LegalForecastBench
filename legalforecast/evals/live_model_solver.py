@@ -373,6 +373,7 @@ def complete_live_prompt(
             "context_limit": str(registry_entry.context_limit),
             "max_output_tokens": str(registry_entry.max_output_tokens),
             **_sampling_policy_metadata(registry_entry),
+            **_reasoning_policy_metadata(registry_entry),
             **_openai_service_tier_metadata(
                 registry_entry,
                 used_tier=used_tier,
@@ -481,6 +482,7 @@ def _complete_bedrock_anthropic_prompt(
             "context_limit": str(registry_entry.context_limit),
             "max_output_tokens": str(registry_entry.max_output_tokens),
             **_sampling_policy_metadata(registry_entry),
+            **_reasoning_policy_metadata(registry_entry),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
             "provider_attempt_count": str(request_count),
@@ -620,6 +622,8 @@ def _openai_request(
         "service_tier": service_tier,
         "tools": [],
     }
+    if entry.reasoning_effort is not None:
+        payload["reasoning"] = {"effort": entry.reasoning_effort.value}
     return _json_request(
         OPENAI_RESPONSES_URL,
         payload,
@@ -640,6 +644,8 @@ def _anthropic_request(
         "max_tokens": entry.max_output_tokens,
         "tools": [],
     }
+    if _uses_anthropic_adaptive_thinking(entry):
+        payload["thinking"] = {"type": "adaptive"}
     return _json_request(
         ANTHROPIC_MESSAGES_URL,
         payload,
@@ -664,6 +670,8 @@ def _bedrock_anthropic_payload(
         ],
         "max_tokens": entry.max_output_tokens,
     }
+    if _uses_anthropic_adaptive_thinking(entry):
+        payload["thinking"] = {"type": "adaptive"}
     return payload
 
 
@@ -672,6 +680,24 @@ def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
 
     del entry
     return {"provider_sampling_policy": "provider_default"}
+
+
+def _reasoning_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
+    if entry.reasoning_effort is not None:
+        return {"requested_reasoning_effort": entry.reasoning_effort.value}
+    if _uses_anthropic_adaptive_thinking(entry):
+        return {
+            "requested_thinking_type": "adaptive",
+            "provider_reasoning_effort": "provider_default_high",
+        }
+    return {}
+
+
+def _uses_anthropic_adaptive_thinking(entry: ModelRegistryEntry) -> bool:
+    return entry.provider.strip().lower() == "anthropic" and "claude-opus-4-8" in {
+        _canonical_model_version(entry.model_id),
+        _canonical_model_version(entry.model_version_or_snapshot),
+    }
 
 
 def _is_openai_provider(entry: ModelRegistryEntry) -> bool:

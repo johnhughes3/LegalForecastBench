@@ -10,11 +10,15 @@ from typing import Any
 import pytest
 from legalforecast.cli_commands import corpus_manifest as cli_module
 from legalforecast.evals.corpus_manifest import deferred_bundle as module
+from legalforecast.evals.corpus_manifest.beads_observation import (
+    SUCCESSOR_REGISTRY_KEYS,
+)
 from legalforecast.evals.corpus_manifest.deferred_bundle import (
     ManifestForecastBundleError,
     issue_bundle,
     verify_bundle,
 )
+from legalforecast.evals.model_registry import OpenAIReasoningEffort
 
 
 def _sha(payload: bytes) -> str:
@@ -243,6 +247,27 @@ def _issue(fixture: dict[str, Any]) -> dict[str, Any]:
         verify_freeze_inputs=fixture["freeze_verifier"],
     )
     return dict(build.bundle)
+
+
+def test_successor_bundle_gate_requires_exact_reasoning_settings() -> None:
+    entries = tuple(
+        SimpleNamespace(
+            provider=key.split(":", 1)[0],
+            registry_key=key,
+            network_disabled=True,
+            search_disabled=True,
+            reasoning_effort=(
+                None
+                if key == "openai:gpt-5.6-sol"
+                else (OpenAIReasoningEffort.HIGH if key.startswith("openai:") else None)
+            ),
+            tool_policy=SimpleNamespace(value="controlled_docket_tool_only"),
+        )
+        for key in sorted(SUCCESSOR_REGISTRY_KEYS)
+    )
+
+    with pytest.raises(ManifestForecastBundleError, match="reasoning settings"):
+        module._require_successor_registry_safety(entries)
 
 
 def test_issue_verify_and_toctou(fixture: dict[str, Any]) -> None:

@@ -20,6 +20,17 @@ class ToolPolicy(StrEnum):
     CONTROLLED_DOCKET_TOOL_ONLY = "controlled_docket_tool_only"
 
 
+class OpenAIReasoningEffort(StrEnum):
+    """OpenAI Responses reasoning-effort values supported by GPT-5.6."""
+
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    XHIGH = "xhigh"
+    MAX = "max"
+
+
 @dataclass(frozen=True, slots=True)
 class LongContextSurcharge:
     """Provider-declared token threshold and price multipliers."""
@@ -53,11 +64,13 @@ class LongContextSurcharge:
 class ModelRegistryEntry:
     """One frozen model/run configuration used by all benchmark components.
 
-    ``temperature`` and ``top_p`` are optional legacy provenance fields. They
-    remain readable and are round-tripped when present so existing frozen
-    registry bytes and their hashes stay stable. New registries should omit
-    them: live provider requests use provider-default sampling and execution
-    policy does not treat these fields as active settings.
+    ``reasoning_effort`` is an optional OpenAI-only request setting and is part
+    of the entry's canonical record and hash. ``temperature`` and ``top_p`` are
+    optional legacy provenance fields. They remain readable and are
+    round-tripped when present so existing frozen registry bytes and their
+    hashes stay stable. New registries should omit the sampling fields: live
+    provider requests use provider-default sampling and execution policy does
+    not treat those fields as active settings.
     """
 
     provider: str
@@ -73,6 +86,7 @@ class ModelRegistryEntry:
     pricing_source: str
     input_token_price: float
     output_token_price: float
+    reasoning_effort: OpenAIReasoningEffort | None = None
     temperature: float | None = None
     top_p: float | None = None
     release_timestamp: datetime | None = None
@@ -111,6 +125,11 @@ class ModelRegistryEntry:
             _require_non_negative(self.temperature, "temperature")
         if self.top_p is not None:
             _require_between(self.top_p, "top_p", lower=0, upper=1)
+        if (
+            self.reasoning_effort is not None
+            and self.provider.strip().lower() != "openai"
+        ):
+            raise ValueError("reasoning_effort is supported only for OpenAI models")
         _require_positive_int(self.max_output_tokens, "max_output_tokens")
         _require_positive_int(self.context_limit, "context_limit")
         _require_non_negative(self.input_token_price, "input_token_price")
@@ -166,6 +185,8 @@ class ModelRegistryEntry:
             record["temperature"] = self.temperature
         if self.top_p is not None:
             record["top_p"] = self.top_p
+        if self.reasoning_effort is not None:
+            record["reasoning_effort"] = self.reasoning_effort.value
         if self.long_context_surcharge is not None:
             record["long_context_surcharge"] = self.long_context_surcharge.to_record()
         return record
@@ -197,6 +218,7 @@ class ModelRegistryEntry:
                 record, "known_cutoff_publicity_caveats"
             ),
             long_context_surcharge=_optional_long_context_surcharge(record),
+            reasoning_effort=_optional_openai_reasoning_effort(record),
             temperature=_optional_number(record, "temperature"),
             top_p=_optional_number(record, "top_p"),
         )
@@ -421,6 +443,21 @@ def _optional_long_context_surcharge(
     if not isinstance(value, Mapping):
         raise ValueError("long_context_surcharge must be an object")
     return LongContextSurcharge.from_record(cast(Mapping[str, Any], value))
+
+
+def _optional_openai_reasoning_effort(
+    record: Mapping[str, Any],
+) -> OpenAIReasoningEffort | None:
+    value = record.get("reasoning_effort")
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("reasoning_effort must be a string")
+    try:
+        return OpenAIReasoningEffort(value)
+    except ValueError as exc:
+        allowed = ", ".join(effort.value for effort in OpenAIReasoningEffort)
+        raise ValueError(f"reasoning_effort must be one of: {allowed}") from exc
 
 
 def _parse_datetime(value: str, field_name: str) -> datetime:

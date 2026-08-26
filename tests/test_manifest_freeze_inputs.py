@@ -54,10 +54,19 @@ _RUNTIME_PATHS = (
     "legalforecast/evals/inspect_task.py",
     "legalforecast/evals/per_case_runner.py",
     "legalforecast/evals/live_model_solver.py",
+    "legalforecast/evals/model_registry.py",
     "legalforecast/publication/official_aggregate.py",
     ".github/workflows/run-benchmark.yaml",
     ".github/workflows/official-provider-cell.yaml",
 )
+
+
+def test_runtime_contracts_bind_model_registry_parser() -> None:
+    assert all(
+        "legalforecast/evals/model_registry.py" in paths
+        for role, paths in freeze_inputs_module._RUNTIME_PATHS.items()
+        if role in {"prompt", "harness"}
+    )
 
 
 def _json_bytes(value: object) -> bytes:

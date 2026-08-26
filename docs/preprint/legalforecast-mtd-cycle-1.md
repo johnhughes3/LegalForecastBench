@@ -87,6 +87,8 @@ The official system separates solver execution from aggregation and publication.
 
 Live requests omit temperature, top-p, and equivalent sampling controls, so each provider uses its default settings. Repeats expose provider-side variation, while the primary inferential pairing remains aligned to the declared case-family clusters. A result describes the exact registry and execution date, not a timeless property of a product name.
 
+For the Cycle 1 successor run, the registry explicitly requests OpenAI reasoning effort `high` for GPT-5.6 Sol, Terra, and Luna. Claude Opus 4.8 uses adaptive thinking in the direct Anthropic and Amazon Bedrock paths while omitting `output_config.effort`, which leaves adaptive-thinking effort at the provider-default high level. The common 128,000-token output ceiling is an output allowance, not evidence of reasoning effort; registry and runtime commitments bind the separate reasoning settings.
+
 ## 5. Metrics and statistical analysis
 
 ### 5.1 Primary score
