@@ -230,7 +230,7 @@ def test_materializer_accepts_forecast_only_successor_registry_provider_set() ->
         materialized.caps_bytes,
         source="forecast-only successor",
     )
-    assert caps.cycle_id == "cycle-1"
+    assert caps.cycle_id == "cycle-1-target-100-2026-07-25"
     assert set(caps.providers) == {"anthropic", "openai"}
     assert caps.account("anthropic") == "cycle1-anthropic"
     assert caps.account("openai") == "cycle1-openai"
