@@ -41,6 +41,7 @@ ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
 GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
 ANTHROPIC_RUNTIME_ENV = "LFB_ANTHROPIC_RUNTIME"
 ANTHROPIC_BEDROCK_MODEL_ID_ENV = "LFB_ANTHROPIC_BEDROCK_MODEL_ID"
+OPENAI_USE_VERCEL_GATEWAY_ENV = "LFB_OPENAI_USE_VERCEL_GATEWAY"
 
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 GEMINI_GENERATE_CONTENT_URL_TEMPLATE = (
@@ -311,7 +312,12 @@ def complete_live_prompt(
         )
 
     started = time.perf_counter()
-    payload, request_count, durable_attempt_ordinal, used_tier, openai_route = (
+    openai_route = (
+        _resolve_openai_transport(registry_entry.model_id, environ)
+        if _is_openai_provider(registry_entry)
+        else None
+    )
+    payload, request_count, durable_attempt_ordinal, used_tier = (
         _call_live_http_provider(
             registry_entry,
             prompt,
@@ -323,6 +329,7 @@ def complete_live_prompt(
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
             request_body_observer=request_body_observer,
+            openai_route=openai_route,
         )
     )
     latency_ms = (time.perf_counter() - started) * 1000
@@ -379,7 +386,6 @@ def complete_live_prompt(
             **_openai_service_tier_metadata(
                 registry_entry,
                 used_tier=used_tier,
-                route=openai_route,
             ),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
@@ -724,7 +730,6 @@ def _openai_service_tier_metadata(
     entry: ModelRegistryEntry,
     *,
     used_tier: str | None = None,
-    route: OpenAITransportRoute | None = None,
 ) -> dict[str, str]:
     if not _is_openai_provider(entry):
         return {}
@@ -732,17 +737,32 @@ def _openai_service_tier_metadata(
         "service_tier": used_tier or OPENAI_SERVICE_TIER,
         "requested_service_tier": OPENAI_SERVICE_TIER,
     }
-    if route is not None:
-        metadata.update(
-            {
-                "openai_transport": route.transport_name,
-                "provider_request_model": route.request_model_id,
-                "gateway_provider_restriction": (
-                    route.gateway_provider or "not_applicable"
-                ),
-            }
-        )
     return metadata
+
+
+def _resolve_openai_transport(
+    model_id: str,
+    environ: Mapping[str, str] | None,
+) -> OpenAITransportRoute:
+    """Resolve the route once, honoring the workflow's credential-bound choice."""
+
+    values = os.environ if environ is None else environ
+    raw_override = values.get(OPENAI_USE_VERCEL_GATEWAY_ENV)
+    use_vercel_gateway: bool | None = None
+    if raw_override is not None:
+        normalized_override = raw_override.strip().lower()
+        if normalized_override not in {"true", "false"}:
+            raise LiveModelConfigError(
+                f"{OPENAI_USE_VERCEL_GATEWAY_ENV} must be true or false"
+            )
+        use_vercel_gateway = normalized_override == "true"
+    try:
+        return resolve_openai_transport(
+            model_id,
+            use_vercel_gateway=use_vercel_gateway,
+        )
+    except ValueError as exc:
+        raise LiveModelConfigError(str(exc)) from exc
 
 
 def _observed_openai_service_tier(payload: JsonRecord | None) -> str:
@@ -986,7 +1006,8 @@ def _call_live_http_provider(
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None,
     request_body_observer: RequestBodyObserver | None,
-) -> tuple[JsonRecord, int, int, str | None, OpenAITransportRoute | None]:
+    openai_route: OpenAITransportRoute | None,
+) -> tuple[JsonRecord, int, int, str | None]:
     """POST one live HTTP provider call while retaining OpenAI Flex on retries."""
 
     if not _is_openai_provider(registry_entry):
@@ -1016,10 +1037,11 @@ def _call_live_http_provider(
             attempt_handler=attempt_handler,
             attempt_preflight=prepare_provider_request,
         )
-        return payload, request_count, durable_attempt_ordinal, None, None
+        return payload, request_count, durable_attempt_ordinal, None
 
     used_tier = OPENAI_SERVICE_TIER
-    openai_route = resolve_openai_transport(registry_entry.model_id)
+    if openai_route is None:
+        raise RuntimeError("OpenAI route preflight did not run")
     api_key: str | None = None
     request: urllib.request.Request | None = None
 
@@ -1050,7 +1072,7 @@ def _call_live_http_provider(
         attempt_handler=attempt_handler,
         attempt_preflight=prepare_openai_request,
     )
-    return payload, request_count, durable_attempt_ordinal, used_tier, openai_route
+    return payload, request_count, durable_attempt_ordinal, used_tier
 
 
 def _observe_request_body(

@@ -4573,11 +4573,11 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "complete_live_prompt",
-        "largest_symbol_lines": 153,
+        "largest_symbol_lines": 158,
         "layer": "application",
-        "line_count": 1491,
-        "nonblank_line_count": 1302,
-        "top_level_definition_count": 69
+        "line_count": 1513,
+        "nonblank_line_count": 1321,
+        "top_level_definition_count": 70
       },
       "legalforecast/evals/model_registry.py": {
         "cycle_id": "",
@@ -10447,9 +10447,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1590,
-        "nonblank_line_count": 1382,
-        "top_level_definition_count": 51
+        "line_count": 1611,
+        "nonblank_line_count": 1400,
+        "top_level_definition_count": 52
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",

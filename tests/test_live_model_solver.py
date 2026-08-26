@@ -75,9 +75,6 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert response.metadata["provider_sampling_policy"] == "provider_default"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
-    assert response.metadata["openai_transport"] == "direct_openai"
-    assert response.metadata["provider_request_model"] == "gpt-test"
-    assert response.metadata["gateway_provider_restriction"] == "not_applicable"
     assert "observed_service_tier" not in response.metadata
     assert observed_tiers == [OPENAI_SERVICE_TIER]
     assert "service_tier_fallback" not in response.metadata
@@ -139,7 +136,11 @@ def test_openai_sol_uses_vercel_and_forces_openai_upstream_during_promotion(
         "gpt-5.6-sol",
         on_date_utc=date(2026, 9, 18),
     )
-    monkeypatch.setattr(live_model_solver, "resolve_openai_transport", lambda _: route)
+    monkeypatch.setattr(
+        live_model_solver,
+        "resolve_openai_transport",
+        lambda _, *, use_vercel_gateway=None: route,
+    )
     transport = _FixtureTransport(
         {
             "model": "gpt-5.6-sol-2026-05-14",
@@ -152,10 +153,13 @@ def test_openai_sol_uses_vercel_and_forces_openai_upstream_during_promotion(
     solver = LiveModelSolver(
         registry_entry=_registry_entry("openai", "gpt-5.6-sol"),
         transport=transport,
-        environ={"OPENAI_API_KEY": "gateway-secret"},
+        environ={
+            "OPENAI_API_KEY": "gateway-secret",
+            "LFB_OPENAI_USE_VERCEL_GATEWAY": "true",
+        },
     )
 
-    response = solver.solve(_request("Predict the case outcome."))
+    solver.solve(_request("Predict the case outcome."))
 
     captured = transport.only_request()
     assert captured.full_url == VERCEL_AI_GATEWAY_RESPONSES_URL
@@ -168,10 +172,6 @@ def test_openai_sol_uses_vercel_and_forces_openai_upstream_during_promotion(
         "service_tier": OPENAI_SERVICE_TIER,
         "tools": [],
     }
-    assert response.metadata is not None
-    assert response.metadata["openai_transport"] == "vercel_ai_gateway"
-    assert response.metadata["provider_request_model"] == "openai/gpt-5.6-sol"
-    assert response.metadata["gateway_provider_restriction"] == "openai"
 
 
 def test_openai_accepts_vercel_namespaced_served_model_identity(
@@ -181,7 +181,11 @@ def test_openai_accepts_vercel_namespaced_served_model_identity(
         "gpt-5.6-sol",
         on_date_utc=date(2026, 9, 18),
     )
-    monkeypatch.setattr(live_model_solver, "resolve_openai_transport", lambda _: route)
+    monkeypatch.setattr(
+        live_model_solver,
+        "resolve_openai_transport",
+        lambda _, *, use_vercel_gateway=None: route,
+    )
     transport = _FixtureTransport(
         {
             "model": "openai/gpt-5.6-sol-2026-05-14",
@@ -203,6 +207,23 @@ def test_openai_accepts_vercel_namespaced_served_model_identity(
     assert response.metadata["served_model_version"] == (
         "openai/gpt-5.6-sol-2026-05-14"
     )
+
+
+def test_openai_rejects_invalid_workflow_transport_override() -> None:
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-5.6-sol"),
+        transport=_FixtureTransport({}),
+        environ={
+            "OPENAI_API_KEY": "gateway-secret",
+            "LFB_OPENAI_USE_VERCEL_GATEWAY": "sometimes",
+        },
+    )
+
+    with pytest.raises(
+        LiveModelConfigError,
+        match="LFB_OPENAI_USE_VERCEL_GATEWAY must be true or false",
+    ):
+        solver.solve(_request("Predict the case outcome."))
 
 
 def test_openai_observes_gateway_reported_service_tier() -> None:
